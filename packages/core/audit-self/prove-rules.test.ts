@@ -11,7 +11,7 @@
 //      rule switched off is never reported as proven, a red project gets no rule written.
 //   4. THE BASH SEAM IS EXERCISED. Placement runs through `place_lint_rules` (setup.d/lib.sh), the function
 //      99-finalize.sh calls, so P4's helper and the GETFF_ENABLE_PLUGIN_RULES flip are the real ones.
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
@@ -28,6 +28,14 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// Every test here runs the real linters, git and lib.sh: one placement pass is ~1.1 s on its own, and the
+// heaviest tests take 3-4 s alone. The core config leaves vitest's 5 s default (the repo-root config sets
+// 60 s), and in the full core suite neighbouring files nearly double these times: measured 2026-09-30 on the
+// PC, 2.8 s alone → 5.2 s in the suite, a timeout. The limit is the file's, like LIVE_TIMEOUT_MS in the
+// linter-firing tests (backends/*/firing.test.ts); a hung linter still fails well inside it.
+const LINT_PROCESS_TIMEOUT_MS = 30_000;
+vi.setConfig({ testTimeout: LINT_PROCESS_TIMEOUT_MS });
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
@@ -333,10 +341,11 @@ describe('existing violations become per-file exemptions (T-C2)', () => {
     expect(npmLint(dir).status).toBe(0); // the same rule in the same file: exempted, as the record says
     write(dir, 'src/new.ts', "export function h() {\n  throw 'new';\n}\n");
     expect(npmLint(dir).status).not.toBe(0);
-    const dir2 = oxProject(files);
-    place(dir2, 'oxlint');
-    write(dir2, 'src/legacy.ts', files['src/legacy.ts'] + 'declare const Button: any;\nButton.defaultProps = {};\n');
-    expect(npmLint(dir2).status).not.toBe(0);
+    // The same placed project again, the new file gone: the lint is back to 0, so the next red is the carrier's.
+    rmSync(join(dir, 'src/new.ts'));
+    expect(npmLint(dir).status).toBe(0);
+    write(dir, 'src/legacy.ts', files['src/legacy.ts'] + 'declare const Button: any;\nButton.defaultProps = {};\n');
+    expect(npmLint(dir).status).not.toBe(0);
   });
 });
 

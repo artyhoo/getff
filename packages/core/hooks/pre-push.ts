@@ -1268,7 +1268,7 @@ function validateSidecarShape(path: string): string | null {
 // the runners live at scripts/ in a consumer repo (framework source packages/core/synthesizer/):
 //   (a) npm mutation — if the generated-rules manifest exists, run the delivered mutation runner.
 //       run-generated-rule-mutation.sh die()s exit 2 when the manifest or tsx/eslint are
-//       unresolvable; the arm PRE-CHECKS tsx/eslint and converts any exit-2 into a LOUD SKIP
+//       unresolvable; the arm PRE-CHECKS tsx and converts any exit-2 into a LOUD SKIP
 //       (never a push-blocking die, never a silent pass — D-S5-guards).
 //   (b) astgrep/ruff firing — for each backend whose S2 sidecar (.ai-factory/rule-tests/<b>.json)
 //       exists AND whose lane tool is present, fire the samples in single-rule isolation via the
@@ -1284,8 +1284,9 @@ function generatedRuleMaterialSection(): void {
     const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
     return existsSync(framework) ? framework : null;
   };
-  // Mirror the mutation script's own tsx/eslint resolution (repo-local node_modules/.bin) so the
-  // pre-check matches what would make the script die() exit 2 — deterministic, no spawn.
+  // Mirror the mutation script's own tsx resolution (repo-local node_modules/.bin) so the pre-check
+  // matches what would make the script die() exit 2 — deterministic, no spawn. (ESLint is not checked:
+  // the script provisions getff's generator toolchain itself when the project has none.)
   const binResolvable = (bin: string): boolean =>
     existsSync(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) ||
     existsSync(resolve(REPO_ROOT, `packages/core/node_modules/.bin/${bin}`));
@@ -1315,15 +1316,24 @@ function generatedRuleMaterialSection(): void {
       process.stdout.write(
         '⚠ DEGRADED: generated-rules manifest present but run-generated-rule-mutation.sh not delivered — mutation check SKIPPED (a skipped check is NOT green).\n',
       );
-    } else if (!binResolvable('tsx') || !binResolvable('eslint')) {
+    } else if (!binResolvable('tsx')) {
+      // ESLint is not required from the project: the runner uses getff's rule-generator toolchain when the
+      // project has no ESLint + typescript-eslint (an oxlint project), installing it in node_modules/.cache.
       process.stdout.write(
-        '⚠ DEGRADED: tsx/eslint not resolvable — generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n',
+        '⚠ DEGRADED: tsx not resolvable — generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n',
       );
     } else {
-      // Pass the manifest path explicitly ($1): the delivered script derives its own REPO_ROOT
-      // from SCRIPT_DIR/../../.. which is wrong in the consumer scripts/ layout — the explicit
-      // arg makes the check layout-independent (matches the manifest we already existsSync'd).
-      const r = run('bash', [runner, manifest]);
+      // P6 run 2 N1 (2026-09-30): the consumer's copy goes through the project's record like every other
+      // check getff adds (consumerGate → scripts/run-armed.sh): the install runs it once on the material it
+      // generated and arms it only if it exits 0, so a check red or unable to run at install never blocks a
+      // push — once the project-checks record lists `bash scripts/run-generated-rule-mutation.sh` (the record's
+      // arm pass reads GEN_MUT_RC, exported by 80-rule-bootstrap.sh). A command the record does not list is
+      // run by run-armed.sh, so before that entry exists a red check still blocks. The script finds the
+      // manifest from its git toplevel. The framework's own copy runs as before.
+      const r =
+        runner === resolve(REPO_ROOT, 'scripts/run-generated-rule-mutation.sh')
+          ? consumerGate('scripts/run-generated-rule-mutation.sh')
+          : run('bash', [runner, manifest]);
       if (r.notFound || r.timedOut || r.exitCode === 127) {
         // ENV failure (bash/runner missing or hung), NOT broken material → loud skip, never die.
         process.stdout.write(

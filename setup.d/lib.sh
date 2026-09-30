@@ -2845,19 +2845,58 @@ place_lint_rules() {
 # debt and is left as it is; a file the install did not change is never touched. No prettier, no commit → no-op.
 # Limit: the committed version stands in for the file before the install, so an edit the project had not
 # committed is formatted with getff's lines when the committed version was clean.
+# A file git does not track in HEAD (P6 run 2 N5, seam agreed with P3: .claude/settings.local.json, created
+# untracked and excluded through .git/info/exclude, which prettier does not read) takes its «before» from what
+# .ai-factory/before-getff/ recorded: <rel>.absent = getff created it (no file before, clean by definition);
+# <rel>.<sum8> = getff changed it and kept the original there (the newest copy when there are several). An
+# untracked file with no such record is the project's own and is never touched. A record counts only for a file
+# this run marked (keep_original_mark → KEPT_ORIGINALS), so a record from an earlier install never reformats a
+# later hand edit.
 format_getff_writes() {
-  local pb="$PROJECT_ROOT/node_modules/.bin/prettier" rel before after
+  local pb="$PROJECT_ROOT/node_modules/.bin/prettier" rel before after kept kept_f seen="" f
   [ -x "$pb" ] || return 0
   git -C "$PROJECT_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
   before=$(mktemp); after=$(mktemp)
+  # _fgw_write <rel> <before-file|""> — --write <rel> when <before-file> is prettier-clean («""» = clean).
+  _fgw_write() {
+    if [ -n "$2" ]; then
+      # prettier prints an ignored or unsupported file unchanged, so it counts as clean and --write leaves it.
+      ( cd "$PROJECT_ROOT" && "$pb" --stdin-filepath "$1" < "$2" > "$after" 2>/dev/null ) || return 0
+      cmp -s "$2" "$after" || return 0
+    fi
+    ( cd "$PROJECT_ROOT" && "$pb" --write --log-level=silent -- "$1" ) >/dev/null 2>&1 || true
+  }
   while IFS= read -r -d '' rel; do
     [ -f "$PROJECT_ROOT/$rel" ] || continue
     git -C "$PROJECT_ROOT" show "HEAD:$rel" > "$before" 2>/dev/null || continue
-    # prettier prints an ignored or unsupported file unchanged, so it counts as clean and --write leaves it.
-    ( cd "$PROJECT_ROOT" && "$pb" --stdin-filepath "$rel" < "$before" > "$after" 2>/dev/null ) || continue
-    cmp -s "$before" "$after" || continue
-    ( cd "$PROJECT_ROOT" && "$pb" --write --log-level=silent -- "$rel" ) >/dev/null 2>&1 || true
+    _fgw_write "$rel" "$before"
   done < <(git -C "$PROJECT_ROOT" diff --name-only -z HEAD -- 2>/dev/null)
+  kept="$PROJECT_ROOT/.ai-factory/before-getff"
+  if [ -d "$kept" ]; then
+    while IFS= read -r -d '' f; do
+      rel="${f#"$kept"/}"
+      case "$rel" in
+        *.absent) rel="${rel%.absent}" ;;
+        *.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) rel="${rel%.*}" ;;
+        *) continue ;;
+      esac
+      case "$seen" in *"|$rel|"*) continue ;; esac
+      seen="$seen|$rel|"
+      [ -f "$PROJECT_ROOT/$rel" ] || continue
+      git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
+      # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
+      # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
+      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # the newest record for this path is the state just before the latest install that wrote it
+      for kept_f in "$kept/$rel".*; do
+        case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
+          absent|[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) [ "$kept_f" -nt "$f" ] && f="$kept_f" ;;
+        esac
+      done
+      if [ "${f%.absent}" != "$f" ]; then _fgw_write "$rel" ""; else _fgw_write "$rel" "$f"; fi
+    done < <(find "$kept" -type f -print0 2>/dev/null)
+  fi
+  unset -f _fgw_write
   rm -f "$before" "$after"
   return 0
 }

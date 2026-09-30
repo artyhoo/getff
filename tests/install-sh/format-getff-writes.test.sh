@@ -66,10 +66,13 @@ project() {  # $1 = committed .oxlintrc.json text, $2 = "with-prettier" or ""
   git -C "$P" init -q && git -C "$P" add -A && git -C "$P" -c user.email=t@t -c user.name=t commit -qm init
   echo "$P"
 }
-run() {  # $1 = project dir
-  ( PROJECT_ROOT="$1"; INSTALL_SH_LIB_ONLY=1
+run() {  # $1 = project dir; $2.. = project-relative paths this run marked (keep_original_mark)
+  local root="$1"; shift
+  ( PROJECT_ROOT="$root"; INSTALL_SH_LIB_ONLY=1
     # shellcheck disable=SC1090
-    source "$REPO_ROOT/setup.d/lib.sh"; format_getff_writes; echo "RC=$?" ) 2>&1
+    source "$REPO_ROOT/setup.d/lib.sh"
+    for _r in "$@"; do keep_original_mark "$root/$_r"; done
+    format_getff_writes; echo "RC=$?" ) 2>&1
 }
 check() { ( cd "$1" && node "$PRETTIER" --check "$2" >/dev/null 2>&1 ); }
 
@@ -94,5 +97,60 @@ echo "▶ (D) no prettier in the project"
 P=$(project "$CLEAN" ""); printf '%s' "$EDITED" > "$P/.oxlintrc.json"
 _before=$(cat "$P/.oxlintrc.json"); _out=$(run "$P")
 [ "$(cat "$P/.oxlintrc.json")" = "$_before" ] && grep -q 'RC=0' <<<"$_out" && ok "(D) nothing touched, rc 0" || bad "(D) touched or rc ≠ 0 (got: $_out)"
+
+# P6 run 2 N5 (seam agreed with P3): a file git does not track — P3's .claude/settings.local.json, created
+# untracked and excluded through .git/info/exclude, which prettier does not read — has no committed version.
+# Its «before» is what .ai-factory/before-getff/ recorded: <rel>.absent = getff created it (clean by definition),
+# <rel>.<sum8> = getff changed it and kept the original there.
+OUT_OF_STYLE='{"permissions":{"allow":["Bash(npm run lint)","Bash(npm test)"]},"env":{"A":"1"}}
+'
+echo "▶ (E) an untracked file getff created (<rel>.absent)"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.claude" "$P/.ai-factory/before-getff/.claude"
+printf '%s' "$OUT_OF_STYLE" > "$P/.claude/settings.local.json"; : > "$P/.ai-factory/before-getff/.claude/settings.local.json.absent"
+printf '.claude/settings.local.json\n' >> "$P/.git/info/exclude"
+check "$P" .claude/settings.local.json && bad "(E) precondition: the created file should be out of style" || ok "(E) precondition: out of style"
+_out=$(run "$P" .claude/settings.local.json)
+check "$P" .claude/settings.local.json && ok "(E) prettier --check passes on the file getff created" || bad "(E) still out of style (got: $_out)"
+
+echo "▶ (F) an untracked file getff changed, its prettier-clean original kept (<rel>.<sum8>)"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.ai-factory/before-getff"
+printf '{ "a": 1 }\n' > "$P/.ai-factory/before-getff/local.json.0a1b2c3d"
+printf '%s' "$OUT_OF_STYLE" > "$P/local.json"
+_out=$(run "$P" local.json)
+check "$P" local.json && ok "(F) prettier --check passes after the install" || bad "(F) still out of style (got: $_out)"
+
+echo "▶ (G) paired negative: the kept original of an untracked file was already out of style"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.ai-factory/before-getff"
+printf '{"a":1}\n' > "$P/.ai-factory/before-getff/local.json.0a1b2c3d"
+printf '%s' "$OUT_OF_STYLE" > "$P/local.json"
+_before=$(cat "$P/local.json"); run "$P" local.json >/dev/null
+[ "$(cat "$P/local.json")" = "$_before" ] && ok "(G) the project's own style debt is left as it is" || bad "(G) a file out of style before the install was reformatted"
+
+echo "▶ (H) an untracked file getff never wrote"
+P=$(project "$CLEAN" with-prettier); printf '%s' "$OUT_OF_STYLE" > "$P/own.json"
+_before=$(cat "$P/own.json"); run "$P" >/dev/null
+[ "$(cat "$P/own.json")" = "$_before" ] && ok "(H) not touched" || bad "(H) a file getff never wrote was formatted"
+
+echo "▶ (I) two kept originals: the newest decides (an older clean copy does not)"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.ai-factory/before-getff"
+printf '{ "a": 1 }\n' > "$P/.ai-factory/before-getff/local.json.00000001"; touch -t 202601010000 "$P/.ai-factory/before-getff/local.json.00000001"
+printf '{"a":1}\n' > "$P/.ai-factory/before-getff/local.json.ffffffff"; touch -t 202609010000 "$P/.ai-factory/before-getff/local.json.ffffffff"
+printf '%s' "$OUT_OF_STYLE" > "$P/local.json"
+_before=$(cat "$P/local.json"); run "$P" local.json >/dev/null
+[ "$(cat "$P/local.json")" = "$_before" ] && ok "(I) the newest original was out of style → left as it is" || bad "(I) an older clean copy decided"
+
+echo "▶ (J) another path's record (<rel>.bak.<sum8>) does not decide for <rel>"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.ai-factory/before-getff"
+printf '{ "a": 1 }\n' > "$P/.ai-factory/before-getff/local.json.00000001"; touch -t 202601010000 "$P/.ai-factory/before-getff/local.json.00000001"
+printf '{"a":1}\n' > "$P/.ai-factory/before-getff/local.json.bak.ffffffff"; touch -t 202609010000 "$P/.ai-factory/before-getff/local.json.bak.ffffffff"
+printf '%s' "$OUT_OF_STYLE" > "$P/local.json"; printf '%s' "$OUT_OF_STYLE" > "$P/local.json.bak"
+run "$P" local.json >/dev/null
+check "$P" local.json && ok "(J) local.json decided by its own clean record" || bad "(J) local.json.bak's record decided for local.json"
+
+echo "▶ (K) a record from an earlier run: this run did not write the file, so it is not touched"
+P=$(project "$CLEAN" with-prettier); mkdir -p "$P/.claude" "$P/.ai-factory/before-getff/.claude"
+printf '%s' "$OUT_OF_STYLE" > "$P/.claude/settings.local.json"; : > "$P/.ai-factory/before-getff/.claude/settings.local.json.absent"
+_before=$(cat "$P/.claude/settings.local.json"); run "$P" >/dev/null
+[ "$(cat "$P/.claude/settings.local.json")" = "$_before" ] && ok "(K) a hand edit after an earlier install stays as it is" || bad "(K) an earlier run's record reformatted a file this run did not write"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

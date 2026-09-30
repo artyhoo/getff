@@ -103,11 +103,11 @@ if [ ! -f "$_plan" ] || [ ! -f "$_sel" ]; then
 fi
 
 # P5 A3: the generator writes ESLint rules and loads ESLint at run time. An oxlint or Biome project
-# has none (P2 K4, 70-deps.sh), so getff brings its own toolchain OUTSIDE the project and points
-# the bundle at it (GETFF_TOOLS_ROOT, scripts/build-runtime-bundles.mjs) — the project's package.json
-# and node_modules are not touched (fork 1 = A). Ranges, never pins (fork 2 = B). With --global
-# (GETFF_GLOBAL=1) it lives in the user cache and is reused; otherwise it is a temp directory removed
-# at the end of this step (removed explicitly: this file is sourced, so it must not own an EXIT trap).
+# has none (P2 K4, 70-deps.sh), so getff brings its own toolchain OUTSIDE the project's dependencies and
+# points the bundle at it (GETFF_TOOLS_ROOT, scripts/build-runtime-bundles.mjs) — the project's package.json
+# and its installed packages are not touched (fork 1 = A). Ranges, never pins (fork 2 = B). Where it lives:
+# see the P6 run 2 N1 block below (node_modules/.cache, else the user cache under --global, else a temp
+# directory removed at the end of this step — removed explicitly: this file is sourced, so no EXIT trap).
 _rb_tool_pkgs=(eslint@^9 typescript-eslint typescript)
 _rb_tools=""
 _rb_tools_tmp=""
@@ -146,11 +146,18 @@ if (String(v).split('.')[0] !== process.argv[2]) console.log(`eslint ${v || '(ve
 JS
 )" || _rb_why_tools="the toolchain probe failed: ${_rb_why_tools:-node exited non-zero}"
 if [ -n "$_rb_why_tools" ]; then
-  if [ "${GETFF_GLOBAL:-}" = "1" ]; then
+  # P6 run 2 N1 (2026-09-30): the generated rules' mutation check needs the same parser at every push, so the
+  # toolchain must outlive the install. It goes in the project's node_modules/.cache — where tools keep their
+  # caches — which git, the linters, prettier, tsc and the test runners skip, so no ignore line and no
+  # package.json key is written. Without node_modules: the user cache under --global, else a temp directory;
+  # scripts/run-generated-rule-mutation.sh installs it into node_modules/.cache when a clone lacks it.
+  if [ -d "$PROJECT_ROOT/node_modules" ]; then
+    _rb_tools="$PROJECT_ROOT/node_modules/.cache/getff/generator-tools"
+  elif [ "${GETFF_GLOBAL:-}" = "1" ]; then
     _rb_tools="${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"
   fi
   if [ -n "${DRY_RUN:-}" ]; then
-    printf "  [dry-run] would: install getff's rule-generator toolchain (%s) outside the project into %s\n" \
+    printf "  [dry-run] would: install getff's rule-generator toolchain (%s), no package.json key, into %s\n" \
       "${_rb_tool_pkgs[*]}" "${_rb_tools:-a temp directory removed after the run}"
   else
     [ -n "$_rb_tools" ] || { _rb_tools="$(mktemp -d)"; _rb_tools_tmp="$_rb_tools"; }
@@ -158,6 +165,7 @@ if [ -n "$_rb_why_tools" ]; then
     printf "  [80-rule-bootstrap] the project's ESLint cannot run the generator (%s) — installing getff's rule-generator toolchain (%s) into %s\n" \
       "$_rb_why_tools" "${_rb_tool_pkgs[*]}" "$_rb_tools"
     _rb_npm_rc=0
+    rm -f "$_rb_tools/.complete"   # written back only after a clean install (scripts/run-generated-rule-mutation.sh reads it)
     _rb_npm_out="$(npm install --prefix "$_rb_tools" --no-audit --no-fund --loglevel=error "${_rb_tool_pkgs[@]}" 2>&1)" || _rb_npm_rc=$?
     if [ "$_rb_npm_rc" -ne 0 ]; then
       _rb_npm_why="$(grep -m1 -E 'npm (error|ERR!)' <<<"$_rb_npm_out" || true)"
@@ -167,6 +175,7 @@ if [ -n "$_rb_why_tools" ]; then
       [ -z "$_rb_tools_tmp" ] || rm -rf "$_rb_tools_tmp"
       return 0 2>/dev/null || true
     fi
+    : > "$_rb_tools/.complete"
     # Versions go to the report through P3's record helper when this tree has it.
     if command -v companion_record_version >/dev/null 2>&1; then
       for _rb_p in eslint typescript-eslint typescript; do
@@ -219,3 +228,31 @@ elif [ "$_rb_rc" -ne 0 ]; then
   note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — the generator exited $_rb_rc (output above, [80-rule-bootstrap]); the preset rules still apply"
 fi
 rm -f "$_rb_log"
+
+# P6 run 2 N1: the generated rules' mutation check is a check getff adds to the push. The project's record always
+# lists it (P2's project-hook checks, 99-finalize arms it only if it exits 0); here it runs once on the material
+# this pass generated, so a red or unable-to-run check — getff's own defect, never the project's code — is said
+# loudly at generation time. GEN_MUT_RC carries the exit code to the arm pass, so the check does not run twice.
+unset GEN_MUT_RC GEN_MUT_WHY
+if [ "$_rb_rc" -eq 0 ] && [ -f "$PROJECT_ROOT/.ai-factory/synthesizer-output/rules-manifest-additions.json" ] \
+   && [ -f "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" ]; then
+  _rb_mut_log="$(mktemp)"; _rb_mut_rc=0
+  ( cd "$PROJECT_ROOT" && bash scripts/run-generated-rule-mutation.sh ) > "$_rb_mut_log" 2>&1 || _rb_mut_rc=$?
+  _rb_mut_sum="$(grep -m1 -E '^=== overall: ' "$_rb_mut_log" || true)"
+  export GEN_MUT_RC="$_rb_mut_rc"
+  if [ "$_rb_mut_rc" -eq 0 ]; then
+    printf '  ✓ [80-rule-bootstrap] generated rules pass their mutation check %s\n' "${_rb_mut_sum:+($_rb_mut_sum)}"
+  else
+    if [ "$_rb_mut_rc" -eq 2 ]; then
+      GEN_MUT_WHY="it cannot run: $(sed -n 's/^run-generated-rule-mutation: //p' "$_rb_mut_log" | head -n 1)"
+    else
+      GEN_MUT_WHY="getff's generated material fails it: ${_rb_mut_sum:-$(tail -n 1 "$_rb_mut_log")}"
+    fi
+    export GEN_MUT_WHY
+    sed 's/^/    /' "$_rb_mut_log"
+    printf '  ✗ [80-rule-bootstrap] the generated rules FAILED their mutation check (exit %s) — %s\n' "$_rb_mut_rc" "$GEN_MUT_WHY"
+    note_not_wired "the generated rules' mutation check (bash scripts/run-generated-rule-mutation.sh) — $GEN_MUT_WHY; the rules stay in your lint, and the check stays not armed, so it blocks no push"
+  fi
+  rm -f "$_rb_mut_log"
+  unset _rb_mut_log _rb_mut_rc _rb_mut_sum
+fi

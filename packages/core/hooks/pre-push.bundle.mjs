@@ -1300,12 +1300,12 @@ function generatedRuleMaterialSection() {
       process.stdout.write(
         "\u26A0 DEGRADED: generated-rules manifest present but run-generated-rule-mutation.sh not delivered \u2014 mutation check SKIPPED (a skipped check is NOT green).\n"
       );
-    } else if (!binResolvable("tsx") || !binResolvable("eslint")) {
+    } else if (!binResolvable("tsx")) {
       process.stdout.write(
-        "\u26A0 DEGRADED: tsx/eslint not resolvable \u2014 generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n"
+        "\u26A0 DEGRADED: tsx not resolvable \u2014 generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n"
       );
     } else {
-      const r = run("bash", [runner, manifest]);
+      const r = runner === resolve(REPO_ROOT, "scripts/run-generated-rule-mutation.sh") ? consumerGate("scripts/run-generated-rule-mutation.sh") : run("bash", [runner, manifest]);
       if (r.notFound || r.timedOut || r.exitCode === 127) {
         process.stdout.write(
           `\u26A0 DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? "timed out" : "not runnable"}) \u2014 SKIPPED (a skipped check is NOT green).

@@ -163,6 +163,17 @@ _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg5"; run_step 0 has-eslin
 grep -Eq 'stub npm: install --prefix [^ ]+ .*eslint@\^9' <<<"$_out" && ok "(H) npm installs the toolchain" || bad "(H) no toolchain install (got: $(grep -E 'stub npm|80-rule-bootstrap' <<<"$_out" | head -3))"
 grep -q 'stub generator: tools present' <<<"$_out" && ok "(H) the generator runs on the toolchain" || bad "(H) generator not pointed at the toolchain (got: $(grep 'stub generator' <<<"$_out"))"
 grep -q "'@typescript-eslint/parser' does not resolve" <<<"$_out" && ok "(H) the install line names the missing module" || bad "(H) the reason does not name the parser (got: $(grep '80-rule-bootstrap' <<<"$_out" | head -2))"
+# (M) P6 run 2 N1: the push-time mutation check needs the same parser, so a project that has node_modules
+# keeps the toolchain in node_modules/.cache (skipped by git, linters, prettier, tsc, test runners), not a temp dir.
+_dir=$(sed -n 's/.*stub npm: install --prefix \([^ ]*\) .*/\1/p' <<<"$_out" | head -1)
+case "$_dir" in "$W"/step.*/proj/node_modules/.cache/getff/generator-tools) ok "(M) the toolchain goes to the project's node_modules/.cache/getff/generator-tools";;
+  *) bad "(M) expected <proj>/node_modules/.cache/getff/generator-tools (got: $_dir)";; esac
+[ -n "$_dir" ] && [ -d "$_dir/node_modules/eslint" ] && ok "(M) it stays after the step, for the push-time check" || bad "(M) the toolchain was removed: $_dir"
+[ -f "$_dir/.complete" ] && ok "(M) a finished install leaves the completion marker the push-time check trusts" || bad "(M) no .complete marker in $_dir"
+_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg7"; run_step 1 has-eslint)
+_dir=$(sed -n 's/.*stub npm: install --prefix \([^ ]*\) .*/\1/p' <<<"$_out" | head -1)
+[ -n "$_dir" ] && [ ! -f "$_dir/.complete" ] && ok "(M) a failed install leaves no completion marker" || bad "(M) marker after a failed npm (dir: $_dir)"
+[ "$(cat "${_dir%/node_modules/.cache/getff/generator-tools}/package.json" 2>/dev/null)" = '{}' ] && ok "(M) the project's package.json is unchanged" || bad "(M) package.json changed"
 
 echo "▶ (I) every module resolves, but ESLint 10 → the toolchain is installed (wrong major is not «present»)"
 _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg6"; run_step 0 full10)
@@ -187,9 +198,19 @@ for _id in $_ids; do
   grep -q "\['$_id'" "$REPO_ROOT/setup.d/80-rule-bootstrap.sh" && ok "(K) probe asks for $_id" || bad "(K) the probe in setup.d/80-rule-bootstrap.sh does not ask for $_id"
 done
 
+echo "▶ (L) the mutation runner provisions the same toolchain the step installs"
+_pk() { grep -E "^$1=\(" "$2" | head -1 | sed -E "s/^$1=\((.*)\).*/\1/"; }
+_step_pkgs=$(_pk _rb_tool_pkgs "$REPO_ROOT/setup.d/80-rule-bootstrap.sh")
+_run_pkgs=$(_pk GEN_TOOL_PKGS "$REPO_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh")
+[ -n "$_step_pkgs" ] && [ "$_step_pkgs" = "$_run_pkgs" ] && ok "(L) both install: $_step_pkgs" \
+  || bad "(L) step installs «$_step_pkgs», the runner provisions «$_run_pkgs»"
+grep -q 'node_modules/.cache/getff/generator-tools' "$REPO_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" \
+  && grep -q 'node_modules/.cache/getff/generator-tools' "$REPO_ROOT/setup.d/80-rule-bootstrap.sh" \
+  && ok "(L) both use node_modules/.cache/getff/generator-tools" || bad "(L) the step and the runner keep the toolchain in different places"
+
 echo "▶ (G) --dry-run"
 _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg4"; run_step 0 "" --dry-run)
-grep -q "would: install getff's rule-generator toolchain (eslint@^9 typescript-eslint typescript) outside the project" <<<"$_out" \
+grep -q "would: install getff's rule-generator toolchain (eslint@^9 typescript-eslint typescript), no package.json key, into " <<<"$_out" \
   && ok "(G) the dry run lists the toolchain install" || bad "(G) no «would: install getff's rule-generator toolchain» line"
 grep -q 'stub npm' <<<"$_out" && bad "(G) the dry run ran npm" || ok "(G) the dry run installs nothing"
 

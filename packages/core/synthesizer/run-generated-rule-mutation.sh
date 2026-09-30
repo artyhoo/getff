@@ -22,7 +22,8 @@
 #   NODE-2    Suffix first node type            '<NodeType>_Y'
 #   LOGIC-1   Negate first attribute            [attr='val'] → [attr!='val']
 #
-# exit 0 = all rules ≥60% kill; exit 1 = below floor OR all-skipped (rules present but
+# exit 2 = cannot run (no manifest, no tsx, the generator toolchain could not be installed).
+# exit 0 = all rules ≥60% kill; exit 1 = below floor, a rule the probe could not evaluate, OR all-skipped (rules present but
 # none testable — selector-blind negative-test; the #skip-reported-as-green defect class).
 # Skips are tracked in OVERALL_SKIPPED and surface in the summary line + final verdict;
 # the summary never vanishes when rules were present (RULE_COUNT>0).
@@ -65,21 +66,9 @@ for _t in \
 done
 [ -n "$TSX_BIN" ] || die "tsx not found — run npm install"
 
-ESLINT_BIN=""
-for _e in \
-  "$REPO_ROOT/node_modules/.bin/eslint" \
-  "$REPO_ROOT/packages/core/node_modules/.bin/eslint" \
-  "/app/node_modules/.bin/eslint"; do
-  [ -x "$_e" ] && ESLINT_BIN="$_e" && break
-done
-[ -n "$ESLINT_BIN" ] || die "eslint not found — run npm install"
-
-NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
-
 # ─── Scratch + probe script ────────────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
 trap 'rm -rf "$SCRATCH"' EXIT
-ln -sf "$NM_SRC" "$SCRATCH/node_modules"
 
 cat > "$SCRATCH/selector-probe.mts" << 'PROBE'
 import { Linter } from 'eslint';
@@ -101,13 +90,16 @@ try { parser = (await import('typescript-eslint')).parser; } catch { parser = un
 const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
 try {
   const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
+  // A parse error comes back as a fatal message, not a throw: exit 9 (cannot evaluate), never «did not fire».
+  const fatal = msgs.find(m => m.fatal);
+  if (fatal) { process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); process.exit(9); }
   process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
 } catch (e) { process.stderr.write(String(e) + '\n'); process.exit(9); }
 PROBE
 
 _probe() {
   local SEL="$1" CODE="$2"
-  cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>/dev/null
+  cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>"$SCRATCH/probe.err"
   return $?
 }
 
@@ -182,11 +174,49 @@ if [ "$RULE_COUNT" -eq 0 ]; then
   exit 0
 fi
 
+# The probe needs ESLint AND typescript-eslint's parser from ONE node_modules: the generated negative
+# inputs are TypeScript, and without the parser every input fails to parse and no rule is tested (P6
+# run 2 N1, 2026-09-30: an oxlint project with no parser, the generator's temp toolchain gone, 7 of 7
+# rules untested and the first push blocked). The project's own set when it has both; otherwise getff's
+# rule-generator toolchain, which setup.d/80-rule-bootstrap.sh keeps in the project's node_modules/.cache
+# (git, the linters, prettier, tsc and test runners skip node_modules; no package.json key is written).
+# A clone without it (a fresh checkout, CI, a wiped node_modules) gets it installed here, the same
+# packages the install uses (GEN_TOOL_PKGS = _rb_tool_pkgs, kept equal by generator-tools-root.test.sh arm L).
+# Resolved only once there is a rule to test: a manifest with none installs nothing. `npm ci` empties
+# node_modules, so the first run after it installs the toolchain again. That install runs inside the push, so
+# npm's retries are bounded: offline it gives up in seconds (unbounded it took 211 s) and the run exits 2.
+GEN_TOOL_PKGS=(eslint@^9 typescript-eslint typescript)
+GEN_TOOLS="$REPO_ROOT/node_modules/.cache/getff/generator-tools"
+_has_set() { [ -f "$1/eslint/package.json" ] && [ -f "$1/typescript-eslint/package.json" ]; }
+NM_SRC=""
+for _nm in "$REPO_ROOT/node_modules" "$REPO_ROOT/packages/core/node_modules" "/app/node_modules"; do
+  _has_set "$_nm" && NM_SRC="$_nm" && break
+done
+if [ -z "$NM_SRC" ]; then
+  # `.complete` is written only after npm exited 0 with both packages present: an install killed part-way
+  # (Ctrl-C at push, the armed probe's time limit, a dropped network) leaves package.json files behind, and
+  # without the marker that half tree would be taken as the toolchain on every later push.
+  if ! { [ -f "$GEN_TOOLS/.complete" ] && _has_set "$GEN_TOOLS/node_modules"; }; then
+    [ -d "$REPO_ROOT/node_modules" ] || die "the project's dependencies are not installed — run npm install"
+    echo "getff's rule-generator toolchain (${GEN_TOOL_PKGS[*]}) is not in $GEN_TOOLS — installing it there (the project's package.json is not touched)"
+    rm -f "$GEN_TOOLS/.complete"
+    mkdir -p "$GEN_TOOLS" \
+      && npm install --prefix "$GEN_TOOLS" --no-audit --no-fund --loglevel=error \
+           --fetch-retries=1 --fetch-timeout=20000 --fetch-retry-mintimeout=2000 --fetch-retry-maxtimeout=10000 \
+           "${GEN_TOOL_PKGS[@]}" >&2 \
+      || die "could not install getff's rule-generator toolchain into $GEN_TOOLS (npm failed) — the generated rules are not tested"
+    _has_set "$GEN_TOOLS/node_modules" || die "getff's rule-generator toolchain in $GEN_TOOLS has no eslint + typescript-eslint after npm install"
+    : > "$GEN_TOOLS/.complete"
+  fi
+  NM_SRC="$GEN_TOOLS/node_modules"
+fi
+ln -sf "$NM_SRC" "$SCRATCH/node_modules"
+
 echo "=== generated rule mutation: ${RULE_COUNT} rule(s), floor=${MIN_KILL}% ==="
 echo "manifest: $MANIFEST"
 echo
 
-OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0
+OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0; OVERALL_UNTESTABLE=0
 
 # Iterate rules
 IDX=0
@@ -213,7 +243,15 @@ while true; do
   echo "selector: $RULE_SEL"
 
   # Verify original fires
-  if ! _probe "$RULE_SEL" "$RULE_INPUT"; then
+  _orig_rc=0; _probe "$RULE_SEL" "$RULE_INPUT" || _orig_rc=$?
+  if [ "$_orig_rc" -eq 9 ]; then
+    # P6 run 2 N1: a probe error (the input does not parse, the parser is missing) used to take the skip
+    # below, and one other tested rule made the run PASS — generation then armed a check that had not
+    # tested this rule. getff generated the input, so it is getff's material failing: a FAIL, named.
+    echo "  FAIL: could not be tested — the probe could not evaluate its negative-test input: $(head -n 1 "$SCRATCH/probe.err" 2>/dev/null)"
+    OVERALL_FAIL=$((OVERALL_FAIL+1)); OVERALL_UNTESTABLE=$((OVERALL_UNTESTABLE+1))
+    IDX=$((IDX+1)); continue
+  elif [ "$_orig_rc" -ne 0 ]; then
     echo "  WARN: original selector did NOT fire on negative-test input — skipping rule"
     OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
     IDX=$((IDX+1)); continue
@@ -265,17 +303,18 @@ done
 # case (OVERALL_TOTAL=0) is the one that most needs a printed verdict — never let
 # the summary vanish. Mirrors pre-push.ts generatedRuleMaterialSection LOUD-DEGRADE
 # idiom: never a silent pass, never a vanishing verdict.
+_untestable=""; [ "$OVERALL_UNTESTABLE" -eq 0 ] || _untestable=" untestable=$OVERALL_UNTESTABLE"
 if [ "$RULE_COUNT" -gt 0 ]; then
   if [ "$OVERALL_TOTAL" -gt 0 ]; then
     OVERALL_PCT=$((OVERALL_KILLED * 100 / OVERALL_TOTAL))
-    echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) skipped=$OVERALL_SKIPPED floor=${MIN_KILL}% ==="
+    echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) skipped=$OVERALL_SKIPPED${_untestable} floor=${MIN_KILL}% ==="
   else
-    echo "=== overall: skipped=$OVERALL_SKIPPED — NOT green (rules present, none tested) ==="
+    echo "=== overall: skipped=$OVERALL_SKIPPED${_untestable} — NOT green (rules present, none tested) ==="
   fi
 fi
 
 if [ "$OVERALL_FAIL" -gt 0 ]; then
-  echo "FAIL — $OVERALL_FAIL rule(s) below kill-rate floor"
+  echo "FAIL — $OVERALL_FAIL rule(s) below kill-rate floor or not testable"
   exit 1
 elif [ "$OVERALL_TOTAL" -eq 0 ] && [ "$RULE_COUNT" -gt 0 ]; then
   # Rules were present but none were actually tested (all skipped). This is MATERIAL
