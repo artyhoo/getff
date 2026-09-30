@@ -142,7 +142,8 @@ When this session is the **coordinator seat** of a campaign (orchestrator + advi
 - **An in-session `Agent` is not a chip.** Its work still flows through the seat's context and the seat stays a merge-queue participant — the recurrence that made this a rule (2026-09-28: a seat pushed a stage's edits into a background Agent but kept verifying, sequencing on the merge lock and drafting the PR body itself).
 - **The worker reports; it never decides.** Operator forks it meets (a stage stuck in manual review, a scope question) come back as `ATTN:` lines; the seat decides.
 - **Secure local-only work before the handoff.** A branch that exists nowhere on origin goes into a `git bundle` in the coordination directory first, so the worker can start from it.
-- **Edit-time nudge.** [.claude/rules/coordinator-seat-delegation.md](../../rules/coordinator-seat-delegation.md) carries an `events:` trigger: the first harvest / aif-polling / CI-babysit command of a session injects this rule once. A chip worker sees the same one line and proceeds — that is its job.
+- **Not a coordinator seat:** the `dispatcher` seat, a night-mode run on the aif substrate, and the chip worker itself — their role _is_ the pipeline.
+- **Command-time nudge — operator repo only.** In this framework's own repo, [.claude/rules/coordinator-seat-delegation.md](../../rules/coordinator-seat-delegation.md) carries an `events:` card: the first harvest / aif-task-polling / babysit command of a session injects a one-line reminder (CI waits and merges are not triggers — every PR session runs them). `.claude/rules/` is not shipped, so on a consumer install this section is prose only.
 
 Why: the seat's context is the scarce resource; a worker session is cheap and disposable (operator directive 2026-09-07, after a seat hand-harvested seven stages).
 

@@ -16,8 +16,9 @@
 #   MEMORY_DIR         read this directory instead of the derived store
 #   CLAUDE_CONFIG_DIR  Claude Code config root (default ~/.claude)
 # Store derivation: <config>/projects/<slug>/memory, where <slug> is the PRIMARY checkout path
-# with every '/' and '.' replaced by '-' — memory is filed under the project a session was
-# opened in, and a linked worktree shares its primary's store.
+# with every non-alphanumeric character replaced by '-' — memory is filed under the project a
+# session was opened in, and a linked worktree shares its primary's store. A layout this cannot
+# resolve (bare repo, --separate-git-dir) reports INCOMPLETE; pass MEMORY_DIR then.
 # Output (stdout): one block per matching entry — «<file> — <description>» plus the first hit
 # line — then the summary line «MEMORY-SWEEP: N match(es) for: <keywords> in <dir>».
 # MEMORY.md and index_*.md are index files, not memories, and are skipped.
@@ -25,10 +26,13 @@
 # question is never a clean answer) · 64 usage.
 set -uo pipefail
 
-if [ "$#" -eq 0 ]; then
+usage() {
   echo "usage: bash .claude/skills/orchestrator/helpers/memory-sweep.sh <keyword> [<keyword>...]" >&2
   exit 64
-fi
+}
+[ "$#" -eq 0 ] && usage
+# An empty keyword is a fixed string every line contains — it would report the whole store.
+for kw in "$@"; do [ -n "$kw" ] || usage; done
 
 if [ -n "${MEMORY_DIR:-}" ]; then
   store="$MEMORY_DIR"
@@ -39,12 +43,12 @@ else
     exit 2
   fi
   primary="$(cd "${common%/.git}" 2>/dev/null && pwd -P)"
-  slug="$(printf '%s' "$primary" | sed 's#[/.]#-#g')"
+  slug="$(printf '%s' "$primary" | sed 's/[^A-Za-z0-9]/-/g')"
   store="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$slug/memory"
 fi
 
 if [ ! -d "$store" ]; then
-  echo "MEMORY-SWEEP-INCOMPLETE: no memory store at $store" >&2
+  echo "MEMORY-SWEEP-INCOMPLETE: no memory store at $store (set MEMORY_DIR if it lives elsewhere)" >&2
   exit 2
 fi
 
@@ -56,9 +60,14 @@ for f in "$store"/*.md; do
   [ -f "$f" ] || continue
   base="$(basename "$f")"
   case "$base" in MEMORY.md | index_*.md) continue ;; esac
-  hit="$(grep -i -F -m1 "${patterns[@]}" "$f" 2>/dev/null || true)"
+  if [ ! -r "$f" ]; then
+    echo "MEMORY-SWEEP-INCOMPLETE: unreadable entry $f" >&2
+    exit 2
+  fi
+  hit="$(grep -i -F -m1 "${patterns[@]}" "$f" || true)"
   [ -n "$hit" ] || continue
-  desc="$(sed -n 's/^description:[[:space:]]*//p' "$f" | head -1)"
+  # description: from the YAML frontmatter only (the first --- ... --- block), never the body.
+  desc="$(awk 'NR==1 && /^---[[:space:]]*$/ {fm=1; next} fm && /^---[[:space:]]*$/ {exit} fm && sub(/^description:[[:space:]]*/, "") {print; exit}' "$f")"
   printf '%s — %s\n  hit: %s\n' "$base" "${desc:-(no description)}" "$(printf '%s' "$hit" | cut -c1-160)"
   count=$((count + 1))
 done

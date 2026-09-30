@@ -42,11 +42,18 @@ expect_fire 'bash ~/.claude-coordination/tools/post-harvest.sh wt br none'
 expect_fire 'bash ~/.claude-coordination/tools/babysit.sh 1234'
 expect_fire 'curl -s localhost:3009/tasks'
 expect_fire 'curl -s http://127.0.0.1:3009/tasks/abc'
+# The dispatcher skill's documented poll form — the port comes from a parameter expansion.
+expect_fire 'curl -s "http://${AIF_HOST:-localhost}:${AIF_PORT:-3009}/tasks/T1"'
+expect_fire 'npx tsx packages/runtime-bridge/src/cli/await.ts T1'
 
 expect_silent 'gh pr create --base staging --title x'
 expect_silent 'git status'
 expect_silent 'curl -s localhost:3009/health'
 expect_silent 'grep -n harvest docs/notes.md'
+expect_silent 'grep -n harvest.ts docs/notes.md'
+# CI waits and merges run in EVERY PR session — deliberately not triggers (rule Fires line).
+expect_silent '~/.claude/scripts/ci-wait.sh 1234'
+expect_silent 'gh pr merge 1234 --squash'
 
 if [ "$fails" -gt 0 ]; then
   echo "coordinator-seat-card.test.sh: $fails failure(s)"; exit 1

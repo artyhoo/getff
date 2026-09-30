@@ -34,6 +34,7 @@ name: other
 description: unrelated project note
 ---
 Nothing about the reminder here; mentions harvestXts only.
+description: a body line that must never be read as the description
 EOF
 cat >"$MEM/MEMORY.md" <<'EOF'
 - [Stop hook](feedback_stop_hook.md) — AskUserQuestion
@@ -66,6 +67,15 @@ grep -q '^MEMORY-SWEEP: 2 matches' "$TMP/out" || fail "or: both files mention 'r
 sweep; rc=$?
 [ "$rc" -eq 64 ] || fail "usage: expected exit 64 with no keywords, got $rc"
 
+# 5b. RED — an empty keyword would match every line of every file; it is a usage error.
+sweep ""; rc=$?
+[ "$rc" -eq 64 ] || fail "empty keyword: expected exit 64, got $rc"
+
+# 5c. The description comes from the frontmatter only, never from a body line.
+sweep harvestXts; rc=$?
+grep -q 'project_other.md — unrelated project note' "$TMP/out" || fail "description: frontmatter description not reported"
+grep -q 'a body line that must never' "$TMP/out" && fail "description: a body 'description:' line was used"
+
 # 6. RED — a missing store is INCOMPLETE (exit 2), never «0 matches».
 MEMORY_DIR="$TMP/nope" bash "$SWEEP" anything >"$TMP/out" 2>"$TMP/err"; rc=$?
 [ "$rc" -eq 2 ] || fail "missing store: expected exit 2, got $rc"
@@ -74,12 +84,15 @@ grep -q '0 matches' "$TMP/out" && fail "missing store: reported a clean 0-match 
 
 # 7. Default store derivation — from a LINKED worktree the slug is the PRIMARY checkout's,
 #    because Claude Code files memory under the project the session was opened in.
-REPO="$TMP/code/my.repo"
+REPO="$TMP/code/my_repo.v2"
 mkdir -p "$REPO"
 git -C "$REPO" init -q
 git -C "$REPO" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 git -C "$REPO" worktree add -q "$REPO/.claude/worktrees/wt" -b wt 2>/dev/null
-SLUG="$(printf '%s' "$(cd "$REPO" && pwd -P)" | sed 's#[/.]#-#g')"
+# Written out by hand (not recomputed with the script's own sed) so the arm checks the
+# derivation rule — every non-alphanumeric character becomes '-' — not self-agreement.
+REAL="$(cd "$REPO" && pwd -P)"
+SLUG="$(printf '%s' "${REAL%/code/my_repo.v2}" | sed 's/[^A-Za-z0-9]/-/g')-code-my-repo-v2"
 FAKEHOME="$TMP/home"
 mkdir -p "$FAKEHOME/.claude/projects/$SLUG/memory"
 cp "$MEM/feedback_stop_hook.md" "$FAKEHOME/.claude/projects/$SLUG/memory/"
