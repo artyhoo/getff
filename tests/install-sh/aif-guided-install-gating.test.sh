@@ -227,10 +227,14 @@ case "$BLOCK" in *'GETFF_NONINTERACTIVE'*) ok "wiring: GETFF_NONINTERACTIVE is p
 
 echo "── VERSION: what the unpinned clone serves is recorded (one-button fork on pins = B)"
 mkdir -p "$SB/proj/.ai-factory"; printf '## Accepted\n' > "$SB/proj/.ai-factory/tool-decisions.md"
-run ver-up "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 PROJECT_ROOT="$SB/proj" GETFF_TODAY=2026-09-29
-if grep -qF "| aif-handoff | external-service | v1.4.0-2-gabc1234 | 2026-09-29 | git describe in $ST/checkout |" "$SB/proj/.ai-factory/tool-decisions.md"; then
-  ok "VERSION: after the guided install the checkout's git describe is recorded in tool-decisions.md"
-else bad "VERSION: no aif-handoff row: $(tr '\n' '|' < "$SB/proj/.ai-factory/tool-decisions.md") / $OUT"; fi
+# The default checkout is $HOME/code/aif-handoff: the committed row must not carry the person's home
+# path, so a checkout under HOME is recorded home-relative (HOME=$SB puts $ST/checkout under it).
+run ver-up "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 PROJECT_ROOT="$SB/proj" GETFF_TODAY=2026-09-29 HOME="$SB"
+if grep -qF "| aif-handoff | external-service | v1.4.0-2-gabc1234 | 2026-09-29 | git describe in ~/state-ver-up/checkout |" "$SB/proj/.ai-factory/tool-decisions.md"; then
+  ok "VERSION: after the guided install the checkout's git describe is recorded, its path home-relative"
+else bad "VERSION: no home-relative aif-handoff row: $(tr '\n' '|' < "$SB/proj/.ai-factory/tool-decisions.md") / $OUT"; fi
+if grep -qF "$SB/" "$SB/proj/.ai-factory/tool-decisions.md"; then bad "VERSION: tool-decisions.md carries the home path $SB"
+else ok "VERSION: tool-decisions.md carries no home path"; fi
 grep -q 'aif-handoff version v1.4.0-2-gabc1234 recorded' <<<"$OUT" && ok "VERSION: the report names it" || bad "VERSION: no report line"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

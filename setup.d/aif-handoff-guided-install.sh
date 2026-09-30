@@ -59,12 +59,16 @@ _log() { printf '[aif-handoff-guided-install] %s\n' "$*" >&2; }
 # .ai-factory/tool-decisions.md (engine.sh companion_record_version). The clone is not pinned (one-button
 # fork on pins = B, operator log entry 28): it tracks upstream, and the record says what was there.
 # A running aif-handoff with no checkout at AIF_HANDOFF_CHECKOUT is recorded as «not read».
+# The row is committed with the project, so a checkout under HOME (the default ~/code/aif-handoff)
+# is written home-relative: the person's home path never lands in the repository.
 _aif_handoff_record_version() {
-  local v=""
+  local v="" where="$AIF_HANDOFF_CHECKOUT"
   if [ -d "$AIF_HANDOFF_CHECKOUT/.git" ]; then
     v=$(git -C "$AIF_HANDOFF_CHECKOUT" describe --tags --always 2>/dev/null || true)
   fi
-  companion_record_version aif-handoff external-service "${v:-not read}" "git describe in $AIF_HANDOFF_CHECKOUT"
+  # shellcheck disable=SC2088  # a literal «~» is the point: the recorded text, never expanded
+  case "$where" in "$HOME"/*) where="~/${where#"$HOME"/}" ;; esac
+  companion_record_version aif-handoff external-service "${v:-not read}" "git describe in $where"
 }
 
 # _aif_handoff_record_failure <reason> — one audit-log line per failed bring-up step.
