@@ -180,7 +180,11 @@ if [ -n "$_rb_why_tools" ]; then
     if command -v companion_record_version >/dev/null 2>&1; then
       for _rb_p in eslint typescript-eslint typescript; do
         _rb_v="$(node -p "require('$_rb_tools/node_modules/$_rb_p/package.json').version" 2>/dev/null || true)"
-        companion_record_version "$_rb_p" generator-tool "${_rb_v:-not read}" "$_rb_tools/node_modules/$_rb_p/package.json"
+        # The record is committed: a toolchain inside the project is named relative to its root (P6 run 4
+        # N11 — rows carried this machine's absolute path); one outside it (--global's user cache) keeps its path.
+        _rb_from="$_rb_tools/node_modules/$_rb_p/package.json"
+        case "$_rb_from" in "$PROJECT_ROOT"/*) _rb_from="${_rb_from#"$PROJECT_ROOT"/}" ;; esac
+        companion_record_version "$_rb_p" generator-tool "${_rb_v:-not read}" "$_rb_from"
       done
     fi
   fi

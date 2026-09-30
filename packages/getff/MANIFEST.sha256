@@ -171,7 +171,7 @@ add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/
 a31c7ad0b16499c8f0b776037abac8796572d7d30f77fdad42b758826d05f9b0  packages/core/audit-self/check-ci-pins.sh
 89cd1895672b4425ce341d08948b41a3060d8d0573661daf5a04dd55aca410f1  packages/core/audit-self/check-doc-links.sh
 a8f9b35aa8db3a8857945a62e2c89c83b5c3daf883a111415f0f4200aa153c09  packages/core/audit-self/check-fences-fire.sh
-f388057acb51bd4bdc661c104e2ac1c55d48bf743e2e6f78a2cea1b5b9c1a252  packages/core/audit-self/check-generated-rule-mutation.sh
+1f4ad746d5e276c644fc8622016136ab84067274fd9b77041050cf6d05dcbeac  packages/core/audit-self/check-generated-rule-mutation.sh
 4a85b74226ab114acc14adb5df6a22175b15fef92d7448763a6071e6b46f5a76  packages/core/audit-self/check-kickoff-portability.sh
 14755a9ae0fd0698e743527e99f5f47a3ba76d65039d74a50041cc2937877bfd  packages/core/audit-self/check-lintstaged-resolves.sh
 fd01817439c156c7b50a349c2ac7a9b0fb4670ee1633ad78d72869c1dcd5a6f2  packages/core/audit-self/check-rule-enforced.sh
@@ -896,8 +896,8 @@ ca7bc2dd2d496d28dc43c7ff04b1f71b3d27058503e1355a5935cabd36505c15  packages/core/
 96b45985097499b3cc6e173fbf2d29e505015e3bc477844c765ddf7274e14fb0  packages/core/synthesizer/rule-research-port.ts
 52d133ca79123e3657d5f7e406877b024988c3b12d422e70214ba53e28c3d4ff  packages/core/synthesizer/rule-tests-sidecar.test.ts
 959f943e0bc6cb18462d9be58cedee8aeeaa3d2b5c79e76bf8e7dae9063f6050  packages/core/synthesizer/rule-tests-sidecar.ts
-9ca8be09a8a040ba1728807f2538c4cee03541f6aa386fb9f451003e6d1d032e  packages/core/synthesizer/run-generated-rule-mutation-skip.test.ts
-9df2e0315dc5c08b04c3df663460f474b1a6c49f2aa516c3514996fa17db6291  packages/core/synthesizer/run-generated-rule-mutation.sh
+f8b7e1e2e77bb5663017b946bea6d13dabd79010a173983b93feab7b16684493  packages/core/synthesizer/run-generated-rule-mutation-skip.test.ts
+55de0f7c1a0438aa11f36e2d35de05316012fa4bee8c8c3f7c4a676a2832e443  packages/core/synthesizer/run-generated-rule-mutation.sh
 21e9b09dc740d68ebc4d9a4a0197d7b00def669a795adba29af281b8026d4342  packages/core/synthesizer/run-generated-rule-mutation.test.sh
 9095fb91227f57c13f010bbafda2e12faab93616192eb92238bf438b506c9235  packages/core/synthesizer/run-generated-rule-mutation.test.ts
 b61e3a9ae37a4934b279c8470d96c56a01007b92755fc760a50e6d0fa568d85d  packages/core/synthesizer/run-rule-tests-firing.sh
@@ -1148,7 +1148,7 @@ cb30bce077638e7251740e9d3602da9fe467a71a7e2251cb0ad7455c2f5c3d9e  setup.d/45-pyt
 e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-runtime-bridge-vendor.sh
 0b12924a094779889358b18521ad635dd4acacfeb7d27c5a73e3d652db871013  setup.d/60-ci.sh
 439410a96b80407be01c6973257af172a1db3eb19a00b61bccd972543c38f3f8  setup.d/70-deps.sh
-b424c6e62fdd4d2cf824d9c4a297df0f26fce5772118c296c1e6035ff05cdc53  setup.d/80-rule-bootstrap.sh
+857df4a3e8fde98e41ba22ae69e5986027bba65b70306dd07b4bfc3e3bbf7cee  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
 a65311dfc3e43d31c785fba22ae970ae6df8e8a3316600bcef5f05cc78b1cea4  setup.d/99-finalize.sh
 29297ebf897f2b17059e017f19b54686623d47bb61c7be6724e1d6224943f1e4  setup.d/LAYERS.md
