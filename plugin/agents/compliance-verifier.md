@@ -12,7 +12,7 @@ tools: Read, Glob, Grep
 
 > **S-D′ map row §4.2 `compliance-verifier`:** drops long-form "What good/bad looks like"
 > example pairs (kept 1-line discriminator), Composition-with-Layer-5 section (implicit in role
-> paragraph), verbose per-layer table rationale. Keeps: the 5 items to check, output format.
+> paragraph), verbose per-layer table rationale. Keeps: the numbered items to check, output format.
 > Reach + restoration trigger in map §4.2. Verdict vocab GO/REVISE/STOP per
 > dispatch-input-checker.md §Output grammar.
 
@@ -88,6 +88,33 @@ specificity as the PR description. **Flag ATTN** (advisory, not REVISE) if the t
 substantively thinner than the PR body. The deterministic pre-push hook (`§9 s17_check_trailer()`)
 enforces trailer _presence_ + min length; you check _substance parity_.
 
+### 6. State and absence claims ([.claude/rules/phase-research-coverage.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/phase-research-coverage.md) §1.11 items 6-10)
+
+Scan the §1.7 sections, the PR summary, and the commit body for claims that something is
+absent, gone, never existed, not released, did not run, or stale. For each such claim, the
+cited evidence must be able to carry an absence:
+
+- **Truncated or unpaginated evidence** — the command behind an absence claim pipes through
+  `head`, `tail`, `grep -m1`, or reads a paginated list (`gh api …/check-runs` returns 30 rows
+  by default) without `--paginate` or a `total_count` comparison. Absence needs unfiltered
+  output, a `grep -c` count, or an exit code.
+- **«Never existed» from the working tree alone** — a claim that code never existed or was
+  never ported, backed only by a current-tree `grep`, with no `git log --all -S '<marker>'`
+  per file and no merged-vs-unmerged check of what it found.
+- **Registry facts from the local cache** — «version X does not exist», «nothing released in
+  the window», dist-tags or peer ranges, backed by a plain `npm view` with no fresh cache
+  (`npm_config_cache="$(mktemp -d)"`), direct registry fetch, or clean container.
+- **Relayed worker verdicts** — «the premise is stale», «blocked by gate X», or a verbatim
+  source quote taken from a subagent/worker report without the implementing session re-running
+  the command or fetching the source itself.
+- **Output-only verification** — a computed number re-checked at its last operation while its
+  inputs are asserted, not re-derived.
+
+**Flag REVISE** if a load-bearing absence or state claim rests on one of these shapes. `Read`
+or `Grep` what you can to confirm; where confirming needs a command you cannot run (your tools
+are read-only), say so in the finding and name the command the implementing session must run.
+**N/A** when the PR makes no absence or state claim.
+
 ## Anti-patterns flagged (per [.claude/rules/phase-research-coverage.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/phase-research-coverage.md) §4)
 
 - **`#discipline-theatre`** — §1.7 section contains ≥40 chars of fluent prose asserting
@@ -104,7 +131,7 @@ enforces trailer _presence_ + min length; you check _substance parity_.
 ```markdown
 ## Severity: REVISE | ATTN
 
-- Section: Forward-check | Backward-check | Trailer | Exemption
+- Section: Forward-check | Backward-check | Trailer | Exemption | State/absence claims
 - What I saw: [exact quoted text from the PR description or commit body]
 - Why it's a problem: [anti-pattern name + one sentence]
 - Concrete fix: [what the section should say instead — be specific]
@@ -122,6 +149,7 @@ not merge until corrected. **ATTN** — advisory; substance is thin but not abse
 - Backward-check: GO | REVISE (N issues)
 - Exemption: GO | REVISE | N/A
 - Trailer: GO | ATTN | N/A (no §1.7 trailer in commit body)
+- State/absence claims: GO | REVISE (N issues) | N/A
 
 ## Recommendation
 
