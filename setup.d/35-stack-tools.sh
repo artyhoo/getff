@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # setup.d/35-stack-tools.sh — vendor MCP servers for the project's own dependencies, on the pre-launch yes.
 # Circle 2 of the install (one-button point 7): written only when GETFF_STACK_TOOLS=1. For each
-# direct dependency the project itself declared (package.json minus what getff's install added, read
-# from the copies 70-deps keeps in .ai-factory/before-getff/) the official MCP registry is asked for
+# direct dependency in package.json except getff's own tools (lib.sh getff_dep_names, a fixed set
+# whose MCP servers are decided once in getff, whoever put them there) the official MCP registry is asked for
 # the servers whose namespace that dependency's owner holds; a server that needs nothing from the
 # person goes into .mcp.json (one that runs on this machine through npx with a warning line that says
 # so and names the command that removes it), the rest are «proposed, not installed» with what they
@@ -27,7 +27,9 @@ else
   [ -f "$PROJECT_ROOT/.mcp.json" ] && _st_had_mcp=1
   # ${DRY_RUN:+--dry-run} passes the flag only under --dry-run; the check writes nothing then.
   # install.sh runs under set -e + pipefail: a crash of the check is a NOT-wired line, never an abort.
-  if ! node "$PKG_ROOT/packages/core/install/mcp-source-check.bundle.mjs" --root "$PROJECT_ROOT" ${DRY_RUN:+--dry-run} 2>&1 \
+  _st_getff_deps=$(getff_dep_names | paste -sd, -)
+  if ! node "$PKG_ROOT/packages/core/install/mcp-source-check.bundle.mjs" --root "$PROJECT_ROOT" \
+      --getff-deps "$_st_getff_deps" ${DRY_RUN:+--dry-run} 2>&1 \
       | sed 's/^/  /'; then
     note_not_wired "vendor MCP servers for the project's dependencies — the check stopped with an error (its output is above)"
   fi

@@ -3,8 +3,9 @@
  * dependencies, taken only from the vendor who owns that dependency.
  *
  * Runs at install time on the pre-launch yes (setup.d/35-stack-tools.sh, GETFF_STACK_TOOLS=1).
- * For every DIRECT dependency the project itself declared — package.json minus what getff's own
- * install added to it (ownDeclared: the copies 70-deps keeps in .ai-factory/before-getff/) — it asks
+ * For every DIRECT dependency in package.json except getff's own tools — a fixed set
+ * (setup.d/lib.sh getff_dep_names, passed as --getff-deps) whose MCP servers are decided once in
+ * getff, not per project, whoever put them in package.json (operator 2026-09-30) — it asks
  * the official MCP registry
  * (registry.modelcontextprotocol.io — the registry itself verifies who may publish under a
  * namespace: GitHub login for io.github.<org>, DNS/HTTP proof for reverse-DNS names) for the
@@ -48,7 +49,7 @@
  * @cc-only-rationale: install-time payload run by setup.d/35-stack-tools.sh through its bundle.
  * Prior-art: prior-art-evaluations.md#292 (official MCP registry read API ADOPT).
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -171,43 +172,24 @@ const declaredIn = (file: string): Record<string, string> => {
   };
 };
 
-/** The project's OWN dependencies: package.json as it is, minus what getff's install added to it.
- *  70-deps keeps the file as it was before each write that changed it as
- *  .ai-factory/before-getff/package.json.<sum8>; the oldest copy is the person's original and every
- *  later one only adds getff's dev tools to it, so a name in the file now AND in every copy is the
- *  person's own, whatever the copies' age order. No copy: getff has not changed the file (a first
- *  install runs this check before 70-deps), so it is the person's as it stands. */
-function ownDeclared(root: string): Record<string, string> {
-  const declared = declaredIn(join(root, 'package.json'));
-  const kept = join(root, '.ai-factory', 'before-getff');
-  // The names lib.sh keep_original_settle gives: <sha256 first 8> or, with no hash tool, «original».
-  const copies = existsSync(kept) ? readdirSync(kept).filter((f) => /^package\.json\.(?:[0-9a-f]{8}|original)$/.test(f)) : [];
-  for (const c of copies) {
-    let before: Record<string, string>;
-    try {
-      before = declaredIn(join(kept, c));
-    } catch {
-      continue; // an unreadable copy says nothing about which names are the person's
-    }
-    for (const n of Object.keys(declared)) if (!(n in before)) delete declared[n];
-  }
-  return declared;
-}
-
 /** Direct dependencies with the metadata that decides ownership: the installed package.json when
- *  node_modules has it, else the npm registry's latest manifest (a fresh project has no node_modules). */
+ *  node_modules has it, else the npm registry's latest manifest (a fresh project has no node_modules).
+ *  Names in GETFF_DEPS are getff's own tools (setup.d/lib.sh getff_dep_names): skipped whoever put
+ *  them in package.json, and returned as getffOwn for the report line. */
 async function directDeps(
   root: string,
   fetchJson: FetchJson,
-): Promise<{ declared: number; deps: Map<string, InstalledMeta>; missing: string[] }> {
+  getffDeps: ReadonlySet<string>,
+): Promise<{ declared: number; deps: Map<string, InstalledMeta>; missing: string[]; getffOwn: string[] }> {
   let declared: Record<string, string>;
   try {
-    declared = ownDeclared(root);
+    declared = declaredIn(join(root, 'package.json'));
   } catch {
-    return { declared: 0, deps: new Map(), missing: [] };
+    return { declared: 0, deps: new Map(), missing: [], getffOwn: [] };
   }
+  const getffOwn = Object.keys(declared).filter((n) => getffDeps.has(n)).sort();
   const names = Object.keys(declared)
-    .filter((n) => !n.startsWith('@types/') && isRegistrySpec(String(declared[n])))
+    .filter((n) => !getffDeps.has(n) && !n.startsWith('@types/') && isRegistrySpec(String(declared[n])))
     .sort();
   const found = new Map<string, InstalledMeta>();
   const missing: string[] = [];
@@ -220,7 +202,7 @@ async function directDeps(
   });
   // Network order decides the fill order; name order keeps every run's attribution the same.
   const deps = new Map([...found].sort(([a], [b]) => a.localeCompare(b)));
-  return { declared: names.length, deps, missing: missing.sort() };
+  return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
 
 async function pool<T>(items: readonly T[], fn: (x: T) => Promise<void>, width = 6): Promise<void> {
@@ -312,12 +294,18 @@ export interface CheckResult {
   decisions: Decision[];
   /** Dependencies and registry searches that got no answer — reported, never read as «nothing». */
   unchecked: string[];
+  /** getff's own tools present in package.json — not looked up. */
+  getffOwn: string[];
 }
 
-/** The decisions for ROOT's direct dependencies; null when nothing could be checked (no
- *  dependency's metadata could be read, or no registry search came back). */
-export async function checkStackTools(root: string, fetchJson: FetchJson): Promise<CheckResult | null> {
-  const { declared, deps, missing } = await directDeps(root, fetchJson);
+/** The decisions for ROOT's direct dependencies other than GETFF_DEPS; null when nothing could be
+ *  checked (no dependency's metadata could be read, or no registry search came back). */
+export async function checkStackTools(
+  root: string,
+  fetchJson: FetchJson,
+  getffDeps: ReadonlySet<string> = new Set(),
+): Promise<CheckResult | null> {
+  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps);
   if (declared > 0 && deps.size === 0) return null;
   const adapter: EcosystemAdapter = {
     ecosystem: 'npm',
@@ -398,7 +386,7 @@ export async function checkStackTools(root: string, fetchJson: FetchJson): Promi
     }
     decisions.push(decision);
   }
-  return { decisions, unchecked: [...missing, ...failed.sort().map((q) => `registry search «${q}»`)] };
+  return { decisions, unchecked: [...missing, ...failed.sort().map((q) => `registry search «${q}»`)], getffOwn };
 }
 
 /** True when tool-decisions.md already names this server, or has a row whose Tool cell is its key
@@ -499,11 +487,19 @@ export function uncheckedLine(unchecked: readonly string[]): string {
   return `⚠ not checked: ${unchecked.join(', ')} — the registry gave no answer (none within ${DEADLINE_MS / 1000} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
 }
 
+/** The report line for getff's own tools the project's package.json has. */
+export function getffOwnLine(names: readonly string[]): string {
+  return `⊝ not looked up: ${names.join(', ')} — getff's own tools; their MCP servers are decided once in getff, not per project`;
+}
+
 async function main(argv: string[]): Promise<number> {
-  const root = resolve(argv[argv.indexOf('--root') + 1] ?? '.');
+  const arg = (flag: string): string | undefined => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
+  const root = resolve(arg('--root') ?? '.');
   const dryRun = argv.includes('--dry-run');
+  // --getff-deps a,b,c: setup.d/lib.sh getff_dep_names, joined by 35-stack-tools.sh.
+  const getffDeps = new Set((arg('--getff-deps') ?? '').split(',').filter(Boolean));
   const date = process.env['GETFF_TODAY'] ?? new Date().toISOString().slice(0, 10);
-  const result = await checkStackTools(root, makeFetchJson());
+  const result = await checkStackTools(root, makeFetchJson(), getffDeps);
   if (result === null) {
     console.log('⚠ the npm or MCP registry did not answer — no vendor server was checked');
     return 0;
@@ -511,6 +507,7 @@ async function main(argv: string[]): Promise<number> {
   const lines = applyDecisions(root, result.decisions, { dryRun, date });
   if (lines.length === 0 && result.unchecked.length === 0)
     console.log('⊝ no direct dependency has an MCP server published by its own vendor');
+  if (result.getffOwn.length) console.log(getffOwnLine(result.getffOwn));
   for (const l of lines) console.log(l);
   if (result.unchecked.length)
     console.log(uncheckedLine(result.unchecked));

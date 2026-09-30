@@ -17,6 +17,7 @@ import {
   applyDecisions,
   checkStackTools,
   fixtureName,
+  getffOwnLine,
   githubRepo,
   isDecided,
   makeFetchJson,
@@ -168,10 +169,11 @@ describe('checkStackTools on the recorded registry', () => {
     );
   });
 
-  it('a dependency getff itself added to package.json is not the project’s own: no server is looked up for it', async () => {
-    // A rerun: 70-deps put @playwright/test into package.json on the first install and kept the
-    // person's file as .ai-factory/before-getff/package.json.<sum8>. Microsoft publishes a real
-    // two-signal server for it (GitHub org + the @playwright scope naming it).
+  it('getff’s own dependencies are not looked up, whoever put them in package.json', async () => {
+    // A rerun: 70-deps put @playwright/test into package.json on the first install. Microsoft
+    // publishes a real two-signal server for it (GitHub org + the @playwright scope naming it).
+    // getff's own tools are a fixed set (setup.d/lib.sh getff_dep_names, passed as --getff-deps):
+    // their MCP servers are decided once in getff, not per project (operator 2026-09-30).
     const dir = fixturesWith({});
     writeFileSync(
       join(dir, fixtureName(npmUrl('@playwright/test', 'latest'))),
@@ -179,18 +181,18 @@ describe('checkStackTools on the recorded registry', () => {
     );
     writeFileSync(join(dir, fixtureName(npmUrl('@playwright/mcp', 'latest'))), JSON.stringify({ name: '@playwright/mcp', version: '0.0.41', mcpName: 'io.github.microsoft/playwright-mcp' }));
     const root = consumer();
-    const withGetff = { ...PKG, devDependencies: { ...PKG.devDependencies, '@playwright/test': '^1.56.0' } };
-    // The control: without the kept original, the rerun takes @playwright/test for the person's own.
-    writeFileSync(join(root, 'package.json'), JSON.stringify(withGetff));
-    expect(byServer(await check(dir, root))['io.github.microsoft/playwright-mcp']).toMatchObject({ dep: '@playwright/test' });
-    // Two kept copies, in either age order: the person's original, and the file before a later getff write.
-    mkdirSync(join(root, '.ai-factory', 'before-getff'));
-    writeFileSync(join(root, '.ai-factory', 'before-getff', 'package.json.0a1b2c3d'), JSON.stringify(withGetff));
-    writeFileSync(join(root, '.ai-factory', 'before-getff', 'package.json.f0e1d2c3'), JSON.stringify(PKG));
-    const r = await check(dir, root);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ ...PKG, devDependencies: { ...PKG.devDependencies, '@playwright/test': '^1.56.0' } }));
+    const fetchJson = makeFetchJson({ GETFF_MCP_FETCH_FIXTURES: dir });
+    // The control: without the set, the rerun takes @playwright/test for the project's own.
+    expect(byServer((await checkStackTools(root, fetchJson))!)['io.github.microsoft/playwright-mcp']).toMatchObject({ dep: '@playwright/test' });
+    const r = (await checkStackTools(root, fetchJson, new Set(['@playwright/test', 'eslint', 'vitest'])))!;
     expect(r.decisions.map((d) => d.dep)).not.toContain('@playwright/test');
     expect(r.unchecked.join(' ')).not.toMatch(/playwright/);
-    expect(byServer(r)['io.github.getsentry/sentry-mcp']).toBeDefined(); // the person's own are still checked
+    expect(r.getffOwn).toEqual(['@playwright/test']); // only the names package.json has
+    expect(byServer(r)['io.github.getsentry/sentry-mcp']).toBeDefined(); // the project's own are still checked
+    expect(getffOwnLine(r.getffOwn)).toBe(
+      "⊝ not looked up: @playwright/test — getff's own tools; their MCP servers are decided once in getff, not per project",
+    );
   });
 
   it('an npm package whose CURRENT mcpName does not name the server is not written', async () => {
