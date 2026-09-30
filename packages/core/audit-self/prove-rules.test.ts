@@ -423,6 +423,20 @@ describe('the batch proof through the project command (T-C4)', () => {
     expect(g1?.proof).toMatch(/^bad→exit [1-9]\d*, no diagnostic of this rule · good→exit 0$/);
     expect(r.status).not.toBe(0);
   });
+
+  // PR #1985 CI, own-config react-next: the good batch exited 1 on `'setCount' is assigned a value but never
+  // used` — the project's own tseslint recommended set, not a placed rule. A good sample runs through the
+  // consumer's whole lint, so it must be clean under the unused-variable check every recommended preset has.
+  it('every shipped good sample is clean under no-unused-vars at error, as in a recommended preset', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'prove-good-'));
+    const fx = join(HERE, 'fixtures/fences-fire');
+    const goods = readdirSync(fx).filter((f) => /\.good\.(tsx\.)?txt$/.test(f));
+    expect(goods.length).toBeGreaterThan(0);
+    for (const f of goods) write(dir, f.replace(/\.txt$/, '').replace(/\.good$/, '.good.ts'), readFileSync(join(fx, f), 'utf8'));
+    write(dir, '.oxlintrc.json', JSON.stringify({ rules: { 'no-unused-vars': 'error' } }) + '\n');
+    const r = spawnSync(OXLINT, ['.'], { cwd: dir, encoding: 'utf8' });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+  });
 });
 
 // ── T-C6 ────────────────────────────────────────────────────────────────────────────────────────────
