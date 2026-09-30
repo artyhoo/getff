@@ -1042,7 +1042,7 @@ _pc_keep_baselines() {
 # steps get --pass-on-unpruned-suppressions so fixing an old finding does not block the commit.
 _pc_suppress() {
   local bin="$PROJECT_ROOT/node_modules/.bin/eslint" n f
-  [ -x "$bin" ] && "$bin" --help 2>/dev/null | grep -q -- '--suppress-all' || return 1
+  [ -x "$bin" ] && grep -q -- '--suppress-all' <<<"$("$bin" --help 2>/dev/null)" || return 1
   ( cd "$PROJECT_ROOT" && npm run lint -- --suppress-all ) >/dev/null 2>&1
   [ -f "$PROJECT_ROOT/eslint-suppressions.json" ] || return 1
   n=$(node -e 'let n = 0; const j = require(process.argv[1]); for (const f of Object.values(j)) for (const r of Object.values(f)) n += r.count || 0; console.log(n)' "$PROJECT_ROOT/eslint-suppressions.json" 2>/dev/null)

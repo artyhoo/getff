@@ -50,17 +50,17 @@ A=$(proj "$SPA")
 outA=$( cd "$A" && bash "$INSTALL" react-spa < /dev/null 2>&1 )
 [ "$(grep -c '<!-- aif:project-checks:begin -->' "$(REC "$A")" 2>/dev/null)" = 1 ] \
   && ok "(A) one aif:project-checks block in tool-decisions.md" || bad "(A) block count $(grep -c 'aif:project-checks:begin' "$(REC "$A")" 2>/dev/null)"
-block "$A" | grep -qx 'stack: react-spa' && ok "(A) stack: react-spa" || bad "(A) stack line: $(block "$A" | grep '^stack')"
-block "$A" | grep -qx 'linter: eslint' && ok "(A) linter: eslint (getff filled the empty slot)" || bad "(A) linter line: $(block "$A" | grep '^linter')"
-block "$A" | grep -qx 'armed:' && block "$A" | grep -qx 'not-armed:' && ok "(A) armed: and not-armed: headers present" || bad "(A) headers missing"
+grep -qx 'stack: react-spa' <<<"$(block "$A")" && ok "(A) stack: react-spa" || bad "(A) stack line: $(block "$A" | grep '^stack')"
+grep -qx 'linter: eslint' <<<"$(block "$A")" && ok "(A) linter: eslint (getff filled the empty slot)" || bad "(A) linter line: $(block "$A" | grep '^linter')"
+grep -qx 'armed:' <<<"$(block "$A")" && grep -qx 'not-armed:' <<<"$(block "$A")" && ok "(A) armed: and not-armed: headers present" || bad "(A) headers missing"
 # Only the two pre-push checks that need no dependencies can be armed here (see (K)).
 [ -z "$(section "$A" armed | grep -v -e '^- bash scripts/check-ci-pins.sh$' -e '^- bash scripts/check-doc-links.sh$')" ] \
   && ok "(A) nothing that needs dependencies is armed without them" || bad "(A) armed: $(section "$A" armed | tr '\n' ';')"
-section "$A" not-armed | grep -qx -- '- npm run lint # not run at install: dependencies are not installed' \
+grep -qx -- '- npm run lint # not run at install: dependencies are not installed' <<<"$(section "$A" not-armed)" \
   && ok "(A) npm run lint not-armed, reason: dependencies not installed" || bad "(A) lint line: $(section "$A" not-armed | grep lint | head -1)"
-section "$A" not-armed | grep -qx -- '- bash scripts/check-rule-globs.sh # not run at install: dependencies are not installed' \
+grep -qx -- '- bash scripts/check-rule-globs.sh # not run at install: dependencies are not installed' <<<"$(section "$A" not-armed)" \
   && ok "(A) a scripts/*.sh check is recorded as the bash command" || bad "(A) globs line: $(section "$A" not-armed | grep globs)"
-section "$A" not-armed | grep -qx -- '- npm test # not run at install: dependencies are not installed' \
+grep -qx -- '- npm test # not run at install: dependencies are not installed' <<<"$(section "$A" not-armed)" \
   && ok "(A) test is recorded as npm test" || bad "(A) test line: $(section "$A" not-armed | grep test)"
 [ "$(script_of "$A" validate)" = "bash scripts/run-armed.sh validate" ] && ok "(A) validate runs the record" || bad "(A) validate=$(script_of "$A" validate)"
 [ -x "$A/scripts/run-armed.sh" ] && cmp -s "$A/scripts/run-armed.sh" "$REPO_ROOT/packages/core/audit-self/run-armed.sh" \
@@ -94,9 +94,9 @@ done
 # ── (B) node_modules present: the install ran getff's checks ────────────────────────────────────
 B=$(proj "$SPA"); mkdir -p "$B/node_modules"
 ( cd "$B" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
-section "$B" armed | grep -qx -- '- bash scripts/audit-ai-docs.sh' && ok "(B) a check green at install is armed" \
+grep -qx -- '- bash scripts/audit-ai-docs.sh' <<<"$(section "$B" armed)" && ok "(B) a check green at install is armed" \
   || bad "(B) audit-ai-docs not armed: armed=[$(section "$B" armed | tr '\n' ';')]"
-section "$B" not-armed | grep -Eq -- '^- npm run lint # exits [0-9]+ at install' && ok "(B) a red check is not-armed with its exit code" \
+grep -Eq -- '^- npm run lint # exits [0-9]+ at install' <<<"$(section "$B" not-armed)" && ok "(B) a red check is not-armed with its exit code" \
   || bad "(B) lint line: $(section "$B" not-armed | grep lint | head -1)"
 
 # ── (C) the project's own script is not run, not armed ──────────────────────────────────────────
@@ -104,14 +104,14 @@ C=$(proj '{"name":"c","version":"0.0.0","type":"module","scripts":{"lint":"touch
 mkdir -p "$C/node_modules"
 ( cd "$C" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
 [ ! -e "$C/ran-own-lint" ] && ok "(C) the install did not run the project's own lint script" || bad "(C) own lint ran"
-section "$C" not-armed | grep -qx -- '- npm run lint # your own script: the install does not run it; the first validate or push arms it once it exits 0' \
+grep -qx -- '- npm run lint # your own script: the install does not run it; the first validate or push arms it once it exits 0' <<<"$(section "$C" not-armed)" \
   && ok "(C) own lint recorded not-armed with why" || bad "(C) lint line: $(section "$C" not-armed | grep lint | head -1)"
 
 # ── (D) generic ─────────────────────────────────────────────────────────────────────────────────
 D=$(proj ""); printf '<project/>\n' > "$D/pom.xml"
 ( cd "$D" && bash "$INSTALL" -y < /dev/null >/dev/null 2>&1 )
-block "$D" | grep -qx 'stack: generic' && ok "(D) generic: stack: generic" || bad "(D) stack line: $(block "$D" | grep '^stack')"
-[ -z "$(section "$D" armed)$(section "$D" not-armed)" ] && block "$D" | grep -qx 'armed:' \
+grep -qx 'stack: generic' <<<"$(block "$D")" && ok "(D) generic: stack: generic" || bad "(D) stack line: $(block "$D" | grep '^stack')"
+[ -z "$(section "$D" armed)$(section "$D" not-armed)" ] && grep -qx 'armed:' <<<"$(block "$D")" \
   && ok "(D) generic: both lists empty, headers present" || bad "(D) lists: $(block "$D" | tr '\n' ';')"
 
 # ── (I) alpha lanes: the record with both lists empty ───────────────────────────────────────────
@@ -123,7 +123,7 @@ for lane in python cargo go; do
     go)     printf 'module x\n\ngo 1.22\n' > "$L/go.mod" ;;
   esac
   ( cd "$L" && bash "$INSTALL" "$lane" < /dev/null >/dev/null 2>&1 )
-  block "$L" | grep -qx "stack: $lane" && block "$L" | grep -qx 'armed:' && block "$L" | grep -qx 'not-armed:' \
+  grep -qx "stack: $lane" <<<"$(block "$L")" && grep -qx 'armed:' <<<"$(block "$L")" && grep -qx 'not-armed:' <<<"$(block "$L")" \
     && [ -z "$(section "$L" armed)$(section "$L" not-armed)" ] \
     && ok "(I) $lane lane: record with both lists empty" || bad "(I) $lane lane record: $(block "$L" 2>/dev/null | tr '\n' ';')"
 done
@@ -148,7 +148,7 @@ awk '/<!-- aif:project-checks:begin -->/{f=1} !f; /<!-- aif:project-checks:end -
 ( cd "$J" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
 [ -x "$J/scripts/run-armed.sh" ] && ok "(J) --refresh delivers scripts/run-armed.sh" || bad "(J) --refresh did not deliver run-armed.sh"
 [ "$(grep -c '<!-- aif:project-checks:begin -->' "$(REC "$J")")" = 1 ] && [ -z "$(section "$J" armed)" ] \
-  && section "$J" not-armed | grep -qx -- '- npm run lint # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
+  && grep -qx -- '- npm run lint # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$J" not-armed)" \
   && ok "(J) --refresh on a project with no record writes one: every getff check not-armed, not run yet" \
   || bad "(J) record after --refresh: $(block "$J" 2>/dev/null | tr '\n' ';')"
 ( cd "$J" && bash scripts/run-armed.sh --probe >/dev/null 2>&1 ); rc=$?
@@ -195,7 +195,7 @@ mkdir -p "$K/.github/workflows"
 printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm install -g cowsay\n' > "$K/.github/workflows/own.yml"
 ( cd "$K" && git add -A && git commit -qm own && git checkout -qb work && git push -q "$BARE" work ); rc0=$?
 ( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff )
-section "$K" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # exits 1 at install' \
+grep -qx -- '- bash scripts/check-ci-pins.sh # exits 1 at install' <<<"$(section "$K" not-armed)" \
   && ok "(L) the project's own unpinned workflow: check-ci-pins recorded not-armed, exits 1 at install" \
   || bad "(L) ci-pins line: $(block "$K" | grep ci-pins)"
 ( cd "$K" && git push "$BARE" work ) > "$K/.push" 2>&1; rc=$?
@@ -210,10 +210,10 @@ M=$(proj "$SPA")
 ( cd "$M" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
 grep -v -e 'check-ci-pins' -e 'check-doc-links' -e 'run-generated-rule-mutation' "$(REC "$M")" > "$M/.rec" && mv "$M/.rec" "$(REC "$M")"
 ( cd "$M" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
-section "$M" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
-  && section "$M" not-armed | grep -qx -- '- bash scripts/check-doc-links.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
-  && section "$M" not-armed | grep -qx -- '- bash scripts/run-generated-rule-mutation.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
-  && section "$M" not-armed | grep -qx -- '- npm run lint # not run at install: dependencies are not installed' \
+grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
+  && grep -qx -- '- bash scripts/check-doc-links.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
+  && grep -qx -- '- bash scripts/run-generated-rule-mutation.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
+  && grep -qx -- '- npm run lint # not run at install: dependencies are not installed' <<<"$(section "$M" not-armed)" \
   && ok "(M) --refresh adds the three missing checks not-armed and keeps the other lines" \
   || bad "(M) record after --refresh: $(block "$M" | tr '\n' ';')"
 
@@ -232,7 +232,7 @@ why() { env -i PATH="$PATH" "$@" bash -c 'source "$1" >/dev/null 2>&1
 [ "$(why GEN_MUT_RC=1 "$(printf 'GEN_MUT_WHY=a # b\nsecond line')")" = "a - b" ] \
   && ok "(N) the reason is one line with no « # » (the record's separator)" \
   || bad "(N) unsanitised: $(why GEN_MUT_RC=1 "$(printf 'GEN_MUT_WHY=a # b\nsecond line')" | tr '\n' '|')"
-section "$A" not-armed | grep -qx -- "- $MUT # no generated rules this pass" \
+grep -qx -- "- $MUT # no generated rules this pass" <<<"$(section "$A" not-armed)" \
   && ok "(N) an install whose generator did not prove rules records it not-armed" \
   || bad "(N) record line: $(block "$A" | grep generated-rule-mutation)"
 for t in "$REPO_ROOT/templates/ts-server/github-actions-ci.yml" "$REPO_ROOT"/packages/preset-*/templates/github-actions-ci-ui.yml; do

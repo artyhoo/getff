@@ -69,7 +69,7 @@ D=$(consumer "" $'true # was red at install\nexit 3 # 3 type errors at install')
 before=$(cat "$D/.ai-factory/tool-decisions.md")
 push_only "$D" armed-probe; rc=$?
 [ "$rc" -eq 0 ] && ok "(D) armed-probe never blocks on a red not-armed check" || bad "(D) rc=$rc: $(cat "$D/.out")"
-( cd "$D" && bash scripts/run-armed.sh true ) | grep -q '^· not armed' \
+grep -q '^· not armed' <<<"$( (cd "$D" && bash scripts/run-armed.sh true) )" \
   && bad "(D) the green one is still not armed" || ok "(D) the green one is armed"
 [ "$(cat "$D/.ai-factory/tool-decisions.md")" = "$before" ] && ok "(D) the tracked record is untouched (the flip is in the sidecar)" \
   || bad "(D) the probe edited the tracked record"

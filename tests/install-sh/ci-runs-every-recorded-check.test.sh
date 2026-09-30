@@ -44,8 +44,8 @@ off_record() {
     | sed -E "s/^run-armed\.sh --if-armed '([^']*)'$/\1/; s/^run-armed\.sh //; s/[[:space:]]+$//" \
     | while IFS= read -r c; do
         case "$c" in validate|--*) continue ;; esac
-        awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$rec" | sed -n 's/^- //p' \
-          | sed 's/ # .*$//' | grep -qxF -- "$c" || echo "$c"
+        cmds=$(awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$rec" | sed -n 's/^- //p' | sed 's/ # .*$//')
+        grep -qxF -- "$c" <<<"$cmds" || echo "$c"
       done
 }
 
@@ -72,10 +72,10 @@ done
 # (2) the predicate is not vacuous: delete one step from a copy and it is named
 if [ -n "${SPA:-}" ]; then
   grep -v 'run-armed.sh bash scripts/check-lintstaged-resolves.sh' "$SPA/.github/workflows/ci.yml" > "$SPA/ci-minus.yml"
-  missing_steps "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-minus.yml" | grep -qx 'bash scripts/check-lintstaged-resolves.sh' \
+  grep -qx 'bash scripts/check-lintstaged-resolves.sh' <<<"$(missing_steps "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-minus.yml")" \
     && ok "(2) paired negative: a deleted step is named" || bad "(2) a deleted step went unnoticed (vacuous predicate)"
   sed 's/run-armed.sh npm run typecheck/run-armed.sh npm run typecheck:x/' "$SPA/.github/workflows/ci.yml" > "$SPA/ci-typo.yml"
-  off_record "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-typo.yml" | grep -qx 'npm run typecheck:x' \
+  grep -qx 'npm run typecheck:x' <<<"$(off_record "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-typo.yml")" \
     && ok "(4) paired negative: a mistyped caller is named" || bad "(4) a mistyped caller went unnoticed (vacuous predicate)"
 else
   bad "(2)(4) no react-spa install to run the negatives on"
