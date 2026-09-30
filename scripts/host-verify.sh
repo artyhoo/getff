@@ -103,6 +103,36 @@ if [ ! -f "$KICKOFF" ]; then
   exit 2
 fi
 
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# A contract runs in the repository that DECLARES it. REPO_ROOT above comes from the cwd, so an
+# explicit path to another repository's kickoff, invoked from a foreign cwd, executed that
+# contract — and whatever it writes — inside the foreign repo (the getff#1971 backward sweep).
+# Neither refusing nor anchoring to this script's own checkout fits: running a repo's OWN
+# kickoff from that repo is the normal case, and packages/core/hooks/host-verify.test.ts runs
+# this runner against throwaway repos by design. So: when the kickoff's checkout belongs to a
+# DIFFERENT repository than the cwd's (the physical git common dirs differ — the predicate of
+# scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967), run from the kickoff's checkout.
+# Same repository (the primary clone, a linked worktree, a symlinked prompts dir) → unchanged.
+# A kickoff outside any git checkout has no repository of its own and keeps the cwd root.
+unset CDPATH
+_hv_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
+_hv_common_dir() {
+  local d
+  d="$(_hv_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+}
+_hv_kick_dir="$(cd "$(dirname "$KICKOFF")" 2>/dev/null && pwd)"
+_hv_kick_top="$(_hv_git_at "$_hv_kick_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$_hv_kick_top" ] \
+  && [ "$(_hv_common_dir "$_hv_kick_dir" || true)" != "$(_hv_common_dir "$REPO_ROOT" || true)" ]; then
+  REPO_ROOT="$_hv_kick_top"
+  # Physical path, so the `${KICKOFF#"$REPO_ROOT/"}` display prefix matches git's toplevel.
+  KICKOFF="$(cd "$_hv_kick_dir" && pwd -P)/$(basename "$KICKOFF")"
+  printf '   host-verify: %s belongs to another repository than the cwd — running from %s\n' \
+    "$(basename "$(dirname "$KICKOFF")")/$(basename "$KICKOFF")" "$REPO_ROOT" >&2
+fi
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
+
 # ── Fence-aware, code-span-aware parser ────────────────────────────────────────
 # Extracts contract commands AND opt-out rationale from the kickoff, using a single pass
 # that correctly handles every bypass class surfaced by the 2026-07-24/25 cold audit:

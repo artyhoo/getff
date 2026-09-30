@@ -29,7 +29,21 @@ case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check [files.
 FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full shipped surface)
 # `cd ""` returns 0 and stays put (measured), so a bare `cd "$(git rev-parse ...)"` outside a
 # git worktree would silently format the CURRENT tree as if it were the repo. Fail instead.
-REPO_TOP="$(git rev-parse --show-toplevel)" || exit 1
+REPO_TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || REPO_TOP=""
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# Format the shipped surface of the checkout this script LIVES in, not of whatever repo the
+# cwd is in: `bash /abs/path/scripts/format-shipped.sh --write` from a scratch consumer repo
+# otherwise rewrote that repo's skills/, agents/, templates/ … in place (the getff#1971
+# backward sweep; same class as scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967).
+# Every in-repo caller (package.json `format`, .husky/pre-commit, the install-sh fixtures that
+# copy this file into their own tree) runs the copy inside the tree it formats, so the anchor
+# changes nothing for them. The unsets mirror that guard: CDPATH would make `cd` jump
+# elsewhere; an exported GIT_DIR / GIT_WORK_TREE would make git answer from the env.
+unset CDPATH
+REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
+  && env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null)" || REPO_TOP=""
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
+[ -n "$REPO_TOP" ] || { echo "format-shipped: cannot resolve the repository root (not inside a git checkout)" >&2; exit 1; }
 cd "$REPO_TOP" || exit 1
 
 # Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the

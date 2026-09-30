@@ -2180,7 +2180,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:48-67 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:62-81 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
 //       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
