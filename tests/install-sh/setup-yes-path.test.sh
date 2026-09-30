@@ -53,25 +53,33 @@ grep -qiF 'react-native' "$TMP/out_rn.txt" \
   && ok "react-native accepted by wrapper" \
   || bad "react-native not recognised by wrapper (stack glob missing?)"
 
-# ── T4: ./setup -y (no stack) fails loud — must not hang on interactive read ─────
+# ── T4: ./setup -y (no stack, no stack signal) → stack `generic`, never a hang on a read ─────
+# P2 G1 (operator log entry 26 point 2): `{}` carries no stack signal, so the install takes the
+# stack-free part as stack `generic`. --dry-run: the real run adds user-scope MCP servers (05-mcp).
+# The old form asserted a non-zero exit and passed on `timeout 5` killing the install (rc 124).
 _exit_nostack=0
-_out_nostack=$( cd "$TMP" && timeout 5 bash "$SETUP" -y 2>&1 ) || _exit_nostack=$?
-[ "$_exit_nostack" -ne 0 ] \
-  && ok "./setup -y (no stack): exits non-zero (no silent hang)" \
-  || bad "./setup -y (no stack): did not exit non-zero (may have hung)"
-grep -qiE 'stack|ts-server|react-next' <<<"$_out_nostack" \
-  && ok "./setup -y (no stack): error message mentions stack choices" \
-  || bad "./setup -y (no stack): error missing stack guidance"
+_out_nostack=$( cd "$TMP" && timeout 60 bash "$SETUP" -y --dry-run 2>&1 ) || _exit_nostack=$?
+[ "$_exit_nostack" -eq 0 ] \
+  && ok "./setup -y --dry-run (no stack): exits 0 (no hang, no exit on an unknown stack)" \
+  || bad "./setup -y --dry-run (no stack): exit $_exit_nostack (timeout = 124)"
+grep -q 'stack: generic' <<<"$_out_nostack" \
+  && ok "./setup -y --dry-run (no stack): says it installs stack generic" \
+  || bad "./setup -y --dry-run (no stack): output does not name stack generic"
 
-# ── T5: install.sh --full (no stack) fails loud ──────────────────────────────────
+# ── T5: install.sh --full (no stack, no stack signal) → stack `generic`; a wrong NAME fails loud ─
 _exit_ins=0
-_out_ins=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" --full 2>&1 ) || _exit_ins=$?
-[ "$_exit_ins" -ne 0 ] \
-  && ok "install.sh --full (no stack): exits non-zero" \
-  || bad "install.sh --full (no stack): did not exit non-zero"
-grep -qiE 'stack|ts-server|react-next' <<<"$_out_ins" \
-  && ok "install.sh --full (no stack): error message mentions stack" \
-  || bad "install.sh --full (no stack): error missing stack guidance"
+_out_ins=$( cd "$TMP" && timeout 60 bash "$INSTALL_SH" --full --dry-run 2>&1 ) || _exit_ins=$?
+[ "$_exit_ins" -eq 0 ] \
+  && ok "install.sh --full --dry-run (no stack): exits 0" \
+  || bad "install.sh --full --dry-run (no stack): exit $_exit_ins (timeout = 124)"
+grep -q 'stack: generic' <<<"$_out_ins" \
+  && ok "install.sh --full --dry-run (no stack): says it installed stack generic" \
+  || bad "install.sh --full --dry-run (no stack): output does not name stack generic"
+_exit_bad=0
+_out_bad=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" not-a-stack --full 2>&1 ) || _exit_bad=$?
+[ "$_exit_bad" -ne 0 ] && grep -q 'Unknown stack: not-a-stack' <<<"$_out_bad" \
+  && ok "install.sh not-a-stack: exits non-zero and names the stack choices" \
+  || bad "install.sh not-a-stack: exit $_exit_bad, output: ${_out_bad:0:200}"
 
 # ── T6: no self/consumer branch in setup or install.sh (S4 acceptance criterion) ─
 ! grep -qE 'SELF_INSTALL|consumer.branch|personal.branch' "$SETUP" "$INSTALL_SH" \
