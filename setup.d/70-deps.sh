@@ -57,14 +57,14 @@ deps_drop_declared() {
   [ -n "$declared" ] || return 0
   for s in ${DEVDEPS[@]+"${DEVDEPS[@]}"}; do
     n="$(deps_spec_name "$s")"
-    v="$(printf '%s\n' "$declared" | awk -F'\t' -v n="$n" '$1 == n { print $2; exit }')"
+    v="$(awk -F'\t' -v n="$n" '$1 == n { print $2; exit }' <<<"$declared")"
     if [ -n "$v" ]; then echo "  ✓ kept your $n $v (already in package.json; getff does not change it)"; else kept+=("$s"); fi
   done
   DEVDEPS=( ${kept[@]+"${kept[@]}"} )
   kept=()
   for s in ${RUNTIME_DEPS[@]+"${RUNTIME_DEPS[@]}"}; do
     n="$(deps_spec_name "$s")"
-    v="$(printf '%s\n' "$declared" | awk -F'\t' -v n="$n" '$1 == n { print $2; exit }')"
+    v="$(awk -F'\t' -v n="$n" '$1 == n { print $2; exit }' <<<"$declared")"
     if [ -n "$v" ]; then echo "  ✓ kept your $n $v (already in package.json; getff does not change it)"; else kept+=("$s"); fi
   done
   RUNTIME_DEPS=( ${kept[@]+"${kept[@]}"} )

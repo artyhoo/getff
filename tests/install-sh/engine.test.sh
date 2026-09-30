@@ -210,7 +210,7 @@ rm -rf "$_eb"
 
 # (c) an interactive «N» → a NOT-wired line «declined by the person»
 out=$(_sum7 companion_step sometool "false" "echo SHOULD_NOT_RUN" cli interactive <<<"n")
-awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'sometool — not installed: declined by the person' \
+grep -q 'sometool — not installed: declined by the person' <<<"$(awk '/NOT wired/{on=1; next} on' <<<"$out")" \
   && ok "step 7 (c): an interactive «N» is a NOT-wired line" || bad "step 7 (c): no NOT-wired line: $(tr '\n' '|' <<<"$out")"
 grep -qx SHOULD_NOT_RUN <<<"$out" && bad "step 7 (c): a declined install ran" || ok "step 7 (c): a declined install does not run"
 
@@ -266,7 +266,7 @@ grep -qxF '| ast-grep-cli | cli | 0.44.1 | 2026-09-30 | ast-grep --version |' "$
 # F6: a plugin installed but disabled is not «present»: a NOT-wired line, never re-enabled by getff
 _ag='[{"id":"ast-grep@ast-grep-marketplace","version":"1.0.0","enabled":false}]'
 out=$(STUB_PLUGINS_JSON="$_ag" _s7 _sum7 companion_step ast-grep "true" "claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user" cc-plugin yes)
-awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'ast-grep — installed but disabled in Claude Code' \
+grep -q 'ast-grep — installed but disabled in Claude Code' <<<"$(awk '/NOT wired/{on=1; next} on' <<<"$out")" \
   && ok "F6: a disabled plugin is a NOT-wired line" || bad "F6: no NOT-wired line for the disabled plugin: $(tr '\n' '|' <<<"$out")"
 grep -q 'already present' <<<"$out" && bad "F6: a disabled plugin is reported «already present»" || ok "F6: a disabled plugin is not reported «already present»"
 out=$(STUB_PLUGINS_JSON="${_ag/false/true}" _s7 _sum7 companion_step ast-grep "true" "claude plugin install ast-grep@ast-grep-marketplace --scope user" cc-plugin yes)

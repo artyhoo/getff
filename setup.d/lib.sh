@@ -3727,13 +3727,15 @@ record_project_checks() {
 # run-armed.sh runs a command its record does not list, so a check a newer getff (or another writer,
 # such as the rule generator) brings must be listed before a hook runs it.
 record_add_unlisted() {
-  local file="$1" why="$2" c add="" tmp
+  local file="$1" why="$2" c add="" tmp listed
   local b='<!-- aif:project-checks:begin -->' e='<!-- aif:project-checks:end -->'
   shift 2
   grep -qxF "$b" "$file" 2>/dev/null || return 1
+  # The listed commands, read once; a here-string, not a pipe, into grep -q (pipefail: an early
+  # exit can SIGPIPE the producer and read a listed command as missing).
+  listed=$(awk -v b="$b" -v e="$e" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$file" | sed -n 's/^- //p' | sed 's/ # .*$//')
   for c in "$@"; do
-    awk -v b="$b" -v e="$e" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$file" | sed -n 's/^- //p' \
-      | sed 's/ # .*$//' | grep -qxF -- "$c" || add="$add- $c # $why"$'\n'
+    grep -qxF -- "$c" <<<"$listed" || add="$add- $c # $why"$'\n'
   done
   [ -n "$add" ] || return 0
   tmp=$(mktemp) || return 1
