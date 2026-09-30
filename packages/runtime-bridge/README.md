@@ -256,7 +256,7 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
 | `--body-file <path>` | File whose contents become the PR body.                                                           |
 | `--no-auto-merge`    | Do not arm GitHub native auto-merge.                                                              |
 | `--container <name>` | aif container holding the task's checkout (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
-| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel`). |
+| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel` — refused when that checkout is not of the repository `harvest.ts` lives in). |
 
 Exit codes: `0` = branch pushed + PR opened; `1` = guard failed / push or PR error (the operator runs
 the printed fallback commands).
