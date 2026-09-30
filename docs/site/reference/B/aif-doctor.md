@@ -6,6 +6,7 @@ generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/aif-doctor/SKILL.md
   - .claude/skills/aif-doctor/helpers/heal.sh
+  - .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
   - .claude/skills/dispatcher/SKILL.md
   - scripts/render-reference.mjs
   - install.sh
@@ -15,8 +16,7 @@ sources:
   - docs/site/reference/B.md
   - docs/site/terms.md
 executed:
-  - { example: list-skill-in-repo, stack: repo, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28, this range adds the check-zcode-mirror refresh pair at line 1114 of the cited install.sh, far below the line 17 this page names, and touches no other cited source, so every number this page cites still holds; clears at the next gold refresh of this page
+  - { example: list-skill-in-repo, stack: repo, date: 2026-09-30, result: listed }
 ---
 
 # aif-doctor skill
@@ -65,7 +65,7 @@ Inside, the skill works in four moves. The last move comes in two kinds:
 | Move | What happens | Needs your "go" |
 |---|---|---|
 | Look | read-only probes: the runtime's health address, its task list, `docker ps`, the error lines of the agent's container log | no |
-| Name | match what it saw against a catalogue of nine failures the authors observed live | no |
+| Name | match what it saw against a catalogue of ten failures the authors observed live | no |
 | Propose | print the one matching fix, the evidence, and how to reverse it | no |
 | Change | small reversible fixes, such as a git setting or a retry, are applied and logged | no |
 | Change | anything that deletes a task record or restarts a container | yes |
@@ -96,6 +96,9 @@ refresh-aif-base.sh
 
 The two helpers bring a stale copy of your repository inside the runtime's container up
 to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
+`refresh-aif-base.sh` runs git inside the container as the user who owns that copy. Git
+run as the container's default user, root, leaves files the runtime's tasks cannot
+write, and the next task then fails before it starts.
 
 What the skill does not do: it does not run tasks, plan work, or repair your network. It
 only names a network block. It is a runbook from the maintainers' own setup. It
@@ -115,10 +118,13 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
 - The probes are lines 51 to 59, with the address on line 55 and the container filter
   on line 57. The watchdog note is line 61. The four moves are lines 69 to 72. Line 69
   adds the read of the log's error lines, and line 70 holds the "do not guess" rule.
-- The catalogue is sections 3.1 to 3.9, from line 82. Section 3.9, the spent
-  provider quota, starts on line 241. The log-window check is the
+- The catalogue is sections 3.1 to 3.10, from line 82. Section 3.9, the spent
+  provider quota, starts on line 241. Section 3.10, the copy owned by root, starts on
+  line 265. The log-window check is the
   section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
-  The two kinds of change start on lines 271 and 290. The network limit is line 318.
+  The two kinds of change start on lines 279 and 298. The network limit is line 326.
+- `.claude/skills/aif-doctor/helpers/refresh-aif-base.sh` reads the owner of the copy on
+  line 94 and runs every git command as that user on line 100.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
   line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
   exists only in the framework repository.
