@@ -477,6 +477,12 @@ function realDeps(
   args: ResolvedArgs,
   task: AifTaskFull,
 ): { deps: HarvestDeps; checkout: () => string } {
+  // The host clone, resolved BEFORE harvestTask runs any dep: a foreign cwd is refused here,
+  // ahead of the container commit, not inside pushBranch after it (cold review 2026-09-30).
+  // gh runs in it too — `gh pr create` infers the repository from its cwd, so an operator who
+  // passed --host-repo from a foreign cwd would otherwise push to one repo and open the PR in
+  // another.
+  const hostRepo = resolveHostRepo(args.hostRepo, process.cwd(), fileURLToPath(import.meta.url));
   let resolved: WorkDirResolution | null = null;
   const dir = (branch: string): string => {
     resolved ??= resolveTaskWorkDir(container, args, task, branch);
@@ -522,7 +528,6 @@ function realDeps(
       // github.com:443 (network block, not auth) and no pre-push toolchain, so that channel
       // fails AND would bypass `.husky/pre-push`. Full rationale in the module docstring.
       const workDir = dir(branch);
-      const hostRepo = resolveHostRepo(args.hostRepo, process.cwd(), fileURLToPath(import.meta.url));
       // The tip we intend to land, read from the container BEFORE any transport — the
       // identity check below proves the host received exactly this commit.
       const containerSha = dockerGit(container, workDir, ['rev-parse', branch]);
@@ -601,7 +606,7 @@ function realDeps(
       const out = execFileSync(
         'gh',
         ['pr', 'create', '--base', base, '--head', branch, '--title', title, '--body', body],
-        { encoding: 'utf8' },
+        { encoding: 'utf8', cwd: hostRepo },
       );
       // `gh pr create` prints the PR URL on the last non-empty line.
       const url = out.trim().split('\n').filter(Boolean).pop() ?? '';
@@ -609,7 +614,7 @@ function realDeps(
       return url;
     },
     enableAutoMerge: async (prUrl) => {
-      execFileSync('gh', ['pr', 'merge', prUrl, '--auto', '--squash'], { stdio: 'pipe' });
+      execFileSync('gh', ['pr', 'merge', prUrl, '--auto', '--squash'], { stdio: 'pipe', cwd: hostRepo });
     },
     changedFilesVsBase: async (branch, base) => {
       // What the task actually touched, in BOTH states aif can leave the worktree in:

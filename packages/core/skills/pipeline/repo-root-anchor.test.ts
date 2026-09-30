@@ -21,7 +21,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { spawnSync, execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,6 +110,39 @@ describe('/pipeline helpers — REPO_ROOT anchored to the skill checkout', () =>
     const helpers = installHelpers(loose);
     const r = run(resolve(helpers, 'print-orch-home.sh'), [], foreign);
     expect(r.stdout.trim()).toBe(resolve(foreign, '.ai-factory/orchestrator-prompts'));
+  });
+
+  it('(r6) OWN LINKED WORKTREE as cwd: that worktree wins over the skill checkout', () => {
+    const helpers = installHelpers(own);
+    const wt = resolve(own, 'wt-own');
+    execSync(`git worktree add -q "${wt}" HEAD`, { cwd: own });
+    const r = run(resolve(helpers, 'print-orch-home.sh'), [], wt);
+    expect(r.stdout.trim()).toBe(resolve(wt, '.ai-factory/orchestrator-prompts'));
+  });
+
+  it('(r7) FOREIGN CWD: gh runs in the skill checkout too, so PR signals match the kickoffs', () => {
+    // gh infers its repository from the cwd's remote; the helpers never pass -R. A REPO_ROOT
+    // redirected without the cwd would mix this repo's kickoffs with the foreign repo's PRs.
+    const helpers = installHelpers(own);
+    const record = resolve(own, 'gh-cwd.txt');
+    const stub = resolve(own, 'gh-stub.sh');
+    writeFileSync(stub, `#!/usr/bin/env bash\npwd -P > "${record}"\necho '[]'\n`, { mode: 0o755 });
+    run(resolve(helpers, 'dup-detect.sh'), ['u1'], foreign, { MO_GH_BIN: stub });
+    expect(readFileSync(record, 'utf8').trim()).toBe(own);
+  });
+
+  it('(r8) skill under $HOME/.claude/skills: $HOME is never taken for the project', () => {
+    const helpers = installHelpers(own);
+    const r = run(resolve(helpers, 'print-orch-home.sh'), [], foreign, { HOME: own });
+    expect(r.stdout.trim()).toBe(resolve(foreign, '.ai-factory/orchestrator-prompts'));
+  });
+
+  it('(r9) skill reached through the .zcode/skills symlink: still anchored', () => {
+    installHelpers(own);
+    mkdirSync(resolve(own, '.zcode'), { recursive: true });
+    symlinkSync('../.claude/skills', resolve(own, '.zcode/skills'));
+    const r = run(resolve(own, '.zcode/skills/pipeline/helpers/print-orch-home.sh'), [], foreign);
+    expect(r.stdout.trim()).toBe(resolve(own, '.ai-factory/orchestrator-prompts'));
   });
 
   it('(r-neg) PAIRED-NEGATIVE: with the anchor stripped, the foreign repo IS written', () => {

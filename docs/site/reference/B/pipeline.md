@@ -108,7 +108,7 @@ ignore the data it is shown and go on.
   an agent can ignore injected data.
 - `.claude/skills/pipeline/helpers/list-presets.sh` only reads the preset files. Lines
   25 to 28 show it needs `jq`.
-- The folder for briefs is resolved on lines 75 to 82 of
+- The folder for briefs is resolved on lines 98 to 105 of
   `.claude/skills/pipeline/helpers/lib/common.sh`, and created by line 17 of
   `setup.d/30-templates.sh`.
 - The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. Lines 92 to 95 of

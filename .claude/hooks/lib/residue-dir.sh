@@ -30,10 +30,10 @@
 # ── Residue directory — ONE resolution, shared with the readers ───────────────
 # AIF_RESIDUE_DIR is the test seam + operator escape hatch (precedent: MO_ORCH_HOME).
 # Otherwise call the /pipeline helper that §1's injection fence already calls, with
-# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:28-42) so the helper
+# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:36-65) so the helper
 # resolves THIS repo rather than whatever git toplevel the hook's cwd happens to be in.
 # The inline branch at the end is the no-helper fallback (a consumer install without the
-# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:75-82).
+# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:98-105).
 # The repo root is `$root` when the caller set it (the PreCompact writer derives it from
 # CLAUDE_PROJECT_DIR → payload cwd → pwd), else CLAUDE_PROJECT_DIR → pwd — so a caller
 # that never resolves a root itself still lands in THIS project, not in the cwd a
