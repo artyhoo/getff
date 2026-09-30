@@ -117,6 +117,8 @@ if [[ -n "$CLAUDE_CODE_HOOKS_ENABLED" ]] || \
 
 Brand-name detection fails on: (a) CC renames an identifier; (b) a compatible harness uses a different self-identifier; (c) silent migration to a new env convention.
 
+**Required step — an unpublished stdin field is probed, not guessed.** Before a hook relies on a stdin field whose event schema the Claude Code hooks reference does not publish, capture the real payload with [`scripts/probe-hook-stdin.sh`](../../scripts/probe-hook-stdin.sh) `<EventName> [matcher]` and read the field out of the capture. The script runs one headless `claude -p` with an inline `--settings` capture hook, so `.claude/settings.json` is never edited (agent-deny-listed, [CLAUDE.md](../../CLAUDE.md)). It is a model call on the operator's subscription: session-run only, and it refuses on CI ([no-paid-llm-in-ci.md](no-paid-llm-in-ci.md)). Then read the captured field directly and fail loud when it is missing. A fallback chain of guessed names (`.name // .worktreeName // .worktree_name`) is not acceptable, because it keeps working while the contract drifts underneath it. The same holds when the published schema and the runtime disagree: `anthropics/claude-code` issue #65646 records the `WorktreeCreate` docs naming `worktree_name` while the runtime sends `name`. Precedent: PR #279 (`WorktreeCreate` schema unpublished; the capture showed `.name` is the one canonical field). Prior art: [SSOT #299](../../docs/meta-factory/prior-art-evaluations.md).
+
 ---
 
 ## §5 — Drift check between channels (deterministic, no LLM)
