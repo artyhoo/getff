@@ -50,6 +50,14 @@ the landing (the landing ports P2/P5 edits into the refreshed `do_refresh` funct
    and so do the ESLint config writers (`setup.d/99-finalize.sh:423-431`). The `--refresh` arm reaches this
    writer (`install.sh:1144` `bridge_register_dispatch_hook`), so an automatic refresh multiplies an
    unsnapshotted write into a file the person owns.
+3. **A plain re-run keeps old framework scripts, so fixes reach an installed project only through
+   `--refresh`.** P6 re-check R5.2 (coordination store `_p6-cold-run-report-2026-09-30.md` §R5.2, join
+   head `7a0b9634ef1`): a `setup -y` re-run on the run-4 project printed «…/scripts/run-generated-rule-mutation.sh
+   (exists — skipping)» (`setup-y.log:119`), the project copy stayed byte-identical to run 4's, and the
+   push path still printed the old count. The skip is `copy_safe` (`setup.d/lib.sh:907-912` at
+   `7a0b9634ef1`: an existing file is skipped unless `--force`); the file is delivered at
+   `setup.d/40-configs.sh:90`. So N10's fix (unevaluable mutants) reaches existing projects only when the
+   road runs `--refresh` — the refresh this stage automates.
 
 ## §2 Decisions this stage respects
 
