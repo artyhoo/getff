@@ -250,6 +250,14 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
     of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
     otherwise).
 
+Then re-probe LATE — the §2.0 reading is hours old by now, and a parallel session can have merged
+the same stage under another branch name (PR 1354, an empty-diff twin of 1353; CLAUDE.md
+«Pre-dispatch in-flight probe» (f)). `LATE-COLLISION` = STOP and compare before pushing:
+
+```bash
+SLUG="<stage-slug>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh --late
+```
+
 Then push:
 
 ```bash
