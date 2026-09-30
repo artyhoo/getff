@@ -49,6 +49,7 @@ import {
   runPriorArtCheck,
   loadSsotIds,
   loadSsotRowTitles,
+  loadSsotRowMoves,
 } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
 import { runDocsCardCheck } from './checks/docs-card.ts';
@@ -390,11 +391,11 @@ function ssotTitlesAt(sha: string): ReadonlyMap<number, string> | undefined {
  * tree rather than a commit: the push is about to publish this content, and a
  * renumber staged-but-not-yet-committed is the same defect one commit earlier.
  */
-function ssotTitlesAtTip(): ReadonlyMap<number, string> | undefined {
+function ssotContentAtTip(): string | undefined {
   const abs = resolve(REPO_ROOT, SSOT_REL);
   if (!existsSync(abs)) return undefined;
   try {
-    return loadSsotRowTitles(readFileSync(abs, 'utf8'));
+    return readFileSync(abs, 'utf8');
   } catch {
     return undefined;
   }
@@ -411,9 +412,11 @@ function priorArtSection(rb: ResolvedBase): void {
   // earliest-reachable-channel invariant. PA_SUBSTANCE_WARN_ONLY=true is the
   // explicit local opt-in downgrade, mirroring S17_SUBSTANCE_WARN_ONLY.
   const substanceWarnOnly = envWarnOnly('PA_SUBSTANCE_WARN_ONLY');
+  const tip = ssotContentAtTip();
   const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt, {
     atCommit: ssotTitlesAt,
-    atTip: ssotTitlesAtTip(),
+    atTip: tip === undefined ? undefined : loadSsotRowTitles(tip),
+    tipMoves: tip === undefined ? undefined : loadSsotRowMoves(tip),
   });
 
   if (report.failures.length > 0) {
@@ -469,6 +472,9 @@ function priorArtSection(rb: ResolvedBase): void {
         '     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n' +
         '  3. if the row title was reworded deliberately and nothing moved, mark the\n' +
         '     row: <!-- prior-art:renamed <why, >= 20 chars> -->\n' +
+        '  4. if the commit cannot be amended and the prior art only moved to a new id\n' +
+        '     (a join of lanes), mark its new row: <!-- prior-art:was <old id> in <sha> -->\n' +
+        '     — accepted only for that commit, and only when the titles still match.\n' +
         'Verify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n',
     );
     process.exit(1);

@@ -147,8 +147,9 @@ function loadSsotIds(ssotContent) {
 }
 var ROW_RENAMED_RE = /<!--\s*prior-art:renamed\s+([^>]*?)\s*-->/;
 var ROW_RENAMED_RATIONALE_MIN = 20;
+var ROW_MOVED_RE = /<!--\s*prior-art:was\s+(\d+)\s+in\s+([0-9a-f]{7,40})\s*-->/g;
 function normaliseRowTitle(cell) {
-  return cell.replace(ROW_RENAMED_RE, "").replace(/[*`_]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  return cell.replace(ROW_RENAMED_RE, "").replace(ROW_MOVED_RE, "").replace(/[*`_]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 function loadSsotRowTitles(ssotContent) {
   const titles = /* @__PURE__ */ new Map();
@@ -162,6 +163,29 @@ function loadSsotRowTitles(ssotContent) {
   }
   return titles;
 }
+function loadSsotRowMoves(ssotContent) {
+  const moves = /* @__PURE__ */ new Map();
+  for (const line of ssotContent.split("\n")) {
+    const m = /^\|\s*(\d+)\s*\|/.exec(line);
+    if (m === null) continue;
+    const found = [...line.matchAll(ROW_MOVED_RE)].map((x) => ({
+      oldId: Number(x[1]),
+      sha: x[2]
+    }));
+    if (found.length > 0) moves.set(Number(m[1]), found);
+  }
+  return moves;
+}
+function movedRowVerifies(id, then, views) {
+  const { atTip, tipMoves, sha } = views;
+  if (atTip === void 0 || tipMoves === void 0 || sha === void 0)
+    return false;
+  for (const [row, moves] of tipMoves) {
+    const claims = moves.some((mv) => mv.oldId === id && sha.startsWith(mv.sha));
+    if (claims && atTip.get(row) === then) return true;
+  }
+  return false;
+}
 function renumberedCitedIds(citedIds, views) {
   const { atCommit, atTip } = views;
   if (atCommit === void 0 || atTip === void 0) return [];
@@ -169,7 +193,7 @@ function renumberedCitedIds(citedIds, views) {
     const then = atCommit.get(id);
     const now = atTip.get(id);
     if (then === void 0 || now === void 0) return false;
-    return then !== now;
+    return then !== now && !movedRowVerifies(id, then, views);
   });
 }
 var REFERENT_RE = /prior-art-evaluations\.md#\d+|[\w.-]+(?:\/[\w.-]+)*\.(?:tsx?|[cm]?js|sh|md|markdown|json|ya?ml|py|rs|toml)\b|#\d{2,}/;
@@ -342,7 +366,12 @@ function runPriorArtCheck(commits, g, cutoff = PA_HISTORICAL_CUTOFF, ssotIds, ss
     const reason = detectCapabilityReason(sha, g);
     if (reason === null) continue;
     const ids = typeof ssotIds === "function" ? ssotIds(sha) : ssotIds;
-    const views = ssotTitles === void 0 ? void 0 : { atCommit: ssotTitles.atCommit(sha), atTip: ssotTitles.atTip };
+    const views = ssotTitles === void 0 ? void 0 : {
+      atCommit: ssotTitles.atCommit(sha),
+      atTip: ssotTitles.atTip,
+      tipMoves: ssotTitles.tipMoves,
+      sha
+    };
     const { code, message } = checkTrailerBody(
       g.commitBody(sha),
       g.authorDate(sha),
@@ -855,11 +884,11 @@ function ssotTitlesAt(sha) {
   const content = realGit.fileContent(sha, SSOT_REL);
   return content === null ? void 0 : loadSsotRowTitles(content);
 }
-function ssotTitlesAtTip() {
+function ssotContentAtTip() {
   const abs = resolve(REPO_ROOT, SSOT_REL);
   if (!existsSync2(abs)) return void 0;
   try {
-    return loadSsotRowTitles(readFileSync(abs, "utf8"));
+    return readFileSync(abs, "utf8");
   } catch {
     return void 0;
   }
@@ -868,9 +897,11 @@ function priorArtSection(rb) {
   const commits = commitsToCheck(rb, "\xA77");
   if (commits === null) return;
   const substanceWarnOnly = envWarnOnly("PA_SUBSTANCE_WARN_ONLY");
+  const tip = ssotContentAtTip();
   const report = runPriorArtCheck(commits, realGit, void 0, ssotIdsAt, {
     atCommit: ssotTitlesAt,
-    atTip: ssotTitlesAtTip()
+    atTip: tip === void 0 ? void 0 : loadSsotRowTitles(tip),
+    tipMoves: tip === void 0 ? void 0 : loadSsotRowMoves(tip)
   });
   if (report.failures.length > 0) {
     process.stdout.write(
@@ -907,7 +938,7 @@ function priorArtSection(rb) {
 `);
     }
     process.stdout.write(
-      '\nThis is the concurrent-lane collision: two branches appended a row with the\nsame id, the one that landed on the base kept the number, and yours was\nrenumbered \u2014 leaving an already-pushed trailer pointing at someone else\u2019s row.\nFix, in order of preference:\n  1. amend the commit body to cite the new id (only while unpushed);\n  2. if history is already published, carry the correction in the SQUASH\n     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n  3. if the row title was reworded deliberately and nothing moved, mark the\n     row: <!-- prior-art:renamed <why, >= 20 chars> -->\nVerify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n'
+      '\nThis is the concurrent-lane collision: two branches appended a row with the\nsame id, the one that landed on the base kept the number, and yours was\nrenumbered \u2014 leaving an already-pushed trailer pointing at someone else\u2019s row.\nFix, in order of preference:\n  1. amend the commit body to cite the new id (only while unpushed);\n  2. if history is already published, carry the correction in the SQUASH\n     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n  3. if the row title was reworded deliberately and nothing moved, mark the\n     row: <!-- prior-art:renamed <why, >= 20 chars> -->\n  4. if the commit cannot be amended and the prior art only moved to a new id\n     (a join of lanes), mark its new row: <!-- prior-art:was <old id> in <sha> -->\n     \u2014 accepted only for that commit, and only when the titles still match.\nVerify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n'
     );
     process.exit(1);
   }
