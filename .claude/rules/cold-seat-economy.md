@@ -10,7 +10,7 @@
 > Delivery = skill-embed at the two choreography owners (markers above); this file is the SSOT
 > read on demand. Promotion criterion in §5. **§7 is the exception with a gate:** its
 > mechanizable half — every cold-seat dispatch template carries a required `Inputs-ref:` field —
-> is checked by [principle 49](../../packages/core/principles/49-cold-seat-inputs-ref.test.ts)
+> is checked by [principle 50](../../packages/core/principles/50-cold-seat-inputs-ref.test.ts)
 > and filled from [`scripts/snapshot-for-seat.sh`](../../scripts/snapshot-for-seat.sh); whether a
 > given artifact can move under the seat stays judgment at dispatch time.
 > **Fires:** re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA.
@@ -177,7 +177,7 @@ corruption is silent: the report reads normally, only its line numbers disagree.
   artifact no session but yours writes. Asking a sibling to hold its worktrees still narrows the
   window; it is not a mechanism.
 - **Every dispatch template carries `Inputs-ref: <sha>`** as a required field, so the ref is
-  filled, not remembered (principle 49; population = `.claude/skills/**` files carrying the
+  filled, not remembered (principle 50; population = `.claude/skills/**` files carrying the
   cold-seat marker + declared contracts — orchestrator reviewer/Phase -1 templates, arch §2,
   dispatcher §2.4 and harvest §4; the field must sit in the fenced prompt, not in prose).
 - **Every `path:NN` in one answer is pinned to one named ref** — seat verdicts, ask answers,

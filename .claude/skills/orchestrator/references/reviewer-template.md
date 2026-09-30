@@ -136,7 +136,7 @@ Return: the verdict file path, verdict, count of HARD-FIX items, count of SOFT i
 | `<STATE-MD-PATH>`         | Absolute path to this session's state.md                                                    |
 | `<queue-dir>`             | Gitignored orchestrator-prompts subdirectory name                                           |
 
-`<INPUTS-SHA>` is required by [cold-seat-economy.md §7](../../../rules/cold-seat-economy.md) and gated by principle 49: a seat reads snapshots, never live worktree paths.
+`<INPUTS-SHA>` is required by [cold-seat-economy.md §7](../../../rules/cold-seat-economy.md) and gated by principle 50: a seat reads snapshots, never live worktree paths.
 
 ## See also
 

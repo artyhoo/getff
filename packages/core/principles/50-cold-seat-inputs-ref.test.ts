@@ -92,7 +92,7 @@ function carriesInputsRef(text: string): boolean {
   return fencedBodies(text).some((b) => FIELD.test(b));
 }
 
-describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () => {
+describe('principle 50 — cold-seat dispatch templates carry Inputs-ref', () => {
   it('the population is non-vacuous: the two orchestrator templates are discovered by predicate', () => {
     const pop = coldSeatTemplates();
     expect(pop).toContain('.claude/skills/orchestrator/references/reviewer-template.md');
