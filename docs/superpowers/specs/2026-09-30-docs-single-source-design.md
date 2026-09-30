@@ -106,19 +106,23 @@ never an argument for keeping it.
 3. No silent change: every revision is visible in the record (the decision-record patch or its
    successor).
 
-## Hand-over requirements (owned by other designs, not designed here)
+## Hand-over requirements (owned by other designs unless marked, not designed here)
 
-- **Trigger-build design** (its draft v2, outside the repo; row D10 answered): the directory and carrier
-  of the shipped rule file (its D7, D9, D16; D10 answered). Known: `.claude/rules/` at a
-  consumer is declared consumer-owned (`setup.d/10-skills.sh:306-307`); `setup.d/lib.sh:90`
-  «NOT shipped to consumers».
-- **Session digest:** the hook prints the PROJECT's goal and invariants from the passport, at a
+- **Trigger-build design:** the directory and carrier of the shipped one-source rule. Answered:
+  it ships as a card-only rule under `.claude/hooks/getff-cards/` (installer) or the plugin's
+  `cards/`; the card loader reads that directory (`.claude/hooks/inject-matching-rule.sh:87`);
+  the installer step that delivers it is that design's slice 4 (no installer delivers the
+  directory yet). Known: `.claude/rules/` at a consumer is declared consumer-owned
+  (`setup.d/10-skills.sh:306-307`); `setup.d/lib.sh:90` «NOT shipped to consumers».
+- **Session digest (kept by this design; rides with the P4 passport region, trigger-build E17):** the hook prints the PROJECT's goal and invariants from the passport, at a
   consumer and in getff. Today the consumer hook reads `.claude/session-bootstrap.md`, whose
   template ships empty (`setup.d/10-skills.sh:380-388`); no hook reads the passport. The
   consumer hook already reads the consumer's own tree (`.claude/hooks/inject-project-digest.sh:8-9`);
-  the plugin no longer ships the framework digest (`8a00bbc2e0b`). Constraint to solve:
-  `render-invariants.mjs:17-18`, the hook must survive a stripped PATH, no awk/sed/node parse on
-  the hot path.
+  the plugin no longer ships the framework digest (`8a00bbc2e0b`). Constraints: change that one
+  hook, no second always-on injector; stay inside the budget `scripts/check-alwayson-budget.sh`
+  checks; the hot path survives a stripped PATH with no awk/sed/node parse
+  (`render-invariants.mjs:17-18`); move the source from `.claude/session-bootstrap.md` to the
+  passport region in one step, so two goal sources never coexist.
 - **Installer parts:**
   - P1 (step list): the generation step is an agent step, on install AND on refresh; engine
     without bindings = PENDING on a channel without an agent (picked up by the next session's
