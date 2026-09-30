@@ -38,7 +38,7 @@
  * an invented one, nor whether a claim really matches the row it cites — that stays the §2 cold
  * seats' job. It fires only where the section exists; that /arch writes the section is prose in
  * the skill. It does not read a register row's Status, so «answered» is the author's word.
- * Build-vs-reuse: prior-art-evaluations.md#299.
+ * Build-vs-reuse: prior-art-evaluations.md#300.
  *
  * Usage:
  *   node scripts/check-arch-retell.mjs [--staged|--resolve]              scan docs/superpowers/specs/*.md

@@ -31,7 +31,7 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CHANGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
 
-if [ -z "$CHANGED" ]; then
+if [ -z "$CHANGED" ] && ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then  # a merge commit may stage nothing new; the unpushed-merge arm at the end still runs
   exit 0
 fi
 
@@ -159,7 +159,7 @@ fi
 #     claim is «wrong at birth, as it stands on disk», not «cannot enter history».
 #   · A rename-ONLY commit never reaches this block at all: `CHANGED` above is built with
 #     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
-#     guard before any section runs. A rename that MOVES a doc can break a relative
+#     guard before any section runs (unless MERGE_HEAD exists). A rename that MOVES a doc can break a relative
 #     citation, so this is real — it is simply not this block's to fix.
 # An array, not a word-split string: a staged path with a space would otherwise reach the
 # checker as two fragments, which --in-corpus drops, and the file would go unchecked.
@@ -408,6 +408,21 @@ if [ -n "$SKILLS_STAGED" ]; then
     echo "❌ generate-plugin-skills.sh failed"
     fail=1
   fi
+fi
+
+
+# ── Unpushed-merge refusal — the CONFLICTED-merge channel ───────────────────
+# spec: scripts/check-merge-pushed.sh header; test: tests/hooks/merge-unpushed-refusal.test.sh.
+# A clean `git merge` is checked by .husky/pre-merge-commit. A conflicted one (or
+# `merge --no-commit`) never runs that hook: its resolution is committed by `git commit`,
+# which lands here with MERGE_HEAD present. The empty-diff early exit at the top of this
+# file lets a merge through to this arm. Placed LAST so no section above shifts: their
+# line numbers are cited from docs and scripts.
+# The script is resolved next to this hook, not under REPO_ROOT, so a worktree on a branch
+# that predates it still gets the check the hook ships with.
+MP_CHECK="$(cd "$(dirname "$0")" && pwd)/../scripts/check-merge-pushed.sh"
+if [ -f "$MP_CHECK" ] && git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+  bash "$MP_CHECK" pre-commit || exit 1
 fi
 
 exit "$fail"
