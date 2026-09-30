@@ -53,7 +53,26 @@ set -uo pipefail            # deliberately NOT -e: a failed heal must warn, neve
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 BRANCH="${1:-staging}"
-C="${AIF_AGENT_CONTAINER:-$(docker ps --filter name=agent --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)}"
+# Which container, on which docker context: the shared resolver (aif-agent-target.sh — the same
+# lookup the dispatcher's in-flight probe uses). Two or more candidates => refuse and skip rather
+# than refresh a guessed clone; a candidate on another docker context is used through DOCKER_CONTEXT.
+C="${AIF_AGENT_CONTAINER:-}"
+if [ -z "$C" ] && [ -f "$(dirname "$0")/aif-agent-target.sh" ]; then
+  # shellcheck disable=SC1091  # sibling helper, resolved at runtime from this script's directory
+  . "$(dirname "$0")/aif-agent-target.sh"
+  aif_agent_resolve
+  case $? in
+    0)
+      C="$AIF_AGENT_NAME"
+      if [ -n "$AIF_AGENT_CONTEXT" ]; then export DOCKER_CONTEXT="$AIF_AGENT_CONTEXT"; fi
+      echo "[refresh-aif-base] agent: $AIF_AGENT_NOTE"
+      ;;
+    1)
+      echo "[refresh-aif-base] $AIF_AGENT_REASON — set AIF_AGENT_CONTAINER (and DOCKER_CONTEXT); skip."
+      exit 0
+      ;;
+  esac
+fi
 
 # Graceful no-op when no aif agent container is running (e.g. a consumer who doesn't run aif).
 if [ -z "$C" ]; then

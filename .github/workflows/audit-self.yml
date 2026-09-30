@@ -708,8 +708,8 @@ jobs:
       # hermetic on a clean runner — verified locally at 9/9 and 5/5.
       - name: Run aif-doctor heal test
         run: bash tests/aif-doctor/heal.test.sh
-      - name: Run aif-doctor refresh-aif-base test
-        run: bash tests/aif-doctor/refresh-aif-base.test.sh
+      - name: Run aif-doctor refresh-aif-base + aif-agent-target tests
+        run: bash tests/aif-doctor/refresh-aif-base.test.sh && bash tests/aif-doctor/aif-agent-target.test.sh # the shared agent-container resolver (hermetic stub docker); same line so no citation shifts
       - name: Run probe-channels self-test
         run: bash scripts/probe-channels.test.sh
 
