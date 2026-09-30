@@ -88,7 +88,7 @@ specificity as the PR description. **Flag ATTN** (advisory, not REVISE) if the t
 substantively thinner than the PR body. The deterministic pre-push hook (`§9 s17_check_trailer()`)
 enforces trailer _presence_ + min length; you check _substance parity_.
 
-### 6. State and absence claims ([.claude/rules/phase-research-coverage.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/phase-research-coverage.md) §1.11 items 6-10)
+### 6. State and absence claims (`.claude/rules/phase-research-coverage.md` §1.11 items 6-10)
 
 Scan the §1.7 Forward-check and Backward-check sections for claims that something is absent,
 gone, never existed, not released, did not run, or stale («no other surface carries X», «the
