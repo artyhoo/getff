@@ -117,7 +117,9 @@ native load too, but not a rule load: it must not enter the rule totals.
 - Run the new test against the UNMODIFIED script first and paste the failing run (no §10, no key
   lines; the session-only corpus exits 3) into the PR body. Then GREEN.
 - Every number the test asserts is derived in the test from the fixture text it wrote (e.g.
-  `printf %s "$text" | wc -m`), not typed by hand.
+  `jq -rn --arg t "$text" '$t | length'`), not typed by hand. Do NOT use `wc -m`: it follows the
+  locale, and under `C`/`POSIX` it counts bytes (measured on the host: 80 for a 70-codepoint pair
+  of loader lines).
 - The host half of the proof is the lead's: it runs the extended script over the real host corpus
   and one fixed replay. Do not claim host numbers.
 
