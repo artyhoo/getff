@@ -20,6 +20,7 @@
 #       recorded; the measured cowsay project pushes green after the install, saying «not armed»
 #       once, with the first finding (own.yml:6) in the reason
 #   (M) --refresh adds those two to a record from an older getff, not-armed, keeping the rest
+#   (O) a check script the refresh's package.json merge adds is recorded not-armed too
 #   (N) the generated-rule mutation check (P5's runner) is recorded from the rule generator's own
 #       verdict: armed only when GEN_MUT_RC=0, never re-run by the arm pass; its CI step reads the record
 set -uo pipefail
@@ -225,6 +226,32 @@ grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run ye
   && grep -qx -- '- npm run lint # not run at install: dependencies are not installed' <<<"$(section "$M" not-armed)" \
   && ok "(M) --refresh adds the three missing checks not-armed and keeps the other lines" \
   || bad "(M) record after --refresh: $(block "$M" | tr '\n' ';')"
+
+# ── (O) a check script --refresh adds to package.json is recorded too ───────────────────────────
+# A project installed by an older getff lacks a check:* script a newer one ships; the refresh's
+# package.json merge adds it, and validate runs it through run-armed.sh, which runs a command its record
+# does not list — so the refresh records it not-armed, like the hook checks in (M).
+O=$(proj "$SPA")
+( cd "$O" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+node -e 'const fs=require("fs"),f=process.argv[1],p=JSON.parse(fs.readFileSync(f,"utf8"));delete p.scripts["check:shields-up"];fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "$O/package.json"
+grep -v 'check-shields-up' "$(REC "$O")" > "$O/.rec" && mv "$O/.rec" "$(REC "$O")"
+( cd "$O" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+[ "$(script_of "$O" check:shields-up)" = "bash scripts/check-shields-up.sh" ] \
+  && ok "(O) --refresh adds the check:shields-up script back" || bad "(O) check:shields-up after --refresh: '$(script_of "$O" check:shields-up)'"
+grep -qx -- '- bash scripts/check-shields-up.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$O" not-armed)" \
+  && grep -qx -- '- npm run lint # not run at install: dependencies are not installed' <<<"$(section "$O" not-armed)" \
+  && ok "(O) --refresh records the check it added not-armed and keeps the other lines" \
+  || bad "(O) record after --refresh: $(block "$O" | grep -c . ) lines, shields-up line: '$(block "$O" | grep shields-up)'"
+# On an oxlint project a gate that reads getff's ESLint config goes in with its «not wired:» reason, as
+# the install's arm pass writes it. Unit arm on the lib.sh seam (LIB overrides it for a red check).
+O2=$(proj '{"name":"o","scripts":{"check:globs":"bash scripts/check-rule-globs.sh","typecheck":"tsc --noEmit"}}')
+mkdir -p "$O2/.ai-factory"
+printf '%s\n' '<!-- aif:project-checks:begin -->' 'stack: react-spa' 'armed:' 'not-armed:' '<!-- aif:project-checks:end -->' > "$(REC "$O2")"
+env -i PATH="$PATH" PROJECT_ROOT="$O2" LINTER_SLOT=oxlint STACK=react-spa bash -c 'source "$1" >/dev/null 2>&1; record_unrun_checks' _ "${LIB:-$REPO_ROOT/setup.d/lib.sh}" >/dev/null 2>&1
+grep -qx -- "- bash scripts/check-rule-globs.sh # not wired: reads getff's ESLint config, and this project lints with oxlint" <<<"$(section "$O2" not-armed)" \
+  && grep -qx -- '- npm run typecheck # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$O2" not-armed)" \
+  && ok "(O) oxlint: the ESLint-config gate gets its «not wired:» reason, typecheck the refresh one" \
+  || bad "(O) oxlint record: $(section "$O2" not-armed | tr '\n' ';')"
 
 # ── (N) the generated-rule mutation check follows the generator's verdict ─────────────────────────
 # P5 (N1, 4ff3c57a475): setup.d/80-rule-bootstrap.sh exports GEN_MUT_RC / GEN_MUT_WHY when it proved

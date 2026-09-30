@@ -1279,8 +1279,8 @@ do_refresh() {
               chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
     esac
   done
-  # P2 C2: the refreshed pre-push hook reads the record through scripts/run-armed.sh (just delivered).
-  record_unrun_checks
+  # P2 C2: the refreshed pre-push hook reads the record through scripts/run-armed.sh (just delivered);
+  # record_unrun_checks writes it after the package.json merge below, which can add a check script.
   # #931: scripts/run-mutation.sh is monorepo-conditional — setup.d/40-configs.sh only copy_safe's
   # it inside the per-workspace (multi-stack) branch, never on the flat/single-stack branch. Guard
   # the refresh with the SAME signal 40-configs.sh uses to decide whether to enter that branch
@@ -1553,7 +1553,9 @@ do_refresh() {
   # Stack «generic» gets none of them at install (setup.d/70-deps.sh returns before the merge), so the
   # refresh adds none either: its `validate` runs scripts/run-armed.sh, which generic never gets. The
   # generic arm of «Scripts» above names this skip as NOT wired.
-  [ "$STACK" = "generic" ] || merge_canonical_scripts refresh
+  # The record follows the merge: a check script it just added must be listed before validate or a
+  # hook runs it (run-armed.sh runs a command its record does not list).
+  [ "$STACK" = "generic" ] || { merge_canonical_scripts refresh; record_unrun_checks; }
 
   # ── CI gates a kept workflow lacks (report only) — refresh sweep G6 ──
   # The install names these (setup.d/60-ci.sh §6c) and wires them only on --wire-ci or a yes at its

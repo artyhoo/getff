@@ -3787,6 +3787,17 @@ project_check_cmd() {
   else echo "npm run $1"; fi
 }
 
+# project_check_structural_why <linter> <name> — the «not wired:» reason of a check that cannot run
+# with this linter, or nothing. P2 G5: these gates read getff's ESLint config, which an oxlint / Biome
+# project does not get; run-armed --probe never re-runs a line with this prefix. 99-finalize's arm pass
+# and --refresh's record (record_unrun_checks) share it.
+project_check_structural_why() {
+  case "$1:$2" in
+    oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
+      echo "not wired: reads getff's ESLint config, and this project lints with $1" ;;
+  esac
+}
+
 # lint_script_pass_unpruned <root> — once the install records existing findings in
 # eslint-suppressions.json, fixing one leaves a suppression that no longer occurs, and a plain
 # `eslint .` exits 2 on it: the armed lint would turn red because old code got better (P2 cold review
@@ -3804,14 +3815,25 @@ lint_script_pass_unpruned() {
 # scripts/run-armed.sh, which the refreshed pre-push hook reads, so it needs a record. Every check is
 # recorded not-armed, not run: the first validate or push probes each one and arms it once it exits 0.
 # A record already there keeps every line (it carries what the project has armed since); a hook check
-# it does not list yet is added not-armed, not run.
+# or a check script it does not list yet — one the refresh's package.json merge just added, say — is
+# added not-armed, not run (a check that cannot run with the project's linter gets its «not wired:»
+# reason). do_refresh calls this after merge_canonical_scripts for that reason.
 record_unrun_checks() {
-  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v c
+  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v c s lin
   local why="recorded by --refresh, not run yet: the first validate or push arms it once it exits 0"
   local hc=()
   [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
   while IFS= read -r c; do [ -n "$c" ] && hc+=("$c"); done <<< "$(project_hook_checks)"
   if grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null; then
+    lin="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
+    while IFS=$'\t' read -r n v; do
+      [ -n "$n" ] || continue
+      c=$(project_check_cmd "$n" "$v"); s=$(project_check_structural_why "$lin" "$n")
+      if [ -n "$s" ]; then
+        record_add_unlisted "$f" "$s" "$c" \
+          || note_not_wired "$c — not added to the project-checks record, so validate runs it whatever it returns"
+      else hc+=("$c"); fi
+    done <<< "$(project_check_scripts)"
     [ "${#hc[@]}" -eq 0 ] || record_add_unlisted "$f" "$why" "${hc[@]}" \
       || note_not_wired "${hc[*]} — not added to the project-checks record, so the pre-push hook runs them whatever they return"
     return 0

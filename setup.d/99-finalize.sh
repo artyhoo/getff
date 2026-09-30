@@ -616,10 +616,8 @@ else
     _pc_c=$(project_check_cmd "$_pc_n" "$_pc_v")
     # P2 G5: these gates read getff's ESLint config, which an oxlint / Biome project does not get. The
     # «not wired:» prefix marks the reason structural: run-armed --probe never re-runs such a line.
-    case "${LINTER_SLOT:-}:$_pc_n" in
-      oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
-        _pc_not+=("$_pc_c # not wired: reads getff's ESLint config, and this project lints with $LINTER_SLOT"); continue ;;
-    esac
+    _pc_why=$(project_check_structural_why "${LINTER_SLOT:-}" "$_pc_n")
+    if [ -n "$_pc_why" ]; then _pc_not+=("$_pc_c # $_pc_why"); continue; fi
     # P5: the placement pass above ran the project's own lint and it exited 0 with getff's rules on.
     if [ "$_pc_n" = lint ] && [ -n "${PLACE_LINT_OK:-}" ]; then
       _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c — it exits 0 with getff's rules switched on"; continue
