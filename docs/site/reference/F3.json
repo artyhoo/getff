@@ -278,7 +278,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2721 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2726 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -709,6 +709,7 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "cited-spec-addenda.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
