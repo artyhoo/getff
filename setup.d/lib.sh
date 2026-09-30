@@ -3657,6 +3657,27 @@ getff_bytes_intact() {
   [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
 }
 
+# getff_dep_names — the bare name of every package getff's own install may add to package.json,
+# whatever the stack: one per line, sorted, unique. A check that reads the project's dependencies
+# skips these (the vendor-MCP lookup): getff's own tools are a fixed set, so their MCP servers are
+# decided once in getff, not looked up per project (P6 run 3, N7; operator decision 2026-09-30).
+# The set's one home stays the five arrays of setup.d/70-deps.sh, which tests read by that path;
+# bash itself evaluates their definitions here, so a line break or a pin inside an array is read
+# exactly as the install reads it.
+getff_dep_names() {
+  local f; f="$(dirname "${BASH_SOURCE[0]}")/70-deps.sh"
+  (
+    eval "$(awk '/^(CORE_DEVDEPS|REACT_DEVDEPS|REACT_SPA_DEVDEPS|REACT_NATIVE_DEVDEPS|CORE_RUNTIME_DEPS)=\(/{f=1}
+      f{print} f && /\)[[:space:]]*$/{f=0}' "$f" 2>/dev/null)" 2>/dev/null
+    for s in ${CORE_DEVDEPS[@]+"${CORE_DEVDEPS[@]}"} ${REACT_DEVDEPS[@]+"${REACT_DEVDEPS[@]}"} \
+      ${REACT_SPA_DEVDEPS[@]+"${REACT_SPA_DEVDEPS[@]}"} ${REACT_NATIVE_DEVDEPS[@]+"${REACT_NATIVE_DEVDEPS[@]}"} \
+      ${CORE_RUNTIME_DEPS[@]+"${CORE_RUNTIME_DEPS[@]}"}; do
+      printf '%s\n' "$s"
+    done | sed -e '/^@/s/^\(@[^@]*\)@.*/\1/' -e '/^[^@]/s/@.*//' | sort -u
+  )
+  return 0
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`

@@ -852,6 +852,8 @@ jobs:
         run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
         run: bash tests/install-sh/workspace-stack-detect.test.sh
+      - name: "install-sh — getff_dep_names lists getff's own dependencies, bare and sorted, for the vendor-MCP lookup to skip (P2 N7)"
+        run: bash tests/install-sh/getff-dep-names.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
