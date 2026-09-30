@@ -523,6 +523,35 @@ describe('The road ↔ install prompt parity', () => {
     expect(prompt).not.toMatch(/else unknown/);
   });
 
+  it('no road step outside the one question asks the person anything', () => {
+    // The road promises «ask me nothing after the one question of step 3». A step that carries a
+    // yes/no of its own breaks that promise from inside the list.
+    const asks = /\?|yes[- ]or[- ]no|yes\/no/i;
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const asking = steps
+      .filter((s) => s.id !== 'ask-once' && asks.test(`${s.action} ${s.doneTest}`))
+      .map((s) => s.id);
+    expect(asking, 'road rows that ask the person outside `ask-once`').toEqual([]);
+
+    const bodies = prompt.split(/^(?=\d+\.\s+\[[a-z0-9-]+\])/m);
+    const askingInPrompt = bodies
+      .filter((b) => !/^\d+\.\s+\[ask-once\]/.test(b) && asks.test(b))
+      .map((b) => /^\d+\.\s+\[([a-z0-9-]+)\]/.exec(b)?.[1] ?? '(text around the steps)');
+    expect(askingInPrompt, 'prompt steps that ask the person outside step 3').toEqual([]);
+    // Not vacuous: the one question itself is seen by the same pattern.
+    expect(bodies.filter((b) => asks.test(b))).toHaveLength(1);
+  });
+
+  it('an absent base-core list ends in a command the person may run, which the road never runs', () => {
+    // `setup` does not know `--refresh` (its flag loop drops it); the installer itself does.
+    const step = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'base-core-status');
+    expect(step?.action).toMatch(/`bash <getff>\/install\.sh <stack> --refresh`/);
+    expect(step?.action).toMatch(/do not run it/i);
+    expect(prompt).toMatch(
+      /not done: list absent in this older install[^\n]*`bash \/tmp\/getff\/install\.sh <detected-stack> --refresh`[^\n]*do not run it/,
+    );
+  });
+
   it('the shipped road names no internal program part', () => {
     // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
     expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
