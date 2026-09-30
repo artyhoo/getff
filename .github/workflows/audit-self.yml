@@ -782,6 +782,13 @@ jobs:
       # tsx/curl/launchctl under mktemp, so it runs anywhere.
       - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
         run: bash scripts/close-merged-sweep.test.sh
+      # The Phase -1 memory sweep's own channel is the orchestrator session (the memory store is
+      # user-scope, outside CI by construction). Its derivation / fixed-string / INCOMPLETE logic
+      # still needs a CI channel — the paired-negative runs on a mktemp store and a mktemp repo.
+      # The coordinator-seat rule reaches sessions only through its events: regexes, so a renamed
+      # harvest CLI would silence it with everything else green — its card test pins them.
+      - name: Run orchestrator paired-negatives (Phase -1 memory sweep + coordinator-seat card triggers)
+        run: bash tests/orchestrator/memory-sweep.test.sh && bash tests/orchestrator/coordinator-seat-card.test.sh
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that
