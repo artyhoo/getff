@@ -77,6 +77,9 @@ fi
 
 # Trigger the EXISTING adopt-then-link arm. Default --on-conflict=skip never clobbers;
 # any non-zero (e.g. conflict) is swallowed — this hook is injection, never a gate.
+# A write under a FOREIGN repo's orchestrator-prompts (a scratch consumer project the
+# session cd'd into) reaches the helper as $WT_DIR; the helper's REPO-IDENTITY GUARD
+# refuses it (exit 3, swallowed here), so this repo's $CANON never lands in that repo.
 bash "$HELPER" "$WT_DIR" >/dev/null 2>&1 || true
 
 exit 0
