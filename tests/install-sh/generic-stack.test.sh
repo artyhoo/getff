@@ -19,6 +19,9 @@
 #       named alpha (before: the offer was declined and the install exited 1).
 #   (6) point 3, no prompt under --full: run under a real pty (script(1)) with empty stdin; no
 #       prompt text is printed and the run exits 0.
+#   (7) `install.sh generic --refresh` over an older delivery → getff's stack-free files (a skill,
+#       an agent, a Claude hook, AI-USAGE-GUIDE.md, audit-ai-docs.sh) are the current delivery again;
+#       nothing npm-bound is created; each skipped npm-bound refresh arm is one NOT wired line.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -111,5 +114,33 @@ fi
 [ "$rc" -eq 0 ] && ok "(6) --full at a pty with empty stdin exits 0" || bad "(6) exit $rc at a pty"
 grep -Eq 'Choose \[|\[y/N\]|\[Y/n\]' <<<"$out" && bad "(6) a prompt was printed under --full: $(grep -E 'Choose \[|\[y/N\]|\[Y/n\]' <<<"$out" | head -2)" \
   || ok "(6) no prompt printed under --full"
+
+# ── (7) --refresh on generic re-delivers getff's stack-free files, skips the npm-bound arms ────────
+# Before: --refresh on generic re-ran the install path, whose copy_safe keeps a file already on disk,
+# so a generic project stayed on the skills and hooks of the getff that installed it. An older
+# delivery is simulated by rewriting each file (refresh overwrites a diverged file, preserving it).
+R=$(repo java)
+( cd "$R" && bash "$INSTALL" --full < /dev/null >/dev/null 2>&1 )
+_agent=$(cd "$R" && ls .claude/agents/*.md 2>/dev/null | head -1)
+_hook=$(cd "$R" && ls .claude/hooks/*.sh 2>/dev/null | head -1)
+_probes=".claude/skills/getff/SKILL.md $_agent $_hook .ai-factory/AI-USAGE-GUIDE.md scripts/audit-ai-docs.sh"
+REF=$(mktemp -d); TMPS+=("$REF")  # outside the project: refresh re-creates a skill dir whole
+for p in $_probes; do
+  mkdir -p "$REF/$(dirname "$p")"; cp "$R/$p" "$REF/$p"; printf 'OLDER GETFF DELIVERY\n' > "$R/$p"
+done
+out=$( cd "$R" && bash "$INSTALL" generic --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && ok "(7) generic --refresh exits 0" || bad "(7) exit $rc (tail: $(tail -5 <<<"$out" | tr '\n' '|'))"
+for p in $_probes; do
+  cmp -s "$R/$p" "$REF/$p" && ok "(7) refreshed to the current delivery: $p" \
+    || bad "(7) NOT refreshed (still the older delivery): $p"
+done
+for p in package.json .husky node_modules eslint.config.mjs eslint-rules-local packages/core/hooks/pre-push.bundle.mjs \
+         scripts/check-rule-globs.sh scripts/run-armed.sh scripts/fences-fire-fixtures .prettierignore .ai-factory/ARCHITECTURE.md; do
+  [ ! -e "$R/$p" ] && ok "(7) refresh created nothing npm-bound: no $p" || bad "(7) refresh created an npm-bound piece on generic: $p"
+done
+for why in 'check scripts' 'pre-push bundle' 'ESLint rules' 'git hooks' '.prettierignore' 'ARCHITECTURE.md'; do
+  grep -q "^      - .*$why.*not refreshed.*generic" <<<"$out" && ok "(7) NOT wired names the skipped refresh arm '$why'" \
+    || bad "(7) no NOT wired line for the skipped refresh arm '$why' naming generic"
+done
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
