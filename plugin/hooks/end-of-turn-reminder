@@ -159,6 +159,9 @@ glossary_line=""
 # guards; initialised HERE for the same reason as glossary_line — _autonomy_exit reads it and
 # every early exit above that arm must find it set under `set -u`.
 hands_line=""
+# Dispatch-channel line (recommendation-laziness-discipline.md §3), computed by its arm just
+# above the story-branch detection; initialised HERE for the same `set -u` reason.
+chip_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -255,6 +258,15 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${hands_line}"
     else
       _extra="${hands_line}"
+    fi
+  fi
+  # Dispatch-channel arm: same single block. It must survive the tool-only guard — a turn that
+  # ENDS on the spawn_task call has no text and exits through here.
+  if [ -n "${chip_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${chip_line}"
+    else
+      _extra="${chip_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -767,6 +779,76 @@ if [ "${AIF_HANDOFF_GATE:-0}" = "1" ] && [ -z "$gate_line" ] &&
   grep -qE '^[[:space:]]{0,3}/compact([[:space:]]|$)' <<<"$text"; then
   gate_line="$(aif_msg_eot_compact_out_of_band "$ctx_tokens" "$gate_floor")"
 fi
+# ── Dispatch-channel arm (chip where aif auto-dispatch was available) ─────────
+# #CHIP anchor — channel token for .claude/rules/recommendation-laziness-discipline.md
+# (`<!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#CHIP -->`) points HERE.
+# spec: .claude/rules/recommendation-laziness-discipline.md §3 «zero-click dispatch first» + §5
+# `#chip-over-available-bridge`. Incident 2026-09-08: an /arch contour ended with a spawn_task
+# chip for the follow-on round while the aif auto-dispatch path was up; the chip waits for a
+# human click, a `<!-- bridge: auto -->` kickoff is dispatched on write by
+# runtime-bridge-dispatch.sh with zero clicks. Error-with-escape, not a warning
+# (attention-is-not-a-mechanism.md §1): the escape is a `chip-over-bridge: <20+ chars>` line in
+# the turn's text — e.g. a stage gated on an unmerged predecessor.
+#
+# The mechanizable slice only: the arm fires when (a) RUNTIME_BRIDGE_MODE is set and is not
+# `manual` (manual = the operator forced the paste backend), (b) THIS turn — the records after
+# the last operator prompt — called spawn_task, and (c) the chip prompt names a `*kickoff*.md`
+# whose first line is not exactly the auto marker. A kickoff that cannot be read counts as
+# lacking the marker (fail-closed). A chip that names no kickoff is judgment (the
+# «out-of-scope issue» use), left to the rule's prose. Earliest reachable channel: no
+# PreToolUse matcher for spawn_task exists and .claude/settings.json is agent-uncommittable.
+# Bounded: each spawn_task tool_use id is flagged once per session (TMP flag, the hands-arm
+# shape), so a re-stop after the block never re-blocks the same chip. ZCode has no spawn_task.
+# Here-strings, never `printf | grep -q` (this file's A3-5 SIGPIPE lesson).
+if [ -n "${RUNTIME_BRIDGE_MODE:-}" ] && [ "${RUNTIME_BRIDGE_MODE}" != "manual" ] && ! _is_zcode \
+   && command -v aif_msg_eot_chip_over_bridge >/dev/null 2>&1 \
+   && grep -qF 'spawn_task' "$scan_file" 2>/dev/null \
+   && ! grep -qE 'chip-over-bridge:[[:space:]]*.{20,}' <<<"$text"; then
+  # Turn start = the last `user` record that is neither a tool_result nor `isMeta` (a skill body
+  # loaded mid-turn is a `user` record with isMeta:true — measured on a real desktop transcript
+  # 2026-10-01; counting it would drop a chip emitted before the skill load).
+  _cb_start="$(grep -nE '"(type|role)":"user"' "$scan_file" 2>/dev/null | grep -vF '"tool_result"' | grep -vF '"isMeta":true' | tail -1 | cut -d: -f1 || true)"
+  case "$_cb_start" in ''|*[!0-9]*) _cb_start=0 ;; esac
+  _cb_uses="$(LC_ALL=C awk -v s="$_cb_start" 'NR > s && /spawn_task/' "$scan_file" 2>/dev/null \
+    | jq -r '.message.content[]? | select(.type=="tool_use" and ((.name // "") | test("(^|__)spawn_task$")))
+             | [(.id // "noid"), ((.input.prompt // "") | @base64)] | @tsv' 2>/dev/null || true)"
+  if [ -n "$_cb_uses" ]; then
+    _cb_base="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+    [ -n "$_cb_base" ] || _cb_base="${CLAUDE_PROJECT_DIR:-$PWD}"
+    _cb_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+    _cb_flag="${TMPDIR:-/tmp}/aif-eot-chip-${_cb_key}"
+    _cb_hits=""
+    while IFS=$'\t' read -r _cb_id _cb_b64; do
+      [ -n "$_cb_id" ] || continue
+      if [ -f "$_cb_flag" ] && grep -qxF -- "$_cb_id" "$_cb_flag" 2>/dev/null; then continue; fi
+      _cb_prompt="$(printf '%s' "$_cb_b64" | base64 -d 2>/dev/null || printf '%s' "$_cb_b64" | base64 -D 2>/dev/null || true)"
+      _cb_paths="$(grep -oE '[A-Za-z0-9_./~-]*kickoff[A-Za-z0-9_.-]*\.md' <<<"$_cb_prompt" | sort -u || true)"
+      _cb_this=""
+      while IFS= read -r _cb_p; do
+        [ -n "$_cb_p" ] || continue
+        case "$_cb_p" in
+          /*) _cb_abs="$_cb_p" ;;
+          \~/*) _cb_abs="${HOME}/${_cb_p#\~/}" ;;
+          *) _cb_abs="${_cb_base}/${_cb_p}" ;;
+        esac
+        _cb_first=""
+        [ -r "$_cb_abs" ] && _cb_first="$(head -n1 "$_cb_abs" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+        if [ "$_cb_first" != '<!-- bridge: auto -->' ]; then
+          [ -r "$_cb_abs" ] || _cb_p="${_cb_p} (unreadable)"
+          _cb_this="${_cb_this}${_cb_this:+, }${_cb_p}"
+        fi
+      done <<<"$_cb_paths"
+      if [ -n "$_cb_this" ]; then
+        _cb_hits="${_cb_hits}${_cb_hits:+, }${_cb_this}"
+        { printf '%s\n' "$_cb_id" >> "$_cb_flag"; } 2>/dev/null || true
+      fi
+    done <<<"$_cb_uses"
+    [ -n "$_cb_hits" ] && chip_line="$(aif_msg_eot_chip_over_bridge "$_cb_hits" "$RUNTIME_BRIDGE_MODE")"
+  fi
+  unset _cb_start _cb_uses _cb_base _cb_key _cb_flag _cb_hits _cb_id _cb_b64 _cb_prompt _cb_paths \
+    _cb_this _cb_p _cb_abs _cb_first 2>/dev/null || true
+fi
+
 # -- story branch detection: a PR was just created this turn → engaging recap ----
 # (session_id is read above, before the D7 context-arm.)
 story_signal=""
@@ -1453,6 +1535,9 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$hands_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
     fi
+    if [ -n "$chip_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${chip_line}"
+    fi
     _ze_glance="🎯 $(head -c 60 < <(printf '%s' "${anchor}") | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
@@ -1604,6 +1689,10 @@ fi
 # The manual-step line rides the same block too.
 if [ -n "$hands_line" ]; then
   reminder="${reminder}"$'\n\n'"${hands_line}"
+fi
+# And the dispatch-channel line.
+if [ -n "$chip_line" ]; then
+  reminder="${reminder}"$'\n\n'"${chip_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

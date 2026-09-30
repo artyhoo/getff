@@ -312,8 +312,19 @@ EOF
 aif_msg_eot_hands_step() {
   cat <<EOF
 [manual-step] Your "${AIF_EOT_FOR_YOU_PREFIX}" line hands the human a manual step: "$1". A manual step is a process defect, not a normal ending.
-Do it yourself now if you are allowed to. If it needs a mechanism that does not exist yet, or a permission you lack, spawn a follow-up task that builds the automation (spawn_task, where the harness has it) and name that task in your answer.
+Do it yourself now if you are allowed to. If it needs a mechanism that does not exist yet, or a permission you lack, dispatch a follow-up task that builds the automation and name it in your answer — through aif auto-dispatch (a kickoff whose first line is <!-- bridge: auto -->) when the runtime bridge is up, else spawn_task where the harness has it.
 Only decision floors stay with the human: a merge to main, npm publish, a fork choice, passwords, money, and operator-only harness actions (/compact, a session restart, a permission prompt). If this step is one of them, say which floor it is.
+EOF
+}
+
+# Stop hook — dispatch-channel arm (recommendation-laziness-discipline.md §3): this turn emitted a
+# spawn_task chip for kickoff(s) without the auto-dispatch marker while the runtime bridge is up.
+# $1 = the kickoff path(s), $2 = the RUNTIME_BRIDGE_MODE value.
+aif_msg_eot_chip_over_bridge() {
+  cat <<EOF
+[dispatch-channel] This turn emitted a spawn_task chip for $1, but that kickoff does not start with <!-- bridge: auto --> while RUNTIME_BRIDGE_MODE=$2 says the aif runtime bridge is up. A chip waits for a human click; auto-dispatch starts the work with zero clicks.
+Prefer the zero-click channel: make <!-- bridge: auto --> the kickoff's exact first line (runtime-bridge-dispatch.sh dispatches it on write), then dismiss the chip (dismiss_task) so the work is not dispatched twice.
+If the chip is genuinely the right channel — a stage gated on an unmerged predecessor, or work the operator must start at a time of their choosing — say so in one line of your answer: chip-over-bridge: <why, 20+ chars>.
 EOF
 }
 
