@@ -208,24 +208,22 @@ placeholder reason is rejected». Advisor E4 condition 3 (`_advisor-trigger-buil
 9. **The next arm of A13 (E20 condition 3), re-measured at this SHA.** `audit-self.yml:56` step «Bash
    syntax of all *.sh», `:60` `if ! bash -n "$f" 2>err.log; then`, over `find . -name "*.sh"` (`:65`);
    the shellcheck gate is the step at `:1178` («shellcheck gate: setup.d/*.sh + install.sh + scripts/*.sh
-   + scripts/lib/*.sh + the two B1 carrier scripts (pinned 0.9.0)»), command `:1187-1190`. E20 quotes
-   `:1167` — the mechanism map's older SHA; at `2855667cb34` it is `:1178`.
+   + scripts/lib/*.sh + the two B1 carrier scripts (pinned 0.9.0)»), command `:1187-1190` (E20's `:1167`: older SHA).
 10. **Why not `check-rule-globs.sh` (E20):** it reads only `RULE_GLOBS.<key>` for
     `boundary|appCode|application` (`packages/core/audit-self/check-rule-globs.sh:219-226`) and probes only
     `*.ts|*.tsx` (`:394`, `:408-410`); the 250 tracked files under the three tooling directories hold 0
     `.ts|.tsx`.
 11. **S-11 on getff (`Prior-art: skipped`), measured.** Over the last 500 first-parent commits of
-    `2855667cb34` (window start `5414c857e30`, 2026-08-10): **504** `^Prior-art: skipped` lines of
-    **663** `^Prior-art:` lines. V10's 526 of 686 was measured at `26ccdc6b160`, whose 500-commit window
-    starts one day earlier at `bde41e1cd80`; the two heads are 14 first-parent commits apart, and the 14
-    oldest commits that left the window carried net 22 more `skipped` lines and 23 more `Prior-art:`
-    lines than the 14 newest that entered it (the same command re-run at `26ccdc6b160` returns 526 / 686).
+    `2855667cb34` (window start `5414c857e30`, 2026-08-10): **504** `^Prior-art: skipped` lines of **663**
+    `^Prior-art:` lines. V10's 526 of 686 was measured at `26ccdc6b160`, 14 first-parent commits earlier
+    (window start `bde41e1cd80`); the same command re-run there returns 526 / 686, so the gap is the
+    window moving.
 12. **A13's escape history in getff:** principle 41's allowlist held one real entry in 500 commits,
     removed the same day (`41-shell-test-ci-coverage.test.ts:35-37`) — about 1 per 500.
 13. **CI wiring surface.** `tests/install-sh/meta-all-wired.test.sh:13`, `:22-25` demands every
     `tests/install-sh/*.test.sh` be named in `audit-self.yml`; principle 41 demands it of every tracked
     `*.test.sh`. Lines of `audit-self.yml` cited elsewhere include `:742`, `:745`, `:748`, `:750`, `:756`,
-    `:1280` (`git grep -o 'audit-self\.yml:[0-9]*'`); `:752` and `:754` are cited nowhere. `&&`-chained
+    `:1280` (`git grep -o 'audit-self\.yml:[0-9]*'`); `:752`, `:753` and `:754` are cited nowhere. `&&`-chained
     `run:` lines exist (`:681`, `:766`).
 14. **Citations into `pre-push.ts`.** The highest line cited anywhere in the tree is `:2516`, inside
     `invariantsRenderSection` (`:2514-2532`). Code added after `:2532` shifts no citation.
@@ -233,9 +231,8 @@ placeholder reason is rejected». Advisor E4 condition 3 (`_advisor-trigger-buil
 
 ### §1.9 Decisions (all closed)
 
-- **OPEN-1 — CLOSED by E20** (reversing the lead's first reading, which pointed at `check-rule-globs.sh`):
-  A13 is principle 41's shape, generalised — every tracked tooling test file is run by a CI step. Size S,
-  as the harvest row says (facts `:17`, «the list moves to config»).
+- **OPEN-1 — CLOSED by E20:** A13 is principle 41's shape, generalised — every tracked tooling test file
+  is run by a CI step. Size S, as the harvest row says (facts `:17`, «the list moves to config»).
 - **OPEN-2 — CLOSED, reconciled with E20 condition 4.** One escape grammar for the shipped mechanism:
   the line `# getff-escape: a13 <reason>` inside the unwired `*.test.sh` itself; the detector reads a file
   carrying it as passing (S-13). No character floor (D27); an empty reason or a placeholder (`todo`,
@@ -246,12 +243,14 @@ placeholder reason is rejected». Advisor E4 condition 3 (`_advisor-trigger-buil
   `<path>`. The allowlist is empty today (`41:86-91`), so getff carries no escape line and nothing
   migrates. If getff ever adds an allowlist entry, the same file carries the escape line too, or getff's
   own `getff-mechanism-a13` section blocks the push; principle 41 keeps its 20-char floor (`41:152`) as
-  getff's own stricter internal rule. Retiring principle 41 in favour of the mechanism is a separate
-  decision (§6). An escape inside the per-mechanism file is ruled out by S-12.
+  getff's own stricter internal rule. An escape inside the per-mechanism file is ruled out by S-12.
 - **OPEN-3 — CLOSED:** `.getff/mechanisms/<name>.txt`, the same path in getff and at a consumer.
 - **OPEN-4 — CLOSED:** the threshold is a constant in the getff-owned A13 script, never a `[params]`
   key: **3 escapes per 100 commits**. Reading used by this stage: with N = first-parent commits after the
   commit that first wrote the file, allowed = ceil(3 × N / 100); the check fails when escapes added > allowed.
+  Boundaries: at N = 10, allowed = 1 (escape 1 passes, escape 2 fails); at N = 34, allowed = 2 (escapes
+  1-2 pass, escape 3 fails). A rejected escape line (empty or placeholder reason) is not an escape: it is
+  not counted, and the test it sits in stays a finding.
   `check` prints the count, N, allowed, the constant, and getff's measured ~1 per 500 (§1 fact 12).
 - **OPEN-5 — CLOSED by E20** (option A; options B, `check-rule-globs.sh` on `*.ts|*.tsx`, and C, all
   250 tooling files, rejected). The lint half of base-core `:203` is a declared limit, its next arm named
@@ -278,7 +277,10 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
   prints a pass/OK line; the install report lists it as not checked (`note_not_wired`).
 - **`--rev <sha>`:** every input is read from the revision — tracked files by `git ls-tree -r <sha>`, file
   contents and `<its-file>` itself by `git show <sha>:<path>`. `<its-file>` absent from the revision →
-  `check` fails closed naming it (D19).
+  `check` fails closed naming it (D19). A delete push (`git push origin --delete <b>`) has an all-zero
+  `local_sha`: `mechanismSection` skips it with one named line before calling the script, as the
+  docs-refresh section does (`pre-push.ts:1756-1759`, `c.rb.head === Z40`); the script given an all-zero
+  `--rev` exits 2 naming it, never 0.
 - **Finding key:** one line, no tab, stable across runs.
 - **`<its-file>`:** `.getff/mechanisms/<name>.txt`, format of D1, consumer-owned once written.
 - **Registration:** pre-push section `{ id: 'getff-mechanism-<name>', owner: 'both', run: (c) =>
@@ -376,20 +378,27 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
     fails; a `[params]` change WITH a `# reason:` line passes, the same change WITHOUT one fails, and so
     does one whose reason is `todo`;
   - `check --rev` at a commit where `.getff/mechanisms/a13.txt` is absent fails closed;
-  - the escape line passes a new unwired test; an empty and a placeholder reason fail; the fourth escape
-    added in fewer than 100 commits fails with the S-11 message;
-  - a fixture with no `.github/workflows/` prints the population number and «not checked», exits 0, and
-    prints no pass line (E18 F1);
+  - the escape line passes a new unwired test; an empty and a placeholder reason fail and are not counted;
+    both S-11 boundaries of §1.9 OPEN-4 (N = 10 and N = 34, the escape-adding commits counted in N) hold,
+    the failing escape naming the S-11 message;
+  - no CI dir: after install, `git rm -r .github/workflows/` and commit (install delivers `ci.yml` and
+    `workflow-integrity.yml` there — `tests/install-sh/baselines/ts-server/greenfield.fingerprint`); then
+    `check` prints the population number and «not checked», exits 0, and prints no pass line (E18 F1);
   - first arrival through `--refresh`: install, delete `.getff/mechanisms/a13.txt` and both
     `scripts/getff-mechanism-*.sh`, commit, `install.sh --refresh`; the file is written with the old
     violations and `check` exits 0;
-  - refresh (S-13), with a throwaway copy of the package root whose A13 script is version `2` and whose
-    default pattern also matches `*.test.bash` (a seeded widening; never an edit of the real script): an
-    unwired `scripts/x.test.bash` present before the refresh lands in `[starting-list 2]` and does not
-    block; a new unwired one after it blocks; `[starting-list 1]` and a project-edited `[params]` are
-    byte-identical before/after; a second refresh at version `2` leaves the file byte-identical (`cmp`); a
-    tree where the OLD version reports an unlisted finding takes the S-13 stop (file and old script
-    unchanged, `--refresh` exit non-zero, other deliveries done); two refreshes in a row leave the file.
+  - refresh (S-13), with a throwaway copy of the package root whose A13 script is version `2` and also
+    cuts an inline trailing comment (whitespace, `#`, to end of line) from every registry line, so a test
+    named only after `#` on a `run:` line stops counting as wired (a seeded widening; never an edit of the
+    real script). **A seeded widening must sit in a dimension no `[params]` key carries:** refresh keeps
+    `[params]` byte-identical, so a widened `[params]` default is never read. Seed, before the refresh, a
+    `scripts/inline.test.sh` named only as `run: echo ok  # scripts/inline.test.sh`: it lands in
+    `[starting-list 2]` and does not block; a new test wired the same way after the refresh blocks; v1 run
+    on the same tree reports neither (else the S-13 stop fires); `[starting-list 1]` and a project-edited
+    `[params]` are byte-identical before/after; a second refresh at version `2` leaves the file
+    byte-identical (`cmp`); a tree where the OLD version reports an unlisted finding takes the S-13 stop
+    (file and old script unchanged, `--refresh` exit non-zero, other deliveries done); two refreshes in a
+    row leave the file.
 - **D8 — the marker check** (S-15) `tests/install-sh/mechanism-markers.test.sh`: install the same fixture
   twice, once with the D5 switch set; the population = fingerprint paths of the first install minus the
   second (the `compute_fingerprint` shape of `snapshot.sh`). Each member starts with
@@ -413,10 +422,13 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
   `2855667cb34` (§1 fact 8) — at your base it is whatever the run says, and a zero count still ships the
   blocker (S-10: «gates nothing»). The classification run is the lead's (host).
 - **D10 — CI wiring without shifting lines** (principle 41 + `meta-all-wired.test.sh`): chain the new
-  tests onto an existing `run:` line nothing cites, e.g. `audit-self.yml:754`
-  (`run: bash tests/install-sh/glm-onebutton.test.sh && bash tests/install-sh/mechanism-a13.test.sh && …`,
-  precedent `:766`). Insert no step line. Then `npx tsx scripts/check-line-citations.mjs --check --corpus`
-  (the pre-push form, `pre-push.ts:1901-1902`) must be green; never run it with `--write` on `.claude/rules/*`.
+  tests onto an existing `run:` line nothing cites, e.g. `audit-self.yml:754` (`run: bash
+  tests/install-sh/glm-onebutton.test.sh && bash tests/install-sh/mechanism-a13.test.sh && …`, precedent
+  `:766`), and rename that step's `name:` line in place (`:753`) to name what the step now runs, e.g. «Run
+  install-sh GLM one-button test + trigger-build S4.1 mechanism tests» — nothing cites `:753` (`git grep
+  'audit-self\.yml:753'` at `2855667cb34`: 0 hits) and a rename moves no line. Insert no step line. Then
+  `npx tsx scripts/check-line-citations.mjs --check --corpus` (the pre-push form, `pre-push.ts:1901-1902`)
+  must be green; never run it with `--write` on `.claude/rules/*`.
 - **D11 — SSOT row** in `docs/meta-factory/prior-art-evaluations.md` per §3, same commit as D1/D2, with
   `Verdict`, `Rationale`, `Trigger to revisit`.
 - **D12 — baselines**: `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`, commit the recaptured
@@ -512,26 +524,28 @@ the named page or add `docs-refresh: deferred — <reason>` (a comma inside the 
   of its own `tooling_dirs`, and C9 will take it as the default of the directories it scans — each in its
   own per-mechanism file (`.getff/mechanisms/a13.txt`, `.getff/mechanisms/c9.txt`), never one shared
   param (S-12 (2)); a project that edits one list does not move the other.
-- **HO-6 is that follow-on stage, not this one.** The spec places it in slice 4 (§4 hand-over row HO-6:
-  «Slice 4 builds the installer step that copies `.claude/hooks/getff-cards/` [...]; HO-6's rule rides
-  there as the first card-only rule. Met when a fresh install lists `.claude/hooks/getff-cards/<card>.md`
-  in its fingerprint»), but (a) it is not one of slice 4's items 1-9, which are the mechanism path; (b) a
-  card reminds and a mechanism blocks (D19) — a different delivery with its own check; (c) its input does
-  not exist yet (§1 fact 15), and the same row says «Slice 2 may create card files in getff's own
-  directory». Registered in the table above so it is not forgotten (operator log entry 49, «чтобы потом
-  тупо не забыть»). This stage leaves D8's fixed-dir list ready for it. Base-core cards go to
-  `getff-cards/`, never to the project's `.claude/rules/` (entry 49: «главное при реализации не перепутай!»).
+- **HO-6 is that follow-on stage, not this one.** The spec places it in slice 4 (hand-over row HO-6:
+  «Slice 4 builds the installer step that copies `.claude/hooks/getff-cards/` [...]», met when a fresh
+  install lists `.claude/hooks/getff-cards/<card>.md` in its fingerprint), but it is not one of slice 4's
+  items 1-9 (the mechanism path); a card reminds and a mechanism blocks (D19), a different delivery with
+  its own check; and its input does not exist yet (§1 fact 15; the same row: «Slice 2 may create card
+  files in getff's own directory»). Registered in the table above so it is not forgotten (operator log
+  entry 49). Base-core cards go to `getff-cards/`,
+  never to the project's `.claude/rules/` (entry 49: «главное при реализации не перепутай!»).
 - Any file under `.claude/rules/` or `.claude/settings.json` — no agent and no factory run commits there
   in this build (spec `[op V8]`); a change there is the lead's operator patch.
 - `check-rule-globs.sh` — untouched by this stage (E20 rejected it as A13's vehicle, §1 fact 10).
 - **Declared limits, each one line in the PR body:** the lint half of base-core A13, with its next arm
-  named in the script (E20 condition 3, §1 fact 9); test kinds other than `test_pattern` (e.g. vitest files
-  — principle 38's shape, not harvested here); CI (§1 fact 3); pre-commit and edit-time channels (§0 item
-  9); the bash fallback (D4); the python / cargo / go lanes — their pre-push is `.getff/hooks/pre-push`,
-  which runs no `pre-push.ts` section (`setup.d/45-python.sh:909`); a project with no workflow dir (the
-  E18 F1 line, never green); **stale allowances** — a `[starting-list]` member whose test is now wired or
-  deleted, or an escape line on a test that is now wired, stays until removed by hand: nothing reports it
-  (ESLint's «unused suppressions» error has no counterpart here).
+  named in the script (E20 condition 3, §1 fact 9); test kinds other than `test_pattern` (e.g. vitest
+  files — principle 38's shape, not harvested here); CI (§1 fact 3); pre-commit and edit-time channels (§0
+  item 9); the bash fallback (D4); the python / cargo / go lanes — their pre-push is
+  `.getff/hooks/pre-push`, which runs no `pre-push.ts` section (`setup.d/45-python.sh:909`); a project
+  with no workflow dir (the E18 F1 line, never green); **stale allowances** — a `[starting-list]` member
+  whose test is now wired or deleted, or an escape line on a test that is now wired, stays until removed
+  by hand: nothing reports it; **loosening through `[params]`** — pointing `workflow_dir` at a missing
+  directory turns the check into «not checked» with exit 0, and narrowing `tooling_dirs` or `test_pattern`
+  shrinks the population; the params-reason check only demands a `# reason:` line and S-11 counts neither.
+  Per D27 the PR body asks the advisor whether S-11 should also count `[params]` edits.
 - Retiring principle 41 in favour of the mechanism in getff — a separate decision (principle 41's own
   precedent for another owner's gate, `41:60-61`).
 - P2's record line (E3 point 1) and any edit inside the P2 branch (§0 item 9).
@@ -551,6 +565,9 @@ the named page or add `docs-refresh: deferred — <reason>` (a comma inside the 
 - A refresh with an unchanged version changes any byte → S-13 «writes nothing» broke.
 - A refresh changes `[params]` or an older section → D5 / D10 broke.
 - A refresh lists a finding the OLD version also reports → the old version was not blocking (S-13).
+- The seeded widening is a `[params]` default → refresh keeps the old value and the proof goes vacuous.
+- A rejected (placeholder) escape line is counted by S-11, or passes its test → OPEN-4 / D27 broke.
+- A delete push is blocked, or the script exits 0 on an all-zero `--rev` → §2.0 `--rev` broke.
 - A `--refresh` onto a project with no file writes nothing → first arrival through refresh is lost.
 - The per-mechanism file is overwritten or removed by install or refresh → D10 broke.
 - getff's own `[starting-list 1]` is not empty → the getff measurement (§1 fact 7) or the detector is wrong.
