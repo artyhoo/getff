@@ -620,7 +620,7 @@ dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/
 b44b58d490795d7ca8517c162765129d7b618a9e9072c649a66b7f5d09c7ced0  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
-cf6477dea41ab1fc11e6e8489d566e17f917e70c4f55411812c38a372840ffcd  packages/core/principles/42-context-md-pointer-rule.test.ts
+81a4a23709bf0ba0ad85ca713111154c598ff89a1db1475d09b9d30a7c06dec5  packages/core/principles/42-context-md-pointer-rule.test.ts
 4855016c0e4bc571d8f882b2014d6b1227c0c76a3fd6531d5252a5c4799356ef  packages/core/principles/42-context-md-spelling-uniqueness.test.ts
 5b361a30b9881057c031376e255e2bbf528251d90ccc603d23080324910bf6df  packages/core/principles/43-kickoff-host-verify-presence.test.ts
 8fbe181dbddbade859afb728f49e4dcdcd0493e024a0f71a0e2c3f0380d6bc39  packages/core/principles/44-kickoff-authoring-traps.test.ts
@@ -632,6 +632,9 @@ a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
 0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
+391c5ce34950a60feee10025abeff096fd8cefa00cf2238423a2a2592eb92aad  packages/core/principles/49-install-rc-asserted.baseline.json
+85e7d02db577cac14b1bf16feff2b3d141c664dae304fc6d5cadd3eb70f43a5a  packages/core/principles/49-install-rc-asserted.test.ts
+976f7877e3af42c54f5d3ccf59e8f70c14d385e8eba52c727759844f6edee9a8  packages/core/principles/49-install-rc-asserted.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
