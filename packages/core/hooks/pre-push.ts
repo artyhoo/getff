@@ -1142,6 +1142,11 @@ function hooksPathSection(): void {
         '   Fix: `git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky`',
     );
   }
+  if (r.status === 'unknown') {
+    process.stdout.write(
+      '⊝ hooks-path: git could not name the hooks dir (git < 2.31?) — foreign-hook check not run\n',
+    );
+  }
   if (r.status === 'healed') {
     process.stdout.write(
       `✓ core.hooksPath repointed to this worktree's .husky (was ${r.dir}; stale: ${r.stale.join(', ')}).\n` +

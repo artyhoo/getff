@@ -47,7 +47,11 @@ function writeHooks(dir: string, hooks: Record<string, string>): void {
   }
 }
 
-/** A primary + one linked worktree; core.hooksPath pinned absolute into the primary. */
+/**
+ * A primary + one linked worktree; core.hooksPath pinned absolute into the primary. The value
+ * sits in the SHARED config here, while the app writes config.worktree — git resolves both the
+ * same way for this worktree, and the heal's per-worktree write outranks either.
+ */
 function setup(
   foreign: Record<string, string>,
   { worktreeConfig = true } = {},
@@ -62,6 +66,9 @@ function setup(
   git(primary, 'worktree', 'add', '-q', '-b', 'wt', wt);
   writeHooks(join(primary, '.husky'), foreign);
   writeHooks(join(wt, '.husky'), { 'pre-commit': OWN, 'pre-push': OWN });
+  // Tracked, like the real .husky: only tracked files count as this worktree's hooks.
+  git(wt, 'add', '.husky');
+  git(wt, 'commit', '-q', '-m', 'hooks');
   if (worktreeConfig)
     git(primary, 'config', 'extensions.worktreeConfig', 'true');
   git(primary, 'config', 'core.hooksPath', join(primary, '.husky'));
@@ -85,7 +92,7 @@ describe('ensureOwnHooks', () => {
   });
 
   it('(delegate) leaves a foreign dir alone when its hooks carry the delegate block', () => {
-    const delegating = `#!/bin/sh\n# ${DELEGATE_MARKER} (begin)\necho old\n`;
+    const delegating = `#!/bin/sh\n# ${DELEGATE_MARKER} (begin)\n  exec "$__own_hook" "$@"\necho old\n`;
     setup({ 'pre-commit': delegating, 'pre-push': delegating });
     expect(ensureOwnHooks(wt)).toEqual({
       status: 'delegating',
@@ -141,5 +148,28 @@ describe('ensureOwnHooks', () => {
     expect(
       git(wt, 'rev-parse', '--path-format=absolute', '--git-path', 'hooks'),
     ).toBe(join(primary, '.husky'));
+  });
+
+  it('(marker only) a foreign hook carrying the marker comment but no hand-off is stale', () => {
+    const broken = `#!/bin/sh\n# ${DELEGATE_MARKER} (begin)\necho old\n`;
+    setup({ 'pre-commit': broken, 'pre-push': OWN });
+    expect(ensureOwnHooks(wt)).toMatchObject({
+      status: 'healed',
+      stale: ['pre-commit'],
+    });
+  });
+
+  it('(untracked) a stray untracked file in .husky is not a hook', () => {
+    setup({ 'pre-commit': OWN, 'pre-push': OWN });
+    writeFileSync(join(wt, '.husky', '.DS_Store'), 'junk');
+    writeFileSync(join(wt, '.husky', 'pre-commit.orig'), 'junk');
+    expect(ensureOwnHooks(wt).status).toBe('delegating');
+    expect(worktreeValue()).toBe('');
+  });
+
+  it('(unknown) git cannot name the hooks dir → unknown, nothing written', () => {
+    tmp = realpathSync(mkdtempSync(join(tmpdir(), 'hooks-path-')));
+    writeHooks(join(tmp, '.husky'), { 'pre-commit': OWN });
+    expect(ensureOwnHooks(tmp)).toEqual({ status: 'unknown' });
   });
 });

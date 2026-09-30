@@ -14,13 +14,16 @@
  * alone — the app rewrites the value on every open, so rewriting it back buys nothing then.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const DELEGATE_MARKER = 'husky-own-worktree-delegate';
+// A marker comment alone proves nothing; the hand-off line is what makes a copy safe to run.
+const HAND_OFF = 'exec "$__own_hook" "$@"';
 
 export type HooksPathResult =
   | { status: 'own' }
+  | { status: 'unknown' }
   | { status: 'delegating'; dir: string }
   | { status: 'healed'; dir: string; stale: string[] }
   | { status: 'failed'; dir: string; stale: string[]; detail: string };
@@ -29,10 +32,26 @@ function git(repoRoot: string, args: string[]) {
   return spawnSync('git', ['-C', repoRoot, ...args], { encoding: 'utf8' });
 }
 
-function effectiveHooksDir(repoRoot: string): string {
-  const out = git(repoRoot, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+/** Absolute hooks dir git will use here, or null when git cannot say (not a repo, git < 2.31). */
+function effectiveHooksDir(repoRoot: string): string | null {
+  const out = git(repoRoot, [
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-path',
+    'hooks',
+  ]);
   const dir = out.stdout.trim();
+  if (out.status !== 0 || dir === '' || dir.includes('\n')) return null;
   return existsSync(dir) ? realpathSync(dir) : dir;
+}
+
+/** Tracked files directly in .husky — an editor backup or .DS_Store is not a hook. */
+function trackedHooks(repoRoot: string): string[] {
+  const out = git(repoRoot, ['ls-files', '-z', '--', '.husky']);
+  return out.stdout
+    .split('\0')
+    .filter((p) => /^\.husky\/[^/]+$/.test(p))
+    .map((p) => p.slice('.husky/'.length));
 }
 
 export function ensureOwnHooks(repoRoot: string): HooksPathResult {
@@ -40,26 +59,37 @@ export function ensureOwnHooks(repoRoot: string): HooksPathResult {
   if (!existsSync(ownPath)) return { status: 'own' };
   const own = realpathSync(ownPath);
   const dir = effectiveHooksDir(repoRoot);
+  if (dir === null) return { status: 'unknown' };
   if (dir === own) return { status: 'own' };
 
-  const stale = readdirSync(own)
-    .filter((h) => statSync(join(own, h)).isFile())
+  const stale = trackedHooks(repoRoot)
+    .filter((h) => existsSync(join(own, h)))
     .filter((h) => {
       const foreign = join(dir, h);
       if (!existsSync(foreign)) return true;
       const body = readFileSync(foreign, 'utf8');
-      return body !== readFileSync(join(own, h), 'utf8') && !body.includes(DELEGATE_MARKER);
+      const delegates =
+        body.includes(`${DELEGATE_MARKER} (begin)`) && body.includes(HAND_OFF);
+      return body !== readFileSync(join(own, h), 'utf8') && !delegates;
     })
     .sort();
   if (stale.length === 0) return { status: 'delegating', dir };
 
-  const set = git(repoRoot, ['config', '--worktree', 'core.hooksPath', '.husky']);
+  const set = git(repoRoot, [
+    'config',
+    '--worktree',
+    'core.hooksPath',
+    '.husky',
+  ]);
   if (set.status === 0 && effectiveHooksDir(repoRoot) === own)
     return { status: 'healed', dir, stale };
   return {
     status: 'failed',
     dir,
     stale,
-    detail: (set.stderr || 'core.hooksPath still resolves outside this worktree').trim(),
+    detail:
+      set.status === 0
+        ? 'the per-worktree write succeeded, but a higher-precedence value (e.g. `git -c core.hooksPath=...`) still wins'
+        : set.stderr.trim(),
   };
 }

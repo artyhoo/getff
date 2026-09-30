@@ -18,7 +18,9 @@
  *   (b) DELEGATION: with hooksPath pointing at a primary that carries the REAL hook files,
  *       `git hook run <hook>` in a linked worktree runs the worktree's own hook.
  *   (c) REAL COMMIT: the same through `git commit`, the path the #1983 miss took.
- *   (d) NO LOOP: in the checkout that owns the hooks, the block is a no-op.
+ *   (b2) STDIN: pre-push's ref lines reach the worktree's own hook through the exec.
+ *   (d) NO LOOP: in the checkout that owns the hooks the body runs exactly once, under an
+ *       absolute and a relative hooksPath (a counter planted right after the block).
  *   (e) MISSING OWN HOOK: a worktree without that hook falls through to the foreign body.
  *   (f) PAIRED NEGATIVE: the same fixture with the block stripped runs the foreign hook —
  *       proves (b)/(c) cannot pass vacuously.
@@ -30,10 +32,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -45,9 +45,14 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const HUSKY = resolve(REPO_ROOT, '.husky');
 const MARKER = 'husky-own-worktree-delegate';
 
-const HOOKS = readdirSync(HUSKY).filter((f) =>
-  statSync(join(HUSKY, f)).isFile(),
-);
+// Tracked hook files only — a local .DS_Store or `pre-commit.orig` is not a hook.
+const HOOKS = execFileSync('git', ['ls-files', '-z', '--', '.husky'], {
+  cwd: REPO_ROOT,
+  encoding: 'utf8',
+})
+  .split('\0')
+  .filter((p) => /^\.husky\/[^/]+$/.test(p))
+  .map((p) => p.slice('.husky/'.length));
 
 // Hook arguments git would pass; `git hook run` forwards them after `--`.
 const HOOK_ARGS: Record<string, string[]> = {
@@ -93,21 +98,22 @@ function setup(content: (hook: string) => string, ownHooks = HOOKS): void {
   }
   for (const h of ownHooks) {
     const p = join(wt, '.husky', h);
-    writeFileSync(p, `#!/bin/sh\ntouch "${sentinels}/${h}"\nexit 0\n`);
+    // Records stdin, so the pre-push arm can check the ref lines survived the hand-off.
+    writeFileSync(p, `#!/bin/sh\ncat > "${sentinels}/${h}"\nexit 0\n`);
     chmodSync(p, 0o755);
   }
-  // The shape the desktop app writes: an absolute path into the primary checkout.
+  // An absolute path into the primary checkout, as the desktop app writes — it puts the value
+  // in config.worktree, this fixture in the shared config; git resolves both alike here.
   git(primary, 'config', 'core.hooksPath', join(primary, '.husky'));
 }
 
-function runHook(cwd: string, hook: string) {
+// A re-exec loop would hang; the timeout turns it into a failed status instead.
+function runHook(cwd: string, hook: string, stdinFile?: string) {
+  const toStdin = stdinFile ? [`--to-stdin=${stdinFile}`] : [];
   return spawnSync(
     'git',
-    ['hook', 'run', hook, '--', ...(HOOK_ARGS[hook] ?? [])],
-    {
-      cwd,
-      encoding: 'utf8',
-    },
+    ['hook', 'run', ...toStdin, hook, '--', ...(HOOK_ARGS[hook] ?? [])],
+    { cwd, encoding: 'utf8', timeout: 20_000 },
   );
 }
 
@@ -151,22 +157,68 @@ describe('with the real hook files in the primary', () => {
     expect(existsSync(join(sentinels, 'pre-commit'))).toBe(true);
   });
 
+  it('(b2) pre-push receives the ref lines on stdin through the hand-off', () => {
+    const refs = join(tmp, 'refs');
+    writeFileSync(refs, 'refs/heads/wt abc refs/heads/wt 000\n');
+    const r = runHook(wt, 'pre-push', refs);
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(join(sentinels, 'pre-push'), 'utf8')).toBe(
+      'refs/heads/wt abc refs/heads/wt 000\n',
+    );
+  });
+});
+
+describe('(d) in the checkout that owns the hooks the body runs exactly once', () => {
+  // The real file plus a counter right after the block: a re-exec would count twice.
+  const counted = (h: string) =>
+    real(h).replace(
+      /(# ── husky-own-worktree-delegate \(end\)[^\n]*\n)/,
+      `$1echo ran >> "${'$'}{HOOK_COUNTER_DIR}/${h}"\n`,
+    );
+  beforeEach(() => setup(counted));
+
+  it.each(HOOKS)('%s under the absolute hooksPath', (h) => {
+    expect(counted(h)).not.toBe(real(h));
+    const r = spawnSync(
+      'git',
+      ['hook', 'run', h, '--', ...(HOOK_ARGS[h] ?? [])],
+      {
+        cwd: primary,
+        encoding: 'utf8',
+        timeout: 20_000,
+        env: { ...process.env, HOOK_COUNTER_DIR: sentinels },
+      },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(join(sentinels, h), 'utf8')).toBe('ran\n');
+  });
+
   it.each(HOOKS)(
-    '(d) %s in the owning checkout does not re-exec itself',
+    '%s under a RELATIVE hooksPath (`.husky`, relative script path)',
     (h) => {
-      const r = runHook(primary, h);
+      git(primary, 'config', 'core.hooksPath', '.husky');
+      const r = spawnSync(
+        'git',
+        ['hook', 'run', h, '--', ...(HOOK_ARGS[h] ?? [])],
+        {
+          cwd: primary,
+          encoding: 'utf8',
+          timeout: 20_000,
+          env: { ...process.env, HOOK_COUNTER_DIR: sentinels },
+        },
+      );
       expect(r.status, r.stderr).toBe(0);
-      expect(readdirSync(sentinels)).toEqual([]);
+      expect(readFileSync(join(sentinels, h), 'utf8')).toBe('ran\n');
     },
   );
 });
 
 describe('(e) a worktree without its own copy of the hook', () => {
   beforeEach(() => setup(real, []));
+  // Exit 0 is the assertion: without the `-x` guard the hook would exec a missing file (127).
   it.each(HOOKS)('%s falls through to the foreign body', (h) => {
     const r = runHook(wt, h);
     expect(r.status, r.stderr).toBe(0);
-    expect(readdirSync(sentinels)).toEqual([]);
   });
 });
 

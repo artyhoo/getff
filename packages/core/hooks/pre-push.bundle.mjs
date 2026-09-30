@@ -63,10 +63,10 @@ var init_harness_config_local = __esm({
 // packages/core/hooks/pre-push.ts
 import {
   existsSync as existsSync3,
-  readdirSync as readdirSync2,
+  readdirSync,
   readFileSync as readFileSync2,
   realpathSync as realpathSync2,
-  statSync as statSync2
+  statSync
 } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { spawnSync as spawnSync3 } from "node:child_process";
@@ -570,38 +570,56 @@ function runDocsCardCheck(commits, git2) {
 
 // packages/core/hooks/checks/hooks-path.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { existsSync as existsSync2, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync as existsSync2, readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 var DELEGATE_MARKER = "husky-own-worktree-delegate";
+var HAND_OFF = 'exec "$__own_hook" "$@"';
 function git(repoRoot, args) {
   return spawnSync2("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
 }
 function effectiveHooksDir(repoRoot) {
-  const out = git(repoRoot, ["rev-parse", "--path-format=absolute", "--git-path", "hooks"]);
+  const out = git(repoRoot, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-path",
+    "hooks"
+  ]);
   const dir = out.stdout.trim();
+  if (out.status !== 0 || dir === "" || dir.includes("\n")) return null;
   return existsSync2(dir) ? realpathSync(dir) : dir;
+}
+function trackedHooks(repoRoot) {
+  const out = git(repoRoot, ["ls-files", "-z", "--", ".husky"]);
+  return out.stdout.split("\0").filter((p) => /^\.husky\/[^/]+$/.test(p)).map((p) => p.slice(".husky/".length));
 }
 function ensureOwnHooks(repoRoot) {
   const ownPath = join(repoRoot, ".husky");
   if (!existsSync2(ownPath)) return { status: "own" };
   const own = realpathSync(ownPath);
   const dir = effectiveHooksDir(repoRoot);
+  if (dir === null) return { status: "unknown" };
   if (dir === own) return { status: "own" };
-  const stale = readdirSync(own).filter((h) => statSync(join(own, h)).isFile()).filter((h) => {
+  const stale = trackedHooks(repoRoot).filter((h) => existsSync2(join(own, h))).filter((h) => {
     const foreign = join(dir, h);
     if (!existsSync2(foreign)) return true;
     const body = readFileSync(foreign, "utf8");
-    return body !== readFileSync(join(own, h), "utf8") && !body.includes(DELEGATE_MARKER);
+    const delegates = body.includes(`${DELEGATE_MARKER} (begin)`) && body.includes(HAND_OFF);
+    return body !== readFileSync(join(own, h), "utf8") && !delegates;
   }).sort();
   if (stale.length === 0) return { status: "delegating", dir };
-  const set = git(repoRoot, ["config", "--worktree", "core.hooksPath", ".husky"]);
+  const set = git(repoRoot, [
+    "config",
+    "--worktree",
+    "core.hooksPath",
+    ".husky"
+  ]);
   if (set.status === 0 && effectiveHooksDir(repoRoot) === own)
     return { status: "healed", dir, stale };
   return {
     status: "failed",
     dir,
     stale,
-    detail: (set.stderr || "core.hooksPath still resolves outside this worktree").trim()
+    detail: set.status === 0 ? "the per-worktree write succeeded, but a higher-precedence value (e.g. `git -c core.hooksPath=...`) still wins" : set.stderr.trim()
   };
 }
 
@@ -846,7 +864,7 @@ function die(msg, r) {
 function workflowYmlFiles() {
   const dir = resolve(REPO_ROOT, ".github/workflows");
   if (!existsSync3(dir)) return [];
-  return readdirSync2(dir).filter((f) => f.endsWith(".yml")).map((f) => `.github/workflows/${f}`);
+  return readdirSync(dir).filter((f) => f.endsWith(".yml")).map((f) => `.github/workflows/${f}`);
 }
 function shellScriptFiles() {
   const r = run("git", ["ls-files", "-z"]);
@@ -1272,7 +1290,7 @@ function ruleGlobsSection() {
 }
 function worktreeProvisioningSection() {
   const helper = resolve(REPO_ROOT, "scripts/worktree-node-modules.sh");
-  if (!existsSync3(helper) || !statSync2(resolve(REPO_ROOT, ".git")).isFile())
+  if (!existsSync3(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
     return;
   const checked = run("bash", [helper, "--check", REPO_ROOT]);
   if (checked.exitCode === 0) return;
@@ -1298,6 +1316,11 @@ function hooksPathSection() {
    worktree's and do not delegate to it \u2014 their checks silently skipped your commits.
    Repair failed: ${r.detail}
    Fix: \`git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky\``
+    );
+  }
+  if (r.status === "unknown") {
+    process.stdout.write(
+      "\u229D hooks-path: git could not name the hooks dir (git < 2.31?) \u2014 foreign-hook check not run\n"
     );
   }
   if (r.status === "healed") {
@@ -1643,9 +1666,9 @@ function payloadDriftSection(ctx) {
   if (hasBaselines) {
     const recorded = /* @__PURE__ */ new Set();
     const walk = (dir) => {
-      for (const name of readdirSync2(dir)) {
+      for (const name of readdirSync(dir)) {
         const abs = `${dir}/${name}`;
-        if (statSync2(abs).isDirectory()) {
+        if (statSync(abs).isDirectory()) {
           walk(abs);
           continue;
         }

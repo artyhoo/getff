@@ -6,7 +6,8 @@
 # Run THIS worktree's copy of the hook, whatever core.hooksPath points at. The Claude desktop
 # app writes an absolute `core.hooksPath=<primary>/.husky` into every worktree it opens, so git
 # runs the primary checkout's files — 457 commits stale on 2026-09-30, which let a pre-commit
-# check miss in a worktree and land in CI (#1983). POSIX sh: post-checkout runs under sh.
+# check miss in a worktree and land in CI (#1983). POSIX sh, so the one block also serves
+# post-checkout, which runs under sh.
 # Must stay above any other code; packages/core/hooks/husky-self-delegate.test.ts gates that.
 __own_hook="$(git rev-parse --show-toplevel 2>/dev/null)/.husky/${0##*/}"
 if [ -x "$__own_hook" ] \
