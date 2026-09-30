@@ -487,6 +487,29 @@ describe('The road ↔ install prompt parity', () => {
     expect(externalServices(other)).toEqual(externalServices(manifest));
   });
 
+  it('every installer run after the first carries the variables the answer picked', () => {
+    // Found by the second cold run (2026-09-30): step 10 re-ran the installer without them, so it
+    // printed «not chosen in the pre-launch list» for two choices the answer had made.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const first = ['preview', 'ask-once', 'install'];
+    const reruns = steps.filter(
+      (s) => !first.includes(s.id) && /setup (?:--full|-y|--all|--refresh)/.test(s.action),
+    );
+    expect(reruns.map((s) => s.id)).toContain('place-rules');
+    for (const step of reruns) {
+      expect(step.action, `road step \`${step.id}\` re-runs the installer bare`).toMatch(
+        /same variables/,
+      );
+    }
+    expect(prompt).toMatch(/same variables as in step 4[^\n]*setup --full <detected-stack>/);
+  });
+
+  it('the preview reads the selection and probes nothing itself', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    expect(preview?.action).toMatch(/Run no probe of your own/);
+    expect(prompt.match(/Run no probe of your own/g)).toHaveLength(2);
+  });
+
   it('the research step takes the one answer as its confirmation', () => {
     const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
     expect(research?.action).toMatch(/without asking/);

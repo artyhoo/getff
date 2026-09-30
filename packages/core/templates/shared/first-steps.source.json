@@ -194,7 +194,7 @@
       {
         "id": "preview",
         "title": "Preview the stack and the tool list",
-        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for.",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for. The «✓» lines name every tool the install will handle, MCP servers included; the «Companions» section leaves MCP servers out. Run no probe of your own.",
         "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
       },
       {
@@ -242,7 +242,7 @@
       {
         "id": "place-rules",
         "title": "Write one rule table and place each rule in its home",
-        "action": "After the research step, run `bash <getff>/setup --full <stack>`: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
+        "action": "After the research step, run `bash <getff>/setup --full <stack>` with the same variables before it that the install step passed — a run without them reports the choices of the one answer as not chosen: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
         "doneTest": "the table prints one row per rule"
       },
       {

@@ -55,7 +55,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    Node.js 22.23+ and npm: the installer needs them, my project does not have to.
 2. [preview] Preview the stack and the tool list
    From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
-   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list».
+   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list». The «✓» lines name every tool the install will handle, MCP servers included; «Companions» leaves MCP servers out. Run no probe of your own.
    The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
    lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
@@ -98,7 +98,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
 9. [research] Research rules for the stack
    Unless I said no to research: follow `/tmp/getff/agents/rule-researcher.md`; my one answer is the confirmation it asks for, so write without asking; report where it ended.
 10. [place-rules] Write one rule table and place each rule in its home
-   After step 9: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
+   After step 9, with the same variables as in step 4 before it: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
 11. [prove-rules] Prove the placed rules in one batch run
    From that same output quote the proof line (bad → exit ≠0, good → exit 0). Script absent → both steps «not done».
 12. [project-checks] Run the project's own check commands as the installer wired them
