@@ -3,8 +3,12 @@
 #
 # Usage: bash scripts/worktree-node-modules.sh [--check|--apply] <worktree-dir> [<primary-dir>]
 #
-#   --check   report only; never writes. Exit 0 = provisioned, 1 = fixable, 2 = unfixable.
+#   --check   report only; never writes. Exit 0 = provisioned, 1 = fixable by linking,
+#             2 = unfixable, 3 = lock-diverged (a link would serve the wrong tree; --apply
+#             performs a real install).
 #   --apply   provision idempotently (default). Exit 0 = provisioned, 2 = unfixable.
+#
+# WNM_NPM overrides the npm executable (tests substitute a recording stub).
 #
 # Diagnostics go to stderr; stdout stays empty so callers can compose this into a pipeline
 # whose stdout contract is the worktree path (.claude/hooks/worktree-setup.sh, scripts/create-worktree.sh).
@@ -96,6 +100,157 @@ HAS_CORE=0; [ -d "$WORKTREE_DIR/packages/core" ] && HAS_CORE=1
 # --check and --apply share ONE definition of the end state, so they can never disagree.
 needs_root=0; nm_is_provisioned "$ROOT_NM" || needs_root=1
 needs_core=0; if [ "$HAS_CORE" -eq 1 ]; then nm_is_provisioned "$CORE_NM" || needs_core=1; fi
+
+# ── LOCK-AWARE ───────────────────────────────────────────────────────────────
+# A link is a valid delivery only when the primary's INSTALLED tree is the tree this
+# worktree's lock plans. Incident 2026-09-30 (worktree brave-lumiere-dd3388): the branch's
+# locks added oxlint, the primary's node_modules lacked it, and the linked worktree failed
+# `tsc --noEmit` with TS2307 on `oxlint/plugins-dev` plus several vitest files — dependency
+# reds masquerading as code reds.
+#
+# The comparator is the primary's npm hidden lockfile (node_modules/.package-lock.json — what
+# is actually installed, even when the primary's own package-lock.json has moved on without a
+# reinstall), checked against every DIRECT dependency of every workspace in the worktree's
+# package-lock.json at the exact planned version, resolved the way node resolves it
+# (<workspace>/node_modules/<name>, then node_modules/<name>). Direct deps are what code
+# imports; a transitive patch drift is not a reason to install 1.8 GB per worktree. A byte
+# compare of the lockfiles was measured and rejected as the primary comparator: on 2026-09-30
+# it diverged for 117 of 128 worktrees (the direct-dep compare: 84, driven by real version
+# gaps such as markdownlint-cli2). The byte compare stays as the fallback when no hidden
+# lockfile or no node is available (pnpm / yarn / bun consumers, a pre-npm-7 primary).
+#
+# CC-launched hooks run with a stripped PATH (CLAUDE.md «Homebrew PATH in hooks»); append the
+# usual locations so node/npm resolve without shadowing a version manager's.
+PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+NPM="${WNM_NPM:-npm}"
+LOCK_REASONS=""
+
+# Returns 0 when the worktree's lock diverges from the primary's installed tree (reasons in
+# LOCK_REASONS), 1 when a link is a faithful delivery.
+lock_diverges() {
+  local hidden="$PRIMARY_DIR/node_modules/.package-lock.json" rc f
+  if [ -f "$WORKTREE_DIR/package-lock.json" ] && [ -f "$hidden" ] && command -v node >/dev/null 2>&1; then
+    LOCK_REASONS="$(node - "$WORKTREE_DIR/package-lock.json" "$hidden" <<'JS'
+const fs = require('fs');
+const [want, have] = process.argv.slice(2).map((f) => JSON.parse(fs.readFileSync(f, 'utf8')).packages || {});
+const miss = [];
+for (const [ws, entry] of Object.entries(want)) {
+  if (ws.includes('node_modules/')) continue; // workspace roots only: "" and e.g. "packages/core"
+  for (const name of Object.keys({ ...entry.dependencies, ...entry.devDependencies })) {
+    const paths = [...(ws ? [`${ws}/node_modules/${name}`] : []), `node_modules/${name}`];
+    const planned = paths.map((p) => want[p]).find(Boolean);
+    if (!planned || planned.link) continue; // a workspace link carries no version
+    const got = paths.map((p) => have[p]).find(Boolean);
+    if (!got || got.version !== planned.version)
+      miss.push(`${name}: planned ${planned.version}, installed ${got ? got.version : 'none'}`);
+  }
+}
+if (miss.length === 0) process.exit(0);
+console.log(miss.slice(0, 8).join('; ') + (miss.length > 8 ? `; … ${miss.length - 8} more` : ''));
+process.exit(3);
+JS
+)"
+    rc=$?
+    [ "$rc" -eq 0 ] && return 1
+    [ "$rc" -eq 3 ] && return 0
+    # Any other exit is an unreadable lock — fall through to the byte compare.
+  fi
+  for f in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb; do
+    [ -e "$WORKTREE_DIR/$f" ] || [ -e "$PRIMARY_DIR/$f" ] || continue
+    if ! cmp -s "$WORKTREE_DIR/$f" "$PRIMARY_DIR/$f"; then
+      LOCK_REASONS="$f differs from the primary's"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# The exact manual remedy, printed whenever the helper cannot (or may not) install itself.
+remedy() {
+  printf '   cd %s\n' "$WORKTREE_DIR"
+  printf '   [ -L node_modules ] && rm node_modules\n'
+  [ "$HAS_CORE" -eq 1 ] && printf '   [ -L packages/core/node_modules ] && rm packages/core/node_modules\n'
+  if [ -f "$WORKTREE_DIR/package-lock.json" ]; then
+    printf '   npm install --no-save\n'
+    [ -f "$WORKTREE_DIR/packages/core/package-lock.json" ] && printf '   npm ci --prefix packages/core\n'
+    printf '   git diff --summary   # restore any "mode change" npm made to tracked bin targets\n'
+  elif [ -f "$WORKTREE_DIR/pnpm-lock.yaml" ]; then printf '   pnpm install --frozen-lockfile\n'
+  elif [ -f "$WORKTREE_DIR/yarn.lock" ]; then printf '   yarn install --frozen-lockfile\n'
+  else printf '   bun install --frozen-lockfile\n'
+  fi
+}
+
+# Only a LINK delivery can be stale against the worktree's lock: a layer that is a symlink, or
+# one about to become one. A real install is the worktree's own and is left to npm.
+link_layers=0
+{ [ -L "$ROOT_NM" ] || [ "$needs_root" -eq 1 ]; } && link_layers=1
+{ [ "$HAS_CORE" -eq 1 ] && { [ -L "$CORE_NM" ] || [ "$needs_core" -eq 1 ]; }; } && link_layers=1
+
+if [ "$link_layers" -eq 1 ] && lock_diverges; then
+  if [ "$MODE" = "--check" ]; then
+    printf '⚠ worktree-node-modules: %s — its lock diverges from the primary'"'"'s installed tree (%s); a link would serve the wrong dependencies. Run: bash %s --apply %s (a real install), or by hand:\n' \
+      "$WORKTREE_DIR" "$LOCK_REASONS" "${BASH_SOURCE[0]}" "$WORKTREE_DIR" >&2
+    remedy >&2
+    exit 3
+  fi
+
+  install_failed() {
+    printf '⚠ worktree-node-modules: %s — lock diverges from the primary (%s) and the real install %s. Run by hand:\n' \
+      "$WORKTREE_DIR" "$LOCK_REASONS" "$1" >&2
+    remedy >&2
+    exit 2
+  }
+  [ -f "$WORKTREE_DIR/package-lock.json" ] || install_failed "is npm-only here (non-npm lockfile)"
+  command -v "$NPM" >/dev/null 2>&1 || install_failed "needs npm, which is not on PATH"
+
+  # Never install THROUGH a link: npm would reify the SHARED clone against this worktree's lock
+  # and prune it (PR #1399). Drop the links (rm on a symlink removes only the link) and any
+  # cache-only dirs; a real install is the worktree's own and is installed over in place.
+  for nm in "$ROOT_NM" "$CORE_NM"; do
+    if [ -L "$nm" ]; then rm -f "$nm"
+    elif nm_is_free "$nm"; then rm -rf "$nm"
+    fi
+  done
+  { [ -L "$ROOT_NM" ] || [ -L "$CORE_NM" ]; } && install_failed "was refused: a node_modules symlink survived unlinking"
+
+  # npm rewrites what it should not: the lockfile (even under --no-save on some versions) and
+  # the file mode of every workspace `bin` target it links (incident: verify-provenance-cli.ts
+  # 644 -> 755). Snapshot both, restore after, whatever the install's outcome.
+  SNAP="$(mktemp -d)"
+  for f in package-lock.json packages/core/package-lock.json; do
+    [ -f "$WORKTREE_DIR/$f" ] && mkdir -p "$SNAP/$(dirname "$f")" && cp -p "$WORKTREE_DIR/$f" "$SNAP/$f"
+  done
+  git -C "$WORKTREE_DIR" diff --summary 2>/dev/null | grep '^ mode change ' >"$SNAP/.modes-before" || true
+  restore() {
+    local f old path
+    for f in package-lock.json packages/core/package-lock.json; do
+      [ -f "$SNAP/$f" ] && ! cmp -s "$SNAP/$f" "$WORKTREE_DIR/$f" && cp -p "$SNAP/$f" "$WORKTREE_DIR/$f"
+    done
+    git -C "$WORKTREE_DIR" diff --summary 2>/dev/null | grep '^ mode change ' | while IFS= read -r line; do
+      grep -qxF "$line" "$SNAP/.modes-before" && continue # a mode change that predates us is the user's
+      old="$(printf '%s' "$line" | awk '{print $3}')"
+      path="$(printf '%s' "$line" | sed -E 's/^ mode change [0-7]+ => [0-7]+ //')"
+      chmod "${old#100}" "$WORKTREE_DIR/$path"
+    done
+    rm -rf "$SNAP"
+  }
+
+  printf '▶ worktree-node-modules: %s — lock diverges from the primary (%s); installing for real\n' \
+    "$WORKTREE_DIR" "$LOCK_REASONS" >&2
+  if ! (cd "$WORKTREE_DIR" && "$NPM" install --no-save >&2); then
+    restore; install_failed "failed at \`npm install --no-save\`"
+  fi
+  if [ -f "$WORKTREE_DIR/packages/core/package-lock.json" ]; then
+    [ -L "$CORE_NM" ] && { restore; install_failed "was refused: packages/core/node_modules became a symlink"; }
+    if ! (cd "$WORKTREE_DIR" && "$NPM" ci --prefix packages/core >&2); then
+      restore; install_failed "failed at \`npm ci --prefix packages/core\`"
+    fi
+  fi
+  restore
+  printf '✓ worktree-node-modules: installed %s for real (its lock diverges from the primary)\n' "$WORKTREE_DIR" >&2
+  exit 0
+fi
+# ── END LOCK-AWARE ───────────────────────────────────────────────────────────
 
 if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ]; then
   [ "$MODE" = "--check" ] && exit 0

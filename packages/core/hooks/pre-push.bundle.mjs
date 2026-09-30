@@ -1237,16 +1237,17 @@ function worktreeProvisioningSection() {
   const helper = resolve(REPO_ROOT, "scripts/worktree-node-modules.sh");
   if (!existsSync2(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
     return;
-  if (run("bash", [helper, "--check", REPO_ROOT]).exitCode === 0) return;
+  const checked = run("bash", [helper, "--check", REPO_ROOT]);
+  if (checked.exitCode === 0) return;
   const applied = run("bash", [helper, "--apply", REPO_ROOT]);
   if (applied.exitCode !== 0) {
     die(
-      "\u274C this worktree has no node_modules and cannot be provisioned automatically.\n   Run `npm install` in the primary checkout, then `bash scripts/worktree-doctor.sh --fix`.",
+      "\u274C this worktree cannot be provisioned automatically \u2014 the helper output below names the cause\n   and the exact commands (typically: `npm install` in the primary checkout, or the real-install\n   commands for a lock-diverged worktree).",
       applied
     );
   }
   process.stdout.write(
-    "\u2713 worktree node_modules provisioned (symlinks were missing \u2014 healed before the test sections)\n"
+    checked.exitCode === 3 ? "\u2713 worktree node_modules installed for real (its lock diverges from the primary checkout)\n" : "\u2713 worktree node_modules provisioned (symlinks were missing \u2014 healed before the test sections)\n"
   );
 }
 function lintStagedResolvesSection() {

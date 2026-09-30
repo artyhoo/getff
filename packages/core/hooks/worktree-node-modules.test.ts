@@ -22,8 +22,10 @@ import {
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -166,5 +168,169 @@ describe('worktree-node-modules.sh — provisioning SSOT', () => {
     expect(run('--check')).toBe(1);
     expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(false);
     expect(existsSync(resolve(wt, 'node_modules/.vite/deps.json'))).toBe(true);
+  });
+});
+
+/**
+ * LOCK-AWARE arm (incident 2026-09-30, worktree brave-lumiere-dd3388, branch
+ * join/one-button-union): the branch's locks added oxlint, the primary's installed tree lacked
+ * it, and the worktree — symlinked into that tree — failed `tsc --noEmit` with TS2307 on
+ * `oxlint/plugins-dev` plus several vitest files: dependency reds masquerading as code reds.
+ *
+ * A link is only a valid delivery when the primary's INSTALLED tree (npm's hidden lockfile,
+ * node_modules/.package-lock.json) carries every direct dependency the worktree's lock plans,
+ * at exactly the planned version. Otherwise the helper must not link: --check reports 3
+ * (needs a real install), --apply unlinks both layers and installs for real, never through a
+ * symlink (PR #1399: an install through the link reifies the SHARED clone and prunes it).
+ *
+ * npm itself is replaced by a recording stub (WNM_NPM) — no network, and the stub observes the
+ * one property that matters: whether either node_modules path was a symlink when it ran.
+ */
+describe('worktree-node-modules.sh — lock-aware provisioning', () => {
+  let stubDir: string;
+  let npmLog: string;
+
+  type Lock = Record<string, string>; // direct dependency name -> planned/installed version
+
+  /** A lockfileVersion-3 package-lock.json planning `deps` as direct devDependencies. */
+  function lockJson(deps: Lock): string {
+    const packages: Record<string, unknown> = {
+      '': { name: 'fixture', devDependencies: Object.fromEntries(Object.keys(deps).map((n) => [n, '*'])) },
+    };
+    for (const [n, v] of Object.entries(deps)) packages[`node_modules/${n}`] = { version: v, dev: true };
+    return `${JSON.stringify({ name: 'fixture', lockfileVersion: 3, requires: true, packages }, null, 2)}\n`;
+  }
+
+  /** Primary whose INSTALLED tree holds `installed`; worktree whose lock plans `planned`. */
+  function seedLocks(installed: Lock, planned: Lock, opts: { hiddenLock?: boolean } = {}): void {
+    seed();
+    writeFileSync(resolve(primary, 'package-lock.json'), lockJson(installed));
+    if (opts.hiddenLock !== false)
+      writeFileSync(resolve(primary, 'node_modules/.package-lock.json'), lockJson(installed));
+    writeFileSync(resolve(wt, 'package-lock.json'), lockJson(planned));
+    // A tracked file npm chmods +x when it links a workspace `bin` (the incident's
+    // packages/core/synthesizer/verify-provenance-cli.ts went 644 -> 755).
+    writeFileSync(resolve(wt, 'packages/core/cli.ts'), '// bin target\n', { mode: 0o644 });
+    writeFileSync(resolve(wt, 'packages/core/package-lock.json'), lockJson(planned));
+    execSync('git add -A && git -c user.email=t@e.com -c user.name=t commit -q -m locks', { cwd: wt });
+  }
+
+  function writeStub(body = ''): void {
+    stubDir = mkdtempSync(resolve(tmpdir(), 'wnm-npm-'));
+    npmLog = resolve(stubDir, 'npm.log');
+    const stub = resolve(stubDir, 'npm');
+    writeFileSync(
+      stub,
+      [
+        '#!/usr/bin/env bash',
+        'root_link=0; core_link=0',
+        '[ -L node_modules ] && root_link=1',
+        '[ -L packages/core/node_modules ] && core_link=1',
+        `printf '%s|%s|root_link=%s|core_link=%s\\n' "$PWD" "$*" "$root_link" "$core_link" >> "${npmLog}"`,
+        // What a real install leaves behind: a real tree, a rewritten lock, a chmodded bin target.
+        'if [ "${1:-}" = ci ]; then mkdir -p packages/core/node_modules/dep; else mkdir -p node_modules/dep; fi',
+        'printf "\\n" >> package-lock.json',
+        'chmod 755 packages/core/cli.ts',
+        body,
+      ].join('\n'),
+      { mode: 0o755 },
+    );
+  }
+
+  function runNpm(mode: '--check' | '--apply'): { status: number; out: string } {
+    try {
+      const out = execFileSync('bash', [SCRIPT, mode, wt, primary], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        env: { ...process.env, WNM_NPM: resolve(stubDir, 'npm') },
+      });
+      return { status: 0, out };
+    } catch (e) {
+      const err = e as { status?: number; stderr?: string; stdout?: string };
+      return { status: err.status ?? -1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+    }
+  }
+
+  const npmCalls = (): string[] =>
+    existsSync(npmLog) ? readFileSync(npmLog, 'utf8').trim().split('\n').filter(Boolean) : [];
+
+  beforeEach(() => writeStub());
+  afterEach(() => {
+    if (stubDir) rmSync(stubDir, { recursive: true, force: true });
+  });
+
+  it('DIVERGED (fresh worktree): a direct dep missing from the primary tree -> real install, no link', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+
+    expect(runNpm('--check').status).toBe(3);
+    const r = runNpm('--apply');
+    expect(r.status, r.out).toBe(0);
+
+    expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(false);
+    expect(lstatSync(resolve(wt, 'packages/core/node_modules')).isSymbolicLink()).toBe(false);
+    const calls = npmCalls();
+    expect(calls.map((c) => c.split('|')[1])).toEqual(['install --no-save', 'ci --prefix packages/core']);
+    // Never through a link: both layers were real (or absent) when npm ran.
+    for (const c of calls) expect(c, c).toMatch(/root_link=0\|core_link=0$/);
+    // The shared clone is untouched.
+    expect(existsSync(resolve(primary, 'node_modules/dep'))).toBe(false);
+  });
+
+  it('DIVERGED (the incident): an already-linked worktree whose lock moved is unlinked, then installed', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    symlinkSync(resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
+    symlinkSync(resolve(primary, 'packages/core/node_modules'), resolve(wt, 'packages/core/node_modules'));
+
+    expect(runNpm('--check').status).toBe(3);
+    expect(runNpm('--apply').status).toBe(0);
+
+    expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(false);
+    for (const c of npmCalls()) expect(c, c).toMatch(/root_link=0\|core_link=0$/);
+    expect(existsSync(resolve(primary, 'node_modules/dep'))).toBe(false);
+    expect(existsSync(resolve(primary, 'packages/core/node_modules/.keep'))).toBe(true);
+  });
+
+  it('DIVERGED by version: the same direct dep at another exact version is not a valid link', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.9' });
+    expect(runNpm('--check').status).toBe(3);
+  });
+
+  it('PAIRED-NEGATIVE: a lock the primary tree satisfies still links, and npm never runs', () => {
+    // Transitive / extra installed packages are irrelevant; only planned direct deps count.
+    seedLocks({ vitest: '4.1.8', extra: '1.0.0' }, { vitest: '4.1.8' });
+    expect(runNpm('--check').status).toBe(1);
+    expect(runNpm('--apply').status).toBe(0);
+    expect(readlinkSync(resolve(wt, 'node_modules'))).toBe(resolve(primary, 'node_modules'));
+    expect(npmCalls()).toEqual([]);
+    expect(runNpm('--check').status).toBe(0);
+  });
+
+  it('restores what npm rewrites: the lockfile bytes and tracked file modes', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    const before = readFileSync(resolve(wt, 'package-lock.json'), 'utf8');
+    expect(runNpm('--apply').status).toBe(0);
+    expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(execSync('git status --porcelain', { cwd: wt, encoding: 'utf8' })).toBe('');
+  });
+
+  it('a failed install exits 2 and names the exact commands', () => {
+    rmSync(stubDir, { recursive: true, force: true });
+    writeStub('exit 1');
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    const r = runNpm('--apply');
+    expect(r.status).toBe(2);
+    expect(r.out).toContain('npm install --no-save');
+    expect(r.out).toContain('npm ci --prefix packages/core');
+  });
+
+  it('FALLBACK: without a hidden lockfile in the primary, a byte-different lock counts as diverged', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.9' }, { hiddenLock: false });
+    expect(runNpm('--check').status).toBe(3);
+  });
+
+  it('FALLBACK paired-negative: without a hidden lockfile, a byte-identical lock still links', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8' }, { hiddenLock: false });
+    expect(runNpm('--check').status).toBe(1);
   });
 });
