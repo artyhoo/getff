@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1578-1609 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1703-1738 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1520,7 +1520,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1309 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1434 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
