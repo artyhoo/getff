@@ -6,9 +6,10 @@
  *
  * Rule: a PR that deletes a shipped file — anything under packages/core/templates/ or
  * .ai-factory/ — must carry a `## Removal consumers` section with one row per deleted
- * path. The row names the path (full or basename) and either cites a consumer as
- * `file.ext:NN` (a file other than the deleted one) or declares
- * `no consumers — <rationale ≥20 chars>`.
+ * path. The row names the path — in full, or by basename when no other deleted path
+ * shares it — as a whole token, and either cites a consumer as `path:NN` (a file with
+ * an extension or a directory part, and not one of the files this PR deletes) or
+ * declares `no consumers — <rationale ≥20 chars>`.
  *
  * Why (incident 2026-09-28, one-button round 2): a drop proposal for the AIF passport
  * files went to «confirm the table» with no consumer map. Hidden consumers existed —
@@ -24,8 +25,12 @@
 export const SHIPPED_REMOVAL_ROOTS = ['packages/core/templates/', '.ai-factory/'] as const;
 
 const HEADING = /^## Removal consumers\s*$/;
-/** `file.ext:NN` — same shape as the §1.7 substance regex, minus markdown punctuation. */
-const CITATION = /([^\s`|()[\]]+\.[A-Za-z0-9]+):\d+/g;
+/**
+ * `path:NN`. The path needs an extension (`lib.sh:875`) or a directory part
+ * (`.husky/pre-push:40`); a URL (`http://host:8080`) is not a citation.
+ */
+const CITATION = /([^\s`|()[\]<>]+):\d+/g;
+const DELIM = '[\\s`|()[\\]<>,;:*"\']';
 const ESCAPE = /\bno consumers\s*[—–-]+\s*(\S.*)$/i;
 const MIN_ESCAPE_RATIONALE = 20;
 
@@ -62,17 +67,35 @@ function basename(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
-/** A cited file that IS the deleted file (full path or path suffix) is not a consumer. */
-function isSelf(cited: string, removed: string): boolean {
-  return cited === removed || removed.endsWith(`/${cited}`) || cited.endsWith(`/${removed}`);
+function escapeRe(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function rowQualifies(line: string, removed: string): boolean {
-  if (!line.includes(removed) && !line.includes(basename(removed))) return false;
+/** `name` occurs in `line` as a whole token — not as a substring of a longer name. */
+function hasToken(line: string, name: string): boolean {
+  return new RegExp(`(^|${DELIM}|/)${escapeRe(name)}($|${DELIM})`).test(line);
+}
+
+function isCitablePath(token: string): boolean {
+  return !token.includes('://') && (/\.[A-Za-z0-9]+$/.test(token) || token.includes('/'));
+}
+
+/** A file this PR deletes (full path or path suffix) is not a consumer of anything. */
+function isRemoved(cited: string, removed: readonly string[]): boolean {
+  return removed.some(
+    (r) => cited === r || r.endsWith(`/${cited}`) || cited.endsWith(`/${r}`),
+  );
+}
+
+function rowQualifies(line: string, path: string, removed: readonly string[]): boolean {
+  const base = basename(path);
+  const baseIsUnique = removed.filter((r) => basename(r) === base).length === 1;
+  if (!hasToken(line, path) && !(baseIsUnique && hasToken(line, base))) return false;
   const escape = ESCAPE.exec(line);
   if (escape && (escape[1] ?? '').trim().length >= MIN_ESCAPE_RATIONALE) return true;
   for (const m of line.matchAll(CITATION)) {
-    if (!isSelf(m[1] ?? '', removed)) return true;
+    const cited = m[1] ?? '';
+    if (isCitablePath(cited) && !isRemoved(cited, removed)) return true;
   }
   return false;
 }
@@ -92,10 +115,10 @@ export function checkRemovalConsumers(
       ok: false,
       removed,
       missing: removed,
-      message: `PR deletes ${removed.length} shipped file(s) but has no \`## Removal consumers\` section`,
+      message: `PR deletes ${removed.length} shipped file(s) but has no \`## Removal consumers\` section: ${removed.join(', ')}`,
     };
   }
-  const missing = removed.filter((p) => !lines.some((l) => rowQualifies(l, p)));
+  const missing = removed.filter((p) => !lines.some((l) => rowQualifies(l, p, removed)));
   return missing.length === 0
     ? { ok: true, removed, missing, message: `consumer map covers ${removed.length} deletion(s)` }
     : {

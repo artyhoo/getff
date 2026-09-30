@@ -26,7 +26,17 @@ if (mb.exitCode !== 0 || !mb.stdout.trim()) {
   process.exit(1);
 }
 // --no-renames: a rename is a removal of the old name, and consumers find files by name.
-const diff = runCheck('git', ['diff', '--name-status', '--no-renames', mb.stdout.trim(), head]);
+// core.quotePath=false: a quoted non-ASCII path ("packages/…) would miss the root prefix
+// and pass open.
+const diff = runCheck('git', [
+  '-c',
+  'core.quotePath=false',
+  'diff',
+  '--name-status',
+  '--no-renames',
+  mb.stdout.trim(),
+  head,
+]);
 if (diff.exitCode !== 0) {
   console.error(`::error::git diff failed: ${diff.stderr}`);
   process.exit(1);

@@ -452,9 +452,9 @@ ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/
 e8749896d4983c582b7641c99548235b59f9751c0c3c7f44226b1387c0c116dc  packages/core/hooks/checks/pr-body-fidelity.ts
 6cc37df35fa1ab5bb1280baf24835f975d1a377147784ec78cab8ae12ddca950  packages/core/hooks/checks/pr-body-prior-art-bin.ts
 b36d5d662865b0eaebe55c62c0f8e20e5697ecbbd368bad29ac1d97a959f10b6  packages/core/hooks/checks/pr-body-prior-art.test.ts
-0c67fb7e0c176736610911f4925564e9c1e3a8fdb1fada03f4b898f5ebbe5e27  packages/core/hooks/checks/pr-body-removal-consumers-bin.ts
-83295b712cf775c9b654852adc9e5ed89d74d68915aa61e72d3241dbf776612a  packages/core/hooks/checks/pr-body-removal-consumers.test.ts
-9015f7bbc36ec7c6e8dacb714fe1f5ab6afcf048d04f98206c178656e76b1f28  packages/core/hooks/checks/pr-body-removal-consumers.ts
+8bfc0bebadaccb1baee5bde876b19c9f7df897f91587d93fd6e5412925d91da2  packages/core/hooks/checks/pr-body-removal-consumers-bin.ts
+928cd280d7e2ed5a86d6e448e01d9174cf62b94fd20840f5371990ac33188840  packages/core/hooks/checks/pr-body-removal-consumers.test.ts
+7758637bcd560ac8efc5c7579f2ef9eb2bc5d7453cbc792d963e4f383cc82b4a  packages/core/hooks/checks/pr-body-removal-consumers.ts
 a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/hooks/checks/pr-stale-revert-bin.test.ts
 730722f2bd939bd3731ce6f18eb2df7d9269403213d3f18b2b687349a5501e16  packages/core/hooks/checks/pr-stale-revert-bin.ts
 9730af4e54c6c39619afe0519327d4af807c6400d65454b954052431db3a1617  packages/core/hooks/checks/pr-stale-revert.test.ts

@@ -125,6 +125,47 @@ describe('checkRemovalConsumers — gate', () => {
   });
 });
 
+describe('checkRemovalConsumers — row identity (cold review 2026-10-01)', () => {
+  const SK_A = 'packages/core/templates/shared/skill-context/aif-review/SKILL.md';
+  const SK_B = 'packages/core/templates/shared/skill-context/aif-plan/SKILL.md';
+
+  it('NEGATIVE — two deletions sharing a basename, one full-path row: FAILS for the other', () => {
+    const res = check(body(`| ${SK_A} | \`install.sh:10\` | drop |`), [del(SK_A), del(SK_B)]);
+    expect(res.ok).toBe(false);
+    expect(res.missing).toEqual([SK_B]);
+  });
+
+  it('NEGATIVE — a shared basename alone identifies neither deletion: FAILS for both', () => {
+    const res = check(body('| SKILL.md | `install.sh:10` | drop |'), [del(SK_A), del(SK_B)]);
+    expect(res.missing).toEqual([SK_A, SK_B]);
+  });
+
+  it('POSITIVE — shared basename, one full-path row each: passes', () => {
+    const rows = [SK_A, SK_B].map((p) => `| ${p} | \`install.sh:10\` | drop |`).join('\n');
+    expect(check(body(rows), [del(SK_A), del(SK_B)]).ok).toBe(true);
+  });
+
+  it('NEGATIVE — a basename that is only a substring of another name does not match: FAILS', () => {
+    const res = check(body('| index.md | `install.sh:10` | drop |'), [del('packages/core/templates/x.md')]);
+    expect(res.ok).toBe(false);
+  });
+
+  it('NEGATIVE — citing another file deleted by the same PR is not a consumer: FAILS', () => {
+    const X = 'packages/core/templates/x.md';
+    const Y = 'packages/core/templates/y.md';
+    const rows = `| ${X} | \`${Y}:3\` | drop |\n| ${Y} | \`${X}:3\` | drop |`;
+    expect(check(body(rows), [del(X), del(Y)]).ok).toBe(false);
+  });
+
+  it('POSITIVE — an extensionless consumer path with a directory (.husky/pre-push:40) counts', () => {
+    expect(check(body(`| ${TPL} | \`.husky/pre-push:40\` | drop |`), [del(TPL)]).ok).toBe(true);
+  });
+
+  it('NEGATIVE — a URL with a port is not a file:line citation: FAILS', () => {
+    expect(check(body(`| ${TPL} | see http://example.com:8080 | drop |`), [del(TPL)]).ok).toBe(false);
+  });
+});
+
 describe('checkRemovalConsumers — the shipped PR template default', () => {
   const template = readFileSync(
     fileURLToPath(new URL('../../../../.github/pull_request_template.md', import.meta.url)),
