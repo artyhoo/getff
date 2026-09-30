@@ -4,7 +4,7 @@
 <!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#CHIP -->
 
 > **Class:** B — one mechanisable slice ships as a compensating mechanism: the Stop-hook dispatch-channel arm in [`end-of-turn-reminder.sh`](../hooks/end-of-turn-reminder.sh) (`#CHIP` anchor, error-with-escape, paired self-tests in [`end-of-turn-reminder.test.ts`](../../packages/core/hooks/end-of-turn-reminder.test.ts)) for `#chip-over-available-bridge`. The rest (evidence-backed verdicts, fork closure, liability shield) is judgment and stays prose — gating it is `#gate-where-judgment-needed`. Promotion criterion in §6.
-> **Fires:** before an inline verdict/recommendation, an ambiguous fork, or a dispatch/handoff.
+> **Fires:** before a verdict, an ambiguous fork, or a dispatch.
 > **Authoritative for:** mechanism layer + named anti-pattern catalogue for the inline-chat verdict-without-evidence pattern, fork closure (a fork closes only on an explicit operator choice), the liability-shield pattern, the zero-click dispatch-channel order, and the human-touchpoint justification; promotion criterion in §6.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Recommendation discipline rule itself — see [phase-research-coverage.md §1.12](phase-research-coverage.md) (parent rule, source-of-truth for prose discipline). T-trap catalogue — see [ai-laziness-traps.md §2](ai-laziness-traps.md) (sibling enforcement surface).
 
