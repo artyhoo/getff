@@ -5,6 +5,7 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/aif-doctor/SKILL.md
+  - .claude/skills/aif-doctor/helpers/aif-agent-target.sh
   - .claude/skills/aif-doctor/helpers/heal.sh
   - .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
   - .claude/skills/dispatcher/SKILL.md
@@ -90,12 +91,18 @@ SKILL.md
 helpers
 
 .claude/skills/aif-doctor/helpers:
+aif-agent-target.sh
 heal.sh
 refresh-aif-base.sh
 ```
 
-The two helpers bring a stale copy of your repository inside the runtime's container up
-to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
+`aif-agent-target.sh` finds the runtime's agent container and the docker context it runs
+on. It uses a container only when exactly one matches, and it prints the name and the
+context. With two or more matches it names them and stops. When your current docker
+context has none, it asks the other contexts, and it waits a bounded time for each.
+
+The other two helpers bring a stale copy of your repository inside the runtime's container
+up to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
 `refresh-aif-base.sh` runs git inside the container as the user who owns that copy. Git
 run as the container's default user, root, leaves files the runtime's tasks cannot
 write, and the next task then fails before it starts.
@@ -123,8 +130,10 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
   line 265. The log-window check is the
   section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
   The two kinds of change start on lines 279 and 298. The network limit is line 326.
+- `.claude/skills/aif-doctor/helpers/aif-agent-target.sh` states its rules in its header,
+  lines 14 to 21, and its exit codes on lines 34 to 36.
 - `.claude/skills/aif-doctor/helpers/refresh-aif-base.sh` reads the owner of the copy on
-  line 94 and runs every git command as that user on line 100.
+  line 113 and runs every git command as that user on line 119.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
   line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
   exists only in the framework repository.
