@@ -15,7 +15,7 @@ Status: APPROVED by the owner on 2026-09-29 (OP-51, «А: одобряю»); lan
 (OP-52); hand-over rows HO-1 … HO-9 wait for the one-button second wave. Two /arch §2 cold
 two-altitude review rounds (the cap), no BLOCKER open. Text approved at `origin/staging`
 `26ccdc6b160`; measured numbers are at that base unless marked; `path:NN` citations re-resolved
-at `ab722237351`.
+at `ab722237351` and again at `53633ffb2f9`.
 
 ## Goal (the owner's ask)
 
@@ -106,19 +106,23 @@ never an argument for keeping it.
 3. No silent change: every revision is visible in the record (the decision-record patch or its
    successor).
 
-## Hand-over requirements (owned by other designs, not designed here)
+## Hand-over requirements (owned by other designs unless marked, not designed here)
 
-- **Trigger-build design** (its draft v2, outside the repo; row D10 answered): the directory and carrier
-  of the shipped rule file (its D7, D9, D16; D10 answered). Known: `.claude/rules/` at a
-  consumer is declared consumer-owned (`setup.d/10-skills.sh:306-307`); `setup.d/lib.sh:90`
-  «NOT shipped to consumers».
-- **Session digest:** the hook prints the PROJECT's goal and invariants from the passport, at a
+- **Trigger-build design:** the directory and carrier of the shipped one-source rule. Answered:
+  it ships as a card-only rule under `.claude/hooks/getff-cards/` (installer) or the plugin's
+  `cards/`; the card loader reads that directory (`.claude/hooks/inject-matching-rule.sh:87`);
+  the installer step that delivers it is that design's slice 4 (no installer delivers the
+  directory yet). Known: `.claude/rules/` at a consumer is declared consumer-owned
+  (`setup.d/10-skills.sh:306-307`); `setup.d/lib.sh:90` «NOT shipped to consumers».
+- **Session digest (kept by this design; rides with the P4 passport region, trigger-build E17):** the hook prints the PROJECT's goal and invariants from the passport, at a
   consumer and in getff. Today the consumer hook reads `.claude/session-bootstrap.md`, whose
-  template ships empty (`setup.d/10-skills.sh:371-378`); no hook reads the passport. The
+  template ships empty (`setup.d/10-skills.sh:380-388`); no hook reads the passport. The
   consumer hook already reads the consumer's own tree (`.claude/hooks/inject-project-digest.sh:8-9`);
-  the plugin no longer ships the framework digest (`8a00bbc2e0b`). Constraint to solve:
-  `render-invariants.mjs:17-18`, the hook must survive a stripped PATH, no awk/sed/node parse on
-  the hot path.
+  the plugin no longer ships the framework digest (`8a00bbc2e0b`). Constraints: change that one
+  hook, no second always-on injector; stay inside the budget `scripts/check-alwayson-budget.sh`
+  checks; the hot path survives a stripped PATH with no awk/sed/node parse
+  (`render-invariants.mjs:17-18`); move the source from `.claude/session-bootstrap.md` to the
+  passport region in one step, so two goal sources never coexist.
 - **Installer parts:**
   - P1 (step list): the generation step is an agent step, on install AND on refresh; engine
     without bindings = PENDING on a channel without an agent (picked up by the next session's
@@ -134,7 +138,7 @@ never an argument for keeping it.
   - P4 (base core): the passport template flips `:7` («NOT authoritative for: project goal»),
     drops `:52` (`docs/adr/`), and moves its Node/TS lines (`:15-27` under `## Stack`, `:33-38`
     under `## Hard constraints`) to the generated part; the python lane ships them unchanged
-    today (`setup.d/45-python.sh:1657`); python CI pins Node 20
+    today (`setup.d/45-python.sh:1689`); python CI pins Node 20
     (`packages/core/templates/python/github-actions-ci.yml:43`) against
     `packages/core/package.json:19` `>=22`.
 - **Consumer walk:** `packages/core/hooks/pre-push.ts:2245` lists the passport as shipped
@@ -169,7 +173,7 @@ Numbers at the base `26ccdc6b160` unless marked. Method, commands and the replay
   `"flags": "README.md:147"`; `render-face-facts.mjs:16`.
 - Ten renderers exist (`scripts/render-{face-facts,harness-config,install-roster,invariants,
   presets,reference,rule-channels,rule-index,terms-style,zcode-parity-rollup}.mjs`); six run
-  `--check` in CI (`audit-self.yml:293,298,300,304,308,1394`). Entry docs already carry
+  `--check` in CI (`audit-self.yml:293,298,300,304,308,1396`). Entry docs already carry
   renders: `AGENTS.md:26` (rule index), `INSTALL-FOR-AI.md:79` (install roster). The
   invariants render from README into the digest hook (`render-invariants.mjs:3`,
   `.claude/hooks/inject-session-bootstrap.sh:73`).
