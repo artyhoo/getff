@@ -151,7 +151,7 @@ copy_unless_foreign lint-staged "$PKG_ROOT/packages/core/templates/shared/.lints
 if [ "$DRY_RUN" != "--dry-run" ] \
   && cmp -s "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json" \
   && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
-  _ndrop=0
+  _ndrop=0; _stubs=()
   while IFS= read -r _pkgjson; do
     _pkgdir=$(dirname "$_pkgjson")
     [ "$_pkgdir" = "$PROJECT_ROOT" ] && continue
@@ -163,7 +163,7 @@ if [ "$DRY_RUN" != "--dry-run" ] \
       _pkgrel=${_pkgdir#"$PROJECT_ROOT"/}
       _uprel=$(printf '%s' "$_pkgrel" | sed 's#[^/][^/]*#..#g')
       sed "s#bash scripts/run-armed.sh#bash $_uprel/scripts/run-armed.sh#g" "$PROJECT_ROOT/.lintstagedrc.json" \
-        > "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
+        > "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1)) && _stubs+=("$_pkgdir/.lintstagedrc.json")
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
   echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"
@@ -194,6 +194,14 @@ if [ "$DRY_RUN" != "--dry-run" ] && { [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
   echo "  ✓ lint-staged runs your linter ($LINTER_SLOT) and formatter ($FORMATTER_SLOT) — no getff ESLint / prettier step beside them"
 fi
+# A stub's eslint step runs in its package, with that package's config, so it must not wait on the record's
+# `npm run lint`: that is the ROOT's lint, which on a per-workspace monorepo has no config to load (#973), exits 2
+# at install and is recorded not-armed — and the stub skipped eslint on a violation the package's own eslint flags
+# (PR #1985, pnpm-monorepo cell d-2). Runs after G5, so a step G5 moved to oxlint / biome keeps its wrapper; the
+# prettier step still follows the record, and the root config keeps its eslint step behind `npm run lint`.
+for _stub in ${_stubs[@]+"${_stubs[@]}"}; do
+  sed -i.getff-bak "s#\"bash [^\"]*run-armed\.sh --if-armed 'npm run lint' eslint #\"eslint #" "$_stub" && rm -f "$_stub.getff-bak"
+done
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
 # GH #531 (reopen): merge (not skip-if-exists) so a BROWNFIELD consumer with its own
