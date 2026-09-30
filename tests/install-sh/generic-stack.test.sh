@@ -106,7 +106,7 @@ grep -q 'Python toolchain lane (alpha)' <<<"$out" && ok "(5) the claimed lane is
 N=$(repo java)
 # script(1) differs: util-linux takes the command via -c (and -e to return its exit code), BSD/macOS
 # takes it as trailing arguments and returns its exit code by default.
-if script -V 2>/dev/null | grep -q util-linux; then
+if grep -q util-linux <<<"$(script -V 2>/dev/null)"; then
   out=$( cd "$N" && script -qec "bash '$INSTALL' --full" /dev/null < /dev/null 2>&1 ); rc=$?
 else
   out=$( cd "$N" && script -q /dev/null bash "$INSTALL" --full < /dev/null 2>&1 ); rc=$?

@@ -70,8 +70,8 @@ validate() {
 }
 case "${1:-}" in
   validate) validate ;; --probe) probe ;; --fold) fold ;;
-  --if-armed) c="${2:-}"; shift 2; na | grep -qxF -- "$c" && exit 0; exec "$@" ;;
+  --if-armed) c="${2:-}"; shift 2; grep -qxF -- "$c" <<<"$(na)" && exit 0; exec "$@" ;;
   "") echo "usage: run-armed.sh validate | --probe | --fold | <command…> | --if-armed '<command>' <cmd…>" >&2; exit 2 ;;
-  *) if na | grep -qxF -- "$*"; then echo "· not armed: $* — $(reason "$*")"; exit 0; fi
+  *) if grep -qxF -- "$*" <<<"$(na)"; then echo "· not armed: $* — $(reason "$*")"; exit 0; fi
      exec bash -c "$*" ;;
 esac

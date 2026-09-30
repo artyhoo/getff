@@ -51,19 +51,19 @@ grep -Eq '(^|[ (:])(eslint|typescript-eslint|@eslint/js|eslint-config-[a-z-]+|es
   && bad "(A) ESLint packages among getff's dev-dependencies: $(grep -oE '[@a-z/-]*eslint[@a-z/.^~0-9-]*' <<<"$dl" | tr '\n' ' ')" \
   || ok "(A) oxlint project: no ESLint package among the dev-dependencies getff adds"
 grep -q 'prettier@' <<<"$dl" && ok "(A) the rest of getff's toolchain is still offered (prettier)" || bad "(A) prettier dropped too: $dl"
-steps "$O" | grep -q 'eslint' && bad "(B) lint-staged still runs eslint: $(steps "$O" | grep eslint)" \
+grep -q 'eslint' <<<"$(steps "$O")" && bad "(B) lint-staged still runs eslint: $(steps "$O" | grep eslint)" \
   || ok "(B) no eslint step in lint-staged"
-steps "$O" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' oxlint" \
+grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' oxlint" <<<"$(steps "$O")" \
   && ok "(B) lint-staged runs oxlint while npm run lint is armed" || bad "(B) steps: $(steps "$O" | tr '\n' '|')"
-block "$O" | grep -qx 'linter: oxlint' && ok "(C) record: linter: oxlint" || bad "(C) linter line: $(block "$O" | grep '^linter')"
+grep -qx 'linter: oxlint' <<<"$(block "$O")" && ok "(C) record: linter: oxlint" || bad "(C) linter line: $(block "$O" | grep '^linter')"
 node -e 'process.exit(require(process.argv[1]).scripts.lint==="oxlint"?0:1)' "$O/package.json" \
   && ok "(C) the project's own lint script is kept" || bad "(C) lint script changed"
 for g in check-rule-globs check-rule-enforced check-fences-fire; do
-  section "$O" not-armed | grep -qx -- "- bash scripts/$g.sh # not wired: reads getff's ESLint config, and this project lints with oxlint" \
+  grep -qx -- "- bash scripts/$g.sh # not wired: reads getff's ESLint config, and this project lints with oxlint" <<<"$(section "$O" not-armed)" \
     && ok "(C) $g not-armed: reads getff's ESLint config" \
     || bad "(C) $g line: $(section "$O" not-armed | grep "$g" || echo none; section "$O" armed | grep "$g")"
 done
-not_wired "$O" | grep -q "getff lint plugin in oxlint" \
+grep -q "getff lint plugin in oxlint" <<<"$(not_wired "$O")" \
   && ok "(D) NOT wired names getff's rules for oxlint (no plugin registration on this branch)" \
   || bad "(D) summary: $(not_wired "$O" | tr '\n' '|')"
 
@@ -74,23 +74,23 @@ install_into "$B"
 [ ! -e "$B/eslint.config.mjs" ] && [ ! -e "$B/.prettierrc.json" ] \
   && ok "(E) Biome project: no getff eslint.config.mjs, no .prettierrc.json" \
   || bad "(E) placed: $(ls "$B"/eslint.config.mjs "$B"/.prettierrc.json 2>/dev/null | tr '\n' ' ')"
-steps "$B" | grep -qE 'eslint|prettier' && bad "(E) lint-staged: $(steps "$B" | grep -E 'eslint|prettier' | tr '\n' '|')" \
+grep -qE 'eslint|prettier' <<<"$(steps "$B")" && bad "(E) lint-staged: $(steps "$B" | grep -E 'eslint|prettier' | tr '\n' '|')" \
   || ok "(E) no eslint or prettier step in lint-staged"
 # `biome check` also enforces formatting — gated on lint alone it would block a commit on style while
 # format:check is recorded not-armed (cold review M6): the lint key runs `biome lint`, formatting is
 # its own step gated on format:check.
-steps "$B" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' biome lint --no-errors-on-unmatched" \
-  && ! steps "$B" | grep -q 'biome check' \
+grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' biome lint --no-errors-on-unmatched" <<<"$(steps "$B")" \
+  && ! grep -q 'biome check' <<<"$(steps "$B")" \
   && ok "(E) lint-staged runs biome lint (not biome check) while npm run lint is armed" || bad "(E) steps: $(steps "$B" | tr '\n' '|')"
-steps "$B" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run format:check' biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" \
+grep -qx "bash scripts/run-armed.sh --if-armed 'npm run format:check' biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" <<<"$(steps "$B")" \
   && ok "(E) biome format runs only while npm run format:check is armed" || bad "(E) no format:check-gated biome format step: $(steps "$B" | tr '\n' '|')"
-block "$B" | grep -qx 'linter: biome' && block "$B" | grep -qx 'formatter: biome' \
+grep -qx 'linter: biome' <<<"$(block "$B")" && grep -qx 'formatter: biome' <<<"$(block "$B")" \
   && ok "(E) record: linter: biome, formatter: biome" || bad "(E) record: $(block "$B" | grep -E '^(linter|formatter)' | tr '\n' '|')"
 
 # ── (F) paired negative: no linter → getff's ESLint fills the empty slot ────────────────────────
 F=$(proj '{"name":"f","version":"0.0.0","type":"module","dependencies":{"react":"^19.0.0"}}')
 install_into "$F"
-[ -f "$F/eslint.config.mjs" ] && steps "$F" | grep -q "run-armed.sh --if-armed 'npm run lint' eslint --fix" \
+[ -f "$F/eslint.config.mjs" ] && grep -q "run-armed.sh --if-armed 'npm run lint' eslint --fix" <<<"$(steps "$F")" \
   && ok "(F) no linter: getff's eslint.config.mjs placed, eslint step in lint-staged" \
   || bad "(F) empty slot not filled: $(ls "$F" | tr '\n' ' ')"
 

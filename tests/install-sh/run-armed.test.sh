@@ -47,7 +47,7 @@ proj() {
 section() { awk -v h="$2:" '/^[a-z-]+:$/{f=($0==h);next} /^<!--/{f=0} f' "$1/.ai-factory/tool-decisions.md"; }
 side() { echo "$(git -C "$1" rev-parse --absolute-git-dir)/getff-armed.local"; }
 # is_armed <dir> <command> — run-armed's own answer: one-command mode runs it (0) or skips it (1).
-is_armed() { ( cd "$1" && bash "$RA" "$2" 2>&1 ) | grep -q '^· not armed:' && return 1 || return 0; }
+is_armed() { grep -q '^· not armed:' <<<"$( (cd "$1" && bash "$RA" "$2" 2>&1) )" && return 1 || return 0; }
 
 # ── (A) armed failures do not stop the rest ─────────────────────────────────────────────────────
 A=$(proj $'echo one > a1.txt\nexit 3\necho three > a3.txt' "")
@@ -62,8 +62,8 @@ out=$( cd "$B" && bash "$RA" validate 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] && ok "(B) not-armed commands never fail validate" || bad "(B) rc=$rc: $out"
 is_armed "$B" 'echo hi > b.txt' && grep -qxF 'echo hi > b.txt' "$(side "$B")" \
   && ok "(B) a green not-armed command is armed (in the sidecar)" || bad "(B) not armed after validate"
-section "$B" not-armed | grep -q 'echo hi' && ok "(B) the tracked record is not touched (no dirty tree)" || bad "(B) the record was edited"
-! is_armed "$B" 'exit 1' && section "$B" not-armed | grep -qx -- '- exit 1 # 3 type errors at install' \
+grep -q 'echo hi' <<<"$(section "$B" not-armed)" && ok "(B) the tracked record is not touched (no dirty tree)" || bad "(B) the record was edited"
+! is_armed "$B" 'exit 1' && grep -qx -- '- exit 1 # 3 type errors at install' <<<"$(section "$B" not-armed)" \
   && ok "(B) a red one stays not-armed, reason kept" || bad "(B) red one changed"
 grep -q '3 type errors at install' <<< "$out" && ok "(B) the not-armed reason is printed" || bad "(B) reason not printed"
 
@@ -117,7 +117,7 @@ printf '\n<!-- GETFF_VERSIONS_BEGIN -->\n| eslint | 9.39.5 |\n<!-- GETFF_VERSION
 before=$(grep -v '^- \|^armed:\|^not-armed:' "$f")
 ( cd "$H" && bash "$RA" validate >/dev/null 2>&1 && bash "$RA" --fold >/dev/null 2>&1 )
 [ "$(grep -v '^- \|^armed:\|^not-armed:' "$f")" = "$before" ] && ok "(H) blocks before and after the record are left byte-for-byte" || bad "(H) neighbour changed"
-section "$H" armed | grep -qx -- '- true' && ok "(H) the record itself was still updated by --fold" || bad "(H) record not updated"
+grep -qx -- '- true' <<<"$(section "$H" armed)" && ok "(H) the record itself was still updated by --fold" || bad "(H) record not updated"
 
 # ── (I) a command that reads stdin cannot swallow the rest of the list (cold review M3) ─────────
 I=$(proj $'cat > /dev/null\nexit 7' $'cat > /dev/null\necho probed > p.txt')
@@ -136,7 +136,7 @@ mv "$J/.ai-factory/tool-decisions.md" "$J/apps/web/.ai-factory/"; cp "$RA" "$J/a
 K=$(proj 'true' 'echo k > k.txt'); f="$K/.ai-factory/tool-decisions.md"
 sed 's/$/\r/' "$f" > "$f.crlf" && mv "$f.crlf" "$f"
 ( cd "$K" && bash "$RA" validate >/dev/null 2>&1 && bash "$RA" --fold >/dev/null 2>&1 ); rc=$?
-[ "$rc" -eq 0 ] && tr -d '\r' < "$f" | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' | grep -qx -- '- echo k > k.txt' \
+[ "$rc" -eq 0 ] && grep -qx -- '- echo k > k.txt' <<<"$(tr -d '\r' < "$f" | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f')" \
   && ok "(K) a CRLF record validates, its probe arms, --fold writes it" || bad "(K) CRLF record: rc=$rc"
 
 # ── (L) a record that cannot be written is not reported as armed (cold review m3) ────────────────
@@ -173,11 +173,11 @@ git -C "$O" add -A && git -C "$O" -c user.email=t@t -c user.name=t commit -qm in
 ( cd "$O" && bash "$RA" --probe >/dev/null 2>&1 ); echo "unrelated note" >> "$f"
 out=$( cd "$O" && bash "$RA" --fold 2>&1 ); rc=$?
 idx=$(git -C "$O" show :.ai-factory/tool-decisions.md)
-[ "$rc" -eq 0 ] && section "$O" armed | grep -qx -- '- touch o.txt' && awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' <<<"$idx" | grep -qx -- '- touch o.txt' \
+[ "$rc" -eq 0 ] && grep -qx -- '- touch o.txt' <<<"$(section "$O" armed)" && grep -qx -- '- touch o.txt' <<<"$(awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' <<<"$idx")" \
   && ok "(O) --fold arms it in the working tree and in the index" || bad "(O) rc=$rc: $out"
 ! grep -q 'unrelated note' <<<"$idx" && grep -q 'unrelated note' "$f" \
   && ok "(O) the unrelated edit stays unstaged" || bad "(O) the unrelated edit was staged"
-[ ! -e "$(side "$O")" ] && section "$O" not-armed | grep -qx -- '- exit 1 # red' \
+[ ! -e "$(side "$O")" ] && grep -qx -- '- exit 1 # red' <<<"$(section "$O" not-armed)" \
   && ok "(O) the sidecar is gone; the red one is still not-armed" || bad "(O) sidecar left or red one moved"
 
 # ── (P) --fold as the pre-commit: the flip rides the commit, the tree ends clean ──────────────────
@@ -187,7 +187,7 @@ printf '#!/bin/sh\nbash scripts/run-armed.sh --fold\n' > "$P/.git/hooks/pre-comm
 ( cd "$P" && bash scripts/run-armed.sh --probe >/dev/null 2>&1 ); [ -z "$(git -C "$P" status --porcelain)" ] \
   && ok "(P) after the probe arms a check the tree is clean (nothing to commit by hand)" || bad "(P) the probe dirtied the tree: $(git -C "$P" status --porcelain)"
 echo x > "$P/work.txt"; git -C "$P" add work.txt; git -C "$P" -c user.email=t@t -c user.name=t commit -qm work
-git -C "$P" show HEAD:.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' | grep -qx -- '- touch p.txt' \
+grep -qx -- '- touch p.txt' <<<"$(git -C "$P" show HEAD:.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f')" \
   && [ -z "$(git -C "$P" status --porcelain)" ] && ok "(P) the next commit carries the flip; the tree is clean after it" \
   || bad "(P) flip not committed or tree dirty: $(git -C "$P" status --porcelain)"
 
@@ -196,7 +196,7 @@ J2=$(proj "" ""); mkdir -p "$J2/apps/web/scripts" "$J2/apps/web/.ai-factory"
 printf '<!-- aif:project-checks:begin -->\narmed:\nnot-armed:\n- true # red\n<!-- aif:project-checks:end -->\n' > "$J2/apps/web/.ai-factory/tool-decisions.md"
 cp "$RA" "$J2/apps/web/scripts/run-armed.sh"; git -C "$J2" add -A && git -C "$J2" -c user.email=t@t -c user.name=t commit -qm init
 ( cd "$J2/apps/web" && bash scripts/run-armed.sh --probe >/dev/null 2>&1 && bash scripts/run-armed.sh --fold >/dev/null 2>&1 ); rc=$?
-[ "$rc" -eq 0 ] && git -C "$J2" show :apps/web/.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' | grep -qx -- '- true' \
+[ "$rc" -eq 0 ] && grep -qx -- '- true' <<<"$(git -C "$J2" show :apps/web/.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f')" \
   && ok "(J2) below the toplevel: --fold stages apps/web's record" || bad "(J2) rc=$rc"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

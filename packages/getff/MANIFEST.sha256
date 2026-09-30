@@ -212,7 +212,7 @@ cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
 973385c162aab0d10f7bb8707b838c15f36facc77362c4af6ebf03edf3b2d358  packages/core/audit-self/pre-merge-local.test.sh
 4946d771cb55e82ce8d447b5ef317ea0e564bbe77726c7509262ff8107cdb89a  packages/core/audit-self/r2-na-marker.sh
-befb56d3ff7e2381505c251a5a8e7cd98cf0606a2ad24a67db896c6e34fe4b26  packages/core/audit-self/run-armed.sh
+36d47ef05abc225e87b484928019bb8db1a80293622466a7ebf1e83e4b003a30  packages/core/audit-self/run-armed.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
 bbffc483cb46e4b49ddca4101a9f18498f93d661e64dd3a1ef16efad372598cb  packages/core/audit-self/template-render.audit.ts
@@ -1094,7 +1094,7 @@ e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-run
 5fcc9f400c5592c92b808dc2f6fc234b38fd76ffcdce35ad5e174126c507c799  setup.d/70-deps.sh
 f4c3367e137fae3df37049ac964e18275943fb15faa97d670f208f66459e46a7  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-caf2a06d60715d8fd9a41d7bd31a337a344de34ead8dc1e111c200f79aac3f08  setup.d/99-finalize.sh
+04439e7e37bd11b50977f5a16aff97e7aac1e5fe4c2201ecce3cbb2e38efd210  setup.d/99-finalize.sh
 5384fdc3b68ddb0fa206dc90fe913fc85fb9f8d936801cbc2957dbd23fee6dff  setup.d/LAYERS.md
 516f195e8321a73ad33cddd863e3073ebadb50f561cef7daeb8f537193ddbc48  setup.d/aif-handoff-guided-install.sh
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh

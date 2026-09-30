@@ -57,7 +57,7 @@ CHK="$T/scripts/check-rule-globs.sh"
 # ── #507: the V-gate is WIRED, not merely shipped (was advisory-only → silence still shipped) ──
 # P2 C3: validate runs the project's record (scripts/run-armed.sh validate): an armed check runs,
 # a not-armed one is probed and arms itself once it exits 0 — so «wired» = listed in the record.
-in_record() { awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' "$1" | grep -Eq -- '^- bash scripts/check-rule-globs\.sh( #|$)'; }
+in_record() { grep -Eq -- '^- bash scripts/check-rule-globs\.sh( #|$)' <<<"$(awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' "$1")"; }
 node -e 'const s=require(process.argv[1]).scripts||{}; process.exit((s["check:globs"]&&s.validate==="bash scripts/run-armed.sh validate")?0:1)' "$T/package.json" \
   && in_record "$T/.ai-factory/tool-decisions.md" \
   && ok "#507: check:globs script present AND in the record validate runs (gate runs on npm run validate)" \
