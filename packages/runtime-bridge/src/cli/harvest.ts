@@ -1440,7 +1440,10 @@ export async function closeMergedTasks(
  * it has no route to github.com, so nothing printed here is ever a push.
  */
 function containerRead(container: string, workDir: string, gitArgs: string): string {
-  return `docker exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
+  // The container may live on another docker context (resolveAgentContainer sets DOCKER_CONTEXT);
+  // name it, or the pasted command asks the current context and gets «No such container».
+  const ctx = process.env.DOCKER_CONTEXT ? `--context ${process.env.DOCKER_CONTEXT} ` : '';
+  return `docker ${ctx}exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
 }
 
 async function main(): Promise<void> {

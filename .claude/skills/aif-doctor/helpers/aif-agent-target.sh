@@ -13,14 +13,17 @@
 #
 # Rules, in order:
 #   1. Ask the current docker context. Exactly one agent → it (no further scan).
-#      Two or more → AMBIGUOUS: never guess.
-#   2. None there, and the caller pinned neither DOCKER_CONTEXT nor DOCKER_HOST, and the docker
-#      command is a plain binary (not a routing prefix such as «ssh pc docker») → ask every
-#      other context from `docker context ls`, each bounded. Exactly one candidate → it, with
-#      its context. Two or more → AMBIGUOUS.
+#      Two or more → AMBIGUOUS: never guess. No answer within the budget → AMBIGUOUS too: the
+#      live stack may be there, so an agent found elsewhere could be a stale one.
+#   2. None there (or its daemon refused the call), the caller pinned neither DOCKER_CONTEXT nor
+#      DOCKER_HOST, and the docker command is a plain binary (not a routing prefix such as
+#      «ssh pc docker») → ask every other context from `docker context ls`, each bounded.
+#      Exactly one candidate → it, with its context. Two or more → AMBIGUOUS.
 #   3. Nothing anywhere → NONE; the caller keeps its own fallback.
-# Container names are read from the last column of `docker ps --filter name=agent` (no
-# `--format '{{…}}'`: heal.sh routes docker through ssh to hosts whose shell eats the braces).
+# Container names: a plain docker binary is asked `--format '{{.Names}}'`, so a custom `psFormat`
+# in the user's docker config cannot move the name column. A routed command (heal.sh sends docker
+# through ssh to hosts whose shell eats the braces) gets no `--format`, and the name is read from
+# the last column of docker's default table.
 #
 # Two ways to use it:
 #   sourced   . aif-agent-target.sh; aif_agent_resolve
@@ -69,12 +72,13 @@ _aat_bounded() {
 # Returns 124 when the bound cut the call (the context was NOT asked), docker's own exit code
 # on any other failure, 0 otherwise (an empty list is a real «none here»).
 _aat_agents_in() {
-  local raw rc=0
+  local raw rc=0 fmt=()
+  case "$_aat_docker" in *' '*) ;; *) fmt=(--format '{{.Names}}') ;; esac
   # shellcheck disable=SC2086  # AIF_AGENT_DOCKER may be a routing prefix; its words must split
   if [ -n "${1:-}" ]; then
-    raw=$(_aat_bounded "$_aat_timeout" $_aat_docker --context "$1" ps --filter name=agent) || rc=$?
+    raw=$(_aat_bounded "$_aat_timeout" $_aat_docker --context "$1" ps --filter name=agent ${fmt[@]+"${fmt[@]}"}) || rc=$?
   else
-    raw=$(_aat_bounded "$_aat_timeout" $_aat_docker ps --filter name=agent) || rc=$?
+    raw=$(_aat_bounded "$_aat_timeout" $_aat_docker ps --filter name=agent ${fmt[@]+"${fmt[@]}"}) || rc=$?
   fi
   printf '%s\n' "$raw" | awk 'NF {print $NF}' | grep -i aif || true
   # 143 = killed by the watchdog's SIGTERM.
@@ -88,9 +92,15 @@ aif_agent_resolve() {
   _aat_docker="${AIF_AGENT_DOCKER:-docker}"
   _aat_timeout="${AIF_AGENT_TIMEOUT_S:-8}"
   case "$_aat_timeout" in '' | *[!0-9]* | 0) _aat_timeout=8 ;; esac
-  local found ctx current rc n candidates="" outcomes=""
+  local found ctx current rc n candidates="" outcomes="" here
 
   rc=0; found=$(_aat_agents_in) || rc=$?
+  if [ "$rc" -eq 124 ]; then
+    AIF_AGENT_REASON="the current docker context did not answer within ${_aat_timeout}s — not choosing an agent on another context"
+    return 1
+  fi
+  here="no aif agent on the current context"
+  [ "$rc" -ne 0 ] && here="the current docker context is unreachable"
   n=$(printf '%s' "$found" | grep -c . || true)
   if [ "$n" -eq 1 ]; then
     AIF_AGENT_NAME="$found"
@@ -130,7 +140,7 @@ aif_agent_resolve() {
           found="${candidates#*/}"; found="${found%$'\n'}"
           AIF_AGENT_NAME="$found"
           AIF_AGENT_CONTEXT="$ctx"
-          AIF_AGENT_NOTE="${found} context=${ctx} (discovered; the current context has no aif agent; scanned: ${outcomes% })"
+          AIF_AGENT_NOTE="${found} context=${ctx} (discovered; ${here}; scanned: ${outcomes% })"
           return 0
         elif [ "$n" -gt 1 ]; then
           AIF_AGENT_REASON="ambiguous-agent: $(printf '%s' "$candidates" | paste -sd ' ' -) across docker contexts"
@@ -141,7 +151,7 @@ aif_agent_resolve() {
         ;;
     esac
   fi
-  AIF_AGENT_REASON="no aif agent on the current context; ${outcomes}"
+  AIF_AGENT_REASON="${here}; ${outcomes}"
   return 2
 }
 

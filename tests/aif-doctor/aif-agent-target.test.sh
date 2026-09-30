@@ -6,7 +6,7 @@
 # Hermetic: docker is a stub FILE reached only through AIF_AGENT_DOCKER, never PATH, so a real
 # docker on the runner is never asked. The stub models contexts `cur` (current), `remote`,
 # `remote2` and `down` (daemon unreachable); which context runs which agent is set per case
-# through STUB_AGENTS («ctx:name …»).
+# through STUB_AGENTS («ctx:name …»), which refuse through STUB_DOWN, which hang through STUB_SLOW.
 # The sourced mode is driven through the dispatcher probe in
 # packages/core/skills/dispatcher/probe-inflight.test.ts (arms f-n).
 set -uo pipefail
@@ -19,6 +19,7 @@ trap 'rm -rf "$WORK"' EXIT
 STUB="$WORK/docker"
 cat > "$STUB" <<'EOF'
 #!/usr/bin/env bash
+# Contexts in STUB_DOWN (default: down) refuse; contexts in STUB_SLOW hang for 5 s.
 ctx="${DOCKER_CONTEXT:-cur}"
 [ "${1:-}" = "via-ssh" ] && shift
 if [ "${1:-}" = "--context" ]; then ctx="$2"; shift 2; fi
@@ -26,10 +27,18 @@ case "${1:-}" in
   context)
     if [ "${2:-}" = show ]; then echo cur; else printf 'cur\nremote\nremote2\ndown\n'; fi ;;
   ps)
-    [ "$ctx" = down ] && { echo "Cannot connect to the Docker daemon" >&2; exit 1; }
-    [ -n "${STUB_TABLE:-}" ] && echo "CONTAINER ID   IMAGE       COMMAND   CREATED   STATUS   PORTS   NAMES"
+    case " ${STUB_DOWN-down} " in *" $ctx "*) echo "Cannot connect to the Docker daemon" >&2; exit 1 ;; esac
+    case " ${STUB_SLOW:-} " in *" $ctx "*) sleep 5 ;; esac
+    names_only=0
+    for a in "$@"; do [ "$a" = "--format" ] && names_only=1; done
+    [ "$names_only" = 0 ] && [ -n "${STUB_TABLE:-}" ] && echo "CONTAINER ID   IMAGE       COMMAND   CREATED   STATUS   PORTS   NAMES"
     for a in ${STUB_AGENTS:-}; do
-      [ "${a%%:*}" = "$ctx" ] && echo "0123abcd   aif:latest   \"node\"   2 days ago   Up 2 days      ${a#*:}"
+      [ "${a%%:*}" = "$ctx" ] || continue
+      if [ "$names_only" = 1 ]; then echo "${a#*:}"
+      # A user psFormat such as «table {{.Names}}\t{{.Status}}» puts the name first.
+      elif [ -n "${STUB_PSFORMAT:-}" ]; then echo "${a#*:}   Up 2 days"
+      else echo "0123abcd   aif:latest   \"node\"   2 days ago   Up 2 days      ${a#*:}"
+      fi
     done
     exit 0 ;;
 esac
@@ -56,8 +65,18 @@ TAB=$'\t'
 echo "=== aif-agent-target.sh, executed mode ==="
 check "one agent on the current context → it, no context" \
   0 "aif-agent-1${TAB}" "" STUB_AGENTS="cur:aif-agent-1 remote:aif-agent-1"
-check "names come from the last column of docker's default table (no --format)" \
-  0 "aif-agent-1${TAB}" "" STUB_TABLE=1 STUB_AGENTS="cur:aif-agent-1"
+check "a plain docker asks --format, so a custom psFormat cannot hide the name" \
+  0 "aif-agent-1${TAB}" "" STUB_PSFORMAT=1 STUB_AGENTS="cur:aif-agent-1"
+check "a routed docker gets no --format; the name comes from the table's last column" \
+  0 "aif-agent-1${TAB}" "" STUB_TABLE=1 STUB_AGENTS="cur:aif-agent-1" AIF_AGENT_DOCKER="$STUB via-ssh"
+check "the current context does not answer in time → exit 1, no agent picked elsewhere" \
+  1 "" "the current docker context did not answer within 1s" \
+  STUB_SLOW=cur STUB_AGENTS="cur:aif-agent-1 remote:aif-stale-agent-1" AIF_AGENT_TIMEOUT_S=1
+check "the current daemon is unreachable, one agent on another context → it and that context" \
+  0 "aif-agent-1${TAB}remote" "" STUB_DOWN="cur down" STUB_AGENTS="remote:aif-agent-1"
+check "the current daemon is unreachable and nothing elsewhere → exit 2, named as unreachable" \
+  2 "" "the current docker context is unreachable; scanned: remote=none remote2=none down=error" \
+  STUB_DOWN="cur down" STUB_AGENTS=""
 check "none on the current context, one on another → it and that context" \
   0 "aif-agent-1${TAB}remote" "" STUB_AGENTS="remote:aif-agent-1"
 check "two on the current context → ambiguous, exit 1, nothing guessed" \

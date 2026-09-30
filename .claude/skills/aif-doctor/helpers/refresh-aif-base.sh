@@ -72,6 +72,9 @@ if [ -z "$C" ] && [ -f "$(dirname "$0")/aif-agent-target.sh" ]; then
       exit 0
       ;;
   esac
+elif [ -z "$C" ]; then
+  # Partial or older install without the shared resolver: the previous current-context lookup.
+  C="$(docker ps --filter name=agent --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)"
 fi
 
 # Graceful no-op when no aif agent container is running (e.g. a consumer who doesn't run aif).

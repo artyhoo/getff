@@ -99,7 +99,8 @@ refresh-aif-base.sh
 `aif-agent-target.sh` finds the runtime's agent container and the docker context it runs
 on. It uses a container only when exactly one matches, and it prints the name and the
 context. With two or more matches it names them and stops. When your current docker
-context has none, it asks the other contexts, and it waits a bounded time for each.
+context has none, it asks the other contexts, and it waits a bounded time for each. If your
+current context does not answer in time, it stops rather than pick a container elsewhere.
 
 The other two helpers bring a stale copy of your repository inside the runtime's container
 up to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
@@ -131,9 +132,9 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
   section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
   The two kinds of change start on lines 279 and 298. The network limit is line 326.
 - `.claude/skills/aif-doctor/helpers/aif-agent-target.sh` states its rules in its header,
-  lines 14 to 21, and its exit codes on lines 34 to 36.
+  lines 14 to 22, and its exit codes on lines 37 to 39.
 - `.claude/skills/aif-doctor/helpers/refresh-aif-base.sh` reads the owner of the copy on
-  line 113 and runs every git command as that user on line 119.
+  line 116 and runs every git command as that user on line 122.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
   line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
   exists only in the framework repository.
