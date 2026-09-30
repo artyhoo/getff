@@ -10,7 +10,9 @@
 #              one line per decision with server, owner, version and the matched dependency;
 #   no yes   — no vendor server is added and tool-decisions.md gains nothing;
 #   dry-run  — the yes under --dry-run writes nothing;
-#   rerun    — a second --force install on the yes adds nothing twice and keeps one line per server.
+#   rerun    — a second --force install on the yes adds nothing twice and keeps one line per server;
+#   getff's  — @playwright/test (getff's own tool, lib.sh getff_dep_names) in package.json gets no
+#              server looked up: no @playwright/mcp, one «not looked up» line, sentry still written.
 # Every grep reads a file directly: under pipefail a pipe into an early-exiting grep can report 141
 # and flip an arm (scripts/check-pipefail-early-exit.mjs).
 set -uo pipefail
@@ -75,6 +77,26 @@ for s in io.github.getsentry/sentry-mcp io.prisma/mcp; do
   if [ "$n" = 1 ]; then ok "after a --force rerun $s has exactly one line in tool-decisions.md"; else bad "$s has $n lines after a rerun"; fi
 done
 if [ "$(servers "$Y")" = "sentry" ]; then ok "a rerun adds no server twice"; else bad "servers after a rerun: $(servers "$Y")"; fi
+
+echo "── a rerun with getff's own tools in package.json"
+# A getff install with its dependencies leaves @playwright/test in a vite project's package.json, and
+# Microsoft publishes a two-signal server for it (GitHub org + the @playwright scope naming it). The
+# rerun must not take it for the project's own: 35 passes getff_dep_names as --getff-deps.
+PW_FX="$WORK/fx"; cp -R "$GETFF_MCP_FETCH_FIXTURES" "$PW_FX"
+printf '%s' '{"name":"@playwright/test","version":"1.56.0","homepage":"https://playwright.dev","repository":{"url":"git+https://github.com/microsoft/playwright.git"}}' \
+  > "$PW_FX/registry.npmjs.org__playwright_2ftest_latest.json"
+printf '%s' '{"name":"@playwright/mcp","version":"0.0.41","mcpName":"io.github.microsoft/playwright-mcp"}' \
+  > "$PW_FX/registry.npmjs.org__playwright_2fmcp_latest.json"
+P="$WORK/pw"; mkdir -p "$P"; git -C "$P" init -q
+printf '{"name":"fixture","dependencies":{"react":"^19.0.0","@sentry/react":"^11.0.0"},"devDependencies":{"@playwright/test":"^1.56.0","vite":"^7.0.0"}}\n' > "$P/package.json"
+( cd "$P" && GETFF_MCP_FETCH_FIXTURES="$PW_FX" GETFF_STACK_TOOLS=1 bash "$REPO_ROOT/install.sh" react-spa --profile core --force </dev/null ) \
+  > "$P.log" 2>&1 || bad "install exited non-zero: $(tail -3 "$P.log" | tr '\n' '|')"
+if grep -q 'playwright' "$P/.mcp.json" 2>/dev/null; then bad "a server for getff's own @playwright/test was written: $(servers "$P")"
+else ok "no MCP server is written for getff's own @playwright/test"; fi
+if grep -q "not looked up: @playwright/test.* — getff's own tools" "$P.log"; then ok "the log names getff's own tools as not looked up"
+else bad "no «not looked up» line: $(grep -iE 'playwright|not looked' "$P.log" | tail -3 | tr '\n' '|')"; fi
+if [ "$(servers "$P")" = "sentry" ]; then ok "the project's own dependencies are still checked (sentry written)"
+else bad "servers with getff's tools present: $(servers "$P")"; fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

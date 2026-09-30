@@ -6880,7 +6880,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/mcp-source-check.ts
-import { existsSync as existsSync2, mkdirSync, readdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
+import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
 import { join as join3, resolve as resolve2 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
@@ -7525,29 +7525,15 @@ var declaredIn = (file) => {
     ...pkg["devDependencies"] ?? {}
   };
 };
-function ownDeclared(root) {
-  const declared = declaredIn(join3(root, "package.json"));
-  const kept = join3(root, ".ai-factory", "before-getff");
-  const copies = existsSync2(kept) ? readdirSync(kept).filter((f) => /^package\.json\.(?:[0-9a-f]{8}|original)$/.test(f)) : [];
-  for (const c of copies) {
-    let before;
-    try {
-      before = declaredIn(join3(kept, c));
-    } catch {
-      continue;
-    }
-    for (const n of Object.keys(declared)) if (!(n in before)) delete declared[n];
-  }
-  return declared;
-}
-async function directDeps(root, fetchJson) {
+async function directDeps(root, fetchJson, getffDeps) {
   let declared;
   try {
-    declared = ownDeclared(root);
+    declared = declaredIn(join3(root, "package.json"));
   } catch {
-    return { declared: 0, deps: /* @__PURE__ */ new Map(), missing: [] };
+    return { declared: 0, deps: /* @__PURE__ */ new Map(), missing: [], getffOwn: [] };
   }
-  const names = Object.keys(declared).filter((n) => !n.startsWith("@types/") && isRegistrySpec(String(declared[n]))).sort();
+  const getffOwn = Object.keys(declared).filter((n) => getffDeps.has(n)).sort();
+  const names = Object.keys(declared).filter((n) => !getffDeps.has(n) && !n.startsWith("@types/") && isRegistrySpec(String(declared[n]))).sort();
   const found = /* @__PURE__ */ new Map();
   const missing = [];
   await pool(names, async (name) => {
@@ -7558,7 +7544,7 @@ async function directDeps(root, fetchJson) {
     else missing.push(name);
   });
   const deps = new Map([...found].sort(([a], [b]) => a.localeCompare(b)));
-  return { declared: names.length, deps, missing: missing.sort() };
+  return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
 async function pool(items, fn, width = 6) {
   let i = 0;
@@ -7626,8 +7612,8 @@ async function installForm(s, fetchJson) {
   }
   return { needs: needs.length ? [...new Set(needs)].join(", ") : "a remote or an npm package getff can run" };
 }
-async function checkStackTools(root, fetchJson) {
-  const { declared, deps, missing } = await directDeps(root, fetchJson);
+async function checkStackTools(root, fetchJson, getffDeps = /* @__PURE__ */ new Set()) {
+  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps);
   if (declared > 0 && deps.size === 0) return null;
   const adapter = {
     ecosystem: "npm",
@@ -7703,7 +7689,7 @@ async function checkStackTools(root, fetchJson) {
     }
     decisions.push(decision);
   }
-  return { decisions, unchecked: [...missing, ...failed.sort().map((q) => `registry search \xAB${q}\xBB`)] };
+  return { decisions, unchecked: [...missing, ...failed.sort().map((q) => `registry search \xAB${q}\xBB`)], getffOwn };
 }
 function isDecided(dec, d) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
@@ -7788,11 +7774,16 @@ ${rows.join("\n")}
 function uncheckedLine(unchecked) {
   return `\u26A0 not checked: ${unchecked.join(", ")} \u2014 the registry gave no answer (none within ${DEADLINE_MS / 1e3} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
 }
+function getffOwnLine(names) {
+  return `\u229D not looked up: ${names.join(", ")} \u2014 getff's own tools; their MCP servers are decided once in getff, not per project`;
+}
 async function main(argv) {
-  const root = resolve2(argv[argv.indexOf("--root") + 1] ?? ".");
+  const arg = (flag) => argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : void 0;
+  const root = resolve2(arg("--root") ?? ".");
   const dryRun = argv.includes("--dry-run");
+  const getffDeps = new Set((arg("--getff-deps") ?? "").split(",").filter(Boolean));
   const date = process2.env["GETFF_TODAY"] ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const result = await checkStackTools(root, makeFetchJson());
+  const result = await checkStackTools(root, makeFetchJson(), getffDeps);
   if (result === null) {
     console.log("\u26A0 the npm or MCP registry did not answer \u2014 no vendor server was checked");
     return 0;
@@ -7800,6 +7791,7 @@ async function main(argv) {
   const lines = applyDecisions(root, result.decisions, { dryRun, date });
   if (lines.length === 0 && result.unchecked.length === 0)
     console.log("\u229D no direct dependency has an MCP server published by its own vendor");
+  if (result.getffOwn.length) console.log(getffOwnLine(result.getffOwn));
   for (const l of lines) console.log(l);
   if (result.unchecked.length)
     console.log(uncheckedLine(result.unchecked));
@@ -7821,6 +7813,7 @@ export {
   applyDecisions,
   checkStackTools,
   fixtureName,
+  getffOwnLine,
   githubRepo,
   isDecided,
   makeFetchJson,
