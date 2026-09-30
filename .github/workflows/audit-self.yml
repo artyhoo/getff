@@ -864,6 +864,8 @@ jobs:
         run: bash tests/install-sh/run-armed.test.sh
       - name: "install-sh — the install arms only what it ran green and records it; validate, CI and lint-staged read the record (P2 §3)"
         run: bash tests/install-sh/project-checks-record.test.sh
+      - name: "install-sh — getff_dep_names lists getff's own dependencies, bare and sorted, for the vendor-MCP lookup to skip (P2 N7)"
+        run: bash tests/install-sh/getff-dep-names.test.sh
       - name: "install-sh — the consumer pre-push reads the record and arms a check once it is green (P2 C2)"
         run: bash tests/install-sh/prepush-follows-record.test.sh
       - name: "install-sh — a project that lints with oxlint or Biome keeps its linter as the only one (P2 G5/K4)"
