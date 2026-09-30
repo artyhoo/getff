@@ -182,7 +182,12 @@ apply_session_settings() {
       note_not_wired "session settings in $rel — its original could not be kept, so getff's change was undone"
       return 0
     fi
-    [ -n "$kept" ] && note_getff_added "$rel"
+    if [ -n "$kept" ]; then
+      note_getff_added "$rel"
+      # This run changed the person's file: mark it for this run's formatter, as 99-finalize's settle
+      # callers do (keep_original_settle itself does not mark). Guarded: P5's lib.sh.
+      if declare -F keep_original_mark >/dev/null; then keep_original_mark "$f"; fi
+    fi
   else
     if [ ! -e "$root/.ai-factory/before-getff/.claude/$(basename "$rel").absent" ]; then
       mkdir -p "$root/.ai-factory/before-getff/.claude" 2>/dev/null \
