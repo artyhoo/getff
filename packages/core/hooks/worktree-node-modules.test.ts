@@ -46,6 +46,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh');
 
+// Every case here spawns scripts/worktree-node-modules.sh under bash against a fresh
+// primary + linked git worktree, so multi-second runtimes under load are inherent and the
+// vitest 5s default is a mis-set gate rather than a signal. A full Mac run of `npm --prefix
+// packages/core run test:hooks` (M2 Max, load 3.8 -> 6.9, 260 s, measured 2026-10-01) timed
+// out «keeps a mode change the user made before the install» here at 5000ms (earlier runs
+// lost the nested-layer REFUSAL / without-node / space cases), while the same suite passed
+// 87/87 files on Linux, and a different case fails on each run.
+// 30_000 is the SLOW_SHELL_MS convention of the sibling shell-spawning suites
+// (end-of-turn-reminder, dup-detect-empty-arg, priority-score-branch-matcher).
+const SLOW_SHELL_MS = 30_000;
+
 let primary: string;
 let wt: string;
 
@@ -116,7 +127,7 @@ afterEach(() => {
   if (primary) rmSync(primary, { recursive: true, force: true });
 });
 
-describe('worktree-node-modules.sh — provisioning SSOT', () => {
+describe('worktree-node-modules.sh — provisioning SSOT', { timeout: SLOW_SHELL_MS }, () => {
   it('CACHE POISON: heals a node_modules holding only .vite* caches, without nesting', () => {
     seed();
     plantViteCache();
@@ -203,7 +214,7 @@ describe('worktree-node-modules.sh — provisioning SSOT', () => {
   });
 });
 
-describe('worktree-node-modules.sh — nested workspace layers', () => {
+describe('worktree-node-modules.sh — nested workspace layers', { timeout: SLOW_SHELL_MS }, () => {
   const SPA = 'packages/preset-react-spa';
 
   it('links a workspace nested layer the primary has, so its planned deps resolve', () => {
@@ -379,7 +390,7 @@ describe('worktree-node-modules.sh — nested workspace layers', () => {
  * npm itself is replaced by a recording stub (WNM_NPM) — no network, and the stub observes the
  * one property that matters: whether either node_modules path was a symlink when it ran.
  */
-describe('worktree-node-modules.sh — lock-aware provisioning', () => {
+describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW_SHELL_MS }, () => {
   let stubDir: string;
   let npmLog: string;
 

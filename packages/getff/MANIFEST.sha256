@@ -466,7 +466,7 @@ da88d49f513b0e109ed7bb406b5f5800f095c76a0296c379bbb26b005aaac856  packages/core/
 ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 9590356cdcb215bdfa724f360eba5aa0fa58f43634735232074fc6ade16524fc  packages/core/hooks/classify-work.test.ts
-082058e36aa37527ab093ae96b36ce6387b7197f341072008b17a48c3af80aba  packages/core/hooks/close-aif-task-on-merge.test.ts
+0ca59c83327604e0e60c09c667270216cb5c0e8e67c77bd54feccc4abbef6d71  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
@@ -477,7 +477,7 @@ ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
 c8a58db7ed4ebaff6933f1e2010e3b3422098617999b5b5ca5a6b44aa9a280da  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
-6259bf62d62e381f6fd54496c65a01fff57ab1dfbe7ddddc0bc8be4a1f2bb16e  packages/core/hooks/format-shipped-anchor.test.ts
+08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
 2b01ff1b28a86b6f77c2ddc28779409aa9a6d06233c6742292e8c7323bbe1d80  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
@@ -504,8 +504,8 @@ e37297bc13e1bea34334ab9d9a4ab2def11747d1908fb779522310874711abd0  packages/core/
 b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/hooks/pre-push.consumer-layout.test.ts
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
-aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
-f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
+fa3d03eb03f7d368bdf04add5fb3361524eb454f80bb09552cab5adccf10c4d9  packages/core/hooks/pre-push.heavy-runner.test.ts
+746482b3c3fabc3ccc1e33064754408fc6912159c0a0218c9b8f06da41faeac2  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 2a88c9847e7f436068d610d0cad26395b6d054b9d7a2ee9102057a58e755d4aa  packages/core/hooks/pre-push.test.ts
 74fe93fbfbda67d7d79336a9f7d7695a6e4cd398991ced9a0d108b4aeb3048f1  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
@@ -530,7 +530,7 @@ dd31b65c02ad3578fa7454a3a901305d47bc81b2ba71f3de1c8b03c8d8ae84f1  packages/core/
 bce0660b4c5d61751b0fc779759951516e072f809c2f469bdd7f499180de53f3  packages/core/hooks/validate-prompt.test.ts
 b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/hooks/warn-subagent-report.test.ts
 f1f8578417e05492d161569b90b3cbb2e1300e73d36996c2ca7e03c6d3eca0a0  packages/core/hooks/worktree-doctor.test.ts
-a3d53a4821fc06029720bcc1fce6f67beb44aab0de1ccad91c90f948854c55b2  packages/core/hooks/worktree-node-modules.test.ts
+b88ffe5fe0f62db4598034e316c69cec38f230cac8eef44b6bd74b11a07b5150  packages/core/hooks/worktree-node-modules.test.ts
 179dce7a5ddf2584efd08f0379638820d52119f7365b267af2130ed6eafb5a6b  packages/core/hooks/worktree-setup-hydration.test.ts
 920e2c821c12c6981b1ef0ff56932ed58156470a8fa240d5b9439b4967b611d5  packages/core/hooks/worktree-setup.test.ts
 9d9ff373a0ce20650e463e11b015aac45f015066764b2021614ac4c51182d079  packages/core/hooks/zcode-runtime-probe.test.ts

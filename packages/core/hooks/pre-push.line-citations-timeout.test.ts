@@ -25,6 +25,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(HERE, 'pre-push.ts');
 const CORE = resolve(HERE, '..');
 
+// Every case in «line-citations: checker timeout» spawns the pre-push hook (`node --import
+// tsx/esm pre-push.ts`, own spawnSync cap 60_000), so multi-second runtimes under load are
+// inherent and the vitest 5s default is a mis-set gate rather than a signal. A full Mac run
+// of `npm --prefix packages/core run test:hooks` (M2 Max, load 3.8 -> 6.9, 260 s, measured
+// 2026-10-01) timed out «a checker that fails within the cap» at 5000ms, while the same
+// suite passed 87/87 files on Linux, and a different case fails on each run. The pure
+// `lineCitationsTimeoutMs` suite spawns nothing and keeps the default.
+// 30_000 is the SLOW_SHELL_MS convention of the sibling shell-spawning suites
+// (end-of-turn-reminder, dup-detect-empty-arg, priority-score-branch-matcher).
+const SLOW_SHELL_MS = 30_000;
+
 let dir = '';
 
 beforeAll(() => {
@@ -62,7 +73,7 @@ function hook(bin: string, env: Record<string, string> = {}) {
   });
 }
 
-describe('line-citations: checker timeout', () => {
+describe('line-citations: checker timeout', { timeout: SLOW_SHELL_MS }, () => {
   it('a timed-out checker blocks the push with a timeout message, not «stale»', () => {
     const bin = fakeNodeBin('slow', 'exec sleep 10');
     const r = hook(bin, { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: '500' });

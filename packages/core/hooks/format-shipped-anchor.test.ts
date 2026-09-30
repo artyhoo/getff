@@ -33,6 +33,15 @@ const SCRIPT = resolve(REPO_ROOT, 'scripts/format-shipped.sh');
 const SEED = '{"a":1}\n';
 const MARK = 'FORMATTED-BY-SHIM';
 
+// Every case here spawns scripts/format-shipped.sh under bash against fresh git repos, so
+// multi-second runtimes under load are inherent and the vitest 5s default is a mis-set gate
+// rather than a signal. A full Mac run of `npm --prefix packages/core run test:hooks` (M2
+// Max, load 3.8 -> 6.9, 260 s, measured 2026-10-01) timed out case (f4) here at 5000ms,
+// while the same suite passed 87/87 files on Linux, and a different case fails on each run.
+// 30_000 is the SLOW_SHELL_MS convention of the sibling shell-spawning suites
+// (end-of-turn-reminder, dup-detect-empty-arg, priority-score-branch-matcher).
+const SLOW_SHELL_MS = 30_000;
+
 /** A repo with one tracked file under a shipped pathspec (templates/). */
 function initRepo(prefix: string): string {
   const dir = mkdtempSync(resolve(tmpdir(), prefix));
@@ -80,7 +89,7 @@ function run(
 
 const shipped = (repo: string): string => readFileSync(resolve(repo, 'templates/shipped.json'), 'utf8');
 
-describe('format-shipped.sh --write — repo anchor', () => {
+describe('format-shipped.sh --write — repo anchor', { timeout: SLOW_SHELL_MS }, () => {
   let own: string;
   let foreign: string;
   let shim: string;
