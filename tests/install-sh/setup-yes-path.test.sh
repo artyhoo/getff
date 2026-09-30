@@ -78,4 +78,30 @@ grep -qiE 'stack|ts-server|react-next' <<<"$_out_ins" \
   && ok "no self/consumer branch code in setup or install.sh" \
   || bad "self/consumer branch pattern found — S4 must not introduce one"
 
+# ── T7-T9: the dry run previews the real run (P6 run 2 N4, one-button P3) ────────
+# The road previews with --dry-run before it installs; a preview that omits a tool sends the agent
+# probing on its own (P6 R2: it ran `claude mcp get deepwiki` because the Companions section named
+# no MCP server). companions_section = the lines between «▶ Companions» and the next «▶» header.
+companions_section() { awk '/^▶ Companions/{f=1;next} /^▶ /{f=0} f' "$1"; }
+
+# T7: --dry-run wins in any flag order. Before the fix `--dry-run -y` let -y reset MODE to «yes»:
+# install.sh still got --dry-run, but the companion and bridge steps ran for real.
+( cd "$TMP" && bash "$SETUP" --dry-run -y ts-server >out_dy.txt 2>&1 ) || true
+grep -qF 'complete (dry-run)' "$TMP/out_dy.txt" \
+  && ok "--dry-run -y ts-server: still a dry run (flag order does not matter)" \
+  || bad "--dry-run -y ts-server: -y after --dry-run turned the companion steps into a real run ($(grep -o 'complete ([a-z-]*)' "$TMP/out_dy.txt"))"
+
+# T8: with -y the Companions section names both MCP servers the real run adds and records.
+_cs_y=$(companions_section "$TMP/out_y.txt")
+grep -qF 'context7' <<<"$_cs_y" && grep -qF 'deepwiki' <<<"$_cs_y" \
+  && ok "-y --dry-run: the Companions section names context7 and deepwiki" \
+  || bad "-y --dry-run: the Companions section omits an MCP server: $(tr '\n' '|' <<<"$_cs_y")"
+
+# T9: without -y the Companions section still names them, and says this mode does not add them.
+( cd "$TMP" && bash "$SETUP" ts-server --dry-run >out_plain.txt 2>&1 ) || true
+_cs_p=$(companions_section "$TMP/out_plain.txt")
+grep -qF 'context7' <<<"$_cs_p" && grep -qF 'deepwiki' <<<"$_cs_p" && grep -qF 'only with -y' <<<"$_cs_p" \
+  && ok "--dry-run without -y: the Companions section names the MCP servers and that only -y adds them" \
+  || bad "--dry-run without -y: the Companions section does not say what happens to the MCP servers: $(tr '\n' '|' <<<"$_cs_p")"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

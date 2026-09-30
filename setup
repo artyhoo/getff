@@ -79,6 +79,10 @@ for a in "$@"; do
     python|cargo|go) STACK="$a" ;;
   esac
 done
+# --dry-run wins in any flag order: `--dry-run -y` let -y reset MODE to «yes», so install.sh
+# previewed while the companion and bridge steps ran for real (P6 run 2 N4). FULL stays as given,
+# so a `-y --dry-run` preview walks the -y path (05-mcp included).
+[ -n "$DRY" ] && MODE="dry-run"
 # Cold-QA MINOR fix parity with install.sh:150 (end-of-args guard): if --profile was the LAST
 # token with no value following it, fail-loud rather than silently passing an empty value.
 if [ "$_awaiting_profile_value" -eq 1 ]; then
@@ -116,6 +120,9 @@ while IFS=$'\t' read -r name detect install kind stacks; do
   [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install
   companion_step "$name" "$detect" "$install" "$kind" "$emode"
 done < "$HERE/setup.d/companions.manifest"
+# The MCP servers are handled inside install.sh (05-mcp, -y only), so name them here too: the
+# section then lists every tool the run adds or records (P6 run 2 N4).
+companion_mcp_preview "$FULL" "$MODE"
 # The MCP servers install.sh wrote (05-mcp) get their versions row here: tool-decisions.md is seeded
 # later in that run (30-templates), so only now can the row land (road step 7, one-button P3).
 [ "$MODE" = "dry-run" ] || companion_record_mcp_versions
