@@ -74,7 +74,7 @@ heads_from_fetch_head() {
   fh=$(git rev-parse --git-path FETCH_HEAD)
   [ -f "$fh" ] || return 0
   while IFS="$(printf '\t')" read -r sha tag desc; do
-    [ -n "$sha" ] && [ "$tag" != not-for-merge ] || continue
+    if [ -z "$sha" ] || [ "$tag" = not-for-merge ]; then continue; fi
     lbl=$(printf '%s' "$desc" | sed -n "s/^branch '\(.*\)' of .*/\1/p")
     add_head "$sha" "${lbl:-$(branch_label "$sha")}"
   done < "$fh"
