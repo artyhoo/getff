@@ -81,3 +81,26 @@ Measured on `808e806c606` (head of `join/one-button-union`) and `origin/staging`
   a repo spec: on the operator's word only».
 - **The card needs:** the operator's word to land the approved docs design as a repo spec and to author its
   build kickoffs (the docs design's lead owns them), and the order against the one-button second wave.
+
+## Unexercised paths and observations — P6 re-check R5 (not forks)
+
+Recorded on the one-button advisor's request, 2026-09-30, from R5 of
+`_p6-cold-run-report-2026-09-30.md` (from its line 755), measured on join head `7a0b9634ef1`. Record only:
+nothing here is decided or dispatched; each item names what would exercise or settle it.
+
+- **U-1 — the local (npx) vendor MCP server path was never run.** `packages/core/install/mcp-source-check.ts:449-458`
+  writes a `stdio`/`npx -y <pkg>` server, prints a `⚠` line and `claude mcp remove <key> -s project`. A
+  remote server gets no `⚠` by design (`:444-448`). In 5 cold runs none of the 32 dependencies tried
+  produced an npx server (R5.1 «that path is still not exercised»). **Needs:** a fixture dependency whose
+  vendor's server has an npm package, two ownership signals and no required settings — or a stubbed
+  registry answer — in the `one-button-w2-p6-open-findings` stage (or its successor).
+- **U-2 — the «can take up to 90 s» wait line arrives late through a pipe.** `setup.d/35-stack-tools.sh:33`
+  pipes the check through `sed 's/^/  /'`; BSD sed block-buffers when writing to a pipe, so an agent's Bash
+  tool received the wait line together with the result (both at 19.89 s, `setup-y.log:99-102`); a terminal
+  gets it in time. R5 files it as «Observation only, not a finding». **Needs:** a line-buffered indent
+  (`sed -l` on BSD, `stdbuf`/`sed -u` on GNU) or printing the wait line outside the pipe — a small fix
+  with a timing test; no owner yet.
+- **U-3 — the aif-handoff version record is unexercised.** `setup.d/aif-handoff-guided-install.sh:70-71`
+  records the checkout path `~`-relative via `companion_record_version`. Docker was down in every P6 run, so
+  the guided install never reached it. **Needs:** one run with docker up and `AIF_GUIDED_INSTALL=1` (see F-3).
+
