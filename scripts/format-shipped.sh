@@ -234,7 +234,7 @@ fi
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
-# (.husky/pre-commit:204, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
+# (.husky/pre-commit:219, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
 # regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
 #
 # DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently
