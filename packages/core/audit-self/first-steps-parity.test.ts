@@ -439,6 +439,34 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
+  it('the tools choice says that some servers run on the person\'s computer and how to remove one', () => {
+    // A verified npm server is written as `npx -y <pkg>` (setup.d/35-stack-tools.sh) and runs at
+    // every session start, in agent sessions without any approval prompt — the pre-launch yes is
+    // the only consent, so it must name that (operator, 2026-09-30).
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/some of these servers run on (?:my|the person's) computer/);
+      expect(flat).toMatch(/`npx`/);
+      expect(flat).toMatch(/the rest work over the internet/);
+      expect(flat).toMatch(/⚠ line/);
+      expect(flat).toMatch(/`claude mcp remove <name> -s project`/);
+    }
+  });
+
+  it('before the one question the agent names getff\'s own MCP servers and their cost', () => {
+    // Operator (log entry 44, 2026-09-30): warn at least about what will be installed. The names
+    // come from the dry run's «MCP servers …» line (COMPANION_MCP_NAMES); the road holds no copy.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/getff's own MCP servers/);
+      expect(flat).toMatch(/«MCP servers …» line of the dry run/);
+      expect(flat).toMatch(/costs context in every session/);
+      expect(flat).not.toMatch(/context7, deepwiki/);
+    }
+  });
+
   it('the tools step checks two sources and probes nothing itself', () => {
     const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
     for (const text of [tools?.action ?? '', prompt]) {

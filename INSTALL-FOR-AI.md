@@ -59,14 +59,14 @@ Install getff into this project. Walk the steps below in order, in this one sess
    The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
    lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
-   Show me the stack, what goes into this project and what would go machine-wide, then ask once, as ONE list of
+   Show me the stack, what goes into this project and what would go machine-wide; name getff's own MCP servers the chosen command adds, the names from the «MCP servers …» line of the dry run, and say that each one costs context in every session; then ask once, as ONE list of
    four parts. (a) «Where may I install?» — 1, 2 or 3; it picks the command of step 4:
    1 — this project only:
    `bash /tmp/getff/setup -y <detected-stack>`
    2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
    3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`. Offer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
    (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`, passed unless I say no. Before asking, name the groups the dry run printed and say in plain words: they go into my own uncommitted `.claude/settings.local.json`; my values are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command.
-   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. (d) «Research rules for my stack?» yes/no.
+   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. Before asking, say in plain words: some of these servers run on my computer at every session start, through `npx`, the vendor's own package at its latest version; the rest work over the internet; the report shows each local one with a ⚠ line and the command that removes it, `claude mcp remove <name> -s project`. (d) «Research rules for my stack?» yes/no.
    Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools yes, research yes»;
    a part I leave out means (a) 1, (b) yes, (c) yes, (d) yes — so «1» alone means everything on, this project only. Ask nothing else during the run.
 4. [install] Run the installer with the chosen flag
