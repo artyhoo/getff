@@ -45,6 +45,7 @@ interface Late {
   changedFiles?: string;
   terms?: string;
   chip?: boolean;
+  env?: Record<string, string>;
 }
 
 function late(f: Late): string {
@@ -64,6 +65,7 @@ function late(f: Late): string {
   if (f.slug !== undefined) env.SLUG = f.slug;
   if (f.selfPr !== undefined) env.PROBE_SELF_PR = f.selfPr;
   if (f.terms !== undefined) env.PROBE_LATE_TERMS = f.terms;
+  Object.assign(env, f.env ?? {});
   const args = [PROBE, '--late', ...(f.chip ? ['--chip'] : [])];
   return execFileSync('bash', args, { encoding: 'utf8', env });
 }
@@ -135,10 +137,78 @@ describe('probe-inflight.sh --late — work that already landed on staging', () 
     expect(verdict(out)).toBe('LATE-COLLISION');
   });
 
-  it('no derivable slug → the slug signals say so instead of pretending to have looked', () => {
+  it('no derivable slug → the slug signals say so, and the verdict is PARTIAL, never CLEAR', () => {
     const out = late({ selfBranch: 'main' });
     expect(out).toContain('SIGNAL late-slug none source=branch');
     expect(out).toMatch(/SIGNAL late-staging 0 status=skipped reason=no-slug/);
+    expect(verdict(out)).toBe('LATE-PARTIAL');
+  });
+
+  it('a Claude Code worktree branch carries no umbrella name → no slug, not its random words', () => {
+    const out = late({ selfBranch: 'claude/great-sanderson-021210' });
+    expect(out).toContain('SIGNAL late-slug none source=branch');
+    expect(verdict(out)).toBe('LATE-PARTIAL');
+  });
+
+  it('the 612/613 shape without SLUG is still surfaced by the PR title words (weak, injected)', () => {
+    const out = late({
+      selfBranch: 'claude/great-sanderson-021210',
+      terms: 'perf(pipeline): skip already-closed umbrellas in completion scan',
+      openPrs: [{ number: 613, state: 'OPEN', title: 'perf(pipeline): skip already-closed umbrellas in completion scan (pipeline-completion-scan-skip-closed)',
+        headRefName: 'claude/hopeful-joliot-ae3957', files: [] }],
+    });
+    expect(out).toContain('  late-term-pr: #613 OPEN');
+    expect(verdict(out)).toBe('LATE-OVERLAP');
+  });
+
+  it('an aif suffix needs a digit — an all-letter hex word is part of the name', () => {
+    expect(late({ selfBranch: 'feat/ui-cafe-facade' })).toContain('SIGNAL late-slug ui-cafe-facade source=branch');
+    expect(late({ selfBranch: 'feature/lane-config-s2-995e9c' })).toContain('SIGNAL late-slug lane-config-s2 source=branch');
+  });
+});
+
+describe('probe-inflight.sh --late — a slug matches whole, never as a prefix of a sibling stage', () => {
+  it('slug umb-widening-s1 does not collide with sibling stage umb-widening-s1b or -s10', () => {
+    const out = late({ selfBranch: 'feature/umb-widening-s1',
+      openPrs: [
+        { number: 1, state: 'OPEN', title: 'umb-widening-s1b', headRefName: 'feature/umb-widening-s1b', files: [] },
+        { number: 2, state: 'OPEN', title: 'x', headRefName: 'feature/umb-widening-s10-123456', files: [] },
+      ],
+      stagingLog: 'ddd4444 feat(umb-widening-s1b): sibling stage' });
+    expect(verdict(out)).toBe('LATE-CLEAR');
+  });
+
+  it('matching is case-insensitive and stops at a separator', () => {
+    const out = late({ slug: 'umb-widening-s1',
+      openPrs: [{ number: 3, state: 'OPEN', title: 'feat(UMB-WIDENING-S1): stage one', headRefName: 'x', files: [] }] });
+    expect(verdict(out)).toBe('LATE-COLLISION');
+  });
+
+  it('the merged window is inclusive at its edge and exclusive past it', () => {
+    const pr = { number: 4, state: 'MERGED', title: 'edge-umbrella', headRefName: 'feature/edge-umbrella' };
+    expect(verdict(late({ slug: 'edge-umbrella', mergedPrs: [{ ...pr, mergedAt: hoursAgo(72) }] }))).toBe('LATE-COLLISION');
+    expect(verdict(late({ slug: 'edge-umbrella', mergedPrs: [{ ...pr, mergedAt: hoursAgo(73) }] }))).toBe('LATE-CLEAR');
+  });
+});
+
+describe('probe-inflight.sh --late — title words are topic words, not commit-type prefixes', () => {
+  it('two unrelated feat(hooks) titles do not overlap on «feat» + «hooks» alone', () => {
+    const out = late({ slug: 'some-umbrella', terms: 'feat(hooks): run the late in-flight probe',
+      openPrs: [{ number: 5, state: 'OPEN', title: 'feat(hooks): unrelated recap tweak', headRefName: 'x', files: [] }] });
+    expect(out).toMatch(/SIGNAL late-term-pr 0 /);
+  });
+
+  it('stopwords are dropped after plural stripping', () => {
+    const out = late({ slug: 'some-umbrella', terms: 'makes fixes',
+      openPrs: [{ number: 6, state: 'OPEN', title: 'makes fixes things', headRefName: 'x', files: [] }] });
+    expect(out).toMatch(/SIGNAL late-term-pr 0 /);
+  });
+});
+
+describe('probe-inflight.sh --late — harvest from the host names the checkout it describes', () => {
+  it('PROBE_LATE_FROM replaces HEAD as the staging-log start', () => {
+    const out = late({ slug: 'some-umbrella' });
+    expect(out).toMatch(/SIGNAL late-staging 0 status=ok from=HEAD/);
   });
 });
 
@@ -192,6 +262,19 @@ describe('probe-inflight.sh --late — fail-closed', () => {
   it('a collision that WAS found outranks the unasked rest', () => {
     const out = late({ slug: 'some-umbrella', openPrsRaw: 'gh: error', stagingLog: 'ccc3333 feat(some-umbrella): done' });
     expect(verdict(out)).toBe('LATE-COLLISION');
+  });
+
+  it('a clock the probe cannot parse → PROBE-INCOMPLETE, never a silently empty candidate list', () => {
+    const out = late({ slug: 'some-umbrella', env: { PROBE_NOW_EPOCH: 'yesterday' } });
+    expect(verdict(out)).toBe('PROBE-INCOMPLETE');
+  });
+
+  it('a failed merged-PR list does not blind the open-PR file overlap', () => {
+    const out = late({ slug: 'some-umbrella', changedFiles: 'a.md',
+      openPrs: [{ number: 7, state: 'OPEN', title: 't', headRefName: 'x', files: [{ path: 'a.md' }] }],
+      env: { PROBE_LATE_MERGED_PRS: 'gh: error' } });
+    expect(out).toMatch(/SIGNAL late-file-overlap 1 status=ok/);
+    expect(verdict(out)).toBe('PROBE-INCOMPLETE');
   });
 
   it('nothing anywhere → LATE-CLEAR', () => expect(verdict(late({ slug: 'fresh-umbrella' }))).toBe('LATE-CLEAR'));

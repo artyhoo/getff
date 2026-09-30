@@ -23,6 +23,13 @@ probe RUN at the act, by a PreToolUse hook. Incidents: PR 612 duplicated 613 (no
 `gh pr create`, 2026-06-17); PR 1354 was an empty-diff twin of 1353 (no re-probe before harvest,
 2026-08-10); a chip duplicated PR 1879 (no probe before offering it, 2026-09-29).
 
+What the hook can and cannot deny: a STRONG hit needs a slug. An aif or feature branch carries
+one (`feature/<umbrella>-s1b-300432` → `<umbrella>-s1b`), so the 1353/1354 shape is a
+`LATE-COLLISION` and is denied. A Claude Code worktree branch (`claude/<words>-<hex>`) names no
+umbrella, so for solo work the 612/613 shape surfaces through the WEAK title-word signal
+(`PROBE_LATE_TERMS` = the PR title) and is injected, not denied — unless the session exported
+`SLUG`. That split is deliberate (T-LIPH-A below); do not widen what may deny.
+
 The detector already exists and is tested: `probe-inflight.sh --late` (branch mode) and
 `--late --chip` (chip mode), `packages/core/skills/dispatcher/probe-inflight-late.test.ts`. This stage
 only wires it to the moment. Do NOT change the probe's signals or verdicts; if the hook needs a
@@ -73,7 +80,8 @@ Input: PreToolUse JSON on stdin. Behaviour:
    is required. Zero cost for ordinary Bash calls.
 2. **Bash.** Split `tool_input.command` into segments with the lib (§3.2). A segment counts only when
    `gh` is its COMMAND word and it is `gh pr create …` or `gh pr merge …` (`--disable-auto` ignored).
-   A commit message / echo / heredoc that merely mentions `gh pr create` never counts. Track a literal
+   A commit message / echo / heredoc that merely mentions `gh pr create` never counts.
+   `gh pr merge --disable-auto …` is not a merge: the probe is NOT run for it. Track a literal
    `cd <dir>` as `close-aif-task-on-merge.sh` does and run the probe with that cwd.
    - `gh pr create`: run `probe-inflight.sh --late`; if a literal `--title`/`-t` value is present, pass
      it as `PROBE_LATE_TERMS`.
@@ -92,6 +100,7 @@ Input: PreToolUse JSON on stdin. Behaviour:
    | `LATE-COLLISION` + valid ack | allow + `additionalContext` echoing the hits and the ack rationale |
    | `LATE-OVERLAP` | allow + `additionalContext` with the hit lines |
    | `PROBE-INCOMPLETE` | allow + `additionalContext` naming the unavailable signal(s) |
+   | `LATE-PARTIAL` | allow + one-line `additionalContext`: «no umbrella slug — strong signals not asked; export SLUG=<umbrella> if this work belongs to one» |
    | `LATE-CLEAR` | exit 0, no output |
 
    **Ack token** (error-with-escape, precedent `MERGE_LOCK_OVERRIDE` in CLAUDE.md «Agent PR merge policy»
@@ -125,7 +134,7 @@ and prints a fixture verdict. Arms (each a paired negative where marked ⇄):
    chars → deny naming the length rule.
 2. OVERLAP → allow + `additionalContext`, no `permissionDecision: deny`.
 3. CLEAR → empty stdout, exit 0.
-4. PROBE-INCOMPLETE → allow + context naming the signal.
+4. PROBE-INCOMPLETE → allow + context naming the signal. LATE-PARTIAL → allow + the one-line slug notice.
 5. Not an act ⇄ act: `git commit -m "run gh pr create later"` and `echo gh pr merge 5` → stub never
    called; `cd sub && gh pr create -t y` → stub called with cwd `sub` and `PROBE_LATE_TERMS=y`.
 6. `gh pr merge 42 --squash` → stub env has `PROBE_SELF_PR=42`; `gh pr merge --disable-auto 42` → not called.

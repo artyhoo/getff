@@ -252,10 +252,13 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 
 Then re-probe LATE — the §2.0 reading is hours old by now, and a parallel session can have merged
 the same stage under another branch name (PR 1354, an empty-diff twin of 1353; CLAUDE.md
-«Pre-dispatch in-flight probe» (f)). `LATE-COLLISION` = STOP and compare before pushing:
+«Pre-dispatch in-flight probe» (f)). The host checkout is not the aif branch, so name both ends:
+the aif branch (own-PR exclusion) and the task's dispatch base (the staging-log start).
+`LATE-COLLISION` = STOP and compare before pushing:
 
 ```bash
-SLUG="<stage-slug>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh --late
+SLUG="<stage-slug>" PROBE_SELF_BRANCH="<aif branch>" PROBE_LATE_FROM="<dispatch base SHA>" PROBE_LATE_CHANGED_FILES="" \
+  bash .claude/skills/dispatcher/helpers/probe-inflight.sh --late
 ```
 
 Then push:
