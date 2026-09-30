@@ -1297,7 +1297,7 @@ function generatedRuleMaterialSection() {
         );
       } else if (r.exitCode === 2) {
         process.stdout.write(
-          "\u26A0 DEGRADED: generated-rule mutation runner could not resolve its inputs (exit 2) \u2014 SKIPPED (a skipped check is NOT green).\n"
+          "\u26A0 DEGRADED: generated-rule mutation check exited 2 (it could not run; the reason follows) \u2014 SKIPPED (a skipped check is NOT green).\n"
         );
         emit(r);
       } else if (r.exitCode !== 0) {

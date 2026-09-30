@@ -1785,6 +1785,33 @@ describe(
       );
     });
 
+    // P6 run 2 N1 follow-up (seam with P2): the consumer's mutation check goes through run-armed.sh, and
+    // run-armed exits 2 on its OWN precondition (no readable project-checks record) as well as passing the
+    // runner's exit 2 through. The skip line must not name the runner as the cause: it names the exit code,
+    // and the check's own stderr (which does name the cause) follows it.
+    it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(
+        join(dir, 'scripts/run-armed.sh'),
+        '#!/bin/sh\necho "run-armed: no readable project-checks record - re-run the getff install to write it" >&2\nexit 2\n',
+      );
+
+      const r = runMaterialSection(dir, hook, { strip: false });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/DEGRADED: generated-rule mutation check exited 2/);
+      expect(out, out).not.toMatch(/runner could not resolve its inputs/);
+      expect(out, out).toContain('run-armed: no readable project-checks record');
+      expect(r.status, out).toBe(0);
+    });
+
     // ── §3 audit-ai-docs LIVE on the repo itself (2026-09-28) ────────────────────
     // The section used to run only the auditor's fixture tests: the auditor never ran on
     // the repo that ships it, and its first live run found D3 + D5 failures that had sat

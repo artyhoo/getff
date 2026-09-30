@@ -1304,9 +1304,11 @@ function generatedRuleMaterialSection(): void {
           `⚠ DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? 'timed out' : 'not runnable'}) — SKIPPED (a skipped check is NOT green).\n`,
         );
       } else if (r.exitCode === 2) {
-        // Script self-reported an unresolvable precondition → loud skip, never block the push.
+        // An unresolvable precondition → loud skip, never block the push. Exit 2 comes from the runner (its
+        // inputs or toolchain) or, on a consumer, from run-armed.sh itself (no readable record); the line
+        // names the exit only, and the check's own stderr, which names the cause, follows it.
         process.stdout.write(
-          '⚠ DEGRADED: generated-rule mutation runner could not resolve its inputs (exit 2) — SKIPPED (a skipped check is NOT green).\n',
+          '⚠ DEGRADED: generated-rule mutation check exited 2 (it could not run; the reason follows) — SKIPPED (a skipped check is NOT green).\n',
         );
         emit(r);
       } else if (r.exitCode !== 0) {
