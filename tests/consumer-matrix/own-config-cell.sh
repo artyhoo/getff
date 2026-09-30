@@ -93,6 +93,10 @@ case "$FIXTURE" in
     exit 2
     ;;
 esac
+# KNOWN ROT entries and matchers (see the KNOWN ROT block below); the own-config fixture's expected
+# record reads them, so they are sourced before it.
+# shellcheck source=tests/consumer-matrix/known-rot.sh
+. "$FRAMEWORK_ROOT/tests/consumer-matrix/known-rot.sh"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/own-config-cell-${STACK}.XXXXXX")"
 if [ -z "${CELL_KEEP:-}" ]; then trap 'rm -rf "$WORK"' EXIT; fi
@@ -114,11 +118,16 @@ step "fixture ($STACK): a TypeScript project that owns its eslint + tsconfig (sc
 # The consumer's configs, kept byte for byte (OWN_KEPT) or only added to (OWN_GROWS, Q4.7).
 OWN_KEPT="tsconfig.json"; OWN_GROWS="eslint.config.mjs"; OWN_BINS="eslint tsc vitest"
 # The record's expected entries after the first validate and push (C1), `|`-separated.
-# typecheck is red on known rot K2 (getff's vitest.config.ts in the whole-tree include), so the
-# install records it not-armed; once K2 is fixed and its entry deleted, this line fails until
-# typecheck moves to EXPECT_ARMED.
-EXPECT_ARMED="npm run lint|npm test|npm run format:check|npm run arch:check|bash scripts/check-lintstaged-resolves.sh"
-EXPECT_NOT="npm run typecheck"
+# typecheck and test are recorded not-armed exactly where a KNOWN ROT entry makes them red on this
+# stack (K2: typecheck on ts-server, react-next, react-spa; K4: test on ts-server), and armed
+# elsewhere. Deleting an entry moves its step to EXPECT_ARMED with it.
+EXPECT_ARMED="npm run lint|npm run format:check|npm run arch:check|bash scripts/check-lintstaged-resolves.sh"
+EXPECT_NOT=""
+for _s in typecheck test; do
+  if [ "$_s" = test ]; then _c="npm test"; else _c="npm run $_s"; fi
+  if rot_names_step "$_s"; then EXPECT_NOT="${EXPECT_NOT:+$EXPECT_NOT|}$_c"; else EXPECT_ARMED="$EXPECT_ARMED|$_c"; fi
+done
+unset _s _c
 # The consumer's OWN toolchain, pinned inside the ranges getff itself installs (setup.d/70-deps.sh
 # CORE_DEVDEPS) so the two installs agree and a failure below is about delivered files, never
 # about a version fight between the fixture and the installer.
@@ -435,9 +444,7 @@ WIRED=$(eslint_config_wired) || { echo "$WIRED"; fail "install.sh did not add ge
 # ── KNOWN ROT: preset-template defects this cell SHOWS but does not fail on ──────────────────────
 # The entries, their signatures and why they are not patched: tests/consumer-matrix/known-rot.sh
 # (operator decision Q4.4). Its matchers are tested on their own:
-# tests/install-sh/own-config-known-rot.test.sh.
-# shellcheck source=tests/consumer-matrix/known-rot.sh
-. "$FRAMEWORK_ROOT/tests/consumer-matrix/known-rot.sh"
+# tests/install-sh/own-config-known-rot.test.sh. The file is sourced at the top of this script.
 ROT_HITS=""
 
 # ── INSTALL-FOR-AI.md check list, every item, results collected ────────────────────────────────────
