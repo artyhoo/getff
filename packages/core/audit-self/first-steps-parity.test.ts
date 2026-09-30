@@ -454,6 +454,19 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
+  it('before the one question the agent names getff\'s own MCP servers and their cost', () => {
+    // Operator (log entry 44, 2026-09-30): warn at least about what will be installed. The names
+    // come from the dry run's «MCP servers …» line (COMPANION_MCP_NAMES); the road holds no copy.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/getff's own MCP servers/);
+      expect(flat).toMatch(/«MCP servers …» line of the dry run/);
+      expect(flat).toMatch(/costs context in every session/);
+      expect(flat).not.toMatch(/context7, deepwiki/);
+    }
+  });
+
   it('the tools step checks two sources and probes nothing itself', () => {
     const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
     for (const text of [tools?.action ?? '', prompt]) {

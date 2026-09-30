@@ -59,7 +59,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
    lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
-   Show me the stack, what goes into this project and what would go machine-wide, then ask once, as ONE list of
+   Show me the stack, what goes into this project and what would go machine-wide; name getff's own MCP servers the chosen command adds, the names from the «MCP servers …» line of the dry run, and say that each one costs context in every session; then ask once, as ONE list of
    four parts. (a) «Where may I install?» — 1, 2 or 3; it picks the command of step 4:
    1 — this project only:
    `bash /tmp/getff/setup -y <detected-stack>`
