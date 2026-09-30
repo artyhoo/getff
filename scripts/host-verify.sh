@@ -50,6 +50,8 @@
 #   1 — at least one declared command failed.
 #   2 — usage error, kickoff not found, NO contract block found, no-op-only contract, or an
 #       invalid (too-short) opt-out. Fail-closed: a missing contract is never a pass.
+#   3 — run mode refused: the cwd is not a checkout of the repository this runner lives in
+#       (REPO-IDENTITY GUARD below); nothing ran. `--list` is never refused.
 #
 # Deterministic bash + awk only — no jq, no node, no network, no paid LLM
 # (.claude/rules/no-paid-llm-in-ci.md). Safe to call from a gate.
@@ -61,7 +63,7 @@ usage: bash scripts/host-verify.sh [--list] <umbrella|path-to-kickoff.md>
 
 Runs the `host-verify` fenced block declared in the kickoff, on the host, from the repo root.
 Exit 0 = all passed (or valid opt-out), 1 = a command failed, 2 = usage / missing kickoff /
-missing contract / invalid opt-out.
+missing contract / invalid opt-out, 3 = run refused (cwd is not a checkout of this runner's repo).
 EOF
 }
 
@@ -78,6 +80,40 @@ if [ -z "$TARGET" ]; then
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# ── REPO-IDENTITY GUARD ─────────────────────────────────────────────────────
+# Run mode executes the contract from REPO_ROOT, which comes from the cwd. So
+# `bash /abs/path/scripts/host-verify.sh <kickoff>` from a scratch consumer repo executed the
+# contract — and whatever it writes — inside that foreign repo (the getff#1971 backward sweep).
+# Run mode now requires the cwd to be a checkout of the repository this runner lives in: the
+# physical git common dirs must match (the predicate and exit code of
+# scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967). The primary clone and its linked
+# worktrees share one common dir and pass; a kickoff outside any checkout (a resolved canon
+# symlink) still runs in the cwd, which the guard has just vouched for. A separate clone runs
+# its OWN copy of this script. `--list` executes nothing and is left unguarded — every
+# programmatic caller (check-kickoff-traps.sh, kickoff-hv-inventory.sh, host-verify-coverage.sh,
+# principle 43) uses it. The unsets mirror that guard: CDPATH would make `cd scripts/..` jump
+# elsewhere on a relative invocation; an exported GIT_DIR / GIT_COMMON_DIR / GIT_WORK_TREE would
+# make both sides resolve from the env. They scrub the comparison only — the contract commands
+# still inherit the caller's environment unchanged.
+if [ "$LIST_ONLY" != true ]; then
+  unset CDPATH
+  _hv_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
+  _hv_common_dir() {
+    local d
+    d="$(_hv_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+    (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+  }
+  _hv_self_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  _hv_self_common="$(_hv_common_dir "$_hv_self_repo" || true)"
+  if [ -z "$_hv_self_common" ] || [ "$_hv_self_common" != "$(_hv_common_dir "$REPO_ROOT" || true)" ]; then
+    printf '❌ host-verify: refusing to run in %s — not a checkout of this runner'"'"'s repository (%s); nothing ran.\n' \
+      "$REPO_ROOT" "$_hv_self_repo" >&2
+    printf '   Run the copy of scripts/host-verify.sh that lives in the checkout under verification.\n' >&2
+    exit 3
+  fi
+fi
+# ── END REPO-IDENTITY GUARD ─────────────────────────────────────────────────
 
 # Resolve <umbrella> to its kickoff, or accept an explicit path.
 # Fix B8 (umbrella path traversal): an umbrella name containing `/` or `..` would resolve to
@@ -102,36 +138,6 @@ if [ ! -f "$KICKOFF" ]; then
   printf '❌ host-verify: no kickoff at %s\n' "$KICKOFF" >&2
   exit 2
 fi
-
-# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
-# A contract runs in the repository that DECLARES it. REPO_ROOT above comes from the cwd, so an
-# explicit path to another repository's kickoff, invoked from a foreign cwd, executed that
-# contract — and whatever it writes — inside the foreign repo (the getff#1971 backward sweep).
-# Neither refusing nor anchoring to this script's own checkout fits: running a repo's OWN
-# kickoff from that repo is the normal case, and packages/core/hooks/host-verify.test.ts runs
-# this runner against throwaway repos by design. So: when the kickoff's checkout belongs to a
-# DIFFERENT repository than the cwd's (the physical git common dirs differ — the predicate of
-# scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967), run from the kickoff's checkout.
-# Same repository (the primary clone, a linked worktree, a symlinked prompts dir) → unchanged.
-# A kickoff outside any git checkout has no repository of its own and keeps the cwd root.
-unset CDPATH
-_hv_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
-_hv_common_dir() {
-  local d
-  d="$(_hv_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
-  (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
-}
-_hv_kick_dir="$(cd "$(dirname "$KICKOFF")" 2>/dev/null && pwd)"
-_hv_kick_top="$(_hv_git_at "$_hv_kick_dir" rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$_hv_kick_top" ] \
-  && [ "$(_hv_common_dir "$_hv_kick_dir" || true)" != "$(_hv_common_dir "$REPO_ROOT" || true)" ]; then
-  REPO_ROOT="$_hv_kick_top"
-  # Physical path, so the `${KICKOFF#"$REPO_ROOT/"}` display prefix matches git's toplevel.
-  KICKOFF="$(cd "$_hv_kick_dir" && pwd -P)/$(basename "$KICKOFF")"
-  printf '   host-verify: %s belongs to another repository than the cwd — running from %s\n' \
-    "$(basename "$(dirname "$KICKOFF")")/$(basename "$KICKOFF")" "$REPO_ROOT" >&2
-fi
-# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
 
 # ── Fence-aware, code-span-aware parser ────────────────────────────────────────
 # Extracts contract commands AND opt-out rationale from the kickoff, using a single pass

@@ -39,14 +39,17 @@ PRIMARY_DIR="${1:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev
 # consumer repo otherwise symlinked node_modules into that repo's worktrees (the getff#1971
 # backward sweep; same class as scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967).
 # A primary checkout and its linked worktrees share one git common dir, so the anchor gives
-# the same answer from any checkout of this repo. The unsets mirror that guard: CDPATH would
-# make `cd` jump elsewhere; an exported GIT_DIR / GIT_COMMON_DIR / GIT_WORK_TREE would make
-# git answer from the env instead of from the script's directory.
+# the same answer from any checkout of this repo.
+#
+# The git env is scrubbed for the WHOLE script, not just this lookup: every later git call
+# (`worktree list`, and the helper's) names its repository with -C, so an exported GIT_DIR /
+# GIT_COMMON_DIR / GIT_WORK_TREE — a foreign repo's hook env — could only redirect the sweep
+# into that repo. CDPATH is cleared because `cd scripts/..` on a relative invocation would
+# search it (this and the HELPER lookup below).
+unset CDPATH GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
 if [ -z "${1:-}" ]; then
-  unset CDPATH
   PRIMARY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
-    && env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE \
-      git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 fi
 # ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
 PRIMARY_DIR="${PRIMARY_DIR%/.git}"

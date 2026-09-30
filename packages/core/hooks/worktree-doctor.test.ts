@@ -13,6 +13,10 @@
  *        provisions the script's own repo instead
  *   (d2) OWN CHECKOUT as cwd: its unprovisioned linked worktree is fixed
  *   (d3) OWN LINKED WORKTREE as cwd (script run from that worktree): same repo, still fixed
+ *   (d4) an exported GIT_DIR naming the foreign repo (a foreign hook's env): the foreign
+ *        worktrees are still not enumerated or provisioned
+ *   (d5) CDPATH naming a dir with its own scripts/: a relative run from the own checkout
+ *        still sweeps the own repo
  *   (d-neg) PAIRED-NEGATIVE: with the REPO-ANCHOR block stripped, the foreign worktree IS
  *        provisioned (the gap the block closes)
  *
@@ -53,12 +57,18 @@ function installDoctor(repo: string, src: string = readFileSync(DOCTOR, 'utf8'))
   return p;
 }
 
-function run(script: string, cwd: string, args: string[] = ['--fix']): { status: number; out: string } {
+function run(
+  script: string,
+  cwd: string,
+  args: string[] = ['--fix'],
+  extra: Record<string, string> = {},
+): { status: number; out: string } {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v !== undefined && !k.startsWith('GIT_')) env[k] = v;
   }
   env.GIT_CONFIG_NOSYSTEM = '1';
+  Object.assign(env, extra);
   const r = spawnSync('bash', [script, ...args], { cwd, env, encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
 }
@@ -105,6 +115,20 @@ describe('worktree-doctor.sh — repo anchor', () => {
     expect(r.status, r.out).toBe(0);
     expect(provisioned(own.wt), r.out).toBe(true);
     expect(existsSync(resolve(foreign.wt, 'node_modules'))).toBe(false);
+  });
+
+  it('(d4) exported GIT_DIR of the foreign repo: its worktrees are still left alone', () => {
+    const r = run(script, foreign.primary, ['--fix'], { GIT_DIR: resolve(foreign.primary, '.git') });
+    expect(provisioned(foreign.wt), `a foreign GIT_DIR must not redirect the sweep\n${r.out}`).toBe(false);
+    expect(provisioned(own.wt), r.out).toBe(true);
+  });
+
+  it('(d5) CDPATH naming a dir with its own scripts/: a relative run still sweeps the own repo', () => {
+    mkdirSync(resolve(foreign.primary, 'scripts'), { recursive: true });
+    const r = run('scripts/worktree-doctor.sh', own.primary, ['--fix'], { CDPATH: foreign.primary });
+    expect(r.status, r.out).toBe(0);
+    expect(provisioned(own.wt), r.out).toBe(true);
+    expect(provisioned(foreign.wt), r.out).toBe(false);
   });
 
   it('(d-neg) PAIRED-NEGATIVE: with the REPO-ANCHOR block stripped, the foreign worktree IS provisioned', () => {
