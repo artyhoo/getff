@@ -21,6 +21,10 @@ fi
 add_getff_mcp_servers "${PROJECT_ROOT}/.mcp.json"
 
 # ── T2: kind=mcp manifest rows — detect-first claude mcp add (I1: before 70-deps) ────────────
+# The deepwiki row's detect reads what T1 reads: present when it is configured machine-wide, or when
+# the project .mcp.json has a deepwiki entry (getff's, which T1 may just have written, or the
+# project's own). A user-scope-only detect called the server T1 wired «not installed». It calls
+# lib.sh helpers, in scope here; an unknown helper reads as absent, never as present.
 # Source engine.sh (full, not ENGINE_LIB_ONLY) to get companion_step in scope.
 # shellcheck source=setup.d/engine.sh
 source "$PKG_ROOT/setup.d/engine.sh"

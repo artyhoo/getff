@@ -15,7 +15,8 @@
 #   (d) byte-identical guard (D2): --force WITHOUT --full → no .mcp.json (gate proven)
 #   (e) brownfield: pre-seeded .mcp.json with non-context7 entry preserved (additive merge)
 #   (f) deepwiki absent machine-wide (stub `claude mcp get` → not found) → deepwiki http entry
-#       in the project .mcp.json (one-button P3, point 8)
+#       in the project .mcp.json (one-button P3, point 8); and the manifest row then reads it as present, so the
+#       summary has no «deepwiki — not installed» line (also under (h), the project's own entry)
 #   (g) paired negative: deepwiki at user scope (stub reports «Scope: User config») → no project
 #       entry; and under --global the user-scope row owns it, so the project file carries none
 #   (h) the project's own context7 / deepwiki entries survive --force and are named in the summary,
@@ -182,7 +183,7 @@ rm -rf "$_proj_e"
 echo "  ── (f) deepwiki not configured machine-wide → added to the project .mcp.json ──"
 _proj_f=$(mktemp -d)
 echo '{}' > "$_proj_f/package.json"
-STUB_DEEPWIKI_USER=0 _run_install "$_proj_f" --full --force >/dev/null 2>&1 || true
+STUB_DEEPWIKI_USER=0 _run_install "$_proj_f" --full --force > "$_proj_f.log" 2>&1 || true
 _mcp_f="$_proj_f/.mcp.json"
 if [ -f "$_mcp_f" ]; then
   jq -e '.mcpServers.deepwiki.type == "http" and .mcpServers.deepwiki.url == "https://mcp.deepwiki.com/mcp"' \
@@ -198,8 +199,13 @@ fi
 grep -q 'claude-stub mcp get deepwiki' "$_claude_log" \
   && ok "(f) the probe asked \`claude mcp get deepwiki\` (not the removed \`mcp list --scope\`)" \
   || bad "(f) the machine-wide probe never asked \`claude mcp get deepwiki\`"
+# The project entry is getff's deepwiki (05-mcp T1), so the manifest row (T2) reads it as present:
+# no «not installed» line for a server the same run just wired.
+grep -q 'deepwiki — not installed' "$_proj_f.log" \
+  && bad "(f) the summary calls deepwiki not installed while .mcp.json has it: $(grep 'deepwiki — not installed' "$_proj_f.log" | head -1)" \
+  || ok "(f) no «deepwiki — not installed» line once the project .mcp.json carries it"
 rm -f "$_claude_log"; > "$_claude_log"
-rm -rf "$_proj_f"
+rm -rf "$_proj_f" "$_proj_f.log"
 
 # ── (g) paired negative: deepwiki at user scope → no project entry ───────────
 echo "  ── (g) deepwiki configured machine-wide → no project entry ──"
@@ -238,6 +244,9 @@ if grep -q 'of the project.s own value(s) kept' "$_proj_h.log" \
     && grep -q -- '- .mcp.json: deepwiki — the project.s own entry kept' "$_proj_h.log"; then
   ok "(h) the summary names both kept entries and getff's value"
 else bad "(h) the kept entries are not in the summary"; fi
+grep -q 'deepwiki — not installed' "$_proj_h.log" \
+  && bad "(h) the summary calls deepwiki not installed while the project's own entry is kept" \
+  || ok "(h) no «deepwiki — not installed» line beside the project's own deepwiki entry"
 if grep -q 'example.test' "$_proj_h.log"; then bad "(h) the summary printed the project's own entry (it may carry secrets)"
 else ok "(h) the summary does not print the project's own entry"; fi
 rm -rf "$_proj_h" "$_proj_h.log"
