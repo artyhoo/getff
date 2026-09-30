@@ -18,6 +18,7 @@ executed:
   - { example: matching-rule-on-a-matching-path, stack: repo, date: 2026-09-29, result: printed }
   - { example: matching-rule-on-a-relative-path, stack: repo, date: 2026-09-29, result: silent }
   - { example: command-card-on-git-push, stack: repo, date: 2026-09-29, result: printed }
+docs-refresh: deferred — re-verified 2026-09-30, in this range the cited hook changes one comment (its install.sh line range becomes the name of the install.sh call it points at), its test follows that comment, and docs/site/reference/D.md changes only the lane column of two other hooks (precompact-residue, inject-handoff-on-compact); no claim on this page moves; clears at the next gold refresh of this page
 ---
 
 # inject-matching-rule hook

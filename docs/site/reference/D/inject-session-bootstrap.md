@@ -22,6 +22,7 @@ executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-autonomy-opt-in, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-skill-index-on-compact, stack: repo, date: 2026-09-29, result: printed }
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/reference/D.md, whose change is the lane column of two other hooks (precompact-residue, inject-handoff-on-compact); this hook's row still reads not installed on any lane, as the page says; clears at the next gold refresh of this page
 ---
 
 # inject-session-bootstrap hook

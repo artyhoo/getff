@@ -18,6 +18,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-skill-in-repo, stack: repo, date: 2026-09-30, result: listed }
+docs-refresh: deferred — re-verified 2026-09-30, the cited install.sh, setup.d/10-skills.sh and setup.d/lib.sh changed in this range for the one-button landing (the refresh record, the generic stack, the handoff hook group), and every line this page cites is unchanged (setup.d/lib.sh:65 the factory list, setup.d/10-skills.sh:170-174 and 194, install.sh:17); clears at the next gold refresh of this page
 ---
 
 # aif-doctor skill
