@@ -536,6 +536,9 @@ function docsCardSection(rb: ResolvedBase): void {
         '  Docs-card: C1 PASS, C2 PASS, … C13 N/A   (values: PASS | FAIL | N/A)\n' +
         'or escape with a reason:\n' +
         '  Docs-card: skipped — <why, at least 20 chars>\n' +
+        'If the commit cannot be amended (it sits under merges), a later commit in the same range may\n' +
+        'carry it for that commit: Docs-card-for: <sha> <card or skip> — a skip only when its prose diff\n' +
+        'changes digits or deferral markers alone, one claim per commit.\n' +
         "The card is the writer's self-filled criteria card\n" +
         '(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n',
     );

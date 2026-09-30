@@ -491,6 +491,25 @@ var DOCS_CARD_IDS = [
 var DOCS_CARD_VALUES = ["PASS", "FAIL", "N/A"];
 var DOCS_CARD_SKIP_MIN = 20;
 var TRAILER_RE = /^[ \t]*Docs-card:[ \t]*(.*)$/im;
+var CLAIM_RE = /^[ \t]*Docs-card-for:[ \t]*([0-9a-f]{7,40})[ \t]+(.*)$/gim;
+var DEFERRAL_MARKER_RE = /^docs-refresh: deferred\b/;
+function isMechanicalProseDiff(diff) {
+  const hunks = [];
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("@@")) hunks.push({ removed: [], added: [] });
+    const hunk = hunks[hunks.length - 1];
+    if (!hunk || line.startsWith("---") || line.startsWith("+++")) continue;
+    const text = line.slice(1);
+    if (DEFERRAL_MARKER_RE.test(text)) continue;
+    if (line.startsWith("-")) hunk.removed.push(text);
+    else if (line.startsWith("+")) hunk.added.push(text);
+  }
+  if (hunks.length === 0) return false;
+  const digitless = (s) => s.replace(/\d+/g, "0");
+  return hunks.every(
+    ({ removed, added }) => removed.length === added.length && removed.every((r, i) => digitless(r) === digitless(added[i] ?? ""))
+  );
+}
 function isDocsSiteProsePath(path) {
   return /^docs\/site\/.*\.mdx?$/i.test(path);
 }
@@ -507,7 +526,10 @@ var PLACEHOLDERS3 = /* @__PURE__ */ new Set([
 function parseDocsCardTrailer(body) {
   const m = TRAILER_RE.exec(body);
   if (!m) return { kind: "absent" };
-  const payload = (m[1] ?? "").trim();
+  return parseDocsCardPayload(m[1] ?? "");
+}
+function parseDocsCardPayload(raw) {
+  const payload = raw.trim();
   if (payload.startsWith("skipped")) {
     const rationale = payload.slice("skipped".length).replace(/^[\s—–-]+/, "").trim();
     return { kind: "skipped", reason: rationale };
@@ -516,8 +538,8 @@ function parseDocsCardTrailer(body) {
   const invalid = [];
   const unknown = [];
   const duplicated = [];
-  for (const raw of payload.split(",")) {
-    const token = raw.trim();
+  for (const raw2 of payload.split(",")) {
+    const token = raw2.trim();
     if (token === "") continue;
     const tm = /^(C\d{1,2})\s+(\S+)$/i.exec(token);
     if (!tm) {
@@ -546,18 +568,64 @@ function parseDocsCardTrailer(body) {
 function isMergeCommit(subject) {
   return /^Merge /i.test(subject);
 }
+function payloadProblem(parsed) {
+  if (parsed.kind === "absent") return null;
+  if (parsed.kind === "skipped") {
+    if (parsed.reason.length < DOCS_CARD_SKIP_MIN || PLACEHOLDERS3.has(parsed.reason.toLowerCase())) {
+      return {
+        reason: "escape rationale too short or placeholder",
+        message: `\`Docs-card: skipped \u2014 ${parsed.reason}\` \u2014 rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`
+      };
+    }
+    return null;
+  }
+  const problems = [];
+  if (parsed.missing.length > 0) problems.push(`missing card ids: ${parsed.missing.join(", ")}`);
+  if (parsed.invalid.length > 0)
+    problems.push(`invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(", ")}`);
+  if (parsed.unknown.length > 0) problems.push(`unknown entries: ${parsed.unknown.join(", ")}`);
+  if (parsed.duplicated.length > 0) problems.push(`duplicated ids: ${parsed.duplicated.join(", ")}`);
+  return problems.length > 0 ? { reason: "malformed Docs-card trailer", message: problems.join("; ") } : null;
+}
 function runDocsCardCheck(commits, git) {
   const failures = [];
+  const isMerge = new Map(commits.map((sha) => [sha, isMergeCommit(git.commitSubject(sha))]));
+  const prosePaths = /* @__PURE__ */ new Map();
+  const own = /* @__PURE__ */ new Map();
+  for (const sha of commits) {
+    if (isMerge.get(sha)) continue;
+    prosePaths.set(sha, git.changedFiles(sha).map((f) => f.path).filter(isDocsSiteProsePath));
+    own.set(sha, parseDocsCardTrailer(git.commitBody(sha)));
+  }
+  const claims = /* @__PURE__ */ new Map();
+  for (const claimer of commits) {
+    if (isMerge.get(claimer)) continue;
+    for (const m of git.commitBody(claimer).matchAll(CLAIM_RE)) {
+      const prefix = m[1] ?? "";
+      const named = commits.filter((sha) => sha.startsWith(prefix));
+      const target = named.length === 1 ? named[0] : void 0;
+      const fail = (reason) => {
+        failures.push({ sha: claimer, reason, message: `\`Docs-card-for: ${prefix}\` \u2014 ${reason}` });
+      };
+      if (target === void 0) fail(named.length > 1 ? "claim names an ambiguous sha prefix" : "claim names a commit outside the range");
+      else if (isMerge.get(target)) fail("claim names a merge commit, which owes no card");
+      else if ((prosePaths.get(target) ?? []).length === 0) fail("claim names a commit that touches no docs/site prose");
+      else if (own.get(target)?.kind !== "absent") fail("claim names a commit that carries its own Docs-card trailer");
+      else if (claims.has(target)) fail("more than one claim names this commit");
+      else claims.set(target, parseDocsCardPayload(m[2] ?? ""));
+    }
+  }
   let checked = 0;
   let proseCommits = 0;
   for (const sha of commits) {
-    if (isMergeCommit(git.commitSubject(sha))) continue;
+    if (isMerge.get(sha)) continue;
     checked++;
-    const touchesProse = git.changedFiles(sha).some((f) => isDocsSiteProsePath(f.path));
-    if (!touchesProse) continue;
+    const paths = prosePaths.get(sha) ?? [];
+    if (paths.length === 0) continue;
     proseCommits++;
-    const parsed = parseDocsCardTrailer(git.commitBody(sha));
-    if (parsed.kind === "absent") {
+    const ownCard = own.get(sha) ?? { kind: "absent" };
+    const claim = claims.get(sha);
+    if (ownCard.kind === "absent" && claim === void 0) {
       failures.push({
         sha,
         reason: "missing Docs-card trailer",
@@ -565,32 +633,17 @@ function runDocsCardCheck(commits, git) {
       });
       continue;
     }
-    if (parsed.kind === "skipped") {
-      if (parsed.reason.length < DOCS_CARD_SKIP_MIN || PLACEHOLDERS3.has(parsed.reason.toLowerCase())) {
-        failures.push({
-          sha,
-          reason: "escape rationale too short or placeholder",
-          message: `\`Docs-card: skipped \u2014 ${parsed.reason}\` \u2014 rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`
-        });
-      }
+    const parsed = claim ?? ownCard;
+    const problem = payloadProblem(parsed);
+    if (problem) {
+      failures.push({ sha, ...problem });
       continue;
     }
-    const problems = [];
-    if (parsed.missing.length > 0)
-      problems.push(`missing card ids: ${parsed.missing.join(", ")}`);
-    if (parsed.invalid.length > 0)
-      problems.push(
-        `invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(", ")}`
-      );
-    if (parsed.unknown.length > 0)
-      problems.push(`unknown entries: ${parsed.unknown.join(", ")}`);
-    if (parsed.duplicated.length > 0)
-      problems.push(`duplicated ids: ${parsed.duplicated.join(", ")}`);
-    if (problems.length > 0) {
+    if (claim?.kind === "skipped" && !isMechanicalProseDiff(git.diffForPaths(sha, paths))) {
       failures.push({
         sha,
-        reason: "malformed Docs-card trailer",
-        message: problems.join("; ")
+        reason: "skip claim on a commit whose prose diff is not mechanical",
+        message: "a `Docs-card-for:` skip is accepted only when every changed prose line differs from its pair in digits alone, or is a docs-refresh deferral marker \u2014 this diff changes words, so the claim must carry the full card"
       });
     }
   }
@@ -982,7 +1035,7 @@ function docsCardSection(rb) {
 `);
     }
     process.stdout.write(
-      "\nFix: add a `Docs-card:` trailer listing every criterion \u2014\n  Docs-card: C1 PASS, C2 PASS, \u2026 C13 N/A   (values: PASS | FAIL | N/A)\nor escape with a reason:\n  Docs-card: skipped \u2014 <why, at least 20 chars>\nThe card is the writer's self-filled criteria card\n(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n"
+      "\nFix: add a `Docs-card:` trailer listing every criterion \u2014\n  Docs-card: C1 PASS, C2 PASS, \u2026 C13 N/A   (values: PASS | FAIL | N/A)\nor escape with a reason:\n  Docs-card: skipped \u2014 <why, at least 20 chars>\nIf the commit cannot be amended (it sits under merges), a later commit in the same range may\ncarry it for that commit: Docs-card-for: <sha> <card or skip> \u2014 a skip only when its prose diff\nchanges digits or deferral markers alone, one claim per commit.\nThe card is the writer's self-filled criteria card\n(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n"
     );
     process.exit(1);
   }
