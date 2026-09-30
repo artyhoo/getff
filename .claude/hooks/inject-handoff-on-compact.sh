@@ -5,8 +5,8 @@
 #   SessionStart(source=compact) is the one event that fires at that instant. ZCode has no
 #   compaction-lifecycle event of any kind (the zcode-parity-doctrine.md §2 row 21 rationale
 #   covers this whole event class), so no portable counterpart exists by nature.
-#   OPERATOR-AXIS ONLY (parent F6): consumers receive no residue writer, so no handoff file
-#   ever exists for them to inject. NOT in plugin/hooks/ either — the plugin SessionStart
+#   INSTALLER-ONLY: env+ consumers receive it with the residue writer (setup.d/10-skills.sh
+#   §1k; setup.d/ships.manifest). NOT in plugin/hooks/ — the plugin SessionStart
 #   slot is occupied by the session-start bootstrap (PLUGIN_INCOMPATIBLE in
 #   scripts/render-harness-config.mjs records the skip loudly at render time).
 # spec: docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md (D20)

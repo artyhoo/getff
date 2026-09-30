@@ -3,11 +3,11 @@
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
 #   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart
-#   exists by nature. Framework-internal (operator-axis) for now: not delivered by
-#   install.sh / setup.d, and its reader is the framework's own /pipeline §1 injection.
-#   Audience triage per .claude/rules/dual-implementation-discipline.md §3 — «internal
-#   tooling → CC-native only»; widening to the consumer axis is a separate decision, not a
-#   side effect of this hook shipping.
+#   exists by nature. Delivered to consumers by the installer at env+ with the handoff group
+#   (setup.d/10-skills.sh §1k), beside its reader inject-handoff-on-compact.sh; no plugin
+#   copy — setup.d/ships.manifest records it installer-only, with the reason. Audience triage
+#   per .claude/rules/dual-implementation-discipline.md §3 — CC-native only; a plugin copy is
+#   a follow-on the 2026-09-08 handoff-currency-gate spec's premise-7 addendum reopens.
 # spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D8 (S2b)
 #
 # WHAT IT DOES — the hook itself WRITES the residue; it never asks the model to.

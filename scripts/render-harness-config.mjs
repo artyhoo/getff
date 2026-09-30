@@ -408,14 +408,14 @@ const PLUGIN_INCOMPATIBLE = {
   // delivers the bootstrap instead.
   'link-coordination':
     'maintainer-env-only cross-worktree coordinator — no consumer-plugin meaning (plugin SessionStart bootstrap delivers entry-point context instead)',
-  // inject-handoff-on-compact (D20, handoff-currency gate): OPERATOR-AXIS ONLY. Consumers
-  // receive no residue writer (parent F6), so no handoff file exists for them to inject;
-  // and the plugin SessionStart slot is already occupied by the session-start bootstrap
+  // inject-handoff-on-compact (D20, handoff-currency gate): INSTALLER-ONLY. env+ consumers get
+  // it with the residue writer (setup.d/10-skills.sh §1k, setup.d/ships.manifest), not through
+  // the plugin: the plugin SessionStart slot is already occupied by the session-start bootstrap
   // (PLUGIN_INTERNAL_HOOKS, matcher startup|clear|compact). Skipping here is what makes the
   // SSOT registration expressible WITHOUT shipping a writer — the note op below surfaces
   // the skip loudly rather than dropping the hook silently.
   'inject-handoff-on-compact':
-    'operator-axis only — consumers receive no residue writer (parent F6), so there is no handoff file to inject, and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
+    'installer-only — env+ consumers receive it with the residue writer through the installer (setup.d/ships.manifest), and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
   // close-aif-task-on-merge (operator directive 2026-09-28): OPERATOR-AXIS ONLY. It closes
   // tasks in the operator's own aif-handoff stack (reachable only through `aif-tunnel on`) via
   // packages/runtime-bridge/src/cli/harvest.ts; a marketplace consumer has neither, and the hook

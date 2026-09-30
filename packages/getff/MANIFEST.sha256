@@ -9,7 +9,7 @@
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
 04a59ed7ba278272189db3bb44c23ac40bbb90bd18575fcafefea1861d000451  .claude/hooks/end-of-turn-reminder.sh
 34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .claude/hooks/glossary-inject.sh
-6717f091e4fdf731029cfa0d423a3f5ed1cd1eeddf3d88a7da852698158f319d  .claude/hooks/inject-handoff-on-compact.sh
+57a54f1efb53725844253b0b9b7a444cb60a417817edb74bc755053ef90a282c  .claude/hooks/inject-handoff-on-compact.sh
 c2faeadc6d8bd8f8f9e2c7e228459924c600ad8cc4d9bfe25fbaa1b15d47cfbd  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 16f97c89f6e987d8673bc0485931932aef83eaf3cf8fc2f624ee68d8d37b1194  .claude/hooks/inject-output-language.sh
@@ -24,7 +24,7 @@ a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
-6b9398b68e16533b058e489e3ea63ace18d9021bd1514969d8c8bf0ee9f783dc  .claude/hooks/precompact-residue.sh
+227fea01b0b53d9977b803cbce4c8e98ce100e46f420fad180e5661d0fa8c75a  .claude/hooks/precompact-residue.sh
 8c5317197f817a32c93ab522e49386d8a15cd8a2f93ccfb75c9d28d82407089e  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
 df5c2f4076593ac9c6b79cf1b0f69f695e1f7f2125473a7cd349d7c0ee0bacba  .claude/hooks/warn-subagent-report.sh
@@ -1176,7 +1176,7 @@ e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine
 4b510f9a4a5e4f65f8cb7804944409d3fa4d6175b5de18dff19b6e1f21a3433d  setup.d/lib.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
-5d94a994f506bc0e4846de21f66eeca5c753133d3e4324621d5eaf2a1b9972d6  setup.d/ships.manifest
+eeaada285f2604cc0a6c277aba6c2a878760e04ded82eea660927829a17a1f97  setup.d/ships.manifest
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 a092bdc802f3f6e1d8b247672ffa581110f499e8dbd364b609a337354c212dec  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md

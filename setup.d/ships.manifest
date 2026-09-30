@@ -66,8 +66,8 @@ hook	check-hook-marker	internal	no	yes	internal, because it checks getff's @dual
 hook	inject-subagent-context	ships	no	yes	ZCode fallback: exits unless ZCODE_PROJECT_DIR is set; the installer targets Claude Code, which has its own subagent context channel
 hook	inject-subagent-digest	internal	no	no	internal, because it sends getff's own session digest to subagents; consumers get inject-project-digest instead
 hook	close-aif-task-on-merge	internal	no	no	internal, because it closes aif tasks through packages/runtime-bridge harvest.ts, which no install vendors
-hook	inject-handoff-on-compact	ships	env	no	-
-hook	precompact-residue	ships	env	no	-
+hook	inject-handoff-on-compact	ships	env	no	installer-only: env+ installs it with the handoff group (setup.d/10-skills.sh §1k); no plugin copy, because the handoff it injects is kept only under the AIF_HANDOFF_GATE ask row, which only the installer offers, and the plugin SessionStart slot is taken (the harness renderer lists it in PLUGIN_INCOMPATIBLE)
+hook	precompact-residue	ships	env	no	installer-only: env+ installs it with the handoff group (setup.d/10-skills.sh §1k) beside its reader inject-handoff-on-compact; the group ships through the installer only, and a plugin copy is one of the follow-ons the premise-7 addendum of docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md reopens, not decided here
 hook	warn-subagent-report	internal	no	no	internal, because the REPORT block format it checks is a getff delegation convention
 hook	warn-subagent-report-zcode	ships	no	yes	ZCode variant of the subagent report check, carried only by the plugin (the ZCode channel); flagged to the hook dedup work with its Claude Code sibling
 hook	session-start	ships	no	yes	plugin bootstrap: announces the plugin skills at session start; an installer consumer gets AGENTS.md and inject-project-digest instead
