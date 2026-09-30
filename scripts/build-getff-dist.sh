@@ -130,6 +130,29 @@ case "$MODE" in
     # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
     printf '%s\n' $PAYLOAD
     ;;
+  --check-index)
+    # The --check comparison with BOTH sides read from the git INDEX, not the working tree: the
+    # manifest as staged against a fresh assembly of the payload as staged. --check cannot see a
+    # staging mistake by construction — a path-scoped `git commit` that leaves the rebuilt
+    # manifest out keeps the working tree in sync and --check GREEN (#1627). Consumer:
+    # scripts/check-getff-manifest-staged.sh (pre-commit). git honours GIT_INDEX_FILE here, so a
+    # hook under `git commit -a` / `git commit <path>` checks the index the commit will record.
+    # `files` coverage is not re-checked: it reads package.json, which --check covers at push.
+    work="$(mktemp -d "${TMPDIR:-/tmp}/getff-dist-index.XXXXXX")"
+    trap 'rm -rf "$work"' EXIT
+    git -C "$ROOT" show ":packages/getff/MANIFEST.sha256" > "$work/staged.manifest" 2>/dev/null \
+      || fail "DRIFT: packages/getff/MANIFEST.sha256 is not in the index"
+    mkdir "$work/tree"
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    git -C "$ROOT" ls-files -z -- $PAYLOAD | git -C "$ROOT" checkout-index -z --stdin --prefix="$work/tree/"
+    manifest "$work/tree" > "$work/fresh.manifest"
+    if ! diff -q "$work/staged.manifest" "$work/fresh.manifest" >/dev/null 2>&1; then
+      echo "DRIFT: the STAGED packages/getff/MANIFEST.sha256 differs from a fresh assembly of the STAGED payload:" >&2
+      diff "$work/staged.manifest" "$work/fresh.manifest" | grep -E '^[<>]' | sed -E 's/^< ([0-9a-f]+)  /  staged     /; s/^> ([0-9a-f]+)  /  fresh      /' | head -40 >&2
+      exit 1
+    fi
+    echo "✓ staged packages/getff/MANIFEST.sha256 in sync with the staged payload ($(wc -l < "$work/staged.manifest" | tr -d ' ') files)"
+    ;;
   build)
     files_check || exit 1
     assemble "$PKG"
@@ -137,7 +160,7 @@ case "$MODE" in
     echo "✓ assembled packages/getff/ from the repo root — $(wc -l < "$MANIFEST" | tr -d ' ') files in MANIFEST.sha256"
     ;;
   *)
-    echo "usage: scripts/build-getff-dist.sh [--check|--list-payload]" >&2
+    echo "usage: scripts/build-getff-dist.sh [--check|--check-index|--list-payload]" >&2
     exit 2
     ;;
 esac

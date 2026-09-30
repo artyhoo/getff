@@ -793,7 +793,7 @@ jobs:
       # This step scans the WHOLE population, the backstop for `git commit --no-verify` and
       # aif-container commits (no husky); the paired-negative proves every arm fires.
       - name: Run pipefail early-exit gate paired-negative
-        run: bash scripts/check-pipefail-early-exit.test.sh
+        run: bash scripts/check-pipefail-early-exit.test.sh && bash scripts/check-getff-manifest-staged.test.sh # + the pre-commit getff MANIFEST-staged gate paired-negative (sibling pre-commit channel; throw-away git repos), same line so no citation shifts
       - name: pipefail early-exit gate (no pipe into grep -q under pipefail)
         run: node scripts/check-pipefail-early-exit.mjs
       # The D29 reference generator's acceptance arms (principle 41 channel): live-fire
