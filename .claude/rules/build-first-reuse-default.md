@@ -15,7 +15,7 @@ paths:
 # Build-first, reuse-default — operating philosophy
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/11-build-first-reuse-default.test.ts](../../packages/core/principles/11-build-first-reuse-default.test.ts) (#75, 2026-05-17). Design sketch retained at [11-build-first-reuse-default.design.md](../../packages/core/principles/11-build-first-reuse-default.design.md). Channel: paths:(7) + edit-time inject (re-scoped from always-on Tier-0, operator verdict 2026-08-08); always-on pointer carriers: session-bootstrap digest invariant (1) + CLAUDE.md per-commit gate.
-> **Fires:** any capability commit / new-capability proposal / proposal to drop or slim a shipped artefact.
+> **Fires:** capability commit/proposal; shipped-file removal.
 > **Authoritative for:** project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).
 > **NOT authoritative for:** per-commit build-vs-reuse — that lives in [CLAUDE.md «Build-vs-reuse invariant (Phase 8.8)»](../../CLAUDE.md). This rule is the macro-level complement to per-commit invariant.
 
