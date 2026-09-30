@@ -3,7 +3,9 @@
  * dependencies, taken only from the vendor who owns that dependency.
  *
  * Runs at install time on the pre-launch yes (setup.d/35-stack-tools.sh, GETFF_STACK_TOOLS=1).
- * For every DIRECT dependency in package.json it asks the official MCP registry
+ * For every DIRECT dependency the project itself declared — package.json minus what getff's own
+ * install added to it (ownDeclared: the copies 70-deps keeps in .ai-factory/before-getff/) — it asks
+ * the official MCP registry
  * (registry.modelcontextprotocol.io — the registry itself verifies who may publish under a
  * namespace: GitHub login for io.github.<org>, DNS/HTTP proof for reverse-DNS names) for the
  * servers whose namespace that dependency's owner holds. Three independent ownership signals:
@@ -23,13 +25,13 @@
  * on `typescript` does not pull every server under io.github.microsoft.
  *
  * What is installed, into .mcp.json, without a further question (the pre-launch yes IS the
- * confirmation tool-bootstrapping Rule 3 requires), for a server with two ownership signals:
- *   - its streamable-http remote that needs no header → {type:"http", url}; nothing runs locally;
- *   - else its npm stdio package that declares no variable without a default and no required
- *     argument, and whose CURRENT (`latest`) manifest names this server in mcpName →
- *     {type:"stdio", command:"npx", args:["-y", pkg]}. Not pinned (one-button fork on pins = B,
- *     operator log entry 28; .claude/rules/companion-install-principle.md §1): npm serves its latest,
- *     and the version it served at install time is recorded on the decision line.
+ * confirmation tool-bootstrapping Rule 3 requires), for a server with two ownership signals: its
+ * streamable-http remote that needs no header → {type:"http", url}. Nothing runs on the person's
+ * machine, and a remote has no version to pin. An npm stdio package that declares no variable without
+ * a default and no required argument, and whose CURRENT (`latest`) manifest names this server in
+ * mcpName, is NOT written: `npx -y <pkg>` would run its code at every session start, which the
+ * pre-launch yes does not cover (operator log entry 28: nothing runs locally). It is proposed with
+ * the exact line that adds it and the version npm served at the check.
  * Anything else is «proposed, not installed» with what it needs. Every decision is one line in
  * .ai-factory/tool-decisions.md carrying server, namespace owner, version and matched dependency.
  * Skills are never installed here (no registry that verifies a skill's publisher exists).
@@ -41,7 +43,7 @@
  * @cc-only-rationale: install-time payload run by setup.d/35-stack-tools.sh through its bundle.
  * Prior-art: prior-art-evaluations.md#292 (official MCP registry read API ADOPT).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -118,11 +120,12 @@ export interface Decision {
   signals: number;
   dep: string;
   key: string;
-  /** Present when the server can be installed without anything from the person. */
-  entry?: { type: 'http'; url: string } | { type: 'stdio'; command: 'npx'; args: ['-y', string] };
-  /** For a stdio entry: the version npm served when the install checked it (recorded, not pinned). */
-  served?: string;
-  /** Why it is only proposed. */
+  /** Present when the server can be installed without anything from the person: a remote only. */
+  entry?: { type: 'http'; url: string };
+  /** A checked npm stdio package that needs nothing set — but it runs on the person's machine, so it
+   *  is only proposed, with the line that adds it; `served` is the version npm served at the check. */
+  local?: { pkg: string; served: string };
+  /** Why it is only proposed (absent for `local`, whose reason is fixed). */
   needs?: string;
 }
 
@@ -154,22 +157,49 @@ const GITHUB_RESERVED = new Set(['sponsors', 'orgs', 'apps', 'marketplace', 'top
 
 const isRegistrySpec = (spec: string): boolean => !/^(?:workspace|file|link|git|git\+|github|http|https|npm):/.test(spec);
 
+const declaredIn = (file: string): Record<string, string> => {
+  const pkg = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+  return {
+    ...((pkg['dependencies'] as Record<string, string> | undefined) ?? {}),
+    ...((pkg['devDependencies'] as Record<string, string> | undefined) ?? {}),
+  };
+};
+
+/** The project's OWN dependencies: package.json as it is, minus what getff's install added to it.
+ *  70-deps keeps the file as it was before each write that changed it as
+ *  .ai-factory/before-getff/package.json.<sum8>; the oldest copy is the person's original and every
+ *  later one only adds getff's dev tools to it, so a name in the file now AND in every copy is the
+ *  person's own, whatever the copies' age order. No copy: getff has not changed the file (a first
+ *  install runs this check before 70-deps), so it is the person's as it stands. */
+function ownDeclared(root: string): Record<string, string> {
+  const declared = declaredIn(join(root, 'package.json'));
+  const kept = join(root, '.ai-factory', 'before-getff');
+  // The names lib.sh keep_original_settle gives: <sha256 first 8> or, with no hash tool, «original».
+  const copies = existsSync(kept) ? readdirSync(kept).filter((f) => /^package\.json\.(?:[0-9a-f]{8}|original)$/.test(f)) : [];
+  for (const c of copies) {
+    let before: Record<string, string>;
+    try {
+      before = declaredIn(join(kept, c));
+    } catch {
+      continue; // an unreadable copy says nothing about which names are the person's
+    }
+    for (const n of Object.keys(declared)) if (!(n in before)) delete declared[n];
+  }
+  return declared;
+}
+
 /** Direct dependencies with the metadata that decides ownership: the installed package.json when
  *  node_modules has it, else the npm registry's latest manifest (a fresh project has no node_modules). */
 async function directDeps(
   root: string,
   fetchJson: FetchJson,
 ): Promise<{ declared: number; deps: Map<string, InstalledMeta>; missing: string[] }> {
-  let pkg: Record<string, unknown> = {};
+  let declared: Record<string, string>;
   try {
-    pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Record<string, unknown>;
+    declared = ownDeclared(root);
   } catch {
     return { declared: 0, deps: new Map(), missing: [] };
   }
-  const declared = {
-    ...((pkg['dependencies'] as Record<string, string> | undefined) ?? {}),
-    ...((pkg['devDependencies'] as Record<string, string> | undefined) ?? {}),
-  };
   const names = Object.keys(declared)
     .filter((n) => !n.startsWith('@types/') && isRegistrySpec(String(declared[n])))
     .sort();
@@ -234,7 +264,7 @@ async function npmMcpName(id: string, version: string, fetchJson: FetchJson): Pr
 }
 
 /** Install form for a verified server, or what it needs. */
-async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pick<Decision, 'entry' | 'needs' | 'served'>> {
+async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pick<Decision, 'entry' | 'needs' | 'local'>> {
   const needs: string[] = [];
   for (const r of s.remotes ?? []) {
     const req = (r.headers ?? []).filter((h) => h.isRequired).map((h) => h.name);
@@ -267,7 +297,7 @@ async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pic
       needs.push(`a checked package (the latest npm ${p.identifier} names ${latest?.mcpName ?? 'no server'} in mcpName)`);
       continue;
     }
-    return { entry: { type: 'stdio', command: 'npx', args: ['-y', p.identifier] }, served: latest.version };
+    return { local: { pkg: p.identifier, served: latest.version } };
   }
   return { needs: needs.length ? [...new Set(needs)].join(', ') : 'a remote or an npm package getff can run' };
 }
@@ -355,9 +385,9 @@ export async function checkStackTools(root: string, fetchJson: FetchJson): Promi
       key: serverKey(s.name),
       ...form,
     };
-    if (decision.entry && best.signals.length < 2) {
+    if ((decision.entry || decision.local) && best.signals.length < 2) {
       delete decision.entry;
-      delete decision.served;
+      delete decision.local;
       decision.needs = 'a second ownership signal — getff writes a server only when two of GitHub org, homepage domain and npm scope agree';
     }
     decisions.push(decision);
@@ -375,12 +405,12 @@ export function isDecided(dec: string, d: Pick<Decision, 'server' | 'key'>): boo
   );
 }
 
-const describe = (d: Decision): string =>
-  !d.entry ? '' : d.entry.type === 'http' ? `http ${d.entry.url}` : `npx -y ${d.entry.args[1]}, not pinned: npm served ${d.served ?? '?'}`;
-/** True when an existing .mcp.json entry already runs this server (http: its url; stdio: its package). */
-const runs = (v: unknown, e: NonNullable<Decision['entry']>): boolean => {
+const describe = (d: Decision): string => (d.entry ? `http ${d.entry.url}` : '');
+/** True when an existing .mcp.json entry already runs this server (http: its url; npm: its package). */
+const runs = (v: unknown, d: Decision): boolean => {
   const s = JSON.stringify(v);
-  return e.type === 'http' ? s.includes(`"${e.url}"`) : s.includes(`"${e.args[1]}"`) || s.includes(`"${e.args[1]}@`);
+  if (d.entry) return s.includes(`"${d.entry.url}"`);
+  return !!d.local && (s.includes(`"${d.local.pkg}"`) || s.includes(`"${d.local.pkg}@`));
 };
 
 /** Writes the decisions into .mcp.json and .ai-factory/tool-decisions.md; returns the report lines. */
@@ -397,7 +427,7 @@ export function applyDecisions(root: string, decisions: Decision[], opts: { dryR
 
   for (const d of decisions) {
     const c4 = `${d.server} ${d.version} — owner: ${d.owner}; matched dependency ${d.dep}`;
-    const configured = d.entry ? Object.entries(servers).find(([, v]) => runs(v, d.entry!)) : undefined;
+    const configured = Object.entries(servers).find(([, v]) => runs(v, d));
     if (configured) {
       lines.push(`⊝ ${d.server}: already in .mcp.json as «${configured[0]}» — kept as it is`);
       // A re-seeded tool-decisions.md (install --force) must still say why the entry is there.
@@ -414,7 +444,11 @@ export function applyDecisions(root: string, decisions: Decision[], opts: { dryR
       accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
       lines.push(`✓ .mcp.json: ${d.key} (${describe(d)}) — ${c4}`);
     } else {
-      const why = d.entry ? `the name «${d.key}» is already taken in .mcp.json` : `needs ${d.needs}`;
+      const why = d.entry
+        ? `the name «${d.key}» is already taken in .mcp.json`
+        : d.local
+          ? `it runs on your machine (npm package ${d.local.pkg}, npm served ${d.local.served}), so getff does not add it without your own yes; to add it: claude mcp add --scope project ${d.key} -- npx -y ${d.local.pkg}`
+          : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed — ${why}; ${c4}`);
       lines.push(`⊝ proposed, not installed: ${d.server} — ${why}; ${c4}`);
     }
@@ -448,6 +482,11 @@ function insertAfterSection(text: string, section: string, rows: string[], inBlo
   return ls.join('\n');
 }
 
+/** The report line for dependencies and searches the registries did not answer. */
+export function uncheckedLine(unchecked: readonly string[]): string {
+  return `⚠ not checked: ${unchecked.join(', ')} — the registry gave no answer (none within ${DEADLINE_MS / 1000} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
+}
+
 async function main(argv: string[]): Promise<number> {
   const root = resolve(argv[argv.indexOf('--root') + 1] ?? '.');
   const dryRun = argv.includes('--dry-run');
@@ -462,7 +501,7 @@ async function main(argv: string[]): Promise<number> {
     console.log('⊝ no direct dependency has an MCP server published by its own vendor');
   for (const l of lines) console.log(l);
   if (result.unchecked.length)
-    console.log(`⚠ not checked (no answer in time): ${result.unchecked.join(', ')} — a rerun of the install checks them again`);
+    console.log(uncheckedLine(result.unchecked));
   return 0;
 }
 
