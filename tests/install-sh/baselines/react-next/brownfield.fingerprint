@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-9fe2db22bb8788ffea6b958d8e15a37377babb9fffc59786dff6cba251570920  .ai-factory/refresh-baseline.json
+35c2b5bb7daeb3bfe1de13c83be7434035821d76b4631b91cdbe7b2729d20fa0  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
@@ -54,8 +54,8 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .claude/skills/getff/references/self-testing-docs.md
 a0838b662b8b8aaa06326c51a68fe99fc26e1147881bfd1eb5ea16cd456af463  .claude/skills/night-mode/SKILL.md
-3ae0d9db00fac7d2578d451f15eaf4dabbae2f15d03ab501db3b6e1b90d3a8af  .claude/skills/orchestrator/SKILL.md
-73c07b5a96cf665f0dc23148af1fa1426d192fa28804046d6d798c59ed62ea62  .claude/skills/orchestrator/helpers/memory-sweep.sh
+4a7d908502de2cbe0437b7dd17161c47979d79d97d17ba1c5fd5b15bf17290d7  .claude/skills/orchestrator/SKILL.md
+8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .claude/skills/orchestrator/helpers/memory-sweep.sh
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
 e96ad34debe07261f4bdfb2c6fd3e4fd64cd4b73ef5b720658b769e29875e4e2  .claude/skills/orchestrator/references/batch-prompt-template.md
 60cb51ebd2544e63a2f6e99c7a6fcc25d540fd4a334a0dce3247f834e07d809c  .claude/skills/orchestrator/references/chip-worker-template.md
