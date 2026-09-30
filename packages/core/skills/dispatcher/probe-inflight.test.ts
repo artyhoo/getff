@@ -99,6 +99,8 @@ interface Fixture {
   aifRepoPath?: string;
   /** Absolute path to a PROBE_DOCKER_BIN stub (arm b). */
   dockerBin?: string;
+  /** Extra env seeded AFTER the ambient strip (AIF_CONTAINER, DOCKER_CONTEXT, …). */
+  env?: Record<string, string>;
 }
 
 /** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
@@ -133,6 +135,10 @@ function probe(f: Fixture): string {
     PROBE_DOCKER_BIN: _omitDockerBin,
     PROBE_CONTAINER_BRANCHES: _omitCb,
     PROBE_CONTAINER_STATUS: _omitCs,
+    AIF_CONTAINER: _omitAc,
+    DOCKER_CONTEXT: _omitDc,
+    DOCKER_HOST: _omitDh,
+    PROBE_CONTEXT_TIMEOUT_S: _omitCt,
     ...cleanEnv
   } = process.env;
   void _omitPid;
@@ -142,6 +148,10 @@ function probe(f: Fixture): string {
   void _omitDockerBin;
   void _omitCb;
   void _omitCs;
+  void _omitAc;
+  void _omitDc;
+  void _omitDh;
+  void _omitCt;
   const env: NodeJS.ProcessEnv = {
     ...cleanEnv,
     SLUG: f.slug ?? 'x',
@@ -160,6 +170,7 @@ function probe(f: Fixture): string {
   if (f.runtimeProjectId !== undefined) env.RUNTIME_BRIDGE_AIF_PROJECT_ID = f.runtimeProjectId;
   if (f.aifRepoPath !== undefined) env.AIF_REPO_PATH = f.aifRepoPath;
   if (f.dockerBin !== undefined) env.PROBE_DOCKER_BIN = f.dockerBin;
+  Object.assign(env, f.env ?? {});
   return execFileSync('bash', [PROBE], { encoding: 'utf8', env, cwd: f.cwd });
 }
 
@@ -758,4 +769,107 @@ describe('probe-inflight.sh — signal 4 asks the derived repository (issue 1439
     expect(out).toMatch(/status=unavailable reason=projects-api-unreachable/);
     expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
+});
+
+// ── Agent container discovery (2026-09-30) ────────────────────────────────────
+// Measured on the operator's Mac: the aif stack runs on another machine (docker context
+// `pc`, container `aif-agent-1`) while the local daemon is down. The fixed default
+// `aif-handoff-agent-1` on the current context made every bare run PROBE-INCOMPLETE until
+// the caller hand-set AIF_CONTAINER + DOCKER_CONTEXT. The stub below models three docker
+// contexts: `local` (current, daemon down), `slow` (an ssh context that hangs) and `remote`
+// (the one that runs the agent). Every exec is logged so an arm can assert WHERE the
+// probe asked, not only what it concluded.
+
+describe('probe-inflight.sh — agent container discovery', () => {
+  const PROJECTS = [{ id: 'p-fw', name: 'rules-as-tests-aif', rootPath: '/home/www/fw' }];
+  const dir = mkdtempSync(join(tmpdir(), 'probe-docker-ctx-'));
+  const stub = join(dir, 'stub-docker');
+  const log = join(dir, 'exec.log');
+  writeFileSync(
+    stub,
+    [
+      '#!/usr/bin/env bash',
+      'ctx="${DOCKER_CONTEXT:-local}"',
+      'if [[ "$1" == "--context" ]]; then ctx="$2"; shift 2; fi',
+      'case "$1" in',
+      '  context) if [[ "$2" == show ]]; then echo local; else printf "local\\nslow\\nremote\\n"; fi ;;',
+      '  ps)',
+      '    case "$ctx" in',
+      '      remote) printf "aif-agent-1\\naif-api-1\\n" ;;',
+      '      slow) sleep 30 ;;',
+      '      *) echo "Cannot connect to the Docker daemon" >&2; exit 1 ;;',
+      '    esac ;;',
+      '  exec)',
+      '    echo "ctx=$ctx name=$2" >> "$STUB_EXEC_LOG"',
+      '    if [[ "$ctx" == remote && "$2" == aif-agent-1 ]]; then echo "  feature/x-abc123"; exit 0; fi',
+      '    echo "Error response from daemon: No such container: $2" >&2; exit 1 ;;',
+      'esac',
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (env: Record<string, string>): string => {
+    writeFileSync(log, '');
+    return probe({
+      omitContainerInjection: true,
+      projects: PROJECTS,
+      runtimeProjectId: 'p-fw',
+      dockerBin: stub,
+      env: { STUB_EXEC_LOG: log, PROBE_CONTEXT_TIMEOUT_S: '1', ...env },
+    });
+  };
+  const execs = (): string => readFileSync(log, 'utf8').trim();
+
+  it(
+    '(f) nothing pinned, local daemon down → finds the agent on another context and asks it there',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // RED on the fixed default: the probe asked `aif-handoff-agent-1` on `local` and
+      // printed PROBE-INCOMPLETE. The container-only branch below is visible ONLY if
+      // the question reached the remote agent.
+      const out = run({});
+      expect(execs()).toBe('ctx=remote name=aif-agent-1');
+      expect(out).toContain('status=ok repo=/home/www/fw');
+      expect(out).toContain('container-target: aif-agent-1 context=remote (discovered;');
+      expect(out).toContain('container-only: feature/x-abc123');
+      expect(out.trim().split('\n').pop()).toBe('VERDICT: IN-FLIGHT');
+    },
+  );
+
+  it(
+    '(g) the hanging context is bounded — discovery moves past it within the per-context budget',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const t0 = Date.now();
+      run({});
+      // `slow` sleeps 30s; the 1s budget must cut it. 15s leaves room for a loaded host.
+      expect(Date.now() - t0).toBeLessThan(15_000);
+    },
+  );
+
+  it(
+    '(h) an explicit AIF_CONTAINER wins — no discovery, the pinned name is asked as given',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const out = run({ AIF_CONTAINER: 'pinned-agent' });
+      expect(execs()).toBe('ctx=local name=pinned-agent');
+      expect(out).not.toContain('container-target:');
+      expect(out).toContain('reason=Error response from daemon: No such container: pinned-agent');
+      expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(i) a caller-pinned DOCKER_CONTEXT is respected — other contexts are NOT scanned',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // Fail-closed stays intact: no agent on the pinned context → the default name is
+      // asked, the exec's own stderr is the cause, and the verdict is PROBE-INCOMPLETE.
+      const out = run({ DOCKER_CONTEXT: 'local' });
+      expect(execs()).toBe('ctx=local name=aif-handoff-agent-1');
+      expect(out).toContain('container-target: aif-handoff-agent-1 (default;');
+      expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
 });

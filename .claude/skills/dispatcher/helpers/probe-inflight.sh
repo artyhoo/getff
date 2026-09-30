@@ -44,15 +44,24 @@
 #
 # Signal 4 addresses the aif runtime by NAME and by docker endpoint, and both are machine
 # state, not repo truth — a relocated stack silently makes the signal unaskable:
-#   AIF_CONTAINER   agent container name (default: aif-handoff-agent-1). A stack that is
-#                   not on this host uses different names (measured 2026-09-08: aif-agent-1,
-#                   no `handoff-` prefix). Wrong name => "No such container" => the verdict
-#                   is PROBE-INCOMPLETE, which by design STOPs every dispatch.
-#   DOCKER_CONTEXT  read by docker itself; set it when the daemon is remote (e.g. `pc`).
-# Both are honest degradations, never a false clean — but they are the two knobs to check
-# FIRST on a PROBE-INCOMPLETE whose cause names the container.
+#   AIF_CONTAINER   agent container name. Unset => DISCOVERED (see below), the same
+#                   `docker ps --filter name=agent | grep -i aif` resolution that
+#                   refresh-aif-base.sh, bridge-health.sh and bridge-cleanup.sh use.
+#   DOCKER_CONTEXT  read by docker itself. Unset (and no DOCKER_HOST) => the probe may
+#                   switch to another docker context where the agent container runs.
+# Discovery, when AIF_CONTAINER is unset: (1) the current docker context; (2) only if the
+# caller pinned neither DOCKER_CONTEXT nor DOCKER_HOST, every other context from
+# `docker context ls`, each bounded by PROBE_CONTEXT_TIMEOUT_S (default 8) so an
+# unreachable ssh context cannot hang the guard. The first hit is used and printed as a
+# `container-target:` detail line. No hit => the historical default name
+# (aif-handoff-agent-1) is asked, so the exec's own stderr names the real cause.
+# Why: measured 2026-09-30 on the Mac, the stack runs on the PC (context `pc`, container
+# `aif-agent-1`) while the Mac daemon is down. The fixed default made every bare run
+# PROBE-INCOMPLETE until the caller hand-set both knobs — a manual step at every dispatch.
+# An explicit AIF_CONTAINER or DOCKER_CONTEXT always wins; discovery never overrides them.
 #   PROBE_CLAIM_TTL_MIN       minutes before a claim reads STALE (default 120)
 #   PROBE_NOW_EPOCH           epoch seconds "now", for deterministic age fixtures
+#   PROBE_CONTEXT_TIMEOUT_S   seconds per docker context during discovery (default 8)
 #
 # Tested by: packages/core/skills/dispatcher/probe-inflight.test.ts
 # Consumed by: .claude/skills/dispatcher/SKILL.md §2.0
@@ -60,7 +69,9 @@
 set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-AIF_CONTAINER="${AIF_CONTAINER:-aif-handoff-agent-1}"
+AIF_CONTAINER="${AIF_CONTAINER:-}"
+AIF_CONTAINER_DEFAULT="aif-handoff-agent-1"
+CONTEXT_TIMEOUT_S="${PROBE_CONTEXT_TIMEOUT_S:-8}"
 AIF_REPO_PATH="${AIF_REPO_PATH:-}"
 AIF_HOST="${AIF_HOST:-localhost}"
 AIF_PORT="${AIF_PORT:-3009}"
@@ -167,6 +178,64 @@ else
   fi
 fi
 
+# ── Agent container discovery (used by Signal 4 on the live path only) ─────────
+# _bounded <secs> <cmd...>: run cmd, print its stdout, kill it after <secs>. Portable
+# (macOS has no `timeout`). Output goes through a temp file, never a pipe: killing the
+# docker CLI can leave its `ssh` child alive, and a child that still holds the pipe
+# makes the caller's $(...) wait for it — the bound would bound nothing (measured in
+# this file's test arm (g): a 1s budget took 30s through a pipe).
+_bounded() {
+  local secs="$1"; shift
+  local out rc=0
+  out=$(mktemp)
+  "$@" </dev/null >"$out" 2>/dev/null &
+  local pid=$!
+  ( sleep "$secs"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  local watchdog=$!
+  wait "$pid" 2>/dev/null || rc=$?
+  kill "$watchdog" 2>/dev/null || true
+  # Reap it with stderr closed: bash 3.2 otherwise prints a «Terminated» job notice.
+  wait "$watchdog" 2>/dev/null || true
+  cat "$out"
+  rm -f "$out"
+  return "$rc"
+}
+
+# _agent_in [context]: print the first aif agent container name the daemon reports.
+_agent_in() {
+  local ctx_args=()
+  [[ -n "${1:-}" ]] && ctx_args=(--context "$1")
+  _bounded "$CONTEXT_TIMEOUT_S" "$PROBE_DOCKER_BIN" ${ctx_args[@]+"${ctx_args[@]}"} \
+    ps --filter name=agent --format '{{.Names}}' | grep -i aif | head -1 || true
+}
+
+container_target_note=""
+discover_agent_container() {
+  [[ -n "$AIF_CONTAINER" ]] && return 0
+  local found ctx current
+  found=$(_agent_in)
+  if [[ -n "$found" ]]; then
+    AIF_CONTAINER="$found"
+    container_target_note="${found} (discovered on the current docker context)"
+    return 0
+  fi
+  if [[ -z "${DOCKER_CONTEXT:-}" && -z "${DOCKER_HOST:-}" ]]; then
+    current=$("$PROBE_DOCKER_BIN" context show 2>/dev/null || true)
+    while IFS= read -r ctx; do
+      [[ -z "$ctx" || "$ctx" == "$current" ]] && continue
+      found=$(_agent_in "$ctx")
+      if [[ -n "$found" ]]; then
+        AIF_CONTAINER="$found"
+        export DOCKER_CONTEXT="$ctx"
+        container_target_note="${found} context=${ctx} (discovered; the current context has no aif agent)"
+        return 0
+      fi
+    done < <("$PROBE_DOCKER_BIN" context ls --format '{{.Name}}' 2>/dev/null || true)
+  fi
+  AIF_CONTAINER="$AIF_CONTAINER_DEFAULT"
+  container_target_note="${AIF_CONTAINER_DEFAULT} (default; no aif agent container found on any docker context)"
+}
+
 # ── Signal 4: CONTAINER branches — the blind spot this helper exists to close ──
 # A container-only branch is work that origin cannot see. Distinguishing "the
 # container has nothing" from "we never asked the container" is the whole point:
@@ -200,7 +269,8 @@ else
     # (Measured 2026-09-08 against the aif stack: every dispatch STOPped on this cause.
     # The pre-existing arm (b) of probe-inflight.test.ts already used this exact stderr
     # as its fixture — the shape was tested, the cause was never fixed.)
-    elif ! container_branches=$("$PROBE_DOCKER_BIN" exec "$AIF_CONTAINER" git -c safe.directory='*' -C "$repo_path" branch -a 2>"$err_file"); then
+    elif ! discover_agent_container \
+      || ! container_branches=$("$PROBE_DOCKER_BIN" exec "$AIF_CONTAINER" git -c safe.directory='*' -C "$repo_path" branch -a 2>"$err_file"); then
       container_branches=""
       container_status="unavailable"
       container_reason=$(grep -m1 . "$err_file" 2>/dev/null || true)
@@ -239,6 +309,9 @@ fi
 echo "SIGNAL container-branch ${container_count} only=${container_only_count} status=${container_status}${repo_field}"
 if [[ "$container_status" == "unavailable" && -n "$container_reason" ]]; then
   echo "  container-cause: ${container_reason}"
+fi
+if [[ -n "$container_target_note" ]]; then
+  echo "  container-target: ${container_target_note}"
 fi
 if [[ "$container_only_count" -gt 0 ]]; then
   printf '%s\n' "$container_only" | grep . | sed 's/^/  container-only: /' || true
