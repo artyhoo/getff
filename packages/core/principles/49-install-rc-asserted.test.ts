@@ -17,15 +17,20 @@
  *
  * ## What counts as asserted
  *
- * One invocation (a line, joined across `\` continuations, running `bash|sh` on
- * `$REPO_ROOT/install.sh`, `$INSTALL_ROOT/install.sh`, `$INSTALL` or `$INSTALL_SH`) is
- * asserted when ONE of:
+ * One invocation (a line, joined across `\` continuations, running `bash|sh <path>` or `<path>` at
+ * command position, where `<path>` is any `$VAR/install.sh` spelling or `$INSTALL` / `$INSTALL_SH`;
+ * `bash -n` only parses and is not an invocation) is asserted when ONE of:
  *  - its status is captured (`; rc=$?`, `|| rc=$?`, or `rc=$?` alone on the next line) into a
- *    name the file later compares (`[ "$rc" -eq 0 ]`, `-ne`, `=`, `!=`, `case "$rc"`);
- *  - it is itself a condition: `if` / `elif` / `while` / `until`, or chained into `&& ok` /
- *    `|| bad` / `|| fail` on the same or the next line;
- *  - the file runs `set -e` and the invocation is not masked by `|| true` / `|| :`.
- * A masked invocation (`|| true`) is never asserted, whatever the file's options.
+ *    name that is compared (`[ "$rc" -eq 0 ]`, `-ne`, `=`, `!=`, `case "$rc"`) AFTER the capture
+ *    and before the name is assigned again;
+ *  - it sits in the condition of an `if` / `elif` / `while` / `until` (not in its body);
+ *  - the same logical line carries a failure branch: `|| bad`, `|| fail`, `|| exit N`
+ *    (`&& ok` alone reports nothing when the install fails and does not count);
+ *  - errexit is on at that line (`set -e` seen and not undone by a later `set +e`) and the
+ *    invocation is not masked by `|| true` / `|| :`.
+ * A masked invocation (`|| true`) is never asserted. A file check on the NEXT line
+ * (`[ -f "$T/x" ] && ok || bad`) is not an assertion of the install's exit code: an install that
+ * aborted after writing that file passes it (cold review 2026-10-01 found 43 such credits).
  *
  * ESCAPE — `# install-rc: <rationale>` on the invocation line or the comment line directly
  * above, rationale >= 20 characters (e.g. an arm that expects a non-zero exit and checks the
@@ -33,11 +38,12 @@
  *
  * ## The ratchet
  *
- * Measured 2026-10-01: 310 of 428 invocations, in 71 of 88 files, unasserted (16 of them masked
- * by `|| true`, 8 captured but never compared). They are recorded per file in `49-install-rc-asserted.baseline.json`. A file may never hold MORE
- * unasserted invocations than its baseline (a file absent from it holds zero), and a file that
- * holds FEWER fails too until its baseline is lowered — so the number only goes down and a fix
- * cannot leave slack for the next regression.
+ * Measured 2026-10-01: 332 of 436 invocations, in 73 of 90 files, unasserted. They are recorded
+ * per file in `49-install-rc-asserted.baseline.json`. A file may never hold MORE unasserted
+ * invocations than its baseline (a file absent from it holds zero), and a file that holds FEWER
+ * fails too until its baseline is lowered — so the number only goes down and a fix cannot leave
+ * slack for the next regression. Raising an entry is itself refused: where `origin/staging` is
+ * fetched (pre-push, a full clone) no entry may exceed its value there.
  *
  * ## Channel (.claude/rules/rule-enforcement-channel-selection.md)
  *
@@ -45,6 +51,7 @@
  *
  * ## Prior art — SSOT #302
  */
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -78,6 +85,32 @@ describe('principle 49 — install.sh exit code is asserted (live suite)', () =>
     expect(problems, problems.join('\n')).toEqual([]);
   });
 
+  it('never raises a baseline entry above its value on origin/staging', () => {
+    let base: Record<string, number>;
+    try {
+      base = JSON.parse(
+        execFileSync(
+          'git',
+          [
+            'show',
+            'origin/staging:packages/core/principles/49-install-rc-asserted.baseline.json',
+          ],
+          {
+            cwd: REPO_ROOT,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          },
+        ),
+      ).unasserted;
+    } catch {
+      return; // no origin/staging here (shallow CI clone) or the baseline is not on it yet
+    }
+    const raised = Object.entries(BASELINE)
+      .filter(([f, n]) => n > (base[f] ?? 0))
+      .map(([f, n]) => `${f}: ${n} > ${base[f] ?? 0} on origin/staging`);
+    expect(raised, raised.join('\n')).toEqual([]);
+  });
+
   it('measures a non-empty population (a moved suite must not pass vacuously)', () => {
     const measured = measureSuite(REPO_ROOT);
     expect(measured.files).toBeGreaterThan(50);
@@ -105,6 +138,41 @@ describe('principle 49 — the detector (paired arms)', () => {
     [
       'an escape whose rationale is under 20 characters',
       NO_E + '# install-rc: expected\n' + RUN,
+    ],
+    [
+      'a file check on the next line is not an rc assertion',
+      NO_E + RUN + '\n[ -f "$T/x" ] && ok "x" || bad "x"',
+    ],
+    ['&& ok alone reports nothing on failure', NO_E + RUN + ' && ok "ran"'],
+    [
+      'a second capture reusing rc, compared only once before it',
+      NO_E +
+        RUN +
+        '; rc=$?\n[ "$rc" -eq 0 ] && ok a\n' +
+        RUN +
+        '; rc=$?\necho end',
+    ],
+    [
+      'an rc compared only BEFORE the capture',
+      NO_E + 'x=1; rc=$?\n[ "$rc" -eq 0 ]\n' + RUN + '; rc=$?',
+    ],
+    [
+      'an invocation in the BODY of an if',
+      NO_E + 'if [ -d "$T" ]; then ' + RUN + '; fi',
+    ],
+    ['set -e undone by set +e', WITH_E + 'set +e\n' + RUN],
+    [
+      'a direct run without bash',
+      NO_E + '( cd "$T" && "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1',
+    ],
+    [
+      'the quote before the slash',
+      NO_E +
+        '( cd "$T" && bash "$REPO_ROOT"/install.sh ts-server ) >/dev/null 2>&1',
+    ],
+    [
+      'another root variable',
+      NO_E + '( cd "$T" && bash "$ROOT/install.sh" ts-server ) >/dev/null 2>&1',
     ],
   ])('flags: %s', (_label, text) => {
     expect(findUnasserted(text).length).toBeGreaterThan(0);
@@ -142,6 +210,19 @@ describe('principle 49 — the detector (paired arms)', () => {
     [
       'a comment naming install.sh',
       NO_E + '# we run bash "$REPO_ROOT/install.sh" below',
+    ],
+    ['|| exit 1 on the same line', NO_E + RUN + ' || exit 1'],
+    [
+      'bash -n only parses the script',
+      NO_E + 'bash -n "$REPO_ROOT/install.sh"',
+    ],
+    [
+      'a file test naming install.sh is not a run',
+      NO_E + '[ -f "$REPO_ROOT/install.sh" ] || exit 1',
+    ],
+    [
+      'an assignment of the path is not a run',
+      NO_E + 'INSTALL="$REPO_ROOT/install.sh"',
     ],
   ])('accepts: %s', (_label, text) => {
     expect(findUnasserted(text)).toEqual([]);

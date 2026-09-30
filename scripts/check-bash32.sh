@@ -75,27 +75,50 @@ fi
 # Pass 1 (pass=1) builds the array table and each file's multi-line variable names; pass 2 reports.
 # POSIX awk only: it runs under BSD awk on the Mac and mawk on ubuntu runners.
 out=$(LC_ALL=C awk -v root="$REPO_ROOT/" '
-function reset_file() { hd = ""; dq = 0; sq = 0; pend = ""; pendno = 0; fnbody = "" }
+function reset_file() {
+  hd = ""; dq = 0; sq = 0; ansi = 0; cs = 0; ar = 0; pend = ""; pendno = 0; fnbody = ""
+}
 function rel(p) { return index(p, root) == 1 ? substr(p, length(root) + 1) : p }
 # scan(line): walk one physical line, carrying quote state across lines. Sets cmt (the comment
 # text, "" if none), code (the line up to its comment), startq (line began inside a quote), endcont
 # (ends with a backslash continuation outside quotes), newhd (a heredoc tag opened on this line).
-function scan(s,   i, c, n, rest, t) {
+# State: sq/ansi (inside a single-quoted / ANSI-C quoted string, where a backslash escapes the
+# closing quote only in the ANSI-C form), dq (inside double quotes), cs + sdq[]
+# + pd[] (a stack of $( ... ) levels: quotes restart inside one, and the dq state around it comes
+# back at its closing paren), ar (inside (( ... )), where << is a shift, not a heredoc).
+function scan(s,   i, c, n, rest) {
   startq = (dq || sq); cmt = ""; code = s; newhd = ""; endcont = 0
   n = length(s)
   for (i = 1; i <= n; i++) {
     c = substr(s, i, 1)
-    if (sq) { if (c == "\047") sq = 0; continue }
+    if (sq) {
+      if (ansi && c == "\\") { i++; continue }
+      if (c == "\047") { sq = 0; ansi = 0 }
+      continue
+    }
     if (c == "\\") { if (i == n && !dq) endcont = 1; i++; continue }
+    if (c == "$" && substr(s, i + 1, 1) == "(" && substr(s, i + 2, 1) != "(") {
+      cs++; sdq[cs] = dq; pd[cs] = 0; dq = 0; i++; continue
+    }
     if (dq) { if (c == "\"") dq = 0; continue }
-    if (c == "\047") { sq = 1; continue }
+    if (substr(s, i, 2) == "((" || (c == "$" && substr(s, i + 1, 2) == "((")) {
+      ar++; i += (c == "$") ? 2 : 1; continue
+    }
+    if (ar > 0 && substr(s, i, 2) == "))") { ar--; i++; continue }
+    if (c == "(" && cs > 0) { pd[cs]++; continue }
+    if (c == ")" && cs > 0) {
+      if (pd[cs] > 0) pd[cs]--
+      else { dq = sdq[cs]; cs-- }
+      continue
+    }
+    if (c == "\047") { sq = 1; ansi = (i > 1 && substr(s, i - 1, 1) == "$"); continue }
     if (c == "\"") { dq = 1; continue }
     if (c == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t;]/)) {
       cmt = substr(s, i); code = substr(s, 1, i - 1); return
     }
-    if (c == "<" && substr(s, i, 2) == "<<" && substr(s, i, 3) != "<<<") {
+    if (ar == 0 && c == "<" && substr(s, i, 2) == "<<" && substr(s, i, 3) != "<<<") {
       rest = substr(s, i + 2)
-      sub(/^-/, "", rest); sub(/^[ \t]*/, "", rest); sub(/^[\047"]/, "", rest)
+      sub(/^-/, "", rest); sub(/^[ \t]*/, "", rest); sub(/^[\047"\\]/, "", rest)
       if (match(rest, /^[A-Za-z_][A-Za-z0-9_]*/)) newhd = substr(rest, 1, RLENGTH)
       i++
     }
@@ -119,7 +142,7 @@ function learn(L, fname,   s, s2, src, name, body, t) {
         # a copy A=("${B[@]}") can be empty exactly when B can (resolved in can_empty)
         src = substr(body, 1, RLENGTH); sub(/^"?\$\{/, "", src); sub(/\[.*/, "", src)
         copyof[name] = (name in copyof) ? copyof[name] " " src : src
-      } else if (body ~ /^\)/ || body ~ /^\$/ || body ~ /^"\$\{[A-Za-z_][A-Za-z0-9_]*\[[@*]\]\}"/ || body ~ /^\$\{[A-Za-z_][A-Za-z0-9_]*\[[@*]\]/) note_array(name, "empty")
+      } else if (body ~ /^\)/ || body ~ /^\$/ || body ~ /^"\$(@|\*|\{[@*#])/ || body ~ /^"\$\{[A-Za-z_][A-Za-z0-9_]*\[[@*]\]\}"/ || body ~ /^\$\{[A-Za-z_][A-Za-z0-9_]*\[[@*]\]/) note_array(name, "empty")
       else note_array(name, "seed")
     }
     s = s2
@@ -133,7 +156,7 @@ function learn(L, fname,   s, s2, src, name, body, t) {
   }
   s = L
   while (match(s, /read[ \t]+(-[a-zA-Z]+[ \t]+)*-[a-zA-Z]*a[ \t]*[A-Za-z_][A-Za-z0-9_]*/)) {
-    t = substr(s, RSTART, RLENGTH); name = t; sub(/.*[ \ta]/, "", name)
+    t = substr(s, RSTART, RLENGTH); name = t; sub(/.*-[a-zA-Z]*a[ \t]*/, "", name)
     note_array(name, "empty"); s = substr(s, RSTART + RLENGTH)
   }
   if (match(L, /printf[ \t]+-v[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]+[\047"][^\047"]*\\n/)) {
@@ -172,12 +195,12 @@ function check(L, no,   s, t, name, near, k, after) {
   s = L
   if (match(s, /(^|[;&|({ \t])sed([ \t]|$)/)) {
     after = substr(s, RSTART + RLENGTH)
-    if (after !~ /^[ \t]*(-[a-zA-Z]*[Er][a-zA-Z]*|--regexp-extended)([ \t]|$)/ && (after ~ /^\\\|/ || after ~ /[^\\]\\\|/))
+    if (after !~ /^[ \t]*(-[a-zA-Z]*[Er][a-zA-Z]*|--regexp-extended)([ \t]|$)/ && (after ~ /^\\\|/ || after ~ /[^\\]\\\|/ || after ~ /"[^"]*\\\\\|[^"]*"/))
       report(no, "B32-SEDALT", "BRE \\| in sed: BSD sed has no alternation (silently matches nothing) — use sed -E with (a|b), or awk")
   }
   if (L ~ /(^|[;&|({ \t])awk[ \t]/) {
     s = L
-    while (match(s, /-v[ \t]*[A-Za-z_][A-Za-z0-9_]*="?\$\{?[A-Za-z_][A-Za-z0-9_]*/)) {
+    while (match(s, /-v[ \t]*"?[A-Za-z_][A-Za-z0-9_]*="?\$\{?[A-Za-z_][A-Za-z0-9_]*/)) {
       t = substr(s, RSTART, RLENGTH); s = substr(s, RSTART + RLENGTH)
       name = t; sub(/.*\$\{?/, "", name)
       if ((FILENAME, name) in multi)
@@ -213,7 +236,7 @@ function guarded(text, name,   re) {
 }
 # fnbody: the code since the enclosing function header (or the file start at top level).
 function note_body(L) {
-  if (L ~ /^[ \t]*(function[ \t]+)?[A-Za-z_][A-Za-z0-9_:.-]*[ \t]*\(\)/) fnbody = ""
+  if (L ~ /^[ \t]*(function[ \t]+)?[A-Za-z_][A-Za-z0-9_:.-]*[ \t]*\(\)/ || L ~ /^[ \t]*function[ \t]+[A-Za-z_][A-Za-z0-9_:.-]*/) fnbody = ""
   fnbody = fnbody "\n" L
 }
 FNR == 1 { reset_file(); if (pass == 2) nfiles++ }

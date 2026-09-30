@@ -7,9 +7,10 @@
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists.
  *
  * Declared limits (a line scan, not a shell parser): a helper function that wraps install.sh is
- * judged where install.sh appears, not at its call sites; a captured rc counts as asserted when
- * its name is compared ANYWHERE in the file; heredoc bodies are not skipped (no install-sh test
- * writes an install.sh invocation into one as of 2026-10-01).
+ * judged where install.sh appears, not at its call sites; a captured rc counts as asserted when its
+ * name is compared after the capture and before the name is assigned again (a comparison inside a
+ * branch that may not run still counts); heredoc bodies are not skipped (no install-sh test writes
+ * an install.sh invocation into one as of 2026-10-01).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,26 +20,40 @@ export interface Unasserted {
   reason: string;
 }
 
-const INVOCATION =
-  /(?:^|[\s;&|(!])(?:bash|sh)\s+(?:-[a-z]+\s+)*["']?(?:\$\{?(?:REPO_ROOT|INSTALL_ROOT)\}?\/install\.sh|\$\{?INSTALL(?:_SH)?\}?)(?![A-Za-z0-9_])/;
+const PATH = String.raw`["']?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?["']?\/install\.sh(?![\w.])|["']?\$\{?INSTALL(?:_SH)?\}?["']?(?![\w/.])`;
+/**
+ * An install.sh run: `bash|sh [flags] <path>`, or `<path>` at command position (line start, after
+ * `;` `&&` `||` `|` `(` `$(` `then` `do` `!`, past `VAR=value` prefixes). `<path>` is any
+ * `$VAR/install.sh` spelling (quote before or after the slash) or `$INSTALL` / `$INSTALL_SH`.
+ */
+const INVOCATION = new RegExp(
+  String.raw`(?:\b(?:bash|sh)\s+((?:-[a-zA-Z]+\s+)*)(?:${PATH}))|(?:(?:^|;|&&|\|\||\||\(|\$\(|\bthen\b|\bdo\b|!)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:${PATH}))`,
+);
 const ESCAPE = /#\s*install-rc:\s*(.*)$/;
 const CONDITION_HEAD = /^\s*(?:if|elif|while|until)\b/;
-const CHAINED = /&&\s*(?:ok|pass)\b|\|\|\s*(?:bad|fail)\b/;
+/** A failure branch on the same logical line: `|| bad …`, `|| fail`, `|| exit 1`, `|| { bad …; }`. */
+const FAILS_ON_ERROR = /\|\|\s*\{?\s*(?:bad|fail|die|exit\s+[1-9])\b/;
 const MASKED = /\|\|\s*(?:true|:)(?:\s|;|$|\))/;
-const SET_E = /^\s*set\s+-[a-zA-Z]*e/m;
 
-function comparedLater(text: string, name: string): boolean {
-  const v = `\\$\\{?${name}\\}?`;
-  return new RegExp(
-    `${v}"?\\s*(?:-eq|-ne|-gt|-lt|-ge|-le|=|!=|==)|case\\s+"?${v}`,
-  ).test(text);
+/** Does `name` get compared after line `from`, before it is assigned again? */
+function comparedAfter(lines: string[], from: number, name: string): boolean {
+  const v = String.raw`\$\{?${name}\}?`;
+  const cmp = new RegExp(
+    String.raw`${v}"?\s*(?:-eq|-ne|-gt|-lt|-ge|-le|=|!=|==)|case\s+"?${v}`,
+  );
+  const reassign = new RegExp(String.raw`(?:^|[\s;&|(])${name}=`);
+  for (let k = from + 1; k < lines.length; k++) {
+    if (cmp.test(lines[k])) return true;
+    if (reassign.test(lines[k])) return false;
+  }
+  return false;
 }
 
 /** Every invocation of install.sh in one test file whose exit code is not asserted. */
 export function findUnasserted(text: string): Unasserted[] {
   const lines = text.split('\n');
-  const setE = SET_E.test(text);
   const out: Unasserted[] = [];
+  let errexit = false;
   for (let i = 0; i < lines.length; i++) {
     if (/^\s*#/.test(lines[i])) continue;
     const start = i;
@@ -46,7 +61,12 @@ export function findUnasserted(text: string): Unasserted[] {
     while (/\\$/.test(logical) && i + 1 < lines.length) {
       logical = logical.replace(/\\$/, ' ') + lines[++i];
     }
-    if (!INVOCATION.test(logical)) continue;
+    const setOpt = /^\s*set\s+([-+])[a-zA-Z]*e/.exec(logical);
+    if (setOpt) errexit = setOpt[1] === '-';
+    const inv = INVOCATION.exec(logical);
+    if (!inv) continue;
+    // `bash -n install.sh` parses the script; it does not run the install.
+    if (inv[1] && /(?:^|\s)-[a-zA-Z]*n/.test(inv[1])) continue;
     const lineNo = start + 1;
     const next = lines[i + 1] ?? '';
 
@@ -68,27 +88,26 @@ export function findUnasserted(text: string): Unasserted[] {
       out.push({ line: lineNo, reason: 'masked by || true' });
       continue;
     }
-    const cap =
-      /([A-Za-z_][A-Za-z0-9_]*)=\$\?/.exec(logical) ??
-      /^\s*([A-Za-z_][A-Za-z0-9_]*)=\$\?/.exec(next);
-    if (cap) {
-      if (comparedLater(text, cap[1])) continue;
+    const cap = /([A-Za-z_][A-Za-z0-9_]*)=\$\?/.exec(logical);
+    const capNext = cap ? null : /^\s*([A-Za-z_][A-Za-z0-9_]*)=\$\?/.exec(next);
+    const name = cap?.[1] ?? capNext?.[1];
+    if (name) {
+      if (comparedAfter(lines, capNext ? i + 1 : i, name)) continue;
       out.push({
         line: lineNo,
-        reason: `rc captured into ${cap[1]} but never compared`,
+        reason: `rc captured into ${name} but not compared before its next assignment`,
       });
       continue;
     }
-    if (
-      CONDITION_HEAD.test(logical) ||
-      CHAINED.test(logical) ||
-      CHAINED.test(next)
-    )
-      continue;
-    if (setE) continue;
+    if (CONDITION_HEAD.test(logical)) {
+      const body = /;\s*(?:then|do)\b/.exec(logical);
+      if (!body || inv.index < body.index) continue;
+    }
+    if (FAILS_ON_ERROR.test(logical)) continue;
+    if (errexit) continue;
     out.push({
       line: lineNo,
-      reason: 'exit code neither captured nor tested (no set -e)',
+      reason: 'exit code neither captured nor tested (errexit off here)',
     });
   }
   return out;
@@ -109,9 +128,11 @@ export function measureSuite(repoRoot: string): SuiteMeasure {
   for (const name of readdirSync(dir).sort()) {
     if (!name.endsWith('.test.sh')) continue;
     const text = readFileSync(join(dir, name), 'utf8');
-    const n = text
-      .split('\n')
-      .filter((l) => !/^\s*#/.test(l) && INVOCATION.test(l)).length;
+    const n = text.split('\n').filter((l) => {
+      if (/^\s*#/.test(l)) return false;
+      const m = INVOCATION.exec(l);
+      return m !== null && !(m[1] && /(?:^|\s)-[a-zA-Z]*n/.test(m[1]));
+    }).length;
     if (n === 0) continue;
     files++;
     invocations += n;

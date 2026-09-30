@@ -3,7 +3,7 @@
 # (the bash-3.2 / BSD-userland portability gate over install.sh + setup.d/**).
 #
 # Arms:
-#   P1-P13 the gate FIRES: declare/local/typeset -A, local -n, mapfile, readarray, case-modifying
+#   P1-P16 the gate FIRES, and reports the expected finding id (and line where it matters): declare/local/typeset -A, local -n, mapfile, readarray, case-modifying
 #          expansions, an unguarded element expansion of an array that can be empty ("${A[@]}",
 #          "${A[*]}", unquoted), an array seeded from a command substitution, an append-only array,
 #          `export A=(…)`, BRE `\|` in sed, `awk -v` fed a variable assigned a multi-line value, a copy
@@ -15,7 +15,9 @@
 #          `export V=x`
 #   E1     an escape whose rationale is under 20 characters is itself a finding
 #   R1-R3  CLI contract: 1 on findings, 0 when clean, 2 on a missing file
-#   L1     the live population (install.sh + setup.d/**) is clean — the gate's real subject
+#   Q1-Q4  quote / heredoc state (ANSI-C quotes, quotes nested in $(…), arithmetic <<, a
+#          backslash-quoted heredoc tag) never hides the lines after it
+#   L1     the live population (install.sh + setup.d/**) is clean and every file is scanned
 #   H1     on a host whose /bin/bash is 3.2, every P-arm's shape really aborts there (the gate's
 #          premise is measured, not assumed); skipped with a line when /bin/bash is not 3.2
 set -euo pipefail
@@ -27,42 +29,74 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 n=0
-# fixture <label> <want: fire|quiet> <body> — one script per arm, scanned by explicit path
+# fixture <label> <want> <body> — one script per arm, scanned by explicit path. <want> is `quiet`,
+# or `fire:<ID>` (a finding with that id must be reported), or `fire:<ID>@<line>` (…on that line of
+# the body, 1-based). Asserting the id, not only rc=1, keeps a multi-shape arm from passing on the
+# wrong shape.
 fixture() {
-  local label="$1" want="$2" body="$3" f out rc
+  local label="$1" want="$2" body="$3" f out rc id line
   n=$((n+1)); f="$TMP/f$n.sh"
   printf '#!/usr/bin/env bash\nset -euo pipefail\n%s\n' "$body" > "$f"
   out=$(bash "$CHECK" "$f" 2>&1) && rc=0 || rc=$?
-  case "$want:$rc" in
-    fire:1|quiet:0) ok "$label" ;;
-    *) bad "$label — want $want, rc=$rc: $(tr '\n' '|' <<<"$out")" ;;
+  case "$want" in
+    quiet)
+      if [ "$rc" -eq 0 ]; then ok "$label"; else bad "$label — want quiet, rc=$rc: $(tr '\n' '|' <<<"$out")"; fi ;;
+    fire:*)
+      id=${want#fire:}; line=""
+      case "$id" in *@*) line=$((${id#*@} + 2)); id=${id%@*} ;; esac
+      if [ "$rc" -eq 1 ] && grep -Eq ":${line:-[0-9]+}: $id " <<<"$out"; then ok "$label"
+      else bad "$label — want $want, rc=$rc: $(tr '\n' '|' <<<"$out")"; fi ;;
   esac
 }
 
 echo "── fires"
-fixture "P1 declare -A (no associative arrays before bash 4.0)" fire 'declare -A SEEN=()'
-fixture "P2 local -Ax / typeset -A in a function" fire 'f() { local -Ax m; typeset -A n; }'
-fixture "P3 local -n nameref (bash 4.3)" fire 'f() { local -n ref="$1"; echo "$ref"; }'
-fixture "P4 mapfile / readarray (bash 4.0)" fire 'mapfile -t lines < f
-readarray -t more < g'
-fixture "P5 \${v,,} / \${v^^} case modification (bash 4.0)" fire 'lo="${1,,}"; up="${1^^}"'
-fixture "P6 unguarded \"\${A[@]}\" of an empty-initialised array" fire 'SKIPPED=()
+fixture "P1 declare -A (no associative arrays before bash 4.0)" fire:B32-ASSOC 'declare -A SEEN=()'
+fixture "P2a local -Ax in a function" fire:B32-ASSOC 'f() { local -Ax m; }'
+fixture "P2b typeset -A" fire:B32-ASSOC 'typeset -A n'
+fixture "P3 local -n nameref (bash 4.3)" fire:B32-ASSOC 'f() { local -n ref="$1"; echo "$ref"; }'
+fixture "P4a mapfile (bash 4.0)" fire:B32-BASH4 'mapfile -t lines < f'
+fixture "P4b readarray (bash 4.0)" fire:B32-BASH4 'readarray -t more < g'
+fixture "P5a \${1,,} case modification of a positional" fire:B32-BASH4 'lo="${1,,}"'
+fixture "P5b \${v^^} case modification" fire:B32-BASH4 'up="${v^^}"'
+fixture "P6 unguarded \"\${A[@]}\" of an empty-initialised array" fire:B32-EMPTY@2 'SKIPPED=()
 for s in "${SKIPPED[@]}"; do echo "$s"; done'
-fixture "P7 unguarded \"\${A[*]}\" and bare \${A[@]}" fire 'local_list=()
-printf "%s\n" "${local_list[*]}"; echo ${local_list[@]}'
-fixture "P8 an array seeded from a command substitution can be empty" fire 'files=($(ls /nonexistent 2>/dev/null))
+fixture "P7a unguarded \"\${A[*]}\"" fire:B32-EMPTY@2 'local_list=()
+printf "%s\n" "${local_list[*]}"'
+fixture "P7b unquoted \${A[@]}" fire:B32-EMPTY@2 'other=()
+echo ${other[@]}'
+fixture "P8 an array seeded from a command substitution can be empty" fire:B32-EMPTY@2 'files=($(ls /nonexistent 2>/dev/null))
 for f in "${files[@]}"; do :; done'
-fixture "P9 an append-only array is unset until the first +=" fire 'if [ -n "${X:-}" ]; then acc+=(x); fi
+fixture "P9 an append-only array is unset until the first +=" fire:B32-EMPTY@2 'if [ -n "${X:-}" ]; then acc+=(x); fi
 echo "${acc[@]}"'
-fixture "P10 export A=(…) — function-local on 3.2, never exported" fire 'f() { export ARR=(a b); }'
-fixture "P11 BRE \\| in sed (BSD sed has no alternation)" fire "v=\$(sed -n 's/^\\(select\\|extend\\)=//p' cfg)"
-fixture "P13 a copy of an empty-capable array is empty-capable" fire 'SRC=()
-DST=( "${SRC[@]+"${SRC[@]}"}" )
-COPY=( "${SRC[@]}" )
-for x in "${COPY[@]}"; do :; done'
-fixture "P12 awk -v fed a variable assigned a multi-line value" fire 'body="line one
+fixture "P10 export A=(…) — function-local on 3.2, never exported" fire:B32-EXPORT 'f() { export ARR=(a b); }'
+fixture "P11 BRE \\| in sed (BSD sed has no alternation)" fire:B32-SEDALT "v=\$(sed -n 's/^\\(select\\|extend\\)=//p' cfg)"
+fixture "P11b BRE \\\\| inside double quotes reaches sed as \\|" fire:B32-SEDALT 'v=$(sed -n "s/a\\|b/x/p" f)'
+fixture "P12 awk -v fed a variable assigned a multi-line value" fire:B32-AWKV 'body="line one
 line two"
 awk -v b="$body" '"'"'{ print b }'"'"' f'
+fixture "P12b awk -v \"x=\$v\" spelling" fire:B32-AWKV 'body="line one
+line two"
+awk -v "b=$body" '"'"'{ print b }'"'"' f'
+fixture "P13 a copy of an empty-capable array is empty-capable (only the copy can fire)" fire:B32-EMPTY@3 'SRC=()
+COPY=( "${SRC[@]}" )  # bash32-safe: this arm isolates the use of the copy on the next line
+for x in "${COPY[@]}"; do :; done'
+fixture "P14 read -ra fills an array that can be empty" fire:B32-EMPTY@2 'read -ra data <<< "$x"
+for i in "${data[@]}"; do :; done'
+fixture "P15 A=(\"\$@\") is empty when called with no arguments" fire:B32-EMPTY 'g() { local A=("$@"); echo "${A[@]}"; }'
+fixture "P16 a length test in ANOTHER function does not guard (function kw form)" fire:B32-EMPTY@3 'L=()
+function a { [ ${#L[@]} -gt 0 ] && echo y; }
+function b { for i in "${L[@]}"; do :; done; }'
+
+echo "── quote / heredoc state never hides the rest of the file"
+for q in "Q1 ANSI-C quote with an escaped quote|x=\$'it\\'s'" \
+         "Q2 double quotes nested in a \$(…) inside double quotes|y=\"\$(printf '%s' \"it's\")\"" \
+         "Q3 arithmetic << is a shift, not a heredoc|z=\$(( 1 << n ))" \
+         "Q4 a backslash-quoted heredoc tag|cat << \\EOF
+it's text
+EOF"; do
+  fixture "${q%%|*}" fire:B32-ASSOC "${q#*|}
+f() { local -A m; }"
+done
 
 echo "── stays quiet"
 fixture "N1 the \${A[@]+\"\${A[@]}\"} guard" quiet 'SKIPPED=()
@@ -116,7 +150,8 @@ if [ "$rc" -eq 2 ]; then ok "R3 missing file → exit 2 (never a silent pass)"; 
 
 echo "── live population"
 out=$(cd "$REPO_ROOT" && bash "$CHECK" 2>&1) && rc=0 || rc=$?
-if [ "$rc" -eq 0 ] && grep -q 'scanned [1-9][0-9]* file' <<<"$out"; then
+want_files=$(git -C "$REPO_ROOT" ls-files -- install.sh 'setup.d/*.sh' | wc -l | tr -d ' ')
+if [ "$rc" -eq 0 ] && grep -q "scanned $want_files file" <<<"$out"; then
   ok "L1 install.sh + setup.d/** are clean ($(tail -1 <<<"$out"))"
 else
   bad "L1 live population — rc=$rc: $out"
