@@ -549,7 +549,7 @@ if [ -n "$ctx_entry" ]; then
             break
           fi
         done
-        # D40 — the handoff is a THIN INDEX (.claude/rules/seat-lifecycle.md §1 phase 3): a
+        # D40 — the handoff is a THIN INDEX (.claude/rules/seat-lifecycle.md §1.1): a
         # markdown table whose separator row is followed by at least one row naming a `.md`
         # topic file. State lives in those topic files, so a task reloads only its own. Checked
         # AFTER the headings (a missing section is the more basic defect) and BEFORE the cap
