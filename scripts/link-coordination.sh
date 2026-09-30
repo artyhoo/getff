@@ -140,7 +140,11 @@ TRACKED_PROMPTS_READ=0
 is_tracked() {
   # $1 = absolute path inside $WT_DIR
   local rel="${1#"$WT_PROMPTS"/}"
-  if [[ "$rel" == "$1" ]]; then
+  # Names the snapshot cannot match byte-for-byte also keep the per-file query: git
+  # C-quotes `"`, `\` and control characters even with core.quotePath=false, and on macOS
+  # the index stores NFC while the disk may hold an NFD name. Plain printable ASCII only.
+  local LC_ALL=C
+  if [[ "$rel" == "$1" || "$rel" == *[!\ -~]* || "$rel" == *[\"\\]* ]]; then
     git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1
     return
   fi

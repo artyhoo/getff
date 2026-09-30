@@ -681,7 +681,7 @@ describe('link-coordination.sh', () => {
     }
   }
 
-  it('(m) GIT-SPAWN BUDGET: git process count stays flat as $CANON grows', () => {
+  it('(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)', () => {
     seedCanon();
     const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
     const starts = gitStarts(helper, wt);
@@ -776,6 +776,45 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
 
     // Gitignored content: correctly symlinked into CANON (helper still does its job)
     expect(lstatSync(state).isSymbolicLink(), 'gitignored state.md must be a symlink').toBe(true);
+  });
+
+  // (j2) is_tracked() reads one `git ls-files` snapshot (2026-10-01). git C-quotes `"`,
+  // `\` and control characters in that output, and a non-ASCII name may differ in Unicode
+  // normalization between disk and index — those names must still be seen as tracked.
+  const ODD_NAMES = ['q"uote.md', 'back\\slash.md', 'café.md'];
+  function trackOddNames(): string[] {
+    const dir = resolve(worktree, '.claude/orchestrator-prompts/u1');
+    for (const n of ODD_NAMES) writeFileSync(resolve(dir, n), `tracked ${n}\n`);
+    execFileSync('git', ['add', '-f', '--', ...ODD_NAMES], { cwd: dir });
+    return readdirSync(dir).filter((n) => !/^(done|stage-4)\.md$/.test(n)).map((n) => resolve(dir, n));
+  }
+
+  it('(j2) PASS: tracked files with quote, backslash and non-ASCII names stay REAL files', () => {
+    const paths = trackOddNames();
+    expect(paths).toHaveLength(ODD_NAMES.length);
+
+    const r = runHelper(helper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+
+    for (const p of paths) {
+      expect(lstatSync(p).isSymbolicLink(), `tracked ${p} must NOT be a symlink`).toBe(false);
+    }
+  });
+
+  it('(j2-neg) PAIRED-NEGATIVE: snapshot-only is_tracked() (no per-file fallback) adopts them', () => {
+    const src = readFileSync(HELPER, 'utf8');
+    const snapshotOnly = src.replace(
+      '"$rel" == "$1" || "$rel" == *[!\\ -~]* || "$rel" == *[\\"\\\\]*',
+      '"$rel" == "$1"',
+    );
+    expect(snapshotOnly, 'the per-file fallback condition must be present to strip').not.toBe(src);
+    const tmpHelper = installHelper(repo, snapshotOnly, 'link-coordination-snapshot-only.sh');
+    const paths = trackOddNames();
+
+    runHelper(tmpHelper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
+
+    const symlinked = paths.filter((p) => lstatSync(p).isSymbolicLink());
+    expect(symlinked.length, 'without the fallback, git-quoted names are wrongly adopted').toBeGreaterThan(0);
   });
 
   it('(j-neg) PAIRED-NEGATIVE: with is_tracked() neutered, stage-4.md IS wrongly symlinked', () => {
