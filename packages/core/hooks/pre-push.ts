@@ -244,8 +244,24 @@ function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
 }
 
 /** Re-emit a captured result's output to the operator. */
+// A not-armed check is said once per push: the armed-probe names it first, and the check's own
+// section, going through scripts/run-armed.sh, would name it again (P6 run 3, N8).
+const saidNotArmed = new Set<string>();
+function onceNotArmed(out: string): string {
+  return out
+    .split(/(?<=\n)/)
+    .filter((l) => {
+      if (!l.startsWith('· not armed: ')) return true;
+      const key = l.trimEnd();
+      if (saidNotArmed.has(key)) return false;
+      saidNotArmed.add(key);
+      return true;
+    })
+    .join('');
+}
+
 function emit(r: CheckResult): void {
-  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stdout) process.stdout.write(onceNotArmed(r.stdout));
   if (r.stderr) process.stderr.write(r.stderr);
 }
 

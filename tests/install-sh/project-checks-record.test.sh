@@ -18,6 +18,7 @@
 #   (H) the delivered CI's gate steps go through run-armed.sh (every npm stack's template)
 #   (K) the pre-push checks that read the project's own files (check-ci-pins, check-doc-links) are
 #       recorded; the measured cowsay project pushes green after the install, saying «not armed»
+#       once, with the first finding (own.yml:6) in the reason
 #   (M) --refresh adds those two to a record from an older getff, not-armed, keeping the rest
 #   (N) the generated-rule mutation check (P5's runner) is recorded from the rule generator's own
 #       verdict: armed only when GEN_MUT_RC=0, never re-run by the arm pass; its CI step reads the record
@@ -195,13 +196,21 @@ mkdir -p "$K/.github/workflows"
 printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm install -g cowsay\n' > "$K/.github/workflows/own.yml"
 ( cd "$K" && git add -A && git commit -qm own && git checkout -qb work && git push -q "$BARE" work ); rc0=$?
 ( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff )
-grep -qx -- '- bash scripts/check-ci-pins.sh # exits 1 at install' <<<"$(section "$K" not-armed)" \
-  && ok "(L) the project's own unpinned workflow: check-ci-pins recorded not-armed, exits 1 at install" \
+# The reason names the first finding, so the user learns which workflow line without running the script
+# (P6 run 3, N8).
+PINS_WHY='exits 1 at install on .github/workflows/own.yml:6: - run: npm install -g cowsay'
+grep -qxF -- "- bash scripts/check-ci-pins.sh # $PINS_WHY" <<<"$(section "$K" not-armed)" \
+  && ok "(L) the project's own unpinned workflow: check-ci-pins recorded not-armed, the reason naming own.yml:6" \
   || bad "(L) ci-pins line: $(block "$K" | grep ci-pins)"
 ( cd "$K" && git push "$BARE" work ) > "$K/.push" 2>&1; rc=$?
-[ "$rc0" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qF '· not armed: bash scripts/check-ci-pins.sh — exits 1 at install' "$K/.push" \
+[ "$rc0" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qF "· not armed: bash scripts/check-ci-pins.sh — $PINS_WHY" "$K/.push" \
   && ok "(L) the push green before the install is green after it, and says «not armed»" \
   || bad "(L) push before rc=$rc0, after rc=$rc: $(grep -E '❌|not armed: bash scripts/check-ci' "$K/.push" | head -3 | tr '\n' '|')"
+# The armed-probe names every not-armed check first; the check's own section must not name it again.
+dup=$(grep '^· not armed: ' "$K/.push" | sort | uniq -d)
+[ -z "$dup" ] && [ "$(grep -c '^· not armed: bash scripts/check-ci-pins.sh' "$K/.push")" = 1 ] \
+  && ok "(L) each not-armed check is said once in the push (check-ci-pins: probe, then its section)" \
+  || bad "(L) said more than once: $(tr '\n' '|' <<<"$dup")"
 
 # ── (M) --refresh adds a check a record from an older getff does not list ───────────────────────
 # run-armed runs a command the record does not list, so without this a refreshed hook would run the

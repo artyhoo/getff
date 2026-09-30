@@ -985,6 +985,9 @@ _pc_reason() {  # <name> <rc> <log> → why a red check is not armed
     format:check) n=$(grep -c '^\[warn\] [^C]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n files not in prettier style at install"; return; } ;;
     lint) n=$(sed -n 's/^✖ \([0-9][0-9]*\) problem.*/\1/p' "$3" | tail -1); [ -n "$n" ] && { echo "$n lint problems at install"; return; } ;;
     check-doc-links.sh) [ "$2" = 3 ] && { echo "lychee is not installed"; return; } ;;
+    # The first finding («  <file>:<line>: <text>») names the workflow line, so the user need not run it.
+    check-ci-pins.sh) n=$(sed -n 's/^  \([^ ][^ ]*:[0-9][0-9]*: .*\)$/\1/p' "$3" | sed -n '1{s/ # / - /g;p;}')
+      [ -n "$n" ] && { echo "exits $2 at install on $n"; return; } ;;
   esac
   echo "exits $2 at install"
 }

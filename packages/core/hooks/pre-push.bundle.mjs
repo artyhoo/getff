@@ -738,8 +738,18 @@ function commitsToCheck(rb, label) {
   }
   return getCommits(rb.base, rb.head, rb.exclude ?? void 0);
 }
+var saidNotArmed = /* @__PURE__ */ new Set();
+function onceNotArmed(out) {
+  return out.split(/(?<=\n)/).filter((l) => {
+    if (!l.startsWith("\xB7 not armed: ")) return true;
+    const key = l.trimEnd();
+    if (saidNotArmed.has(key)) return false;
+    saidNotArmed.add(key);
+    return true;
+  }).join("");
+}
 function emit(r) {
-  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stdout) process.stdout.write(onceNotArmed(r.stdout));
   if (r.stderr) process.stderr.write(r.stderr);
 }
 function die(msg, r) {
