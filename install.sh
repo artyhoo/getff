@@ -913,7 +913,7 @@ do_refresh() {
   done
   _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
   if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
-    chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+    chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" "$_AIF_HELPERS/aif-agent-target.sh" 2>/dev/null || true
   fi
 
   # ── Skill-rename orphan reclaim (framework-owned) ───────

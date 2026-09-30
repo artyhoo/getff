@@ -7,6 +7,9 @@
 #   (no flag)  report only; exit 1 if any worktree is unprovisioned.
 #   --fix      provision every fixable worktree; exit 1 only if something could not be fixed.
 #
+# The default <primary-dir> is the repository this script lives in, whatever the cwd
+# (REPO-ANCHOR block below); pass <primary-dir> to sweep another clone explicitly.
+#
 # This script once carried a second arm — a local-shadow `claudeMdExcludes` sweep (arch-v2
 # S-E P2b). It was removed with the rest of P2b: the client merges array settings across
 # settings files (union + dedupe; `fallbackModel` is the sole replace exception), so a local
@@ -30,9 +33,28 @@ FIX=0
 if [ "${1:-}" = "--fix" ]; then FIX=1; shift; fi
 
 PRIMARY_DIR="${1:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)}"
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# With no explicit <primary-dir>, sweep the repository this script LIVES in, not the one the
+# cwd happens to be in: `bash /abs/path/scripts/worktree-doctor.sh --fix` from a scratch
+# consumer repo otherwise symlinked node_modules into that repo's worktrees (the getff#1971
+# backward sweep; same class as scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967).
+# A primary checkout and its linked worktrees share one git common dir, so the anchor gives
+# the same answer from any checkout of this repo.
+#
+# The git env is scrubbed for the WHOLE script, not just this lookup: every later git call
+# (`worktree list`, and the helper's) names its repository with -C, so an exported GIT_DIR /
+# GIT_COMMON_DIR / GIT_WORK_TREE — a foreign repo's hook env — could only redirect the sweep
+# into that repo. CDPATH is cleared because `cd scripts/..` on a relative invocation would
+# search it (this and the HELPER lookup below).
+unset CDPATH GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
+if [ -z "${1:-}" ]; then
+  PRIMARY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
+    && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || PRIMARY_DIR=""
+fi
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
 PRIMARY_DIR="${PRIMARY_DIR%/.git}"
 if [ -z "$PRIMARY_DIR" ] || [ ! -d "$PRIMARY_DIR" ]; then
-  printf '⚠ worktree-doctor: cannot resolve the primary checkout (run inside the repo)\n' >&2
+  printf '⚠ worktree-doctor: cannot resolve the primary checkout (run the copy inside the repo)\n' >&2
   exit 2
 fi
 

@@ -888,7 +888,7 @@ describe('probe-inflight.sh — agent container discovery', () => {
       expect(calls('ps')).toEqual(['ps ctx=local flag=no']);
       expect(calls('exec')).toEqual(['exec ctx=local name=aif-handoff-agent-1']);
       expect(out).toContain(
-        'container-target: aif-handoff-agent-1 (default; no aif agent on the current context; other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned)',
+        'container-target: aif-handoff-agent-1 (default; the current docker context is unreachable; other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned)',
       );
       expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
     },
@@ -949,7 +949,7 @@ describe('probe-inflight.sh — agent container discovery', () => {
       const out = run({ STUB_AGENTS: '', STUB_DOWN: 'local remote' });
       expect(calls('exec')).toEqual(['exec ctx=local name=aif-handoff-agent-1']);
       expect(out).toContain(
-        'container-target: aif-handoff-agent-1 (default; no aif agent on the current context; scanned: slow=timeout remote=error)',
+        'container-target: aif-handoff-agent-1 (default; the current docker context is unreachable; scanned: slow=timeout remote=error)',
       );
       expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
     },
