@@ -52,6 +52,7 @@ import {
 } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
 import { runDocsCardCheck } from './checks/docs-card.ts';
+import { ensureOwnHooks } from './checks/hooks-path.ts';
 import {
   checkUnpinnedToolInstalls,
   isShellScriptPopulationFile,
@@ -1121,6 +1122,32 @@ function worktreeProvisioningSection(): void {
       ? '✓ worktree node_modules installed for real (its lock diverges from the primary checkout)\n'
       : '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
   );
+}
+
+// ── 3c-ter. worktree hooks path (maintainer, incident 2026-09-30, #1983) ─────────────────
+// The desktop app pins every worktree's core.hooksPath to `<primary>/.husky`, so git ran the
+// primary checkout's hook files — 457 commits stale — and a pre-commit check never fired in a
+// worktree. The `.husky/*` self-delegate block is the durable fix; this section covers a
+// foreign copy that predates it. It lives here because pre-push.ts is the one hook code path
+// that always runs from THIS worktree. Heals (a per-worktree config write no other checkout
+// reads) rather than blocks; blocks only when the write is impossible. Logic and paired
+// negatives: checks/hooks-path.ts + its test.
+function hooksPathSection(): void {
+  const r = ensureOwnHooks(REPO_ROOT);
+  if (r.status === 'failed') {
+    die(
+      `❌ git runs this worktree's hooks from ${r.dir}, whose ${r.stale.join(', ')} are not this\n` +
+        '   worktree\'s and do not delegate to it — their checks silently skipped your commits.\n' +
+        `   Repair failed: ${r.detail}\n` +
+        '   Fix: `git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky`',
+    );
+  }
+  if (r.status === 'healed') {
+    process.stdout.write(
+      `✓ core.hooksPath repointed to this worktree's .husky (was ${r.dir}; stale: ${r.stale.join(', ')}).\n` +
+        '  Commits made before this push were checked by those foreign hooks — re-check them if in doubt.\n',
+    );
+  }
 }
 
 // ── 3d. lint-staged binary resolution (consumer, universalization-fix-s2) ────
@@ -2610,6 +2637,7 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'maintainer',
     run: () => worktreeProvisioningSection(),
   },
+  { id: 'hooks-path', owner: 'maintainer', run: () => hooksPathSection() },
   { id: 'actionlint', owner: 'maintainer', run: () => actionlintSection() },
   { id: 'zizmor-live', owner: 'maintainer', run: () => zizmorLiveSection() },
   {

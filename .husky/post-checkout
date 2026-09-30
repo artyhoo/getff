@@ -1,6 +1,21 @@
 #!/usr/bin/env sh
 # coordination-persistence: link gitignored coordination state on worktree checkout (channel G).
 # $3 == 1 → branch checkout (incl. `git worktree add`); skip file-only checkouts.
+
+# ── husky-own-worktree-delegate (begin) ─────────────────────────────────────
+# Run THIS worktree's copy of the hook, whatever core.hooksPath points at. The Claude desktop
+# app writes an absolute `core.hooksPath=<primary>/.husky` into every worktree it opens, so git
+# runs the primary checkout's files — 457 commits stale on 2026-09-30, which let a pre-commit
+# check miss in a worktree and land in CI (#1983). POSIX sh: post-checkout runs under sh.
+# Must stay above any other code; packages/core/hooks/husky-self-delegate.test.ts gates that.
+__own_hook="$(git rev-parse --show-toplevel 2>/dev/null)/.husky/${0##*/}"
+if [ -x "$__own_hook" ] \
+  && [ "$(cd "$(dirname "$__own_hook")" && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  exec "$__own_hook" "$@"
+fi
+unset __own_hook
+# ── husky-own-worktree-delegate (end) ───────────────────────────────────────
+
 [ "$3" = "1" ] || exit 0
 bash "$(git rev-parse --show-toplevel)/scripts/link-coordination.sh" >/dev/null 2>&1 || true
 exit 0
