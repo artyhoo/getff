@@ -34,7 +34,8 @@
 #   1. LOCKFILE PARITY (static; no node_modules needed). Every third-party package inlined in a
 #      committed bundle (its `// node_modules/<pkg>/…` comments), TRANSITIVE ones included, must
 #      resolve to one and the same version in every install world the two committed lockfiles
-#      plan: the root install alone, and `npm ci --prefix packages/core` on top of it. Resolution
+#      plan: the root install alone, and `npm ci --prefix packages/core` on top of it (a world
+#      that cannot resolve an inlined package at all is a disagreement too). Resolution
 #      mirrors Node/esbuild: direct imports of first-party `packages/core/**` sources walk up from
 #      packages/core, and each dependency walks up from its parent package's own directory.
 #   2. TREE PARITY (only when a node_modules tree exists). The same walk over the installed tree
@@ -107,8 +108,9 @@ if not BUNDLES:
 # string literals — e.g. the runtime probe `existsSync("node_modules/ts-morph/package.json")`,
 # whose version cannot affect a single bundled byte.
 # A nested copy is named by its full path (`// node_modules/ajv/node_modules/fast-uri/…`), so
-# every package segment in the comment path counts, not only the first.
-COMMENT_RE = re.compile(r'^\s*//\s*(node_modules/\S+)', re.MULTILINE)
+# every package segment in the comment path counts, not only the first. esbuild's file comment
+# is the path and nothing else, so a prose comment that merely starts with a path is not one.
+COMMENT_RE = re.compile(r'^[ \t]*//[ \t]*(node_modules/\S+)[ \t]*$', re.MULTILINE)
 PKG_RE = re.compile(r'(?:^|/)node_modules/((?:@[^/\s]+/)?[^/\s]+)(?=/)')
 inlined = set()
 for bundle in BUNDLES:
@@ -223,29 +225,33 @@ def resolve_all(lookup):
         version, deps = hit
         found.setdefault(name, set()).add((version, key))
         queue += [(key, dep) for dep in sorted(deps) if dep in inlined]
-    # An inlined package no lock entry leads to (a dependency declared nowhere) is still checked,
-    # from where a bare import inside packages/core would find it — never silently skipped.
+    # An inlined package no lock entry leads to (a dependency declared nowhere) is still looked
+    # up from where a bare import inside packages/core would find it. If that fails too, the
+    # package stays absent from `found`, and §4 reports the absence as a disagreement.
     for name in sorted(inlined - set(found)):
         key, hit = resolve(lookup, 'packages/core', name)
         if key:
             found[name] = {(hit[0], key)}
     return found
 
+ABSENT = '<absent>'
 per_world = [(label, resolve_all(lock_lookup(world))) for label, world in LOCK_WORLDS]
 
 failures = []
 agreed = {}
 for pkg in sorted(inlined):
-    planned = [(label, found.get(pkg, set())) for label, found in per_world]
-    versions = [frozenset(v for v, _ in hits) for _, hits in planned if hits]
-    if len(set(versions)) > 1:
+    # A world that cannot resolve the package at all is a disagreement too: a bundle rebuilt from
+    # that lock could not inline it, so the committed bytes are not reproducible from it.
+    planned = [(label, found.get(pkg) or {(ABSENT, '(not resolvable)')}) for label, found in per_world]
+    versions = [frozenset(v for v, _ in hits) for _, hits in planned]
+    if len(set(versions)) > 1 or ABSENT in versions[0]:
         failures.append(
-            f'  {pkg}: the committed lockfiles plan different versions for the copy a bundle build '
+            f'  {pkg}: the committed lockfiles do not plan one version for the copy a bundle build '
             'would inline —\n'
             + '\n'.join(f'      {v:<12} {key}   ({label})'
                         for label, hits in planned for v, key in sorted(hits))
         )
-    elif versions:
+    else:
         agreed[pkg] = versions[0]
 
 # ── 5. tree parity (skipped per package when nothing is installed for it) ────────────────────
@@ -278,6 +284,8 @@ if failures:
         '     • a transitive dependency disagrees → move the lagging lock to the other one\'s\n'
         '       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then\n'
         '       rebuild any bundle whose inlined bytes change\n'
+        '     • a world reports <absent> → that lock does not plan the package at all; add it\n'
+        '       where it is imported, or rebuild the bundle if it no longer inlines it\n'
         '     • tree disagrees → re-install to lockfile state (CI parity):\n'
         '         NODE_ENV=development npm install\n',
         file=sys.stderr,

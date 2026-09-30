@@ -169,7 +169,8 @@ PY
 #      every committed bundle that inlines fast-uri reports a phantom drift.
 ajv_fixture "$TMP/c6d" 3.1.7 3.1.8
 expect 'a transitive split (fast-uri 3.1.7/3.1.8) fails' 1 "$TMP/c6d" 'fast-uri'
-grep -q '3.1.8' <<<"$("$CHECK" "$TMP/c6d" 2>&1)" \
+out_6d="$("$CHECK" "$TMP/c6d" 2>&1)"
+{ grep -q '3\.1\.7' <<<"$out_6d" && grep -q '3\.1\.8' <<<"$out_6d"; } \
   || { echo 'FAIL: the transitive split report must name both versions'; FAILED=1; }
 
 # 6e — POSITIVE: the same tree once the split is gone passes, and names the transitive package
@@ -215,6 +216,35 @@ printf '%s\n' '// node_modules/ajv/dist/ajv.js' 'var Ajv = 1;' \
   '// node_modules/ajv/node_modules/fast-uri/index.js' 'var uri = 1;' \
   >"$TMP/c6h/packages/core/install/rule-bootstrap-cli.bundle.mjs"
 expect 'a package named only in a nested comment path is checked' 1 "$TMP/c6h" 'fast-uri'
+
+# 6i — NEGATIVE (unresolvable): the bundle inlines `ghost`, which neither lock plans. A world
+#      that cannot resolve an inlined package is a disagreement in its own right — the bundle
+#      could not be rebuilt from that lock at all — never a package quietly left out of the ✓.
+ajv_fixture "$TMP/c6i" 3.1.8 3.1.8
+printf '%s\n' '// node_modules/ghost/index.js' 'var g = 1;' \
+  >>"$TMP/c6i/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+expect 'an inlined package no lock plans fails' 1 "$TMP/c6i" 'ghost'
+
+# 6j — POSITIVE (tree, parent directory decides): ajv is installed at the ROOT with fast-uri
+#      3.1.8 beside it; a stale 3.1.7 sits only in packages/core/node_modules, where ajv's walk
+#      never looks. Resolving fast-uri from packages/core instead of from ajv would fail this.
+ajv_fixture "$TMP/c6j" 3.1.8 3.1.8
+mkdir -p "$TMP/c6j/node_modules/ajv"
+printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' \
+  >"$TMP/c6j/node_modules/ajv/package.json"
+install_pkg "$TMP/c6j" fast-uri 3.1.8 .
+install_pkg "$TMP/c6j" fast-uri 3.1.7 packages/core
+expect 'the tree walk follows the parent, not packages/core' 0 "$TMP/c6j" 'fast-uri@3.1.8'
+
+# 6k — NEGATIVE (tree, mirror of 6j): ajv is in packages/core/node_modules with a stale 3.1.7
+#      nested under it; the root copy is 3.1.8. ajv's own directory wins, so 3.1.7 is inlined.
+ajv_fixture "$TMP/c6k" 3.1.8 3.1.8
+mkdir -p "$TMP/c6k/packages/core/node_modules/ajv"
+printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' \
+  >"$TMP/c6k/packages/core/node_modules/ajv/package.json"
+install_pkg "$TMP/c6k" fast-uri 3.1.8 .
+install_pkg "$TMP/c6k" fast-uri 3.1.7 packages/core/node_modules/ajv
+expect 'a stale copy nested under the installed parent fails' 1 "$TMP/c6k" 'actually resolvable'
 
 # 7 — CWD-INDEPENDENCE: with no argument the target is the repo the script lives in, derived
 #     from its own path. A cwd-derived root would answer about the caller's checkout instead —
