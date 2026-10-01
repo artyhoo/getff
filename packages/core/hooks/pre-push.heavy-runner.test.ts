@@ -37,6 +37,16 @@ const HOOK = resolve(HERE, 'pre-push.ts');
 const CORE = resolve(HERE, '..');
 const CORE_REAL = realpathSync(CORE);
 
+// Every case here spawns the pre-push hook (`node --import tsx/esm pre-push.ts`, own
+// spawnSync cap 60_000), so multi-second runtimes under load are inherent and the vitest 5s
+// default is a mis-set gate rather than a signal. A full Mac run of `npm --prefix
+// packages/core run test:hooks` (M2 Max, load 3.8 -> 6.9, 260 s, measured 2026-10-01) timed
+// out 2 cases here at 5000ms (principles-meta and «empty value = unset»), while the same
+// suite passed 87/87 files on Linux, and a different case fails on each run.
+// 30_000 is the SLOW_SHELL_MS convention of the sibling shell-spawning suites
+// (end-of-turn-reminder, dup-detect-empty-arg, priority-score-branch-matcher).
+const SLOW_SHELL_MS = 30_000;
+
 let dir = '';
 let runner = '';
 let record = '';
@@ -70,7 +80,7 @@ function hook(section: string, env: Record<string, string>) {
   });
 }
 
-describe('PREPUSH_HEAVY_RUNNER', () => {
+describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
   const cases: Array<[string, string]> = [
     ['principles-meta', 'test:principles'],
     ['ir-meta', 'test:ir'],

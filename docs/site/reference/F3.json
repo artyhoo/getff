@@ -709,6 +709,7 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "check-merge-pushed.sh",
     "cited-spec-addenda.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
