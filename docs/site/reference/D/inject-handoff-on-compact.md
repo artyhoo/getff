@@ -128,7 +128,7 @@ session start must never break the session start.
   every extraction is jq; without jq there is no work possible).
 - Missing handoff: line 72 is `[ -f "$handoff_file" ] || exit 0`, with the comment above
   it (lines 70-71) saying the injector's contract «is only to not lose one that does».
-- The cap: line 74 reads `cap="${AIF_HANDOFF_MAX_LINES:-200}"` and line 76 reads
+- The cap: line 74 reads `cap="${AIF_HANDOFF_MAX_LINES:-80}"` and line 76 reads
   `handoff_body=$(head -n "$cap" "$handoff_file" 2>/dev/null || true)`.
 - The residue pointer: line 81 builds the residue file path from the same session key and
   line 83 appends `Session residue (machine excerpt written at the compaction): …` to the
