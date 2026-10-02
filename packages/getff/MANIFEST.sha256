@@ -35,13 +35,13 @@ f738303a47914734b9c3098ff257beaa3ced934fb3c20e80397812098cc892fe  .claude/skills
 a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016  .claude/skills/aif-doctor/helpers/aif-agent-target.sh
 b5cfb0b1f61438ef1db8489a002e2bcd429488d975beee008500354e097268c3  .claude/skills/aif-doctor/helpers/heal.sh
 516a561d50d3b8b897c62d71c264f519a935a986cb643049b9c0b3ce9f865289  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
+6a9da38aacac50b4eae49856efdb386a23cb4841d4d0e3968e9face2b22354d6  .claude/skills/arch/SKILL.md
 dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills/arch/references/ADR-FORMAT.md
 97c7ffe11168c61055acc8611b932277323dd1a8ea07ade81d6538006e5d4e9f  .claude/skills/arch/references/CONTEXT-FORMAT.md
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
 4be720ce0a9b0cd2ca88447af62c65ba7580ce7a4375762842a9e1ae8e39ff11  .claude/skills/arch/references/grilling.md
 e3bba025e05c493a9237c034019e32703869552c6eb15afbd7a7ddab719acfe8  .claude/skills/claude-glm-executor-handoff/SKILL.md
-fe37fa49bfbb3bedb76a2d5d15ff0409e221bdde87af763b160cd214b5524f29  .claude/skills/dispatcher/SKILL.md
+41444fc156670d87358a64ff4b2c5de591d41fb3f24e810b5cdfc1948433ab1b  .claude/skills/dispatcher/SKILL.md
 c12fd8d7b8a4af335822c600904719c147c5ea859fb27cb7ab843f125e9d5a28  .claude/skills/dispatcher/helpers/advance-frontier.sh
 8639f374fbfeec377f0ac94a930c725e601d1775b3952407cebff5de0bcb2c27  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
@@ -60,7 +60,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
 8867f70ef513a325b8d8f2b82a80001dad1a911d784b04465141419055a87cba  .claude/skills/harvest/SKILL.md
-bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
+ecfed81465d36cea44f2670a158e02e507b2ed26a33a4f04a88e00ddd61f770a  .claude/skills/night-mode/SKILL.md
 6bc24a3386186d4ba77351c9f15ea8ce1ea0c7224766fa920d8ed3e9dc60290e  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
 426d90fbdda16a3aa796df1dd446c8e5168de49a6b1eee7f366061cbb5b6a5b4  .claude/skills/orchestrator/references/batch-prompt-template.md
@@ -585,7 +585,7 @@ cdc981b1aee10cb36016e896efb2409af7e682c7a95317b4b816e0ec116660b4  packages/core/
 c9c0ea191af74d55783600022450079fad04ba595398af6dbd95fd711bf4ac45  packages/core/install/is-direct-run.ts
 4dee8c45c2e8a144ffedd1ae850a5fd770af25e60535ad5c4e71c288fdc35687  packages/core/install/mcp-source-check.bundle.mjs
 577100849af1f6fcde6616e26651349557a1134bf63323cea97ec482208b4da4  packages/core/install/mcp-source-check.test.ts
-5b85f4a128c91862338994490d29a91abd11d02039612e8ddd385abff5c11302  packages/core/install/mcp-source-check.ts
+03fc6b7c4788a9a6094738bde475161018dd3e9611442e412b86bac3490bdcf2  packages/core/install/mcp-source-check.ts
 8f70d02af4d2effd12d9388b343986db873b1d40f08ab556a28888f1cf8610e7  packages/core/install/rule-bootstrap-check-plan.test.ts
 21a63588f6cf094545783f87bed4b4800090add6e00f885d1db1b8ff9eadf2b6  packages/core/install/rule-bootstrap-cli.bundle.mjs
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
@@ -685,6 +685,7 @@ a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
 0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
+2003e3ff0df92ff43363660440f30b8313457dab367856105a8bbaea458654eb  packages/core/principles/49-executor-tier-parity.test.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
@@ -967,7 +968,7 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  packages/core/
 6fccf9a6157fcf1a338aac779af29d4cba3e9dc3a5f8c88d20c4e2e8ecb99753  packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  packages/core/templates/shared/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md
-c3b53a93d62cf8b0150e50eb0b6204d29b53464494456d9a2c59e583cd1575e9  packages/core/templates/shared/tier-home.md
+cd7765c267add628bbfc8f17b73e03cc7942cd8fa8250af31f2a0693e1bcd0b2  packages/core/templates/shared/tier-home.md
 c1ddbbf63d339e4843a95ce003021adc06e906c178342854c9b9fa22238485f3  packages/core/templates/shared/tsconfig.json
 aed1983453e7ee58954e5fa2e41170e5cdf44d0dc4f4195fbba5d97ae9e91625  packages/core/templates/shared/tsconfig.react.json
 0aa5a12f3a0546329b0b204823850d93127db0d0cc967868acb111aea34de14a  packages/core/templates/templates.manifest.json
