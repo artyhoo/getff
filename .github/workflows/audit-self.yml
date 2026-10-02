@@ -2608,6 +2608,16 @@ jobs:
       # its header — it is not in the install manifest and must run from a bare tree).
       - name: Full-corpus `path:line` citation sweep (unscoped)
         run: node scripts/check-line-citations.mjs --check --corpus
+      # The /arch consensus-retell gate's own channel is pre-commit (staged specs only). This
+      # step scans the whole spec corpus, the backstop for `--no-verify` and aif-container
+      # commits; it checks the Baseline's shape, not that the SHA resolves (squash-merged
+      # design branches are deleted, so an old Baseline can stop resolving). It rides this job because the job is unconditional, full-history (the Baseline
+      # arm resolves a commit) and dependency-free; the paired-negative proves every arm fires
+      # for its own reason.
+      - name: Run arch consensus-retell gate paired-negative
+        run: bash scripts/check-arch-retell.test.sh
+      - name: arch consensus-retell gate (every retell point names its source)
+        run: node scripts/check-arch-retell.mjs
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just

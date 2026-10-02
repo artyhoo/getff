@@ -135,7 +135,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
 #     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:110 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:130 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
