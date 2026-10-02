@@ -22,6 +22,7 @@ executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-autonomy-opt-in, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-skill-index-on-compact, stack: repo, date: 2026-09-29, result: printed }
+docs-refresh: deferred — the only cited-source change in this range is the new seal-primary-checkout row in the D family table; this page's hook contract is untouched; clears at the next refresh of this page
 ---
 
 # inject-session-bootstrap hook

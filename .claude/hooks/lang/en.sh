@@ -220,7 +220,7 @@ EOF
 }
 
 # Stop hook — handoff-currency gate (D13/D22): the block reason. $1 = handoff file path,
-# $2 = observed tokens, $3 = gate floor, $4 = state token (no-file|unchanged|heading|cap),
+# $2 = observed tokens, $3 = gate floor, $4 = state token (no-file|unchanged|heading|index|cap),
 # $5 = state detail (the missing heading / the line cap). Order per the spec's data flow:
 # the file path → the band → the five required headings → CONTENT, not a re-save → the
 # escape grammar. Never advises a fresh session (D21). The five heading strings are
@@ -232,6 +232,7 @@ aif_msg_eot_handoff_gate() {
     no-file)   _hg_verdict="The file does not exist yet — create it now, as the current state of this session." ;;
     unchanged) _hg_verdict="Its CONTENT is unchanged since the last accepted turn — a re-save or a touch is not a change; rewrite it." ;;
     heading)   _hg_verdict="A required section is missing or empty: ${_hg_detail}" ;;
+    index)     _hg_verdict="It has no index table — a handoff is a thin INDEX: a markdown table mapping each task to the one topic file (.md) to open, with the state moved into those topic files." ;;
     cap)       _hg_verdict="It is over the ${_hg_detail}-line cap — condense it to the current state, do not append." ;;
     *)         _hg_verdict="It is not current." ;;
   esac
@@ -239,7 +240,7 @@ aif_msg_eot_handoff_gate() {
 [handoff-gate] Stop — the session's handoff file is not current:
   ${_hg_path}
 This turn is inside the handoff band (≈ ${_hg_tokens} tokens, floor ${_hg_floor}). ${_hg_verdict}
-The file is THIS session's current state (rewrite it in place; keep it under ${AIF_HANDOFF_MAX_LINES:-200} lines). Required H2 sections, each with at least one non-blank line:
+The file is THIS session's current state as a thin INDEX (rewrite it in place; keep it under ${AIF_HANDOFF_MAX_LINES:-80} lines): a «task → topic file» table with at least one row naming a .md topic file, whose first line reads «Read when: …»; detail lives in the topic files, not here. Required H2 sections, each with at least one non-blank line (one line pointing to a topic file is enough):
 - ## Decisions and why
 - ## Rejected alternatives
 - ## Unverified assumptions and open forks
