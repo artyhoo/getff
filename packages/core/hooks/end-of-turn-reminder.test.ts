@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1603-1634 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1728-1766 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1520,7 +1520,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1334 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1459 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -3971,5 +3971,218 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
       hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder'),
     });
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
+  });
+});
+
+// Dispatch-channel arm (recommendation-laziness-discipline.md §3 «zero-click dispatch first»):
+// a turn that emits a spawn_task chip for a `*/kickoff.md` WITHOUT the `<!-- bridge: auto -->`
+// first line, while RUNTIME_BRIDGE_MODE is set and the bridge answers /health, converted a
+// zero-click handoff into a human click (incident 2026-09-08). Error-with-escape, per
+// attention-is-not-a-mechanism.md §1. The bridge liveness probe reads `<url>/health` through
+// curl, so a `file://<dir>` base with a `health` file is a live bridge (withTasks precedent).
+describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dispatch was available)', { timeout: SLOW_SHELL_MS }, () => {
+  const TAG = '[dispatch-channel]';
+  const AUTO = '<!-- bridge: auto -->';
+
+  function spawnUse(id: string, prompt: string) {
+    return {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', id, name: 'mcp__ccd_session__spawn_task', input: { title: 'Run it', prompt } }],
+      },
+    };
+  }
+  function toolResult(id: string) {
+    return { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'ok' }] } };
+  }
+  const humanPrompt = (text: string) => ({ type: 'user', origin: { kind: 'human' }, message: { content: text } });
+  const notification = () => ({
+    type: 'user',
+    origin: { kind: 'task-notification' },
+    message: { content: '<task-notification>\n<task-id>x</task-id>\n</task-notification>' },
+  });
+  const metaSkill = () => ({
+    type: 'user',
+    isMeta: true,
+    message: { content: [{ type: 'text', text: 'Base directory for this skill: /x' }] },
+  });
+
+  type Opts = {
+    kickoffRel?: string; // kickoff path relative to the project dir
+    firstLine?: string | null; // null = the kickoff file does not exist
+    kickoffIsDir?: boolean;
+    mode?: string | null; // null = RUNTIME_BRIDGE_MODE unset
+    healthy?: boolean; // the bridge answers /health (default true)
+    finalText?: string | null; // null = tool-only turn
+    prompt?: (abs: string, rel: string) => string;
+    // Records between the chip and the final text, and before the chip.
+    between?: Record<string, unknown>[];
+    before?: Record<string, unknown>[];
+    priorTurn?: boolean; // the chip sits in the PREVIOUS turn, before the latest operator prompt
+    nextPrompt?: Record<string, unknown>; // the record that opens the next turn when priorTurn
+    chipId?: string;
+    lang?: 'en' | 'ru';
+    tmp?: string;
+    session?: string;
+    hook?: string;
+  };
+
+  function chipRun(opts: Opts = {}): { status: number; stdout: string; stderr: string } {
+    const tmp = opts.tmp ?? mkdtempSync(join(tmpdir(), 'eot-chip-'));
+    if (!opts.tmp) tmpDirs.push(tmp);
+    const proj = join(tmp, 'proj');
+    const rel = opts.kickoffRel ?? '.claude/orchestrator-prompts/demo/kickoff.md';
+    const abs = join(proj, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const firstLine = opts.firstLine === undefined ? '# Demo kickoff' : opts.firstLine;
+    if (opts.kickoffIsDir) mkdirSync(abs, { recursive: true });
+    else if (firstLine !== null) writeFileSync(abs, `${firstLine}\n\nbody\n`, 'utf8');
+    const bridge = mkdtempSync(join(tmpdir(), 'eot-chip-bridge-'));
+    tmpDirs.push(bridge);
+    if (opts.healthy !== false) writeFileSync(join(bridge, 'health'), '{"status":"ok"}', 'utf8');
+    const prompt = (opts.prompt ?? ((a) => `Isolation first. cwd = repo root. Read and execute ${a}`))(abs, rel);
+    const id = opts.chipId ?? 'toolu_chip1';
+    const chip = [spawnUse(id, prompt), toolResult(id)];
+    const final = opts.finalText === null ? [] : [assistantText(opts.finalText ?? 'The next round is ready; chip above.')];
+    const head = [aiTitle('Chip'), userTurn('plan it'), ...(opts.before ?? [])];
+    const lines = opts.priorTurn
+      ? [...head, ...chip, assistantText('done'), opts.nextPrompt ?? userTurn('thanks, what next?'), ...final]
+      : [...head, ...chip, ...(opts.between ?? []), ...final];
+    const tr = writeTranscript(lines);
+    const stdin = { transcript_path: tr, stop_hook_active: false, session_id: opts.session ?? 'chip', cwd: proj };
+    const env: Record<string, string> = {
+      AIF_HOOK_LANG: opts.lang ?? 'en',
+      AIF_RECAP_GATE: '',
+      TMPDIR: tmp,
+      RUNTIME_BRIDGE_MODE: opts.mode === undefined ? 'aif-handoff' : (opts.mode ?? ''),
+      RUNTIME_BRIDGE_AIF_URL: `file://${bridge}`,
+    };
+    const r = spawnSync('bash', [opts.hook ?? HOOK], {
+      input: JSON.stringify(stdin),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'cli', AIF_AUTONOMOUS: '', ...env },
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+  const reasonOf = (stdout: string): string =>
+    stdout.trim() ? ((JSON.parse(stdout) as { reason?: string }).reason ?? '') : '';
+  const fires = (o: Opts = {}) => reasonOf(chipRun(o).stdout).includes(TAG);
+
+  it.skipIf(!JQ)('fires: bridge up, chip for a kickoff.md without the auto marker', () => {
+    const r = chipRun();
+    expect(r.status).toBe(0);
+    const reason = reasonOf(r.stdout);
+    expect(reason).toContain(TAG);
+    expect(reason).toContain('demo/kickoff.md');
+    expect(reason).toContain(AUTO);
+    expect(reason).toContain('chip-over-bridge:');
+    // The gate/timing question comes BEFORE the remedy (a silent dispatch would bake in a choice).
+    expect(reason.indexOf('First decide')).toBeLessThan(reason.indexOf('dismiss_task'));
+  });
+
+  it.skipIf(!JQ)('paired negative: the same chip for a kickoff that carries the auto marker is silent', () => {
+    expect(fires({ firstLine: AUTO })).toBe(false);
+  });
+
+  // The write-time dispatcher only dispatches */kickoff.md and skips *-meta-launch/kickoff.md
+  // (runtime-bridge-dispatch.sh case filter): telling the model to mark any other file would
+  // dispatch nothing and lose the work silently.
+  it.skipIf(!JQ)('a stage kickoff (kickoff-s2.md) is not checked — the marker would not dispatch it', () => {
+    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo/kickoff-s2.md' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a *-meta-launch/kickoff.md (a /pipeline dispatch record) is not checked', () => {
+    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo-meta-launch/kickoff.md' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a kickoff named by a RELATIVE path resolves against the stdin cwd', () => {
+    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}` })).toBe(true);
+    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}`, firstLine: AUTO })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a URL ending in kickoff.md is not a local kickoff', () => {
+    expect(fires({ prompt: () => 'See https://github.com/o/r/blob/staging/x/kickoff.md for context.' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE is unset (no bridge — the chip is the only channel)', () => {
+    expect(fires({ mode: null })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE=manual or amux (the resolver uses the manual backend)', () => {
+    expect(fires({ mode: 'manual' })).toBe(false);
+    expect(fires({ mode: 'amux' })).toBe(false);
+    expect(fires({ mode: 'auto' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('silent when the bridge does not answer /health (the resolver would fall back to manual)', () => {
+    expect(fires({ healthy: false })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('escape: a chip-over-bridge rationale of 20+ chars silences the arm', () => {
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: stage 2 is gated on the unmerged stage 1 PR' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('escape too short, or the template placeholder quoted verbatim, does not silence', () => {
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: later' })).toBe(true);
+    // The ru placeholder is 24 characters — long enough to pass a bare length check.
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: <почему, от 20 символов>' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('escape written EARLIER in the turn counts even when the turn ends on the chip', () => {
+    const early = assistantText('chip-over-bridge: the operator wants to start this round tomorrow');
+    expect(fires({ before: [early], finalText: null })).toBe(false);
+    expect(fires({ before: [assistantText('Planning the next round.')], finalText: null })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('a chip from a PREVIOUS turn is not re-flagged', () => {
+    expect(fires({ priorTurn: true })).toBe(false);
+    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('go on') })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('an operator prompt that mentions tool_result still opens a new turn', () => {
+    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('why did the tool_result come back empty?') })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('non-human user records after the chip do not end the turn (skill body, task notification)', () => {
+    expect(fires({ between: [metaSkill()] })).toBe(true);
+    expect(fires({ between: [notification()] })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('a chip that names no kickoff (e.g. an out-of-scope cleanup) is left to judgment', () => {
+    expect(fires({ prompt: () => 'Remove the dead helper in scripts/foo.sh; it has no callers.' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('fail-closed: a kickoff.md that cannot be read still fires, and a directory does not crash the hook', () => {
+    const missing = chipRun({ firstLine: null });
+    expect(reasonOf(missing.stdout)).toContain('(unreadable)');
+    const dir = chipRun({ kickoffIsDir: true });
+    expect(dir.status).toBe(0);
+    expect(reasonOf(dir.stdout)).toContain('(unreadable)');
+  });
+
+  it.skipIf(!JQ)('the line reaches every emit site: tool-only, long answer, question, recap-marked', () => {
+    expect(fires({ finalText: null })).toBe(true);
+    expect(fires({ finalText: longMarkdownText() })).toBe(true);
+    expect(fires({ finalText: 'Ready. Should I also run the probes first?' })).toBe(true);
+    const recap = chipRun({ lang: "ru", finalText: "## 🟢 Простыми словами\nГотово, чип выше." });
+    expect(reasonOf(recap.stdout)).toContain(TAG);
+  });
+
+  it.skipIf(!JQ)('ru pack carries the arm', () => {
+    const reason = reasonOf(chipRun({ lang: 'ru' }).stdout);
+    expect(reason).toContain(TAG);
+    expect(reason).toContain('chip-over-bridge:');
+  });
+
+  it.skipIf(!JQ)('bounded: the same chip is flagged once per session; a NEW chip id still fires', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'eot-chip-bound-'));
+    tmpDirs.push(tmp);
+    expect(fires({ tmp, session: 'chip-bound' })).toBe(true);
+    expect(fires({ tmp, session: 'chip-bound', finalText: 'Other words.' })).toBe(false);
+    expect(fires({ tmp, session: 'chip-bound', chipId: 'toolu_chip2' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {
+    expect(fires({ hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder') })).toBe(true);
   });
 });
