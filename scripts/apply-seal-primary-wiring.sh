@@ -99,7 +99,7 @@ if [ "$MODE" = dry-run ]; then
   printf 'settings:%s (wired: %s)\n' "" "$([ "$settings_wired_now" -eq 1 ] && echo yes || echo no)"
   printf 'entry to append to .hooks.PreToolUse of the SSOT:\n'
   printf '%s' "$ENTRY" | jq .
-  CHECK_PRE=$(node "$RENDER" --check 2>&1 || true)
+  CHECK_PRE=$(node "$RENDER" --check --root "$REPO_ROOT" 2>&1 || true)
   if grep -q '\.claude/settings\.json: drift' <<<"$CHECK_PRE"; then
     printf 'render --check now: settings.json DRIFT (unexpected pre-state — investigate before applying)\n'
   else
@@ -131,8 +131,13 @@ else
   printf 'SSOT already wired — skipping the patch (idempotent)\n'
 fi
 
-printf 'render:  node scripts/render-harness-config.mjs --write\n'
-node "$RENDER" --write >/dev/null || fail "render --write failed — restore from ${BACKUP_DIR:-git checkout}"
+# --root is PINNED to the script's own repo: the render otherwise resolves the
+# SSOT by walking up from process.cwd(), so invoking this script from a
+# different checkout (a worktree, another clone) would read and write THAT
+# repo's config — measured live (e2e clone run): entry patched into the clone's
+# SSOT, render consumed the caller's cwd repo instead.
+printf 'render:  node scripts/render-harness-config.mjs --write --root %s\n' "$REPO_ROOT"
+node "$RENDER" --write --root "$REPO_ROOT" >/dev/null || fail "render --write failed — restore from ${BACKUP_DIR:-git checkout}"
 
 # ── Validate ──────────────────────────────────────────────────────────────────
 jq -e . "$SSOT" >/dev/null 2>&1 || fail "SSOT no longer parses — restore from ${BACKUP_DIR:-git checkout}"
@@ -146,11 +151,11 @@ settings_wired || fail "entry absent from settings.json hooks.PreToolUse after r
 # ZCode), which is pre-existing and not this wiring's concern. That class is
 # reported, and becomes fatal ONLY when the drift line names settings.json.
 HASH1=$(cksum "$SETTINGS")
-node "$RENDER" --write >/dev/null || fail "second render --write failed — restore from ${BACKUP_DIR:-git checkout}"
+node "$RENDER" --write --root "$REPO_ROOT" >/dev/null || fail "second render --write failed — restore from ${BACKUP_DIR:-git checkout}"
 HASH2=$(cksum "$SETTINGS")
 [ "$HASH1" = "$HASH2" ] || fail "render output did not converge (settings.json changed between consecutive --write runs) — restore from ${BACKUP_DIR:-git checkout}"
 
-CHECK_OUT=$(node "$RENDER" --check 2>&1 || true)
+CHECK_OUT=$(node "$RENDER" --check --root "$REPO_ROOT" 2>&1 || true)
 if grep -q '\.claude/settings\.json: drift' <<<"$CHECK_OUT"; then
   fail "render --check reports .claude/settings.json drift after --write — restore from ${BACKUP_DIR:-git checkout}"
 fi
