@@ -30,6 +30,7 @@
 - **T19** — run your **own** adversarial cold-review of the diff (a fresh reviewer over the actual change) BEFORE handoff. CI checks form/structure (lint, trailers, schema), not design substance — the 2026-05-22 DN-4 round-1 (§1.11) and round-2 (§1.12) cold-reviews each caught real MAJOR findings a green CI missed. «QA» is yours whoever merges; who merges is set by [CLAUDE.md «Agent PR merge policy»](../../CLAUDE.md).
 - **T20** — Before issuing any recommendation/verdict in dialogue, run **at least ONE** evidence-bearing tool call in the same turn and **quote its output** (file:line, command result, fetched excerpt). The recommendation is then **backed**, per parent rule [`phase-research-coverage.md §1.12`](phase-research-coverage.md).
 - **T21** — **Delegate the sweep to a cold sub-agent** — [`agents/backward-sweep-auditor.md`](../../agents/backward-sweep-auditor.md). Hand it ONLY the change's *class* (never the diff or PR narrative); it enumerates every parallel surface and reports GAP/CLEAN per surface.
+- **T22** — for each case, **name the single production change that flips it**, then pin every input the sibling channel can move so nothing else in the fixture can flip it; prove RED against `git show HEAD:<path>` pre-images of **every** file the fix touches (a one-file pre-image can hide the sibling effect).
 
 ## See also
 
