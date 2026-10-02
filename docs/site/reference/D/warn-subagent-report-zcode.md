@@ -63,7 +63,7 @@ Arm A, live (the payload here is deliberately minimal — a `VERIFY:` line and
 nothing else):
 
 ```bash
-printf '%s' '{"hook_event_name":"PostToolUse","session_id":"docs-demo-wsz-1",
+printf '%s' '{"hook_event_name":"PostToolUse","session_id":"docs-demo-wsz-1","tool_use_id":"toolu_demo1",
   "tool_input":"VERIFY: installed the fix and reran the suite twice.\nAll green locally."}' \
   | bash plugin/hooks/warn-subagent-report-zcode
 ```
@@ -89,13 +89,13 @@ single emit path sent the warning to stderr on *both* harnesses, meaning no mode
 anywhere ever read it (the A3-1 note at lines 37-49).
 
 Judge the same payload twice and the second look stays silent — every judged
-result is recorded under a key that prefers the payload's `toolCallId` and falls
-back to a content hash (lines 96-127). The record lives in
+result is recorded under a key that prefers the payload's `tool_use_id` and falls
+back to a content hash (lines 96-126). The record lives in
 `${TMPDIR}/warn-subagent-zcode-<session>.lst`, so this demo follows the one above
 in the same shell:
 
 ```bash
-printf '%s' '{"hook_event_name":"PostToolUse","session_id":"docs-demo-wsz-1",
+printf '%s' '{"hook_event_name":"PostToolUse","session_id":"docs-demo-wsz-1","tool_use_id":"toolu_demo1",
   "tool_input":"VERIFY: installed the fix and reran the suite twice.\nAll green locally."}' \
   | bash plugin/hooks/warn-subagent-report-zcode
 ```
@@ -128,7 +128,7 @@ printf '%s' '{"hook_event_name":"Stop","session_id":"docs-demo-wsz-3",
 
 (The demo recreates its fixture inline; delete the cache directory when done.) The
 sweep is bounded — the newest 500 candidate lines by default (`AIF_WSR_MAX_LINES`)
-— because the header's A3-2 note (lines 221-226) records the measurement that
+— because the header's A3-2 note (lines 236-241) records the measurement that
 killed the unbounded form: 12.99 seconds per Stop event and a timeout kill on
 every turn of a long session.
 
@@ -147,25 +147,27 @@ same discipline on two fire-points.
 
 - `plugin/hooks/warn-subagent-report-zcode:2` is the header the card's description
   row quotes: `# warn-subagent-report-zcode — ZCode-functional twin of .claude/hooks/warn-subagent-report.sh`.
-- Arm dispatch: lines 309-315 — `.hook_event_name` selects `_arm_a_post` or
+- Arm dispatch: lines 325-330 — `.hook_event_name` selects `_arm_a_post` or
   `_arm_b_stop`; unknown events exit 0 (WARN never blocks).
-- Arm A payload read: lines 141-158 — `.tool_input` first (the R4 primary path),
+- Arm A payload read: lines 141-157 — `.tool_input` first (the R4 primary path),
   schema-drift fallbacks `.tool_result.content[].text` / `.tool_response` /
   `.tool_result` after a type check.
-- Arm B sweep: transcript read at lines 202-231, the one-jq-process extraction with
-  NUL-delimited records at lines 270-283, aggregation of multiple missing-section
-  signatures at lines 285-294, the `stop_hook_active` guard at lines 196-199.
+- Arm B sweep: transcript read at lines 217-245, the one-jq-process extraction with
+  NUL-delimited records at lines 285-298, aggregation of multiple missing-section
+  signatures at lines 300-310, the `stop_hook_active` guard at lines 211-215.
 - Grammar SSOT: the mirror note at line 67 — «Mirrors
-  `.claude/hooks/warn-subagent-report.sh:74-97` VERBATIM (grammar SSOT)» — directly
+  `.claude/hooks/warn-subagent-report.sh:98-121` VERBATIM (grammar SSOT)» — directly
   above `_required_sections_check` (lines 73-94, returns 0/1/2); the CC file owns
   `REPORT_CUE_RE` (line 102) and the section regexes (lines 113-121).
-- Duplicate suppression: `_dedup_key` at lines 99-107 (`toolCallId` → `tool_call_id` → sha256 →
-  cksum), session state file at lines 111-127; Arm A records judged keys at
-  line 182 so Arm B skips them (line 263).
+- Duplicate suppression: `_dedup_key` at lines 99-106 (caller-supplied id → sha256 →
+  cksum); Arm A reads the one canonical stdin id `.tool_use_id` at lines 169-186 — no
+  guessed-name fallback chain, a missing id is named on stderr and degrades to the hash;
+  session state file at lines 110-126; Arm A records judged keys at line 197 so Arm B
+  skips them (line 278).
 - Channel fix: `_warn` at lines 50-64; the A3-1 rationale (stderr-reaches-no-model
   measurement, per the 2026-07-24 channel research) at lines 37-49.
-- Bounded sweep: `AIF_WSR_MAX_LINES` default 500 at lines 227-228; the A3-2
-  measurement (12.99 s, 2004 jq spawns, 60 s timeout kills) at lines 221-226.
+- Bounded sweep: `AIF_WSR_MAX_LINES` default 500 at lines 242-243; the A3-2
+  measurement (12.99 s, 2004 jq spawns, 60 s timeout kills) at lines 236-241.
 - jq guard: line 131 — silent exit 0 without jq, the consumer-safe pattern shared
   with the CC source's reminders.
 - Registration: `plugin/hooks/hooks.json:48` (PostToolUse, matcher `Agent|Task`)

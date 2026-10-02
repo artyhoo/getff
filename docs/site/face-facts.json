@@ -358,12 +358,12 @@
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 279
+      "count": 280
     },
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 92
+      "count": 93
     },
     "academicSources": {
       "source": [
