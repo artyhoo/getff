@@ -374,6 +374,11 @@ gate_table() {
   # without the auditor source (a consumer, which receives it as scripts/audit-ai-docs.sh) gets a
   # WARN-skip, never a crash.
   #
+  # `arch-retell-corpus` is ALWAYS for the citation-fullsweep reason: the retell Baselines in
+  # docs/superpowers/specs/ name their sources by path, so a source move/deletion anywhere can
+  # flip the verdict. The CI step (audit-self arch consensus-retell job) runs unconditionally —
+  # it is the full-corpus backstop for the /arch pre-commit gate, which sees staged specs only.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
   # (setup.d/10-skills.sh:179, install.sh:1218) and the runner is NOT, which is deliberate: a
@@ -424,7 +429,9 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}arch-retell-corpus${TAB}ALWAYS${TAB}node scripts/check-arch-retell.mjs" \
     "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
+    "3${TAB}bash32${TAB}install.sh,setup.d/,scripts/check-bash32.sh${TAB}bash scripts/check-bash32.sh" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
     "3${TAB}audit-ai-docs-live${TAB}ALWAYS${TAB}if [ -f packages/core/audit-self/audit-ai-docs.sh ]; then bash packages/core/audit-self/audit-ai-docs.sh && npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts; else echo '[sweep] WARN-skip audit-ai-docs-live: no packages/core/audit-self/ (not the authoring repo)'; fi" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \

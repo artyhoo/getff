@@ -913,7 +913,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
         },
       });
     const handoff = join(residueDir, '_handoff-pc34e2e.md');
-    writeFileSync(handoff, '# handoff\n\n## Next action\n- x\n' + ['## Decisions and why\n- d', '## Rejected alternatives\n- r', '## Unverified assumptions and open forks\n- u', '## Skills to invoke by name\n- s'].join('\n\n') + '\n', 'utf8');
+    writeFileSync(handoff, '# handoff\n\n| Task | Open only |\n|---|---|\n| state | `topic.md` |\n\n## Next action\n- x\n' + ['## Decisions and why\n- d', '## Rejected alternatives\n- r', '## Unverified assumptions and open forks\n- u', '## Skills to invoke by name\n- s'].join('\n\n') + '\n', 'utf8');
 
     /** A real next turn: append an assistant record the previous one cannot be confused with.
      *  D38 keys the gate's baseline by the turn's last assistant record, so re-running the
