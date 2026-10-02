@@ -711,7 +711,7 @@ jobs:
       - name: Run aif-doctor refresh-aif-base + aif-agent-target tests
         run: bash tests/aif-doctor/refresh-aif-base.test.sh && bash tests/aif-doctor/aif-agent-target.test.sh # the shared agent-container resolver (hermetic stub docker); same line so no citation shifts
       - name: Run probe-channels self-test
-        run: bash scripts/probe-channels.test.sh
+        run: bash scripts/probe-channels.test.sh && bash scripts/probe-hook-stdin.test.sh # + the hook-stdin probe's non-LLM parts (stub claude, mktemp, no network); same line so no citation shifts
 
   install-sh-a:
     name: install-sh battery (shard A)
@@ -793,7 +793,7 @@ jobs:
       # This step scans the WHOLE population, the backstop for `git commit --no-verify` and
       # aif-container commits (no husky); the paired-negative proves every arm fires.
       - name: Run pipefail early-exit gate paired-negative
-        run: bash scripts/check-pipefail-early-exit.test.sh
+        run: bash scripts/check-pipefail-early-exit.test.sh && bash scripts/check-getff-manifest-staged.test.sh # + the pre-commit getff MANIFEST-staged gate paired-negative (sibling pre-commit channel; throw-away git repos), same line so no citation shifts
       - name: pipefail early-exit gate (no pipe into grep -q under pipefail)
         run: node scripts/check-pipefail-early-exit.mjs
       # The D29 reference generator's acceptance arms (principle 41 channel): live-fire
@@ -941,7 +941,7 @@ jobs:
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
       - name: Run path-scope decision paired-negative (install-area jobs skip only on a measured-skip-only PR)
-        run: bash scripts/ci-path-scope.test.sh
+        run: bash scripts/ci-path-scope.test.sh && bash scripts/ci-capture.test.sh # + the runner-only-value capture script (real git in mktemp, stubbed gh), same line so no citation shifts
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)
@@ -2613,6 +2613,16 @@ jobs:
       # paired-negative (mktemp git repo, git only) is the proof it still reports an addendum.
       - name: Run cited-spec addenda paired-negative
         run: bash scripts/cited-spec-addenda.test.sh
+      # The /arch consensus-retell gate's own channel is pre-commit (staged specs only). This
+      # step scans the whole spec corpus, the backstop for `--no-verify` and aif-container
+      # commits; it checks the Baseline's shape, not that the SHA resolves (squash-merged
+      # design branches are deleted, so an old Baseline can stop resolving). It rides this job because the job is unconditional, full-history (the Baseline
+      # arm resolves a commit) and dependency-free; the paired-negative proves every arm fires
+      # for its own reason.
+      - name: Run arch consensus-retell gate paired-negative
+        run: bash scripts/check-arch-retell.test.sh
+      - name: arch consensus-retell gate (every retell point names its source)
+        run: node scripts/check-arch-retell.mjs
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
