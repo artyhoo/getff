@@ -234,7 +234,7 @@ consumer-safe posture as its question-time companion
   `RUNTIME_BRIDGE_MODE` + `/health` gate, the one-pass turn scan (human-prompt
   boundary, `spawn_task` calls, turn text), the dispatcher's own `*/kickoff.md` filter,
   the `chip-over-bridge:` escape and the per-session `aif-eot-chip-<session>` bound;
-  the message `aif_msg_eot_chip_over_bridge` is `.claude/hooks/lang/en.sh` line 323.
+  the message `aif_msg_eot_chip_over_bridge` is `.claude/hooks/lang/en.sh` line 324.
 - Language pack: lines 23-45; the marker and branch messages live in
   `.claude/hooks/lang/en.sh` (`AIF_RECAP_MARKER` at line 16, `aif_msg_eot_branch_a`
   at line 205).
