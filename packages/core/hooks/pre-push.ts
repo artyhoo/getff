@@ -2115,6 +2115,35 @@ function askFileSchemaSection(): void {
   emit(r);
 }
 
+// ── 5a-ter. bash-3.2 / BSD portability of the installer (maintainer) ─────────
+// install.sh and every setup.d/*.sh it sources run on a consumer's Mac under /bin/bash 3.2 with
+// BSD sed and awk; CI runners are bash 5 + GNU, so a bash-4 construct (declare -A, mapfile, an
+// empty "${A[@]}" under set -u) or a BSD-userland trap (sed BRE `\|`, multi-line `awk -v`) ships
+// green and aborts the install on the host. The scan and its escape live in
+// scripts/check-bash32.sh (its header); this entry propagates the exit code. The audit-self.yml
+// `bash32` job is the backstop for pushes that skip the hook.
+//
+// Absent script (a consumer checkout) → skip, never fail: the existsSync guard askFileSchemaSection
+// uses.
+function bash32Section(): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/check-bash32.sh'))) return;
+  const r = run('bash', ['scripts/check-bash32.sh']);
+  if (r.notFound) {
+    die(
+      '❌ bash not found to run scripts/check-bash32.sh (bash-3.2 portability gate).',
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      '❌ bash-3.2 portability gate RED — install.sh / setup.d/** use a shape that aborts on\n' +
+        '   macOS /bin/bash 3.2 or BSD sed/awk (findings above). Fix it, or escape one line with\n' +
+        "   '# bash32-safe: <rationale >= 20 chars>' (header of scripts/check-bash32.sh).",
+      r,
+    );
+  }
+  emit(r);
+}
+
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -2783,6 +2812,14 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'ask-file-schema',
     owner: 'maintainer',
     run: () => askFileSchemaSection(),
+  },
+  {
+    // install.sh + setup.d/** run under macOS /bin/bash 3.2 + BSD sed/awk; CI cannot see the
+    // class. maintainer-only — the population is this repo's installer source, and a consumer
+    // layout has no scripts/check-bash32.sh to run. See bash32Section docstring.
+    id: 'bash32',
+    owner: 'maintainer',
+    run: () => bash32Section(),
   },
 ];
 
