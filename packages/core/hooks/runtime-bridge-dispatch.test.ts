@@ -547,15 +547,23 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
  */
 function runFailureHook(
   absPath: string,
-  opts: { tool?: string; interrupt?: boolean; error?: string; zcode?: boolean } = {},
+  opts: {
+    tool?: string;
+    interrupt?: boolean;
+    error?: string;
+    omitError?: boolean;
+    extra?: Record<string, unknown>;
+    zcode?: boolean;
+  } = {},
 ): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       hook_event_name: 'PostToolUseFailure',
       tool_name: opts.tool ?? 'Edit',
       tool_input: { file_path: absPath },
-      error: opts.error ?? 'old_string not found',
+      ...(opts.omitError ? {} : { error: opts.error ?? 'old_string not found' }),
       is_interrupt: opts.interrupt ?? false,
+      ...opts.extra,
     }),
     encoding: 'utf8',
     timeout: 30_000,
@@ -590,6 +598,48 @@ describe.skipIf(!JQ || !NODE)(
       expect(r.status).toBe(0);
       const ctx = JSON.parse(r.stdout.trim()) as { additionalContext: string };
       expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+    });
+
+    // `.error` is the one canonical field (live CC capture 2026-10-01; ZCode sets
+    // error = error_details.message). The pair below pins that the hook reads
+    // `.error` and nothing else, and degrades explicitly when it is absent.
+    it('P2: ZCode-shaped payload (error + error_details object) -> reports .error', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs, {
+        zcode: true,
+        error: 'EACCES: permission denied',
+        extra: { error_details: { message: 'EACCES: permission denied', code: 'EACCES' } },
+      });
+      expect(r.status).toBe(0);
+      const ctx = JSON.parse(r.stdout.trim()) as { additionalContext: string };
+      expect(ctx.additionalContext).toContain('Tool error: EACCES: permission denied.');
+      expect(ctx.additionalContext).not.toMatch(/contract drift/);
+    });
+
+    it('N6 (paired negative of P2): no string .error -> warning still fires, drift named, alias NOT read', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs, {
+        omitError: true,
+        extra: { error_details: { message: 'ALIAS-MUST-NOT-BE-READ' } },
+      });
+      expect(r.status).toBe(0);
+      const ctx = (
+        JSON.parse(r.stdout.trim()) as { hookSpecificOutput: { additionalContext: string } }
+      ).hookSpecificOutput;
+      expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+      expect(ctx.additionalContext).toMatch(/Tool error: unknown \(.*contract drift/);
+      expect(ctx.additionalContext).not.toContain('ALIAS-MUST-NOT-BE-READ');
+      expect(r.stderr).toMatch(/contract drift/);
+    });
+
+    it('N7: non-string .error (object) -> same explicit degradation, never "[object]"/JSON', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs, { omitError: true, extra: { error: { message: 'x' } } });
+      expect(r.status).toBe(0);
+      const ctx = (
+        JSON.parse(r.stdout.trim()) as { hookSpecificOutput: { additionalContext: string } }
+      ).hookSpecificOutput;
+      expect(ctx.additionalContext).toMatch(/Tool error: unknown \(.*contract drift/);
     });
 
     it('N1: is_interrupt=true (user cancel) -> silent', () => {
