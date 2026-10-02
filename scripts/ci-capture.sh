@@ -173,7 +173,7 @@ while :; do
     JOBS=$(gh run view -R "$SLUG" "$RUN" --json jobs -q '.jobs[] | [.databaseId, .status, .name] | @tsv' 2>/dev/null)
     UNREAD=0
     while IFS=$'\t' read -r jid jstatus jname; do
-      [ -n "$jid" ] && [ "$jstatus" = completed ] || continue
+      if [ -z "$jid" ] || [ "$jstatus" != completed ]; then continue; fi
       case "$SEEN" in *" $jid "*) continue ;; esac
       if [ -n "$JOB_FILTER" ]; then case "$jname" in *"$JOB_FILTER"*) ;; *) continue ;; esac; fi
       if ! gh api "repos/$SLUG/actions/jobs/$jid/logs" > "$LOG" 2>/dev/null || [ ! -s "$LOG" ]; then

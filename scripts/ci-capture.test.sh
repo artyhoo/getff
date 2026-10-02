@@ -154,7 +154,8 @@ if [ "$(git -C "$TMP/seed" worktree list | grep -c .)" -eq 1 ]; then ok "temp wo
 if [ "$(git -C "$TMP/seed" for-each-ref refs/heads/chore/ | grep -c . || true)" -eq 0 ]; then ok "local chore branch removed"; else bad "local chore branch left"; fi
 if grep -q -- '--workflow audit-self.yml' "$STUB_DIR/calls"; then ok "default workflow = audit-self.yml"; else bad "run list not filtered by audit-self.yml"; fi
 if grep -q '^run cancel' "$STUB_DIR/calls"; then bad "completed run was cancelled"; else ok "completed run not cancelled"; fi
-if [ -n "$(grep -v '^api ' "$STUB_DIR/calls" | grep -v -- '-R o/r')" ]; then bad "a gh call is not pinned with -R o/r"; else ok "every gh run call is pinned with -R to the origin repo"; fi
+unpinned=$(grep -v '^api ' "$STUB_DIR/calls" | grep -v -- '-R o/r')
+if [ -n "$unpinned" ]; then bad "a gh call is not pinned with -R o/r"; else ok "every gh run call is pinned with -R to the origin repo"; fi
 if grep -q -- '--log' "$STUB_DIR/calls"; then bad "script used gh run view --log (refused mid-run by real gh)"; else ok "logs read via the job-logs endpoint, not run view --log"; fi
 
 # ── 5. shell test file: block goes after the shebang and records stderr + exit status ────────
