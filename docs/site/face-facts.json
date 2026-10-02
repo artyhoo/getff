@@ -305,7 +305,7 @@
       "D": {
         "familyName": "hooks",
         "path": "docs/site/reference/D.json",
-        "members": 26
+        "members": 27
       },
       "E": {
         "familyName": "templates",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 33
+        "members": 35
       },
       "G": {
         "familyName": "packages",
@@ -348,22 +348,22 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 56
+      "count": 57
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 300
+      "count": 305
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 279
+      "count": 280
     },
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 92
+      "count": 93
     },
     "academicSources": {
       "source": [

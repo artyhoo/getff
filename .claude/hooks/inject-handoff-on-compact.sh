@@ -36,7 +36,7 @@ source_kind=$(printf '%s' "$input" | jq -r '.source // empty' 2>/dev/null || tru
 
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -n "$session_id" ] || exit 0
-# The writer's own sanitisation (precompact-residue.sh:123, Stop hook end-of-turn-reminder.sh:423).
+# The writer's own sanitisation (precompact-residue.sh:123, Stop hook end-of-turn-reminder.sh:435).
 session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
 
 # Repo root: CLAUDE_PROJECT_DIR is set by CC in the hook subprocess; the payload's `cwd`
@@ -71,8 +71,8 @@ handoff_file="${residue_dir}/_handoff-${session_key}.md"
 # band; the injector's contract is only to not lose one that does.
 [ -f "$handoff_file" ] || exit 0
 
-cap="${AIF_HANDOFF_MAX_LINES:-200}"
-case "$cap" in '' | *[!0-9]* | 0) cap=200 ;; esac
+cap="${AIF_HANDOFF_MAX_LINES:-80}"   # same default as the Stop gate (D32, lowered by D40)
+case "$cap" in '' | *[!0-9]* | 0) cap=80 ;; esac
 handoff_body=$(head -n "$cap" "$handoff_file" 2>/dev/null || true)
 [ -n "$handoff_body" ] || exit 0
 

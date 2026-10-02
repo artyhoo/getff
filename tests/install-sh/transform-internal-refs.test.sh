@@ -184,7 +184,7 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)
   || bad "4f3: unshipped hook allowlist arm failed; got: $(grep -F 'check-worker-dispatch' <<<"$OUT")"
 
 # Sub-test 4f4: the sibling-skill shape stays RELATIVE. `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:118 dangled at factory depth, and the first fix rewrote it to a blob URL — wrong
+# arch/SKILL.md:138 dangled at factory depth, and the first fix rewrote it to a blob URL — wrong
 # cause. The invariant is «sibling-skill links stay relative (sibling ships too)»
 # (setup.d/10-skills.sh:137), so a dangling sibling ref proves the SIBLING IS MISSING, not that
 # the ref needs bending. `reviewer` was in no tier while arch — an env-tier skill consumers do
@@ -202,7 +202,7 @@ case " $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY " in
   *" reviewer "*)
     ok "4f5: 'reviewer' is in a GETFF_SKILLS_* tier, so arch's sibling ref resolves on a consumer" ;;
   *)
-    bad "4f5: 'reviewer' left the tier lists — arch/SKILL.md:118 now points at a skill no consumer receives; re-add it to GETFF_SKILLS_ENV rather than rewriting the link" ;;
+    bad "4f5: 'reviewer' left the tier lists — arch/SKILL.md:138 now points at a skill no consumer receives; re-add it to GETFF_SKILLS_ENV rather than rewriting the link" ;;
 esac
 
 # Sub-tests 4i-4k: the three BLANKET arms added 2026-08-17 alongside the allowlist above.

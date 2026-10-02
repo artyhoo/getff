@@ -135,7 +135,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
 #     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:118 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
@@ -3862,6 +3862,8 @@ aif-orchestrator-discipline 123 6fccf9a6157fcf1a338aac779af29d4cba3e9dc3a5f8c88d
 aif-orchestrator-discipline 123 7a0a04091d03f039d9f025b8278bac98966e5a9b5ae51a7b636e42e31f9cba57 119 88e16a15ce964ead848ce6ce02bc113a0c8e8946dc8ce34c97ebe8d6192ee21f
 aif-review 40 8bd23ebbc6a7ab41a680c5e17895a1df3f8492090354ffe7ab4a83bda2c61f09 36 7660177c2193e1317a5dc0297310d65e7c0e03ccb87f61aeec0e02a7b78d5a73
 aif-review 40 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343 36 098ffe62f7297978d85099fe412611bd2efc2f07bb3ab4c719486948e9324aa6
+aif-review 42 e32999457cbeb08fbc13bce4e304afaa3075c3503a47b00a7866cb74370ea3e7 38 66b4b8e709b8be5a930a847de01ae616ef6ad247a77f8adfdf91d0de11b3fc1d
+aif-review 42 fcf5933063730451f53ada7b865c4774d3808d6c7be9df6633b1fa73091f699a 38 b94c51259d7ce17a8de99d36fbcfa1263ef757799fd69eb7370547e4c8cba3b1
 aif-rules-check 42 ef8609433e8fbd9ecad4fa332a78eda10c0f2bd6c43dc19ceb168550cebbf75f 38 1f3e7c3022c6f43a62517279a315471a5d171112cce145cdfb160635ec008008
 aif-rules-check 42 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791 38 b9a59089f5cc1ec4bb3d2ce0fd554d7fb694f047f0ca3fb5005f1a405b3e2e5b
 aif-rules-check 42 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448 38 f7c6deab98cb56e9c164bcdc76bf7c1551622bc8de391c97e94b6842feda2409
