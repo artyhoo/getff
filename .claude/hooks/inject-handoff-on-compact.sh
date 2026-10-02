@@ -71,8 +71,8 @@ handoff_file="${residue_dir}/_handoff-${session_key}.md"
 # band; the injector's contract is only to not lose one that does.
 [ -f "$handoff_file" ] || exit 0
 
-cap="${AIF_HANDOFF_MAX_LINES:-200}"
-case "$cap" in '' | *[!0-9]* | 0) cap=200 ;; esac
+cap="${AIF_HANDOFF_MAX_LINES:-80}"   # same default as the Stop gate (D32, lowered by D40)
+case "$cap" in '' | *[!0-9]* | 0) cap=80 ;; esac
 handoff_body=$(head -n "$cap" "$handoff_file" 2>/dev/null || true)
 [ -n "$handoff_body" ] || exit 0
 

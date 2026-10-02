@@ -15,9 +15,9 @@ paths:
 > ([principle 31](../../packages/core/principles/31-rule-channel-declaration.ts) branch (a) —
 > read-time load on matching work; no edit-time inject). Promotion criterion in §3.
 > **Fires:** seat birth, self-cleaning handoff, or retirement in a seat session.
-> **Authoritative for:** the lifecycle SEQUENCE only — §1 the four phases, which settled
-> mechanism each phase reuses, and which steps are Part-II-gated; §2 anti-patterns; §3
-> promotion / retirement.
+> **Authoritative for:** the lifecycle SEQUENCE — §1 the four phases, which settled
+> mechanism each phase reuses, and which steps are Part-II-gated; the SHAPE of a seat's
+> handoff (§1.1 thin index); §2 anti-patterns; §3 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
 > Every mechanism this file sequences is OWNED elsewhere: context-arm trigger — ADR D7
 > ([2026-08-09-pipeline-chips-session-bus-design.md](../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md));
@@ -69,6 +69,25 @@ probes (P1/F4/P4) land; until then they are inert, not improvised.
    mid-night successors inherit the mandate and emit nothing. PART-II-GATED: successor's
    seat-file overwrite (last-writer-wins, v2 §6).
 
+### §1.1 Handoff shape — a thin index, state in topic files
+
+A long-running seat keeps its handoff CURRENT through the whole session (phases 2–4, not only
+at retirement) and shapes it as a thin INDEX: a «task in front of you → open only this file»
+table, plus the five required H2 sections of the handoff gate, each one line pointing at a
+topic file. State lives in the per-topic files (e.g. `<seat>-<date>/{board,lock,<stage>-harvest}.md`
+beside the handoff), and each topic file opens with a `Read when: …` line. Update the topic file
+at each state change; touch the index only when a topic opens or closes. Closed topics stay as
+short closed records. **Why:** a monolithic handoff makes every task reload everything, and the
+seat's context runs out (operator directive 2026-09-28). **Mechanism:** the handoff-currency
+Stop gate ([end-of-turn-reminder.sh](../hooks/end-of-turn-reminder.sh) D40, armed by
+`AIF_HANDOFF_GATE=1`) blocks an in-band `_handoff-*.md` that has no table row naming a `.md`
+topic file, or exceeds `AIF_HANDOFF_MAX_LINES` (default 80); the only escape is
+`mechanical-tail: <≥20-char rationale>`. It fires for ANY armed session in the band — a session
+that reached the band is long-running by definition. Not machine-checked: the topic files'
+`Read when:` line (table paths are free-form, a partial resolve would read as a guarantee) —
+that half stays judgment. The `_handoff-<session>.md` path under `.claude/orchestrator-prompts/`
+is a SYMLINK into `~/.claude-coordination/<repo>/`; Write refuses symlinks, so write the target.
+
 ## §2 Anti-patterns
 
 - **`#fifth-description-of-the-loop`** — this file (or a skill's pointer block) growing
@@ -77,6 +96,9 @@ probes (P1/F4/P4) land; until then they are inert, not improvised.
 - **`#lifecycle-phase-skipped`** — a live seat skipping a phase (e.g. retiring with no
   residue artifact, or a night birth outside an isolated worktree). Counter: the pointer
   keeps the protocol in-context on matching work; ≥2 incidents → §3 promotion.
+- **`#monolithic-handoff`** — the handoff grows into a log of every state change, so each
+  task (and the post-compaction injection, which reads `head -n` the cap) reloads all of it.
+  Counter: §1.1 — the D40 gate arm blocks the table-less or over-cap file.
 - **`#normative-now-from-parked-machinery`** — treating a PART-II-GATED step as live before
   its probe lands. Counter: §1 gating labels; v2 §9 degradation matrix is the honest state.
 

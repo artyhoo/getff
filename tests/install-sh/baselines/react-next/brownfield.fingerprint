@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-2985eeae8d78d9a098fe958f924c4c81a55e0d57c51966d9147583bece71118f  .ai-factory/refresh-baseline.json
+de3e900cda96c969dccd3e67766bcb5cdeccb2401c6821efdb86f92eb5c19ffc  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
@@ -28,14 +28,14 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
 178b62f7449dd92f734b3e5560a943567a235cbcf3698fa8982b13bffd1f8760  .claude/hooks/deps-hash-check.sh
-decd19acd2f603e57f1a35ca9263ac36a87050c56d4f66e80963c66a54f8bbd9  .claude/hooks/end-of-turn-reminder.sh
+04247bcf88bf51528212f9ce7713f630c46249dd275dab4e2db061f8bf23e671  .claude/hooks/end-of-turn-reminder.sh
 94c076a7dad5e4f4307a48afdad98bb7433448c9ba9f57f2f44b8ecfe82609be  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 16f97c89f6e987d8673bc0485931932aef83eaf3cf8fc2f624ee68d8d37b1194  .claude/hooks/inject-output-language.sh
 c4c072845e4bb660a21f3310ce026c90c05334a1324b1c6bc97b4aed74775097  .claude/hooks/inject-project-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
-29eba9a119b59cf74b2740c4ad9c06cae5434cb736fe87aec03fb69d8add1a0e  .claude/hooks/lang/en.sh
-e4faaf1d19d4c59c6ee226206072b84d6fd0530bfc5f711d9c9ea3cc711b9073  .claude/hooks/lang/ru.sh
+db4b9215972f881e86998c832c28861fdd09446e3682a1630527137bb3d43a55  .claude/hooks/lang/en.sh
+2d6116e62e8fceccaebc39bef91f743f04bb952948e793c7b8447fceff85f46a  .claude/hooks/lang/ru.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
