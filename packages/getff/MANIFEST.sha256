@@ -25,7 +25,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
 f45b3e0e78457d94c0928658d56ab0a575789e62bec06407c223adf786e7736f  .claude/hooks/precompact-residue.sh
-8c5317197f817a32c93ab522e49386d8a15cd8a2f93ccfb75c9d28d82407089e  .claude/hooks/runtime-bridge-dispatch.sh
+0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
 5bce158e2febec6fd98c0cd701581fb4ab80308dc21451be683844b1ac2f684c  .claude/hooks/warn-subagent-report.sh
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
@@ -35,13 +35,13 @@ f738303a47914734b9c3098ff257beaa3ced934fb3c20e80397812098cc892fe  .claude/skills
 a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016  .claude/skills/aif-doctor/helpers/aif-agent-target.sh
 b5cfb0b1f61438ef1db8489a002e2bcd429488d975beee008500354e097268c3  .claude/skills/aif-doctor/helpers/heal.sh
 516a561d50d3b8b897c62d71c264f519a935a986cb643049b9c0b3ce9f865289  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
+6a9da38aacac50b4eae49856efdb386a23cb4841d4d0e3968e9face2b22354d6  .claude/skills/arch/SKILL.md
 dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills/arch/references/ADR-FORMAT.md
 97c7ffe11168c61055acc8611b932277323dd1a8ea07ade81d6538006e5d4e9f  .claude/skills/arch/references/CONTEXT-FORMAT.md
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
 4be720ce0a9b0cd2ca88447af62c65ba7580ce7a4375762842a9e1ae8e39ff11  .claude/skills/arch/references/grilling.md
 e3bba025e05c493a9237c034019e32703869552c6eb15afbd7a7ddab719acfe8  .claude/skills/claude-glm-executor-handoff/SKILL.md
-fe37fa49bfbb3bedb76a2d5d15ff0409e221bdde87af763b160cd214b5524f29  .claude/skills/dispatcher/SKILL.md
+41444fc156670d87358a64ff4b2c5de591d41fb3f24e810b5cdfc1948433ab1b  .claude/skills/dispatcher/SKILL.md
 c12fd8d7b8a4af335822c600904719c147c5ea859fb27cb7ab843f125e9d5a28  .claude/skills/dispatcher/helpers/advance-frontier.sh
 8639f374fbfeec377f0ac94a930c725e601d1775b3952407cebff5de0bcb2c27  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
@@ -60,7 +60,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
 8867f70ef513a325b8d8f2b82a80001dad1a911d784b04465141419055a87cba  .claude/skills/harvest/SKILL.md
-bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
+ecfed81465d36cea44f2670a158e02e507b2ed26a33a4f04a88e00ddd61f770a  .claude/skills/night-mode/SKILL.md
 6bc24a3386186d4ba77351c9f15ea8ce1ea0c7224766fa920d8ed3e9dc60290e  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
 426d90fbdda16a3aa796df1dd446c8e5168de49a6b1eee7f366061cbb5b6a5b4  .claude/skills/orchestrator/references/batch-prompt-template.md
@@ -466,7 +466,7 @@ da88d49f513b0e109ed7bb406b5f5800f095c76a0296c379bbb26b005aaac856  packages/core/
 ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 9590356cdcb215bdfa724f360eba5aa0fa58f43634735232074fc6ade16524fc  packages/core/hooks/classify-work.test.ts
-082058e36aa37527ab093ae96b36ce6387b7197f341072008b17a48c3af80aba  packages/core/hooks/close-aif-task-on-merge.test.ts
+0ca59c83327604e0e60c09c667270216cb5c0e8e67c77bd54feccc4abbef6d71  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
@@ -477,7 +477,7 @@ ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
 c8a58db7ed4ebaff6933f1e2010e3b3422098617999b5b5ca5a6b44aa9a280da  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
-6259bf62d62e381f6fd54496c65a01fff57ab1dfbe7ddddc0bc8be4a1f2bb16e  packages/core/hooks/format-shipped-anchor.test.ts
+08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
 2b01ff1b28a86b6f77c2ddc28779409aa9a6d06233c6742292e8c7323bbe1d80  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
@@ -504,8 +504,8 @@ c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/
 b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/hooks/pre-push.consumer-layout.test.ts
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
-aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
-f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
+fa3d03eb03f7d368bdf04add5fb3361524eb454f80bb09552cab5adccf10c4d9  packages/core/hooks/pre-push.heavy-runner.test.ts
+746482b3c3fabc3ccc1e33064754408fc6912159c0a0218c9b8f06da41faeac2  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 2a88c9847e7f436068d610d0cad26395b6d054b9d7a2ee9102057a58e755d4aa  packages/core/hooks/pre-push.test.ts
 64fa78a7dca089da7294ea75359e1380aed656bc90f76ad1d42d8b8e8b728b23  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
@@ -515,7 +515,7 @@ d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/
 a635e173f68397afc17ff33244d34243766a0db2079f99525192fc86089104cd  packages/core/hooks/priority-score-synthetic.test.ts
 98d1a4a7d3610ad980a51d0c658bf316087e0418b4dd75c91958fb8cf4b6ff9b  packages/core/hooks/render-status.test.ts
 a0bde1976b4665dd232a771b18ec98a8c61888c6c385fe792417e3be3828f901  packages/core/hooks/rule-channel-degradation.test.ts
-c5309c93104c6626894f3927d9859be6fa25ab56dbd942d6c691244251dc4bcc  packages/core/hooks/runtime-bridge-dispatch.test.ts
+258e41462d13c90a986d89102d7d7d1a7ed5c61b7c49805aaf4088b0b530fa2a  packages/core/hooks/runtime-bridge-dispatch.test.ts
 f7ce626f7870a30be7a6d7993f27093e7dc8dc3013c1d28be8cc265f8dedb2b3  packages/core/hooks/session-start.test.ts
 230616f7147bfbf760cb1c9fca1e12b444fcbf481f76dc18c6942ce4e460ebdf  packages/core/hooks/skill-index-on-compact.test.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
@@ -530,7 +530,7 @@ dd31b65c02ad3578fa7454a3a901305d47bc81b2ba71f3de1c8b03c8d8ae84f1  packages/core/
 bce0660b4c5d61751b0fc779759951516e072f809c2f469bdd7f499180de53f3  packages/core/hooks/validate-prompt.test.ts
 b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/hooks/warn-subagent-report.test.ts
 f1f8578417e05492d161569b90b3cbb2e1300e73d36996c2ca7e03c6d3eca0a0  packages/core/hooks/worktree-doctor.test.ts
-a3d53a4821fc06029720bcc1fce6f67beb44aab0de1ccad91c90f948854c55b2  packages/core/hooks/worktree-node-modules.test.ts
+b88ffe5fe0f62db4598034e316c69cec38f230cac8eef44b6bd74b11a07b5150  packages/core/hooks/worktree-node-modules.test.ts
 179dce7a5ddf2584efd08f0379638820d52119f7365b267af2130ed6eafb5a6b  packages/core/hooks/worktree-setup-hydration.test.ts
 920e2c821c12c6981b1ef0ff56932ed58156470a8fa240d5b9439b4967b611d5  packages/core/hooks/worktree-setup.test.ts
 9d9ff373a0ce20650e463e11b015aac45f015066764b2021614ac4c51182d079  packages/core/hooks/zcode-runtime-probe.test.ts
@@ -632,6 +632,7 @@ a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
 0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
+2003e3ff0df92ff43363660440f30b8313457dab367856105a8bbaea458654eb  packages/core/principles/49-executor-tier-parity.test.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
@@ -907,7 +908,7 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  packages/core/
 6fccf9a6157fcf1a338aac779af29d4cba3e9dc3a5f8c88d20c4e2e8ecb99753  packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  packages/core/templates/shared/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md
-c3b53a93d62cf8b0150e50eb0b6204d29b53464494456d9a2c59e583cd1575e9  packages/core/templates/shared/tier-home.md
+cd7765c267add628bbfc8f17b73e03cc7942cd8fa8250af31f2a0693e1bcd0b2  packages/core/templates/shared/tier-home.md
 c1ddbbf63d339e4843a95ce003021adc06e906c178342854c9b9fa22238485f3  packages/core/templates/shared/tsconfig.json
 11b5f0b1ecf5a1957bc6698c43d3c5df94ad22bb102af265b9adacaa2f184963  packages/core/templates/templates.manifest.json
 67231827c637738ac32efd1dcd05fba6a5ebec802a1aff7f623310cec6a50d2c  packages/core/tests/acceptance/canonical-regen.test.ts
@@ -1066,7 +1067,7 @@ df9eac7e09c2d4d0b4f8d4a443436e603fd2af9b0a3d2644a8053178aeebc72d  packages/runti
 e3645c38b9279fa2136caf5691633cfbb22998b89695d210c071978a497e1671  packages/runtime-bridge/test/vendor-hook-stderr.test.ts
 9063a9eb8c8cb8206b16dbdf2f35798279b872e058784a4d14c7cba1f1b2262b  packages/runtime-bridge/tsconfig.json
 577592dc1cb589a7dad37d9b4fcb87e60d60d7cb8c9f4586c8eaef4c87d91ccf  packages/runtime-bridge/vendor/README.md
-8c5317197f817a32c93ab522e49386d8a15cd8a2f93ccfb75c9d28d82407089e  packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh
+0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh
 1de9dc0b14807077186c81029f08fb9d4a1c1ac5da404e2ebda4fa74d9e0d7f5  packages/runtime-bridge/vendor/package.json
 c927faded468acc3cfd1133ba314786abcc13e3fcbde2a6167c31523cf173094  packages/runtime-bridge/vendor/src/AifHandoffBackend.ts
 9466e0cfdb458db37d89b9e7129cd496b04496e041469850d31fcbd19fe3883d  packages/runtime-bridge/vendor/src/ManualBackend.ts

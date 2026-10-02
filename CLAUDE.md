@@ -109,7 +109,7 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 
 ## Task-tier routing (which model plans, and whether to use the pipeline at all)
 
-The Tier 0/1/2 criteria + the bridge-profile mechanic + the marker value rule + the
+The Tier 0/1/2 criteria + the rework-routing rule (specified rework stays in-session) + the bridge-profile mechanic + the marker value rule + the
 explicit capability-absence degradation matrix live in the shipped tier-home doc — the
 **single source of truth**, installed at `.ai-factory/tier-home.md` for `env`+ consumers
 and referenced here for the operator repo:
