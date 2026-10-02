@@ -4,7 +4,7 @@
 
 > **Class:** B — enforcement mechanism is the operator-global PreToolUse guard (`~/.claude/hooks/git-safety.sh` rebase/force-push arm — fires at the moment the agent types the dangerous command) + the always-on [CLAUDE.md `Harness gates`](../../CLAUDE.md) pointer (the in-repo channel this marker declares). Class A (CI principle test) is **structurally unreachable**: the violation is an agent-session *command choice* (`git rebase` + force-push), invisible to repo CI by construction — by the time anything reaches CI the push either succeeded (plain) or was already classifier-blocked. Same out-of-repo ceiling rationale as [memory-codification.md §1](memory-codification.md). Promotion ceiling = B; §6. The «structurally unreachable» claim scopes the merge-forward **procedure** (an agent's command choice, invisible to repo CI by construction); §8's stale-base revert **hazard** is a different subject — PR-diff content lineage — which IS mechanically visible at PR time and therefore carries its own CI gate (`stale-revert-in-pr-diff`), so the Class-B ceiling stands for the procedure without extending to §8's hazard.
 > **Fires:** CONFLICTING PR; rebase/force-push/merge-in urge.
-> **Authoritative for:** the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict, §10 when a merge of staging into a PR branch is warranted at all.
+> **Authoritative for:** the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict, §10 when a merge of staging into a PR branch is warranted at all, §11 the recovery when a foreign commit lands on your pushed branch.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). `git-safety.sh` implementation — operator-owned global file outside the repo. Promote staging→main mechanics and other push gates — see [CLAUDE.md `Harness gates`](../../CLAUDE.md). Whether a moved head earns a new cold audit at all (the substance-vs-SHA judgment §9 hands off to) — see [cold-seat-economy.md §1](cold-seat-economy.md). The fidelity-audit protocol + verdict grammar — see [agents/fidelity-auditor.md](../../agents/fidelity-auditor.md).
 
 > **Origin:** 2026-07-21 incident, PR #1058 (worktree `night-mode-discussion-833605`). The PR turned CONFLICTING after PR #1054 moved the same generated baselines; the session rebased, then force-push was denied twice by the harness permission classifier (both direct `--force-with-lease` and pushing the rewritten history to a *new* branch), session stopped, operator had to diagnose. The rebase was never needed: merge-forward was then applied successfully — plain fast-forward push `5b784ac12..00546d4e2` un-conflicted PR #1058 with no force involved. Recurrence scale: 43 of 280 session transcripts under `~/.claude/projects/-Users-art-code-rules-as-tests-aif*/` mention `force-with-lease` / CONFLICTING (grep probe, 2026-07-21) — tens of thousands of tokens re-diagnosed per recurrence.
@@ -77,7 +77,7 @@ Anything *else* in the `--diff-filter=U` list is a **semantic conflict**: two PR
 ## §7 §1.7 self-reflexive note
 
 - **Forward-check:** complies with [rule-enforcement-channel-selection.md §1-§3](rule-enforcement-channel-selection.md) — the violation is mechanically detectable at command-typing time, so the primary channel is a **gate** (PreToolUse hook arm), with the recipe as on-demand prose (this file) and a one-line always-on pointer (CLAUDE.md); with [no-paid-llm-in-ci.md](no-paid-llm-in-ci.md) (mechanism is a deterministic bash/python hook, zero LLM calls); with [doc-authority-hierarchy.md §2-§3](doc-authority-hierarchy.md) (Class + Authoritative-for header present).
-- **Backward-check:** the sibling surface class is «agent-facing git/push gotchas»: [CLAUDE.md `Harness gates`](../../CLAUDE.md) (merge gating, promote mechanics — extended by this rule's pointer bullet, not contradicted), memory `feedback_no_git_reset_hard` / `feedback_branch_contamination_rescue_pattern` (destructive-op bans — consistent: merge-forward is the non-destructive branch), and `git-safety.sh` part-1 gates (force/main-push/reset — the arm extends the same block-with-guidance pattern). No surface is superseded; the pre-patch `--force-with-lease` advice in `git-safety.sh` is the one contradicting artefact and is exactly what the operator patch rewrites.
+- **Backward-check:** the sibling surface class is «agent-facing git/push gotchas»: [CLAUDE.md `Harness gates`](../../CLAUDE.md) (merge gating, promote mechanics — extended by this rule's pointer bullet, not contradicted), memory `feedback_no_git_reset_hard` / `feedback_branch_contamination_rescue_pattern` (the latter codified as §11 on 2026-10-01) (destructive-op bans — consistent: merge-forward is the non-destructive branch), and `git-safety.sh` part-1 gates (force/main-push/reset — the arm extends the same block-with-guidance pattern). No surface is superseded; the pre-patch `--force-with-lease` advice in `git-safety.sh` is the one contradicting artefact and is exactly what the operator patch rewrites.
 - **Forward-check + Backward-check (2026-09-13, psg W3 sync — `plugin/skills/` joins the regen-list):** forward — the recipe's generated-artefact class now names all three derived populations and their regenerators (`generate-plugin-twins` hook arm, `generate-plugin-skills` pre-commit arm PR #1732, `snapshot.sh`), matching what actually fires at commit time; no new mechanism (content sync only). Backward — surfaces naming the generated-conflict class swept: `grep -n "generated artefacts" .claude/rules/*.md` → this file alone owns the merge-forward recipe's exclusion list; §4's enumeration and §2 step 4 are the only two population lists, both updated in one pass (a third, §2 step 6's regenerator note, extended in the same edit).
 
 ## §8 Stale-base rebuild hazard — the branch is not behind, its CONTENT is
@@ -126,8 +126,10 @@ Until 2026-08-10 the gate's failure message named only the expensive branch — 
 **Validate the body locally before pushing** — cheaper than a red CI round, and it runs the real gate function rather than eyeballing the hex:
 
 ```bash
-npx tsx -e "import {readFileSync} from 'node:fs';import {checkPrBodyFidelity} from './packages/core/hooks/checks/pr-body-fidelity.ts';console.log(JSON.stringify(checkPrBodyFidelity({body:readFileSync('/tmp/pr-body.md','utf8'),headSha:process.argv[1]})))" "$(git rev-parse HEAD)"
+npx tsx -e "import {readFileSync} from 'node:fs';import {checkPrBodyFidelity} from './packages/core/hooks/checks/pr-body-fidelity.ts';console.log(JSON.stringify(checkPrBodyFidelity({body:readFileSync(process.argv[2],'utf8'),headSha:process.argv[1]})))" "$(git rev-parse HEAD)" "$BODY"
 ```
+
+`$BODY` is the file you wrote the PR body to — your session scratchpad, or `BODY=$(mktemp)`. Never a fixed shared name like `/tmp/pr-body.md`: parallel sessions on this machine write the same path, and one session then validates (or opens a PR with) another session's body.
 
 Both directions exercised 2026-08-10 against the real function: matching head → `{"ok":true,"errors":[]}`; mismatched head → `ok:false` with the `Audited-SHA … does not match PR head …` error.
 
@@ -146,6 +148,34 @@ Both directions exercised 2026-08-10 against the real function: matching head �
 **Not a reason:** «staging moved», «keep the branch fresh», «re-trigger CI», «while waiting for CI». A red or stalled CI round is diagnosed on its own head (`gh api repos/<o>/<r>/commits/<sha>/check-runs`), not refreshed by moving the head.
 
 **Enforcement:** none mechanical yet — the decision needs the PR's GitHub mergeability at push time, which no local channel sees. Two mechanisms bound the damage instead: audit-self's PR-scoped `concurrency` cancels the superseded run when a PR is pushed again, and `path-scope` (`scripts/ci-path-scope.sh`) skips the install-area jobs for a PR whose change cannot reach them. **Promotion trigger:** the next 7-day window where more than half the merge commits pushed to open PRs are staging merges on PRs GitHub did not report `CONFLICTING` → build the pre-push arm (a merge commit whose second parent is on `origin/staging`, pushed to a branch with an open non-`CONFLICTING` PR, blocks with an escape token).
+
+## §11 A foreign commit landed on your pushed branch — back it up, re-cut, re-open
+
+**The situation.** Your PR branch is published and someone else's commit is on it: a parallel session committed through a shared index or pushed to the wrong branch. Signals: `git log origin/staging..origin/<branch>` lists a commit you did not author, CI goes red on something your change never touched, or the obvious fix — drop the commit and force-push — is blocked (§3).
+
+**The rule.** Keep the foreign commit on a backup branch, cherry-pick your own commits onto a fresh branch cut from `origin/staging`, open a new PR, close the old one. Every push is a plain push and no history is rewritten anywhere, so nothing needs a force.
+
+```text
+FOREIGN-COMMIT RESCUE:
+1. git fetch origin staging <branch>
+   git log --format='%h %an %s' origin/staging..origin/<branch>
+   → sort the list into YOUR commits and FOREIGN ones.
+2. Preserve the foreign work, byte for byte, before touching anything:
+     git push origin refs/remotes/origin/<branch>:refs/heads/backup/<descriptive-name>
+     git ls-remote origin 'refs/heads/backup/<descriptive-name>'   → must print the old tip
+3. git switch -c <branch>-v2 origin/staging
+   git cherry-pick <your-sha-1> <your-sha-2> ...    # yours only, oldest first
+4. git diff --stat origin/staging..HEAD             → only files YOU changed
+5. git push -u origin <branch>-v2                   # new branch, plain push
+6. Open the new PR (body says «supersedes <old PR>»); close the old PR with a comment naming
+   the new PR and the backup branch, so the foreign author can find their work.
+```
+
+**Why a new branch, not a fix on the old one.** The old branch cannot lose the foreign commit without a force-push. A `git revert` on the old branch would net the change out of the squash, but the PR would still carry someone else's commit and review history, and the foreign work would survive only on a PR branch that gets deleted at merge. The backup branch is what keeps that work recoverable; the fresh branch is what makes the PR contain only your change.
+
+**Writing the recovery into a PR comment.** `git-safety.sh`'s raw backstop matches the literal force-push command text anywhere in a Bash command, including inside `gh pr comment --body "..."`. Write the comment to a file in your scratchpad (or a `mktemp` path) and pass `--body-file`.
+
+**Validated** 2026-05-24: PR #190 carried a foreign meta-orchestrator audit commit `63b5246` whose broken reference turned principle 14 (skill drift) red. The foreign commit went to `backup/sat-arch-foreign-meta-orchestrator-audit`, the own commit was cherry-picked into PR #191, and #191 went green and squash-merged in one cycle.
 
 ## See also
 
