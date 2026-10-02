@@ -610,7 +610,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // Tier 2 is the only path that can resolve tsx — exactly the defect class scenario.
     const wt = _mkdtempSync(_join(_tmpdir(), 'vp-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
-    _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
+    // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
+    // real post-checkout hook runs scripts/link-coordination.sh, which walks the operator's
+    // ~/.claude-coordination store (519 files on 2026-10-01, ~600 git spawns) and took
+    // 18-28 s of this case's 30 s budget under load — a timeout sized by $HOME, not the test.
+    _execSync(`git -c core.hooksPath=/dev/null worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
     tmpWorktrees.push(wt);
     // Overwrite the worktree's checked-out hook with the FIXED working-tree version
     // (HEAD's hook is the pre-fix version; the worktree checks out HEAD).
