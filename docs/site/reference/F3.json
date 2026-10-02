@@ -21,7 +21,7 @@
           "packages/core/hooks/pre-push.ts:1606 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:295 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:300 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -122,7 +122,27 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2069 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1462 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1466 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-arch-retell.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "every point of an /arch consensus retell names where it came from.",
+      "source": {
+        "path": "scripts/check-arch-retell.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2629 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
       "example": null
@@ -143,6 +163,26 @@
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2102 (spawn-argument)",
           "install.sh:1211 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-bash32.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "refuse bash-4-only syntax and BSD-userland traps in the shell that install.sh",
+      "source": {
+        "path": "scripts/check-bash32.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2130 (spawn-argument)",
+          ".github/workflows/audit-self.yml:2765 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -180,7 +220,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2561 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2565 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2610 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2614 (workflow-run:invocation-verb)",
           ".husky/pre-commit:181 (quoted-path-token)"
         ]
       },
@@ -278,7 +318,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2721 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2741 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -325,8 +365,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1368 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1373 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1372 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1377 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -345,10 +385,10 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:219 (quoted-path-token)",
+          ".husky/pre-commit:236 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:324 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:329 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -367,7 +407,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:388 (quoted-path-token)"
+          ".husky/pre-commit:405 (quoted-path-token)"
         ]
       },
       "example": null
@@ -386,7 +426,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:367 (quoted-path-token)"
+          ".husky/pre-commit:384 (quoted-path-token)"
         ]
       },
       "example": null
@@ -564,8 +604,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2562 (spawn-argument)",
-          ".husky/pre-commit:326 (quoted-path-token)"
+          "packages/core/hooks/pre-push.ts:2591 (spawn-argument)",
+          ".husky/pre-commit:343 (quoted-path-token)"
         ]
       },
       "example": null
@@ -644,7 +684,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1396 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1400 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -671,7 +711,7 @@
           "install.sh:1218 (quoted-path-token)",
           "install.sh:1219 (quoted-path-token)",
           "install.sh:1220 (quoted-path-token)",
-          "scripts/run-local-ci-sweep.sh:1175 (command-substitution, closure)"
+          "scripts/run-local-ci-sweep.sh:1187 (command-substitution, closure)"
         ]
       },
       "example": null
@@ -709,7 +749,11 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "apply-getff-manifest-staged-precommit.sh",
+    "check-getff-manifest-staged.sh",
     "check-merge-pushed.sh",
+    "ci-capture.sh",
+    "cited-spec-addenda.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
@@ -719,7 +763,9 @@
     "kickoff-hv-inventory.sh",
     "measure-session-start-tokens.sh",
     "measure-turn-attribution.sh",
+    "merge-forward-round.sh",
     "probe-channels.sh",
+    "probe-hook-stdin.sh",
     "probe-zcode-runtime.sh",
     "register-glossary-hook.sh",
     "register-handoff-gate.sh",

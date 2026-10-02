@@ -7,6 +7,14 @@
 
 ## Протокол (5 шагов)
 
+0. **Pre-flight memory sweep — before any reviewer is spawned.** A cold reviewer runs without the orchestrator's agent memory, so a maintainer correction that lives only there (recorded by a parallel session) is invisible to it and a contradicting kickoff returns GO. Extract the kickoff's feature keywords (feature name, tool names, hook/skill/file names it touches) and run:
+
+   ```bash
+   bash .claude/skills/orchestrator/helpers/memory-sweep.sh <keyword> [<keyword>...]
+   ```
+
+   Read every listed entry. A binding constraint goes **into the kickoff** (preferred — it then survives into execution) or, when it is review-only context, into the reviewer prompt's `Memory constraints` slot below. The sweep's last line (`MEMORY-SWEEP: N matches …`) goes into that slot verbatim either way, so a skipped sweep shows as an empty slot rather than as silence. `MEMORY-SWEEP-INCOMPLETE` (exit 2 — no store on this machine) is recorded as such — it is not «0 matches». Incident: 2026-05-17, a Stop-hook kickoff excluded `AskUserQuestion`; the Phase -1 reviewer returned GO; a same-day memory entry required the opposite.
+
 1. **Прочитать собственный prompt холодно** — притвориться что не писал.
 2. **Спавн reviewer'ов** с focus-split A/B. **Реализация по приоритету:**
 
@@ -28,6 +36,9 @@
        (d) Stale references (git log + recent PRs since prompt was drafted)
        (e) T-trap enumeration (per .claude/rules/ai-laziness-traps.md §3) — concrete, not blanket-ref
        (f) Drive-by risk — anything that could cascade into a separate PR mid-flight
+       (g) Memory constraints (from step 0 — you cannot read agent memory yourself):
+           <the MEMORY-SWEEP summary line + each binding constraint, or «none bind»>
+           Flag any kickoff instruction that contradicts one of them as a BLOCKER.
      Return: BLOCKER/MAJOR/MINOR list + verdict GO/REVISE.
      No edits, no execution — pure prompt critique.
    ```

@@ -10,13 +10,13 @@ paths:
 ---
 
 <!-- globs: .claude/skills/**, agents/**, .claude/rules/**, setup.d/**, docs/meta-factory/prior-art-evaluations.md, package.json, packages/core/package.json -->
-<!-- inject: BFR: capability proposals resolve to one of 7 verdicts (ADOPT/ADOPT VOCAB/ADAPT/REFERENCE/KEEP NARROW/BUILD/REJECT); default ADOPT/REFERENCE; BUILD requires SSOT consult + DeepWiki+WebSearch ≥3 phrasings. See .claude/rules/build-first-reuse-default.md + prior-art-evaluations.md. -->
+<!-- inject: BFR: capability proposals resolve to one of 7 verdicts (ADOPT/ADOPT VOCAB/ADAPT/REFERENCE/KEEP NARROW/BUILD/REJECT); default ADOPT/REFERENCE; BUILD requires SSOT consult + DeepWiki+WebSearch ≥3 phrasings. Dropping/slimming a shipped artefact needs a consumer map first (§3.1; PR-body `## Removal consumers` gate). Re-search prior art at PR time only for CC internals (§3.2). See .claude/rules/build-first-reuse-default.md + prior-art-evaluations.md. -->
 
 # Build-first, reuse-default — operating philosophy
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/11-build-first-reuse-default.test.ts](../../packages/core/principles/11-build-first-reuse-default.test.ts) (#75, 2026-05-17). Design sketch retained at [11-build-first-reuse-default.design.md](../../packages/core/principles/11-build-first-reuse-default.design.md). Channel: paths:(7) + edit-time inject (re-scoped from always-on Tier-0, operator verdict 2026-08-08); always-on pointer carriers: session-bootstrap digest invariant (1) + CLAUDE.md per-commit gate.
-> **Fires:** any capability commit / new-capability proposal.
-> **Authoritative for:** project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals.
+> **Fires:** capability commit/proposal; shipped-file removal.
+> **Authoritative for:** project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).
 > **NOT authoritative for:** per-commit build-vs-reuse — that lives in [CLAUDE.md «Build-vs-reuse invariant (Phase 8.8)»](../../CLAUDE.md). This rule is the macro-level complement to per-commit invariant.
 
 > **Origin:** 2026-05-13 maintainer dialogue surfaced the operating principle. Codified per goal-clarity-dialogue §4.3 v2 verdict (2026-05-16) following the prose-rule-now / executable-test-later split discipline.
@@ -78,6 +78,27 @@ Six layers, each catching different evidence:
 6. **This rule** (macro-level operating philosophy) — distinct from per-commit gate; addresses scope-level drift across many commits.
 
 > **Tooling caveat:** `context7` MCP is intentionally **excluded** from this list. context7 targets **library API documentation** (React, Next.js, Prisma, Tailwind etc.) — it does not surface «does production framework X exist for problem-class Y?» knowledge. Substituting context7 for DeepWiki+WebSearch in BFR-default decisions produces low-signal results — see goal-clarity-dialogue §4.3 maintainer correction 2026-05-16.
+
+## §3.1 Consumer map before dropping or slimming an established artefact
+
+The inverse of §1: an artefact that already ships (an AIF passport file, `ARCHITECTURE.md`, `AGENTS.md`, a template under `packages/core/templates/`) is an adopted standard, and evidence that it is «useless» is not yet a reason to remove it. **A proposal to drop or slim one MUST carry, before any recommendation:**
+
+1. **A consumer table** — who reads or detects the file, each with `file:line`. Grep the file **NAME** across the repo and the upstream skills that read it, including **presence-based detection** (`[ -f … ]`, glob existence checks), not only content reads.
+2. **Drop-vs-slim consequences per consumer** — what breaks if the file goes, what survives if its path stays and its content shrinks, and which alternative keeps the standard's paths while changing content.
+
+Only then the recommendation. Same spirit as T18 in [ai-laziness-traps.md §2](ai-laziness-traps.md) — verify the redundancy empirically, and keeping is the reversible branch.
+
+**Incident (2026-09-28, one-button round 2).** Research (arXiv 2602.11988, 2607.27250) said context-file overviews do not raise agent task success; the passport was re-decided on that evidence and put to the operator twice for confirmation. Operator: «это некий стандарт с архитектурой и паспортом + AGENTS.md, если мы откажемся нужно будет последствия предусмотреть, не просто так же добавлялась, ну и альтернативу обдумать». Hidden consumers existed: `install.sh` detected the stack on refresh from the presence of `ARCHITECTURE.react-*.md`, `readAif` read the stack from `DESCRIPTION.md`, and 16 AIF skills read the two files.
+
+**Channel ([rule-enforcement-channel-selection.md §3](rule-enforcement-channel-selection.md)).** The form half is mechanical and gated where a PR body first exists — PR-time CI; no earlier channel sees the body. A PR that deletes (or renames away) any file under `packages/core/templates/` or `.ai-factory/` must carry a `## Removal consumers` section with one row per path, naming the path (the basename is enough only when no other deleted path shares it) and citing a consumer `path:NN` — a file with an extension or a directory part, not one the PR deletes — or `no consumers — <what was grepped, ≥20 chars>`. Renames count as removals of the old name. Checker: [`pr-body-removal-consumers.ts`](../../packages/core/hooks/checks/pr-body-removal-consumers.ts), run as a step of the already-required `stale-revert-in-pr-diff` job ([`pr-stale-revert.yml`](../../.github/workflows/pr-stale-revert.yml)); template section: [`.github/pull_request_template.md`](../../.github/pull_request_template.md); SSOT [#300](../../docs/meta-factory/prior-art-evaluations.md). Deterministic, no LLM ([no-paid-llm-in-ci.md](no-paid-llm-in-ci.md)). Whether the consequences are right, and a drop proposal made in dialogue before any PR exists, stay review judgment — the gate guarantees only that the map was written.
+
+## §3.2 Scope of fresh prior-art re-verification
+
+The §3 search runs when a capability is **introduced** and its verdict recorded in the SSOT. At PR-authoring or orchestration time, re-run a fresh search (context7 / DeepWiki / WebSearch) **only when the capability touches Claude Code internals** — CC APIs, Agent SDK internals, hook/settings/skill primitives — because CC documentation moves faster than an SSOT row's `Trigger to revisit`. Otherwise cite the existing SSOT row (and update its `Last reviewed` per [prior-art-evaluations.md §3](../../docs/meta-factory/prior-art-evaluations.md)); repeating the search for an npm / library / framework capability whose row has not hit its trigger spends quota and adds noise.
+
+This narrows re-verification only. A **new** capability area with no matching row still owes the full §3 search and a new SSOT row, per [CLAUDE.md «Build-vs-reuse invariant»](../../CLAUDE.md).
+
+**Origin:** maintainer confirmation during Commit 6 orchestration, 2026-05-17. **Class C** — the «touches CC internals?» call is judgment; no deterministic predicate separates the two cases. Promotion: a documented incident where a cited-but-stale SSOT row led to a wrong verdict on a non-CC capability narrows this clause.
 
 ## §4 Anti-patterns
 
