@@ -711,6 +711,7 @@
     "apply-doc-fixes.sh",
     "apply-getff-manifest-staged-precommit.sh",
     "check-getff-manifest-staged.sh",
+    "check-merge-pushed.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
