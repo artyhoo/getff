@@ -66,7 +66,7 @@ fixture() {
   n=$((n+1)); f="$TMP/s$n.md"
   if [ -n "$whole" ]; then printf '%s\n' "$whole" > "$f"
   else printf '%s\n## Consensus retell\n\n%s\n' "$REGISTERS" "$body" > "$f"; fi
-  out=$(cd "$REPO_ROOT" && node "$CHECK" $flag "$f" 2>&1) && rc=0 || rc=$?
+  out=$(cd "$REPO_ROOT" && node "$CHECK" ${flag:+"$flag"} "$f" 2>&1) && rc=0 || rc=$?
   if [ "$want" = quiet ] && [ "$rc" = 0 ]; then ok "$label"
   elif [ "$want" != quiet ] && [ "$rc" = 1 ] && grep -qE "❌ .*${want#fire:}" <<<"$out"; then ok "$label"
   else bad "$label — want $want, rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
