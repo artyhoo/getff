@@ -636,7 +636,7 @@ jobs:
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
       - name: Run register-glossary-hook idempotence regression (cold-review M2, plain-words-recap-v2 S3)
-        run: bash tests/hooks/register-glossary-hook.test.sh
+        run: bash tests/hooks/register-glossary-hook.test.sh && bash tests/hooks/seal-primary-checkout.test.sh # + primary-checkout seal deny-gate paired tests (2026-10-01 incident), same line so no citation shifts
       # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
       # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
       # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
@@ -2693,6 +2693,7 @@ jobs:
       # .claude/rules/attention-is-not-a-mechanism.md §2). Caught by the round-1
       # cold fidelity audit of the S-E stage.
       - alwayson-budget
+      - bash32
       # The install-area path scope. Its decision is re-checked below (PATH_SCOPE_INSTALL):
       # a failed/cancelled path-scope job reports '' here and fails the gate even though the
       # jobs gated on it then show only as `skipped`.
@@ -2719,3 +2720,27 @@ jobs:
         run: |
           # shellcheck disable=SC2086  # intentional word-split: one arg per job result
           bash scripts/ci-success-gate.sh $RESULTS
+
+  # Appended at the end of the file on purpose: `path:line` citations point into this workflow,
+  # and a job added above them would shift every one.
+  bash32:
+    # install.sh and setup.d/** run on a consumer's Mac: /bin/bash 3.2 with BSD sed and awk. This
+    # runner is bash 5 with GNU userland, so the defects never FIRE here (every one of them shipped
+    # green) — a static scan is the only form of the check that can run on it. The scan's own
+    # channel is pre-push (packages/core/hooks/pre-push.ts, section `bash32`); this job is the
+    # backstop for pushes that skipped the hook. The paired-negative runs the detector under the
+    # runner's mawk, the awk a Mac never uses, so a BSD-only awk construct in the checker fails
+    # here rather than on the next Linux user. No tool install: bash + awk + git.
+    name: bash32
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run bash-3.2 portability gate paired-negative
+        run: bash scripts/check-bash32.test.sh
+      - name: bash-3.2 / BSD portability gate over install.sh + setup.d/**
+        run: bash scripts/check-bash32.sh

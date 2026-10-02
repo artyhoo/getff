@@ -305,7 +305,7 @@
       "D": {
         "familyName": "hooks",
         "path": "docs/site/reference/D.json",
-        "members": 26
+        "members": 27
       },
       "E": {
         "familyName": "templates",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 33
+        "members": 34
       },
       "G": {
         "familyName": "packages",
@@ -348,12 +348,12 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 55
+      "count": 56
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 299
+      "count": 301
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
