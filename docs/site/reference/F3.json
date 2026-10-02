@@ -148,6 +148,26 @@
       "example": null
     },
     {
+      "name": "check-bash32.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "refuse bash-4-only syntax and BSD-userland traps in the shell that install.sh",
+      "source": {
+        "path": "scripts/check-bash32.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2130 (spawn-argument)",
+          ".github/workflows/audit-self.yml:2746 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "check-bundle-dep-parity.sh",
       "kind": "script",
       "shipsTo": {
@@ -278,7 +298,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2721 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2722 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -564,7 +584,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2562 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2591 (spawn-argument)",
           ".husky/pre-commit:326 (quoted-path-token)"
         ]
       },
@@ -671,7 +691,7 @@
           "install.sh:1218 (quoted-path-token)",
           "install.sh:1219 (quoted-path-token)",
           "install.sh:1220 (quoted-path-token)",
-          "scripts/run-local-ci-sweep.sh:1175 (command-substitution, closure)"
+          "scripts/run-local-ci-sweep.sh:1176 (command-substitution, closure)"
         ]
       },
       "example": null
@@ -709,6 +729,8 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "apply-getff-manifest-staged-precommit.sh",
+    "check-getff-manifest-staged.sh",
     "check-merge-pushed.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
