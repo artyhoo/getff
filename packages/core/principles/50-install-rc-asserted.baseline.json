@@ -1,5 +1,5 @@
 {
-  "_comment": "Principle 49 ratchet: per-file count of install.sh invocations whose exit code is not asserted. Only ever LOWER an entry (delete it at 0); the test fails on any mismatch. Measured 2026-10-01.",
+  "_comment": "Principle 50 ratchet: per-file count of install.sh invocations whose exit code is not asserted. Only ever LOWER an entry (delete it at 0); the test fails on any mismatch. Measured 2026-10-01.",
   "unasserted": {
     "audit-r4-shipped.test.sh": 1,
     "byte-identical.test.sh": 1,

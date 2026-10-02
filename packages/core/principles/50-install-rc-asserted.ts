@@ -1,5 +1,5 @@
 /**
- * Principle 49 — detection half: which `install.sh` invocations in an install-sh test leave
+ * Principle 50 — detection half: which `install.sh` invocations in an install-sh test leave
  * install.sh's exit code unasserted.
  *
  * > **Authoritative for:** the line-level detector and the ratchet comparison. What counts as
@@ -158,7 +158,7 @@ export function ratchetProblems(
       );
     else if (now < base)
       problems.push(
-        `${name}: ${now} unasserted invocation(s), baseline ${base} — lower its entry in 49-install-rc-asserted.baseline.json to ${now} (the ratchet only goes down)`,
+        `${name}: ${now} unasserted invocation(s), baseline ${base} — lower its entry in 50-install-rc-asserted.baseline.json to ${now} (the ratchet only goes down)`,
       );
   }
   return problems;

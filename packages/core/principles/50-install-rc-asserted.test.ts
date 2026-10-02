@@ -1,5 +1,5 @@
 /**
- * Principle 49 — an install-sh test that runs install.sh asserts install.sh's exit code
+ * Principle 50 — an install-sh test that runs install.sh asserts install.sh's exit code
  *
  * > **Authoritative for:** which `tests/install-sh/*.test.sh` invocations of `install.sh` count
  * > as rc-asserted, the per-file ratchet of the legacy unasserted ones, and its escape.
@@ -39,7 +39,7 @@
  * ## The ratchet
  *
  * Measured 2026-10-01: 332 of 436 invocations, in 73 of 90 files, unasserted. They are recorded
- * per file in `49-install-rc-asserted.baseline.json`. A file may never hold MORE unasserted
+ * per file in `50-install-rc-asserted.baseline.json`. A file may never hold MORE unasserted
  * invocations than its baseline (a file absent from it holds zero), and a file that holds FEWER
  * fails too until its baseline is lowered — so the number only goes down and a fix cannot leave
  * slack for the next regression. Raising an entry is itself refused: where `origin/staging` is
@@ -60,14 +60,14 @@ import {
   findUnasserted,
   measureSuite,
   ratchetProblems,
-} from './49-install-rc-asserted.js';
+} from './50-install-rc-asserted.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const BASELINE: Record<string, number> = JSON.parse(
   readFileSync(
     resolve(
       REPO_ROOT,
-      'packages/core/principles/49-install-rc-asserted.baseline.json',
+      'packages/core/principles/50-install-rc-asserted.baseline.json',
     ),
     'utf8',
   ),
@@ -78,7 +78,7 @@ const WITH_E = '#!/usr/bin/env bash\nset -euo pipefail\n';
 const RUN =
   '( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1';
 
-describe('principle 49 — install.sh exit code is asserted (live suite)', () => {
+describe('principle 50 — install.sh exit code is asserted (live suite)', () => {
   it('holds the per-file ratchet over tests/install-sh/*.test.sh', () => {
     const measured = measureSuite(REPO_ROOT);
     const problems = ratchetProblems(measured.counts, BASELINE);
@@ -93,7 +93,7 @@ describe('principle 49 — install.sh exit code is asserted (live suite)', () =>
           'git',
           [
             'show',
-            'origin/staging:packages/core/principles/49-install-rc-asserted.baseline.json',
+            'origin/staging:packages/core/principles/50-install-rc-asserted.baseline.json',
           ],
           {
             cwd: REPO_ROOT,
@@ -118,7 +118,7 @@ describe('principle 49 — install.sh exit code is asserted (live suite)', () =>
   });
 });
 
-describe('principle 49 — the detector (paired arms)', () => {
+describe('principle 50 — the detector (paired arms)', () => {
   it.each([
     [
       'a bare statement in a file without set -e (the GH #531 shape)',
@@ -234,7 +234,7 @@ describe('principle 49 — the detector (paired arms)', () => {
   });
 });
 
-describe('principle 49 — the ratchet', () => {
+describe('principle 50 — the ratchet', () => {
   it('fails a file that grew above its baseline, and a new file with any', () => {
     const p = ratchetProblems(
       { 'a.test.sh': 3, 'new.test.sh': 1 },
