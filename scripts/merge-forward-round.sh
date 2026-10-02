@@ -500,7 +500,7 @@ EOF
 }
 
 wait_ci() { # watch arm after a PUSHED round; 10 = conflicting again, start the next round
-  local wout wrc mmergeable mmstate
+  local wout wrc mmergeable mmstate agg agg_wait
   if [ ! -f "$CI_WAIT" ]; then
     verdict "NO-CIWAIT" "ci-wait not found at $CI_WAIT — watch by hand: bash <ci-wait> $PR --sha $PUSHED_SHA ${REPO:+--repo $REPO}"
     return 0
@@ -514,14 +514,32 @@ wait_ci() { # watch arm after a PUSHED round; 10 = conflicting again, start the 
   printf '%s\n' "$wout"
   case "$wrc" in
     0)
+      # ci-wait can exit 0 while checks are still REGISTERING (0 pending at poll 1 over a
+      # half-empty check set: measured live on PR #2017, 2026-10-03 — "GREEN: 11 pass" with
+      # ci-success ABSENT and mergeStateStatus=BLOCKED). The ci-success aggregate is the
+      # cheapest sufficient verdict (prior-art #1625/#1627 lesson): wait for it to resolve
+      # before believing anything, bounded by the same --timeout budget.
+      agg_wait=0
+      agg=""
+      while :; do
+        agg=$(gh api "repos/$REPO/commits/$PUSHED_SHA/check-runs" --paginate \
+          -q '.check_runs[] | select(.name=="ci-success") | .conclusion' 2>/dev/null | tail -1 || true)
+        case "$agg" in success | failure) break ;; esac
+        agg_wait=$((agg_wait + 1))
+        if [ "$agg_wait" -gt $((TIMEOUT / 60)) ]; then break; fi
+        sleep 60
+      done
+      if [ "$agg" = "failure" ]; then
+        verdict "RED" "pr=$PR head=$PUSHED_SHA — ci-success=failure on THIS head; diagnose per-SHA (gh api .../commits/$PUSHED_SHA/check-runs --paginate); do not refresh by moving the head (§10)"
+        return 1
+      fi
       if grep -q '⚠' <<<"$wout"; then
         echo "   note: ⚠ lines above are blockers even at EXIT=0 — resolve per-SHA via gh api repos/<o>/<r>/commits/$PUSHED_SHA/check-runs"
       fi
-      # ci-wait can exit 0 with checks still registering; the PR's mergeability is the verdict
-      # that decides whether the round must run again (measured 2026-10-02, PR #1998).
+      # the PR's mergeability decides whether the round must run again (2026-10-02, PR #1998)
       mmergeable=$(ghp view "$PR" --json mergeable -q .mergeable 2>/dev/null || true)
       mmstate=$(ghp view "$PR" --json mergeStateStatus -q '.mergeStateStatus // ""' 2>/dev/null || true)
-      echo "   post-wait PR state: mergeable=$mmergeable mergeStateStatus=${mmstate:-?}"
+      echo "   post-wait PR state: mergeable=$mmergeable mergeStateStatus=${mmstate:-?} ci-success=${agg:-ABSENT}"
       if [ "$mmergeable" = "CONFLICTING" ] || [ "$mmstate" = "DIRTY" ]; then
         if [ "$ROUND_N" -lt "$MAX_ROUNDS" ]; then
           echo "== conflicting again during the CI round — starting round $((ROUND_N + 1))"
@@ -530,7 +548,11 @@ wait_ci() { # watch arm after a PUSHED round; 10 = conflicting again, start the 
         verdict "WATCH-EXHAUSTED" "pr=$PR rounds=$ROUND_N — still conflicting after $ROUND_N rounds; raise --max-rounds or park"
         return 3
       fi
-      verdict "GREEN" "pr=$PR head=$PUSHED_SHA mergeable=$mmergeable mergeStateStatus=${mmstate:-?} — round(s) complete"
+      if [ "$agg" != "success" ]; then
+        verdict "PENDING" "pr=$PR head=$PUSHED_SHA — ci-success is '${agg:-ABSENT}' after ${TIMEOUT}s (checks never settled); re-run --watch or ci-wait later"
+        return 3
+      fi
+      verdict "GREEN" "pr=$PR head=$PUSHED_SHA mergeable=$mmergeable mergeStateStatus=${mmstate:-?} ci-success=success — round(s) complete"
       return 0
       ;;
     1)
