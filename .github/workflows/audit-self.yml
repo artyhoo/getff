@@ -781,7 +781,7 @@ jobs:
       # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
       # tsx/curl/launchctl under mktemp, so it runs anywhere.
       - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
-        run: bash scripts/close-merged-sweep.test.sh
+        run: bash scripts/close-merged-sweep.test.sh && bash tests/orchestrator/memory-sweep.test.sh && bash tests/orchestrator/coordinator-seat-card.test.sh # + orchestrator paired-negatives (Phase -1 memory sweep on a mktemp store; coordinator-seat events: card regexes); same line so no citation shifts
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that
@@ -942,6 +942,10 @@ jobs:
         run: bash scripts/ci-success-gate.test.sh
       - name: Run path-scope decision paired-negative (install-area jobs skip only on a measured-skip-only PR)
         run: bash scripts/ci-path-scope.test.sh && bash scripts/ci-capture.test.sh # + the runner-only-value capture script (real git in mktemp, stubbed gh), same line so no citation shifts
+      # merge-forward-round.sh (git-conflict-merge-forward.md §2/§4 automation): the §4
+      # generated-vs-semantic classifier + usage contract, hermetic (no git history, no gh).
+      - name: Run merge-forward-round classifier + usage paired-negative
+        run: bash scripts/merge-forward-round.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)

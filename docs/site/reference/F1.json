@@ -82,14 +82,14 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals.",
+      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).",
       "source": {
         "path": ".claude/rules/build-first-reuse-default.md",
         "line": 19
       },
       "extras": {
         "class": "A",
-        "fires": "any capability commit / new-capability proposal.",
+        "fires": "capability commit/proposal; shipped-file removal.",
         "channels": "paths:(7), edit-time inject"
       },
       "example": null
@@ -145,6 +145,24 @@
         "class": "B",
         "fires": "editing `setup.d/**` (companion install manifest/engine).",
         "channels": "paths:(1), edit-time inject"
+      },
+      "example": null
+    },
+    {
+      "name": "coordinator-seat-delegation",
+      "kind": "rule",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.",
+      "source": {
+        "path": ".claude/rules/coordinator-seat-delegation.md",
+        "line": 18
+      },
+      "extras": {
+        "class": "C",
+        "fires": "a coordinator seat about to run the stage pipeline itself.",
+        "channels": "paths:(1)"
       },
       "example": null
     },
@@ -352,7 +370,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
+      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
       "source": {
         "path": ".claude/rules/parallel-subwave-isolation.md",
         "line": 13

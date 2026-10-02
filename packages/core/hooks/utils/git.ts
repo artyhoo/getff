@@ -193,7 +193,7 @@ export function getChangedFiles(
     .filter(Boolean);
 }
 
-function parseNameStatus(out: string): { status: string; path: string }[] {
+export function parseNameStatus(out: string): { status: string; path: string }[] {
   return out
     .split('\n')
     .map((line) => line.trim())
