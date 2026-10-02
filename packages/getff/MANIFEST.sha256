@@ -476,7 +476,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-fff092e38e662cf15f9333e60a38d999edf29a0d2bf3bbb33577b6c303ff64bf  packages/core/hooks/end-of-turn-reminder.test.ts
+d7d06241567c0df7ff353b46e68a7f6770a943cdce3362c2570c33351af87b12  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
