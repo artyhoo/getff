@@ -301,7 +301,7 @@ workaround, not the fix.
 Invoke superpowers:requesting-code-review on the harvested PR diff.
 ```
 
-Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → operator fixes, re-dispatch. `STOP` → escalate. `GO` → proceed to §2.6.
+Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → the branch is already on the host, so route it by the tier-home «Rework routing» table (`.ai-factory/tier-home.md` §2; source `packages/core/templates/shared/tier-home.md`): every fix named at `file:line` with no open decision → fix in-session on the harvested branch, no re-dispatch; an open decision → re-dispatch per tier routing. `STOP` → escalate. `GO` → proceed to §2.6.
 
 **§2.6 — Stage gate**
 
