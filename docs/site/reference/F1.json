@@ -262,7 +262,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict, §10 when a merge of staging into a PR branch is warranted at all.",
+      "description": "the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict, §10 when a merge of staging into a PR branch is warranted at all, §11 the recovery when a foreign commit lands on your pushed branch.",
       "source": {
         "path": ".claude/rules/git-conflict-merge-forward.md",
         "line": 7
@@ -388,15 +388,15 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "mechanism layer + named anti-pattern catalogue entry for inline-chat verdict-without-evidence pattern; promotion criterion in §6.",
+      "description": "mechanism layer + named anti-pattern catalogue for the inline-chat verdict-without-evidence pattern, fork closure (a fork closes only on an explicit operator choice), the liability-shield pattern, the zero-click dispatch-channel order, and the human-touchpoint justification; promotion criterion in §6.",
       "source": {
         "path": ".claude/rules/recommendation-laziness-discipline.md",
-        "line": 7
+        "line": 8
       },
       "extras": {
-        "class": "C",
-        "fires": "before an inline verdict/recommendation or an ambiguous fork.",
-        "channels": "digest"
+        "class": "B",
+        "fires": "before a verdict, an ambiguous fork, or a dispatch.",
+        "channels": "digest, hook"
       },
       "example": null
     },
@@ -460,7 +460,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the lifecycle SEQUENCE only — §1 the four phases, which settled",
+      "description": "the lifecycle SEQUENCE — §1 the four phases, which settled",
       "source": {
         "path": ".claude/rules/seat-lifecycle.md",
         "line": 18
