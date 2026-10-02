@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1728-1766 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1777-1815 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -727,6 +727,217 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.status).toBe(0);
     expect(r.stderr).not.toMatch(/unbound variable/);
     expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Section-evidence arm of the already-recapped guard (2026-10-01 recap-loop
+  // incident, desktop session e1ee5b76, AIF_HOOK_LANG=ru): the model answered
+  // the recap block with the full five-section shape but a PARAPHRASED heading —
+  // a bare `🟢` line, no "## 🟢 Простыми словами" literal — so the exact-literal
+  // guard above never recognized the turn as recapped and every fresh turn
+  // re-blocked with the same instruction (four+ near-identical recap blocks; a
+  // turn carrying all sections + a fork card was STILL blocked). The fix: a turn
+  // whose final text carries the demand's full well-formed section set — the
+  // same required sections _eot_recap_defects validates — IS recap evidence,
+  // marker or not. Prose-only alignment (demanding the heading verbatim in the
+  // block reason) was considered and rejected: the recap contract already
+  // interpolates the literal marker in its first line (lang/ru.sh + lang/en.sh)
+  // and the incident drifted anyway — detection may not rest on the model's
+  // prose compliance (attention-is-not-a-mechanism.md §1).
+  // ---------------------------------------------------------------------------
+
+  /** The incident's final-text shape: long markdown answer + a recap block whose
+   *  heading lost the marker literal. >500 chars + markdown-dense, so the PRE-fix
+   *  hook reaches Branch A and re-blocks — the RED half of the paired negative. */
+  function driftRecapText(): string {
+    return [
+      longMarkdownText(),
+      '',
+      '🟢',
+      '',
+      '1. **Где мы.** Чинили Stop-хук: пересказ требовался заново на каждом свежем ходе сессии.',
+      '2. **Что изменилось.** Guard признавал только точный литерал заголовка и не видел секционный набор рекапа.',
+      '3. **Развилка.** Развилка была одна: требовать заголовок дословно или принимать секционный набор как улику; выбрано второе, иначе петля возвращается при следующем дрейфе заголовка.',
+      '4. **В чём не уверен.** Формат секций у модели может дрейфовать и дальше; предикат проверяет набор, а не заголовок.',
+      '5. **Дальше.**',
+      '   Я: вливаю фикс и слежу за повторами петли на живых сессиях.',
+      '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+    ].join('\n');
+  }
+
+  /** Same shape under the en pack — the predicate must be pack-agnostic
+   *  (labels + the D-B closing tokens both come from the active pack). */
+  function enDriftText(): string {
+    return [
+      longMarkdownText(),
+      '',
+      '🟢',
+      '',
+      '1. **Where we are.** Fixing the Stop hook: the recap was demanded again on every fresh turn of the session.',
+      '2. **What changed.** The guard recognized only the exact heading literal and never saw the section set.',
+      '3. **Fork.** One fork: demand the heading verbatim or accept the section set as evidence; the second won, otherwise the loop returns on the next heading drift.',
+      '4. **What I am unsure about.** The section format may drift further; the predicate checks the set, not the heading.',
+      '5. **Next.**',
+      '   Me: merging the fix and watching for loop repeats.',
+      '   From you: nothing (ran the whole hook suite, nothing red).',
+    ].join('\n');
+  }
+
+  it('section-evidence arm: the 2026-10-01 incident shape — full sections, paraphrased heading → exit 0 silent', () => {
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(driftRecapText()),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-ru' });
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'a turn carrying the full well-formed section set IS recap evidence even without the marker literal — re-blocking it is the 2026-10-01 loop',
+    ).toBe('');
+  });
+
+  it('en pack: full section set with a well-formed "From you: nothing (…)" closing → exit 0 silent', () => {
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('go'),
+      assistantText(enDriftText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-en' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'the section-evidence predicate reads the active pack, not a hard-coded language').toBe('');
+  });
+
+  it('section-evidence arm does NOT over-fire: section labels mentioned in prose without the closing grammar → still blocks', () => {
+    // Paired negative to the incident test. Every section label appears in the
+    // text, so a label-only predicate would suppress — but the final line is
+    // ordinary prose, not the D-B closing grammar, and a turn without it is not
+    // a recap. Pre-fix this blocks too (Branch A); it must KEEP blocking.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        longMarkdownText() +
+          '\n\n**Где мы.** упоминается. **Что изменилось.** упоминается. **Дальше.** тоже в прозе.\n\nИтог: всё описано.',
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-prose' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'prose mentions of the labels are not a recap — Branch A must still fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: a banned «От тебя: проверь…» closing is not recap evidence → still blocks', () => {
+    // The D-B banned-verb half of _eot_recap_defects: a full section set whose
+    // closing line offloads the operator's work is NOT a well-formed recap.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        driftRecapText().replace(
+          '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+          '   От тебя: проверь, что нигде не сломалось.',
+        ),
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-banned' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a banned closing line defeats the section evidence — the recap demand must fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: a malformed «ничего» without the verification trace is not recap evidence → still blocks', () => {
+    // D-B: "nothing" needs its parens. Same sections, closing value «ничего.» →
+    // malformed → not evidence → the demand must fire (matches what the gate
+    // would demand of the marker-present twin of this turn).
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        driftRecapText().replace(
+          '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+          '   От тебя: ничего.',
+        ),
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-malformed' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a malformed closing value defeats the section evidence — the recap demand must fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: asked=true via the closing "decide:" value requires the Fork section → still blocks without it', () => {
+    // en pack: "decide:" in the closing value trips the trailing-fork pattern, so
+    // the demanded section set includes **Fork.** (the same conditionality
+    // _eot_recap_defects applies to the marker-present twin).
+    const forkless = [
+      '**Where we are.** Fixed the recap guard.',
+      '**Next.**',
+      '   Me: merging.',
+      '   From you: decide: accept the section set or demand the heading verbatim',
+    ].join('\n');
+    const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(forkless)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-forkless' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'an asked turn without the Fork section is not recap evidence').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: the same asked turn WITH the Fork section → exit 0 silent', () => {
+    // Paired twin of the forkless negative — flips only the missing section.
+    const withFork = [
+      '**Where we are.** Fixed the recap guard.',
+      '**Fork.** Accept the section set as recap evidence, or demand the heading verbatim.',
+      '**Next.**',
+      '   Me: merging.',
+      '   From you: decide: accept the section set or demand the heading verbatim',
+    ].join('\n');
+    const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(withFork)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-fork' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'every demanded section present + well-formed closing = recap evidence').toBe('');
+  });
+
+  it('section-evidence arm under the D-A gate: AIF_RECAP_GATE=1 must not re-block a well-formed section-evidence turn', () => {
+    // The gate's checker reads the marker-glued slice (_eot_recap_block), which
+    // for a marker-less text is the WHOLE turn — running the defect gate there
+    // would cap-block the very turn the section arm just recognized (the whole
+    // point of this fix). The arm must exit ahead of the gate.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(driftRecapText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-gated' },
+      { AIF_RECAP_GATE: '1' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'the section arm precedes the defect gate; no marker, no slice, no cap defect').toBe('');
+  });
+
+  it('section-evidence arm under ZCode: a drift recap (sections, no marker) is silent — no thin-recap re-block', () => {
+    // ZCode re-stops carry stop_hook_active=false, so the drift loop there is the
+    // worst case. The hoisted guard region must absorb the section-evidence turn
+    // before the ZCode dense branch sees it (#1706 shadowing class).
+    const tr = writeTranscript([
+      { message: { content: [{ type: 'text', text: enDriftText() }], role: 'assistant' } },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-zcode' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a section-evidence turn must terminate silently on ZCode, not re-block').toBe('');
   });
 
   // Task 1.4 (plain-words-recap-v2 slice 1): the branch payloads (Branch A/B/C) now teach
@@ -1520,7 +1731,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1459 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1496 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
