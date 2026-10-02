@@ -28,9 +28,14 @@
 #     refresh-aif-base.sh.
 #   - DECOY_BIN catches any stub-function-override regression loudly (exit 99).
 #   - All fixtures live under mktemp -d, cleaned by trap.
+#   - AIF_HEAL_HOOK_SYNC=0 for every run: hook-sync looks up the aif agent container on every
+#     docker context of the host (aif-agent-target.sh) and pipes a sync script into it — a
+#     live container, on an operator machine running the local CI sweep. No case here tests
+#     hook-sync, so it is switched off and heal.sh makes no docker call at all.
 #
 # Run: bash tests/aif-doctor/heal.test.sh
 set -uo pipefail
+export AIF_HEAL_HOOK_SYNC=0
 
 STUBS_DIR="$(cd "$(dirname "$0")/stubs" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

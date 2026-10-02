@@ -101,8 +101,8 @@
  *   the docker coupling is acceptable per dual-implementation-discipline.md §3
  *   (internal tooling → CC/env-specific OK); it degrades to printed manual commands.
  */
-import { execFileSync } from 'node:child_process';
-import { readFileSync, realpathSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -282,10 +282,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     base: str('base') ?? 'staging',
     bodyFile: str('body-file'),
     autoMerge: values['no-auto-merge'] !== true,
+    // '' = not named: main() asks the shared resolver (resolveAgentContainer) before any egress step.
     container:
-      str('container') ??
-      process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ??
-      'aif-handoff-agent-1',
+      str('container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? '',
     repoPath: str('repo-path'),
     workDir: str('work-dir'),
     hostRepo: str('host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
@@ -398,6 +397,74 @@ export function resolveHostRepo(
     );
   }
   return top;
+}
+
+/** The container asked when the shared resolver is absent or finds no agent — the historical fixed name. */
+export const LEGACY_AIF_CONTAINER = 'aif-handoff-agent-1';
+
+/** Result of running the shared resolver script: its exit status and both streams. */
+export interface AgentTargetRun {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Which aif agent container to harvest from when neither `--container` nor
+ * RUNTIME_BRIDGE_AIF_CONTAINER names one. It runs the shared resolver
+ * `.claude/skills/aif-doctor/helpers/aif-agent-target.sh` under the host repo. The dispatcher's
+ * in-flight probe and the aif-doctor helpers use the same lookup, and dispatcher, aif-doctor and
+ * this vendored CLI ship in the same factory tier.
+ *
+ * - Exit 0: the one agent container, plus the docker context it runs on. The caller sets
+ *   DOCKER_CONTEXT, so every later `docker exec` / `docker cp` reaches it. Measured 2026-09-30:
+ *   on the operator's Mac the stack runs on the PC (context `pc`, container `aif-agent-1`), and
+ *   the fixed default failed there.
+ * - Exit 1 (two or more candidates): THROWS. Harvesting from a guessed container would bundle
+ *   another stack's branch.
+ * - Resolver absent, or no agent found: the legacy name, so docker's own error names the cause
+ *   later, as before.
+ */
+export function resolveAgentContainer(
+  hostRoot: string,
+  run: (helper: string) => AgentTargetRun = (helper) => {
+    const r = spawnSync('bash', [helper], { encoding: 'utf8' });
+    return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  },
+): { container: string; dockerContext?: string; note: string } {
+  const helper = join(
+    hostRoot,
+    '.claude/skills/aif-doctor/helpers/aif-agent-target.sh',
+  );
+  if (!existsSync(helper)) {
+    return {
+      container: LEGACY_AIF_CONTAINER,
+      note: `${LEGACY_AIF_CONTAINER} (default; ${helper} not installed)`,
+    };
+  }
+  const r = run(helper);
+  if (r.status === 0) {
+    const [container = '', dockerContext = ''] = r.stdout.trim().split('\t');
+    if (container) {
+      return dockerContext
+        ? {
+            container,
+            dockerContext,
+            note: `${container} on docker context ${dockerContext}`,
+          }
+        : { container, note: `${container} on the current docker context` };
+    }
+  }
+  if (r.status === 1) {
+    throw new Error(
+      `harvest: ${r.stderr.trim()} — refusing to guess; pass --container <name> ` +
+        `(or set RUNTIME_BRIDGE_AIF_CONTAINER, and DOCKER_CONTEXT when it runs elsewhere).`,
+    );
+  }
+  return {
+    container: LEGACY_AIF_CONTAINER,
+    note: `${LEGACY_AIF_CONTAINER} (default; ${r.stderr.trim() || 'resolver gave no answer'})`,
+  };
 }
 
 /**
@@ -1744,7 +1811,12 @@ function containerRead(
   workDir: string,
   gitArgs: string,
 ): string {
-  return `docker exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
+  // The container may live on another docker context (resolveAgentContainer sets DOCKER_CONTEXT);
+  // name it, or the pasted command asks the current context and gets «No such container».
+  const ctx = process.env.DOCKER_CONTEXT
+    ? `--context ${process.env.DOCKER_CONTEXT} `
+    : '';
+  return `docker ${ctx}exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
 }
 
 async function main(): Promise<void> {
@@ -1808,6 +1880,33 @@ async function main(): Promise<void> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       process.stderr.write(`[harvest] --report-merge FAILED: ${msg}\n`);
+      process.exit(1);
+    }
+  }
+
+  // WHICH container, and on which docker context — resolved before the first container read, so
+  // the fallback warning below already names the real one.
+  if (!parsed.container) {
+    let hostRoot = process.cwd();
+    try {
+      hostRoot = resolveHostRepo(
+        parsed.hostRepo,
+        process.cwd(),
+        fileURLToPath(import.meta.url),
+      );
+    } catch {
+      // the egress step reports an unresolvable host repo with its own message
+    }
+    try {
+      const target = resolveAgentContainer(hostRoot);
+      parsed.container = target.container;
+      if (target.dockerContext)
+        process.env['DOCKER_CONTEXT'] = target.dockerContext;
+      process.stderr.write(`[harvest] agent container: ${target.note}\n`);
+    } catch (err) {
+      process.stderr.write(
+        `[harvest] FAILED: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
       process.exit(1);
     }
   }

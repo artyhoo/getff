@@ -56,6 +56,7 @@ import {
 import { runCmdScriptLivenessGate } from './checks/cmd-script-liveness.ts';
 import { runS17Check } from './checks/s17.ts';
 import { runDocsCardCheck } from './checks/docs-card.ts';
+import { ensureOwnHooks } from './checks/hooks-path.ts';
 import {
   checkUnpinnedToolInstalls,
   isShellScriptPopulationFile,
@@ -1097,9 +1098,11 @@ function ruleGlobsSection(): void {
 // It therefore runs FIRST (position 0 in ALL_SECTIONS — composeSections() is order-preserving)
 // so the symlinks land BEFORE vitest can plant the cache that would freeze them out.
 //
-// Heals rather than blocks: the only write is a gitignored symlink, and the shared helper
-// refuses any path holding a real install. Blocks ONLY when healing is impossible (the primary
-// checkout itself has no node_modules), and then names the exact remediation. Per the operator
+// Heals rather than blocks: the write is a gitignored symlink — or, when the worktree's lock
+// diverges from the primary's installed tree, a real install into the worktree's own
+// node_modules — and the shared helper refuses any path holding a real install. Blocks ONLY
+// when healing is impossible (the primary has no node_modules, or the real install failed),
+// and then the helper names the exact remediation. Per the operator
 // directive — worktree symlink provisioning is a blocking check of the setup hook, not a manual
 // habit — and .claude/rules/attention-is-not-a-mechanism.md §1 (a gate, not a warning nobody reads).
 function worktreeProvisioningSection(): void {
@@ -1108,19 +1111,62 @@ function worktreeProvisioningSection(): void {
   if (!existsSync(helper) || !statSync(resolve(REPO_ROOT, '.git')).isFile())
     return;
 
-  if (run('bash', [helper, '--check', REPO_ROOT]).exitCode === 0) return;
+  // --check exit 3 = this worktree's lock diverges from the primary's INSTALLED tree, so a link
+  // would serve the wrong dependencies (incident 2026-09-30: TS2307 on `oxlint/plugins-dev`
+  // reading as a code red). --apply then performs a real install, never through a symlink.
+  const checked = run('bash', [helper, '--check', REPO_ROOT]);
+  if (checked.exitCode === 0) return;
 
-  const applied = run('bash', [helper, '--apply', REPO_ROOT]);
+  // A lock-diverged worktree gets a real install (minutes of network on a cold cache), which
+  // the 120 s default cap of run() would cut off mid-install.
+  const applied = runCheck('bash', [helper, '--apply', REPO_ROOT], {
+    cwd: REPO_ROOT,
+    timeoutMs: 15 * 60_000,
+  });
   if (applied.exitCode !== 0) {
     die(
-      '❌ this worktree has no node_modules and cannot be provisioned automatically.\n' +
-        '   Run `npm install` in the primary checkout, then `bash scripts/worktree-doctor.sh --fix`.',
+      '❌ this worktree cannot be provisioned automatically — the helper output below names the cause\n' +
+        '   and the exact commands (typically: `npm install` in the primary checkout, or the real-install\n' +
+        '   commands for a lock-diverged worktree).',
       applied,
     );
   }
   process.stdout.write(
-    '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
+    checked.exitCode === 3
+      ? '✓ worktree node_modules installed for real (its lock diverges from the primary checkout)\n'
+      : '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
   );
+}
+
+// ── 3c-ter. worktree hooks path (maintainer, incident 2026-09-30, #1983) ─────────────────
+// The desktop app pins every worktree's core.hooksPath to `<primary>/.husky`, so git ran the
+// primary checkout's hook files — 457 commits stale — and a pre-commit check never fired in a
+// worktree. The `.husky/*` self-delegate block is the durable fix; this section covers a
+// foreign copy that predates it. It lives here because pre-push.ts is the one hook code path
+// that always runs from THIS worktree. Heals (a per-worktree config write no other checkout
+// reads) rather than blocks; blocks only when the write is impossible. Logic and paired
+// negatives: checks/hooks-path.ts + its test.
+function hooksPathSection(): void {
+  const r = ensureOwnHooks(REPO_ROOT);
+  if (r.status === 'failed') {
+    die(
+      `❌ git runs this worktree's hooks from ${r.dir}, whose ${r.stale.join(', ')} are not this\n` +
+        '   worktree\'s and do not delegate to it — their checks silently skipped your commits.\n' +
+        `   Repair failed: ${r.detail}\n` +
+        '   Fix: `git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky`',
+    );
+  }
+  if (r.status === 'unknown') {
+    process.stdout.write(
+      '⊝ hooks-path: git could not name the hooks dir (git < 2.31?) — foreign-hook check not run\n',
+    );
+  }
+  if (r.status === 'healed') {
+    process.stdout.write(
+      `✓ core.hooksPath repointed to this worktree's .husky (was ${r.dir}; stale: ${r.stale.join(', ')}).\n` +
+        '  Commits made before this push were checked by those foreign hooks — re-check them if in doubt.\n',
+    );
+  }
 }
 
 // ── 3d. lint-staged binary resolution (consumer, universalization-fix-s2) ────
@@ -2083,6 +2129,35 @@ function askFileSchemaSection(): void {
   emit(r);
 }
 
+// ── 5a-ter. bash-3.2 / BSD portability of the installer (maintainer) ─────────
+// install.sh and every setup.d/*.sh it sources run on a consumer's Mac under /bin/bash 3.2 with
+// BSD sed and awk; CI runners are bash 5 + GNU, so a bash-4 construct (declare -A, mapfile, an
+// empty "${A[@]}" under set -u) or a BSD-userland trap (sed BRE `\|`, multi-line `awk -v`) ships
+// green and aborts the install on the host. The scan and its escape live in
+// scripts/check-bash32.sh (its header); this entry propagates the exit code. The audit-self.yml
+// `bash32` job is the backstop for pushes that skip the hook.
+//
+// Absent script (a consumer checkout) → skip, never fail: the existsSync guard askFileSchemaSection
+// uses.
+function bash32Section(): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/check-bash32.sh'))) return;
+  const r = run('bash', ['scripts/check-bash32.sh']);
+  if (r.notFound) {
+    die(
+      '❌ bash not found to run scripts/check-bash32.sh (bash-3.2 portability gate).',
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      '❌ bash-3.2 portability gate RED — install.sh / setup.d/** use a shape that aborts on\n' +
+        '   macOS /bin/bash 3.2 or BSD sed/awk (findings above). Fix it, or escape one line with\n' +
+        "   '# bash32-safe: <rationale >= 20 chars>' (header of scripts/check-bash32.sh).",
+      r,
+    );
+  }
+  emit(r);
+}
+
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -2206,7 +2281,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:48-67 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:64-83 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
 //       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
@@ -2260,10 +2335,10 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1657 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1665 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1672 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1680 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2622,6 +2697,7 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'maintainer',
     run: () => worktreeProvisioningSection(),
   },
+  { id: 'hooks-path', owner: 'maintainer', run: () => hooksPathSection() },
   { id: 'actionlint', owner: 'maintainer', run: () => actionlintSection() },
   { id: 'zizmor-live', owner: 'maintainer', run: () => zizmorLiveSection() },
   {
@@ -2766,6 +2842,14 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'ask-file-schema',
     owner: 'maintainer',
     run: () => askFileSchemaSection(),
+  },
+  {
+    // install.sh + setup.d/** run under macOS /bin/bash 3.2 + BSD sed/awk; CI cannot see the
+    // class. maintainer-only — the population is this repo's installer source, and a consumer
+    // layout has no scripts/check-bash32.sh to run. See bash32Section docstring.
+    id: 'bash32',
+    owner: 'maintainer',
+    run: () => bash32Section(),
   },
 ];
 

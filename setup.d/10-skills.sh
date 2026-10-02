@@ -191,7 +191,7 @@ fi
 # gated suite, so its helpers surface only when the suite was installed.
 _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
 if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
-  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" "$_AIF_HELPERS/aif-agent-target.sh" 2>/dev/null || true
   echo "  ✓ aif-doctor heal helpers → .claude/skills/aif-doctor/helpers/ (executable)"
   echo "    ↳ opt-in: export RUNTIME_BRIDGE_PREFLIGHT='bash .claude/skills/aif-doctor/helpers/heal.sh' to auto-heal the aif base before each dispatch"
 fi

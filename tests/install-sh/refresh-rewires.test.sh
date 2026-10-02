@@ -423,6 +423,101 @@ CFG
 cp "$YQ/.pre-commit-config.yaml" "$YQ/pc.before"
 out=$( cd "$YQ" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
 _stray_item_left "$YQ" "a column-0 consumer item after quotes that open nothing or close on their line"
+# The quote tracker, called directly on files whose loading js-yaml decides (PyYAML SafeLoader and
+# CSafeLoader agree on each). _stray_of <file> — the line _py_precommit_stray_item reports, or nothing.
+# _loads <file> — «yes» when js-yaml loads the file, else «no».
+_stray_of() {
+  PROJECT_ROOT="$(dirname "$1")" INSTALL_SH_LIB_ONLY=1 bash -c '
+    source "$1/setup.d/lib.sh"; PY_LAYER_LIB_ONLY=1 source "$1/setup.d/45-python.sh"
+    _py_precommit_stray_item "$2" "$3" "# getff-python-pre-push entry end" 0
+  ' _ "$REPO_ROOT" "$1" "$MARK" 2>/dev/null
+}
+_loads() {
+  node -e '
+    const r = require("module").createRequire(process.argv[1] + "/packages/core/package.json");
+    try { r("js-yaml").load(require("fs").readFileSync(process.argv[2], "utf8")); console.log("yes") } catch { console.log("no") }
+  ' "$REPO_ROOT" "$1"
+}
+YT=$(mktemp -d); CLEANUP+=("$YT")
+# A flow mapping opens a quote right after `:` with no blank (`{"id":"a`, the JSON style): the value runs
+# on over the column-0 `- ` line, which is text, and the file loads. m1 of train C7's cold review (#1959):
+# the tracker needed a blank after `:` and reported that line as a stray item. (After a plain key,
+# `{id:"a` is one plain scalar in PyYAML and an error in js-yaml, so it has no arm here.)
+for _k in '"id"'; do
+  printf 'repos:\n  - repo: https://github.com/psf/black\n    rev: 24.1.0\n    hooks: [{%s:"black\n- formatter"}]\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' "$_k" > "$YT/.pre-commit-config.yaml"
+  _l="a flow mapping {$_k:\"… whose value runs onto a column-0 «- » line"
+  [ "$(_loads "$YT/.pre-commit-config.yaml")" = yes ] && ok "G7 precondition: $_l — the file loads" \
+    || bad "G7 precondition: $_l — the file does not load; the arm below proves nothing"
+  _s=$(_stray_of "$YT/.pre-commit-config.yaml")
+  [ -z "$_s" ] && ok "G7: $_l — no stray item" || bad "G7: $_l — line $_s reported as a stray item"
+done
+# A block scalar whose header follows a tag or an anchor (`entry: !!str |`, `entry: &a >-`): its lines are
+# text, so a quote on one of them opens nothing, and a real column-0 item after it is still found. m2 of
+# train C7's cold review (#1959): the header was not seen, the quote opened, and the item went unnoticed.
+for _h in '!!str |' '&a >-' '!!str &a |2'; do
+  printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n        entry: %s\n          "a block line opens nothing\n- repo: https://example.invalid/after\n  rev: v1\n' "$_h" > "$YT/.pre-commit-config.yaml"
+  _l="a block scalar under the header «entry: $_h» holding a quote"
+  [ "$(_loads "$YT/.pre-commit-config.yaml")" = no ] && ok "G7 precondition: $_l, then a column-0 item — the file does not load" \
+    || bad "G7 precondition: $_l, then a column-0 item — the file loads; the arm below proves nothing"
+  _s=$(_stray_of "$YT/.pre-commit-config.yaml")
+  [ "$_s" = 8 ] && ok "G7: $_l — the column-0 item on line 8 is found" \
+    || bad "G7: $_l — the stray item on line 8 was not found (got «$_s»)"
+done
+# The adjacent-`:` rule holds only for a key that is itself a quoted scalar: after a plain key or in plain
+# text (`--fmt=%h:'%s`, `k:"v`, `a":"b`) the quote is text, and a `[`/`{` inside a plain scalar opens no
+# flow collection. Each fixture below follows the fixture's indented repos: item; _tracker_arm <label>
+# <file> reads «loads» fixtures as having no stray item and «fails» ones as having the example.invalid
+# line. Arms from the cold review of this fix (two false positives, three false negatives of a first
+# version that counted flow depth and opened a quote after any `:` inside it).
+_tracker_arm() {
+  local want s ln
+  want=$(_loads "$2")
+  s=$(_stray_of "$2")
+  if [ "$want" = yes ]; then
+    [ -z "$s" ] && ok "G7: $1 — the file loads and no stray item is reported" \
+      || bad "G7: $1 — the file loads, but line $s is reported as a stray item"
+  else
+    ln=$(grep -n 'example.invalid' "$2" | cut -d: -f1)
+    [ -n "$ln" ] && [ "$s" = "$ln" ] && ok "G7: $1 — the file does not load and the stray item on line $ln is found" \
+      || bad "G7: $1 — the stray item on line ${ln:-?} was not found (got «$s»)"
+  fi
+}
+_fx() { printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n%s\n' "$1" > "$YT/.pre-commit-config.yaml"; echo "$YT/.pre-commit-config.yaml"; }
+_tracker_arm "a single-quoted JSON-style key {'k':'v… running onto a column-0 line" \
+  "$(_fx "        args: ['--a':'b
+- c']
+  - repo: https://example.org/next")"
+_tracker_arm "a flow key holding an escaped double quote, its value running onto a column-0 line" \
+  "$(_fx '        args: [{"a\"":"a
+- b"}]
+  - repo: https://example.org/next')"
+_tracker_arm "a flow key ending in an escaped backslash, its value running onto a column-0 line" \
+  "$(_fx '        args: [{"a\\":"a
+- b"}]
+  - repo: https://example.org/next')"
+_tracker_arm "a plain «:'» inside a flow sequence, then a real multi-line quote" \
+  "$(_fx "        args: [--fmt=%h:'%s]
+        entry: 'multi
+- line text'")"
+_tracker_arm "a «[» and a «:\"» in plain scalars, then a real multi-line quote" \
+  "$(_fx '        name: foo, [bar
+        entry: x:"y
+        description: "multi
+- line text"')"
+_tracker_arm "a plain «:'» inside a flow sequence, then a column-0 item" \
+  "$(_fx "        args: [--fmt=%h:'%s]
+- repo: https://example.invalid/after")"
+_tracker_arm "a «[» in a plain scalar, a plain «:\"», then a column-0 item" \
+  "$(_fx '        name: foo, [bar
+        entry: echo key:"v
+- repo: https://example.invalid/after')"
+_tracker_arm "a «{» in a plain scalar, a plain «:'», then a column-0 item" \
+  "$(_fx "        name: a[1], {b
+        entry: echo k:'v
+- repo: https://example.invalid/after")"
+_tracker_arm "quotes inside a plain scalar (echo a\":\"b), then a column-0 item" \
+  "$(_fx '        entry: echo a":"b
+- repo: https://example.invalid/after')"
 # An edited entry that already has its end line is kept too.
 Y4=$(py_consumer "$(printf '%s\n        args: [--consumer]\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
 cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"

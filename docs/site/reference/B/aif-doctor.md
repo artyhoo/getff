@@ -5,6 +5,7 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/aif-doctor/SKILL.md
+  - .claude/skills/aif-doctor/helpers/aif-agent-target.sh
   - .claude/skills/aif-doctor/helpers/heal.sh
   - .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
   - .claude/skills/dispatcher/SKILL.md
@@ -15,9 +16,10 @@ sources:
   - docs/site/reference/B.json
   - docs/site/reference/B.md
   - docs/site/terms.md
+docs-refresh: deferred — re-verified 2026-09-30, the only change to the cited setup.d/lib.sh in this range renumbers one in-comment pointer into setup.d/45-python.sh at line 716, far below the line 65 factory list this page names, which did not move; clears at the next gold refresh of this page
 executed:
   - { example: list-skill-in-repo, stack: repo, date: 2026-09-30, result: listed }
-docs-refresh: deferred — this range's only install.sh change renumbers a pre-push.ts line citation inside a comment at line 1202; the line-17 flag citation this page makes is untouched (re-verified 2026-09-30 against the S3 range)
+docs-refresh: deferred — re-verified 2026-09-30, the only change to the cited install.sh in this range rewrites one in-comment citation at line 1202 (pre-push.ts:2077-2080 becomes :2059-2062) with the line count unchanged, far below the line 17 this page names; clears at the next gold refresh of this page
 ---
 
 # aif-doctor skill
@@ -91,12 +93,19 @@ SKILL.md
 helpers
 
 .claude/skills/aif-doctor/helpers:
+aif-agent-target.sh
 heal.sh
 refresh-aif-base.sh
 ```
 
-The two helpers bring a stale copy of your repository inside the runtime's container up
-to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
+`aif-agent-target.sh` finds the runtime's agent container and the docker context it runs
+on. It uses a container only when exactly one matches, and it prints the name and the
+context. With two or more matches it names them and stops. When your current docker
+context has none, it asks the other contexts, and it waits a bounded time for each. If your
+current context does not answer in time, it stops rather than pick a container elsewhere.
+
+The other two helpers bring a stale copy of your repository inside the runtime's container
+up to date. `heal.sh` always exits with 0, so a failed refresh warns and never blocks.
 `refresh-aif-base.sh` runs git inside the container as the user who owns that copy. Git
 run as the container's default user, root, leaves files the runtime's tasks cannot
 write, and the next task then fails before it starts.
@@ -124,8 +133,10 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
   line 265. The log-window check is the
   section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
   The two kinds of change start on lines 279 and 298. The network limit is line 326.
+- `.claude/skills/aif-doctor/helpers/aif-agent-target.sh` states its rules in its header,
+  lines 14 to 22, and its exit codes on lines 37 to 39.
 - `.claude/skills/aif-doctor/helpers/refresh-aif-base.sh` reads the owner of the copy on
-  line 94 and runs every git command as that user on line 100.
+  line 116 and runs every git command as that user on line 122.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
   line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
   exists only in the framework repository.

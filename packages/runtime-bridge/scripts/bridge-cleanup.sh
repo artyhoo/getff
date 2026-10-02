@@ -70,7 +70,23 @@ done < <(find /tmp -maxdepth 1 -name 'runtime-bridge-dedup.jsonl.bak-*' 2>/dev/n
 
 # ── 3. Report container stash (NOT dropped — operator's git) ─────────────────
 printf '\n-- container stash (reported, never auto-dropped) --\n'
-agent="$(docker ps --filter 'name=agent' --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)"
+agent=""
+# Which container, on which docker context: the shared resolver used by the aif-doctor helpers and
+# the dispatcher's in-flight probe (.claude/skills/aif-doctor/helpers/aif-agent-target.sh). Only an
+# UNAMBIGUOUS candidate is used; a candidate on another docker context is reached via DOCKER_CONTEXT.
+_aif_agent_target="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && pwd)/.claude/skills/aif-doctor/helpers/aif-agent-target.sh"
+if [[ -f "$_aif_agent_target" ]]; then
+  # shellcheck disable=SC1090  # path resolved at runtime from this script's location
+  . "$_aif_agent_target"
+  if aif_agent_resolve; then
+    agent="$AIF_AGENT_NAME"
+    [[ -n "$AIF_AGENT_CONTEXT" ]] && export DOCKER_CONTEXT="$AIF_AGENT_CONTEXT"
+  else
+    note "$AIF_AGENT_REASON"
+  fi
+else
+  agent="$(docker ps --filter 'name=agent' --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)"
+fi
 if [[ -n "$agent" ]]; then
   st="$(docker exec "$agent" sh -c 'cd /home/www/rules-as-tests-aif && git stash list' 2>/dev/null)"
   if [[ -n "$st" ]]; then
