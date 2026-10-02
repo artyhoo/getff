@@ -172,7 +172,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 four anti-patterns, §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.",
+      "description": "doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 five anti-patterns + §4.1 supersession clause (premise change amends the declaring artefact), §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.",
       "source": {
         "path": ".claude/rules/doc-authority-hierarchy.md",
         "line": 17
