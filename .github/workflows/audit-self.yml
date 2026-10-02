@@ -781,7 +781,7 @@ jobs:
       # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
       # tsx/curl/launchctl under mktemp, so it runs anywhere.
       - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
-        run: bash scripts/close-merged-sweep.test.sh
+        run: bash scripts/close-merged-sweep.test.sh && bash tests/orchestrator/memory-sweep.test.sh && bash tests/orchestrator/coordinator-seat-card.test.sh # + orchestrator paired-negatives (Phase -1 memory sweep on a mktemp store; coordinator-seat events: card regexes); same line so no citation shifts
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that

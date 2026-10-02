@@ -149,6 +149,24 @@
       "example": null
     },
     {
+      "name": "coordinator-seat-delegation",
+      "kind": "rule",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.",
+      "source": {
+        "path": ".claude/rules/coordinator-seat-delegation.md",
+        "line": 18
+      },
+      "extras": {
+        "class": "C",
+        "fires": "a coordinator seat about to run the stage pipeline itself.",
+        "channels": "paths:(1)"
+      },
+      "example": null
+    },
+    {
       "name": "destination-environment-verification",
       "kind": "rule",
       "shipsTo": {
@@ -352,7 +370,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
+      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
       "source": {
         "path": ".claude/rules/parallel-subwave-isolation.md",
         "line": 13

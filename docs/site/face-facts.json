@@ -315,7 +315,7 @@
       "F1": {
         "familyName": "rules",
         "path": "docs/site/reference/F1.json",
-        "members": 29
+        "members": 30
       },
       "F2": {
         "familyName": "generated rules",
@@ -376,8 +376,8 @@
   },
   "enforcementOutcomes": {
     "source": [
-      "AGENTS.md:78",
-      "AGENTS.md:98",
+      "AGENTS.md:79",
+      "AGENTS.md:99",
       "packages/core/composition/demo/root-agents-demo.ts:133"
     ],
     "nodes": {
