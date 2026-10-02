@@ -117,9 +117,18 @@ FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/n
 #   - a failed FRESH write leaves no file, so the opt-in marker is unknowable
 #     → warn only when the on-disk kickoff carries `<!-- bridge: auto -->`
 #     (the failed-EDIT-of-a-marked-kickoff case, where the dispatch is provably
-#     lost). Payload per both harnesses: tool_name, tool_input, error,
-#   - error_details, is_interrupt (survey #1699 §3; PostToolUseFailure is in
-#     ZCODE_EVENTS, so the twin fires on both harnesses).
+#     lost).
+# Payload (PostToolUseFailure is in ZCODE_EVENTS, so the twin fires on both
+# harnesses): tool_name, tool_input, error, is_interrupt. `.error` is the one
+# canonical error field, a string on both harnesses:
+#   - CC 2.1.270, live capture 2026-10-01 with scripts/probe-hook-stdin.sh
+#     (Write/Edit EACCES → "EACCES: permission denied, open '…'"; Bash → "Exit
+#     code 3"); CC sends NO error_details key at all;
+#   - ZCode builds `error_details = e.error; error = e.error.message` (zcode.cjs
+#     hook-stdin switch, first read in survey #1699 §3), so error_details.message
+#     only ever duplicates `.error`.
+# Note: an Edit whose old_string is not found fails in input validation and does
+# NOT fire PostToolUseFailure (same capture) — this arm sees execution failures.
 if [ "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null || true)" = "PostToolUseFailure" ]; then
   case "$TOOL" in
     Write|Edit|MultiEdit) ;;
@@ -133,7 +142,11 @@ if [ "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null || tru
   [ "$(printf '%s' "$INPUT" | jq -r '.is_interrupt // false' 2>/dev/null || true)" = "true" ] && exit 0
   if [ -f "$FILE_PATH" ] \
      && [ "$(head -n1 "$FILE_PATH" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')" = '<!-- bridge: auto -->' ]; then
-    _ERR_MSG="$(printf '%s' "$INPUT" | jq -r '.error // .error_details.message // "unknown"' 2>/dev/null || true)"
+    _ERR_MSG="$(printf '%s' "$INPUT" | jq -r 'if (.error | type) == "string" then .error else empty end' 2>/dev/null || true)"
+    # Explicit degradation, not a guessed alias: a payload without a string
+    # `.error` is contract drift. The lost-dispatch warning still fires (it is
+    # the load-bearing part); the drift is named so it gets re-probed.
+    [ -n "$_ERR_MSG" ] || _ERR_MSG="unknown (payload carried no string .error — hook stdin contract drift; re-probe with the framework script scripts/probe-hook-stdin.sh PostToolUseFailure)"
     _emit_dep_skip "⚠ runtime-bridge-dispatch: the kickoff write FAILED — the auto-dispatch it opted into (bridge:auto marker on line 1) DID NOT RUN. Tool error: ${_ERR_MSG}. Retry the write, or dispatch manually: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path> (framework) / tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <kickoff-path> (consumer)."
   fi
   exit 0
