@@ -69,12 +69,16 @@ for f in "$SSOT" "$SETTINGS" "$RENDER" "$PAIRED_TEST" "$HOOK"; do
 done
 
 ssot_wired() {
-  jq -e --arg m "$MARKER" '(.hooks.PreToolUse // []) | any(.command; contains($m))' \
+  # any(GEN; COND) evaluates GEN against the PIPE input (the array), not per
+  # element — `.command` on an array is a jq type error, so the naive form was
+  # always-false (broke idempotency: a wired SSOT re-patched, duplicating the
+  # entry). Collect first, then any over the flat list.
+  jq -e --arg m "$MARKER" '[(.hooks.PreToolUse // [])[]?.command] | any(contains($m))' \
     "$SSOT" >/dev/null 2>&1
 }
 settings_wired() {
   jq -e --arg m "$MARKER" \
-    '(.hooks.PreToolUse // []) | any(.hooks[].command; contains($m))' \
+    '[(.hooks.PreToolUse // [])[]?.hooks[]?.command] | any(contains($m))' \
     "$SETTINGS" >/dev/null 2>&1
 }
 
@@ -164,8 +168,9 @@ if grep -q 'drift' <<<"$CHECK_OUT"; then
 fi
 
 MATCHER=$(jq -r --arg m "$MARKER" \
-  '(.hooks.PreToolUse // []) | map(select(any(.hooks[].command; contains($m)))) | .[0].hooks[0] | .matcher // ""' \
+  '(.hooks.PreToolUse // []) | map(select(any(.hooks[].command; contains($m)))) | .[0].matcher // ""' \
   "$SETTINGS" 2>/dev/null || true)
+[ -n "$MATCHER" ] || fail "could not read back the registered matcher from settings.json"
 for tool in Edit Write MultiEdit; do
   case "|$MATCHER|" in
     *"|$tool|"*) ;;
