@@ -82,14 +82,14 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals.",
+      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).",
       "source": {
         "path": ".claude/rules/build-first-reuse-default.md",
         "line": 19
       },
       "extras": {
         "class": "A",
-        "fires": "any capability commit / new-capability proposal.",
+        "fires": "capability commit/proposal; shipped-file removal.",
         "channels": "paths:(7), edit-time inject"
       },
       "example": null
