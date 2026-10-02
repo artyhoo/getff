@@ -141,7 +141,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2620 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2625 (workflow-run:invocation-verb)",
           ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
@@ -182,7 +182,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2130 (spawn-argument)",
-          ".github/workflows/audit-self.yml:2756 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2761 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -318,7 +318,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2732 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2737 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -753,6 +753,7 @@
     "check-getff-manifest-staged.sh",
     "check-merge-pushed.sh",
     "ci-capture.sh",
+    "cited-spec-addenda.sh",
     "close-merged-sweep.sh",
     "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
