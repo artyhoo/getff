@@ -533,6 +533,15 @@ cannot work). **Verification:** fixtures 20a/20b (RED on the pre-D39 hook — 20
 fail-open side: a stale single-line baseline let an untouched handoff pass), and the live replay
 old→new / new→old / new→new: allow, allow, block in all three orders.
 
+### Round 7 — D40: the handoff is a thin index, 2026-10-01
+
+The operator directive of 2026-09-28 (seat handoffs as a «task → topic file» table, state in
+topic files that open with `Read when:`) lived only in agent memory. D40 adds one arm between
+the D16 headings and the D32 cap: no table row naming a `.md` topic file → block (`index`). The
+D32 default drops 200 → 80 in the gate, the injector and both packs, because an index is ~40
+lines. Owner of the shape: `.claude/rules/seat-lifecycle.md` §1.1. Fixtures 21a-d (red first).
+Wrong if in-band sessions escape the arm with `mechanical-tail:` on non-mechanical work — grep it.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the

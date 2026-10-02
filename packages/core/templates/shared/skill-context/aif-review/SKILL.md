@@ -35,6 +35,8 @@ Read the changed code as if you had never seen it and did **not** write it. The 
 
 7. **React testing anti-patterns** — `fireEvent.click` instead of `userEvent.click`; `getByTestId` where `getByRole` works; stray `screen.debug()`; redundant `act()` around `userEvent`.
 
+8. **A case that passes for the sibling's reason** — when the diff adds a channel between two components (tmp file, env var, shared state, config key), name the single production change that flips each new or touched case. If you cannot, or an input the sibling writes is left unpinned in the fixture, flag MAJOR. The RED proof must run against `git show HEAD:<path>` pre-images of every file the fix touches (no visible proof covering every touched file is itself a finding); each pin carries its reason inline; existing tests of both sides are in scope.
+
 ## Output augmentation
 
 In addition to AIF's standard review summary, include a section `### Test-Quality Review` listing each finding as: severity (`BLOCKER` correctness/data-integrity incl. tautological test on a critical path / `MAJOR` anti-pattern at scale / `MINOR` style), `file:line`, "what I saw", "why it's a problem", and a concrete one-line fix. One issue per finding; do not bundle. Report only — never modify code.

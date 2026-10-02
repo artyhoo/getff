@@ -3,6 +3,8 @@
 #
 # Default: diff-aware (vs merge-base), cheapest-first, fail-fast, fail-safe to full.
 # `--full` runs the complete set regardless of the diff.
+# `--keep-going` runs every selected gate even after a FAIL and exits 1 at the end, naming them all.
+# A fail-fast stop prints `SWEEP: NOT RUN: <gates>` — the selected gates it never reached.
 #
 # It gates COMMITTED work: gate SELECTION comes from `git diff <merge-base>...HEAD`, because
 # that is what CI will see. Uncommitted edits are therefore invisible to the selection layer,
@@ -206,6 +208,7 @@ TAB="$(printf '\t')"
 MODE="diff"
 BASE_REF=""
 LIST_GATES=0
+KEEP_GOING=0
 # Every gate that runs writes its combined output to a file in a per-run log directory (see
 # `ensure_log_dir`). Unconditional, not flag-gated: the diagnostic is only worth anything on the
 # run that happens to catch a rare red, and no operator can know in advance which run that is —
@@ -225,13 +228,15 @@ while [ $# -gt 0 ]; do
     --full) MODE="full" ;;
     --base) shift; BASE_REF="${1:-}" ;;
     --list-gates) LIST_GATES=1 ;;
+    --keep-going) KEEP_GOING=1 ;;
     --route-plan) ROUTE_PLAN=1 ;;
     --run-row) shift; RUN_ROW="${1:-}" ;;
     --receipt) shift; RUN_ROW_RECEIPT="${1:-}" ;;
     --cmd-sum) shift; RUN_ROW_SUM="${1:-}" ;;
     --origin) shift; RUN_ROW_ORIGIN="${1:-}" ;;
     -h | --help)
-      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates] [--route-plan]"
+      echo "usage: run-local-ci-sweep.sh [--full] [--keep-going] [--base <ref>] [--list-gates] [--route-plan]"
+      echo "       --keep-going   run every selected gate after a FAIL; exit 1 at the end naming them all"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
       echo "       SWEEP_HEAVY_RUNNER=<cmd>   run the routable rows through <cmd>"
       echo "       PC_LOCAL=1 PC_LOCAL_WHY=<20+ chars>   route none, and say why"
@@ -374,6 +379,11 @@ gate_table() {
   # without the auditor source (a consumer, which receives it as scripts/audit-ai-docs.sh) gets a
   # WARN-skip, never a crash.
   #
+  # `arch-retell-corpus` is ALWAYS for the citation-fullsweep reason: the retell Baselines in
+  # docs/superpowers/specs/ name their sources by path, so a source move/deletion anywhere can
+  # flip the verdict. The CI step (audit-self arch consensus-retell job) runs unconditionally —
+  # it is the full-corpus backstop for the /arch pre-commit gate, which sees staged specs only.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
   # (setup.d/10-skills.sh:179, install.sh:1218) and the runner is NOT, which is deliberate: a
@@ -424,7 +434,9 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}arch-retell-corpus${TAB}ALWAYS${TAB}node scripts/check-arch-retell.mjs" \
     "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
+    "3${TAB}bash32${TAB}install.sh,setup.d/,scripts/check-bash32.sh${TAB}bash scripts/check-bash32.sh" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
     "3${TAB}audit-ai-docs-live${TAB}ALWAYS${TAB}if [ -f packages/core/audit-self/audit-ai-docs.sh ]; then bash packages/core/audit-self/audit-ai-docs.sh && npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts; else echo '[sweep] WARN-skip audit-ai-docs-live: no packages/core/audit-self/ (not the authoring repo)'; fi" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
@@ -1071,7 +1083,7 @@ EOF
   return 1
 }
 
-# --- run selected gates, cheapest-first, fail-fast ---
+# --- run selected gates, cheapest-first, fail-fast (or --keep-going) ---
 # eval runs in a SUBSHELL: a gate command carrying its own `exit 1` (install-sh-suite's
 # per-test loop) must fail THAT gate, not kill the sweep mid-loop. Without the subshell the
 # sweep self-truncated: rc=1 with no `[sweep] FAIL` / `SWEEP: stopped at` lines and the
@@ -1250,7 +1262,36 @@ $aout"
 
 ran=0
 diff_selected=0
+FAILED_NAMES=""
+failed_n=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
+
+# --- what the diff selected, in run order — so a stop can name what it never reached ---
+# Fail-fast leaves the tail of the selection unexecuted, and before this list existed that tail
+# was indistinguishable from "not selected for this diff": one known-red gate early in the order
+# turned "the rest passed" into "the rest never ran" without saying so (PR #1362: six gates behind
+# a red `vitest-hooks`, read as covered). Selection is a pure function of the trigger and the
+# diff, so computing it up front names exactly the rows the loop below would have run.
+SELECTED_NAMES=""
+while IFS="$TAB" read -r _ name trigger _; do
+  [ -z "${name:-}" ] && continue
+  gate_selected "$trigger" && SELECTED_NAMES="$SELECTED_NAMES $name"
+done <<EOF
+$SORTED
+EOF
+# not_run_after <n> — the `SWEEP: NOT RUN:` line: every selected gate after the n-th that ran.
+# `(none)` rather than no line: an absent line is what an older copy of this script prints too.
+not_run_after() {
+  local i=0 n out=""
+  set -f
+  for n in $SELECTED_NAMES; do
+    i=$((i + 1))
+    [ "$i" -gt "$1" ] && out="$out $n"
+  done
+  set +f
+  echo "SWEEP: NOT RUN:${out:- (none)}"
+}
+
 while IFS="$TAB" read -r _ name trigger cmd; do
   [ -z "${name:-}" ] && continue
   gate_selected "$trigger" || continue
@@ -1311,13 +1352,27 @@ while IFS="$TAB" read -r _ name trigger cmd; do
     echo "----- $name: last 40 lines of output -----"
     printf '%s\n' "$out" | tail -40
     echo "----- end $name output -----"
+    if [ "$KEEP_GOING" -eq 1 ]; then
+      FAILED_NAMES="$FAILED_NAMES $name"
+      failed_n=$((failed_n + 1))
+      continue
+    fi
     echo "SWEEP: stopped at $name (mode=$MODE)"
+    not_run_after "$ran"
+    echo "SWEEP: re-run with --keep-going to run them anyway"
     [ -n "$log_path" ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
     exit 1
   fi
 done <<EOF
 $SORTED
 EOF
+
+if [ "$failed_n" -gt 0 ]; then
+  echo "SWEEP: $failed_n of $ran gate(s) FAILED:$FAILED_NAMES (mode=$MODE, --keep-going)"
+  not_run_after "$ran"
+  [ "$LOG_DIR_READY" -eq 1 ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
+  exit 1
+fi
 
 if [ "$diff_selected" -eq 0 ] && [ "$MODE" != "full" ]; then
   # No gate was selected BY THE DIFF. `changed_paths` reads the COMMITTED diff, so this is an honest answer only

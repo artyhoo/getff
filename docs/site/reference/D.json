@@ -589,6 +589,31 @@
       "example": null
     },
     {
+      "name": "seal-primary-checkout",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PreToolUse deny gate — seal the PRIMARY checkout's protected paths",
+      "source": {
+        "path": ".claude/hooks/seal-primary-checkout.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "session-start",
       "kind": "hook",
       "shipsTo": {

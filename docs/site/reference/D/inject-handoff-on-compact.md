@@ -122,13 +122,13 @@ session start must never break the session start.
   `session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)`.
   The writer applies the identical expression at `.claude/hooks/precompact-residue.sh:123`
   (its comment above the line explains why: a hostile id «cannot escape the directory»),
-  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:423` applies it a third
+  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:435` applies it a third
   time.
 - jq guard: line 28 — `command -v jq >/dev/null 2>&1 || exit 0` (the payload is JSON and
   every extraction is jq; without jq there is no work possible).
 - Missing handoff: line 72 is `[ -f "$handoff_file" ] || exit 0`, with the comment above
   it (lines 70-71) saying the injector's contract «is only to not lose one that does».
-- The cap: line 74 reads `cap="${AIF_HANDOFF_MAX_LINES:-200}"` and line 76 reads
+- The cap: line 74 reads `cap="${AIF_HANDOFF_MAX_LINES:-80}"` and line 76 reads
   `handoff_body=$(head -n "$cap" "$handoff_file" 2>/dev/null || true)`.
 - The residue pointer: line 81 builds the residue file path from the same session key and
   line 83 appends `Session residue (machine excerpt written at the compaction): …` to the

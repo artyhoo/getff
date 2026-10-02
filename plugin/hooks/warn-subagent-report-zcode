@@ -93,12 +93,11 @@ _required_sections_check() {
   return 0
 }
 
-# _dedup_key <text> <payload-jsonv>
-# Prefers toolCallId/tool_call_id from payload; falls back to sha256 of text; final fallback cksum.
-# Echoes the key (stdout).
+# _dedup_key <text> <tool-use-id>
+# Uses the caller-supplied tool-use id when non-empty; otherwise derives the key from the text
+# (sha256, final fallback cksum). Echoes the key (stdout).
 _dedup_key() {
-  local text="$1" payload="$2" key=""
-  key="$(printf '%s' "$payload" | jq -r '.toolCallId // .tool_call_id // .toolCallID // ""' 2>/dev/null || true)"
+  local text="$1" key="$2"
   if [ -z "$key" ]; then
     # Derive from text: prefer sha256, fallback cksum (cksum output is "<sum> <bytes>" — take col 1).
     key="$(printf '%s' "$text" | (sha256sum 2>/dev/null || shasum -a 256 2>/dev/null || cksum) | cut -d' ' -f1)"
@@ -167,9 +166,24 @@ _arm_a_post() {
   # rc=2: noise guard held (not REPORT-shaped) → silent exit.
   [ "$rc" -eq 2 ] && exit 0
 
-  # Dedup key: prefer toolCallId from payload, else sha256/cksum of text.
-  local KEY
-  KEY="$(_dedup_key "$TOOL_INPUT" "$INPUT")"
+  # Dedup key: the ONE canonical stdin field `tool_use_id` (dual-implementation-discipline.md §4 —
+  # probed, not guessed). Both harnesses send it at top level:
+  #   * ZCode — createClaudeCompatibleHookStdin in /Applications/ZCode.app/Contents/Resources/glm/
+  #     zcode.cjs sets `t.tool_use_id=e.toolCallId` whenever a tool is in scope. (Its `{...e}`
+  #     spread also leaks the internal camelCase `toolCallId`; that is not the published contract
+  #     and is deliberately NOT read.)
+  #   * CC — scripts/probe-hook-stdin.sh PostToolUse capture, 2026-10-01: top-level keys include
+  #     `tool_use_id`; no `toolCallId` / `tool_call_id` / `toolCallID`.
+  # It is also the id the Arm B transcript sweep keys on (tool_result.tool_use_id), so cross-arm
+  # dedup matches by id. Degradation: if a harness ever stops sending it, dedup falls back to the
+  # text hash (still correct within Arm A; cross-arm dedup by id is lost) and a stderr note names
+  # the drift instead of silently guessing another field name.
+  local TOOL_USE_ID KEY
+  TOOL_USE_ID="$(printf '%s' "$INPUT" | jq -r '.tool_use_id // ""' 2>/dev/null || true)"
+  if [ -z "$TOOL_USE_ID" ]; then
+    printf 'warn-subagent-report-zcode: PostToolUse stdin has no tool_use_id — dedup falls back to a text hash (hook-contract drift?)\n' >&2
+  fi
+  KEY="$(_dedup_key "$TOOL_INPUT" "$TOOL_USE_ID")"
 
   if _have_key "$STATE_FILE" "$KEY"; then
     # Already warned (or already known-good) — silent exit.
@@ -234,7 +248,7 @@ _arm_b_stop() {
   # Dedup + check loop. Iterate over jq-extracted records via process substitution.
   # Each record is NUL-delimited and shaped as `tool_use_id<TAB>text` so the dedup-key
   # can prefer the transcript's id field (per R2: toolCallId in ZCode, tool_use_id in CC).
-  # This matches Arm A's `_dedup_key` extraction from `.tool_call_id` — when the transcript
+  # This matches Arm A's `_dedup_key` extraction from stdin `.tool_use_id` — when the transcript
   # id equals the PostToolUse tool_call_id (same Agent invocation), cross-arm dedup holds.
   # When the transcript id is absent, both arms fall back to sha256(text) — same hash.
   local -a flagged=()
@@ -259,7 +273,7 @@ _arm_b_stop() {
     if [ -n "$rec_id" ]; then
       k="$rec_id"
     else
-      k="$(_dedup_key "$rec_text" "{}")"
+      k="$(_dedup_key "$rec_text" "")"
     fi
     if _have_key "$STATE_FILE" "$k"; then
       continue
