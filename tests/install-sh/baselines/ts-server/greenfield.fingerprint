@@ -4,11 +4,11 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-f91cf1641547d1331384e6f5d34b7aa7aa4db53376e8422819c4fe8bcbe298fc  .ai-factory/refresh-baseline.json
+08ae683439440d6d9944335ec7e452ed9a94358c6f6159b9fc726970f631b85e  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
-c3b53a93d62cf8b0150e50eb0b6204d29b53464494456d9a2c59e583cd1575e9  .ai-factory/tier-home.md
+cd7765c267add628bbfc8f17b73e03cc7942cd8fa8250af31f2a0693e1bcd0b2  .ai-factory/tier-home.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/tool-decisions.md
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents/capability-reuse-auditor.md
@@ -39,7 +39,7 @@ d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/
 2226f9f290c0b5962f2abdba0cb341bb7195e5e314759cfc624f8b040c58421e  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-3db62b0a8ab5b996876beb99574d05fb27f0b3da3c033a8e5830ee7379a86c49  .claude/skills/arch/SKILL.md
+72285e466ca365816ce884cc98fb1ef163a2eac08e5e119620362e0d852282c3  .claude/skills/arch/SKILL.md
 49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .claude/skills/arch/references/ADR-FORMAT.md
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills/arch/references/CONTEXT-FORMAT.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .claude/skills/arch/references/domain-modeling.md
@@ -50,7 +50,7 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .claude/skills/getff/references/self-testing-docs.md
-a0838b662b8b8aaa06326c51a68fe99fc26e1147881bfd1eb5ea16cd456af463  .claude/skills/night-mode/SKILL.md
+281c188314b2b5c14600baa8bd48c8322d28a9e6b31c1f1dc8db61a3fd7e81f1  .claude/skills/night-mode/SKILL.md
 6ebc5c211257a66cfa7bf698c88d8ed73179de3d97fa4ece14d18399baa41857  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
 e96ad34debe07261f4bdfb2c6fd3e4fd64cd4b73ef5b720658b769e29875e4e2  .claude/skills/orchestrator/references/batch-prompt-template.md
