@@ -168,9 +168,9 @@ describe.skipIf(!JQ)('inject-handoff-on-compact.sh (D20)', () => {
       hookSpecificOutput: { additionalContext: string };
     };
     const lines = parsed.hookSpecificOutput.additionalContext.split('\n');
-    // 1 preamble line + 200 capped body lines (no residue file → no pointer line).
-    expect(lines.length).toBe(201);
-    expect(parsed.hookSpecificOutput.additionalContext).toContain('line 199');
-    expect(parsed.hookSpecificOutput.additionalContext).not.toContain('line 200');
+    // 1 preamble line + 80 capped body lines (no residue file → no pointer line; D40 default).
+    expect(lines.length).toBe(81);
+    expect(parsed.hookSpecificOutput.additionalContext).toContain('line 79');
+    expect(parsed.hookSpecificOutput.additionalContext).not.toContain('line 80');
   });
 });
