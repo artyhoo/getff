@@ -1450,16 +1450,60 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "Task-tier routing SSOT installed at .ai-factory/tier-home.md — tier criteria, bridge-profile mechanic, marker value rule, degradation matrix.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 143
       },
-      "installedTo": {
-        "absent": "not-byte-copied"
-      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        }
+      ],
       "extras": {
         "format": "md"
       },
