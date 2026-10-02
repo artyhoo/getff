@@ -256,6 +256,17 @@ Inputs-ref: <container HEAD sha the diff and every file path in this prompt are 
     of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
     otherwise).
 
+Then re-probe LATE — the §2.0 reading is hours old by now, and a parallel session can have merged
+the same stage under another branch name (PR 1354, an empty-diff twin of 1353; CLAUDE.md
+«Pre-dispatch in-flight probe» (f)). The host checkout is not the aif branch, so name both ends:
+the aif branch (own-PR exclusion) and the task's dispatch base (the staging-log start).
+`LATE-COLLISION` = STOP and compare before pushing:
+
+```bash
+SLUG="<stage-slug>" PROBE_SELF_BRANCH="<aif branch>" PROBE_LATE_FROM="<dispatch base SHA>" PROBE_LATE_CHANGED_FILES="" \
+  bash .claude/skills/dispatcher/helpers/probe-inflight.sh --late
+```
+
 Then push:
 
 ```bash
@@ -307,7 +318,7 @@ workaround, not the fix.
 Invoke superpowers:requesting-code-review on the harvested PR diff.
 ```
 
-Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → operator fixes, re-dispatch. `STOP` → escalate. `GO` → proceed to §2.6.
+Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → the branch is already on the host, so route it by the tier-home «Rework routing» table (`.ai-factory/tier-home.md` §2; source `packages/core/templates/shared/tier-home.md`): every fix named at `file:line` with no open decision → fix in-session on the harvested branch, no re-dispatch; an open decision → re-dispatch per tier routing. `STOP` → escalate. `GO` → proceed to §2.6.
 
 **§2.6 — Stage gate**
 
