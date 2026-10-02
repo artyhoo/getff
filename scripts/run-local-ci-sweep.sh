@@ -431,6 +431,7 @@ gate_table() {
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}arch-retell-corpus${TAB}ALWAYS${TAB}node scripts/check-arch-retell.mjs" \
     "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
+    "3${TAB}bash32${TAB}install.sh,setup.d/,scripts/check-bash32.sh${TAB}bash scripts/check-bash32.sh" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
     "3${TAB}audit-ai-docs-live${TAB}ALWAYS${TAB}if [ -f packages/core/audit-self/audit-ai-docs.sh ]; then bash packages/core/audit-self/audit-ai-docs.sh && npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts; else echo '[sweep] WARN-skip audit-ai-docs-live: no packages/core/audit-self/ (not the authoring repo)'; fi" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
