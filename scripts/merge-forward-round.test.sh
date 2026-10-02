@@ -70,12 +70,14 @@ expect_rc() { # <want-rc> <desc> <required-grep-or-empty> <args...>
 }
 
 # ── §4 classifier: the generated populations ─────────────────────────────────────
-expect_classify 0 "all four generated populations classify generated, rc 0" \
-  "CLASSIFY SUMMARY generated=4 semantic=0" \
+expect_classify 0 "all six generated populations classify generated, rc 0" \
+  "CLASSIFY SUMMARY generated=6 semantic=0" \
   "packages/getff/MANIFEST.sha256" \
   "tests/install-sh/baselines/react-native/greenfield.fingerprint" \
   "plugin/hooks/warn-subagent-report-zcode" \
-  "plugin/skills/orchestrator/SKILL.md"
+  "plugin/skills/orchestrator/SKILL.md" \
+  "docs/site/reference/F3.json" \
+  "docs/site/face-facts.json"
 
 expect_classify 0 "empty input is vacuously generated" \
   "CLASSIFY SUMMARY generated=0 semantic=0" \
@@ -108,6 +110,14 @@ expect_classify_fail 1 "prefix trap: MANIFEST.sha256.bak is not the manifest" \
 expect_classify_fail 1 "prefix trap: tests/install-sh/baseline/x (singular) is semantic" \
   "CLASSIFY semantic tests/install-sh/baseline/x" \
   "tests/install-sh/baseline/x"
+
+expect_classify_fail 1 "prefix trap: docs/site/reference-notes.md is semantic" \
+  "CLASSIFY semantic docs/site/reference-notes.md" \
+  "docs/site/reference-notes.md"
+
+expect_classify_fail 1 "prefix trap: docs/site/face-facts.json.bak is semantic" \
+  "CLASSIFY semantic docs/site/face-facts.json.bak" \
+  "docs/site/face-facts.json.bak"
 
 # ── the --classify file-argument seam ────────────────────────────────────────────
 TMPFILE=$(mktemp "${TMPDIR:-/tmp}/mfr-test-classify-XXXXXX")

@@ -14,11 +14,17 @@
 # test files) -> pr-body-fidelity pre-flight on the new head (§9) -> merge-base
 # --is-ancestor interlock -> plain push HEAD:<pr-branch>. Never rebase, never force (§3).
 #
-# GENERATED SET (§4, the auto-resolvable populations):
+# GENERATED SET (§4 populations plus this repo's other byte-renderers — the auto-resolvable
+# list; each is regenerated only by its own SSOT generator):
 #   packages/getff/MANIFEST.sha256     -> scripts/build-getff-dist.sh
 #   tests/install-sh/baselines/*       -> SNAPSHOT_MODE=capture tests/install-sh/snapshot.sh
 #   plugin/hooks/*                     -> scripts/generate-plugin-twins.sh
 #   plugin/skills/*                    -> scripts/generate-plugin-skills.sh
+#   docs/site/reference/*.json         -> render-reference.mjs --write (+ face-facts first)
+#   docs/site/face-facts.json          -> render-face-facts.mjs --write
+# (the docs/site pair is not in git-conflict-merge-forward.md §4 — found live on this
+#  tool's first real round, PR #2017 2026-10-03: F3.json renders from the prior-art SSOT
+#  and conflicts exactly like a baseline; same safety class, deterministic regenerator.)
 # Anything else in the unmerged list is SEMANTIC: the merge is parked unpushed in the
 # scratch worktree, the file list is printed, exit 4 — human judgment, never automation.
 #
@@ -124,6 +130,8 @@ classify_path() {
     tests/install-sh/baselines/*) return 0 ;;
     plugin/hooks/*) return 0 ;;
     plugin/skills/*) return 0 ;;
+    docs/site/reference/*.json) return 0 ;;
+    docs/site/face-facts.json) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -351,6 +359,15 @@ EOF
       return 5
     fi
   fi
+  if grep -q '^docs/site/' <<<"$generated"; then
+    provision_node "rendering the site references needs node_modules (tsx/ajv)" || return 5
+    plan "(cd <scratch> && npx tsx scripts/render-face-facts.mjs --write && npx tsx scripts/render-reference.mjs --write)   # regenerate rendered site references"
+    if ! (cd "$SCRATCH" && npx tsx scripts/render-face-facts.mjs --write && npx tsx scripts/render-reference.mjs --write); then
+      SCRATCH_PARK=1
+      verdict "PARKED-REGEN" "pr=$PR step=render-site-references scratch=$SCRATCH"
+      return 5
+    fi
+  fi
 
   # §2 step 7 — the pre-commit hook re-runs the twin/skills regeneration idempotently and
   # the merge-state gates (check-merge-pushed MERGE_HEAD arm, manifest --check-index).
@@ -384,6 +401,14 @@ EOF
     if ! (cd "$SCRATCH" && bash scripts/build-getff-dist.sh --check); then
       SCRATCH_PARK=1
       verdict "PARKED-VERIFY" "pr=$PR step=manifest-check scratch=$SCRATCH"
+      return 5
+    fi
+  fi
+  if grep -q '^docs/site/' <<<"$generated"; then
+    plan "(cd <scratch> && npx tsx scripts/render-face-facts.mjs --check && npx tsx scripts/render-reference.mjs --check)"
+    if ! (cd "$SCRATCH" && npx tsx scripts/render-face-facts.mjs --check && npx tsx scripts/render-reference.mjs --check); then
+      SCRATCH_PARK=1
+      verdict "PARKED-VERIFY" "pr=$PR step=render-check scratch=$SCRATCH"
       return 5
     fi
   fi
