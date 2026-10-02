@@ -26,6 +26,7 @@ d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
 f45b3e0e78457d94c0928658d56ab0a575789e62bec06407c223adf786e7736f  .claude/hooks/precompact-residue.sh
 8c5317197f817a32c93ab522e49386d8a15cd8a2f93ccfb75c9d28d82407089e  .claude/hooks/runtime-bridge-dispatch.sh
+77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .claude/hooks/seal-primary-checkout.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
 5bce158e2febec6fd98c0cd701581fb4ab80308dc21451be683844b1ac2f684c  .claude/hooks/warn-subagent-report.sh
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
