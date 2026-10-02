@@ -1146,7 +1146,7 @@ _eot_recap_defects() {
 # and glues the marker onto the WHOLE text when it is absent, so the line cap has
 # no slice to read on this path — the cap (and the D-A defect gate) stay
 # marker-path-only. A pack lagging any key keeps the arm inert (the hands-arm
-# pack-lag contract at :1161-1165).
+# pack-lag contract at :1198-1202).
 _eot_recap_sections_wellformed() {
   local last value
   [ -n "${AIF_EOT_SEC_WHERE:-}" ] && [ -n "${AIF_EOT_SEC_CHANGED:-}" ] \
