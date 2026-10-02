@@ -1131,6 +1131,43 @@ _eot_recap_defects() {
   printf '%s' "${d#; }"
 }
 
+# Section-evidence predicate for the already-recapped guard (2026-10-01 recap-loop
+# incident, desktop session e1ee5b76, AIF_HOOK_LANG=ru): the model answered the
+# recap block with the full five-section shape but a PARAPHRASED heading — a bare
+# `🟢` line, no $AIF_RECAP_MARKER literal — so the exact-literal grep above never
+# recognized the turn, and every fresh turn re-blocked with the same instruction
+# (stop_hook_active cannot help across fresh turns; on ZCode re-stops carry
+# stop_hook_active=false). The guard and the demand must agree: a turn whose final
+# text carries the demand's full well-formed section set IS recap evidence.
+# Required set = the same sections _eot_recap_defects validates (WHERE/NEXT always,
+# FORK when asked, CHANGED when the long answer demands section 2) + the D-B
+# closing grammar as the last non-empty line (prefix present, value not banned,
+# well-formed). NOT a defect-gate re-run: _eot_recap_block() slices from the marker
+# and glues the marker onto the WHOLE text when it is absent, so the line cap has
+# no slice to read on this path — the cap (and the D-A defect gate) stay
+# marker-path-only. A pack lagging any key keeps the arm inert (the hands-arm
+# pack-lag contract at :1161-1165).
+_eot_recap_sections_wellformed() {
+  local last value
+  [ -n "${AIF_EOT_SEC_WHERE:-}" ] && [ -n "${AIF_EOT_SEC_CHANGED:-}" ] \
+    && [ -n "${AIF_EOT_SEC_FORK:-}" ] && [ -n "${AIF_EOT_SEC_NEXT:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_PREFIX:-}" ] && [ -n "${AIF_EOT_FOR_YOU_NOTHING:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_WAITING:-}" ] && [ -n "${AIF_EOT_FOR_YOU_DECIDE:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_HANDS:-}" ] && [ -n "${AIF_EOT_FOR_YOU_BANNED:-}" ] || return 1
+  _eot_turn_shape
+  grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$text" || return 1
+  grep -qF -- "$AIF_EOT_SEC_NEXT" <<<"$text" || return 1
+  if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$text"; then return 1; fi
+  if [ "$long_text" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$text"; then return 1; fi
+  last="$(grep -v '^[[:space:]]*$' <<<"$text" | tail -n 1 || true)"
+  grep -qF -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$last" || return 1
+  value="${last#*"$AIF_EOT_FOR_YOU_PREFIX"}"
+  value="${value# }"
+  if grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"${value%%(*}"; then return 1; fi
+  _eot_for_you_wellformed "$value" || return 1
+  return 0
+}
+
 # ── Manual-step arm (operator directive 2026-09-28) ──────────────────────────
 # «Everything the operator does by hand must be automated»: a final «From you: do by hand:
 # <action>» line is a PROCESS DEFECT, not a normal ending. The arm reads the LAST hand-off line
@@ -1373,6 +1410,18 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
       gate_line="$(aif_msg_eot_recap_gate "$_recap_defects")"
     fi
   fi
+  _autonomy_exit
+fi
+
+# Section-evidence arm (2026-10-01 recap-loop incident) — the marker grep's twin:
+# a turn carrying the demand's full well-formed section set without the literal
+# heading. Same suppression, same _autonomy_exit routing (the F10/ctx/gate/
+# glossary/hands slots ride exactly as on the marker path), same hoisted position —
+# it must precede the story guard and the ZCode thin-recap branch (the #1706
+# shadowing class this hoist exists for). It deliberately does NOT run the D-A
+# defect gate: the gate reads the marker slice, which does not exist without the
+# marker (see _eot_recap_sections_wellformed's comment above).
+if [ -n "$text" ] && _eot_recap_sections_wellformed; then
   _autonomy_exit
 fi
 

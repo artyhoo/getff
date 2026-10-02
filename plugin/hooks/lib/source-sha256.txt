@@ -4,7 +4,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  ask-question-r
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  check-doc-authority-header.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  check-doc-authority-header.sh:lib/hook-live.sh
 178b62f7449dd92f734b3e5560a943567a235cbcf3698fa8982b13bffd1f8760  deps-hash-check.sh
-85f08dd6a0a261d9fc9ed0788d2d179b58e657cb9707341bd1bf2c37a40bc24d  end-of-turn-reminder.sh
+7dd5a2811958dc45cdc550debcb28248e611a2a52082c1bf51a5ec4a877b7f50  end-of-turn-reminder.sh
 9acd983027bbe4151657e174b5733132f7194e012d550ba0b424e07515973dbc  end-of-turn-reminder.sh:lang/
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  end-of-turn-reminder.sh:lib/residue-dir.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  end-of-turn-reminder.sh:lib/hook-live.sh
