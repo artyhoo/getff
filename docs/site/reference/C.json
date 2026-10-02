@@ -187,6 +187,7 @@
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
           ".claude/rules/cold-seat-economy.md",
+          ".claude/rules/doc-authority-hierarchy.md",
           ".claude/rules/git-conflict-merge-forward.md",
           ".claude/skills/dispatcher/SKILL.md",
           ".claude/skills/harvest/SKILL.md",
@@ -273,6 +274,7 @@
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
+          ".claude/rules/ai-laziness-traps.md",
           ".claude/rules/no-paid-llm-in-ci.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/reviewer/SKILL.md",

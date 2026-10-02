@@ -66,7 +66,7 @@ printf '%s' '{"tool_name":"Edit","session_id":"docs-demo-mr-1",
 ```
 
 ```text
-📎 Path-relevant rule — AI-laziness traps (T1-T21) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. … (see .claude/rules/ai-laziness-traps.md)
+📎 Path-relevant rule — AI-laziness traps (T1-T22) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. … (see .claude/rules/ai-laziness-traps.md)
 ```
 
 Seven rules matched that path; the line above is the first. Each line ends with where it

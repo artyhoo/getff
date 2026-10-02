@@ -39,6 +39,8 @@ and your coverage claim is wrong:
    the matrix wins for *capability* questions and the census wins for *delivery* questions;
    a claim that survives neither is a finding.
 3. **Class every finding** into `DOC-LIES` / `NOT-BUILT` / `BROKEN` / `BY-DESIGN` with a citation.
+   A `BY-DESIGN` citation also carries the `VERDICT:` line of `bash scripts/cited-spec-addenda.sh`
+   run on it (umbrella §0) — a withdrawn intent is not a design.
 4. **Watch for the overloaded word «rules».** `install.sh:618` describes profile `core` as
    «rules + tests + guard hooks» where «rules» means **lint** rules; `.claude/rules/*.md` are
    **discipline** rules and are a different artefact class. Several claims in this corpus are
