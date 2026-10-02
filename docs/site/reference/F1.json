@@ -460,7 +460,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the lifecycle SEQUENCE only — §1 the four phases, which settled",
+      "description": "the lifecycle SEQUENCE — §1 the four phases, which settled",
       "source": {
         "path": ".claude/rules/seat-lifecycle.md",
         "line": 18
