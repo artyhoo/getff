@@ -2,7 +2,7 @@
 # setup.d/10-skills.sh — §1 Skills + §1b Hooks (deps-hash-check CC hook).
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §1 (install.sh:716-772), §1b (install.sh:755-786)
+# S0 rows: §1 (install.sh:716-772), §1b (install.sh:755-786) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: (none — first content layer)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 

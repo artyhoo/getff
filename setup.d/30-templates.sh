@@ -2,8 +2,8 @@
 # setup.d/30-templates.sh — §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §3a (install.sh:849-861), §3b (install.sh:824-830), §3d (install.sh:887-898),
-#          §5b AGENTS.md (install.sh:949)
+# S0 rows: §3a (install.sh:849-861), §3b (install.sh:824-830), §3d (install.sh:887-898), cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
+#          §5b AGENTS.md (install.sh:949) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: SHIPPED_DOCS (set in dispatcher scope)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O6: MIXED §3 cut at sub-step boundary, not the §3 header.

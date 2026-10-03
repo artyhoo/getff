@@ -2,7 +2,7 @@
 # setup.d/50-hooks.sh — §5c .husky/ hooks cluster + core.hooksPath activation.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §5c (install.sh:950-994)
+# S0 rows: §5c (install.sh:950-994) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: 40-configs (tsconfig.json etc. already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
