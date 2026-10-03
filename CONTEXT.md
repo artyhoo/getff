@@ -244,3 +244,14 @@ Gist only: the orchestrator's Reviewer role is defined in the
 principle is [inventory](docs/superpowers/specs/2026-09-28-one-button-chain-base-core.md) B8.
 
 _Operator says_: «ревьювер».
+
+## Re-point
+
+**Re-point**: rewrite the stale line number in a `file:line` citation after the cited file
+drifted — the citation still targets the right artefact, only the digit rotted; distinct from
+re-targeting a citation at a different artefact. The mechanical half is owned by the
+line-citation gate ([check-line-citations.mjs](scripts/check-line-citations.mjs)): it
+auto-re-points what it can resolve and flags the ambiguous rest for a hand fix.
+
+_Operator says_: «re-point», «re-point цитат».
+
