@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-9e289d9917fe9c2ca74796afe790e5fcaffd0e1e4cb88ca6b9e580a1a1c9b2ed  .ai-factory/refresh-baseline.json
+1aaefb7de0a28df96fd6ab8efa18caa386ec40897dcfa38803d68eb5f200b94e  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -14,7 +14,7 @@ f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/to
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents/capability-reuse-auditor.md
 b02f777e22aebaaf970752897b29ebc4eebf7c360eabe33fa2ee32b831ff71b1  .claude/agents/claims-conformance-auditor.md
-6b6679a548546f905ede1c9495682c8315262ed2229605cd767a559d7f19eb57  .claude/agents/compliance-verifier.md
+502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622  .claude/agents/compliance-verifier.md
 7fd839ccb2ad1faba23a6a423aaaa3f0524336f174a6e41236a602917374fc5e  .claude/agents/docplan-auditor.md
 3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453  .claude/agents/docs-form-auditor.md
 badaf85d1173e73248d6ef5fe168525311a6b7a8c95de2973c288db60a95f6ba  .claude/agents/fidelity-auditor.md
