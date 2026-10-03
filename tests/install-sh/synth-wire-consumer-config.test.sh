@@ -121,6 +121,25 @@ unborrow() {
   rmdir "$1/node_modules" 2>/dev/null; return 0
 }
 
+# stub_template_plugins <project dir> — minimal importable stubs for the template's registry-only
+# imports (@vitest/eslint-plugin, eslint-config-prettier, globals). The placed root config imports
+# them, and they are in neither the framework's own node_modules nor any stub install's reach —
+# only a consumer's real npm install fetches them. The load-probe's claim under test is
+# IMPORTABILITY (GH #976), which the stubs satisfy; the packages' behaviour is not this file's
+# subject. Each stub carries configs.recommended.rules because the template spreads
+# `vitestPlugin.configs.recommended.rules` at module scope — a bare `{ rules: {} }` default would
+# crash the import itself, a non-dep load failure no real install could hit.
+stub_template_plugins() {
+  local _p
+  for _p in @vitest/eslint-plugin eslint-config-prettier globals; do
+    mkdir -p "$1/node_modules/$_p"
+    printf '{ "name": "%s", "version": "0.0.0-stub", "main": "index.mjs", "type": "module" }\n' "$_p" \
+      > "$1/node_modules/$_p/package.json"
+    printf 'export default { rules: {}, configs: { recommended: { rules: {} } } };\n' \
+      > "$1/node_modules/$_p/index.mjs"
+  done
+}
+
 if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
   bad "ts-morph is not installed in the framework (run npm install first) — without it arm A is vacuous"
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
@@ -995,6 +1014,12 @@ else
 fi
 
 # ── E, F: the R2 wirer under --full ────────────────────────────────────────────────────────────
+# All three --full installs below run under stub package managers (exit 0, nothing installed), so
+# 70-deps.sh sets DEPS_INSTALLED=1 and the self-verify's check-fences-fire runs STRICT: a stub
+# cannot provide the lint toolchain the probe loads, its dep-missing SKIP would be promoted to a
+# failure, and the install would exit 1 for a reason these arms are not about. Waive exactly that
+# dep axis with the checker's own recorded-rationale escape per arm; what the arms assert (R2
+# wiring, insertions-only, kept originals, summaries) stays under the rc=0 assert.
 if [ ! -x "$FW_NM/.bin/tsx" ]; then
   bad "tsx is not installed in the framework — without it the R2 wirer never runs and E/F are vacuous"
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
@@ -1053,12 +1078,16 @@ cp "$WORK/pkg.before" "$E/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$E/apps/lib/eslint.config.mjs"
 printf "import { makeConfig } from './make.mjs';\nexport default makeConfig();\n" > "$WORK/web.before"
 cp "$WORK/web.before" "$E/apps/web/eslint.config.mjs"
+# web.before imports a LOCAL helper — a real consumer layout — so the fixture ships it; without it
+# the load-probe fails on the fixture's own broken import, not on anything getff delivered.
+printf 'export const makeConfig = () => [];\n' > "$E/apps/web/make.mjs"
 printf '{ "name": "esm", "version": "0.0.0", "type": "module" }\n' > "$E/tools/esm/package.json"
 cp "$WORK/pkg.before" "$E/tools/esm/eslint.config.js"
 printf "module.exports = [{ rules: { 'no-console': 'error' } }];\n" > "$WORK/cjs-pkg.before"
 cp "$WORK/cjs-pkg.before" "$E/tools/cjs/eslint.config.cjs"
 borrow "$E" tsx
-( cd "$E" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/e.log" 2>&1; rc=$?
+stub_template_plugins "$E"
+( cd "$E" && FENCES_FIRE_ALLOW_SKIP='(E) stub package managers: no lint toolchain, the fences firing proof is not this arm subject' PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/e.log" 2>&1; rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$E"
 grep -q 'R2 Layer-2' "$WORK/e.log" \
@@ -1121,7 +1150,8 @@ cp "$WORK/pkg.before" "$F/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs"
 printf "import svc from '../svc/eslint.config.mjs';\n\nexport default [...svc];\n" > "$F/apps/ui/eslint.config.mjs"
 borrow "$F" tsx
-( cd "$F" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1; rc=$?
+stub_template_plugins "$F"
+( cd "$F" && FENCES_FIRE_ALLOW_SKIP='(F) stub package managers: no lint toolchain, the fences firing proof is not this arm subject' PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1; rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$F"
 grep -q 'R2 per-workspace: scoped wiring' "$WORK/f.log" \
@@ -1177,7 +1207,8 @@ cp "$WORK/pkg.before" "$M/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$M/apps/js/eslint.config.js"
 seed_snippet "$M"
 borrow "$M" tsx
-( cd "$M" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/m.log" 2>&1; rc=$?
+stub_template_plugins "$M"
+( cd "$M" && FENCES_FIRE_ALLOW_SKIP='(M) stub package managers: no lint toolchain, the fences firing proof is not this arm subject' PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/m.log" 2>&1; rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$M"
 { grep -q 'synth-wire per-workspace' "$WORK/m.log" && grep -q 'R2 per-workspace: scoped wiring' "$WORK/m.log"; } \
