@@ -11,10 +11,11 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | paths:(5), edit-time inject |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook, digest |
-| `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | paths:(7), edit-time inject |
+| `build-first-reuse-default.md` | A | capability commit/proposal; shipped-file removal. | paths:(7), edit-time inject |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script. | paths:(6), edit-time inject |
-| `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed(2) |
+| `cold-seat-economy.md` | C | re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA. | skill-embed(3) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
+| `coordinator-seat-delegation.md` | C | a coordinator seat about to run the stage pipeline itself. | paths:(1) |
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
@@ -28,7 +29,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
 | `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions. | paths:(1), edit-time inject |
 | `phase-research-coverage.md` | A | phase research, prior-art lookups, negative-existence claims. | paths:(4) |
-| `recommendation-laziness-discipline.md` | C | before an inline verdict/recommendation or an ambiguous fork. | digest |
+| `recommendation-laziness-discipline.md` | B | before a verdict, an ambiguous fork, or a dispatch. | digest, hook |
 | `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
 | `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
 | `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |

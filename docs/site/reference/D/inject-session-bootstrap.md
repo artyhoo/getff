@@ -138,7 +138,8 @@ Four details make this more than a heredoc:
 
 Two of the digest's lines are declared delivery channels for rules that live outside
 the always-on context: the H1 recommendation-discipline line is the alt-channel of
-`.claude/rules/recommendation-laziness-discipline.md`, and the autonomy block is the
+`.claude/rules/recommendation-laziness-discipline.md` (whose other channel, since
+2026-10-01, is the dispatch-channel rider of the Stop hook), and the autonomy block is the
 second channel of `.claude/rules/autonomous-loop-continuity.md`. The hook's comments
 mark those anchor points so the rendered rule index reports the full delivery surface.
 

@@ -540,7 +540,7 @@ if [ -z "$TOOLCHAIN" ]; then
   done <<EOF
 $LANE_TABLE
 EOF
-  for _lt_spec in "${_lt_rows[@]}"; do
+  for _lt_spec in "${_lt_rows[@]}"; do  # bash32-safe: a heredoc yields >= 1 line, so >= 1 row
     IFS='|' read -r _lt_lane _lt_display _lt_detect _lt_excludes <<SPEC
 $_lt_spec
 SPEC

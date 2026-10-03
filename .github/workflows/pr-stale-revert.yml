@@ -31,6 +31,15 @@ name: pr-stale-revert
 # Paired tests: packages/core/hooks/checks/pr-stale-revert.test.ts +
 # pr-stale-revert-bin.test.ts (the latter runs the shipped provider and the bin against a
 # throwaway fixture repository).
+#
+# SECOND STEP — the `## Removal consumers` gate (.claude/rules/build-first-reuse-default.md
+# §3.1): a PR that deletes or renames away a file under packages/core/templates/ or
+# .ai-factory/ must map that file's consumers in its body. It rides THIS job on purpose:
+# `stale-revert-in-pr-diff` is the one PR-diff gate already registered as a required
+# context on staging and already re-fired on `edited`, so the new check blocks from day
+# one with no operator registration step and no new required-context to declare
+# (principle 37). Same subject family — «what does this PR's diff silently take away».
+# Paired tests: packages/core/hooks/checks/pr-body-removal-consumers.test.ts.
 
 on:
   pull_request:
@@ -79,3 +88,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-stale-revert-bin.ts
+      - name: Deleted shipped files carry a Removal consumers map in the PR body
+        # Runs even when the stale-revert step failed, so one push reports both verdicts.
+        if: ${{ !cancelled() }}
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-body-removal-consumers-bin.ts
