@@ -208,6 +208,21 @@ HOOKS=$(sed -nE "s/.*register_cc_hook \"\\\$SETTINGS\" \"[A-Za-z]+\" '[^']+' \"(
 if grep -qE '^[[:space:]]*register_imr_hooks "\$SETTINGS"' "$REPO_ROOT/setup.d/10-skills.sh"; then
   HOOKS=$(printf '%s\ninject-matching-rule\n' "$HOOKS" | sed '/^$/d' | sort -u)
 fi
+# P0. An installer hook with no plugin copy has no copy to yield, so it owes no prelude. The one
+# place that says a hook is installer-only is setup.d/ships.manifest (installer != no, plugin = no;
+# check-ships-manifest.mjs holds the plugin column to the plugin tree). The exemption holds only
+# with a written reason, and never for a hook that has a plugin/hooks/ stub: otherwise one manifest
+# edit could drop a shared hook from P1 and from run-hook.test.sh CR1/CR2. (Join incident
+# 2026-09-30: the handoff hooks became installer hooks on a part branch that predates this sweep.)
+INSTALLER_ONLY=''
+while IFS="$(printf '\t')" read -r kind name _verdict installer plugin reason; do
+  [ "$kind" = hook ] && [ "$installer" != no ] && [ "$plugin" = no ] || continue
+  INSTALLER_ONLY="$INSTALLER_ONLY $name"
+  if [ -e "$REPO_ROOT/plugin/hooks/$name" ]; then bad "P0 $name: installer-only in ships.manifest, yet plugin/hooks/$name exists"
+  elif [ "${#reason}" -lt 20 ]; then bad "P0 $name: installer-only in ships.manifest without a reason (≥20 chars)"
+  else ok "P0 $name: installer-only, no plugin stub, reason given"; fi
+done < <(grep -v '^#' "$REPO_ROOT/setup.d/ships.manifest")
+HOOKS=$(for h in $HOOKS; do printf '%s\n' $INSTALLER_ONLY | grep -qxF "$h" || echo "$h"; done)
 n=0
 for h in $HOOKS; do
   f="$REPO_ROOT/.claude/hooks/$h.sh"; n=$((n+1))

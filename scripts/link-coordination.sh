@@ -75,8 +75,14 @@ if [[ -z "$WT_DIR" ]]; then
   }
 fi
 
-CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
+CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/$(_c=$(git -C "$WT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null); if [[ "${_c##*/}" == ".git" ]]; then basename "${_c%/.git}"; else basename "$WT_DIR"; fi)}"
 WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
+# CANON above: the default store is ~/.claude-coordination/<main-checkout basename>. This script
+# ships to env+ consumers (setup.d/85-worktree-scripts.sh), so a hard-coded getff store would move
+# a consumer's _handoff-*/_residue-* files into getff's own store. The main checkout (the parent
+# of git-common-dir), not the worktree dir, names the store, so every worktree of one repo shares
+# it; for getff's own checkout it still resolves to rules-as-tests-aif. Known limit: two repos
+# whose main checkouts share a directory name share a store — set CLAUDE_COORDINATION_DIR.
 
 # ── REPO-IDENTITY GUARD ───────────────────────────────────────────────────────
 # Act ONLY on a checkout of the repository this script lives in: <worktree-dir>

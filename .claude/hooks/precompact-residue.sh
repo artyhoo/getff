@@ -3,11 +3,11 @@
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
 #   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart
-#   exists by nature. Framework-internal (operator-axis) for now: not delivered by
-#   install.sh / setup.d, and its reader is the framework's own /pipeline §1 injection.
-#   Audience triage per .claude/rules/dual-implementation-discipline.md §3 — «internal
-#   tooling → CC-native only»; widening to the consumer axis is a separate decision, not a
-#   side effect of this hook shipping.
+#   exists by nature. Delivered to consumers by the installer at env+ with the handoff group
+#   (setup.d/10-skills.sh §1k), beside its reader inject-handoff-on-compact.sh; no plugin
+#   copy — setup.d/ships.manifest records it installer-only, with the reason. Audience triage
+#   per .claude/rules/dual-implementation-discipline.md §3 — CC-native only; a plugin copy is
+#   a follow-on the 2026-09-08 handoff-currency-gate spec's premise-7 addendum reopens.
 # spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D8 (S2b)
 #
 # WHAT IT DOES — the hook itself WRITES the residue; it never asks the model to.
@@ -167,7 +167,7 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# The title and first-instruction extraction of end-of-turn-reminder.sh:665-724, without its
+# The title and first-instruction extraction of end-of-turn-reminder.sh:666-726, without its
 # per-session cache and D-I filter — the session title first (an explicit `custom-title`,
 # which the desktop app writes INSTEAD of CC's `ai-title`, outranks the generated one), head
 # of the first user instruction second, with the tag blocks a hook injects ahead of it
@@ -192,7 +192,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:746 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:747 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""

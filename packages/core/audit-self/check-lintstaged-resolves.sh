@@ -84,7 +84,14 @@ for cfgdir in "${CFG_DIRS[@]}"; do
     let j; try { j=JSON.parse(fs.readFileSync(process.env.AIF_LSRC,"utf8")); } catch { process.exit(0); }
     for (const [glob,v] of Object.entries(j)) {
       const cmds=Array.isArray(v)?v:[v];
-      for (const c of cmds) { const b=String(c).trim().split(/\s+/)[0]; if (b && !b.startsWith("(")) console.log(glob+"\t"+b); }
+      for (const c of cmds) {
+        // A step behind getff record wrapper (bash [../]scripts/run-armed.sh --if-armed "<check>"
+        // <binary> …, P2 C2) runs <binary>: that is the one that must resolve, not bash. No
+        // apostrophe in this JS: it sits inside a single-quoted bash string (hence \x27).
+        const w=String(c).trim().match(/^bash \S*run-armed\.sh --if-armed (?:\x27[^\x27]*\x27|"[^"]*"|\S+) (\S+)/);
+        const b=w ? w[1] : String(c).trim().split(/\s+/)[0];
+        if (b && !b.startsWith("(")) console.log(glob+"\t"+b);
+      }
     }
   ' 2>/dev/null)
   [ -z "$pairs" ] && continue

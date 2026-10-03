@@ -1,16 +1,10 @@
-import { ESLintUtils, AST_NODE_TYPES } from '@typescript-eslint/utils';
-import type { TSESTree } from '@typescript-eslint/utils';
+import type { TSESLint, TSESTree } from '@typescript-eslint/utils';
 
 // Prior-art: prior-art-evaluations.md#140 (BUILD — error-boundary presence gap confirmed;
 // upstream eslint-react/error-boundaries validates *usage* not *presence*; WebSearch ×3
 // found no production rule enforcing presence at route/app-root; DeepWiki unavailable in
 // this environment — DeepWiki-down precedent per SSOT #121/#123, WebSearch is the
 // established fallback; Vite SPA has no Next error.tsx / RR errorElement convention → genuine gap).
-
-const createRule = ESLintUtils.RuleCreator(
-  () =>
-    `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
-);
 
 function isErrorBoundaryLike(name: string): boolean {
   return name.includes('ErrorBoundary') || name.includes('error-boundary');
@@ -19,25 +13,27 @@ function isErrorBoundaryLike(name: string): boolean {
 function extractJSXElementName(
   nameNode: TSESTree.JSXTagNameExpression,
 ): string | null {
-  if (nameNode.type === AST_NODE_TYPES.JSXIdentifier) {
+  if (nameNode.type === 'JSXIdentifier') {
     return nameNode.name;
   }
-  if (nameNode.type === AST_NODE_TYPES.JSXMemberExpression) {
+  if (nameNode.type === 'JSXMemberExpression') {
     // e.g. Sentry.ErrorBoundary — check property (likely has ErrorBoundary in name)
     if (isErrorBoundaryLike(nameNode.property.name)) {
       return nameNode.property.name;
     }
     const obj = nameNode.object;
-    if (obj.type === AST_NODE_TYPES.JSXIdentifier) return obj.name;
+    if (obj.type === 'JSXIdentifier') return obj.name;
   }
   return null;
 }
 
-export const requireErrorBoundary = createRule({
-  name: 'require-error-boundary',
+type MessageIds = 'missingErrorBoundary';
+
+export const requireErrorBoundary: TSESLint.RuleModule<MessageIds> = {
   meta: {
     type: 'problem',
     docs: {
+      url: `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
       description:
         'App-root files must render content wrapped in an ErrorBoundary JSX element (R-SPA-EB). Enable via glob scoping to entry-point files such as App.tsx. Scope CONSTRAINT v1: narrow in-file check only — no cross-file boundary-tree walk (per SSOT #115 brittleness precedent).',
     },
@@ -89,4 +85,4 @@ export const requireErrorBoundary = createRule({
       },
     };
   },
-});
+};

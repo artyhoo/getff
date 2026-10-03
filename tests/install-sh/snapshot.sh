@@ -25,6 +25,31 @@ set -euo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 BASELINE_DIR="${BASELINE_DIR:-$REPO_ROOT/tests/install-sh/baselines}"
 MODE="${SNAPSHOT_MODE:-}"
+# The python lane writes .mcp.json, and deepwiki lands there only when this machine lacks it at user
+# scope (lib.sh getff_deepwiki_machine_wide asks `claude mcp get deepwiki`). Pin the probe so a
+# baseline captured on a machine that has deepwiki compares equal on CI, which has no claude CLI.
+export GETFF_DEEPWIKI_MACHINE_WIDE=0
+# The install records how the project checks itself (setup.d/99-finalize.sh), and
+# check-doc-links.sh is armed only where lychee is on PATH. CI has no lychee, and a Mac with
+# Homebrew often does, so hide it: each PATH entry that holds a lychee is replaced by a copy of that
+# entry, made of symlinks, without it. Then a baseline captured on either machine compares equal.
+SNAPSHOT_TOOL_SHADOW=$(mktemp -d "${TMPDIR:-/tmp}/snapshot-path.XXXXXX")
+trap 'rm -rf "$SNAPSHOT_TOOL_SHADOW"' EXIT
+_hermetic_path="" _n=0
+_old_ifs=$IFS; IFS=:
+for _d in $PATH; do
+  if [ -n "$_d" ] && [ -e "$_d/lychee" ]; then
+    _n=$((_n + 1)); mkdir -p "$SNAPSHOT_TOOL_SHADOW/$_n"
+    for _f in "$_d"/*; do
+      [ "${_f##*/}" = lychee ] || ln -s "$_f" "$SNAPSHOT_TOOL_SHADOW/$_n/"
+    done
+    _d="$SNAPSHOT_TOOL_SHADOW/$_n"
+  fi
+  _hermetic_path="${_hermetic_path:+$_hermetic_path:}$_d"
+done
+IFS=$_old_ifs
+export PATH="$_hermetic_path"
+unset _hermetic_path _n _old_ifs _d _f
 
 if [ -z "$MODE" ]; then
   echo "ERROR: SNAPSHOT_MODE must be set to 'capture' or 'compare'" >&2

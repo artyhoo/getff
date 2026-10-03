@@ -58,29 +58,60 @@ grep -qiE 'marked N/A.*parse boundary now exists' <<<"$OUT" \
   && ok "C: stale-marker FAIL names the broken precondition" \
   || bad "C: no stale-marker message (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
-# ── Fixture D — ambiguous (JSON.parse only, framework unknown): stays today's RED ─────
+# ── Fixture D — no HTTP boundary yet (JSON.parse only, no framework, no zod), getff's own config ──
+# P2 K2 (2026-09-29): the same conditional N/A as fixture A, with its own wording — the gates
+# re-check it, so the first boundary file turns them red on new code (fixture D3).
 D=$(mktemp -d)
 printf '{"name":"d","version":"0.0.0"}\n' > "$D/package.json"
 mkdir -p "$D/src"; echo 'export const c = JSON.parse(raw);' > "$D/src/cfg.ts"
 install_into "$D" ts-server
-! grep -qF '<!-- aif:r2-na:begin -->' "$D/.ai-factory/tool-decisions.md" \
-  && ok "D: ambiguous → NO auto-green (no N/A recorded)" \
-  || bad "D: ambiguous layout was wrongly auto-greened with an N/A record"
+grep -qF 'N/A until an HTTP boundary appears' "$D/.ai-factory/tool-decisions.md" \
+  && ok "D: no boundary yet + getff's own config → the R2 N/A block is recorded, worded «until an HTTP boundary appears»" \
+  || bad "D: no-boundary-yet N/A not recorded (decisions tail: $(tail -5 "$D/.ai-factory/tool-decisions.md" | tr '\n' '|'))"
+[ "$(grep -c '<!-- aif:r2-na:begin -->' "$D/.ai-factory/tool-decisions.md")" = 1 ] \
+  && ok "D: exactly one R2 N/A block" || bad "D: $(grep -c 'aif:r2-na:begin' "$D/.ai-factory/tool-decisions.md") R2 N/A blocks"
 OUT=$(globs "$D"); RC=$?
-[ "$RC" = "1" ] \
-  && ok "D: ambiguous → check:globs stays the RED alarm (no false auto-green on doubt)" \
-  || bad "D: ambiguous layout did not stay red (rc=$RC)"
+[ "$RC" = "0" ] \
+  && ok "D: no boundary yet → check:globs GREEN (it was red on every push)" \
+  || bad "D: check:globs exited $RC. out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
 
-# ── Fixture D2 — the same ambiguous layout after the consumer edited getff's config ───────────
-# The edit makes the config the consumer's (getff_delivered AND getff_bytes_intact, as everywhere
-# else in 60-ci): the message no longer vouches for «its default globs», which the edit may have changed.
+# ── Fixture D1 — the same layout with zod declared: ambiguous, stays today's RED ──────────────
+D1=$(mktemp -d)
+printf '{"name":"d1","version":"0.0.0","dependencies":{"zod":"^3.23.0"}}\n' > "$D1/package.json"
+mkdir -p "$D1/src"; echo 'export const c = JSON.parse(raw);' > "$D1/src/cfg.ts"
+install_into "$D1" ts-server
+! grep -qF '<!-- aif:r2-na:begin -->' "$D1/.ai-factory/tool-decisions.md" \
+  && ok "D1: zod declared, no signal → ambiguous → NO N/A recorded" \
+  || bad "D1: an ambiguous layout was auto-greened with an N/A record"
+OUT=$(globs "$D1"); RC=$?
+[ "$RC" = "1" ] \
+  && ok "D1: ambiguous → check:globs stays the RED alarm (no false auto-green on doubt)" \
+  || bad "D1: ambiguous layout did not stay red (rc=$RC)"
+
+# ── Fixture D3 — no boundary yet, then a boundary file appears: the waiver ends, no human step ──
+# The gate judges R2's globs as usual — the default globs cover routes/ — and R2 itself (always on
+# in getff's config) lints the new code.
+mkdir -p "$D/src/routes"; echo 'export const r = 1;' > "$D/src/routes/users.ts"
+OUT=$(globs "$D"); RC=$?
+[ "$RC" = "0" ] && grep -q 'no longer holds' <<<"$OUT" \
+  && ok "D3: the first boundary file after a no-boundary-yet N/A → the N/A stops applying, check:globs judges the covering globs" \
+  || bad "D3: rc=$RC out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
+rm -rf "$D/src/routes"
+
+# ── Fixture D2 — the no-boundary-yet layout after the consumer edited getff's config ──────────
+# Ownership guard (P2 K2): the waiver is for getff's own, unedited config only. An edited config is
+# the consumer's (getff_delivered AND getff_bytes_intact, as everywhere else in 60-ci): the layout
+# reads as ambiguous for it, so the re-install drops the N/A it recorded and the message says why.
 printf '\n// edited by the consumer\n' >> "$D/eslint.config.mjs"
 ( cd "$D" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$D/.install2.log" 2>&1 \
   || bad "D2: the re-install exited non-zero (tail: $(tail -3 "$D/.install2.log" | tr '\n' '|'))"
 grep -q 'edited since' <<<"$(grep 'R2 boundary layout ambiguous' "$D/.install2.log")" \
   && ! grep -q 'keeps its default globs' "$D/.install2.log" \
-  && ok "D2: an ambiguous layout with getff's config edited since → the message says so, not «keeps its default globs»" \
-  || bad "D2: the ambiguous-layout message still reads the edited config as getff's: $(grep 'R2 boundary layout ambiguous' "$D/.install2.log" | tr '\n' '|')"
+  && ok "D2: no boundary yet with getff's config edited since → ambiguous, the message says so" \
+  || bad "D2: the message still reads the edited config as getff's: $(grep 'R2 boundary layout' "$D/.install2.log" | tr '\n' '|')"
+! grep -qF 'aif:r2-na' "$D/.ai-factory/tool-decisions.md" \
+  && ok "D2: the edited config's re-install removes the no-boundary-yet N/A (the waiver is for getff's own config only)" \
+  || bad "D2: the N/A survived on a config the consumer has edited"
 
 # ── Fixture E — the consumer owns eslint.config.mjs: a boundary is found, the awk patch stays off ──
 # The awk glob patch is for getff's own config only. It used to rewrite a consumer's config: awk +
@@ -349,7 +380,7 @@ OUT=$( cd "$H" && AIF_ESLINT_CMD=true bash scripts/check-rule-enforced.sh 2>&1 )
   && ok "H: check:enforced no longer fails on a stale R2 N/A marker" \
   || bad "H: check:enforced still fails on the stale marker. out: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|')"
 
-# ── Fixture H2 — N/A recorded, then the layout turns ambiguous (the declarative framework is gone) ──
+# ── Fixture H2 — N/A recorded, then the layout turns ambiguous (the declarative framework is gone, zod stays) ──
 # The gates read ambiguous as a broken precondition too (r2_na_recheck → broke), so a re-install
 # drops the block here as well and the gate falls back to judging the default globs.
 H2=$(mktemp -d)
@@ -358,7 +389,7 @@ mkdir -p "$H2/src"; echo 'export const app = 1;' > "$H2/src/app.ts"
 install_into "$H2" ts-server
 grep -qF '<!-- aif:r2-na:begin -->' "$H2/.ai-factory/tool-decisions.md" \
   || bad "H2: the first install recorded no R2 N/A block — the arm below would be vacuous"
-printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
+printf '{"name":"h2","version":"0.0.0","dependencies":{"zod":"^3.23.0"}}\n' > "$H2/package.json"
 [ "$( cd "$H2" && bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" | head -1 )" = ambiguous ] \
   || bad "H2: the edited fixture does not classify as ambiguous — the arm below would be vacuous"
 ( cd "$H2" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H2/.install2.log" 2>&1 \
@@ -369,6 +400,23 @@ printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
 ! grep -q 'marked N/A' <<<"$(globs "$H2")" \
   && ok "H2: check:globs no longer reports «marked N/A» (it judges the default globs again)" \
   || bad "H2: check:globs still reports the stale «marked N/A»"
+
+# ── Fixture H4 — N/A recorded (declarative), then the framework AND zod go: no boundary yet ──────
+# The layout still waives R2 (P2 K2), so the re-install replaces the block with the no-boundary-yet
+# wording — one block, never two — and the gate stays green.
+H4=$(mktemp -d)
+printf '{"name":"h4","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H4/package.json"
+mkdir -p "$H4/src"; echo 'export const app = 1;' > "$H4/src/app.ts"
+install_into "$H4" ts-server
+printf '{"name":"h4","version":"0.0.0"}\n' > "$H4/package.json"
+( cd "$H4" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H4/.install2.log" 2>&1 \
+  || bad "H4: the re-install exited non-zero (tail: $(tail -3 "$H4/.install2.log" | tr '\n' '|'))"
+[ "$(grep -c '<!-- aif:r2-na:begin -->' "$H4/.ai-factory/tool-decisions.md")" = 1 ] \
+  && grep -qF 'N/A until an HTTP boundary appears' "$H4/.ai-factory/tool-decisions.md" \
+  && ! grep -qF 'validation is declarative' "$H4/.ai-factory/tool-decisions.md" \
+  && ok "H4: declarative → no-boundary-yet on re-install → one block, reworded" \
+  || bad "H4: blocks=$(grep -c 'aif:r2-na:begin' "$H4/.ai-factory/tool-decisions.md"): $(grep -A2 'aif:r2-na:begin' "$H4/.ai-factory/tool-decisions.md" | tr '\n' '|')"
+[ "$(globs "$H4" >/dev/null 2>&1; echo $?)" = 0 ] && ok "H4: check:globs GREEN" || bad "H4: check:globs red after the reworded N/A"
 
 # ── Fixture H3 — a recorded block whose end line was edited away, then a boundary appears ──────
 # The strip skips from begin to end; with no end it would cut the rest of the consumer's file.

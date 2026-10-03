@@ -104,3 +104,18 @@ nothing here is decided or dispatched; each item names what would exercise or se
   records the checkout path `~`-relative via `companion_record_version`. Docker was down in every P6 run, so
   the guided install never reached it. **Needs:** one run with docker up and `AIF_GUIDED_INSTALL=1` (see F-3).
 
+
+## Refresh observations from the one-button landing sweep (not forks)
+
+Recorded on the one-button advisor's request, 2026-09-30, from the cold backward sweep of `join/one-button-union`
+(class: install code that `install.sh --refresh` now also runs). Pre-existing on staging, out of the landing's
+scope. Each line names the site in the landed tree, and in brackets its line on `origin/staging` `1cecca419af`,
+before the landing.
+
+- **R-1 — the bridge dispatch hook is refreshed without the recorded aif URL.** `install.sh:1164` (`1125`) calls
+  `bridge_register_dispatch_hook "$PROJECT_ROOT"` with no URL, so a refresh overwrites a non-default aif URL
+  the install recorded, or reports it NOT wired.
+- **R-2 — «▶ Activated git hooks» on a refresh that changed nothing.** `setup.d/lib.sh:3284` (`2999`) prints it on
+  every refresh, even when the refresh changed nothing.
+- **R-3 — «replaced» for a byte-identical fenced section.** `setup.d/lib.sh:1112` (`1094`; `merge_fenced`) prints
+  `(fenced section=… replaced)` when the new content equals the old.

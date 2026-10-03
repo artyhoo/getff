@@ -7019,6 +7019,11 @@ var init_registry = __esm({
         defaultSeverity: "error",
         explanation: 'S4 ecosystem-prefix dispatch (research-source-trust.md \xA74): packageName carries an "<ecosystem>:<bareName>" prefix (or defaults to npm when unprefixed) that does not match ctx.adapter.ecosystem \u2014 fail closed rather than silently retrying under the wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.'
       },
+      FF2017: {
+        template: `provenance packageName {packageName} needs the entry-level "package": "{packageName}" (Tier 1 is scope-locked to the entry's package)`,
+        defaultSeverity: "error",
+        explanation: "The provenance names a Tier-1 package but its entry has no `package`, so Tier 1 never activates and the URL would fall through to FF2005 \xABunknown allowlistKey\xBB, which names the wrong field. The entry-level package stays the scope-lock (research-source-trust.md #trust-by-name-not-scope); agents/rule-researcher.md \xABTier-1 entry shape\xBB documents it. allowlist-resolver.ts validateUrlAgainstTiers (terminal fallback)."
+      },
       // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
       // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
       // allocation — 20 codes, not the 16-code shared-astgrep alternative).
@@ -7508,6 +7513,9 @@ function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
     });
   }
   if (tier1Miss) return tier1Miss;
+  if (packageName !== void 0 && opts !== void 0 && opts.entryPackage === void 0) {
+    return diag("FF2017", { packageName });
+  }
   return diag("FF2005", { allowlistKey: p.allowlistKey });
 }
 function tier1ReasonToDiagnostic(reason, packageName) {
@@ -9836,26 +9844,38 @@ var require_eslint = __commonJS({
     function missing(e) {
       return e && e.code === "MODULE_NOT_FOUND";
     }
-    function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
+    var NOT_FOUND = {};
+    function fromRoot(root) {
+      var r = createRequire2(join10(root, "package.json"));
       try {
-        return fromProject(id);
+        return r(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
       if (via) {
         try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
+          return createRequire2(r.resolve(via + "/package.json"))(id);
         } catch (e) {
           if (!missing(e)) throw e;
         }
       }
+      return NOT_FOUND;
+    }
+    function load() {
+      var tools = process.env.GETFF_TOOLS_ROOT;
+      var m;
+      if (tools) {
+        m = fromRoot(tools);
+        if (m !== NOT_FOUND) return m;
+      }
+      m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
       try {
         return __require(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
+      throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() + ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || "unset") + "). setup.d/80-rule-bootstrap.sh provides that toolchain outside the project when the project has no ESLint; this run had none.");
     }
     module.exports = load();
   }
@@ -9871,61 +9891,38 @@ var require_parser = __commonJS({
     function missing(e) {
       return e && e.code === "MODULE_NOT_FOUND";
     }
-    function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
+    var NOT_FOUND = {};
+    function fromRoot(root) {
+      var r = createRequire2(join10(root, "package.json"));
       try {
-        return fromProject(id);
+        return r(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
       if (via) {
         try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
+          return createRequire2(r.resolve(via + "/package.json"))(id);
         } catch (e) {
           if (!missing(e)) throw e;
         }
       }
-      try {
-        return __require(id);
-      } catch (e) {
-        if (!missing(e)) throw e;
-      }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
-    }
-    module.exports = load();
-  }
-});
-
-// getff-from-project:@typescript-eslint/utils
-var require_utils2 = __commonJS({
-  "getff-from-project:@typescript-eslint/utils"(exports, module) {
-    var { createRequire: createRequire2 } = __require("node:module");
-    var { join: join10 } = __require("node:path");
-    var id = "@typescript-eslint/utils";
-    var via = "typescript-eslint";
-    function missing(e) {
-      return e && e.code === "MODULE_NOT_FOUND";
+      return NOT_FOUND;
     }
     function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
-      try {
-        return fromProject(id);
-      } catch (e) {
-        if (!missing(e)) throw e;
+      var tools = process.env.GETFF_TOOLS_ROOT;
+      var m;
+      if (tools) {
+        m = fromRoot(tools);
+        if (m !== NOT_FOUND) return m;
       }
-      if (via) {
-        try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
-        } catch (e) {
-          if (!missing(e)) throw e;
-        }
-      }
+      m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
       try {
         return __require(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
+      throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() + ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || "unset") + "). setup.d/80-rule-bootstrap.sh provides that toolchain outside the project when the project has no ESLint; this run had none.");
     }
     module.exports = load();
   }
@@ -9988,19 +9985,15 @@ function isStaticLiteral(node) {
       return false;
   }
 }
-var import_utils, createRule, noUnsafeZodParse;
+var noUnsafeZodParse;
 var init_no_unsafe_zod_parse = __esm({
   "packages/core/eslint-rules/no-unsafe-zod-parse.ts"() {
     "use strict";
-    import_utils = __toESM(require_utils2(), 1);
-    createRule = import_utils.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`
-    );
-    noUnsafeZodParse = createRule({
-      name: "no-unsafe-zod-parse",
+    noUnsafeZodParse = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`,
           description: "Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) and fully-static literal arguments (fail-fast config parses) are not flagged."
         },
         messages: {
@@ -10026,7 +10019,7 @@ var init_no_unsafe_zod_parse = __esm({
           }
         };
       }
-    });
+    };
   }
 });
 
@@ -10034,14 +10027,10 @@ var init_no_unsafe_zod_parse = __esm({
 function isExempt(line) {
   return line.includes("// audit:exempt");
 }
-var import_utils2, createRule2, FORBIDDEN_MODULES, noDirectTimeRandomness;
+var FORBIDDEN_MODULES, noDirectTimeRandomness;
 var init_no_direct_time_randomness = __esm({
   "packages/core/eslint-rules/no-direct-time-randomness.ts"() {
     "use strict";
-    import_utils2 = __toESM(require_utils2(), 1);
-    createRule2 = import_utils2.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`
-    );
     FORBIDDEN_MODULES = /* @__PURE__ */ new Set([
       "fs",
       "http",
@@ -10050,11 +10039,11 @@ var init_no_direct_time_randomness = __esm({
       "node:http",
       "node:https"
     ]);
-    noDirectTimeRandomness = createRule2({
-      name: "no-direct-time-randomness",
+    noDirectTimeRandomness = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
           description: "Forbid Date.now(), new Date(), Math.random(), and direct fs/http/https imports outside infrastructure (R7)."
         },
         messages: {
@@ -10095,7 +10084,7 @@ var init_no_direct_time_randomness = __esm({
           }
         };
       }
-    });
+    };
   }
 });
 
@@ -10105,10 +10094,10 @@ function functionHasSpan(body) {
   const stack = [body];
   while (stack.length > 0) {
     const node = stack.pop();
-    if (node.type === import_utils4.AST_NODE_TYPES.CallExpression && node.callee.type === import_utils4.AST_NODE_TYPES.MemberExpression && node.callee.property.type === import_utils4.AST_NODE_TYPES.Identifier && node.callee.property.name === "startActiveSpan") {
+    if (node.type === "CallExpression" && node.callee.type === "MemberExpression" && node.callee.property.type === "Identifier" && node.callee.property.name === "startActiveSpan") {
       return true;
     }
-    if (node.type === import_utils4.AST_NODE_TYPES.CallExpression && node.callee.type === import_utils4.AST_NODE_TYPES.Identifier && node.callee.name === "withSpan") {
+    if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "withSpan") {
       return true;
     }
     for (const key of Object.keys(node)) {
@@ -10128,21 +10117,16 @@ function functionHasSpan(body) {
   }
   return false;
 }
-var import_utils3, import_utils4, createRule3, SKIP_KEYS, requireOtelSpan;
+var SKIP_KEYS, requireOtelSpan;
 var init_require_otel_span = __esm({
   "packages/core/eslint-rules/require-otel-span.ts"() {
     "use strict";
-    import_utils3 = __toESM(require_utils2(), 1);
-    import_utils4 = __toESM(require_utils2(), 1);
-    createRule3 = import_utils3.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`
-    );
     SKIP_KEYS = /* @__PURE__ */ new Set(["parent", "loc", "range", "tokens", "comments"]);
-    requireOtelSpan = createRule3({
-      name: "require-otel-span",
+    requireOtelSpan = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
           description: "Exported async functions must open an OTel span (tracer.startActiveSpan or withSpan) \u2014 R8."
         },
         messages: {
@@ -10154,7 +10138,7 @@ var init_require_otel_span = __esm({
       create(context) {
         function checkFn(node, name) {
           if (!node.async) return;
-          const body = node.body.type === import_utils4.AST_NODE_TYPES.BlockStatement ? node.body : void 0;
+          const body = node.body.type === "BlockStatement" ? node.body : void 0;
           if (functionHasSpan(body)) return;
           context.report({
             node,
@@ -10170,32 +10154,28 @@ var init_require_otel_span = __esm({
           },
           // export const foo = async () => {} / async function() {}
           "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator"(node) {
-            if (node.id.type !== import_utils4.AST_NODE_TYPES.Identifier || !node.init) return;
-            if (node.init.type === import_utils4.AST_NODE_TYPES.ArrowFunctionExpression || node.init.type === import_utils4.AST_NODE_TYPES.FunctionExpression) {
+            if (node.id.type !== "Identifier" || !node.init) return;
+            if (node.init.type === "ArrowFunctionExpression" || node.init.type === "FunctionExpression") {
               checkFn(node.init, node.id.name);
             }
           }
         };
       }
-    });
+    };
   }
 });
 
 // packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
-var import_utils5, createRule4, EXEMPT_TOKEN, restrictedSyntaxAuditExempt;
+var EXEMPT_TOKEN, restrictedSyntaxAuditExempt;
 var init_restricted_syntax_audit_exempt = __esm({
   "packages/core/eslint-rules/restricted-syntax-audit-exempt.ts"() {
     "use strict";
-    import_utils5 = __toESM(require_utils2(), 1);
-    createRule4 = import_utils5.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`
-    );
     EXEMPT_TOKEN = "audit:exempt";
-    restrictedSyntaxAuditExempt = createRule4({
-      name: "restricted-syntax-audit-exempt",
+    restrictedSyntaxAuditExempt = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
           description: "Disallow syntax matching the given selector(s), honouring per-line `audit:exempt` suppression (exempt-aware no-restricted-syntax)."
         },
         messages: {
@@ -10238,7 +10218,72 @@ var init_restricted_syntax_audit_exempt = __esm({
         }
         return listeners;
       }
-    });
+    };
+  }
+});
+
+// packages/core/eslint-rules/require-error-boundary.ts
+function isErrorBoundaryLike(name) {
+  return name.includes("ErrorBoundary") || name.includes("error-boundary");
+}
+function extractJSXElementName(nameNode) {
+  if (nameNode.type === "JSXIdentifier") {
+    return nameNode.name;
+  }
+  if (nameNode.type === "JSXMemberExpression") {
+    if (isErrorBoundaryLike(nameNode.property.name)) {
+      return nameNode.property.name;
+    }
+    const obj = nameNode.object;
+    if (obj.type === "JSXIdentifier") return obj.name;
+  }
+  return null;
+}
+var requireErrorBoundary;
+var init_require_error_boundary = __esm({
+  "packages/core/eslint-rules/require-error-boundary.ts"() {
+    "use strict";
+    requireErrorBoundary = {
+      meta: {
+        type: "problem",
+        docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
+          description: "App-root files must render content wrapped in an ErrorBoundary JSX element (R-SPA-EB). Enable via glob scoping to entry-point files such as App.tsx. Scope CONSTRAINT v1: narrow in-file check only \u2014 no cross-file boundary-tree walk (per SSOT #115 brittleness precedent)."
+        },
+        messages: {
+          missingErrorBoundary: "App-root component must render its content inside an ErrorBoundary JSX element (R-SPA-EB). Add <ErrorBoundary> as an ancestor in the JSX tree. To opt out intentionally, add // audit:exempt on the same line as the first JSX element."
+        },
+        schema: []
+      },
+      defaultOptions: [],
+      create(context) {
+        const sourceCode = context.sourceCode;
+        const lines = sourceCode.lines;
+        let hasJSX = false;
+        let hasErrorBoundaryInJSX = false;
+        let firstJSXNode = null;
+        return {
+          JSXOpeningElement(node) {
+            hasJSX = true;
+            if (firstJSXNode === null) firstJSXNode = node;
+            const name = extractJSXElementName(node.name);
+            if (name !== null && isErrorBoundaryLike(name)) {
+              hasErrorBoundaryInJSX = true;
+            }
+          },
+          "Program:exit"(program) {
+            if (!hasJSX || hasErrorBoundaryInJSX) return;
+            const reportNode = firstJSXNode ?? program;
+            const line = lines[reportNode.loc.start.line - 1] ?? "";
+            if (line.includes("// audit:exempt")) return;
+            context.report({
+              node: reportNode,
+              messageId: "missingErrorBoundary"
+            });
+          }
+        };
+      }
+    };
   }
 });
 
@@ -10251,6 +10296,7 @@ var init_eslint_rules = __esm({
     init_no_direct_time_randomness();
     init_require_otel_span();
     init_restricted_syntax_audit_exempt();
+    init_require_error_boundary();
     plugin = {
       meta: {
         name: "@rules-as-tests/core-eslint-rules",
@@ -10260,7 +10306,8 @@ var init_eslint_rules = __esm({
         "no-unsafe-zod-parse": noUnsafeZodParse,
         "no-direct-time-randomness": noDirectTimeRandomness,
         "require-otel-span": requireOtelSpan,
-        "restricted-syntax-audit-exempt": restrictedSyntaxAuditExempt
+        "restricted-syntax-audit-exempt": restrictedSyntaxAuditExempt,
+        "require-error-boundary": requireErrorBoundary
       }
     };
     eslint_rules_default = plugin;
@@ -10277,7 +10324,7 @@ function rulesOf(mod) {
   if (!rules2 || typeof rules2 !== "object") return null;
   return rules2;
 }
-function reasonOf(err) {
+function reasonOf2(err) {
   const e = err;
   const code = e?.code ? `${e.code}: ` : "";
   return `${code}${(e?.message ?? String(err)).split("\n")[0]}`;
@@ -10303,7 +10350,7 @@ function resolvePluginRegistry(opts = {}) {
       presetsResolved: true
     };
   } catch (err) {
-    skipped.push({ specifier: barrelLabel, reason: reasonOf(err) });
+    skipped.push({ specifier: barrelLabel, reason: reasonOf2(err) });
   }
   const requireFromHere = createRequire(new URL("../validator/preset-plugin-resolver.ts", import.meta.url).href);
   const resolvedFrom = [];
@@ -10315,7 +10362,7 @@ function resolvePluginRegistry(opts = {}) {
       presetRules = { ...presetRules, ...rules2 };
       resolvedFrom.push(specifier);
     } catch (err) {
-      skipped.push({ specifier, reason: reasonOf(err) });
+      skipped.push({ specifier, reason: reasonOf2(err) });
     }
   }
   if (resolvedFrom.length > 0) {
@@ -11663,7 +11710,8 @@ var init_to_node = __esm({
 });
 
 // packages/core/synthesizer/generate.ts
-async function synthesizeGenerate(plan, client) {
+import process3 from "node:process";
+async function synthesizeGenerate(plan, client, log = (m) => process3.stderr.write(m + "\n")) {
   const candidates = plan.patterns.map((entry) => ({
     id: entry.id,
     summary: entry.summary,
@@ -11683,7 +11731,12 @@ async function synthesizeGenerate(plan, client) {
   let nextId = 1;
   for (const candidate of selection.rules) {
     const entry = plan.patterns.find((p) => p.id === candidate.entryId);
-    if (!entry) continue;
+    if (!entry) {
+      log(
+        `[rule-bootstrap] selection rule ${candidate.ruleId} dropped \u2014 its research entry ${candidate.entryId} is not in the plan (dropped above or never written)`
+      );
+      continue;
+    }
     const id = `G${nextId++}`;
     const hasEslintConfig = candidate.eslintConfig !== void 0 && Object.keys(candidate.eslintConfig).length > 0;
     let check;
@@ -11885,7 +11938,7 @@ var init_rule_bootstrap = __esm({
 });
 
 // packages/core/install/rule-bootstrap-cli.ts
-import process3 from "node:process";
+import process4 from "node:process";
 import {
   existsSync as existsSync14,
   mkdirSync as mkdirSync4,
@@ -12982,16 +13035,65 @@ function resolveCtxForRoot(root) {
 }
 
 // packages/core/synthesizer/file-clients.ts
+var ENTRY_PATH_RE = /^\/patterns\/(\d+)(?:\/|$)/;
+var idOf = (e) => e?.id;
+function reasonOf(d) {
+  const where = d.path ? ` (at ${d.path})` : "";
+  return `${d.code}: ${d.message}${where}`;
+}
+function partitionResearchPlan(parsed, ctx) {
+  const dropped = [];
+  let current = parsed;
+  for (; ; ) {
+    const entryIds = /* @__PURE__ */ new WeakMap();
+    const result = checkResearchPlan(current, ctx, entryIds);
+    if (result.ok) return { plan: result.plan, dropped };
+    const rejectWholePlan = () => {
+      validateResearchPlan(current, ctx);
+      throw new ResearchPlanError("unknown validation failure", result.diagnostics);
+    };
+    const patterns = current.patterns;
+    if (!Array.isArray(patterns)) return rejectWholePlan();
+    const dropIdx = /* @__PURE__ */ new Map();
+    const topLevel = [];
+    for (const d of result.diagnostics) {
+      const byPath = d.path ? ENTRY_PATH_RE.exec(d.path) : null;
+      const byId = entryIds.get(d);
+      let idx = [];
+      if (byPath) idx = [Number(byPath[1])];
+      else if (byId !== void 0) {
+        const matches2 = (e) => byId === "<unknown>" ? typeof idOf(e) !== "string" : idOf(e) === byId;
+        idx = patterns.flatMap((e, i) => matches2(e) ? [i] : []);
+      }
+      if (idx.length === 0) topLevel.push(d);
+      for (const i of idx) dropIdx.set(i, [...dropIdx.get(i) ?? [], reasonOf(d)]);
+    }
+    if (topLevel.length > 0 || dropIdx.size === 0) return rejectWholePlan();
+    for (const [i, reasons] of [...dropIdx.entries()].sort((a, b) => a[0] - b[0])) {
+      const id = idOf(patterns[i]);
+      dropped.push({ id: typeof id === "string" ? id : `#${i}`, reason: reasons.join("; ") });
+    }
+    current = { ...current, patterns: patterns.filter((_, i) => !dropIdx.has(i)) };
+  }
+}
 var FileResearchClient = class {
-  constructor(planPath) {
+  constructor(planPath, opts = {}) {
     this.planPath = planPath;
+    this.opts = opts;
   }
   planPath;
+  opts;
+  /** Entries the last `research()` call dropped, in plan order. */
+  dropped = [];
   async research(_detection) {
     const raw = readFileSync10(this.planPath, "utf8");
     const parsed = JSON.parse(raw);
-    validateResearchPlan(parsed, resolveCtxForRoot(process2.cwd()));
-    return parsed;
+    const ctx = resolveCtxForRoot(this.opts.root ?? process2.cwd());
+    const { plan, dropped } = partitionResearchPlan(parsed, ctx);
+    const log = this.opts.log ?? ((m) => process2.stderr.write(m + "\n"));
+    for (const d of dropped) log(`[rule-bootstrap] dropped research entry ${d.id} \u2014 ${d.reason}`);
+    this.dropped = dropped;
+    return plan;
   }
 };
 var FileGenerateClient = class {
@@ -13373,7 +13475,7 @@ if (isDirectRun(process.argv[1], new URL("../synthesizer/render-researched-astgr
 // packages/core/install/rule-bootstrap-cli.ts
 init_tier();
 function parseArgs(argv) {
-  const args = { consumerRoot: process3.cwd(), force: true, strict: false };
+  const args = { consumerRoot: process4.cwd(), force: true, strict: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--consumer-root") args.consumerRoot = argv[++i] ?? args.consumerRoot;
@@ -13382,11 +13484,12 @@ function parseArgs(argv) {
     else if (a === "--from-research") args.fromResearch = argv[++i];
     else if (a === "--from-selection") args.fromSelection = argv[++i];
     else if (a === "--from-practice") args.fromPractice = argv[++i];
+    else if (a === "--check-plan") args.checkPlan = argv[++i];
     else if (a === "-h" || a === "--help") {
-      process3.stdout.write(
-        "Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--no-force] [--strict]\n"
+      process4.stdout.write(
+        "Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--check-plan <plan.json> [--from-selection <sel.json>]] [--no-force] [--strict]\n"
       );
-      process3.exit(0);
+      process4.exit(0);
     } else if (!a.startsWith("-")) args.consumerRoot = a;
   }
   return args;
@@ -13442,7 +13545,7 @@ function loadPracticeRecords(src) {
   return [JSON.parse(readFileSync16(src, "utf8"))];
 }
 function runPracticeRender(opts) {
-  const log = opts.log ?? ((m) => process3.stderr.write(m + "\n"));
+  const log = opts.log ?? ((m) => process4.stderr.write(m + "\n"));
   const records = loadPracticeRecords(opts.fromPractice);
   const ctx = resolveCtxForRoot(opts.consumerRoot);
   const plan = planResearchedAstgrep(records, ctx);
@@ -13482,20 +13585,46 @@ function runPracticeRender(opts) {
   }
   return { mode: "practice-render", rendered, researchOnly: plan.researchOnly };
 }
+function checkPlanFile(opts) {
+  const parsed = JSON.parse(readFileSync16(opts.planPath, "utf8"));
+  const { plan, dropped } = partitionResearchPlan(parsed, resolveCtxForRoot(opts.root));
+  const kept = plan.patterns.map((e) => e.id);
+  const generated = /* @__PURE__ */ new Set();
+  if (opts.selectionPath) {
+    const sel = JSON.parse(readFileSync16(opts.selectionPath, "utf8"));
+    for (const c of sel.rules ?? []) if (!routesToManual(c)) generated.add(c.entryId);
+  }
+  return { kept, dropped, researchOnly: kept.filter((id) => !generated.has(id)) };
+}
 async function main2() {
-  const args = parseArgs(process3.argv.slice(2));
+  const args = parseArgs(process4.argv.slice(2));
+  if (args.checkPlan) {
+    try {
+      const r = checkPlanFile({
+        planPath: args.checkPlan,
+        selectionPath: args.fromSelection,
+        root: args.consumerRoot
+      });
+      process4.stdout.write(JSON.stringify(r, null, 2) + "\n");
+      return;
+    } catch (err) {
+      process4.stderr.write(`[rule-bootstrap] research plan rejected \u2014 ${err.message}
+`);
+      process4.exit(3);
+    }
+  }
   if (args.fromPractice && (args.fromResearch || args.fromSelection)) {
-    process3.stderr.write(
+    process4.stderr.write(
       "rule-bootstrap-cli: --from-practice cannot be combined with --from-research/--from-selection\n"
     );
-    process3.exit(args.strict ? 1 : 0);
+    process4.exit(args.strict ? 1 : 0);
   }
   const oneOnly = Boolean(args.fromResearch) !== Boolean(args.fromSelection);
   if (oneOnly) {
-    process3.stderr.write(
+    process4.stderr.write(
       "rule-bootstrap-cli: --from-research and --from-selection must be passed together\n"
     );
-    process3.exit(args.strict ? 1 : 0);
+    process4.exit(args.strict ? 1 : 0);
   }
   if (args.fromPractice) {
     try {
@@ -13503,31 +13632,32 @@ async function main2() {
         consumerRoot: args.consumerRoot,
         fromPractice: args.fromPractice
       });
-      process3.stdout.write(JSON.stringify(result, null, 2) + "\n");
-      if (args.strict && result.rendered.length === 0) process3.exit(1);
+      process4.stdout.write(JSON.stringify(result, null, 2) + "\n");
+      if (args.strict && result.rendered.length === 0) process4.exit(1);
       return;
     } catch (err) {
       if (err instanceof PracticeEntryIdError) {
-        process3.stderr.write(`[rule-bootstrap] REFUSED \u2014 ${err.message}
+        process4.stderr.write(`[rule-bootstrap] REFUSED \u2014 ${err.message}
 `);
-        process3.exit(1);
+        process4.exit(1);
       }
       if (err instanceof PracticeJoinError) {
-        process3.stderr.write(`[rule-bootstrap] ${err.message}
+        process4.stderr.write(`[rule-bootstrap] ${err.message}
 `);
-        process3.exit(1);
+        process4.exit(1);
       }
-      process3.stderr.write(
+      process4.stderr.write(
         `[rule-bootstrap] practice record invalid or unreadable \u2014 ${err.message}
 [rule-bootstrap] a valid input is an AstgrepResearchedPractice JSON record (schema: packages/core/synthesizer/research-to-node.ts; committed example: packages/core/synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json) \u2014 fix or re-author it, then re-run --from-practice.
 `
       );
-      process3.exit(args.strict ? 1 : 0);
+      process4.exit(args.strict ? 1 : 0);
     }
   }
   const live = Boolean(args.fromResearch && args.fromSelection);
-  const clients = live ? {
-    researchClient: new FileResearchClient(args.fromResearch),
+  const researchClient = live ? new FileResearchClient(args.fromResearch, { root: args.consumerRoot }) : void 0;
+  const clients = researchClient ? {
+    researchClient,
     generateClient: withManualDrop(new FileGenerateClient(args.fromSelection))
   } : {};
   const { runRuleBootstrap: runRuleBootstrap2 } = await Promise.resolve().then(() => (init_rule_bootstrap(), rule_bootstrap_exports));
@@ -13537,31 +13667,33 @@ async function main2() {
       force: args.force,
       ...clients
     });
-    process3.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    const out = researchClient ? { ...result, dropped: researchClient.dropped } : result;
+    process4.stdout.write(JSON.stringify(out, null, 2) + "\n");
     if (args.strict) {
       const ok = result.mode === "synthesis" && result.install.ok;
-      if (!ok) process3.exit(1);
+      if (!ok) process4.exit(1);
     }
   } catch (err) {
     const why = err instanceof ResearchPlanError ? err.message : err.message;
-    process3.stderr.write(
+    process4.stderr.write(
       `[rule-bootstrap] live research artefact invalid or unreadable \u2014 ${why}
 [rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the rule-research protocol (agents/rule-researcher.md, the rule-research skill).
 `
     );
-    process3.exit(args.strict ? 1 : 0);
+    process4.exit(args.strict ? 1 : 3);
   }
 }
-if (isDirectRun(process3.argv[1], import.meta.url)) {
+if (isDirectRun(process4.argv[1], import.meta.url)) {
   main2().catch((err) => {
-    process3.stderr.write(`rule-bootstrap-cli failed: ${err.message}
+    process4.stderr.write(`rule-bootstrap-cli failed: ${err.message}
 `);
-    process3.exit(1);
+    process4.exit(1);
   });
 }
 export {
   PracticeEntryIdError,
   PracticeJoinError,
+  checkPlanFile,
   isDirectRun,
   rulesResearchDirOf,
   runPracticeRender,

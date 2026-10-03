@@ -103,7 +103,8 @@ out=$(refresh "$T")
 grep -q 'kind=mcp' <<<"$out" && bad "G9 neg: bare --refresh processed the kind=mcp companion rows" \
   || ok "G9 neg: bare --refresh leaves the companion rows alone"
 out=$(refresh "$T" --full)
-[ "$(jq -r '.mcpServers.context7.command // empty' "$T/.mcp.json" 2>/dev/null)" = npx ] \
+# getff writes context7 as an http remote (setup.d/lib.sh add_getff_mcp_servers, one-button P3 F2).
+[ "$(jq -r '.mcpServers.context7.url // empty' "$T/.mcp.json" 2>/dev/null)" = https://mcp.context7.com/mcp ] \
   && ok "G3: --refresh --full added context7 to .mcp.json" || bad "G3: no context7 in .mcp.json after --refresh --full"
 [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$S")" = 1 ] \
   && ok "G8: --refresh --full armed AIF_RECAP_GATE=1" || bad "G8: AIF_RECAP_GATE not armed by --refresh --full"

@@ -2,7 +2,7 @@
 # setup.d/10-skills.sh — §1 Skills + §1b Hooks (deps-hash-check CC hook).
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §1 (install.sh:689-745), §1b (install.sh:755-786)
+# S0 rows: §1 (install.sh:716-772), §1b (install.sh:755-786)
 # Depends on: (none — first content layer)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:602-603), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:620-621), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
@@ -432,3 +432,30 @@ fi
 # requirement (create-worktree → worktree-node-modules → link-coordination) means a partial
 # ship from two sites drifts independently; 85 is the single owner now. Gate semantics
 # identical (env|factory|WITH_AIF_SUITE). See setup.d/85-worktree-scripts.sh §1.
+
+# ─── 1k. Handoff group: PreCompact residue writer + SessionStart:compact re-injector ──────
+# env+ (PROFILE=env|factory, OR WITH_AIF_SUITE — the §1 contour-surface gate). Measured end to
+# end in a bare env consumer before it shipped (advisor verdict 10): the Stop hook's handoff gate
+# names .ai-factory/orchestrator-prompts/_handoff-<session>.md, precompact-residue.sh writes
+# _residue-<session>.md beside it at compaction, and inject-handoff-on-compact.sh puts the handoff
+# back into the compacted session. Both hooks are passive without the gate: the residue writer also
+# records the observed context ceiling that end-of-turn-reminder.sh reads (its OBSERVED arm is
+# empty without it), and the injector is silent when no handoff exists. The gate itself
+# (AIF_HANDOFF_GATE=1) blocks a turn, so it is NOT set here: it is an `ask` row of the
+# session-settings group (setup.d/session-settings.json), written only on the pre-launch «yes».
+# The two per-session files are machine state: git-ignored through .git/info/exclude, the
+# clone's own list (the project's .gitignore is left alone).
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  for _hg in precompact-residue inject-handoff-on-compact; do
+    [ -f "$PKG_ROOT/.claude/hooks/$_hg.sh" ] || continue
+    copy_safe "$PKG_ROOT/.claude/hooks/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
+    chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true
+  done
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register precompact-residue (PreCompact) + inject-handoff-on-compact (SessionStart:compact) in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PreCompact" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh"' "precompact-residue"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh"' "inject-handoff-on-compact" "compact"
+    handoff_ignore_local "$PROJECT_ROOT"
+  fi
+fi

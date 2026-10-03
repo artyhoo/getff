@@ -56,6 +56,13 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
   # The first line by expansion, not `printf | head -1`: head exits after one line, printf's next
   # write gets EPIPE, and under set -e that aborted the install (post-merge CI 2026-09-29).
   _r2_verdict="${_r2_out%%$'\n'*}"
+  # Ownership guard (P2 K2, 2026-09-29): no-boundary-yet waives R2 only in getff's own config, still
+  # holding getff's bytes. A config the consumer owns or has edited keeps the red gate and its
+  # NOT-wired naming, as for any layout the install cannot call.
+  if [ "$_r2_verdict" = no-boundary-yet ] \
+     && ! { getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" && getff_bytes_intact "$PROJECT_ROOT/$_r2_root_cfg"; }; then
+    _r2_verdict=ambiguous
+  fi
   _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
   # _r2_na_strip — drop the aif:r2-na block (and the blank line before it) from tool-decisions.md,
   # keeping every other line.
@@ -76,11 +83,12 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
     rm -f "$_dec.tmp" 2>/dev/null || true
     return 1
   }
-  # A recorded N/A holds only while the layout stays no-boundary-confident — the gates read any
-  # other verdict as a broken precondition (r2-na-marker.sh r2_na_recheck) and fail «marked N/A» on
-  # every push. A re-install that finds a boundary (or a layout it cannot call) drops the block it
-  # recorded, so the gates judge the wired globs instead of a decision that no longer holds.
-  if [ "$_r2_verdict" != "no-boundary-confident" ] && [ -f "$_dec" ] && grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then
+  # A recorded N/A holds only while the layout stays no-boundary-confident or no-boundary-yet — the
+  # gates read any other verdict as a broken precondition (r2-na-marker.sh r2_na_recheck) and fail
+  # «marked N/A» on every push. A re-install that finds a boundary (or a layout it cannot call) drops
+  # the block it recorded, so the gates judge the wired globs instead of a decision that no longer holds.
+  if [ "$_r2_verdict" != "no-boundary-confident" ] && [ "$_r2_verdict" != "no-boundary-yet" ] \
+     && [ -f "$_dec" ] && grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then
     if _r2_na_strip; then
       echo "  ✓ the layout no longer qualifies for the R2 N/A recorded earlier → removed the R2 N/A block from .ai-factory/tool-decisions.md"
     else
@@ -197,8 +205,38 @@ EOF
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
-    no-boundary-confident)
+    no-boundary-confident|no-boundary-yet)
       if [ -f "$_dec" ]; then
+        # The block this pass records, built once: compared with the one already in the file, then
+        # appended only when it differs.
+        _r2_block="$(
+          echo "<!-- aif:r2-na:begin -->"
+          if [ "$_r2_verdict" = no-boundary-yet ]; then
+            echo "### R2 (no-unsafe-zod-parse) — N/A until an HTTP boundary appears (auto-recorded by install.sh)"
+            echo "**Verdict:** N/A — no HTTP boundary yet: no boundary folder, no zod parse call, and no \`zod\` in any package.json."
+          else
+            echo "### R2 (no-unsafe-zod-parse) — N/A for this layout (auto-recorded by install.sh)"
+            echo "**Verdict:** N/A — validation is declarative (allowlisted framework); no manual \`.parse()\` HTTP boundary detected."
+          fi
+          echo "**Precondition (re-checked by check:globs / check:enforced via scripts/detect-r2-boundary.sh):**"
+          echo "- no file matches RULE_GLOBS.boundary tokens, AND"
+          if [ "$_r2_verdict" = no-boundary-yet ]; then
+            echo "- no \`.safeParse(\` and no non-stdlib \`.parse(\` in non-test source, AND"
+            echo "- no \`zod\` declared in any package.json (or an allowlisted declarative framework is)."
+          else
+            echo "- no \`.safeParse(\` and no non-stdlib \`.parse(\` in non-test source."
+          fi
+          echo "**If this precondition breaks** (you add a hand-rolled parse boundary) the gate goes RED again — wire R2 (widen RULE_GLOBS.boundary) or update this decision."
+          echo "<!-- aif:r2-na:end -->"
+        )"
+        # The same block already recorded (a --refresh, a re-install): the file is left byte-for-byte.
+        # Stripping and re-appending it would move it to the end of the file — after the
+        # project-checks block 99-finalize writes — so a refresh would rewrite a record it did not change.
+        _r2_have="$(awk '/<!-- aif:r2-na:begin -->/{f=1} f{print} f&&/<!-- aif:r2-na:end -->/{exit}' "$_dec" 2>/dev/null)"
+        if [ -n "$_r2_have" ] && [ "$_r2_have" = "$_r2_block" ] \
+           && [ "$(grep -cF '<!-- aif:r2-na:begin -->' "$_dec")" = 1 ]; then
+          echo "  ✓ R2 N/A already recorded in .ai-factory/tool-decisions.md for this layout (unchanged)"
+        else
         # ledger A1-9 (the A1-8 class): a failed awk/redirect skipped the mv, so the OLD R2 N/A block
         # survived — and the append below then wrote a SECOND one, leaving the consumer with a
         # duplicated fenced block under a ✓. Refusing the whole record is the only honest outcome.
@@ -209,21 +247,16 @@ EOF
         if [ "$_r2_strip_ok" = "0" ]; then
           echo "  ⚠ could not replace the previous R2 N/A block in $_dec (no end line, or a write failure) — left unchanged, no record appended (appending would duplicate the block)" >&2
         else
-        {
-          echo ""
-          echo "<!-- aif:r2-na:begin -->"
-          echo "### R2 (no-unsafe-zod-parse) — N/A for this layout (auto-recorded by install.sh)"
-          echo "**Verdict:** N/A — validation is declarative (allowlisted framework); no manual \`.parse()\` HTTP boundary detected."
-          echo "**Precondition (re-checked by check:globs / check:enforced via scripts/detect-r2-boundary.sh):**"
-          echo "- no file matches RULE_GLOBS.boundary tokens, AND"
-          echo "- no \`.safeParse(\` and no non-stdlib \`.parse(\` in non-test source."
-          echo "**If this precondition breaks** (you add a hand-rolled parse boundary) the gate goes RED again — wire R2 (widen RULE_GLOBS.boundary) or update this decision."
-          echo "<!-- aif:r2-na:end -->"
-        } >> "$_dec"
-        echo "  ✓ declarative validation, no manual-parse boundary → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md"
+        { echo ""; printf '%s\n' "$_r2_block"; } >> "$_dec"
+        if [ "$_r2_verdict" = no-boundary-yet ]; then
+          echo "  ✓ no HTTP boundary yet (no boundary folder, no zod) → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md; the first boundary file turns scripts/check-rule-globs.sh red"
+        else
+          echo "  ✓ declarative validation, no manual-parse boundary → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md"
+        fi
+        fi
         fi
       else
-        echo "  · declarative validation detected, but .ai-factory/ absent → skipped R2 N/A record (gate behaviour unchanged)"
+        echo "  · no manual-parse boundary detected, but .ai-factory/ absent → skipped R2 N/A record (gate behaviour unchanged)"
       fi ;;
     *)
       # NB: say "scripts/check-rule-globs.sh" (hyphen), NOT the colon-form "check:globs" — the colon
@@ -371,7 +404,7 @@ fi
 _own_eslint_ignores() {
   [ -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ] && echo 'eslint-rules-local/**'
   local rel
-  for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts .dependency-cruiser.mjs \
+  for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts scripts/prove-rules.mjs .dependency-cruiser.mjs \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done

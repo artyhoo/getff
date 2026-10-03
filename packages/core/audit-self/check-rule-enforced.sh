@@ -23,7 +23,7 @@
 # GH #730: verification is scoped to R2-relevant packages — those whose nearest package.json declares
 # `zod` in dependencies / devDependencies. A zod-less package (e.g. an Expo/RN app) cannot have an
 # unsafe-zod-parse boundary → silently skipped as "R2 N/A", not a hard fail. Grep shape reuses
-# detect-r2-boundary.sh:88 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
+# detect-r2-boundary.sh:108 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
 # `"zod-to-json-schema":` / `"@hono/zod-openapi":`. The "R2 ⟺ zod present" principle applies at
 # package granularity here; at call-site granularity in no-unsafe-zod-parse.ts (GH #737) — same
 # principle, different files, neither duplicated.
@@ -300,9 +300,12 @@ PRUNE=( "${CFG_PRUNE[@]}" -o -name reports )
 # circuits before eslint resolution. No marker → fall through to today's --print-config behaviour.
 # shellcheck source=/dev/null
 . "$(dirname "$0")/r2-na-marker.sh"
-if r2_na_marker_present; then
+# P2 K2: a no-boundary-yet N/A whose precondition broke waives nothing — fall through to the
+# --print-config check below, as if no block were there.
+if r2_na_marker_present && { [ "$(r2_na_recheck)" = holds ] || ! r2_na_until_boundary; }; then
   case "$(r2_na_recheck)" in
-    holds) echo "▶ check-rule-enforced: R2 N/A recorded for this layout — precondition holds (declarative validation)."; echo "check-rule-enforced: OK"; exit 0 ;;
+    holds) echo "▶ check-rule-enforced: R2 N/A recorded for this layout — precondition holds (no manual-parse HTTP boundary)."; echo "check-rule-enforced: OK"; exit 0 ;;
+    doubt) echo "  ✗ check-rule-enforced: R2 marked N/A in $R2_DECISIONS_FILE but zod is now declared with no declarative framework — wire R2 or update the decision." >&2; echo "check-rule-enforced: FAILED — stale R2 N/A marker." >&2; exit 1 ;;
     broke) echo "  ✗ check-rule-enforced: R2 marked N/A in $R2_DECISIONS_FILE but a parse boundary now exists — wire R2 or update the decision." >&2; echo "check-rule-enforced: FAILED — stale R2 N/A marker." >&2; exit 1 ;;
   esac
 fi

@@ -1,0 +1,2 @@
+// GOOD: the clock and the random source are injected ports — H5 (no-direct-time-randomness) must NOT flag this.
+export const stamp = (clock: () => number, random: () => number): number => clock() + random();

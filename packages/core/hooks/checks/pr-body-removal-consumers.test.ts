@@ -26,7 +26,7 @@ const body = (section: string) =>
   `## Summary\n\nDrop a template.\n\n## Removal consumers\n\n${section}\n\n## Test plan\n\n- [x] tests\n`;
 
 const GOOD_ROW =
-  `| ${TPL} | \`setup.d/lib.sh:875\` presence check | drop: install skips the tier doc; slim: path kept |`;
+  `| ${TPL} | \`setup.d/lib.sh:893\` presence check | drop: install skips the tier doc; slim: path kept |`;
 
 const check = (b: string, entries: { status: string; path: string }[]) =>
   checkRemovalConsumers(b, entries, stripHtmlComments);
@@ -74,7 +74,7 @@ describe('checkRemovalConsumers — gate', () => {
   });
 
   it('POSITIVE — row may name the file by basename only', () => {
-    const res = check(body('| tier-home.md | `install.sh:210` reads it | drop: breaks refresh |'), [del(TPL)]);
+    const res = check(body('| tier-home.md | `install.sh:218` reads it | drop: breaks refresh |'), [del(TPL)]);
     expect(res.ok).toBe(true);
   });
 

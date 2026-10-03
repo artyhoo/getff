@@ -58,7 +58,7 @@ cd "$REPO_TOP" || exit 1
 # what setup.d/10-skills.sh actually delivers: eight shipped slugs — ai-doc, arch,
 # claude-glm-executor-handoff, harvest, night-mode, rule-research, rule-tests, story — were
 # outside the gate's population, and two of them (arch, night-mode) shipped Prettier-dirty as a
-# result (GH #1377 class). The two slugs that do NOT ship (reviewer, self-reflection) are
+# result (GH #1377 class). The slugs that do NOT ship (setup.d/ships.manifest names them) are
 # repo-internal docs; formatting them costs nothing and removes the drift class by construction,
 # which an allowlist + a completeness gate could only detect after the fact.
 PATHSPECS=(
@@ -78,6 +78,9 @@ PATHSPECS=(
   # shipped/non-shipped boundary is exactly where formatting starts, and a future hand re-copy
   # from src now lands dirty and goes RED here instead of silently reaching consumers.
   packages/runtime-bridge/vendor
+  # The one prettier-handled script setup.d/40-configs.sh copies out of audit-self (to scripts/prove-rules.mjs);
+  # the rest of audit-self is shell, framework tests, or fixtures that never ship.
+  packages/core/audit-self/prove-rules.mjs
 )
 
 FILES=()
@@ -234,7 +237,7 @@ fi
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
-# (.husky/pre-commit:236, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
+# (.husky/pre-commit:254, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
 # regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
 #
 # DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently

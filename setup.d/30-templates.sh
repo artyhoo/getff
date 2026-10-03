@@ -2,7 +2,7 @@
 # setup.d/30-templates.sh — §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §3a (install.sh:810-822), §3b (install.sh:824-830), §3d (install.sh:848-859),
+# S0 rows: §3a (install.sh:849-861), §3b (install.sh:824-830), §3d (install.sh:887-898),
 #          §5b AGENTS.md (install.sh:949)
 # Depends on: SHIPPED_DOCS (set in dispatcher scope)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
@@ -16,6 +16,12 @@ mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
 # consumer writes their first kickoff; /pipeline treats empty as "nothing queued", not an error.
 mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
+# P2 G1: stack «generic» has no getff preset — no ARCHITECTURE.<stack>.md / RULES.md (the npm
+# presets' rules are TypeScript/ESLint rules), one NOT wired line instead. The rest of this layer is
+# stack-free and runs as for every stack.
+if [ "$STACK" = "generic" ]; then
+  note_not_wired "stack rules (.ai-factory/RULES.md, ARCHITECTURE.md) — not placed: stack «generic» has no getff preset; the agent drafts them for your stack after the install"
+else
 copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
 # Base RULES.md is the stack's primary rule doc. ts-server/react-next share the manifest-rendered
 # multi-stack preset-next RULES.md (Stack column carries per-stack applicability); react-spa and
@@ -28,6 +34,7 @@ elif [ "$STACK" = "react-native" ]; then
 else
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
 fi
+fi
 copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
 
 # Seed tool-decisions.md so the deps-change re-evaluation hook actually fires (FQA S1-B P1:
@@ -38,7 +45,11 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJ
 # identical to the seeds above) — no npm/package.json dependency at install time.
 # CONCERN: S3 tool-bootstrap — this seeds the tool-decisions.md template, which is a file-deploy.
 # The actual tool-bootstrapping workflow (picking tools, recording decisions) is a separate S3 concern.
-copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
+  copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
+else
+  copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+fi
 
 # ─── AI Usage Guide (EVERY depth; beta-ai-docs-agnosticism S1 / spec C1) ─────
 # The AI-facing lifecycle doc past install: First Steps -> daily cycle -> degradations. Installed
@@ -73,9 +84,10 @@ fi
 # Source the stack-appropriate ARCHITECTURE variant directly from $PKG_ROOT (order-independent).
 # Stack→source map + header rewrite are the SSOT helpers in setup.d/lib.sh (shared with do_refresh,
 # #949) — this delivery must never diverge from the --refresh delivery.
-_arch_sot_src="$(arch_sot_src_for_stack)"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
 
+if [ "$STACK" != "generic" ]; then  # generic: no stack architecture to materialize (NOT wired above)
+_arch_sot_src="$(arch_sot_src_for_stack)"
 _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
 _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
 # arch-header parity (W1-A review MAJOR 1): rewrite_arch_sot_header below post-processes the
@@ -84,6 +96,7 @@ _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
 # --force run. No-op difference for react-* variants (the rewrite is a no-op there).
 copy_safe "$_arch_sot_src" "$_arch_sot_dst" arch-header
 rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+fi
 
 # ── aif-handoff integration note ─────────────────────────
 # Per Stage 2 v3 §4.6 — single informational note, no prompt needed;

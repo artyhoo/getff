@@ -1,0 +1,9 @@
+{
+  "name": "stripe",
+  "version": "22.6.2",
+  "homepage": "https://github.com/stripe/stripe-node",
+  "repository": {
+    "url": "git+https://github.com/stripe/stripe-node.git",
+    "type": "git"
+  }
+}

@@ -313,7 +313,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "SessionStart:compact hook — re-injects the model-authored handoff after compaction",
       "source": {
@@ -542,7 +547,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PreCompact hook — writes the session-residue note before compaction",
       "source": {

@@ -86,5 +86,25 @@ expect ts-server test "$T/k4-fail.log" "" "a real failing test next to the messa
 printf '\n> x@0.0.0 test\n> vitest run\n\n FAIL  lib/answer.test.ts\nError: boom\n' > "$T/k4-none.log"
 expect ts-server test "$T/k4-none.log" "" "a red test run that found files is not K4"
 
+# ── rot_names_step: the cell's expected record follows the entries, stack by stack ─────────────
+# The cell expects a step not-armed exactly where an entry makes it red on this stack; elsewhere
+# the step exits 0 at install and is armed. A fixed expectation for all four stacks was red on CI
+# for react-native (typecheck armed, no K2 there) and ts-server (test not-armed, K4).
+names() { # $1 = stack, $2 = step, $3 = wanted "yes"/"no", $4 = label
+  local got=no
+  STACK="$1" rot_names_step "$2" && got=yes
+  if [ "$got" = "$3" ]; then ok "$4"; else bad "$4 (wanted $3, got $got)"; fi
+}
+if command -v rot_names_step >/dev/null 2>&1; then
+  names ts-server typecheck yes "rot_names_step: K2 names typecheck on ts-server"
+  names react-native typecheck no "rot_names_step: no entry names typecheck on react-native"
+  names ts-server test yes "rot_names_step: K4 names test on ts-server"
+  names react-next test no "rot_names_step: K4 does not name react-next"
+  names react-spa build yes "rot_names_step: K2 names build on react-spa"
+  names ts-server lint no "rot_names_step: no entry names lint"
+else
+  bad "rot_names_step is not defined in tests/consumer-matrix/known-rot.sh"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -105,9 +105,9 @@ template carries one field per stack.
 - The installer copies the skill from the repository root: `setup.d/10-skills.sh`, lines
   34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1563 of
   `setup.d/45-python.sh`.
-- The decisions file is seeded on line 41 of `setup.d/30-templates.sh` from
+- The decisions file is seeded on line 51 of `setup.d/30-templates.sh` from
   `skills/tool-bootstrapping/templates/tool-decisions.md.template`. Its per-stack hash
-  fields are lines 5 to 7. The single-field schema is line 16 of
+  fields are lines 5 to 7. The single-field schema is line 18 of
   `skills/tool-bootstrapping/references/decision-format.md`.
 - The hook is `packages/core/hooks/deps-hash-check.sh`, copied and registered by lines
   202 to 236 of `setup.d/10-skills.sh`.

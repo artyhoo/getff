@@ -88,12 +88,28 @@ for _e in \
   [ -x "$_e" ] && ESLINT_BIN="$_e" && break
 done
 
+# The TypeScript parser comes with ESLint from one node_modules. A project without typescript-eslint (an oxlint
+# project) gets getff's rule-generator toolchain, which 80-rule-bootstrap.sh keeps in node_modules/.cache (the
+# delivered run-generated-rule-mutation.sh resolves it the same way). P6 run 2 N1: without it every input
+# failed to parse, 0 rules were tested and the install still ended «complete».
+NM_SRC=""
+[ -z "$ESLINT_BIN" ] || NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
+# `.complete` marks a toolchain npm finished installing (80-rule-bootstrap.sh / the runner write it). Under
+# --global the install keeps it in the user cache instead of the project's node_modules/.cache.
+if [ ! -f "$NM_SRC/typescript-eslint/package.json" ]; then
+  for _gen in "$CONSUMER_ROOT/node_modules/.cache/getff/generator-tools" "${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"; do
+    if [ -f "$_gen/.complete" ] && [ -f "$_gen/node_modules/typescript-eslint/package.json" ] \
+       && [ -f "$_gen/node_modules/eslint/package.json" ]; then
+      NM_SRC="$_gen/node_modules"; ESLINT_BIN="$_gen/node_modules/.bin/eslint"; break
+    fi
+  done
+fi
+
 if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
   skip "check-generated-rule-mutation SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available"
   echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
-NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
 
 # ─── Scratch + static probe script ────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
@@ -146,15 +162,17 @@ try {
 PROBE
 
 # ─── Helper: run probe ────────────────────────────────────────────────────────
-# Returns 0 if selector fires on code, 1 if not, 9 if error.
+# Returns 0 if selector fires on code, 1 if not, 9 if the probe cannot evaluate it (the input does not
+# parse, or ESLint rejects the selector); the error of a 9 is kept in PROBE_LAST_ERR, one line.
+PROBE_LAST_ERR=""
 _probe_selector() {
-  local SEL="$1" CODE="$2"
+  local SEL="$1" CODE="$2" QUIET="${3:-}"
   local OUT RC
   OUT=$(cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>&1)
   RC=$?
   if [ "$RC" -eq 9 ]; then
-    # Probe error — treat as infrastructure skip
-    echo "PROBE_ERR:$OUT" >&2
+    PROBE_LAST_ERR=$(tr '\n' ' ' <<<"$OUT")
+    [ -n "$QUIET" ] || echo "PROBE_ERR:$OUT" >&2
   fi
   return "$RC"
 }
@@ -274,7 +292,9 @@ _test_rule() {
   _probe_selector "$SELECTOR" "$BAD_CODE" || _orig_rc=$?
   if [ "$_orig_rc" -ne 0 ]; then
     if [ "$_orig_rc" -eq 9 ]; then
-      skip "[$RULE_ID] probe could not evaluate the negative-test input (parse or infrastructure error) — skipped"
+      # P6 run 2 N1 (R3): this was a skip, so an install whose every generated rule failed to parse ended
+      # «complete». getff generated this material in this install and could not test it: a failure.
+      bad "[$RULE_ID] could not be tested — the probe could not evaluate its negative-test input (PROBE_ERR above)"
       return
     fi
     bad "[$RULE_ID] ORIGINAL selector did NOT fire on negative-test input (selector broken before mutation?)"
@@ -283,25 +303,30 @@ _test_rule() {
 
   # Apply 11 semantic selector mutations (VAL/ATTR/NODE/LOGIC operators can SURVIVE
   # on weak tests, making the ≥60% kill-floor meaningful).
-  local KILLED=0 TOTAL=0
+  # A mutation that still fires SURVIVED; one that stops firing is KILLED. One the probe cannot evaluate
+  # (9: ESLint rejects the mutated selector — ATTR-1 on `:matches([…], …)` leaves `:matches(, …)`) was
+  # not tested: it used to count as killed. It is named, counted apart and left out of the kill rate
+  # (P6 run 4 N10).
+  local KILLED=0 TOTAL=0 UNEVAL=0 _mrc
   while IFS= read -r MUT; do
     [ -z "$MUT" ] && continue
-    TOTAL=$((TOTAL+1))
-    if _probe_selector "$MUT" "$BAD_CODE"; then
-      : # still fires = SURVIVED
-    else
-      KILLED=$((KILLED+1))
-    fi
+    _mrc=0; _probe_selector "$MUT" "$BAD_CODE" quiet || _mrc=$?
+    case "$_mrc" in
+      0) TOTAL=$((TOTAL+1)) ;;  # still fires = SURVIVED
+      9) UNEVAL=$((UNEVAL+1)); echo "    · [$RULE_ID] unevaluable: $MUT — $PROBE_LAST_ERR" ;;
+      *) TOTAL=$((TOTAL+1)); KILLED=$((KILLED+1)) ;;
+    esac
   done < <(_mutate "$SELECTOR")
 
-  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutations generated — skipped"; return; }
+  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutation generated or evaluable — skipped"; return; }
   local KILL_PCT=$(( KILLED * 100 / TOTAL ))
+  local _unev=""; [ "$UNEVAL" -eq 0 ] || _unev="; $UNEVAL mutation unevaluable, not counted"
   RULES_TESTED=$((RULES_TESTED+1))
 
   if [ "$KILL_PCT" -ge "$MIN_KILL_PCT" ]; then
-    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous"
+    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous$_unev"
   else
-    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)"
+    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)$_unev"
   fi
 }
 

@@ -386,7 +386,7 @@ gate_table() {
   #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1218) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1195) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
@@ -435,6 +435,7 @@ gate_table() {
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}arch-retell-corpus${TAB}ALWAYS${TAB}node scripts/check-arch-retell.mjs" \
+    "3${TAB}ships-manifest${TAB}skills/,.claude/skills/,.claude/hooks/,.claude/rules/,agents/,plugin/,setup.d/,.claude/settings.json,.mcp.json,scripts/check-ships-manifest.mjs${TAB}node scripts/check-ships-manifest.mjs" \
     "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
     "3${TAB}bash32${TAB}install.sh,setup.d/,scripts/check-bash32.sh${TAB}bash scripts/check-bash32.sh" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \

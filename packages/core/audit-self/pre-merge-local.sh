@@ -434,7 +434,7 @@ EOF
   # ── UI-preset extension (react-next / react-spa / react-native): per-preset
   # additions DERIVED from the merge tree's .github/workflows/ci.yml
   # ci-success.needs — never hardcoded. ts-server's ci-success.needs carries no
-  # `build` (templates/ts-server/github-actions-ci.yml:221), so ts trees never
+  # `build` (templates/ts-server/github-actions-ci.yml:235), so ts trees never
   # widen; react-native's carries no build/browser legs -> validate only.
   if [ -f "$WORKTREE_DIR/.github/workflows/ci.yml" ]; then
     while IFS= read -r _x; do

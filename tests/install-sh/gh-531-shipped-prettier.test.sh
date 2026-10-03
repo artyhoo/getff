@@ -33,7 +33,7 @@ grep -qE '^\.claude/skills/?\*?\*?$|^\.claude/\*\*?$' "$IGN" \
 # config (printWidth 80, singleQuote, no plugins); a consumer with its OWN .prettierrc rejects the
 # same bytes (config mismatch, NOT version skew). Framework CONFIG files are handled CONDITIONALLY
 # (Arm 1c), not here — they might be consumer-authored. ──
-for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts'; do
+for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts' 'scripts/prove-rules.mjs'; do
   grep -qxF "$p" "$IGN" \
     && ok "shipped .prettierignore excludes vendored source '$p'" \
     || bad "shipped .prettierignore missing vendored source '$p' (consumer prettier --check would fail on it)"
@@ -246,7 +246,7 @@ fi
 #   (b) *.md BLANKET — the fixture .prettierignore used to carry `*.md`, which hid the vendored
 #       README.md (1 of the 7). Removed: the shipped .md family is covered by its own managed block
 #       (#884, Arm 9), so a real md escape must FAIL this arm rather than be masked by fixture noise.
-# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1572).
+# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1668).
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   TB=$(mktemp -d)
   printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"

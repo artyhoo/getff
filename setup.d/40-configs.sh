@@ -2,7 +2,7 @@
 # setup.d/40-configs.sh — §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §4 (install.sh:874-922), §5a (install.sh:928-1006),
+# S0 rows: §4 (install.sh:874-922), §5a (install.sh:967-1045),
 #          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123)
 # Depends on: 30-templates (RULES.md etc. already at $PROJECT_ROOT/.ai-factory/)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
@@ -13,6 +13,20 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# P2 G1: stack «generic» gets the stack-free scripts only (the docs audit above and the CI-state
+# probe); every script below it and every config in this layer is ESLint/TypeScript/npm-bound.
+if [ "$STACK" = "generic" ]; then
+  copy_safe "$PKG_ROOT/packages/core/audit-self/ci-available-probe.sh" "$PROJECT_ROOT/scripts/ci-available-probe.sh"
+  note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
+  return 0 2>/dev/null || true
+fi
+# P2 G5 / K4 (operator log entry 28, fork 1 = A: getff adapts to the project's linter): the linter and
+# formatter the project already runs, read BEFORE getff places anything. An oxlint or Biome project
+# keeps its linter as the only one — no getff ESLint config (copy_unless_foreign), no ESLint packages
+# (70-deps), lint-staged runs its linter; a Biome or dprint project keeps its formatter (no prettier).
+# Read by 70-deps and 99-finalize too.
+LINTER_SLOT=$(project_linter "$PROJECT_ROOT")
+FORMATTER_SLOT=$(project_formatter "$PROJECT_ROOT")
 # R4 probe (ts-morph) invoked by audit-ai-docs.sh via `npx tsx scripts/audit-r4.ts`.
 copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/audit-r4.ts"
 # cih-s3 F3 "+V": glob-liveness gate — fails if a custom rule matches zero source files
@@ -27,7 +41,7 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-globs.sh" 2>/dev/null || true
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-enforced.sh" "$PROJECT_ROOT/scripts/check-rule-enforced.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-enforced.sh" 2>/dev/null || true
 # GH #547 Point 2: R2 boundary probe (C1) + the shared N/A-marker reader (C4). detect-r2-boundary.sh
-# classifies the repo (boundary-present | no-boundary-confident | ambiguous) by READING it; the
+# classifies the repo (boundary-present | no-boundary-confident | no-boundary-yet | ambiguous) by READING it; the
 # installer (§6b-bis below) and BOTH inertness gates consume it. r2-na-marker.sh is sourced by
 # check-rule-globs.sh + check-rule-enforced.sh so they never diverge on honoring a recorded R2 N/A.
 copy_safe "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" "$PROJECT_ROOT/scripts/detect-r2-boundary.sh"
@@ -56,6 +70,21 @@ copy_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_RO
 # Checks core.hooksPath=.husky, pre-commit/pre-push present+executable+referencing gate commands.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-shields-up.sh" "$PROJECT_ROOT/scripts/check-shields-up.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
+# P2 C2/C3: runs what the project's record (.ai-factory/tool-decisions.md, aif:project-checks —
+# written by 99-finalize) arms: `npm run validate`, the delivered CI steps, lint-staged's steps and
+# the pre-push probe all go through it, so a check red at install blocks nothing until it is green.
+copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+# P5: getff's lint rules in the project's own linter — placed by 99-finalize (lib.sh place_lint_rules), proven
+# through the project's own lint command (`node scripts/prove-rules.mjs --prove`), removed with `--remove`.
+copy_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
+# P2 (advisor, P6 blocker class): the two pre-push sections that read the project's OWN files — its
+# workflows' tool installs, its Markdown links — run on their own through these, so the record
+# governs them like the checks above (99-finalize runs both at install: no dependencies needed).
+for _hc in check-ci-pins.sh check-doc-links.sh; do
+  copy_safe "$PKG_ROOT/packages/core/audit-self/$_hc" "$PROJECT_ROOT/scripts/$_hc"
+  chmod_safe +x "$PROJECT_ROOT/scripts/$_hc" 2>/dev/null || true
+done
 # W2-G (#1502): consumer ZCode skill-mirror check — .zcode/skills completeness, read-only.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
@@ -122,18 +151,57 @@ copy_unless_foreign lint-staged "$PKG_ROOT/packages/core/templates/shared/.lints
 if [ "$DRY_RUN" != "--dry-run" ] \
   && cmp -s "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json" \
   && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
-  _ndrop=0
+  _ndrop=0; _stubs=()
   while IFS= read -r _pkgjson; do
     _pkgdir=$(dirname "$_pkgjson")
     [ "$_pkgdir" = "$PROJECT_ROOT" ] && continue
     # …and never next to the package's OWN lint-staged config (any name, or package.json key):
     # lint-staged uses the closest config, so the stub would silently replace theirs.
     if [ ! -f "$_pkgdir/.lintstagedrc.json" ] && [ -z "$(foreign_tool_config "$_pkgdir" lint-staged)" ]; then
-      cp "$PROJECT_ROOT/.lintstagedrc.json" "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
+      # lint-staged runs a stub's commands with cwd = the package: its steps reach the root's
+      # scripts/run-armed.sh by a relative path (P2 C2).
+      _pkgrel=${_pkgdir#"$PROJECT_ROOT"/}
+      _uprel=$(printf '%s' "$_pkgrel" | sed 's#[^/][^/]*#..#g')
+      sed "s#bash scripts/run-armed.sh#bash $_uprel/scripts/run-armed.sh#g" "$PROJECT_ROOT/.lintstagedrc.json" \
+        > "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1)) && _stubs+=("$_pkgdir/.lintstagedrc.json")
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
   echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"
 fi
+# P2 G5: lint-staged follows the project's linter and formatter slots — in every lint-staged config
+# getff placed above (root and stubs, recognised by the record wrapper on their eslint step).
+if [ "$DRY_RUN" != "--dry-run" ] && { [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ] \
+     || [ "$FORMATTER_SLOT" = biome ] || [ "$FORMATTER_SLOT" = dprint ]; }; then
+  while IFS= read -r _lsf; do
+    grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$_lsf" || continue
+    GETFF_LINTER="$LINTER_SLOT" GETFF_FORMATTER="$FORMATTER_SLOT" node -e '
+      const fs = require("fs"), f = process.argv[1], j = JSON.parse(fs.readFileSync(f, "utf8"));
+      // `biome lint`, not `biome check`: check also enforces formatting, which must follow format:check.
+      const lint = { oxlint: "oxlint", biome: "biome lint --no-errors-on-unmatched" }[process.env.GETFF_LINTER];
+      const ownFmt = ["biome", "dprint"].includes(process.env.GETFF_FORMATTER);
+      const fmt = { biome: "biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" }[process.env.GETFF_FORMATTER];
+      for (const [g, v] of Object.entries(j)) {
+        const steps = (Array.isArray(v) ? v : [v])
+          .flatMap((c) => {
+            const m = c.match(/^(bash \S*run-armed\.sh --if-armed .npm run format:check.) prettier /);
+            return ownFmt && m ? (fmt ? [m[1] + " " + fmt] : []) : [c];
+          })
+          .map((c) => (lint ? c.replace(/^(bash \S*run-armed\.sh --if-armed .npm run lint.) eslint .*$/, "$1 " + lint) : c));
+        if (steps.length) j[g] = steps; else delete j[g];
+      }
+      fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$_lsf" \
+      || note_not_wired "lint-staged steps in ${_lsf#"$PROJECT_ROOT"/} — not changed to your linter ($LINTER_SLOT) / formatter ($FORMATTER_SLOT): the rewrite failed, so the file runs getff's eslint / prettier steps"
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  echo "  ✓ lint-staged runs your linter ($LINTER_SLOT) and formatter ($FORMATTER_SLOT) — no getff ESLint / prettier step beside them"
+fi
+# A stub's eslint step runs in its package, with that package's config, so it must not wait on the record's
+# `npm run lint`: that is the ROOT's lint, which on a per-workspace monorepo has no config to load (#973), exits 2
+# at install and is recorded not-armed — and the stub skipped eslint on a violation the package's own eslint flags
+# (PR #1985, pnpm-monorepo cell d-2). Runs after G5, so a step G5 moved to oxlint / biome keeps its wrapper; the
+# prettier step still follows the record, and the root config keeps its eslint step behind `npm run lint`.
+for _stub in ${_stubs[@]+"${_stubs[@]}"}; do
+  sed -i.getff-bak "s#\"bash [^\"]*run-armed\.sh --if-armed 'npm run lint' eslint #\"eslint #" "$_stub" && rm -f "$_stub.getff-bak"
+done
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
 # GH #531 (reopen): merge (not skip-if-exists) so a BROWNFIELD consumer with its own
@@ -146,6 +214,32 @@ merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" 
 # copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
 copy_unless_foreign prettier "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
+# P2 G4 — per-stack arm of that copy: the shared template (NodeNext, lib ES2022, no jsx) cannot
+# compile a React file (P1 run 2026-09-29: TS17004 «Cannot use JSX», TS2584 «Cannot find name
+# 'document'»). For react-spa / react-next, ONLY when getff just wrote tsconfig.json (a project's
+# own is never edited): P3's React template (tsconfig.react.json) replaces it when this getff
+# ships one; until then the copy gets the options create-vite's react-ts template uses — jsx
+# react-jsx, DOM libs, ESNext + Bundler resolution (NodeNext would demand .js extensions on relative
+# imports in a "type": "module" project), and allowImportingTsExtensions with noEmit (Vite's own
+# `import App from './App.tsx'` is TS5097 without it; P3 measured, 2026-09-29). The template's other
+# options stay.
+_react_tsconfig="$PKG_ROOT/packages/core/templates/shared/tsconfig.react.json"
+if { [ "$STACK" = "react-spa" ] || [ "$STACK" = "react-next" ]; } && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ -f "$PROJECT_ROOT/tsconfig.json" ] && ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ -f "$_react_tsconfig" ]; then
+    cp "$_react_tsconfig" "$PROJECT_ROOT/tsconfig.json" \
+      && echo "  ✓ tsconfig.json: getff's React template (tsconfig.react.json) for $STACK"
+  elif command -v node >/dev/null 2>&1; then
+    AIF_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
+      const fs = require("fs"); const p = process.env.AIF_TSCONFIG;
+      const c = JSON.parse(fs.readFileSync(p, "utf8"));
+      Object.assign(c.compilerOptions, { module: "ESNext", moduleResolution: "Bundler",
+        lib: ["ES2022", "DOM", "DOM.Iterable"], jsx: "react-jsx",
+        allowImportingTsExtensions: true, noEmit: true });
+      fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+    ' && echo "  ✓ tsconfig.json: React options (jsx react-jsx, DOM libs, Bundler resolution, .tsx imports) for $STACK"
+  fi
+fi
 
 # ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
 # vitest.config.ts declares setupFiles: ['./tests/setup.ts'] on ts-server / react-spa /
@@ -160,11 +254,21 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROO
 # The glob arm is the Q4.5 layout class (2026-09-28): a whole-tree include such as `**/*.ts` (the
 # tsc --init / create-next-app family) covers tests/ too, and was read as «not covered», so
 # vitest's setupFiles pointed at a file the install had declined to ship.
-# Unreadable/JSONC tsconfig → fail-OPEN: treat covered, no note, never abort the layer.
+# P2 G3/F10 (2026-09-29): tsconfig is JSONC — comments and trailing commas are stripped before
+# parsing (create-vite's tsconfig.app.json has /* */ comments, and fail-open read it as covered);
+# «no include key» is the whole tree ONLY when `files` is absent too (TypeScript: include defaults
+# to [] once files is set); a solution tsconfig (`"files": []` + `"references"`) covers what its
+# referenced configs cover (a reference path is a tsconfig file or a directory holding one).
+# A config that is not even JSONC → fail-OPEN: treat covered, no note, never abort the layer.
+# P2 K4 (2026-09-29): on an oxlint / Biome project the gate does not apply at all — the withholding
+# reason is typed ESLint's, and getff's ESLint is not installed there; withheld, the project's first
+# test died «Cannot find module tests/setup.ts» (vite-shape cell, measured).
 fc3_deliver_tests_setup() {
   local src="$1"
   local covered=0
-  if ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ]; then
+    covered=1   # P2 K4: no typed ESLint lints the file, so the reason to withhold it is gone
+  elif ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
     covered=1   # greenfield (or --force refresh): installer wrote tsconfig.json
   elif [ ! -f "$PROJECT_ROOT/tsconfig.json" ]; then
     covered=1   # no tsconfig on disk → tsc default (whole tree)
@@ -173,23 +277,49 @@ fc3_deliver_tests_setup() {
   else
     local _rc=0
     AIF_FCP_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
-      try {
-        const c = JSON.parse(require("fs").readFileSync(process.env.AIF_FCP_TSCONFIG, "utf8"));
-        if (!Array.isArray(c.include)) process.exit(3); // no include key → whole tree
-        const covers = (e) => {
-          let p = String(e).replace(/^\.\//, "").replace(/\/+$/, "");
-          if (p === "" || p === ".") return true;
-          const last = p.split("/").pop();
-          if (last === "**") p += "/*";
-          else if (!/[*?]/.test(last) && !/\.[A-Za-z0-9]+$/.test(last)) p += "/**/*";
-          const re = p.split("/").map((seg) => seg === "**" ? "(?:[^/]+/)*"
-            : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "/")
-            .join("").replace(/\/$/, "");
-          return new RegExp("^" + re + "$").test("tests/setup.ts");
-        };
-        if (c.include.some((e) => String(e).startsWith("tests") || covers(e))) process.exit(0);
-        process.exit(1); // include present, nothing covers tests/
-      } catch { process.exit(2); } // unreadable/JSONC → fail-open
+      const fs = require("fs"), path = require("path");
+      const root = path.dirname(process.env.AIF_FCP_TSCONFIG);
+      // JSONC → JSON: drop // and /* */ comments outside strings, then trailing commas.
+      const jsonc = (t) => {
+        let o = "", i = 0, str = false;
+        while (i < t.length) {
+          const ch = t[i], nx = t[i + 1];
+          if (str) { o += ch; if (ch === "\\") { o += nx; i += 2; continue; } if (ch === "\"") str = false; i++; continue; }
+          if (ch === "\"") { str = true; o += ch; i++; continue; }
+          if (ch === "/" && nx === "/") { while (i < t.length && t[i] !== "\n") i++; continue; }
+          if (ch === "/" && nx === "*") { i += 2; while (i < t.length && !(t[i] === "*" && t[i + 1] === "/")) i++; i += 2; continue; }
+          o += ch; i++;
+        }
+        return JSON.parse(o.replace(/,(\s*[}\]])/g, "$1"));
+      };
+      const covers = (e, base) => {
+        let p = path.relative(root, path.resolve(base, String(e))).split(path.sep).join("/").replace(/\/+$/, "");
+        if (p === "" || p === ".") return true;
+        const last = p.split("/").pop();
+        if (last === "**") p += "/*";
+        else if (!/[*?]/.test(last) && !/\.[A-Za-z0-9]+$/.test(last)) p += "/**/*";
+        const re = p.split("/").map((seg) => seg === "**" ? "(?:[^/]+/)*"
+          : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "/")
+          .join("").replace(/\/$/, "");
+        return String(e).startsWith("tests") && base === root || new RegExp("^" + re + "$").test("tests/setup.ts");
+      };
+      const seen = new Set();
+      const covered = (file, depth) => {
+        if (depth > 8 || seen.has(file)) return false;
+        seen.add(file);
+        const c = jsonc(fs.readFileSync(file, "utf8")), base = path.dirname(file);
+        if (Array.isArray(c.include)) { if (c.include.some((e) => covers(e, base))) return true; }
+        else if (!Array.isArray(c.files)) return true; // no include, no files → whole tree
+        for (const r of Array.isArray(c.references) ? c.references : []) {
+          let f = path.resolve(base, String(r && r.path));
+          try { if (fs.statSync(f).isDirectory()) f = path.join(f, "tsconfig.json"); } catch { continue; }
+          try { if (covered(f, depth + 1)) return true; } catch { /* unreadable reference: not proof of coverage */ }
+        }
+        return false;
+      };
+      let ok;
+      try { ok = covered(process.env.AIF_FCP_TSCONFIG, 0); } catch { process.exit(2); } // not JSONC → fail-open
+      process.exit(ok ? 0 : 1);
     ' 2>/dev/null || _rc=$?
     case $_rc in
       1) covered=0 ;;
@@ -199,8 +329,8 @@ fc3_deliver_tests_setup() {
   if [ "$covered" -eq 1 ]; then
     copy_safe "$src" "$PROJECT_ROOT/tests/setup.ts"
   else
-    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered" >&2
-    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json include does not cover tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
+    echo "  ⚠ tsconfig.json (and the configs it references) does not include tests/ — tests/setup.ts NOT delivered" >&2
+    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json (and the configs it references) does not include tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
   fi
 }
 
@@ -221,7 +351,9 @@ _copy_rule() {  # $1 = source .ts path
   [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
   [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
 }
-# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span, restricted-syntax-audit-exempt
+# Generic rules (core, every stack): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span,
+# restricted-syntax-audit-exempt, require-error-boundary (moved from the react-spa preset — one plugin for
+# every stack; a project switches a rule on in its own lint config)
 for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
   case "$f" in
     *.test.ts) continue ;;
@@ -233,17 +365,6 @@ done
 if [ "$STACK" = "react-next" ]; then
   # Stack-specific rules (preset): no-server-imports-in-client, require-form-safe-parse, require-use-server-directive
   for f in "$PKG_ROOT"/packages/preset-next-15-canonical/eslint-rules/*.ts; do
-    case "$f" in
-      *.test.ts) continue ;;
-      *.d.ts) continue ;;
-      */index.ts) continue ;;
-    esac
-    _copy_rule "$f"
-  done
-fi
-if [ "$STACK" = "react-spa" ]; then
-  # Stack-specific rules (preset): require-error-boundary
-  for f in "$PKG_ROOT"/packages/preset-react-spa/eslint-rules/*.ts; do
     case "$f" in
       *.test.ts) continue ;;
       *.d.ts) continue ;;
@@ -337,8 +458,8 @@ if [ -n "$_ws_lines" ]; then
       if [ -n "$_stryker_vcfg" ] && [ -f "$_ws_abs/tsconfig.json" ]; then
         _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
         _stryker_dst="$PROJECT_ROOT/stryker/$_ws_slug.json"
-        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:889 — precedent
-        # rewrite_arch_sot_header, lib.sh:1834-1839) so a consumer's hand-tuned per-package config
+        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:907 — precedent
+        # rewrite_arch_sot_header, lib.sh:1862-1867) so a consumer's hand-tuned per-package config
         # is never silently clobbered on re-install.
         if [ -e "$_stryker_dst" ] && [ "$FORCE" != "--force" ]; then
           SKIPPED+=("$_stryker_dst")

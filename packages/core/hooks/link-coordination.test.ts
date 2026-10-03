@@ -957,3 +957,88 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
     ).toBe(true);
   });
 });
+
+// (m) Default store is derived from the project, never getff's own store (one-button P3 §10a v9).
+// The helper ships to env+ consumers (setup.d/85-worktree-scripts.sh), so a hard-coded
+// `$HOME/.claude-coordination/rules-as-tests-aif` default moved a consumer's handoff/residue files
+// into getff's store. The default is now `$HOME/.claude-coordination/<main-checkout basename>`,
+// which for getff's own checkout still resolves to `rules-as-tests-aif`.
+describe('link-coordination.sh — default store derived from the project', () => {
+  let base: string;
+  let home: string;
+
+  beforeEach(() => {
+    base = mkdtempSync(resolve(tmpdir(), 'lc-default-store-'));
+    home = resolve(base, 'home');
+    mkdirSync(home, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(base, { recursive: true, force: true });
+  });
+
+  function makeRepo(name: string): string {
+    const repo = resolve(base, name);
+    mkdirSync(resolve(repo, '.claude/orchestrator-prompts/u1'), { recursive: true });
+    execFileSync('git', ['init', '-q', repo]);
+    writeFileSync(resolve(repo, '.claude/orchestrator-prompts/u1/state.md'), 'state\n');
+    return repo;
+  }
+
+  // The helper runs from inside the repo it links (REPO-IDENTITY GUARD, block (l)): `helperRepo` is
+  // the checkout whose scripts/ holds it — the main checkout when `target` is a linked worktree.
+  function runDefault(target: string, helperRepo: string = target): RunResult {
+    const env: Record<string, string> = { ...process.env, HOME: home } as Record<string, string>;
+    delete env.CLAUDE_COORDINATION_DIR;
+    try {
+      const stdout = execFileSync('bash', [installHelper(helperRepo), target], { encoding: 'utf8', env });
+      return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
+    } catch (e) {
+      const err = e as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
+      return {
+        stdout: (err.stdout?.toString() ?? '').trim(),
+        stderr: (err.stderr?.toString() ?? '').trim(),
+        status: err.status ?? 1,
+      };
+    }
+  }
+
+  it('(m1) a consumer repo named my-app gets ~/.claude-coordination/my-app, not getff\'s store', () => {
+    const repo = makeRepo('my-app');
+    const r = runDefault(repo);
+    expect(r.status, r.stderr).toBe(0);
+    expect(existsSync(resolve(home, '.claude-coordination/my-app/u1/state.md'))).toBe(true);
+    expect(existsSync(resolve(home, '.claude-coordination/rules-as-tests-aif'))).toBe(false);
+  });
+
+  it('(m2) a linked worktree of my-app resolves to the MAIN checkout name, not the worktree dir name', () => {
+    const repo = makeRepo('my-app');
+    writeFileSync(resolve(repo, 'README.md'), 'r\n');
+    execFileSync('git', ['-C', repo, 'add', 'README.md']);
+    execFileSync('git', ['-C', repo, '-c', 'user.email=a@b', '-c', 'user.name=a', 'commit', '-qm', 'init']);
+    const wt = resolve(base, 'wt-feature-x');
+    execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', wt]);
+    mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u2'), { recursive: true });
+    writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u2/state.md'), 's2\n');
+    const r = runDefault(wt, repo);
+    expect(r.status, r.stderr).toBe(0);
+    expect(existsSync(resolve(home, '.claude-coordination/my-app/u2/state.md'))).toBe(true);
+    expect(existsSync(resolve(home, '.claude-coordination/wt-feature-x'))).toBe(false);
+  });
+
+  it('(m3) getff\'s own checkout name still resolves to rules-as-tests-aif (no change for getff sessions)', () => {
+    const repo = makeRepo('rules-as-tests-aif');
+    const r = runDefault(repo);
+    expect(r.status, r.stderr).toBe(0);
+    expect(existsSync(resolve(home, '.claude-coordination/rules-as-tests-aif/u1/state.md'))).toBe(true);
+  });
+
+  it('(m4) CLAUDE_COORDINATION_DIR still wins over the derived default', () => {
+    const repo = makeRepo('my-app');
+    const canon = resolve(base, 'explicit-canon');
+    const r = runHelper(installHelper(repo), [repo], { CLAUDE_COORDINATION_DIR: canon, HOME: home });
+    expect(r.status, r.stderr).toBe(0);
+    expect(existsSync(resolve(canon, 'u1/state.md'))).toBe(true);
+    expect(existsSync(resolve(home, '.claude-coordination/my-app'))).toBe(false);
+  });
+});

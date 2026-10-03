@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1777-1815 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1770-1810 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1138,7 +1138,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     });
 
     // The Stop channel carries this hook TWICE — the plugin registration plus the project
-    // one the installer writes (setup.d/10-skills.sh:267, install.sh:1001) — so both copies
+    // one the installer writes (setup.d/10-skills.sh:267, and install.sh's --refresh Stop registration) — so both copies
     // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
     // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
     // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
@@ -1731,7 +1731,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1496 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1497 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -3022,7 +3022,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   //
   // The Stop channel carries this hook TWICE in any project that has both the getff plugin
   // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
-  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:1001`). Measured 2026-09-14
+  // AIF installer writes (`setup.d/10-skills.sh:267`, and install.sh's `--refresh` Stop registration). Measured 2026-09-14
   // (session 319c1945): both copies fired on one Stop, both derived the same
   // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
   // the baseline and the second compared the file against what its twin had just written —
@@ -3280,6 +3280,37 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const d = userCase('{ not json');
     expect(d.stdout).toBe('');
     expect(d.stderr).toBe('');
+  });
+
+  it('fixture 16: floor derivation — the project settings.local.json autoCompactWindow outranks settings.json (Claude Code precedence); junk there falls through', () => {
+    // WHY: getff's session-settings group (setup.d/session-settings.sh) writes autoCompactWindow
+    // into the per-person .claude/settings.local.json, which Claude Code reads BEFORE the
+    // committed settings.json. A gate that skipped it would place its floor from a value the
+    // session does not run with.
+    const localCase = (local: string, projectAutoCompact: number) => {
+      const b = buildCase(goldenCase('f10c-floor-none'), true);
+      const proj = join(b.dir, 'proj');
+      mkdirSync(join(proj, '.claude'), { recursive: true });
+      writeFileSync(join(proj, '.claude', 'settings.local.json'), local, 'utf8');
+      writeFileSync(
+        join(proj, '.claude', 'settings.json'),
+        JSON.stringify({ autoCompactWindow: projectAutoCompact }, null, 2) + '\n',
+        'utf8',
+      );
+      b.env.CLAUDE_PROJECT_DIR = proj;
+      return spawnCase(b);
+    };
+    // (a) local 300000 over project 600000 → floor 201000 → 250k is in the band → block.
+    const a = localCase(JSON.stringify({ autoCompactWindow: 300000 }), 600000);
+    expect(a.stderr).toBe('');
+    const pa = JSON.parse(a.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the floor derived from settings.local.json is in the reason').toContain('201000');
+    // (b) PAIRED NEGATIVE — a junk local value is ignored, the project 600000 applies →
+    // floor 300000 → 250k is below it → silent.
+    const b = localCase(JSON.stringify({ autoCompactWindow: 'lots' }), 600000);
+    expect(b.stdout, 'junk in settings.local.json falls through to settings.json').toBe('');
+    expect(b.stderr).toBe('');
   });
 
   it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {

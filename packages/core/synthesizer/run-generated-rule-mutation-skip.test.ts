@@ -29,15 +29,15 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // HERE = <repo>/packages/core/synthesizer/ → repo root is 3 levels up.
-// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:46-47
-// via git rev-parse --show-toplevel) and pre-push.ts:78 (same '../../..' climb from
+// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:47-48
+// via git rev-parse --show-toplevel) and pre-push.ts:79 (same '../../..' climb from
 // packages/core/hooks/). The previous '../..' resolved to <repo>/packages/, causing
 // PROBES_AVAILABLE=false in standard CI (deps at <repo>/node_modules/.bin/ via root
 // `npm ci` or <repo>/packages/core/node_modules/.bin/ via `npm ci --prefix packages/core`
@@ -184,6 +184,31 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(code, `runner output:\n${out}`).toBe(0);
     });
 
+    it('an input the probe cannot parse FAILS the run, even beside a rule that passes (P6 run 2 N1)', () => {
+      // A parse error used to take the «did NOT fire — skipping» path; with one other rule tested the
+      // run exited 0 («PASS»), so generation armed a check that had not tested its material. The
+      // parse error is getff's generated material failing its own probe: a failure, named as such.
+      const manifest = writeManifest({
+        'rule-live': {
+          check: {
+            type: 'declarative',
+            selector: "MemberExpression[object.name='localStorage']",
+          },
+          'negative-test': { input: ["localStorage.getItem('token');"] },
+        },
+        'rule-unparse': {
+          check: { type: 'declarative', selector: "Identifier[name='a']" },
+          'negative-test': { input: ['const = ;'] },
+        },
+      });
+      const { code, out } = runRunner(manifest);
+      expect(out, `runner output:\n${out}`).toContain(
+        'could not be tested — the probe could not evaluate its negative-test input',
+      );
+      expect(out).not.toContain('PASS — all generated rules');
+      expect(code, `runner output:\n${out}`).toBe(1);
+    });
+
     // critical-review S8-1: the extraction step swallowed every failure into `[]`, so a manifest
     // that did not parse took the RULE_COUNT=0 exit — «nothing to test», exit 0 — and a push gate
     // stayed green on material it never read.
@@ -286,6 +311,48 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(out).toContain('nothing to test');
       expect(out).not.toContain('NOT green');
       expect(out).not.toContain('skipped=');
+    });
+
+    // P6 run 4 N10: a mutation the probe cannot evaluate (code 9) was counted as KILLED. The ATTR-1
+    // operator strips the first `[…]`, and inside `:matches([…], …)` that leaves `:matches(, …)` — a
+    // selector syntax error, not a mutant the negative test caught. It is now counted apart
+    // («unevaluable»), named with its error, and left out of the kill rate. Both runners: the push-time
+    // runner here, the install's self-verify (check-generated-rule-mutation.sh) below.
+    const MATCHES_RULE = {
+      'rule-matches': {
+        check: {
+          type: 'declarative',
+          selector: "CallExpression:matches([callee.name='fetch'], [callee.name='axios'])",
+        },
+        'negative-test': { input: ["fetch('/x');"] },
+      },
+    };
+
+    it('a mutation that is a selector syntax error is unevaluable, never a kill (runner)', () => {
+      const { code, out } = runRunner(writeManifest(MATCHES_RULE));
+
+      expect(out, out).toContain("unevaluable: CallExpression:matches(, [callee.name='axios'])");
+      expect(out, out).toMatch(/kill: \d+\/10 /);
+      expect(out, out).toMatch(/=== overall: kill=\d+\/10 \(\d+%\) skipped=0 unevaluable=1 floor=60% ===/);
+      expect(code, out).toBe(0);
+    });
+
+    it('a mutation that is a selector syntax error is unevaluable, never a kill (install self-verify)', () => {
+      const root = mkdtempSync(join(tmpdir(), 'mutcheck-matches-'));
+      tmpDirs.push(root);
+      mkdirSync(join(root, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(root, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        JSON.stringify(MATCHES_RULE),
+      );
+      const r = spawnSync('bash', [resolve(REPO_ROOT, 'packages/core/audit-self/check-generated-rule-mutation.sh'), root], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+
+      expect(out, out).toMatch(/\[rule-matches\] kill=\d+\/10 \(\d+%\) ≥60% .* 1 mutation unevaluable/);
+      expect(r.status, out).toBe(0);
     });
   },
 );

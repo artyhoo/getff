@@ -511,10 +511,15 @@ check_shadowed_boundary
 # C4: if R2 was recorded N/A for this layout (declarative validation), the marker IS the R2 verdict —
 # re-verify its precondition instead of running the glob-liveness check. No marker → today's behaviour.
 R2_NA_HANDLED=0
-if r2_na_marker_present; then
+# P2 K2: a no-boundary-yet N/A whose precondition broke waives nothing — R2's globs are judged below
+# as if no block were there (the next install removes the block).
+if r2_na_marker_present && [ "$(r2_na_recheck)" != holds ] && r2_na_until_boundary; then
+  echo "  · R2 no-unsafe-zod-parse: the N/A recorded «until an HTTP boundary appears» in $R2_DECISIONS_FILE no longer holds — R2's globs are checked as usual"
+elif r2_na_marker_present; then
   R2_NA_HANDLED=1
   case "$(r2_na_recheck)" in
-    holds) echo "  · R2 no-unsafe-zod-parse: N/A recorded for this layout — precondition holds (declarative validation, no manual-parse boundary). See $R2_DECISIONS_FILE" ;;
+    holds) echo "  · R2 no-unsafe-zod-parse: N/A recorded for this layout — precondition holds (no manual-parse HTTP boundary). See $R2_DECISIONS_FILE" ;;
+    doubt) echo "  ✗ R2 no-unsafe-zod-parse: marked N/A in $R2_DECISIONS_FILE but zod is now declared with no declarative framework, so a parse boundary can no longer be ruled out — wire R2 (widen RULE_GLOBS.boundary) or update the decision." >&2; FAIL=1 ;;
     broke) echo "  ✗ R2 no-unsafe-zod-parse: marked N/A in $R2_DECISIONS_FILE but a parse boundary now exists — wire R2 (widen RULE_GLOBS.boundary) or update the decision." >&2; FAIL=1 ;;
   esac
 fi

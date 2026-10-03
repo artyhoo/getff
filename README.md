@@ -246,42 +246,11 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 ### For AI agents — let Claude/Cursor do the install
 
-Paste this into Claude Code, Cursor, or any AI agent with file access in your project's directory:
-
-```text
-Install getff into this project.
-
-1. Detect stack — or omit it and let the installer do it. `setup.d/lib.sh`
-   `_detect_stack_from_pkg` walks package.json dependency keys in order:
-   `react-native` → react-native; `next` → react-next; `react` → **react-spa**;
-   `typescript` → ts-server; otherwise unknown. It does not look at `next.config.*`,
-   and a plain React dependency resolves react-spa, not react-next.
-2. Run: bash /path/to/getff/setup <detected>
-   (clone the repo to /tmp/rt first if not on disk; the package is at
-   github.com/artyhoo/getff — needs SSH/HTTPS access.
-   With non-tty stdin the companion/bridge prompts default to N, so this
-   deploys the framework files only.)
-3. After setup completes, do these in sequence and report results:
-   a. Read .ai-factory/DESCRIPTION.template.md, fill in <PROJECT_NAME>,
-      stack details, non-goals based on package.json + README.md +
-      existing src/ structure. Save as .ai-factory/DESCRIPTION.md.
-   b. Read .ai-factory/RULES.md (R1-R11). For each rule, decide: keep,
-      adjust, or remove based on project context. Report decisions to me.
-      Do not commit removals without asking.
-   c. Read AGENTS.md root file, adapt to this project (replace template
-      placeholders with concrete paths and conventions).
-   d. Complete the wiring steps the installer printed: `npm install -D`
-      the listed dev-deps, add the package.json scripts (INSTALL.md §3),
-      then verify `git config core.hooksPath` prints `.husky` (or `.husky/_`
-      once `npm install` has run husky 9's `prepare` script; a pre-existing
-      hooks path of yours is left alone, with the reason printed) — never run
-      `npx husky init` (it would clobber the shipped hooks; the installer
-      ships and activates them) and no `npx depcruise --init` is needed
-      (`.dependency-cruiser.cjs` ships with the install).
-   e. Run `npm run validate` and report any failures.
-   f. Run `npm run audit:docs` and report results.
-4. Stop here. Do not start implementing features.
-```
+Paste the prompt from [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md#quick-install--copy-paste-prompt) into Claude Code, Cursor, or any AI
+agent with file access in your project's directory. It is the one step list: the agent previews the
+install, asks you one question (where it may install), then walks every step — install, project
+passport draft, rule research, the project's own checks — and ends with its own report, where each
+step reads «done» or «not done» with the reason.
 
 Full guide for AI-driven install: see [`INSTALL-FOR-AI.md`](INSTALL-FOR-AI.md).
 

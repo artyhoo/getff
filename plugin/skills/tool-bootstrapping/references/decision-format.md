@@ -7,6 +7,8 @@
 
 Your project root: `.ai-factory/tool-decisions.md`. **Commit this file** — decisions are team-shared and auditable via git history. Use [../templates/tool-decisions.md.template](../templates/tool-decisions.md.template) as a starter.
 
+The template starts a file that does not exist yet. Once the file exists, edit it in place; never regenerate it from the template: the installer writes marked blocks into it — `<!-- aif:project-checks:begin -->` … `<!-- aif:project-checks:end -->`, `<!-- aif:r2-na:begin -->` … `<!-- aif:r2-na:end -->`, and `<!-- getff:installed-versions:begin -->` … `<!-- getff:installed-versions:end -->` where your getff records versions. Keep each block byte-for-byte; the sections below live outside them.
+
 ## §2 Schema
 
 ### YAML frontmatter
@@ -63,3 +65,5 @@ aif-version: 2.1.0
 ## §4 Version drift
 
 When AIF or a tool updates and surfaces new candidates, append to `## Pending review` — do NOT overwrite `## Accepted` or `## Rejected`. Git history is the audit trail; in-place edits to past decisions are not permitted.
+
+A version drift never regenerates the file either: the installer's blocks (§1) stay byte-for-byte, and a re-install rewrites them by their markers.

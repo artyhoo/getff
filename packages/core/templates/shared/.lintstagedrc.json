@@ -1,12 +1,14 @@
 {
   "*.{ts,tsx}": [
-    "prettier --write",
-    "eslint --fix --max-warnings=0 --no-warn-ignored"
+    "bash scripts/run-armed.sh --if-armed 'npm run format:check' prettier --write",
+    "bash scripts/run-armed.sh --if-armed 'npm run lint' eslint --fix --max-warnings=0 --no-warn-ignored"
   ],
   "*.{js,mjs,cjs,jsx}": [
-    "prettier --write",
-    "eslint --fix --max-warnings=0 --no-warn-ignored"
+    "bash scripts/run-armed.sh --if-armed 'npm run format:check' prettier --write",
+    "bash scripts/run-armed.sh --if-armed 'npm run lint' eslint --fix --max-warnings=0 --no-warn-ignored"
   ],
-  "*.{json,md,yml,yaml}": ["prettier --write"],
+  "*.{json,md,yml,yaml}": [
+    "bash scripts/run-armed.sh --if-armed 'npm run format:check' prettier --write"
+  ],
   "package.json": ["sort-package-json"]
 }
