@@ -116,7 +116,7 @@ parity doctrine rather than smoothed over.
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`.
-- Registration: `.claude/settings.json:208` opens the SubagentStart block with the
+- Registration: `.claude/settings.json:217` opens the SubagentStart block with the
   command at line 213.
 - No plugin twin: the card's delivery row carries only the CC-only marker, and
   `ls plugin/hooks | grep inject-subagent-digest` finds nothing — the SubagentStart

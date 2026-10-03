@@ -118,7 +118,7 @@ masquerades as a clean file.
 
 - `.claude/hooks/validate-prompt.sh:2` is the header the card's description row
   quotes: `# validate-prompt.sh — PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits`.
-- Registration: `.claude/settings.json:106` reads `"matcher": "Edit|Write|MultiEdit"`
+- Registration: `.claude/settings.json:115` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 110; the plugin registry registers it too
   (`plugin/hooks/hooks.json:66`).
 - Scope: lines 117-119 pass only paths containing `.claude/orchestrator-prompts/` and

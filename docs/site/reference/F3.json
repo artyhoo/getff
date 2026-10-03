@@ -770,6 +770,7 @@
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
     "apply-getff-manifest-staged-precommit.sh",
+    "apply-seal-primary-wiring.sh",
     "check-getff-manifest-staged.sh",
     "check-merge-pushed.sh",
     "ci-capture.sh",

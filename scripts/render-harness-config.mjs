@@ -431,6 +431,15 @@ const PLUGIN_INCOMPATIBLE = {
     "operator-axis only — the framework's own goal/invariants digest; a consumer's anchor ships as inject-project-digest (one-button spec R6-10)",
   'close-aif-task-on-merge':
     'operator-axis only — closes tasks in the operator\'s own aif-handoff stack through the framework\'s harvest.ts; a plugin consumer has neither, and the hook has no plugin twin',
+  // seal-primary-checkout (@cc-only-rationale, #2009 + wiring 2026-10-02): CC-only internal
+  // tooling — seals THIS framework repo's own dev environment (its primary checkout's
+  // settings/.husky/git-hooks) against the session's own harness. A consumer's plugin payload
+  // has no plugin/hooks/ twin for it, so a run-hook.cmd entry would dispatch a name the
+  // payload does not carry. Listed here so the SSOT registration cannot leak into the
+  // plugin channel (measured live: the first wiring emitted it to hooks.json before this
+  // entry existed).
+  'seal-primary-checkout':
+    'cc-only internal tooling — seals the framework repo\'s own primary checkout; no plugin/hooks/ twin, a consumer plugin must not register it',
 };
 
 /** plugin backend: plugin/hooks/hooks.json — the CC-plugin convention (hooks/hooks.json, bare

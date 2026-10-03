@@ -63,6 +63,7 @@ const PLUGIN_INCOMPATIBLE_NAMES = new Set([
   'inject-handoff-on-compact',
   'close-aif-task-on-merge',
   'inject-session-bootstrap',
+  'seal-primary-checkout',
 ]);
 
 /** Run the generator against `root`; return exit code + combined stdout/stderr. */
