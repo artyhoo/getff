@@ -21,6 +21,7 @@ import {
   extractCitedSsotIds,
   loadSsotIds,
   loadSsotRowTitles,
+  loadSsotRowMoves,
   renumberedCitedIds,
   PA_HISTORICAL_CUTOFF,
 } from './prior-art.ts';
@@ -1261,7 +1262,7 @@ describe('checkTrailerBody() — PLACEHOLDERS set membership mutation-killing (W
 });
 
 describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () => {
-  // Kills prior-art.ts:175 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
+  // Kills prior-art.ts:236 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
   // With original strip, 'todo.' → 'todo' (placeholder). With non-empty replace, 'todo.' → 'todoStryker was here!' (NOT placeholder).
   // Test: rationale of punctuated placeholder words → should be all-placeholder → code 1 (invalid trailer).
   it('punctuated placeholder words (todo. na. tbd.) are treated as all-placeholder (code 1)', () => {
@@ -1274,7 +1275,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(result.code).toBe(1);
   });
 
-  // Kills prior-art.ts:217 Regex mutant: remove ^ anchor from dep detection regex
+  // Kills prior-art.ts:278 Regex mutant: remove ^ anchor from dep detection regex
   // Without ^, a line where + or - appears mid-string (not at line start) would be falsely matched.
   // e.g. '   some text + "my-lib": "^1.0.0"' → without ^, the + and dep-key pattern is found mid-string.
   it('does NOT detect a dep when + appears mid-line before a dep-format string (^ anchor required)', () => {
@@ -1283,7 +1284,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(isNewDepAdded(diff)).toBe(false);
   });
 
-  // Kills prior-art.ts:396:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
+  // Kills prior-art.ts:457:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
   // Without ^, the first separator found ANYWHERE in the rationale is stripped (not just leading).
   // Test: rationale where separator is NOT at start but IS mid-string (after placeholder words).
   // 'todo — todo todo todo' → original: /^[—–\-:]/ strips nothing (starts with 'todo') → keep '—' mid-string
@@ -1303,7 +1304,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
 
-  // Kills prior-art.ts:396:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
+  // Kills prior-art.ts:457:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
   // Without ^, the first group of spaces found ANYWHERE is stripped (not just leading spaces).
   // Test: rationale with NO leading spaces but WITH internal spaces between placeholder words.
   // Original /^ +/: no leading spaces → nothing stripped → 'todo todo todo todo todo todo' → all-placeholder → code 1
@@ -1777,5 +1778,106 @@ describe('runPriorArtCheck() — C2 paired-negative end-to-end', () => {
       },
     );
     expect(report.renumberedCitations).toHaveLength(0);
+  });
+});
+
+// The join incident (2026-09-30, the one-button landing): three part lanes each
+// appended register rows 291-294 while staging landed its own 291-297, so the
+// join renumbered the parts' rows to 298-301. The part commits sit under merges
+// and cannot be amended, and CI's prior-art job checks the whole PR range. A
+// `<!-- prior-art:was <old id> in <citing sha> -->` marker on the renumbered row
+// is a CLAIM the C2 arm verifies — never an escape it trusts.
+describe('C2 moved-row marker — a verified claim, not an escape', () => {
+  const CITING = '8fb3c394eea1111111111111111111111111abcd';
+  const OTHER = '1234567aaaa2222222222222222222222222abcd';
+  const atCommit = loadSsotRowTitles(
+    '| 291 | oxlint JS plugins | L1 | 2026-09-29 | 2026-09-29 | ADOPT | x |',
+  );
+  const tipWith = (marker: string, title = 'oxlint JS plugins') =>
+    '| 291 | ShellCheck and shellharden | L1 | 2026-09-20 | 2026-09-20 | ADOPT | x |\n' +
+    `| 299 | ${title} ${marker} | L1 | 2026-09-29 | 2026-09-29 | ADOPT | x |\n`;
+  const viewsFor = (tip: string, sha = CITING) => ({
+    atCommit,
+    atTip: loadSsotRowTitles(tip),
+    tipMoves: loadSsotRowMoves(tip),
+    sha,
+  });
+
+  it('parses the marker and keeps it out of the row title', () => {
+    const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+    expect(loadSsotRowMoves(tip).get(299)).toEqual([
+      { oldId: 291, sha: '8fb3c394ee' },
+    ]);
+    expect(loadSsotRowTitles(tip).get(299)).toBe('oxlint js plugins');
+  });
+
+  it('a marker with a sha prefix shorter than 7 characters is not a marker', () => {
+    const tip = tipWith('<!-- prior-art:was 291 in 8fb3c3 -->');
+    expect(loadSsotRowMoves(tip).has(299)).toBe(false);
+  });
+
+  it('POSITIVE: a matching marker (citing sha, old id, same title) accepts the citation', () => {
+    const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+    expect(renumberedCitedIds([291], viewsFor(tip))).toEqual([]);
+  });
+
+  it('PAIRED-NEGATIVE (1): a marker naming another commit stays red', () => {
+    const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+    expect(renumberedCitedIds([291], viewsFor(tip, OTHER))).toEqual([291]);
+  });
+
+  it('PAIRED-NEGATIVE (2): a marker on a row whose title differs from the cited one stays red', () => {
+    const tip = tipWith(
+      '<!-- prior-art:was 291 in 8fb3c394ee -->',
+      'Project-command rule proof',
+    );
+    expect(renumberedCitedIds([291], viewsFor(tip))).toEqual([291]);
+  });
+
+  it('PAIRED-NEGATIVE (3): the renumbered citation without a marker still fires', () => {
+    const tip = tipWith('');
+    expect(renumberedCitedIds([291], viewsFor(tip))).toEqual([291]);
+  });
+
+  it('a marker for an id the commit never cited does not cover the id it did cite', () => {
+    const tip = tipWith('<!-- prior-art:was 290 in 8fb3c394ee -->');
+    expect(renumberedCitedIds([291], viewsFor(tip))).toEqual([291]);
+  });
+
+  it('without the citing sha the marker cannot be checked and does not accept', () => {
+    const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+    const { sha: _sha, ...noSha } = viewsFor(tip);
+    expect(renumberedCitedIds([291], noSha)).toEqual([291]);
+  });
+
+  describe('runPriorArtCheck() end-to-end', () => {
+    const capability = {
+      packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#291 (oxlint, ADOPT - rationale here).',
+      authorDate: () => FUTURE,
+    };
+    const run = (sha: string, tip: string) =>
+      runPriorArtCheck(
+        [sha],
+        fakeGit(capability),
+        undefined,
+        () => new Set([291, 299]),
+        {
+          atCommit: () => atCommit,
+          atTip: loadSsotRowTitles(tip),
+          tipMoves: loadSsotRowMoves(tip),
+        },
+      );
+
+    it('POSITIVE: the marked renumber is accepted for its citing commit', () => {
+      const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+      expect(run(CITING, tip).renumberedCitations).toHaveLength(0);
+    });
+
+    it('PAIRED-NEGATIVE: the same marker does not cover another commit', () => {
+      const tip = tipWith('<!-- prior-art:was 291 in 8fb3c394ee -->');
+      expect(run(OTHER, tip).renumberedCitations).toHaveLength(1);
+    });
   });
 });

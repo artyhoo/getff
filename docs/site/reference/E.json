@@ -1516,8 +1516,6 @@
         "tier": "framework",
         "stacks": [
           "react-native",
-          "react-next",
-          "react-spa",
           "ts-server"
         ]
       },
@@ -1538,6 +1536,38 @@
           "path": "tsconfig.json"
         },
         {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        }
+      ],
+      "extras": {
+        "format": "json"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/tsconfig.react.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "react-spa"
+        ]
+      },
+      "description": "React tsconfig template (Bundler resolution, react-jsx, DOM, noEmit) for Vite-style React projects; which stack gets it is the installer's routing.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 151
+      },
+      "installedTo": [
+        {
           "stack": "react-next",
           "lane": "brownfield",
           "path": "tsconfig.json"
@@ -1554,16 +1584,6 @@
         },
         {
           "stack": "react-spa",
-          "lane": "greenfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "ts-server",
           "lane": "greenfield",
           "path": "tsconfig.json"
         }

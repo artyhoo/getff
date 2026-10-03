@@ -44,6 +44,17 @@ _rot_k4() { # vitest found nothing although it looked in lib/ — only for the *
   _strip_ansi "$1" | grep -qE '(FAIL|Error:|error TS)' && return 1
   return 0
 }
+# rot_names_step <step> — 0 when an entry names <step> on this stack, whatever the log says. The
+# cell derives its expected record from it: such a step is red at install and recorded not-armed.
+rot_names_step() {
+  local e steps stacks
+  for e in $ROT_ENTRIES; do
+    steps=${e#*:}; steps=${steps%%:*}; stacks=${e##*:}
+    case ",$stacks," in *",$STACK,"*) ;; *) continue ;; esac
+    case ",$steps," in *",$1,"*) return 0 ;; esac
+  done
+  return 1
+}
 # known_rot_for <step> <log> — prints the id of the entry that explains the step's failure on
 # this stack, or nothing.
 known_rot_for() {

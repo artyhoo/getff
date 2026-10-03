@@ -908,15 +908,20 @@ expect_pass "the code escape silences a whole comma list" --blank-only scripts/t
 # `.husky/pre-commit` — copied byte-for-byte into the fixture, never re-implemented here —
 # and assert on its exit code.
 #
-# Two stubs, both named rather than smuggled in through PATH surgery: `npx` (the
+# Three stubs, all named rather than smuggled in through PATH surgery: `npx` (the
 # markdownlint and prettier sections would otherwise reach the network from a fixture with
-# no node_modules) and `scripts/format-shipped.sh` (absent in the fixture, so the prettier
-# section would go red for an unrelated reason and make every arm below meaningless).
+# no node_modules), `scripts/format-shipped.sh` (absent in the fixture, so the prettier
+# section would go red for an unrelated reason and make every arm below meaningless), and
+# `scripts/check-ships-manifest.mjs` (the ships-manifest section fires on every staged
+# `.claude/rules/*` path, which these arms stage; absent, node throws MODULE_NOT_FOUND and
+# the two pass arms go red — measured 2026-09-30; the checker has its own arms in
+# scripts/check-ships-manifest.test.sh).
 # One real sibling checker, copied like this one: `scripts/check-pipefail-early-exit.mjs`,
 # which the hook runs on every staged file — absent, node throws MODULE_NOT_FOUND and every
 # arm goes red. It passes here because no fixture path is in its population.
 # Nothing else in the hook fires: its remaining sections are scoped to staged manifest,
 # orchestrator-prompts, hooks, agents and skills paths, and this fixture stages none.
+# (The ships-manifest section's scope includes `.claude/rules/*`, hence its stub above.)
 REAL_ROOT="$(cd "$DIR/.." && pwd)"
 HOOK="$REAL_ROOT/.husky/pre-commit"
 
@@ -930,6 +935,7 @@ new_hook_repo() {
   cp "$HOOK" "$REPO/.husky/pre-commit"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/_stub_bin/npx"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/scripts/format-shipped.sh"
+  printf 'process.exit(0);\n' >"$REPO/scripts/check-ships-manifest.mjs"
   chmod +x "$REPO/_stub_bin/npx" "$REPO/scripts/format-shipped.sh"
 }
 

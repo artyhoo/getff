@@ -59,6 +59,7 @@ Read these references **as needed**, not all at once:
 | `references/ai-traps.md`          | Specifically what AI agents (Claude/Cursor/Copilot) violate most and which rule catches each. Use when user mentions AI-generated code drift.                                             |
 | `references/doc-organization.md`  | AGENTS.md hot/cold split, when skill vs rule, drift-detection commands, token economy targets. Use when user asks about AGENTS.md/CLAUDE.md structure or the `.claude/` layout.           |
 | `references/self-testing-docs.md` | The `audit-ai-docs.sh` pattern: probe catalog, paired negative-test discipline, three levels of execution (local / pre-push / CI). Use when user is writing or extending an audit script. |
+| `references/base-core.md`         | Every base-core principle and whether it fires here (`fires` / `partial` / `not_wired` + reason), plus getff's lint plugin. Use when asked which principles are enforced here.            |
 
 ## Templates ready to copy
 

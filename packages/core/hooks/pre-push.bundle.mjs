@@ -147,8 +147,9 @@ function loadSsotIds(ssotContent) {
 }
 var ROW_RENAMED_RE = /<!--\s*prior-art:renamed\s+([^>]*?)\s*-->/;
 var ROW_RENAMED_RATIONALE_MIN = 20;
+var ROW_MOVED_RE = /<!--\s*prior-art:was\s+(\d+)\s+in\s+([0-9a-f]{7,40})\s*-->/g;
 function normaliseRowTitle(cell) {
-  return cell.replace(ROW_RENAMED_RE, "").replace(/[*`_]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  return cell.replace(ROW_RENAMED_RE, "").replace(ROW_MOVED_RE, "").replace(/[*`_]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 function loadSsotRowTitles(ssotContent) {
   const titles = /* @__PURE__ */ new Map();
@@ -162,6 +163,29 @@ function loadSsotRowTitles(ssotContent) {
   }
   return titles;
 }
+function loadSsotRowMoves(ssotContent) {
+  const moves = /* @__PURE__ */ new Map();
+  for (const line of ssotContent.split("\n")) {
+    const m = /^\|\s*(\d+)\s*\|/.exec(line);
+    if (m === null) continue;
+    const found = [...line.matchAll(ROW_MOVED_RE)].map((x) => ({
+      oldId: Number(x[1]),
+      sha: x[2]
+    }));
+    if (found.length > 0) moves.set(Number(m[1]), found);
+  }
+  return moves;
+}
+function movedRowVerifies(id, then, views) {
+  const { atTip, tipMoves, sha } = views;
+  if (atTip === void 0 || tipMoves === void 0 || sha === void 0)
+    return false;
+  for (const [row, moves] of tipMoves) {
+    const claims = moves.some((mv) => mv.oldId === id && sha.startsWith(mv.sha));
+    if (claims && atTip.get(row) === then) return true;
+  }
+  return false;
+}
 function renumberedCitedIds(citedIds, views) {
   const { atCommit, atTip } = views;
   if (atCommit === void 0 || atTip === void 0) return [];
@@ -169,7 +193,7 @@ function renumberedCitedIds(citedIds, views) {
     const then = atCommit.get(id);
     const now = atTip.get(id);
     if (then === void 0 || now === void 0) return false;
-    return then !== now;
+    return then !== now && !movedRowVerifies(id, then, views);
   });
 }
 var REFERENT_RE = /prior-art-evaluations\.md#\d+|[\w.-]+(?:\/[\w.-]+)*\.(?:tsx?|[cm]?js|sh|md|markdown|json|ya?ml|py|rs|toml)\b|#\d{2,}/;
@@ -342,7 +366,12 @@ function runPriorArtCheck(commits, g, cutoff = PA_HISTORICAL_CUTOFF, ssotIds, ss
     const reason = detectCapabilityReason(sha, g);
     if (reason === null) continue;
     const ids = typeof ssotIds === "function" ? ssotIds(sha) : ssotIds;
-    const views = ssotTitles === void 0 ? void 0 : { atCommit: ssotTitles.atCommit(sha), atTip: ssotTitles.atTip };
+    const views = ssotTitles === void 0 ? void 0 : {
+      atCommit: ssotTitles.atCommit(sha),
+      atTip: ssotTitles.atTip,
+      tipMoves: ssotTitles.tipMoves,
+      sha
+    };
     const { code, message } = checkTrailerBody(
       g.commitBody(sha),
       g.authorDate(sha),
@@ -871,6 +900,25 @@ var DOCS_CARD_IDS = [
 var DOCS_CARD_VALUES = ["PASS", "FAIL", "N/A"];
 var DOCS_CARD_SKIP_MIN = 20;
 var TRAILER_RE = /^[ \t]*Docs-card:[ \t]*(.*)$/im;
+var CLAIM_RE = /^[ \t]*Docs-card-for:[ \t]*([0-9a-f]{7,40})[ \t]+(.*)$/gim;
+var DEFERRAL_MARKER_RE = /^docs-refresh: deferred\b/;
+function isMechanicalProseDiff(diff) {
+  const hunks = [];
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("@@")) hunks.push({ removed: [], added: [] });
+    const hunk = hunks[hunks.length - 1];
+    if (!hunk || line.startsWith("---") || line.startsWith("+++")) continue;
+    const text = line.slice(1);
+    if (DEFERRAL_MARKER_RE.test(text)) continue;
+    if (line.startsWith("-")) hunk.removed.push(text);
+    else if (line.startsWith("+")) hunk.added.push(text);
+  }
+  if (hunks.length === 0) return false;
+  const digitless = (s) => s.replace(/\d+/g, "0");
+  return hunks.every(
+    ({ removed, added }) => removed.length === added.length && removed.every((r, i) => digitless(r) === digitless(added[i] ?? ""))
+  );
+}
 function isDocsSiteProsePath(path) {
   return /^docs\/site\/.*\.mdx?$/i.test(path);
 }
@@ -887,7 +935,10 @@ var PLACEHOLDERS3 = /* @__PURE__ */ new Set([
 function parseDocsCardTrailer(body) {
   const m = TRAILER_RE.exec(body);
   if (!m) return { kind: "absent" };
-  const payload = (m[1] ?? "").trim();
+  return parseDocsCardPayload(m[1] ?? "");
+}
+function parseDocsCardPayload(raw) {
+  const payload = raw.trim();
   if (payload.startsWith("skipped")) {
     const rationale = payload.slice("skipped".length).replace(/^[\s—–-]+/, "").trim();
     return { kind: "skipped", reason: rationale };
@@ -896,8 +947,8 @@ function parseDocsCardTrailer(body) {
   const invalid = [];
   const unknown = [];
   const duplicated = [];
-  for (const raw of payload.split(",")) {
-    const token = raw.trim();
+  for (const raw2 of payload.split(",")) {
+    const token = raw2.trim();
     if (token === "") continue;
     const tm = /^(C\d{1,2})\s+(\S+)$/i.exec(token);
     if (!tm) {
@@ -926,18 +977,64 @@ function parseDocsCardTrailer(body) {
 function isMergeCommit(subject) {
   return /^Merge /i.test(subject);
 }
+function payloadProblem(parsed) {
+  if (parsed.kind === "absent") return null;
+  if (parsed.kind === "skipped") {
+    if (parsed.reason.length < DOCS_CARD_SKIP_MIN || PLACEHOLDERS3.has(parsed.reason.toLowerCase())) {
+      return {
+        reason: "escape rationale too short or placeholder",
+        message: `\`Docs-card: skipped \u2014 ${parsed.reason}\` \u2014 rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`
+      };
+    }
+    return null;
+  }
+  const problems = [];
+  if (parsed.missing.length > 0) problems.push(`missing card ids: ${parsed.missing.join(", ")}`);
+  if (parsed.invalid.length > 0)
+    problems.push(`invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(", ")}`);
+  if (parsed.unknown.length > 0) problems.push(`unknown entries: ${parsed.unknown.join(", ")}`);
+  if (parsed.duplicated.length > 0) problems.push(`duplicated ids: ${parsed.duplicated.join(", ")}`);
+  return problems.length > 0 ? { reason: "malformed Docs-card trailer", message: problems.join("; ") } : null;
+}
 function runDocsCardCheck(commits, git2) {
   const failures = [];
+  const isMerge = new Map(commits.map((sha) => [sha, isMergeCommit(git2.commitSubject(sha))]));
+  const prosePaths = /* @__PURE__ */ new Map();
+  const own = /* @__PURE__ */ new Map();
+  for (const sha of commits) {
+    if (isMerge.get(sha)) continue;
+    prosePaths.set(sha, git2.changedFiles(sha).map((f) => f.path).filter(isDocsSiteProsePath));
+    own.set(sha, parseDocsCardTrailer(git2.commitBody(sha)));
+  }
+  const claims = /* @__PURE__ */ new Map();
+  for (const claimer of commits) {
+    if (isMerge.get(claimer)) continue;
+    for (const m of git2.commitBody(claimer).matchAll(CLAIM_RE)) {
+      const prefix = m[1] ?? "";
+      const named = commits.filter((sha) => sha.startsWith(prefix));
+      const target = named.length === 1 ? named[0] : void 0;
+      const fail = (reason) => {
+        failures.push({ sha: claimer, reason, message: `\`Docs-card-for: ${prefix}\` \u2014 ${reason}` });
+      };
+      if (target === void 0) fail(named.length > 1 ? "claim names an ambiguous sha prefix" : "claim names a commit outside the range");
+      else if (isMerge.get(target)) fail("claim names a merge commit, which owes no card");
+      else if ((prosePaths.get(target) ?? []).length === 0) fail("claim names a commit that touches no docs/site prose");
+      else if (own.get(target)?.kind !== "absent") fail("claim names a commit that carries its own Docs-card trailer");
+      else if (claims.has(target)) fail("more than one claim names this commit");
+      else claims.set(target, parseDocsCardPayload(m[2] ?? ""));
+    }
+  }
   let checked = 0;
   let proseCommits = 0;
   for (const sha of commits) {
-    if (isMergeCommit(git2.commitSubject(sha))) continue;
+    if (isMerge.get(sha)) continue;
     checked++;
-    const touchesProse = git2.changedFiles(sha).some((f) => isDocsSiteProsePath(f.path));
-    if (!touchesProse) continue;
+    const paths = prosePaths.get(sha) ?? [];
+    if (paths.length === 0) continue;
     proseCommits++;
-    const parsed = parseDocsCardTrailer(git2.commitBody(sha));
-    if (parsed.kind === "absent") {
+    const ownCard = own.get(sha) ?? { kind: "absent" };
+    const claim = claims.get(sha);
+    if (ownCard.kind === "absent" && claim === void 0) {
       failures.push({
         sha,
         reason: "missing Docs-card trailer",
@@ -945,32 +1042,17 @@ function runDocsCardCheck(commits, git2) {
       });
       continue;
     }
-    if (parsed.kind === "skipped") {
-      if (parsed.reason.length < DOCS_CARD_SKIP_MIN || PLACEHOLDERS3.has(parsed.reason.toLowerCase())) {
-        failures.push({
-          sha,
-          reason: "escape rationale too short or placeholder",
-          message: `\`Docs-card: skipped \u2014 ${parsed.reason}\` \u2014 rationale must be >=${DOCS_CARD_SKIP_MIN} chars and say why (not TODO/later/n-a/tbd/fixme/placeholder)`
-        });
-      }
+    const parsed = claim ?? ownCard;
+    const problem = payloadProblem(parsed);
+    if (problem) {
+      failures.push({ sha, ...problem });
       continue;
     }
-    const problems = [];
-    if (parsed.missing.length > 0)
-      problems.push(`missing card ids: ${parsed.missing.join(", ")}`);
-    if (parsed.invalid.length > 0)
-      problems.push(
-        `invalid entries (want \`C<n> PASS|FAIL|N/A\`): ${parsed.invalid.join(", ")}`
-      );
-    if (parsed.unknown.length > 0)
-      problems.push(`unknown entries: ${parsed.unknown.join(", ")}`);
-    if (parsed.duplicated.length > 0)
-      problems.push(`duplicated ids: ${parsed.duplicated.join(", ")}`);
-    if (problems.length > 0) {
+    if (claim?.kind === "skipped" && !isMechanicalProseDiff(git2.diffForPaths(sha, paths))) {
       failures.push({
         sha,
-        reason: "malformed Docs-card trailer",
-        message: problems.join("; ")
+        reason: "skip claim on a commit whose prose diff is not mechanical",
+        message: "a `Docs-card-for:` skip is accepted only when every changed prose line differs from its pair in digits alone, or is a docs-refresh deferral marker \u2014 this diff changes words, so the claim must carry the full card"
       });
     }
   }
@@ -1260,8 +1342,18 @@ function commitsToCheck(rb, label) {
   }
   return getCommits(rb.base, rb.head, rb.exclude ?? void 0);
 }
+var saidNotArmed = /* @__PURE__ */ new Set();
+function onceNotArmed(out) {
+  return out.split(/(?<=\n)/).filter((l) => {
+    if (!l.startsWith("\xB7 not armed: ")) return true;
+    const key = l.trimEnd();
+    if (saidNotArmed.has(key)) return false;
+    saidNotArmed.add(key);
+    return true;
+  }).join("");
+}
 function emit(r) {
-  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stdout) process.stdout.write(onceNotArmed(r.stdout));
   if (r.stderr) process.stderr.write(r.stderr);
 }
 function die(msg, r) {
@@ -1309,11 +1401,11 @@ function ssotTitlesAt(sha) {
   const content = realGit.fileContent(sha, SSOT_REL);
   return content === null ? void 0 : loadSsotRowTitles(content);
 }
-function ssotTitlesAtTip() {
+function ssotContentAtTip() {
   const abs = resolve2(REPO_ROOT, SSOT_REL);
   if (!existsSync4(abs)) return void 0;
   try {
-    return loadSsotRowTitles(readFileSync3(abs, "utf8"));
+    return readFileSync3(abs, "utf8");
   } catch {
     return void 0;
   }
@@ -1322,9 +1414,11 @@ function priorArtSection(rb) {
   const commits = commitsToCheck(rb, "\xA77");
   if (commits === null) return;
   const substanceWarnOnly = envWarnOnly("PA_SUBSTANCE_WARN_ONLY");
+  const tip = ssotContentAtTip();
   const report = runPriorArtCheck(commits, realGit, void 0, ssotIdsAt, {
     atCommit: ssotTitlesAt,
-    atTip: ssotTitlesAtTip()
+    atTip: tip === void 0 ? void 0 : loadSsotRowTitles(tip),
+    tipMoves: tip === void 0 ? void 0 : loadSsotRowMoves(tip)
   });
   if (report.failures.length > 0) {
     process.stdout.write(
@@ -1361,7 +1455,7 @@ function priorArtSection(rb) {
 `);
     }
     process.stdout.write(
-      '\nThis is the concurrent-lane collision: two branches appended a row with the\nsame id, the one that landed on the base kept the number, and yours was\nrenumbered \u2014 leaving an already-pushed trailer pointing at someone else\u2019s row.\nFix, in order of preference:\n  1. amend the commit body to cite the new id (only while unpushed);\n  2. if history is already published, carry the correction in the SQUASH\n     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n  3. if the row title was reworded deliberately and nothing moved, mark the\n     row: <!-- prior-art:renamed <why, >= 20 chars> -->\nVerify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n'
+      '\nThis is the concurrent-lane collision: two branches appended a row with the\nsame id, the one that landed on the base kept the number, and yours was\nrenumbered \u2014 leaving an already-pushed trailer pointing at someone else\u2019s row.\nFix, in order of preference:\n  1. amend the commit body to cite the new id (only while unpushed);\n  2. if history is already published, carry the correction in the SQUASH\n     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n  3. if the row title was reworded deliberately and nothing moved, mark the\n     row: <!-- prior-art:renamed <why, >= 20 chars> -->\n  4. if the commit cannot be amended and the prior art only moved to a new id\n     (a join of lanes), mark its new row: <!-- prior-art:was <old id> in <sha> -->\n     \u2014 accepted only for that commit, and only when the titles still match.\nVerify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n'
     );
     process.exit(1);
   }
@@ -1405,7 +1499,7 @@ function docsCardSection(rb) {
 `);
     }
     process.stdout.write(
-      "\nFix: add a `Docs-card:` trailer listing every criterion \u2014\n  Docs-card: C1 PASS, C2 PASS, \u2026 C13 N/A   (values: PASS | FAIL | N/A)\nor escape with a reason:\n  Docs-card: skipped \u2014 <why, at least 20 chars>\nThe card is the writer's self-filled criteria card\n(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n"
+      "\nFix: add a `Docs-card:` trailer listing every criterion \u2014\n  Docs-card: C1 PASS, C2 PASS, \u2026 C13 N/A   (values: PASS | FAIL | N/A)\nor escape with a reason:\n  Docs-card: skipped \u2014 <why, at least 20 chars>\nIf the commit cannot be amended (it sits under merges), a later commit in the same range may\ncarry it for that commit: Docs-card-for: <sha> <card or skip> \u2014 a skip only when its prose diff\nchanges digits or deferral markers alone, one claim per commit.\nThe card is the writer's self-filled criteria card\n(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n"
     );
     process.exit(1);
   }
@@ -1581,6 +1675,12 @@ so the check exits non-zero. See ${report.manifestRel} (fixture block).
   process.exit(1);
 }
 function unpinnedToolInstallSection(ctx) {
+  if (recordGoverned(
+    ctx,
+    "scripts/check-ci-pins.sh",
+    "\u274C unpinned tool install check failed"
+  ))
+    return;
   const population = [
     ...workflowYmlFiles(),
     ...ctx.isFrameworkRepo ? shellScriptFiles() : []
@@ -1674,8 +1774,16 @@ function auditAiDocsSection() {
   }
   if (existsSync4(resolve2(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
     const live = [
-      ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
-      ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
+      [
+        "audit-ai-docs.sh",
+        "bash",
+        ["packages/core/audit-self/audit-ai-docs.sh"]
+      ],
+      [
+        "audit-ai-docs.ts",
+        "npx",
+        ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]
+      ]
     ];
     for (const [label, cmd, args] of live) {
       const r = run(cmd, args);
@@ -1694,9 +1802,46 @@ function skillDriftSection() {
     emit(r);
   }
 }
+var RUN_ARMED = "scripts/run-armed.sh";
+function armedProbeTimeoutMs(env = process.env) {
+  const raw = env["PREPUSH_ARMED_PROBE_TIMEOUT_MS"]?.trim() ?? "";
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 6e5;
+}
+function mutationBudgetMs(env = process.env) {
+  const raw = env["PREPUSH_MUTATION_TIMEOUT_MS"]?.trim() ?? "";
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 3e5;
+}
+function consumerGate(script) {
+  return existsSync4(resolve2(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
+}
+function recordGoverned(ctx, script, failMsg) {
+  if (ctx.isFrameworkRepo || process.env["GETFF_SECTION_DIRECT"] === "1")
+    return false;
+  if (!existsSync4(resolve2(REPO_ROOT, RUN_ARMED)) || !existsSync4(resolve2(REPO_ROOT, script)))
+    return false;
+  const r = consumerGate(script);
+  if (r.exitCode !== 0) die(failMsg, r);
+  emit(r);
+  return true;
+}
+function armedProbeSection() {
+  if (!existsSync4(resolve2(REPO_ROOT, RUN_ARMED))) return;
+  const timeoutMs = armedProbeTimeoutMs();
+  const r = runCheck("bash", [RUN_ARMED, "--probe"], { cwd: REPO_ROOT, timeoutMs });
+  if (r.timedOut) {
+    process.stdout.write(
+      `\xB7 armed-probe: skipped \u2014 over ${timeoutMs / 1e3} s; the not-armed checks stay as they are (not blocking)
+`
+    );
+    return;
+  }
+  if (r.exitCode !== 0)
+    die("\u274C the project-checks record could not be read", r);
+  emit(r);
+}
 function ruleGlobsSection() {
   if (existsSync4(resolve2(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
-    const r = run("bash", ["scripts/check-rule-globs.sh"]);
+    const r = consumerGate("scripts/check-rule-globs.sh");
     if (r.exitCode !== 0) die("\u274C rule-glob liveness check failed", r);
     emit(r);
   }
@@ -1746,7 +1891,7 @@ function hooksPathSection() {
 }
 function lintStagedResolvesSection() {
   if (existsSync4(resolve2(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
-    const r = run("bash", ["scripts/check-lintstaged-resolves.sh"]);
+    const r = consumerGate("scripts/check-lintstaged-resolves.sh");
     if (r.exitCode !== 0) die("\u274C lint-staged resolution check failed", r);
     emit(r);
   }
@@ -1806,20 +1951,27 @@ function generatedRuleMaterialSection() {
       process.stdout.write(
         "\u26A0 DEGRADED: generated-rules manifest present but run-generated-rule-mutation.sh not delivered \u2014 mutation check SKIPPED (a skipped check is NOT green).\n"
       );
-    } else if (!binResolvable("tsx") || !binResolvable("eslint")) {
+    } else if (!binResolvable("tsx")) {
       process.stdout.write(
-        "\u26A0 DEGRADED: tsx/eslint not resolvable \u2014 generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n"
+        "\u26A0 DEGRADED: tsx not resolvable \u2014 generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n"
       );
     } else {
-      const r = run("bash", [runner, manifest]);
-      if (r.notFound || r.timedOut || r.exitCode === 127) {
+      const consumer = runner === resolve2(REPO_ROOT, "scripts/run-generated-rule-mutation.sh");
+      const timeoutMs = mutationBudgetMs();
+      const r = consumer ? existsSync4(resolve2(REPO_ROOT, RUN_ARMED)) ? runCheck("bash", [RUN_ARMED, "bash", "scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", ["scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
+      if (consumer && r.timedOut) {
+        die(
+          `\u274C generated-rule mutation check ran over its budget (${timeoutMs / 1e3} s) \u2014 NOT green. Set PREPUSH_MUTATION_TIMEOUT_MS higher if the machine is slow; a check that did not finish did not pass`,
+          r
+        );
+      } else if (r.notFound || r.timedOut || r.exitCode === 127) {
         process.stdout.write(
           `\u26A0 DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? "timed out" : "not runnable"}) \u2014 SKIPPED (a skipped check is NOT green).
 `
         );
       } else if (r.exitCode === 2) {
         process.stdout.write(
-          "\u26A0 DEGRADED: generated-rule mutation runner could not resolve its inputs (exit 2) \u2014 SKIPPED (a skipped check is NOT green).\n"
+          "\u26A0 DEGRADED: generated-rule mutation check exited 2 (it could not run; the reason follows) \u2014 SKIPPED (a skipped check is NOT green).\n"
         );
         emit(r);
       } else if (r.exitCode !== 0) {
@@ -2404,11 +2556,11 @@ async function cmdScriptLivenessEntry(ctx) {
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
-  // 30-templates.sh:99 / 45-python.sh:1665 (install_agents_md)
+  // 30-templates.sh:112 / 45-python.sh:1639 (install_agents_md)
   ".ai-factory/AI-USAGE-GUIDE.md",
   ".ai-factory/ARCHITECTURE.md",
   ".ai-factory/ARCHITECTURE.python.md",
-  // 45-python.sh:1680 (ledger A2-10)
+  // 45-python.sh:1654 (ledger A2-10)
   ".ai-factory/ARCHITECTURE.react-native.md",
   ".ai-factory/ARCHITECTURE.react-next.md",
   ".ai-factory/ARCHITECTURE.react-spa.md",
@@ -2423,7 +2575,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:388 / install.sh:1066 (conditional starter)
+  // 10-skills.sh:388 / install.sh --refresh (conditional starter)
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/"
@@ -2468,6 +2620,12 @@ function isFrameworkShippedMarkdown(p, baseline) {
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
 function lycheeSection(ctx) {
+  if (!run("lychee", ["--version"]).notFound && recordGoverned(
+    ctx,
+    "scripts/check-doc-links.sh",
+    "\u274C lychee found broken links in this project's Markdown \u2014 fix before push"
+  ))
+    return;
   const { rb } = ctx;
   if (rb.base !== null) {
     let changedMd = getChangedFiles(rb.base, "ACMR", rb.head).filter(
@@ -2607,6 +2765,7 @@ var SECTIONS = [
     run: (c) => lineCitationsSection(c)
   },
   { id: "skill-drift", owner: "maintainer", run: () => skillDriftSection() },
+  { id: "armed-probe", owner: "consumer", run: () => armedProbeSection() },
   { id: "rule-globs", owner: "consumer", run: () => ruleGlobsSection() },
   {
     id: "lint-staged-resolves",

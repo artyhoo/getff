@@ -70,7 +70,7 @@
     "s3-wire-ci.test.sh": 3,
     "ship-orchestration-skills.test.sh": 1,
     "snapshot-exclusion-guard.test.sh": 1,
-    "synth-wire-consumer-config.test.sh": 6,
+    "synth-wire-consumer-config.test.sh": 0,
     "v2-strict-runtime-armed.test.sh": 3,
     "vitest-layout-roots.test.sh": 1,
     "with-aif-suite-flag.test.sh": 7

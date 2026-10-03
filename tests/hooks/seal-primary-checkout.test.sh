@@ -22,6 +22,15 @@
 #  10. negative: non-repo cwd → allow (fail-open outside the sealed set, never global)
 #  11. positive-deny: relative file_path resolved against the session cwd → deny
 #  12. contract: deny JSON parses via jq, reason ≥20 chars and names the sealed path
+#  13. positive-deny: Edit primary .husky/pre-commit FROM the primary → deny
+#  14. positive-deny: Write primary .git/hooks/<new> FROM the primary → deny
+#  15. negative: file_path containing spaces, non-sealed → allow (parser robustness;
+#      spaces are legal inside a JSON string and inside a POSIX path — the jq path
+#      never sees them as separators, the sed fallback's [^"]* span includes them)
+#  16. negative: malformed (truncated) JSON on stdin → allow. Fail-open ON PURPOSE:
+#      a global fail-closed here bricks every session on any harness/transport hiccup
+#      (same stance the hook header documents for git-absent/non-repo/jq-missing);
+#      fail-closed is reserved for a RESOLVED sealed match.
 #
 # CI: invoked from .github/workflows/audit-self.yml (hooks test block).
 
@@ -225,6 +234,44 @@ test_12_deny_json_contract() {
   rm -rf "$repo" "$wt"
 }
 
+test_13_primary_husky_edit_from_primary_denied() {
+  local repo out
+  repo=$(make_fixture)
+  out=$(run_hook "$repo" Edit "$repo/.husky/pre-commit")
+  assert_deny "13 — Edit primary .husky/pre-commit from the primary itself → deny" "$out"
+  rm -rf "$repo" "$repo-wt"
+}
+
+test_14_primary_git_hooks_write_from_primary_denied() {
+  local repo out
+  repo=$(make_fixture)
+  out=$(run_hook "$repo" Write "$repo/.git/hooks/pre-push")
+  assert_deny "14 — Write primary .git/hooks/<new> from the primary itself → deny" "$out"
+  rm -rf "$repo" "$repo-wt"
+}
+
+test_15_file_path_with_spaces_parses() {
+  local repo wt out
+  repo=$(make_fixture)
+  wt="$repo-wt"
+  mkdir -p "$wt/my dir with spaces"
+  printf 'data\n' >"$wt/my dir with spaces/file.txt"
+  out=$(run_hook "$wt" Edit "$wt/my dir with spaces/file.txt")
+  assert_allow "15 — file_path with spaces, non-sealed → allow (JSON/sed parse intact)" "$out"
+  rm -rf "$repo" "$wt"
+}
+
+test_16_malformed_stdin_fails_open() {
+  local repo wt out
+  repo=$(make_fixture)
+  wt="$repo-wt"
+  # Truncated payload: tool gate never matches (TOOL="") → exit 0 = allow. The deny
+  # path stays reserved for RESOLVED sealed matches, never for transport noise.
+  out=$(cd "$wt" && printf '{"tool_name":"Edit","tool_input":' | bash "$HOOK")
+  assert_allow "16 — malformed (truncated) JSON stdin → allow (documented fail-open)" "$out"
+  rm -rf "$repo" "$wt"
+}
+
 # ── Run all ───────────────────────────────────────────────────────────────────
 
 test_1_edit_primary_settings_from_worktree
@@ -239,6 +286,10 @@ test_9_jq_less_branch_still_denies
 test_10_non_repo_cwd_fails_open
 test_11_relative_file_path_resolved
 test_12_deny_json_contract
+test_13_primary_husky_edit_from_primary_denied
+test_14_primary_git_hooks_write_from_primary_denied
+test_15_file_path_with_spaces_parses
+test_16_malformed_stdin_fails_open
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

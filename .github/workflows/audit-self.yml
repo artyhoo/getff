@@ -898,12 +898,34 @@ jobs:
         run: bash tests/install-sh/f19-fences-fire-load-probe.test.sh
       - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
         run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
+      - name: "install-sh — oxlint jsPlugins registration (P4: getff's lint plugin merged into a project's own oxlint config; rule enabling stays off)"
+        run: bash tests/install-sh/oxlint-register-jsplugin.test.sh
       - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
         run: bash tests/install-sh/lib-helpers.test.sh
       - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
         run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
         run: bash tests/install-sh/workspace-stack-detect.test.sh
+      - name: "install-sh — generic stack: an unknown-stack project gets the stack-free part, -y claims a toolchain lane, no prompt under --full (P2 G1)"
+        run: bash tests/install-sh/generic-stack.test.sh
+      - name: "install-sh — the project's package versions win: declared packages are not re-installed, an ERESOLVE drops our package and retries strict (P2 G2)"
+        run: bash tests/install-sh/deps-keep-project-versions.test.sh
+      - name: "install-sh — typecheck checks something: tsc -b on a solution tsconfig, React options in the tsconfig getff writes (P2 G4)"
+        run: bash tests/install-sh/typecheck-matches-tsconfig.test.sh
+      - name: "install-sh — scripts/run-armed.sh runs what the project's record arms; no record fails loudly (P2 C2/C3)"
+        run: bash tests/install-sh/run-armed.test.sh
+      - name: "install-sh — the install arms only what it ran green and records it; validate, CI and lint-staged read the record (P2 §3)"
+        run: bash tests/install-sh/project-checks-record.test.sh
+      - name: "install-sh — getff_dep_names lists getff's own dependencies, bare and sorted, for the vendor-MCP lookup to skip (P2 N7)"
+        run: bash tests/install-sh/getff-dep-names.test.sh
+      - name: "install-sh — the consumer pre-push reads the record and arms a check once it is green (P2 C2)"
+        run: bash tests/install-sh/prepush-follows-record.test.sh
+      - name: "install-sh — a project that lints with oxlint or Biome keeps its linter as the only one (P2 G5/K4)"
+        run: bash tests/install-sh/linter-slot.test.sh
+      - name: "install-sh — getff's ESLint lint script passes on unpruned suppressions, so fixing a baselined finding keeps lint green (P2 M2)"
+        run: bash tests/install-sh/lint-baseline-pass-unpruned.test.sh
+      - name: "install-sh — every check the install records has a run-armed step in the CI workflow it delivers, on every stack (P2 rework)"
+        run: bash tests/install-sh/ci-runs-every-recorded-check.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
@@ -1091,6 +1113,10 @@ jobs:
         run: bash tests/install-sh/engine.test.sh
       - name: "install-sh — critical-review S5 rule-bootstrap failure is loud (not swallowed)"
         run: bash tests/install-sh/rule-bootstrap-failure-loud.test.sh
+      - name: "install-sh — P5 A3 rule generator runs on a project with no ESLint (getff toolchain outside the project)"
+        run: bash tests/install-sh/generator-tools-root.test.sh
+      - name: "install-sh — P6 F8 a project file getff edits stays in the project's prettier style"
+        run: bash tests/install-sh/format-getff-writes.test.sh
       - name: "install-sh — critical-review S8-1 generated-rule mutation gate fails closed on an unreadable manifest"
         run: bash tests/install-sh/generated-rule-mutation-manifest-fail-closed.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
@@ -1599,10 +1625,22 @@ jobs:
         #   ignore everything getff ships (the #779 / first-commit-passable replays below).
         # own-configs — install into a project that already OWNS its eslint.config.mjs + tsconfig,
         #   so the consumer's tools check getff's delivery, then run the whole INSTALL-FOR-AI.md
-        #   step-4 list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
+        #   check list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
         #   build or validate and planted its test under src/, which is how a red fresh install of
         #   a real project shipped green). Stack-neutral: one fixture, STACK only picks the preset.
         fixture: [empty-manifest, own-configs]
+        # vite-shape — create-vite's shape without the scaffolder (oxlint, a solution tsconfig, no
+        #   strict, no prettier, no tests, master): green stays green, the record's expected armed set
+        #   and a paired negative per blocking channel (P2 §5). One stack: the preset is not the
+        #   subject, the project's own linter is.
+        # red-lint — a TypeScript React project with NO linter, no strict and old code getff's rules
+        #   flag: getff's ESLint fills the slot, its baseline is recorded (bulk suppressions) and
+        #   shrinks as old findings are fixed, and the rule table proves through `npm run lint` (P5 M7).
+        include:
+          - stack: react-spa
+            fixture: vite-shape
+          - stack: react-spa
+            fixture: red-lint
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1724,16 +1762,17 @@ jobs:
           test -x node_modules/.bin/eslint \
             || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
           npm run lint
-      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md step-4 list (Q4.3)"
+      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md check list (Q4.3)"
         # tests/consumer-matrix/own-config-cell.sh: fixture → a clean-clone copy of this tree →
         # install.sh $STACK --full → typecheck · lint · test · build · validate · first commit ·
         # first push (through the real shipped hooks) · the rule generator on an empty npm cache.
         # Known preset-template rot is printed as ROT, strictly (tests/consumer-matrix/known-rot.sh,
         # decision Q4.4). Deterministic + API-free per .claude/rules/no-paid-llm-in-ci.md.
-        if: matrix.fixture == 'own-configs'
+        if: matrix.fixture == 'own-configs' || matrix.fixture == 'vite-shape' || matrix.fixture == 'red-lint'
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
           STACK: ${{ matrix.stack }}
+          FIXTURE: ${{ matrix.fixture == 'own-configs' && 'own-config' || matrix.fixture }}
         run: bash tests/consumer-matrix/own-config-cell.sh
 
   framework-fresh-install-validate-multistack:
@@ -1778,7 +1817,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/lib.sh:2751-2760, merge_canonical_scripts) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:3013-3022, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`
@@ -2628,6 +2667,49 @@ jobs:
       - name: arch consensus-retell gate (every retell point names its source)
         run: node scripts/check-arch-retell.mjs
 
+  ships-manifest:
+    # One-button point 13: every skill, hook, rule, agent, setting and MCP server getff has is
+    # marked in setup.d/ships.manifest as shipping (and through which channel) or internal, and why.
+    # Arm A (marking) also runs at pre-commit when a population path is staged; this job is its
+    # backstop for `--no-verify` and aif-container commits. Arm B checks every row against a real
+    # core/env/factory install; its N1 arm proves a false row turns it red. Placed after every
+    # line a rule file cites in this workflow, so adding it moves none of those citations.
+    name: ships-manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
+      # Same dependency setup as the install-sh battery shards: Arm B runs install.sh for real.
+      - name: Install packages/core deps
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (lockfile-exact)
+        run: npm ci --silent
+      - name: Run ships-manifest marking gate paired-negative (Arm A)
+        run: bash scripts/check-ships-manifest.test.sh
+      - name: ships-manifest marking gate (every skill/hook/rule/agent/setting/mcp marked)
+        run: node scripts/check-ships-manifest.mjs
+      - name: Run install-sh ships-manifest real-install test (Arm B)
+        run: bash tests/install-sh/ships-manifest.test.sh
+      - name: Run install-sh session-settings test (the pre-launch «yes» group + its one-command undo)
+        run: bash tests/install-sh/session-settings.test.sh
+      - name: Run install-sh handoff-group test (the env hooks + the gate cycle in a real consumer install)
+        run: bash tests/install-sh/handoff-group.test.sh
+      - name: Run install-sh stack-tools test (circle 2 — vendor MCP servers on the pre-launch «yes», recorded registries)
+        run: bash tests/install-sh/stack-tools.test.sh
+      - name: Run install-sh react-tsconfig test (the React tsconfig template typechecks a Vite-style entry; vitest configs need no React plugin)
+        run: bash tests/install-sh/react-tsconfig.test.sh
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -2643,6 +2725,7 @@ jobs:
     needs:
       - mechanical
       - citation-fullsweep
+      - ships-manifest
       # ci-needs-completeness gap (found by the beta-delivery-ux R1 backward sweep, fixed
       # here): without this line the shipped surface could drift off Prettier-clean while
       # `ci-success` stayed green and the PR merged — every consumer's first

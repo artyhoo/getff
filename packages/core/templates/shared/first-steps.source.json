@@ -63,7 +63,7 @@
           "id": "fire-on-your-code",
           "title": "Fire a rule on YOUR code, not a fixture",
           "action": "Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var(\"X\")`, run `cargo clippy`; go — add `os.Getenv(\"X\")`, run `golangci-lint run`.",
-          "evidence": "templates/ts-server/eslint.config.mjs:179 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
+          "evidence": "templates/ts-server/eslint.config.mjs:180 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
         },
         {
           "id": "run-the-gate",
@@ -175,5 +175,94 @@
         }
       ]
     }
+  },
+  "road": {
+    "goal": "one agent session walks one ordered list from install to its own final report",
+    "render": "INSTALL-FOR-AI.md",
+    "_note": [
+      "The install prompt in INSTALL-FOR-AI.md renders this list as lines `N. [id] title`; the parity",
+      "fixture compares ids and titles in order. A step that is not built yet stays in the list and",
+      "is reported «not done» with a reason, so the report never hides it."
+    ],
+    "steps": [
+      {
+        "id": "preflight",
+        "title": "Check the installer's prerequisites",
+        "action": "Confirm git is initialized in this project and the getff checkout from Step 0 exists. On an npm project also confirm Node.js 22.23+ and npm: the installer needs them, the project itself does not have to.",
+        "doneTest": "`git rev-parse --git-dir` exits 0 and `<getff>/setup` exists; on an npm project `node --version` prints 22.23 or newer"
+      },
+      {
+        "id": "preview",
+        "title": "Preview the stack and the tool list",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for. The «✓» lines name every tool the install will handle, MCP servers included. The «Companions» section ends with a line «MCP servers … — not added in this mode»: that describes the bare dry run only; the command of step 4 adds them. Run no probe of your own.",
+        "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
+      },
+      {
+        "id": "ask-once",
+        "title": "Ask the ONE question",
+        "action": "Show the stack, what goes into the project and what would go machine-wide; name getff's own MCP servers the chosen command adds, the names from the «MCP servers …» line of the dry run, and say that each one costs context in every session; then ask once, as one list of four parts: (a) where to install — 1, 2 or 3, it picks the installer flag; (b) session settings, yes or no — `GETFF_SESSION_SETTINGS=1` goes before the installer command unless the answer says no; before asking, name the groups the dry run printed and say in plain words: they go into the person's own uncommitted `.claude/settings.local.json`; values the person already set are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command; (c) tools for the project's own dependencies, yes or no — `GETFF_STACK_TOOLS=1` goes before the installer command unless the answer says no; the installer's own source check decides which servers are taken; before asking, say in plain words: some of these servers run on the person's computer at every session start, through `npx`, the vendor's own package at its latest version; the rest work over the internet; the report shows each local one with a ⚠ line and the command that removes it, `claude mcp remove <name> -s project`; (d) research, yes or no. A part the answer leaves out reads: (a) 1, (b) yes, (c) yes, (d) yes — so the answer «1» means everything on, this project only. Nothing else is asked during the run.",
+        "doneTest": "exactly one question was asked before the installer ran, and the report quotes the answer with the flag and the variables it chose"
+      },
+      {
+        "id": "install",
+        "title": "Run the installer with the chosen flag",
+        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Put the variables before the command, on the same line: with no «no» in the answer it reads `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash <getff>/setup -y <stack>`; a «no» drops its variable. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
+        "doneTest": "the installer exits 0 and prints its «Checked by the install» block"
+      },
+      {
+        "id": "verify-payload",
+        "title": "Verify the payload landed",
+        "action": "`ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/` — a missing entry means the install did not finish.",
+        "doneTest": "every listed path exists"
+      },
+      {
+        "id": "draft-passport",
+        "title": "Draft the project passport",
+        "action": "When `.ai-factory/DESCRIPTION.md` is byte-identical to `.ai-factory/DESCRIPTION.template.md`, draft it from the project's own files by following `.claude/agents/aif-init.md`, marking every guess `[GUESSED — verify]`. A passport the project already had is kept as it is. The run never waits for a human here.",
+        "doneTest": "`.ai-factory/DESCRIPTION.md` differs from the template and holds none of the template's `<…>` placeholder tokens"
+      },
+      {
+        "id": "tools-parity",
+        "title": "Check that everything getff uses for itself is installed or marked",
+        "action": "Take the tool names from the «✓ <name>» lines the preview printed under «Stack-aware companion selection», leave out the external services runtime-bridge and aif-handoff, and add context7. For each of these tools find the one trace the install left, in two sources only: a row `| <name> |` in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a line `- <name> — <reason>` in the installer's NOT-wired summary or in its kept-values summary. Quote that row or line per tool. A row whose version starts «not read:» is a trace: quote its reason. A tool with no trace is a finding under this step, named «MISSING <name>». Run no probe of your own. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
+        "doneTest": "the block exists and every selected tool has its row or its summary line; each tool without one is named MISSING"
+      },
+      {
+        "id": "base-core-status",
+        "title": "Read the base-core list with a status per principle",
+        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, report this step as «not done: list absent in this older install» and print one line under it: the command `bash <getff>/install.sh <stack> --refresh`, which brings the list and which the person may run. Do not run it and do not ask about it.",
+        "doneTest": "the count of lines in «PRINCIPLES NOT WIRED YET» equals the count of such rows in the file"
+      },
+      {
+        "id": "research",
+        "title": "Research rules for the stack",
+        "action": "Unless the answer to the one question said no to research, follow `<getff>/agents/rule-researcher.md`; it has an arm per toolchain. The answer to the one question is the confirmation that protocol asks for: write its files without asking, and list what was written in the report. Report where it ended.",
+        "doneTest": "the rule-research sequence reached its own completion output, or the report names the point where it stopped"
+      },
+      {
+        "id": "place-rules",
+        "title": "Write one rule table and place each rule in its home",
+        "action": "After the research step, run `bash <getff>/setup --full <stack>` with the same variables before it that the install step passed — a run without them reports the choices of the one answer as not chosen: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
+        "doneTest": "the table prints one row per rule"
+      },
+      {
+        "id": "prove-rules",
+        "title": "Prove the placed rules in one batch run",
+        "action": "Read the proof from the output the previous step already produced; do not run it again. Quote the proof line and the exit code. A rule that fails its proof is a finding under this step and stays in place. When the previous step is «not done», report this step as «not done» with the same reason.",
+        "doneTest": "the proof line shows bad→exit ≠0, good→exit 0"
+      },
+      {
+        "id": "project-checks",
+        "title": "Run the project's own check commands as the installer wired them",
+        "action": "Run each command listed under `armed:` in the block `<!-- aif:project-checks:begin -->` of `.ai-factory/tool-decisions.md`. Quote exit codes and failing lines, then the lines under `not-armed:` with their reasons; failures on the project's existing code are a finding, not a reason to stop. When the block is absent, report «not done: no check record in tool-decisions.md»; when nothing is listed under `armed:`, report «not done: no check armed».",
+        "doneTest": "each armed command ran and its exit code is in the report"
+      },
+      {
+        "id": "report",
+        "title": "Print the final report",
+        "action": "Print the report in the format given with the prompt: one line per step of this list, in order, none omitted.",
+        "doneTest": "the report carries exactly one line per step id, each reading «done» with a check command or «not done» with a reason"
+      }
+    ]
   }
 }

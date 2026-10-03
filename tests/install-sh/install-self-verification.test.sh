@@ -10,7 +10,7 @@
 #   (v)   check-generated-rule-mutation.sh degrades cleanly (rc=0) when manifest is absent
 #   (vi)  99-finalize.sh capstone block is present and has the correct FULL guard pattern
 #   (vii) 40-configs.sh ships all 3 new scripts via copy_safe
-#   (viii) merge_canonical_scripts (lib.sh, called by 70-deps.sh + --refresh) wires check:fences-fire + check:shields-up into validate aggregate
+#   (viii) validate runs the project-checks record (merge_canonical_scripts in lib.sh, called by 70-deps.sh + --refresh); check:fences-fire + check:shields-up are in its list
 #
 # No network, no npm install, no TSX required — all structural checks.
 # @dual-pair: install-self-verification-d6
@@ -153,11 +153,24 @@ if grep -q '"check:shields-up"' "$DEPS" 2>/dev/null; then
 else
   bad "(viii) lib.sh merge_canonical_scripts: check:shields-up script MISSING"
 fi
-if grep -q 'check:fences-fire.*check:shields-up\|check:shields-up.*check:fences-fire' "$DEPS" 2>/dev/null || \
-   grep -q '"validate".*check:fences-fire' "$DEPS" 2>/dev/null; then
-  ok "(viii) lib.sh merge_canonical_scripts: both gates wired into validate aggregate"
+# P2 C3: validate runs what the project-checks record arms (scripts/run-armed.sh); both gates
+# reach that record through PROJECT_CHECKS (setup.d/lib.sh), the list the arm pass walks.
+_pc_list=$(grep -E '^PROJECT_CHECKS=\(' "$REPO_ROOT/setup.d/lib.sh" 2>/dev/null)
+if grep -q '"validate": "bash scripts/run-armed.sh validate"' "$DEPS" 2>/dev/null \
+   && grep -q ' check:fences-fire ' <<<"$_pc_list" && grep -q ' check:shields-up ' <<<"$_pc_list"; then
+  ok "(viii) validate runs the record, and both gates are in PROJECT_CHECKS (the record's list)"
 else
-  bad "(viii) lib.sh merge_canonical_scripts: validate aggregate does NOT reference check:fences-fire/check:shields-up"
+  bad "(viii) validate does not run the record, or check:fences-fire/check:shields-up is missing from PROJECT_CHECKS"
+fi
+# Paired with the line above: validate stopped calling npm-run-all2, so the dependency went with it
+# (advisor, P2 rework) — no shipped script runs it, and CORE_DEVDEPS no longer installs it.
+# CORE_DEVDEPS stays in 70-deps.sh; the script map moved to lib.sh (merge_canonical_scripts).
+_nra_devdep=$(sed -n '/^CORE_DEVDEPS=(/,/^)/p' "$REPO_ROOT/setup.d/70-deps.sh" | grep -c 'npm-run-all')
+_nra_calls=$(cat "$DEPS" "$REPO_ROOT/setup.d/70-deps.sh" | grep -c '": "npm-run-all')
+if [ "$_nra_calls" -eq 0 ] && [ "$_nra_devdep" -eq 0 ]; then
+  ok "(viii) npm-run-all2: no shipped script runs it, and CORE_DEVDEPS does not install it"
+else
+  bad "(viii) npm-run-all2: $_nra_calls shipped script(s) run it, CORE_DEVDEPS lists it $_nra_devdep time(s) — an orphaned dependency"
 fi
 if grep -q '"test:mutation:generated"' "$DEPS" 2>/dev/null; then
   ok "(viii) lib.sh merge_canonical_scripts: test:mutation:generated script declared (on-demand; NOT in validate)"

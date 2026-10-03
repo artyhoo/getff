@@ -15,7 +15,7 @@
 # — on clean AND on violating input. That kills the CI gate (.github/workflows/getff-python.yml),
 # the .getff/hooks/pre-push rung and _py_firing_self_check in one move.
 #
-# Second directory call site with the same shape: setup.d/40-configs.sh:54 (fences-fire fixtures).
+# Second directory call site with the same shape: setup.d/40-configs.sh:68 (fences-fire fixtures).
 # Both are covered here; the fix lives in copy_safe itself so every present and future directory
 # call site is uniform.
 #
@@ -201,7 +201,7 @@ else
   skip "live-fire ast-grep SKIP — @ast-grep/cli@0.44.1 not obtainable (npx/network absent); arm6 tree shape carries CI"
 fi
 
-# ── Arm 8: the second directory call site (40-configs.sh:54 fences-fire fixtures) ──
+# ── Arm 8: the second directory call site (40-configs.sh:68 fences-fire fixtures) ──
 echo ""
 echo "  ── second directory call site: fences-fire fixtures (setup.d/40-configs.sh) ──"
 FIX_SRC="$REPO_ROOT/packages/core/audit-self/fixtures/fences-fire"
@@ -211,7 +211,7 @@ if [ -d "$FIX_SRC" ]; then
   FORCE="--force"; copy_safe "$FIX_SRC" "$FIX_DST" >/dev/null; FORCE=""
   [ ! -e "$FIX_DST/fences-fire" ] \
     && ok "arm8: fences-fire fixtures dir not nested after a --force re-install" \
-    || bad "arm8: NESTED $FIX_DST/fences-fire — the 40-configs.sh:54 call site still nests under --force"
+    || bad "arm8: NESTED $FIX_DST/fences-fire — the 40-configs.sh:68 call site still nests under --force"
 else
   bad "arm8: fixture source $FIX_SRC missing — the audited call site moved; re-audit copy_safe dir call sites"
 fi

@@ -78,8 +78,8 @@
 # (no associative arrays, no mapfile) — macOS ships 3.2 and the pre-push hook runs there.
 set -uo pipefail
 
-# Same expression as scripts/link-coordination.sh:78 and spec §2 — one convention, one
-# default, no second knob. Tests point CLAUDE_COORDINATION_DIR at a tmpdir.
+# getff's own store: the value scripts/link-coordination.sh:78 derives for this checkout (spec §2)
+# — the ask files are getff-operator state, never shipped. Tests point CLAUDE_COORDINATION_DIR at a tmpdir.
 CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
 ASKS_DIR="$CANON/session-bus/asks"
 

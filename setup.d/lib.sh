@@ -612,6 +612,22 @@ _prettierignore_pristine() {
   return 1
 }
 
+# _tool_decisions_pristine <src> <dst> — rc 0 when .ai-factory/tool-decisions.md is the shipped
+# template plus only the blocks the install itself writes after the copy (aif:r2-na from 60-ci,
+# aif:project-checks from 99-finalize, getff's versions block) and the blank lines around them.
+# Each install writes those blocks again, so overwriting such a file loses nothing: the --force
+# delivery (30-templates, 45-python) then skips the no-entry preserve (same proof as
+# _prettierignore_pristine).
+_tool_decisions_pristine() {
+  local norm='
+    /^<!-- (aif:(r2-na|project-checks):begin|GETFF_VERSIONS_BEGIN) -->$/ {skip=1}
+    !skip {print}
+    /^<!-- (aif:(r2-na|project-checks):end|GETFF_VERSIONS_END) -->$/ {skip=0}'
+  local squeeze='NF{for(;blank>0;blank--)print ""; print; next} {blank++}'
+  [ -f "$1" ] && [ -f "$2" ] || return 1
+  [ "$(awk "$norm" "$2" | awk "$squeeze" | cat -s)" = "$(awk "$squeeze" "$1" | cat -s)" ]
+}
+
 # _pre_overwrite_divergence_action <dst-file> <expected-file-or-empty> [suppress-no-entry]
 # ONE per-file decision for the destructive-overwrite paths. <expected> is the file whose bytes
 # this delivery is about to write at <dst> ("" when the incoming payload no longer ships that
@@ -710,19 +726,21 @@ _pre_overwrite_divergence_action() {
 # construction (fidelity round 1 caught exactly that here: all 8 numbers were pre-edit and one
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
-#   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1423                    rewrite_arch_sot_header      → arch-header
+#   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
+#   install.sh:1496                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1708          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:505          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:554          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:469          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:494          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:514          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:545          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1864                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1686          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:675          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:590          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1662          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -1408,11 +1426,20 @@ _refresh_dir_payload() {
 # escaped for BRE), not regexes — the three sites are stable across template bumps.
 deliver_getff_workflow() {
   local tpl_src="$1" dst="$2"
-  local detected_branch=""
+  local detected_branch="" branch_source="origin/HEAD"
 
   # Detect default branch — pure read; safe under --dry-run and offline.
   if command -v git >/dev/null 2>&1 && [ -d "${PROJECT_ROOT:-.}" ]; then
     detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || detected_branch=""
+    # P2 G4: a repo with NO remote at all works on the one branch it has — read the checked-out
+    # branch (P1 run 2026-09-29: a `master` repo got a workflow on `main`). Only when HEAD has a
+    # commit: an unborn HEAD's name is the machine's init.defaultBranch, not the project's. An
+    # origin whose HEAD is unset keeps the warning — its checked-out branch may be a feature branch.
+    if [ -z "$detected_branch" ] && [ -z "$(git -C "$PROJECT_ROOT" remote 2>/dev/null)" ] \
+       && git -C "$PROJECT_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+      detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null) || detected_branch=""
+      branch_source="the checked-out branch (no origin remote)"
+    fi
   fi
 
   # Prepare the source for the underlying delegate. Substitution needed ONLY when
@@ -1455,6 +1482,7 @@ deliver_getff_workflow() {
   # Emit a branch-context log line (complements the delegate's ✓/⊝/dry-run line).
   if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ]; then
     echo "    (getff: default branch '$detected_branch' substituted from template 'main')"
+    [ "$branch_source" = "origin/HEAD" ] || echo "    (getff: branch '$detected_branch' read from $branch_source)"
   elif [ -n "$detected_branch" ]; then
     echo "    (getff: default branch 'main', byte-identical to template)"
   else
@@ -2130,7 +2158,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:2753, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3015, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2460,7 +2488,6 @@ generate_eslint_barrel() {
     # shellcheck disable=SC2153
     case "$STACK" in
       react-next) _valid_dirs="$_valid_dirs packages/preset-next-15-canonical/eslint-rules" ;;
-      react-spa)  _valid_dirs="$_valid_dirs packages/preset-react-spa/eslint-rules" ;;
     esac
     _valid_basenames=" "
     for _vd in $_valid_dirs; do
@@ -2513,7 +2540,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:256-261); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:377-382); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2637,6 +2664,241 @@ generate_eslint_barrel() {
       done
     fi
   fi
+}
+
+# oxlint_register_jsplugin CONFIG BARREL [RULES_JSON] — register getff's lint plugin in a project's own
+# oxlint config (one-button chain, part P4). oxlint loads ESLint-format plugins through `jsPlugins`
+# (oxc.rs, writing-js-plugins); the same `eslint-rules-local/index.mjs` barrel that eslint.config.mjs
+# imports is added as `{ name: "rules-as-tests", specifier: <barrel relative to CONFIG's directory> }`.
+# The CALLER says which file is the project's oxlint config — detecting the linter is not done here.
+# Every other key of the file is kept; an entry of the same name means «already registered», rc 0.
+#
+# RULES_JSON (an object of rule → setting) is written ONLY when GETFF_ENABLE_PLUGIN_RULES=1, and a rule
+# the project already sets keeps its own value. Switching rules on is an open operator fork («whose
+# setup wins» when a rule turns the project's own commands red), so the default writes no rule.
+#
+# Never a manual step: an absent config, a config written as code (.ts/.js and their module variants), a
+# file that is not a plain JSON object (oxlint accepts comments; json_edit_node does not), or a jsPlugins /
+# rules key of the wrong shape is left as it was and becomes a NOT-wired line naming that cause.
+oxlint_register_jsplugin() {
+  local config="$1" barrel="$2" rules="${3:-}" rel spec why rc=0
+  rel="${config#"${PROJECT_ROOT:-}"/}"
+  case "$config" in
+    *.ts|*.mts|*.cts|*.js|*.mjs|*.cjs)
+      echo "  ⊝ getff lint plugin not registered in $rel — the config is code"
+      note_not_wired "getff lint plugin in $rel — the oxlint config is code, and getff edits only a JSON config"
+      return 0 ;;
+  esac
+  if [ ! -f "$config" ]; then
+    echo "  ⊝ getff lint plugin not registered — no oxlint config at $rel"
+    note_not_wired "getff lint plugin in oxlint — no oxlint config at $rel, and getff does not create one"
+    return 0
+  fi
+  # Name the real cause before editing: json_edit_node reports every failure as «not a valid JSON object».
+  # shellcheck disable=SC2016  # JavaScript, not shell expansions
+  why=$(node -e '
+    const fs = require("fs"); const [cfg, rules] = process.argv.slice(1);
+    let o; try { o = JSON.parse(fs.readFileSync(cfg, "utf8")); } catch { o = null; }
+    const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    if (!plain(o)) console.log("it is not a plain JSON object (oxlint allows comments; getff edits only plain JSON)");
+    else if ("jsPlugins" in o && !Array.isArray(o.jsPlugins)) console.log("its jsPlugins is not a list");
+    else if ("rules" in o && !plain(o.rules)) console.log("its rules is not an object");
+    else if (rules) { try { if (!plain(JSON.parse(rules))) throw 0; } catch { console.log("getff passed a rule list that is not a JSON object (a getff bug)"); } }
+  ' "$config" "$rules" 2>/dev/null) || why="node could not read it"
+  if [ -n "$why" ]; then
+    echo "  ⚠ getff lint plugin NOT registered in $rel — $why"
+    note_not_wired "getff lint plugin in $rel — $why, so it was left as it was"
+    return 0
+  fi
+  spec=$(node -e 'const p=require("path");let r=p.relative(p.dirname(p.resolve(process.argv[1])),p.resolve(process.argv[2])).split(p.sep).join("/");console.log(r.startsWith(".")?r:"./"+r)' "$config" "$barrel" 2>/dev/null) || spec=""
+  if [ -z "$spec" ]; then
+    echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
+    note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")"
+    return 0
+  fi
+  # The project's own file keeps its layout: prove-rules.mjs's keepLayout writes only what changed.
+  local keep="${PKG_ROOT:-}/packages/core/audit-self/prove-rules.mjs"
+  [ -f "$keep" ] || keep=""
+  # shellcheck disable=SC2016  # JavaScript, not shell expansions
+  GETFF_JSON_KEEP="$keep" json_edit_node "$config" '
+    const [spec, rulesJson, enable] = args;
+    let changed = false;
+    const plugins = o.jsPlugins || [];
+    // First in the list: the project'"'"'s file only grows at the start of it (Q4.7: insertions only).
+    if (!plugins.some(p => p && typeof p === "object" && p.name === "rules-as-tests")) {
+      o.jsPlugins = [{ name: "rules-as-tests", specifier: spec }].concat(plugins);
+      changed = true;
+    }
+    if (enable === "1" && rulesJson) {
+      const wanted = JSON.parse(rulesJson);
+      o.rules = o.rules || {};
+      // A rule the project sets anywhere (top level or in an override) keeps its own setting.
+      const own = (k) => k in o.rules ||
+        (Array.isArray(o.overrides) && o.overrides.some(ov => ov && ov.rules && k in ov.rules));
+      for (const [k, v] of Object.entries(wanted))
+        if (!own(k)) { o.rules[k] = v; changed = true; }
+    }
+    return changed ? o : undefined;' "$spec" "$rules" "${GETFF_ENABLE_PLUGIN_RULES:-0}" || rc=$?
+  # With the rules switch on, the pass is the one after registration (place_lint_rules): it says nothing — the
+  # placement that follows checks the rules against the project's lint and lists every rule it kept on.
+  case "$rc:${GETFF_ENABLE_PLUGIN_RULES:-0}" in
+    0:1|3:1) ;;
+    0:*) echo "  ✓ getff lint plugin registered in $rel (jsPlugins → $spec)" ;;
+    3:*) echo "  ⊝ getff lint plugin already registered in $rel" ;;
+    *) echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
+       note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")" ;;
+  esac
+  return 0
+}
+
+# place_lint_rules — switch getff's lint rules on in the project's OWN linter config, green first (one-button
+# chain, part P5; operator log entry 28, fork 1 = A: what was green stays green). Called by 99-finalize.sh after
+# the oxlint registration above and before the arm pass, with PROJECT_ROOT, STACK and LINTER_SLOT set.
+#   oxlint  the project's `npm run lint` runs once as it stands. Red → no rule is switched on, and the NOT-wired
+#           list says why. Green → P4's oxlint_register_jsplugin gets the top-level rules with
+#           GETFF_ENABLE_PLUGIN_RULES=1 for that one call, then scripts/prove-rules.mjs --place adds the stack's
+#           rules and the H8 built-ins in getff-marked overrides entries and exempts, per file, what they find in
+#           today's code (a new violation still fails).
+#   eslint  only a config of the project's own (getff's own config is P2's arm pass: ESLint bulk suppressions).
+#           Red only from getff's rules → a marked per-file getff block in that config; red from a rule of the
+#           project's → nothing exempted, named NOT wired.
+# Results: PLACE_LINT_OK=1 when `npm run lint` exits 0 at the end (the arm pass arms it); PLACE_EXTRA holds the
+# lines for the project-checks record (`rule-not-placed: <rule|*> — <why>`, `lint-baseline:`), which the rule
+# table (prove-rules.mjs) reads. Never aborts the install.
+place_lint_rules() {
+  PLACE_LINT_OK=""; PLACE_EXTRA=()
+  local prove="$PROJECT_ROOT/scripts/prove-rules.mjs" cfg rel rc top res line
+  case "${LINTER_SLOT:-}" in
+    oxlint)
+      cfg="$PROJECT_ROOT/.oxlintrc.json"
+      # A missing, code or non-plain config was named NOT wired by oxlint_register_jsplugin already.
+      [ -f "$cfg" ] && node -e 'const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.exit(o&&typeof o==="object"&&!Array.isArray(o)?0:1)' "$cfg" 2>/dev/null || return 0 ;;
+    eslint)
+      cfg=""
+      for line in eslint.config.mjs eslint.config.js eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
+        [ -f "$PROJECT_ROOT/$line" ] && { cfg="$PROJECT_ROOT/$line"; break; }
+      done
+      [ -n "$cfg" ] || return 0
+      ! getff_delivered "$cfg" || return 0 ;;
+    *) return 0 ;;
+  esac
+  rel="${cfg#"$PROJECT_ROOT"/}"
+  if [ ! -f "$prove" ] || ! command -v node >/dev/null 2>&1; then
+    note_not_wired "getff's lint rules in $rel — not switched on: scripts/prove-rules.mjs or node is missing"
+    return 0
+  fi
+  if ! node -e 'process.exit(typeof require(process.argv[1]).scripts?.lint==="string"?0:1)' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+    note_not_wired "getff's lint rules in $rel — not switched on: package.json has no lint script, and getff switches a rule on only through the project's own lint command"
+    return 0
+  fi
+  ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && rc=0 || rc=$?
+  if [ "$LINTER_SLOT" = oxlint ]; then
+    if [ "$rc" -ne 0 ]; then
+      # An earlier pass's rules (getff-marked entries, tagged carriers) are left as they were, and said to be on.
+      if grep -qF -e '__getff_proof__' -e '[getff:' "$cfg"; then
+        echo "  ⊝ getff's lint rules not placed again in $rel — your lint exits $rc as it stands; the earlier ones stay on"
+        note_not_wired "getff's lint rules in $rel — not placed again: your lint exits $rc as it stands; the rules an earlier install placed stay on, as they were"
+        PLACE_EXTRA+=("rule-not-placed: * — not placed again: your lint exits $rc as it stands; the rules an earlier install placed stay on, as they were")
+      else
+        echo "  ⊝ getff's lint rules not switched on in $rel — your lint exits $rc as it stands"
+        note_not_wired "getff's lint rules in $rel — not switched on: your lint exits $rc before getff switches any rule on"
+        PLACE_EXTRA+=("rule-not-placed: * — not switched on: your lint exits $rc before getff switches any rule on")
+      fi
+      return 0
+    fi
+    top=$( cd "$PROJECT_ROOT" && node "$prove" --wanted-top --stack "${STACK:-}" 2>/dev/null ) || top='{}'
+    GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$cfg" "$PROJECT_ROOT/eslint-rules-local/index.mjs" "$top"
+  elif [ "$rc" -eq 0 ]; then
+    PLACE_LINT_OK=1
+    return 0
+  fi
+  res=$(mktemp)
+  ( cd "$PROJECT_ROOT" && node "$prove" --place --linter "$LINTER_SLOT" --stack "${STACK:-}" --result "$res" ) || true
+  while IFS=$'\t' read -r line top; do
+    [ -n "$line" ] || continue
+    if [ "$line" = '*' ]; then
+      note_not_wired "getff's lint rules in $rel — $top"
+      PLACE_EXTRA+=("rule-not-placed: * — $top")
+    else
+      note_not_wired "getff's lint rule $line in $rel — $top"
+      PLACE_EXTRA+=("rule-not-placed: $line — $top")
+    fi
+  done < <(node -e 'for (const n of (JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).notPlaced||[])) console.log(n.rule+"\t"+n.reason)' "$res" 2>/dev/null)
+  line=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(r.exemptViolations)console.log(r.exemptViolations+" existing violations in "+r.exemptFiles+" files")' "$res" 2>/dev/null)
+  [ -z "$line" ] || PLACE_EXTRA+=("lint-baseline: $rel — getff's rules are off per file for $line (entries marked getff); new ones block in every other file")
+  # «armed with getff's rules switched on» needs a rule still on: a placement that took every rule back leaves
+  # the oxlint config as the project had it, and the arm pass treats its lint like any other script.
+  if [ "$LINTER_SLOT" = oxlint ] && ! node -e 'process.exit((JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).placed||[]).length?0:1)' "$res" 2>/dev/null; then
+    rm -f "$res"
+    return 0
+  fi
+  rm -f "$res"
+  ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && PLACE_LINT_OK=1
+  return 0
+}
+
+# format_getff_writes — a project file the install changed goes back through the PROJECT's own prettier when its
+# committed version passes that prettier (P6 F8, 2026-09-30: create-vite's .oxlintrc.json passed prettier before
+# the install and failed it after — getff's JSON writer lays a new short array out one element per line — so
+# format:check was recorded not armed on a file getff broke). prettier is idempotent on the parts that were
+# already in its style, so only getff's lines change. A file out of style in the commit is the project's own
+# debt and is left as it is; a file the install did not change is never touched. No prettier, no commit → no-op.
+# Limit: the committed version stands in for the file before the install, so an edit the project had not
+# committed is formatted with getff's lines when the committed version was clean.
+# A file git does not track in HEAD (P6 run 2 N5, seam agreed with P3: .claude/settings.local.json, created
+# untracked and excluded through .git/info/exclude, which prettier does not read) takes its «before» from what
+# .ai-factory/before-getff/ recorded: <rel>.absent = getff created it (no file before, clean by definition);
+# <rel>.<sum8> = getff changed it and kept the original there (the newest copy when there are several). An
+# untracked file with no such record is the project's own and is never touched. A record counts only for a file
+# this run marked (keep_original_mark → KEPT_ORIGINALS), so a record from an earlier install never reformats a
+# later hand edit.
+format_getff_writes() {
+  local pb="$PROJECT_ROOT/node_modules/.bin/prettier" rel before after kept kept_f seen="" f
+  [ -x "$pb" ] || return 0
+  git -C "$PROJECT_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+  before=$(mktemp); after=$(mktemp)
+  # _fgw_write <rel> <before-file|""> — --write <rel> when <before-file> is prettier-clean («""» = clean).
+  _fgw_write() {
+    if [ -n "$2" ]; then
+      # prettier prints an ignored or unsupported file unchanged, so it counts as clean and --write leaves it.
+      ( cd "$PROJECT_ROOT" && "$pb" --stdin-filepath "$1" < "$2" > "$after" 2>/dev/null ) || return 0
+      cmp -s "$2" "$after" || return 0
+    fi
+    ( cd "$PROJECT_ROOT" && "$pb" --write --log-level=silent -- "$1" ) >/dev/null 2>&1 || true
+  }
+  while IFS= read -r -d '' rel; do
+    [ -f "$PROJECT_ROOT/$rel" ] || continue
+    git -C "$PROJECT_ROOT" show "HEAD:$rel" > "$before" 2>/dev/null || continue
+    _fgw_write "$rel" "$before"
+  done < <(git -C "$PROJECT_ROOT" diff --name-only -z HEAD -- 2>/dev/null)
+  kept="$PROJECT_ROOT/.ai-factory/before-getff"
+  if [ -d "$kept" ]; then
+    while IFS= read -r -d '' f; do
+      rel="${f#"$kept"/}"
+      case "$rel" in
+        *.absent) rel="${rel%.absent}" ;;
+        *.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) rel="${rel%.*}" ;;
+        *) continue ;;
+      esac
+      case "$seen" in *"|$rel|"*) continue ;; esac
+      seen="$seen|$rel|"
+      [ -f "$PROJECT_ROOT/$rel" ] || continue
+      git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
+      # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
+      # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
+      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # the newest record for this path is the state just before the latest install that wrote it
+      for kept_f in "$kept/$rel".*; do
+        case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
+          absent|[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) [ "$kept_f" -nt "$f" ] && f="$kept_f" ;;
+        esac
+      done
+      if [ "${f%.absent}" != "$f" ]; then _fgw_write "$rel" ""; else _fgw_write "$rel" "$f"; fi
+    done < <(find "$kept" -type f -print0 2>/dev/null)
+  fi
+  unset -f _fgw_write
+  rm -f "$before" "$after"
+  return 0
 }
 
 # ── #811 preset staleness guard (live-research-default-delivery, D4) ───────────
@@ -2777,7 +3039,16 @@ merge_canonical_scripts() {
       # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
       AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
       AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
-      _mcs_out=$(AIF_MERGE_MODE="$AIF_MERGE_MODE" AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
+      # P2 G4: a solution tsconfig (`"files": []` + `"references"`, create-vite's shape) makes
+      # `tsc --noEmit` check NO file (measured: a planted TS2322 → `tsc --noEmit` exit 0, `tsc -b`
+      # exit 2); `tsc -b` builds the references, as the project's own `build` script already does.
+      AIF_TYPECHECK="tsc --noEmit"
+      grep -Eq '^[[:space:]]*"references"[[:space:]]*:' "$PROJECT_ROOT/tsconfig.json" 2>/dev/null && AIF_TYPECHECK="tsc -b"
+      # P2 G5: lint / format follow the project's linter and formatter slots. 40-configs.sh sets them on
+      # install; do_refresh does not run it, so an empty slot is derived here from the project itself.
+      AIF_LINTER="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
+      AIF_FORMATTER="${FORMATTER_SLOT:-$(project_formatter "$PROJECT_ROOT")}"
+      _mcs_out=$(AIF_MERGE_MODE="$AIF_MERGE_MODE" AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" AIF_LINTER="$AIF_LINTER" AIF_FORMATTER="$AIF_FORMATTER" node -e '
         const fs = require("fs");
         const p = process.env.AIF_PKG;
         const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -2786,12 +3057,18 @@ merge_canonical_scripts() {
         // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
         // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
         const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
+        // P2 G5: the lint / format scripts follow the linter and formatter slots of the project.
+        const linter = process.env.AIF_LINTER, formatter = process.env.AIF_FORMATTER;
+        const lintCmd = { oxlint: "oxlint", biome: "biome lint ." }[linter] || "eslint . --max-warnings=0";
+        const lintFix = { oxlint: "oxlint --fix", biome: "biome lint --write ." }[linter] || "eslint . --fix";
+        const fmt = { biome: ["biome format --write .", "biome format ."], dprint: ["dprint fmt", "dprint check"] }[formatter]
+          || ["prettier --write .", "prettier --check ."];
         const want = {
-          "lint": "eslint . --max-warnings=0",
-          "lint:fix": "eslint . --fix",
-          "format": "prettier --write .",
-          "format:check": "prettier --check .",
-          "typecheck": "tsc --noEmit",
+          "lint": lintCmd,
+          "lint:fix": lintFix,
+          "format": fmt[0],
+          "format:check": fmt[1],
+          "typecheck": process.env.AIF_TYPECHECK || "tsc --noEmit",
           "test": "vitest run",
           "test:watch": "vitest",
           "test:coverage": "vitest run --coverage",
@@ -2807,7 +3084,9 @@ merge_canonical_scripts() {
           "check:fences-fire": "bash scripts/check-fences-fire.sh",
           "check:shields-up": "bash scripts/check-shields-up.sh",
           "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
-          "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
+          // P2 C3: validate runs what the record arms (.ai-factory/tool-decisions.md, written by
+          // 99-finalize) — every armed check, labelled, not stopping at a failure — and probes the rest.
+          "validate": "bash scripts/run-armed.sh validate",
           "prepare": "husky"
         };
         // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
@@ -2853,6 +3132,10 @@ merge_canonical_scripts() {
         // Kept-key NAMES, not just a count: a kept `test` on a brownfield now says "your own test
         // wiring survived" instead of hiding behind "1 already present".
         const keptNames = Object.keys(want).filter(k => preExisting.has(k) && !(k === "test" && placeholderReplaced));
+        // P2 C3: the scripts whose command is still the one getff writes (added now, or by an earlier
+        // install) — 99-finalize runs only those at install to arm them; a script the project wrote
+        // itself is never run by the install. (No apostrophe in this JS: see the NOTE above.)
+        process.stdout.write("GETFF_SCRIPTS " + Object.keys(want).filter(k => pkg.scripts[k] === want[k]).join(" ") + "\n");
         // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
         // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
         // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
@@ -2896,6 +3179,8 @@ merge_canonical_scripts() {
         return 0
       }
       while IFS=' ' read -r _mcs_tag _mcs_dev _mcs_ver; do
+        # DEPS_GETFF_SCRIPTS (read by 99-finalize) — the names on the GETFF_SCRIPTS line.
+        if [ "$_mcs_tag" = GETFF_SCRIPTS ]; then DEPS_GETFF_SCRIPTS="$_mcs_dev${_mcs_ver:+ $_mcs_ver}"; continue; fi
         if [ "$_mcs_tag" = WITHHELD_PREPARE ]; then
           note_not_wired "script \"prepare\" in package.json — not added: it runs husky, which is not among your dependencies, and --refresh installs none (npm would then fail on \`npm install\`)"
         fi
@@ -3047,7 +3332,8 @@ note_not_wired() {
 # print_not_wired — print the NOT-wired summary: a header, then one «- …» line per piece. Shared by
 # 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
 # Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
-# tells the reader what to do.
+# tells the reader what to do. The kept-values summary (print_kept_values) follows it, so every
+# place that reports the install's gaps also reports what of the project's own it left in place.
 # print_getff_added — the consumer-owned files getff inserted its block into this run (Q4.7,
 # note_getff_added), each original kept in .ai-factory/before-getff/. Shared by setup.d/99-finalize.sh
 # and install.sh do_refresh, whose eslint wiring can insert into the consumer's own configs too.
@@ -3059,11 +3345,13 @@ print_getff_added() {
 }
 
 print_not_wired() {
-  [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
-  echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
-  printf '      - %s\n' "${NOT_WIRED[@]}"
-  echo ""
+  if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
+    echo ""
+    echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
+    printf '      - %s\n' "${NOT_WIRED[@]}"
+    echo ""
+  fi
+  print_kept_values
 }
 
 # note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
@@ -3073,6 +3361,42 @@ note_getff_added() {
   local _a
   for _a in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do [ "$_a" = "$1" ] && return 0; done
   GETFF_ADDED_TO+=("$1")
+}
+
+# note_kept_value <line> — record a value the project already had where getff would have written
+# another (one-button fork 1 = A, operator log entry 28: the project's own setup wins). getff never
+# replaces it; the line names where it is, the project's value and getff's. GETFF_KEPT_VALUES is
+# created on the first call (install.sh does not declare it, so its cited line numbers stay put).
+note_kept_value() {
+  GETFF_KEPT_VALUES+=("$1")
+}
+
+# print_kept_values — the summary of note_kept_value lines; print_not_wired calls it.
+print_kept_values() {
+  [ -n "${GETFF_KEPT_VALUES+x}" ] || return 0
+  [ "${#GETFF_KEPT_VALUES[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "·  ${#GETFF_KEPT_VALUES[@]} of the project's own value(s) kept where getff uses another — getff does not replace them:"
+  printf '      - %s\n' "${GETFF_KEPT_VALUES[@]}"
+}
+
+# handoff_ignore_local <root> — keep the handoff group's per-session files (_handoff-<id>.md,
+# _residue-<id>.md under an orchestrator-prompts dir, setup.d/10-skills.sh §1k) out of git through
+# <root>/.git/info/exclude: the clone's own list, so the project's .gitignore is left alone.
+# Outside a git work tree there is nothing to commit them to, and nothing is done. Idempotent.
+handoff_ignore_local() {
+  local ex p added=""
+  command -v git >/dev/null 2>&1 || return 0
+  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  ex="$(git -C "$1" rev-parse --git-path info/exclude 2>/dev/null)" || return 0
+  case "$ex" in /*) ;; *) ex="$1/$ex" ;; esac
+  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 0
+  for p in '**/orchestrator-prompts/_handoff-*.md' '**/orchestrator-prompts/_residue-*.md'; do
+    grep -qxF -- "$p" "$ex" 2>/dev/null && continue
+    printf '%s\n' "$p" >> "$ex" 2>/dev/null && added=1
+  done
+  [ -n "$added" ] && echo "  ✓ the handoff group's per-session files are git-ignored through .git/info/exclude (the project .gitignore is unchanged)"
+  return 0
 }
 
 # DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
@@ -3335,6 +3659,218 @@ legacy_eslint_config() {
   return 0
 }
 
+# project_linter <dir> — the linter the project in <dir> runs: eslint | oxlint | biome | none (P2 §1,
+# the linter slot). `scripts.lint` names it first (its first word: eslint / next → eslint, oxlint,
+# biome); otherwise the tool's own config file names (oxlint: .oxlintrc.json(c), oxlint.config.(m)ts;
+# Biome: biome.json(c), .biome.json(c); ESLint: a flat or eslintrc config). Never guessed past that.
+project_linter() {
+  local dir="$1" first="" f
+  if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1; then
+    first=$(GETFF_PKG="$dir/package.json" node -e '
+      try { const s = (JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {}).lint;
+        if (typeof s === "string") console.log(s.trim().split(/\s+/)[0]); } catch {}' 2>/dev/null)
+  fi
+  case "$first" in
+    eslint|next) echo eslint; return 0 ;;
+    oxlint|biome) echo "$first"; return 0 ;;
+  esac
+  for f in .oxlintrc.json .oxlintrc.jsonc oxlint.config.ts oxlint.config.mts; do
+    [ -e "$dir/$f" ] && { echo oxlint; return 0; }
+  done
+  for f in biome.json biome.jsonc .biome.json .biome.jsonc; do
+    [ -e "$dir/$f" ] && { echo biome; return 0; }
+  done
+  if [ -e "$dir/eslint.config.mjs" ] || [ -n "$(foreign_tool_config "$dir" eslint)" ] \
+    || [ -n "$(legacy_eslint_config "$dir")" ]; then
+    echo eslint; return 0
+  fi
+  echo none
+}
+
+# project_formatter <dir> — the formatter the project in <dir> has: prettier | biome | dprint | none.
+project_formatter() {
+  local dir="$1" f
+  if [ -e "$dir/.prettierrc.json" ] || [ -n "$(foreign_tool_config "$dir" prettier)" ]; then echo prettier; return 0; fi
+  for f in biome.json biome.jsonc .biome.json .biome.jsonc; do
+    [ -e "$dir/$f" ] && { echo biome; return 0; }
+  done
+  for f in dprint.json .dprint.json dprint.jsonc .dprint.jsonc; do
+    [ -e "$dir/$f" ] && { echo dprint; return 0; }
+  done
+  echo none
+}
+
+# record_project_checks <file> <body> — write <body> as the <!-- aif:project-checks:begin/end -->
+# block of <file> (.ai-factory/tool-decisions.md): the block is replaced in place when present, else
+# appended. Every other line of the file — another tool's block before or after it included — is
+# left byte-for-byte. The record's readers: scripts/run-armed.sh (validate, CI, lint-staged, the
+# pre-push probe) and the agent report (P1, P5).
+record_project_checks() {
+  local file="$1" body="$2" tmp
+  local b='<!-- aif:project-checks:begin -->' e='<!-- aif:project-checks:end -->'
+  mkdir -p "$(dirname "$file")" || return 1
+  [ -f "$file" ] || printf '# Tool decisions\n' > "$file"
+  tmp=$(mktemp) || return 1
+  if grep -qxF "$b" "$file" && grep -qxF "$e" "$file"; then
+    GETFF_BODY="$body" awk -v b="$b" -v e="$e" '
+      $0==b { print; print ENVIRON["GETFF_BODY"]; skip=1; next }
+      $0==e { skip=0 }
+      !skip' "$file" > "$tmp"
+  else
+    { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo; echo; echo "$b"; printf '%s\n' "$body"; echo "$e"; } > "$tmp"
+  fi
+  cat "$tmp" > "$file"; rm -f "$tmp"
+}
+
+# record_add_unlisted <file> <reason> <command…> — each command the record lists under neither
+# heading goes in as a not-armed line with <reason>; every line already there is kept byte-for-byte.
+# run-armed.sh runs a command its record does not list, so a check a newer getff (or another writer,
+# such as the rule generator) brings must be listed before a hook runs it.
+record_add_unlisted() {
+  local file="$1" why="$2" c add="" tmp listed
+  local b='<!-- aif:project-checks:begin -->' e='<!-- aif:project-checks:end -->'
+  shift 2
+  grep -qxF "$b" "$file" 2>/dev/null || return 1
+  # The listed commands, read once; a here-string, not a pipe, into grep -q (pipefail: an early
+  # exit can SIGPIPE the producer and read a listed command as missing).
+  listed=$(awk -v b="$b" -v e="$e" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$file" | sed -n 's/^- //p' | sed 's/ # .*$//')
+  for c in "$@"; do
+    grep -qxF -- "$c" <<<"$listed" || add="$add- $c # $why"$'\n'
+  done
+  [ -n "$add" ] || return 0
+  tmp=$(mktemp) || return 1
+  GETFF_ADD="$add" awk -v b="$b" -v e="$e" '{r=$0; sub(/\r$/,"",r)} r==b{f=1} r==e{f=0} {print}
+    f && r=="not-armed:" {printf "%s", ENVIRON["GETFF_ADD"]}' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# The package.json scripts the record governs: each check getff adds to a blocking channel
+# (validate, CI, lint-staged, pre-push). 99-finalize's arm pass and --refresh's record read them.
+PROJECT_CHECKS=(typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test)
+# The pre-push sections that read the project's own files (P2, advisor: the P6 blocker class) run on
+# their own through these delivered scripts: no package.json script, no dependencies needed. The
+# generated-rule mutation runner (P5) is recorded here too, but from the rule generator's verdict:
+# the arm pass never runs it (gen_mut_not_armed_why).
+PROJECT_HOOK_CHECKS=(check-ci-pins.sh check-doc-links.sh run-generated-rule-mutation.sh)
+
+# gen_mut_not_armed_why — why the generated-rule mutation check is not armed, or nothing when it is.
+# The verdict is the rule generator's own run (P5: setup.d/80-rule-bootstrap.sh exports GEN_MUT_RC and
+# GEN_MUT_WHY only when it proved the rules it wrote); it is reused, never re-run. One line, with no
+# « # » — that is the record's command/reason separator.
+gen_mut_not_armed_why() {
+  case "${GEN_MUT_RC:-}" in
+    0) ;;
+    "") echo "no generated rules this pass" ;;
+    *) printf '%s\n' "${GEN_MUT_WHY:-exits $GEN_MUT_RC at install}" | head -1 | sed 's/ # / - /g' ;;
+  esac
+}
+
+# project_hook_checks — the record command of each PROJECT_HOOK_CHECKS script this project has.
+project_hook_checks() {
+  local f
+  for f in "${PROJECT_HOOK_CHECKS[@]}"; do [ -f "$PROJECT_ROOT/scripts/$f" ] && echo "bash scripts/$f"; done
+  return 0
+}
+
+# project_check_scripts — `<name>\t<script value>` for each PROJECT_CHECKS script in the project's
+# package.json (nothing without a package.json or node).
+project_check_scripts() {
+  [ -f "$PROJECT_ROOT/package.json" ] && command -v node >/dev/null 2>&1 || return 0
+  GETFF_PKG="$PROJECT_ROOT/package.json" GETFF_NAMES="${PROJECT_CHECKS[*]}" node -e '
+    const s = JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {};
+    for (const n of process.env.GETFF_NAMES.split(" "))
+      if (typeof s[n] === "string") console.log(n + "\t" + s[n].replace(/[\t\n]/g, " "));' 2>/dev/null || true
+}
+
+# project_check_cmd <name> <script value> — the check as the project would type it (a record line).
+project_check_cmd() {
+  if [[ "$2" =~ ^(bash\ )?(\./)?scripts/([A-Za-z0-9._-]+\.sh)$ ]]; then echo "bash scripts/${BASH_REMATCH[3]}"
+  elif [ "$1" = test ]; then echo "npm test"
+  else echo "npm run $1"; fi
+}
+
+# project_check_structural_why <linter> <name> — the «not wired:» reason of a check that cannot run
+# with this linter, or nothing. P2 G5: these gates read getff's ESLint config, which an oxlint / Biome
+# project does not get; run-armed --probe never re-runs a line with this prefix. 99-finalize's arm pass
+# and --refresh's record (record_unrun_checks) share it.
+project_check_structural_why() {
+  case "$1:$2" in
+    oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
+      echo "not wired: reads getff's ESLint config, and this project lints with $1" ;;
+  esac
+}
+
+# lint_script_pass_unpruned <root> — once the install records existing findings in
+# eslint-suppressions.json, fixing one leaves a suppression that no longer occurs, and a plain
+# `eslint .` exits 2 on it: the armed lint would turn red because old code got better (P2 cold review
+# M2). getff's own ESLint `lint` script gains --pass-on-unpruned-suppressions; any other is left alone.
+lint_script_pass_unpruned() {
+  node -e '
+    const fs = require("fs"); const f = process.argv[1]; const j = JSON.parse(fs.readFileSync(f, "utf8"));
+    const s = (j.scripts || {}).lint || ""; const flag = "--pass-on-unpruned-suppressions";
+    if (!/^eslint\s/.test(s) || s.includes(flag)) process.exit(0);
+    j.scripts.lint = s + " " + flag; fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+  ' "$1/package.json"
+}
+
+# record_unrun_checks — --refresh on a project installed before the record: it now gets
+# scripts/run-armed.sh, which the refreshed pre-push hook reads, so it needs a record. Every check is
+# recorded not-armed, not run: the first validate or push probes each one and arms it once it exits 0.
+# A record already there keeps every line (it carries what the project has armed since); a hook check
+# or a check script it does not list yet — one the refresh's package.json merge just added, say — is
+# added not-armed, not run (a check that cannot run with the project's linter gets its «not wired:»
+# reason). do_refresh calls this after merge_canonical_scripts for that reason.
+record_unrun_checks() {
+  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v c s lin
+  local why="recorded by --refresh, not run yet: the first validate or push arms it once it exits 0"
+  local hc=()
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  while IFS= read -r c; do [ -n "$c" ] && hc+=("$c"); done <<< "$(project_hook_checks)"
+  if grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null; then
+    lin="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
+    while IFS=$'\t' read -r n v; do
+      [ -n "$n" ] || continue
+      c=$(project_check_cmd "$n" "$v"); s=$(project_check_structural_why "$lin" "$n")
+      if [ -n "$s" ]; then
+        record_add_unlisted "$f" "$s" "$c" \
+          || note_not_wired "$c — not added to the project-checks record, so validate runs it whatever it returns"
+      else hc+=("$c"); fi
+    done <<< "$(project_check_scripts)"
+    [ "${#hc[@]}" -eq 0 ] || record_add_unlisted "$f" "$why" "${hc[@]}" \
+      || note_not_wired "${hc[*]} — not added to the project-checks record, so the pre-push hook runs them whatever they return"
+    return 0
+  fi
+  body="### How this project checks itself (recorded by install.sh --refresh)
+stack: ${STACK:-unknown}
+linter: $(project_linter "$PROJECT_ROOT")
+formatter: $(project_formatter "$PROJECT_ROOT")
+armed:
+not-armed:"
+  while IFS=$'\t' read -r n v; do
+    [ -n "$n" ] || continue
+    body="$body
+- $(project_check_cmd "$n" "$v") # $why"
+  done <<< "$(project_check_scripts)"
+  for c in ${hc[@]+"${hc[@]}"}; do body="$body
+- $c # $why"; done
+  if record_project_checks "$f" "$body"; then
+    echo "  ✓ .ai-factory/tool-decisions.md: recorded how this project checks itself — nothing armed yet; the first validate or push arms each check once it exits 0"
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, so scripts/run-armed.sh (the pre-push hook) stops with «no readable record»"
+  fi
+}
+
+# record_lane_checks <lane> — the record of an alpha toolchain lane (python / cargo / go): the lane
+# places no getff check in a blocking channel the record governs, so both lists are empty — present,
+# because an empty list is valid only when the record says so (P2 C7). --dry-run writes nothing.
+record_lane_checks() {
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "### How this project checks itself (recorded by install.sh)
+stack: $1
+armed:
+not-armed:" || note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written"
+}
+
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
@@ -3343,6 +3879,19 @@ legacy_eslint_config() {
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own where
   shift 3
+  # P2 G5 / K4: a project that lints with oxlint or Biome, or formats with Biome or dprint (the slots
+  # 40-configs read before anything was placed), keeps that tool as its only one: getff places no
+  # ESLint / prettier config beside it. Not a gap — the project's own tool runs.
+  if { [ "$kind" = eslint ] && { [ "${LINTER_SLOT:-}" = oxlint ] || [ "${LINTER_SLOT:-}" = biome ]; }; } \
+     || { [ "$kind" = prettier ] && { [ "${FORMATTER_SLOT:-}" = biome ] || [ "${FORMATTER_SLOT:-}" = dprint ]; }; }; then
+    own=$FORMATTER_SLOT; [ "$kind" = eslint ] && own=$LINTER_SLOT
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (your project runs $own instead)"
+    else
+      echo "  ⊝ ${dst#"${PROJECT_ROOT:-}"/} not placed — your project runs $own instead"
+    fi
+    return 0
+  fi
   own=$(foreign_tool_config "$(dirname "$dst")" "$kind")
   # The directory as the summary names it: project-relative, never the absolute install path.
   where="${dst%/*}"
@@ -3465,19 +4014,25 @@ json_edit_node() {
   command -v node >/dev/null 2>&1 || return 1
   GETFF_JSON_FILE="$file" GETFF_JSON_JS="$js" node -e '
     const fs = require("fs");
-    const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp";
+    const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp", keep = process.env.GETFF_JSON_KEEP;
+    const fail = () => {
+      try { fs.unlinkSync(tmp); } catch (_) { /* no tmp was written */ }
+      process.exit(1);
+    };
     try {
-      const o = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+      const before = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "{}";
+      const o = JSON.parse(before);
       // Only a JSON object is a settings/.mcp.json: `[]`, a string or a number would be written back
       // unchanged while the caller printed «✓ registered» (cold review, 2026-09-28).
       if (o === null || typeof o !== "object" || Array.isArray(o)) process.exit(1);
       const out = new Function("o", "args", process.env.GETFF_JSON_JS)(o, process.argv.slice(1));
       if (out === undefined) process.exit(3);
-      fs.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
-      fs.renameSync(tmp, f);
+      const put = (text) => { fs.writeFileSync(tmp, text); fs.renameSync(tmp, f); };
+      // GETFF_JSON_KEEP names prove-rules.mjs: its keepLayout writes only the parts that changed (a project'"'"'s file).
+      if (keep) import(require("url").pathToFileURL(keep).href).then((m) => put(m.keepLayout(before, out))).catch(fail);
+      else put(JSON.stringify(out, null, 2) + "\n");
     } catch (e) {
-      try { fs.unlinkSync(tmp); } catch (_) { /* no tmp was written */ }
-      process.exit(1);
+      fail();
     }' "$@" 2>/dev/null
 }
 
@@ -3490,18 +4045,134 @@ json_edit_node_why() {
   fi
 }
 
-# add_context7_mcp FILE — the jq-less arm of the context7 entry in .mcp.json (05-mcp, the python lane):
-# sets .mcpServers.context7 through node and keeps every other server, as the jq merge does.
-add_context7_mcp() {
-  local file="$1"
-  if json_edit_node "$file" '
-      o.mcpServers = o.mcpServers || {};
-      o.mcpServers.context7 = { command: "npx", args: ["-y", "@upstash/context7-mcp@latest"] };
-      return o;'; then
-    echo "  ✓ context7 added to ${file##*/} (through node: jq is not on PATH)"
+# ── Project MCP servers (05-mcp, the python lane) — ONE writer for both lanes ────────────────
+# getff's own .mcp.json runs context7 and deepwiki as http remotes (.mcp.json at the repo root), so a
+# consumer gets the same form: nothing is executed locally and there is no client-side version to
+# pin (one-button P3 F2; the former `npx -y @upstash/context7-mcp@latest` stdio entry had no recorded
+# reason). deepwiki goes into the project only when it is NOT configured machine-wide (operator,
+# one-button log entry 18: «deepwiki в проект если нет глобально»); under --global the user-scope
+# manifest row (companions.manifest, kind=mcp) installs it instead.
+GETFF_MCP_CONTEXT7_URL="https://mcp.context7.com/mcp"
+GETFF_MCP_DEEPWIKI_URL="https://mcp.deepwiki.com/mcp"
+
+# getff_deepwiki_machine_wide — 0 when deepwiki is configured at USER scope on this machine.
+# `claude mcp list` has no --scope option (Claude Code 2.1.270: «unknown option '--scope'»), so the
+# probe is `claude mcp get`, whose output names the scope. GETFF_DEEPWIKI_MACHINE_WIDE=1|0 overrides
+# the probe (deterministic install baselines; a machine without the claude CLI reads «not found»).
+getff_deepwiki_machine_wide() {
+  case "${GETFF_DEEPWIKI_MACHINE_WIDE:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
+  command -v claude >/dev/null 2>&1 || return 1
+  local _out
+  _out=$(claude mcp get deepwiki 2>/dev/null || true)
+  case "$_out" in
+    *"Scope: User"*) return 0 ;;
+  esac
+  return 1
+}
+
+# _getff_mcp_entry FILE KEY URL — what FILE's .mcpServers.KEY is, as one word:
+#   absent — no entry (or no file, or a file jq/node cannot read: the write then reports the failure);
+#   ours   — exactly getff's http entry {type:"http", url: URL};
+#   former — getff's earlier stdio form of context7 (`npx -y @upstash/context7-mcp@latest`): getff's
+#            own write, so it is moved to the http form, --force or not;
+#   theirs — anything else: the project's own entry.
+_getff_mcp_entry() {
+  local file="$1" key="$2" url="$3"
+  [ -f "$file" ] || { echo absent; return 0; }
+  if command -v jq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # jq program, not shell expansions
+    jq -r --arg k "$key" --arg u "$url" '
+      (.mcpServers // {})[$k] as $e
+      | if $e == null then "absent"
+        elif $e == {type: "http", url: $u} then "ours"
+        elif $k == "context7" and $e == {command: "npx", args: ["-y", "@upstash/context7-mcp@latest"]} then "former"
+        else "theirs" end' "$file" 2>/dev/null || echo absent
+  elif command -v node >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    GETFF_F="$file" GETFF_K="$key" GETFF_U="$url" node -e '
+      const e = ((JSON.parse(require("fs").readFileSync(process.env.GETFF_F, "utf8")) || {}).mcpServers || {})[process.env.GETFF_K];
+      const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      console.log(e == null ? "absent"
+        : same(e, { type: "http", url: process.env.GETFF_U }) ? "ours"
+        : process.env.GETFF_K === "context7" && same(e, { command: "npx", args: ["-y", "@upstash/context7-mcp@latest"] }) ? "former"
+        : "theirs");' 2>/dev/null || echo absent
   else
-    echo "  ⚠ context7 NOT added to ${file##*/} — $(json_edit_node_why "$file")"
-    note_not_wired "context7 MCP server in ${file#"${PROJECT_ROOT:-}"/} — $(json_edit_node_why "$file")"
+    echo absent
+  fi
+}
+
+# add_getff_mcp_servers FILE — additive merge of getff's project MCP servers into FILE:
+#   context7 — unless FILE already has a context7 entry;
+#   deepwiki — only when it is absent machine-wide and --global is not set, and never over an entry.
+# The project's own entry always wins, --force or not (one-button fork 1 = A, operator log entry 28):
+# it is kept and reported (note_kept_value), never replaced. The one exception is getff's own
+# earlier stdio context7 entry, which getff moves to the http form.
+# jq when present, else node (json_edit_node); a failed write is a NOT-wired line, never a silent skip.
+add_getff_mcp_servers() {
+  local file="$1" want_c7=1 want_dw=1 _state
+  _state=$(_getff_mcp_entry "$file" context7 "$GETFF_MCP_CONTEXT7_URL")
+  case "$_state" in
+    ours) want_c7=0; echo "  ⊝ context7 already in ${file##*/} (http) — nothing to change" ;;
+    theirs)
+      want_c7=0
+      echo "  ⊝ context7 already in ${file##*/} as the project's own entry — kept as it is"
+      note_kept_value "${file##*/}: context7 — the project's own entry kept (getff's: http $GETFF_MCP_CONTEXT7_URL)" ;;
+    former) echo "  · context7 in ${file##*/} is getff's earlier local form (npx @latest) — moved to http" ;;
+  esac
+  if [ "${GETFF_GLOBAL:-}" = "1" ]; then
+    want_dw=0
+  elif getff_deepwiki_machine_wide; then
+    want_dw=0
+    echo "  ⊝ deepwiki is configured machine-wide (user scope) — not added to ${file##*/}"
+  else
+    _state=$(_getff_mcp_entry "$file" deepwiki "$GETFF_MCP_DEEPWIKI_URL")
+    case "$_state" in
+      ours) want_dw=0; echo "  ⊝ deepwiki already in ${file##*/} (http) — nothing to change" ;;
+      theirs)
+        want_dw=0
+        echo "  ⊝ deepwiki already in ${file##*/} as the project's own entry — kept as it is"
+        note_kept_value "${file##*/}: deepwiki — the project's own entry kept (getff's: http $GETFF_MCP_DEEPWIKI_URL)" ;;
+    esac
+  fi
+  [ "$want_c7" = 0 ] && [ "$want_dw" = 0 ] && return 0
+  if [ -n "${DRY_RUN:-}" ]; then
+    [ "$want_c7" = 1 ] && echo "  [dry-run] would: add context7 (http) to ${file##*/}"
+    [ "$want_dw" = 1 ] && echo "  [dry-run] would: add deepwiki (http) to ${file##*/}"
+    return 0
+  fi
+  local _names=""
+  [ "$want_c7" = 1 ] && _names="context7"
+  [ "$want_dw" = 1 ] && _names="${_names:+$_names + }deepwiki"
+  if command -v jq >/dev/null 2>&1; then
+    local _src="$file" _tmp="$file.tmp"
+    [ -f "$file" ] || _src=/dev/null
+    # ledger A1-9 (the A1-8 class): an unconditional ✓ over a failed rewrite is the defect —
+    # report honestly and leave no half-written .tmp behind.
+    if { [ "$_src" = /dev/null ] && echo '{}' || cat "$_src"; } \
+        | jq --arg c7 "$GETFF_MCP_CONTEXT7_URL" --arg dw "$GETFF_MCP_DEEPWIKI_URL" \
+             --argjson wc "$want_c7" --argjson wd "$want_dw" '
+          .mcpServers = (.mcpServers // {})
+          | if $wc == 1 then .mcpServers.context7 = {type: "http", url: $c7} else . end
+          | if $wd == 1 then .mcpServers.deepwiki = {type: "http", url: $dw} else . end' \
+        > "$_tmp" && jq -e . "$_tmp" >/dev/null 2>&1 && mv "$_tmp" "$file"; then
+      echo "  ✓ ${file##*/}: $_names (http)"
+    else
+      rm -f "$_tmp" 2>/dev/null || true
+      echo "  ⚠ ${file##*/}: $_names NOT added — the jq rewrite failed, file left unchanged" >&2
+      note_not_wired "$_names MCP server(s) in ${file#"${PROJECT_ROOT:-}"/} — the jq rewrite failed"
+    fi
+  elif GETFF_WC="$want_c7" GETFF_WD="$want_dw" json_edit_node "$file" '
+      o.mcpServers = o.mcpServers || {};
+      if (process.env.GETFF_WC === "1") o.mcpServers.context7 = { type: "http", url: "'"$GETFF_MCP_CONTEXT7_URL"'" };
+      if (process.env.GETFF_WD === "1") o.mcpServers.deepwiki = { type: "http", url: "'"$GETFF_MCP_DEEPWIKI_URL"'" };
+      return o;'; then
+    echo "  ✓ ${file##*/}: $_names (http, through node: jq is not on PATH)"
+  else
+    echo "  ⚠ ${file##*/}: $_names NOT added — $(json_edit_node_why "$file")"
+    note_not_wired "$_names MCP server(s) in ${file#"${PROJECT_ROOT:-}"/} — $(json_edit_node_why "$file")"
   fi
   return 0
 }
@@ -4091,6 +4762,27 @@ getff_bytes_intact() {
   [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
   cur=$(_hash256 "$dst") || return 1
   [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
+}
+
+# getff_dep_names — the bare name of every package getff's own install may add to package.json,
+# whatever the stack: one per line, sorted, unique. A check that reads the project's dependencies
+# skips these (the vendor-MCP lookup): getff's own tools are a fixed set, so their MCP servers are
+# decided once in getff, not looked up per project (P6 run 3, N7; operator decision 2026-09-30).
+# The set's one home stays the five arrays of setup.d/70-deps.sh, which tests read by that path;
+# bash itself evaluates their definitions here, so a line break or a pin inside an array is read
+# exactly as the install reads it.
+getff_dep_names() {
+  local f; f="$(dirname "${BASH_SOURCE[0]}")/70-deps.sh"
+  (
+    eval "$(awk '/^(CORE_DEVDEPS|REACT_DEVDEPS|REACT_SPA_DEVDEPS|REACT_NATIVE_DEVDEPS|CORE_RUNTIME_DEPS)=\(/{f=1}
+      f{print} f && /\)[[:space:]]*$/{f=0}' "$f" 2>/dev/null)" 2>/dev/null
+    for s in ${CORE_DEVDEPS[@]+"${CORE_DEVDEPS[@]}"} ${REACT_DEVDEPS[@]+"${REACT_DEVDEPS[@]}"} \
+      ${REACT_SPA_DEVDEPS[@]+"${REACT_SPA_DEVDEPS[@]}"} ${REACT_NATIVE_DEVDEPS[@]+"${REACT_NATIVE_DEVDEPS[@]}"} \
+      ${CORE_RUNTIME_DEPS[@]+"${CORE_RUNTIME_DEPS[@]}"}; do
+      printf '%s\n' "$s"
+    done | sed -e '/^@/s/^\(@[^@]*\)@.*/\1/' -e '/^[^@]/s/@.*//' | sort -u
+  )
+  return 0
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──

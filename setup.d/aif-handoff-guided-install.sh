@@ -54,6 +54,23 @@ AIF_GUIDED_INSTALL="${AIF_GUIDED_INSTALL:-}"
 
 _log() { printf '[aif-handoff-guided-install] %s\n' "$*" >&2; }
 
+# _aif_handoff_record_version — the aif-handoff version this machine runs, read from its checkout
+# (`git describe`: the tag, or tag+commits+sha) and recorded in the project's
+# .ai-factory/tool-decisions.md (engine.sh companion_record_version). The clone is not pinned (one-button
+# fork on pins = B, operator log entry 28): it tracks upstream, and the record says what was there.
+# A running aif-handoff with no checkout at AIF_HANDOFF_CHECKOUT is recorded as «not read».
+# The row is committed with the project, so a checkout under HOME (the default ~/code/aif-handoff)
+# is written home-relative: the person's home path never lands in the repository.
+_aif_handoff_record_version() {
+  local v="" where="$AIF_HANDOFF_CHECKOUT"
+  if [ -d "$AIF_HANDOFF_CHECKOUT/.git" ]; then
+    v=$(git -C "$AIF_HANDOFF_CHECKOUT" describe --tags --always 2>/dev/null || true)
+  fi
+  # shellcheck disable=SC2088  # a literal «~» is the point: the recorded text, never expanded
+  case "$where" in "$HOME"/*) where="~/${where#"$HOME"/}" ;; esac
+  companion_record_version aif-handoff external-service "${v:-not read}" "git describe in $where"
+}
+
 # _aif_handoff_record_failure <reason> — one audit-log line per failed bring-up step.
 # Every failure branch routes through here so no step can fail without leaving a trace
 # (the A1-4 class: a `set -e` abort past the logging is indistinguishable from success).
@@ -120,6 +137,7 @@ aif_handoff_guided_install() {
       # Detect-first per companion-install-principle.md §1: running aif → no re-install prompt.
       printf '  ✓ aif-handoff already running at %s\n' "$AIF_URL"
       _log "state=up: no-op (detect-first — companion-install-principle.md §1)"
+      _aif_handoff_record_version
       return 0
       ;;
     docker)
@@ -160,6 +178,7 @@ aif_handoff_guided_install() {
         if bridge_health_ok "$AIF_URL"; then
           printf '  ✓ aif-handoff up at %s\n' "$AIF_URL"
           _log "state=up after docker compose; re-probe green"
+          _aif_handoff_record_version
           printf '[%s] AIF_HANDOFF: up\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$AIF_INSTALL_LOG" 2>/dev/null || true
           return 0
         fi
@@ -219,6 +238,32 @@ _aif_handoff_degrade() {
 }
 
 # ---------------------------------------------------------------------------
-# Entry point — invoked from install.sh under PROFILE=factory.
+# aif_handoff_offer — the read-only probe behind the pre-launch list's aif line (one-button
+# point 8). The heavy install (a clone plus docker containers) is offered as its own line ONLY
+# when bridge_diagnose says `docker`: docker runs and aif-handoff does not answer. It prints ONE
+# TAB-separated line and changes nothing (no clone, no compose, no audit-log line, no prompt):
+#   offer<TAB><the line to show><TAB>AIF_GUIDED_INSTALL=1   — a «yes» becomes that variable on
+#                                                             the `./setup --all` command
+#   skip<TAB><why it is not offered><TAB>-                    — shown in the report, not asked
 # ---------------------------------------------------------------------------
-aif_handoff_guided_install
+aif_handoff_offer() {
+  local state
+  state=$(bridge_diagnose "$AIF_URL")
+  case "$state" in
+    docker) printf 'offer\taif-handoff (heavy: clones a repository, starts docker containers)\tAIF_GUIDED_INSTALL=1\n' ;;
+    up) printf 'skip\talready running at %s\t-\n' "$AIF_URL" ;;
+    docker-down) printf 'skip\tnot installed: docker is not running\t-\n' ;;
+    native) printf 'skip\tthe aif-handoff CLI is installed but does not answer at %s; getff does not start a service it did not install\t-\n' "$AIF_URL" ;;
+    absent) printf 'skip\tnot offered: the guided install runs aif-handoff in docker, and this machine has no docker\t-\n' ;;
+    *) printf 'skip\tnot offered: its diagnose returned an unknown state (%s)\t-\n' "$state" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# Entry point — invoked from install.sh under PROFILE=factory; `--offer` is the pre-launch probe.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--offer" ]; then
+  aif_handoff_offer
+else
+  aif_handoff_guided_install
+fi

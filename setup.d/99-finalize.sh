@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.
+# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done.
 #
 # Sources: lib.sh (already in dispatcher scope)
 # S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657), cite:historical pre-split install.sh lines, code moved into this file by #719
@@ -331,6 +331,8 @@ fi
 # eslint/deps are absent. Mirrors 80-rule-bootstrap.sh FULL guard (lines 25-27).
 if [ -z "${FULL:-}" ]; then
   : # not a --full install — skip self-verification
+elif [ "${STACK:-}" = "generic" ]; then
+  : # P2 G1: generic placed no fence, hook or generated rule to prove (each is a NOT wired line)
 elif [ "${DRY_RUN:-}" = "--dry-run" ]; then
   echo "· install-self-verify: [dry-run] would run fences-fire + shields-up + mutation gates"
 else
@@ -369,6 +371,11 @@ else
     # did not land): the fences are not in their lint, so «fences fire» is not this install's to
     # claim — and not a failure either.
     echo "  · fences-fire: skipped — getff's rules are not in your own root ESLint config (see NOT wired below)"
+    _isv_skip "fences-fire (not wired)"
+  elif [ "${LINTER_SLOT:-}" = oxlint ] || [ "${LINTER_SLOT:-}" = biome ]; then
+    # P2 G5/K4: the project lints with its own oxlint / Biome and gets no getff ESLint config, so
+    # there is no ESLint fence to probe — a run would only report «VACUOUS».
+    echo "  · fences-fire: skipped — it probes getff's ESLint rules, and this project lints with $LINTER_SLOT (see NOT wired below)"
     _isv_skip "fences-fire (not wired)"
   elif [ -x "$_FF_SCRIPT" ]; then
     # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
@@ -465,6 +472,224 @@ else
   fi
 fi
 
+# ─── P2 §1 step 3 + §3: arm only what is green; record how this project checks itself ─────────
+# Operator log entry 28, fork 1 = A: what was green before stays green. Each check getff adds to a
+# blocking channel (validate, CI, lint-staged, pre-push) is run ONCE here on the untouched tree:
+# green → `armed`, red → `not-armed` with the reason, in the aif:project-checks block of
+# .ai-factory/tool-decisions.md. Every channel reads that block through scripts/run-armed.sh, and
+# `validate` / the pre-push probe move a not-armed check to armed the first time it exits 0 — no
+# human step. The install runs only getff's own scripts (DEPS_GETFF_SCRIPTS, 70-deps): a script the
+# project wrote is its own code, recorded not-armed until the first validate or push runs it green.
+# Before recording lint red: typed rules that need strictNullChecks are turned off in getff's own
+# ESLint config (the project's tsconfig is never edited), then ESLint's own bulk suppressions
+# (eslint --suppress-all, ESLint >= 9.24) record the existing findings so only new ones block.
+_pc_armed=(); _pc_not=(); _pc_extra=()
+# P5 B: 80-rule-bootstrap.sh's research lines (dropped / research-only / rejected) for the rule table.
+_pc_extra+=(${RESEARCH_EXTRA[@]+"${RESEARCH_EXTRA[@]}"})
+_pc_reason() {  # <name> <rc> <log> → why a red check is not armed
+  local n
+  case "$1" in
+    test) grep -q 'No test files found' "$3" && { echo "no test files yet"; return; } ;;
+    typecheck) n=$(grep -c 'error TS[0-9]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n type errors at install"; return; } ;;
+    format:check) n=$(grep -c '^\[warn\] [^C]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n files not in prettier style at install"; return; } ;;
+    lint) n=$(sed -n 's/^✖ \([0-9][0-9]*\) problem.*/\1/p' "$3" | tail -1); [ -n "$n" ] && { echo "$n lint problems at install"; return; } ;;
+    check-doc-links.sh) [ "$2" = 3 ] && { echo "lychee is not installed"; return; } ;;
+    # The first finding («  <file>:<line>: <text>») names the workflow line, so the user need not run it.
+    check-ci-pins.sh) n=$(sed -n 's/^  \([^ ][^ ]*:[0-9][0-9]*: .*\)$/\1/p' "$3" | sed -n '1{s/ # / - /g;p;}')
+      [ -n "$n" ] && { echo "exits $2 at install on $n"; return; } ;;
+  esac
+  echo "exits $2 at install"
+}
+_pc_run() {  # <command> <log> → the command's exit code, run from the project root
+  ( cd "$PROJECT_ROOT" && bash -c "$1" ) > "$2" 2>&1
+}
+# _pc_null_rules_off — turn off, in getff's own root eslint.config.mjs, the typed rules whose lint
+# message says they need strictNullChecks (the rules are read from ESLint's own output, not listed).
+_pc_null_rules_off() {
+  local cfg="$PROJECT_ROOT/eslint.config.mjs" bin="$PROJECT_ROOT/node_modules/.bin/eslint" rules
+  [ -f "$cfg" ] && [ -x "$bin" ] && getff_delivered "$cfg" || return 1
+  rules=$( cd "$PROJECT_ROOT" && "$bin" . -f json 2>/dev/null | node -e '
+    let t = ""; process.stdin.on("data", (d) => (t += d)).on("end", () => {
+      const ids = new Set();
+      try { for (const f of JSON.parse(t)) for (const m of f.messages || [])
+        if (m.ruleId && /strictNullChecks/.test(m.message || "")) ids.add(m.ruleId); } catch {}
+      console.log([...ids].sort().join(" "));
+    });' )
+  [ -n "$rules" ] || return 1
+  GETFF_CFG="$cfg" GETFF_RULES="$rules" node -e '
+    const fs = require("fs"), p = process.env.GETFF_CFG, rules = process.env.GETFF_RULES.split(" ");
+    const lines = fs.readFileSync(p, "utf8").split("\n");
+    let i = lines.length - 1; while (i >= 0 && !/^[)\]];\s*$/.test(lines[i])) i--;
+    if (i < 0) process.exit(1);
+    lines.splice(i, 0, "  // getff (install): these typed rules need the strictNullChecks compiler option, which this",
+      "  // project does not set — off here, because getff does not edit a project tsconfig.",
+      "  { rules: { " + rules.map((r) => JSON.stringify(r) + ": \"off\"").join(", ") + " } },");
+    fs.writeFileSync(p, lines.join("\n"));' || return 1
+  echo "  ✓ eslint.config.mjs: $rules off — they need strictNullChecks, which your tsconfig does not set"
+  note_not_wired "typed ESLint rules $rules — off: they need the strictNullChecks compiler option and your tsconfig does not set it; getff does not edit a project's tsconfig"
+}
+# _pc_keep_baselines — a baseline an earlier pass recorded stays recorded while it is still in the tree. A later
+# pass whose lint is already green (the exemptions are what make it green), or red on the project's own code, writes
+# no new line, and the shrink finds a baseline only through this line (prove-rules.mjs --shrink).
+_pc_keep_baselines() {
+  local rec="$PROJECT_ROOT/.ai-factory/tool-decisions.md" l rel f have
+  [ -f "$rec" ] || return 0
+  while IFS= read -r l; do
+    rel="${l#lint-baseline: }"; rel="${rel%% — *}"; have=""
+    for f in ${_pc_extra[@]+"${_pc_extra[@]}"}; do
+      case "$f" in "lint-baseline: $rel — "*) have=1 ;; esac
+    done
+    [ -z "$have" ] || continue
+    case "$rel" in
+      eslint-suppressions.json) [ -f "$PROJECT_ROOT/$rel" ] || continue ;;
+      .oxlintrc.json) grep -qF '__getff_exempt__' "$PROJECT_ROOT/$rel" 2>/dev/null || continue ;;
+      eslint.config.*) grep -qF '// getff:exempt:begin' "$PROJECT_ROOT/$rel" 2>/dev/null || continue ;;
+      *) continue ;;
+    esac
+    _pc_extra+=("$l")
+  done < <(awk '{sub(/\r$/, "")} /<!-- aif:project-checks:end -->/{f=0} f && /^lint-baseline: /; /<!-- aif:project-checks:begin -->/{f=1}' "$rec")
+}
+# _pc_suppress — ESLint's bulk suppressions: record the existing findings in eslint-suppressions.json
+# (shrink-only: run-armed.sh's probe prunes what was fixed), so `npm run lint` blocks new findings only; lint-staged's eslint
+# steps get --pass-on-unpruned-suppressions so fixing an old finding does not block the commit.
+_pc_suppress() {
+  local bin="$PROJECT_ROOT/node_modules/.bin/eslint" n f
+  [ -x "$bin" ] && grep -q -- '--suppress-all' <<<"$("$bin" --help 2>/dev/null)" || return 1
+  ( cd "$PROJECT_ROOT" && npm run lint -- --suppress-all ) >/dev/null 2>&1
+  [ -f "$PROJECT_ROOT/eslint-suppressions.json" ] || return 1
+  n=$(node -e 'let n = 0; const j = require(process.argv[1]); for (const f of Object.values(j)) for (const r of Object.values(f)) n += r.count || 0; console.log(n)' "$PROJECT_ROOT/eslint-suppressions.json" 2>/dev/null)
+  while IFS= read -r f; do
+    grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$f" || continue
+    sed -i.getff-bak "s#--no-warn-ignored\"#--no-warn-ignored --pass-on-unpruned-suppressions\"#" "$f" && rm -f "$f.getff-bak"
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  lint_script_pass_unpruned "$PROJECT_ROOT" || true
+  _pc_extra+=("lint-baseline: eslint-suppressions.json — ${n:-?} findings in existing code recorded; new ones still block")
+  echo "  ✓ eslint-suppressions.json: ${n:-?} findings in existing code recorded (ESLint bulk suppressions) — new ones still block"
+}
+
+# P2 G5 / K4: getff's lint rules in an oxlint project go in through oxlint's jsPlugins (getff's lint
+# plugin registered in the project's own oxlint config — the one-button chain's part P4), when this
+# getff has that registration; otherwise they are named NOT wired. Biome loads no ESLint-format rules.
+if [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = oxlint ]; then
+  if declare -F oxlint_register_jsplugin >/dev/null; then
+    _ox_cfg="$PROJECT_ROOT/.oxlintrc.json"
+    for _ox_f in .oxlintrc.json .oxlintrc.jsonc oxlint.config.ts oxlint.config.mts; do
+      [ -e "$PROJECT_ROOT/$_ox_f" ] && { _ox_cfg="$PROJECT_ROOT/$_ox_f"; break; }
+    done
+    oxlint_register_jsplugin "$_ox_cfg" "$PROJECT_ROOT/eslint-rules-local/index.mjs"
+  else
+    note_not_wired "getff lint plugin in oxlint — this getff cannot register its lint rules in an oxlint config yet, so they do not run here; oxlint stays the project's only linter"
+  fi
+elif [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = biome ]; then
+  note_not_wired "getff's lint rules — this project lints with Biome, which does not load ESLint-format rules, so they do not run here; Biome stays the project's only linter"
+fi
+
+# P5: getff's lint rules switched on in the project's OWN linter config — only after the project's lint exits 0
+# as it stands, with today's violations exempted per file (place_lint_rules, lib.sh). Before the arm pass, so the
+# record sees the final config; its lines join the record, and a lint that ended green is armed below.
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  case "${LINTER_SLOT:-}" in
+    oxlint|eslint) echo "  [dry-run] would run your lint once and, if it exits 0, switch getff's lint rules on in your own linter config with today's violations exempted per file" ;;
+  esac
+elif declare -F place_lint_rules >/dev/null; then
+  if [ -d "$PROJECT_ROOT/node_modules" ]; then
+    place_lint_rules
+    _pc_extra+=(${PLACE_EXTRA[@]+"${PLACE_EXTRA[@]}"})
+  elif [ "${LINTER_SLOT:-}" = oxlint ]; then
+    note_not_wired "getff's lint rules in your oxlint config — not switched on: dependencies are not installed, so your lint could not run first"
+    _pc_extra+=("rule-not-placed: * — not switched on: dependencies are not installed, so your lint could not run first")
+  fi
+fi
+# P6 F8: every file getff edited above goes back to the project's prettier style when its commit had it, before
+# the arm pass runs format:check (format_getff_writes, lib.sh).
+[ "$DRY_RUN" = "--dry-run" ] || ! declare -F format_getff_writes >/dev/null || format_getff_writes
+
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
+else
+  _pc_scripts=""
+  [ "${STACK:-}" = "generic" ] || _pc_scripts=$(project_check_scripts)
+  _pc_log=$(mktemp)
+  [ -z "$_pc_scripts" ] || echo "▶ arming getff's checks: each runs once on your code; only a green one blocks"
+  while IFS=$'\t' read -r _pc_n _pc_v; do
+    [ -n "$_pc_n" ] || continue
+    _pc_c=$(project_check_cmd "$_pc_n" "$_pc_v")
+    # P2 G5: these gates read getff's ESLint config, which an oxlint / Biome project does not get. The
+    # «not wired:» prefix marks the reason structural: run-armed --probe never re-runs such a line.
+    _pc_why=$(project_check_structural_why "${LINTER_SLOT:-}" "$_pc_n")
+    if [ -n "$_pc_why" ]; then _pc_not+=("$_pc_c # $_pc_why"); continue; fi
+    # P5: the placement pass above ran the project's own lint and it exited 0 with getff's rules on.
+    if [ "$_pc_n" = lint ] && [ -n "${PLACE_LINT_OK:-}" ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c — it exits 0 with getff's rules switched on"; continue
+    fi
+    case " ${DEPS_GETFF_SCRIPTS:-} " in
+      *" $_pc_n "*) ;;
+      *) _pc_not+=("$_pc_c # your own script: the install does not run it; the first validate or push arms it once it exits 0"); continue ;;
+    esac
+    if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
+      _pc_not+=("$_pc_c # not run at install: dependencies are not installed"); continue
+    fi
+    _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?
+    if [ "$_pc_rc" -ne 0 ] && [ "$_pc_n" = lint ]; then
+      if _pc_null_rules_off; then _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?; fi
+      if [ "$_pc_rc" -ne 0 ] && _pc_suppress; then _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?; fi
+    fi
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+    else
+      _pc_why=$(_pc_reason "$_pc_n" "$_pc_rc" "$_pc_log")
+      _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"
+    fi
+  done <<< "$_pc_scripts"
+  # The pre-push sections that read the project's own files (its workflows, its Markdown) need no
+  # dependencies, so they run here even without node_modules (P2, advisor: the P6 blocker class).
+  # The generated-rule mutation check takes the rule generator's verdict from 80-rule-bootstrap
+  # instead of a second run: armed only when that run exited 0 (P5, cold-review M2).
+  while IFS= read -r _pc_c; do
+    [ -n "$_pc_c" ] || continue
+    if [ "$_pc_c" = "bash scripts/run-generated-rule-mutation.sh" ]; then
+      _pc_why=$(gen_mut_not_armed_why)
+      if [ -z "$_pc_why" ]; then _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+      else _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"; fi
+      continue
+    fi
+    _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+    else
+      _pc_why=$(_pc_reason "${_pc_c#bash scripts/}" "$_pc_rc" "$_pc_log")
+      _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"
+    fi
+  done <<< "$(project_hook_checks)"
+  rm -f "$_pc_log"
+  _pc_fmt=$(project_formatter "$PROJECT_ROOT")
+  if [ "$_pc_fmt" = prettier ] && [ -f "$PROJECT_ROOT/.prettierrc.json" ] && getff_delivered "$PROJECT_ROOT/.prettierrc.json"; then
+    _pc_fmt="prettier (.prettierrc.json placed by getff)"
+  fi
+  _pc_keep_baselines
+  _pc_body="### How this project checks itself (recorded by install.sh)
+stack: ${STACK:-unknown}
+linter: $(project_linter "$PROJECT_ROOT")
+formatter: $_pc_fmt"
+  for _pc_l in ${_pc_extra[@]+"${_pc_extra[@]}"}; do _pc_body="$_pc_body
+$_pc_l"; done
+  _pc_body="$_pc_body
+armed:"
+  for _pc_l in ${_pc_armed[@]+"${_pc_armed[@]}"}; do _pc_body="$_pc_body
+- $_pc_l"; done
+  _pc_body="$_pc_body
+not-armed:"
+  for _pc_l in ${_pc_not[@]+"${_pc_not[@]}"}; do _pc_body="$_pc_body
+- $_pc_l"; done
+  if record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "$_pc_body"; then
+    echo ""
+    echo "How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):"
+    printf '%s\n' "$_pc_body" | sed -n '2,$p' | sed 's/^/    /'
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, so scripts/run-armed.sh (validate, CI, lint-staged) stops with «no readable record»"
+  fi
+fi
+
 # ─── Done ───────────────────────────────────────────────
 # Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
 # step. Each NOT-wired line names what was left undone and why (lib.sh print_not_wired).
@@ -480,6 +705,12 @@ for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
   [ -n "$_sk_added" ] || _skipped_left+=( "$_sk" )
 done
 print_getff_added   # setup.d/lib.sh — do_refresh prints it too
+# The session-settings group (setup.d/session-settings.sh) is written only on the pre-launch «yes»;
+# its one-command undo is repeated here, where the person reads the result.
+if [ -n "${GETFF_SESSION_REVERT:-}" ]; then
+  echo ""
+  echo "✓  session settings are in .claude/settings.local.json (your own values kept) — undo with: $GETFF_SESSION_REVERT"
+fi
 if [ "${#_skipped_left[@]}" -gt 0 ]; then
   echo ""
   echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"
@@ -496,7 +727,9 @@ fi
 # landed (70-deps.sh). So FULL-set + DEPS_INSTALLED≠1 = an honestly-degraded install → downgrade
 # the banner AND exit non-zero so automation/CI sees the failure, not a green install.
 _deps_incomplete=""
-if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+# A generic install promises no dependencies (70-deps is skipped and says so), so it is not «incomplete».
+if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ "${STACK:-}" != "generic" ]; then
   _deps_incomplete=1
 fi
 
@@ -512,6 +745,9 @@ elif [ "${_ISV_FAIL:-0}" -gt 0 ]; then
   # `npx getff init -y` in CI or from an agent read green while a shipped rule stayed silent.
   echo "⚠  Installation finished, but self-verify FAILED ($_ISV_FAIL check(s), output above) — this"
   echo "    is NOT a full success. Exiting non-zero so this is not mistaken for a green install."
+elif [ "${#NOT_WIRED[@]}" -gt 0 ]; then
+  # P2 G6: the NOT wired list sits right above; a bare «complete» under it read as «nothing left».
+  echo "✅ Installation complete — ${#NOT_WIRED[@]} item(s) NOT wired (listed above)."
 else
   echo "✅ Installation complete."
 fi

@@ -103,10 +103,11 @@ ln -s "$(command -v node)" "$NOJQ/node"
   node -e 'const s = require(process.argv[1]); process.exit((s.hooks.SubagentStart || []).length === 1 ? 0 : 1)' "$s" \
     && echo "OK jq-less idempotence is per event, as with jq" || echo "BAD jq-less register_cc_hook skipped a second event"
   m="$WORK/u/.mcp.json"; printf '{ "mcpServers": { "mine": { "command": "x" } } }\n' > "$m"
-  PATH="$NOJQ" add_context7_mcp "$m" >/dev/null 2>&1
-  node -e 'const m = require(process.argv[1]); process.exit(m.mcpServers.mine && m.mcpServers.context7 ? 0 : 1)' "$m" \
-    && echo "OK add_context7_mcp without jq adds context7 and keeps the other servers" \
-    || echo "BAD add_context7_mcp without jq: $(tr '\n' ' ' < "$m")"
+  PATH="$NOJQ" GETFF_DEEPWIKI_MACHINE_WIDE=0 add_getff_mcp_servers "$m" >/dev/null 2>&1
+  node -e 'const m = require(process.argv[1]).mcpServers;
+    process.exit(m.mine && m.context7 && m.context7.type === "http" && m.deepwiki && m.deepwiki.type === "http" ? 0 : 1)' "$m" \
+    && echo "OK add_getff_mcp_servers without jq adds context7 + deepwiki (http) and keeps the other servers" \
+    || echo "BAD add_getff_mcp_servers without jq: $(tr '\n' ' ' < "$m")"
   # Negative controls: a file that is not a JSON object stays byte-identical, leaves no .tmp behind,
   # and the hook is a NOT-wired line — never a partial write, never «✓ registered».
   for bad_json in '{ "hooks": ' '[]'; do

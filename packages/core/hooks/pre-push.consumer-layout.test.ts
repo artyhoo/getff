@@ -723,7 +723,7 @@ describe(
       chmodSync(join(stubBin, 'lychee'), 0o755);
 
       // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
-      // 30-templates.sh:99) carrying a dangling framework-internal ref — the exact shape
+      // 30-templates.sh:112) carrying a dangling framework-internal ref — the exact shape
       // that blocked a consumer's first push before Part 1.
       addConsumerCommit(
         dir,
@@ -1785,6 +1785,59 @@ describe(
       expect(out, out).toContain(
         `${basename(dir)}/.ai-factory/synthesizer-output/rules-manifest-additions.json`,
       );
+    });
+
+    // P6 run 2 N1 follow-up (seam with P2): the consumer's mutation check goes through run-armed.sh, and
+    // run-armed exits 2 on its OWN precondition (no readable project-checks record) as well as passing the
+    // runner's exit 2 through. The skip line must not name the runner as the cause: it names the exit code,
+    // and the check's own stderr (which does name the cause) follows it.
+    it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(
+        join(dir, 'scripts/run-armed.sh'),
+        '#!/bin/sh\necho "run-armed: no readable project-checks record - re-run the getff install to write it" >&2\nexit 2\n',
+      );
+
+      const r = runMaterialSection(dir, hook, { strip: false });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/DEGRADED: generated-rule mutation check exited 2/);
+      expect(out, out).not.toMatch(/runner could not resolve its inputs/);
+      expect(out, out).toContain('run-armed: no readable project-checks record');
+      expect(r.status, out).toBe(0);
+    });
+
+    // P6 run 3 N6: the section ran under the hook's default 120 s, and a run over it PASSED the push with a
+    // DEGRADED line — a warning nobody must read. run-armed skips a not-armed check at once, so a consumer
+    // run that reaches the budget is a check that ran: it blocks like any other red, and the section's
+    // budget is its own (PREPUSH_MUTATION_TIMEOUT_MS here, so the test does not wait minutes).
+    it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(join(dir, 'scripts/run-armed.sh'), '#!/bin/sh\nsleep 4\nexit 0\n');
+
+      const r = runMaterialSection(dir, hook, {
+        strip: false,
+        env: { PREPUSH_MUTATION_TIMEOUT_MS: '1000' },
+      });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/generated-rule mutation check ran over its budget \(1 s\) — NOT green/);
+      expect(out, out).not.toMatch(/DEGRADED: generated-rule mutation/);
+      expect(r.status, out).toBe(1);
     });
 
     // ── §3 audit-ai-docs LIVE on the repo itself (2026-09-28) ────────────────────

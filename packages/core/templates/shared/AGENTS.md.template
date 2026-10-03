@@ -33,6 +33,8 @@ The framework installs at one of three monotonic depths. **No flag is recorded o
 
 **Lifecycle past install** — `.ai-factory/AI-USAGE-GUIDE.md`: First Steps for each depth, the daily cycle, harness portability, and what is not shipped yet (named with an owner, not described as if it existed).
 
+**getff itself** — how the framework works (skills, gates, install depths) is indexed for agents at `https://getff.ai/llms.txt`. For this project, this file and the files it names still win.
+
 ## Workflow
 
 ### Gate before commit / PR (always present — shipped by this installer)

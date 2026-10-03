@@ -37,6 +37,22 @@
       "example": null
     },
     {
+      "name": "12-session-settings.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "session settings into .claude/settings.local.json on the pre-launch yes.",
+      "source": {
+        "path": "setup.d/12-session-settings.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 12
+      },
+      "example": null
+    },
+    {
       "name": "15-companions-stack.sh",
       "kind": "installer-layer",
       "shipsTo": {
@@ -81,6 +97,22 @@
       },
       "extras": {
         "order": 30
+      },
+      "example": null
+    },
+    {
+      "name": "35-stack-tools.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "vendor MCP servers for the project's own dependencies, on the pre-launch yes.",
+      "source": {
+        "path": "setup.d/35-stack-tools.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 35
       },
       "example": null
     },
@@ -250,7 +282,7 @@
       "shipsTo": {
         "tier": "all"
       },
-      "description": "synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.",
+      "description": "synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done.",
       "source": {
         "path": "setup.d/99-finalize.sh",
         "line": 2

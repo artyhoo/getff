@@ -491,7 +491,7 @@ if [ -n "$ctx_entry" ]; then
     case "$gate_handoff_pct" in '' | *[!0-9]* | 0) gate_handoff_pct=67 ;; esac
     # D14 — the floor: min(ctx_soft, compaction_point × pct). The compaction point is
     # DECLARED, resolved in Claude Code's OWN precedence for the key: the env wins, else the
-    # PROJECT settings.json's autoCompactWindow, else the USER one (~/.claude/settings.json;
+    # project's settings.local.json, else its settings.json, else the USER one (~/.claude/settings.json;
     # jq is already a hard dependency at :14). Nothing declared → gate_floor = ctx_soft, the
     # gate stands exactly where the prose arm stands — one derived number, no second absolute
     # (F3's lesson). The user step exists because a desktop WORKTREE session's project
@@ -502,7 +502,7 @@ if [ -n "$ctx_entry" ]; then
     gate_compact="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
     case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
     for _gate_settings in \
-      "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.json}" \
+      "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.local.json}" "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.json}" \
       "${HOME:+${HOME}/.claude/settings.json}"
     do
       [ -n "$gate_compact" ] && break
@@ -601,7 +601,8 @@ if [ -n "$ctx_entry" ]; then
             # than once per Stop. The Stop channel carries it twice in any project holding
             # BOTH the plugin registration (the plugin's hooks.json → `run-hook.cmd
             # end-of-turn-reminder`) and the project one the installer writes
-            # (setup.d/10-skills.sh:267, install.sh:1001). Both copies derive this baseline path
+            # (setup.d/10-skills.sh:267, and install.sh's --refresh `register_cc_hook … "Stop"` call).
+            # Both copies derive this baseline path
             # from session_id alone, so the first copy's ALLOW wrote the new sha and the second
             # compared the file against what its twin had just written: «CONTENT unchanged» on a
             # turn that had in fact rewritten the file. Measured 2026-09-14 (session 319c1945):

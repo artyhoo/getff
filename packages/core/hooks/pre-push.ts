@@ -35,7 +35,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file is the entry of pre-push.bundle.mjs (scripts/build-runtime-bundles.mjs), the
-// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1236).
+// single prebuilt hook file a consumer receives (copied by setup.d/50-hooks.sh; --refresh: install.sh).
 // The bundle inlines every import and must stay free of third-party code (`thirdParty: false`),
 // because a consumer has no getff dependency installed and a missing package crashes the
 // hook with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
@@ -52,6 +52,7 @@ import {
   runPriorArtCheck,
   loadSsotIds,
   loadSsotRowTitles,
+  loadSsotRowMoves,
 } from './checks/prior-art.ts';
 import { runCmdScriptLivenessGate } from './checks/cmd-script-liveness.ts';
 import { runS17Check } from './checks/s17.ts';
@@ -249,8 +250,24 @@ function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
 }
 
 /** Re-emit a captured result's output to the operator. */
+// A not-armed check is said once per push: the armed-probe names it first, and the check's own
+// section, going through scripts/run-armed.sh, would name it again (P6 run 3, N8).
+const saidNotArmed = new Set<string>();
+function onceNotArmed(out: string): string {
+  return out
+    .split(/(?<=\n)/)
+    .filter((l) => {
+      if (!l.startsWith('· not armed: ')) return true;
+      const key = l.trimEnd();
+      if (saidNotArmed.has(key)) return false;
+      saidNotArmed.add(key);
+      return true;
+    })
+    .join('');
+}
+
 function emit(r: CheckResult): void {
-  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stdout) process.stdout.write(onceNotArmed(r.stdout));
   if (r.stderr) process.stderr.write(r.stderr);
 }
 
@@ -379,11 +396,11 @@ function ssotTitlesAt(sha: string): ReadonlyMap<number, string> | undefined {
  * tree rather than a commit: the push is about to publish this content, and a
  * renumber staged-but-not-yet-committed is the same defect one commit earlier.
  */
-function ssotTitlesAtTip(): ReadonlyMap<number, string> | undefined {
+function ssotContentAtTip(): string | undefined {
   const abs = resolve(REPO_ROOT, SSOT_REL);
   if (!existsSync(abs)) return undefined;
   try {
-    return loadSsotRowTitles(readFileSync(abs, 'utf8'));
+    return readFileSync(abs, 'utf8');
   } catch {
     return undefined;
   }
@@ -400,9 +417,11 @@ function priorArtSection(rb: ResolvedBase): void {
   // earliest-reachable-channel invariant. PA_SUBSTANCE_WARN_ONLY=true is the
   // explicit local opt-in downgrade, mirroring S17_SUBSTANCE_WARN_ONLY.
   const substanceWarnOnly = envWarnOnly('PA_SUBSTANCE_WARN_ONLY');
+  const tip = ssotContentAtTip();
   const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt, {
     atCommit: ssotTitlesAt,
-    atTip: ssotTitlesAtTip(),
+    atTip: tip === undefined ? undefined : loadSsotRowTitles(tip),
+    tipMoves: tip === undefined ? undefined : loadSsotRowMoves(tip),
   });
 
   if (report.failures.length > 0) {
@@ -458,6 +477,9 @@ function priorArtSection(rb: ResolvedBase): void {
         '     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n' +
         '  3. if the row title was reworded deliberately and nothing moved, mark the\n' +
         '     row: <!-- prior-art:renamed <why, >= 20 chars> -->\n' +
+        '  4. if the commit cannot be amended and the prior art only moved to a new id\n' +
+        '     (a join of lanes), mark its new row: <!-- prior-art:was <old id> in <sha> -->\n' +
+        '     — accepted only for that commit, and only when the titles still match.\n' +
         'Verify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n',
     );
     process.exit(1);
@@ -519,6 +541,9 @@ function docsCardSection(rb: ResolvedBase): void {
         '  Docs-card: C1 PASS, C2 PASS, … C13 N/A   (values: PASS | FAIL | N/A)\n' +
         'or escape with a reason:\n' +
         '  Docs-card: skipped — <why, at least 20 chars>\n' +
+        'If the commit cannot be amended (it sits under merges), a later commit in the same range may\n' +
+        'carry it for that commit: Docs-card-for: <sha> <card or skip> — a skip only when its prose diff\n' +
+        'changes digits or deferral markers alone, one claim per commit.\n' +
         "The card is the writer's self-filled criteria card\n" +
         '(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n',
     );
@@ -764,6 +789,14 @@ function cmdScriptLivenessSection(
  *     consumer), leaving the workflow population unconditional.
  */
 function unpinnedToolInstallSection(ctx: SectionCtx): void {
+  if (
+    recordGoverned(
+      ctx,
+      'scripts/check-ci-pins.sh',
+      '❌ unpinned tool install check failed',
+    )
+  )
+    return;
   const population = [
     ...workflowYmlFiles(),
     ...(ctx.isFrameworkRepo ? shellScriptFiles() : []),
@@ -1040,8 +1073,16 @@ function auditAiDocsSection(): void {
     existsSync(resolve(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh'))
   ) {
     const live: ReadonlyArray<readonly [string, string, readonly string[]]> = [
-      ['audit-ai-docs.sh', 'bash', ['packages/core/audit-self/audit-ai-docs.sh']],
-      ['audit-ai-docs.ts', 'npx', ['tsx', 'packages/core/audit-self/audit-ai-docs.ts']],
+      [
+        'audit-ai-docs.sh',
+        'bash',
+        ['packages/core/audit-self/audit-ai-docs.sh'],
+      ],
+      [
+        'audit-ai-docs.ts',
+        'npx',
+        ['tsx', 'packages/core/audit-self/audit-ai-docs.ts'],
+      ],
     ];
     // Like the vitest arm above, this audits the WORKING TREE, not the pushed ref: an
     // untracked, not-ignored file carrying the goal phrase (a merge's `*.orig`) blocks the
@@ -1072,6 +1113,84 @@ function skillDriftSection(): void {
   }
 }
 
+// ── 3b-bis. The project's record (consumer, P2 C2) ───────────────────────────
+// getff's install records which of its checks it ran green (`armed`) and which not (`not-armed`,
+// with the reason) in the aif:project-checks block of .ai-factory/tool-decisions.md, and ships
+// scripts/run-armed.sh to read it. Consumer gates go through that script, so a check red on the
+// project's existing code at install never blocks a push; this probe runs each not-armed check
+// without blocking and arms the ones that now exit 0 — from the next push on they block. The flip
+// goes to a per-clone sidecar in the git dir (no dirty tree); the shipped pre-commit folds it into
+// the record and stages it, so it rides the next commit. run-armed.sh bounds each probed command
+// (GETFF_PROBE_TIMEOUT_S, 120 s); the whole probe is bounded here as well, and running over the
+// bound is said and never blocks the push — only an unreadable record (exit 2) does.
+// A project installed before the record has no run-armed.sh: its gates run as they always did.
+const RUN_ARMED = 'scripts/run-armed.sh';
+// PREPUSH_ARMED_PROBE_TIMEOUT_MS overrides the 600 s; anything but a positive integer keeps it.
+function armedProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env['PREPUSH_ARMED_PROBE_TIMEOUT_MS']?.trim() ?? '';
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 600_000;
+}
+
+// The generated-rule mutation section's own budget (N6). The runner starts one probe process per rule
+// (about a second each) and may install getff's generator toolchain first, bounded by npm's fetch
+// retries; 300 s holds both with room. PREPUSH_MUTATION_TIMEOUT_MS overrides it; anything but a
+// positive integer keeps it.
+function mutationBudgetMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env['PREPUSH_MUTATION_TIMEOUT_MS']?.trim() ?? '';
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 300_000;
+}
+
+/** Run a consumer gate script through the project's record when the project has one. */
+function consumerGate(script: string): CheckResult {
+  return existsSync(resolve(REPO_ROOT, RUN_ARMED))
+    ? run('bash', [RUN_ARMED, 'bash', script])
+    : run('bash', [script]);
+}
+
+/**
+ * A section that reads the project's OWN files (its workflows, its Markdown) goes through the
+ * record like a consumer gate: on a consumer layout with run-armed.sh and <script>, run <script>
+ * through it and return true — «not armed» is printed, and only an armed red blocks. <script>
+ * re-enters this hook with GETFF_SECTION_DIRECT=1 to run the section's own body, so that call, the
+ * framework repo and a project installed before the record return false and run the body as before.
+ * Measured before this (P2, advisor, the P6 blocker class): a project's own `npm install -g cowsay`
+ * workflow, and one broken link in its own docs on a first push to a new remote, each turned a push
+ * that was green before the install red.
+ */
+function recordGoverned(
+  ctx: SectionCtx,
+  script: string,
+  failMsg: string,
+): boolean {
+  if (ctx.isFrameworkRepo || process.env['GETFF_SECTION_DIRECT'] === '1')
+    return false;
+  if (
+    !existsSync(resolve(REPO_ROOT, RUN_ARMED)) ||
+    !existsSync(resolve(REPO_ROOT, script))
+  )
+    return false;
+  const r = consumerGate(script);
+  if (r.exitCode !== 0) die(failMsg, r);
+  emit(r);
+  return true;
+}
+
+function armedProbeSection(): void {
+  if (!existsSync(resolve(REPO_ROOT, RUN_ARMED))) return;
+  const timeoutMs = armedProbeTimeoutMs();
+  const r = runCheck('bash', [RUN_ARMED, '--probe'], { cwd: REPO_ROOT, timeoutMs });
+  if (r.timedOut) {
+    process.stdout.write(
+      `· armed-probe: skipped — over ${timeoutMs / 1000} s; the not-armed checks stay as they are (not blocking)\n`,
+    );
+    return;
+  }
+  // Exit 2 = no readable record: every channel that reads it is blind — block, loudly.
+  if (r.exitCode !== 0)
+    die('❌ the project-checks record could not be read', r);
+  emit(r);
+}
+
 // ── 3c. Rule-glob liveness (consumer, universalization-fix-s2) ───────────────
 // Shipped consumer gate (install.sh → scripts/check-rule-globs.sh): FAILS if an
 // ACTIVE custom ESLint rule's globs match zero source files (silently-inert rule —
@@ -1080,7 +1199,7 @@ function skillDriftSection(): void {
 // packages/core/audit-self/), hence owner=consumer.
 function ruleGlobsSection(): void {
   if (existsSync(resolve(REPO_ROOT, 'scripts/check-rule-globs.sh'))) {
-    const r = run('bash', ['scripts/check-rule-globs.sh']);
+    const r = consumerGate('scripts/check-rule-globs.sh');
     if (r.exitCode !== 0) die('❌ rule-glob liveness check failed', r);
     emit(r);
   }
@@ -1176,7 +1295,7 @@ function hooksPathSection(): void {
 // first blocked commit. Consumer-only script → owner=consumer.
 function lintStagedResolvesSection(): void {
   if (existsSync(resolve(REPO_ROOT, 'scripts/check-lintstaged-resolves.sh'))) {
-    const r = run('bash', ['scripts/check-lintstaged-resolves.sh']);
+    const r = consumerGate('scripts/check-lintstaged-resolves.sh');
     if (r.exitCode !== 0) die('❌ lint-staged resolution check failed', r);
     emit(r);
   }
@@ -1243,7 +1362,7 @@ function validateSidecarShape(path: string): string | null {
 // the runners live at scripts/ in a consumer repo (framework source packages/core/synthesizer/):
 //   (a) npm mutation — if the generated-rules manifest exists, run the delivered mutation runner.
 //       run-generated-rule-mutation.sh die()s exit 2 when the manifest or tsx/eslint are
-//       unresolvable; the arm PRE-CHECKS tsx/eslint and converts any exit-2 into a LOUD SKIP
+//       unresolvable; the arm PRE-CHECKS tsx and converts any exit-2 into a LOUD SKIP
 //       (never a push-blocking die, never a silent pass — D-S5-guards).
 //   (b) astgrep/ruff firing — for each backend whose S2 sidecar (.ai-factory/rule-tests/<b>.json)
 //       exists AND whose lane tool is present, fire the samples in single-rule isolation via the
@@ -1259,8 +1378,9 @@ function generatedRuleMaterialSection(): void {
     const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
     return existsSync(framework) ? framework : null;
   };
-  // Mirror the mutation script's own tsx/eslint resolution (repo-local node_modules/.bin) so the
-  // pre-check matches what would make the script die() exit 2 — deterministic, no spawn.
+  // Mirror the mutation script's own tsx resolution (repo-local node_modules/.bin) so the pre-check
+  // matches what would make the script die() exit 2 — deterministic, no spawn. (ESLint is not checked:
+  // the script provisions getff's generator toolchain itself when the project has none.)
   const binResolvable = (bin: string): boolean =>
     existsSync(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) ||
     existsSync(resolve(REPO_ROOT, `packages/core/node_modules/.bin/${bin}`));
@@ -1290,24 +1410,46 @@ function generatedRuleMaterialSection(): void {
       process.stdout.write(
         '⚠ DEGRADED: generated-rules manifest present but run-generated-rule-mutation.sh not delivered — mutation check SKIPPED (a skipped check is NOT green).\n',
       );
-    } else if (!binResolvable('tsx') || !binResolvable('eslint')) {
+    } else if (!binResolvable('tsx')) {
+      // ESLint is not required from the project: the runner uses getff's rule-generator toolchain when the
+      // project has no ESLint + typescript-eslint (an oxlint project), installing it in node_modules/.cache.
       process.stdout.write(
-        '⚠ DEGRADED: tsx/eslint not resolvable — generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n',
+        '⚠ DEGRADED: tsx not resolvable — generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n',
       );
     } else {
-      // Pass the manifest path explicitly ($1): the delivered script derives its own REPO_ROOT
-      // from SCRIPT_DIR/../../.. which is wrong in the consumer scripts/ layout — the explicit
-      // arg makes the check layout-independent (matches the manifest we already existsSync'd).
-      const r = run('bash', [runner, manifest]);
-      if (r.notFound || r.timedOut || r.exitCode === 127) {
+      // P6 run 2 N1 (2026-09-30): the consumer's copy goes through the project's record like every other
+      // check getff adds (consumerGate → scripts/run-armed.sh): the install runs it once on the material it
+      // generated and arms it only if it exits 0, so a check red or unable to run at install never blocks a
+      // push — once the project-checks record lists `bash scripts/run-generated-rule-mutation.sh` (the record's
+      // arm pass reads GEN_MUT_RC, exported by 80-rule-bootstrap.sh). A command the record does not list is
+      // run by run-armed.sh, so before that entry exists a red check still blocks. The script finds the
+      // manifest from its git toplevel. The framework's own copy runs as before.
+      // P6 run 3 N6: the section has its own budget (mutationBudgetMs). run-armed skips a not-armed check at
+      // once, so a consumer run that reaches it is a check that ran: over the budget is a red, not a skip.
+      const consumer = runner === resolve(REPO_ROOT, 'scripts/run-generated-rule-mutation.sh');
+      const timeoutMs = mutationBudgetMs();
+      const r = consumer
+        ? existsSync(resolve(REPO_ROOT, RUN_ARMED))
+          ? runCheck('bash', [RUN_ARMED, 'bash', 'scripts/run-generated-rule-mutation.sh'], { cwd: REPO_ROOT, timeoutMs })
+          : runCheck('bash', ['scripts/run-generated-rule-mutation.sh'], { cwd: REPO_ROOT, timeoutMs })
+        : runCheck('bash', [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
+      if (consumer && r.timedOut) {
+        die(
+          `❌ generated-rule mutation check ran over its budget (${timeoutMs / 1000} s) — NOT green. ` +
+            'Set PREPUSH_MUTATION_TIMEOUT_MS higher if the machine is slow; a check that did not finish did not pass',
+          r,
+        );
+      } else if (r.notFound || r.timedOut || r.exitCode === 127) {
         // ENV failure (bash/runner missing or hung), NOT broken material → loud skip, never die.
         process.stdout.write(
           `⚠ DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? 'timed out' : 'not runnable'}) — SKIPPED (a skipped check is NOT green).\n`,
         );
       } else if (r.exitCode === 2) {
-        // Script self-reported an unresolvable precondition → loud skip, never block the push.
+        // An unresolvable precondition → loud skip, never block the push. Exit 2 comes from the runner (its
+        // inputs or toolchain) or, on a consumer, from run-armed.sh itself (no readable record); the line
+        // names the exit only, and the check's own stderr, which names the cause, follows it.
         process.stdout.write(
-          '⚠ DEGRADED: generated-rule mutation runner could not resolve its inputs (exit 2) — SKIPPED (a skipped check is NOT green).\n',
+          '⚠ DEGRADED: generated-rule mutation check exited 2 (it could not run; the reason follows) — SKIPPED (a skipped check is NOT green).\n',
         );
         emit(r);
       } else if (r.exitCode !== 0) {
@@ -2305,8 +2447,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * failed when they drifted. Measured on the live tree 2026-09-06, both failure directions
  * were already realized:
  *
- *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
- *       `.ai-factory/tier-home.md` (30-templates.sh:113) had no row at all, so on a
+ *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:61) and
+ *       `.ai-factory/tier-home.md` (30-templates.sh:126) had no row at all, so on a
  *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
  *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
  *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the
@@ -2335,10 +2477,10 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1665 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1639 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1680 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1654 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2352,7 +2494,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:388 / install.sh:1066 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:388 / install.sh --refresh (conditional starter)
 ];
 
 /**
@@ -2416,7 +2558,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:815-873) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:833-891) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2513,6 +2655,17 @@ export function isFrameworkShippedMarkdown(
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
 function lycheeSection(ctx: SectionCtx): void {
+  // Without lychee the body below says so and skips, as before; the record arms the check only
+  // where lychee runs (scripts/check-doc-links.sh exits 3 without it).
+  if (
+    !run('lychee', ['--version']).notFound &&
+    recordGoverned(
+      ctx,
+      'scripts/check-doc-links.sh',
+      "❌ lychee found broken links in this project's Markdown — fix before push",
+    )
+  )
+    return;
   const { rb } = ctx;
   if (rb.base !== null) {
     let changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
@@ -2712,6 +2865,7 @@ const SECTIONS: readonly PrePushSection[] = [
     run: (c) => lineCitationsSection(c),
   },
   { id: 'skill-drift', owner: 'maintainer', run: () => skillDriftSection() },
+  { id: 'armed-probe', owner: 'consumer', run: () => armedProbeSection() },
   { id: 'rule-globs', owner: 'consumer', run: () => ruleGlobsSection() },
   {
     id: 'lint-staged-resolves',

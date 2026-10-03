@@ -167,6 +167,10 @@ for _su in 'exit 1' 'exit 0'; do
 done
 nw_arm "git hooks not activated" su HUSKY_HOOKS_BLOCKED="core.hooksPath is .githooks"
 nw_arm "consumer ESLint config kept" ff ESLINT_ROOT_NOT_WIRED=1
+# P2 G5/K4: a project that lints with oxlint or Biome gets no getff ESLint config, so there is no
+# fence for check-fences-fire to probe (measured: a vite-shape install exited 1 on «VACUOUS»).
+nw_arm "project lints with oxlint" ff LINTER_SLOT=oxlint
+nw_arm "project lints with Biome" ff LINTER_SLOT=biome
 # The consumer's own root eslint.config.mjs that getff's block did not land in (here: the
 # synth-and-wire bundle is absent from the stub package) is the same NOT-wired state: the fences are
 # not in their lint, so «fences fire» is not this install's to claim (cold-review F8 — only a

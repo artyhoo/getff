@@ -21,9 +21,11 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 |---|------|---------|-----------|--------|
 | 05 | `05-mcp.sh` | MCP companion install: (a) context7 → `.mcp.json` (regression L1 restore from `setup.sh:289-303`); (b) detect-first `claude mcp add` for each `kind=mcp` manifest row | lib.sh (in scope), engine.sh (sourced here) | **Done** (S2) — gated on `FULL`; non-full / snapshot path no-ops (D2) |
 | 10 | `10-skills.sh` | §1 Skills (`skills/` → `.claude/skills/`) + §1b deps-hash-check CC hook | (none — first content layer) | Done — F7 split now gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` (kickoff §2 re-triage) |
+| 12 | `12-session-settings.sh` | Session-settings group (auto-compact window, agent teams, getff's generic safety permissions) → `.claude/settings.local.json`, **only on the pre-launch «yes»** (`GETFF_SESSION_SETTINGS=1`); person's values win, original kept in `.ai-factory/before-getff/`, one-command undo printed here and in 99-finalize. Logic in `session-settings.sh` (also sourced by 45-python); values in `session-settings.json`, each an `ask` row of `ships.manifest` | lib.sh (JSON writers, `keep_original_*`), bridge-guided.sh (`_bridge_ignore_local`) | Done (one-button point 13) |
 | 15 | `15-companions-stack.sh` | Stack-specific companion installs | lib.sh (in scope) | **Stub** — content deferred to S3 |
 | 20 | `20-agents.sh` | §2 Sub-agents (`agents/` → `.claude/agents/`) + §3c skill-context overrides | `SHIPPED_DOCS` global (set in dispatcher) | Done — orchestrator-worker + reviewer-discipline + aif-orchestrator-discipline skill-context gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` |
 | 30 | `30-templates.sh` | §3a AI Factory templates + §3b `tool-decisions.md` seed + §3d stack-specific templates + §5b `AGENTS.md` | `SHIPPED_DOCS` global | Done |
+| 35 | `35-stack-tools.sh` | Circle 2: vendor MCP servers for the project's own direct dependencies → `.mcp.json` (getff's own tools, `lib.sh` `getff_dep_names`, are skipped: their servers are decided once in getff), **only on the pre-launch «yes»** (`GETFF_STACK_TOOLS=1`); a server is taken only from the namespace its dependency's owner holds in the official MCP registry, written only when two ownership signals agree (GitHub org, homepage domain, npm scope + current `mcpName`) and it needs nothing from the person — an http remote, or an npm server run as `npx -y <pkg>` on this machine (not pinned; a warning line says it runs locally and names `claude mcp remove <name> -s project`); one signal or a needed secret make it a proposal; each decision one line in `tool-decisions.md`. Logic in `packages/core/install/mcp-source-check.ts` (prebuilt bundle) | 30-templates (`tool-decisions.md` seeded), 05-mcp (`.mcp.json`) | Done (one-button point 7) |
 | 40 | `40-configs.sh` | §4 enforcement scripts + §5a shared templates + §5b' ESLint rules + barrel-gen + §6a stack configs | 30-templates (`.ai-factory/` exists) | Done |
 | 45 | `45-python.sh` | Python toolchain delivery (ast-grep rules + `sgconfig.yml` + ruff config) with augment-first collision policy; **INERT on the npm flow** — runs only when `GETFF_TOOLCHAIN=python` (env-var contract; S2 wires the `./setup python` entry) | lib.sh (`copy_safe`/`mkdir_safe` in scope), `packages/core/templates/python/**` (S1 Task 4) | **Done (S1 Task 5)** — inert until S2 sets `GETFF_TOOLCHAIN`; npm byte-identical unaffected (guarded no-op) |
 | 46 | `46-cargo.sh` | Rust/cargo toolchain delivery (`clippy.toml` bans + `[lints.clippy]` deny reference + `deny.toml` cargo-deny surface + `getff-cargo.yml` CI gate + cargo rules-lock) with augment-first collision policy; **INERT on the npm flow** — runs only when `GETFF_TOOLCHAIN=cargo` (`install.sh cargo` sets it) | lib.sh (`copy_safe`/`refresh_safe` in scope), `packages/core/templates/cargo/**` | **Done (ecosystem-wiring W4)** — inert until `GETFF_TOOLCHAIN=cargo`; npm/python byte-identical unaffected (guarded no-op) |
@@ -31,7 +33,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 | 55 | `55-runtime-bridge-vendor.sh` | §5d vendored runtime-bridge subset (dispatch CLI + PostToolUse hook) — **factory-only** per spec A7 | 10-skills (`.claude/` exists), 50-hooks (hook dir exists) | Done (S5 A7) — vendor COPY + hook idempotent with `setup-runtime-bridge.sh` (install-time vs runtime split) |
 | 60 | `60-ci.sh` | §6b `.nvmrc`↔CI drift WARN + §6b-bis R2 auto-wire L1 (sets `_r2_verdict`) + §6c CI-orphan WARN + yq auto-wire | 40-configs (`eslint.config.mjs` + `.github/workflows/` written) | Done |
 | 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`); §8b tsx-at-root retired 2026-09-28 | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
-| 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
+| 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + arm-if-green pass → the `aif:project-checks` record in `.ai-factory/tool-decisions.md` (P2) + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
 
 ### `kind=mcp` manifest contract (S2)
 
@@ -39,7 +41,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 
 **contract:**
 
-- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `grep -q <name> <<<"$(claude mcp list --scope user 2>/dev/null)"` — a here-string, not a pipe: `engine.sh` runs it with `eval` under pipefail, where a pipe into `grep -q` can lose a SIGPIPE race and read an installed companion as missing; `scripts/check-pipefail-early-exit.mjs` refuses the pipe form).
+- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `grep -q 'Scope: User' <<<"$(claude mcp get <name> 2>/dev/null)"` — `claude mcp list` has no `--scope` option, so a `mcp list --scope user` probe always fails and re-installs; and a here-string, not a pipe: `engine.sh` runs it with `eval` under pipefail, where a pipe into `grep -q` can lose a SIGPIPE race and read an installed companion as missing; `scripts/check-pipefail-early-exit.mjs` refuses the pipe form).
 - `install_cmd`: the official `claude mcp add` command with no version pin. For user-scope MCPs, include `--scope user`; the engine emits a machine-scope notice automatically.
 - Rows are processed only when `FULL` is set (i.e., `install.sh --full`). Non-full / `--dry-run` paths are no-ops or print a preview respectively.
 - Requires `claude` CLI present; graceful skip (`⊝ claude CLI absent — skipping MCP <name>`) when absent.
@@ -58,12 +60,13 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `FORCE` | dispatcher (flag parse) | lib helpers |
 | `DRY_RUN` | dispatcher (flag parse) | lib helpers |
 | `SKIPPED` | dispatcher (`SKIPPED=()`) | 10, 20, 30, 40, 50, 60, 70, 99-finalize (`SKIPPED` fully accumulated at finalize time) |
-| `STACK` | dispatcher (stack pick) | 30, 40, 60, 70, 99 |
+| `STACK` | dispatcher (stack pick; `generic` when no stack is known — P2 G1) | 30, 40, 50, 60, 70, 80, 99 (`generic`: 30/40 keep their stack-free part, 50/60/70/80 return early with one NOT wired line each, 99 skips the self-verify and the deps-incomplete verdict) |
 | `PROFILE` | dispatcher (flag resolution; `core` default for non-TTY) | 10 (F7 split), 20 (agents F7) — beta-delivery-ux S1 |
 | `SHIPPED_DOCS` | dispatcher (SHIPPED_DOCS array set before loop) | 20, 30, 40 |
 | `_r2_verdict` | 60-ci | 99-finalize (R2 L2 AST-wire) |
 | `DEPS_INSTALLED` | 70-deps | 99-finalize (Next-steps) |
 | `DEVDEPS` | 70-deps | 99-finalize (Next-steps) |
+| `DEPS_GETFF_SCRIPTS` | 70-deps (the `package.json` scripts whose command is getff's own) | 99-finalize (arm-if-green: only these run at install; the project's own scripts never do) |
 | `UPSTREAM_BLOB_URL` | lib.sh | lib helpers (`transform_internal_refs`) |
 
 ---
@@ -128,9 +131,11 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 |---|---|---|---|
 | `05-mcp.sh` | 5 | MCP companion install layer (S2). | all stacks |
 | `10-skills.sh` | 10 | §1 Skills + §1b Hooks (deps-hash-check CC hook). | all stacks |
+| `12-session-settings.sh` | 12 | session settings into .claude/settings.local.json on the pre-launch yes. | all stacks |
 | `15-companions-stack.sh` | 15 | Stack-specific companion selection layer (S3). | all stacks |
 | `20-agents.sh` | 20 | §2 Sub-agents + §3c skill-context overrides. | all stacks |
 | `30-templates.sh` | 30 | §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md. | all stacks |
+| `35-stack-tools.sh` | 35 | vendor MCP servers for the project's own dependencies, on the pre-launch yes. | all stacks |
 | `40-configs.sh` | 40 | §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs. | all stacks |
 | `45-python.sh` | 45 | Python toolchain delivery layer (python-delivery-v0 S1, Task 5). | all stacks |
 | `46-cargo.sh` | 46 | Rust/cargo toolchain delivery layer (ecosystem-wiring W4). | all stacks |
@@ -141,5 +146,5 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28). | all stacks |
 | `80-rule-bootstrap.sh` | 80 | rule-bootstrapping install-time step (LIVE-or-degrade). | all stacks |
 | `85-worktree-scripts.sh` | 85 | §5e worktree scripts cluster (env+ profile). | all stacks |
-| `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done. | all stacks |
+| `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done. | all stacks |
 <!-- getff:end section=A-table -->

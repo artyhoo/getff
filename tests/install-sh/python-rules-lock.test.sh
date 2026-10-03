@@ -162,7 +162,7 @@ else
 fi
 
 # ── (9) REGRESSION (W3 rework, MAJOR): --force re-delivery must NOT leave a STALE lock ─────────────
-# copy_safe (lib.sh:889) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
+# copy_safe (lib.sh:907) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
 # job is to record the DELIVERED set (ruleIds/ruffBans/sourceFingerprint) — must therefore be regenerated
 # on --force too, not only on --refresh. Before the fix _py_write_rules_lock regenerated ONLY on
 # GETFF_TOOLCHAIN_REFRESH=1, so `install.sh python --force` over a prior install whose template CHANGED
@@ -295,7 +295,7 @@ fi
 # SCOPE OF THIS ARM (PARK-S1-7, round-5 audit): it proves the READER, not the producer. The
 # fragment below is hand-written under the DELIVERED ast-grep id, because that is the key
 # `_py_json_rules` looks up. The synthesizer keys its fragments by the PLAN id instead
-# (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:52 /
+# (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:62 /
 # synthesize.ts:90), and (pre-S1b) the researched-python path returned before emit ran at all
 # (rule-bootstrap-cli.ts `--from-practice` arm). S1b UNPARKED this: the producer now lives in
 # runPracticeRender and writes its fragment to `generation-context/python/<entryId>.json`
@@ -360,7 +360,7 @@ else
     P13=$(py_fixture)
     # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
-    # there; setup.d/lib.sh:1640-1641, the lock writer both lanes share). The prior arm pointed at
+    # there; setup.d/lib.sh:1668-1669, the lock writer both lanes share). The prior arm pointed at
     # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
     # tree and both branches took the `else`, emitting `ok`. THAT wrong path was the whole
     # defect; the seeds below are not what makes the lanes run.
@@ -368,7 +368,7 @@ else
     # R2 correction (cold audit round 2, MINOR): an earlier draft of this comment claimed the
     # lanes «declined at manifest-detect» without a Cargo.toml/go.mod. There is no such gate —
     # the positional `cargo`/`go` arg sets TOOLCHAIN and routes to do_cargo_lane/do_go_lane
-    # (install.sh:169/:172 → :405/:414), which export GETFF_TOOLCHAIN and deliver unconditionally;
+    # (install.sh:173/:176 → :417/:426), which export GETFF_TOOLCHAIN and deliver unconditionally;
     # `_cargo_write_rules_lock` runs before the firing self-check, so the lock lands either way.
     # The seeds stay because a cargo lock emitted onto a tree with no Cargo.toml is an artefact
     # of the fixture rather than a realistic consumer — but they are a REALISM choice, not a
@@ -538,11 +538,11 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (setup.d/lib.sh:1669,1705 — the shared lock writer). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1697,1733 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
-    # (setup.d/lib.sh:1640-1641, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
+    # (setup.d/lib.sh:1668-1669, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
     # lock lives there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
     # on every tree and both branches took the `else`, emitting `ok`. With Cargo.toml + go.mod
     # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition

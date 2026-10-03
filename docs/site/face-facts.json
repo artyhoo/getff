@@ -84,14 +84,15 @@
   "installCommands": {
     "source": {
       "positionals": "setup:72",
-      "laneTable": "install.sh:292",
+      "laneTable": "install.sh:300",
       "flags": "README.md:147"
     },
     "stacks": [
       "ts-server",
       "react-next",
       "react-spa",
-      "react-native"
+      "react-native",
+      "generic"
     ],
     "lanes": [
       {
@@ -170,7 +171,7 @@
             "id": "fire-on-your-code",
             "title": "Fire a rule on YOUR code, not a fixture",
             "action": "Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var(\"X\")`, run `cargo clippy`; go — add `os.Getenv(\"X\")`, run `golangci-lint run`.",
-            "evidence": "templates/ts-server/eslint.config.mjs:179 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
+            "evidence": "templates/ts-server/eslint.config.mjs:180 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
           },
           {
             "id": "run-the-gate",
@@ -290,7 +291,7 @@
       "A": {
         "familyName": "installer layers",
         "path": "docs/site/reference/A.json",
-        "members": 16
+        "members": 18
       },
       "B": {
         "familyName": "skills",
@@ -310,7 +311,7 @@
       "E": {
         "familyName": "templates",
         "path": "docs/site/reference/E.json",
-        "members": 37
+        "members": 38
       },
       "F1": {
         "familyName": "rules",
@@ -325,7 +326,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 35
+        "members": 36
       },
       "G": {
         "familyName": "packages",
@@ -353,12 +354,12 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 308
+      "count": 312
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 281
+      "count": 282
     },
     "specs": {
       "source": "docs/superpowers/specs/",

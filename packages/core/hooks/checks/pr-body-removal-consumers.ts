@@ -26,7 +26,7 @@ export const SHIPPED_REMOVAL_ROOTS = ['packages/core/templates/', '.ai-factory/'
 
 const HEADING = /^## Removal consumers\s*$/;
 /**
- * `path:NN`. The path needs an extension (`lib.sh:875`) or a directory part
+ * `path:NN`. The path needs an extension (`lib.sh:893`) or a directory part
  * (`.husky/pre-push:40`); a URL (`http://host:8080`) is not a citation.
  */
 const CITATION = /([^\s`|()[\]<>]+):\d+/g;

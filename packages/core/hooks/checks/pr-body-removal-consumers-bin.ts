@@ -55,7 +55,7 @@ console.error(
     'ARCHITECTURE.react-*.md). Add to the PR body, one row per deleted path:\n' +
     '  ## Removal consumers\n' +
     '  | path | consumer (file:line) | drop vs slim consequence |\n' +
-    '  | packages/core/templates/x.md | `install.sh:210` presence check | drop: … ; slim: … |\n' +
+    '  | packages/core/templates/x.md | `install.sh:218` presence check | drop: … ; slim: … |\n' +
     'or, when the grep is empty:  - x.md: no consumers — <what you grepped, ≥20 chars>\n' +
     'This check re-runs on PR body edit. See .claude/rules/build-first-reuse-default.md §3.1.',
 );

@@ -737,6 +737,11 @@ if grep -qE '^[[:space:]]*register_imr_hooks "\$SETTINGS"' "$REPO_ROOT/setup.d/1
 fi
 cp "$REPO_ROOT/packages/core/hooks/deps-hash-check.sh" "$CONS/.claude/hooks/deps-hash-check.sh"
 creg UserPromptSubmit - "$(sed -n 's/^HOOK_CMD="\(.*\)"$/\1/p' "$REPO_ROOT/setup.d/10-skills.sh")"
+# An installer-only hook (setup.d/ships.manifest: installer != no, plugin = no) has no plugin copy to
+# silence, so it stays installed in the consumer but leaves the CR1/CR2 population. The exemption's
+# guards — a written reason and no plugin/hooks/ stub — are hook-live.test.sh P0.
+INSTALLER_ONLY=$(awk -F'\t' '!/^#/ && $1 == "hook" && $4 != "no" && $5 == "no" { print $2 }' "$REPO_ROOT/setup.d/ships.manifest")
+INSTALLED=$(for nm in $INSTALLED; do printf '%s\n' $INSTALLER_ONLY | grep -qxF "$nm" || printf '%s ' "$nm"; done)
 # Strict: every hook `register_cc_hook` actually installed must be checked and must silence — a
 # missing stub for an installer hook is a FAIL, not a skip (a stub disappearing from plugin/hooks/
 # must not quietly shrink the population this sweep asserts over).

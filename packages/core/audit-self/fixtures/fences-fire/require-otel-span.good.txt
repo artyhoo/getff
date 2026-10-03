@@ -1,0 +1,5 @@
+// GOOD: the exported async handler opens a span — H9 (require-otel-span) must NOT flag this.
+declare const tracer: { startActiveSpan<T>(name: string, fn: () => T): T };
+export async function handleOrder(id: string): Promise<string> {
+  return tracer.startActiveSpan('handleOrder', () => id);
+}

@@ -120,6 +120,6 @@ guard script and your own [gates](../../terms.md#gate).
   copies that list on lines 170 to 174 of `setup.d/10-skills.sh`. Line 17 of
   `install.sh` names the flag.
 - The superpowers plugin is an optional companion: the `superpowers` row of
-  `setup.d/companions.manifest`. The loop that offers each companion is lines 106 to 118
+  `setup.d/companions.manifest`. The loop that offers each companion is lines 116 to 128
   of `setup`.
 - The card above is built from `docs/site/reference/B.json`.

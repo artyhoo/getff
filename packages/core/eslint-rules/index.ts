@@ -2,6 +2,7 @@ import { noUnsafeZodParse } from './no-unsafe-zod-parse.ts';
 import { noDirectTimeRandomness } from './no-direct-time-randomness.ts';
 import { requireOtelSpan } from './require-otel-span.ts';
 import { restrictedSyntaxAuditExempt } from './restricted-syntax-audit-exempt.ts';
+import { requireErrorBoundary } from './require-error-boundary.ts';
 
 const plugin = {
   meta: {
@@ -13,6 +14,7 @@ const plugin = {
     'no-direct-time-randomness': noDirectTimeRandomness,
     'require-otel-span': requireOtelSpan,
     'restricted-syntax-audit-exempt': restrictedSyntaxAuditExempt,
+    'require-error-boundary': requireErrorBoundary,
   },
 };
 

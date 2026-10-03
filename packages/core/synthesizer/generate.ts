@@ -7,6 +7,7 @@
 // Proves the rules-factory generalises to stacks with no pre-written answer key.
 // L4 + L5 are byte-identical — this is a new input path, not a change to the validator.
 
+import process from 'node:process';
 import type { ResearchPlan } from '../research/types.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
@@ -22,6 +23,7 @@ import type { GenerateClient, Menu, MenuCandidate } from './generate-port.ts';
 export async function synthesizeGenerate(
   plan: ResearchPlan,
   client: GenerateClient,
+  log: (msg: string) => void = (m) => process.stderr.write(m + '\n'),
 ): Promise<SynthesisPlan> {
   // Build menu from ALL patterns — no loadRecipe filter (the whole point, T16)
   const candidates: MenuCandidate[] = plan.patterns.map((entry) => ({
@@ -47,7 +49,15 @@ export async function synthesizeGenerate(
 
   for (const candidate of selection.rules) {
     const entry = plan.patterns.find((p) => p.id === candidate.entryId);
-    if (!entry) continue;
+    if (!entry) {
+      // With per-entry drops (file-clients.ts partitionResearchPlan) this is the common case, so
+      // it gets a line: the NOT wired summary and the rule table read it.
+      log(
+        `[rule-bootstrap] selection rule ${candidate.ruleId} dropped — its research entry ` +
+          `${candidate.entryId} is not in the plan (dropped above or never written)`,
+      );
+      continue;
+    }
 
     const id = `G${nextId++}`;
     const hasEslintConfig =

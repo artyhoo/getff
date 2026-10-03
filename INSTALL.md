@@ -307,6 +307,7 @@ cp path/to/pkg/packages/core/templates/shared/husky-pre-push.sh .husky/pre-push
 cp path/to/pkg/packages/core/hooks/pre-push.{bundle.mjs,fallback.sh} packages/core/hooks/
 chmod +x .husky/pre-commit .husky/pre-push
 
+mkdir -p .ai-factory && cp path/to/pkg/packages/core/audit-self/run-armed.sh scripts/ && printf '%s\n' '<!-- aif:project-checks:begin -->' 'armed:' '- npm run typecheck' '- npm run lint' '- npm run format:check' '- npm run arch:check' '- bash scripts/audit-ai-docs.sh' '- npm test' 'not-armed:' '<!-- aif:project-checks:end -->' >> .ai-factory/tool-decisions.md  # the record validate, CI and lint-staged run through run-armed.sh; move a check red on your code under not-armed: as `- <cmd> # <why>`
 # CI workflow:
 mkdir -p .github/workflows
 cp path/to/pkg/templates/ts-server/github-actions-ci.yml .github/workflows/ci.yml
@@ -336,7 +337,7 @@ After install, add these scripts to your `package.json`:
     "arch:check": "depcruise --config .dependency-cruiser.mjs src",
     "arch:graph": "depcruise --config .dependency-cruiser.mjs --output-type dot src | dot -T svg > docs/arch.svg",
     "audit:docs": "./scripts/audit-ai-docs.sh",
-    "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs test",
+    "validate": "bash scripts/run-armed.sh validate",
     "prepare": "husky"
   }
 }
@@ -372,7 +373,6 @@ npm install --save-dev \
   dependency-cruiser@~17.4.3 \
   fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4 \
   husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1 \
-  npm-run-all2@~8.0.4 \
   @types/node@^22.10.0
 ```
 
@@ -386,7 +386,7 @@ npm install zod@^3.24.0
 
 ```bash
 npm install --save-dev \
-  @vitejs/plugin-react jsdom \
+  jsdom \
   @testing-library/react @testing-library/jest-dom @testing-library/user-event \
   @next/eslint-plugin-next \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
@@ -398,7 +398,7 @@ npm install --save-dev \
 
 Also: `import 'server-only'` and `import 'client-only'` packages — bundled with Next.js, no install needed.
 
-> **Verification protocol:** these pins were re-verified against the registry on August 8, 2026. Each is the newest line satisfying BOTH the peer constraints of the rest of the toolchain AND a node 20.19 `engines.node` floor (brownfield consumers may keep an older 20.19+ `.nvmrc`) — so four of them are deliberately BELOW registry latest and tilde-pinned, not caret: `dependency-cruiser@~17.4.3` (18 needs `^22||^24||>=26`), `lint-staged@~16.4.0` (17 needs `>=22.22.1`), `sort-package-json@~3.7.1` (4 needs `>=22`), `npm-run-all2@~8.0.4` (9 needs `^22.22.2||^24.15.0||>=26`). Tilde because the engines floor has moved WITHIN a major before (`sort-package-json@3.7.0` = `>=22`, `3.7.1` = `>=20`), so a caret would re-open the hole. `typescript@^5.7.0` and `@types/node@^22.10.0` are likewise deliberate caps, not stale lines. If your project has no node-20 floor, run `npm view <package> version` for each and raise them. See `references/checks-map.md` and `SKILL.md` "Verification protocol" section.
+> **Verification protocol:** these pins were re-verified against the registry on August 8, 2026. Each is the newest line satisfying BOTH the peer constraints of the rest of the toolchain AND a node 20.19 `engines.node` floor (brownfield consumers may keep an older 20.19+ `.nvmrc`) — so three of them are deliberately BELOW registry latest and tilde-pinned, not caret: `dependency-cruiser@~17.4.3` (18 needs `^22||^24||>=26`), `lint-staged@~16.4.0` (17 needs `>=22.22.1`), `sort-package-json@~3.7.1` (4 needs `>=22`). Tilde because the engines floor has moved WITHIN a major before (`sort-package-json@3.7.0` = `>=22`, `3.7.1` = `>=20`), so a caret would re-open the hole. `typescript@^5.7.0` and `@types/node@^22.10.0` are likewise deliberate caps, not stale lines. If your project has no node-20 floor, run `npm view <package> version` for each and raise them. See `references/checks-map.md` and `SKILL.md` "Verification protocol" section.
 
 ---
 
@@ -580,8 +580,8 @@ rm -f scripts/audit-ai-docs.sh scripts/audit-ai-docs.react-next.sh scripts/audit
       scripts/check-arch-boundaries.sh scripts/check-lintstaged-resolves.sh scripts/check-fences-fire.sh \
       scripts/check-shields-up.sh scripts/run-generated-rule-mutation.sh scripts/run-rule-tests-firing.sh \
       scripts/pre-merge-local.sh scripts/ci-available-probe.sh scripts/run-mutation.sh \
-      scripts/create-worktree.sh scripts/getff-work.sh scripts/link-coordination.sh \
-      scripts/worktree-node-modules.sh scripts/run-local-ci-sweep.sh
+      scripts/create-worktree.sh scripts/getff-work.sh scripts/link-coordination.sh scripts/run-armed.sh \
+      scripts/worktree-node-modules.sh scripts/run-local-ci-sweep.sh scripts/check-ci-pins.sh scripts/check-doc-links.sh
 rm -rf scripts/fences-fire-fixtures
 
 # 4. AGENTS.md is CO-OWNED: install appends one fenced getff block and preserves everything outside it.
