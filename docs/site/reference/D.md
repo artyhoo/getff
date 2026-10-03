@@ -78,7 +78,7 @@ types it.
 | `inject-subagent-digest` | SubagentStart | SubagentStart hook — injects the session-bootstrap digest into juniors at spawn | @cc-only-rationale | not installed on any lane (no-lane) |
 | `precompact-residue` | PreCompact | PreCompact hook — writes the session-residue note before compaction | @dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md) + @cc-only-rationale | not installed on any lane (no-lane) |
 | `runtime-bridge-dispatch` | PostToolUse, PostToolUseFailure | PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
-| `seal-primary-checkout` | not registered (unregistered) | PreToolUse deny gate — seal the PRIMARY checkout's protected paths | @cc-only-rationale | not installed on any lane (no-lane) |
+| `seal-primary-checkout` | PreToolUse | PreToolUse deny gate — seal the PRIMARY checkout's protected paths | @cc-only-rationale | not installed on any lane (no-lane) |
 | `session-start` | SessionStart | Plugin SessionStart hook — injects the getff entry-point context so the using-getff skill auto-triggers | @cc-only-rationale + plugin | plugin |
 | `validate-prompt` | PostToolUse | PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
 | `warn-subagent-report` | SubagentStop | SubagentStop hook — warns when a finishing report misses its canonical sections (non-blocking) | @cc-only-rationale | not installed on any lane (no-lane) |
