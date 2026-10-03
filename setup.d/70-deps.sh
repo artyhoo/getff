@@ -286,7 +286,7 @@ DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 # a Biome or dprint project no prettier. @typescript-eslint/utils stays: getff's rule plugin imports
 # it, and an oxlint config can load that plugin (jsPlugins).
 _slot_kept=()
-for _s in "${DEVDEPS[@]}"; do
+for _s in ${DEVDEPS[@]+"${DEVDEPS[@]}"}; do
   _n=$(deps_spec_name "$_s")
   case "${LINTER_SLOT:-}:$_n" in
     oxlint:eslint|oxlint:typescript-eslint|oxlint:globals|oxlint:@eslint/*|oxlint:eslint-plugin-*|oxlint:eslint-config-*|oxlint:@*/eslint-plugin*|oxlint:@*/eslint-config*) continue ;;

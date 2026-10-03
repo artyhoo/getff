@@ -18,7 +18,7 @@ executed:
   - { example: matching-rule-on-a-matching-path, stack: repo, date: 2026-09-29, result: printed }
   - { example: matching-rule-on-a-relative-path, stack: repo, date: 2026-09-29, result: silent }
   - { example: command-card-on-git-push, stack: repo, date: 2026-09-29, result: printed }
-docs-refresh: deferred — re-verified 2026-09-30, in this range the cited hook changes one comment (its install.sh line range becomes the name of the install.sh call it points at), its test follows that comment, and docs/site/reference/D.md changes only the lane column of two other hooks (precompact-residue, inject-handoff-on-compact); no claim on this page moves; clears at the next gold refresh of this page
+docs-refresh: deferred — the only cited-source change in this range is the new seal-primary-checkout row in the D family table; this page's hook contract is untouched; clears at the next refresh of this page
 ---
 
 # inject-matching-rule hook
@@ -66,7 +66,7 @@ printf '%s' '{"tool_name":"Edit","session_id":"docs-demo-mr-1",
 ```
 
 ```text
-📎 Path-relevant rule — AI-laziness traps (T1-T21) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. … (see .claude/rules/ai-laziness-traps.md)
+📎 Path-relevant rule — AI-laziness traps (T1-T22) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. … (see .claude/rules/ai-laziness-traps.md)
 ```
 
 Seven rules matched that path; the line above is the first. Each line ends with where it

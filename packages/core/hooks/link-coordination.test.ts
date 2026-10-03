@@ -22,6 +22,8 @@
  *       gets no links (l1), the repo's own worktree still does (l2), an explicit
  *       foreign / non-git target is refused (l3/l4), so is a non-git dir nested
  *       inside the checkout (l5); neutered-guard negative (l-neg)
+ *   (m) GIT-SPAWN BUDGET (2026-10-01): git process count stays flat as $CANON grows;
+ *       per-file is_tracked() negative (m-neg)
  *
  * ALL tests set CLAUDE_COORDINATION_DIR to a temp dir — never touches real $HOME.
  */
@@ -654,6 +656,53 @@ describe('link-coordination.sh', () => {
     }
     teardown(wt1, wt2);
   });
+
+  // ── (m) GIT-SPAWN BUDGET ──────────────────────────────────────────────────
+  // Incident 2026-10-01: is_tracked() spawned one git process per $CANON file. Against
+  // the operator's 519-file store that was ~600 git processes and 18-28 s per run under
+  // load, paid on every `git worktree add` (post-checkout), create-worktree.sh and
+  // SessionStart — and it sized the timeout of any test that made a worktree of this
+  // repo. The git process count must not grow with $CANON.
+
+  /** Count git processes one helper run starts (GIT_TRACE2_EVENT, one "start" per process). */
+  function gitStarts(helperPath: string, wt: string): number {
+    const trace = resolve(canon, '..', `${canon.split('/').pop()}-trace2.json`);
+    const r = runHelper(helperPath, [wt], { CLAUDE_COORDINATION_DIR: canon, GIT_TRACE2_EVENT: trace });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    const n = readFileSync(trace, 'utf8').split('\n').filter((l) => l.includes('"event":"start"')).length;
+    rmSync(trace, { force: true });
+    return n;
+  }
+  const CANON_FILES = 60;
+  function seedCanon(): void {
+    for (let i = 0; i < CANON_FILES; i++) {
+      mkdirSync(resolve(canon, `u${i}`), { recursive: true });
+      writeFileSync(resolve(canon, `u${i}/state.md`), `state ${i}\n`);
+    }
+  }
+
+  it('(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)', () => {
+    seedCanon();
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
+    const starts = gitStarts(helper, wt);
+    expect(starts, `${starts} git processes for ${CANON_FILES} canon files`).toBeLessThan(15);
+    expect(lstatSync(resolve(wt, '.claude/orchestrator-prompts/u0/state.md')).isSymbolicLink()).toBe(true);
+    teardown(wt);
+  });
+
+  it('(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file', () => {
+    seedCanon();
+    const src = readFileSync(HELPER, 'utf8');
+    const perFile = src.replace(
+      /is_tracked\(\) \{[\s\S]*?\n\}/,
+      'is_tracked() { git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }',
+    );
+    expect(perFile, 'is_tracked() must be present to replace').not.toBe(src);
+    const perFileHelper = installHelper(primaryRepo, perFile, 'link-coordination-per-file.sh');
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-m-neg');
+    expect(gitStarts(perFileHelper, wt)).toBeGreaterThanOrEqual(CANON_FILES);
+    teardown(wt);
+  });
 });
 
 // ── (j) GIT-TRACKED one-off exception skip (real git worktree) ─────────────────
@@ -727,6 +776,45 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
 
     // Gitignored content: correctly symlinked into CANON (helper still does its job)
     expect(lstatSync(state).isSymbolicLink(), 'gitignored state.md must be a symlink').toBe(true);
+  });
+
+  // (j2) is_tracked() reads one `git ls-files` snapshot (2026-10-01). git C-quotes `"`,
+  // `\` and control characters in that output, and a non-ASCII name may differ in Unicode
+  // normalization between disk and index — those names must still be seen as tracked.
+  const ODD_NAMES = ['q"uote.md', 'back\\slash.md', 'café.md'];
+  function trackOddNames(): string[] {
+    const dir = resolve(worktree, '.claude/orchestrator-prompts/u1');
+    for (const n of ODD_NAMES) writeFileSync(resolve(dir, n), `tracked ${n}\n`);
+    execFileSync('git', ['add', '-f', '--', ...ODD_NAMES], { cwd: dir });
+    return readdirSync(dir).filter((n) => !/^(done|stage-4)\.md$/.test(n)).map((n) => resolve(dir, n));
+  }
+
+  it('(j2) PASS: tracked files with quote, backslash and non-ASCII names stay REAL files', () => {
+    const paths = trackOddNames();
+    expect(paths).toHaveLength(ODD_NAMES.length);
+
+    const r = runHelper(helper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+
+    for (const p of paths) {
+      expect(lstatSync(p).isSymbolicLink(), `tracked ${p} must NOT be a symlink`).toBe(false);
+    }
+  });
+
+  it('(j2-neg) PAIRED-NEGATIVE: snapshot-only is_tracked() (no per-file fallback) adopts them', () => {
+    const src = readFileSync(HELPER, 'utf8');
+    const snapshotOnly = src.replace(
+      '"$rel" == "$1" || "$rel" == *[!\\ -~]* || "$rel" == *[\\"\\\\]*',
+      '"$rel" == "$1"',
+    );
+    expect(snapshotOnly, 'the per-file fallback condition must be present to strip').not.toBe(src);
+    const tmpHelper = installHelper(repo, snapshotOnly, 'link-coordination-snapshot-only.sh');
+    const paths = trackOddNames();
+
+    runHelper(tmpHelper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
+
+    const symlinked = paths.filter((p) => lstatSync(p).isSymbolicLink());
+    expect(symlinked.length, 'without the fallback, git-quoted names are wrongly adopted').toBeGreaterThan(0);
   });
 
   it('(j-neg) PAIRED-NEGATIVE: with is_tracked() neutered, stage-4.md IS wrongly symlinked', () => {

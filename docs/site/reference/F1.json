@@ -82,14 +82,14 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals.",
+      "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).",
       "source": {
         "path": ".claude/rules/build-first-reuse-default.md",
         "line": 19
       },
       "extras": {
         "class": "A",
-        "fires": "any capability commit / new-capability proposal.",
+        "fires": "capability commit/proposal; shipped-file removal.",
         "channels": "paths:(7), edit-time inject"
       },
       "example": null
@@ -118,15 +118,15 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement.",
+      "description": "the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer.",
       "source": {
         "path": ".claude/rules/cold-seat-economy.md",
-        "line": 12
+        "line": 17
       },
       "extras": {
         "class": "C",
-        "fires": "re-running a cold seat on already-judged work; resume-vs-fresh choice.",
-        "channels": "skill-embed(2)"
+        "fires": "re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA.",
+        "channels": "skill-embed(3)"
       },
       "example": null
     },
@@ -145,6 +145,24 @@
         "class": "B",
         "fires": "editing `setup.d/**` (companion install manifest/engine).",
         "channels": "paths:(1), edit-time inject"
+      },
+      "example": null
+    },
+    {
+      "name": "coordinator-seat-delegation",
+      "kind": "rule",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.",
+      "source": {
+        "path": ".claude/rules/coordinator-seat-delegation.md",
+        "line": 18
+      },
+      "extras": {
+        "class": "C",
+        "fires": "a coordinator seat about to run the stage pipeline itself.",
+        "channels": "paths:(1)"
       },
       "example": null
     },
@@ -172,7 +190,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 four anti-patterns, §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.",
+      "description": "doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 five anti-patterns + §4.1 supersession clause (premise change amends the declaring artefact), §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.",
       "source": {
         "path": ".claude/rules/doc-authority-hierarchy.md",
         "line": 17
@@ -352,7 +370,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
+      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
       "source": {
         "path": ".claude/rules/parallel-subwave-isolation.md",
         "line": 13
@@ -388,15 +406,15 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "mechanism layer + named anti-pattern catalogue entry for inline-chat verdict-without-evidence pattern; promotion criterion in §6.",
+      "description": "mechanism layer + named anti-pattern catalogue for the inline-chat verdict-without-evidence pattern, fork closure (a fork closes only on an explicit operator choice), the liability-shield pattern, the zero-click dispatch-channel order, and the human-touchpoint justification; promotion criterion in §6.",
       "source": {
         "path": ".claude/rules/recommendation-laziness-discipline.md",
-        "line": 7
+        "line": 8
       },
       "extras": {
-        "class": "C",
-        "fires": "before an inline verdict/recommendation or an ambiguous fork.",
-        "channels": "digest"
+        "class": "B",
+        "fires": "before a verdict, an ambiguous fork, or a dispatch.",
+        "channels": "digest, hook"
       },
       "example": null
     },
@@ -460,7 +478,7 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the lifecycle SEQUENCE only — §1 the four phases, which settled",
+      "description": "the lifecycle SEQUENCE — §1 the four phases, which settled",
       "source": {
         "path": ".claude/rules/seat-lifecycle.md",
         "line": 18

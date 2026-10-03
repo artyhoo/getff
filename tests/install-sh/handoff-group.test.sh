@@ -95,7 +95,8 @@ grep -q 'handoff-gate' <<<"$out" && bad "the unarmed gate still blocked: $(head 
 
 echo "── --refresh"
 printf '# locally changed\n' > "$D/.claude/hooks/precompact-residue.sh"
-( cd "$D" && bash "$REPO_ROOT/install.sh" react-spa --refresh </dev/null ) > "$WORK/refresh.log" 2>&1
+( cd "$D" && bash "$REPO_ROOT/install.sh" react-spa --refresh </dev/null ) > "$WORK/refresh.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 cmp -s "$D/.claude/hooks/precompact-residue.sh" "$REPO_ROOT/.claude/hooks/precompact-residue.sh" \
   && ok "--refresh restores a changed handoff hook on an env consumer" || bad "--refresh left the changed hook: $(tail -3 "$WORK/refresh.log" | tr '\n' '|')"
 

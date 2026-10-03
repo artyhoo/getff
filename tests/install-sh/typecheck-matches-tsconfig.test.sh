@@ -34,7 +34,8 @@ SPA='{"name":"s","version":"0.0.0","type":"module","dependencies":{"react":"^19.
 A=$(proj "$SPA")
 printf '{\n  "files": [],\n  "references": [{ "path": "./tsconfig.app.json" }]\n}\n' > "$A/tsconfig.json"
 printf '{ "compilerOptions": { "jsx": "react-jsx" }, "include": ["src"] }\n' > "$A/tsconfig.app.json"
-( cd "$A" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$A" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(script_of "$A" typecheck)" = "tsc -b" ] && ok "(A) solution tsconfig → typecheck is 'tsc -b'" \
   || bad "(A) typecheck is '$(script_of "$A" typecheck)'"
 grep -q '"files": \[\]' "$A/tsconfig.json" && ok "(A) the project's tsconfig.json is untouched" || bad "(A) tsconfig.json was edited"
@@ -42,21 +43,24 @@ grep -q '"files": \[\]' "$A/tsconfig.json" && ok "(A) the project's tsconfig.jso
 # ── (B) flat tsconfig → tsc --noEmit ────────────────────────────────────────────────────────────
 B=$(proj "$SPA")
 printf '{ "compilerOptions": { "strict": true }, "include": ["src"] }\n' > "$B/tsconfig.json"
-( cd "$B" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$B" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(script_of "$B" typecheck)" = "tsc --noEmit" ] && ok "(B) flat tsconfig → typecheck stays 'tsc --noEmit'" \
   || bad "(B) typecheck is '$(script_of "$B" typecheck)'"
 
 # ── (C) the project's own typecheck is kept ─────────────────────────────────────────────────────
 C=$(proj '{"name":"c","version":"0.0.0","type":"module","scripts":{"typecheck":"vue-tsc --noEmit"},"dependencies":{"react":"^19.0.0"}}')
 printf '{\n  "files": [],\n  "references": [{ "path": "./tsconfig.app.json" }]\n}\n' > "$C/tsconfig.json"
-( cd "$C" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$C" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(script_of "$C" typecheck)" = "vue-tsc --noEmit" ] && ok "(C) the project's own typecheck is kept" \
   || bad "(C) typecheck is '$(script_of "$C" typecheck)'"
 
 # ── (D) the tsconfig getff writes for a React stack compiles React ───────────────────────────────
 for st in react-spa react-next; do
   D=$(proj "$SPA")
-  ( cd "$D" && bash "$INSTALL" "$st" < /dev/null >/dev/null 2>&1 )
+  ( cd "$D" && bash "$INSTALL" "$st" < /dev/null >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
   [ "$(tsopt "$D" jsx)" = "react-jsx" ] && ok "(D) $st: tsconfig.json has jsx react-jsx" || bad "(D) $st: jsx=$(tsopt "$D" jsx)"
   [ "$(tsopt "$D" lib)" = "ES2022,DOM,DOM.Iterable" ] && ok "(D) $st: lib has DOM" || bad "(D) $st: lib=$(tsopt "$D" lib)"
   [ "$(tsopt "$D" moduleResolution)" = "Bundler" ] && [ "$(tsopt "$D" module)" = "ESNext" ] \
@@ -70,7 +74,8 @@ for st in react-spa react-next; do
   [ "$(tsopt "$D" strict)" = "true" ] && ok "(D) $st: the rest of getff's template is kept (strict)" || bad "(D) $st: strict=$(tsopt "$D" strict)"
 done
 T=$(proj '{"name":"t","version":"0.0.0","devDependencies":{"typescript":"~5.9.0"}}')
-( cd "$T" && bash "$INSTALL" ts-server < /dev/null >/dev/null 2>&1 )
+( cd "$T" && bash "$INSTALL" ts-server < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 cmp -s "$REPO_ROOT/packages/core/templates/shared/tsconfig.json" "$T/tsconfig.json" \
   && ok "(D) ts-server: tsconfig.json is the shared template byte-for-byte" || bad "(D) ts-server tsconfig differs from the template"
 

@@ -83,6 +83,252 @@ PROBE_DOCKER_BIN="${PROBE_DOCKER_BIN:-docker}"
 # claim stale is a double dispatch, the cost of calling a dead one live is one operator glance.
 CLAIM_TTL_MIN="${PROBE_CLAIM_TTL_MIN:-120}"
 
+# ══ --late: the reading taken immediately before an outward act ═══════════════
+# The default mode answers «is anyone on this umbrella?» when work STARTS. That is a point
+# reading, and the duplicates recorded after it was codified all happened inside the window it
+# cannot see: a parallel session created and merged the same stage while this one was still
+# building (PR 612 vs 613; PR 1354, an empty-diff twin of 1353, harvested 15 min after 1353
+# merged). 1353/1354 also used DIFFERENT branch names for one stage (the aif task-id suffix), so
+# a `--head <branch>` probe misses it by construction. `--late` is run right before `gh pr
+# create`, harvest, merge, or offering a chip (CLAUDE.md «Pre-dispatch in-flight probe» (f)),
+# and by .claude/hooks/late-inflight-probe.sh.
+#
+#   probe-inflight.sh --late          branch mode — this checkout is about to leave the machine
+#   probe-inflight.sh --late --chip   chip mode   — only PR titles against PROBE_LATE_TERMS
+#
+# Signals (branch mode):
+#   late-slug          SLUG, else derived from the current branch: its last path part, minus a
+#                      trailing -<6 hex> aif task-id suffix (only when the suffix holds a digit —
+#                      `facade` is a word). A Claude Code worktree branch (`claude/<adjective>-
+#                      <name>-<hex>`, `worktree-*`) names no umbrella, so it yields none; <6 chars
+#                      => none. Chip mode never derives one.
+#   late-pr            STRONG — open PRs, and PRs merged within PROBE_LATE_MERGED_HOURS
+#                      (default 72), whose title or head branch contains the slug as a WHOLE token
+#                      (bounded by non-alphanumerics, case-insensitive): `…-s1` never matches the
+#                      sibling stage `…-s1b` or `…-s10`.
+#   late-staging       STRONG — commits on PROBE_BASE_REF (default origin/staging) that
+#                      PROBE_LATE_FROM (default HEAD) lacks, whose subject contains the slug as a
+#                      whole token (after `git fetch`). On a host harvest, HEAD is not the aif
+#                      branch: pass PROBE_LATE_FROM=<the task's dispatch base SHA>.
+#   late-term-pr       WEAK — open/recent-merged PRs whose title shares >= min(2, n) topic words
+#                      with PROBE_LATE_TERMS (a PR or chip title): 4+ chars, plural `s` stripped,
+#                      then stopwords and conventional-commit types (feat, docs, …) dropped.
+#   late-file-overlap  WEAK — open PRs changing a file this checkout changes (vs merge-base).
+# The session's own PR is never its own collision: PROBE_SELF_BRANCH (default: current branch)
+# and PROBE_SELF_PR are excluded from every PR signal.
+#
+# Verdict precedence: LATE-COLLISION (a strong hit — found evidence outranks unasked signals)
+# > PROBE-INCOMPLETE (a question that could not be asked) > LATE-OVERLAP (weak hit only)
+# > LATE-PARTIAL (branch mode with no slug: the strong questions had no subject, the weak ones
+# came back clean — never rendered as CLEAR) > LATE-CLEAR. Weak evidence never reads as a
+# collision: shared files like CLAUDE.md and shared title words are context for a judgment, not
+# proof of a duplicate.
+#
+# Fixture overrides (no gh / git / network): PROBE_LATE_OPEN_PRS (JSON array of
+# {number,state,title,headRefName,files:[{path}]}), PROBE_LATE_MERGED_PRS (JSON array of
+# {number,state,title,headRefName,mergedAt}), PROBE_LATE_STAGING_LOG ("<sha> <subject>" lines of
+# FROM..base, unfiltered), PROBE_LATE_CHANGED_FILES (paths), PROBE_SELF_BRANCH, PROBE_NOW_EPOCH.
+late_probe() {
+  local chip="$1" now base from merged_hours self_branch self_pr slug slug_source slug_re
+  now="${PROBE_NOW_EPOCH:-$(date +%s)}"
+  base="${PROBE_BASE_REF:-origin/staging}"
+  from="${PROBE_LATE_FROM:-HEAD}"
+  merged_hours="${PROBE_LATE_MERGED_HOURS:-72}"
+  [[ "$merged_hours" =~ ^[0-9]+$ ]] || merged_hours=72
+  if [[ -n "${PROBE_SELF_BRANCH+x}" ]]; then
+    self_branch="$PROBE_SELF_BRANCH"
+  else
+    self_branch=$(git branch --show-current 2>/dev/null || true)
+  fi
+  self_pr="${PROBE_SELF_PR:-}"
+
+  if [[ "$chip" == "1" ]]; then
+    slug="${SLUG:-}"
+    slug_source="env"
+    [[ -z "$slug" ]] && slug_source="chip"
+  elif [[ -n "${SLUG:-}" ]]; then
+    slug="$SLUG"
+    slug_source="env"
+  else
+    slug_source="branch"
+    case "$self_branch" in
+      claude/* | worktree-*) slug="" ;;
+      *)
+        slug="${self_branch##*/}"
+        if [[ "$slug" =~ -([0-9a-f]{6})$ ]] && [[ "${BASH_REMATCH[1]}" =~ [0-9] ]]; then
+          slug="${slug%-*}"
+        fi
+        [[ ${#slug} -lt 6 ]] && slug=""
+        ;;
+    esac
+  fi
+  echo "SIGNAL late-slug ${slug:-none} source=${slug_source}"
+  # Whole-token pattern, shared by jq (Oniguruma) and grep -E: every char outside [a-z0-9_-]
+  # is escaped, so a `.` in a slug stays literal.
+  slug_re=""
+  if [[ -n "$slug" ]]; then
+    slug_re="(^|[^a-z0-9])$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/\\&/g')(\$|[^a-z0-9])"
+  fi
+
+  # ── PR lists (open with files; merged, recent) ──
+  local open_json merged_json open_status="ok" pr_status="ok"
+  if [[ -n "${PROBE_LATE_OPEN_PRS+x}" ]]; then
+    open_json="$PROBE_LATE_OPEN_PRS"
+  elif command -v gh &>/dev/null; then
+    open_json=$(gh pr list --state open --limit 100 --json number,state,title,headRefName,files 2>/dev/null || echo 'unavailable')
+  else
+    open_json='unavailable'
+  fi
+  if [[ -n "${PROBE_LATE_MERGED_PRS+x}" ]]; then
+    merged_json="$PROBE_LATE_MERGED_PRS"
+  elif command -v gh &>/dev/null; then
+    merged_json=$(gh pr list --state merged --limit 60 --json number,state,title,headRefName,mergedAt 2>/dev/null || echo 'unavailable')
+  else
+    merged_json='unavailable'
+  fi
+  printf '%s' "$open_json" | jq -e 'type == "array"' &>/dev/null || { open_json='[]'; open_status="unavailable"; pr_status="unavailable"; }
+  printf '%s' "$merged_json" | jq -e 'type == "array"' &>/dev/null || { merged_json='[]'; pr_status="unavailable"; }
+  # An unparseable clock would filter every merged PR out silently — that is an unasked question.
+  [[ "$now" =~ ^[0-9]+$ ]] || { now=0; pr_status="unavailable"; }
+
+  # One candidate list: open PRs + merged PRs inside the window, minus this session's own PR.
+  # A jq failure here is an unasked question too, never an empty answer.
+  local candidates
+  if ! candidates=$(printf '%s\n%s' "$open_json" "$merged_json" | jq -cs \
+    --arg self "$self_branch" --arg selfpr "$self_pr" --arg now "$now" --arg hours "$merged_hours" '
+    (.[0] // []) as $open | (.[1] // []) as $merged
+    | ($now | tonumber) as $n | ($hours | tonumber) as $h
+    | [ $open[], ($merged[] | select(
+          (try ((.mergedAt // "") | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) catch null) as $m
+          | $m != null and ($n - $m) <= ($h * 3600))) ]
+    | map(select((.headRefName // "") != $self or $self == ""))
+    | map(select(($selfpr == "") or ((.number | tostring) != $selfpr)))' 2>/dev/null); then
+    candidates='[]'
+    pr_status="unavailable"
+  fi
+
+  # ── STRONG: slug in PR title/head ──
+  local slug_hits="" slug_count=0 slug_open=0 slug_merged=0 slug_note=""
+  if [[ -n "$slug_re" ]]; then
+    if ! slug_hits=$(printf '%s' "$candidates" | jq -r --arg re "$slug_re" '
+      .[] | select(((.title // "") | test($re; "i")) or ((.headRefName // "") | test($re; "i")))
+      | "#\(.number) \(.state) \(.headRefName) \((.title // "") | gsub("[\r\n]+"; " "))"' 2>/dev/null); then
+      slug_hits=""
+      pr_status="unavailable"
+    fi
+    slug_count=$(printf '%s' "$slug_hits" | grep -c . || true)
+    slug_open=$(printf '%s' "$slug_hits" | awk '$2 == "OPEN"' | grep -c . || true)
+    slug_merged=$((slug_count - slug_open))
+  else
+    slug_note=" reason=no-slug"
+  fi
+  echo "SIGNAL late-pr ${slug_count} open=${slug_open} merged=${slug_merged} status=${pr_status}${slug_note}"
+  [[ "$slug_count" -gt 0 ]] && { printf '%s\n' "$slug_hits" | grep . | sed 's/^/  late-pr: /' || true; }
+
+  # ── STRONG: slug in staging commits FROM lacks ──
+  local staging_status="ok" staging_reason="" staging_log="" staging_hits="" staging_count=0
+  if [[ "$chip" == "1" ]]; then
+    staging_status="skipped"; staging_reason="chip"
+  elif [[ -z "$slug_re" ]]; then
+    staging_status="skipped"; staging_reason="no-slug"
+  elif [[ -n "${PROBE_LATE_STAGING_LOG+x}" ]]; then
+    staging_log="$PROBE_LATE_STAGING_LOG"
+  elif git fetch -q origin "${base#origin/}" 2>/dev/null \
+    && staging_log=$(git log --format='%h %s' "${from}..${base}" 2>/dev/null); then
+    :
+  else
+    staging_status="unavailable"; staging_reason="fetch-or-log-failed"
+  fi
+  if [[ "$staging_status" == "ok" ]]; then
+    staging_hits=$(printf '%s\n' "$staging_log" | grep -iE -- "$slug_re" || true)
+    staging_count=$(printf '%s' "$staging_hits" | grep -c . || true)
+    staging_reason=""
+  fi
+  if [[ "$staging_status" == "ok" ]]; then
+    echo "SIGNAL late-staging ${staging_count} status=ok from=${from}"
+  else
+    echo "SIGNAL late-staging ${staging_count} status=${staging_status} reason=${staging_reason}"
+  fi
+  [[ "$staging_count" -gt 0 ]] && { printf '%s\n' "$staging_hits" | grep . | sed 's/^/  late-staging: /' || true; }
+
+  # ── WEAK: shared title words ──
+  local term_hits="" term_count=0 term_status="ok"
+  if [[ -z "${PROBE_LATE_TERMS:-}" ]]; then
+    term_status="skipped"
+  else
+    if ! term_hits=$(printf '%s' "$candidates" | jq -r --arg terms "$PROBE_LATE_TERMS" '
+      def words: ascii_downcase | [scan("[a-z0-9]+")] | map(select(length >= 4))
+        | map(if length > 4 and endswith("s") then .[:-1] else . end)
+        | map(select(. as $w | ["with","from","into","that","this","when","only","than","then",
+            "them","they","what","which","make","made","does","done","stop","fixe","also","more",
+            "before","after","every","each","same","over","under","feat","docs","chore","test",
+            "perf","build","style","revert","refactor"] | index($w) | not))
+        | unique;
+      ($terms | words) as $t | ([($t | length), 2] | min) as $need
+      | .[] | ((.title // "") | words) as $w
+      | ([$t[] | select(. as $x | $w | index($x))] | length) as $hits
+      | select($need > 0 and $hits >= $need)
+      | "#\(.number) \(.state) hits=\($hits) \((.title // "") | gsub("[\r\n]+"; " "))"' 2>/dev/null); then
+      term_hits=""
+      term_status="unavailable"
+    fi
+    term_count=$(printf '%s' "$term_hits" | grep -c . || true)
+    [[ "$pr_status" != "ok" ]] && term_status="unavailable"
+  fi
+  echo "SIGNAL late-term-pr ${term_count} status=${term_status}"
+  [[ "$term_count" -gt 0 ]] && { printf '%s\n' "$term_hits" | grep . | sed 's/^/  late-term-pr: /' || true; }
+
+  # ── WEAK: open PRs changing the same files (needs only the open list) ──
+  local changed="" overlap_hits="" overlap_count=0 overlap_status="ok" overlap_reason=""
+  if [[ "$chip" == "1" ]]; then
+    overlap_status="skipped"; overlap_reason="chip"
+  elif [[ -n "${PROBE_LATE_CHANGED_FILES+x}" ]]; then
+    changed="$PROBE_LATE_CHANGED_FILES"
+  else
+    local mb
+    if mb=$(git merge-base HEAD "$base" 2>/dev/null); then
+      changed=$(git diff --name-only "$mb" 2>/dev/null || true)
+    else
+      overlap_status="unavailable"; overlap_reason="no-merge-base"
+    fi
+  fi
+  if [[ "$overlap_status" == "ok" ]]; then
+    [[ "$open_status" != "ok" ]] && { overlap_status="unavailable"; overlap_reason="open-pr-list"; }
+    if ! overlap_hits=$(printf '%s' "$open_json" | jq -r --arg changed "$changed" --arg self "$self_branch" --arg selfpr "$self_pr" '
+      ($changed | split("\n") | map(select(length > 0))) as $mine
+      | .[] | select((.headRefName // "") != $self or $self == "")
+      | select(($selfpr == "") or ((.number | tostring) != $selfpr))
+      | ([(.files // [])[] | .path] | map(select(. as $p | $mine | index($p)))) as $shared
+      | select(($shared | length) > 0)
+      | "#\(.number) \(.headRefName) files=\($shared[0:5] | join(","))\(if ($shared | length) > 5 then ",+\(($shared | length) - 5)" else "" end)"' 2>/dev/null); then
+      overlap_hits=""
+      overlap_status="unavailable"; overlap_reason="jq"
+    fi
+    overlap_count=$(printf '%s' "$overlap_hits" | grep -c . || true)
+  fi
+  echo "SIGNAL late-file-overlap ${overlap_count} status=${overlap_status}${overlap_reason:+ reason=${overlap_reason}}"
+  [[ "$overlap_count" -gt 0 ]] && { printf '%s\n' "$overlap_hits" | grep . | sed 's/^/  late-file-overlap: /' || true; }
+
+  if [[ "$slug_count" -gt 0 || "$staging_count" -gt 0 ]]; then
+    echo "VERDICT: LATE-COLLISION"
+  elif [[ "$pr_status" != "ok" || "$staging_status" == "unavailable" || "$overlap_status" == "unavailable" || "$term_status" == "unavailable" ]]; then
+    echo "VERDICT: PROBE-INCOMPLETE"
+  elif [[ "$term_count" -gt 0 || "$overlap_count" -gt 0 ]]; then
+    echo "VERDICT: LATE-OVERLAP"
+  elif [[ "$chip" != "1" && -z "$slug" ]]; then
+    echo "VERDICT: LATE-PARTIAL"
+  else
+    echo "VERDICT: LATE-CLEAR"
+  fi
+}
+
+if [[ "${1:-}" == "--late" ]]; then
+  late_chip=0
+  [[ "${2:-}" == "--chip" ]] && late_chip=1
+  late_probe "$late_chip"
+  exit 0
+fi
+
 if [[ -z "${SLUG:-}" ]]; then
   echo "SIGNAL error SLUG-not-set"
   echo "VERDICT: PROBE-INCOMPLETE"

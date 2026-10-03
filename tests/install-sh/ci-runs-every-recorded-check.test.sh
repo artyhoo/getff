@@ -52,8 +52,11 @@ off_record() {
 for i in "${!EXEMPT[@]}"; do echo "▶ exempt: ${EXEMPT[$i]} — ${EXEMPT_WHY[$i]}"; done
 for st in ts-server react-next react-spa react-native; do
   d=$(mktemp -d); TMPS+=("$d")
-  ( cd "$d" && git init -q && printf '{"name":"x","version":"0.0.0"}\n' > package.json \
-      && bash "$REPO_ROOT/install.sh" "$st" --force < /dev/null > "$d/.install.log" 2>&1 )
+  if ! ( cd "$d" && git init -q && printf '{"name":"x","version":"0.0.0"}\n' > package.json \
+      && bash "$REPO_ROOT/install.sh" "$st" --force < /dev/null > "$d/.install.log" 2>&1 ); then
+    bad "(0) $st: install.sh exited non-zero (tail: $(tail -3 "$d/.install.log" | tr '\n' '|'))"
+    continue
+  fi
   rec="$d/.ai-factory/tool-decisions.md" wf="$d/.github/workflows/ci.yml"
   n=$(awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$rec" 2>/dev/null | grep -c '^- ')
   if [ ! -f "$wf" ] || [ "${n:-0}" -lt 5 ]; then

@@ -74,6 +74,7 @@ hook	session-start	ships	no	yes	plugin bootstrap: announces the plugin skills at
 hook	glossary-inject	internal	no	no	internal, because it reads CONTEXT.md, getff's own glossary, which no install ships; registered nowhere
 hook	adopt-orchestrator-prompts	internal	no	no	internal, because it adopts files into getff's own .claude/orchestrator-prompts store; registered nowhere
 hook	worktree-setup	internal	no	no	internal, because WorktreeCreate is not registered even in getff (CLAUDE.md), and its output names getff paths
+hook	seal-primary-checkout	internal	no	no	internal, because it is an operator-repo harness hook awaiting maintainer wiring (SSOT #300), not part of the plugin payload
 rule	00-rule-index	internal	no	no	internal, because it is the generated index of getff's own rule set (scripts/render-rule-index.mjs)
 rule	ai-laziness-digest	internal	no	no	internal, because it is getff's always-on digest of ai-laziness-traps, which is what ships; principle 35 keeps the two in sync inside getff only
 rule	ai-laziness-traps	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
@@ -104,6 +105,7 @@ rule	seat-lifecycle	ships	no	no	pending: ships with the trigger-build rule corpu
 rule	skill-description-quality	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
 rule	source-before-shape	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
 rule	zcode-parity-doctrine	internal	no	no	internal, because it governs getff's own hook twins and harness-config renderer
+rule	coordinator-seat-delegation	internal	no	no	internal, because .claude/rules/ is not shipped — the consumer-facing prose is the orchestrator skill; the card is operator-repo only
 agent	aif-init	ships	core	no	-
 agent	capability-reuse-auditor	ships	core	no	-
 agent	claims-conformance-auditor	ships	core	no	-

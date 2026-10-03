@@ -313,12 +313,7 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "SessionStart:compact hook — re-injects the model-authored handoff after compaction",
       "source": {
@@ -547,12 +542,7 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "PreCompact hook — writes the session-residue note before compaction",
       "source": {
@@ -594,6 +584,31 @@
         "delivery": [
           "@cc-only-rationale",
           "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "seal-primary-checkout",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PreToolUse deny gate — seal the PRIMARY checkout's protected paths",
+      "source": {
+        "path": ".claude/hooks/seal-primary-checkout.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale"
         ]
       },
       "example": null

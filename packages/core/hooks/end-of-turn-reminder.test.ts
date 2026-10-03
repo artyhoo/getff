@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1579-1610 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1770-1810 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -727,6 +727,217 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.status).toBe(0);
     expect(r.stderr).not.toMatch(/unbound variable/);
     expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Section-evidence arm of the already-recapped guard (2026-10-01 recap-loop
+  // incident, desktop session e1ee5b76, AIF_HOOK_LANG=ru): the model answered
+  // the recap block with the full five-section shape but a PARAPHRASED heading —
+  // a bare `🟢` line, no "## 🟢 Простыми словами" literal — so the exact-literal
+  // guard above never recognized the turn as recapped and every fresh turn
+  // re-blocked with the same instruction (four+ near-identical recap blocks; a
+  // turn carrying all sections + a fork card was STILL blocked). The fix: a turn
+  // whose final text carries the demand's full well-formed section set — the
+  // same required sections _eot_recap_defects validates — IS recap evidence,
+  // marker or not. Prose-only alignment (demanding the heading verbatim in the
+  // block reason) was considered and rejected: the recap contract already
+  // interpolates the literal marker in its first line (lang/ru.sh + lang/en.sh)
+  // and the incident drifted anyway — detection may not rest on the model's
+  // prose compliance (attention-is-not-a-mechanism.md §1).
+  // ---------------------------------------------------------------------------
+
+  /** The incident's final-text shape: long markdown answer + a recap block whose
+   *  heading lost the marker literal. >500 chars + markdown-dense, so the PRE-fix
+   *  hook reaches Branch A and re-blocks — the RED half of the paired negative. */
+  function driftRecapText(): string {
+    return [
+      longMarkdownText(),
+      '',
+      '🟢',
+      '',
+      '1. **Где мы.** Чинили Stop-хук: пересказ требовался заново на каждом свежем ходе сессии.',
+      '2. **Что изменилось.** Guard признавал только точный литерал заголовка и не видел секционный набор рекапа.',
+      '3. **Развилка.** Развилка была одна: требовать заголовок дословно или принимать секционный набор как улику; выбрано второе, иначе петля возвращается при следующем дрейфе заголовка.',
+      '4. **В чём не уверен.** Формат секций у модели может дрейфовать и дальше; предикат проверяет набор, а не заголовок.',
+      '5. **Дальше.**',
+      '   Я: вливаю фикс и слежу за повторами петли на живых сессиях.',
+      '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+    ].join('\n');
+  }
+
+  /** Same shape under the en pack — the predicate must be pack-agnostic
+   *  (labels + the D-B closing tokens both come from the active pack). */
+  function enDriftText(): string {
+    return [
+      longMarkdownText(),
+      '',
+      '🟢',
+      '',
+      '1. **Where we are.** Fixing the Stop hook: the recap was demanded again on every fresh turn of the session.',
+      '2. **What changed.** The guard recognized only the exact heading literal and never saw the section set.',
+      '3. **Fork.** One fork: demand the heading verbatim or accept the section set as evidence; the second won, otherwise the loop returns on the next heading drift.',
+      '4. **What I am unsure about.** The section format may drift further; the predicate checks the set, not the heading.',
+      '5. **Next.**',
+      '   Me: merging the fix and watching for loop repeats.',
+      '   From you: nothing (ran the whole hook suite, nothing red).',
+    ].join('\n');
+  }
+
+  it('section-evidence arm: the 2026-10-01 incident shape — full sections, paraphrased heading → exit 0 silent', () => {
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(driftRecapText()),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-ru' });
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'a turn carrying the full well-formed section set IS recap evidence even without the marker literal — re-blocking it is the 2026-10-01 loop',
+    ).toBe('');
+  });
+
+  it('en pack: full section set with a well-formed "From you: nothing (…)" closing → exit 0 silent', () => {
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('go'),
+      assistantText(enDriftText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-en' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'the section-evidence predicate reads the active pack, not a hard-coded language').toBe('');
+  });
+
+  it('section-evidence arm does NOT over-fire: section labels mentioned in prose without the closing grammar → still blocks', () => {
+    // Paired negative to the incident test. Every section label appears in the
+    // text, so a label-only predicate would suppress — but the final line is
+    // ordinary prose, not the D-B closing grammar, and a turn without it is not
+    // a recap. Pre-fix this blocks too (Branch A); it must KEEP blocking.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        longMarkdownText() +
+          '\n\n**Где мы.** упоминается. **Что изменилось.** упоминается. **Дальше.** тоже в прозе.\n\nИтог: всё описано.',
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-prose' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'prose mentions of the labels are not a recap — Branch A must still fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: a banned «От тебя: проверь…» closing is not recap evidence → still blocks', () => {
+    // The D-B banned-verb half of _eot_recap_defects: a full section set whose
+    // closing line offloads the operator's work is NOT a well-formed recap.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        driftRecapText().replace(
+          '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+          '   От тебя: проверь, что нигде не сломалось.',
+        ),
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-banned' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a banned closing line defeats the section evidence — the recap demand must fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: a malformed «ничего» without the verification trace is not recap evidence → still blocks', () => {
+    // D-B: "nothing" needs its parens. Same sections, closing value «ничего.» →
+    // malformed → not evidence → the demand must fire (matches what the gate
+    // would demand of the marker-present twin of this turn).
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(
+        driftRecapText().replace(
+          '   От тебя: ничего (прогнал весь сьют хука, красных нет).',
+          '   От тебя: ничего.',
+        ),
+      ),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-malformed' });
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a malformed closing value defeats the section evidence — the recap demand must fire').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: asked=true via the closing "decide:" value requires the Fork section → still blocks without it', () => {
+    // en pack: "decide:" in the closing value trips the trailing-fork pattern, so
+    // the demanded section set includes **Fork.** (the same conditionality
+    // _eot_recap_defects applies to the marker-present twin).
+    const forkless = [
+      '**Where we are.** Fixed the recap guard.',
+      '**Next.**',
+      '   Me: merging.',
+      '   From you: decide: accept the section set or demand the heading verbatim',
+    ].join('\n');
+    const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(forkless)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-forkless' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'an asked turn without the Fork section is not recap evidence').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('section-evidence arm: the same asked turn WITH the Fork section → exit 0 silent', () => {
+    // Paired twin of the forkless negative — flips only the missing section.
+    const withFork = [
+      '**Where we are.** Fixed the recap guard.',
+      '**Fork.** Accept the section set as recap evidence, or demand the heading verbatim.',
+      '**Next.**',
+      '   Me: merging.',
+      '   From you: decide: accept the section set or demand the heading verbatim',
+    ].join('\n');
+    const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(withFork)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-fork' },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'every demanded section present + well-formed closing = recap evidence').toBe('');
+  });
+
+  it('section-evidence arm under the D-A gate: AIF_RECAP_GATE=1 must not re-block a well-formed section-evidence turn', () => {
+    // The gate's checker reads the marker-glued slice (_eot_recap_block), which
+    // for a marker-less text is the WHOLE turn — running the defect gate there
+    // would cap-block the very turn the section arm just recognized (the whole
+    // point of this fix). The arm must exit ahead of the gate.
+    const tr = writeTranscript([
+      aiTitle('Recap loop'),
+      userTurn('первое задание'),
+      assistantText(driftRecapText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-gated' },
+      { AIF_RECAP_GATE: '1' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'the section arm precedes the defect gate; no marker, no slice, no cap defect').toBe('');
+  });
+
+  it('section-evidence arm under ZCode: a drift recap (sections, no marker) is silent — no thin-recap re-block', () => {
+    // ZCode re-stops carry stop_hook_active=false, so the drift loop there is the
+    // worst case. The hoisted guard region must absorb the section-evidence turn
+    // before the ZCode dense branch sees it (#1706 shadowing class).
+    const tr = writeTranscript([
+      { message: { content: [{ type: 'text', text: enDriftText() }], role: 'assistant' } },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'se-zcode' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a section-evidence turn must terminate silently on ZCode, not re-block').toBe('');
   });
 
   // Task 1.4 (plain-words-recap-v2 slice 1): the branch payloads (Branch A/B/C) now teach
@@ -1520,7 +1731,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1310 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1497 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -3147,13 +3358,85 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const ra = spawnCase(a);
     const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
     expect(pa.decision).toBe('block');
-    expect(pa.reason, 'condense, do not append').toContain('200-line cap');
+    expect(pa.reason, 'condense, do not append').toContain('80-line cap');
     // (b) ## Next action present but blank → named as missing/empty.
     const b = buildCase(goldenCase('f14b-armed-blank-section'), true);
     const rb = spawnCase(b);
     const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
     expect(pb.decision).toBe('block');
     expect(pb.reason, 'a present-but-empty section is named').toContain('## Next action');
+  });
+
+  // ── Fixture 21 (D40) — the handoff is a THIN INDEX (seat-lifecycle.md §1 phase 3): a
+  // «task → topic file» table with at least one `.md` row, state kept in the topic files.
+  // A monolithic handoff with all five sections present used to pass; it now blocks. Each
+  // case starts from f2 (the valid, indexed file) and removes exactly one property, so the
+  // only variable between the allow and the block is the index table itself.
+  const withContent = (name: string, edit: (s: string) => string) => {
+    const base = goldenCase(name);
+    return { ...base, res: { mode: 'content', content: edit(base.res!.content!) } };
+  };
+  const INDEX_ROWS = '| Task in front of you | Open only |\n|---|---|\n| gate fixture state | `topic-fixture.md` |\n';
+
+  it('fixture 21a (D40): five sections present, NO index table → block naming the index (en + ru)', () => {
+    const c = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
+    expect(c.res.content, 'the table was actually removed').not.toContain('|---|');
+    for (const [lang, word] of [['en', 'index table'], ['ru', 'таблиц']] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, `${lang}: a monolithic handoff blocks`).toBe('block');
+      expect(parsed.reason, `${lang}: the reason names the missing index`).toContain(word);
+      expect(parsed.reason, `${lang}: the escape grammar is still quoted`).toContain('mechanical-tail:');
+    }
+  });
+
+  it('fixture 21b (D40): a table whose rows name no .md topic file is not an index → block', () => {
+    const c = withContent('f2-armed-valid-allow', (s) => s.replace('`topic-fixture.md`', 'see the board'));
+    const r = spawnCase(buildCase(c, true));
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('index table');
+  });
+
+  it('fixture 21c (D40, paired positive): the same file WITH its index row → allow', () => {
+    const r = spawnCase(buildCase(goldenCase('f2-armed-valid-allow'), true));
+    expect(r.stdout, 'an indexed five-section handoff is allowed').toBe('');
+  });
+
+  it('fixture 21e (D40): GFM shapes — short separator and no leading pipe allow; a table inside a code fence blocks', () => {
+    const shapes: Array<[string, string, 'allow' | 'block']> = [
+      ['short separator', '| Task | Open only |\n|-|-|\n| gate fixture state | `topic-fixture.md` |\n', 'allow'],
+      ['no leading pipe', 'Task | Open only\n--- | ---\ngate fixture state | `topic-fixture.md`\n', 'allow'],
+      ['CRLF table', '| Task | Open only |\r\n|:--|--:|\r\n| gate fixture state | `topic-fixture.md` |\r\n', 'allow'],
+      ['fenced table', '```\n' + INDEX_ROWS + '```\n', 'block'],
+    ];
+    for (const [label, rows, want] of shapes) {
+      const r = spawnCase(buildCase(withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, rows)), true));
+      if (want === 'allow') expect(r.stdout, label).toBe('');
+      else expect((JSON.parse(r.stdout) as { reason: string }).reason, label).toContain('index table');
+    }
+  });
+
+  it('fixture 21f (D40): the index awk uses no interval expression (old mawk ignores `{n,}`)', () => {
+    const src = readFileSync(resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh'), 'utf8');
+    // The awk PROGRAM only (its comments above may name the forbidden form).
+    const start = src.indexOf("! awk '", src.indexOf('# D40 — the handoff is a THIN INDEX'));
+    const end = src.indexOf(`' "$gate_handoff_file"`, start);
+    expect(start > 0 && end > start, 'the D40 awk program is located').toBe(true);
+    const block = src.slice(start, end);
+    expect(block, 'the located program is the index check').toContain('.md');
+    expect(block, 'mawk 1.3.4 20200120 silently fails on {n,}').not.toMatch(/[^$]\{[0-9]+,?[0-9]*\}/);
+  });
+
+  it('fixture 21d (D40): the ≥20-char escape clears the index block; a short one does not', () => {
+    const noIndex = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
+    const ok = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: regenerating snapshots, CI guards them` }, true));
+    expect(ok.stdout, 'a valid escape allows').toBe('');
+    const short = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: done` }, true));
+    expect((JSON.parse(short.stdout) as { decision: string }).decision, 'a short rationale is no escape').toBe('block');
   });
 
   it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', () => {
@@ -3313,6 +3596,10 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
 
   const VALID_HANDOFF = [
     '# Handoff',
+    '',
+    '| Task in front of you | Open only |',
+    '|---|---|',
+    '| twin state | `twin-topic.md` |',
     '',
     '## Decisions and why',
     'Kept the inline fallback complete.',
@@ -3926,5 +4213,218 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
       hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder'),
     });
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
+  });
+});
+
+// Dispatch-channel arm (recommendation-laziness-discipline.md §3 «zero-click dispatch first»):
+// a turn that emits a spawn_task chip for a `*/kickoff.md` WITHOUT the `<!-- bridge: auto -->`
+// first line, while RUNTIME_BRIDGE_MODE is set and the bridge answers /health, converted a
+// zero-click handoff into a human click (incident 2026-09-08). Error-with-escape, per
+// attention-is-not-a-mechanism.md §1. The bridge liveness probe reads `<url>/health` through
+// curl, so a `file://<dir>` base with a `health` file is a live bridge (withTasks precedent).
+describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dispatch was available)', { timeout: SLOW_SHELL_MS }, () => {
+  const TAG = '[dispatch-channel]';
+  const AUTO = '<!-- bridge: auto -->';
+
+  function spawnUse(id: string, prompt: string) {
+    return {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'tool_use', id, name: 'mcp__ccd_session__spawn_task', input: { title: 'Run it', prompt } }],
+      },
+    };
+  }
+  function toolResult(id: string) {
+    return { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'ok' }] } };
+  }
+  const humanPrompt = (text: string) => ({ type: 'user', origin: { kind: 'human' }, message: { content: text } });
+  const notification = () => ({
+    type: 'user',
+    origin: { kind: 'task-notification' },
+    message: { content: '<task-notification>\n<task-id>x</task-id>\n</task-notification>' },
+  });
+  const metaSkill = () => ({
+    type: 'user',
+    isMeta: true,
+    message: { content: [{ type: 'text', text: 'Base directory for this skill: /x' }] },
+  });
+
+  type Opts = {
+    kickoffRel?: string; // kickoff path relative to the project dir
+    firstLine?: string | null; // null = the kickoff file does not exist
+    kickoffIsDir?: boolean;
+    mode?: string | null; // null = RUNTIME_BRIDGE_MODE unset
+    healthy?: boolean; // the bridge answers /health (default true)
+    finalText?: string | null; // null = tool-only turn
+    prompt?: (abs: string, rel: string) => string;
+    // Records between the chip and the final text, and before the chip.
+    between?: Record<string, unknown>[];
+    before?: Record<string, unknown>[];
+    priorTurn?: boolean; // the chip sits in the PREVIOUS turn, before the latest operator prompt
+    nextPrompt?: Record<string, unknown>; // the record that opens the next turn when priorTurn
+    chipId?: string;
+    lang?: 'en' | 'ru';
+    tmp?: string;
+    session?: string;
+    hook?: string;
+  };
+
+  function chipRun(opts: Opts = {}): { status: number; stdout: string; stderr: string } {
+    const tmp = opts.tmp ?? mkdtempSync(join(tmpdir(), 'eot-chip-'));
+    if (!opts.tmp) tmpDirs.push(tmp);
+    const proj = join(tmp, 'proj');
+    const rel = opts.kickoffRel ?? '.claude/orchestrator-prompts/demo/kickoff.md';
+    const abs = join(proj, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    const firstLine = opts.firstLine === undefined ? '# Demo kickoff' : opts.firstLine;
+    if (opts.kickoffIsDir) mkdirSync(abs, { recursive: true });
+    else if (firstLine !== null) writeFileSync(abs, `${firstLine}\n\nbody\n`, 'utf8');
+    const bridge = mkdtempSync(join(tmpdir(), 'eot-chip-bridge-'));
+    tmpDirs.push(bridge);
+    if (opts.healthy !== false) writeFileSync(join(bridge, 'health'), '{"status":"ok"}', 'utf8');
+    const prompt = (opts.prompt ?? ((a) => `Isolation first. cwd = repo root. Read and execute ${a}`))(abs, rel);
+    const id = opts.chipId ?? 'toolu_chip1';
+    const chip = [spawnUse(id, prompt), toolResult(id)];
+    const final = opts.finalText === null ? [] : [assistantText(opts.finalText ?? 'The next round is ready; chip above.')];
+    const head = [aiTitle('Chip'), userTurn('plan it'), ...(opts.before ?? [])];
+    const lines = opts.priorTurn
+      ? [...head, ...chip, assistantText('done'), opts.nextPrompt ?? userTurn('thanks, what next?'), ...final]
+      : [...head, ...chip, ...(opts.between ?? []), ...final];
+    const tr = writeTranscript(lines);
+    const stdin = { transcript_path: tr, stop_hook_active: false, session_id: opts.session ?? 'chip', cwd: proj };
+    const env: Record<string, string> = {
+      AIF_HOOK_LANG: opts.lang ?? 'en',
+      AIF_RECAP_GATE: '',
+      TMPDIR: tmp,
+      RUNTIME_BRIDGE_MODE: opts.mode === undefined ? 'aif-handoff' : (opts.mode ?? ''),
+      RUNTIME_BRIDGE_AIF_URL: `file://${bridge}`,
+    };
+    const r = spawnSync('bash', [opts.hook ?? HOOK], {
+      input: JSON.stringify(stdin),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'cli', AIF_AUTONOMOUS: '', ...env },
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+  const reasonOf = (stdout: string): string =>
+    stdout.trim() ? ((JSON.parse(stdout) as { reason?: string }).reason ?? '') : '';
+  const fires = (o: Opts = {}) => reasonOf(chipRun(o).stdout).includes(TAG);
+
+  it.skipIf(!JQ)('fires: bridge up, chip for a kickoff.md without the auto marker', () => {
+    const r = chipRun();
+    expect(r.status).toBe(0);
+    const reason = reasonOf(r.stdout);
+    expect(reason).toContain(TAG);
+    expect(reason).toContain('demo/kickoff.md');
+    expect(reason).toContain(AUTO);
+    expect(reason).toContain('chip-over-bridge:');
+    // The gate/timing question comes BEFORE the remedy (a silent dispatch would bake in a choice).
+    expect(reason.indexOf('First decide')).toBeLessThan(reason.indexOf('dismiss_task'));
+  });
+
+  it.skipIf(!JQ)('paired negative: the same chip for a kickoff that carries the auto marker is silent', () => {
+    expect(fires({ firstLine: AUTO })).toBe(false);
+  });
+
+  // The write-time dispatcher only dispatches */kickoff.md and skips *-meta-launch/kickoff.md
+  // (runtime-bridge-dispatch.sh case filter): telling the model to mark any other file would
+  // dispatch nothing and lose the work silently.
+  it.skipIf(!JQ)('a stage kickoff (kickoff-s2.md) is not checked — the marker would not dispatch it', () => {
+    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo/kickoff-s2.md' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a *-meta-launch/kickoff.md (a /pipeline dispatch record) is not checked', () => {
+    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo-meta-launch/kickoff.md' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a kickoff named by a RELATIVE path resolves against the stdin cwd', () => {
+    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}` })).toBe(true);
+    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}`, firstLine: AUTO })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('a URL ending in kickoff.md is not a local kickoff', () => {
+    expect(fires({ prompt: () => 'See https://github.com/o/r/blob/staging/x/kickoff.md for context.' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE is unset (no bridge — the chip is the only channel)', () => {
+    expect(fires({ mode: null })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE=manual or amux (the resolver uses the manual backend)', () => {
+    expect(fires({ mode: 'manual' })).toBe(false);
+    expect(fires({ mode: 'amux' })).toBe(false);
+    expect(fires({ mode: 'auto' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('silent when the bridge does not answer /health (the resolver would fall back to manual)', () => {
+    expect(fires({ healthy: false })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('escape: a chip-over-bridge rationale of 20+ chars silences the arm', () => {
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: stage 2 is gated on the unmerged stage 1 PR' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('escape too short, or the template placeholder quoted verbatim, does not silence', () => {
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: later' })).toBe(true);
+    // The ru placeholder is 24 characters — long enough to pass a bare length check.
+    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: <почему, от 20 символов>' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('escape written EARLIER in the turn counts even when the turn ends on the chip', () => {
+    const early = assistantText('chip-over-bridge: the operator wants to start this round tomorrow');
+    expect(fires({ before: [early], finalText: null })).toBe(false);
+    expect(fires({ before: [assistantText('Planning the next round.')], finalText: null })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('a chip from a PREVIOUS turn is not re-flagged', () => {
+    expect(fires({ priorTurn: true })).toBe(false);
+    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('go on') })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('an operator prompt that mentions tool_result still opens a new turn', () => {
+    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('why did the tool_result come back empty?') })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('non-human user records after the chip do not end the turn (skill body, task notification)', () => {
+    expect(fires({ between: [metaSkill()] })).toBe(true);
+    expect(fires({ between: [notification()] })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('a chip that names no kickoff (e.g. an out-of-scope cleanup) is left to judgment', () => {
+    expect(fires({ prompt: () => 'Remove the dead helper in scripts/foo.sh; it has no callers.' })).toBe(false);
+  });
+
+  it.skipIf(!JQ)('fail-closed: a kickoff.md that cannot be read still fires, and a directory does not crash the hook', () => {
+    const missing = chipRun({ firstLine: null });
+    expect(reasonOf(missing.stdout)).toContain('(unreadable)');
+    const dir = chipRun({ kickoffIsDir: true });
+    expect(dir.status).toBe(0);
+    expect(reasonOf(dir.stdout)).toContain('(unreadable)');
+  });
+
+  it.skipIf(!JQ)('the line reaches every emit site: tool-only, long answer, question, recap-marked', () => {
+    expect(fires({ finalText: null })).toBe(true);
+    expect(fires({ finalText: longMarkdownText() })).toBe(true);
+    expect(fires({ finalText: 'Ready. Should I also run the probes first?' })).toBe(true);
+    const recap = chipRun({ lang: "ru", finalText: "## 🟢 Простыми словами\nГотово, чип выше." });
+    expect(reasonOf(recap.stdout)).toContain(TAG);
+  });
+
+  it.skipIf(!JQ)('ru pack carries the arm', () => {
+    const reason = reasonOf(chipRun({ lang: 'ru' }).stdout);
+    expect(reason).toContain(TAG);
+    expect(reason).toContain('chip-over-bridge:');
+  });
+
+  it.skipIf(!JQ)('bounded: the same chip is flagged once per session; a NEW chip id still fires', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'eot-chip-bound-'));
+    tmpDirs.push(tmp);
+    expect(fires({ tmp, session: 'chip-bound' })).toBe(true);
+    expect(fires({ tmp, session: 'chip-bound', finalText: 'Other words.' })).toBe(false);
+    expect(fires({ tmp, session: 'chip-bound', chipId: 'toolu_chip2' })).toBe(true);
+  });
+
+  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {
+    expect(fires({ hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder') })).toBe(true);
   });
 });

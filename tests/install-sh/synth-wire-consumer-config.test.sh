@@ -424,10 +424,12 @@ JS
 printf 'export const answer = 42;\n' > "$A/lib/answer.ts"
 cp "$A/eslint.config.mjs" "$WORK/own.before"
 borrow "$A"
-( cd "$A" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/a.log" 2>&1
+( cd "$A" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/a.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_a=$?
 cp "$A/eslint.config.mjs" "$WORK/own.after"
-( cd "$A" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/a2.log" 2>&1
+( cd "$A" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/a2.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_a2=$?
 unborrow "$A"
 [ "$rc_a" -eq 0 ] && [ "$rc_a2" -eq 0 ] || bad "A: install rc=$rc_a / re-install rc=$rc_a2 (tail: $(tail -3 "$WORK/a.log" | tr '\n' '|'))"
@@ -471,7 +473,8 @@ P="$WORK/own-plain"; mkdir -p "$P/lib"
 printf '{ "name": "swp", "version": "0.0.0" }\n' > "$P/package.json"
 cp "$WORK/own.before" "$P/eslint.config.mjs"
 printf 'export const answer = 42;\n' > "$P/lib/answer.ts"
-( cd "$P" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/p.log" 2>&1
+( cd "$P" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/p.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 cmp -s "$P/eslint.config.mjs" "$WORK/own.before" \
   && ok "P: without ts-morph the consumer's config is left byte-identical" \
   || bad "P: the config changed on an install that cannot run the AST editor"
@@ -484,9 +487,11 @@ asks_by_hand "$WORK/p.log" && bad "P: the install asks for a manual step: $(manu
 B="$WORK/fresh"; mkdir -p "$B"
 printf '{ "name": "swb", "version": "0.0.0" }\n' > "$B/package.json"
 borrow "$B"
-( cd "$B" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/b1.log" 2>&1
+( cd "$B" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/b1.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_b1=$?
-( cd "$B" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/b2.log" 2>&1
+( cd "$B" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/b2.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_b2=$?
 unborrow "$B"
 [ "$rc_b1" -eq 0 ] && [ "$rc_b2" -eq 0 ] || bad "B: install rc=$rc_b1 / re-install rc=$rc_b2"
@@ -513,7 +518,8 @@ cp "$WORK/own.before" "$C/eslint.config.mjs"
 printf 'export const answer = 42;\n' > "$C/lib/answer.ts"
 seed_snippet "$C"
 borrow "$C"
-( cd "$C" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/c.log" 2>&1
+( cd "$C" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/c.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_c=$?
 unborrow "$C"
 [ "$rc_c" -eq 0 ] || bad "C: install.sh react-next rc=$rc_c (tail: $(tail -3 "$WORK/c.log" | tr '\n' '|'))"
@@ -536,7 +542,8 @@ const User = z.object({ name: z.string() });
 export const create = (body: unknown) => User.parse(body);
 TS
 borrow "$R"
-( cd "$R" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r.log" 2>&1
+( cd "$R" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_r=$?
 ( cd "$R" && node node_modules/eslint/bin/eslint.js src/routes/users.ts ) >"$WORK/r.old" 2>&1
 # users.ts was there before the install: its violation is today's, exempted per file so the project's
@@ -548,7 +555,8 @@ rc_enf=$?
 # A second pass: the lint is green now (the exemption makes it so), and the baseline must stay recorded —
 # the shrink finds it only through that line (prove-rules.mjs --shrink).
 rm -f "$R/src/routes/orders.ts"
-( cd "$R" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r2.log" 2>&1
+( cd "$R" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r2.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$R"
 grep -q '^lint-baseline: eslint.config.mjs — ' "$R/.ai-factory/tool-decisions.md" \
   && ok "R: a second install keeps the lint-baseline line while getff's block is in the config" \
@@ -580,7 +588,8 @@ printf '{ "name": "swg", "version": "0.0.0", "type": "module" }\n' > "$G/package
 cp "$WORK/own.before" "$G/eslint.config.js"
 printf 'export const answer = 42;\n' > "$G/lib/answer.ts"
 borrow "$G"
-( cd "$G" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/g.log" 2>&1
+( cd "$G" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/g.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$G"
 [ ! -e "$G/eslint.config.mjs" ] && ok "G: no eslint.config.mjs placed beside the consumer's eslint.config.js" \
   || bad "G: eslint.config.mjs placed — ESLint would still load the .js, and getff's file would be dead"
@@ -599,7 +608,8 @@ printf '{ "name": "swh", "version": "0.0.0" }\n' > "$H/package.json"
 printf 'module.exports = [];\n' > "$H/eslint.config.cjs"
 cp "$H/eslint.config.cjs" "$WORK/cjs.before"
 printf 'export const answer = 42;\n' > "$H/lib/answer.ts"
-( cd "$H" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/h.log" 2>&1
+( cd "$H" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$WORK/h.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 cmp -s "$H/eslint.config.cjs" "$WORK/cjs.before" && ok "H: eslint.config.cjs is byte-identical" \
   || bad "H: eslint.config.cjs was changed"
 grep -q 'eslint.config.cjs' <<<"$(not_wired "$WORK/h.log")" && ! asks_by_hand "$WORK/h.log" \
@@ -618,7 +628,8 @@ printf '{"name":"api","version":"0.0.0","dependencies":{"hono":"^4.0.0"},"devDep
 cp "$WORK/own.before" "$D/apps/mobile/eslint.config.mjs"
 seed_snippet "$D"
 borrow "$D"
-( cd "$D" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$WORK/d.log" 2>&1
+( cd "$D" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$WORK/d.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rc_d=$?
 unborrow "$D"
 [ "$rc_d" -eq 0 ] || bad "D: install.sh react-native rc=$rc_d (tail: $(tail -3 "$WORK/d.log" | tr '\n' '|'))"
@@ -661,16 +672,16 @@ edited_then_reinstall() {
   local p="$1" stack="$2" c; shift 2
   live_snippet "$p" '{ "eqeqeq": "error" }'
   borrow "$p"
-  ( cd "$p" && git init -q && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.1.log" 2>&1 \
-    || bad "$(basename "$p"): first install.sh $stack failed (tail: $(tail -3 "$p.1.log" | tr '\n' '|'))"
+  ( cd "$p" && git init -q && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.1.log" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] || bad "$(basename "$p"): first install.sh $stack failed (tail: $(tail -3 "$p.1.log" | tr '\n' '|'))"
   for c in "$@"; do
     edit_last_entry "$p/$c"
     grep -qF "$NOTE" "$p/$c" || bad "$(basename "$p"): the fixture edit did not land in $c — the arm would be vacuous"
     cp "$p/$c" "$p.$(printf '%s' "$c" | tr '/' '_').edited"
   done
   live_snippet "$p" '{ "eqeqeq": "error", "no-var": "error" }'
-  ( cd "$p" && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.2.log" 2>&1 \
-    || bad "$(basename "$p"): re-install failed (tail: $(tail -3 "$p.2.log" | tr '\n' '|'))"
+  ( cd "$p" && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.2.log" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] || bad "$(basename "$p"): re-install failed (tail: $(tail -3 "$p.2.log" | tr '\n' '|'))"
   unborrow "$p"
 }
 
@@ -746,8 +757,8 @@ grep -qE 'synth-wire \(live\): .*/apps/tablet/eslint\.config\.mjs$' "$K.2.log" \
 L="$J"   # J's project after its two installs: the second wired no-var through getff's branch
 live_snippet "$L" '{ "eqeqeq": "error", "no-var": "error", "no-caller": "error" }'
 borrow "$L"
-( cd "$L" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$L.3.log" 2>&1 \
-  || bad "L: the third install.sh react-next failed (tail: $(tail -3 "$L.3.log" | tr '\n' '|'))"
+( cd "$L" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$L.3.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "L: the third install.sh react-next failed (tail: $(tail -3 "$L.3.log" | tr '\n' '|'))"
 unborrow "$L"
 grep -q '▶ synth-wire: confirming' "$L.3.log" && ! grep -qE 'edited since|is your own config' "$L.3.log" \
   && ok "L neg: after getff's own write on the second install, the third still reads the config as getff's" \
@@ -759,8 +770,8 @@ grep -q 'no-caller' <<<"$(sed 's://.*$::' "$L/eslint.config.mjs")" && [ ! -d "$L
 # getff's branch, so a third install still reads apps/tablet as getff's.
 live_snippet "$K" '{ "eqeqeq": "error", "no-var": "error", "no-caller": "error" }'
 borrow "$K"
-( cd "$K" && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$K.3.log" 2>&1 \
-  || bad "L: the third install.sh react-native on K failed (tail: $(tail -3 "$K.3.log" | tr '\n' '|'))"
+( cd "$K" && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$K.3.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "L: the third install.sh react-native on K failed (tail: $(tail -3 "$K.3.log" | tr '\n' '|'))"
 unborrow "$K"
 grep -qE 'synth-wire \(live\): .*/apps/tablet/eslint\.config\.mjs$' "$K.3.log" \
   && ! grep -q 'apps/tablet/eslint.config.mjs.*edited since' "$K.3.log" \
@@ -773,14 +784,14 @@ M="$WORK/placed-boundary"; mkdir -p "$M/lib"
 printf '{ "name": "swm", "version": "0.0.0" }\n' > "$M/package.json"
 printf 'export const answer = 42;\n' > "$M/lib/answer.ts"
 borrow "$M"
-( cd "$M" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$M.1.log" 2>&1 \
-  || bad "M: the first install.sh react-next failed (tail: $(tail -3 "$M.1.log" | tr '\n' '|'))"
+( cd "$M" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$M.1.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "M: the first install.sh react-next failed (tail: $(tail -3 "$M.1.log" | tr '\n' '|'))"
 mkdir -p "$M/app/api/x"
 printf "import { z } from 'zod';\nexport async function POST(req: Request) {\n  return z.object({ a: z.string() }).parse(await req.json());\n}\n" \
   > "$M/app/api/x/route.ts"
 for n in 2 3; do
-  ( cd "$M" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$M.$n.log" 2>&1 \
-    || bad "M: re-install $n failed (tail: $(tail -3 "$M.$n.log" | tr '\n' '|'))"
+  ( cd "$M" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$M.$n.log" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] || bad "M: re-install $n failed (tail: $(tail -3 "$M.$n.log" | tr '\n' '|'))"
 done
 unborrow "$M"
 grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$M.2.log" \
@@ -802,15 +813,15 @@ edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-inst
   # $3 = a command run on the project dir after the edit, before the re-install ("" = none); what it
   # does to the config is part of the consumer's edit. $REINSTALL_PATH, when set, is the re-install's PATH.
   printf '{ "name": "swq", "version": "0.0.0" }\n' > "$1/package.json"
-  ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.1.log" 2>&1 \
-    || bad "$(basename "$1"): the first plain install failed (tail: $(tail -3 "$1.1.log" | tr '\n' '|'))"
+  ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.1.log" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] || bad "$(basename "$1"): the first plain install failed (tail: $(tail -3 "$1.1.log" | tr '\n' '|'))"
   edit_last_entry "$1/eslint.config.mjs"
   grep -qF "$NOTE" "$1/eslint.config.mjs" || bad "$(basename "$1"): the fixture edit did not land — the arm would be vacuous"
   [ -z "${3:-}" ] || "$3" "$1"
   cp "$1/eslint.config.mjs" "$1.edited"
   [ -z "$2" ] || live_snippet "$1" "$2"
-  ( cd "$1" && PATH="${REINSTALL_PATH:-$PATH}" bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.2.log" 2>&1 \
-    || bad "$(basename "$1"): the plain re-install failed (tail: $(tail -3 "$1.2.log" | tr '\n' '|'))"
+  ( cd "$1" && PATH="${REINSTALL_PATH:-$PATH}" bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.2.log" 2>&1; rc=$?
+    [ "$rc" -eq 0 ] || bad "$(basename "$1"): the plain re-install failed (tail: $(tail -3 "$1.2.log" | tr '\n' '|'))"
   [ ! -e "$1/node_modules/ts-morph/package.json" ] \
     || bad "$(basename "$1"): ts-morph is in node_modules — the arm would be vacuous"
   grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$1.2.log" \
@@ -844,15 +855,15 @@ add_handler() { # $1 = project dir — HTTP boundary code under handlers/, which
 N="$WORK/placed-edited-boundary"; mkdir -p "$N"
 printf '{ "name": "swn", "version": "0.0.0" }\n' > "$N/package.json"
 borrow "$N"
-( cd "$N" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.1.log" 2>&1 \
-  || bad "N: the first install.sh react-next failed (tail: $(tail -3 "$N.1.log" | tr '\n' '|'))"
+( cd "$N" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.1.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "N: the first install.sh react-next failed (tail: $(tail -3 "$N.1.log" | tr '\n' '|'))"
 edit_last_entry "$N/eslint.config.mjs"
 cp "$N/eslint.config.mjs" "$N.edited"
 grep -qF "$NOTE" "$N.edited" && ! grep -qF "$HANDLERS_GLOB" "$N.edited" \
   || bad "N: the edited config lacks the edit or already carries the handlers glob — the arm would be vacuous"
 add_handler "$N"
-( cd "$N" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.2.log" 2>&1 \
-  || bad "N: the re-install failed (tail: $(tail -3 "$N.2.log" | tr '\n' '|'))"
+( cd "$N" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.2.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "N: the re-install failed (tail: $(tail -3 "$N.2.log" | tr '\n' '|'))"
 unborrow "$N"
 grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$N.2.log" \
   || bad "N: the re-install did not route the edited config as the consumer's — the arm would be vacuous"
@@ -927,11 +938,11 @@ _s_line=$(not_wired "$Sx.2.log" | grep -F "$R2_REFUSAL")
 S2="$WORK/placed-edited-no-boundary"; mkdir -p "$S2"
 printf '{ "name": "sws", "version": "0.0.0" }\n' > "$S2/package.json"
 borrow "$S2"
-( cd "$S2" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.1.log" 2>&1 \
-  || bad "S2: the first install.sh react-next failed (tail: $(tail -3 "$S2.1.log" | tr '\n' '|'))"
+( cd "$S2" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.1.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "S2: the first install.sh react-next failed (tail: $(tail -3 "$S2.1.log" | tr '\n' '|'))"
 edit_last_entry "$S2/eslint.config.mjs"; drop_boundary "$S2"
-( cd "$S2" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.2.log" 2>&1 \
-  || bad "S2: the re-install failed (tail: $(tail -3 "$S2.2.log" | tr '\n' '|'))"
+( cd "$S2" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.2.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || bad "S2: the re-install failed (tail: $(tail -3 "$S2.2.log" | tr '\n' '|'))"
 unborrow "$S2"
 _s2_line=$(not_wired "$S2.2.log" | grep -F "$R2_REFUSAL")
 [ -n "$_s2_line" ] && [ "$_s2_line" = "$_s_line" ] \
@@ -1047,7 +1058,8 @@ cp "$WORK/pkg.before" "$E/tools/esm/eslint.config.js"
 printf "module.exports = [{ rules: { 'no-console': 'error' } }];\n" > "$WORK/cjs-pkg.before"
 cp "$WORK/cjs-pkg.before" "$E/tools/cjs/eslint.config.cjs"
 borrow "$E" tsx
-( cd "$E" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/e.log" 2>&1
+( cd "$E" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/e.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$E"
 grep -q 'R2 Layer-2' "$WORK/e.log" \
   || bad "E: the R2 Layer-2 block never ran — the arm below would be vacuous (tail: $(tail -3 "$WORK/e.log" | tr '\n' '|'))"
@@ -1109,7 +1121,8 @@ cp "$WORK/pkg.before" "$F/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs"
 printf "import svc from '../svc/eslint.config.mjs';\n\nexport default [...svc];\n" > "$F/apps/ui/eslint.config.mjs"
 borrow "$F" tsx
-( cd "$F" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1
+( cd "$F" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$F"
 grep -q 'R2 per-workspace: scoped wiring' "$WORK/f.log" \
   || bad "F: the R2 per-workspace block never ran — the arm below would be vacuous (tail: $(tail -3 "$WORK/f.log" | tr '\n' '|'))"
@@ -1164,7 +1177,8 @@ cp "$WORK/pkg.before" "$M/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$M/apps/js/eslint.config.js"
 seed_snippet "$M"
 borrow "$M" tsx
-( cd "$M" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/m.log" 2>&1
+( cd "$M" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/m.log" 2>&1; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 unborrow "$M"
 { grep -q 'synth-wire per-workspace' "$WORK/m.log" && grep -q 'R2 per-workspace: scoped wiring' "$WORK/m.log"; } \
   || bad "M: a per-workspace pass never ran — the arm below would be vacuous (tail: $(tail -3 "$WORK/m.log" | tr '\n' '|'))"

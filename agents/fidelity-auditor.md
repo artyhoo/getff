@@ -55,6 +55,15 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
 
 1. Read the kickoff/spec fully. Extract the deliverables list, the declared descopes
    (out-of-scope section), and any acceptance criteria.
+   Then run `bash scripts/cited-spec-addenda.sh <kickoff/spec path>` and record its
+   `VERDICT:` line in `Addenda:` (where the helper is not installed, run its two halves by
+   hand: `git log --follow --format='%h %cs %s' <commit that added the spec>..HEAD -- <spec>` and
+   `grep -niE '^#{1,6}[[:space:]].*(addend|supersed|withdr|lapse|revok|premise chang)' <spec>`
+   outside code fences; nothing from either = CLEAN).
+   On `AMENDED`, read every `LATER:` commit and `MARKER:` heading: a later addendum is part
+   of the intent, and a decision it withdraws can no longer excuse a drift ([doc-authority-hierarchy.md §4.1](../.claude/rules/doc-authority-hierarchy.md)).
+   A descope or «as designed» section the addendum lapsed is graded as if absent. On
+   `INCONCLUSIVE`, say so in `Addenda:` and do not treat any section as withdrawal-free.
 2. Read the diff fully. Map every deliverable → evidence (file:line in the diff).
 3. Report three drift lists, each entry with file:line evidence:
    - **missing** — asked in the kickoff, absent from the diff;
@@ -78,6 +87,7 @@ Basis: <kickoff/spec path>
 Round: <n>
 Audited-SHA: <commit sha>
 Evidence: <file.ext:line — at least one line, even on GO>
+Addenda: <cited-spec-addenda.sh VERDICT line — CLEAN | AMENDED later=<n> markers=<m> | INCONCLUSIVE>
 [KICKOFF-AMBIGUOUS: <one-line reason>]
 Findings: each graded BLOCKER | MAJOR | MINOR | ESCALATED, with file:line;
   a round-triggering finding (BLOCKER/MAJOR) additionally carries

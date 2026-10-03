@@ -118,15 +118,15 @@ how to get it.
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
 - The superpowers plugin is an optional companion: the `superpowers` row of `setup.d/companions.manifest`.
-- The question-pacing plugin is named on line 50 of `.claude/skills/arch/SKILL.md`,
+- The question-pacing plugin is named on line 70 of `.claude/skills/arch/SKILL.md`,
   together with the copy that stands in for it. The copy is
   `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,
   and lines 16 to 27 say why the plugin is not offered.
 - The word-meaning moves, the four rules `/arch` lays over them and the two upstream parts it
-  leaves out are all on line 54 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
+  leaves out are all on line 74 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
   lines 22 to 29 and its two format files beside it.
 - The copies ship with the skill: they are listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 45 to 48.
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 43 to 46.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.

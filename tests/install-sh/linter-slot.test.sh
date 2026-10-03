@@ -36,7 +36,8 @@ proj() {  # $1 = package.json body
     git add -A && git commit -q -m base )
   echo "$d"
 }
-install_into() { ( cd "$1" && bash "$INSTALL" react-spa < /dev/null ) > "$1/.log" 2>&1; }
+install_into() { ( cd "$1" && bash "$INSTALL" react-spa < /dev/null ) > "$1/.log" 2>&1; }; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 block() { awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' "$1/.ai-factory/tool-decisions.md"; }
 section() { block "$1" | awk -v h="$2:" '/^[a-z-]+:$/{f=($0==h);next} f'; }
 not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$1/.log"; }
@@ -126,7 +127,8 @@ drop_scripts() {  # $1 = project dir, rest = script names to remove from package
   node -e 'const f=process.argv[1],p=require(f);for(const k of process.argv.slice(2))delete p.scripts[k];require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "$d/package.json" "$@"
   git -C "$d" add -A; git -C "$d" commit -qm drop-scripts
 }
-refresh_into() { ( cd "$1" && bash "$INSTALL" --refresh < /dev/null ) > "$1/.refresh.log" 2>&1; }
+refresh_into() { ( cd "$1" && bash "$INSTALL" --refresh < /dev/null ) > "$1/.refresh.log" 2>&1; }; rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 script_of() { node -e 'const p=require(process.argv[1]);console.log((p.scripts||{})[process.argv[2]]||"")' "$1/package.json" "$2"; }
 H=$(proj '{"name":"h","version":"0.0.0","type":"module","dependencies":{"react":"^19.0.0"},"devDependencies":{"oxlint":"^1.20.0"}}')
 printf '{\n  "rules": {}\n}\n' > "$H/.oxlintrc.json"

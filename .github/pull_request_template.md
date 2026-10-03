@@ -13,6 +13,19 @@
 - [ ] If existing entries matched: their `Last reviewed` date was updated in the same commit (`git log -p` on the SSOT confirms the touch).
 - [ ] context7 queries (≥3 phrasings) for new capability areas were run and the results cited in the relevant commit body or research file.
 
+## Removal consumers
+
+n/a — no shipped file deleted
+
+<!-- REQUIRED when this PR deletes or renames away any file under packages/core/templates/ or
+.ai-factory/ (gate: the `stale-revert-in-pr-diff` job, packages/core/hooks/checks/pr-body-removal-consumers.ts;
+rule: .claude/rules/build-first-reuse-default.md §3.1). Replace the n/a line with one row per path:
+| path | consumer (file:line) | drop vs slim consequence |
+|---|---|---|
+| packages/core/templates/x.md | `install.sh:NN` presence check | drop: …; slim: … |
+Grep the file NAME, including presence-based detection (`[ -f … ]`). A path with no consumer:
+- x.md: no consumers — <what you grepped, >=20 chars> -->
+
 ## Test plan
 
 <!-- The squash commit body IS this PR description: repo setting squash_merge_commit_message=PR_BODY

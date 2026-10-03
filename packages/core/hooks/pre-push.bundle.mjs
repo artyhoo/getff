@@ -2042,6 +2042,22 @@ function askFileSchemaSection() {
   }
   emit(r);
 }
+function bash32Section() {
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-bash32.sh"))) return;
+  const r = run("bash", ["scripts/check-bash32.sh"]);
+  if (r.notFound) {
+    die(
+      "\u274C bash not found to run scripts/check-bash32.sh (bash-3.2 portability gate)."
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      "\u274C bash-3.2 portability gate RED \u2014 install.sh / setup.d/** use a shape that aborts on\n   macOS /bin/bash 3.2 or BSD sed/awk (findings above). Fix it, or escape one line with\n   '# bash32-safe: <rationale >= 20 chars>' (header of scripts/check-bash32.sh).",
+      r
+    );
+  }
+  emit(r);
+}
 function irMetaSection() {
   if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:ir");
@@ -2454,6 +2470,14 @@ var SECTIONS = [
     id: "ask-file-schema",
     owner: "maintainer",
     run: () => askFileSchemaSection()
+  },
+  {
+    // install.sh + setup.d/** run under macOS /bin/bash 3.2 + BSD sed/awk; CI cannot see the
+    // class. maintainer-only — the population is this repo's installer source, and a consumer
+    // layout has no scripts/check-bash32.sh to run. See bash32Section docstring.
+    id: "bash32",
+    owner: "maintainer",
+    run: () => bash32Section()
   }
 ];
 function composeSections(sections, isFrameworkRepo) {

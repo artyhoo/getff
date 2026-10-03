@@ -22,7 +22,7 @@ executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-autonomy-opt-in, stack: repo, date: 2026-09-29, result: printed }
   - { example: session-bootstrap-skill-index-on-compact, stack: repo, date: 2026-09-29, result: printed }
-docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/reference/D.md, whose change is the lane column of two other hooks (precompact-residue, inject-handoff-on-compact); this hook's row still reads not installed on any lane, as the page says; clears at the next gold refresh of this page
+docs-refresh: deferred — the only cited-source change in this range is the new seal-primary-checkout row in the D family table; this page's hook contract is untouched; clears at the next refresh of this page
 ---
 
 # inject-session-bootstrap hook
@@ -138,7 +138,8 @@ Four details make this more than a heredoc:
 
 Two of the digest's lines are declared delivery channels for rules that live outside
 the always-on context: the H1 recommendation-discipline line is the alt-channel of
-`.claude/rules/recommendation-laziness-discipline.md`, and the autonomy block is the
+`.claude/rules/recommendation-laziness-discipline.md` (whose other channel, since
+2026-10-01, is the dispatch-channel rider of the Stop hook), and the autonomy block is the
 second channel of `.claude/rules/autonomous-loop-continuity.md`. The hook's comments
 mark those anchor points so the rendered rule index reports the full delivery surface.
 

@@ -631,60 +631,16 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "lint-staged config wired by the consumer pre-commit hook.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 79
       },
-      "installedTo": [
-        {
-          "stack": "react-native",
-          "lane": "brownfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": ".lintstagedrc.json"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
-          "path": ".lintstagedrc.json"
-        }
-      ],
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
       "extras": {
         "format": "json"
       },
@@ -1182,60 +1138,16 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 119
       },
-      "installedTo": [
-        {
-          "stack": "react-native",
-          "lane": "brownfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": ".husky/pre-commit"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
-          "path": ".husky/pre-commit"
-        }
-      ],
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
       "extras": {
         "format": "sh"
       },
@@ -1516,6 +1428,8 @@
         "tier": "framework",
         "stacks": [
           "react-native",
+          "react-next",
+          "react-spa",
           "ts-server"
         ]
       },
@@ -1532,6 +1446,26 @@
         },
         {
           "stack": "react-native",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-spa",
           "lane": "greenfield",
           "path": "tsconfig.json"
         },
@@ -1556,38 +1490,16 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "react-next",
-          "react-spa"
-        ]
+        "absent": "no-lane"
       },
       "description": "React tsconfig template (Bundler resolution, react-jsx, DOM, noEmit) for Vite-style React projects; which stack gets it is the installer's routing.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 151
       },
-      "installedTo": [
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": "tsconfig.json"
-        }
-      ],
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
       "extras": {
         "format": "json"
       },

@@ -109,12 +109,13 @@ grep -q 'Python toolchain lane (alpha)' <<<"$out" && ok "(5) the claimed lane is
 N=$(repo java)
 # script(1) differs: util-linux takes the command via -c (and -e to return its exit code), BSD/macOS
 # takes it as trailing arguments and returns its exit code by default.
+rcl=0; rcw=0
 if grep -q util-linux <<<"$(script -V 2>/dev/null)"; then
-  out=$( cd "$N" && script -qec "bash '$INSTALL' --full" /dev/null < /dev/null 2>&1 ); rc=$?
+  out=$( cd "$N" && script -qec "bash '$INSTALL' --full" /dev/null < /dev/null 2>&1 ); rcl=$?
 else
-  out=$( cd "$N" && script -q /dev/null bash "$INSTALL" --full < /dev/null 2>&1 ); rc=$?
+  out=$( cd "$N" && script -q /dev/null bash "$INSTALL" --full < /dev/null 2>&1 ); rcw=$?
 fi
-[ "$rc" -eq 0 ] && ok "(6) --full at a pty with empty stdin exits 0" || bad "(6) exit $rc at a pty"
+{ [ "$rcl" -eq 0 ] && [ "$rcw" -eq 0 ]; } && ok "(6) --full at a pty with empty stdin exits 0" || bad "(6) exit $((rcl+rcw)) at a pty"
 grep -Eq 'Choose \[|\[y/N\]|\[Y/n\]' <<<"$out" && bad "(6) a prompt was printed under --full: $(grep -E 'Choose \[|\[y/N\]|\[Y/n\]' <<<"$out" | head -2)" \
   || ok "(6) no prompt printed under --full"
 
@@ -123,7 +124,8 @@ grep -Eq 'Choose \[|\[y/N\]|\[Y/n\]' <<<"$out" && bad "(6) a prompt was printed 
 # so a generic project stayed on the skills and hooks of the getff that installed it. An older
 # delivery is simulated by rewriting each file (refresh overwrites a diverged file, preserving it).
 R=$(repo java)
-( cd "$R" && bash "$INSTALL" --full < /dev/null >/dev/null 2>&1 )
+( cd "$R" && bash "$INSTALL" --full < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 _agent=$(cd "$R" && ls .claude/agents/*.md 2>/dev/null | head -1)
 _hook=$(cd "$R" && ls .claude/hooks/*.sh 2>/dev/null | head -1)
 _probes=".claude/skills/getff/SKILL.md $_agent $_hook .ai-factory/AI-USAGE-GUIDE.md scripts/audit-ai-docs.sh"

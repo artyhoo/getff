@@ -49,7 +49,8 @@ SPA='{"name":"s","version":"0.0.0","type":"module","dependencies":{"react":"^19.
 
 # ── (A) no dependencies installed ───────────────────────────────────────────────────────────────
 A=$(proj "$SPA")
-outA=$( cd "$A" && bash "$INSTALL" react-spa < /dev/null 2>&1 )
+outA=$( cd "$A" && bash "$INSTALL" react-spa < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(grep -c '<!-- aif:project-checks:begin -->' "$(REC "$A")" 2>/dev/null)" = 1 ] \
   && ok "(A) one aif:project-checks block in tool-decisions.md" || bad "(A) block count $(grep -c 'aif:project-checks:begin' "$(REC "$A")" 2>/dev/null)"
 grep -qx 'stack: react-spa' <<<"$(block "$A")" && ok "(A) stack: react-spa" || bad "(A) stack line: $(block "$A" | grep '^stack')"
@@ -95,7 +96,8 @@ done
 
 # ── (B) node_modules present: the install ran getff's checks ────────────────────────────────────
 B=$(proj "$SPA"); mkdir -p "$B/node_modules"
-( cd "$B" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$B" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 grep -qx -- '- bash scripts/audit-ai-docs.sh' <<<"$(section "$B" armed)" && ok "(B) a check green at install is armed" \
   || bad "(B) audit-ai-docs not armed: armed=[$(section "$B" armed | tr '\n' ';')]"
 grep -Eq -- '^- npm run lint # exits [0-9]+ at install' <<<"$(section "$B" not-armed)" && ok "(B) a red check is not-armed with its exit code" \
@@ -104,14 +106,16 @@ grep -Eq -- '^- npm run lint # exits [0-9]+ at install' <<<"$(section "$B" not-a
 # ── (C) the project's own script is not run, not armed ──────────────────────────────────────────
 C=$(proj '{"name":"c","version":"0.0.0","type":"module","scripts":{"lint":"touch ran-own-lint"},"dependencies":{"react":"^19.0.0"}}')
 mkdir -p "$C/node_modules"
-( cd "$C" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$C" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ ! -e "$C/ran-own-lint" ] && ok "(C) the install did not run the project's own lint script" || bad "(C) own lint ran"
 grep -qx -- '- npm run lint # your own script: the install does not run it; the first validate or push arms it once it exits 0' <<<"$(section "$C" not-armed)" \
   && ok "(C) own lint recorded not-armed with why" || bad "(C) lint line: $(section "$C" not-armed | grep lint | head -1)"
 
 # ── (D) generic ─────────────────────────────────────────────────────────────────────────────────
 D=$(proj ""); printf '<project/>\n' > "$D/pom.xml"
-( cd "$D" && bash "$INSTALL" -y < /dev/null >/dev/null 2>&1 )
+( cd "$D" && bash "$INSTALL" -y < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 grep -qx 'stack: generic' <<<"$(block "$D")" && ok "(D) generic: stack: generic" || bad "(D) stack line: $(block "$D" | grep '^stack')"
 [ -z "$(section "$D" armed)$(section "$D" not-armed)" ] && grep -qx 'armed:' <<<"$(block "$D")" \
   && ok "(D) generic: both lists empty, headers present" || bad "(D) lists: $(block "$D" | tr '\n' ';')"
@@ -124,7 +128,8 @@ for lane in python cargo go; do
     cargo)  printf '[package]\nname = "x"\nversion = "0.0.0"\n' > "$L/Cargo.toml" ;;
     go)     printf 'module x\n\ngo 1.22\n' > "$L/go.mod" ;;
   esac
-  ( cd "$L" && bash "$INSTALL" "$lane" < /dev/null >/dev/null 2>&1 )
+  ( cd "$L" && bash "$INSTALL" "$lane" < /dev/null >/dev/null 2>&1 ); rc=$?
+  [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
   grep -qx "stack: $lane" <<<"$(block "$L")" && grep -qx 'armed:' <<<"$(block "$L")" && grep -qx 'not-armed:' <<<"$(block "$L")" \
     && [ -z "$(section "$L" armed)$(section "$L" not-armed)" ] \
     && ok "(I) $lane lane: record with both lists empty" || bad "(I) $lane lane record: $(block "$L" 2>/dev/null | tr '\n' ';')"
@@ -133,8 +138,10 @@ done
 # ── (E) second install: one block, neighbour untouched ──────────────────────────────────────────
 E=$(proj "$SPA"); mkdir -p "$E/.ai-factory"
 printf '# Tool decisions\n\n<!-- GETFF_VERSIONS_BEGIN -->\n| eslint | 9.39.5 |\n<!-- GETFF_VERSIONS_END -->\n' > "$(REC "$E")"
-( cd "$E" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
-( cd "$E" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$E" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
+( cd "$E" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(grep -c '<!-- aif:project-checks:begin -->' "$(REC "$E")")" = 1 ] && ok "(E) still one block after a second install" \
   || bad "(E) blocks: $(grep -c 'aif:project-checks:begin' "$(REC "$E")")"
 grep -Fqx '| eslint | 9.39.5 |' "$(REC "$E")" && grep -Fqx '<!-- GETFF_VERSIONS_END -->' "$(REC "$E")" \
@@ -144,10 +151,12 @@ grep -Fqx '| eslint | 9.39.5 |' "$(REC "$E")" && grep -Fqx '<!-- GETFF_VERSIONS_
 # A project installed before the record gets scripts/run-armed.sh from --refresh, and the refreshed
 # pre-push hook reads it: with no record every push would stop on «no readable record».
 J=$(proj "$SPA")
-( cd "$J" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$J" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 rm -f "$J/scripts/run-armed.sh"
 awk '/<!-- aif:project-checks:begin -->/{f=1} !f; /<!-- aif:project-checks:end -->/{f=0}' "$(REC "$J")" > "$J/.rec" && mv "$J/.rec" "$(REC "$J")"
-( cd "$J" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+( cd "$J" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ -x "$J/scripts/run-armed.sh" ] && ok "(J) --refresh delivers scripts/run-armed.sh" || bad "(J) --refresh did not deliver run-armed.sh"
 [ "$(grep -c '<!-- aif:project-checks:begin -->' "$(REC "$J")")" = 1 ] && [ -z "$(section "$J" armed)" ] \
   && grep -qx -- '- npm run lint # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$J" not-armed)" \
@@ -156,7 +165,8 @@ awk '/<!-- aif:project-checks:begin -->/{f=1} !f; /<!-- aif:project-checks:end -
 ( cd "$J" && bash scripts/run-armed.sh --probe >/dev/null 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] && ok "(J) the refreshed record is readable (the pre-push probe exits 0)" || bad "(J) probe rc=$rc"
 cp "$(REC "$A")" "$A/.rec-before"
-( cd "$A" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+( cd "$A" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 cmp -s "$(REC "$A")" "$A/.rec-before" && ok "(J) --refresh keeps a record already there byte-for-byte" \
   || bad "(J) --refresh changed the record: $(diff "$A/.rec-before" "$(REC "$A")" | head -5 | tr '\n' '|')"
 
@@ -196,7 +206,8 @@ K=$(proj "$SPA"); BARE=$(mktemp -d); TMPS+=("$BARE"); git init -q --bare "$BARE"
 mkdir -p "$K/.github/workflows"
 printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm install -g cowsay\n' > "$K/.github/workflows/own.yml"
 ( cd "$K" && git add -A && git commit -qm own && git checkout -qb work && git push -q "$BARE" work ); rc0=$?
-( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff )
+( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 # The reason names the first finding, so the user learns which workflow line without running the script
 # (P6 run 3, N8).
 PINS_WHY='exits 1 at install on .github/workflows/own.yml:6: - run: npm install -g cowsay'  # ci-tool-pin: allow fixture text — the reason expected for the deliberately unpinned consumer workflow above
@@ -217,9 +228,11 @@ dup=$(grep '^· not armed: ' "$K/.push" | sort | uniq -d)
 # run-armed runs a command the record does not list, so without this a refreshed hook would run the
 # new checks unconditionally on a project whose record predates them.
 M=$(proj "$SPA")
-( cd "$M" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$M" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 grep -v -e 'check-ci-pins' -e 'check-doc-links' -e 'run-generated-rule-mutation' "$(REC "$M")" > "$M/.rec" && mv "$M/.rec" "$(REC "$M")"
-( cd "$M" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+( cd "$M" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
   && grep -qx -- '- bash scripts/check-doc-links.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
   && grep -qx -- '- bash scripts/run-generated-rule-mutation.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$M" not-armed)" \
@@ -232,10 +245,12 @@ grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run ye
 # package.json merge adds it, and validate runs it through run-armed.sh, which runs a command its record
 # does not list — so the refresh records it not-armed, like the hook checks in (M).
 O=$(proj "$SPA")
-( cd "$O" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+( cd "$O" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 node -e 'const fs=require("fs"),f=process.argv[1],p=JSON.parse(fs.readFileSync(f,"utf8"));delete p.scripts["check:shields-up"];fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "$O/package.json"
 grep -v 'check-shields-up' "$(REC "$O")" > "$O/.rec" && mv "$O/.rec" "$(REC "$O")"
-( cd "$O" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+( cd "$O" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 [ "$(script_of "$O" check:shields-up)" = "bash scripts/check-shields-up.sh" ] \
   && ok "(O) --refresh adds the check:shields-up script back" || bad "(O) check:shields-up after --refresh: '$(script_of "$O" check:shields-up)'"
 grep -qx -- '- bash scripts/check-shields-up.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' <<<"$(section "$O" not-armed)" \
@@ -278,7 +293,8 @@ done
 
 # ── (G) --dry-run writes nothing ────────────────────────────────────────────────────────────────
 G=$(proj "$SPA")
-( cd "$G" && bash "$INSTALL" react-spa --dry-run < /dev/null >/dev/null 2>&1 )
+( cd "$G" && bash "$INSTALL" react-spa --dry-run < /dev/null >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
 grep -q 'aif:project-checks' "$(REC "$G")" 2>/dev/null && bad "(G) --dry-run wrote the record" || ok "(G) --dry-run writes no record"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

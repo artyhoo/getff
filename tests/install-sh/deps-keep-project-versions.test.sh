@@ -145,7 +145,8 @@ J=$(mktemp -d); TMPS+=("$J"); S=$(stub_dir)
   printf '{"name":"j","version":"0.0.0","dependencies":{"zod":"^4.1.0"},"devDependencies":{"typescript":"~6.0.2"}}\n' > package.json
   git add -A && git commit -q -m base )
 export STUB_LOG="$J.npm.log"; : > "$STUB_LOG"
-out=$( cd "$J" && PATH="$S:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null 2>&1 )
+out=$( cd "$J" && PATH="$S:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && ok "(J) install.sh exited 0" || bad "(J) install.sh exited $rc"
 dev=$(grep '^STUB-NPM install --save-dev ' "$STUB_LOG" | head -1)
 [ -n "$dev" ] && ok "(J) the dev install ran" || bad "(J) no dev install in the npm log: $(tr '\n' '|' < "$STUB_LOG")"
 grep -Eq ' typescript@' <<<"$dev" && bad "(J) typescript was re-installed over the project's ~6.0.2" || ok "(J) typescript is not in the install"

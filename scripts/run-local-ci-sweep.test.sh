@@ -137,6 +137,45 @@ grep_out "exit-in-gate-cmd reports FAIL (no self-truncation)" "[sweep] FAIL suit
 grep_out "exit-in-gate-cmd reports stopped-at" "SWEEP: stopped at suite" "$TMP/o9"
 no_file "exit-in-gate-cmd keeps fail-fast (later gate skipped)" "$TMP/LATER"
 
+# --- (not-run list) a stopped sweep must NAME the selected gates it never ran ---
+# Fail-fast leaves the tail of the selection unexecuted, and before this line that tail looked
+# exactly like "not selected for this diff" — a known-red gate early in the order silently turned
+# "the rest passed" into "the rest never ran" (PR #1362: six gates behind a red `vitest-hooks`).
+# Unselected rows must NOT appear: the line lists what the diff asked for and did not get.
+rm -f "$TMP/LATER" "$TMP/UNSEL"
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n3\tthird\tALWAYS\ttouch %s/LATER\n4\tunsel\tpackages/\ttouch %s/UNSEL\n5\tfifth\t.txt\ttrue\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" >"$TMP/o9n" 2>&1
+check "not-run: a stop still exits 1" 1 $?
+grep_out "not-run: names exactly the selected gates after the stop" "SWEEP: NOT RUN: third fifth" "$TMP/o9n"
+notrun_line="$(grep -F "SWEEP: NOT RUN:" "$TMP/o9n")"
+if grep -qE '(^|[ :])(unsel|first|boom)( |$)' <<<"$notrun_line"; then
+  echo "  ✗ not-run: the line lists an unselected, passed or failed gate"; fails=$((fails + 1))
+else echo "  ✓ not-run: the line lists no unselected, passed or failed gate"; fi
+no_file "not-run: the named gate really did not run" "$TMP/LATER"
+# A stop on the LAST selected gate still says so, rather than dropping the line.
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o9m" 2>&1
+grep_out "not-run: a stop on the last gate prints an explicit empty list" "SWEEP: NOT RUN: (none)" "$TMP/o9m"
+
+# --- (keep-going) --keep-going runs every selected gate, collects the FAILs, exits 1 at the end ---
+rm -f "$TMP/LATER"
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n3\tthird\tALWAYS\ttouch %s/LATER\n4\tbang\tALWAYS\texit 7\n5\tfifth\tALWAYS\ttrue\n' "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full --keep-going >"$TMP/o9k" 2>&1
+check "keep-going: a run with failures exits 1" 1 $?
+has_file "keep-going: the gate after the first FAIL still ran" "$TMP/LATER"
+grep_out "keep-going: first failure reported" "[sweep] FAIL boom" "$TMP/o9k"
+grep_out "keep-going: second failure reported" "[sweep] FAIL bang" "$TMP/o9k"
+grep_out "keep-going: the gate after the last FAIL ran" "[sweep] PASS fifth" "$TMP/o9k"
+grep_out "keep-going: summary names every failure" "SWEEP: 2 of 5 gate(s) FAILED: boom bang (mode=full, --keep-going)" "$TMP/o9k"
+grep_out "keep-going: nothing was left unrun" "SWEEP: NOT RUN: (none)" "$TMP/o9k"
+if grep -qF "SWEEP: stopped at" "$TMP/o9k"; then
+  echo "  ✗ keep-going: printed a stopped-at line"; fails=$((fails + 1))
+else echo "  ✓ keep-going: no stopped-at line"; fi
+printf '1\tfirst\tALWAYS\ttrue\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full --keep-going >"$TMP/o9g" 2>&1
+check "keep-going: an all-green run still exits 0" 0 $?
+grep_out "keep-going: an all-green run keeps the pass summary" "SWEEP: 1 gate(s) passed (mode=full)" "$TMP/o9g"
+
 # --- (comma-trigger) a gate with a comma-joined trigger list matches ANY listed path ---
 rm -f "$TMP/MULTI_A" "$TMP/MULTI_B"
 printf '1\tmulti\ttests/install-sh/,.github/workflows/\ttouch %s/MULTI_A\n' "$TMP" >"$TMP/gates.tsv"

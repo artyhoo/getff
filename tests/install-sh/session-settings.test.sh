@@ -136,7 +136,8 @@ for want in yes no; do
   d="$WORK/g-$want"; new_repo "$d"
   printf '{"name":"fixture","dependencies":{"react":"^19.0.0"}}\n' > "$d/package.json"
   consent=""; [ "$want" = yes ] && consent=1
-  ( cd "$d" && GETFF_SESSION_SETTINGS="$consent" bash "$REPO_ROOT/install.sh" react-spa --force </dev/null ) > "$WORK/g-$want.log" 2>&1
+  ( cd "$d" && GETFF_SESSION_SETTINGS="$consent" bash "$REPO_ROOT/install.sh" react-spa --force </dev/null ) > "$WORK/g-$want.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
   if [ "$want" = yes ]; then
     has "$d/.claude/settings.local.json" '.autoCompactWindow == 400000' && grep -q 'undo with:' "$WORK/g-$want.log" \
       && ok "G consent → install.sh writes the group and prints the undo line" || bad "G consent: $(grep -i 'session' "$WORK/g-$want.log" | tr '\n' '|')"
@@ -149,7 +150,8 @@ echo "── H: the python lane"
 for want in yes no; do
   d="$WORK/h-$want"; new_repo "$d"
   consent=""; [ "$want" = yes ] && consent=1
-  ( cd "$d" && GETFF_SESSION_SETTINGS="$consent" bash "$REPO_ROOT/install.sh" python --force </dev/null ) > "$WORK/h-$want.log" 2>&1
+  ( cd "$d" && GETFF_SESSION_SETTINGS="$consent" bash "$REPO_ROOT/install.sh" python --force </dev/null ) > "$WORK/h-$want.log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
   if [ "$want" = yes ]; then
     has "$d/.claude/settings.local.json" '.autoCompactWindow == 400000' && grep -q 'undo with:' "$WORK/h-$want.log" \
       && ok "H consent → the python lane writes the group and prints the undo line" || bad "H consent: $(grep -i 'session' "$WORK/h-$want.log" | tr '\n' '|')"
