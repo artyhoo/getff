@@ -150,8 +150,8 @@ describe('Principle 27 — the consumer pre-push hook is the prebuilt bundle, an
       expect(entry?.owner, `external ${path} is loaded by '${section}'`).toBe('maintainer');
       expect(consumerIds.has(section), `'${section}' composes on a consumer`).toBe(false);
     }
-    // Non-vacuity: the bundle really does leave the two liveness gates out.
-    expect(imports.length).toBeGreaterThanOrEqual(2);
+    // Non-vacuity: the bundle really does leave the ESLint liveness gate out.
+    expect(imports.length).toBeGreaterThanOrEqual(1);
   });
 
   it('(e) paired negative: the pre-2026-09-28 delivery shape is reported by arm (b)', () => {

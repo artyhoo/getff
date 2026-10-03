@@ -20,8 +20,10 @@
  *
  * Coverage of all 8 guards (each exercised by a case whose failure the guard prevents,
  * so deleting the guard reddens the suite):
- *   - §3 audit-self, §4 render, §5–5d meta-tests, guard/cmd-script-liveness manifest
+ *   - §3 audit-self, §4 render, §5–5d meta-tests, guard-liveness manifest
  *     → the plain POSITIVE case (their absent paths would each hard-fail the push).
+ *     (cmd-script-liveness left that class in trigger build S3: it ships owner
+ *     `both`, reads the layout's manifest, and its S3 cases below run the FULL hook.)
  *   - §7 prior-art / §1.7  → the capability-commit POSITIVE (skip) + SSOT-planted NEGATIVE.
  *   - §6 spec-validate     → the orchestrator-prompt POSITIVE (skip) + validator-planted NEGATIVE.
  *
@@ -2115,6 +2117,82 @@ describe(
 
       // Proves the POSITIVE arm's exit 0 comes from the bundle, not from a reachable source graph.
       expect(r.status, r.out).not.toBe(0);
+    });
+
+    // ── trigger build S3 (spec S-9 / advisor E18 F1): the cmd-script liveness arm
+    //    ships INSIDE the bundle with owner `both` and reads the CONSUMER manifest.
+    //    These run the FULL hook with NO PREPUSH_ONLY — that seam looks the section up
+    //    in SECTIONS, bypassing the owner filter, so it proves logic, never
+    //    composition. The ℹ line in (iii) is therefore the OWNER proof: it can only
+    //    appear if the section composes on a consumer layout. And per E18 F1, the
+    //    empty run is a COUNTED ZERO, never a green check.
+    const CONSUMER_MANIFEST_REL = '.ai-factory/synthesizer-output/rules-manifest-additions.json';
+
+    it('S3 (i) FULL hook — a DEAD command rule in the generated manifest blocks a consumer push', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        CONSUMER_MANIFEST_REL,
+        `${JSON.stringify(
+          {
+            G1: {
+              check: { type: 'command', command: 'true' },
+              fixture: { 'setup-script': 'echo bad > violating.txt' },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'feat: generated rules manifest',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(1);
+      expect(r.out, r.out).toContain('G1');
+      expect(r.out, r.out).toMatch(/did NOT exit non-zero on the violating fixture/);
+      expect(r.out, r.out).toContain(
+        `command/script checks: 1 in ${CONSUMER_MANIFEST_REL}, 1 changed in this push`,
+      );
+    });
+
+    it('S3 (ii) FULL hook — the LIVE twin passes, the push is not blocked, and the pass is said out loud', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        CONSUMER_MANIFEST_REL,
+        `${JSON.stringify(
+          {
+            G1: {
+              check: { type: 'command', command: 'test ! -e violating.txt' },
+              fixture: { 'setup-script': 'echo bad > violating.txt' },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'feat: generated rules manifest',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(0);
+      expect(r.out, r.out).not.toMatch(/did NOT exit non-zero/);
+      expect(r.out, r.out).toMatch(
+        /✅ cmd-script-liveness: 1 command\/script rule\(s\) passed liveness check/,
+      );
+    });
+
+    it('S3 (iii) FULL hook — an empty consumer prints the counted 0 (owner proof) and never a green line', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(0);
+      expect(r.out, r.out).toContain('command/script checks: 0 — nothing to check yet');
+      expect(r.out, r.out).toContain(`(no rules manifest at ${CONSUMER_MANIFEST_REL})`);
+      expect(r.out, r.out).not.toMatch(/✅ cmd-script-liveness/);
     });
   },
 );
