@@ -146,7 +146,7 @@ mark those anchor points so the rendered rule index reports the full delivery su
 
 - `.claude/hooks/inject-session-bootstrap.sh:2` is the SessionStart header the card's description
   row quotes: `# inject-session-bootstrap.sh — SessionStart hook — injects the session-bootstrap digest into session context`.
-- Registration: `.claude/settings.json:260` (SessionStart, matcher
+- Registration: `.claude/settings.json:269` (SessionStart, matcher
   `startup|resume|clear|compact`) wires it. The plugin does not: `scripts/render-harness-config.mjs` lists it in
   `PLUGIN_INCOMPATIBLE` as operator-axis only, so `plugin/hooks/hooks.json` has no entry
   for it (measured: `grep -c inject-session-bootstrap plugin/hooks/hooks.json` prints `0`).
