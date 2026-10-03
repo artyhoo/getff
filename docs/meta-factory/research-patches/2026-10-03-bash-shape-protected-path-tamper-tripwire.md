@@ -85,13 +85,15 @@ vocabulary hoping to enumerate shapes (`#hope-as-gate` at the token level).
 
 ## §3 Solution — content tripwire (git-safety.sh v3.5, part 1d)
 
-Adopted from the chip's design 1, with the deviations the probes forced:
+Adopted from the chip's design 1, with the scoping the «don't close what is useful» constraint
+forced (operator directive mid-chip — convenience preservation is a binding design requirement):
 
 - **PreToolUse(Bash)** snapshots a manifest (sha256 + mode + type + bytes) of the protected set
   of the root(s) where the command will RUN: session `cwd`'s git root plus `cd`/`git -C` targets
   from the command (live-fire verified both roots captured in one manifest). Root resolution is
   filesystem-based (walk up to `.git`; common hooks dir from the gitdir file) — zero git
-  subprocesses on the hot path.
+  subprocesses on the hot path. Non-existent watch paths are registered too, so creation
+  from nothing is caught at Post.
 - **PostToolUse(Bash)** re-computes and on any divergence: (a) restores bytes/mode/symlinks from
   the snapshot — **never from git**, worktrees legitimately hold uncommitted states; (b) appends
   a TAMPER line to `~/.claude-coordination/git-safety/tamper.log`; (c) emits
@@ -100,10 +102,30 @@ Adopted from the chip's design 1, with the deviations the probes forced:
   (`.husky/` injected into a hook-less repo) are removed whole.
 - **Protected set mirrors the repo deny rules**: `.husky/**`, `.claude/settings.json`,
   `.claude/settings.local.json`, `<git-common-dir>/hooks/**` — resolved per worktree.
+  husky's generated shim dir `.husky/_` is excluded: it is recreated by every `npm install`
+  (`prepare: husky`) and holds nothing to protect.
+- **Scope — the aif repo family only**: roots sharing the primary checkout's git-common-dir
+  (`~/code/rules-as-tests-aif` + every worktree), plus colon-separated `GIT_SAFETY_PROTECT_EXTRA`
+  paths for ad-hoc additions. Consumer repos keep their hook-setup flows (`npx husky`,
+  `echo > .husky/commit-msg`) untouched — the ownership contract motivating protection is
+  repo-specific, so reverting such writes would break legitimate agent work there.
+- **git-materializing commands are exempt** (`checkout/switch/restore/merge/rebase/pull/stash/
+  cherry-pick/apply/am`): what they write is committed content, reviewed at merge time, and
+  their dangerous forms already carry their own guards (raw-regex arms + deny rules). Without
+  this exemption the tripwire would revert a legitimate branch switch whose `.husky` differs
+  between branches — measured as suite case d2.
 - **Escape hatch** (chip item 3, `MERGE_LOCK_OVERRIDE` pattern from part 1c): literal
   `GIT_SAFETY_OVERRIDE="<rationale ≥20 chars>"` in the command → no revert, OVERRIDE line in
-  `tamper.log`; short rationale → reverted + rejection surfaced. An operator chat line is not
-  machine-readable; the env-var-in-command-text pattern already is.
+  `tamper.log`; short or `$`-interpolated rationale → reverted + rejection surfaced to the agent.
+- **Operator-paste authorization**: the same command found verbatim inside a human-origin
+  transcript message (`origin.kind=human`, exact containment on the parsed text, quote-stripped
+  prefilter on both sides — JSONL escapes `"` but not `'`) → `"operator"` manifest flag → Post
+  logs an OPERATOR line and does not revert. This is the «оператор вставил команду в чат» path:
+  a human-typed command is its own authorization (precedent: part 1b's ok-foreign-worktree).
+  Boundary: the scan reads the transcript TAIL (1 MB) — a paste scrolled out of the tail must
+  use `GIT_SAFETY_OVERRIDE`. (Bug found by the suite here and fixed: the tail read discarded
+  one line unconditionally to truncate a partial line, which — when the file is smaller than
+  1 MB and the seek lands at 0 — discarded the human message itself.)
 - Caps: >400 files or >4 MB → snapshot skipped, SKIP line in log (fail-open, consistent with the
   file's doctrine); snapshots `gs-<session>-<tool_use_id>` swept after 90 min (foreground calls
   live ≤10 min; background Post fires at spawn).
@@ -111,20 +133,28 @@ Adopted from the chip's design 1, with the deviations the probes forced:
 **Test evidence** (`~/.claude-coordination/git-safety/selftest/run.py`, synthetic stdin payloads
 against the real hook, ALL PASS): 11 tamper shapes (python literal / after-cd relative /
 env-indirection / tee / heredoc-via-var / sed -i / rm / rmtree / new file / settings rewrite /
-git-hooks injection) each blocked + reverted with mode preserved; benign write outside protected
-paths passes; override authorizes + logs; short override rejected; post-without-pre no-op;
-Pre-blocked command leaves no snapshot. Latency: benign pre+post pair 117.9 ms avg vs 89.4 ms
-pure interpreter-startup baseline (2 × 44.7) — ~14 ms of work per hook invocation. Live-fire:
-a real Bash tool call `cd <fake> && python3 -c 'open(".husky/pre-commit","w")...'` produced a
-manifest carrying BOTH roots; a synthetic Post with the real `session_id`/`tool_use_id` emitted
-block + revert + TAMPER log line.
+git-hooks injection) each blocked + reverted with mode preserved; the paired conveniences pass —
+benign write outside protected paths, `.husky/_` creation, branch switch materializing committed
+content, non-family repo, operator-pasted command (authorized + OPERATOR log line) — while the
+agent-typed identical command is still reverted; override authorizes + logs; short override
+rejected with the reason surfaced; post-without-pre no-op; Pre-blocked command leaves no
+snapshot. Latency: benign pre+post pair 118-174 ms across the day's runs (median ~168 on the
+final build) vs 87-107 ms pure interpreter+shell startup pair measured the same hour — roughly
+15-30 ms of hook work per invocation, machine-load sensitive; measured twice before quoting.
+Live-fire: a real Bash tool call `cd <fake> && python3 -c 'open(".husky/pre-commit","w")...'`
+produced a manifest carrying BOTH roots; a synthetic Post with the real
+`session_id`/`tool_use_id` emitted block + revert + TAMPER log line — mechanics verified on the
+pre-scoping build; after scoping, a bare live-fire of the throwaway fake repo needs
+`GIT_SAFETY_PROTECT_EXTRA` (which CC-run hooks do not inherit), while real family roots remain
+covered as-is.
 
-**Honest boundaries:** a background process writing AFTER Post escapes the window; two
-concurrent calls writing protected paths of the same repo can revert each other (normal agent
-work never writes there — that is the point); `cd $VAR` indirection hides the target root from
-the augmentor; oversized trees are skipped, not guarded. The tripwire is a restore+report
-mechanism, not a lock: a determined same-session adversary can also disable the hook itself
-— that class belongs to the auto-mode classifier, as part 1b-guard's comment already states.
+**Deliberately NOT closed** (the «don't close what is useful» ledger): writes in consumer repos;
+committed content materialized by git commands; husky-generated `.husky/_`; operator-pasted
+commands (authorization by provenance, logged); a background process writing AFTER the Post
+window; concurrent same-repo writers racing the snapshot; `cd $VAR` indirection hiding a target
+root from the augmentor; oversized trees (skipped, not guarded). The tripwire is restore+report,
+not a lock: a determined same-session adversary can disable the hook itself — that class belongs
+to the permission classifier, as part 1b-guard's comment already states.
 
 ## §4 Wiring state
 
