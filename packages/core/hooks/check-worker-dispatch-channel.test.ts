@@ -366,7 +366,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
   it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', () => {
     const wt = _mkdtempSync(_join(_osTmpdir(), 'wdc-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
-    _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
+    // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
+    // real post-checkout hook runs scripts/link-coordination.sh, which walks the operator's
+    // ~/.claude-coordination store (519 files on 2026-10-01, ~600 git spawns) and took
+    // 18-28 s of this case's 30 s budget under load — a timeout sized by $HOME, not the test.
+    _execSync(`git -c core.hooksPath=/dev/null worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
     tierWorktrees.push(wt);
     // Overwrite worktree's checked-out hook with the FIXED working-tree version.
     copyHook(_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));

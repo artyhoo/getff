@@ -44,12 +44,12 @@ const RULE_INDEX_SECTION_ID = 'rule-index';
 // marker's `plan=` attribute records the generating script instead (self-descriptive, T15).
 const RULE_INDEX_PLAN_PATH = 'scripts/render-rule-index.mjs';
 
-// 4KB size ceiling asserted by --check (ii). Raised from 3KB 2026-07-21: the rule population
-// (21 rules × ~150B/row) had consumed 3044/3072 BEFORE the 22nd rule landed, so the old ceiling
-// was structurally unmeetable — any legitimate new rule broke every push repo-wide. 4KB restores
-// headroom for ~5 more rules at the same row budget; raise again only with the same reasoning,
-// and prefer trimming verbose `Fires:` lines (the row's only elastic field) first.
-const INDEX_MAX_BYTES = 4 * 1024;
+// Size ceiling asserted by --check (ii). Raised 3KB->4KB 2026-07-21 (21 rules had used 3044/3072)
+// and 4KB->5KB 2026-10-01 (29 rules had used 4092/4096; a minimal row is ~90B) — both times no
+// legitimate new rule could fit, so every push broke repo-wide. Raise again only on that same
+// reasoning, and trim verbose `Fires:` lines (the row's only elastic field) first — the 30th rule
+// (coordinator-seat-delegation) did. 5KB leaves ~6 more rules at ~150B/row.
+const INDEX_MAX_BYTES = 5 * 1024;
 
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.

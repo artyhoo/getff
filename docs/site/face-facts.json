@@ -315,7 +315,7 @@
       "F1": {
         "familyName": "rules",
         "path": "docs/site/reference/F1.json",
-        "members": 29
+        "members": 30
       },
       "F2": {
         "familyName": "generated rules",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 34
+        "members": 35
       },
       "G": {
         "familyName": "packages",
@@ -348,22 +348,22 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 56
+      "count": 57
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 302
+      "count": 308
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 279
+      "count": 281
     },
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 92
+      "count": 96
     },
     "academicSources": {
       "source": [
@@ -376,8 +376,8 @@
   },
   "enforcementOutcomes": {
     "source": [
-      "AGENTS.md:78",
-      "AGENTS.md:98",
+      "AGENTS.md:79",
+      "AGENTS.md:99",
       "packages/core/composition/demo/root-agents-demo.ts:133"
     ],
     "nodes": {
