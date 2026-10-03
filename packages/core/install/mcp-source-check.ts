@@ -47,7 +47,7 @@
  * =<dir> records live answers into that shape.
  *
  * @cc-only-rationale: install-time payload run by setup.d/35-stack-tools.sh through its bundle.
- * Prior-art: prior-art-evaluations.md#303 (official MCP registry read API ADOPT).
+ * Prior-art: prior-art-evaluations.md#312 (official MCP registry read API ADOPT).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

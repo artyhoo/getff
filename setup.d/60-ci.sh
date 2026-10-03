@@ -2,9 +2,9 @@
 # setup.d/60-ci.sh — §6b .nvmrc↔CI drift WARN + §6b-bis R2 auto-wire L1 + §6c CI-orphan WARN.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §6b nvmrc-ci drift (install.sh:1125-1148),
-#          §6b-bis R2 L1 (install.sh:1150-1209), sets _r2_verdict global,
-#          §6c CI-orphan WARN + yq auto-wire (install.sh:1211-1356)
+# S0 rows: §6b nvmrc-ci drift (install.sh:1125-1148), cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
+#          §6b-bis R2 L1 (install.sh:1150-1209), sets _r2_verdict global, cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
+#          §6c CI-orphan WARN + yq auto-wire (install.sh:1211-1356) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: 40-configs (eslint.config.mjs + .nvmrc + .github/workflows/ already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O8: sources detect-r2-boundary from $PKG_ROOT (not PROJECT_ROOT)
