@@ -201,6 +201,12 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 
 **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4). The default dispatch payload **inlines** the kickoff scope sections + the diff into the prompt («answer without reading files») — measured at ~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for the file-reading form (row 4 vs row 3). The file-reading form is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B is the stage that owns the bottom-seat check station; not implemented here).
 
+Either format, the seat prompt carries the ref every input was taken at; in the file-reading fallback the paths are snapshots from `scripts/snapshot-for-seat.sh`, never live worktree paths ([cold-seat-economy.md §7](../../rules/cold-seat-economy.md)):
+
+```text
+Inputs-ref: <container HEAD sha the diff and every file path in this prompt are taken at>
+```
+
 - `GO` → record the block (Basis/Round/Audited-SHA/Evidence) into the prepared PR body
   (pass via `--body-file` — without the section the `pr-body-fidelity` gate holds the PR
   red) and proceed to `harvest.ts`. **`Audited-SHA` = container HEAD is correct ONLY on

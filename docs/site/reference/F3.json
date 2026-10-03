@@ -778,6 +778,7 @@
     "rule-load-replay.sh",
     "run-install-sh-suite.sh",
     "setup-cc-adoptions.sh",
+    "snapshot-for-seat.sh",
     "triage-corpus-probe.mjs",
     "triage-s0-run.mjs",
     "triage-s0-score.mjs",

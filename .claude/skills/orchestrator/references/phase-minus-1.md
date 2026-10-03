@@ -27,9 +27,11 @@
    **Reviewer checklist** (одинаков для A и B, передавать в subagent prompt):
 
    ```text
-   Task: Cold-start review of <kickoff/prompt path> for execution-readiness
+   Task: Cold-start review of <kickoff/prompt snapshot path> for execution-readiness
+   Inputs-ref: <SHA printed on line 1 of scripts/snapshot-for-seat.sh; the kickoff path above is its snapshot>
    Subagent prompt:
-     You are a cold-start reviewer. You did NOT write this prompt. Read it cold and critique:
+     You are a cold-start reviewer. You did NOT write this prompt. Read it cold and critique.
+     Every path:NN you quote is measured at Inputs-ref; name that ref once in your report:
        (a) Ambiguous instructions or unstated assumptions
        (b) Missing hard constraints (worktree, scope, T-traps, capability-commit, §1.7, drive-by risk)
        (c) Conflicts with current project state — verify file/line/slot/PR claims independently

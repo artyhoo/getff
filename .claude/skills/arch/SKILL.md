@@ -119,6 +119,14 @@ The two reports are presented side by side, **never merged or reranked into one 
 
 **Unique-filenames dispatch contract (handoff decision 13).** When two or more subagents are dispatched in parallel and share one scratchpad directory, each dispatch prompt names a **unique output filename** (e.g. `<seat>-<topic>.md`), assigned by the dispatching session, never chosen by the subagent — e.g. `top-down-<topic>.md` and `bottom-up-<topic>.md` for the two §2 seats.
 
+**Pinned-inputs dispatch contract.** Each seat prompt carries this required line, filled per dispatch:
+
+```text
+Inputs-ref: <sha the artifact paths below are snapshots of>
+```
+
+The artifact paths it hands over are immutable snapshots at that SHA (`bash scripts/snapshot-for-seat.sh <sha> <paths…>` prints the field and the paths), never live paths in a worktree another session can move; every `path:NN` the seat quotes is measured at that one ref ([cold-seat-economy.md §7](../../rules/cold-seat-economy.md)).
+
 **Seat instantiation — operator model ladder (fixed 2026-07-23). Relative tiers, not hard-coded model names** (same posture as [night-mode/SKILL.md](../night-mode/SKILL.md) «Overnight model posture» — the window slides to whatever the active harness offers): the contour runs a three-role ladder — _top tier designs · mid tier verifies · executor tier builds_. When the authoring session itself occupies the top tier, BOTH §2 review seats default to the **mid tier** (Claude today: Fable authors → Opus reviews; on a harness without a third tier the seats collapse to a fresh-context same-tier second opinion, per night-mode's degradation rule). Rationale: a cold review's power is cold-by-construction (artifact-only input, no authoring dialogue), not the reviewer's tier — and top-tier tokens are not spent on volume verification. The **executor tier** side of the ladder is owned by [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md), not this skill. The operator may explicitly request a top-tier review seat for an unusually hard design.
 
 Both report in the **verdict grammar this skill's dispatch prompts specify** (owned here — it is the prompt contract, not a protocol restatement): `VERDICT: GO | REVISE | STOP`, findings graded `BLOCKER | MAJOR | MINOR | ESCALATED`, each with file:line evidence. **Severity contract ([advisor-pattern-design §6](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)):** a round-triggering finding additionally carries a `Failure-scenario:` line (concrete failure / goal-impact); scenario-less findings live in the notes lane (fixed same-round or recorded — never a new round). A finding standing on an UNRECORDED value premise is graded `ESCALATED` and routed to the concept holder, never priced by the reviewer.
