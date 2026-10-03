@@ -138,6 +138,12 @@ When reviewing `.tsx`/`.jsx` diff:
 - **`screen.debug()`** left in committed code.
 - **`act(() => ...)`** wrapping userEvent calls — userEvent already wraps in act internally.
 
+### 9. A case that passes for the sibling's reason
+
+When the diff adds a channel between two components (a tmp file, env var, shared state or config key one writes and the other reads), a test of either side can pass against the pre-fix code deterministically — the sibling moved an input the case depends on.
+
+For each new or touched case, **name the single production change that flips it**. If you cannot, or if another input in the fixture could flip it (an input the sibling channel writes and the test does not pin), flag MAJOR. Check that the author's RED proof ran against `git show HEAD:<path>` pre-images of **every** file the fix touches, not only the primary one, and that each pin carries its reason inline. If no RED proof covering every touched file is visible to you, report that as a finding rather than assuming it ran. Existing tests of both sides are in scope: a new channel can hollow out an old case.
+
 ---
 
 ## Output format

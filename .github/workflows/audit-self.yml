@@ -6,7 +6,43 @@ on:
   pull_request:
   merge_group:
 
+# A newer push to the same PR supersedes the older run: its jobs are cancelled instead of
+# holding runner slots (20 concurrent jobs for this account, 45 jobs per run). Only
+# pull_request runs share a group — push (staging/main/chore/**) and merge_group runs each get
+# their own run_id group, so they are never cancelled. The superseded run's `ci-success` still
+# runs (`if: always()`) and reports RED on the superseded SHA, which is no longer the PR head;
+# `!cancelled()` would instead report `skipped`, which branch protection counts as passing.
+concurrency:
+  group: audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Path scope for the install-area jobs (install-sh shards, fresh-install validate matrix +
+  # multi-stack, the Windows consumer-matrix cell). They `needs:` this job and run only when
+  # its `install` output is 'true'. The decision is fail-closed: `false` only on a
+  # pull_request whose every changed path is in the measured skip set; every other event runs
+  # everything (scripts/ci-path-scope.sh header). `ci-success` re-checks the decision against
+  # the gated jobs' results, so a missing decision or a skip that contradicts it is RED.
+  # fetch-depth: 2 is load-bearing: the pull_request checkout is the merge commit, and the
+  # decision diffs it against parent 1 (the base tip) — both parents must be present.
+  path-scope:
+    name: Path scope — install-area jobs needed for this change?
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      install: ${{ steps.scope.outputs.install }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Decide the install-area path scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: bash scripts/ci-path-scope.sh
+
   mechanical:
     name: Mechanical checks (bash, json, dead links)
     runs-on: ubuntu-latest
@@ -206,6 +242,16 @@ jobs:
             echo "::error::packages/core/audit-self/audit-ai-docs.test.ts missing"
             exit 1
           fi
+      # The auditor LIVE on this repo, both implementations. The step above proves the probes
+      # on fixtures; these fail when the repo itself drifts (a file restating the goal left
+      # unenrolled — D5; a goal-bearing doc losing the phrase — D3). Nothing ran them here until
+      # 2026-09-28, when the first live run found D3 + D5 failures unread since #1228 / #1420.
+      # Single-line on purpose: a vanished script fails the step instead of skipping it, and
+      # scripts/run-local-ci-sweep-coverage.test.sh can match them to the sweep row.
+      - name: Run audit-ai-docs.sh live on this repo
+        run: bash packages/core/audit-self/audit-ai-docs.sh
+      - name: Run audit-ai-docs.ts live on this repo
+        run: npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts
       # First-Steps SSOT ↔ AI Usage Guide parity (beta-ai-docs-agnosticism S1). Registered by
       # NAME, not via an `audit-self/` directory scope: a directory sweep would also pull in
       # currently-unregistered neighbours, which is scope this umbrella did not ask for.
@@ -260,6 +306,13 @@ jobs:
       # the §7 fact families. Same tsx runner pattern as the steps above.
       - name: Face-facts render & diff (getff-ai-site S0a)
         run: npx tsx scripts/render-face-facts.mjs --check
+      # The D42 face-facts generator's acceptance arms: live-fire --write/--check against
+      # the real repo + throwaway mktemp fixture repos. Hermetic — no network, no LLM.
+      # Lives here, not in the path-scoped install-sh battery: it reads every file under
+      # docs/meta-factory + docs/superpowers (research-patch/spec counts, DOI scan), so it
+      # must run on the PRs that battery skips (scripts/ci-path-scope.sh SKIP_PATTERNS).
+      - name: Run face-facts generator arms test (getff-ai-site S0a)
+        run: bash scripts/render-face-facts.test.sh
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
@@ -578,12 +631,12 @@ jobs:
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
       - name: Run merge-forward range paired-negative (trunk-reachable commits exempt, 2026-08-07)
         run: bash tests/hooks/prepush-merge-forward-range.test.sh
-      - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT)
-        run: bash tests/hooks/prepush-cross-checkout-range.test.sh
+      - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT) + unpushed-merge refusal paired-negative
+        run: bash tests/hooks/prepush-cross-checkout-range.test.sh && bash tests/hooks/merge-unpushed-refusal.test.sh # + unpushed-merge refusal (.husky/pre-merge-commit + pre-commit MERGE_HEAD arm, 2026-09-30), same line so no citation shifts
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
       - name: Run register-glossary-hook idempotence regression (cold-review M2, plain-words-recap-v2 S3)
-        run: bash tests/hooks/register-glossary-hook.test.sh
+        run: bash tests/hooks/register-glossary-hook.test.sh && bash tests/hooks/seal-primary-checkout.test.sh # + primary-checkout seal deny-gate paired tests (2026-10-01 incident), same line so no citation shifts
       # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
       # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
       # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
@@ -606,7 +659,7 @@ jobs:
       # silently changing what a spec row means. Python stdlib only; reads its own fixtures, so
       # it needs no corpus and no network.
       - name: Run measurement-script acceptance (recap-v2 spec table oracle)
-        run: bash scripts/measure/measure.test.sh
+        run: bash scripts/measure/measure.test.sh && bash scripts/exclude-path-scoped-rules.test.sh && bash scripts/rule-load-replay.test.sh && bash scripts/rule-load-adherence.test.sh && bash scripts/measure-turn-attribution.test.sh # + trigger-build S2 host-script plumbing and the native-rule-load arm acceptance (stub claude, mktemp, no network), same line so no citation shifts
       # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
       # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
       # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test
@@ -624,10 +677,19 @@ jobs:
         run: bash tests/plugin/manifest-valid.test.sh
       - name: Run plugin opencode-adapter test
         run: bash tests/plugin/opencode-adapter.test.sh
-      - name: Run plugin run-hook test
-        run: bash tests/plugin/run-hook.test.sh
+      - name: Run plugin run-hook + hook-live tests (hook-live = D12 liveness marker)
+        run: bash tests/plugin/run-hook.test.sh && bash tests/plugin/hook-live.test.sh
       - name: Run plugin twin-emit test
         run: bash tests/plugin/twin-emit.test.sh
+      # Sandbox-tree acceptance for the source-hash manifest writer (fix round 1, item 4):
+      # undeclared reach-beside → no entry, empty declaration → main-line-only, a declaration
+      # naming a missing path → exit 2, output is LC_ALL=C sorted.
+      - name: Run plugin source-hashes writer test
+        run: bash tests/plugin/plugin-source-hashes.test.sh
+      # setup.d/skill-routing.sh + its plugin twin + the session-start re-apply arm. Hermetic
+      # (throwaway HOME per case), so it never reads or writes the runner's ~/.claude.
+      - name: Run plugin skill-routing test
+        run: bash tests/plugin/skill-routing.test.sh
       - name: Run plugin warn-subagent-report ZCode arm test
         run: bash tests/plugin/warn-subagent-report-zcode.test.sh
       # Wired 2026-08-17 alongside the S9C rollout-arm restore. This is the acceptance test that
@@ -646,13 +708,15 @@ jobs:
       # hermetic on a clean runner — verified locally at 9/9 and 5/5.
       - name: Run aif-doctor heal test
         run: bash tests/aif-doctor/heal.test.sh
-      - name: Run aif-doctor refresh-aif-base test
-        run: bash tests/aif-doctor/refresh-aif-base.test.sh
+      - name: Run aif-doctor refresh-aif-base + aif-agent-target tests
+        run: bash tests/aif-doctor/refresh-aif-base.test.sh && bash tests/aif-doctor/aif-agent-target.test.sh # the shared agent-container resolver (hermetic stub docker); same line so no citation shifts
       - name: Run probe-channels self-test
-        run: bash scripts/probe-channels.test.sh
+        run: bash scripts/probe-channels.test.sh && bash scripts/probe-hook-stdin.test.sh # + the hook-stdin probe's non-LLM parts (stub claude, mktemp, no network); same line so no citation shifts
 
   install-sh-a:
     name: install-sh battery (shard A)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -682,6 +746,10 @@ jobs:
         run: bash tests/install-sh/merge-fenced-splice-failure.test.sh
       - name: Run install-sh stale-tmp / unconditional-success test (ledger #1597 A1-9)
         run: bash tests/install-sh/stale-tmp-unconditional-success.test.sh
+      - name: Run install-sh hook-event-move test (per-prompt injections moved to SessionStart)
+        run: bash tests/install-sh/hook-event-move.test.sh
+      - name: Run install-sh inject-matching-rule registration test (trigger build slice 1 — three arms, legacy widening)
+        run: bash tests/install-sh/imr-registration.test.sh
       - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
@@ -690,12 +758,12 @@ jobs:
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
-      # The install-sh battery runner the sweep delegates to. CI keeps its own per-file steps
-      # (three shards, isolated runners — tests/install-sh/meta-all-wired.test.sh enforces that);
-      # this paired-negative covers the LOCAL runner's own semantics: non-zero on a failing test,
-      # no false green when a worker dies, quarantine isolation, and non-interleaved output.
+      # The LOCAL battery runner the sweep delegates to (CI's own per-file steps: meta-all-wired.test.sh):
+      # non-zero on a failing test, no false green on a dead worker, quarantine, non-interleaved output.
+      # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`). The `3>/dev/null`
+      # run is the sweep's fd state: dropping the test's file-wide `exec 3>&-` goes RED in CI too.
       - name: Run install-sh suite-runner paired-negative (local battery fan-out)
-        run: bash scripts/run-install-sh-suite.test.sh
+        run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null
       # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
       # workflow runs must be reachable from the sweep's gate table, or carry an explicit
       # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
@@ -713,7 +781,7 @@ jobs:
       # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
       # tsx/curl/launchctl under mktemp, so it runs anywhere.
       - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
-        run: bash scripts/close-merged-sweep.test.sh
+        run: bash scripts/close-merged-sweep.test.sh && bash tests/orchestrator/memory-sweep.test.sh && bash tests/orchestrator/coordinator-seat-card.test.sh # + orchestrator paired-negatives (Phase -1 memory sweep on a mktemp store; coordinator-seat events: card regexes); same line so no citation shifts
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that
@@ -721,16 +789,21 @@ jobs:
       # mktemp, so it runs anywhere and proves BOTH arms red-on-drift.
       - name: Run path:line citation paired-negative (both detection arms)
         run: bash scripts/check-line-citations.test.sh
+      # The SIGPIPE-under-pipefail gate's own channel is pre-commit (staged files only).
+      # This step scans the WHOLE population, the backstop for `git commit --no-verify` and
+      # aif-container commits (no husky); the paired-negative proves every arm fires.
+      - name: Run pipefail early-exit gate paired-negative
+        run: bash scripts/check-pipefail-early-exit.test.sh && bash scripts/check-getff-manifest-staged.test.sh # + the pre-commit getff MANIFEST-staged gate paired-negative (sibling pre-commit channel; throw-away git repos), same line so no citation shifts
+      - name: pipefail early-exit gate (no pipe into grep -q under pipefail)
+        run: node scripts/check-pipefail-early-exit.mjs
       # The D29 reference generator's acceptance arms (principle 41 channel): live-fire
       # census/--write/--check against the real repo + throwaway mktemp fixture repos.
       # Hermetic — no network, no LLM; paired with the reference render & diff step above.
       - name: Run reference-render generator arms test (getff-ai-site S0a)
         run: bash scripts/render-reference.test.sh
-      # The D42 face-facts generator's acceptance arms: live-fire --write/--check against
-      # the real repo + throwaway mktemp fixture repos. Hermetic — no network, no LLM;
-      # paired with the face-facts render & diff step above.
-      - name: Run face-facts generator arms test (getff-ai-site S0a)
-        run: bash scripts/render-face-facts.test.sh
+      # The D42 face-facts generator arms test moved to manifest-render-check (next to its
+      # --check): it reads ALL of docs/meta-factory + docs/superpowers, which this job is
+      # path-scoped to skip (scripts/ci-path-scope.sh).
       # The G12 tier-read module's own test (ref-gen G12) shipped in 46e7bccf5d wired to no
       # channel — principle 41 flagged it on this branch; this step is the repair.
       - name: Run skill-tiers module test (G12 extraction)
@@ -836,6 +909,8 @@ jobs:
 
   install-sh-b:
     name: install-sh battery (shard B)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -865,6 +940,12 @@ jobs:
         run: bash tests/install-sh/monorepo-stack-fallback.test.sh
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
+      - name: Run path-scope decision paired-negative (install-area jobs skip only on a measured-skip-only PR)
+        run: bash scripts/ci-path-scope.test.sh && bash scripts/ci-capture.test.sh # + the runner-only-value capture script (real git in mktemp, stubbed gh), same line so no citation shifts
+      # merge-forward-round.sh (git-conflict-merge-forward.md §2/§4 automation): the §4
+      # generated-vs-semantic classifier + usage contract, hermetic (no git history, no gh).
+      - name: Run merge-forward-round classifier + usage paired-negative
+        run: bash scripts/merge-forward-round.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)
@@ -893,6 +974,8 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — refresh-rewires (refresh wiring-parity G1-G9: hooks, husky, MCP, R2, scripts, CI report, python entry, recap gate)"
+        run: bash tests/install-sh/refresh-rewires.test.sh
       - name: "install-sh — first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)"
         run: bash tests/install-sh/first-commit-passable.test.sh
       - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
@@ -917,10 +1000,16 @@ jobs:
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — R2 passes that cannot run name each config they would have changed in the NOT wired summary, with the reason (Q4.7; no ts-morph / no wirer / unknown-stack workspace)"
         run: bash tests/install-sh/r2-not-wired-summary.test.sh
+      - name: "install-sh — installer greps read the consumer's ESLint config as code (#1889 obs. 7: a rule id, RULE_GLOBS or a glob in a comment is not wired)"
+        run: bash tests/install-sh/installer-greps-read-code.test.sh
+      - name: "install-sh — _r2_boundary_under survives a SIGPIPE race (no pipe into grep -q under pipefail; forced large detector output)"
+        run: bash tests/install-sh/r2-boundary-under-sigpipe.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
+      - name: "install-sh — check-zcode-mirror behaviour table (#1502: timeliner seven-offender fixture, repo single-link shape, CC-only, exemption arms)"
+        run: bash tests/install-sh/check-zcode-mirror.test.sh
       - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
         run: bash tests/install-sh/gh-975-husky-reassert.test.sh
       - name: "install-sh — critical-review S4-3 consumer-owned core.hooksPath kept (not wired + manual command)"
@@ -931,11 +1020,11 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-eot-hook.test.sh
       - name: "install-sh — gh-934 ship session-UX hooks (ask-question PreToolUse + inject-matching PostToolUse: delivery + non-destructive matcher-merge + firing + jq-guard)"
         run: bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh
-      - name: "install-sh — gh-934 ship output-language hook (UserPromptSubmit: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
+      - name: "install-sh — gh-934 ship output-language hook (SessionStart, legacy per-prompt registration migrated: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
         run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
       - name: "install-sh — gh-934 ship doc-authority-header gate (PostToolUse: zero-dep reimpl, non-destructive same-event merge, firing miss/pass, escape valves, jq-degrade, refresh)"
         run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
-      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest UPS+SubagentStart + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
+      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest SessionStart+SubagentStart, legacy per-prompt registration migrated + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
         run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
@@ -964,6 +1053,8 @@ jobs:
 
   install-sh-c:
     name: install-sh battery (shard C)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1060,6 +1151,8 @@ jobs:
           GETFF_REQUIRE_RESEARCH_TOOLS: '1'
       - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
         run: bash tests/install-sh/python-agent-surface-refresh.test.sh
+      - name: "install-sh — skill-context co-owned with /aif-evolve: install keeps evolved rules + delivers getff's fenced block, --refresh re-injects only that block (npm + python lanes)"
+        run: bash tests/install-sh/skill-context-evolve-coownership.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
@@ -1493,6 +1586,8 @@ jobs:
   # the shipped .prettierignore — a separate latent fresh-install validate-RED, distinct from #779).
   framework-fresh-install-validate:
     name: "Fresh-install validate smoke (${{ matrix.stack }}, ${{ matrix.fixture }}) — closes #779"
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1655,6 +1750,8 @@ jobs:
     # no-paid-llm-in-ci.md — NOT the full `npm run validate` (typecheck/test/lint arms depend on
     # per-workspace toolchain surfaces tracked under #808/#810, out of #807 scope).
     name: "Fresh-install validate smoke — multi-stack monorepo (closes #807)"
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1681,7 +1778,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/70-deps.sh:41-50) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:2751-2760, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`
@@ -2177,9 +2274,16 @@ jobs:
   # untouched, so the coverage reconciliation above still sees all four scripts.
   consumer-matrix:
     name: "Consumer-matrix — ${{ matrix.label }}"
+    needs: path-scope
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    env:
+      # 'false' only for a path-scoped cell (`scoped: true` below) on a pull_request the
+      # path-scope job ruled out. A matrix cell cannot be dropped by a job-level `if:` (it
+      # cannot read `matrix`), so the scoped cell's steps are gated on this instead; the
+      # runner still boots, but nothing is checked out or run.
+      RUN_CELL: ${{ !matrix.scoped || needs.path-scope.outputs.install == 'true' }}
     strategy:
       # One red cell must not cancel the others: each cell is an independent
       # acceptance claim, and a partial matrix hides which claims still hold.
@@ -2206,8 +2310,24 @@ jobs:
           # in this directory were ubuntu. This cell is that watcher.
           - cell: getff-dist
             os: windows-latest
+            scoped: true  # 8.5 of this job's ~12 runner-minutes; path-scoped via RUN_CELL
             label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
     steps:
+      # Unconditional guard for RUN_CELL, which ci-success cannot see (a cell whose steps all
+      # skip still concludes `success`): whenever the path-scope decision is `true`, every
+      # cell MUST run, so a broken RUN_CELL expression fails here instead of going silently
+      # green on every event, the staging push backstop included. A cell skipped by decision
+      # says so in its log instead of looking like a pass.
+      - name: Path-scope guard (a scoped cell runs whenever install=true)
+        shell: bash
+        env:
+          INSTALL: ${{ needs.path-scope.outputs.install }}
+        run: |
+          if [ "$RUN_CELL" != true ] && [ "$INSTALL" = true ]; then
+            echo "::error::RUN_CELL='$RUN_CELL' while path-scope decided install=true — this cell would skip its checks"
+            exit 1
+          fi
+          [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
       # Reproduce the checkout a Windows consumer gets: Git for Windows defaults
       # to core.autocrlf=true, which is what lands CRLF shebangs in the 336
       # tracked *.sh. With the repo's .gitattributes (`* text=auto eol=lf`) the
@@ -2216,12 +2336,14 @@ jobs:
       # test of the runner image's git defaults. Prior art: lint-staged
       # (`pull-requests.yml:123-124`) does exactly this.
       - name: Force the Windows-consumer checkout defaults
-        if: runner.os == 'Windows'
+        if: env.RUN_CELL == 'true' && runner.os == 'Windows'
         run: git config --global core.autocrlf true
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        if: env.RUN_CELL == 'true'
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        if: env.RUN_CELL == 'true'
         with:
           node-version: '22'
           cache: npm
@@ -2315,7 +2437,7 @@ jobs:
       # TEMP spellings it measured to the step summary. JSON reporter, not a
       # grep of the console: vitest colours its output on win32 and under CI.
       - name: R2 import specifier across path spellings (junction, 8.3 short name)
-        if: matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist' && runner.os == 'Windows'
         shell: bash
         run: |
           npm ci --prefix packages/core --silent
@@ -2346,7 +2468,7 @@ jobs:
           if (spelled.trim() === native.trim()) { console.log('::error::TEMP has one spelling on this runner: the short-name case was not exercised'); process.exit(1); }
           JS
       - name: Run the consumer-matrix getff-dist cell
-        if: matrix.cell == 'getff-dist'
+        if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
@@ -2490,6 +2612,21 @@ jobs:
       # its header — it is not in the install manifest and must run from a bare tree).
       - name: Full-corpus `path:line` citation sweep (unscoped)
         run: node scripts/check-line-citations.mjs --check --corpus
+      # Sibling citation check: has the artefact a BY-DESIGN verdict cites been amended since
+      # (doc-authority-hierarchy.md §4.1)? Its own channel is the auditor session; this
+      # paired-negative (mktemp git repo, git only) is the proof it still reports an addendum.
+      - name: Run cited-spec addenda paired-negative
+        run: bash scripts/cited-spec-addenda.test.sh
+      # The /arch consensus-retell gate's own channel is pre-commit (staged specs only). This
+      # step scans the whole spec corpus, the backstop for `--no-verify` and aif-container
+      # commits; it checks the Baseline's shape, not that the SHA resolves (squash-merged
+      # design branches are deleted, so an old Baseline can stop resolving). It rides this job because the job is unconditional, full-history (the Baseline
+      # arm resolves a commit) and dependency-free; the paired-negative proves every arm fires
+      # for its own reason.
+      - name: Run arch consensus-retell gate paired-negative
+        run: bash scripts/check-arch-retell.test.sh
+      - name: arch consensus-retell gate (every retell point names its source)
+        run: node scripts/check-arch-retell.mjs
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
@@ -2575,6 +2712,11 @@ jobs:
       # .claude/rules/attention-is-not-a-mechanism.md §2). Caught by the round-1
       # cold fidelity audit of the S-E stage.
       - alwayson-budget
+      - bash32
+      # The install-area path scope. Its decision is re-checked below (PATH_SCOPE_INSTALL):
+      # a failed/cancelled path-scope job reports '' here and fails the gate even though the
+      # jobs gated on it then show only as `skipped`.
+      - path-scope
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2588,6 +2730,36 @@ jobs:
         # cancelled); word-split intentionally into one arg per needed job.
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
+          # A `skipped` gated job is legitimate only when path-scope decided 'false'.
+          PATH_SCOPE_INSTALL: ${{ needs.path-scope.outputs.install }}
+          PATH_SCOPED_RESULTS: >-
+            ${{ needs.install-sh-a.result }} ${{ needs.install-sh-b.result }}
+            ${{ needs.install-sh-c.result }} ${{ needs.framework-fresh-install-validate.result }}
+            ${{ needs.framework-fresh-install-validate-multistack.result }}
         run: |
           # shellcheck disable=SC2086  # intentional word-split: one arg per job result
           bash scripts/ci-success-gate.sh $RESULTS
+
+  # Appended at the end of the file on purpose: `path:line` citations point into this workflow,
+  # and a job added above them would shift every one.
+  bash32:
+    # install.sh and setup.d/** run on a consumer's Mac: /bin/bash 3.2 with BSD sed and awk. This
+    # runner is bash 5 with GNU userland, so the defects never FIRE here (every one of them shipped
+    # green) — a static scan is the only form of the check that can run on it. The scan's own
+    # channel is pre-push (packages/core/hooks/pre-push.ts, section `bash32`); this job is the
+    # backstop for pushes that skipped the hook. The paired-negative runs the detector under the
+    # runner's mawk, the awk a Mac never uses, so a BSD-only awk construct in the checker fails
+    # here rather than on the next Linux user. No tool install: bash + awk + git.
+    name: bash32
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run bash-3.2 portability gate paired-negative
+        run: bash scripts/check-bash32.test.sh
+      - name: bash-3.2 / BSD portability gate over install.sh + setup.d/**
+        run: bash scripts/check-bash32.sh

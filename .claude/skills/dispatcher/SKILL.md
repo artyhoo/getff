@@ -250,6 +250,17 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
     of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
     otherwise).
 
+Then re-probe LATE — the §2.0 reading is hours old by now, and a parallel session can have merged
+the same stage under another branch name (PR 1354, an empty-diff twin of 1353; CLAUDE.md
+«Pre-dispatch in-flight probe» (f)). The host checkout is not the aif branch, so name both ends:
+the aif branch (own-PR exclusion) and the task's dispatch base (the staging-log start).
+`LATE-COLLISION` = STOP and compare before pushing:
+
+```bash
+SLUG="<stage-slug>" PROBE_SELF_BRANCH="<aif branch>" PROBE_LATE_FROM="<dispatch base SHA>" PROBE_LATE_CHANGED_FILES="" \
+  bash .claude/skills/dispatcher/helpers/probe-inflight.sh --late
+```
+
 Then push:
 
 ```bash
@@ -301,7 +312,7 @@ workaround, not the fix.
 Invoke superpowers:requesting-code-review on the harvested PR diff.
 ```
 
-Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → operator fixes, re-dispatch. `STOP` → escalate. `GO` → proceed to §2.6.
+Reviewer emits `GO` / `REVISE` / `STOP`. `REVISE` → the branch is already on the host, so route it by the tier-home «Rework routing» table (`.ai-factory/tier-home.md` §2; source `packages/core/templates/shared/tier-home.md`): every fix named at `file:line` with no open decision → fix in-session on the harvested branch, no re-dispatch; an open decision → re-dispatch per tier routing. `STOP` → escalate. `GO` → proceed to §2.6.
 
 **§2.6 — Stage gate**
 
@@ -503,6 +514,6 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 
 **Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:44`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
-**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:6`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:5`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
+**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:6`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:6`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
 
 **Stage (frontier-residue-sweep S1):** `advance-frontier.sh` REUSES the `/pipeline`-owned `frontier.sh` emitter as a pure consumer — bindings, not a fork; the §2.6 `is:merged` check stays the merge authority and `basis=marker-unverified` never advances a consumer (T-FRS1-B). Tests at `packages/core/skills/dispatcher/advance-frontier.test.ts`.

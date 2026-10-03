@@ -16,9 +16,9 @@ sources:
 executed:
   - { step: install, stack: go, date: 2026-09-21, result: "exit-0; self-check proven firing (go 1.22.0, golangci-lint 1.55.2)" }
   - { step: fire-on-your-code, stack: go, date: 2026-09-21, result: "exit-1; forbidigo named the os.Getenv line" }
-  - { step: install-without-go-tools, stack: go, date: 2026-09-21, result: "exit-0; self-check reported NOT proven" }
+  - { step: install-without-go-tools, stack: go, date: 2026-09-28, result: "exit-0; self-check reported NOT proven, NOT-wired line printed" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves a .pre-commit-config.yaml which does not load as YAML as it was; this page cites it only in its stack-switcher link, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Go
@@ -50,8 +50,10 @@ bash /tmp/rt/setup -y go
 
 The installer writes two things: `.golangci.yml` with the ban, and the CI workflow
 `.github/workflows/getff-go.yml`. If you already have a `.golangci.yml`, it does not
-touch yours. It writes `getff-golangci.yml` next to it, and that file does nothing until
-you merge it in. That is what "inert until you opt in" means in the table above.
+touch yours. It writes `getff-golangci.yml` next to it. The getff CI workflow runs the ban
+from that file, but a local `golangci-lint run` still reads only yours, and the installer
+lists that in its NOT-wired summary. That is what "inert until you opt in" means in the
+table above.
 
 Then the installer proves the ban works. In a temporary folder it plants one bad file and
 one good file, and runs the linter on both. The installer prints more than this. These
@@ -105,24 +107,24 @@ same check, so a commit with this line fails the build.
 
 ## If Go or the linter is missing
 
-The install still works, and it tells you the truth. We ran step 1 on a second machine
-with neither tool. The self-check part, exactly as printed:
+The install still works, and it tells you the truth. We ran step 1 again with neither tool
+on the PATH. The self-check part, exactly as printed:
 
 ```text
 ▶ getff firing self-check — proving the delivered golangci config (.golangci.yml) FIRES (planted violation in an OS temp dir)
-  ⚠ go or golangci-lint not on PATH (or the delivered config missing) — firing NOT proven (degrade, NOT green).
-    Per kickoff §1.3, the local label is «insufficient (tool absent)» — the stage is NOT done.
-    Verify manually from your module root:
-      go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
-      golangci-lint run --enable forbidigo --config .golangci.yml ./...    # must exit non-zero on os.Getenv
+  ⚠ go is not on PATH — firing NOT proven (degrade, NOT green).
+    The local label is «insufficient (tool absent)» — enforcement is not proven on this machine.
 
-⚠  getff self-check: 0 proven-firing · 1 NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it.
+⚠  getff self-check: 0 proven-firing · 1 NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why).
+  ✓ .ai-factory/refresh-baseline.json recorded (2 delivered files hashed)
+
+⚠  1 framework piece(s) NOT wired, or wired only in part — each line says why:
+      - firing self-check (golangci-lint): not proven — go is not on PATH, so the delivered config was not run against a planted violation
 ```
 
-It could not run, so it said "not proven". It did not say "passed". The line that starts
-"Per kickoff §1.3" is internal wording that leaked into the installer. It points at a
-project planning note, not at anything you were meant to read. Skip it. The install exited
-with code 0 in this case too, so read the last lines and do not trust the exit code alone.
+It could not run, so it said "not proven". It did not say "passed". The last block lists
+what the install could not do and why. The install exited with code 0 in this case too, so
+read the last lines and do not trust the exit code alone.
 
 ## Honest limits
 

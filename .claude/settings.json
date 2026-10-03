@@ -67,14 +67,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/deps-hash-check.sh\""
           }
         ]
@@ -96,6 +88,15 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-context.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
           }
         ]
       }
@@ -120,7 +121,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|Read",
         "hooks": [
           {
             "type": "command",
@@ -241,6 +242,24 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh\""
           }
         ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -264,5 +283,5 @@
     "**/recommendation-laziness-discipline.md",
     "**/reviewer-discipline.md"
   ],
-  "autoCompactWindow": 300000
+  "autoCompactWindow": 400000
 }

@@ -107,6 +107,7 @@
           ".claude/rules/attention-is-not-a-mechanism.md",
           ".claude/rules/dual-implementation-discipline.md",
           ".claude/rules/no-paid-llm-in-ci.md",
+          ".claude/rules/phase-research-coverage.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/night-mode/SKILL.md",
           "agents/compliance-verifier.md",
@@ -187,6 +188,7 @@
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
           ".claude/rules/cold-seat-economy.md",
+          ".claude/rules/doc-authority-hierarchy.md",
           ".claude/rules/git-conflict-merge-forward.md",
           ".claude/skills/dispatcher/SKILL.md",
           ".claude/skills/harvest/SKILL.md",
@@ -273,6 +275,7 @@
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
+          ".claude/rules/ai-laziness-traps.md",
           ".claude/rules/no-paid-llm-in-ci.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/reviewer/SKILL.md",

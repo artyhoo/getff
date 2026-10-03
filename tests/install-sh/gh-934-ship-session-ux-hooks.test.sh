@@ -3,12 +3,12 @@
 # per-hook audit classified SHIP, wired into .claude/settings.json NON-DESTRUCTIVELY with the
 # correct tool matchers, and PROVEN TO FIRE (delivery ≠ liveness — the #551 lesson):
 #   • ask-question-reminder.sh   → PreToolUse (matcher AskUserQuestion) — pre-question fork nudge
-#   • inject-matching-rule.sh    → PostToolUse (matcher Edit|Write|MultiEdit) — path-scoped rule delivery
+#   • inject-matching-rule.sh    → PostToolUse (matcher Edit|Write|MultiEdit|Read) — path-scoped rule delivery
 #
 # ARMS:
 #   (A) delivery — both hooks present + executable
 #   (B) settings-merge — PreToolUse=ask-question (matcher AskUserQuestion) AND
-#       PostToolUse=inject-matching (matcher Edit|Write|MultiEdit) registered; a PRE-EXISTING consumer
+#       PostToolUse=inject-matching (matcher Edit|Write|MultiEdit|Read) registered; a PRE-EXISTING consumer
 #       PostToolUse hook AND the §1b deps-hash UserPromptSubmit hook both SURVIVE (append, not clobber)
 #   (C) idempotent — a second install adds no duplicate entry for either hook
 #   (D) firing (ask-question) — a PreToolUse:AskUserQuestion payload → permissionDecision:"deny" + reason
@@ -46,26 +46,26 @@ _pre=$(jq -r '(.hooks.PreToolUse // []) | map({m:.matcher, c:(.hooks[].command)}
 _post_cmds=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 _ups=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 # PreToolUse = ask-question-reminder, $CLAUDE_PROJECT_DIR-relative, matcher AskUserQuestion
-if echo "$_pre" | grep -q 'ask-question-reminder' && echo "$_pre" | grep -q 'CLAUDE_PROJECT_DIR' && echo "$_pre" | grep -q 'AskUserQuestion'; then
+if grep -q 'ask-question-reminder' <<<"$_pre" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$_pre" && grep -q 'AskUserQuestion' <<<"$_pre"; then
   ok "(B) PreToolUse = ask-question-reminder, matcher=AskUserQuestion, \$CLAUDE_PROJECT_DIR-relative"
 else
   bad "(B) PreToolUse ask-question entry missing/mis-shaped (got: $_pre)"
 fi
-# PostToolUse = inject-matching-rule with matcher Edit|Write|MultiEdit
+# PostToolUse = inject-matching-rule with matcher Edit|Write|MultiEdit|Read (the Read arm, trigger build slice 1)
 _imr_matcher=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | .[0].matcher // ""' "$S" 2>/dev/null)
-if echo "$_post_cmds" | grep -q 'inject-matching-rule' && [ "$_imr_matcher" = "Edit|Write|MultiEdit" ]; then
-  ok "(B) PostToolUse = inject-matching-rule, matcher=Edit|Write|MultiEdit"
+if grep -q 'inject-matching-rule' <<<"$_post_cmds" && [ "$_imr_matcher" = "Edit|Write|MultiEdit|Read" ]; then
+  ok "(B) PostToolUse = inject-matching-rule, matcher=Edit|Write|MultiEdit|Read"
 else
   bad "(B) PostToolUse inject-matching entry missing/wrong-matcher (matcher='$_imr_matcher', cmds=$_post_cmds)"
 fi
 # Pre-existing consumer PostToolUse hook SURVIVED (non-destructive within the same event)
-if echo "$_post_cmds" | grep -q 'consumer-own'; then
+if grep -q 'consumer-own' <<<"$_post_cmds"; then
   ok "(B) pre-existing consumer PostToolUse hook SURVIVED the merge (non-destructive, same event)"
 else
   bad "(B) consumer-own PostToolUse hook lost — merge clobbered a sibling (got: $_post_cmds)"
 fi
 # §1b deps-hash UserPromptSubmit hook still present (cross-event non-destructive)
-if echo "$_ups" | grep -q 'deps-hash-check'; then
+if grep -q 'deps-hash-check' <<<"$_ups"; then
   ok "(B) §1b deps-hash UserPromptSubmit hook still present (cross-event non-destructive)"
 else
   bad "(B) deps-hash UserPromptSubmit hook lost (got: $_ups)"
@@ -118,7 +118,7 @@ mkdir -p "$T/.claude/rules"
 printf '<!-- globs: *.g934ux -->\n<!-- inject: G934UX-RULE-FIRED -->\n# g934ux test rule\n' > "$T/.claude/rules/g934ux-probe.md"
 OUT_IMR=$(printf '{"tool_name":"Edit","session_id":"g934ux-%s-E","tool_input":{"file_path":"%s/x.g934ux"}}' "$$" "$T" \
   | bash "$H/inject-matching-rule.sh" 2>/dev/null)
-if printf '%s' "$OUT_IMR" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -q 'G934UX-RULE-FIRED'; then
+if _ctx=$(printf '%s' "$OUT_IMR" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null) && grep -q 'G934UX-RULE-FIRED' <<<"$_ctx"; then
   ok "(E) firing (inject-matching): editing a rule-scoped path injects the rule summary as additionalContext"
 else
   bad "(E) firing (inject-matching): no injected summary ($(printf '%s' "$OUT_IMR" | head -c 120))"
@@ -152,8 +152,8 @@ _r_pre=$(jq -r '(.hooks.PreToolUse // []) | map(select(.hooks[].command | test("
 _r_post=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | .[0].matcher // ""' "$S" 2>/dev/null)
 _r_consumer=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 if [ -x "$H/ask-question-reminder.sh" ] && [ -x "$H/inject-matching-rule.sh" ] \
-   && [ "$_r_pre" = "AskUserQuestion" ] && [ "$_r_post" = "Edit|Write|MultiEdit" ] \
-   && echo "$_r_consumer" | grep -q 'consumer-own'; then
+   && [ "$_r_pre" = "AskUserQuestion" ] && [ "$_r_post" = "Edit|Write|MultiEdit|Read" ] \
+   && grep -q 'consumer-own' <<<"$_r_consumer"; then
   ok "(G) --refresh restores both hooks + matcher-registration for a brownfield consumer (pre=$_r_pre post=$_r_post; consumer-own survived)"
 else
   bad "(G) --refresh did not restore/register (pre='$_r_pre' post='$_r_post' consumer='$_r_consumer', $(ls "$H" 2>/dev/null | tr '\n' ' '))"

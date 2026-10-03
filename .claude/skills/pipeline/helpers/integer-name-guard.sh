@@ -58,7 +58,7 @@ found=""
 for entry in "$dir"/*/; do
   [ -d "$entry" ] || continue          # unmatched glob stays literal → skip
   name="$(basename "$entry")"
-  if printf '%s' "$name" | grep -qE '^[0-9]+$'; then
+  if grep -qE '^[0-9]+$' <<<"$name"; then
     found="$name"
     break
   fi

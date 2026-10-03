@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: its DECLINE arm names 'brew install yq' only where brew is installed — the Mac, not the PC or CI
 # universalization-fix-s3 Stage P — opt-in `--wire-ci` yq auto-wirer (GH #521).
 #
 # Context. The HYBRID verdict (research-patch 2026-06-14-s3-workflow-merge-adopt-vs-build.md, SSOT
@@ -183,7 +184,7 @@ else
   grep -qiE "then re-run|install it manually|paste-block" "$D/log" \
     && bad "OPT-B DECLINE: the yq-absent branch still hands back a manual step" \
     || ok "OPT-B DECLINE: no manual step (Q4.7)"
-  grep -E '^[[:space:]]*- CI gate ' "$D/log" | grep -q 'did not land' \
+  grep -q 'did not land' <<<"$(grep -E '^[[:space:]]*- CI gate ' "$D/log")" \
     && ok "OPT-B DECLINE: the missing gates are NOT-wired lines saying the yq wiring did not land" \
     || bad "OPT-B DECLINE: no NOT-wired CI gate line after the yq-absent branch"
 fi

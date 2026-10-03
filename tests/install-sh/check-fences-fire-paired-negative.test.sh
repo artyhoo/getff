@@ -27,6 +27,8 @@
 #         the fixture axis separately — the vacuity gate must not over-fire
 #   (xiii/xiv) a probe exiting 0 with NO output is not a fired fence (positive-evidence
 #         sentinel); the same stub emitting the sentinel IS counted
+#   (xv/xvi) the skip line names the error, not the `throw new ERR_…(` / `return new ERR_…(`
+#         source excerpt Node 24.20 prints above it (GH #1390) — verbatim output replayed by a stub
 #
 # SKIP condition: tsx or eslint not available (same graceful-degrade as the gate itself).
 # rc=0 on SKIP, rc=1 on any arm FAIL.
@@ -125,9 +127,9 @@ done
 POS_OUTPUT=$(AIF_PROJECT_ROOT="$POS_SCRATCH" bash "$GATE_SCRIPT" 2>&1)
 POS_RC=$?
 
-if [ "$POS_RC" -eq 0 ] && echo "$POS_OUTPUT" | grep -q 'fence fires on bad input'; then
+if [ "$POS_RC" -eq 0 ] && grep -q 'fence fires on bad input' <<<"$POS_OUTPUT"; then
   ok "(pos) POSITIVE arm: gate exits 0 + fences ACTIVE on unmodified source-plugin fixtures — gate is NON-VACUOUS (not always-silent)"
-elif echo "$POS_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$POS_OUTPUT"; then
   skip "(pos) gate SKIP'd in scratch env (tool/barrel resolution) — POSITIVE arm inconclusive: $(echo "$POS_OUTPUT" | head -3 | tr '\n' '|')"
 else
   bad "(pos) POSITIVE arm: gate did NOT exit 0 + fences-ACTIVE on unmodified bad fixtures (rc=$POS_RC) — fences are SILENT (the #832 always-silent bug)"
@@ -238,7 +240,7 @@ _vac_root "$VAC_ROOT" "$VAC_MISSING_PKG"
 # (no CI, no FENCES_FIRE_STRICT) — vacuity is its own axis, not a strict-mode side effect.
 VAC_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" 2>&1)
 VAC_RC=$?
-if [ "$VAC_RC" -ne 0 ] && echo "$VAC_OUT" | grep -q 'VACUOUS'; then
+if [ "$VAC_RC" -ne 0 ] && grep -q 'VACUOUS' <<<"$VAC_OUT"; then
   ok "(viii) vacuity arm: manifests present + every fixture skipped → rc=$VAC_RC with a VACUOUS verdict (#1391)"
 else
   bad "(viii) vacuity arm: expected rc!=0 + VACUOUS, got rc=$VAC_RC — the gate reports success having proved no fence (#1391)"
@@ -246,13 +248,13 @@ else
 fi
 
 # (ix) the skip line must NAME the real error, not render an empty parenthetical (#1390)
-if echo "$VAC_OUT" | grep -q "module load failed ($VAC_MISSING_PKG\|module load failed (.*$VAC_MISSING_PKG"; then
+if grep -q "module load failed ($VAC_MISSING_PKG\|module load failed (.*$VAC_MISSING_PKG" <<<"$VAC_OUT"; then
   ok "(ix) error-capture arm: dep-skip parenthetical names the unresolvable package (#1390)"
-elif echo "$VAC_OUT" | grep -q 'module load failed ()'; then
+elif grep -q 'module load failed ()' <<<"$VAC_OUT"; then
   bad "(ix) error-capture arm: parenthetical is EMPTY — head -1 read the blank first line, the real cause never reached the log (#1390)"
 else
   bad "(ix) error-capture arm: parenthetical does not name '$VAC_MISSING_PKG' (#1390)"
-  echo "    skip line: $(echo "$VAC_OUT" | grep -m1 'module load failed' | head -c 300)"
+  echo "    skip line: $(grep -m1 'module load failed' <<<"$VAC_OUT" | head -c 300)"
 fi
 
 # (x) the vacuity escape is its OWN token with a >=20-char rationale (precedent: ci-tool-pinning §3)
@@ -287,9 +289,9 @@ VAC_OK_ROOT=$(mktemp -d)
 _vac_root "$VAC_OK_ROOT" "$REPO_ROOT/packages/core/eslint-rules/index.ts"
 VAC_OK_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_OK_ROOT" bash "$GATE_SCRIPT" 2>&1)
 VAC_OK_RC=$?
-if [ "$VAC_OK_RC" -eq 0 ] && echo "$VAC_OK_OUT" | grep -qE 'proved=[1-9]'; then
+if [ "$VAC_OK_RC" -eq 0 ] && grep -qE 'proved=[1-9]' <<<"$VAC_OK_OUT"; then
   ok "(xii) paired-positive: working barrel → rc=0 and the summary reports the fixture axis (proved=N) separately from load-probes"
-elif echo "$VAC_OK_OUT" | grep -qE 'module load failed|dep missing'; then
+elif grep -qE 'module load failed|dep missing' <<<"$VAC_OK_OUT"; then
   # Narrower than GATE_SKIP_PATTERN on purpose: that pattern also matches the load-probe's
   # structural "— skipped" line, which is EXPECTED here (no eslint.config.mjs / eslint.config.js in a
   # scratch root) and would turn this arm permanently inconclusive — vacuity by another name.
@@ -323,7 +325,7 @@ SILENT_ROOT=$(mktemp -d)
 _stub_tsx_root "$SILENT_ROOT" 'exit 0'
 SILENT_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SILENT_ROOT" bash "$GATE_SCRIPT" 2>&1)
 SILENT_RC=$?
-if [ "$SILENT_RC" -ne 0 ] && ! echo "$SILENT_OUT" | grep -q 'ACTIVE'; then
+if [ "$SILENT_RC" -ne 0 ] && ! grep -q 'ACTIVE' <<<"$SILENT_OUT"; then
   ok "(xiii) silent-probe arm: a probe exiting 0 with no output is NOT counted as a fired fence (rc=$SILENT_RC, no ACTIVE claim)"
 else
   bad "(xiii) silent-probe arm: rc=$SILENT_RC and ACTIVE-claim present=$(echo "$SILENT_OUT" | grep -c 'ACTIVE') — a probe that never ran reported a live fence (#1391 secondary)"
@@ -337,13 +339,68 @@ SENTINEL_ROOT=$(mktemp -d)
 _stub_tsx_root "$SENTINEL_ROOT" 'echo FENCE_PROBE_DONE; exit 0'
 SENTINEL_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SENTINEL_ROOT" bash "$GATE_SCRIPT" 2>&1)
 SENTINEL_RC=$?
-if [ "$SENTINEL_RC" -eq 0 ] && echo "$SENTINEL_OUT" | grep -q 'ACTIVE'; then
+if [ "$SENTINEL_RC" -eq 0 ] && grep -q 'ACTIVE' <<<"$SENTINEL_OUT"; then
   ok "(xiv) sentinel paired-positive: probe emitting the success sentinel counts as a fired fence (rc=0) — arm (xiii) is non-vacuous"
 else
   bad "(xiv) sentinel paired-positive: expected rc=0 + ACTIVE, got rc=$SENTINEL_RC — the sentinel requirement rejects a legitimate pass"
   echo "    gate output: $(echo "$SENTINEL_OUT" | tail -6 | tr '\n' '|')"
 fi
 rm -rf "$SENTINEL_ROOT"
+
+# (xv)/(xvi) #1390 on Node 24.20 (measured on the PC 2026-09-29): Node prints the SOURCE LINE
+# that built the error ABOVE the error itself — `  throw new ERR_MODULE_NOT_FOUND(packageName, …);`
+# or `  return new ERR_PACKAGE_PATH_NOT_EXPORTED(` — so a first match on a bare ERR_ token
+# rendered that excerpt as the cause. Arm (ix) went red there while staying green on the Mac's
+# 24.3 and CI's 22, because only a real tsx run exercised it. These arms replay the verbatim
+# 24.20 output through a STUB tsx, so the regression is caught on every Node version.
+_replay_stub() {
+  # _replay_stub <captured-output> — stub body that prints <captured-output> on stderr, rc=1
+  printf "cat >&2 <<'NODE_OUT'\n%s\nNODE_OUT\nexit 1" "$1"
+}
+_probe_cause() {
+  # _probe_cause <gate-output> — the parenthetical of the gate's dep-skip line
+  grep -m1 'module load failed (' <<<"$1" | sed -e 's/.*module load failed (//' -e 's/) — dep missing.*//'
+}
+
+N2420_NOT_FOUND="node:internal/modules/package_json_reader:301
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '$VAC_MISSING_PKG' imported from /tmp/consumer/fence-probe.mts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:784:25) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v24.20.0"
+REPLAY_ROOT=$(mktemp -d)
+_stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_FOUND")"
+REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
+if grep -q "^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '$VAC_MISSING_PKG'" <<<"$REPLAY_CAUSE"; then
+  ok "(xv) Node 24.20 replay: the skip names the Cannot-find line, not the 'throw new ERR_…(' source excerpt above it (#1390)"
+else
+  bad "(xv) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_MODULE_NOT_FOUND]: Cannot find package …' line (#1390)"
+fi
+rm -rf "$REPLAY_ROOT"
+
+N2420_NOT_EXPORTED="node:internal/modules/esm/resolve:315
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+         ^
+
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './sub' is not defined by \"exports\" in /tmp/consumer/node_modules/fakepkg/package.json imported from /tmp/consumer/fence-probe.mts
+    at exportsNotFound (node:internal/modules/esm/resolve:315:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:663:9)
+
+Node.js v24.20.0"
+REPLAY_ROOT=$(mktemp -d)
+_stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_EXPORTED")"
+REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
+if grep -q "^Error \[ERR_PACKAGE_PATH_NOT_EXPORTED\]: Package subpath './sub'" <<<"$REPLAY_CAUSE"; then
+  ok "(xvi) Node 24.20 replay: with no Cannot-find line the skip names the 'Error [ERR_…]:' line, not the 'return new ERR_…(' excerpt (#1390)"
+else
+  bad "(xvi) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: …' line (#1390)"
+fi
+rm -rf "$REPLAY_ROOT"
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
 
@@ -414,7 +471,7 @@ ARM2_RC=$?
 
 if [ "$ARM2_RC" -ne 0 ]; then
   ok "(ii) FENCE SILENT arm: gate exits non-zero (rc=$ARM2_RC) when bad fixture has valid code — probe is falsifiable"
-elif echo "$ARM2_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$ARM2_OUTPUT"; then
   skip "(ii) gate SKIP'd (tool resolution issue in scratch env) — arm inconclusive"
 else
   bad "(ii) FENCE SILENT arm: gate exited 0 when bad file is valid code — probe accepts silent fences (vacuous pass)"
@@ -447,7 +504,7 @@ ARM3_RC=$?
 
 if [ "$ARM3_RC" -ne 0 ]; then
   ok "(iii) FALSE POSITIVE arm: gate exits non-zero (rc=$ARM3_RC) when good fixture has bad code — probe catches false positives"
-elif echo "$ARM3_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$ARM3_OUTPUT"; then
   skip "(iii) gate SKIP'd — arm inconclusive"
 else
   bad "(iii) FALSE POSITIVE arm: gate exited 0 when good file triggers the rule — probe misses false positives"

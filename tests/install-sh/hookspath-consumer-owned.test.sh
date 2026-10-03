@@ -60,8 +60,8 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 git -C "$T" config core.hooksPath .githooks
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
 [ "$(git -C "$T" config core.hooksPath)" = ".githooks" ] && ok "(D) install kept the consumer's core.hooksPath=.githooks" || bad "(D) install repointed core.hooksPath to $(git -C "$T" config core.hooksPath)"
-echo "$_out" | grep -q 'git config core.hooksPath' && bad "(D) install still prints a git config command to run by hand" || ok "(D) no manual wiring command in install output"
-echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep -q '\.githooks' \
+grep -q 'git config core.hooksPath' <<<"$_out" && bad "(D) install still prints a git config command to run by hand" || ok "(D) no manual wiring command in install output"
+grep -q '\.githooks' <<<"$(echo "$_out" | grep -E '^[[:space:]]*- framework git hooks')" \
   && ok "(D) the NOT-wired line names the kept core.hooksPath=.githooks" || bad "(D) no NOT-wired git hooks line naming .githooks"
 rm -rf "$T"
 
@@ -79,9 +79,9 @@ rm -rf "$T"
 T=$(newrepo); mkdir -p "$T/web"
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/web/package.json"
 _out=$( cd "$T/web" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
-echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep 'web/\.husky/' | grep -q 'toplevel' \
+grep -q 'toplevel' <<<"$(echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep 'web/\.husky/')" \
   && ok "(F) the NOT-wired line names web/.husky/ and the toplevel reason" || bad "(F) no NOT-wired line naming web/.husky/ and the toplevel"
-echo "$_out" | grep -q 'git config core.hooksPath' && bad "(F) subdirectory install still prints a git config command" || ok "(F) no git config command for a subdirectory install"
+grep -q 'git config core.hooksPath' <<<"$_out" && bad "(F) subdirectory install still prints a git config command" || ok "(F) no git config command for a subdirectory install"
 [ -z "$(git -C "$T" config core.hooksPath)" ] && ok "(F) core.hooksPath left unset" || bad "(F) core.hooksPath was set to $(git -C "$T" config core.hooksPath)"
 rm -rf "$T"
 
@@ -97,7 +97,7 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 git -C "$T" config core.hooksPath .githooks
 mkdir -p "$T/.husky"; printf '#!/usr/bin/env sh\nnpm run typecheck\n' > "$T/.husky/pre-commit"; chmod +x "$T/.husky/pre-commit"
 _out=$( cd "$T" && PATH="$STUBBIN:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full < /dev/null 2>&1 )
-echo "$_out" | grep -qi 'dependencies did NOT fully install' && bad "(G) precondition: deps reported incomplete — the re-assert branch was not reached" || ok "(G) precondition: deps reported installed (re-assert branch reached)"
+grep -qi 'dependencies did NOT fully install' <<<"$_out" && bad "(G) precondition: deps reported incomplete — the re-assert branch was not reached" || ok "(G) precondition: deps reported installed (re-assert branch reached)"
 grep -q 'npm run typecheck' "$T/.husky/pre-commit" && ok "(G) --full kept the consumer's own .husky/pre-commit" || bad "(G) --full overwrote the consumer's own .husky/pre-commit"
 [ "$(git -C "$T" config core.hooksPath)" = ".githooks" ] && ok "(G) --full kept core.hooksPath=.githooks through the re-assert" || bad "(G) the post-deps re-assert repointed core.hooksPath to $(git -C "$T" config core.hooksPath)"
 rm -rf "$T" "$STUBBIN"

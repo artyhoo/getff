@@ -10,7 +10,8 @@
 #         It now ends non-zero with a banner that says so (paired: all-pass stays rc 0).
 #   NW    a surface this install deliberately left unwired (consumer-owned hooks, a hooksPath
 #         it did not activate, the consumer's own ESLint config) is SKIP, not a FAIL that
-#         contradicts the NOT wired summary and not a PASS the install never earned.
+#         contradicts the NOT wired summary and not a PASS the install never earned. A root config
+#         getff placed and the consumer edited since is not such a surface: fences-fire still runs.
 #   NW-h  a consumer-owned .husky hook the install kept is named in the NOT wired summary.
 #
 # Capstone arms source 99-finalize.sh with stubbed dispatcher scope (same harness as
@@ -75,12 +76,12 @@ if grep -q 'rc=77' "$WORK/skipall.ff.ran" 2>/dev/null && grep -q 'rc=77' "$WORK/
 else
   bad "S4-7: the capstone did not hand GETFF_SKIP_RC=77 to every check (ff: $(cat "$WORK/skipall.ff.ran" 2>/dev/null) su: $(cat "$WORK/skipall.su.ran" 2>/dev/null) mut: $(cat "$WORK/skipall.mut.ran" 2>/dev/null))"
 fi
-if printf '%s\n' "$CAP_OUT" | grep -q 'checks passed — fences fire'; then
+if grep -q 'checks passed — fences fire' <<<"$CAP_OUT"; then
   bad "S4-7: three checks that checked nothing were reported as the success property line"
 else
   ok "S4-7: checks that checked nothing do not produce the success property line"
 fi
-if printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: ✓ 0 passed · ⚠ 3 skipped'; then
+if grep -qE 'self-verify: ✓ 0 passed · ⚠ 3 skipped' <<<"$CAP_OUT"; then
   ok "S4-7: banner counts 0 passed, 3 skipped"
 else
   bad "S4-7: banner does not count 0 passed / 3 skipped (got: $(printf '%s\n' "$CAP_OUT" | grep 'self-verify:' | tail -1))"
@@ -118,14 +119,14 @@ if [ "$CAP_RC" -ne 0 ]; then
 else
   bad "S4-8: a self-verify FAIL still ended the install with rc 0"
 fi
-if printf '%s\n' "$CAP_OUT" | grep -q '✅ Installation complete'; then
+if grep -q '✅ Installation complete' <<<"$CAP_OUT"; then
   bad "S4-8: a self-verify FAIL still printed «✅ Installation complete»"
 else
   ok "S4-8: a self-verify FAIL does not print «✅ Installation complete»"
 fi
 make_tree allpass 'exit 0' 'exit 0' 'exit 0'
 run_capstone "$WORK/allpass-proj" "$WORK/allpass-pkg"
-if [ "$CAP_RC" -eq 0 ] && printf '%s\n' "$CAP_OUT" | grep -q '✅ Installation complete'; then
+if [ "$CAP_RC" -eq 0 ] && grep -q '✅ Installation complete' <<<"$CAP_OUT"; then
   ok "S4-8 paired: all checks pass → rc 0 and «✅ Installation complete»"
 else
   bad "S4-8 paired: all checks pass but rc=$CAP_RC or no success banner"
@@ -140,7 +141,7 @@ nw_arm() {  # nw_arm <label> <gate(ff|su)> <VAR=val…> — the gate must not ru
   [ "$gate" = "su" ] || sed -i.bak 's/^exit 1$/exit 0/' "$WORK/$name-proj/scripts/check-shields-up.sh"
   run_capstone "$WORK/$name-proj" "$WORK/$name-pkg" "$@"
   if [ ! -e "$WORK/$name.$gate.ran" ] && [ "$CAP_RC" -eq 0 ] \
-    && printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: .*1 skipped'; then
+    && grep -qE 'self-verify: .*1 skipped' <<<"$CAP_OUT"; then
     ok "NW $label: check not run, counted as skipped, install rc 0"
   else
     bad "NW $label: ran=$([ -e "$WORK/$name.$gate.ran" ] && echo yes || echo no) rc=$CAP_RC banner=$(printf '%s\n' "$CAP_OUT" | grep 'self-verify:' | tail -1)"
@@ -155,8 +156,8 @@ for _su in 'exit 1' 'exit 0'; do
     bad "NW consumer-owned pre-commit ($_su): shields-up not run with AIF_SHIELDS_CONSUMER_HOOKS=pre-commit ($(cat "$WORK/nw-consumer-hook.su.ran" 2>/dev/null || echo 'did not run'))"
   elif [ "$_su" = 'exit 1' ] && [ "$CAP_RC" -ne 0 ]; then
     ok "NW consumer-owned pre-commit: shields-up still runs, told to skip pre-commit only, and its FAIL counts"
-  elif [ "$_su" = 'exit 0' ] && [ "$CAP_RC" -eq 0 ] && printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: .*1 skipped' \
-       && ! printf '%s\n' "$CAP_OUT" | grep -q 'checks passed — fences fire, shields wired'; then
+  elif [ "$_su" = 'exit 0' ] && [ "$CAP_RC" -eq 0 ] && grep -qE 'self-verify: .*1 skipped' <<<"$CAP_OUT" \
+       && ! grep -q 'checks passed — fences fire, shields wired' <<<"$CAP_OUT"; then
     # A pass that exempted a kept hook never proves «shields wired» (cold-review round 2, N1).
     ok "NW consumer-owned pre-commit paired: a passing shields-up with the exemption → rc 0, counted as skipped, no «shields wired»"
   else
@@ -169,11 +170,13 @@ nw_arm "consumer ESLint config kept" ff ESLINT_ROOT_NOT_WIRED=1
 # The consumer's own root eslint.config.mjs that getff's block did not land in (here: the
 # synth-and-wire bundle is absent from the stub package) is the same NOT-wired state: the fences are
 # not in their lint, so «fences fire» is not this install's to claim (cold-review F8 — only a
-# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver's lib.sh stand-ins make
-# the root config the consumer's.
+# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver sources the real lib.sh
+# (the finalize reads the root config through its eslint_config_code), then its stand-ins make the
+# root config the consumer's.
 OWN_DRIVER="$WORK/driver-own.sh"
 { sed '/^source "\$FINALIZE"$/d' "$DRIVER"
-  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
+  printf '%s\n' "source \"$REPO_ROOT/setup.d/lib.sh\"" \
+    'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
     'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$OWN_DRIVER"
 grep -q '^getff_delivered()' "$OWN_DRIVER" || bad "F8: the own-config driver was not built — the arms below would be vacuous"
 own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire must run
@@ -181,10 +184,10 @@ own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire m
   printf '%s\n' "$2" > "$WORK/own-$3-proj/eslint.config.mjs"
   CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-$3-proj" PKG_ROOT="$WORK/own-$3-pkg" FINALIZE="$FINALIZE" \
     DEPS_INSTALLED=1 bash "$OWN_DRIVER" 2>&1); CAP_RC=$?
-  printf '%s\n' "$CAP_OUT" | grep -q 'synth-and-wire: bundle not found' \
+  grep -q 'synth-and-wire: bundle not found' <<<"$CAP_OUT" \
     || bad "F8 $1: the own-config branch never ran — the arm would be vacuous"
   if [ "$3" = no ] && [ ! -e "$WORK/own-no.ff.ran" ] && [ "$CAP_RC" -eq 0 ] \
-    && printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: .*1 skipped'; then
+    && grep -qE 'self-verify: .*1 skipped' <<<"$CAP_OUT"; then
     ok "F8 $1: fences-fire not run, counted as skipped, install rc 0"
   elif [ "$3" = yes ] && [ -e "$WORK/own-yes.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
     ok "F8 $1: fences-fire runs and its FAIL counts"
@@ -195,6 +198,28 @@ own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire m
 own_root_arm "own root config without getff's block" "export default [];" no
 own_root_arm "paired: own root config carrying getff's rules" \
   "export default [{ rules: { 'rules-as-tests/no-bare-todo': 'error' } }];" yes
+# A root config getff placed and the consumer has edited since takes the own-config branch too, but
+# it is still the config getff placed, with getff's fences in it: «fences fire» stays this install's
+# to check, as it was when such a config went through getff's branch. getff's react-native template
+# names no rules-as-tests/ rule, so the grep that marks a consumer's config NOT wired would skip the
+# check and point at a NOT wired summary with nothing about it.
+EDITED_DRIVER="$WORK/driver-edited.sh"
+{ sed '/^source "\$FINALIZE"$/d' "$DRIVER"
+  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 0; }' \
+    'getff_bytes_intact() { return 1; }' 'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$EDITED_DRIVER"
+grep -q '^getff_bytes_intact()' "$EDITED_DRIVER" \
+  || bad "F8 edited: the edited-config driver was not built — the arm below would be vacuous"
+make_tree own-edited 'exit 1' 'exit 0' 'exit 0'
+printf '%s\n' "export default [];" > "$WORK/own-edited-proj/eslint.config.mjs"
+CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-edited-proj" PKG_ROOT="$WORK/own-edited-pkg" FINALIZE="$FINALIZE" \
+  DEPS_INSTALLED=1 bash "$EDITED_DRIVER" 2>&1); CAP_RC=$?
+grep -q 'getff placed eslint.config.mjs, and it has been edited since' <<<"$CAP_OUT" \
+  || bad "F8 edited: the root config was not routed as an edited getff config — the arm would be vacuous"
+if [ -e "$WORK/own-edited.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
+  ok "F8 edited getff root config without a rules-as-tests/ rule: fences-fire runs and its FAIL counts"
+else
+  bad "F8 edited getff root config: ran=$([ -e "$WORK/own-edited.ff.ran" ] && echo yes || echo no) rc=$CAP_RC banner=$(printf '%s\n' "$CAP_OUT" | grep -E 'self-verify:|fences-fire' | tail -2 | tr '\n' '|')"
+fi
 # paired: the same trees with no NOT wired signal run the (failing) check and fail the install
 make_tree nw-paired 'exit 0' 'exit 1' 'exit 0'
 run_capstone "$WORK/nw-paired-proj" "$WORK/nw-paired-pkg"
@@ -209,7 +234,7 @@ TC="$WORK/consumer-hooks"; mkdir -p "$TC/.husky"
 ( cd "$TC" && git init -q . && printf '{ "name":"c","version":"0.0.0" }\n' > package.json )
 printf '#!/bin/sh\necho consumer-own-pre-commit\n' > "$TC/.husky/pre-commit"; chmod +x "$TC/.husky/pre-commit"
 OUT_H=$( cd "$TC" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_H" | grep -A20 'NOT wired' | grep -q '\.husky/pre-commit'; then
+if grep -q '\.husky/pre-commit' <<<"$(printf '%s\n' "$OUT_H" | grep -A20 'NOT wired')"; then
   ok "NW-h: the kept consumer .husky/pre-commit is named in the NOT wired summary"
 else
   bad "NW-h: the kept consumer .husky/pre-commit is missing from the NOT wired summary"
@@ -219,7 +244,7 @@ if grep -q 'consumer-own-pre-commit' "$TC/.husky/pre-commit"; then
 else
   bad "NW-h precondition: the consumer's pre-commit was overwritten"
 fi
-if printf '%s\n' "$OUT_H" | grep -A20 'NOT wired' | grep -q '\.husky/pre-push'; then
+if grep -q '\.husky/pre-push' <<<"$(printf '%s\n' "$OUT_H" | grep -A20 'NOT wired')"; then
   bad "NW-h: the framework-delivered .husky/pre-push was wrongly listed as NOT wired"
 else
   ok "NW-h paired: the framework-delivered .husky/pre-push is not listed"
@@ -238,12 +263,12 @@ OUT_H2=$( cd "$TC2" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/n
 for _h in pre-commit pre-push; do
   case "$_h" in pre-commit) _what='lint-staged' ;; *) _what='pre-push\.bundle\.mjs' ;; esac
   _line=$(printf '%s\n' "$OUT_H2" | grep "your own \.husky/$_h is kept" | head -1)
-  if printf '%s\n' "$_line" | grep -qE "runs none of the framework checks \(.*$_what.*\)"; then
+  if grep -qE "runs none of the framework checks \(.*$_what.*\)" <<<"$_line"; then
     ok "NW-h2 $_h: the NOT-wired line names the framework check that does not run"
   else
     bad "NW-h2 $_h: the NOT-wired line does not name the missing check: $_line"
   fi
-  if printf '%s\n' "$_line" | grep -qE 'call from it|to add them'; then
+  if grep -qE 'call from it|to add them' <<<"$_line"; then
     bad "NW-h2 $_h: the line still hands back a step to paste into the hook: $_line"
   else
     ok "NW-h2 $_h: the line hands back no step"

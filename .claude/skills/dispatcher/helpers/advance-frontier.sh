@@ -75,7 +75,7 @@ if [[ -z "${out}" ]]; then
 fi
 
 # ── Field extraction — one line per prefix; every field exists at most once ───
-field() { printf '%s\n' "${out}" | grep -m1 "^$1" || true; }
+field() { grep -m1 "^$1" <<<"${out}" || true; }
 
 missing="$(field 'MISSING kickoff:')"
 degrade="$(field 'DEGRADE:')"

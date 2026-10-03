@@ -18,15 +18,15 @@
 #      (idempotent with the runtime/setup-runtime-bridge.sh flow — see
 #      "Coordination" below).
 #
+#   3. Registers that hook in $PROJECT_ROOT/.claude/settings.json (PostToolUse +
+#      PostToolUseFailure) and writes RUNTIME_BRIDGE_AIF_URL + RUNTIME_BRIDGE_AIF_PROJECT_ID
+#      into the machine-local .claude/settings.local.json `env` when aif-handoff answers and lists exactly one project whose rootPath
+#      is this project (bridge-guided.sh: bridge_register_dispatch_hook). Registration does
+#      not start dispatching: only a kickoff whose first line is `<!-- bridge: auto -->`
+#      auto-dispatches (kickoff §7 opt-in).
+#
 # What this layer does NOT do:
-#   - Register the PostToolUse hook in .claude/settings.json — that is the
-#     runtime/interactive decision the consumer makes when they bring up
-#     aif-handoff (packages/runtime-bridge/scripts/setup-runtime-bridge.sh OFFERS
-#     to auto-write the settings.json entry once the runtime is reachable).
-#     Installing the file at install-time does NOT activate it — activation is a
-#     separate runtime decision (kickoff §7 opt-in: only `<!-- bridge: auto -->`
-#     kickoffs auto-dispatch; without the settings.json registration the hook is a
-#     no-op even if the file is present).
+#   - Pick an aif-handoff project by name, or write a shell rc (project scope only).
 #   - Install aif-handoff itself (DETECT + INSTRUCT only — see
 #     setup.d/bridge-guided.sh + setup-runtime-bridge.sh).
 #
@@ -36,16 +36,16 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:598-599).
+#                        install.sh:602-603).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
-#   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
-#     packages/runtime-bridge/scripts/, which the consumer does NOT receive via
-#     install.sh). When the consumer's setup.d/bridge-guided.sh runs and
-#     aif-handoff is reachable, it looks for that script at
-#     $root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh; absent in a
-#     consumer install, it prints the docs/runtime-bridge-setup.md pointer
-#     (bridge-guided.sh:61-63).
+#   - setup-runtime-bridge.sh wires the repository it ships in (it lives at
+#     packages/runtime-bridge/scripts/, which install.sh does NOT copy into the
+#     consumer). When ./setup's bridge-guided step runs and aif-handoff is
+#     reachable, bridge-guided.sh runs that script only when its own root is the
+#     project being set up (the getff repository itself); from the npm package
+#     or a getff clone used as the installer it records a NOT-wired fact instead
+#     (bridge_guided_run's state=up arm).
 #   - This layer 55 runs at INSTALL time; setup-runtime-bridge.sh runs at
 #     RUNTIME (post-install, when the consumer invokes ./setup's bridge-guided
 #     step OR sources bridge-guided.sh and aif-handoff answers /health).
@@ -124,9 +124,12 @@ if [ -f "$HOOK_SRC" ]; then
   chmod_safe +x "$HOOK_DST" 2>/dev/null || true
 fi
 
-# The hook is delivered but not registered: it reports to an aif-handoff instance, and the install
-# does not know that instance. The gap is a NOT-wired line with its reason, never a to-do list
-# (Q4.7, 2026-09-28); ./setup's runtime-bridge step is where a found instance gets wired.
+# The hook is registered in the project's own .claude/settings.json and pointed (through the
+# machine-local .claude/settings.local.json env) at the aif-handoff project whose rootPath is this project (bridge-guided.sh: bridge_register_dispatch_hook). What
+# the install cannot decide — aif-handoff down, no project or two projects at this path — is a
+# NOT-wired line with its reason, never a to-do list (Q4.7, 2026-09-28).
 echo "  ✓ .claude/vendor/runtime-bridge/ (vendored COPY per spec A7; P1-P5 parked)"
 echo "  ✓ .claude/hooks/runtime-bridge-dispatch.sh (PostToolUse dispatch hook)"
-note_not_wired "runtime-bridge dispatch hook — delivered to .claude/hooks/ but not registered in .claude/settings.json: it reports to an aif-handoff instance (RUNTIME_BRIDGE_AIF_URL, RUNTIME_BRIDGE_AIF_PROJECT_ID) that this install does not know; .claude/vendor/runtime-bridge/README.md describes the wiring"
+# shellcheck source=setup.d/bridge-guided.sh
+BRIDGE_LIB_ONLY=1 . "$PKG_ROOT/setup.d/bridge-guided.sh"
+bridge_register_dispatch_hook "$PROJECT_ROOT"

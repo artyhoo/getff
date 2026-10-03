@@ -8,7 +8,8 @@
 # Depends on: 40-configs (eslint.config.mjs + .nvmrc + .github/workflows/ already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O8: sources detect-r2-boundary from $PKG_ROOT (not PROJECT_ROOT)
-# O2: sets _r2_verdict global (read by 99-finalize for L2)
+# O2: sets _r2_verdict global (read by 99-finalize for L2), and _r2_own_globs — the boundary globs of
+#     a root config treated as the consumer's, for 99-finalize's own-config pass
 
 # ─── 6b. #509: .nvmrc ↔ pre-existing CI Node-version drift WARN ──────────
 # Install ships .nvmrc but copy_safe does NOT overwrite an existing CI workflow. A consumer
@@ -36,126 +37,11 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.nvmrc" ] && [ -d "$PROJ
 fi
 
 # ─── 6b-bis. GH #547 Point 2: auto-wire R2 by reading the repo ───────────────
-# Classify the consumer's layout (C1) and configure R2 enforcement so the shipped check:globs gate
-# is green-because-understood, never red-because-unconfigured. Here we only patch the ROOT
-# eslint.config.mjs getff placed (whose own comment invites editing RULE_GLOBS), additively +
-# idempotently. A root config the consumer owns (an eslint.config.mjs copy_safe kept, or an
-# eslint.config.js — the name ESLint loads first) is not patched here: the boundary globs go to
-# 99-finalize in _r2_own_globs, which adds RULE_GLOBS and R2 to it with the rest of getff's block
-# in one write, keeping the original (operator decision Q4.7, 2026-09-28). rc=0 on every branch (a
-# crash here must never abort install — lesson GH #531/#544).
-_r2_root_cfg=$(eslint_flat_config "$PROJECT_ROOT")
-_r2_own_globs=""
-if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "▶ R2 auto-wire → [dry-run] would classify the repo and patch RULE_GLOBS / record R2 N/A as warranted"
-elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.config.js ]; then
-  echo "▶ R2 auto-wire (reading the repo)"
-  _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
-  _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
-  case "$_r2_verdict" in
-    boundary-present)
-      _patched=0
-      _r2_glob_failed=0
-      # Only getff's own config is patched here. A config the consumer owns gets RULE_GLOBS and R2
-      # from 99-finalize (_r2_own_globs), for the stacks whose preset ships R2.
-      _r2_own_cfg=0
-      _r2_no_slot=0
-      if ! getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
-        _r2_own_cfg=1
-        case "${STACK:-ts-server}" in
-          ts-server|react-next|react-spa) _r2_own_globs=$(printf '%s\n' "$_r2_out" | sed -n 's/^glob://p') ;;
-        esac
-        _r2_out=""   # no glob lines → the patch loop below writes nothing
-      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
-        # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
-        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
-        _r2_no_slot=1
-        _r2_out=""
-      fi
-      while IFS= read -r _line; do
-        case "$_line" in glob:*) ;; *) continue ;; esac
-        _g="${_line#glob:}"
-        grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
-        # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
-        # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
-        # stale eslint.config.mjs.tmp.
-        # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
-        # NOT added, never a «✓ added».
-        if awk -v ins="    '$_g'," '
-          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
-          { print }
-        ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
-          && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
-          && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"; then
-          _patched=$((_patched + 1))
-        else
-          rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
-          _r2_glob_failed=$((_r2_glob_failed + 1))
-          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (no \`boundary: [\` array, or a write failure) — eslint.config.mjs left unchanged" >&2
-        fi
-      done <<EOF
-$_r2_out
-EOF
-      if [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
-        echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install"
-      elif [ "$_r2_own_cfg" = "1" ]; then
-        echo "  · HTTP boundary detected, but the ${STACK:-ts-server} preset ships no R2 — nothing to add to your $_r2_root_cfg"
-      elif [ "$_r2_no_slot" = "1" ]; then
-        echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
-      elif [ "$_patched" -gt 0 ]; then
-        echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
-      elif [ "$_r2_glob_failed" -gt 0 ]; then
-        # Q4.7 (2026-09-28): what is not wired goes to the NOT-wired summary with its reason, never
-        # as a manual step (cold-review F5b — this used to say «widen RULE_GLOBS.boundary by hand»).
-        echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does not cover that code yet (see NOT wired below)" >&2
-        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no \`boundary: [\` array any more (edited since getff placed it), or the write failed; the file is left as it is"
-      else
-        echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
-      fi ;;
-    no-boundary-confident)
-      _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
-      if [ -f "$_dec" ]; then
-        # ledger A1-9 (the A1-8 class): a failed awk/redirect skipped the mv, so the OLD R2 N/A block
-        # survived — and the append below then wrote a SECOND one, leaving the consumer with a
-        # duplicated fenced block under a ✓. Refusing the whole record is the only honest outcome.
-        _r2_strip_ok=1
-        if grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then   # replace existing block (idempotent re-install)
-          if awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
-            :
-          else
-            rm -f "$_dec.tmp" 2>/dev/null || true
-            _r2_strip_ok=0
-          fi
-        fi
-        if [ "$_r2_strip_ok" = "0" ]; then
-          echo "  ⚠ could not replace the previous R2 N/A block in $_dec (awk or write failure) — left unchanged, no record appended (appending would duplicate the block)" >&2
-        else
-        {
-          echo ""
-          echo "<!-- aif:r2-na:begin -->"
-          echo "### R2 (no-unsafe-zod-parse) — N/A for this layout (auto-recorded by install.sh)"
-          echo "**Verdict:** N/A — validation is declarative (allowlisted framework); no manual \`.parse()\` HTTP boundary detected."
-          echo "**Precondition (re-checked by check:globs / check:enforced via scripts/detect-r2-boundary.sh):**"
-          echo "- no file matches RULE_GLOBS.boundary tokens, AND"
-          echo "- no \`.safeParse(\` and no non-stdlib \`.parse(\` in non-test source."
-          echo "**If this precondition breaks** (you add a hand-rolled parse boundary) the gate goes RED again — wire R2 (widen RULE_GLOBS.boundary) or update this decision."
-          echo "<!-- aif:r2-na:end -->"
-        } >> "$_dec"
-        echo "  ✓ declarative validation, no manual-parse boundary → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md"
-        fi
-      else
-        echo "  · declarative validation detected, but .ai-factory/ absent → skipped R2 N/A record (gate behaviour unchanged)"
-      fi ;;
-    *)
-      # NB: say "scripts/check-rule-globs.sh" (hyphen), NOT the colon-form "check:globs" — the colon
-      # form is reserved for the CI-orphan WARN's missing-gate list (r2-glob-reach asserts per-gate accuracy).
-      if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
-        echo "  · R2 boundary layout ambiguous → RULE_GLOBS.boundary in eslint.config.mjs keeps its default globs; scripts/check-rule-globs.sh fails, naming them, if they match no source file"
-      else
-        echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
-      fi ;;
-  esac
-fi
+# Lives in setup.d/eslint-wire.sh (eslint_wire_r2_root): do_refresh runs the same pass (refresh sweep
+# G4). It sets _r2_verdict (read by 99-finalize for L2) and _r2_own_globs (its own-config pass).
+# shellcheck source=setup.d/eslint-wire.sh
+source "${BASH_SOURCE[0]%/*}/eslint-wire.sh"   # the sibling file — also under a test's stand-in PKG_ROOT
+eslint_wire_r2_root
 
 # ─── 6c. #507 (reopen) + #521: CI-orphan WARN — completeness across ALL enforcement gates ───
 # A brownfield consumer's pre-existing ci.yml is KEPT (copy_safe skips it), so the shipped CI's
@@ -169,29 +55,17 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   _aif_missing=()
   _aif_steps=()
   _aif_cmds=()
-  _aif_gate_check() { # $1 "gate — what it enforces"  $2 wired-grep  $3 installed-artifact  $4 paste-step
-    [ -e "$PROJECT_ROOT/$3" ] || return 0          # gate not installed for this stack → nothing to warn
-    local _wf
-    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
-      [ -f "$_wf" ] || continue
-      # grep inside `if` is set-e-safe (non-zero no-match is consumed by the if-test, not seen by set -e)
-      if grep -qE "$2" "$_wf" 2>/dev/null; then return 0; fi   # referenced by some workflow → wired
-    done
-    _aif_missing+=("$1"); _aif_steps+=("$4"); _aif_cmds+=("${4#- run: }")
-  }
-  _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
-    _aif_missing=(); _aif_steps=(); _aif_cmds=()
-    # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
-    # consumer's own that 40-configs.sh kept (copy_unless_foreign).
-    local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
-    _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
-    _aif_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
-    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
-    _aif_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
-    _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
-    _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
-  }
-  _aif_detect_gates
+  # Detection lives in setup.d/lib.sh (ci_gate_detect): do_refresh reports the same gates (sweep G6).
+  ci_gate_detect
+
+  # A monorepo with workspace packages gets NO getff ci.yml: 40-configs.sh delivers it only in the
+  # flat / single-root branch (since #796 wrapped the per-stack block), but still creates the directory. With no
+  # workflow file there is nothing of the consumer's to keep or to wire into, so the WARN below must
+  # not claim a kept workflow and the yq offer must not fire (defect seen 2026-09-28, getff#1889).
+  _aif_has_wf=""
+  for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+    [ -f "$_wf" ] && { _aif_has_wf=1; break; }
+  done
 
   # ─── #521 Stage P: opt-in auto-wire (REFERENCE mikefarah/yq, detect-first) ───
   # The WARN below is the non-destructive default (writes nothing). This OPT-IN path mutates the
@@ -233,13 +107,13 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
         fi
       done
       echo "  ✓ auto-wired ${_wired} gate(s) into ${_wire_wf#"$PROJECT_ROOT"/} job '${_wire_job}' via yq (idempotent — re-running install adds nothing)."
-      _aif_detect_gates   # re-check: wired gates are now referenced → drop them from the WARN below
+      ci_gate_detect   # re-check: wired gates are now referenced → drop them from the WARN below
     else
       echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — the gates are not wired (NOT wired below)"
     fi
   }
-  if [ "${#_aif_missing[@]}" -gt 0 ]; then
-    _aif_wire="no"; _aif_yq_ran=""
+  _aif_wire="no"; _aif_yq_ran=""
+  if [ "${#_aif_missing[@]}" -gt 0 ] && [ -n "$_aif_has_wf" ]; then
     if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
     elif [ -z "${FULL:-}" ] && [ -t 0 ]; then
       printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
@@ -285,9 +159,14 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
 
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
     echo ""
-    echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
-    echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
-    echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
+    if [ -n "$_aif_has_wf" ]; then
+      echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
+      echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
+      echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
+    else
+      echo "⚠ CI-orphan: no workflow exists under .github/workflows/, so every rule-enforcement gate fires only on a"
+      echo "   local 'npm run validate' — no CI job checks a pushed commit. Gates with no CI job:"
+    fi
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
     # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
     # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
@@ -304,7 +183,14 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     # (operator directive 2026-09-28, Q4.7). The workflow is the consumer's: getff edits it only on
     # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
     # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
-    if [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
+    # _ws_lines is 40-configs.sh's workspace map (setup.d layers are sourced into one shell): it is
+    # non-empty exactly when that layer took its workspace (monorepo) branch — one stack or several —
+    # which is the branch that places no ci.yml.
+    if [ -z "$_aif_has_wf" ] && [ -n "${_ws_lines:-}" ]; then
+      _aif_why="no workflow exists under .github/workflows/ — getff places its ci.yml only in a repo with no workspace packages under apps/, packages/, services/, libs/ or modules/ (each shipped ci.yml runs one stack's jobs at the repo root), and this repo has workspace packages there"
+    elif [ -z "$_aif_has_wf" ]; then
+      _aif_why="no workflow exists under .github/workflows/, and this install placed none"
+    elif [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
       _aif_why="yq did not add it to the job it wired the other gates into"
     elif [ "${_aif_wire:-no}" = "yes" ]; then
       _aif_why="the wiring through yq did not land (its reason is above)"
@@ -312,8 +198,12 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       _aif_why="the workflow is your own, and getff edits it only on --wire-ci or a yes at the install prompt, which this run did not have"
     fi
     for _i in "${!_aif_missing[@]}"; do
-      note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      if [ -n "$_aif_has_wf" ]; then
+        note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      else
+        note_not_wired "CI gate ${_aif_missing[$_i]} — runs in no CI job (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      fi
     done
   fi
-  unset -f _aif_gate_check _aif_detect_gates _aif_yq_wire
+  unset -f _aif_yq_wire
 fi

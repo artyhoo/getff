@@ -179,7 +179,7 @@ bash tests/install-sh/consumer-upgrade-path.test.sh
 node scripts/check-docs-refresh.mjs "$(git merge-base origin/staging HEAD)..HEAD"
 scripts/build-getff-dist.sh --check
 wc -l INSTALL-FOR-AI.md
-PC_LOCAL=1 make self-audit
+make self-audit
 bash scripts/run-local-ci-sweep.sh
 ```
 

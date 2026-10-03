@@ -136,17 +136,24 @@ echo "  ── (5) self-check degrade (go/golangci-lint absent) — loud «insuf
 G=$(go_fixture)
 cp "$TPL/.golangci.yml" "$G/.golangci.yml"
 deg_rc=0
+# lib.sh is sourced first, as install.sh does: the degrade records a NOT-wired line (Q4.7), and
+# print_not_wired is the lane's own summary (install.sh do_toolchain_lane).
 deg=$( GO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$G" PATH="/usr/bin:/bin" bash -c '
+  source "'"$REPO_ROOT"'/setup.d/lib.sh"
   source "'"$LAYER"'"
   _go_firing_self_check
+  print_not_wired
 ' 2>&1 ) || deg_rc=$?
-echo "$deg" | grep -q "go or golangci-lint not on PATH" \
+grep -qE "(go|golangci-lint) is not on PATH — firing NOT proven" <<<"$deg" \
   && ok "(5) stripped-PATH self-check prints the loud tool-absent degrade" \
   || bad "(5) degrade arm did not fire on a stripped PATH"
-echo "$deg" | grep -q "insufficient (tool absent)" \
+grep -qE "^ +- firing self-check \(golangci-lint\): not proven — (go|golangci-lint) is not on PATH" <<<"$deg" \
+  && ok "(5) the degrade is a NOT-wired line with its reason (Q4.7)" \
+  || bad "(5) no NOT-wired line for the degrade: $(echo "$deg" | tr '\n' '|')"
+grep -q "insufficient (tool absent)" <<<"$deg" \
   && ok "(5) the §1.3 load-bearing label «insufficient (tool absent)» is printed (never silently green)" \
   || bad "(5) §1.3 label missing from the degrade output"
-echo "$deg" | grep -q "a skipped check is NOT green" \
+grep -q "a skipped check is NOT green" <<<"$deg" \
   && ok "(5) degrade summary refuses to claim green (honesty line present)" \
   || bad "(5) degrade summary missing the not-green honesty line"
 [ "$deg_rc" -eq 0 ] \
@@ -383,10 +390,10 @@ out=$( cd "$PG" && printf 'n\n' | bash "$INSTALL" 2>&1 ) || true
 # `< /dev/null` on this invocation: that redirection would OVERRIDE the pipe, feed BOTH offers
 # EOF, and the arm would pass for the wrong reason (EOF also declines — same shape as arm 11a's
 # original defect).
-echo "$out" | grep -q "Detected a Rust project" \
+grep -q "Detected a Rust project" <<<"$out" \
   && ok "(11a) polyglot: cargo offer shown (precedence arm 2)" \
   || bad "(11a) polyglot: cargo offer NOT shown — the walk never reached lane 2"
-echo "$out" | grep -q "Detected a Go project" \
+grep -q "Detected a Go project" <<<"$out" \
   && ok "(11a) S-3 GREEN: go offer shown after declined cargo (pre-S-3: never offered)" \
   || bad "(11a) S-3 RED: go still masked after a declined cargo — the precedence fix regressed"
 [ ! -e "$PG/.golangci.yml" ] \
@@ -404,7 +411,7 @@ out=$( cd "$PG2" && printf 'n\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
 MG=$(go_fixture)
 out=$( cd "$MG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
 n_offers=$(echo "$out" | grep -c "Detected a \(Python\|Rust\|Go\) project")
-[ "$n_offers" -eq 1 ] && echo "$out" | grep -q "Detected a Go project" \
+[ "$n_offers" -eq 1 ] && grep -q "Detected a Go project" <<<"$out" \
   && ok "(11c) mono-manifest go.mod consumer: exactly one offer, go (exclusion set intact)" \
   || bad "(11c) mono-manifest consumer got $n_offers offer(s) — the exclusion column regressed"
 # (11d) package.json consumer: no toolchain offer at all (npm lane).
@@ -412,7 +419,7 @@ NG=$(mktemp -d)
 printf '{"name":"m","version":"0.0.0"}\n' > "$NG/package.json"
 printf 'module demo\n\ngo 1.22\n' > "$NG/go.mod"
 out=$( cd "$NG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
-echo "$out" | grep -q "Detected a " \
+grep -q "Detected a " <<<"$out" \
   && bad "(11d) package.json consumer was offered a toolchain lane (npm lane violated)" \
   || ok "(11d) package.json consumer: no toolchain offer (npm lane, unchanged)"
 # (11e) UNIFORM unmasking — the declined-offer rule is ONE rule, not a cargo→go special case:
@@ -423,10 +430,10 @@ PG3=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.1.0"\n' > "$PG3/pyproject.toml"
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG3/Cargo.toml"
 out=$( cd "$PG3" && printf 'n\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
-echo "$out" | grep -q "Detected a Python project" \
+grep -q "Detected a Python project" <<<"$out" \
   && ok "(11e) polyglot: python offer shown first (precedence arm 1)" \
   || bad "(11e) polyglot: python offer NOT shown — the walk never reached lane 1"
-echo "$out" | grep -q "Detected a Rust project" \
+grep -q "Detected a Rust project" <<<"$out" \
   && ok "(11e) S-3 GREEN: cargo offer shown after a DECLINED python (uniform unmasking; pre-S-3: masked)" \
   || bad "(11e) S-3 RED: cargo still masked after a declined python — the unmasking is not uniform"
 [ "$rc" -eq 0 ] && [ -f "$PG3/clippy.toml" ] && [ ! -e "$PG3/.golangci.yml" ] \

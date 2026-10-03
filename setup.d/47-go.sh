@@ -108,12 +108,14 @@ _go_deliver_golangci() {
   elif [ -e "$dst" ]; then
     # (ii) consumer-authored .golangci.yml → a sibling of ours would REPLACE it (golangci-lint
     # reads ONE .golangci.yml). REFUSE: ship getff-golangci.yml (golangci-lint does not
-    # auto-discover it) + merge note.
+    # auto-discover it) + a NOT-wired line.
     _go_copy_or_refresh "$tpl/.golangci.yml" "$getff_ref"
     _go_log "⚠ REFUSE .golangci.yml (cell ii): a sibling .golangci.yml would REPLACE your existing one entirely."
-    _go_log "  Shipped our rules as getff-golangci.yml (golangci-lint does NOT auto-discover it — inert until you opt in)."
-    _go_log "  MANUAL: merge the getff forbidigo entries from getff-golangci.yml into your .golangci.yml, OR run:"
-    _go_log "    golangci-lint run --enable forbidigo --config getff-golangci.yml ./..."
+    _go_log "  Shipped our rules as getff-golangci.yml (golangci-lint does NOT auto-discover it)."
+    local _ci="the getff CI workflow runs them from getff-golangci.yml"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-go.yml" \
+      || _ci="they are in getff-golangci.yml, which no CI reads, because .github/workflows/getff-go.yml is your own workflow"
+    note_not_wired "golangci-lint: getff's forbidigo bans are not in your .golangci.yml — it configures golangci-lint for this project, and getff does not change a project's own golangci-lint config, so a local \`golangci-lint run\` runs with your settings only; $_ci"
   else
     # (i) fresh: no .golangci.yml → copy ours whole.
     copy_safe "$tpl/.golangci.yml" "$dst"
@@ -123,16 +125,13 @@ _go_deliver_golangci() {
 
 # _go_deliver_ci — .github/workflows/getff-go.yml lane: fresh copy | idempotent-if-getff |
 # REFUSE-LOUDLY (consumer's own). NEVER writes to the consumer's ci.yml — a pre-existing
-# consumer CI workflow is not clobbered. Body = lib.sh _lane_deliver_ci (S-2); the pins in the
-# REFUSE hints MIRROR github-actions-ci.yml (the delivered template) — keep the two in sync on
-# any pin bump (both bump together per ci-tool-pinning.md Rule A + F10 two-surface pin parity).
+# consumer CI workflow is not clobbered. Body = lib.sh _lane_deliver_ci (S-2); a REFUSE is a
+# NOT-wired line (Q4.7).
 _go_deliver_ci() {
   _lane_deliver_ci "$1" ".github/workflows/getff-go.yml" \
     "CI workflow → .github/workflows/getff-go.yml (pinned golangci-lint bans gate)" \
     "CI workflow → refreshed (.github/workflows/getff-go.yml, framework-owned pins)" \
-    "  NOT overwriting your workflow. To wire the getff Go gates, add a job running:" \
-    "      go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2" \
-    "      golangci-lint run --enable forbidigo --config .golangci.yml ./...    # your config"
+    "the getff golangci-lint gate is"
 }
 
 # _go_write_rules_lock — the go rules-lock variant (kickoff §1 W4 → J3). Writes
@@ -160,7 +159,7 @@ _go_write_rules_lock() {
 # _go_delivered_golangci_path — getff-golangci.yml in the REFUSE cell, copied into the temp
 # module as .golangci.yml so golangci-lint discovers it; the consumer's own config is never what
 # we attest), and asserts the ban FIRES (the forbidigo diagnostic appears). Then removes the temp
-# dir. Tool-gated: an absent go/golangci-lint → LOUD degrade printing the exact manual command
+# dir. Tool-gated: an absent go/golangci-lint → LOUD degrade plus a NOT-wired line (Q4.7)
 # (never silently green — attention-is-not-a-mechanism.md §1). rc=0 on every branch — a self-check
 # must not abort the install.
 #
@@ -209,7 +208,7 @@ _go_firing_self_check() {
     printf 'package selfcheck\n\nimport "os"\n\nfunc Args() []string {\n\treturn os.Args\n}\n' > "$_t/selfcheck/clean.go"
     local _out _rc=0
     _out=$( cd "$_t" && golangci-lint run --enable forbidigo ./... 2>&1 ) || _rc=$?
-    if [ "$_rc" -ne 0 ] && printf '%s' "$_out" | grep -qi 'forbidigo\|os\.Getenv'; then
+    if [ "$_rc" -ne 0 ] && grep -qi 'forbidigo\|os\.Getenv' <<<"$_out"; then
       echo "  ✓ golangci-lint fired RED on the planted violation (forbidigo os.Getenv ban live)"
       _pass=$((_pass+1))
     else
@@ -235,19 +234,22 @@ _go_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ go or golangci-lint not on PATH (or the delivered config missing) — firing NOT proven (degrade, NOT green)."
-    echo "    Per kickoff §1.3, the local label is «insufficient (tool absent)» — the stage is NOT done."
-    echo "    Verify manually from your module root:"
-    echo "      go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2"
-    echo "      golangci-lint run --enable forbidigo --config .golangci.yml ./...    # must exit non-zero on os.Getenv"
+    local _why
+    if ! command -v go >/dev/null 2>&1; then _why="go is not on PATH"
+    elif ! command -v golangci-lint >/dev/null 2>&1; then _why="golangci-lint is not on PATH"
+    else _why="the delivered golangci config is missing"; fi
+    echo "  ⚠ $_why — firing NOT proven (degrade, NOT green)."
+    echo "    The local label is «insufficient (tool absent)» — enforcement is not proven on this machine."
+    note_not_wired "firing self-check (golangci-lint): not proven — $_why, so the delivered config was not run against a planted violation"
     _degraded=$((_degraded+1))
   fi
 
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered golangci config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered golangci config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
+    note_not_wired "firing self-check (golangci-lint): not proven — $_silent SILENT and $_overbroad OVER-BROAD result(s) on the planted module, so the delivered golangci config did not discriminate bad code from clean code"
   elif [ "$_degraded" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it."
+    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else
     echo "✓ getff self-check: the delivered golangci config fired RED on a planted violation and stayed GREEN on the clean control — enforcement is live."
   fi

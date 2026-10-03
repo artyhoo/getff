@@ -27,9 +27,25 @@ MODE="${1:---check}"
 case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check [files...]" >&2; exit 2 ;; esac
 [ "$#" -gt 0 ] && shift
 FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full shipped surface)
-# `cd ""` returns 0 and stays put (measured), so a bare `cd "$(git rev-parse ...)"` outside a
-# git worktree would silently format the CURRENT tree as if it were the repo. Fail instead.
-REPO_TOP="$(git rev-parse --show-toplevel)" || exit 1
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# Format the shipped surface of the checkout this script LIVES in, not of whatever repo the
+# cwd is in: the root used to come from the cwd's `git rev-parse --show-toplevel`, so
+# `bash /abs/path/scripts/format-shipped.sh --write` from a scratch consumer repo rewrote that
+# repo's skills/, agents/, templates/ … in place (the getff#1971 backward sweep; same class as
+# scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967). Every in-repo caller (package.json
+# `format`, .husky/pre-commit, the install-sh fixtures that copy this file into their own tree)
+# runs the copy inside the tree it formats, so the anchor changes nothing for them.
+# CDPATH is cleared because `cd scripts/..` on a relative invocation would search it. The git
+# env is scrubbed for THIS lookup only: later git calls keep the caller's env on purpose —
+# under .husky/pre-commit, the env git exports to hooks (e.g. GIT_INDEX_FILE) names the tree being
+# committed, and `git ls-files` must read that index.
+unset CDPATH
+REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
+  && env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null)" || REPO_TOP=""
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
+# `cd ""` returns 0 and stays put (measured), so an empty root would silently format the CURRENT
+# tree as if it were the repo. Fail instead.
+[ -n "$REPO_TOP" ] || { echo "format-shipped: cannot resolve the repository root (not inside a git checkout)" >&2; exit 1; }
 cd "$REPO_TOP" || exit 1
 
 # Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the
@@ -214,11 +230,11 @@ fi
 # 24-plugin-manifest-integrity.test.ts (d)/(e)/(g)) and as the vendor hook ↔ .claude/hooks twin.
 #
 # WHY HERE and not a principle test: this check needs the SAME pinned Prettier the vendor copy is
-# formatted with. The principles CI job installs packages/core only (audit-self.yml:281-282) and
+# formatted with. The principles CI job installs packages/core only (audit-self.yml:334-335) and
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
-# (.husky/pre-commit:183) — the earliest channel that can see the pair. Prior art for the
+# (.husky/pre-commit:236, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
 # regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
 #
 # DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently

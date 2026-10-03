@@ -121,8 +121,8 @@ delivers the project block — an accepted divergence, both arms verified live e
 
 - `.claude/hooks/inject-subagent-context.sh:2` is the header the card's description row
   quotes: `# inject-subagent-context.sh — SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode)`.
-- Registration: `.claude/settings.json:94` reads `"matcher": "Agent|Task"` with the
-  command at line 98; the plugin registry registers it at `plugin/hooks/hooks.json:52`.
+- Registration: `.claude/settings.json:86` reads `"matcher": "Agent|Task"` with the
+  command at line 98; the plugin registry registers it at `plugin/hooks/hooks.json:28`.
 - The CC-silence gate: line 33 defines `_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }`
   and line 34 is `_is_zcode || exit 0   # CC: the SubagentStart primary handles digest
   injection; stay silent here`.
@@ -132,7 +132,7 @@ delivers the project block — an accepted divergence, both arms verified live e
   broadened»).
 - Env-first root, lines 43-45, with the comment naming the plugin-twin breakage it
   avoids: «`$0`-relative breaks when invoked as a plugin twin». Mirrors
-  `inject-project-digest.sh:29`.
+  `inject-project-digest.sh:38`.
 - Payload parity is declared at lines 23-26: «mirrors the SubagentStart arm of
   .claude/hooks/inject-project-digest.sh — same digest source … same awk pipeline, same
   no-op-on-empty semantics».

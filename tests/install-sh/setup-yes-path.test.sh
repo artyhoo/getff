@@ -59,7 +59,7 @@ _out_nostack=$( cd "$TMP" && timeout 5 bash "$SETUP" -y 2>&1 ) || _exit_nostack=
 [ "$_exit_nostack" -ne 0 ] \
   && ok "./setup -y (no stack): exits non-zero (no silent hang)" \
   || bad "./setup -y (no stack): did not exit non-zero (may have hung)"
-echo "$_out_nostack" | grep -qiE 'stack|ts-server|react-next' \
+grep -qiE 'stack|ts-server|react-next' <<<"$_out_nostack" \
   && ok "./setup -y (no stack): error message mentions stack choices" \
   || bad "./setup -y (no stack): error missing stack guidance"
 
@@ -69,7 +69,7 @@ _out_ins=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" --full 2>&1 ) || _exit_ins
 [ "$_exit_ins" -ne 0 ] \
   && ok "install.sh --full (no stack): exits non-zero" \
   || bad "install.sh --full (no stack): did not exit non-zero"
-echo "$_out_ins" | grep -qiE 'stack|ts-server|react-next' \
+grep -qiE 'stack|ts-server|react-next' <<<"$_out_ins" \
   && ok "install.sh --full (no stack): error message mentions stack" \
   || bad "install.sh --full (no stack): error missing stack guidance"
 

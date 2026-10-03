@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# .husky/pre-merge-commit — refuse a CLEAN merge that brings in commits never pushed to origin.
+#
+# spec: scripts/check-merge-pushed.sh header; test: tests/hooks/merge-unpushed-refusal.test.sh.
+# Incident 2026-09-30 (join/one-button-union): local-only part branches merged into a join
+# skipped .husky/pre-push; three gates went red only on the join, hours later.
+# The conflicted-merge channel is the MERGE_HEAD arm at the end of .husky/pre-commit.
+#
+# `exec` is load-bearing: git has not written MERGE_HEAD yet when this hook runs, and for a
+# `git pull` the check confirms from its PARENT process's argv that the parent is the child
+# `git merge … FETCH_HEAD`, so this shell hands its pid over instead of adding a level.
+# ── husky-own-worktree-delegate (begin) ─────────────────────────────────────
+# Run THIS worktree's copy of the hook, whatever core.hooksPath points at. The Claude desktop
+# app writes an absolute `core.hooksPath=<primary>/.husky` into every worktree it opens, so git
+# runs the primary checkout's files — 457 commits stale on 2026-09-30, which let a pre-commit
+# check miss in a worktree and land in CI (#1983). POSIX sh, so the one block also serves
+# post-checkout, which runs under sh.
+# Must stay above any other code; packages/core/hooks/husky-self-delegate.test.ts gates that.
+__own_hook="$(git rev-parse --show-toplevel 2>/dev/null)/.husky/${0##*/}"
+if [ -x "$__own_hook" ] \
+  && [ "$(cd "$(dirname "$__own_hook")" && pwd -P)" != "$(cd "$(dirname "$0")" && pwd -P)" ]; then
+  exec "$__own_hook" "$@"
+fi
+unset __own_hook
+# ── husky-own-worktree-delegate (end) ───────────────────────────────────────
+
+MP_CHECK="$(cd "$(dirname "$0")" && pwd)/../scripts/check-merge-pushed.sh"
+[ -f "$MP_CHECK" ] || exit 0
+exec bash "$MP_CHECK" pre-merge-commit

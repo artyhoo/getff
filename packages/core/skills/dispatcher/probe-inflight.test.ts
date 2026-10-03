@@ -99,6 +99,8 @@ interface Fixture {
   aifRepoPath?: string;
   /** Absolute path to a PROBE_DOCKER_BIN stub (arm b). */
   dockerBin?: string;
+  /** Extra env seeded AFTER the ambient strip (AIF_CONTAINER, DOCKER_CONTEXT, …). */
+  env?: Record<string, string>;
 }
 
 /** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
@@ -133,6 +135,10 @@ function probe(f: Fixture): string {
     PROBE_DOCKER_BIN: _omitDockerBin,
     PROBE_CONTAINER_BRANCHES: _omitCb,
     PROBE_CONTAINER_STATUS: _omitCs,
+    AIF_CONTAINER: _omitAc,
+    DOCKER_CONTEXT: _omitDc,
+    DOCKER_HOST: _omitDh,
+    PROBE_CONTEXT_TIMEOUT_S: _omitCt,
     ...cleanEnv
   } = process.env;
   void _omitPid;
@@ -142,6 +148,10 @@ function probe(f: Fixture): string {
   void _omitDockerBin;
   void _omitCb;
   void _omitCs;
+  void _omitAc;
+  void _omitDc;
+  void _omitDh;
+  void _omitCt;
   const env: NodeJS.ProcessEnv = {
     ...cleanEnv,
     SLUG: f.slug ?? 'x',
@@ -160,6 +170,7 @@ function probe(f: Fixture): string {
   if (f.runtimeProjectId !== undefined) env.RUNTIME_BRIDGE_AIF_PROJECT_ID = f.runtimeProjectId;
   if (f.aifRepoPath !== undefined) env.AIF_REPO_PATH = f.aifRepoPath;
   if (f.dockerBin !== undefined) env.PROBE_DOCKER_BIN = f.dockerBin;
+  Object.assign(env, f.env ?? {});
   return execFileSync('bash', [PROBE], { encoding: 'utf8', env, cwd: f.cwd });
 }
 
@@ -758,4 +769,189 @@ describe('probe-inflight.sh — signal 4 asks the derived repository (issue 1439
     expect(out).toMatch(/status=unavailable reason=projects-api-unreachable/);
     expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
+});
+
+// ── Agent container discovery (2026-09-30) ────────────────────────────────────
+// Measured on the operator's Mac: the aif stack runs on another machine (docker context
+// `pc`, container `aif-agent-1`) while the local daemon is down. The fixed default
+// `aif-handoff-agent-1` on the current context made every bare run PROBE-INCOMPLETE until
+// the caller hand-set AIF_CONTAINER + DOCKER_CONTEXT. The stub models docker contexts:
+// `local` (current), `slow` (an ssh context that hangs for STUB_SLOW_S, default 30) and `remote`. Which context runs
+// which agent is set per arm through STUB_AGENTS («ctx:name ctx:name»); a context listed
+// in STUB_DOWN answers «Cannot connect». Every `ps` and `exec` is logged, so an arm can
+// assert WHERE the probe asked, not only what it concluded. A cold review of the first
+// version (PR 1972) drove arms (j)-(n): first-hit-wins could answer from the wrong stack.
+
+describe('probe-inflight.sh — agent container discovery', () => {
+  const PROJECTS = [{ id: 'p-fw', name: 'rules-as-tests-aif', rootPath: '/home/www/fw' }];
+  const dir = mkdtempSync(join(tmpdir(), 'probe-docker-ctx-'));
+  const stub = join(dir, 'stub-docker');
+  const log = join(dir, 'calls.log');
+  writeFileSync(
+    stub,
+    [
+      '#!/usr/bin/env bash',
+      'ctx="${DOCKER_CONTEXT:-local}"; flag=no',
+      'if [[ "$1" == "--context" ]]; then ctx="$2"; flag=yes; shift 2; fi',
+      'case "$1" in',
+      '  context) if [[ "$2" == show ]]; then echo local; else printf "local\\nslow\\nremote\\n"; fi ;;',
+      '  ps)',
+      '    echo "ps ctx=$ctx flag=$flag" >> "$STUB_LOG"',
+      '    [[ "$ctx" == slow ]] && sleep "${STUB_SLOW_S:-30}"',
+      '    case " $STUB_DOWN " in *" $ctx "*) echo "Cannot connect to the Docker daemon" >&2; exit 1 ;; esac',
+      '    for a in $STUB_AGENTS; do [[ "${a%%:*}" == "$ctx" ]] && echo "${a#*:}"; done',
+      '    true ;;',
+      '  exec)',
+      '    echo "exec ctx=$ctx name=$2" >> "$STUB_LOG"',
+      '    for a in $STUB_AGENTS; do',
+      '      if [[ "$a" == "$ctx:$2" ]]; then echo "  feature/x-abc123"; exit 0; fi',
+      '    done',
+      '    echo "Error response from daemon: No such container: $2" >&2; exit 1 ;;',
+      'esac',
+      '',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const run = (env: Record<string, string>): string => {
+    writeFileSync(log, '');
+    return probe({
+      omitContainerInjection: true,
+      projects: PROJECTS,
+      runtimeProjectId: 'p-fw',
+      dockerBin: stub,
+      env: {
+        STUB_LOG: log,
+        PROBE_CONTEXT_TIMEOUT_S: '1',
+        STUB_DOWN: 'local',
+        STUB_AGENTS: 'remote:aif-agent-1',
+        ...env,
+      },
+    });
+  };
+  const calls = (kind: 'ps' | 'exec'): string[] =>
+    readFileSync(log, 'utf8')
+      .split('\n')
+      .filter((l) => l.startsWith(`${kind} `));
+  const last = (out: string): string => out.trim().split('\n').pop() ?? '';
+
+  it(
+    '(f) nothing pinned, local daemon down → finds the agent on another context and asks it there',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // RED on the fixed default: the probe asked `aif-handoff-agent-1` on `local` and
+      // printed PROBE-INCOMPLETE. The container-only branch below is visible ONLY if
+      // the question reached the remote agent.
+      const out = run({});
+      expect(calls('exec')).toEqual(['exec ctx=remote name=aif-agent-1']);
+      expect(out).toContain('status=ok repo=/home/www/fw');
+      expect(out).toContain('container-target: aif-agent-1 context=remote (discovered;');
+      expect(out).toContain('scanned: slow=timeout remote=found');
+      expect(out).toContain('container-only: feature/x-abc123');
+      expect(last(out)).toBe('VERDICT: IN-FLIGHT');
+    },
+  );
+
+  it(
+    '(g) the hanging context is entered, cut within the per-context budget, and the scan goes on',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const t0 = Date.now();
+      run({});
+      // `slow` sleeps 30s; the 1s budget must cut it. 15s leaves room for a loaded host.
+      expect(Date.now() - t0).toBeLessThan(15_000);
+      expect(calls('ps')).toContain('ps ctx=slow flag=yes');
+      expect(calls('exec')).toEqual(['exec ctx=remote name=aif-agent-1']);
+    },
+  );
+
+  it(
+    '(h) an explicit AIF_CONTAINER wins — no discovery, the pinned name is asked as given',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const out = run({ AIF_CONTAINER: 'pinned-agent' });
+      expect(calls('ps')).toEqual([]);
+      expect(calls('exec')).toEqual(['exec ctx=local name=pinned-agent']);
+      expect(out).not.toContain('container-target:');
+      expect(out).toContain('reason=Error response from daemon: No such container: pinned-agent');
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(i) a caller-pinned DOCKER_CONTEXT is respected — other contexts are NOT scanned',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // Fail-closed stays intact: no agent on the pinned context → the default name is
+      // asked, the exec's own stderr is the cause, and the verdict is PROBE-INCOMPLETE.
+      const out = run({ DOCKER_CONTEXT: 'local' });
+      expect(calls('ps')).toEqual(['ps ctx=local flag=no']);
+      expect(calls('exec')).toEqual(['exec ctx=local name=aif-handoff-agent-1']);
+      expect(out).toContain(
+        'container-target: aif-handoff-agent-1 (default; the current docker context is unreachable; other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned)',
+      );
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(j) the common case: one agent on the CURRENT context is used, nothing else is scanned',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const out = run({ STUB_DOWN: '', STUB_AGENTS: 'local:aif-agent-1 remote:aif-agent-1' });
+      expect(calls('ps')).toEqual(['ps ctx=local flag=no']);
+      expect(calls('exec')).toEqual(['exec ctx=local name=aif-agent-1']);
+      expect(out).toContain('container-target: aif-agent-1 (discovered on the current docker context)');
+      expect(last(out)).toBe('VERDICT: IN-FLIGHT');
+    },
+  );
+
+  it(
+    '(k) DOCKER_HOST set by the caller also stops the scan of other contexts',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const out = run({ DOCKER_HOST: 'unix:///nowhere.sock' });
+      expect(calls('ps')).toEqual(['ps ctx=local flag=no']);
+      expect(out).toContain('other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned');
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(l) two agents on the current context → ambiguous, fail closed, NOTHING is asked',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // First-hit-wins would answer from whichever container docker listed first — a
+      // FRESH from the wrong stack. The guard must refuse to guess.
+      const out = run({ STUB_DOWN: '', STUB_AGENTS: 'local:aif-agent-1 local:aif-e2e-agent-1' });
+      expect(calls('exec')).toEqual([]);
+      expect(out).toMatch(/status=unavailable repo=\/home\/www\/fw reason=ambiguous-agent: aif-agent-1 aif-e2e-agent-1 on the current docker context/);
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(m) one agent on EACH of two other contexts → ambiguous across contexts, fail closed',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // The review's scenario: a stale stack on one context, the live one on another.
+      const out = run({ STUB_AGENTS: 'slow:aif-agent-1 remote:aif-agent-1', STUB_SLOW_S: '0' });
+      expect(calls('exec')).toEqual([]);
+      expect(out).toContain('reason=ambiguous-agent: slow/aif-agent-1 remote/aif-agent-1 across docker contexts');
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
+
+  it(
+    '(n) no agent anywhere → the default name is asked and each context outcome is named',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      const out = run({ STUB_AGENTS: '', STUB_DOWN: 'local remote' });
+      expect(calls('exec')).toEqual(['exec ctx=local name=aif-handoff-agent-1']);
+      expect(out).toContain(
+        'container-target: aif-handoff-agent-1 (default; the current docker context is unreachable; scanned: slow=timeout remote=error)',
+      );
+      expect(last(out)).toBe('VERDICT: PROBE-INCOMPLETE');
+    },
+  );
 });

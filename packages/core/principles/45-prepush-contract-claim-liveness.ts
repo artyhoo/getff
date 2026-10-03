@@ -443,7 +443,7 @@ export function resolveItem(token: string): string | null {
  * The gate must not need a curated list of "tools we do not run": that list is the
  * half that goes stale, and its staleness is invisible (a new false claim naming a
  * tool nobody listed is simply missed). So the vocabulary is DERIVED from the
- * installer's own delivery — `setup.d/70-deps.sh`, which writes the consumer's
+ * installer's own delivery — `setup.d/70-deps.sh` + `merge_canonical_scripts` in setup.d/lib.sh, which write the consumer's
  * `package.json` scripts and devDependencies. Everything a consumer-facing doc could
  * plausibly call a check is in there by construction, because the installer is what
  * put it in their project.
@@ -499,7 +499,7 @@ export function deriveToolchainTokens(depsSh: string): Set<string> {
     )
       tokens.add(base);
   };
-  const wantBlock = /const want = \{([\s\S]*?)\n {6}\};/.exec(depsSh);
+  const wantBlock = /const want = \{([\s\S]*?)\n *\};/.exec(depsSh);
   if (wantBlock) {
     for (const m of wantBlock[1].matchAll(
       /"([a-z][a-z0-9:._-]*)"\s*:\s*([^\n]+)/g,
@@ -636,10 +636,21 @@ export function loadCorpus(): { file: string; content: string }[] {
   }));
 }
 
-/** The installer's delivery, read from disk. */
+/**
+ * The installer's delivery, read from disk: `merge_canonical_scripts` in setup.d/lib.sh
+ * (the scripts both the install and `--refresh` merge) plus the rest of setup.d/70-deps.sh.
+ * Only that function's body is read, not all of lib.sh, whose other dotfile names
+ * (`.prettierrc`, `.lintstagedrc`) are no checks.
+ */
 export function toolchainTokens(): Set<string> {
+  const lib = readFileSync(resolve(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
+  const from = lib.indexOf('\nmerge_canonical_scripts() {');
+  const fn = from < 0 ? '' : lib.slice(from);
+  const end = fn.search(/\n\}\n/);
   return deriveToolchainTokens(
-    readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
+    (end < 0 ? fn : fn.slice(0, end)) +
+      '\n' +
+      readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
   );
 }
 
@@ -675,8 +686,8 @@ export interface QuarantineRow {
  * twin, held for a reason the gate cannot decide. `checks-map.md` declares itself
  * authoritative for the GENERIC eight-level enforcement model (`:8`), not for getff's
  * delivery: its levels 5-8 name Stryker, Pact Broker, Datadog and Argo Rollouts, none of
- * which getff installs. Both of the row's claim sites live in that register — `:43` is
- * row 3 of the model table and `:143` is the «minimum pipeline for a new project» — so
+ * which getff installs. Both of the row's claim sites live in that register — `:52` is
+ * row 3 of the model table and `:152` is the «minimum pipeline for a new project» — so
  * they say where a check BELONGS, not what getff wires. Rewriting the model is a product
  * decision for the maintainer. The consumer-confusion half is closed instead: the
  * docs-truth-prepush PR adds a note above the table stating outright that the installed
@@ -704,12 +715,12 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
     owner:
-      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :43 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :143 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
+      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :52 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :152 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
   },
   {
     file: 'plugin/skills/getff/references/checks-map.md',
@@ -717,9 +728,9 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
     owner: 'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
   },

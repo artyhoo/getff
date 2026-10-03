@@ -60,6 +60,36 @@ expect_fail() {
   fi
 }
 
+# ------------------------------------------------ preflight: the checker runs at all
+# The entry-point guard once compared `import.meta.url` (resolved through symlinks) with
+# the unresolved `argv[1]`, so a checkout reached through a symlinked directory never
+# called run() and exited 0 with no output. Measured 2026-09-29 on the PC mirror, where
+# /home/etot/mirror is a symlink to /mnt/wsl/spill/mirror: 61 arms failed as «expected
+# exit 1, got 0» without one line naming why. Both probes below fail by name instead.
+new_repo preflight
+printf 'alpha\n' >"$REPO/target.md"
+printf 'See `target.md:9`.\n' >"$REPO/cite.md"
+commit_all
+preflight_probe() {
+  local via="$1" script="$2" rc
+  (cd "$REPO" && node "$script" --check cite.md) >"$TMP/out" 2>"$TMP/err"; rc=$?
+  [ "$rc" -eq 1 ] && grep -qF 'cite.md:1' "$TMP/err" && return 0
+  echo "FAIL: preflight ($via) — checker exited $rc on a past-EOF citation"
+  if [ "$rc" -eq 0 ] && [ ! -s "$TMP/err" ] && [ ! -s "$TMP/out" ]; then
+    echo "    cause: exit 0 with no output = the module never ran run(); its entry-point"
+    echo "    guard (isMainEntry) did not recognise argv[1] '$script'"
+    echo "    against realpath '$(cd "$(dirname "$script")" && pwd -P)/$(basename "$script")'"
+  fi
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); return 1
+}
+if ! preflight_probe "as invoked, $CHECK" "$CHECK"; then
+  echo "check-line-citations paired-negative: preflight failed — every arm below would"
+  echo "report the same silence as its own failure; stopping here."
+  exit 1
+fi
+ln -s "$DIR" "$TMP/linked-scripts"
+preflight_probe "through a symlinked directory" "$TMP/linked-scripts/$(basename "$CHECK")"
+
 # ---------------------------------------------------------------- arm 1: drift by blame
 new_repo drift
 printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
@@ -113,6 +143,69 @@ expect_fail "full check sees the drift" "cite.md:1" cite.md
 expect_pass "--blank-only leaves ARM 1 drift to pre-push" --blank-only cite.md
 printf 'alpha\n\nbeta\n' >"$REPO/target.md"
 expect_fail "--blank-only still catches the blank landing" "is an empty line" --blank-only cite.md
+
+# ------------------------------------------- no blame baseline is counted, not «resolved»
+# ARM 1 compares against the commit that last wrote the citing line. A citing file git has
+# no history for — untracked, or outside the repository — has no such commit, and until
+# 2026-09-30 `blameCommit` returned null, the citation was dropped with a bare `return`,
+# and the summary still counted it under `resolved`: a run that drift-checked nothing read
+# exactly like a clean one (on the agent-memory corpus, «resolved 368» with zero blames).
+new_repo no-baseline
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target only"
+printf 'The cap is `target.md:2`.\n' >"$REPO/cite.md"   # never committed
+expect_pass "an untracked citing file does not fail the default gate" cite.md
+for needle in 'resolved 0 / skipped 0' '1 not drift-checked' 'no-history'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: an unbaselined citation was not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+# --strict is the gate for «every citation fully checked»: it must refuse this run too.
+if (cd "$REPO" && node "$CHECK" --check --strict cite.md) >"$TMP/out" 2>"$TMP/err"; then
+  echo "FAIL: --strict passed a run whose only citation was never drift-checked"; fails=$((fails + 1))
+fi
+
+# --- the other two reasons: an uncommitted edit of the citing line, and a baseline commit
+# in which the cited line did not exist yet (target grown later). Each is named by reason
+# and in the per-file line, so a mutation of either branch goes RED here.
+new_repo no-baseline-reasons
+printf 'alpha\n' >"$REPO/target.md"
+printf 'The cap is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+commit_all "line 3 cited before the target has it"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target grows to three lines"
+printf 'The cap, reworded, is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+expect_pass "unbaselined citations do not fail the default gate" cite.md
+for needle in '1 uncommitted' '1 target-absent-at-baseline' 'resolved 0 / skipped 0' \
+  'cite.md:1  — 1 citation(s) not drift-checked (uncommitted)' \
+  'cite.md:2  — 1 citation(s) not drift-checked (target-absent-at-baseline)'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: unbaselined reasons not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- an in-repo file named through a symlinked directory is still in the repo: it must be
+# blamed, not refused as outside (cold-review MINOR 1 — `/tmp` is `/private/tmp` on macOS).
+ln -s "$REPO" "$TMP/repo-link"
+git -C "$REPO" checkout -q -- cite.md
+expect_pass "a symlinked path to an in-repo file is checked, not refused" "$TMP/repo-link/cite.md"
+grep -qF 'outside the repository' "$TMP/err" && {
+  echo "FAIL: an in-repo file reached through a symlink was refused as outside"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a file OUTSIDE the repository can never have a blame baseline, so the full check
+# refuses it by name (exit 2) instead of reporting a green it cannot back, and points at
+# the mode that can run there: --blank-only (ARM 2 only), which says so in its output.
+mkdir -p "$TMP/outside-no-baseline"
+printf 'The cap is `target.md:2`.\n' >"$TMP/outside-no-baseline/memo.md"
+(cd "$REPO" && node "$CHECK" --check "$TMP/outside-no-baseline/memo.md") >"$TMP/out" 2>"$TMP/err"; rc=$?
+if [ "$rc" -ne 2 ] || ! grep -qF -- '--blank-only' "$TMP/err"; then
+  echo "FAIL: --check on an out-of-repo file exited $rc instead of refusing (2) with a --blank-only hint"
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+expect_pass "--blank-only runs ARM 2 on an out-of-repo file" --blank-only "$TMP/outside-no-baseline/memo.md"
+grep -qF 'ARM 1 (drift since authorship) not run' "$TMP/err" || {
+  echo "FAIL: --blank-only on an out-of-repo file did not say ARM 1 was not run"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+printf 'alpha\n\ngamma\n' >"$REPO/target.md"
+expect_fail "--blank-only still catches a blank landing from outside the repo" "is an empty line" \
+  --blank-only "$TMP/outside-no-baseline/memo.md"
 
 # --------------------------------------------------------------------- beyond EOF
 new_repo eof
@@ -207,6 +300,98 @@ printf 'Pinned at `target.md:1`. The audit numbers it `:99`.\n' >"$REPO/cite.md"
 commit_all "backref across a sentence boundary"
 expect_pass "a backref in the next sentence is not bound to the anchor" cite.md
 
+# ------------------------------------------------ bare backreference in a code comment
+# Code comments write the sibling WITHOUT backticks and wrap it onto the next comment
+# line, e.g. «45-python.sh:1398-1400 … — and :1346 extends» cite:historical line numbers of the PR #1931 audit, quoted as an example
+# Three such
+# siblings had gone stale unseen in refresh-covers-full-delivery.test.sh / 45-python.sh
+# (fidelity audit on PR #1931, 2026-09-29).
+new_repo code-backref
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# pinned at target.sh:2 and the\n# rest at :3 (same sentence, next line).\ntrue\n' >"$REPO/cite.sh"
+commit_all "unbackticked sibling on the next comment line"
+expect_pass "an accurate unbackticked sibling is quiet" cite.sh
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+expect_fail "an unbackticked sibling on the next comment line is checked" "cite.sh:3" cite.sh
+(cd "$REPO" && node "$CHECK" --write cite.sh) >/dev/null 2>&1
+if ! grep -qF '# rest at :4 (same sentence' "$REPO/cite.sh" || ! grep -qF 'target.sh:3 and' "$REPO/cite.sh"; then
+  echo "FAIL: --write did not move the unbackticked sibling: $(cat "$REPO/cite.sh")"; fails=$((fails + 1))
+fi
+
+# --write edits the sibling by POSITION: the token writer would also rewrite the `:13` inside
+# `target.sh:1346` sharing the line.
+new_repo code-backref-pos
+seq 1 1400 >"$REPO/target.sh"
+printf '# target.sh:1346 and :13 here\n' >"$REPO/cite.sh"
+commit_all "sibling whose token is a prefix of the anchor's number"
+{ echo INSERTED; seq 1 1400; } >"$REPO/target.sh"
+commit_all "target shifted by one"
+(cd "$REPO" && node "$CHECK" --write cite.sh) >/dev/null 2>&1
+if ! grep -qxF '# target.sh:1347 and :14 here' "$REPO/cite.sh"; then
+  echo "FAIL: --write mangled a sibling sharing digits with its anchor: $(cat "$REPO/cite.sh")"; fails=$((fails + 1))
+fi
+
+# A wrapped sibling blames from its ANCHOR's line down: re-pointing only the anchor line at
+# another file must re-baseline the sibling, or it is judged against the new file as that
+# file stood when the sibling line was written (a false drift red).
+new_repo code-backref-spans
+printf 'a1\na2\na3\n' >"$REPO/a.sh"
+printf 'b1\nb2\nb3\n' >"$REPO/b.sh"
+printf '# see a.sh:1 and the\n# rest at :3 here\n' >"$REPO/cite.sh"
+commit_all "sibling written against a.sh"
+printf 'b0\nb1\nb2\nb3\n' >"$REPO/b.sh"
+commit_all "b.sh grows a line"
+printf '# see b.sh:2 and the\n# rest at :3 here\n' >"$REPO/cite.sh"
+commit_all "anchor re-pointed to b.sh; the sibling line is untouched"
+expect_pass "a re-pointed anchor re-baselines its wrapped sibling" cite.sh
+
+# Same line, slash-joined pair («(:1335/:1363 — …»): both members are checked.
+new_repo code-backref-pair
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '# target.sh:1 sources (:2/:3 - two copies).\n' >"$REPO/cite.sh"
+commit_all "slash-joined siblings"
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+run_check cite.sh
+if [ "$(grep -cF 'cite.sh:1' "$TMP/err")" -lt 3 ]; then
+  echo "FAIL: slash-joined siblings were not both checked"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+
+# Paired negatives — each is a shape the corpus measurement (2026-09-29) showed binding
+# to the WRONG referent, or a shape that is not a comment at all. Every bare number meant
+# to stay unbound is past target.sh's end, so a wrong bind would be a red, not a silent pass
+# (`${x:1}` is in range; the lookbehind rejects it, and `:98` on its line is what proves a
+# code line is never scanned).
+new_repo code-backref-neg
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+# (1) next sentence on the next comment line re-points the referent — ports, in the
+#     measured case (`AifHandoffBackend.ts`: «… (:3009). MCP (HTTP) = mcpUrl (:3100)»).
+# (2) a code line ends the comment block; (3) a trailing code-line `:NN` is not a comment;
+# (4) bash substring expansion; (5) Markdown keeps the backticked-only rule — on a
+# `#`-heading line, which WOULD pass the comment-line test if Markdown were scanned;
+# (6) a bare comment marker is a paragraph break, and (7) a new list item a new sentence,
+# even without a closing period; (8) an unresolvable nearer citation stops the sibling
+# from falling through to an older, resolvable one.
+cat >"$REPO/cite.sh" <<'EOF'
+# anchored at target.sh:1.
+# Ports: base (:3009), mcp (:3100).
+# Sources: target.sh:2
+#
+# Ports: base (:3008)
+# - target.sh:3 does the thing
+# - the server (:3007) answers
+# see target.sh:1 and nowhere-at-all.sh:5 then :3006
+# anchored again at target.sh:2 with no sentence end
+x=1
+# after code :99 must not bind
+y="${x:1}"; echo at target.sh:2 then :98
+EOF
+printf '# Pinned at `target.md:1` and then :97 unbackticked\n' >"$REPO/cite.md"
+printf 'one\n' >"$REPO/target.md"
+commit_all "shapes that must not bind"
+expect_pass "unbackticked siblings bind only within one comment sentence" cite.sh cite.md
+
 # ============================================================ skipped-citation visibility
 # Until 2026-09-14 a citation whose path did not resolve was dropped with a bare
 # `continue`: no line printed, no count, exit 0. Measured that day over the five
@@ -277,6 +462,45 @@ commit_all "bare basename matching no tracked file"
 expect_pass "an unmatched bare basename does not fail the gate" cite.md
 grep -qF 'bare-basename' "$TMP/err" || {
   echo "FAIL: unmatched bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a PARTIAL path names a nested file by its tail, so it resolves by unique suffix and
+# its drift is caught. Until 2026-09-29 any slashed token that missed at the repo root was
+# `path-missing` at once — PR #1899's stale `install/wire-eslint-r2.ts:NN` cite in a code
+# comment passed that way, one of 29 in the corpus.
+new_repo partial-unique
+mkdir -p "$REPO/packages/core/install"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+printf 'The cap is `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "partial-path citation to a nested file"
+expect_pass "an accurate partial-path citation is quiet" cite.md
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+commit_all "target reflowed under the partial-path citation"
+expect_fail "drift behind a partial path is caught, not skipped" "cite.md:1" cite.md
+
+# --- an ambiguous suffix is REPORTED with its candidates, never guessed
+new_repo partial-ambiguous
+mkdir -p "$REPO/a/install" "$REPO/b/install"
+printf 'alpha\nbeta\n' >"$REPO/a/install/wire.ts"
+printf 'ZULU\nYANKEE\n' >"$REPO/b/install/wire.ts"
+printf 'See `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "same suffix in two places"
+expect_pass "an ambiguous partial path does not fail the gate" cite.md
+for needle in 'ambiguous-basename' 'a/install/wire.ts' 'b/install/wire.ts'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: ambiguous partial path did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- a suffix is matched on a path-segment boundary: `wire.ts` under `reinstall/` is not a
+# tail of `install/wire.ts`, and a `./`-rooted token names a place, not a suffix
+new_repo partial-boundary
+mkdir -p "$REPO/pkg/reinstall" "$REPO/pkg/install"
+printf 'alpha\nbeta\n' >"$REPO/pkg/reinstall/wire.ts"
+printf 'alpha\nbeta\n' >"$REPO/pkg/install/wire.ts"
+printf 'See `install/wire.ts:2` and `./install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "suffix must align to a segment"
+expect_pass "a segment-aligned suffix resolves; a dot-rooted token is left alone" cite.md
+grep -qF 'resolved 1 / skipped 1' "$TMP/err" || {
+  echo "FAIL: suffix boundary / dot-rooted handling wrong"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 
 # ========================================== --affected-by (reverse-index push scoping)
 # The hole this closes: a citation goes stale when the CITED file moves, and the cited
@@ -600,11 +824,11 @@ expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in
 
 # =================================== extensionless targets + comma-separated line lists
 # Two shapes the path grammar could not see. Measured 2026-09-27 over the 980-file code
-# corpus: 7 citations name an extensionless file (`.husky/pre-commit:112` at
-# `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
+# corpus: 7 citations name an extensionless file (`.husky/pre-commit:127`
+# at `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
 # `tests/install-sh/aif-guided-install-gating.test.sh:8`), and 18 sites carry a comma list
-# whose second and later numbers nothing checked (`inject-project-digest.sh:31,39` at
-# `.claude/hooks/inject-subagent-context.sh:50`). Neither shape even reached the skip
+# whose second and later numbers nothing checked (`inject-project-digest.sh:40,48` at
+# `.claude/hooks/inject-subagent-context.sh:54`). Neither shape even reached the skip
 # tally — they were not citations at all, so `--show-skips` could not surface them either.
 # Both populations were blank-landing-clean, so arm 2 had nothing to say; arm 1 found two
 # that had genuinely drifted, repaired in the commit after this one.
@@ -688,6 +912,9 @@ expect_pass "the code escape silences a whole comma list" --blank-only scripts/t
 # markdownlint and prettier sections would otherwise reach the network from a fixture with
 # no node_modules) and `scripts/format-shipped.sh` (absent in the fixture, so the prettier
 # section would go red for an unrelated reason and make every arm below meaningless).
+# One real sibling checker, copied like this one: `scripts/check-pipefail-early-exit.mjs`,
+# which the hook runs on every staged file — absent, node throws MODULE_NOT_FOUND and every
+# arm goes red. It passes here because no fixture path is in its population.
 # Nothing else in the hook fires: its remaining sections are scoped to staged manifest,
 # orchestrator-prompts, hooks, agents and skills paths, and this fixture stages none.
 REAL_ROOT="$(cd "$DIR/.." && pwd)"
@@ -695,8 +922,11 @@ HOOK="$REAL_ROOT/.husky/pre-commit"
 
 new_hook_repo() {
   new_repo "$1"
-  mkdir -p "$REPO/scripts" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
+  mkdir -p "$REPO/scripts/lib" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
   cp "$CHECK" "$REPO/scripts/check-line-citations.mjs"
+  # The checker imports its entry guard from scripts/lib/ — copy the helper with it.
+  cp "$DIR/lib/is-main-entry.mjs" "$REPO/scripts/lib/is-main-entry.mjs"
+  cp "$DIR/check-pipefail-early-exit.mjs" "$REPO/scripts/check-pipefail-early-exit.mjs"
   cp "$HOOK" "$REPO/.husky/pre-commit"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/_stub_bin/npx"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/scripts/format-shipped.sh"

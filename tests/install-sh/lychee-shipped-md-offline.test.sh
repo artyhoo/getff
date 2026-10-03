@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: skips itself without lychee, which the Mac has and the PC does not (measured 2026-09-29)
 # Consumer-side link integrity for shipped markdown (2026-07-10 flat-install smoke incident):
 # on a consumer's FIRST `git push`, pre-push §8 runs `lychee --offline` over every changed
 # *.md — i.e. every shipped file. Shipped .claude/skills/*/SKILL.md + .claude/agents/*.md
@@ -15,7 +16,7 @@
 #
 # POPULATION — factory depth, not core (widened 2026-08-17, same class as GH #1377/PR #1413):
 # the fixture used to install `ts-server --full --force`. `--full` is the dev-deps flag, NOT a
-# depth flag (install.sh:128 sets FULL; PROFILE is a separate `--profile` arg at :142), so with
+# depth flag (install.sh:128 sets FULL; PROFILE is a separate `--profile` arg at :145), so with
 # no `--profile` the fixture resolved to `core` — 35 *.md, 4 skills. Everything gated behind
 # env/factory depth was therefore OUTSIDE the gate's population entirely and stayed green while
 # shipping dangling links: the 6 env+factory skills (GETFF_SKILLS_ENV/_FACTORY, setup.d/lib.sh:64-65)
@@ -45,7 +46,7 @@ printf '{"name":"lychee-fixture","version":"0.0.0"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force --profile factory ) >/dev/null 2>&1 \
   || { bad "install.sh exited non-zero — fixture install failed"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 
-# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:260):
+# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:261):
 # every factory-depth assertion below is silently VACUOUS if the profile gate regresses and the
 # deep surface never lands. Assert the two markers of factory depth — the vendor drop (the
 # factory-only layer) and an env-tier skill — before trusting a green lychee run.

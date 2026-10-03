@@ -57,9 +57,9 @@ eval "${SRC}" \
   | while IFS= read -r line; do
       name="${line%% *}"
       printf '\n--- candidate: %s ---\n' "${name}"
-      if echo "${line}" | grep -q 'kickoff=exists'; then
+      if grep -q 'kickoff=exists' <<<"${line}"; then
         bash "${CLASSIFY}" "$(resolve_orch_home)/${name}/kickoff.md" 2>&1 || true
-      elif echo "${line}" | grep -q 'kickoff=synthetic'; then
+      elif grep -q 'kickoff=synthetic' <<<"${line}"; then
         bash "${CLASSIFY}" "${line}" 2>&1 || true
       else
         echo "SKIP: ${line}"

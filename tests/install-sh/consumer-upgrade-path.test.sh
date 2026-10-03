@@ -161,7 +161,7 @@ printf '%s\n' "STALE_DRYRUN_MARKER" > "$AGENT_STALE"
 DRY_OUT=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run 2>&1 )
 
 # Dry-run must mention the agent
-if printf '%s\n' "$DRY_OUT" | grep -q "memory-codification-auditor.md"; then
+if grep -q "memory-codification-auditor.md" <<<"$DRY_OUT"; then
   ok "dry-run: output mentions the stale agent file"
 else
   bad "dry-run: output does not mention memory-codification-auditor.md"
@@ -210,8 +210,8 @@ if [ -f "$BUNDLE_DST" ] && cmp -s "$BUNDLE_DST" "$BUNDLE_SRC"; then
 else
   bad "hook-bundle pos: pre-push.bundle.mjs missing or not the framework bundle after --refresh"
 fi
-if printf '%s\n' "$REFRESH4_OUT" | grep -q 'ORPHAN: the pre-push hook now ships as packages/core/hooks/pre-push.bundle.mjs' \
-  && printf '%s\n' "$REFRESH4_OUT" | grep -qE '^ +packages/core/hooks/pre-push\.ts$'; then
+if grep -q 'ORPHAN: the pre-push hook now ships as packages/core/hooks/pre-push.bundle.mjs' <<<"$REFRESH4_OUT" \
+  && grep -qE '^ +packages/core/hooks/pre-push\.ts$' <<<"$REFRESH4_OUT"; then
   ok "hook-bundle orphan: --refresh names the stale packages/core/hooks/pre-push.ts"
 else
   bad "hook-bundle orphan: --refresh did not report the stale pre-push.ts"
@@ -305,7 +305,7 @@ rm -rf "$TC5" "$TC5_NEG"
 # do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
 # consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
 # CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
-# local/ ships framework-authored core rules (lib.sh:1955 "consumer never owns") as
+# local/ ships framework-authored core rules (lib.sh:1960 "consumer never owns") as
 # pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC6=$(make_consumer)
@@ -583,7 +583,7 @@ if [ -z "$ANNOUNCED10" ]; then
 else
   _lies10=""
   for _slug in $ANNOUNCED10; do
-    printf '%s\n' "$DRY10" | grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/$_slug( |/|$)" \
+    grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/$_slug( |/|$)" <<<"$DRY10" \
       || _lies10="$_lies10 $_slug"
   done
   if [ -z "${_lies10// }" ]; then
@@ -592,7 +592,7 @@ else
     bad "announce-honesty: header announces slug(s) the refresh never touches (announced-then-skipped):$_lies10"
   fi
   # neg (LOAD-BEARING): a slug that is NOT shipped must fail the same predicate.
-  if printf '%s\n' "$DRY10" | grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/self-reflection( |/|$)"; then
+  if grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/self-reflection( |/|$)" <<<"$DRY10"; then
     bad "announce-honesty neg: the never-shipped slug 'self-reflection' matched the predicate → check is VACUOUS"
   else
     ok "announce-honesty neg: the never-shipped slug 'self-reflection' fails the predicate (check discriminates)"

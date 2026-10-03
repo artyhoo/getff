@@ -2,7 +2,7 @@
 # setup.d/40-configs.sh — §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §4 (install.sh:866-914), §5a (install.sh:920-998),
+# S0 rows: §4 (install.sh:874-922), §5a (install.sh:928-1006),
 #          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123)
 # Depends on: 30-templates (RULES.md etc. already at $PROJECT_ROOT/.ai-factory/)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
@@ -56,6 +56,9 @@ copy_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_RO
 # Checks core.hooksPath=.husky, pre-commit/pre-push present+executable+referencing gate commands.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-shields-up.sh" "$PROJECT_ROOT/scripts/check-shields-up.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
+# W2-G (#1502): consumer ZCode skill-mirror check — .zcode/skills completeness, read-only.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
@@ -335,7 +338,7 @@ if [ -n "$_ws_lines" ]; then
         _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
         _stryker_dst="$PROJECT_ROOT/stryker/$_ws_slug.json"
         # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:889 — precedent
-        # rewrite_arch_sot_header, lib.sh:1829-1834) so a consumer's hand-tuned per-package config
+        # rewrite_arch_sot_header, lib.sh:1834-1839) so a consumer's hand-tuned per-package config
         # is never silently clobbered on re-install.
         if [ -e "$_stryker_dst" ] && [ "$FORCE" != "--force" ]; then
           SKIPPED+=("$_stryker_dst")

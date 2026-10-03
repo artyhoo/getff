@@ -32,8 +32,8 @@
 # Contract:
 #   stdout  : NOTHING — reserved by CC WorktreeCreate hook for the worktree path.
 #             All diagnostic/progress output goes to STDERR.
-#   exit 0  : success (symlinks created or already correct)
-#   exit 1  : conflict detected (real file in worktree AND in CANON — never clobbers)
+#   exit 0 success (linked or already correct) · 1 conflict (real file in worktree
+#   AND in CANON — never clobbers) · 2 bad --on-conflict · 3 refused (REPO-IDENTITY GUARD)
 #
 # Lifecycle split (cross-session kickoff portability, SSOT #116): kickoff.md is a
 # committed durable design doc (git owns it); state.md + _plan-cache +
@@ -78,6 +78,45 @@ fi
 CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
 WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 
+# ── REPO-IDENTITY GUARD ───────────────────────────────────────────────────────
+# Act ONLY on a checkout of the repository this script lives in: <worktree-dir>
+# must be the TOPLEVEL of a checkout that shares this script's git common dir (the
+# primary clone and all its linked worktrees do). Anything else — a foreign repo, a
+# non-git dir, a plain subdir of this checkout (git -C would resolve the enclosing
+# repo for it) — is refused with exit 3 before INIT touches $CANON or the target.
+# Incident 2026-09-30 (P6 cold run 3): after a compaction the session cwd sat in a
+# scratch consumer project; the no-argument SessionStart call defaulted
+# <worktree-dir> to THAT repo's toplevel and linked 472 coordination entries into
+# it (a later push from a copy failed lychee with 210 broken links — a false red).
+# The same guard covers adopt-orchestrator-prompts.sh, which passes the worktree
+# derived from the written path. Living in the script (not in the registration) is
+# deliberate: .claude/settings.json is agent-uneditable, and every caller —
+# SessionStart, post-checkout, the adopt hook, create-worktree, worktree-setup —
+# inherits it. In a consumer install the script serves the consumer's own repo.
+# CDPATH would make `cd .git` jump elsewhere (and print); an exported GIT_DIR /
+# GIT_COMMON_DIR / GIT_WORK_TREE would make both sides resolve from the env, not -C.
+unset CDPATH
+_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
+_common_dir() {
+  # $1 = dir → physical path of its git common dir; non-zero when not in a repo.
+  local d
+  d="$(_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+}
+_is_toplevel() {
+  # $1 = dir → zero only when $1 IS its checkout's toplevel (physical comparison).
+  local top
+  top="$(_git_at "$1" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ "$(cd "$top" 2>/dev/null && pwd -P)" == "$(cd "$1" 2>/dev/null && pwd -P)" ]]
+}
+SELF_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF_COMMON="$(_common_dir "$SELF_REPO" || true)"
+TARGET_COMMON="$(_common_dir "$WT_DIR" || true)"
+if [[ -z "$SELF_COMMON" || "$SELF_COMMON" != "$TARGET_COMMON" ]] || ! _is_toplevel "$WT_DIR"; then
+  echo "link-coordination: refusing $WT_DIR — not a checkout of this script's repository ($SELF_REPO); nothing linked" >&2
+  exit 3
+fi
+
 # ── TRACKED-FILE DETECTION ────────────────────────────────────────────────────
 # A file that git tracks is owned by git and must NEVER be symlink-managed: doing
 # so replaces the real committed file with a symlink in the primary checkout, and
@@ -88,11 +127,35 @@ WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 # (e.g. `!.claude/orchestrator-prompts/<umbrella>/stage-N.md`,
 # `!.../modular-install-fullpack/kickoff-s*.md`) slipped through and were wrongly
 # adopted. This check derives the skip decision from git itself, so ANY tracked
-# file is skipped regardless of name. Non-git / fake worktrees: ls-files returns
-# non-zero → not skipped here, and the name-based fast-path below still applies.
+# file is skipped regardless of name. The name-based fast-path below is kept as a
+# second layer (the REPO-IDENTITY GUARD above already refuses non-git targets).
+#
+# ONE `git ls-files` snapshot, not one git process per file. The per-file form spawned
+# ~600 git processes against a 519-file $CANON (measured 2026-10-01) and made every run
+# cost 18-28 s under load — on each `git worktree add` (post-checkout), create-worktree.sh
+# and SessionStart. The snapshot is taken lazily and covers every path the loops ask
+# about: they all live under $WT_PROMPTS. A path outside it keeps the per-file query.
+TRACKED_PROMPTS=""
+TRACKED_PROMPTS_READ=0
 is_tracked() {
-  # $1 = path (absolute or repo-relative) inside $WT_DIR
-  git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1
+  # $1 = absolute path inside $WT_DIR
+  local rel="${1#"$WT_PROMPTS"/}"
+  # Names the snapshot cannot match byte-for-byte also keep the per-file query: git
+  # C-quotes `"`, `\` and control characters even with core.quotePath=false, and on macOS
+  # the index stores NFC while the disk may hold an NFD name. Plain printable ASCII only.
+  local LC_ALL=C
+  if [[ "$rel" == "$1" || "$rel" == *[!\ -~]* || "$rel" == *[\"\\]* ]]; then
+    git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1
+    return
+  fi
+  if [[ "$TRACKED_PROMPTS_READ" -eq 0 ]]; then
+    TRACKED_PROMPTS="$(git -C "$WT_DIR" -c core.quotePath=false ls-files -- .claude/orchestrator-prompts/ 2>/dev/null || true)"
+    TRACKED_PROMPTS_READ=1
+  fi
+  case $'\n'"$TRACKED_PROMPTS"$'\n' in
+    *$'\n'".claude/orchestrator-prompts/$rel"$'\n'*) return 0 ;;
+  esac
+  return 1
 }
 
 # ── INIT ──────────────────────────────────────────────────────────────────────
@@ -145,13 +208,13 @@ CONFLICT=0
 if [[ -d "$WT_PROMPTS" ]]; then
   for umbrella_dir in "$WT_PROMPTS"/*/; do
     [[ -d "$umbrella_dir" ]] || continue
-    umbrella="$(basename "$umbrella_dir")"
+    umbrella="${umbrella_dir%/}"; umbrella="${umbrella##*/}"
 
     for file_path in "$umbrella_dir"*; do
       [[ -f "$file_path" ]] || continue        # regular files only (not dirs)
       [[ -L "$file_path" ]] && continue        # skip existing symlinks
 
-      filename="$(basename "$file_path")"
+      filename="${file_path##*/}"
       # Skip tracked files (git owns them; never symlink-manage).
       # Name-based fast-path (covers fake/non-git worktrees in tests) …
       [[ "$filename" == "done.md" ]] && continue
@@ -250,15 +313,17 @@ fi
 if [[ -d "$CANON" ]]; then
   for canon_umbrella_dir in "$CANON"/*/; do
     [[ -d "$canon_umbrella_dir" ]] || continue
-    umbrella="$(basename "$canon_umbrella_dir")"
+    # Parameter expansion, not basename/mkdir subprocesses: this loop runs once per
+    # $CANON umbrella (549 on 2026-10-01), and each fork costs ~10 ms under load.
+    umbrella="${canon_umbrella_dir%/}"; umbrella="${umbrella##*/}"
 
     # Ensure the umbrella dir exists as a real dir in the worktree
     wt_umbrella_dir="$WT_PROMPTS/$umbrella"
-    mkdir -p "$wt_umbrella_dir"
+    [[ -d "$wt_umbrella_dir" ]] || mkdir -p "$wt_umbrella_dir"
 
     for canon_file in "$canon_umbrella_dir"*; do
       [[ -f "$canon_file" ]] || continue
-      filename="$(basename "$canon_file")"
+      filename="${canon_file##*/}"
       # Skip tracked files (git owns them; never symlink-manage).
       [[ "$filename" == "done.md" ]] && continue
       [[ "$filename" == "README.md" ]] && continue

@@ -5,213 +5,20 @@
 # S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657), cite:historical pre-split install.sh lines, code moved into this file by #719
 #          ignore_shipped_configs CALL (install.sh:1659-1661), Done (install.sh:1663-1705) cite:historical pre-split install.sh lines, code moved into this file by #719
 # Depends on: 70-deps (ts-morph installed; DEPS_INSTALLED + DEVDEPS set),
-#             60-ci (_r2_verdict set), ALL prior layers (SKIPPED fully accumulated)
+#             60-ci (_r2_verdict + _r2_own_globs set), ALL prior layers (SKIPPED fully accumulated)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O3: HIGHEST-RISK ordering item — must run AFTER 70-deps (ts-morph) and LAST (SKIPPED complete)
-# O2: reads _r2_verdict (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
+# O2: reads _r2_verdict + _r2_own_globs (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
 
 # GETFF_ADDED_TO is declared by install.sh; a caller that sources this file alone (the layer-units
 # test) may not have it, and the summary reads its length under set -u.
 [ -n "${GETFF_ADDED_TO+x}" ] || GETFF_ADDED_TO=()
 
-# ─── synth-wire: deterministic synthesizer → root eslint.config.mjs ─────────────
-# Runs synthesize() for the detected stack and AST-merges emitted rules-as-tests rules
-# (R12/R14/R20 for react-next) into the consumer's root eslint.config.mjs.  Idempotent:
-# the preset template already hand-inlines these rules (principle 26 guarantees sync),
-# so this is a fast string-check no-op for a freshly-installed consumer.  Its value is
-# architectural: the synthesizer is now the declared source of truth; future recipe
-# additions will wire into the config without template edits.
-#
-# Runs regardless of _r2_verdict (R12/R14/R20 are not boundary-gated like R2) and
-# honours --dry-run (writes nothing, prints what would change).
-# rc=0 on every branch — install must not abort on wirer failure.
-#
-# A root config the CONSUMER owns (copy_safe kept an eslint.config.mjs, or it is an eslint.config.js
-# — the name ESLint loads first, so getff placed nothing beside it) gets getff's block added by
-# insertions only, the original kept at .ai-factory/before-getff/ whenever the write changes it
-# (operator decision Q4.7, 2026-09-28): the stack's rules-as-tests rules and a live-research snippet
-# (as for getff's own config), an ignores entry for the lintable files getff delivered, and — when
-# 60-ci found an HTTP boundary — a RULE_GLOBS block with R2 (_r2_own_globs), so check:globs has the
-# globs it reads. The config stays the consumer's: nothing records it in the refresh baseline. Any
-# part that does not land is named in the not-wired summary with its reason. Before Q4.7 the install
-# printed «add it by hand» here instead, and getff's rules stayed off in every such project.
-_synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
-# _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
-# install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
-# step's output above says why it did not.
-_ts_morph_why() {
-  if [ -n "${FULL:-}" ]; then
-    echo "adding $1 needs ts-morph, which this --full install's dev-dependency step did not put in node_modules (its output is above)"
-  else
-    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules, and this install was not --full"
-  fi
-}
-_root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
-# _own_eslint_ignores — the lintable files getff delivered that its own configs ignore (the
-# templates' machinery ignores), one per line: never a directory the consumer might own too.
-_own_eslint_ignores() {
-  [ -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ] && echo 'eslint-rules-local/**'
-  local rel
-  for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts .dependency-cruiser.mjs \
-             vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
-    getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
-  done
-  return 0
-}
-if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
-   && ! getff_delivered "$PROJECT_ROOT/$_root_eslint"; then
-  _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
-  if [ "$_root_eslint" != eslint.config.js ] && [ "$_root_eslint" != eslint.config.mjs ]; then
-    # copy_unless_foreign already listed it as not wired (no ES-module flat config to add to).
-    echo "▶ synth-wire: $_root_eslint is your own config — getff adds its block only to an eslint.config.mjs or an ES-module eslint.config.js, so it is left as it is"
-  elif [ ! -f "$_synth_wirer" ]; then
-    echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
-    note_not_wired "getff's rules in $_root_eslint (your own config) — the synth-and-wire bundle is missing from this getff package ($_synth_wirer)"
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-    echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which this install did not put in node_modules"
-    _own_what="getff's rules"
-    [ -z "${_r2_own_globs:-}" ] || _own_what="getff's rules, RULE_GLOBS and R2 (60-ci found an HTTP boundary)"
-    note_not_wired "$_own_what in $_root_eslint (your own config) — $(_ts_morph_why them)"
-  else
-    echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it (additions only; the original is kept if anything changes)"
-    _own_args=( --own-config --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$_root_eslint" )
-    while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --ignore "$_g" ); done < <(_own_eslint_ignores)
-    while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --r2-boundary "$_g" ); done <<< "${_r2_own_globs:-}"
-    [ -f "$_synth_live_snippet" ] && _own_args+=( --snippet "$_synth_live_snippet" )
-    _own_snap=""
-    if [ "$DRY_RUN" != "--dry-run" ]; then _own_snap=$(keep_original_snapshot "$PROJECT_ROOT/$_root_eslint") || _own_snap=""; fi
-    _own_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
-        node "$_synth_wirer" "${_own_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
-    printf '%s\n' "$_own_out"
-    # settle rc 1: the original could not be kept aside, so the write was undone (its warning above).
-    _own_undone=0
-    _own_kept=$(keep_original_settle "$PROJECT_ROOT/$_root_eslint" "$_own_snap") || _own_undone=1
-    if [ -n "$_own_kept" ]; then
-      echo "  · your original $_root_eslint is kept at ${_own_kept#"$PROJECT_ROOT"/}"
-      note_getff_added "$_root_eslint"
-    fi
-    if [ "$_own_undone" = 1 ]; then
-      note_not_wired "getff's rules in $_root_eslint (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
-    # rc 3: parts did not land — each is one «  · not wired: <what> — <why>» line of the output.
-    elif [ "$_sw_rc" -eq 3 ]; then
-      while IFS= read -r _l; do
-        case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: } ($_root_eslint)" ;; esac
-      done <<< "$_own_out"
-    elif [ "$_sw_rc" -ne 0 ]; then
-      note_not_wired "getff's rules in $_root_eslint (your own config) — synth-and-wire exited $_sw_rc (output above)"
-    fi
-  fi
-  # The self-verify's «fences fire» claim (D1 below) is about this root config: when getff's rules
-  # did not land in it, that claim is not this install's to make — the same signal a .cjs/.ts root
-  # sets in copy_unless_foreign (cold-review F8).
-  grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
-elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
-  _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
-  if [ ! -f "$_synth_wirer" ]; then
-    echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
-  else
-    echo "▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs"
-    # Run from PROJECT_ROOT so ts-morph resolves from consumer node_modules.
-    # AIF_SYNTH_PKG_ROOT anchors the bundle's fs-based recipe + schema reads to the
-    # correct framework payload dir (packages/core/) — import.meta.url collapses to
-    # install/ under bundling (zero-dep Path-3, #755); env var is the load-bearing bridge.
-    # rc 3 = the wirer ran but the rules did NOT land (unrecognised shape, or its post-write lint
-    # probe found ESLint could no longer use the config and restored it); each part is one
-    # «  · not wired: <what> — <why>» line, copied into the summary with its reason (Q4.7: no
-    # «add it by hand»). Any other failure stays non-fatal as before — the install never aborts here.
-    _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
-        node "$_synth_wirer" \
-          --stack "${STACK:-ts-server}" \
-          --path "$PROJECT_ROOT/eslint.config.mjs" \
-          ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
-    printf '%s\n' "$_sw_out"
-    if [ "$_sw_rc" -eq 3 ]; then
-      _sw_listed=0
-      while IFS= read -r _l; do
-        case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: }"; _sw_listed=1 ;; esac
-      done <<< "$_sw_out"
-      [ "$_sw_listed" -eq 1 ] \
-        || note_not_wired "stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added (reason printed by synth-and-wire above)"
-    fi
-  fi
-fi
-
-# ─── #827 B3: per-workspace live-research synth-wire for multi-stack monorepos ──
-# The root synth-wire block above wires $PROJECT_ROOT/eslint.config.mjs and is gated on that root
-# config existing — correct for flat repos. A multi-stack monorepo has NO root config, so the
-# live-research snippet (emitted by 80-rule-bootstrap for the install's $STACK) would wire NOWHERE.
-# Mirror the R2 per-workspace loop (§13.5 I-2 L2 below): for each detected workspace whose stack
-# matches the install $STACK, wire the (single, stack-keyed) root snippet into that workspace's
-# eslint.config.mjs.
-#
-# Routing (simplest correct; matches the dogfood layout): research is ROOT-level + stack-keyed
-# ($PROJECT_ROOT/.ai-factory/rules-research/<stack>.{research,selection}.json — the same convention
-# 80-rule-bootstrap reads), and 80-rule-bootstrap emits ONE snippet for the install's $STACK. We
-# route that snippet to workspaces whose DETECTED stack == $STACK. A multi-stack monorepo runs
-# ./setup <stack> --full once per stack (install.sh takes a single --stack arg); each run delivers
-# that stack's live rule into its matching workspaces. Snippet is passed EXPLICITLY (--snippet)
-# because the CLI default derives it from the config's own dir, which a workspace config lacks.
-# Gated on NO root config (mutually exclusive with the root block above — no double-wire).
-# Honours --dry-run; rc=0 on every branch — install must not abort on wirer failure.
-if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
-   && [ "$_root_eslint" != eslint.config.mjs ] && [ "$_root_eslint" != eslint.config.js ]; then
-  _synth_wirer_ws="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
-  _ws_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
-  if [ ! -f "$_synth_wirer_ws" ]; then
-    : # bundle absent — nothing to wire (the root block already echoes this for flat repos)
-  elif [ ! -f "$_ws_snippet" ]; then
-    : # no live snippet emitted (80-rule-bootstrap degraded / not --full) — presets are the fence
-  else
-    _ws_map_synth=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
-    if [ -n "$_ws_map_synth" ]; then
-      echo "▶ synth-wire per-workspace: routing ${STACK:-ts-server} live-research snippet to matching workspace configs"
-      while IFS=$'\t' read -r _sw_dir _sw_stack; do
-        [ -n "$_sw_dir" ] || continue
-        # Only wire the snippet into workspaces matching the install's $STACK — the snippet IS that
-        # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
-        [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
-        while IFS= read -r -d '' _sw_cfg; do
-          # A workspace config the consumer owns gets the root block's treatment (Q4.7): getff's
-          # block is added by insertions only and the original kept if the write changes it.
-          _sw_rel="${_sw_cfg#"$PROJECT_ROOT"/}"
-          _sw_own=()
-          _sw_snap=""
-          if getff_delivered "$_sw_cfg"; then
-            echo "  · synth-wire (live): $_sw_cfg"
-          else
-            echo "  · synth-wire (live): $_sw_rel is your own config — adding getff's block to it (additions only)"
-            _sw_own=( --own-config )
-            _sw_snap=$(keep_original_snapshot "$_sw_cfg") || _sw_snap=""
-          fi
-          _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
-              node "$_synth_wirer_ws" ${_sw_own[@]+"${_sw_own[@]}"} \
-                --stack "${STACK:-ts-server}" \
-                --path "$_sw_cfg" \
-                --snippet "$_ws_snippet" 2>&1 ) && _sw_rc=0 || _sw_rc=$?
-          printf '%s\n' "$_sw_out"
-          _sw_undone=0
-          _sw_kept=$(keep_original_settle "$_sw_cfg" "$_sw_snap") || _sw_undone=1
-          if [ -n "$_sw_kept" ]; then
-            echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
-            note_getff_added "$_sw_rel"
-          fi
-          if [ "$_sw_undone" = 1 ]; then
-            note_not_wired "live-research rules in $_sw_rel (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
-          elif [ "$_sw_rc" -eq 3 ] && [ "${#_sw_own[@]}" -gt 0 ]; then
-            while IFS= read -r _l; do
-              case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: } ($_sw_rel)" ;; esac
-            done <<< "$_sw_out"
-          elif [ "$_sw_rc" -eq 3 ]; then
-            note_not_wired "live-research rules in $_sw_rel — not added (reason printed by synth-and-wire above)"
-          fi
-        done < <(find "$PROJECT_ROOT/$_sw_dir" \
-          -name 'eslint.config.mjs' \
-          ! -path '*/node_modules/*' \
-          -print0 2>/dev/null)
-      done <<< "$_ws_map_synth"
-    fi
-  fi
-fi
+# ─── synth-wire + #827 B3 per-workspace live-research synth-wire ─────────────────
+# Lives in setup.d/eslint-wire.sh (eslint_wire_synth): do_refresh runs the same pass (refresh sweep G4).
+# shellcheck source=setup.d/eslint-wire.sh
+source "${BASH_SOURCE[0]%/*}/eslint-wire.sh"   # the sibling file — also under a test's stand-in PKG_ROOT
+eslint_wire_synth
 
 # ─── D3: presets-are-fallback notice (live-research-default-delivery) ───────────
 # Live-research is the DEFAULT stack-rule delivery; presets are the FALLBACK baseline. When the
@@ -245,225 +52,243 @@ elif [ "${STACK:-}" = "react-next" ]; then
   warn_preset_staleness "$_preset_meta" "$PROJECT_ROOT/package.json"
 fi
 
-# ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
-# Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
-# Option A (migration-ast Stage 4): ensure-then-use; degrade when engine absent. rc=0 on every
-# branch (lesson GH #531/#544).
-# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 finds per-package
-# eslint.config.mjs files that re-export a base lacking R2, and wires only the ones getff placed.
+# ─── 6b-bis-L2 + §13.5 I-2 L2: R2 into per-package and per-workspace configs ──────
+# Lives in setup.d/eslint-wire.sh (eslint_wire_r2_configs): do_refresh runs the same pass (sweep G4).
+eslint_wire_r2_configs
+
+# ─── F11: what scripts/check-rule-globs.sh fails on in this project ───
+# The gate, which runs on every push, fails on a root config of the consumer's that mentions RULE_GLOBS
+# or names one of getff's custom rules (R2, R7, R8) when it finds no RULE_GLOBS globs there, or globs
+# matching no source file; under any other root config of the consumer's it reads the workspace configs
+# below it (its _own_root_without_globs). With boundary globs, the wirer adds RULE_GLOBS or names why
+# not; this names what is left. The install used to stay silent while every push failed (cold-review
+# F11), then read the config with its own copy of the gate's greps, which drifted from the gate (second
+# cold review, after #1868) — so it asks the gate itself, once every R2 pass has run, and as a push runs
+# it (no ESLINT_CONFIG): asked in between, it named a workspace config Layer 2 went on to wire (third
+# cold review).
 #
-# _r2_wire_cfg <abs-cfg> <wirer> — R2 wiring of one config, shared by Layer 2 and the per-workspace
-# block below. A config the consumer owns gets R2 added too (operator decision Q4.7, 2026-09-28),
-# but only for HTTP boundary code under that config's own directory — read the way 60-ci reads the
-# repo (detect-r2-boundary.sh; its globs are directory-agnostic, so they hold relative to the config)
-# — and scoped to it through RULE_GLOBS.boundary: a package with no boundary code gets nothing, since
-# R2 has nothing to guard there (cold-review F15). The wirer runs with --own-config, which adds R2 by
-# text insertions only in the consumer's prettier style (cold-review F1: the AST writer dropped the
-# consumer's comments and trailing commas) and names in a «  · not wired: » line anything it could
-# not add; the original is kept at .ai-factory/before-getff/ whenever the write changes it. rc=0 on
-# every branch — install must not abort on wirer failure.
-#
-# A config getff placed is written on every install, --full or not: the --full gate here was the
-# consent to edit a file the consumer wrote (install-ast-wiring spec Q5, 2026-06-17), and since
-# provenance (#1860) only getff's own files reach that branch — while its bytes are still the ones
-# getff left (getff_bytes_intact). One the consumer has edited since takes the own-config branch: its
-# content is theirs, and the AST writer re-prints the list it edits, dropping their comments. --install
-# makes the wirer report what did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
-# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
-# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
-# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
-# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
-# no jq, no sha256 tool): the safe side.
-getff_bytes_intact() {
-  local dst="$1" p cur
-  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
-    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
-    [ "$p" = "$dst" ] && return 0
-  done
-  [ -f "$dst" ] || return 1
-  _refresh_baseline_lookup "$dst"
-  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
-  cur=$(_hash256 "$dst") || return 1
-  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
+# It asks with AIF_STRICT_RUNTIME=1, whatever this install ran with. That run also reads
+# RULE_GLOBS.appCode / .application (R7/R8), which the wirer never adds to a config the consumer owns —
+# it adds R2 alone, and getff does not arm the runtime-discipline rules on its own (V2 below) — so a push
+# with that variable failed on a config the install had found green. Every other check is the same in
+# both runs, so one run names both: a line about appCode or application says it fails with
+# AIF_STRICT_RUNTIME=1. Every failure line is named once, up to its advice — a step for a person to
+# take, not one for the install to hand on — and a failure an R2 pass already named is not named again
+# (F5, fourth cold review: the guard on the root config's text left the workspace configs unasked, the
+# first failure line alone was named, and the install ran the gate without AIF_STRICT_RUNTIME).
+_f11_gate="$PROJECT_ROOT/scripts/check-rule-globs.sh"
+# _f11_note <text> — note_not_wired, once per text.
+_f11_note() {
+  local n
+  for n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do [ "$n" = "$1" ] && return 0; done
+  note_not_wired "$1"
 }
-# _r2_getff_owned <abs-cfg> — exit 0 IFF getff placed <abs-cfg> and it still holds getff's bytes: the
-# config _r2_wire_cfg hands the wirer as getff's own; every other config takes the own-config branch.
-_r2_getff_owned() { getff_delivered "$1" && getff_bytes_intact "$1"; }
-_r2_wire_cfg() {
-  local cfg="$1" wirer="$2" rel dir out snap kept l
-  local args=()
-  rel="${cfg#"$PROJECT_ROOT"/}"
-  if getff_delivered "$cfg"; then
-    if getff_bytes_intact "$cfg"; then
-      out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --install 2>&1 ) || true
-      printf '%s\n' "$out"
-      _r2_note_outcome "$rel" "$out"
-      return 0
-    fi
-    echo "  · R2: getff placed $rel, and it has been edited since — it is treated as your own config"
-  fi
-  dir=$(dirname "$cfg")
-  out=$(R2_DETECT_ROOT="$dir" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
-  while IFS= read -r l; do
-    case "$l" in glob:*) args+=( --boundary "${l#glob:}" ) ;; esac
-  done <<< "$out"
-  if [ "$(printf '%s\n' "$out" | head -1)" != boundary-present ] || [ "${#args[@]}" -eq 0 ]; then
-    echo "  · R2: no HTTP boundary code under ${dir#"$PROJECT_ROOT"/} — nothing for R2 to guard, so your $rel is left as it is"
-    return 0
-  fi
-  echo "  · R2: $rel is your own config — adding R2 for the HTTP boundary code under ${dir#"$PROJECT_ROOT"/} (additions only; the original is kept if anything changes)"
-  snap=$(keep_original_snapshot "$cfg") || snap=""
-  out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --own-config "${args[@]}" 2>&1 ) || true
-  printf '%s\n' "$out"
-  if ! kept=$(keep_original_settle "$cfg" "$snap"); then
-    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
-    return 0
-  fi
-  if [ -n "$kept" ]; then
-    echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
-    note_getff_added "$rel"
-  fi
-  _r2_note_outcome "$rel" "$out"
-  return 0
+# _f11_r2_named <config> — exit 0 when the wirer already said the gate fails on <config>'s R2.
+_f11_r2_named() {
+  grep -qF 'check-rule-globs.sh fails on this config' <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} | grep -F "($1)")"
 }
-# _r2_note_outcome <rel> <wirer output> — the NOT wired summary for one run of the R2 wirer: each
-# «  · not wired: <what> — <why>» line the wirer printed, as it is, whether or not R2 itself landed;
-# and when R2 neither landed nor was there already and the wirer named nothing (a crash), the config,
-# pointing at the wirer's output above.
-_r2_note_outcome() {
-  local rel="$1" out="$2" l noted=""
-  while IFS= read -r l; do
-    case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }"; noted=1 ;; esac
-  done <<< "$out"
-  case "$out" in
-    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
-    *) [ -n "$noted" ] || note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
+# _f11_describe <workspace config, empty for the root> <gate failure line> — its NOT wired line.
+_f11_describe() {
+  local ws="$1" s key="" strict="" what why="" dir ids
+  s=$(printf '%s\n' "$2" | sed -e 's/^[[:space:]]*//' -e 's/^✗[[:space:]]*//' -e 's/^⚠[[:space:]]*//' \
+        -e 's/ — .*//' -e 's/ (check the config)$//')
+  case "$s" in *RULE_GLOBS.*) key=$(printf '%s\n' "$s" | sed -n 's/.*RULE_GLOBS\.\([A-Za-z]*\).*/\1/p') ;; esac
+  case "$key" in appCode | application) strict=1 ;; esac
+  # R2's RULE_GLOBS in the root config the wirer already named as failing the gate: said once, by the
+  # wirer (it says so of the root config alone).
+  [ -z "$ws" ] && [ "$key" = boundary ] && _f11_r2_named "$_root_eslint" && return 0
+  # A package with no R2 over its boundary files, named by its path from the project root, unless an R2
+  # pass already named R2 in that package: its config («in <dir>/eslint.config.…») or the workspace
+  # itself («in <dir> — …»).
+  case "$s" in
+    *": has boundary files but its own ESLint config does NOT wire R2"*)
+      dir="${s%%: has boundary files*}"
+      [ -z "$ws" ] || { dir="$(dirname "$ws")/$dir"; s="$dir: ${s#*: }"; ws=""; }
+      grep -qF -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir/eslint.config." \
+               -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir — " \
+        <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})" && return 0 ;;
   esac
-  return 0
-}
-# When an R2 pass cannot run at all (no Node, no ts-morph, no wirer), each config it would have
-# changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
-# a config that already names R2 (getff's ts-server and react templates carry it) is not listed, and neither
-# is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
-# boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
-# reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
-# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
-# _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
-_r2_boundary_under() {
-  local out
-  out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
-  [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
-}
-_r2_would_wire() {
-  if _r2_getff_owned "$1"; then
-    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
-    return
+  if [ -z "$ws" ] && [ -n "$key" ] \
+     && { [ "$_root_eslint" = eslint.config.js ] || [ "$_root_eslint" = eslint.config.mjs ]; }; then
+    local cfg="$PROJECT_ROOT/$_root_eslint" label=RULE_GLOBS code
+    [ -z "$strict" ] || label="RULE_GLOBS.$key"
+    code=$(eslint_config_code "$cfg")   # the config's code: a comment naming a rule or RULE_GLOBS sets none
+    case "$s" in
+      *"matches ZERO source files"*) what="its RULE_GLOBS.$key matches none of the project's source files" ;;
+      *) if grep -q 'RULE_GLOBS' <<<"$code"; then
+           what="its RULE_GLOBS has no $key array of quoted globs"
+         elif [ -n "$strict" ]; then
+           what="it has no RULE_GLOBS block"
+         else
+           ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$code" \
+             | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g') || ids=""
+           # The gate is asked about every root config (#1906), one that sets none of these rules too:
+           # an empty list is no «it sets  itself».
+           if [ -n "$ids" ]; then what="it sets $ids itself with no RULE_GLOBS block"; else what="it has no RULE_GLOBS block"; fi
+         fi ;;
+    esac
+    # Why the install adds no boundary explains R2's array alone: a RULE_GLOBS.appCode or .application
+    # (R7/R8) has nothing to do with it (fourth cold review).
+    if [ "$key" = boundary ] && [ -z "${_r2_own_globs:-}" ]; then
+      if [ "${_r2_verdict:-}" = boundary-present ]; then
+        why=", and the ${STACK:-ts-server} preset ships no R2, so the install has no RULE_GLOBS.boundary to add"
+      else
+        why=", and the install found no HTTP boundary code to scope R2 to, so it adds no RULE_GLOBS.boundary"
+      fi
+    fi
+    if [ -n "$strict" ]; then
+      _f11_note "$label in $_root_eslint (your own config) — $what; scripts/check-rule-globs.sh fails on this config with AIF_STRICT_RUNTIME=1"
+    else
+      _f11_note "$label in $_root_eslint (your own config) — $what$why; scripts/check-rule-globs.sh fails on this config"
+    fi
+    return 0
   fi
-  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
-  _r2_boundary_under "$(dirname "$1")"
-}
-# _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
-_r2_pass_blocker() {
-  if ! command -v node >/dev/null 2>&1; then
-    echo "adding it needs Node, which this install did not find on PATH"
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-    _ts_morph_why it
-  elif [ ! -f "$1" ]; then
-    echo "the R2 wirer is missing from this getff package ($1)"
+  # Any other failure line (a workspace config, a recorded R2 N/A that no longer holds, a package whose
+  # own config does not wire R2), named where the gate found it: a workspace line says which workspace.
+  if [ -n "$ws" ]; then
+    case "$s" in
+      *" in $(basename "$ws")") s="${s% in *} in $ws" ;;
+      *) s="$s ($ws)" ;;
+    esac
   fi
-}
-# _r2_note_unwired <reason> <config>... — one summary line per config the pass would have changed.
-_r2_note_unwired() {
-  local why="$1" cfg rel
-  shift
-  for cfg in "$@"; do
-    _r2_would_wire "$cfg" || continue
-    rel="${cfg#"$PROJECT_ROOT"/}"
-    echo "  · R2: not added to $rel — $why"
-    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — $why"
-  done
-  return 0
-}
-if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
-   && { [ "$_root_eslint" = eslint.config.mjs ] || [ "$_root_eslint" = eslint.config.js ]; }; then
-  # Find per-package eslint.config.mjs files (not the root one, not node_modules)
-  _l2_configs=()
-  while IFS= read -r -d '' _cfg; do
-    _l2_configs+=("$_cfg")
-  done < <(find "$PROJECT_ROOT" \
-    -name node_modules -prune -o \
-    -name 'eslint.config.mjs' ! -path "$PROJECT_ROOT/eslint.config.mjs" -print0 2>/dev/null)
-  _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-  _r2_why=$(_r2_pass_blocker "$_wirer")
-  if [ "${#_l2_configs[@]}" -eq 0 ]; then
-    : # no per-package configs — nothing to wire
-  elif [ -n "$_r2_why" ]; then
-    _r2_note_unwired "$_r2_why" "${_l2_configs[@]}"
+  if [ -n "$strict" ]; then
+    _f11_note "$s — scripts/check-rule-globs.sh fails on this project with AIF_STRICT_RUNTIME=1"
   else
-    echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
-    for _cfg in "${_l2_configs[@]}"; do
-      _r2_wire_cfg "$_cfg" "$_wirer"
-    done
+    _f11_note "$s — scripts/check-rule-globs.sh, which runs on every push, fails on this project"
+  fi
+}
+if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11_gate" ]; then
+  _f11_out=$( cd "$PROJECT_ROOT" && env -u ESLINT_CONFIG AIF_STRICT_RUNTIME=1 bash "$_f11_gate" 2>&1 ) && _f11_rc=0 || _f11_rc=$?
+  if [ "$_f11_rc" -ne 0 ]; then
+    # The gate names the workspace config it reads next («check-rule-globs: checking <config>»); a
+    # failure line is a ✗ line or a «no globs found under» one. A gate with no such line (a crash, a
+    # consumer's own script) is named by its exit, and the install goes on (fourth cold review).
+    # A ✗ counts where it opens the line: «· R2 …: no root-governed match — … (see ⚠/✗ above)» is not a failure.
+    _f11_ws="" _f11_any=0
+    while IFS= read -r _f11_l; do
+      case "${_f11_l#"${_f11_l%%[![:space:]]*}"}" in
+        "check-rule-globs: checking "*) _f11_ws="${_f11_l#check-rule-globs: checking }"; continue ;;
+        ✗* | *"no globs found under"*) _f11_any=1; _f11_describe "$_f11_ws" "$_f11_l" ;;
+      esac
+    done <<< "$_f11_out"
+    [ "$_f11_any" = 1 ] \
+      || _f11_note "scripts/check-rule-globs.sh, which runs on every push, exits $_f11_rc on this project, with no failure line the install can name"
   fi
 fi
 
-# §13.5 I-2 L2: R2 per-workspace wiring for multi-stack monorepos (SSOT #182).
-# The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
-# monorepo there is NO root config; this block wires R2 into the configs of the workspaces whose
-# getff preset carries R2 — ts-server, react-next, react-spa, the three 60-ci.sh adds it to in a flat
-# repo's own config. The react-native preset ships no R2, so there is nothing to add to one.
-# No --scope: workspace-local config placement already scopes ESLint to that workspace — a
-# dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
-# making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
-# Scope source = _detect_stacks_per_workspace detection map, NOT recipe appliesTo (T-MS-A).
-if [ "$DRY_RUN" != "--dry-run" ] \
-   && [ "$_root_eslint" != eslint.config.mjs ] && [ "$_root_eslint" != eslint.config.js ]; then
-  _ws_map_r2=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
-  _ws_r2_configs=()
-  while IFS=$'\t' read -r _ws_dir _ws_stack; do
-    [ -n "$_ws_dir" ] || continue
-    case "$_ws_stack" in
-      ts-server|react-next|react-spa)
-        # Every eslint.config.mjs within this workspace: the ones getff placed, and one the consumer
-        # owns (40-configs.sh kept it) — _r2_wire_cfg adds R2 to that only for HTTP boundary code under it.
-        while IFS= read -r -d '' _ws_cfg; do
-          _ws_r2_configs+=("$_ws_cfg")
-        done < <(find "$PROJECT_ROOT/$_ws_dir" \
-          -name node_modules -prune -o -name 'eslint.config.mjs' -print0 2>/dev/null)
-        ;;
-      unknown)
-        echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
-        # Named in the summary only when there is HTTP boundary code under it and no config there
-        # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
-        # its root fallback; a comment naming the rule is not a rule entry).
-        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
-           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
-                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
-          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
-        fi
-        ;;
-      *)
-        : # react-native: its preset ships no R2 — nothing to add (60-ci.sh leaves a flat repo's alike)
-        ;;
+# ─── F11e: what scripts/check-rule-enforced.sh fails on, under the consumer's own root config ───
+# check-rule-globs.sh asks whether RULE_GLOBS.boundary matches source files; check-rule-enforced.sh asks
+# ESLint whether R2 is on at 'error' for them. Where the consumer sets R2 its own way — for some files
+# only, at 'warn', more than once — the wirer declares RULE_GLOBS alone and leaves R2 as it is
+# (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), so the first gate passes and only the second
+# can say that R2 misses the boundary code the install found; `npm run validate` and CI then fail on it.
+# Where R2 runs is the consumer's decision, not one getff takes, so the install asks that gate as F11 asks
+# the other and names each failure line up to its advice (operator decision 2026-09-29, «A + name the
+# miss»). Asked only when the project's own node_modules/.bin/eslint is there: the gate resolves eslint
+# there first, and one found on PATH would read a config whose imports this install may not have put in
+# place. Its verdict line is printed either way, so a quiet summary is one the gate was asked about. The
+# gate runs `eslint --print-config` on the consumer's config, so it runs under a time limit: a config
+# whose load never finishes must not hold the install (the wirer's probe has the same guard,
+# PRINT_CONFIG_TIMEOUT_MS). Named each failure once: one an R2 pass or F11 already named is not named
+# again (cold review 2026-09-29).
+_f11e_gate="$PROJECT_ROOT/scripts/check-rule-enforced.sh"
+# _f11e_named <dir> — exit 0 when the summary already names R2 in the package at <dir>: an R2 pass
+# («R2 (…) in <dir>/eslint.config.… — », «R2 (…) in <dir> — ») or F11 («<dir>: has boundary files but its
+# own ESLint config does NOT wire R2 …»).
+_f11e_named() {
+  grep -qF -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $1/eslint.config." \
+           -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $1 — " \
+           -e "$1: has boundary files but its own ESLint config does NOT wire R2" \
+    <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})"
+}
+# _f11e_describe <workspace config the gate recursed into, empty for its root run> <gate ✗ line> — its NOT
+# wired line. The gate labels a line with the config it asked: «root config», or the dir of a package
+# whose own config shadows it. Inside a workspace config it recursed into (the root config is the
+# consumer's own with no RULE_GLOBS), both, and the file, are relative to that workspace.
+_f11e_describe() {
+  local ws="$1" s scope rest wsd="" dir
+  s=$(printf '%s\n' "$2" | sed -e 's/^[[:space:]]*//' -e 's/^✗[[:space:]]*//' -e 's/ — .*//')
+  scope="${s%%: *}" rest="${s#*: }"
+  [ "$scope" != "$s" ] || scope=""
+  if [ -n "$ws" ]; then wsd=$(dirname "$ws"); rest="${rest/ for / for $wsd/}"; fi
+  if [ "$scope" = "root config" ] && [ -z "$ws" ]; then
+    # R2 in the root config is the consumer's own setting.
+    case "$rest" in
+      *"in the resolved ESLint config for "*)
+        _f11_note "$_root_eslint (your own config): $rest — where R2 runs is your own setting, which getff does not change; scripts/check-rule-enforced.sh fails on this project" ;;
+      *) _f11_note "$_root_eslint (your own config): $rest — scripts/check-rule-enforced.sh fails on this project" ;;
     esac
-  done <<< "$_ws_map_r2"
-  if [ "${#_ws_r2_configs[@]}" -gt 0 ]; then
-    _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-    _r2_why=$(_r2_pass_blocker "$_wirer_ws")
-    if [ -n "$_r2_why" ]; then
-      _r2_note_unwired "$_r2_why" "${_ws_r2_configs[@]}"
-    else
-      echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
-      # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
-      # scoping is already provided by config placement — a dir-prefixed files: glob
-      # inside a workspace-local config would be relative to that config's own dir,
-      # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
-      for _ws_cfg in "${_ws_r2_configs[@]}"; do
-        if getff_delivered "$_ws_cfg"; then echo "  · R2 wiring: $_ws_cfg"; fi
-        _r2_wire_cfg "$_ws_cfg" "$_wirer_ws"
-      done
-    fi
+    return 0
+  fi
+  if [ "$scope" = "root config" ]; then
+    dir="$wsd"
+  elif [ -n "$scope" ] && [ -d "$PROJECT_ROOT/${wsd:+$wsd/}$scope" ]; then
+    dir="${wsd:+$wsd/}$scope"
+  else
+    # A line about no config (a recorded R2 N/A that no longer holds), named as the gate words it.
+    _f11_note "$s${ws:+ ($ws)} — scripts/check-rule-enforced.sh fails on this project"
+    return 0
+  fi
+  _f11e_named "$dir" || _f11_note "$dir: $rest — scripts/check-rule-enforced.sh fails on this project"
+}
+# _f11e_name_failures <gate output> — each ✗ line named (the gate's «checking <config>» line says which
+# workspace config the lines after it are about); exit 1 when there is no ✗ line to name.
+_f11e_name_failures() {
+  local ws="" l any=1
+  while IFS= read -r l; do
+    l="${l#"${l%%[![:space:]]*}"}"
+    case "$l" in
+      "check-rule-enforced: checking "*) ws="${l#check-rule-enforced: checking }" ;;
+      ✗*) any=0; _f11e_describe "$ws" "$l" ;;
+    esac
+  done <<< "$1"
+  return "$any"
+}
+# _f11e_limit <AIF_F11E_TIMEOUT_S> — the limit in whole seconds, leading zeros read away: anything else, 0
+# among it, is the default 120, and a value past what a JavaScript timer holds (~24.8 days) is capped at
+# 99999, as either would fire the timer at once.
+_f11e_limit() {
+  local n="${1#"${1%%[!0]*}"}"
+  case "$1" in ''|*[!0-9]*) echo 120; return 0 ;; esac
+  if [ -z "$n" ]; then echo 120; elif [ "${#n}" -le 5 ]; then echo "$n"; else echo 99999; fi
+}
+# _f11e_run <gate script> <limit s> — runs the gate. The gate and every eslint it starts share one process
+# group (node is there wherever node_modules/.bin/eslint runs), killed whole whatever ends the ask: the limit
+# (exit 124), a signal to the install (Ctrl-C, Ctrl-\, SIGTERM, SIGHUP; passed on, so the install stops as it
+# would have — the handlers are in place before the gate starts), or the gate's own
+# end — a gate ended by a signal exits 128 + that signal. Nothing it started outlives it: the install reads
+# the ask's output to its end, which a process left running would hold open (second cold review).
+_f11e_run() {
+  AIF_F11E_GATE="$1" AIF_F11E_LIMIT="$2" node -e '
+    const { spawn } = require("child_process");
+    const { signals } = require("os").constants;
+    let gate;
+    const stopAll = () => { if (!gate) return; try { process.kill(-gate.pid, "SIGKILL"); } catch { try { gate.kill("SIGKILL"); } catch {} } };
+    for (const sig of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) process.once(sig, () => { stopAll(); process.kill(process.pid, sig); });
+    gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, windowsHide: true, stdio: ["ignore", "inherit", "inherit"] });
+    const limit = setTimeout(() => { stopAll(); process.exit(124); }, Number(process.env.AIF_F11E_LIMIT) * 1000);
+    gate.on("exit", (code, sig) => { clearTimeout(limit); stopAll(); process.exit(code ?? 128 + (signals[sig] || 0)); });
+  '
+}
+# _f11e_verdict <gate output> <exit> — the gate's verdict: its last line when it passed, its last FAILED
+# line when it failed (asked about workspace configs, the last line is the last workspace's own verdict).
+_f11e_verdict() {
+  local v
+  if [ "$2" -eq 0 ]; then printf '%s\n' "$1" | tail -1; return 0; fi
+  v=$(printf '%s\n' "$1" | grep '^check-rule-enforced: FAILED' | tail -1)
+  printf '%s\n' "${v:-check-rule-enforced.sh exits $2}"
+}
+if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11e_gate" ] \
+   && [ -x "$PROJECT_ROOT/node_modules/.bin/eslint" ] && command -v node >/dev/null 2>&1; then
+  _f11e_limit=$(_f11e_limit "${AIF_F11E_TIMEOUT_S:-}")
+  _f11e_out=$( cd "$PROJECT_ROOT" && unset ESLINT_CONFIG && _f11e_run "$_f11e_gate" "$_f11e_limit" 2>&1 ) && _f11e_rc=0 || _f11e_rc=$?
+  if [ "$_f11e_rc" = 124 ]; then
+    echo "  · asked scripts/check-rule-enforced.sh — no answer within ${_f11e_limit} s, and the install did not wait longer"
+    _f11_note "scripts/check-rule-enforced.sh did not finish within ${_f11e_limit} s on this project (it runs eslint --print-config on your own config), so the install could not say whether R2 reaches the HTTP boundary code"
+  else
+    echo "  · asked scripts/check-rule-enforced.sh — $(_f11e_verdict "$_f11e_out" "$_f11e_rc")"
+    [ "$_f11e_rc" -eq 0 ] || _f11e_name_failures "$_f11e_out" \
+      || _f11_note "scripts/check-rule-enforced.sh exits $_f11e_rc on this project, with no failure line the install can name"
   fi
 fi
 
@@ -642,13 +467,8 @@ fi
 
 # ─── Done ───────────────────────────────────────────────
 # Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
-# step. Each NOT-wired line names what was left undone and why; nothing here tells them what to do.
-if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
-  echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
-  printf '      - %s\n' "${NOT_WIRED[@]}"
-  echo ""
-fi
+# step. Each NOT-wired line names what was left undone and why (lib.sh print_not_wired).
+print_not_wired
 # A consumer-owned config that got getff's block (Q4.7) was copy_safe-skipped earlier, so it sits in
 # SKIPPED too — but it was not left as it was. List it apart, never under «skipped».
 _skipped_left=()
@@ -659,11 +479,7 @@ for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
   done
   [ -n "$_sk_added" ] || _skipped_left+=( "$_sk" )
 done
-if [ "${#GETFF_ADDED_TO[@]}" -gt 0 ]; then
-  echo ""
-  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
-  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
-fi
+print_getff_added   # setup.d/lib.sh — do_refresh prints it too
 if [ "${#_skipped_left[@]}" -gt 0 ]; then
   echo ""
   echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"

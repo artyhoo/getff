@@ -17,10 +17,22 @@
 #       not — _r2_wire_cfg treats it as the consumer's own (getff_bytes_intact) and leaves it.
 #   L0  paired negative: no per-package config at all → no R2 line (the degrade used to run, and
 #       would have noted, before any config was enumerated).
+#   L5  your own configs naming R2 in quotes only inside a comment (a commented-out rule line, a
+#       block comment) are listed — the wirer reads a comment as no rule entry; paired: R2 set with
+#       a trailing comment on the same line is not.
+#   L6  comment and string shapes only a lexer tells apart: a block comment without leading stars,
+#       an inline /* */, the id inside a longer string, a Latin-1 byte on a commented-out line — each
+#       listed; paired: R2 set after a leading comment, as a template-literal key, after an escaped
+#       quote, or with an escaped `\/` in the id — none listed.
+#   L7  string shapes the lexer reads by value: the id inside a string continued with a trailing `\`,
+#       the id with an escaped `\t`, a template breaking the id over two lines, the id followed by a
+#       NUL byte — each listed; paired: the id itself continued with `\`, R2 set after a regex
+#       holding a quote — none listed.
 #   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the consumer's own
 #       config with boundary code under it is listed for a ts-server, a react-next and a react-spa
 #       workspace — the stacks whose getff preset carries R2 (60-ci.sh adds it to a flat repo's own
-#       config for the same three) — and not for a react-native one, whose preset ships no R2.
+#       config for the same three). The react-native workspace, whose preset ships no R2, is one
+#       line for the workspace with that reason, not a line per config.
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
 #   W3  per-workspace pass that can run: the R2 wirer is handed the ts-server, react-next and
 #       react-spa configs as the consumer's own, each with the boundary globs found under its own
@@ -32,6 +44,22 @@
 #       R2: one summary line with the reason — whether or not ts-morph is there.
 #   U0  paired negative: an unknown-stack workspace whose config already names R2 (40-configs placed
 #       the ts-server template through its root fallback) → no line.
+#   U4  an unknown-stack workspace whose quoted R2 rule line is commented out → one line.
+#   U5  the same with the R2 line inside a block comment without leading stars → one line.
+#   U6  paired: the workspace's only config is an eslint.config.cjs setting R2 → no line.
+#   U7  only a backup ESLint never loads (eslint.config.mjs.bak) names R2 → one line.
+#   U8  paired: the workspace's eslint.config.mjs is a symlink to a config setting R2 → no line.
+#   RN1 a react-native workspace with HTTP boundary code and no config naming R2: one summary line
+#       — its preset ships no R2, so the install adds it nowhere — whether or not ts-morph is there.
+#   RN0/RN2 paired negatives: no boundary code under it; its own config already names R2 → no line.
+#   J1  Layer-2 pass, no ts-morph: a package's own eslint.config.js is listed like an .mjs; its
+#       eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap.
+#   J2  per-workspace pass, no ts-morph: a ts-server workspace's own eslint.config.js is listed.
+#   J3  the same for a react-next workspace's own eslint.config.js, and a react-spa workspace's
+#       eslint.config.cjs is named as not an ES-module config.
+#
+#   The react-native lines follow Q4.7 and packages/preset-react-native/RULES.md:17, which lists R2
+#   for every stack: HTTP boundary code R2 does not check is a gap, so the summary names it.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
 # for it before running the wirer), and no arm runs the wirer — W3 stands in for npx, recording what
@@ -109,12 +137,13 @@ run_finalize() {
     T_NPX_LOG="${T_NPX_LOG:-}" bash "$DRIVER" < /dev/null 2>&1)
   F_SUM=$(printf '%s\n' "$F_OUT" | grep -E '^      - ' || true)
 }
-sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
+sum_has() { grep -qE "$1" <<<"$F_SUM"; }
 sum_show() { printf '%s\n' "$F_SUM" | tr '\n' '|'; }
+sum_count() { printf '%s\n' "$F_SUM" | grep -cE "$1" || true; }
 # ran_through <arm> — the finalize reached its last line: under set -e a failing command in it would
 # have stopped the driver before the summary, and an arm asserting «no line» would pass on that.
 ran_through() {
-  if printf '%s\n' "$F_OUT" | grep -q 'For full guide: see INSTALL.md'; then
+  if grep -q 'For full guide: see INSTALL.md' <<<"$F_OUT"; then
     ok "$1: the finalize ran to its end"
   else
     bad "$1: the finalize stopped before its end (output tail: $(printf '%s\n' "$F_OUT" | tail -5 | tr '\n' '|'))"
@@ -162,7 +191,7 @@ flat_arm L2 'missing from this getff package'
 F1=$(flat_project f1)
 T_FULL=1 run_finalize "$F1" "$PKG_WIRED" "" "eslint.config.mjs apps/svc/eslint.config.mjs"
 flat_arm F1 'ts-morph.*dev-dependency'
-if printf '%s\n' "$F_OUT" | grep -qE -- 're-run the install with --full'; then
+if grep -qE -- 're-run the install with --full' <<<"$F_OUT"; then
   bad "F1: a --full install is told to re-run with --full (output: $(printf '%s\n' "$F_OUT" | grep -E -- '--full' | tr '\n' '|'))"
 else
   ok "F1: a --full install is not told to re-run with --full"
@@ -192,7 +221,8 @@ else
 fi
 
 # L4: your own config mentions the rule id only in a comment — not a rule entry (the wirer's
-# own-config path reads a quoted id only: simpleRulePresent), so R2 would be added and it is listed.
+# own-config path reads a rules key or a string literal only: ruleSetInConfig), so R2 would be added
+# and it is listed.
 L4=$(make_project l4); put "$L4" eslint.config.mjs "$R2_CFG"
 put "$L4" apps/api/eslint.config.mjs "// TODO rules-as-tests/no-unsafe-zod-parse once the schemas land
 $PLAIN_CFG"
@@ -203,6 +233,117 @@ if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*ts-morph"; then
 else
   bad "L4: expected a NOT wired line for apps/api, whose config names R2 only in a comment (summary: $(sum_show))"
 fi
+
+# L5: the rule id in quotes, but inside a comment — a commented-out rule line (apps/api) or a block
+# comment (apps/blk). The wirer reads a comment as no rule entry at all (ruleSetInConfig), so R2
+# would be added to both, and both are listed. Paired: apps/kept sets R2 with a trailing comment on
+# the same line — R2 is there, no line.
+L5=$(make_project l5); put "$L5" eslint.config.mjs "$R2_CFG"
+put "$L5" apps/api/eslint.config.mjs "export default [{ rules: {
+  // 'rules-as-tests/no-unsafe-zod-parse': 'error',
+  'no-console': 'warn',
+} }];"
+boundary_code "$L5" apps/api
+put "$L5" apps/blk/eslint.config.mjs "/*
+ * \"rules-as-tests/no-unsafe-zod-parse\": \"error\" once the schemas land
+ */
+$PLAIN_CFG"
+boundary_code "$L5" apps/blk
+put "$L5" apps/kept/eslint.config.mjs "export default [{ files: ['src/**/*.ts'], rules: {
+  'rules-as-tests/no-unsafe-zod-parse': 'error', // see https://getff.ai/docs/r2
+} }];"
+boundary_code "$L5" apps/kept
+run_finalize "$L5" "$PKG_WIRED" "" "eslint.config.mjs"
+if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*ts-morph" && sum_has "${R2_LINE}apps/blk/eslint.config.mjs — .*ts-morph"; then
+  ok "L5: your own config naming R2 in quotes inside a comment is a NOT wired line"
+else
+  bad "L5: expected NOT wired lines for apps/api and apps/blk, whose configs name R2 in quotes only inside a comment (summary: $(sum_show))"
+fi
+if sum_has "${R2_LINE}apps/kept/"; then
+  bad "L5: apps/kept sets R2 (a trailing comment on its line), yet it is listed (summary: $(sum_show))"
+else
+  ok "L5: paired — a config setting R2 with a trailing comment on the same line is not listed"
+fi
+
+# L6: comment and string shapes a line-based strip cannot see (cold review of the forecast). Listed:
+# a block comment whose body lines have no leading `*` (apps/nostar), an inline /* */ after code
+# (apps/inl), the id quoted inside a longer string (apps/msg — the wirer counts an exact literal
+# only), a commented-out line ending in a Latin-1 byte (apps/lat). Paired, not listed: R2 set on a
+# line that opens with a comment (apps/lead), R2 set as a template-literal key (apps/tpl), R2 set
+# after a string holding an escaped quote (apps/esc), R2 set with an escaped `\/` in the id — the
+# wirer reads the literal's value (apps/slash).
+L6=$(make_project l6); put "$L6" eslint.config.mjs "$R2_CFG"
+put "$L6" apps/nostar/eslint.config.mjs "export default [{ rules: {
+  'no-console': 'warn',
+  /*
+  'rules-as-tests/no-unsafe-zod-parse': 'error',
+  */
+} }];"
+put "$L6" apps/inl/eslint.config.mjs "export default [{ rules: { 'no-console': 'warn', /* 'rules-as-tests/no-unsafe-zod-parse': 'error' */ } }];"
+put "$L6" apps/msg/eslint.config.mjs "export default [{ rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: \"use safeParse ('rules-as-tests/no-unsafe-zod-parse' lands later)\" }] } }];"
+put "$L6" apps/lat/eslint.config.mjs "export default [{ rules: {
+  // 'rules-as-tests/no-unsafe-zod-parse': 'error', // d$(printf '\351')sactiv$(printf '\351')
+  'no-console': 'warn',
+} }];"
+put "$L6" apps/lead/eslint.config.mjs "export default [{ rules: {
+  /* note */ 'rules-as-tests/no-unsafe-zod-parse': 'error',
+} }];"
+put "$L6" apps/tpl/eslint.config.mjs "export default [{ rules: { [\`rules-as-tests/no-unsafe-zod-parse\`]: 'error' } }];"
+put "$L6" apps/esc/eslint.config.mjs "export default [{ rules: { 'no-x': ['error', { message: 'it\\'s' }], 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+put "$L6" apps/slash/eslint.config.mjs "export default [{ rules: { 'rules-as-tests\\/no-unsafe-zod-parse': 'error' } }];"
+for d in nostar inl msg lat lead tpl esc slash; do boundary_code "$L6" "apps/$d"; done
+run_finalize "$L6" "$PKG_WIRED" "" "eslint.config.mjs"
+for d in nostar inl msg lat; do
+  if sum_has "${R2_LINE}apps/$d/eslint.config.mjs — .*ts-morph"; then
+    ok "L6: apps/$d names R2 only inside a comment or a longer string — a NOT wired line"
+  else
+    bad "L6: expected a NOT wired line for apps/$d, which does not set R2 (summary: $(sum_show))"
+  fi
+done
+for d in lead tpl esc slash; do
+  if sum_has "${R2_LINE}apps/$d/"; then
+    bad "L6: apps/$d sets R2, yet it is listed (summary: $(sum_show))"
+  else
+    ok "L6: paired — apps/$d sets R2 and is not listed"
+  fi
+done
+
+# L7: string-lexing shapes (cold review of the lexer). Listed — no literal's value is the id: the id
+# quoted inside a longer string continued with a trailing `\` (apps/cont), the id with an escaped `\t`
+# (apps/tesc — a tab, not a `t`), a template that breaks the id over two lines (apps/mltpl), the id
+# followed by a NUL byte inside the literal (apps/nul — measured: mawk or gawk with GNU grep read it
+# as the id, BWK awk with BSD grep did not, so this arm guards the Linux runners). Paired,
+# not listed: the id itself continued over two lines with a trailing `\` (apps/contsq — its value is
+# the id), R2 set on the line after a regex holding a quote (apps/rxq).
+L7=$(make_project l7); put "$L7" eslint.config.mjs "$R2_CFG"
+put "$L7" apps/cont/eslint.config.mjs "export default [{ rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: \"use safeParse; \\
+'rules-as-tests/no-unsafe-zod-parse' lands later\" }] } }];"
+put "$L7" apps/tesc/eslint.config.mjs "export default [{ rules: { 'rules-as-\\tests/no-unsafe-zod-parse': 'error' } }];"
+put "$L7" apps/mltpl/eslint.config.mjs "export default [{ rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: \`rules-as-tests/
+no-unsafe-zod-parse\` }] } }];"
+put "$L7" apps/contsq/eslint.config.mjs "export default [{ rules: { 'rules-as-tests/\\
+no-unsafe-zod-parse': 'error' } }];"
+put "$L7" apps/rxq/eslint.config.mjs "const quote = /'/;
+export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+mkdir -p "$L7/apps/nul"
+printf "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse\\000xyz': 'error' } }];\n" > "$L7/apps/nul/eslint.config.mjs"
+for d in cont tesc mltpl contsq rxq nul; do boundary_code "$L7" "apps/$d"; done
+run_finalize "$L7" "$PKG_WIRED" "" "eslint.config.mjs"
+for d in cont tesc mltpl nul; do
+  if sum_has "${R2_LINE}apps/$d/eslint.config.mjs — .*ts-morph"; then
+    ok "L7: apps/$d has no literal whose value is the R2 id — a NOT wired line"
+  else
+    bad "L7: expected a NOT wired line for apps/$d, which does not set R2 (summary: $(sum_show))"
+  fi
+done
+for d in contsq rxq; do
+  if sum_has "${R2_LINE}apps/$d/"; then
+    bad "L7: apps/$d sets R2, yet it is listed (summary: $(sum_show))"
+  else
+    ok "L7: paired — apps/$d sets R2 and is not listed"
+  fi
+done
+ran_through L7
 
 # L3: configs getff placed on an EARLIER install (a refresh-baseline entry, not staged this run).
 # apps/svc still holds getff's bytes → the pass would wire it → listed. apps/old was edited since:
@@ -257,10 +398,11 @@ ws_arm() {
   else
     bad "$1: expected a NOT wired line naming «$2» for:$missing (summary: $(sum_show))"
   fi
-  if sum_has "${R2_LINE}apps/mobile/"; then
-    bad "$1: the react-native workspace is listed, yet its preset ships no R2 (summary: $(sum_show))"
+  if sum_has "${R2_LINE}apps/mobile — .*react-native preset ships no R2" \
+     && [ "$(sum_count "${R2_LINE}apps/mobile[ /]")" = 1 ]; then
+    ok "$1: the react-native workspace is one NOT wired line naming its preset, not a line per config"
   else
-    ok "$1: paired — the react-native workspace is not listed (its preset ships no R2)"
+    bad "$1: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(sum_show))"
   fi
 }
 
@@ -271,6 +413,54 @@ ws_arm W1 'ts-morph.*--full'
 W2=$(ws_project w2); fake_ts_morph "$W2"
 run_finalize "$W2" "$PKG_NOWIRER" "$WS"
 ws_arm W2 'missing from this getff package'
+
+# ─── J1/J2: a package's config is whichever flat config ESLint loads there ─────
+# Both passes collect configs the way ESLint reads a directory (eslint_flat_configs_under), not
+# eslint.config.mjs only: a package's own eslint.config.js is listed as its .mjs would be, and an
+# eslint.config.cjs — which getff never adds to — is named with that reason, not the ts-morph one.
+J1=$(make_project j1); put "$J1" eslint.config.mjs "$R2_CFG"
+put "$J1" apps/api/eslint.config.js "$PLAIN_CFG"; boundary_code "$J1" apps/api
+put "$J1" apps/cjs/eslint.config.cjs "module.exports = [];"; boundary_code "$J1" apps/cjs
+run_finalize "$J1" "$PKG_WIRED" "" "eslint.config.mjs"
+if sum_has "${R2_LINE}apps/api/eslint.config.js — .*ts-morph"; then
+  ok "J1: a package's own eslint.config.js is a NOT wired line with the reason"
+else
+  bad "J1: expected a NOT wired line for apps/api/eslint.config.js (summary: $(sum_show))"
+fi
+if sum_has "apps/cjs — your eslint.config.cjs configures ESLint there" && ! sum_has "${R2_LINE}apps/cjs/"; then
+  ok "J1: a package's eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap"
+else
+  bad "J1: expected apps/cjs's eslint.config.cjs named once as not an ES-module config (summary: $(sum_show))"
+fi
+ran_through J1
+
+J2=$(make_project j2); put "$J2" apps/api/eslint.config.js "$PLAIN_CFG"; boundary_code "$J2" apps/api
+run_finalize "$J2" "$PKG_WIRED" 'apps/api\tts-server'
+if sum_has "${R2_LINE}apps/api/eslint.config.js — .*ts-morph"; then
+  ok "J2: a ts-server workspace's own eslint.config.js is a NOT wired line with the reason"
+else
+  bad "J2: expected a NOT wired line for apps/api/eslint.config.js (summary: $(sum_show))"
+fi
+
+# J3: a react-next and a react-spa workspace get what a ts-server one gets (J2): the per-workspace pass
+# collects every ESLint config under them the way ESLint reads a directory, so a react-next workspace's
+# own eslint.config.js is listed, and a react-spa workspace's eslint.config.cjs is named as a config getff
+# does not add to, not as a ts-morph gap.
+J3=$(make_project j3)
+put "$J3" apps/web/eslint.config.js "$PLAIN_CFG"; boundary_code "$J3" apps/web
+put "$J3" apps/spa/eslint.config.cjs "module.exports = [];"; boundary_code "$J3" apps/spa
+run_finalize "$J3" "$PKG_WIRED" 'apps/web\treact-next\napps/spa\treact-spa'
+if sum_has "${R2_LINE}apps/web/eslint.config.js — .*ts-morph"; then
+  ok "J3: a react-next workspace's own eslint.config.js is a NOT wired line with the reason, as a ts-server one's is"
+else
+  bad "J3: expected a NOT wired line for apps/web/eslint.config.js (summary: $(sum_show))"
+fi
+if sum_has "apps/spa — your eslint.config.cjs configures ESLint there" && ! sum_has "${R2_LINE}apps/spa/"; then
+  ok "J3: a react-spa workspace's eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap"
+else
+  bad "J3: expected apps/spa's eslint.config.cjs named once as not an ES-module config (summary: $(sum_show))"
+fi
+ran_through J3
 
 # W3: the pass can run (ts-morph and the wirer there); npx is the stand-in that records its calls.
 # apps/spa also parses in src/api/ (a boundary outside the token folders, so detect adds an api/ glob
@@ -284,16 +474,16 @@ T_NPX_LOG="$W3_LOG" run_finalize "$W3" "$PKG_WIRED" "$WS\napps/site\treact-spa"
 w3_call() { grep -F "wire-eslint-r2.ts --path $W3/apps/$1/eslint.config.mjs " "$W3_LOG"; }
 w3_missing=""
 for w in api web spa; do
-  w3_call "$w" | grep -F -- '--own-config' \
-    | grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' || w3_missing="$w3_missing apps/$w"
+  grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' <<<"$(w3_call "$w" | grep -F -- '--own-config')" \
+    || w3_missing="$w3_missing apps/$w"
 done
 if [ -z "$w3_missing" ]; then
   ok "W3: the ts-server, react-next and react-spa configs are handed to the R2 wirer as your own, with their boundary globs"
 else
   bad "W3: not handed to the R2 wirer with --own-config and the routes/ boundary glob:$w3_missing (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
 fi
-if w3_call spa | grep -qF -- '--boundary **/api/**/*.{ts,tsx}' \
-   && ! w3_call web | grep -qF -- '**/api/**' && ! w3_call api | grep -qF -- '**/api/**'; then
+if grep -qF -- '--boundary **/api/**/*.{ts,tsx}' <<<"$(w3_call spa)" \
+   && ! grep -qF -- '**/api/**' <<<"$(w3_call web)" && ! grep -qF -- '**/api/**' <<<"$(w3_call api)"; then
   ok "W3: each config gets the globs found under its own directory (the api/ glob on apps/spa's call only)"
 else
   bad "W3: expected the api/ boundary glob on apps/spa's wirer call and on no other (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
@@ -303,10 +493,17 @@ if grep -qF -e "apps/mobile/eslint.config.mjs" -e "apps/site/eslint.config.mjs" 
 else
   ok "W3: paired — neither the react-native config nor the react-spa one with no boundary code is handed to the R2 wirer"
 fi
-if sum_has "$R2_LINE"; then
+# The react-native workspace keeps its one line (its preset ships no R2, W1); the wired ones get none.
+if sum_has "${R2_LINE}apps/(api|web|spa|site)[/ ]"; then
   bad "W3: the stand-in reported R2 wired, yet the pass put an R2 line in the NOT wired summary (summary: $(sum_show))"
 else
   ok "W3: the stand-in reported R2 wired for each config, and the pass adds no NOT wired line after it"
+fi
+if sum_has "${R2_LINE}apps/mobile — .*react-native preset ships no R2" \
+   && [ "$(sum_count "${R2_LINE}apps/mobile[ /]")" = 1 ]; then
+  ok "W3: the react-native workspace keeps its one NOT wired line while the pass runs"
+else
+  bad "W3: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(sum_show))"
 fi
 ran_through W3
 
@@ -365,6 +562,100 @@ if sum_has "${R2_LINE}apps/x — .*stack"; then
 else
   bad "U3: expected a NOT wired line for apps/x, whose config names R2 only in a comment (summary: $(sum_show))"
 fi
+
+# U4: the same with the rule id in quotes — a commented-out rule line is still no rule entry.
+U4=$(make_project u4); boundary_code "$U4" apps/x
+put "$U4" apps/x/eslint.config.mjs "export default [{ rules: {
+  // 'rules-as-tests/no-unsafe-zod-parse': 'error',
+  'no-console': 'warn',
+} }];"
+run_finalize "$U4" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x — .*stack"; then
+  ok "U4: an unknown-stack workspace whose config comments out a quoted R2 rule line is a NOT wired line"
+else
+  bad "U4: expected a NOT wired line for apps/x, whose R2 rule line is commented out (summary: $(sum_show))"
+fi
+
+# U5: a block comment whose body lines have no leading `*` — still no rule entry.
+U5=$(make_project u5); boundary_code "$U5" apps/x
+put "$U5" apps/x/eslint.config.mjs "export default [{ rules: {
+  /*
+  'rules-as-tests/no-unsafe-zod-parse': 'error',
+  */
+  'no-console': 'warn',
+} }];"
+run_finalize "$U5" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x — .*stack"; then
+  ok "U5: an unknown-stack workspace whose R2 line sits in a block comment without leading stars is a NOT wired line"
+else
+  bad "U5: expected a NOT wired line for apps/x, whose R2 line is inside a block comment (summary: $(sum_show))"
+fi
+
+# U6: paired — the workspace's only config is an eslint.config.cjs that sets R2 → no line.
+U6=$(make_project u6); boundary_code "$U6" apps/x
+put "$U6" apps/x/eslint.config.cjs "module.exports = [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+run_finalize "$U6" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x"; then
+  bad "U6: apps/x sets R2 in eslint.config.cjs, yet it is listed (summary: $(sum_show))"
+else
+  ok "U6: paired — an unknown-stack workspace whose eslint.config.cjs sets R2 is not listed"
+fi
+ran_through U6
+
+# U7: a backup ESLint never loads (eslint.config.mjs.bak) names R2; the live config does not → one line.
+U7=$(make_project u7); boundary_code "$U7" apps/x
+put "$U7" apps/x/eslint.config.mjs "$PLAIN_CFG"
+put "$U7" apps/x/eslint.config.mjs.bak "$R2_CFG"
+run_finalize "$U7" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x — .*stack"; then
+  ok "U7: a backup file naming R2 does not hide the workspace from the summary"
+else
+  bad "U7: expected a NOT wired line for apps/x — only its eslint.config.mjs.bak names R2 (summary: $(sum_show))"
+fi
+
+# U8: paired — the workspace's eslint.config.mjs is a symlink to a file that sets R2 → no line.
+U8=$(make_project u8); boundary_code "$U8" apps/x
+put "$U8" apps/x/real.mjs "$R2_CFG"
+ln -s real.mjs "$U8/apps/x/eslint.config.mjs"
+run_finalize "$U8" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x"; then
+  bad "U8: apps/x's eslint.config.mjs links to a config setting R2, yet it is listed (summary: $(sum_show))"
+else
+  ok "U8: paired — a symlinked eslint.config.mjs that sets R2 is read, and the workspace is not listed"
+fi
+ran_through U8
+
+# ─── RN1/RN0/RN2: a react-native workspace — its preset ships no R2 ───────────
+for state in without with; do
+  RN1=$(make_project "rn1-$state"); boundary_code "$RN1" apps/m
+  put "$RN1" apps/m/eslint.config.mjs "$PLAIN_CFG"
+  [ "$state" = without ] || fake_ts_morph "$RN1"
+  run_finalize "$RN1" "$PKG_WIRED" 'apps/m\treact-native'
+  if sum_has "${R2_LINE}apps/m — .*react-native preset ships no R2"; then
+    ok "RN1 ($state ts-morph): the react-native workspace with boundary code is a NOT wired line"
+  else
+    bad "RN1 ($state ts-morph): no NOT wired line for apps/m naming the react-native preset (summary: $(sum_show))"
+  fi
+done
+
+RN0=$(make_project rn0); put "$RN0" apps/m/src/index.ts "export const x = 1;"
+put "$RN0" apps/m/eslint.config.mjs "$PLAIN_CFG"
+run_finalize "$RN0" "$PKG_WIRED" 'apps/m\treact-native'
+if sum_has "${R2_LINE}apps/m"; then
+  bad "RN0: a react-native workspace with no HTTP boundary code is listed (summary: $(sum_show))"
+else
+  ok "RN0: paired — a react-native workspace with no HTTP boundary code is not listed"
+fi
+ran_through RN0
+
+RN2=$(make_project rn2); boundary_code "$RN2" apps/m; put "$RN2" apps/m/eslint.config.mjs "$R2_CFG"
+run_finalize "$RN2" "$PKG_WIRED" 'apps/m\treact-native'
+if sum_has "${R2_LINE}apps/m"; then
+  bad "RN2: a react-native workspace whose own config names R2 is listed (summary: $(sum_show))"
+else
+  ok "RN2: paired — a react-native workspace whose own config names R2 is not listed"
+fi
+ran_through RN2
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

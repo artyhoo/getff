@@ -96,7 +96,7 @@ else
   _out_F=$(cd "$T_F" && "$RUN_WIRER_TSX" "$WIRER" \
       --path "apps/api/eslint.config.mjs" 2>&1) || _rc_F=$?
   [ "$_rc_F" -eq 0 ] && ok "F: rc=0 when ts-morph absent" || bad "F: rc=$_rc_F (expected 0)"
-  echo "$_out_F" | grep -qi 'not auto-wired\|ts-morph\|degrade\|manually' \
+  grep -qi 'not auto-wired\|ts-morph\|degrade\|manually' <<<"$_out_F" \
     && ok "F: degrade message printed" \
     || bad "F: no degrade message in output: $_out_F"
   _AFTER_F=$(cat "$T_F/apps/api/eslint.config.mjs")
@@ -134,7 +134,7 @@ else
   # eslint probe (GH #644) is a SEPARATE concern covered by P1-P3 — it would degrade here because
   # this fixture's stub config ('import base from ./base.mjs') is not a loadable eslint config.
   _out_X=$( cd "$_CWD_DIR" && "$RUN_WIRER_TSX" "$_FW/wire-eslint-r2.ts" --path "$_CFG" --diff 2>&1 )
-  printf '%s' "$_out_X" | grep -q 'rules-as-tests/no-unsafe-zod-parse' \
+  grep -q 'rules-as-tests/no-unsafe-zod-parse' <<<"$_out_X" \
     && ok "X: cross-checkout ts-morph resolves — AST wire produced (diff shows R2; #642)" \
     || bad "X: cross-checkout NOT wired (degraded — :86 resolved from wirer file tree, not cwd): $_out_X"
   rm -rf "$_FW" "$_CFGDIR"

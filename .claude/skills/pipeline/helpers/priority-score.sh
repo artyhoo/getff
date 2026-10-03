@@ -18,7 +18,7 @@
 #     REUSE dup-detect.sh jaccard+xref logic (sub-shell call + output parsing). Any
 #     POTENTIAL_DUPE: line from dup-detect.sh --all implies completion candidate for
 #     the named umbrella. Uses MO_JACCARD_THRESHOLD (default 30%) from dup-detect.sh.
-#     SSOT: helpers/dup-detect.sh:62 — zero new LOC for the jaccard algorithm itself.
+#     SSOT: helpers/dup-detect.sh:126 — zero new LOC for the jaccard algorithm itself.
 #     GATED (#1517): a POTENTIAL_DUPE citation classifies DONE only when frontier.sh
 #     AGREES — a non-empty FRONTIER: line means the umbrella still has dispatchable
 #     stages, so the cited merged PR is PROVENANCE (a landed stage recorded inline),
@@ -149,7 +149,7 @@ for _d in "${PROMPTS_DIR}"/*/; do
   [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
   [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
   if [[ -n "${_merged_branch_names}" ]] \
-      && printf '%s\n' "${_merged_branch_names}" | grep -qxF "${_n}" 2>/dev/null; then
+      && grep -qxF "${_n}" 2>/dev/null <<<"${_merged_branch_names}"; then
     continue                                          # C1 cheap-closed → skip expensive C2
   fi
   _open_survivors+="${_n}"$'\n'
@@ -203,11 +203,11 @@ for dir in "${PROMPTS_DIR}"/*/; do
 
   # Extract Type from kickoff header (line 2-5 typically)
   type_line="$(grep -m1 '^\*\*Type:\*\*\|^> \*\*Type:\*\*' "${kickoff}" 2>/dev/null || echo '')"
-  if echo "${type_line}" | grep -qi 'R-phase\|research'; then
+  if grep -qi 'R-phase\|research' <<<"${type_line}"; then
     wave_type="R-phase"
-  elif echo "${type_line}" | grep -qi 'I-phase\|execution\|build'; then
+  elif grep -qi 'I-phase\|execution\|build' <<<"${type_line}"; then
     wave_type="I-phase"
-  elif echo "${type_line}" | grep -qi 'wiring\|config\|ci'; then
+  elif grep -qi 'wiring\|config\|ci' <<<"${type_line}"; then
     wave_type="wiring"
   else
     wave_type="unknown"
@@ -288,8 +288,8 @@ for dir in "${PROMPTS_DIR}"/*/; do
       _c2_basis="${_c2_basis#basis=}"
       _c2_completion_line=""
       if [[ -n "${done_pr}" && -x "${MO_FRONTIER_BIN}" ]]; then
-        _c2_frontier="$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
-          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null | grep -m1 '^FRONTIER: ' || true)"
+        _c2_frontier="$(grep -m1 '^FRONTIER: ' <<<"$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
+          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null)" || true)"
         _c2_frontier="${_c2_frontier#FRONTIER: }"
         if [[ -n "${_c2_frontier}" && "${_c2_frontier}" != "(none)" ]]; then
           _c2_completion_line="$(grep -m1 -E \

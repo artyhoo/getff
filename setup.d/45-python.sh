@@ -17,13 +17,13 @@
 #                                           rules dir BEFORE any scan, and REFUSE-LOUDLY otherwise.
 #   (iii) pre-existing ruff.toml          → REFUSE-LOUDLY. Do NOT write a sibling ruff.toml (ours
 #                                           would win entirely + silently disable theirs). Write a
-#                                           non-discovered getff-ruff.toml reference copy + print
-#                                           `extend` instructions (extend is a scalar — flagged if
-#                                           they already use it). The getff bans are ALSO always
-#                                           written to a stable .getff/ruff-bans.toml (see (bans)).
+#                                           non-discovered getff-ruff.toml reference copy + record a
+#                                           NOT-wired fact line (Q4.7 — no «add extend» step). The
+#                                           getff bans are ALSO always written to a stable
+#                                           .getff/ruff-bans.toml the CI gate reads (see (bans)).
 #   (iv)  pre-existing pyproject.toml      → REFUSE-LOUDLY. A sibling ruff.toml SILENTLY overrides
 #         [tool.ruff] (and no ruff.toml)     their [tool.ruff] (probe-proven). Write getff-ruff.toml
-#                                           + print merge-into-[tool.ruff.lint] instructions.
+#                                           + record a NOT-wired fact line (Q4.7).
 #   (bans) getff ruff bans                → ALWAYS written to .getff/ruff-bans.toml (fresh + every
 #         (python-delivery-v0 S2-T2 fix)    collision cell) — the single cell-independent target the
 #                                           shipped CI workflow points a `ruff check . --config
@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1440 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1537 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,10 +102,10 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:544, long before do_refresh at install.sh:1426).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1518).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:758 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:850).
+# orchestration-skills arm (install.sh:854).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:794). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:798). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -204,7 +204,7 @@ _py_agent_copy_or_refresh() {
 # _py_sgconfig_merge <consumer-sgconfig.yml>
 # Structurally add `  - .getff/astgrep-rules` to an existing block-list `ruleDirs:` key, idempotently.
 # Returns 0 on a proven-safe merge (or idempotent no-op), 1 when the shape cannot be proven safe (the
-# caller then REFUSES-LOUDLY with manual instructions). NEVER a text-append of a second `ruleDirs:`.
+# caller then REFUSES-LOUDLY with a NOT-wired fact line). NEVER a text-append of a second `ruleDirs:`.
 _py_sgconfig_merge() {
   local dst="$1"
   local entry="- .getff/astgrep-rules"
@@ -226,7 +226,7 @@ _py_sgconfig_merge() {
   # The line immediately after `ruleDirs:` must be a block-sequence item — confirms a block list.
   local next
   next=$(grep -A1 '^ruleDirs:' "$dst" | sed -n '2p')
-  printf '%s' "$next" | grep -qE '^[[:space:]]*-[[:space:]]' || return 1
+  grep -qE '^[[:space:]]*-[[:space:]]' <<<"$next" || return 1
   local indent="${next%%-*}"
 
   # Idempotency: our entry already listed → no-op (a duplicate entry would trip exit 8, Probe 7).
@@ -236,7 +236,7 @@ _py_sgconfig_merge() {
   local _found=0 _cl _cl_stripped
   while IFS= read -r _cl || [ -n "$_cl" ]; do
     _cl_stripped="${_cl%%#*}"
-    if printf '%s' "$_cl_stripped" | grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$'; then
+    if grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$' <<<"$_cl_stripped"; then
       _found=1
       break
     fi
@@ -257,7 +257,7 @@ _py_sgconfig_merge() {
   local _done=0 _l
   while IFS= read -r _l || [ -n "$_l" ]; do
     printf '%s\n' "$_l"
-    if [ "$_done" -eq 0 ] && printf '%s' "$_l" | grep -q '^ruleDirs:'; then
+    if [ "$_done" -eq 0 ] && grep -q '^ruleDirs:' <<<"$_l"; then
       printf '%s%s\n' "$indent" "$entry"
       _done=1
     fi
@@ -354,9 +354,25 @@ _py_deliver_astgrep() {
   fi
   _py_log "⚠ REFUSE: existing sgconfig.yml is not a shape we can safely rewrite (not a single block-list"
   _py_log "  ruleDirs: key). NOT modifying it (a bad merge trips ast-grep exit 6/8)."
-  _py_log "  MANUAL: add this line under your sgconfig.yml 'ruleDirs:' list:"
-  _py_log "      - .getff/astgrep-rules"
-  _py_log "  The rule files are already installed at .getff/astgrep-rules/ (ready once you add the entry)."
+  local _why _where="locally"
+  if grep -q '^ruleDirs:' "$dst" 2>/dev/null; then
+    _why="its ruleDirs is not a single block list getff can add a line to without risking a broken config"
+  else
+    _why="it has no top-level ruleDirs key for getff to add a line to"
+  fi
+  # The getff CI job runs a bare `ast-grep scan`, so it reads the same sgconfig.yml — when there is one.
+  _lane_getff_ci_runs "$tpl" ".github/workflows/getff-python.yml" && _where="locally and in the getff CI workflow"
+  note_not_wired "ast-grep: .getff/astgrep-rules is not in the ruleDirs of your sgconfig.yml — $_why, so \`ast-grep scan\`, $_where, runs your rules only"
+}
+
+# _py_ruff_bans_reader <tpl> — who reads .getff/ruff-bans.toml, for a REFUSE cell's NOT-wired line.
+# Only the getff CI workflow does; when getff-python.yml is the consumer's own file, nothing does.
+_py_ruff_bans_reader() {
+  if _lane_getff_ci_runs "$1" ".github/workflows/getff-python.yml"; then
+    printf '%s' "which the getff CI workflow reads"
+  else
+    printf '%s' "which no CI reads, because .github/workflows/getff-python.yml is your own workflow"
+  fi
 }
 
 # _py_deliver_ruff — ruff lane: fresh copy | refuse (ruff.toml present | pyproject [tool.ruff] present).
@@ -394,37 +410,24 @@ _py_deliver_ruff() {
   fi
 
   # (iii) consumer ruff.toml / .ruff.toml present → a sibling ruff.toml of ours would win entirely
-  # and silently disable theirs (Probe 1). REFUSE: ship a non-discovered getff-ruff.toml + `extend`.
+  # and silently disable theirs (Probe 1). REFUSE: ship a non-discovered getff-ruff.toml + a NOT-wired line.
   if [ -e "$ruff_dst" ] || [ -e "$PROJECT_ROOT/.ruff.toml" ]; then
     local existing="$ruff_dst"; [ -e "$existing" ] || existing="$PROJECT_ROOT/.ruff.toml"
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
     _py_log "⚠ REFUSE ruff.toml (cell iii): a sibling ruff.toml would override your $(basename "$existing") entirely."
-    _py_log "  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it — inert until you opt in)."
-    _py_log "  MANUAL: in your $(basename "$existing") add:"
-    _py_log "      extend = \"getff-ruff.toml\""
-    _py_log "      extend-select = [\"TID251\", \"TID253\"]"
-    if grep -qE '^[[:space:]]*extend[[:space:]]*=' "$existing" 2>/dev/null; then
-      _py_log "  NOTE: your $(basename "$existing") already sets 'extend' — extend is a SCALAR (one file per"
-      _py_log "  config). You cannot add a second 'extend'; instead merge our getff-ruff.toml [lint] TID251/"
-      _py_log "  TID253 tables into the file your existing 'extend' points at, or inline them into this config."
-    fi
+    _py_log "  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it)."
+    note_not_wired "ruff: getff's TID bans are not in your $(basename "$existing") — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, $(_py_ruff_bans_reader "$tpl")"
     return 0
   fi
 
   # (iv) pyproject.toml [tool.ruff] present, no ruff.toml → a sibling ruff.toml SILENTLY overrides
-  # [tool.ruff] (Probe 1). REFUSE: ship getff-ruff.toml + merge-into-[tool.ruff.lint] instructions.
+  # [tool.ruff] (Probe 1). REFUSE: ship getff-ruff.toml + a NOT-wired line.
   if [ -e "$PROJECT_ROOT/pyproject.toml" ] && grep -qE '^\[tool\.ruff' "$PROJECT_ROOT/pyproject.toml" 2>/dev/null; then
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
     _py_log "⚠ REFUSE ruff.toml (cell iv): a sibling ruff.toml would SILENTLY override your pyproject.toml"
     _py_log "  [tool.ruff] (probe-proven — closest-config-wins, ruff.toml beats pyproject, no warning)."
     _py_log "  Shipped our rules as getff-ruff.toml for reference."
-    _py_log "  MANUAL: merge our TID lines into your pyproject.toml [tool.ruff.lint]:"
-    _py_log "      [tool.ruff.lint]"
-    _py_log "      extend-select = [\"TID251\", \"TID253\"]"
-    _py_log "      [tool.ruff.lint.flake8-tidy-imports]"
-    _py_log "      banned-module-level-imports = [\"tensorflow\"]"
-    _py_log "      [tool.ruff.lint.flake8-tidy-imports.banned-api]"
-    _py_log "      \"datetime.datetime.utcnow\".msg = \"use datetime.now(timezone.utc)\""
+    note_not_wired "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, $(_py_ruff_bans_reader "$tpl")"
     return 0
   fi
 
@@ -462,27 +465,25 @@ _py_deliver_prettierignore() {
 #   - our own getff-generated file    → idempotent no-op on install; overwrite on --refresh (updated
 #                                       pins reach a brownfield consumer). refresh_safe honours a
 #                                       sibling getff-python.yml.override.md (Layer-3 consumer ownership).
-#   - a NON-getff file at our path    → REFUSE-LOUDLY, never overwrite; print the manual wiring. A
-#                                       consumer who authored their own getff-python.yml keeps it.
+#   - a NON-getff file at our path    → REFUSE-LOUDLY, never overwrite; a NOT-wired line says the
+#                                       gates are not in CI and why. A consumer who authored their
+#                                       own getff-python.yml keeps it.
 # NEVER writes to the consumer's ci.yml — a pre-existing consumer CI workflow is not clobbered.
-# S-2: body = lib.sh _lane_deliver_ci. The pins in the REFUSE hints MIRROR github-actions-ci.yml
-# (the delivered template) — keep the two in sync on any pin bump (both bump together per
-# ci-tool-pinning.md Rule A).
+# S-2: body = lib.sh _lane_deliver_ci.
 _py_deliver_ci() {
   _lane_deliver_ci "$1" ".github/workflows/getff-python.yml" \
     "CI workflow → .github/workflows/getff-python.yml (pinned ast-grep + ruff gates)" \
     "CI workflow → refreshed (.github/workflows/getff-python.yml, framework-owned pins)" \
-    "  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:" \
-    "      npm install -g @ast-grep/cli@0.44.1 && ast-grep scan" \
-    "      pip install ruff==0.15.21 && ruff check .                                 # your config" \
-    "      pip install ruff==0.15.21 && ruff check . --config .getff/ruff-bans.toml  # getff bans (isolated)"
+    "the getff ast-grep and ruff gates are"
 }
 
 # _py_firing_self_check — post-install firing PROOF (the «works» in the umbrella goal). Plants a
 # violating .py in an OS temp dir ONLY (mktemp -d — NEVER under the consumer's tracked tree, a binding
 # STOP line), runs the DELIVERED ast-grep rules + ruff config against it, and asserts BOTH FIRE RED
-# (non-zero exit = a diagnostic was raised). Then removes the temp dir. Tool-gated: an absent tool →
-# LOUD degrade printing the exact manual command (never silently green — attention-is-not-a-mechanism.md
+# (non-zero exit = a diagnostic was raised). Then removes the temp dir. Tool-gated: with no ast-grep
+# binary the pinned ast-grep is fetched through uvx (the same route the ruff lane takes, keeping the
+# lane Node-free); a tool the install cannot reach → LOUD degrade plus a NOT-wired line naming what
+# is missing (Q4.7: a gap, never a command to run by hand; never silently green — attention-is-not-a-mechanism.md
 # §1: a check nobody ran is not a mechanism; mirrors the 99-finalize.sh capstone self-verify honesty,
 # where a SKIP is accounted separately and never counted as a proven property). rc=0 on every branch —
 # a self-check must not abort the install. Called by install.sh's python lane after delivery (NOT from
@@ -498,9 +499,20 @@ _py_firing_self_check() {
   # Guard the alias with an identity probe (`sg --version` prints "ast-grep <ver>")
   # so a host with the setgid `sg` but no ast-grep DEGRADES honestly instead of
   # running the wrong binary and mis-reporting the clean control as OVER-BROAD.
-  local _sg=""
+  # No binary but uvx → the pinned PyPI build of the same release (ast-grep-cli mirrors the
+  # @ast-grep/cli version the delivered CI workflow installs). uvx is a fetcher: offline, or with the
+  # index unreachable, it exits non-zero on the bad AND the clean file, which the checks below would
+  # read as «fired RED» plus «OVER-BROAD». The same identity probe settles whether it fetched.
+  local _sg="" _sg_why="" _sg_ver=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
-  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"; fi
+  elif command -v sg >/dev/null 2>&1 && _sg_ver=$(sg --version 2>/dev/null) && grep -qi 'ast-grep' <<<"$_sg_ver"; then _sg="sg"
+  elif command -v uvx >/dev/null 2>&1; then
+    if _sg_ver=$(uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null) && grep -qi 'ast-grep' <<<"$_sg_ver"; then
+      _sg="uvx --from ast-grep-cli==0.44.1 ast-grep"
+    else
+      _sg_why="uvx could not fetch ast-grep-cli==0.44.1 (offline, or the package index is unreachable)"
+    fi
+  fi
   if [ -n "$_sg" ] && [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import datetime\nx = eval("1+1")\nos.system("echo hi")\na = datetime.now()\nb = datetime.datetime.now()\n' > "$_t/getff_selfcheck.py"
@@ -510,14 +522,16 @@ _py_firing_self_check() {
     printf 'import json\nx = json.dumps({"ok": 1})\n' > "$_t/getff_selfcheck_clean.py"
     # ABSOLUTE ruleDirs → the rules resolve regardless of cwd (the delivered rules dir, read-only).
     printf 'ruleDirs:\n  - %s\n' "$PROJECT_ROOT/.getff/astgrep-rules" > "$_t/sgconfig.yml"
-    if ( cd "$_t" && "$_sg" scan getff_selfcheck.py ) >/dev/null 2>&1; then
+    # shellcheck disable=SC2086 # $_sg is a command line (the uvx route is several words)
+    if ( cd "$_t" && $_sg scan getff_selfcheck.py ) >/dev/null 2>&1; then
       echo "  ✗ ast-grep did NOT fire on a planted violation — the delivered rules are SILENT (delivery bug)"
       _silent=$((_silent+1))
     else
       echo "  ✓ ast-grep fired RED on the planted violation (eval / os.system / datetime.now bans live)"
       _pass=$((_pass+1))
     fi
-    if ( cd "$_t" && "$_sg" scan getff_selfcheck_clean.py ) >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    if ( cd "$_t" && $_sg scan getff_selfcheck_clean.py ) >/dev/null 2>&1; then
       echo "  ✓ ast-grep clean control GREEN — no diagnostics on conforming code (rules discriminate)"
       _pass=$((_pass+1))
     else
@@ -526,8 +540,16 @@ _py_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ ast-grep not on PATH — firing NOT proven (degrade, NOT green). Verify manually from your repo root:"
-    echo "      npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan .    # must exit non-zero on bad Python"
+    if [ -n "$_sg" ]; then
+      echo "  ⚠ .getff/astgrep-rules missing — ast-grep firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — .getff/astgrep-rules is missing, so there were no delivered rules to run against the planted violation"
+    elif [ -n "$_sg_why" ]; then
+      echo "  ⚠ $_sg_why — ast-grep firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — $_sg_why, so the delivered rules were not run against a planted violation"
+    else
+      echo "  ⚠ ast-grep not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — ast-grep is not on PATH and neither is uvx, so the delivered rules were not run against a planted violation"
+    fi
     _degraded=$((_degraded+1))
   fi
 
@@ -539,12 +561,16 @@ _py_firing_self_check() {
   # cargo finding-1 class): in the REFUSE cell the consumer's ruff.toml lacks our TID bans, so a
   # consumer-first fallback validates the WRONG config → false SILENT. Mirrors
   # _cargo_delivered_clippy_path (getff-owned before consumer-owned, 46-cargo.sh).
-  local _ruff_mode="" _ruffcfg=""
+  local _ruff_mode="" _ruffcfg="" _ruff_why="" _ruff_ver=""
   [ -f "$PROJECT_ROOT/.getff/ruff-bans.toml" ] && _ruffcfg="$PROJECT_ROOT/.getff/ruff-bans.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/getff-ruff.toml" ] && _ruffcfg="$PROJECT_ROOT/getff-ruff.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   if   command -v ruff >/dev/null 2>&1; then _ruff_mode="ruff"
-  elif command -v uvx  >/dev/null 2>&1; then _ruff_mode="uvx"; fi
+  elif command -v uvx  >/dev/null 2>&1; then
+    # Same fetch probe as the ast-grep lane: a uvx that cannot fetch is a gap, not a verdict.
+    if _ruff_ver=$(uvx ruff@0.15.21 --version 2>/dev/null) && grep -qi 'ruff' <<<"$_ruff_ver"; then _ruff_mode="uvx"
+    else _ruff_why="uvx could not fetch ruff 0.15.21 (offline, or the package index is unreachable)"; fi
+  fi
   if [ -n "$_ruff_mode" ] && [ -n "$_ruffcfg" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import tensorflow\nimport datetime\nx = datetime.datetime.utcnow()\n' > "$_t/getff_selfcheck.py"
@@ -576,16 +602,25 @@ _py_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ ruff not on PATH — firing NOT proven (degrade, NOT green). Verify manually:"
-    echo "      uvx ruff@0.15.21 check --config ${_ruffcfg:-ruff.toml} <a .py doing 'import tensorflow'>   # must exit non-zero"
+    if [ -n "$_ruff_mode" ]; then
+      echo "  ⚠ no delivered ruff config — ruff firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — no delivered ruff config (.getff/ruff-bans.toml, getff-ruff.toml or ruff.toml) to run against the planted violation"
+    elif [ -n "$_ruff_why" ]; then
+      echo "  ⚠ $_ruff_why — ruff firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — $_ruff_why, so the delivered bans were not run against a planted violation"
+    else
+      echo "  ⚠ ruff not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — ruff is not on PATH and neither is uvx, so the delivered bans were not run against a planted violation"
+    fi
     _degraded=$((_degraded+1))
   fi
 
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
+    note_not_wired "firing self-check (python): not proven — $_silent SILENT and $_overbroad OVER-BROAD result(s) on the planted files, so the delivered rules did not discriminate bad code from clean code"
   elif [ "$_degraded" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it."
+    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else
     echo "✓ getff self-check: both lanes fired RED on planted violations and stayed GREEN on clean controls — enforcement is live."
   fi
@@ -616,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1700). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1705). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -680,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1700), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1705), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -911,6 +946,10 @@ _py_deliver_local_hook_rung() {
   # wraps copy_safe/refresh_safe so --refresh overwrites a brownfield copy with the current
   # template (refresh_safe honours pre-push.override.md for Layer-3 consumer ownership).
   mkdir_safe "$hook_dst_dir"
+  # W2-G (#1502): deliver the ZCode skill-mirror check BESIDE the hook that calls it — the
+  # pre-push template (and the pre-commit fragment, which invokes the same body) both run it.
+  _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
   _py_copy_or_refresh "$hook_src" "$hook_dst"
   chmod_safe +x "$hook_dst" 2>/dev/null || true
 
@@ -940,7 +979,8 @@ _py_deliver_local_hook_rung() {
   # Cases 1, 3, and default all use `git -C` — guard against non-git fatal here.
   if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "  ⊝ not a git repo — hook body delivered to .getff/hooks/pre-push but NOT activated"
-    echo "    run 'git init' then 'git config core.hooksPath .getff/hooks' to activate" >&2
+    note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — $PROJECT_ROOT is not a git repository, and getff does not create one"
+    _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because this is not a git repository"
     return 0
   fi
 
@@ -975,26 +1015,30 @@ _py_deliver_local_hook_rung() {
 
 # _py_integrate_existing_hookspath — Case 1: consumer has core.hooksPath set to a non-getff path.
 # We deliver our hook body to .getff/hooks/pre-push but do NOT overwrite their core.hooksPath.
-# A printed notice tells them how to wire it manually. This is «cleanly declined WITH a printed
-# notice» per kickoff §3 — the consumer's setup still works, getff rung integrated or declined,
-# never silently broken.
+# A NOT-wired line names the rung and the hooksPath that keeps it off (Q4.7: a gap, never the
+# commands to wire it by hand). This is «cleanly declined WITH a printed notice» per kickoff §3 —
+# the consumer's setup still works, getff rung integrated or declined, never silently broken.
 _py_integrate_existing_hookspath() {
   local existing="$1"
   echo "  ⚠ consumer core.hooksPath='$existing' — NOT overwriting (T-S2B-B / augment-first)" >&2
   echo "    getff hook body delivered to .getff/hooks/pre-push but NOT activated." >&2
-  echo "    To activate, EITHER:" >&2
-  echo "      (a) source it from your existing hook:  . .getff/hooks/pre-push" >&2
-  echo "      (b) relocate: git config core.hooksPath .getff/hooks  (migrate your old hooksPath first)" >&2
+  note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — core.hooksPath=$existing, and getff does not repoint a hook setup the repository already has"
+  _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because core.hooksPath=$existing is the repository's own"
 }
 
 # _py_integrate_precommit_consumer — Case 2: consumer has .pre-commit-config.yaml.
-# Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml (idempotent —
-# marker-grep before append). We do NOT set core.hooksPath — pre-commit manages it. The fragment
-# references .getff/hooks/pre-push (delivered above), so the hook body is single-source.
+# Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml, between a begin
+# line and an end line. We do NOT set core.hooksPath — pre-commit manages it. The fragment references
+# .getff/hooks/pre-push (delivered above), so the hook body is single-source. The entry runs at
+# pre-push, a stage pre-commit installs only on request: _py_precommit_prepush_stage does that with
+# pre-commit's own command (Q4.7 — never left to the reader). An entry already there is reconciled
+# (_py_precommit_reconcile) rather than skipped: before refresh sweep G7 (2026-09-29) the begin line
+# alone made every later run a no-op, so a changed fragment never reached an installed project.
 _py_integrate_precommit_consumer() {
   local tpl="$1"
   local cfg="$PROJECT_ROOT/.pre-commit-config.yaml"
   local frag_marker="# getff-python-pre-push entry — delivered by setup.d/45-python.sh"
+  local frag_end="# getff-python-pre-push entry end"
   local frag_src="$tpl/hooks/getff.pre-commit-config.yaml.fragment"
 
   if [ ! -f "$frag_src" ]; then
@@ -1002,8 +1046,16 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  if grep -qF "$frag_marker" "$cfg" 2>/dev/null; then
-    echo "  ⊝ .pre-commit-config.yaml already has the getff entry — no-op (idempotent)"
+  if [ -f "$cfg" ] && awk -v m="$frag_marker" "$_PY_PRECOMMIT_KEY"'k == m {f = 1; exit} END {exit !f}' "$cfg"; then
+    _PY_PRECOMMIT_NOLOAD=""
+    _py_precommit_reconcile "$cfg" "$frag_marker" "$frag_end" "$frag_src"
+    # A file pre-commit cannot load runs no entry, so it gets no pre-push stage — as an entry that was
+    # not added gets none below; the mirror-check line records the gap.
+    if [ -n "$_PY_PRECOMMIT_NOLOAD" ]; then
+      _py_mirror_check_not_wired "the getff entry in .pre-commit-config.yaml cannot run: the file does not load as YAML (line $_PY_PRECOMMIT_NOLOAD)"
+    else
+      _py_precommit_prepush_stage
+    fi
     return 0
   fi
 
@@ -1012,11 +1064,294 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
-  printf '\n%s\n' "$frag_marker" >> "$cfg"
-  cat "$frag_src" >> "$cfg"
+  # Begin line first (so the grep above finds it on re-run), then the fragment body at the indent of
+  # the file's own `repos:` items, then the end line — the fragment is written in column 0, and a
+  # column-0 item after an indented sequence is a YAML error that stops pre-commit loading the config
+  # at all. The begin and end lines stay in column 0: a comment line does not take part in YAML block
+  # structure.
+  # An entry that was not added gets no pre-push stage: no getff entry would run in it, and the stage's
+  # «the getff entry runs on git push» would claim one. The mirror-check line records the gap instead.
+  local block
+  if ! block=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX"); then
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: mktemp failed"
+    _py_mirror_check_not_wired "the getff entry that runs it was not added to .pre-commit-config.yaml"
+    return 0
+  fi
+  { printf '\n%s\n' "$frag_marker"
+    _py_precommit_indent "$(_py_precommit_repos_indent "$cfg")" < "$frag_src"
+    printf '%s\n' "$frag_end"
+  } > "$block"
+  if ! _py_precommit_insert "$cfg" "$block"; then
+    rm -f "$block"
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: its repos: is written in a form getff does not edit (a flow sequence such as [...], or an anchor), so the file is left as it was"
+    _py_mirror_check_not_wired "the getff entry that runs it was not added to .pre-commit-config.yaml"
+    return 0
+  fi
+  rm -f "$block"
   echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
-  echo "    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage" >&2
+  _py_precommit_prepush_stage
+}
+
+# The top-level `repos` key in every spelling a YAML loader reads as that key — bare, "repos" or
+# 'repos', spaces before the colon allowed. Matching only `repos:` sent a quoted key down the
+# «no repos: key» path, which appended a SECOND `repos:`; PyYAML (what pre-commit loads with) keeps
+# the last duplicate, so every hook the consumer had silently vanished.
+_PY_PRECOMMIT_REPOS_KEY='^(repos|"repos"|'"'"'repos'"'"')[ \t]*:'
+
+# _py_precommit_repos_indent <cfg> — the leading spaces of the first item of the top-level block
+# `repos:` sequence; empty (column 0) when the list is empty, flow-style (`repos: []`) or absent.
+# A CRLF file is matched with its CR removed.
+_py_precommit_repos_indent() {
+  awk -v kre="$_PY_PRECOMMIT_REPOS_KEY" '
+    { sub(/\r$/, "") }
+    !on && match($0, kre) { on = 1; next }
+    on && /^ *-([ \t]|$)/ { match($0, /^ */); printf "%s", substr($0, 1, RLENGTH); exit }
+    on && /^[^ \t#]/ { exit }' "$1"
+}
+
+# _py_precommit_indent <indent> — stdin with <indent> prepended to every non-empty line.
+_py_precommit_indent() {
+  awk -v p="$1" '{ print (length($0) ? p $0 : $0) }'
+}
+
+# _py_precommit_insert <cfg> <block-file> — put <block-file> at the END OF THE `repos:` SEQUENCE,
+# not the end of the file: a top-level key after it (`ci:`, say) would otherwise swallow the item.
+# `repos: []` / `repos: ~` become a block `repos:` so it can take the item; a file without the key
+# gets one. Blank and comment lines after the last item stay with the key that follows them. A CRLF
+# file gets CRLF lines. The file is rewritten in place (a symlink or its mode survives). Returns
+# non-zero, file untouched, when `repos:` holds a flow sequence (on its line or the next) or any
+# other node that is not a block sequence.
+_py_precommit_insert() {
+  local cfg="$1" block="$2" tmp="$1.getff.tmp" cr=""
+  if grep -q "$(printf '\r')\$" <<<"$(head -n 1 "$cfg" 2>/dev/null)"; then cr=$(printf '\r'); fi
+  if awk -v blk="$block" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v cr="$cr" '
+      function emit(  l) { while ((getline l < blk) > 0) print l cr; close(blk) }
+      function flush() { printf "%s", buf; buf = "" }
+      { raw = $0; l = $0; sub(/\r$/, "", l) }
+      !seen && match(l, kre) {
+        key = substr(l, 1, RLENGTH); rest = substr(l, RLENGTH + 1)
+        sub(/^[ \t]+/, "", rest); sub(/(^|[ \t]+)#.*$/, "", rest)
+        if (rest == "") print raw
+        else if (rest ~ /^(\[[ \t]*\]|~|null|Null|NULL)$/) print key cr
+        else { bad = 1; exit }
+        seen = on = first = 1; next
+      }
+      on && (l ~ /^[ \t]*$/ || l ~ /^#/) { buf = buf raw "\n"; next }
+      on && first && l !~ /^[ \t]*-([ \t]|$)/ && l !~ /^[^ \t\[{]/ { bad = 1; exit }
+      on && (l ~ /^[^ \t-]/ || l ~ /^(---|\.\.\.)([ \t]|$)/) { emit(); on = 0; flush(); print raw; next }
+      on { first = 0; flush(); print raw; next }
+      { print raw }
+      END {
+        if (bad) exit 1
+        if (on) { flush(); emit() } else if (!seen) { print "repos:" cr; emit() }
+      }' "$cfg" > "$tmp"; then
+    cat "$tmp" > "$cfg"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# Every entry body getff has shipped, as "<sha256>:<line count>" — an installed entry that hashes to
+# one of them (with the indent it was written at taken off) is getff's own, unedited, and is replaced
+# by the current fragment; any other body is an edit and is kept. The line count finds the body of an
+# entry appended before the end line existed (a66c0cb9aa4, #1233). When the fragment changes, ADD its
+# new hash here and keep the old ones:
+# tests/install-sh/refresh-rewires.test.sh fails while the current fragment is missing from this list.
+_PY_PRECOMMIT_SHIPPED="3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7:14 10eb8028d29f094b05ad8fe71536c54a76b6c87a1257a1044ba4c412db15401c:14"
+
+# awk prelude: k = the line without a CR (a CRLF file, Windows/autocrlf) and without surrounding
+# blanks, so the begin/end lines match whatever the line endings; $0 itself loses its CR too.
+_PY_PRECOMMIT_KEY='{ sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) } '
+
+# _py_precommit_entry_indent <cfg> <begin> — the leading blanks of the first non-empty line after
+# <begin>: the indent the entry was written at. The insert above writes it at the indent of the file's
+# `repos:` items (C3, #1935); an entry from before that is in column 0 and gets "".
+_py_precommit_entry_indent() {
+  awk -v m="$2" "$_PY_PRECOMMIT_KEY"'
+    !on && k == m { on = 1; next }
+    on && k != "" { match($0, /^[ \t]*/); printf "%s", substr($0, 1, RLENGTH); exit }' "$1"
+}
+
+# _py_precommit_body <cfg> <begin> <end> [n] [indent] — the entry body after <begin>: up to <end>, or
+# n lines; <indent> is taken off the front of every line that starts with it, so an entry written at
+# an indent compares and hashes like the column-0 fragment it came from.
+_py_precommit_body() {
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" -v ind="${5:-}" "$_PY_PRECOMMIT_KEY"'
+    !on && k == m { on = 1; c = 0; next }
+    on && n == 0 && k == e { exit }
+    on { if (n > 0 && c >= n) exit
+         if (ind != "" && index($0, ind) == 1) $0 = substr($0, length(ind) + 1)
+         print; c++ }' "$1"
+}
+
+# _py_precommit_stray_item <cfg> <begin> <end> <n> — the line number of the first `repos:` item in
+# column 0 outside getff's entry (<begin> up to <end>, or <begin> plus n body lines when n > 0);
+# nothing when there is none. Under indented `repos:` items such an item is a YAML error («expected
+# <block end>, but found '-'») wherever getff puts its own entry, and the item is the project's.
+# A line inside a quoted scalar that runs over lines is text, even when it starts `- ` in column 0: q
+# holds the quote still open ("..." with \" inside, '...' with '' inside), and such lines are skipped.
+# A quote opens a scalar only where one can start — at the start of the line or of a `- `/`? ` item,
+# after `: `, `[`, `{` or `,`, past a tag or anchor, or right after a `:` that follows the closing
+# quote of a quoted key (cl; `{"k":"v"}`; after a plain key `k:"v` is text) — never in a comment.
+# The lines under a `|`/`>` block scalar header are skipped when the header ends its line after `:`,
+# `- ` or at the line's start, past any tag or anchor (`entry: !!str |`, `key: &a >-`). Known limits:
+# an unclosed quote after `, ` inside a plain scalar (`name: a, "b`) is read as an open one, and one
+# closed there (`a, "x":'y`) lets the `:` rule open another, so a stray item after it goes unnoticed
+# and the file is updated as before C6-F3; the `:` rule also fires in block context, where `"k":"v`
+# is a YAML error anyway; a header anywhere else (after a `? ` key indicator, say) is not seen, and a
+# quote on its lines can hide a stray item the same way.
+_py_precommit_stray_item() {
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v sq="'" "$_PY_PRECOMMIT_KEY"'
+    function scan(s,   i, ch, p, cl) {
+      cl = -1; for (i = 1; i <= length(s); i++) {
+        ch = substr(s, i, 1)
+        if (q == "\"") { if (ch == "\\") i++; else if (ch == q) { q = ""; cl = i }; continue }
+        if (q == sq) { if (ch == sq) { if (substr(s, i + 1, 1) == sq) i++; else { q = ""; cl = i } }; continue }
+        if (ch == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t]/)) return
+        if (ch != "\"" && ch != sq) continue
+        p = substr(s, 1, i - 1); sub(/^[ \t]*([?-][ \t]+)*/, "", p)
+        if (p ~ /(^|:[ \t]+|[[{,][ \t]*)([!&][^ \t]*[ \t]+)*$/ || (cl == i - 2 && substr(s, i - 1, 1) == ":")) q = ch
+      }
+      t = s; sub(/[ \t]+#.*$/, "", t)
+      if (q == "" && t ~ /(^|[:-])[ \t]*([!&][^ \t]*[ \t]+)*[|>][-+1-9]*[ \t]*$/) { match(s, /^[ \t]*/); bi = RLENGTH; inb = 1 }
+    }
+    !seen && match($0, kre) { seen = 1; next }
+    !seen { next }
+    q != "" { scan($0); next }
+    inb { match($0, /^[ \t]*/); if ($0 !~ /[^ \t]/ || RLENGTH > bi) next; inb = 0 }
+    !ent && k == m { ent = 1; c = 0; next }
+    ent == 1 && n == 0 { if (k == e) ent = 2; next }
+    ent == 1 { if (c < n) { c++; next } ent = 2 }
+    /^(---|\.\.\.)([ \t]|$)/ { exit }
+    /^-([ \t]|$)/ { print NR; exit }
+    /^[^ \t#]/ { exit }
+    { scan($0) }' "$1"
+}
+
+# _py_precommit_noload <line> — the outcome for a file _py_precommit_stray_item found <line> in: nothing
+# is written, the entry is named with that line and why, and _PY_PRECOMMIT_NOLOAD is set to it, so the
+# caller installs no pre-push stage for an entry pre-commit cannot read.
+_py_precommit_noload() {
+  _PY_PRECOMMIT_NOLOAD=$1
+  echo "  ⊝ the getff entry in .pre-commit-config.yaml was not updated — the file does not load as YAML (line $1)"
+  note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: line $1 is a repos: item in column 0 while the file's other repos: items are indented, so the file does not load as YAML and pre-commit cannot read it wherever getff puts its entry; getff does not re-indent the project's own items, so the file is left as it was"
+}
+
+# _py_precommit_reconcile <cfg> <begin> <end> <fragment> — bring an installed getff entry to the
+# current fragment when its body is one getff shipped; keep it, named in the NOT wired summary, when
+# it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
+# The entry is compared at the indent it was written at (_py_precommit_entry_indent) and rewritten at
+# that indent — except an entry in column 0 under indented `repos:` items (written before C3, #1935),
+# which is a YAML error pre-commit cannot load: getff's own is rewritten at the items' indent instead.
+# A `repos:` item of the project's own in column 0 under indented items breaks the file wherever the
+# entry goes: the file is left as it was, named with that line, and _PY_PRECOMMIT_NOLOAD is set to it
+# (_py_precommit_noload) — next to a current entry too, which is otherwise the no-op.
+_py_precommit_reconcile() {
+  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0 ind want stray
+  if awk -v m="$m" -v e="$e" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; next} on && k == e {f = 1; exit} END {exit !f}' "$cfg"; then
+    has_end=1
+  fi
+  ind=$(_py_precommit_entry_indent "$cfg" "$m")
+  want=$ind
+  [ -n "$ind" ] || want=$(_py_precommit_repos_indent "$cfg")
+  if [ "$has_end" = 1 ] && [ "$want" = "$ind" ] && [ "$(_py_precommit_body "$cfg" "$m" "$e" 0 "$ind")" = "$(cat "$src")" ]; then
+    # A current entry is no proof the file loads: C5-F2's --refresh moved getff's entry to the items'
+    # indent and left a consumer item beside it in column 0, and that file ends up here.
+    stray=""
+    [ -z "$want" ] || stray=$(_py_precommit_stray_item "$cfg" "$m" "$e" 0)
+    if [ -n "$stray" ]; then _py_precommit_noload "$stray"; return 0; fi
+    echo "  ⊝ .pre-commit-config.yaml already has the current getff entry — no-op (idempotent)"
+    return 0
+  fi
+  tmp=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX") || return 0
+  # With an end line the body is everything up to it; without one, try each shipped length.
+  if [ "$has_end" = 1 ]; then rows="0"; else rows=$(printf '%s' "$_PY_PRECOMMIT_SHIPPED" | tr ' ' '\n' | sed 's/.*://' | sort -u); fi
+  for n in $rows; do
+    _py_precommit_body "$cfg" "$m" "$e" "$n" "$ind" > "$tmp"
+    body=$(_hash256 "$tmp") || body=""   # no hash tool → nothing matches → the entry is kept, named
+    for row in $_PY_PRECOMMIT_SHIPPED; do
+      sha="${row%%:*}"
+      [ "$body" = "$sha" ] || continue
+      if [ "$has_end" = 0 ] && [ "${row##*:}" != "$n" ]; then continue; fi
+      # No end line: the body is getff's only if the next line does not continue it. The entry starts
+      # at its indent, so a next line indented deeper (an `args:` the consumer added under the hook,
+      # say) is part of the entry — an edit, kept like any other. The next item of the same sequence,
+      # at the entry's own indent, is not.
+      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" -v ind="$ind" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; c = 0; next}
+            on { if (c < n) { c++; next } found = ($0 ~ /[^ \t]/)
+                 if (found) { match($0, /^[ \t]*/); found = (RLENGTH > length(ind)) }; exit }
+            END {exit !found}' "$cfg"; then continue; fi
+      rm -f "$tmp"
+      stray=""
+      [ -z "$want" ] || stray=$(_py_precommit_stray_item "$cfg" "$m" "$e" "$n")
+      if [ -n "$stray" ]; then _py_precommit_noload "$stray"; return 0; fi
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would: update the getff entry in .pre-commit-config.yaml to the current fragment"
+        return 0
+      fi
+      tmp="$cfg.getff.tmp"
+      # A CRLF file stays CRLF: every line written, the kept ones included, gets its CR back. The
+      # fragment goes back at <want>; the end line, like the begin line, in column 0.
+      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" -v ind="$want" '
+          NR == 1 { cr = ($0 ~ /\r$/) ? "\r" : "" }
+          { sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) }
+          !on && k == m { print $0 cr; while ((getline l < src) > 0) print (length(l) ? ind l : l) cr; print e cr; on = 1; c = 0; next }
+          on == 1 && n == 0 { if (k == e) on = 2; next }
+          on == 1 { if (c < n) { c++; next } on = 2 }
+          { print $0 cr }' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"; then   # cat, not mv: keeps a symlink and the mode
+        rm -f "$tmp"
+        echo "  ✓ updated the getff entry in .pre-commit-config.yaml to the current fragment"
+      else
+        rm -f "$tmp" 2>/dev/null || true
+        note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: the rewrite of the file failed, so it is left as it was"
+      fi
+      return 0
+    done
+  done
+  rm -f "$tmp"
+  echo "  ⊝ the getff entry in .pre-commit-config.yaml was edited — kept as it is"
+  note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: its text differs from every entry getff shipped, so it was edited, and getff does not overwrite an edit"
+}
+
+# _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
+# own command, so the getff entry appended above runs. Never over a hook the consumer owns:
+# `pre-commit install` moves an existing pre-push aside (its migration mode), and it refuses to run
+# while core.hooksPath is set — both cases, a non-git project and a missing pre-commit binary are
+# NOT-wired lines instead (Q4.7). A pre-push that pre-commit generated is already the stage.
+# Whenever the stage is not installed, the getff entry — and so the ZCode skill-mirror check it
+# runs — never fires, so that gap gets its own NOT-wired line too (W2-G, #1502).
+_py_precommit_prepush_stage() {
+  local _nw="pre-commit pre-push stage (runs the getff entry in .pre-commit-config.yaml): not installed"
+  local _why=""
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: pre-commit install --hook-type pre-push"
+    return 0
+  fi
+  if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    _why="$PROJECT_ROOT is not a git repository, and getff does not create one"
+  else
+    local _hp _pp
+    _hp=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+    _pp="$(_py_git_hooks_dir)/pre-push"
+    if [ -f "$_pp" ] && grep -q 'generated by pre-commit' "$_pp" 2>/dev/null; then
+      echo "  ⊝ pre-commit pre-push stage already installed"
+    elif [ -n "$_hp" ]; then
+      _why="core.hooksPath=$_hp is set, and pre-commit does not install hooks while it is"
+    elif [ -e "$_pp" ]; then
+      _why="the repository has its own pre-push hook, and getff does not replace a hook it did not write"
+    elif ! command -v pre-commit >/dev/null 2>&1; then
+      _why="pre-commit is not on PATH"
+    elif ( cd "$PROJECT_ROOT" && pre-commit install --hook-type pre-push ) >/dev/null 2>&1; then
+      echo "  ✓ pre-commit pre-push stage installed (the getff entry runs on git push)"
+    else
+      _why="pre-commit exited non-zero installing it"
+    fi
+  fi
+  [ -n "$_why" ] || return 0
+  note_not_wired "$_nw — $_why"
+  _py_mirror_check_not_wired "the pre-commit pre-push stage that runs the getff entry is not installed"
 }
 
 # _py_git_hooks_dir — absolute path of the repository's REAL hook directory.
@@ -1054,17 +1389,16 @@ _py_existing_git_hooks() {
 }
 
 # _py_integrate_legacy_githook — Case 3: consumer has live hook(s) in $GIT_DIR/hooks (no
-# core.hooksPath). A printed notice is the entire integration — we never touch $GIT_DIR/hooks
-# directly, and we do NOT set core.hooksPath, which would make git ignore that whole directory
-# (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
+# core.hooksPath). A printed notice and a NOT-wired line are the entire integration — we never
+# touch $GIT_DIR/hooks directly, and we do NOT set core.hooksPath, which would make git ignore that
+# whole directory (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
 _py_integrate_legacy_githook() {
   local hooks_dir="$1" names="$2" list
   list=$(printf '%s' "$names" | tr '\n' ' ')
   echo "  ⚠ existing git hook(s) in $hooks_dir: ${list% } — NOT setting core.hooksPath (T-S2B-B / augment-first)" >&2
   echo "    core.hooksPath would make git look ONLY in .getff/hooks, silently disabling them." >&2
-  echo "    getff hook body delivered to .getff/hooks/pre-push; to activate, EITHER:" >&2
-  echo "      (a) add this line to $hooks_dir/pre-push:  . \"\$(git rev-parse --show-toplevel)/.getff/hooks/pre-push\"" >&2
-  echo "      (b) move your hooks into .getff/hooks/ and run: git config core.hooksPath .getff/hooks" >&2
+  note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — the repository has its own git hook(s) (${list% }), and core.hooksPath=.getff/hooks would switch them off"
+  _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because getff does not set core.hooksPath over the repository's own hooks in $hooks_dir"
 }
 
 # ── Python-lane RULES.md (A2-5) ──────────────────────────────────────────────────────────────────
@@ -1082,7 +1416,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:758 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:762-763 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1101,7 +1435,7 @@ _py_render_rules_md() {
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip: $dst (exists)"
     else
-      echo "  ⊝ $dst (exists — skipping; use --force to overwrite)"
+      echo "  ⊝ $dst (exists — skipping)"
     fi
     return 0
   fi
@@ -1202,7 +1536,7 @@ $msgs"
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:350-360  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
+#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + its three arms via register_imr_hooks)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1247,9 +1581,11 @@ _py_deliver_agent_surface() {
                               "$PROJECT_ROOT/.claude/agents/${_py_agent}.md"
   done
 
-  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit) ─
-  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 340-350 (inject-matching-rule).
-  # Both wired into .claude/settings.json via register_cc_hook — the canonical helper. The inline
+  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (three arms, register_imr_hooks) ─
+  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 318-328 (inject-matching-rule).
+  # deps-hash-check is wired into .claude/settings.json by register_cc_hook, the canonical helper;
+  # inject-matching-rule by register_imr_hooks (setup.d/lib.sh), which widens an older PostToolUse
+  # matcher and then calls register_cc_hook once per arm (#1957). The inline
   # settings-creation block in 10-skills.sh:211-236 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks"
@@ -1267,17 +1603,27 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:350-358 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-326 (kickoff §2 item 1 binding).
   local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
     _py_copy_or_refresh "$_py_imr_src" "$_py_imr_dst"   # A2-4: refresh-aware
     chmod_safe +x "$_py_imr_dst" 2>/dev/null || true
     if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
+      echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
     else
-      register_cc_hook "$_py_settings" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+      register_imr_hooks "$_py_settings"
     fi
+  fi
+
+  # lib/hook-live.sh — the liveness lib inject-matching-rule's prelude sources (spec 2026-09-28
+  # D12), delivered as setup.d/10-skills.sh §1i′ does on the npm lanes. Without it the hook runs
+  # unchanged, but its source-hash closure never matches the plugin manifest, so getff's plugin
+  # copy runs too and the rule is injected twice. Refresh-aware like the hooks above.
+  local _py_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
+  if [ -f "$_py_hl_src" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    _py_copy_or_refresh "$_py_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
   fi
 
   # ── .mcp.json (context7 only) ────────────────────────────────────────────────
@@ -1290,7 +1636,7 @@ _py_deliver_agent_surface() {
     _py_mcp_skip=1
   fi
   if [ "$_py_mcp_skip" = "1" ]; then
-    echo "  ⊝ context7 already in .mcp.json — skipping (use --force to refresh)"
+    echo "  ⊝ context7 already in .mcp.json — kept as it is"
   elif [ -n "${DRY_RUN:-}" ]; then
     echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
   elif command -v jq >/dev/null 2>&1; then
@@ -1342,7 +1688,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1391). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1441). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
@@ -1377,8 +1723,8 @@ _py_deliver_agent_surface() {
           && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
-        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1404).
-        _py_copy_or_refresh "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
+        # A2-4: refresh-aware — the co-owned verb of 20-agents.sh + do_refresh (fenced block only).
+        install_skill_context "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done
 
@@ -1388,6 +1734,20 @@ _py_deliver_agent_surface() {
   _py_deliver_local_hook_rung
 
   echo "  ✓ Agent surface delivery complete"
+}
+
+# _py_mirror_check_not_wired <why> — the one wording for «scripts/check-zcode-mirror.sh is delivered,
+# but no active hook runs it» (W2-G, #1502). Recorded on every path where getff's pre-push is NOT
+# active at the end of the install: the non-git tree, Case 1 (the project's own core.hooksPath),
+# Case 3 (live hooks in $GIT_DIR/hooks), Case 2 when its getff entry could not be added to
+# .pre-commit-config.yaml, and Case 2 when its pre-commit pre-push stage is not installed, each next
+# to that path's own pre-push or entry line. An installed Case 2 stage records nothing:
+# the pre-commit fragment runs the same hook body at the pre-commit framework's pre-push stage. Q4.7: it names the check and why it does not run — never a command to run. It goes
+# through note_not_wired, so the lane's own NOT-wired summary (print_not_wired, which do_python_lane
+# calls before it exits) prints it with the rest. Defined ABOVE the test seam, so a
+# PY_LAYER_LIB_ONLY=1 caller of deliver_python_toolchain reaches it too.
+_py_mirror_check_not_wired() {
+  note_not_wired "ZCode skill-mirror check (scripts/check-zcode-mirror.sh, delivered): no hook runs it — $1"
 }
 
 # ── Test seam: define the functions above but skip the auto-delivery (tests drive per-fixture) ──

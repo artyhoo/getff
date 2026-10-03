@@ -1,189 +1,189 @@
 # AI documentation organization — hot/cold split, drift detection, AGENTS.md
 
-> AGENTS.md загружается в каждую сессию и съедает токены. Что попадает туда — должно зарабатывать каждую строку.
+> AGENTS.md is loaded into every session and eats tokens. Whatever goes in there has to earn every line.
 
-Этот документ — про организацию AI-документации в проекте. Что класть в `AGENTS.md` (или `CLAUDE.md`), что — в `.claude/skills/`, что — в `.claude/rules/`. Как избежать drift'а. Применяется поверх AGENTS.md-стандарта (Linux Foundation, 60k+ projects).
+This document is about organizing AI documentation in a project: what goes into `AGENTS.md` (or `CLAUDE.md`), what into `.claude/skills/`, what into `.claude/rules/`, and how to avoid drift. It applies on top of the AGENTS.md standard (Linux Foundation, 60k+ projects).
 
 > **Authoritative for:** AI-doc organization conventions — hot/cold split between AGENTS.md / CLAUDE.md / .claude/skills/ / .claude/rules/; drift-detection guidance for AI docs; token-economy heuristics for what earns its line in always-loaded files.
 > **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Doc-authority hierarchy (Authoritative-for header convention used in framework's own repo) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/doc-authority-hierarchy.md).
 
 ---
 
-## Слои AI-стека и когда что грузится
+## Layers of the AI stack and when each loads
 
 ```text
 <project>/
-├── AGENTS.md                       ← главная инструкция (hot, ≤150 строк)
-├── CLAUDE.md                       ← @import AGENTS.md (или прямой)
-├── .mcp.json                       ← MCP серверы (≈6k токенов системного промпта на сервер)
+├── AGENTS.md                       ← main instructions (hot, ≤150 lines)
+├── CLAUDE.md                       ← @import AGENTS.md (or direct)
+├── .mcp.json                       ← MCP servers (≈6k system-prompt tokens per server)
 └── .claude/
     ├── settings.json               ← project permissions + deny
     ├── skills/<name>/SKILL.md      ← on-demand (trigger-activated)
     ├── rules/<name>.md             ← file-scoped (paths: frontmatter)
     └── orchestrator-prompts/
 
-~/.claude/                          ← global (все проекты)
+~/.claude/                          ← global (all projects)
 ├── CLAUDE.md, settings.json, rules/, skills/
 ```
 
-| Слой                                              | Когда грузится           | Tokens               |
-| ------------------------------------------------- | ------------------------ | -------------------- |
-| `~/.claude/CLAUDE.md` + global rules без `paths:` | Всегда                   | ~250-1500 каждый     |
-| `AGENTS.md` (project)                             | Всегда                   | ~30 tokens на строку |
-| `.claude/rules/*.md` с `paths:`                   | При matching файле       | 0 если неактивен     |
-| `.claude/skills/*/SKILL.md`                       | При срабатывании trigger | 0 если неактивен     |
+| Layer                                                 | When it loads        | Tokens              |
+| ----------------------------------------------------- | -------------------- | ------------------- |
+| `~/.claude/CLAUDE.md` + global rules without `paths:` | Always               | ~250-1500 each      |
+| `AGENTS.md` (project)                                 | Always               | ~30 tokens per line |
+| `.claude/rules/*.md` with `paths:`                    | On a matching file   | 0 when inactive     |
+| `.claude/skills/*/SKILL.md`                           | When a trigger fires | 0 when inactive     |
 
-**Базовая стоимость сессии:** 4000-7000 токенов до того, как пользователь напишет первое сообщение.
+**Baseline session cost:** 4000-7000 tokens before the user writes the first message.
 
 ---
 
-## Hot/cold split — что куда
+## Hot/cold split — what goes where
 
-**Hot (в AGENTS.md):**
+**Hot (in AGENTS.md):**
 
-- Одна строка на правило (не примеры).
-- Ссылки на skill/rule с конкретными именами.
-- Контекст проекта (stack, key constraints).
-- NDA / security правила (всегда).
-- Source-of-truth указатели («БД схема в `prisma/schema.prisma`, API контракт в `openapi/`»).
+- One line per rule (no examples).
+- Links to skills/rules by their concrete names.
+- Project context (stack, key constraints).
+- NDA / security rules (always).
+- Source-of-truth pointers («DB schema in `prisma/schema.prisma`, API contract in `openapi/`»).
 
-**Cold (в skills/rules):**
+**Cold (in skills/rules):**
 
-- Примеры кода.
-- Антипаттерны с объяснениями.
+- Code examples.
+- Anti-patterns with explanations.
 - Edge cases.
-- Историческая справка («раньше делали так, теперь — так, потому что ADR-0023»).
+- Historical notes («we used to do it this way, now we do it that way, because of ADR-0023»).
 - Step-by-step recipes.
 
-### Процесс выноса cold из AGENTS.md
+### Moving cold content out of AGENTS.md
 
-1. **Найти секции >20 строк** — кандидаты на вынос.
-2. **Universal (нужно всегда)** → AGENTS.md (кратко, 1-2 строки).
-3. **On-demand** → skill с `triggers:`.
-4. **File-specific** → rule с `paths:`.
-5. **После выноса:** `grep -n "skill\|rule" AGENTS.md` — проверить ссылки.
+1. **Find sections >20 lines** — candidates to move out.
+2. **Universal (always needed)** → AGENTS.md (briefly, 1-2 lines).
+3. **On-demand** → a skill with `triggers:`.
+4. **File-specific** → a rule with `paths:`.
+5. **After moving:** `grep -n "skill\|rule" AGENTS.md` — check the links.
 
-### Что НЕ выносить
+### What NOT to move out
 
-- «НЕ делать» список (видим всегда).
-- Репозитории, remote URLs.
-- NDA правила.
-- Security-critical правила (`requireUser()`, `getClaims()`, `verifyImageMagicBytes()`).
-- Правила, которые **должны** загружаться в каждой сессии независимо от файла.
+- The «do NOT do» list (always visible).
+- Repositories, remote URLs.
+- NDA rules.
+- Security-critical rules (`requireUser()`, `getClaims()`, `verifyImageMagicBytes()`).
+- Rules that **must** load in every session regardless of the file.
 
 ---
 
-## Когда skill, когда rule
+## When a skill, when a rule
 
-|                     | Skill                                                          | Rule                                                    |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
-| **Активация**       | Trigger keywords из запроса пользователя                       | Автоматически, при работе с файлом из `paths:` glob     |
-| **Длина**           | ≤300 строк (>300 — split)                                      | ≤80 строк (исключение — узко-scoped, `src/proxy.ts`)    |
-| **Когда применять** | Паттерн в ≥2 сценариях, ≥30 строк, не нужен в каждом сообщении | Применяется к конкретным файлам, грузится автоматически |
-| **Frontmatter**     | `triggers: kw1, kw2, ...` (5-8 RU+EN)                          | `paths: [...]`                                          |
+|                 | Skill                                                             | Rule                                                     |
+| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| **Activation**  | Trigger keywords from the user's request                          | Automatic, when working on a file from the `paths:` glob |
+| **Length**      | ≤300 lines (>300 — split)                                         | ≤80 lines (exception — narrowly scoped, `src/proxy.ts`)  |
+| **When to use** | A pattern in ≥2 scenarios, ≥30 lines, not needed in every message | Applies to specific files, loads automatically           |
+| **Frontmatter** | `triggers: kw1, kw2, ...` (5-8 RU+EN)                             | `paths: [...]`                                           |
 
 ### Skill template
 
 ```markdown
 ---
 name: <kebab-case>
-description: Use when <конкретный сценарий> — <что содержит>.
+description: Use when <concrete scenario> — <what it contains>.
 triggers: keyword1, keyword2, ключевое слово, ...
 ---
 
-# <Название>
+# <Title>
 
-## 1. Главное правило / quick reference
+## 1. Main rule / quick reference
 
-<что агент должен знать в 90% случаев — первым>
+<what the agent needs to know in 90% of cases — first>
 
-## 2. Паттерны
+## 2. Patterns
 
-### 2.1 <Паттерн>
+### 2.1 <Pattern>
 
-<код + объяснение>
+<code + explanation>
 
-## 3. Антипаттерны
+## 3. Anti-patterns
 
-- ❌ <что нельзя>
+- ❌ <what not to do>
 
-## 4. Примеры из проекта
+## 4. Examples from the project
 
 <src/lib/..., src/app/actions/...>
 
-## Связанные
+## Related
 
-- skill `<другой>` / rule `.claude/rules/<name>.md`
+- skill `<other>` / rule `.claude/rules/<name>.md`
 ```
 
-**Правила оформления skill:**
+**Skill formatting rules:**
 
-- `description:` начинается с **«Use when»** (harness ключевая фраза для активации).
-- `triggers:` — ≥5 ключевых слов, RU+EN, покрывают вариативность запроса (не только техжаргон).
-- ≤300 строк (если больше → split по use case или layer).
-- Ссылки на реальные файлы проекта, не выдуманные.
+- `description:` starts with **«Use when»** (the harness key phrase for activation).
+- `triggers:` — ≥5 keywords, RU+EN, covering the variety of requests (not only tech jargon).
+- ≤300 lines (if more → split by use case or layer).
+- Links to real project files, not invented ones.
 
 ### Rule template
 
 ```markdown
 ---
-description: <одна строка>
+description: <one line>
 paths:
   - src/app/actions/**/*.ts
 ---
 
-# <Название>
+# <Title>
 
-## Обязательно
+## Required
 
-1. <правило>
+1. <rule>
 
-## Запрещено
+## Forbidden
 
-- ❌ <что нельзя>
+- ❌ <what not to do>
 
-## Паттерн
+## Pattern
 
 \`\`\`typescript
-// Правильно vs неправильно
+// Right vs wrong
 \`\`\`
 
-## Связанные
+## Related
 
 - skill `<name>`
 ```
 
-**Правила оформления rule:**
+**Rule formatting rules:**
 
-- `paths:` формат — **block sequence YAML** (как выше). НЕ inline `paths: ['...']` — для consistency и читаемости в diff.
-- Глоб не пустой: `find . -path "<paths-glob>" | head -5` — ожидаем ≥1 матч.
-- ≤80 строк (исключение — узко-scoped rule, например только `src/proxy.ts`).
-- Нет копипасты AGENTS.md — ссылки на skill/rule, не копии.
+- `paths:` format — **block sequence YAML** (as above). NOT inline `paths: ['...']` — for consistency and readability in diffs.
+- The glob is not empty: `find . -path "<paths-glob>" | head -5` — expect ≥1 match.
+- ≤80 lines (exception — a narrowly scoped rule, for example only `src/proxy.ts`).
+- No copy-paste of AGENTS.md — links to skills/rules, not copies.
 
 ---
 
-## Когда НЕ обновлять AGENTS.md таблицу skills
+## When NOT to update the AGENTS.md skills table
 
-Если стратегия проекта — **slim AGENTS.md** (≤150 строк), и skill триггерится надёжно по `description:` — **не каждый skill идёт в таблицу**. Только те, которые:
+If the project's strategy is a **slim AGENTS.md** (≤150 lines) and a skill triggers reliably on `description:`, **not every skill goes into the table**. Only those that:
 
-- Агент должен **знать о наличии** (даже если не активирует прямо сейчас, а ссылается на «есть skill X для этого»).
-- **Часто упоминаются** в других skills/rules как ссылка.
+- The agent must **know exist** (even when it is not activating one right now but refers to «there is skill X for this»).
+- Are **often referenced** from other skills/rules.
 
-Иначе: skill живёт в `.claude/skills/`, harness активирует через `description:`, AGENTS.md остаётся slim.
+Otherwise the skill lives in `.claude/skills/`, the harness activates it via `description:`, and AGENTS.md stays slim.
 
-Это снижает токен-нагрузку и повышает фокус AI: вместо «вот 30 skills, выбери», получает «вот 5-7 ключевых, остальные — по триггеру».
+This lowers the token load and sharpens the AI's focus: instead of «here are 30 skills, pick one» it gets «here are the 5-7 key ones, the rest load on trigger».
 
 ---
 
 ## Drift detection
 
-**Drift** = AGENTS.md / orchestrator / settings ссылается на файл, которого нет (или который устарел).
+**Drift** = AGENTS.md / an orchestrator / settings refers to a file that does not exist (or is out of date).
 
 ### Standard checks
 
 ```bash
-# Skills задекларированы vs существуют (фильтр template-маркеров)
-# Используем awk вместо grep -oP — портируется на BSD grep (macOS).
+# Skills declared vs existing (template markers filtered out)
+# awk instead of grep -oP — portable to BSD grep (macOS).
 awk 'match($0, /skill `[^`]+`/) { print substr($0, RSTART+7, RLENGTH-8) }' AGENTS.md \
   | grep -v '^<' | sort -u | while read s; do
     [ -d ".claude/skills/$s" ] || echo "MISSING: $s"
@@ -196,36 +196,36 @@ awk 'match($0, /\.claude\/rules\/[^[:space:]`)]+/) {
   [ -f ".claude/rules/$r" ] || echo "MISSING rule: $r"
 done
 
-# Dead-end Edit-permissions в settings
+# Dead-end Edit permissions in settings
 grep "\.claude/skills" ~/.claude/settings.json | grep -v "#"
 
-# TODO в JSON конфигах
+# TODOs in JSON configs
 grep "_comment\|TODO" .mcp.json .claude/settings.json
 ```
 
-**Фильтр `grep -v '<name\|<glob'`** — убирает false positives из template-блоков (README шаблоны с `<name>`, `<glob1>` и т.д.).
+**The `grep -v '<name\|<glob'` filter** removes false positives from template blocks (README templates with `<name>`, `<glob1>` and so on).
 
 ### Trigger overlap detection
 
-Когда два skill реагируют на одно и то же ключевое слово, AI грузит **оба** — двойная стоимость токенов и confusion в выборе.
+When two skills react to the same keyword, the AI loads **both** — double the token cost and confusion over which to pick.
 
 ```bash
-# Все triggers, выделить дубли
+# All triggers, duplicates highlighted
 for f in .claude/skills/*/SKILL.md; do
   name=$(basename $(dirname "$f"))
   grep "^triggers:" "$f" | sed "s/triggers: //; s/, /\n/g" | sed "s/^/$name: /"
 done | sort -k2 -t: | awk -F': ' '{print $2 "\t" $1}' | sort | uniq -c -f0 | awk '$1>1'
 ```
 
-Конфликтующий trigger → решить, какой skill «owner»: убрать из остальных, заменить более специфичным.
+A conflicting trigger → decide which skill «owns» it: remove it from the others, replace it with a more specific one.
 
-### `paths:` формат consistency
+### `paths:` format consistency
 
 ```bash
-# Найти inline array (не consistent со школой)
+# Find inline arrays (inconsistent with the convention)
 grep -rn "^paths: \[" .claude/rules/
 
-# Должно быть пусто. Если найдено — переделать на block sequence:
+# Should be empty. If anything is found, convert it to a block sequence:
 #   paths:
 #     - <glob>
 ```
@@ -233,38 +233,38 @@ grep -rn "^paths: \[" .claude/rules/
 ### Stale orchestrator-prompts
 
 ```bash
-# Файлы старше 14 дней не в archive/
+# Files older than 14 days that are not in archive/
 find .claude/orchestrator-prompts -maxdepth 2 -mtime +14 \
   -not -path "*/archive/*" -name "*.md"
-# → проверить глazами + переместить завершённые в archive/
+# → review by eye + move finished ones to archive/
 ```
 
-Порог 14 дней — настраивайте под цикл проекта.
+The 14-day threshold — tune it to the project's cycle.
 
 ---
 
 ## Token economy
 
-**Сигналы перегрузки** (видны в реальной работе с агентом):
+**Overload signals** (visible in real work with the agent):
 
-- Агент **переспрашивает банальное** (забывает AGENTS.md правила).
-- **Игнорирует skills**, полагается на тренировочные знания.
-- Ответы стали **короче / поверхностнее** при тех же запросах.
-- Агент **пропускает шаги** в установленных workflow.
+- The agent **re-asks trivial things** (forgets the AGENTS.md rules).
+- It **ignores skills** and relies on training knowledge.
+- Answers get **shorter / shallower** for the same requests.
+- The agent **skips steps** in established workflows.
 
-**Action:** AGENTS.md ≤150 строк, global rules — только с `paths:` или universal. Перенести cold-content в skills/rules с `triggers:`.
+**Action:** AGENTS.md ≤150 lines, global rules only with `paths:` or universal. Move cold content into skills/rules with `triggers:`.
 
-### Метрики здоровой инфраструктуры
+### Healthy-infrastructure metrics
 
-| Метрика                             | Target            | Alarm |
-| ----------------------------------- | ----------------- | ----- |
-| AGENTS.md строк                     | ≤150              | >300  |
-| Drift (skills задекл./существ.)     | 0%                | >20%  |
-| Auto-loaded tokens                  | <5000             | >8000 |
-| Rules без `paths:` (global)         | 0 (или universal) | >2    |
-| Trigger overlaps                    | 0                 | >3    |
-| Dead-end permissions                | 0                 | >5    |
-| Orchestrator-prompts (вне archive/) | ≤5                | >15   |
+| Metric                                  | Target           | Alarm |
+| --------------------------------------- | ---------------- | ----- |
+| AGENTS.md lines                         | ≤150             | >300  |
+| Drift (skills declared/existing)        | 0%               | >20%  |
+| Auto-loaded tokens                      | <5000            | >8000 |
+| Rules without `paths:` (global)         | 0 (or universal) | >2    |
+| Trigger overlaps                        | 0                | >3    |
+| Dead-end permissions                    | 0                | >5    |
+| Orchestrator-prompts (outside archive/) | ≤5               | >15   |
 
 ---
 
@@ -276,14 +276,14 @@ find .claude/orchestrator-prompts -maxdepth 2 -mtime +14 \
 }
 ```
 
-- Только активно используемые (каждый ≈6k токенов системного промпта).
-- Нет `_comment_*` или `TODO`.
-- Нет «на всякий случай».
+- Only the ones actively used (each is ≈6k system-prompt tokens).
+- No `_comment_*` or `TODO`.
+- Nothing «just in case».
 
 ```bash
-# Проверка использования
+# Usage check
 grep -rn "mcp__<name>" .claude/orchestrator-prompts/ | grep -v archive | wc -l
-# 0 → удалить
+# 0 → remove
 ```
 
 ---
@@ -312,50 +312,50 @@ grep -rn "mcp__<name>" .claude/orchestrator-prompts/ | grep -v archive | wc -l
 }
 ```
 
-**Project-specific deny** (NDA, prod deploy, prod БД) — в **оба места** (global + project), defense in depth.
+**Project-specific deny** (NDA, prod deploy, prod DB) — in **both places** (global + project), defense in depth.
 
-| Тип                              | Где                             |
+| Type                             | Where                           |
 | -------------------------------- | ------------------------------- |
 | `npm run`, `git`, `gh` — generic | Global                          |
 | Project-specific scripts         | Project                         |
-| Critical-deny                    | Оба                             |
-| MCP servers                      | Project (только из `.mcp.json`) |
+| Critical deny                    | Both                            |
+| MCP servers                      | Project (only from `.mcp.json`) |
 
 ---
 
-## Lessons learned (из реальной практики)
+## Lessons learned (from real practice)
 
-### 1. Dual-remote проекты — `.claude/` в `.gitignore` work-репо
+### 1. Dual-remote projects — `.claude/` in the work repo's `.gitignore`
 
-При `git checkout` на ветку от work-репо файлы из `.claude/` могут исчезнуть. Симптом: `AGENTS.md` упоминает skill X, а `.claude/skills/X/` пуст. На самом деле — потеря через `.gitignore`, а не реальный drift.
+On `git checkout` of a branch from the work repo, files under `.claude/` can disappear. Symptom: `AGENTS.md` mentions skill X, but `.claude/skills/X/` is empty. In fact it is a loss through `.gitignore`, not real drift.
 
 ```bash
-# Проверить ВСЕ ветки
+# Check ALL branches
 git log --all --oneline -- '.claude/skills/' | head -5
 git ls-tree -r develop --name-only | grep '^\.claude/'
 
-# Восстановление
+# Recovery
 git show develop:.claude/skills/<name>/SKILL.md > .claude/skills/<name>/SKILL.md
 ```
 
-**Урок:** при подозрении на drift в dual-remote — **первым делом** `git log --all`, не сразу пересоздавать.
+**Lesson:** when you suspect drift in a dual-remote setup, run `git log --all` **first**; do not recreate right away.
 
-### 2. Skills декларируются заранее, создаются никогда
+### 2. Skills declared in advance, never created
 
-`AGENTS.md` ссылается на skill X «который сделаем», месяц спустя X нет. Рассчитываем на поведение, которого у AI нет.
+`AGENTS.md` refers to skill X «that we will make»; a month later X does not exist. We are counting on behaviour the AI does not have.
 
-**Урок:** не упоминать skill в AGENTS.md, пока файл не закоммичен. drift-чекер должен это ловить — `MISSING: <name>` в выводе.
+**Lesson:** do not mention a skill in AGENTS.md until its file is committed. The drift checker should catch this — `MISSING: <name>` in its output.
 
-### 3. TODO в JSON выживают всё
+### 3. TODOs in JSON survive everything
 
-`_comment_TODO` в `.mcp.json` пережил 30+ коммитов — JSON-комменты невидимы в diff (или почти невидимы), и никто на них не обращает внимания.
+A `_comment_TODO` in `.mcp.json` survived 30+ commits — JSON comments are invisible in a diff (or nearly so), and nobody pays attention to them.
 
-**Урок:** TODO → задача в трекере. Не в JSON. Drift-чекер должен искать `_comment` / `TODO` в `.mcp.json`, `.claude/settings.json`, `.ai-factory/*.json`.
+**Lesson:** a TODO → a task in the tracker. Not in JSON. The drift checker should look for `_comment` / `TODO` in `.mcp.json`, `.claude/settings.json`, `.ai-factory/*.json`.
 
 ---
 
-## Связано
+## Related
 
-- `references/self-testing-docs.md` — code-vs-docs probes как extension этой рамки на runtime-проверки.
-- `references/checks-map.md` — где этот аудит живёт в общей карте уровней (уровень 5 — CI on PR).
-- `agents/living-docs-auditor.md` — sub-agent, который прогоняет drift-проверки. Вызывается напрямую; под внешним AI Factory он же подключается к `/aif-verify`.
+- `references/self-testing-docs.md` — code-vs-docs probes as an extension of this framework to runtime checks.
+- `references/checks-map.md` — where this audit lives on the overall map of levels (level 5 — CI on PR).
+- `agents/living-docs-auditor.md` — the sub-agent that runs the drift checks. Called directly; under an external AI Factory it is also wired into `/aif-verify`.

@@ -1,9 +1,9 @@
-# getff pre-push entry — append into your .pre-commit-config.yaml to run the getff python
-# pre-push rung via the pre-commit framework's pre-push stage.
+# getff pre-push entry — runs the getff python pre-push rung through the pre-commit framework's
+# pre-push stage, which the installer installs with pre-commit's own command.
 #
-# Delivered by setup.d/45-python.sh; the script body lives at .getff/hooks/pre-push. REMOVE
-# this entry (or run with `SKIP=getff-python-pre-push ...`) to disable. After appending, run
-# `pre-commit install --hook-type pre-push` to register the pre-push stage with git.
+# Delivered by setup.d/45-python.sh, which keeps this entry current on --refresh while it is
+# unedited (an edited entry is kept as it is); the script body lives at .getff/hooks/pre-push.
+# Remove this entry (or run with `SKIP=getff-python-pre-push ...`) to disable it.
 - repo: local
   hooks:
     - id: getff-python-pre-push

@@ -394,6 +394,93 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
 
 const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
+// ── (j) source-hash manifest — the ground truth of the consumer yield (spec 2026-09-28 D8/D10/D11) ──
+// plugin/hooks/run-hook.cmd silences a plugin hook in a consumer only when the installed copy hashes
+// to plugin/hooks/lib/source-sha256.txt. A stale line would let an OLDER installed copy silence a
+// newer plugin copy; a missing entry silently keeps the duplicate; a diverged packages/core/hooks
+// copy means the installer delivers bytes the manifest does not describe.
+//
+// D5 ruling (supersedes an earlier draft of this check): on the plugin channel the
+// `[output-language]` line has ONE owner, plugin/hooks/inject-output-language. Any other plugin
+// hook may carry the literal text only behind the `AIF_HOOK_CHANNEL` runtime guard, with a
+// `plugin:*)` arm whose body is `:` (no emission). The bootstrap twin that first needed the guard
+// stopped shipping with the SessionStart move (#1925); the check now sweeps every plugin hook, so
+// a future twin cannot bring the second line back. The companion half is plugin/hooks/run-hook.cmd,
+// which must export `AIF_HOOK_CHANNEL=plugin` so such a guard, and the D12 prelude's
+// never-mark-the-twin rule (.claude/hooks/lib/hook-live.sh), actually fire on the plugin channel.
+const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
+
+// Positional, not presence-only: every code line (comments dropped) that carries
+// `[output-language]` must sit between a `case "${AIF_HOOK_CHANNEL:-}…" in` opener and its
+// `esac`, and that block must hold the silent `plugin:*) : ;;` arm. Guard text that exists only
+// in a comment, or an extra unconditional echo outside the block, is RED. The silent arm must
+// also come BEFORE any emitting line, because case takes the first matching arm. The runtime
+// CR3 arm in tests/plugin/run-hook.test.sh still owns the one-line count end to end.
+export function bootstrapLanguageLineGuarded(src: string): boolean {
+  const lines = src.split('\n').map((l) => l.replace(/^\s*#.*$/, ''));
+  let open = -1;
+  let guardedBlock = false;
+  for (const line of lines) {
+    if (open < 0 && /^\s*case\s+"\$\{AIF_HOOK_CHANNEL:-\}[^"]*"\s+in\b/.test(line)) {
+      open = 1;
+      guardedBlock = false;
+      continue;
+    }
+    if (open > 0) {
+      if (/^\s*case\b/.test(line)) open++;
+      if (/^\s*esac\b/.test(line) && --open === 0) {
+        open = -1;
+        continue;
+      }
+      if (/^\s*plugin:\*\)\s*:\s*;;/.test(line)) guardedBlock = true;
+      if (line.includes('[output-language]') && !guardedBlock) return false;
+      continue;
+    }
+    if (line.includes('[output-language]')) return false;
+  }
+  return true;
+}
+
+export function sourceHashManifestViolations(root: string): string[] {
+  const out: string[] = [];
+  const rel = 'plugin/hooks/lib/source-sha256.txt';
+  const read = (p: string) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : '');
+  let want = '';
+  try {
+    want = execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    out.push(`${rel}: the writer failed — ${String((e as { stderr?: string }).stderr ?? e).trim()}`);
+  }
+  const have = read(rel);
+  if (want && want !== have) out.push(`${rel} is stale — run: bash scripts/generate-plugin-twins.sh`);
+  const hookDir = join(root, 'plugin/hooks');
+  for (const n of existsSync(hookDir) ? readdirSync(hookDir, { withFileTypes: true }) : []) {
+    if (!n.isFile() || ['inject-output-language', 'run-hook.cmd', 'hooks.json'].includes(n.name)) continue;
+    if (!bootstrapLanguageLineGuarded(read(`plugin/hooks/${n.name}`)))
+      out.push(`plugin/hooks/${n.name} emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone`);
+  }
+  if (!read('plugin/hooks/inject-output-language').includes('[output-language]'))
+    out.push('plugin/hooks/inject-output-language no longer emits [output-language] — the line would reach nobody');
+  if (!read('plugin/hooks/run-hook.cmd').includes('AIF_HOOK_CHANNEL=plugin'))
+    out.push('plugin/hooks/run-hook.cmd no longer exports AIF_HOOK_CHANNEL=plugin — the channel guard above cannot fire');
+  const twinDir = join(root, 'plugin/hooks');
+  const twins = existsSync(twinDir) ? readdirSync(twinDir) : [];
+  for (const n of twins) {
+    const a = read(`.claude/hooks/${n}.sh`);
+    const b = read(`packages/core/hooks/${n}.sh`);
+    if (a && b && a !== b)
+      out.push(`packages/core/hooks/${n}.sh differs from .claude/hooks/${n}.sh — the installer delivers bytes the manifest does not describe`);
+  }
+  const installer = ['setup.d/10-skills.sh', 'setup.d/45-python.sh', 'install.sh'].map(read).join('\n');
+  const delivered = new Set([...installer.matchAll(/\.claude\/hooks\/([a-z0-9-]+)\.sh/g)].map((m) => m[1]));
+  for (const n of delivered) {
+    if (!twins.includes(n)) continue;
+    if (!have.split('\n').some((l) => l.endsWith(`  ${n}.sh`)))
+      out.push(`${n}: the installer delivers it and the plugin twins it, but ${rel} has no entry — declare the files it reads on # @plugin-yield-deps`);
+  }
+  return out;
+}
+
 
 // ── (i) version-bump gate — a payload change ships under a NEW version ────────────────────────
 // Claude Code caches an installed plugin under `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`
@@ -578,15 +665,17 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     // Same @dual-pair anchor (the §5 dual-implementation contract).
     expect(plugin).toMatch(/@dual-pair: rule-path-scoping/);
     expect(source).toMatch(/@dual-pair: rule-path-scoping/);
-    // The ONLY legitimate divergence is the relocation (header + the project-dir resolution,
-    // which lives ABOVE glob_match). From `glob_match()` to EOF — the matcher + injection core —
-    // the two MUST be byte-identical, so a regression inside that logic is caught (not just a
-    // string-presence check). S6 cold-review hardening.
+    // The ONLY legitimate divergence is the relocation (header, the liveness prelude, and the
+    // project-dir + card-dir resolution, which all live ABOVE the jq guard). From the jq guard to
+    // EOF — the arm dispatch, the once-cache, the glob translation and the injection core — the
+    // two MUST be byte-identical, so a regression inside that logic is caught (not just a
+    // string-presence check). S6 cold-review hardening; the anchor moved from `glob_match()` to
+    // the jq guard when trigger build slice 1 put the arm dispatch above the matcher.
     const coreOf = (s: string): string => {
-      const i = s.indexOf('glob_match()');
+      const i = s.indexOf('\ncommand -v jq >/dev/null');
       return i === -1 ? '' : s.slice(i);
     };
-    expect(coreOf(plugin), 'plugin hook must contain the glob_match core').not.toBe('');
+    expect(coreOf(plugin), 'plugin hook must contain the core from the jq guard on').not.toBe('');
     expect(coreOf(plugin), 'plugin/hooks/inject-matching-rule core logic drifted from .claude/hooks/inject-matching-rule.sh').toBe(coreOf(source));
   });
 
@@ -1015,5 +1104,83 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
   it('(f) self-application: the integrity check is a pure function, exercised both green and red', () => {
     // checkPluginIntegrity is exported + run on the real tree (a) AND the broken fixture (b).
     expect(typeof checkPluginIntegrity).toBe('function');
+  });
+
+  // ── (j) source-hash manifest (spec 2026-09-28 D8/D10/D11, D5 ruling) ─────────
+  it('(j) real-tree: the source-hash manifest is fresh and complete, and the language line has one owner', () => {
+    expect(sourceHashManifestViolations(REPO_ROOT)).toEqual([]);
+  });
+
+  it('(j) paired-negative: each way the manifest can lie is RED', () => {
+    const root = mkdtempSync(join(tmpdir(), 'p24j-'));
+    const w = (p: string, s: string) => {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), s);
+    };
+    const pin = () => w('plugin/hooks/lib/source-sha256.txt', execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8' }));
+    try {
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      w('plugin/hooks/a', '#!/usr/bin/env bash\n# AUTO-GENERATED from .claude/hooks/a.sh\necho a\n');
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      // Green baseline for the D5 pair: the bootstrap twin carries the literal text ONLY behind
+      // the AIF_HOOK_CHANNEL guard, and run-hook.cmd exports the channel that guard reads.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      w('setup.d/10-skills.sh', `register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/a.sh"' "a"\n`);
+      pin();
+      expect(sourceHashManifestViolations(root)).toEqual([]);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho CHANGED\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/is stale/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n. "$(dirname "$0")/x.sh"\n');
+      pin();
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/a: the installer delivers it .* no entry/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n# @plugin-yield-deps: gone.sh\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/writer failed/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      pin();
+      // D5 ruling: an unguarded [output-language] line in the bootstrap twin is RED.
+      w('plugin/hooks/inject-session-bootstrap', 'echo "[output-language] x"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits \[output-language\] on the plugin channel/);
+      // Presence is not enough (task-4 review): guard text only in a comment is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        '# case "${AIF_HOOK_CHANNEL:-}:x" in\n#  plugin:*) : ;;\necho "[output-language] x"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... a real guard plus one stray unconditional echo outside it is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\necho "[output-language] y"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... and an emitting arm placed BEFORE the silent plugin arm is RED (first match wins).
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  *:ru) echo "[output-language] x" ;;\n  plugin:*) : ;;\nesac\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // Re-guard it, then break the OTHER half of the D5 pair: run-hook.cmd without the export.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\necho "no channel export"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/run-hook\.cmd no longer exports AIF_HOOK_CHANNEL=plugin/);
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      rmSync(join(root, 'plugin/hooks/inject-output-language'));
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/no longer emits \[output-language\]/);
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      w('packages/core/hooks/a.sh', '#!/usr/bin/env bash\necho other\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/packages\/core\/hooks\/a\.sh differs/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

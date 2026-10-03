@@ -165,7 +165,7 @@ if grep -rqF 'TEAM-EDIT-KEEPME' "$W/.ai-factory/refresh-conflicts/" 2>/dev/null;
 else
   bad "(c-edit) adopting an extended pre-fence copy destroyed the consumer's additions (no copy kept)"
 fi
-echo "$_out" | grep -q 'refresh-conflicts' \
+grep -q 'refresh-conflicts' <<<"$_out" \
   && ok "(c-edit) the adopt warned and named the kept copy" \
   || bad "(c-edit) no warning naming the kept copy (got: $_out)"
 # paired negative: a byte-identical pre-fence copy of the CURRENT template loses nothing → no copy.
@@ -191,7 +191,7 @@ if grep -rqF 'IN-FENCE-EDIT-KEEPME' "$W/.ai-factory/refresh-conflicts/" 2>/dev/n
 else
   bad "(b-edit) the in-fence edit was discarded with no copy kept"
 fi
-echo "$_out" | grep -q 'refresh-conflicts' \
+grep -q 'refresh-conflicts' <<<"$_out" \
   && ok "(b-edit) the section refresh named the kept copy" \
   || bad "(b-edit) no line naming the kept copy (got: $_out)"
 # paired negative: an idempotent re-run (nothing changes) makes no copy.

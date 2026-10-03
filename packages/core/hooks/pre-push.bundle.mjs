@@ -1,17 +1,75 @@
 /* eslint-disable */
 // @ts-nocheck
 import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// packages/core/hooks/checks/harness-config-local.ts
+var harness_config_local_exports = {};
+__export(harness_config_local_exports, {
+  RENDERER_REL: () => RENDERER_REL,
+  ZCODE_CONFIG: () => ZCODE_CONFIG,
+  ZCODE_DIR: () => ZCODE_DIR,
+  ZCODE_SKILLS: () => ZCODE_SKILLS,
+  checkLocalHarnessConfig: () => checkLocalHarnessConfig
+});
+import { lstatSync } from "node:fs";
+import { join as join2 } from "node:path";
+function present(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function checkLocalHarnessConfig(root, runRenderer) {
+  if (!present(join2(root, ZCODE_DIR))) return { kind: "skip" };
+  if (!present(join2(root, RENDERER_REL))) return { kind: "skip" };
+  if (!present(join2(root, ZCODE_CONFIG))) {
+    if (present(join2(root, ZCODE_SKILLS))) return { kind: "partial" };
+    return {
+      kind: "skip",
+      note: `${ZCODE_CONFIG} absent \u2014 no rendered zcode shim in this checkout, nothing checked`
+    };
+  }
+  const result = runRenderer(root, [RENDERER_REL, "--check", "--root", root]);
+  if (result.timedOut || result.notFound) return { kind: "error", result };
+  return result.exitCode === 0 ? { kind: "ok", result } : { kind: "drift", result };
+}
+var ZCODE_DIR, RENDERER_REL, ZCODE_CONFIG, ZCODE_SKILLS;
+var init_harness_config_local = __esm({
+  "packages/core/hooks/checks/harness-config-local.ts"() {
+    "use strict";
+    ZCODE_DIR = ".zcode";
+    RENDERER_REL = "scripts/render-harness-config.mjs";
+    ZCODE_CONFIG = `${ZCODE_DIR}/config.json`;
+    ZCODE_SKILLS = `${ZCODE_DIR}/skills`;
+  }
+});
 
 // packages/core/hooks/pre-push.ts
 import {
-  existsSync as existsSync2,
+  existsSync as existsSync3,
   readdirSync,
-  readFileSync,
-  realpathSync,
+  readFileSync as readFileSync2,
+  realpathSync as realpathSync2,
   statSync
 } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { spawnSync as spawnSync2 } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -459,17 +517,17 @@ function parseDocsCardTrailer(body) {
 function isMergeCommit(subject) {
   return /^Merge /i.test(subject);
 }
-function runDocsCardCheck(commits, git) {
+function runDocsCardCheck(commits, git2) {
   const failures = [];
   let checked = 0;
   let proseCommits = 0;
   for (const sha of commits) {
-    if (isMergeCommit(git.commitSubject(sha))) continue;
+    if (isMergeCommit(git2.commitSubject(sha))) continue;
     checked++;
-    const touchesProse = git.changedFiles(sha).some((f) => isDocsSiteProsePath(f.path));
+    const touchesProse = git2.changedFiles(sha).some((f) => isDocsSiteProsePath(f.path));
     if (!touchesProse) continue;
     proseCommits++;
-    const parsed = parseDocsCardTrailer(git.commitBody(sha));
+    const parsed = parseDocsCardTrailer(git2.commitBody(sha));
     if (parsed.kind === "absent") {
       failures.push({
         sha,
@@ -508,6 +566,61 @@ function runDocsCardCheck(commits, git) {
     }
   }
   return { checked, proseCommits, failures };
+}
+
+// packages/core/hooks/checks/hooks-path.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+import { existsSync as existsSync2, readFileSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+var DELEGATE_MARKER = "husky-own-worktree-delegate";
+var HAND_OFF = 'exec "$__own_hook" "$@"';
+function git(repoRoot, args) {
+  return spawnSync2("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
+}
+function effectiveHooksDir(repoRoot) {
+  const out = git(repoRoot, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-path",
+    "hooks"
+  ]);
+  const dir = out.stdout.trim();
+  if (out.status !== 0 || dir === "" || dir.includes("\n")) return null;
+  return existsSync2(dir) ? realpathSync(dir) : dir;
+}
+function trackedHooks(repoRoot) {
+  const out = git(repoRoot, ["ls-files", "-z", "--", ".husky"]);
+  return out.stdout.split("\0").filter((p) => /^\.husky\/[^/]+$/.test(p)).map((p) => p.slice(".husky/".length));
+}
+function ensureOwnHooks(repoRoot) {
+  const ownPath = join(repoRoot, ".husky");
+  if (!existsSync2(ownPath)) return { status: "own" };
+  const own = realpathSync(ownPath);
+  const dir = effectiveHooksDir(repoRoot);
+  if (dir === null) return { status: "unknown" };
+  if (dir === own) return { status: "own" };
+  const stale = trackedHooks(repoRoot).filter((h) => existsSync2(join(own, h))).filter((h) => {
+    const foreign = join(dir, h);
+    if (!existsSync2(foreign)) return true;
+    const body = readFileSync(foreign, "utf8");
+    const delegates = body.includes(`${DELEGATE_MARKER} (begin)`) && body.includes(HAND_OFF);
+    return body !== readFileSync(join(own, h), "utf8") && !delegates;
+  }).sort();
+  if (stale.length === 0) return { status: "delegating", dir };
+  const set = git(repoRoot, [
+    "config",
+    "--worktree",
+    "core.hooksPath",
+    ".husky"
+  ]);
+  if (set.status === 0 && effectiveHooksDir(repoRoot) === own)
+    return { status: "healed", dir, stale };
+  return {
+    status: "failed",
+    dir,
+    stale,
+    detail: set.status === 0 ? "the per-worktree write succeeded, but a higher-precedence value (e.g. `git -c core.hooksPath=...`) still wins" : set.stderr.trim()
+  };
 }
 
 // packages/core/hooks/checks/unpinned-tool-install.ts
@@ -663,7 +776,7 @@ var EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function readPushStdin() {
   if (process.stdin.isTTY) return "";
   try {
-    return readFileSync(0, "utf8");
+    return readFileSync2(0, "utf8");
   } catch {
     return "";
   }
@@ -750,7 +863,7 @@ function die(msg, r) {
 }
 function workflowYmlFiles() {
   const dir = resolve(REPO_ROOT, ".github/workflows");
-  if (!existsSync2(dir)) return [];
+  if (!existsSync3(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith(".yml")).map((f) => `.github/workflows/${f}`);
 }
 function shellScriptFiles() {
@@ -789,9 +902,9 @@ function ssotTitlesAt(sha) {
 }
 function ssotTitlesAtTip() {
   const abs = resolve(REPO_ROOT, SSOT_REL);
-  if (!existsSync2(abs)) return void 0;
+  if (!existsSync3(abs)) return void 0;
   try {
-    return loadSsotRowTitles(readFileSync(abs, "utf8"));
+    return loadSsotRowTitles(readFileSync2(abs, "utf8"));
   } catch {
     return void 0;
   }
@@ -1063,8 +1176,8 @@ function unpinnedToolInstallSection(ctx) {
   const allFindings = [];
   for (const relPath of population) {
     const absPath = resolve(REPO_ROOT, relPath);
-    if (!existsSync2(absPath)) continue;
-    const content = readFileSync(absPath, "utf8");
+    if (!existsSync3(absPath)) continue;
+    const content = readFileSync2(absPath, "utf8");
     const findings = checkUnpinnedToolInstalls(content, relPath);
     allFindings.push(...findings);
   }
@@ -1129,10 +1242,10 @@ function zizmorTemplatesSection() {
 function trackedShippedWorkflowTemplates() {
   const r = run("git", ["ls-files", "-z", "--", "*github-actions*.yml"]);
   if (r.exitCode !== 0) return null;
-  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync2(resolve(REPO_ROOT, l))).sort();
+  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync3(resolve(REPO_ROOT, l))).sort();
 }
 function auditAiDocsSection() {
-  if (existsSync2(
+  if (existsSync3(
     resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.test.ts")
   )) {
     const r = run("npx", [
@@ -1146,16 +1259,30 @@ function auditAiDocsSection() {
     if (r.exitCode !== 0) die("\u274C audit-ai-docs.test.ts failed:", r);
     emit(r);
   }
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
+    const live = [
+      ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
+      ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
+    ];
+    for (const [label, cmd, args] of live) {
+      const r = run(cmd, args);
+      if (r.notFound) die(`\u274C ${cmd} not found \u2014 cannot run ${label} live`);
+      if (r.exitCode !== 0) die(`\u274C ${label} FAILED on this repo:`, r);
+      const summary = r.stdout.split("\n").find((l) => l.startsWith("Audit complete:")) ?? "(no summary line)";
+      process.stdout.write(`\u2713 ${label} live: ${summary}
+`);
+    }
+  }
 }
 function skillDriftSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
     const r = run("bash", ["scripts/check-skill-drift.sh"]);
     if (r.exitCode !== 0) die("\u274C skill drift check failed", r);
     emit(r);
   }
 }
 function ruleGlobsSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
     const r = run("bash", ["scripts/check-rule-globs.sh"]);
     if (r.exitCode !== 0) die("\u274C rule-glob liveness check failed", r);
     emit(r);
@@ -1163,22 +1290,49 @@ function ruleGlobsSection() {
 }
 function worktreeProvisioningSection() {
   const helper = resolve(REPO_ROOT, "scripts/worktree-node-modules.sh");
-  if (!existsSync2(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
+  if (!existsSync3(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
     return;
-  if (run("bash", [helper, "--check", REPO_ROOT]).exitCode === 0) return;
-  const applied = run("bash", [helper, "--apply", REPO_ROOT]);
+  const checked = run("bash", [helper, "--check", REPO_ROOT]);
+  if (checked.exitCode === 0) return;
+  const applied = runCheck("bash", [helper, "--apply", REPO_ROOT], {
+    cwd: REPO_ROOT,
+    timeoutMs: 15 * 6e4
+  });
   if (applied.exitCode !== 0) {
     die(
-      "\u274C this worktree has no node_modules and cannot be provisioned automatically.\n   Run `npm install` in the primary checkout, then `bash scripts/worktree-doctor.sh --fix`.",
+      "\u274C this worktree cannot be provisioned automatically \u2014 the helper output below names the cause\n   and the exact commands (typically: `npm install` in the primary checkout, or the real-install\n   commands for a lock-diverged worktree).",
       applied
     );
   }
   process.stdout.write(
-    "\u2713 worktree node_modules provisioned (symlinks were missing \u2014 healed before the test sections)\n"
+    checked.exitCode === 3 ? "\u2713 worktree node_modules installed for real (its lock diverges from the primary checkout)\n" : "\u2713 worktree node_modules provisioned (symlinks were missing \u2014 healed before the test sections)\n"
   );
 }
+function hooksPathSection() {
+  const r = ensureOwnHooks(REPO_ROOT);
+  if (r.status === "failed") {
+    die(
+      `\u274C git runs this worktree's hooks from ${r.dir}, whose ${r.stale.join(", ")} are not this
+   worktree's and do not delegate to it \u2014 their checks silently skipped your commits.
+   Repair failed: ${r.detail}
+   Fix: \`git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky\``
+    );
+  }
+  if (r.status === "unknown") {
+    process.stdout.write(
+      "\u229D hooks-path: git could not name the hooks dir (git < 2.31?) \u2014 foreign-hook check not run\n"
+    );
+  }
+  if (r.status === "healed") {
+    process.stdout.write(
+      `\u2713 core.hooksPath repointed to this worktree's .husky (was ${r.dir}; stale: ${r.stale.join(", ")}).
+  Commits made before this push were checked by those foreign hooks \u2014 re-check them if in doubt.
+`
+    );
+  }
+}
 function lintStagedResolvesSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
     const r = run("bash", ["scripts/check-lintstaged-resolves.sh"]);
     if (r.exitCode !== 0) die("\u274C lint-staged resolution check failed", r);
     emit(r);
@@ -1187,7 +1341,7 @@ function lintStagedResolvesSection() {
 function validateSidecarShape(path) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(readFileSync2(path, "utf8"));
   } catch (e) {
     return `not valid JSON \u2014 ${e.message}`;
   }
@@ -1217,11 +1371,11 @@ function validateSidecarShape(path) {
 function generatedRuleMaterialSection() {
   const resolveRunner = (name) => {
     const consumer = resolve(REPO_ROOT, `scripts/${name}`);
-    if (existsSync2(consumer)) return consumer;
+    if (existsSync3(consumer)) return consumer;
     const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
-    return existsSync2(framework) ? framework : null;
+    return existsSync3(framework) ? framework : null;
   };
-  const binResolvable = (bin) => existsSync2(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync2(resolve(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
+  const binResolvable = (bin) => existsSync3(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync3(resolve(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
   const toolPresent = (backend) => {
     if (backend === "astgrep")
       return !run("ast-grep", ["--version"]).notFound || !run("sg", ["--version"]).notFound;
@@ -1233,7 +1387,7 @@ function generatedRuleMaterialSection() {
     REPO_ROOT,
     ".ai-factory/synthesizer-output/rules-manifest-additions.json"
   );
-  if (existsSync2(manifest)) {
+  if (existsSync3(manifest)) {
     const runner = resolveRunner("run-generated-rule-mutation.sh");
     if (!runner) {
       process.stdout.write(
@@ -1271,7 +1425,7 @@ function generatedRuleMaterialSection() {
       REPO_ROOT,
       `.ai-factory/rule-tests/${backend}.json`
     );
-    if (!existsSync2(sidecar)) continue;
+    if (!existsSync3(sidecar)) continue;
     const shapeError = validateSidecarShape(sidecar);
     if (shapeError !== null) {
       die(
@@ -1318,7 +1472,7 @@ function generatedRuleMaterialSection() {
   }
 }
 function kickoffPortabilitySection() {
-  if (existsSync2(
+  if (existsSync3(
     resolve(
       REPO_ROOT,
       "packages/core/audit-self/check-kickoff-portability.sh"
@@ -1332,7 +1486,7 @@ function kickoffPortabilitySection() {
   }
 }
 function synthBundleSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
     const r = run("bash", ["scripts/build-synth-bundle.sh", "--check"]);
     if (r.exitCode === 2) {
       process.stderr.write(
@@ -1349,7 +1503,7 @@ function synthBundleSection() {
         REPO_ROOT,
         "packages/core/install/synth-and-wire.bundle.mjs"
       );
-      if (existsSync2(bundlePath)) {
+      if (existsSync3(bundlePath)) {
         const smoke = runCheck(
           "node",
           [
@@ -1386,7 +1540,7 @@ function synthBundleSection() {
   }
 }
 function runtimeBundlesSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
     return;
   const r = run("node", ["scripts/build-runtime-bundles.mjs", "--check"]);
   if (r.exitCode === 2) {
@@ -1403,7 +1557,7 @@ function runtimeBundlesSection() {
   }
 }
 function shippedRuleDriftSection(ctx) {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
     return;
   if (ctx.rb.base !== null) {
     const touched = getChangedFiles(ctx.rb.base, "ACMRD", ctx.rb.head).some(
@@ -1453,8 +1607,8 @@ function payloadDriftSection(ctx) {
   const manifestPath = resolve(REPO_ROOT, "packages/getff/MANIFEST.sha256");
   const baselineDir = resolve(REPO_ROOT, "tests/install-sh/baselines");
   const lister = resolve(REPO_ROOT, "scripts/build-getff-dist.sh");
-  const hasManifest = existsSync2(manifestPath) && existsSync2(lister);
-  const hasBaselines = existsSync2(baselineDir);
+  const hasManifest = existsSync3(manifestPath) && existsSync3(lister);
+  const hasBaselines = existsSync3(baselineDir);
   if (!hasManifest && !hasBaselines) return;
   if (ctx.rb.base === null) {
     if (hasManifest) {
@@ -1479,7 +1633,7 @@ function payloadDriftSection(ctx) {
     const roots = listed.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
     const inPayload = (p) => roots.some((root) => p === root || p.startsWith(`${root}/`));
     const manifest = /* @__PURE__ */ new Map();
-    for (const line of readFileSync(manifestPath, "utf8").split("\n")) {
+    for (const line of readFileSync2(manifestPath, "utf8").split("\n")) {
       const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
       if (m?.[1] && m[2]) manifest.set(m[2], m[1]);
     }
@@ -1497,8 +1651,8 @@ function payloadDriftSection(ctx) {
         continue;
       }
       const abs = resolve(REPO_ROOT, path);
-      if (!existsSync2(abs)) continue;
-      if (sha256Bytes(readFileSync(abs)) !== recorded)
+      if (!existsSync3(abs)) continue;
+      if (sha256Bytes(readFileSync2(abs)) !== recorded)
         problems.push(
           `  ${path} \u2014 content differs from its MANIFEST.sha256 row`
         );
@@ -1520,7 +1674,7 @@ function payloadDriftSection(ctx) {
         }
         if (!name.endsWith(".fingerprint")) continue;
         fingerprints += 1;
-        for (const line of readFileSync(abs, "utf8").split("\n")) {
+        for (const line of readFileSync2(abs, "utf8").split("\n")) {
           const m = /^([0-9a-f]{64})\s/.exec(line.trim());
           if (m?.[1]) recorded.add(m[1]);
         }
@@ -1530,7 +1684,7 @@ function payloadDriftSection(ctx) {
     const stale = [];
     for (const { status, path } of changes) {
       if (status === "A") continue;
-      const show = spawnSync2("git", ["show", `${ctx.rb.base}:${path}`], {
+      const show = spawnSync3("git", ["show", `${ctx.rb.base}:${path}`], {
         maxBuffer: 64 * 1024 * 1024
       });
       if (show.status !== 0 || !show.stdout) continue;
@@ -1547,7 +1701,7 @@ function payloadDriftSection(ctx) {
   );
 }
 function manifestRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
     const r = run("npx", [
       "tsx",
       "packages/core/render/render-rules.ts",
@@ -1563,7 +1717,7 @@ function manifestRenderSection() {
   }
 }
 function ruleIndexRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-rule-index.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1575,7 +1729,7 @@ function ruleIndexRenderSection() {
   }
 }
 function referenceRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-reference.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1587,7 +1741,7 @@ function referenceRenderSection() {
   }
 }
 function faceFactsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-face-facts.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1599,7 +1753,7 @@ function faceFactsRenderSection() {
   }
 }
 function docsRefreshSection(c) {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
     if (c.rb.base === null) {
       warnSkip(
         "docs-refresh",
@@ -1636,19 +1790,39 @@ function lineCitationsSection(ctx) {
     warnSkip("\xA79", "no resolvable base for the path:line citation check");
     return;
   }
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-line-citations.mjs")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-line-citations.mjs")))
     return;
   const changed = getChangedFiles(rb.base, "ACMR", rb.head);
   if (changed.length === 0) return;
-  const r = run("node", [
-    "scripts/check-line-citations.mjs",
-    "--check",
-    "--corpus",
-    ...changed.map((f) => `--affected-by=${f}`)
-  ]);
+  const timeoutMs = lineCitationsTimeoutMs();
+  const r = runCheck(
+    "node",
+    [
+      "scripts/check-line-citations.mjs",
+      "--check",
+      "--corpus",
+      ...changed.map((f) => `--affected-by=${f}`)
+    ],
+    { cwd: REPO_ROOT, timeoutMs }
+  );
   if (r.notFound) return;
+  if (r.timedOut) {
+    die(
+      // runCheck also reports an outside SIGTERM as timedOut, hence «or was terminated».
+      `\u274C path:line citation checker did not finish within ${timeoutMs / 1e3} s (timed out or was terminated) \u2014 no citation was found stale.
+   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on
+   git blame/show per affected citation). Retry when load drops, or raise
+   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.`
+    );
+  }
   if (r.exitCode !== 0) die("\u274C stale `path:line` citation(s):", r);
   emit(r);
+}
+var LINE_CITATIONS_TIMEOUT_MS = 6e5;
+function lineCitationsTimeoutMs(env = process.env) {
+  const raw = env["PREPUSH_LINE_CITATIONS_TIMEOUT_MS"]?.trim() ?? "";
+  if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
+  return Number(raw);
 }
 var HEAVY_RUNNER_TIMEOUT_MS = 6e5;
 function runCoreSuite(script) {
@@ -1673,7 +1847,7 @@ function runCoreSuite(script) {
   return r;
 }
 function principlesMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:principles");
     if (r.notFound) {
       die(
@@ -1701,7 +1875,7 @@ function alwaysonBudgetSection() {
   emit(r);
 }
 function askFileSchemaSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
   const r = run("bash", ["scripts/check-ask-files.sh"]);
   if (r.notFound) {
     die(
@@ -1716,8 +1890,24 @@ function askFileSchemaSection() {
   }
   emit(r);
 }
+function bash32Section() {
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-bash32.sh"))) return;
+  const r = run("bash", ["scripts/check-bash32.sh"]);
+  if (r.notFound) {
+    die(
+      "\u274C bash not found to run scripts/check-bash32.sh (bash-3.2 portability gate)."
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      "\u274C bash-3.2 portability gate RED \u2014 install.sh / setup.d/** use a shape that aborts on\n   macOS /bin/bash 3.2 or BSD sed/awk (findings above). Fix it, or escape one line with\n   '# bash32-safe: <rationale >= 20 chars>' (header of scripts/check-bash32.sh).",
+      r
+    );
+  }
+  emit(r);
+}
 function irMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:ir");
     if (r.notFound) {
       die("\u274C npm/npx not found. Install Node.js to enable IR meta-tests.");
@@ -1728,7 +1918,7 @@ function irMetaSection() {
   }
 }
 function backendsMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:backends");
     if (r.notFound) {
       die(
@@ -1740,7 +1930,7 @@ function backendsMetaSection() {
   }
 }
 function compositionMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:composition");
     if (r.notFound) {
       die(
@@ -1758,7 +1948,7 @@ function specDisciplineSection(ctx) {
     const specFiles = getChangedFiles(rb.base, "ACM", rb.head).filter(
       (f) => /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f)
     );
-    if (specFiles.length > 0 && existsSync2(
+    if (specFiles.length > 0 && existsSync3(
       resolve(
         REPO_ROOT,
         "packages/core/spec-validation/validate-batch-spec.ts"
@@ -1781,22 +1971,22 @@ function specDisciplineSection(ctx) {
   }
 }
 async function guardLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
     await guardLivenessSection(ctx.rb);
   }
 }
 async function cmdScriptLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
     await cmdScriptLivenessSection(ctx.rb);
   }
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
-  // 30-templates.sh:99 / 45-python.sh:1319 (install_agents_md)
+  // 30-templates.sh:99 / 45-python.sh:1665 (install_agents_md)
   ".ai-factory/AI-USAGE-GUIDE.md",
   ".ai-factory/ARCHITECTURE.md",
   ".ai-factory/ARCHITECTURE.python.md",
-  // 45-python.sh:1334 (ledger A2-10)
+  // 45-python.sh:1680 (ledger A2-10)
   ".ai-factory/ARCHITECTURE.react-native.md",
   ".ai-factory/ARCHITECTURE.react-next.md",
   ".ai-factory/ARCHITECTURE.react-spa.md",
@@ -1811,7 +2001,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:415 / install.sh:1050 (conditional starter)
+  // 10-skills.sh:388 / install.sh:1066 (conditional starter)
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/"
@@ -1836,9 +2026,9 @@ var SHIPPED_SKILL_SLUGS = [
 ];
 function refreshBaselinePaths() {
   const manifest = resolve(REPO_ROOT, ".ai-factory/refresh-baseline.json");
-  if (!existsSync2(manifest)) return null;
+  if (!existsSync3(manifest)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+    const parsed = JSON.parse(readFileSync2(manifest, "utf8"));
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
       return null;
     return new Set(Object.keys(parsed));
@@ -1923,7 +2113,7 @@ function lycheeSection(ctx) {
   }
 }
 function invariantsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
     const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1939,6 +2129,38 @@ function invariantsRenderSection() {
     emit(r);
   }
 }
+async function harnessConfigLocalSection() {
+  const { checkLocalHarnessConfig: checkLocalHarnessConfig2 } = await Promise.resolve().then(() => (init_harness_config_local(), harness_config_local_exports));
+  const v = checkLocalHarnessConfig2(
+    REPO_ROOT,
+    (root, args) => runCheck(process.execPath, args, { cwd: root })
+  );
+  if (v.kind === "skip") {
+    if (v.note) process.stdout.write(`\u24D8 harness-config-local: ${v.note}
+`);
+    return;
+  }
+  if (v.kind === "partial") {
+    die(
+      "\u274C .zcode/skills exists but .zcode/config.json does not \u2014 a half-rendered zcode shim the renderer would skip entirely.\n   Fix: node scripts/render-harness-config.mjs --write"
+    );
+  }
+  if (v.kind === "error") {
+    die(
+      "\u274C render-harness-config --check could not run (timed out or node not found) \u2014 this is not a drift verdict.",
+      v.result
+    );
+  }
+  if (v.kind === "drift") {
+    die(
+      "\u274C local harness config drifted from .ai-factory/harness-model.json (the renderer lists the files below).\n   Fix: node scripts/render-harness-config.mjs --write",
+      v.result
+    );
+  }
+  process.stdout.write(
+    "\u2713 local harness config (.zcode/ shim) matches the model\n"
+  );
+}
 var SECTIONS = [
   // FIRST by design: must land the symlinks before any section shells out to vitest, which
   // would otherwise plant node_modules/.vite and freeze this worktree out of provisioning
@@ -1948,6 +2170,7 @@ var SECTIONS = [
     owner: "maintainer",
     run: () => worktreeProvisioningSection()
   },
+  { id: "hooks-path", owner: "maintainer", run: () => hooksPathSection() },
   { id: "actionlint", owner: "maintainer", run: () => actionlintSection() },
   { id: "zizmor-live", owner: "maintainer", run: () => zizmorLiveSection() },
   {
@@ -2020,6 +2243,11 @@ var SECTIONS = [
     run: () => faceFactsRenderSection()
   },
   {
+    id: "harness-config-local",
+    owner: "maintainer",
+    run: () => harnessConfigLocalSection()
+  },
+  {
     id: "docs-refresh",
     owner: "maintainer",
     run: (c) => docsRefreshSection(c)
@@ -2083,6 +2311,14 @@ var SECTIONS = [
     id: "ask-file-schema",
     owner: "maintainer",
     run: () => askFileSchemaSection()
+  },
+  {
+    // install.sh + setup.d/** run under macOS /bin/bash 3.2 + BSD sed/awk; CI cannot see the
+    // class. maintainer-only — the population is this repo's installer source, and a consumer
+    // layout has no scripts/check-bash32.sh to run. See bash32Section docstring.
+    id: "bash32",
+    owner: "maintainer",
+    run: () => bash32Section()
   }
 ];
 function composeSections(sections, isFrameworkRepo) {
@@ -2103,7 +2339,7 @@ function activeSections(isFrameworkRepo) {
 }
 async function main() {
   const rb = resolveBase();
-  const isFrameworkRepo = existsSync2(resolve(REPO_ROOT, SSOT_REL));
+  const isFrameworkRepo = existsSync3(resolve(REPO_ROOT, SSOT_REL));
   const ctx = { rb, isFrameworkRepo };
   const only = process.env["PREPUSH_ONLY"];
   if (only !== void 0 && only !== "") {
@@ -2126,7 +2362,7 @@ function isDirectCliInvocation() {
   const argv1 = process.argv[1];
   if (!argv1) return false;
   try {
-    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync2(argv1) === realpathSync2(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
@@ -2148,5 +2384,6 @@ export {
   VALID_OWNERS,
   activeSections,
   composeSections,
-  isFrameworkShippedMarkdown
+  isFrameworkShippedMarkdown,
+  lineCitationsTimeoutMs
 };

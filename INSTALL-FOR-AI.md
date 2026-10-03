@@ -24,7 +24,7 @@ cd /tmp/getff
 
 **ALWAYS — proceed without asking the user:**
 
-- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers, `npm -g` tools and the runtime-bridge on this machine.
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
 - Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 
@@ -350,7 +350,7 @@ project/
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
-│   ├── pre-commit                     ← runs lint-staged
+│   ├── pre-commit                     ← runs the ZCode mirror check + lint-staged (full text, docs/site/learn/stop-a-bad-commit.md)
 │   └── pre-push                       ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── .github/workflows/ci.yml           ← full CI pipeline
 ├── .ai-factory/
@@ -362,7 +362,7 @@ project/
 │   ├── tool-decisions.md              ← accepted/rejected MCP + skill decisions (committed)
 │   ├── tier-home.md                   ← ONLY at --profile env / factory: tier criteria + degradation matrix
 │   ├── rules/integration-rules.md     ← only for microservices
-│   └── skill-context/
+│   └── skill-context/                 ← co-owned with /aif-evolve: getff rewrites only its fenced block
 │       ├── aif-review/SKILL.md        ← anti-tautology content for AIF review sidecar
 │       ├── aif-rules-check/SKILL.md   ← R10-naming + test-existence content for AIF rules-check
 │       └── aif-orchestrator-discipline/ ← ONLY at --profile factory
@@ -457,17 +457,17 @@ Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
 - `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface — 5 skills (`arch`, `night-mode`, `orchestrator`, `pipeline`, `reviewer`) — under `--profile env`/`factory`; the AIF operator suite — 5 skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
-- `.claude/hooks/deps-hash-check.sh` — session hook
+- `.claude/hooks/deps-hash-check.sh` — session hook, plus wiring an older install may lack, each added only where missing: that hook's `UserPromptSubmit` registration in `.claude/settings.json`, husky's `core.hooksPath`, getff's `package.json` scripts (never devDependencies — `--refresh` installs nothing, so each missing one is named in the `NOT wired` summary instead), getff's R2 / synth blocks in your eslint config, an unedited python `.pre-commit-config.yaml` entry, and — only under `--refresh --full` — the recap gate and the MCP companion rows (same consent as install). A getff CI gate missing from your workflows is named in the summary, never added.
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
-- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides
+- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides, **co-owned**: the same file is AI Factory's `/aif-evolve` store, so getff owns only the block between its `<!-- getff:begin section=getff-skill-context … -->` / `<!-- getff:end section=getff-skill-context -->` marker lines. Install and `--refresh` rewrite that block alone; the text outside it — every rule `/aif-evolve` added — is never rewritten. getff recognises its own older text by every template revision it has shipped: a file delivered whole before the markers existed is split on the first run (those leading lines become the block, the rest is kept), and a block whose markers were removed is replaced by one fenced block. Text getff cannot prove is its own is always kept, with the current block appended beside it. A block somebody edited is parked as `.ai-factory/refresh-conflicts/<skill>-SKILL.md.<sha8>` before it is replaced; an unedited one is replaced silently.
 
 ### What `--refresh` never touches
 
 Consumer-authored files are **never** in the refresh set — they are not framework-owned:
 
 - `AGENTS.md`, `.ai-factory/RULES.md`, `.ai-factory/ARCHITECTURE.*.md` (filled in by you)
-- `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json`
+- `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json` — never rewritten; `--refresh` only adds getff's own missing eslint blocks (above)
 - `.github/workflows/ci.yml`, `.prettierignore`
 - Any file with a sibling `.override.md` (Layer 3 — you have taken ownership); and, inside a framework-delivered **directory** payload, any file `--refresh` cannot attribute to a past delivery — kept and named with a `⚠ ORPHAN:` line, because such a payload may be a declared extension point (`scripts/fences-fire-fixtures/` is one — see [INSTALL.md — Consumer-extensible directory payloads](INSTALL.md#consumer-extensible-directory-payloads))
 
@@ -496,7 +496,7 @@ To diverge from a framework file AND keep `--refresh` safe:
 
 ### Editor coupling (Claude Code only)
 
-This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
+This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`SessionStart`, `UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
 
 **Per layer, what a non-Claude-Code harness actually gets:**
 
@@ -560,7 +560,7 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
 | Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
-| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
+| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `SessionStart` + `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                       |
 
 ---
 

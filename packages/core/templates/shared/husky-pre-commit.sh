@@ -8,4 +8,18 @@
 #
 # Install: place at .husky/pre-commit and run `chmod +x .husky/pre-commit`
 
+# ZCode skill-mirror check (#1502): blocks a commit whose .zcode/skills mirror of .claude/skills
+# is incomplete — CC-only consumers get one info line and exit 0. getff's installer delivers the
+# script next to this hook on every install and every --refresh, so it is missing only when it was
+# removed from the project — and it stays missing only while a Layer-3
+# scripts/check-zcode-mirror.sh.override.md says the project owns it (--refresh skips such a
+# file). Missing is a loud WARN, never a silent skip. `-f`, not `-x`: the script runs through `sh`,
+# so its executable bit must not decide whether the check runs. "$PWD" is passed explicitly: git
+# runs this hook from the tree root, and an AIF_PROJECT_ROOT inherited from the environment must
+# not point the check at another tree.
+if [ -f scripts/check-zcode-mirror.sh ]; then
+  sh scripts/check-zcode-mirror.sh "$PWD" || exit 1
+else
+  echo "check-zcode-mirror: WARN scripts/check-zcode-mirror.sh not found — mirror NOT checked; getff's installer puts it back: bash /path/to/getff/install.sh --refresh (skipped while scripts/check-zcode-mirror.sh.override.md marks it project-owned)" >&2
+fi
 npx lint-staged

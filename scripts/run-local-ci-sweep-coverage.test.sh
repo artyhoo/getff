@@ -114,13 +114,14 @@ unreachable_allowlist() {
     "tests/consumer-matrix/npm-tarball-cell.sh${TAB}real install.sh --full against a packed tarball: network, minutes, non-hermetic" \
     "tests/consumer-matrix/getff-dist-cell.sh${TAB}npm pack + npm i of the getff tarball into a tmp consumer, then a real getff init -y: network, minutes, non-hermetic" \
     "tests/consumer-matrix/own-config-cell.sh${TAB}real install.sh --full into a tmp consumer that owns its configs, plus both dependency trees and an empty-cache generator run: network, minutes, non-hermetic" \
+    "scripts/ci-path-scope.sh${TAB}path-scope decides from the pull_request merge commit + event name; there is no PR merge ref locally (its logic runs locally via scripts/ci-path-scope.test.sh)" \
     "packages/core/hooks/pre-push.ts${TAB}pr-commit-trailers needs the PR base ref and the real PR commit range; its local channel is the .husky/pre-push hook, not this sweep"
 }
 
 # ── Extraction ─────────────────────────────────────────────────────────────────────────────────
 # Single-line `run:` steps only (see CEILING). Leading `VAR=value` assignments are stripped so
 # `PREPUSH_ONLY=s17 npx tsx …` classifies by its real interpreter — without that, two live gate
-# commands (audit-self.yml:1191, :1173) would sit outside the population unseen.
+# commands (audit-self.yml:1284 `PREPUSH_ONLY=s17`, :1296 `PREPUSH_ONLY=prior-art`) would sit outside the population unseen.
 # `- run: cmd` (step written without a `name:`) is legal YAML and unused in this workflow today —
 # which is exactly why the leading `- ` must be optional here rather than assumed away: the first
 # nameless step to land would otherwise drop out of the population silently.
@@ -154,9 +155,9 @@ ci_commands() {
   leader_re="^($(echo "$GATE_LEADERS" | tr ' ' '|')) "
   raw_run_lines | while IFS= read -r line; do
     stripped="$(printf '%s\n' "$line" | strip_env_prefix)"
-    printf '%s\n' "$stripped" | grep -qE "$leader_re" || continue
-    printf '%s\n' "$stripped" | grep -qE "$SETUP_RE" && continue
-    printf '%s\n' "$line" | grep -qE "$BATTERY_RE" && continue
+    grep -qE "$leader_re" <<<"$stripped" || continue
+    grep -qE "$SETUP_RE" <<<"$stripped" && continue
+    grep -qE "$BATTERY_RE" <<<"$line" && continue
     printf '%s\n' "$line"
   done | sort -u
 }
@@ -364,7 +365,7 @@ rm -f "$tmpwf"
 # Arm 6 proves the workflow side is live; this proves the gate-table side is too. Without it, a
 # gate table that silently emptied would still pass arm 6 (the fake is uncovered either way).
 VICTIM_CMD="npm run typecheck"
-if ! printf '%s\n' "$GATES" | grep -qF "$VICTIM_CMD"; then
+if ! grep -qF "$VICTIM_CMD" <<<"$GATES"; then
   bad "neg: probe row '$VICTIM_CMD' is no longer in the gate table — pick a live row for this arm"
 else
   SEEDED_GATES="$(printf '%s\n' "$GATES" | grep -vF "$VICTIM_CMD")"
@@ -391,7 +392,7 @@ fi
 # through `--list-gates` instead of scraping the printf block.
 BUILD_DIST="$REPO_ROOT/scripts/build-getff-dist.sh"
 eval "$(sed -n '/^trigger_matches() {/,/^}/p' "$SWEEP")"
-if ! type trigger_matches 2>/dev/null | grep -q 'function'; then
+if ! grep -q 'function' <<<"$(type trigger_matches 2>/dev/null)"; then
   bad "trigger_matches could not be extracted from $SWEEP — arms 8 and 9 would be vacuous"
 else
   ok "trigger_matches extracted from the sweep under test (no second copy of the grammar)"
@@ -669,5 +670,74 @@ done
 [ -z "$bi_overreach" ] \
   && ok "neg: paths the install cannot read are NOT selected by byte-identical (the trigger discriminates)" \
   || bad "byte-identical selects path(s) outside the payload and the harness →$bi_overreach — the row has become an unconditional 69s tax"
+
+# ── 12. OFFLOAD: the routing plan over the REAL table keeps every Mac-only signal on the Mac ──────
+# With SWEEP_HEAVY_RUNNER set, the SWEEP_ROUTABLE rows run elsewhere (on the operator's Mac: a
+# Linux PC). The list is deny-by-default, so a forgotten row only costs Mac CPU; what CAN go wrong
+# is the opposite — a row that starts the Mac's /bin/bash 3.2 / BSD userland being listed, or a
+# routed vitest suite whose shell arms silently stop being found. Read through the real parser
+# (`--route-plan`), the same way arms 8-11 read `--list-gates`.
+PLAN="$("$SWEEP" --route-plan 2>/dev/null)"
+PLAN_ROUTE_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"' | grep -c .)
+[ "$PLAN_ROUTE_N" -ge 6 ] \
+  || bad "only $PLAN_ROUTE_N rows plan to route (floor 6) — --route-plan broke; arms 12a-12d would be vacuous"
+
+# 12a. every name in SWEEP_ROUTABLE is a row (a renamed row would silently stop being routed).
+missing="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="missing"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$missing" ] && ok "every SWEEP_ROUTABLE name is a gate-table row" \
+  || bad "SWEEP_ROUTABLE names rows the table does not have: $missing"
+
+# 12b. every routable vitest row has a shape whose shell arms can be found.
+unparsed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$3=="unparsed-vitest-shape"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$unparsed" ] && ok "every routable vitest row has a parsed shape (its shell arms are findable)" \
+  || bad "routable row(s) with a vitest shape vitest_scope cannot read: $unparsed — they run here, and their arms are unknown"
+
+# 12c. no listed row starts a shell of its own: the sweep keeps such a row here anyway
+# (row_shell_reason — the command, an npm script it reaches, a node script it runs, or a vitest
+# scope where every file starts a shell), and this arm makes the list say so.
+# NEG (LOAD-BEARING): through the same plan, three real rows that start a shell one hop away and
+# a synthetic row running the real pre-push hook through `npx tsx` behind an env assignment (the
+# hook names bash itself) are kept here, and a node row that only READS .sh files (a
+# SHELL_READERS entry that starts only git and node) routes — else 12c below is vacuous.
+NEG_GATES="$(mktemp "${TMPDIR:-/tmp}/sweep-cov-gates.XXXXXX")"
+{ "$SWEEP" --list-gates 2>/dev/null; printf '99\tprepush-skill-drift\tALWAYS\tPREPUSH_ONLY=skill-drift npx tsx packages/core/hooks/pre-push.ts\n'; } >"$NEG_GATES"
+NEGPLAN="$(SWEEP_GATES_FILE="$NEG_GATES" SWEEP_ROUTABLE="format-check runtime-bundles-drift template-render reference-check prepush-skill-drift" "$SWEEP" --route-plan 2>/dev/null)"
+rm -f "$NEG_GATES"
+neg_row() { awk -F"$TAB" -v n="$1" '$1==n{print $2 " " $3}' <<<"$NEGPLAN"; }
+if [ "$(neg_row format-check)" = "local runs-a-shell" ] \
+  && [ "$(neg_row runtime-bundles-drift)" = "local starts-a-shell:scripts/build-runtime-bundles.mjs" ] \
+  && [ "$(neg_row template-render)" = "local every-file-starts-a-shell" ] \
+  && [ "$(neg_row prepush-skill-drift)" = "local starts-a-shell:packages/core/hooks/pre-push.ts" ] \
+  && [ "$(neg_row reference-check)" = "route " ]; then
+  ok "neg: row_shell_reason catches an npm hop, a node script's spawn, a tsx-run hook and an all-shell suite, and not a listed reader of .sh"
+else
+  bad "row_shell_reason misjudged a row (format-check='$(neg_row format-check)' runtime-bundles-drift='$(neg_row runtime-bundles-drift)' template-render='$(neg_row template-render)' prepush-skill-drift='$(neg_row prepush-skill-drift)' reference-check='$(neg_row reference-check)') — 12c below is vacuous"
+fi
+shell_listed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="local" && $3!="" && $3!="unparsed-vitest-shape"{print $1 "(" $3 ")"}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$shell_listed" ] && ok "no SWEEP_ROUTABLE row starts a shell of its own (the Mac keeps its bash 3.2 signal)" \
+  || bad "SWEEP_ROUTABLE lists row(s) that start a shell: $shell_listed — take them off the list"
+
+# 12d. the shell arms derivation is live on real files: vitest-principles keeps a file that pins
+# '/bin/bash', one that spawns PATH `bash` (the same binary on a stock Mac), and one marked only
+# through its import (31-rule-channel-declaration.test.ts names no shell; the
+# 31-rule-channel-declaration.ts it imports names a .sh file in a comment — so this anchor guards
+# import-following, and rewording that comment would need a new anchor) — and the arms floor holds.
+pr_arms=" $(printf '%s\n' "$PLAN" | awk -F"$TAB" '$1=="vitest-principles"{print $3}') "
+ARMS_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"{print $3}' | tr ' ' '\n' | grep -c .)
+arms_lost=""
+for f in principles/20-bundle-classification.test.ts principles/02-paired-negative-test.test.ts \
+  principles/31-rule-channel-declaration.test.ts; do
+  case "$pr_arms" in *" $f "*) ;; *) arms_lost="$arms_lost $f" ;; esac
+done
+if [ -n "$arms_lost" ]; then
+  bad "vitest-principles lost shell arm(s):$arms_lost — routing would move bash 3.2 tests to Linux"
+elif [ "$ARMS_N" -lt 20 ]; then
+  bad "only $ARMS_N shell arm files found (floor 20) — the derivation lost files"
+else
+  ok "the shell arms are found ($ARMS_N files: pinned /bin/bash, PATH bash, and one marked through an import)"
+fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -63,7 +63,7 @@ expect() {
     FAILED=1
     return
   fi
-  if [ -n "$needle" ] && ! printf '%s' "$out" | grep -q -- "$needle"; then
+  if [ -n "$needle" ] && ! grep -q -- "$needle" <<<"$out"; then
     echo "FAIL: $label — exit $want as expected, but output never mentions '$needle'"
     # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
     echo "$out" | sed 's/^/      /'
@@ -99,7 +99,7 @@ expect 'nearest layer wins' 0 "$TMP/c4" 'semver@7.8.5'
 #     is `--external` (no esbuild file comment), so it cannot change a bundled byte → ignored.
 fixture "$TMP/c5" 7.8.5 7.8.5 7.8.5
 expect 'external package is out of scope' 0 "$TMP/c5" 'semver@7.8.5'
-"$CHECK" "$TMP/c5" 2>&1 | grep -q 'ts-morph' && { echo 'FAIL: ts-morph must not be checked'; FAILED=1; }
+grep -q 'ts-morph' <<<"$("$CHECK" "$TMP/c5" 2>&1)" && { echo 'FAIL: ts-morph must not be checked'; FAILED=1; }
 
 # 6 — USAGE: a missing repo file is a usage error, never a silent pass.
 mkdir -p "$TMP/c6"
@@ -130,6 +130,121 @@ expect 'a second bundle is checked too' 1 "$TMP/c6b" 'ajv'
 fixture "$TMP/c6c" 7.8.5 7.8.5 7.8.5
 rm -f "$TMP/c6c/packages/core/install/synth-and-wire.bundle.mjs"
 expect 'no committed bundle is exit 2' 2 "$TMP/c6c" 'no committed'
+
+# ajv_fixture <dir> <root-fast-uri> <core-fast-uri>
+#   The 2026-09-30 shape: a first-party source imports ajv, the bundle inlines ajv AND its
+#   transitive fast-uri, both locks hoist ajv 8.20.0, and each lock plans its own fast-uri.
+#   The root lock also carries the two json-schema-traverse@0.4.1 copies it really has
+#   (packages/core-nested and eslint-nested) next to the 1.0.0 that ajv resolves — neither is on
+#   ajv's resolution path, so neither may be reported.
+ajv_fixture() {
+  local d="$1" root_uri="$2" core_uri="$3"
+  mkdir -p "$d/packages/core/install" "$d/packages/core/render"
+  printf '%s\n' '// node_modules/ajv/dist/ajv.js' 'var Ajv = 1;' \
+    '// node_modules/fast-uri/index.js' 'var uri = 1;' \
+    '// node_modules/json-schema-traverse/index.js' 'var t = 1;' \
+    >"$d/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+  printf "import { Ajv } from 'ajv';\n" >"$d/packages/core/render/render-rules.ts"
+  python3 - "$d" "$root_uri" "$core_uri" <<'PY'
+import json, sys
+d, root_uri, core_uri = sys.argv[1:]
+ajv = {'version': '8.20.0',
+       'dependencies': {'fast-uri': '^3.0.1', 'json-schema-traverse': '^1.0.0'}}
+root = {'': {'name': 'w'}, 'node_modules/ajv': ajv,
+        'node_modules/fast-uri': {'version': root_uri},
+        'node_modules/json-schema-traverse': {'version': '1.0.0'},
+        'packages/core/node_modules/json-schema-traverse': {'version': '0.4.1', 'dev': True},
+        'node_modules/eslint/node_modules/json-schema-traverse': {'version': '0.4.1', 'dev': True}}
+core = {'': {'name': 'c'}, 'node_modules/ajv': ajv,
+        'node_modules/fast-uri': {'version': core_uri},
+        'node_modules/json-schema-traverse': {'version': '1.0.0'}}
+for rel, pkgs in (('package-lock.json', root), ('packages/core/package-lock.json', core)):
+    json.dump({'lockfileVersion': 3, 'packages': pkgs}, open(f'{d}/{rel}', 'w'))
+PY
+}
+
+# 6d — NEGATIVE (incident 2026-09-30): ajv agrees across the locks, but its TRANSITIVE fast-uri
+#      does not — root plans 3.1.7, packages/core plans 3.1.8. After `npm ci --prefix
+#      packages/core`, ajv resolves from packages/core/node_modules and so does its fast-uri, and
+#      every committed bundle that inlines fast-uri reports a phantom drift.
+ajv_fixture "$TMP/c6d" 3.1.7 3.1.8
+expect 'a transitive split (fast-uri 3.1.7/3.1.8) fails' 1 "$TMP/c6d" 'fast-uri'
+out_6d="$("$CHECK" "$TMP/c6d" 2>&1)"
+{ grep -q '3\.1\.7' <<<"$out_6d" && grep -q '3\.1\.8' <<<"$out_6d"; } \
+  || { echo 'FAIL: the transitive split report must name both versions'; FAILED=1; }
+
+# 6e — POSITIVE: the same tree once the split is gone passes, and names the transitive package
+#      it checked. The two off-path json-schema-traverse@0.4.1 copies stay out of the verdict.
+ajv_fixture "$TMP/c6e" 3.1.8 3.1.8
+expect 'an aligned transitive dependency passes' 0 "$TMP/c6e" 'fast-uri@3.1.8'
+grep -q 'json-schema-traverse@1.0.0' <<<"$("$CHECK" "$TMP/c6e" 2>&1)" \
+  || { echo 'FAIL: off-path json-schema-traverse copies must not disturb the 1.0.0 verdict'; FAILED=1; }
+
+# 6f — NEGATIVE (tree): locks agree on fast-uri 3.1.8, but the installed tree puts ajv in the
+#      packages/core layer and leaves a stale fast-uri 3.1.7 as the first copy ajv can reach.
+ajv_fixture "$TMP/c6f" 3.1.8 3.1.8
+mkdir -p "$TMP/c6f/packages/core/node_modules/ajv"
+printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' \
+  >"$TMP/c6f/packages/core/node_modules/ajv/package.json"
+install_pkg "$TMP/c6f" fast-uri 3.1.7 packages/core
+expect 'a stale transitive in the installed tree fails' 1 "$TMP/c6f" 'actually resolvable'
+
+# nest_fast_uri <dir> <lock-rel> <version> — plan a fast-uri copy nested under ajv in one lock.
+nest_fast_uri() {
+  python3 - "$1/$2" "$3" <<'PY'
+import json, sys
+p, ver = sys.argv[1:]
+lock = json.load(open(p))
+lock['packages']['node_modules/ajv/node_modules/fast-uri'] = {'version': ver}
+json.dump(lock, open(p, 'w'))
+PY
+}
+
+# 6g — NEGATIVE (resolve from the PARENT): both locks hoist fast-uri 3.1.8, but the packages/core
+#      lock nests 3.1.9 under ajv. ajv's own directory wins, so the core world inlines 3.1.9.
+#      A check that resolved transitive packages from packages/core would see 3.1.8 twice.
+ajv_fixture "$TMP/c6g" 3.1.8 3.1.8
+nest_fast_uri "$TMP/c6g" packages/core/package-lock.json 3.1.9
+expect 'a transitive nested under its parent is resolved from the parent' 1 "$TMP/c6g" '3.1.9'
+
+# 6h — NEGATIVE (nested comment path): esbuild names a nested copy
+#      `// node_modules/ajv/node_modules/fast-uri/…`; the inner package is inlined too.
+ajv_fixture "$TMP/c6h" 3.1.8 3.1.8
+nest_fast_uri "$TMP/c6h" package-lock.json 3.1.7
+nest_fast_uri "$TMP/c6h" packages/core/package-lock.json 3.1.9
+printf '%s\n' '// node_modules/ajv/dist/ajv.js' 'var Ajv = 1;' \
+  '// node_modules/ajv/node_modules/fast-uri/index.js' 'var uri = 1;' \
+  >"$TMP/c6h/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+expect 'a package named only in a nested comment path is checked' 1 "$TMP/c6h" 'fast-uri'
+
+# 6i — NEGATIVE (unresolvable): the bundle inlines `ghost`, which neither lock plans. A world
+#      that cannot resolve an inlined package is a disagreement in its own right — the bundle
+#      could not be rebuilt from that lock at all — never a package quietly left out of the ✓.
+ajv_fixture "$TMP/c6i" 3.1.8 3.1.8
+printf '%s\n' '// node_modules/ghost/index.js' 'var g = 1;' \
+  >>"$TMP/c6i/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+expect 'an inlined package no lock plans fails' 1 "$TMP/c6i" 'ghost'
+
+# 6j — POSITIVE (tree, parent directory decides): ajv is installed at the ROOT with fast-uri
+#      3.1.8 beside it; a stale 3.1.7 sits only in packages/core/node_modules, where ajv's walk
+#      never looks. Resolving fast-uri from packages/core instead of from ajv would fail this.
+ajv_fixture "$TMP/c6j" 3.1.8 3.1.8
+mkdir -p "$TMP/c6j/node_modules/ajv"
+printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' \
+  >"$TMP/c6j/node_modules/ajv/package.json"
+install_pkg "$TMP/c6j" fast-uri 3.1.8 .
+install_pkg "$TMP/c6j" fast-uri 3.1.7 packages/core
+expect 'the tree walk follows the parent, not packages/core' 0 "$TMP/c6j" 'fast-uri@3.1.8'
+
+# 6k — NEGATIVE (tree, mirror of 6j): ajv is in packages/core/node_modules with a stale 3.1.7
+#      nested under it; the root copy is 3.1.8. ajv's own directory wins, so 3.1.7 is inlined.
+ajv_fixture "$TMP/c6k" 3.1.8 3.1.8
+mkdir -p "$TMP/c6k/packages/core/node_modules/ajv"
+printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' \
+  >"$TMP/c6k/packages/core/node_modules/ajv/package.json"
+install_pkg "$TMP/c6k" fast-uri 3.1.8 .
+install_pkg "$TMP/c6k" fast-uri 3.1.7 packages/core/node_modules/ajv
+expect 'a stale copy nested under the installed parent fails' 1 "$TMP/c6k" 'actually resolvable'
 
 # 7 — CWD-INDEPENDENCE: with no argument the target is the repo the script lives in, derived
 #     from its own path. A cwd-derived root would answer about the caller's checkout instead —

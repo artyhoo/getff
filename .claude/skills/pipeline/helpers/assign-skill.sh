@@ -65,7 +65,7 @@ score_against() {
   cand_tokens=$(tokenise "${1:-}")
   while IFS= read -r tok; do
     [[ -n "${tok}" ]] || continue
-    echo "${cand_tokens}" | grep -qF "${tok}" 2>/dev/null && score=$((score + 1)) || true
+    grep -qF "${tok}" 2>/dev/null <<<"${cand_tokens}" && score=$((score + 1)) || true
   done <<< "${INPUT_TOKENS}"
   echo "${score}"
 }

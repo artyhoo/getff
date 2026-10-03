@@ -8,6 +8,9 @@
 #   (A) unparseable manifest → exit non-zero, FAIL line names the manifest
 #   (B) a valid manifest under a path with a `'` is read AND its rule is actually tested — the
 #       old NUL→newline `tr` was a no-op, so before the fix every rule took the «no inputs» skip
+#   (C)/(D) TypeScript and JSX negative inputs are parsed and their rules tested
+#   (E) an input that does not parse is a skip, never a «selector broken» FAIL
+#   (F) the FAIL line names the error, not the source line that threw it (#1390 class)
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 GATE="$REPO_ROOT/packages/core/audit-self/check-generated-rule-mutation.sh"
@@ -27,7 +30,19 @@ R=$(newroot broken)
 printf '{ "rule-a": { "check": ' > "$R/.ai-factory/synthesizer-output/rules-manifest-additions.json"
 _out=$(bash "$GATE" "$R" 2>&1); _rc=$?
 [ "$_rc" -ne 0 ] && ok "(A) unparseable manifest → exit $_rc (fails closed)" || bad "(A) unparseable manifest → exit 0 (got: $_out)"
-echo "$_out" | grep -q 'could not read the manifest' && ok "(A) the FAIL line says the manifest could not be read" || bad "(A) no 'could not read the manifest' line"
+grep -q 'could not read the manifest' <<<"$_out" && ok "(A) the FAIL line says the manifest could not be read" || bad "(A) no 'could not read the manifest' line"
+rm -rf "$R"
+
+# ── (F) the FAIL line names the error, not the source line that threw it. Node prints the
+#    throwing line (`… throw new Error('manifest is not a JSON object');`) ABOVE `Error: …`, so a
+#    first match on the bare word `Error` quoted the extractor's own code (#1390 class) ──
+R=$(newroot notobject)
+printf '[1, 2]\n' > "$R/.ai-factory/synthesizer-output/rules-manifest-additions.json"
+_out=$(bash "$GATE" "$R" 2>&1)
+_fail=$(grep -m1 'could not read the manifest' <<<"$_out")
+grep -q ': Error: manifest is not a JSON object$' <<<"$_fail" \
+  && ok "(F) the FAIL line names 'Error: manifest is not a JSON object'" \
+  || bad "(F) the FAIL line does not end in the error message (got: $_fail)"
 rm -rf "$R"
 
 # ── (B) quote in the path ──
@@ -37,7 +52,7 @@ cat > "$R/.ai-factory/synthesizer-output/rules-manifest-additions.json" <<'JSON'
   "negative-test": { "input": ["localStorage.getItem('token');"] } } }
 JSON
 _out=$(bash "$GATE" "$R" 2>&1); _rc=$?
-echo "$_out" | grep -q 'RULES_TESTED=1' && ok "(B) manifest under a path with a quote was read; its rule was tested" || bad "(B) the rule was not tested (rc=$_rc, got: $_out)"
+grep -q 'RULES_TESTED=1' <<<"$_out" && ok "(B) manifest under a path with a quote was read; its rule was tested" || bad "(B) the rule was not tested (rc=$_rc, got: $_out)"
 rm -rf "$R"
 
 # ── (C)/(D) typed and JSX inputs are parsed — the shipped manifest's negative inputs are
@@ -51,14 +66,14 @@ gate_one() { # <label> <selector> <input-json-string>
   rm -rf "$R"
 }
 gate_one ts '"CallExpression[callee.name='"'"'fetch'"'"']"' '"function send(): void { fetch('"'"'/x'"'"'); }"'
-echo "$_out" | grep -q 'RULES_TESTED=1' && ok "(C) a TypeScript negative input is parsed and its rule tested" || bad "(C) TypeScript input not tested (rc=$_rc, got: $_out)"
+grep -q 'RULES_TESTED=1' <<<"$_out" && ok "(C) a TypeScript negative input is parsed and its rule tested" || bad "(C) TypeScript input not tested (rc=$_rc, got: $_out)"
 gate_one jsx '"JSXIdentifier[name='"'"'head'"'"']"' '"export const H = () => <head />;"'
-echo "$_out" | grep -q 'RULES_TESTED=1' && ok "(D) a JSX negative input is parsed and its rule tested" || bad "(D) JSX input not tested (rc=$_rc, got: $_out)"
+grep -q 'RULES_TESTED=1' <<<"$_out" && ok "(D) a JSX negative input is parsed and its rule tested" || bad "(D) JSX input not tested (rc=$_rc, got: $_out)"
 
 # ── (E) an input that does not parse is a probe-infrastructure skip, never a «selector broken»
 #    FAIL: `if ! _probe …; then [ $? -eq 9 ]` always read 0, so the skip branch was dead ──
 gate_one unparse '"Identifier"' '"const = ;"'
-echo "$_out" | grep -q 'did NOT fire' && bad "(E) unparseable input reported as a broken selector (got: $_out)" || ok "(E) unparseable input is not reported as a broken selector"
-echo "$_out" | grep -q 'skipped' && ok "(E) unparseable input is reported as skipped" || bad "(E) unparseable input not reported as skipped (got: $_out)"
+grep -q 'did NOT fire' <<<"$_out" && bad "(E) unparseable input reported as a broken selector (got: $_out)" || ok "(E) unparseable input is not reported as a broken selector"
+grep -q 'skipped' <<<"$_out" && ok "(E) unparseable input is reported as skipped" || bad "(E) unparseable input not reported as skipped (got: $_out)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

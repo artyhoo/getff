@@ -11,7 +11,7 @@
  *   dependency-cruiser from `packages/core/templates/shared/husky-pre-push.sh`. Its
  *   own body says «Zero edits to pre-push.ts». Eight-plus shipped surfaces went on
  *   asserting those four checks for four months, and one of them —
- *   `skill-context/aif-rules-check/SKILL.md:18` — instructs the consumer's agent NOT
+ *   `skill-context/aif-rules-check/SKILL.md:18` — instructed the consumer's agent NOT
  *   to re-run the checks BECAUSE pre-push allegedly already did.
  *
  * That is the difference in kind this gate exists for: a false claim in a shipped
@@ -249,7 +249,7 @@ describe('Principle 45 — pre-push contract claim liveness', () => {
     // The measurement that shaped the anchors. Each of these mentions the hook; none
     // asserts a check SET. An earlier draft that treated every enumeration item near a
     // mention as a check produced 60+ findings on the live corpus, none about the
-    // contract — which is why the item vocabulary is derived from setup.d/70-deps.sh
+    // contract — which is why the item vocabulary is derived from the installer's delivery (toolchainTokens)
     // and why a bare mention yields no segment at all.
     const prose = [
       'Do not bypass the pre-push hook with `--no-verify`; it exists for a reason.',

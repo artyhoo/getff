@@ -36,6 +36,56 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+# Manual-step arm (Stop hook, operator directive 2026-09-28). All five keys below are
+# LOWERCASE C-locale EREs (the hook lowercases ASCII + Cyrillic itself and matches with
+# LC_ALL=C grep/awk -E) with ONE bilingual value, identical in BOTH packs: an operator on either
+# pack writes in either language, so the arm reads the hand-off line in both.
+# PREFIX_RE — the hand-off line; TOKEN_RE — the explicit «do by hand» form at the start of its
+# value (`:`, em/en dash or hyphen after it); KEYWORD_RE — a manual keyword anywhere in the value
+# before its first `(`; SKIP_RE — the other D-B values (nothing / waiting / decide), which never
+# take the keyword path.
+# AIF_EOT_HANDS_FLOOR — decision floors the arm leaves with the human, ONE ERE PER LINE (the hook
+# matches the action against every line; never add a blank line — an empty ERE matches
+# everything): a merge/promote verb anywhere + main anywhere (never a bare «main», never a push
+# of a feature branch or a PR opened against main), a push straight to main, npm release,
+# one-time codes, credentials in credential context (never a bare «token»), money, settings.json,
+# /compact, a session restart, a permission prompt, and a choice at a fork. Word-bounded where a
+# bare substring over-matches (pay ⊂ repay, секрет ⊂ секретарский, плату ⊂ оплату).
+AIF_EOT_HANDS_PREFIX_RE='(from you|от тебя):'
+AIF_EOT_HANDS_TOKEN_RE='^(do by hand|сделать руками)[[:space:]]*(:|—|–|-)'
+AIF_EOT_HANDS_KEYWORD_RE='(^|[^[:alnum:]_])(by hand|manually)([^[:alnum:]_]|$)|руками|вручную'
+AIF_EOT_HANDS_SKIP_RE='^(nothing|ничего|waiting|ждём|ждем|жду|decide|решить)'
+AIF_EOT_HANDS_FLOOR='(^|[^[:alnum:]_])(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_].*)?((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут).*((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+((^|[^[:alnum:]_])(main|master)[^[:alnum:]_]|мейн|мастер)(.*[^[:alnum:]_])?(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)
+((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер).*(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут)
+staging *(->|→|=>|to|into|в) *(main|master|мейн)
+promote[- ]pr|промоут[- ]?pr
+(^|[^[:alnum:]_])push[a-z]*( [^ .;]+){0,2} (to|into) (origin[ /])?(main|master)([^[:alnum:]_]|$)
+(запуш|пушн)[^ ]*( [^ .;]+){0,2} (в|на) (origin[ /])?(main|master|мейн)
+npm publish|(publish|release)[a-z]*.*npm|(опубликова|выпуст|релизн|выкат).*npm|npm (login|adduser|token)
+(^|[^[:alnum:]_])(otp|totp|2fa|mfa)([^[:alnum:]_]|$)|one-time (code|password|passcode|pass|token|pin|key|link)|одноразов
+verification code|security code|auth(entication)? code|authenticator|аутентификатор|код (подтверждения|из (sms|смс|приложения))
+passw|passphrase|парол|credential
+api[ -]?(key|token)|(access|auth|personal access|github|gh|npm|bearer|deploy|api|pypi|oauth) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)
+[[:alnum:]]_(token|secret|password|passwd|pat)([^[:alnum:]_]|$)
+(paste|enter|insert|rotate|type|copy|provide|regenerat|revok|generat|issue|put)[a-z]*[^.;]*[^[:alnum:]_]token([^[:alnum:]_]|$)
+secret (key|value|token)|(set|add|rotate|paste|enter|update|put|insert)[^.;]* secrets?([^[:alnum:]_-]|$)
+токен (доступа|api|npm|github|gh)|(github|gh|npm|api|deploy|personal)[- ]?токен|(встав|введ|ввест|скопир|смен|ротир|перевыпуст|сгенер|выда|выпуст)[^.;]*токен
+api[ -]?(ключ|токен)|ключ (api|доступа)|секрет(ы|а|ов|у|ом|е|ами|ах|ам|ный|ного|ные|ную)?([[:space:][:punct:]]|»|$)
+(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|money|refund
+billing (details|info|information|address|method|account|plan|settings)
+(^|[^[:alnum:]_])top[- ]?up([^[:alnum:]_]|$)|(buy|add|purchase|refill)[a-z]*[^.;]*credits
+(renew|extend)[a-z]*[^.;]*(domain|subscription|licen[cs]e|plan)|(upgrade|downgrade)[a-z]*[^.;]*(plan|tier|subscription|seat)
+[0-9] ?(usd|eur|€|₽|руб)|(usd|eur|€) ?[0-9]
+деньг|(^|[[:space:][:punct:]]|«)(за|о|у|вы)?плат(и|ить|ите|им|ишь|ит)([[:space:][:punct:]]|»|$)|купи|покуп|инвойс|тариф
+пополн[^.;]*(баланс|счёт|счет|кредит|карт)|продл[^.;]*(подписк|домен|лиценз|тариф)|(оформ|купи|оплат)[^.;]*подписк
+settings\.json|/compact
+(restart|relaunch|reload|reopen)[a-z]*[^.;]*(session|claude|harness)|(перезапуст|рестарт|перезагруз|переоткр)[^.;]*(сесси|claude|харнес)
+permission (prompt|dialog|request|popup|pop-up)|(approve|accept|allow|grant|click|confirm)[a-z]*[^.;]*permission
+разрешени[^.;]*(запрос|промпт|диалог)|запрос[^.;]*разрешени|(подтверд|одобр|приня|прими)[^.;]*разрешени|(нажа|нажм|кликн)[^.;]*(разрешить|allow)
+(^|[^[:alnum:]_])(pick|choose|select|decide)[a-z]*([^[:alnum:]_].*)?[^[:alnum:]_](or|between|vs)([^[:alnum:]_]|$)
+(^|[[:space:][:punct:]]|«)(выбра|выбер|выбор|реши|решить)[^.;]*(или|между)|развилк'
 # Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
 # regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
 # that only names a thing (a section, an alternation) reads to the model as "add this".
@@ -170,7 +220,7 @@ EOF
 }
 
 # Stop hook — handoff-currency gate (D13/D22): the block reason. $1 = handoff file path,
-# $2 = observed tokens, $3 = gate floor, $4 = state token (no-file|unchanged|heading|cap),
+# $2 = observed tokens, $3 = gate floor, $4 = state token (no-file|unchanged|heading|index|cap),
 # $5 = state detail (the missing heading / the line cap). Order per the spec's data flow:
 # the file path → the band → the five required headings → CONTENT, not a re-save → the
 # escape grammar. Never advises a fresh session (D21). The five heading strings are
@@ -182,6 +232,7 @@ aif_msg_eot_handoff_gate() {
     no-file)   _hg_verdict="The file does not exist yet — create it now, as the current state of this session." ;;
     unchanged) _hg_verdict="Its CONTENT is unchanged since the last accepted turn — a re-save or a touch is not a change; rewrite it." ;;
     heading)   _hg_verdict="A required section is missing or empty: ${_hg_detail}" ;;
+    index)     _hg_verdict="It has no index table — a handoff is a thin INDEX: a markdown table mapping each task to the one topic file (.md) to open, with the state moved into those topic files." ;;
     cap)       _hg_verdict="It is over the ${_hg_detail}-line cap — condense it to the current state, do not append." ;;
     *)         _hg_verdict="It is not current." ;;
   esac
@@ -189,7 +240,7 @@ aif_msg_eot_handoff_gate() {
 [handoff-gate] Stop — the session's handoff file is not current:
   ${_hg_path}
 This turn is inside the handoff band (≈ ${_hg_tokens} tokens, floor ${_hg_floor}). ${_hg_verdict}
-The file is THIS session's current state (rewrite it in place; keep it under ${AIF_HANDOFF_MAX_LINES:-200} lines). Required H2 sections, each with at least one non-blank line:
+The file is THIS session's current state as a thin INDEX (rewrite it in place; keep it under ${AIF_HANDOFF_MAX_LINES:-80} lines): a «task → topic file» table with at least one row naming a .md topic file, whose first line reads «Read when: …»; detail lives in the topic files, not here. Required H2 sections, each with at least one non-blank line (one line pointing to a topic file is enough):
 - ## Decisions and why
 - ## Rejected alternatives
 - ## Unverified assumptions and open forks
@@ -254,6 +305,27 @@ AIF_GLOSSARY_WORD_CLASS='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩ�
 aif_msg_glossary_demand() {
   cat <<EOF
 [glossary] The operator used "$2" (= $1) — a term still being learned. Somewhere in this answer, explain it inline once in the fixed form: $1 (<one-line explanation>). The parentheses are the point: that exact form is what stops the explanation from scrolling away.
+EOF
+}
+
+# Stop hook — manual-step arm (operator directive 2026-09-28): the turn's final «From you:»
+# line hands the human a manual step that is not a decision floor. $1 = the action text.
+aif_msg_eot_hands_step() {
+  cat <<EOF
+[manual-step] Your "${AIF_EOT_FOR_YOU_PREFIX}" line hands the human a manual step: "$1". A manual step is a process defect, not a normal ending.
+Do it yourself now if you are allowed to. If it needs a mechanism that does not exist yet, or a permission you lack, dispatch a follow-up task that builds the automation and name it in your answer — through aif auto-dispatch (a kickoff whose first line is <!-- bridge: auto -->) when the runtime bridge is up, else spawn_task where the harness has it.
+Only decision floors stay with the human: a merge to main, npm publish, a fork choice, passwords, money, and operator-only harness actions (/compact, a session restart, a permission prompt). If this step is one of them, say which floor it is.
+EOF
+}
+
+# Stop hook — dispatch-channel arm (recommendation-laziness-discipline.md §3): this turn emitted a
+# spawn_task chip for kickoff(s) without the auto-dispatch marker while the runtime bridge is up.
+# $1 = the kickoff path(s), $2 = the RUNTIME_BRIDGE_MODE value.
+aif_msg_eot_chip_over_bridge() {
+  cat <<EOF
+[dispatch-channel] This turn emitted a spawn_task chip for $1 while RUNTIME_BRIDGE_MODE=$2 and the aif bridge answers /health — but that kickoff does not start with <!-- bridge: auto -->. A chip waits for a human click; auto-dispatch starts the work with zero clicks.
+First decide: does the work wait on something (a stage gated on an unmerged predecessor), or must the operator choose when it starts? If so, keep the chip and say why in one line of your answer: chip-over-bridge: <why, 20+ chars>.
+If not, use the zero-click channel: make <!-- bridge: auto --> the kickoff's exact first line (runtime-bridge-dispatch.sh dispatches a */kickoff.md on write), then dismiss the chip (dismiss_task) so the work is not dispatched twice.
 EOF
 }
 

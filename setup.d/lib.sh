@@ -123,19 +123,19 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
 #     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
 #   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
-#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:367.
 # The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
 # are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
 # blob URLs and lose in-repo navigability:
 #   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
 #     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
 #     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
-#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:130 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
@@ -711,18 +711,18 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1373                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1423                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1362          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:551          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:466          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1708          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:505          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:554          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:469          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:494          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:514          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:545          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:1864                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -998,7 +998,7 @@ copy_safe() {
 # consumer's AGENTS.md as unformatted (an HTML comment immediately followed by a heading), and the
 # consumer's very first `npm run validate` goes red on a file we wrote — the #531 failure class.
 #
-# Malformed fence (a begin marker with no matching end) → LOUD refuse + skip, never a guess.
+# Malformed fence (a begin marker with no matching end, or two begin markers) → LOUD refuse + skip.
 # Splicing against a missing end marker would delete everything from the marker to EOF; the
 # irreversible branch is never the default (T-Upgrade-A).
 merge_fenced() {
@@ -1039,10 +1039,10 @@ merge_fenced() {
   fi
 
   # ── (b) our fence already present → replace body in place ──────────────────
-  if grep -qF "$begin" "$dst"; then
-    if ! grep -qF "$end_tok" "$dst"; then
-      echo "  ⚠ $dst: '$begin' present but no matching '$end_tok' — REFUSING to splice" >&2
-      echo "    (an unterminated fence would delete everything to EOF, so the file is left as it is and getff's section is not in it)" >&2
+  if _merge_fenced_locate "$dst" "$begin" "$end_tok"; then   # whole marker lines only (see helper)
+    if [ -n "$MERGE_FENCED_PROBLEM" ]; then
+      echo "  ⚠ $dst: $MERGE_FENCED_PROBLEM — REFUSING to splice" >&2
+      echo "    ($MERGE_FENCED_HINT)" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1065,22 +1065,22 @@ merge_fenced() {
       return 0
     fi
     local _splice_ok=1
-    if ! awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
-      state == 0 && index($0, BEG) > 0 {
+    # B/E = the whole-line marker positions _merge_fenced_locate found (never a quoted marker).
+    # A caller that proved the old body is its own shipped text sets MERGE_FENCED_SHIPPED_BODY=1.
+    if ! awk -v B="$MERGE_FENCED_BEGIN_LINE" -v E="$MERGE_FENCED_END_LINE" -v SRC="$src" '
+      NR == B {
         print                                     # keep the begin marker verbatim
         print ""                                  # blank lines around the body: Prettier treats an
         while ((getline line < SRC) > 0) print line
         close(SRC)
         print ""                                  # HTML comment glued to a heading as unformatted
-        state = 1
         next
       }
-      state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
-      state == 1 { next }                         # drop the previous body
-      { print }
+      NR > B && NR < E { next }                   # drop the previous body
+      { print }                                   # the end marker and everything after it
     ' "$dst" > "$tmp"; then
       _splice_ok=0
-    elif ! cmp -s "$tmp" "$dst"; then
+    elif [ "${MERGE_FENCED_SHIPPED_BODY:-0}" != 1 ] && ! cmp -s "$tmp" "$dst"; then
       # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
       # keep the previous bytes before they are gone (a no-op re-run never reaches here).
       _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
@@ -1132,7 +1132,7 @@ _merge_fenced_keep_copy() {
   local dst="$1" why="$2" conflicts sum8 kept
   conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
   if sum8=$(_hash256 "$dst"); then
-    kept="$conflicts/$(basename "$dst").${sum8:0:8}"
+    kept="$conflicts/${MERGE_FENCED_COPY_NAME:-$(basename "$dst")}.${sum8:0:8}"
     if mkdir -p "$conflicts" 2>/dev/null && cp "$dst" "$kept" 2>/dev/null; then
       echo "  ⚠ $dst: $why — previous content kept at $kept (copy back any local edits you want)"
       return 0
@@ -1568,7 +1568,7 @@ _lane_delivered_config_path() {
   fi
 }
 
-# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <refuse-intro> [hint …] — the
+# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <gates> — the
 # consumer CI-workflow cell shared by all toolchain lanes: ship the pinned gate template as a
 # getff-NAMESPACED <wf-rel> (never the consumer's ci.yml). Collision policy (same class as the
 # config cells): no file at our path → deliver via deliver_getff_workflow (getff-honest-signals
@@ -1576,16 +1576,24 @@ _lane_delivered_config_path() {
 # our own getff-generated file → idempotent no-op on install, re-deliver on --refresh (updated
 # pins + re-detected branch reach a brownfield consumer; the getff-<lane>.yml.override.md
 # Layer-3 escape hatch is preserved — the helper delegates to refresh_safe internally); a
-# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: print <refuse-intro> + the
-# <hint> lines (the lane's manual-wiring commands; the pins in them MIRROR the template — keep
-# the two in sync on any pin bump, ci-tool-pinning.md Rule A). Every message string is a
-# caller argument so the per-lane log output stays byte-identical to the pre-S-2 bodies. Was
+# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: the workflow is kept as it is and
+# a NOT-wired line names <gates> (what the lane's CI runs) and why it is not in CI (Q4.7, operator
+# directive 2026-09-28: a gap, never the commands to wire it by hand). Every message string is a
+# caller argument so the per-lane log output stays lane-specific. Was
 # _py_deliver_ci/_cargo_deliver_ci/_go_deliver_ci.
+# _lane_getff_ci_runs <tpl-dir> <wf_rel> — 0 when the getff CI workflow at <wf_rel> is, or is about to
+# be, getff's: the lane ships a CI template and the path is either absent (_lane_deliver_ci writes it)
+# or carries the generated-by-getff marker. A consumer-owned file there is kept as it is (the REFUSE
+# arm below), so a REFUSE cell's NOT-wired line must not claim the getff CI runs the bans (Q4.7).
+_lane_getff_ci_runs() {
+  local wf="$PROJECT_ROOT/$2"
+  [ -f "$1/github-actions-ci.yml" ] || return 1
+  [ ! -e "$wf" ] || grep -q 'generated by getff' "$wf" 2>/dev/null
+}
+
 _lane_deliver_ci() {
-  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" refuse_intro="$5"
-  shift 5
+  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" gates="$5"
   local wf_dst="$PROJECT_ROOT/$wf_rel"
-  local hint
 
   if [ ! -f "$tpl/github-actions-ci.yml" ]; then
     _lane_log "⊝ no CI template at $tpl/github-actions-ci.yml — skipping CI delivery (rules still enforced locally)"
@@ -1605,11 +1613,8 @@ _lane_deliver_ci() {
       fi
       return 0
     fi
-    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated."
-    _lane_log "$refuse_intro"
-    for hint in "$@"; do
-      _lane_log "$hint"
-    done
+    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated — kept as it is"
+    note_not_wired "CI: $gates not in CI — $wf_rel is your own workflow, and getff does not change a workflow it did not write"
     return 0
   fi
 
@@ -2125,7 +2130,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/70-deps.sh:43, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:2753, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2508,7 +2513,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:253-258); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:256-261); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2686,6 +2691,319 @@ warn_preset_staleness() {
   fi
 }
 
+# ci_gate_detect — fill _aif_missing / _aif_steps / _aif_cmds with each rule-enforcement gate whose
+# artefact is installed but that no workflow under .github/workflows/ references (#507/#521 CI-orphan).
+# Read-only. Shared by setup.d/60-ci.sh §6c (WARN + opt-in yq wiring) and install.sh do_refresh, which
+# names each missing gate and never edits the workflow (refresh sweep 2026-09-29 G6).
+_ci_gate_check() { # $1 "gate — what it enforces"  $2 wired-grep  $3 installed-artifact  $4 paste-step
+  [ -e "$PROJECT_ROOT/$3" ] || return 0          # gate not installed for this stack → nothing to warn
+  local _wf
+  for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+    [ -f "$_wf" ] || continue
+    # grep inside `if` is set-e-safe (non-zero no-match is consumed by the if-test, not seen by set -e)
+    if grep -qE "$2" "$_wf" 2>/dev/null; then return 0; fi   # referenced by some workflow → wired
+  done
+  _aif_missing+=("$1"); _aif_steps+=("$4"); _aif_cmds+=("${4#- run: }")
+}
+ci_gate_detect() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
+  _aif_missing=(); _aif_steps=(); _aif_cmds=()
+  # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
+  # consumer's own that 40-configs.sh kept (copy_unless_foreign).
+  local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
+  _ci_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
+  _ci_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
+  _ci_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
+  _ci_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
+  _ci_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
+  _ci_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
+}
+
+# merge_canonical_scripts <install|refresh> — FQA S1-A W4: add the canonical package.json scripts
+# (validate, check:*, prepare …) the consumer lacks, never overwriting a key they have. `install`
+# also adds the hook devDependencies (husky, lint-staged, sort-package-json) that §8 then installs.
+# `refresh` does NOT: --refresh installs no dependencies, and a devDependency written without an
+# install puts package.json out of step with the lockfile (`npm ci` fails) — each missing one is a
+# NOT wired line instead, and package.json is rewritten only when a script was added. Shared by
+# setup.d/70-deps.sh §7 and install.sh do_refresh (refresh sweep 2026-09-29 G5).
+merge_canonical_scripts() {
+  local AIF_MERGE_MODE="${1:-install}" _mcs_out _mcs_tag _mcs_dev _mcs_ver
+  if [ -f "$PROJECT_ROOT/package.json" ]; then
+    if [ -n "$DRY_RUN" ]; then
+      echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"
+    elif command -v node >/dev/null 2>&1; then
+      echo "▶ Merging canonical scripts → package.json (non-destructive)"
+      # #508: arch:check target. A pnpm monorepo has no root src/ (only apps/*/src, packages/*/src),
+      # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
+      # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
+      # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
+      # layer rules in .dependency-cruiser.mjs match nested package src via (?:^|/)src/<layer>.
+      # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
+      #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
+      #   2. else a root src/ present → src
+      #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
+      #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
+      # #508 arch:check target signal — kept as-is (only the mutation-wiring signal below changes,
+      # per plan Amendment A1). AIF_MONOREPO_SIG / AIF_ARCH_TARGET stay the manifest-key-based check.
+      AIF_MONOREPO_SIG=0
+      if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+        AIF_MONOREPO_SIG=1
+      fi
+      AIF_ARCH_TARGET=""
+      if [ "$AIF_MONOREPO_SIG" = "1" ]; then
+        for _d in apps packages services libs modules; do
+          [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
+        done
+        AIF_ARCH_TARGET="${AIF_ARCH_TARGET# }"
+      fi
+      if [ -z "$AIF_ARCH_TARGET" ]; then
+        if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
+      fi
+      # #931 PR-2 (C2 fix, plan Amendment A1): test:mutation must route to the per-package wrapper
+      # based on ARTIFACT PRESENCE (scripts/run-mutation.sh), NOT the AIF_MONOREPO_SIG manifest
+      # signal above. AIF_MONOREPO_SIG (pnpm-workspace.yaml / "workspaces" key) and the EMIT gate in
+      # setup.d/40-configs.sh (_ws_lines — a conventional-dir enumeration: apps|packages|services|
+      # libs|modules — that does NOT consult the workspace manifest) are two DIFFERENT signals that
+      # diverge both ways: a `packages/*` monorepo with no manifest key would wire "stryker run"
+      # against configs that were never emitted (SF-1 stays unfixed); a
+      # `"workspaces":["client","server"]` repo with non-conventional dirs would wire the wrapper
+      # form even though 40-configs.sh took the FLAT branch (no wrapper ever copied) — a hard error
+      # on first run (working → broken regression). 40-configs.sh runs BEFORE 70-deps.sh (setup.d
+      # numeric order), so the wrapper's on-disk presence is the authoritative "per-workspace
+      # configs were emitted" signal — wire⟺emit by construction.
+      AIF_HAS_MUTATION_WRAPPER=0
+      [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
+      # arch:check cruises with the config that is on disk after 40-configs.sh: ours
+      # (.dependency-cruiser.mjs), or the consumer's own under any name dependency-cruiser reads —
+      # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
+      AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
+      AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
+      _mcs_out=$(AIF_MERGE_MODE="$AIF_MERGE_MODE" AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
+        const fs = require("fs");
+        const p = process.env.AIF_PKG;
+        const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+        pkg.scripts = pkg.scripts || {};
+        // #931 PR-2 (C2 fix): route test:mutation to the per-package wrapper IFF setup.d/40-configs.sh
+        // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
+        // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
+        const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
+        const want = {
+          "lint": "eslint . --max-warnings=0",
+          "lint:fix": "eslint . --fix",
+          "format": "prettier --write .",
+          "format:check": "prettier --check .",
+          "typecheck": "tsc --noEmit",
+          "test": "vitest run",
+          "test:watch": "vitest",
+          "test:coverage": "vitest run --coverage",
+          "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
+          "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
+          "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
+          "arch:check": "depcruise --config " + (process.env.AIF_DEPCRUISE_CFG || ".dependency-cruiser.mjs") + " " + (process.env.AIF_ARCH_TARGET || "src"),
+          "audit:docs": "./scripts/audit-ai-docs.sh",
+          "check:globs": "bash scripts/check-rule-globs.sh",
+          "check:enforced": "bash scripts/check-rule-enforced.sh",
+          "check:arch-boundaries": "bash scripts/check-arch-boundaries.sh",
+          "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
+          "check:fences-fire": "bash scripts/check-fences-fire.sh",
+          "check:shields-up": "bash scripts/check-shields-up.sh",
+          "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
+          "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
+          "prepare": "husky"
+        };
+        // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
+        // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
+        // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
+        // relocated to the live path. Same non-destructive guard as the rest of `want`.
+        if (process.env.AIF_STACK === "react-next") {
+          want["storybook"] = "storybook dev -p 6006";
+          want["build-storybook"] = "storybook build";
+          want["test-storybook"] = "test-storybook";
+        }
+        // Refresh sweep G5 (review finding): `prepare: husky` runs on every `npm install`, so with no
+        // husky devDependency behind it (a consumer who moved to another hook manager) it would fail
+        // that install with exit 127. A refresh writes no devDependency, so it withholds prepare too.
+        if (process.env.AIF_MERGE_MODE === "refresh" && !("prepare" in pkg.scripts)
+            && !("husky" in (pkg.devDependencies || {})) && !("husky" in (pkg.dependencies || {}))) {
+          delete want["prepare"];
+          process.stdout.write("WITHHELD_PREPARE\n");
+        }
+        // Snapshot BEFORE the merge: which canonical keys the consumer already had (for the
+        // kept-names log line below, #1531 observability).
+        const preExisting = new Set(Object.keys(pkg.scripts));
+        let added = 0;
+        for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
+        // #1531: AFTER the strictly non-destructive merge, exact-string overwrite of the npm-init
+        // `test` placeholder. `npm init` seeds scripts.test with a placeholder whose string is
+        // npm-init noise ("Error: no test specified"), not consumer intent; the merge above KEPT
+        // it forever and the shipped `validate` (whose last lane is `test`) was permanently red on
+        // every npm-init consumer: npm runs the KEPT string (`echo … && exit 1`), so no green path
+        // existed until the consumer rewrote it. Overwrite ONLY the exact placeholder string; any
+        // other existing `test` value is deliberate consumer wiring and stays kept (and is named
+        // below).
+        // (NOTE: this JS lives inside the bash single-quoted node -e block opened below the want
+        // map — never put an apostrophe in JS here: it would end the bash string and the segment
+        // between the apostrophes is re-glued UNQUOTED, so any space or double-ampersand inside it
+        // word-splits the script. Hence the \" escapes instead of apostrophe literals.)
+        const NPM_INIT_TEST_PLACEHOLDER = "echo \"Error: no test specified\" && exit 1";
+        let placeholderReplaced = false;
+        if (pkg.scripts.test === NPM_INIT_TEST_PLACEHOLDER) {
+          pkg.scripts.test = want["test"];
+          placeholderReplaced = true;
+        }
+        // Kept-key NAMES, not just a count: a kept `test` on a brownfield now says "your own test
+        // wiring survived" instead of hiding behind "1 already present".
+        const keptNames = Object.keys(want).filter(k => preExisting.has(k) && !(k === "test" && placeholderReplaced));
+        // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
+        // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
+        // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
+        // non-destructive guard as scripts: only keys the consumer lacks. 2026-08-08: these three
+        // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
+        // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
+        // a caret would re-open it). Fourth copy of the same specs lives in
+        // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
+        // devDependencies object created if absent.
+        const wantDev = {
+          "husky": "^9.1.7",
+          "lint-staged": "~16.4.0",
+          "sort-package-json": "~3.7.1"
+        };
+        // Refresh sweep G5: --refresh installs no dependency, so it writes none either (a key with no
+        // install breaks `npm ci` on the lockfile); each missing one is printed for the caller to name.
+        if (process.env.AIF_MERGE_MODE === "refresh") {
+          const haveDev = pkg.devDependencies || {};
+          for (const k of Object.keys(wantDev)) if (!(k in haveDev)) process.stdout.write("MISSING_DEV " + k + " " + wantDev[k] + "\n");
+          if (added > 0 || placeholderReplaced) fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+          process.stderr.write("  ✓ added " + added + " script(s); " + keptNames.length + " already present (kept: " + (keptNames.length ? keptNames.join(", ") : "none") + ")\n");
+          if (placeholderReplaced) {
+            process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
+          }
+          process.exit(0);
+        }
+        pkg.devDependencies = pkg.devDependencies || {};
+        let addedDev = 0;
+        for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
+        fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+        process.stderr.write("  ✓ added " + added + " script(s); " + keptNames.length + " already present (kept: " + (keptNames.length ? keptNames.join(", ") : "none") + ")\n");
+        if (placeholderReplaced) {
+          process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
+        }
+        process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
+      ') || {
+        # An unparseable package.json (a BOM, comments, a conflict marker): the install stops here as
+        # it always has; a refresh names it and goes on, so the delivery baseline is still flushed.
+        [ "$AIF_MERGE_MODE" = refresh ] || return 1
+        note_not_wired "package.json scripts — not merged: package.json does not parse as JSON, and getff edits it only through a JSON parser"
+        return 0
+      }
+      while IFS=' ' read -r _mcs_tag _mcs_dev _mcs_ver; do
+        if [ "$_mcs_tag" = WITHHELD_PREPARE ]; then
+          note_not_wired "script \"prepare\" in package.json — not added: it runs husky, which is not among your dependencies, and --refresh installs none (npm would then fail on \`npm install\`)"
+        fi
+        [ "$_mcs_tag" = MISSING_DEV ] || continue
+        note_not_wired "devDependency $_mcs_dev ($_mcs_ver) in package.json — not added: --refresh installs no dependencies, and a devDependency written without an install puts package.json out of step with the lockfile (\`npm ci\` would then fail)"
+      done <<< "$_mcs_out"
+    else
+      echo "  ⚠  node not found — package.json scripts NOT merged"
+      note_not_wired "package.json scripts (validate, check:*, prepare) and the husky / lint-staged / sort-package-json devDependencies — not added: node is not on PATH, and getff edits package.json only through node"
+    fi
+  fi
+}
+
+# arm_recap_gate <settings> [install|refresh] — write env.AIF_RECAP_GATE=1 into .claude/settings.json (R-15: the
+# recap-gate REJECTION ships dormant; `--full` arms it). The caller gates on --full. Temp file next
+# to the target, `jq -e .` validate, atomic mv, skip when already set; no jq → the same merge through
+# node. Shared by setup.d/10-skills.sh §1c and install.sh do_refresh under `--refresh --full`
+# (refresh sweep 2026-09-29 G8, operator decision: --full on refresh arms what --full on install arms).
+arm_recap_gate() {
+  local settings="$1" _rg_mode="${2:-install}" _rg_rc _rg_tmp _rg_cur=""
+  # On refresh a value the consumer set is theirs: an explicit "0" is an opt-out, kept and named.
+  # (At install time no such value can exist yet, so the install path is unchanged.)
+  if [ "$_rg_mode" = refresh ]; then
+    if command -v jq >/dev/null 2>&1; then
+      _rg_cur=$(jq -r '.env.AIF_RECAP_GATE // empty | tostring' "$settings" 2>/dev/null || true)
+    elif command -v node >/dev/null 2>&1; then
+      _rg_cur=$(AIF_S="$settings" node -e 'try { const v = ((JSON.parse(require("fs").readFileSync(process.env.AIF_S, "utf8")).env) || {}).AIF_RECAP_GATE; if (v !== undefined && v !== null) process.stdout.write(String(v)); } catch (e) {}' 2>/dev/null || true)
+    fi
+    if [ -n "$_rg_cur" ] && [ "$_rg_cur" != 1 ]; then
+      echo "  ⊝ AIF_RECAP_GATE=$_rg_cur kept — a value set in .claude/settings.json is yours"
+      note_not_wired "AIF_RECAP_GATE in .claude/settings.json — not armed: it is set to \"$_rg_cur\", a value you set, and --refresh does not overwrite it"
+      return 0
+    fi
+  fi
+  # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
+  # no-op that prints nothing leaves the operator believing the gate is on when it is not.
+  # Same shape as the deps-hash-check jq-less branch of setup.d/10-skills.sh §1b.
+  if ! command -v jq >/dev/null 2>&1; then
+    # No jq: the same env merge through node (lib.sh json_edit_node); rc 3 = already armed.
+    _rg_rc=0
+    json_edit_node "$settings" '
+      if ((o.env || {}).AIF_RECAP_GATE === "1") return;
+      o.env = Object.assign({}, o.env, { AIF_RECAP_GATE: "1" });
+      return o;' || _rg_rc=$?
+    case "$_rg_rc" in
+      0) echo "  ✓ AIF_RECAP_GATE armed in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) echo "  AIF_RECAP_GATE already armed" ;;
+      *) echo "  ⚠ AIF_RECAP_GATE NOT armed — $(json_edit_node_why "$settings")" >&2
+         note_not_wired "AIF_RECAP_GATE in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
+  elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$settings" 2>/dev/null)" = "1" ]; then
+    echo "  AIF_RECAP_GATE already armed"
+  else
+    # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
+    # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
+    # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
+    # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
+    # the install clean while the operator believed the gate was armed (review M-7).
+    _rg_tmp="$settings.recapgate.tmp"
+    if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$settings" > "$_rg_tmp" 2>/dev/null \
+       && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
+      if mv "$_rg_tmp" "$settings"; then
+        echo "  AIF_RECAP_GATE=1 armed (--full)"
+      else
+        rm -f "$_rg_tmp"; echo "  ⚠ could not write $settings — AIF_RECAP_GATE NOT armed"
+      fi
+    else
+      rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $settings left untouched"
+    fi
+  fi
+}
+
+# activate_husky_hookspath — point core.hooksPath at .husky so the shipped .husky/* hooks run
+# (cih-s1 F2), never over a hook setup the consumer already runs (husky_hookspath_blocker) — that
+# case is a NOT wired line with the reason. Sets HUSKY_HOOKSPATH_OWNED / HUSKY_HOOKS_BLOCKED for
+# 99-finalize. Shared by setup.d/50-hooks.sh and install.sh do_refresh (refresh sweep 2026-09-29 G2):
+# before it was shared, a --refresh never activated the hooks it had just re-copied.
+activate_husky_hookspath() {
+  local _hp_block _hp_prefix
+  if [ -n "$DRY_RUN" ]; then
+    echo "▶ git hooks → [dry-run] would set core.hooksPath=.husky"
+  elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    # critical-review S4-3: never repoint a hook setup the consumer already runs (their own
+    # hooksPath, live .git/hooks) or a hooksPath that would resolve outside this install root.
+    _hp_block=$(husky_hookspath_blocker "$PROJECT_ROOT")
+    if [ -n "$_hp_block" ]; then
+      HUSKY_HOOKSPATH_OWNED=0
+      HUSKY_HOOKS_BLOCKED="$_hp_block"
+      echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
+      # Reason only (operator directive 2026-09-28): the consumer's own hook setup stays in charge,
+      # and a subdirectory install would repoint the hooks of the whole repository — both are the
+      # consumer's to decide, so the line names what is not active and why, with no command.
+      _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
+      note_not_wired "framework git hooks (${_hp_prefix}.husky/) — not active: $_hp_block, and getff does not repoint a hook setup the repository already has or one that covers more than this install"
+    elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
+      HUSKY_HOOKSPATH_OWNED=0
+      echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
+    else
+      HUSKY_HOOKSPATH_OWNED=1
+      git -C "$PROJECT_ROOT" config core.hooksPath .husky
+      echo "▶ Activated git hooks → core.hooksPath=.husky"
+    fi
+  else
+    echo "  ⊝ git hooks NOT activated — not a git repository"
+    note_not_wired "framework git hooks (.husky/) — not active: $PROJECT_ROOT is not a git repository, so there is no core.hooksPath to set"
+  fi
+}
+
 # husky_hookspath_blocker PROJECT_ROOT (critical-review S4-3)
 # Echo ONE line naming why core.hooksPath must NOT be pointed at .husky — empty output means it is
 # safe. Blocked when the consumer already runs its own hooks: a core.hooksPath other than ours
@@ -2724,6 +3042,28 @@ husky_hookspath_blocker() {
 # surface (printed in the 99-finalize summary). Tolerates NOT_WIRED being undeclared (lib-only use).
 note_not_wired() {
   NOT_WIRED+=("$1")
+}
+
+# print_not_wired — print the NOT-wired summary: a header, then one «- …» line per piece. Shared by
+# 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
+# Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
+# tells the reader what to do.
+# print_getff_added — the consumer-owned files getff inserted its block into this run (Q4.7,
+# note_getff_added), each original kept in .ai-factory/before-getff/. Shared by setup.d/99-finalize.sh
+# and install.sh do_refresh, whose eslint wiring can insert into the consumer's own configs too.
+print_getff_added() {
+  [ "${#GETFF_ADDED_TO[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
+  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
+}
+
+print_not_wired() {
+  [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
+  printf '      - %s\n' "${NOT_WIRED[@]}"
+  echo ""
 }
 
 # note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
@@ -2766,14 +3106,147 @@ eslint_flat_config() {
   return 0
 }
 
+# eslint_flat_configs_under <dir> — the config ESLint loads in each directory at or under <dir> that
+# has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
+# (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
+# of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
+# check-rule-enforced.sh) less its ./packages/core/{hooks,audit-self,principles,eslint-rules}: the
+# subtrees the install vendors hold no config, so both find the same workspace configs and the install
+# writes to the ones the gates then read. -mindepth 1: <dir> itself is never pruned, whatever its name. The
+# per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
+# package's own eslint.config.js is found as the root one is (they used to look for
+# eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
+eslint_flat_configs_under() {
+  local n f d seen="|" names=()
+  for n in $ESLINT_FLAT_CONFIG_NAMES; do names+=( -o -name "$n" ); done
+  while IFS= read -r -d '' f; do
+    d=$(dirname "$f")
+    case "$seen" in *"|$d|"*) continue ;; esac
+    seen="$seen$d|"
+    n=$(eslint_flat_config "$d")
+    [ -z "$n" ] || printf '%s\0' "$d/$n"
+  done < <(find "$1" -mindepth 1 \( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp \
+               -o -name .next -o -name .git -o -path '*/.claude/worktrees' \) -prune \
+             -o \( "${names[@]:1}" \) -print0 2>/dev/null)
+  return 0
+}
+
+# eslint_config_code <file> — <file> with its // and /* */ comments cut out, as the ESLint config's
+# code: quoted strings stay, a /* */ comment may span lines, and a template literal's text and a regex
+# literal are cut too (neither is a rule id). The install's greps for a rule id, RULE_GLOBS or a boundary
+# glob read this, not the raw file — `// TODO: turn on 'rules-as-tests/no-unsafe-zod-parse'` is not R2
+# wired (#1889 observation 7). uncomment() and the regexctx() it calls are the push gates' own (the
+# rule-globs reader in packages/core/audit-self/check-rule-globs.sh and check-rule-enforced.sh, which
+# ship without lib.sh), byte for byte: tests/install-sh/installer-greps-read-code.test.sh compares them.
+# Prints nothing for a missing file, so a grep over the result is false as a grep of that file would be.
+ESLINT_UNCOMMENT_AWK='
+function regexctx(out,   w) {
+  if (last == "" || index("(,=:[!&|?{};+-*%<>~^}", last) > 0) return 1
+  if (last !~ /[A-Za-z]/) return 0
+  w = out; sub(/[[:space:]]+$/, "", w)
+  if (!match(w, /[A-Za-z_$][A-Za-z0-9_$]*$/)) return 0
+  return substr(w, RSTART) ~ /^(return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await|instanceof)$/
+}
+function uncomment(s,   out, c, q, i, j, n, cls) {
+  out = ""; q = ""; n = length(s)
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (incmt) { if (c == "*" && substr(s, i + 1, 1) == "/") { incmt = 0; i++ }; continue }
+    if (intpl) { if (c == "\\") i++; else if (c == "`") { intpl = 0; out = out c; last = c }; continue }
+    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) { q = ""; last = c }; continue }
+    if (c == "/" && substr(s, i + 1, 1) == "/") break
+    if (c == "/" && substr(s, i + 1, 1) == "*") { incmt = 1; i++; continue }
+    if (c == "/" && regexctx(out)) {
+      cls = 0
+      for (j = i + 1; j <= n; j++) {
+        c = substr(s, j, 1)
+        if (c == "\\") j++
+        else if (cls) { if (c == "]") cls = 0 }
+        else if (c == "[") cls = 1
+        else if (c == "/") break
+      }
+      if (j <= n) { out = out "0"; last = "0"; i = j; continue }
+      c = "/"
+    }
+    if (c == "`") { intpl = 1; out = out c; last = c; continue }
+    if (c == sq || c == dq) q = c
+    out = out c
+    if (c !~ /[[:space:]]/) last = c
+  }
+  return out
+}
+'
+eslint_config_code() {
+  [ -f "$1" ] && [ -r "$1" ] || return 0
+  awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'{ print uncomment($0) }' "$1" 2>/dev/null || return 0
+}
+
+# eslint_config_has_getff_rules <file> — true when the config names one of getff's rules
+# (rules-as-tests/…) or imports / re-exports / require()s, by a relative path, a config that does: a
+# workspace config spreading a sibling's getff preset has getff's rules (second cold review, after
+# #1868). Every relative import on a line counts (third cold review). Followed up to
+# four imports deep, each file read once, so an import cycle ends. A bare package import is not
+# followed — what it resolves to is not a file of this project to read. Each file is read as code
+# (eslint_config_code): a rule id or an import in a comment does not count.
+eslint_config_has_getff_rules() {
+  local seen="|" f dir spec code depth=0
+  local queue=("$1") next
+  while [ "${#queue[@]}" -gt 0 ] && [ "$depth" -le 4 ]; do
+    next=()
+    for f in "${queue[@]}"; do
+      case "$seen" in *"|$f|"*) continue ;; esac
+      seen="$seen$f|"
+      [ -f "$f" ] || continue
+      code=$(eslint_config_code "$f")   # a rule or an import in a comment is not in the config
+      grep -q 'rules-as-tests/' <<<"$code" && return 0
+      dir=$(dirname "$f")
+      while IFS= read -r spec; do
+        [ -n "$spec" ] && next+=("$dir/$spec")
+      done < <(grep -oE "(from|import|require)[[:space:]]*[(]?[[:space:]]*['\"]\.\.?/[^'\"]+['\"]" <<<"$code" \
+                 | sed -E "s/.*['\"](\.\.?\/[^'\"]+)['\"]$/\1/")
+    done
+    queue=(${next[@]+"${next[@]}"})
+    depth=$((depth + 1))
+  done
+  return 1
+}
+
+# note_eslint_config_not_esm <abs-dir> <config-name> — the not-wired line for a flat config getff does
+# not add its block to: an eslint.config.cjs/.ts/.mts/.cts has no ES-module export to append to.
+# Named once however many steps reach it — 40-configs places nothing beside it, and each 99-finalize
+# pass that would add to it finds it again.
+note_eslint_config_not_esm() {
+  local line n where="$1"
+  # The directory as the summary names it: project-relative, never the absolute install path (#1878).
+  if [ "$where" = "${PROJECT_ROOT:-}" ]; then where="the project root"; else where="${where#"${PROJECT_ROOT:-}"/}"; fi
+  line="eslint: getff's rules are not in the ESLint config of $where — your $2 configures ESLint there, and getff adds its block only to an ES-module flat config (eslint.config.js or eslint.config.mjs)"
+  for n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do [ "$n" = "$line" ] && return 0; done
+  note_not_wired "$line"
+}
+
+# KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
+# two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
+# first only: the second pass's copy would already carry the first pass's block, and be announced
+# as a second «original» (cold-review F9).
+KEPT_ORIGINALS=()
+
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
 keep_original_snapshot() {
-  local f="$1" snap
+  local f="$1" snap k
+  for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
   echo "$snap"
+}
+
+# keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
+# own shell: settle runs inside $(…), where a global it set would be lost.
+keep_original_mark() {
+  KEPT_ORIGINALS+=("$1")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -2865,8 +3338,8 @@ legacy_eslint_config() {
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
-# skip + report, never overwrite or merge a consumer's tool config). A root eslint.config.js is not
-# recorded: 99-finalize adds getff's block to it (operator decision Q4.7, 2026-09-28).
+# skip + report, never overwrite or merge a consumer's tool config). An eslint.config.js is not
+# recorded, at the root or in a workspace: 99-finalize adds getff's block to it (operator decision Q4.7).
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own where
   shift 3
@@ -2885,12 +3358,13 @@ copy_unless_foreign() {
       # config (Q4.7) but not to a prettier / lint-staged / dependency-cruiser one (decision
       # 2026-09-23 stands for those), so the line names what stays out and why — no merge step.
       note_not_wired "$kind: getff's ${dst##*/} is not in $where — your $own configures $kind there, and getff does not change a project's own $kind config, so $kind runs with your settings only"
-    elif [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ] && [ "$own" = "eslint.config.js" ]; then
-      # 99-finalize adds getff's block to a root eslint.config.js the way it does to a consumer's
-      # own eslint.config.mjs (operator decision Q4.7) and reports the outcome there.
+    elif [ "$own" = "eslint.config.js" ]; then
+      # 99-finalize adds getff's block to an eslint.config.js — at the root and in a workspace — the
+      # way it does to a consumer's own eslint.config.mjs (operator decision Q4.7), and reports the
+      # outcome there.
       :
     else
-      note_not_wired "eslint: getff's rules are not in the ESLint config of $where — your $own configures ESLint there, and getff adds its block only to an eslint.config.mjs, or to an ES-module eslint.config.js at the project root"
+      note_eslint_config_not_esm "$(dirname "$dst")" "$own"
       # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
       if [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
         ESLINT_ROOT_NOT_WIRED=1
@@ -3057,7 +3531,9 @@ register_cc_hook() {
       const [e, c, m, marker] = args;
       o.hooks = o.hooks || {};
       const list = o.hooks[e] || [];
-      if (list.some(g => (g.hooks || []).some(h => new RegExp(marker).test(h.command || "")))) return;
+      // A null group or a handler with no string command (a prompt hook) is never a match.
+      if (list.some(g => g && Array.isArray(g.hooks) && g.hooks.some(h =>
+        h && typeof h.command === "string" && new RegExp(marker).test(h.command)))) return;
       o.hooks[e] = list.concat([m ? { matcher: m, hooks: [{ type: "command", command: c }] }
                                   : { hooks: [{ type: "command", command: c }] }]);
       return o;' "$event" "$cmd" "$matcher" "$marker" || rc=$?
@@ -3095,10 +3571,13 @@ register_cc_hook() {
       echo "  ⚠ jq could not create $settings — no settings file written, $marker NOT registered on $event" >&2
     fi
   elif jq -e --arg e "$event" --arg m "$marker" \
-      '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
+      '[(.hooks[$e] // [])[] | objects | .hooks[]? | objects | .command | strings] | any(test($m))' \
+      "$settings" >/dev/null 2>&1; then
     # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
     # (e.g. inject-project-digest on UserPromptSubmit AND SubagentStart) — a whole-file grep
     # would false-match the first event's entry and skip the second. GH #934 batch D.
+    # Only string commands are compared: a prompt hook has no `command`, and on one of those the
+    # old `.hooks[].command | test` threw, read as «absent», and appended a duplicate per run.
     echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
     # ledger A1-9 (the A1-8 class, fixed for merge_fenced in #1632): the unconditional ✓ below used
@@ -3114,6 +3593,504 @@ register_cc_hook() {
       echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker NOT registered on $event" >&2
     fi
   fi
+}
+
+# unregister_cc_hook SETTINGS EVENT MARKER — the inverse of register_cc_hook, for a hook getff MOVES
+# to another event. Drops every handler on EVENT whose command runs getff's own script
+# `.claude/hooks/<MARKER>.sh` (anchored — a consumer's `my-<MARKER>-v2.sh` is not ours), then a
+# group that held such a handler and is left empty, then the EVENT key if it is left empty. Every
+# other handler, group (malformed ones included) and event is kept as it was.
+# Silent when nothing matches (the common re-install case); absent settings file → no-op.
+# Why it exists (2026-09-29): inject-project-digest + inject-output-language moved from
+# UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
+# add-only, so without this a consumer installed before the move kept the per-prompt registration
+# next to the new one after a re-install — the injection would have grown, not shrunk.
+unregister_cc_hook() {
+  local settings="$1" event="$2" marker="$3" rc=0 re
+  [ -f "$settings" ] || return 0
+  re="\\.claude/hooks/${marker}\\.sh([\"' ]|\$)"
+  if ! command -v jq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [e, src] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {})[e];
+      if (!Array.isArray(list)) return;
+      const ours = g => Array.isArray(g.hooks) && g.hooks.some(h => re.test(h.command || ""));
+      if (!list.some(ours)) return;
+      const kept = [];
+      for (const g of list) {
+        if (!ours(g)) { kept.push(g); continue; }
+        const hooks = g.hooks.filter(h => !re.test(h.command || ""));
+        if (hooks.length) kept.push(Object.assign({}, g, { hooks }));
+      }
+      if (kept.length) o.hooks[e] = kept; else delete o.hooks[e];
+      return o;' "$event" "$re" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ $marker removed from $event in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) : ;;
+      *) echo "  ⚠ $marker NOT removed from $event — $(json_edit_node_why "$settings")"
+         note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
+    return 0
+  fi
+  jq -e --arg e "$event" --arg m "$re" \
+    '((.hooks[$e] // []) | map(.hooks[]?.command // "") | any(test($m)))' "$settings" >/dev/null 2>&1 || return 0
+  if jq --arg e "$event" --arg m "$re" '
+      def ours: (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($m));
+      .hooks[$e] = [ .hooks[$e][]
+                     | if ours then (.hooks = [ .hooks[] | select(((.command // "") | test($m)) | not) ]
+                                     | select((.hooks | length) > 0))
+                       else . end ]
+      | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end' \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+    echo "  ✓ $marker removed from $event in .claude/settings.json (moved to another event)"
+  else
+    rm -f "$settings.tmp" 2>/dev/null || true
+    echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
+    note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
+  fi
+}
+
+# register_imr_hooks SETTINGS — the three registrations of inject-matching-rule (trigger build,
+# slice 1): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm), PreToolUse
+# "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset). One function for both
+# callers (setup.d/10-skills.sh §1e and the install.sh --refresh arm) so the two cannot drift.
+# The PostToolUse matcher WIDENED: register_cc_hook is add-only and idempotent per event, so an
+# install from before slice 1 would keep its old matcher and the Read arm would never fire. A group
+# of ours whose matcher is one getff itself wrote — "Edit|Write" (2752282c083, 2026-07-13) or
+# "Edit|Write|MultiEdit" — is widened IN PLACE, so every other field of it stays (a `timeout` the
+# consumer set, say); when a consumer handler shares that group, it keeps the old matcher and ours
+# moves to a group of its own. Any other matcher (a catch-all, one naming Read, one the consumer
+# narrowed) is the consumer's choice and is left as it is. Both back-ends: jq, else node.
+register_imr_hooks() {
+  local settings="$1" rc=0 new="Edit|Write|MultiEdit|Read"
+  # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by Claude Code, not here
+  local cmd='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
+  local re="\\.claude/hooks/inject-matching-rule\\.sh([\"' ]|\$)"
+  # A group or handler of an odd shape (null, a non-string command, a prompt handler with none)
+  # is never ours and never crashes the check; both back-ends read it the same way.
+  if [ -f "$settings" ] && command -v jq >/dev/null 2>&1; then
+    if jq -e --arg re "$re" '
+        def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
+        any((.hooks.PostToolUse // [])[] | objects;
+            (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+            and (.hooks | type) == "array" and any(.hooks[]; ours))' \
+        "$settings" >/dev/null 2>&1; then
+      if jq --arg re "$re" --arg new "$new" '
+          def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
+          .hooks.PostToolUse = [ .hooks.PostToolUse[]
+            | if type == "object" and (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+                 and (.hooks | type) == "array" and any(.hooks[]; ours)
+              then if all(.hooks[]; ours) then .matcher = $new
+                   else (.hooks |= map(select(ours | not))),
+                        (. + {matcher: $new, hooks: [.hooks[] | select(ours)]})
+                   end
+              else . end ]' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+        echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json"
+      else
+        rm -f "$settings.tmp" 2>/dev/null || true
+        echo "  ⚠ jq rewrite of $settings failed — the inject-matching-rule Read arm NOT wired" >&2
+        note_not_wired "the Read arm of inject-matching-rule (PostToolUse matcher $new) in .claude/settings.json — jq rewrite failed"
+      fi
+    fi
+  elif [ -f "$settings" ]; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [src, nm] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {}).PostToolUse;
+      if (!Array.isArray(list)) return;
+      const ours = h => !!h && typeof h.command === "string" && re.test(h.command);
+      const legacy = g => !!g && (g.matcher === "Edit|Write" || g.matcher === "Edit|Write|MultiEdit")
+        && Array.isArray(g.hooks) && g.hooks.some(ours);
+      if (!list.some(legacy)) return;
+      o.hooks.PostToolUse = list.flatMap(g => !legacy(g) ? [g]
+        : g.hooks.every(ours) ? [Object.assign({}, g, { matcher: nm })]
+        : [Object.assign({}, g, { hooks: g.hooks.filter(h => !ours(h)) }),
+           Object.assign({}, g, { matcher: nm, hooks: g.hooks.filter(ours) })]);
+      return o;' "$re" "$new" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json (through node: jq is not on PATH)" ;;
+      # 1 = no node, or a file that is not a JSON object: register_cc_hook, next, reports that
+      # same cause once, as the jq arm leaves it to.
+      *) : ;;
+    esac
+  fi
+  register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "$new"
+  register_cc_hook "$settings" "PreToolUse" "$cmd" "inject-matching-rule" "Bash"
+  register_cc_hook "$settings" "SessionStart" "$cmd" "inject-matching-rule" "compact"
+}
+
+# rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
+# own-config wirer reads it (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), for a caller
+# that must say what that wirer would do without running it. First line: `none` when the file
+# declares no top-level RULE_GLOBS; `no-array` when it declares one whose value is not an object
+# literal with a `boundary: [` array of its own (the wirer refuses R2 there); `array` otherwise,
+# followed by the array's string elements, one per line. Elements, not text: a glob in a comment, in
+# another key or in a nested object is none of them. A tokenizer, not a parser — a regex literal
+# holding a quote or `//` can throw it off. Exit 1 (nothing printed) when <file> is no file.
+rule_globs_boundary() {
+  [ -f "$1" ] || return 1
+  awk -v sq="'" '
+    function tok(type, val) { nt++; tt[nt] = type; tv[nt] = val }
+    function opens(k) { return tt[k] == "p" && (tv[k] == "{" || tv[k] == "[" || tv[k] == "(") }
+    function closes(k) { return tt[k] == "p" && (tv[k] == "}" || tv[k] == "]" || tv[k] == ")") }
+    { src = src $0 "\n" }
+    END {
+      n = length(src); i = 1; nt = 0
+      while (i <= n) {
+        c = substr(src, i, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") { i++; continue }
+        if (c == "/" && substr(src, i + 1, 1) == "/") {
+          j = index(substr(src, i), "\n"); i = (j ? i + j : n + 1); continue
+        }
+        if (c == "/" && substr(src, i + 1, 1) == "*") {
+          j = index(substr(src, i + 2), "*/"); i = (j ? i + j + 3 : n + 1); continue
+        }
+        if (c == sq || c == "\"" || c == "`") {
+          # A template literal with a ${…} substitution is no string element for the wirer either.
+          q = c; v = ""; plain = 1; i++
+          while (i <= n) {
+            d = substr(src, i, 1)
+            if (d == "\\") { v = v substr(src, i + 1, 1); i += 2; continue }
+            if (d == q) break
+            if (q == "`" && d == "$" && substr(src, i + 1, 1) == "{") plain = 0
+            v = v d; i++
+          }
+          i++; tok(plain ? "str" : "tpl", v); continue
+        }
+        if (c ~ /[A-Za-z_$]/) {
+          v = c; i++
+          while (i <= n && substr(src, i, 1) ~ /[A-Za-z0-9_$]/) { v = v substr(src, i, 1); i++ }
+          tok("id", v); continue
+        }
+        tok("p", c); i++
+      }
+      # The declaration: `const|let|var RULE_GLOBS` outside every bracket, as the wirer takes only
+      # a top-level one.
+      depth = 0; decl = 0
+      for (k = 1; k <= nt; k++) {
+        if (depth == 0 && tt[k] == "id" && (tv[k] == "const" || tv[k] == "let" || tv[k] == "var") &&
+            tt[k + 1] == "id" && tv[k + 1] == "RULE_GLOBS") { decl = k + 1; break }
+        if (opens(k)) depth++; else if (closes(k)) depth--
+      }
+      if (!decl) { print "none"; exit }
+      if (!(tv[decl + 1] == "=" && tt[decl + 2] == "p" && tv[decl + 2] == "{")) { print "no-array"; exit }
+      # Its own `boundary:` key (depth 1 of the object literal), and that key holding an array.
+      rd = 1; arr = 0
+      for (k = decl + 3; k <= nt && rd > 0; k++) {
+        if (opens(k)) { rd++; continue }
+        if (closes(k)) { rd--; continue }
+        if (rd == 1 && tt[k] == "id" && tv[k] == "boundary" && tv[k + 1] == ":") {
+          if (tv[k + 2] == "[" && tt[k + 2] == "p") arr = k + 2
+          break
+        }
+      }
+      if (!arr) { print "no-array"; exit }
+      print "array"
+      ad = 1
+      for (k = arr + 1; k <= nt && ad > 0; k++) {
+        if (opens(k)) { ad++; continue }
+        if (closes(k)) { ad--; continue }
+        if (ad == 1 && tt[k] == "str") print tv[k]
+      }
+    }' "$1"
+}
+
+# ── merge_fenced marker location ──────────────────────────────────────────────
+# _merge_fenced_locate <file> <begin-prefix> <end-marker> — where merge_fenced's section sits.
+# A marker counts only as a WHOLE line (a trailing \r or blanks allowed): the begin marker is
+# <begin-prefix> followed by ` -->` or ` <attributes> -->`, the end marker is exactly <end-marker>.
+# A co-owner's rule that QUOTES a marker inside a sentence is prose, never a fence. The original
+# substring match took such a quote for the begin marker and spliced from there, deleting the
+# co-owner's text between the quote and the real block (/aif-evolve, measured 2026-09-28).
+# Sets MERGE_FENCED_BEGIN_LINE / MERGE_FENCED_END_LINE, and MERGE_FENCED_PROBLEM +
+# MERGE_FENCED_HINT when the pair is unusable (no end marker, or more than one begin marker —
+# which block is getff's cannot be told, so nothing is guessed). Returns 1 when there is no begin
+# marker line at all.
+_merge_fenced_locate() {
+  local out nb
+  MERGE_FENCED_BEGIN_LINE=0; MERGE_FENCED_END_LINE=0; MERGE_FENCED_PROBLEM=""; MERGE_FENCED_HINT=""
+  [ -f "$1" ] || return 1
+  # A failed scan is «unknown», never «no markers» — that would append a second block.
+  if ! out=$(awk -v BEG="$2" -v END_TOK="$3" '
+    { sub(/\r$/, ""); sub(/[ \t]+$/, "") }
+    index($0, BEG) == 1 && substr($0, length(BEG) + 1) ~ /^ ([^>]* )?-->$/ { nb++; if (!b) b = NR; next }
+    b && !e && $0 == END_TOK { e = NR }
+    END { print nb + 0, b + 0, e + 0 }' "$1"); then
+    MERGE_FENCED_PROBLEM="could not scan for the section markers (awk failed)"
+    MERGE_FENCED_HINT="nothing was written"
+    return 0
+  fi
+  read -r nb MERGE_FENCED_BEGIN_LINE MERGE_FENCED_END_LINE <<EOF
+$out
+EOF
+  [ "${nb:-0}" -gt 0 ] || return 1
+  if [ "$nb" -gt 1 ]; then
+    MERGE_FENCED_PROBLEM="$nb whole-line '$2' markers — which block is getff's cannot be told"
+    MERGE_FENCED_HINT="the file is left as it is and getff's section is not updated in it"
+  elif [ "$MERGE_FENCED_END_LINE" = 0 ]; then
+    MERGE_FENCED_PROBLEM="'$2' present but no matching '$3'"
+    MERGE_FENCED_HINT="an unterminated fence would delete everything to EOF, so the file is left as it is and getff's section is not in it"
+  fi
+  return 0
+}
+
+# ── Skill-context co-ownership (AI Factory /aif-evolve store) ─────────────────
+# The shipped skill-context overrides (.ai-factory/skill-context/<skill>/SKILL.md) are CO-OWNED
+# with AI Factory's /aif-evolve, which writes project rules into exactly that file (see
+# install_skill_context). SSOT for the section id and the in-block note, both lanes.
+SKILL_CONTEXT_FENCE_SECTION='getff-skill-context'
+SKILL_CONTEXT_NOTE_LEAD='> Managed by getff:'
+# shellcheck disable=SC2016  # backticks are Markdown code spans in the delivered file, not expansions
+SKILL_CONTEXT_FENCE_NOTE="$SKILL_CONTEXT_NOTE_LEAD"' `install.sh --refresh` rewrites only the text between the getff markers. Project rules, including everything `/aif-evolve` adds, belong outside the markers and are never touched.'
+
+# Every revision of each skill-context template getff has shipped, one row per revision:
+#   <skill> <file lines> <file sha256> <body lines> <body sha256>
+# where the body is the file minus its YAML frontmatter and outer blank lines — what the fenced
+# block carries after the note. Rows make getff's own old bytes recognisable: a fence-less copy of
+# ANY revision is replaced rather than left beside the new block, and a block still holding a
+# shipped body is refreshed without parking a copy. APPEND-ONLY — a template edit adds its new
+# row (`_skill_context_revision_row <skill> <file>` prints it);
+# tests/install-sh/skill-context-evolve-coownership.test.sh §0 fails until every revision in git
+# history and the working tree is listed.
+SKILL_CONTEXT_SHIPPED_REVISIONS='
+aif-orchestrator-discipline 59 825145afc8dae2a6cca9d3014f5119df5dfeea44547fb7bc56f855f5863536e6 55 bc0159f192e25a613ccc228bd88bccbbf139d62f7a7bae272dc3700cc109c777
+aif-orchestrator-discipline 120 aee5830a0e5760545b1dea92d7a35b16ca90bbdb5043b45ea538fdbcc57205da 116 a4bb23e831f64ae675b7d36f88010b90cae50c7ba349011fba3d27e273ffbef7
+aif-orchestrator-discipline 123 6fccf9a6157fcf1a338aac779af29d4cba3e9dc3a5f8c88d20c4e2e8ecb99753 119 15530613ee63585bc5b5c242496983f9170bc73f4fc3e5f16ccdd8061c052f2b
+aif-orchestrator-discipline 123 7a0a04091d03f039d9f025b8278bac98966e5a9b5ae51a7b636e42e31f9cba57 119 88e16a15ce964ead848ce6ce02bc113a0c8e8946dc8ce34c97ebe8d6192ee21f
+aif-review 40 8bd23ebbc6a7ab41a680c5e17895a1df3f8492090354ffe7ab4a83bda2c61f09 36 7660177c2193e1317a5dc0297310d65e7c0e03ccb87f61aeec0e02a7b78d5a73
+aif-review 40 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343 36 098ffe62f7297978d85099fe412611bd2efc2f07bb3ab4c719486948e9324aa6
+aif-review 42 e32999457cbeb08fbc13bce4e304afaa3075c3503a47b00a7866cb74370ea3e7 38 66b4b8e709b8be5a930a847de01ae616ef6ad247a77f8adfdf91d0de11b3fc1d
+aif-review 42 fcf5933063730451f53ada7b865c4774d3808d6c7be9df6633b1fa73091f699a 38 b94c51259d7ce17a8de99d36fbcfa1263ef757799fd69eb7370547e4c8cba3b1
+aif-rules-check 42 ef8609433e8fbd9ecad4fa332a78eda10c0f2bd6c43dc19ceb168550cebbf75f 38 1f3e7c3022c6f43a62517279a315471a5d171112cce145cdfb160635ec008008
+aif-rules-check 42 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791 38 b9a59089f5cc1ec4bb3d2ce0fd554d7fb694f047f0ca3fb5005f1a405b3e2e5b
+aif-rules-check 42 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448 38 f7c6deab98cb56e9c164bcdc76bf7c1551622bc8de391c97e94b6842feda2409
+'
+
+# install_skill_context <src> <dst>
+# The ONLY delivery verb for the shipped skill-context overrides, on install AND on --refresh, on
+# every lane (setup.d/20-agents.sh, install.sh do_refresh, setup.d/45-python.sh).
+#
+# WHY NOT copy_safe / refresh_safe: `.ai-factory/skill-context/<skill>/SKILL.md` is AI Factory's
+# evolution store — aif-evolve/SKILL.md (AIF 2.11.0, lines 40-45) calls it «the ONLY correct target
+# for built-in skill improvements» and its Artifact Ownership section claims the whole directory.
+# AIF reads that one file per skill and nothing else: no fenced section it preserves, no sibling
+# file, no include. Whole-file delivery therefore lost one side every time (measured 2026-09-28):
+# copy_safe skipped an evolved file, so getff's content never arrived; refresh_safe overwrote it,
+# so every evolved rule left the file AIF reads. This verb owns ONLY a merge_fenced block
+# (section=getff-skill-context); the text outside the markers is /aif-evolve's and is never
+# rewritten. Layer 3 (`SKILL.override.md` sibling) and --dry-run behave as in merge_fenced;
+# --force is a no-op there too, since a co-owned file has no «whole file» for getff to overwrite.
+#
+# The block body is the template with its YAML frontmatter dropped (frontmatter is only valid at
+# the top of a file, and the file's top belongs to whoever wrote first) and SKILL_CONTEXT_FENCE_NOTE
+# prepended, so /aif-evolve reading the file is told where its rules go. A block whose old body is
+# a shipped revision is refreshed silently; one somebody edited is parked first, as
+# refresh-conflicts/<skill>-SKILL.md.<sha8> (three skills share the basename SKILL.md).
+#
+# GETFF TEXT WITHOUT MARKERS — only bytes PROVABLY delivered by getff are ever removed:
+#   - LEGACY (every consumer installed before this verb): the file starts with a whole shipped
+#     revision (SKILL_CONTEXT_SHIPPED_REVISIONS, or the current template), line for line — those
+#     lines become the fenced block and the rest of the file is kept;
+#   - STRIPPED (a rewrite dropped the HTML-comment markers): the note line followed by a shipped
+#     body — those lines go and the fenced block is appended.
+# Anything else (evolve edits inside getff's text) cannot be told apart from project rules, so
+# nothing is removed: the block is appended and the old text stays, named once in the install
+# output. CR line ends are ignored for these comparisons. The irreversible branch is never the
+# default (T-Upgrade-A).
+install_skill_context() {
+  local src="$1" dst="$2"
+  local plan body n kl rest h1 skill
+  local beg="<!-- getff:begin section=$SKILL_CONTEXT_FENCE_SECTION"
+  local end="<!-- getff:end section=$SKILL_CONTEXT_FENCE_SECTION -->"
+  # Read by merge_fenced / _merge_fenced_keep_copy (dynamic scope): quiet refresh of a shipped
+  # body, and a skill-qualified name for a parked copy.
+  local MERGE_FENCED_SHIPPED_BODY=0 MERGE_FENCED_COPY_NAME
+  [ -f "$src" ] || return 0
+  skill=$(basename "$(dirname "$dst")")
+  MERGE_FENCED_COPY_NAME="$skill-$(basename "$dst")"
+  plan="${src#"${PKG_ROOT:-}"/}"
+  if [ -e "${dst%.md}.override.md" ]; then   # Layer 3 — merge_fenced reports the skip
+    merge_fenced "$src" "$dst" "$SKILL_CONTEXT_FENCE_SECTION" "$plan"
+    return 0
+  fi
+  body=$(mktemp) || { echo "  ⚠ $dst: mktemp failed — skill-context not delivered" >&2; return 0; }
+  _skill_context_body "$src" > "$body"
+  rest="${dst}.getff.tmp"
+  if [ -f "$dst" ] && ! _merge_fenced_locate "$dst" "$beg" "$end"; then
+    if kl=$(_skill_context_stripped_block "$dst"); then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would replace the marker-less getff block in $dst (lines ${kl% *}-${kl#* }) with section=$SKILL_CONTEXT_FENCE_SECTION"
+        rm -f "$body"
+        return 0
+      fi
+      if awk -v K="${kl% *}" -v L="${kl#* }" 'NR < K || NR > L' "$dst" > "$rest" && mv "$rest" "$dst"; then
+        echo "  · $dst: getff block without its markers (lines ${kl% *}-${kl#* }) replaced by the fenced block; everything else kept"
+      else
+        rm -f "$rest" 2>/dev/null || true
+        echo "  ⚠ $dst: could not remove the marker-less getff block — left unchanged" >&2
+        rm -f "$body"
+        return 0
+      fi
+    elif n=$(_skill_context_delivered_lines "$src" "$dst"); then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would adopt the pre-fence getff copy in $dst into section=$SKILL_CONTEXT_FENCE_SECTION (lines after $n kept)"
+        rm -f "$body"
+        return 0
+      fi
+      # Keep everything after the provable getff prefix (leading blank lines trimmed), then let
+      # merge_fenced append the current block — to an empty file when nothing followed.
+      if tail -n +"$((n + 1))" "$dst" | awk '/[^ \t\r]/ { p = 1 } p' > "$rest" && mv "$rest" "$dst"; then
+        if [ -s "$dst" ]; then
+          echo "  · $dst: pre-fence getff copy (first $n lines) moved into the fenced block; the project rules after it kept"
+        else
+          rm -f "$dst"
+        fi
+      else
+        rm -f "$rest" 2>/dev/null || true
+        echo "  ⚠ $dst: could not split the pre-fence getff copy — left unchanged" >&2
+        rm -f "$body"
+        return 0
+      fi
+    elif [ "$DRY_RUN" != "--dry-run" ] && h1=$(_skill_context_h1 "$src") && [ -n "$h1" ] \
+      && grep -qxF "$h1" <<<"$(tr -d '\r' < "$dst")"; then
+      echo "  · $dst: holds an older getff copy that cannot be told apart from project rules — kept as-is; the current version is appended in its own block"
+    fi
+  elif [ -f "$dst" ] && [ -z "$MERGE_FENCED_PROBLEM" ] && _skill_context_block_is_shipped "$dst"; then
+    MERGE_FENCED_SHIPPED_BODY=1
+  fi
+  merge_fenced "$body" "$dst" "$SKILL_CONTEXT_FENCE_SECTION" "$plan"
+  rm -f "$body"
+}
+
+# _skill_context_trim — stdin → stdout without leading and trailing blank lines.
+_skill_context_trim() {
+  awk '/[^ \t]/ { p = 1 } p { buf[++n] = $0 }
+       END { while (n > 0 && buf[n] !~ /[^ \t]/) n--; for (i = 1; i <= n; i++) print buf[i] }'
+}
+
+# _skill_context_template_body <file> — the template without its leading YAML frontmatter, trimmed.
+_skill_context_template_body() {
+  awk 'NR == 1 && $0 == "---" { fm = 1; next }
+       fm == 1 { if ($0 == "---") fm = 2; next }
+       { fm = 2; print }' "$1" | _skill_context_trim
+}
+
+# _skill_context_body <src> — stdout: SKILL_CONTEXT_FENCE_NOTE, a blank line, the template body.
+_skill_context_body() {
+  printf '%s\n\n' "$SKILL_CONTEXT_FENCE_NOTE"
+  _skill_context_template_body "$1"
+}
+
+# _skill_context_h1 <src> — the template's first H1 line (the legacy-residue name check above).
+_skill_context_h1() {
+  awk '/^# / { print; exit }' "$1"
+}
+
+# _skill_context_revisions <skill> — that skill's SKILL_CONTEXT_SHIPPED_REVISIONS rows.
+_skill_context_revisions() {
+  printf '%s\n' "$SKILL_CONTEXT_SHIPPED_REVISIONS" | awk -v S="$1" '$1 == S'
+}
+
+# _skill_context_revision_row <skill> <file> — the register row for a template revision.
+_skill_context_revision_row() {
+  local tb sha="" bsha=""
+  tb=$(mktemp) || return 1
+  _skill_context_template_body "$2" > "$tb"
+  if sha=$(_hash256 "$2") && bsha=$(_hash256 "$tb"); then
+    echo "$1 $(wc -l < "$2" | tr -d ' ') $sha $(wc -l < "$tb" | tr -d ' ') $bsha"
+  fi
+  rm -f "$tb"
+  [ -n "$bsha" ]
+}
+
+# _skill_context_delivered_lines <src> <dst> — echo N and exit 0 IFF the first N lines of the
+# fence-less <dst> (CR ignored) are a whole template getff shipped: the current <src>, or any
+# registered revision of this skill. Exit 1 = not provable.
+_skill_context_delivered_lines() {
+  local src="$1" dst="$2" lf probe total n _skill lines sha _bl _bh h
+  lf=$(mktemp) || return 1
+  probe=$(mktemp) || { rm -f "$lf"; return 1; }
+  tr -d '\r' < "$dst" > "$lf"
+  total=$(wc -l < "$lf" | tr -d ' ')
+  n=$(wc -l < "$src" | tr -d ' ')
+  if [ "$n" -gt 0 ] && [ "$n" -le "$total" ] && head -n "$n" "$lf" | cmp -s - "$src"; then
+    rm -f "$lf" "$probe"; echo "$n"; return 0
+  fi
+  while read -r _skill lines sha _bl _bh; do
+    if [ -z "$sha" ] || [ "$lines" -gt "$total" ]; then continue; fi
+    head -n "$lines" "$lf" > "$probe"
+    if h=$(_hash256 "$probe") && [ "$h" = "$sha" ]; then
+      rm -f "$lf" "$probe"; echo "$lines"; return 0
+    fi
+  done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  rm -f "$lf" "$probe"
+  return 1
+}
+
+# _skill_context_stripped_block <dst> — echo "K L" and exit 0 IFF the fence-less <dst> holds a
+# getff block whose markers were removed: SKILL_CONTEXT_NOTE_LEAD at line K, then (after blank
+# lines) a registered body of this skill ending at line L. CR ignored.
+_skill_context_stripped_block() {
+  local dst="$1" lf probe k start _skill _l _h bl bh h
+  lf=$(mktemp) || return 1
+  probe=$(mktemp) || { rm -f "$lf"; return 1; }
+  tr -d '\r' < "$dst" > "$lf"
+  k=$(awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'index($0, P) == 1 { print NR; exit }' "$lf")
+  start=""
+  [ -n "$k" ] && start=$(awk -v K="$k" 'NR > K && /[^ \t]/ { print NR; exit }' "$lf")
+  if [ -n "$start" ]; then
+    while read -r _skill _l _h bl bh; do
+      [ -n "$bh" ] || continue
+      sed -n "${start},$((start + bl - 1))p" "$lf" > "$probe"
+      if h=$(_hash256 "$probe") && [ "$h" = "$bh" ]; then
+        rm -f "$lf" "$probe"; echo "$k $((start + bl - 1))"; return 0
+      fi
+    done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  fi
+  rm -f "$lf" "$probe"
+  return 1
+}
+
+# _skill_context_block_is_shipped <dst> — exit 0 IFF the fenced block _merge_fenced_locate just
+# found holds, after the note, a registered body of this skill (so replacing it loses nothing).
+_skill_context_block_is_shipped() {
+  local dst="$1" probe h
+  probe=$(mktemp) || return 1
+  awk -v B="$MERGE_FENCED_BEGIN_LINE" -v E="$MERGE_FENCED_END_LINE" 'NR > B && NR < E' "$dst" \
+    | tr -d '\r' | _skill_context_trim \
+    | awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'NR == 1 && index($0, P) == 1 { next } { print }' \
+    | _skill_context_trim > "$probe"
+  h=$(_hash256 "$probe"); rm -f "$probe"
+  [ -n "$h" ] && _skill_context_revisions "$(basename "$(dirname "$dst")")" \
+    | awk -v H="$h" '$5 == H { f = 1 } END { exit !f }'
+}
+
+# getff_bytes_intact <abs-dst> — the content twin of getff_delivered: exit 0 IFF <abs-dst> still
+# holds the bytes getff left in it: this run staged it (the delivery itself, or a later write of
+# getff's own — see below), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded. A getff_delivered file the consumer edited since fails it — those bytes are theirs now —
+# and so does an unknown one (no entry, no jq, no sha256 tool): the safe side. The manifest hashes
+# only what a run staged, so a later install that writes into an intact getff file (60-ci's
+# boundary globs, a synth-wire or R2 write on getff's branch) stages it again with
+# refresh_baseline_stage; otherwise its own write reads as the consumer's edit on the next check.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──

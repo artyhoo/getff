@@ -3,7 +3,7 @@
 #
 # @dual-pair: warn-subagent-report
 #   The CC source (.claude/hooks/warn-subagent-report.sh) is the portable-spec pair — it owns
-#   the REPORT-section grammar SSOT (line 78: REPORT_CUE_RE, lines 89/92/95: section regexes).
+#   the REPORT-section grammar SSOT (line 102: REPORT_CUE_RE, lines 113/116/119: section regexes).
 #   This twin mirrors that grammar VERBATIM (no shared include file — extensionless plugin
 #   hooks under plugin/hooks/ follow the standalone-script convention observed across
 #   check-doc-authority, end-of-turn-reminder, inject-session-bootstrap). A comment block
@@ -23,7 +23,7 @@
 #   R5 — env vars ZCODE_PROJECT_DIR + CLAUDE_PROJECT_DIR confirmed.
 #
 # WARN hook — exits 0 always. Maintainer chose WARN over block (exit 2): judgment target,
-# not mechanically gateable (#gate-where-judgment-needed, see .claude/hooks/warn-subagent-report.sh:4).
+# not mechanically gateable (#gate-where-judgment-needed, see .claude/hooks/warn-subagent-report.sh:6).
 set -uo pipefail
 
 # --- ZCode predicate (canonical form, verified across 7 plugin twins + end-of-turn-reminder) ---
@@ -46,7 +46,7 @@ _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 # each harness's own shape, and stderr keeps a plain copy for terminal/CI readers.
 # WARN-not-block is preserved deliberately: exit 0, and NO `decision:"block"` — blocking a Stop
 # is a gate, and this is a judgment target (#gate-where-judgment-needed, see
-# .claude/hooks/warn-subagent-report.sh:4).
+# .claude/hooks/warn-subagent-report.sh:6).
 _warn() {
   local arm="$1" text="$2" msg
   msg="$(printf '⚠ %s: subagent REPORT %s' "$arm" "$text")"
@@ -56,7 +56,7 @@ _warn() {
     printf '%s' "$msg" | _ze_emit
   else
     # CC's model-visible exit-0 channel: stdout JSON hookSpecificOutput.additionalContext —
-    # the same shape .claude/hooks/warn-subagent-report.sh:56-58 emits for SubagentStop.
+    # the same shape .claude/hooks/warn-subagent-report.sh:54-58 emits for SubagentStop.
     # jq -Rs does the string escaping (embedded quotes/newlines/backslashes).
     printf '%s' "$msg" | jq -Rs --arg ev "${EVENT:-PostToolUse}" \
       '{hookSpecificOutput: {hookEventName: $ev, additionalContext: .}}'
@@ -64,7 +64,7 @@ _warn() {
 }
 
 # _required_sections_check <text>
-# Mirrors .claude/hooks/warn-subagent-report.sh:74-97 VERBATIM (grammar SSOT):
+# Mirrors .claude/hooks/warn-subagent-report.sh:98-121 VERBATIM (grammar SSOT):
 #   - noise guard: REPORT_CUE_RE — must contain a REPORT-cue label at line start
 #   - required sections: VERIFY, Confidence:, ATTN
 # Returns 0 if REPORT shape is recognized AND all sections present.
@@ -93,12 +93,11 @@ _required_sections_check() {
   return 0
 }
 
-# _dedup_key <text> <payload-jsonv>
-# Prefers toolCallId/tool_call_id from payload; falls back to sha256 of text; final fallback cksum.
-# Echoes the key (stdout).
+# _dedup_key <text> <tool-use-id>
+# Uses the caller-supplied tool-use id when non-empty; otherwise derives the key from the text
+# (sha256, final fallback cksum). Echoes the key (stdout).
 _dedup_key() {
-  local text="$1" payload="$2" key=""
-  key="$(printf '%s' "$payload" | jq -r '.toolCallId // .tool_call_id // .toolCallID // ""' 2>/dev/null || true)"
+  local text="$1" key="$2"
   if [ -z "$key" ]; then
     # Derive from text: prefer sha256, fallback cksum (cksum output is "<sum> <bytes>" — take col 1).
     key="$(printf '%s' "$text" | (sha256sum 2>/dev/null || shasum -a 256 2>/dev/null || cksum) | cut -d' ' -f1)"
@@ -127,7 +126,8 @@ _have_key() {
 }
 
 # jq is required (every hook here depends on it). Graceful no-op without jq — matches
-# end-of-turn-reminder:14 and warn-subagent-report.sh:41 consumer-safe pattern.
+# end-of-turn-reminder:16. (The CC source diverges here on purpose: its jq guard at
+# warn-subagent-report.sh:60-65 emits a loud SKIP note instead of a silent no-op.)
 command -v jq >/dev/null 2>&1 || exit 0
 
 # =============================================================================
@@ -136,7 +136,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 # Per R4: ZCode PostToolUse:Agent bundle ships up to 120 KB of Agent tool_result readable
 # directly from `.tool_input`. Schema-drift fallbacks: .tool_result, .tool_response (handles
 # ZCode version variance + CC PostToolUse shape). Reads payload, applies the REPORT grammar
-# from .claude/hooks/warn-subagent-report.sh:74-97, dedups against session state, emits a
+# from .claude/hooks/warn-subagent-report.sh:98-121, dedups against session state, emits a
 # warning per missing section.
 _arm_a_post() {
   # Extract the tool_result text. Try .tool_input first (R4: ZCode primary path).
@@ -166,9 +166,24 @@ _arm_a_post() {
   # rc=2: noise guard held (not REPORT-shaped) → silent exit.
   [ "$rc" -eq 2 ] && exit 0
 
-  # Dedup key: prefer toolCallId from payload, else sha256/cksum of text.
-  local KEY
-  KEY="$(_dedup_key "$TOOL_INPUT" "$INPUT")"
+  # Dedup key: the ONE canonical stdin field `tool_use_id` (dual-implementation-discipline.md §4 —
+  # probed, not guessed). Both harnesses send it at top level:
+  #   * ZCode — createClaudeCompatibleHookStdin in /Applications/ZCode.app/Contents/Resources/glm/
+  #     zcode.cjs sets `t.tool_use_id=e.toolCallId` whenever a tool is in scope. (Its `{...e}`
+  #     spread also leaks the internal camelCase `toolCallId`; that is not the published contract
+  #     and is deliberately NOT read.)
+  #   * CC — scripts/probe-hook-stdin.sh PostToolUse capture, 2026-10-01: top-level keys include
+  #     `tool_use_id`; no `toolCallId` / `tool_call_id` / `toolCallID`.
+  # It is also the id the Arm B transcript sweep keys on (tool_result.tool_use_id), so cross-arm
+  # dedup matches by id. Degradation: if a harness ever stops sending it, dedup falls back to the
+  # text hash (still correct within Arm A; cross-arm dedup by id is lost) and a stderr note names
+  # the drift instead of silently guessing another field name.
+  local TOOL_USE_ID KEY
+  TOOL_USE_ID="$(printf '%s' "$INPUT" | jq -r '.tool_use_id // ""' 2>/dev/null || true)"
+  if [ -z "$TOOL_USE_ID" ]; then
+    printf 'warn-subagent-report-zcode: PostToolUse stdin has no tool_use_id — dedup falls back to a text hash (hook-contract drift?)\n' >&2
+  fi
+  KEY="$(_dedup_key "$TOOL_INPUT" "$TOOL_USE_ID")"
 
   if _have_key "$STATE_FILE" "$KEY"; then
     # Already warned (or already known-good) — silent exit.
@@ -190,7 +205,7 @@ _arm_a_post() {
 # tool_result entry in the JSONL, applies the same grammar, dedups against Arm A's state.
 # Catches truncation (>120 KB) and Arm A skipped fires.
 #
-# Honors `.stop_hook_active=true` (matches end-of-turn-reminder:35-38) → exit 0 to avoid
+# Honors `.stop_hook_active=true` (matches end-of-turn-reminder:90-91) → exit 0 to avoid
 # second-fire after StopHook.
 _arm_b_stop() {
   local STOP_ACTIVE
@@ -206,7 +221,7 @@ _arm_b_stop() {
   fi
 
   # Candidate lines: assistant entries carrying Agent tool_use. Use the alternation pattern
-  # from end-of-turn-reminder:69 — handles both CC outer-"type":"assistant" and ZCode's
+  # from end-of-turn-reminder:687-693 — handles both CC outer-"type":"assistant" and ZCode's
   # role-arm transcripts. We then look INSIDE each assistant line for tool_use entries
   # whose name is Agent|Task — the tool_use entry's toolCallId anchors dedup.
   #
@@ -233,7 +248,7 @@ _arm_b_stop() {
   # Dedup + check loop. Iterate over jq-extracted records via process substitution.
   # Each record is NUL-delimited and shaped as `tool_use_id<TAB>text` so the dedup-key
   # can prefer the transcript's id field (per R2: toolCallId in ZCode, tool_use_id in CC).
-  # This matches Arm A's `_dedup_key` extraction from `.tool_call_id` — when the transcript
+  # This matches Arm A's `_dedup_key` extraction from stdin `.tool_use_id` — when the transcript
   # id equals the PostToolUse tool_call_id (same Agent invocation), cross-arm dedup holds.
   # When the transcript id is absent, both arms fall back to sha256(text) — same hash.
   local -a flagged=()
@@ -258,7 +273,7 @@ _arm_b_stop() {
     if [ -n "$rec_id" ]; then
       k="$rec_id"
     else
-      k="$(_dedup_key "$rec_text" "{}")"
+      k="$(_dedup_key "$rec_text" "")"
     fi
     if _have_key "$STATE_FILE" "$k"; then
       continue
