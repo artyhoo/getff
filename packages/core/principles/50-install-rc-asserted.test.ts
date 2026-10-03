@@ -49,8 +49,8 @@
  *
  * Mechanically decidable per line, so a gate: the principle suite runs at pre-push and in CI.
  *
- * ## Prior art — SSOT #306 (row renumbered 302 -> 305 -> 306 on 2026-10-03: concurrent staging
- * appends took 300-305, and the register allocates the next free ID — see the note on the row)
+ * ## Prior art — SSOT #308 (row renumbered 302 -> 305 -> 306 -> 308 on 2026-10-03/04: concurrent
+ * staging appends took 300-306, and the register allocates the next free ID — see the note on the row)
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

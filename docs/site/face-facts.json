@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 307
+      "count": 308
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",

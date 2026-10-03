@@ -107,6 +107,7 @@
           ".claude/rules/attention-is-not-a-mechanism.md",
           ".claude/rules/dual-implementation-discipline.md",
           ".claude/rules/no-paid-llm-in-ci.md",
+          ".claude/rules/phase-research-coverage.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/night-mode/SKILL.md",
           "agents/compliance-verifier.md",
