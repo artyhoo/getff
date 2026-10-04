@@ -13,7 +13,7 @@
  * false-suppress regression that prior cold-review caught.
  *
  * Pattern: spawnSync(bash, [HOOK], {input: JSON}) + on-disk JSONL transcript,
- * REFERENCEing the check-hook-marker.test.ts:49-63 fixture-spawn shape (no new
+ * REFERENCEing the check-hook-marker.test.ts:48-62 fixture-spawn shape (no new
  * test framework, no bats dep — T-M4-A counter). Skips gracefully when `jq`
  * is unavailable on the runner.
  *
@@ -55,8 +55,8 @@ const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
 // exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
 // 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
 // suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
-// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:581
-// and check-worker-dispatch-channel.test.ts:359 record the same 5000ms-under-parallel-load
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:587
+// and check-worker-dispatch-channel.test.ts:368 record the same 5000ms-under-parallel-load
 // failure, in the inline `timeout:` spelling of the same convention.
 const SLOW_SHELL_MS = 30_000;
 
@@ -396,7 +396,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // (hook:233-237) — all three are in the allowed set today, but there is NO guard against a
     // future edit adding `hookEventName` (or any other key) at top level, which ZCode would
     // silently reject. Regression guard (cold backward-sweep finding GAP-1): pin the allowed
-    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:153.
+    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:158.
     const tr = writeTranscript([
       aiTitle('Тестовая цель сессии'),
       userTurn('первое задание'),

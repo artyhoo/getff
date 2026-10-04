@@ -187,7 +187,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
     // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
     // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
-    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:99-132.
+    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:108-141.
     const { stdout } = runHook(ctx, agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const json = JSON.parse(stdout);
     const allowedTopLevel = new Set([

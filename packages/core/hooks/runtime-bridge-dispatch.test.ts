@@ -353,7 +353,7 @@ console.log(JSON.stringify({
       // a SEPARATE source location, so drift there is invisible to the hook's own tests. This
       // arm pins the forward contract: the forwarded JSON must keep hookEventName INSIDE
       // hookSpecificOutput (NOT at top level). Regression guard (cold backward-sweep GAP-2).
-      // Precedent: inject-matching-rule.test.ts:99 (hookSpecificOutput-wrapper schema arm).
+      // Precedent: inject-matching-rule.test.ts:108 (hookSpecificOutput-wrapper schema arm).
       const { hookAbs, kickoffAbs } = makeStubRepo();
       const r = spawnBashOrSkip(failLoudSkipContext('rbd zcode-schema'), 'bash', [hookAbs], {
         input: JSON.stringify({

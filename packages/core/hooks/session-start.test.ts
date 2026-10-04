@@ -24,7 +24,7 @@
  *
  * Skips gracefully when jq is unavailable (the ZCode JSON branch needs jq).
  * Precedent: inject-project-digest.test.ts (temp-repo + dual-event pattern),
- * deps-hash-check.test.ts:402 (ZCode schema arm).
+ * deps-hash-check.test.ts:417 (ZCode schema arm).
  */
 import { describe, it, expect } from 'vitest';
 import { execSync } from 'node:child_process';
@@ -101,7 +101,7 @@ describe.skipIf(!JQ)(
       // discarded). This plugin hook emits a minimal {additionalContext} shape today, but there
       // was NO guard against a future edit adding hookEventName (or any other key) at top level,
       // which ZCode would silently reject. Regression guard (cold backward-sweep finding GAP-3):
-      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:153.
+      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:158.
       const r = runHook(ctx, { ZCODE_PROJECT_DIR: REPO_ROOT });
       const json = JSON.parse(r.stdout);
       const allowedTopLevel = new Set([

@@ -27,7 +27,7 @@
  * (ABS_PATH#$REPO_ROOT/, hook:54) resolves to the scoped star-slash-kickoff.md matcher (hook:59).
  *
  * Skips gracefully when jq or tsx are unavailable (the hook itself no-ops without them).
- * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:402
+ * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:417
  * (ZCode schema arm).
  */
 import { describe, it, expect, afterEach } from 'vitest';
@@ -108,7 +108,7 @@ afterEach(() => {
  * REPO_ROOT, so the hook's REL_PATH = ABS_PATH#$REPO_ROOT/ (hook:54) yields the scoped
  * `.claude/orchestrator-prompts/<umbrella>/kickoff.md` matcher (hook:59) against a REAL
  * on-disk file. Returns the absolute path. The temp wave dir is removed in afterEach.
- * (Mirrors check-kickoff-traps.test.ts:53 — writing under REPO_ROOT is load-bearing.)
+ * (Mirrors check-kickoff-traps.test.ts:54 — writing under REPO_ROOT is load-bearing.)
  */
 function writeKickoff(body: string): string {
   const waveDir = mkdtempSync(
@@ -122,7 +122,7 @@ function writeKickoff(body: string): string {
 
 /** Run the hook with a PostToolUse payload. Returns status + stdout. env merged onto
  *  process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the exit-code branch
- *  (mirrors deps-hash-check.test.ts:339). cwd is forced to REPO_ROOT because the hook delegates
+ *  (mirrors deps-hash-check.test.ts:353). cwd is forced to REPO_ROOT because the hook delegates
  *  to bin.ts via tsx WITHOUT setting cwd, and bin.ts resolves its argv (a repo-relative path)
  *  against process.cwd() via existsSync(). CC's PostToolUse runs hooks with cwd=project root;
  *  vitest runs from packages/core/, which would break the rel-path lookup. */
