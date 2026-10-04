@@ -283,7 +283,7 @@ Fixes that change only in-container state (config, image, or retry state) with z
 - `git config --global url.https.insteadOf` — reversible (`git config --global --unset`)
 - `git config --global credential.helper` — reversible (`git config --global --unset`)
 - `npm i -g @anthropic-ai/claude-code [--registry=…]` — in-place; superseded by next rebuild
-- `docker compose build agent && docker compose up -d agent` (Fix A) — additive; the OAuth credential volume + `env_file` survive (§ topology)
+- `docker compose build agent && docker compose up -d agent` (Fix A) — additive; the OAuth credential volume + `env_file` survive (§ topology); the `up -d` restart does interrupt in-flight tasks — an accepted availability cut, not a data risk (nothing to restore; same interruption the Tier-2 cap bump carries, which needs GO for its standing-config change, not for the restart)
 - `answer.ts --decision retry` — retries a blocked task; no records deleted
 
 For Tier 1, the skill **applies the fix automatically** and logs:
@@ -298,10 +298,10 @@ Then continues without pausing for GO.
 
 ### Tier 2 — Destructive or system-disruptive (GO required)
 
-Fixes that delete records or interrupt running processes:
+Fixes where the Tier-1 test (immediate reversibility, zero data risk) does not hold — records destroyed, standing configuration changed, or money spent (an in-flight-task interruption alone is not the gate: Fix A's Tier-1 restart carries the same one):
 
 - `DELETE /tasks/:id` — task record gone, irreversible
-- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` + `docker compose up -d agent`) — restarts the agent, interrupts in-flight tasks
+- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` + `docker compose up -d agent`) — standing configuration change (the GO reason — D-B floor list); the paired `up -d` restart also interrupts in-flight tasks, as Fix A's Tier-1 restart does
 - Transport switch to API (Fix C) — paid path, requires explicit authorization
 
 For Tier 2, the skill prints and **stops**:
