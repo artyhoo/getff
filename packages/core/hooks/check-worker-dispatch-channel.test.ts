@@ -1,6 +1,7 @@
 /**
  * Functional tests for the PostToolUse gate check-worker-dispatch-channel.sh
- * (M6 edit-time channel for #worker-dispatch-via-subagent).
+ * (M6 edit-time channel for #umbrella-execution-launch-without-operator;
+ * formerly #worker-dispatch-via-subagent — renamed 2026-10-04, plain-words-recap-v2 D6).
  *
  * Channel: edit-time PostToolUse. Fires on Edit|Write|MultiEdit of a
  * .claude/orchestrator-prompts/<umbrella>/kickoff.md and delegates to the single
@@ -148,7 +149,7 @@ function runHook(
 }
 
 // A line that satisfies BOTH clause (a) Agent-tool channel (CHANNEL_RE) AND clause (b)
-// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:80.
+// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:173.
 const VIOLATION_LINE =
   'Dispatch the write-task Worker via the Agent tool in isolation: worktree.';
 
@@ -175,7 +176,7 @@ describe.skipIf(!JQ || !TSX)(
     });
 
     it('exemption: per-line escape token `<!-- channel-discipline: allow -->` → exit 0', () => {
-      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:70 — a same-line exemption suppresses
+      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:81 — a same-line exemption suppresses
       // the violation. The reason in the token is the documented carve-out for prose that
       // teaches/quotes the anti-pattern.
       const abs = writeKickoff(
@@ -275,7 +276,7 @@ describe.skipIf(!JQ || !TSX)(
 //   (2) SILENT exit 0 on tsx-miss (the loudness defect unique to this hook) — closed
 //       by the new _emit_skip + _json_escape helpers.
 // The SILENCE-GONE test (Block 2) is the WHOLE POINT of the PR: this hook is the
-// edit-time gate for #worker-dispatch-via-subagent; while inert-and-silent, a kickoff
+// edit-time gate for #umbrella-execution-launch-without-operator; while inert-and-silent, a kickoff
 // author gets neither enforcement nor notice (audit PROBE 3, 2026-07-24).
 // ═══════════════════════════════════════════════════════════════════════════════
 import {

@@ -22,7 +22,7 @@ allowed-tools:
 <!-- @cc-only-rationale: operator-internal diagnostic runbook for the maintainer's local aif-handoff stack; the markdown content is harness-agnostic (any session can read it), only the slash-command auto-invocation is CC-native. No portable counterpart to keep in sync → §6 dual-implementation-discipline.md marker is @cc-only, not @dual-pair. -->
 
 > **Class:** C — prose-only runbook; mechanical substrate = existing $0 helpers (`bridge-health.sh`, `verify-bridge.sh`) + upstream read-only endpoints (`/health`, `/agent/status`). No new code, no npm deps. Promotion criterion: ≥2 «re-derived aif operational knowledge» incidents after ship → consider a session-start `bridge-health.sh` auto-run hook (`.claude/hooks/`).
-> **Authoritative for:** /aif-doctor behaviour — §0 invocation through §8; the read-only health-sweep → classify → emit-mapped-fix → mutation-needs-GO flow; the empirically-observed failure-mode catalogue (§3) and its detector→fix→reversibility mapping.
+> **Authoritative for:** /aif-doctor behaviour — §0 invocation through §8; the read-only health-sweep → classify → emit-mapped-fix flow with the §4 two-tier mutation split (Tier-1 reversible in-container fixes auto-apply; Tier-2 destructive / spending / standing-config mutations wait for operator GO); the empirically-observed failure-mode catalogue (§3) and its detector→fix→reversibility mapping.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The dispatch/execution loop — see [.claude/skills/dispatcher/SKILL.md](../dispatcher/SKILL.md). Planning / priority / launch-table — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). The `orchestrator` skill at `.claude/skills/orchestrator/`. The host proxy tunnel itself (§3.3 names it and stops — fixing it is operator machine-level work).
 
 # /aif-doctor — aif operational-health triage
@@ -40,7 +40,7 @@ allowed-tools:
 **Two decisions baked in (Q1/Q2, do not re-litigate):**
 
 1. **Separate skill, not `dispatcher §4`.** `/dispatcher` owns the happy-path loop and is `disable-model-invocation:true`; its NOT-authoritative-for header names only planning/pipeline/orchestrator — operational-environment health was left implicit, and this skill makes it explicit. Operational triage has a distinct trigger and must be invokable when the dispatcher is NOT running.
-2. **Diagnose autonomously, mutate only on operator GO.** Read-only probing (curl `/tasks`+`/agent/status`, `docker ps/logs`, `claude --version`, mode classification, emitting the exact fix command) runs without asking. **Any mutation** — delete a task, free a slot, `npm install`/`install.cjs` in-container, image rebuild, bump `COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` — is surfaced with **evidence + reversibility**, then waits for GO. Rationale: [`operator-control-not-decide-everything`], [`stop-surface-not-hack-on-dispatch-fail`], [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md).
+2. **Diagnose autonomously; Tier-2 mutations only on operator GO.** Read-only probing (curl `/tasks`+`/agent/status`, `docker ps/logs`, `claude --version`, mode classification, emitting the exact fix command) runs without asking. **Tier-1 reversible in-container fixes** (§4: `npm install`/`install.cjs` in-container, image rebuild, git-config heals, retry) **auto-apply with the APPLIED log**. **Tier-2 mutations** — destructive (delete a task), spending (paid transport switch), or standing-config (bump `COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT`) — are surfaced with **evidence + reversibility**, then wait for GO. Rationale: [`operator-control-not-decide-everything`], [`stop-surface-not-hack-on-dispatch-fail`], [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md).
 
 ---
 
@@ -68,8 +68,8 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom, then read the agent log's error levels — `docker logs <agent> --tail 20000 2>&1 | grep -E '"level":(40|50|60)' | tail` — because a provider rejection (§3.9) is recorded nowhere else and every heartbeat probe stays green through it. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.
 2. **Classify** the failure into one §3 mode using the detector signatures. If no §3 mode matches and `bridge-health.sh` is green → report «no known failure mode; collect a fresh symptom» (do NOT speculate, T-AIFDOC-B).
-3. **Emit the mapped fix command** with its file:line / log-line evidence and a one-line reversibility note. Read-only fixes (re-run a probe) you may run; **mutations stop here for GO**.
-4. **On GO** (and only then): run the mutation, re-run the relevant §1 probe to confirm, report the delta.
+3. **Emit the mapped fix command** with its file:line / log-line evidence and a one-line reversibility note. Read-only fixes (re-run a probe) you may run; Tier-1 reversible fixes auto-apply with the APPLIED log (§4 Tier 1); **Tier-2 mutations stop here for GO**.
+4. **On GO** (and only then, Tier 2): run the mutation, re-run the relevant §1 probe to confirm, report the delta.
 
 ---
 
@@ -87,10 +87,10 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   - Coordinator log: `docker logs aif-handoff-agent-1 --tail 60 | grep -iE 'native binary|ClaudeRuntimeAdapterError'` → `ClaudeRuntimeAdapterError … Claude CLI exited with code 1: Error: claude native binary not installed … the platform-native optional dependency was not downloaded (--omit=optional)`, `transport:"cli"`.
   - Symptom on `/agent/status`: task stuck `status:"planning"`, **fresh** heartbeat (`heartbeatStale:false`) that resets each tick → the upstream 90-min watchdog NEVER fires (this is why it's a real gap).
 - **Root cause:** image rebuilt while the proxy was down → optional `@anthropic-ai/claude-code-<platform>` never fetched from the npm registry.
-- **Fix A — durable (operator GO):** rebuild the agent with a working proxy:
-  `HTTPS_PROXY=<live-proxy> NO_PROXY=localhost,127.0.0.1,::1,api,agent,web,mcp docker compose build agent && docker compose up -d agent`. **Reversibility:** rebuild is additive; the OAuth credential volume + `env_file` survive (§ topology). Blocked if §3.3 (proxy) is also down.
-- **Fix B — in-container install (operator GO):** `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code` — works only if the container can reach `registry.npmjs.org`. Under a §3.3 block of the default registry, **try Fix D (mirror) before declaring this blocked** — the block is often host-selective, not whole-tunnel. **Reversibility:** in-place, no data loss; superseded by next image rebuild.
-- **Fix D — mirror install, NO VPN change (operator GO, preferred under §3.3) — verified live 2026-06-04:** when `registry.npmjs.org` is the _only_ blocked host (github/google still 200 — see §3.3 discriminator), install from a reachable mirror without touching the tunnel:
+- **Fix A — durable (Tier 1, auto-apply):** rebuild the agent with a working proxy:
+  `HTTPS_PROXY=<live-proxy> NO_PROXY=localhost,127.0.0.1,::1,api,agent,web,mcp docker compose build agent && docker compose up -d agent`. **Reversibility:** rebuild is additive; the OAuth credential volume + `env_file` survive (§ topology). Blocked if §3.3 (proxy) is also down. (No GO — reversible in-container fix per §4, plain-words-recap-v2 D5c.)
+- **Fix B — in-container install (Tier 1, auto-apply):** `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code` — works only if the container can reach `registry.npmjs.org`. Under a §3.3 block of the default registry, **try Fix D (mirror) before declaring this blocked** — the block is often host-selective, not whole-tunnel. **Reversibility:** in-place, no data loss; superseded by next image rebuild. (No GO — reversible in-container fix per §4, plain-words-recap-v2 D5c.)
+- **Fix D — mirror install, NO VPN change (Tier 1, auto-apply; preferred under §3.3) — verified live 2026-06-04:** when `registry.npmjs.org` is the _only_ blocked host (github/google still 200 — see §3.3 discriminator), install from a reachable mirror without touching the tunnel:
   `docker exec aif-handoff-agent-1 npm i -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com --include=optional`.
   Works because the missing binary is an **npm optional-dep** (the log says «optional dependency was not downloaded (--omit=optional)»), so a full npm mirror (`registry.npmmirror.com` mirrors platform binaries too) serves it. **Reversibility:** in-place, no data loss; superseded by next rebuild. **Post-install caveat (observed):** npm briefly removes then recreates the `/usr/local/bin/claude` symlink → a **single transient `spawn /usr/local/bin/claude ENOENT`** may appear in the coordinator log during the install window. Do NOT treat one post-install ENOENT as failure — verify the fix by `docker exec … claude --version` (expect `2.x.x`, exit 0) + valid symlink, then watch **one** ~30s poll cycle for **zero** recurring errors. **Falsifier:** wrong if `claude-code` fetched the binary from a hard-coded CDN rather than the npm optional-dep — then `claude --version` still throws `exec format error` after install (it did not, 2026-06-04).
 - **Fix C — bypass the binary (operator GO, paid-aware):** switch the claude runtime profile to **API transport** (`aif-handoff docs/providers.md:64`; needs `ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL`). **Flag the paid-vs-subscription nuance** ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md)): a paid API key is NOT the default — DEFER unless the operator explicitly authorizes (§7 stop condition).
@@ -278,11 +278,12 @@ Mutations are split into two tiers by reversibility:
 
 ### Tier 1 — Reversible config (auto-apply, no GO needed)
 
-Fixes that change only in-container config or retry state with zero data loss:
+Fixes that change only in-container state (config, image, or retry state) with zero data loss:
 
 - `git config --global url.https.insteadOf` — reversible (`git config --global --unset`)
 - `git config --global credential.helper` — reversible (`git config --global --unset`)
 - `npm i -g @anthropic-ai/claude-code [--registry=…]` — in-place; superseded by next rebuild
+- `docker compose build agent && docker compose up -d agent` (Fix A) — additive; the OAuth credential volume + `env_file` survive (§ topology); the `up -d` restart does interrupt in-flight tasks — an accepted availability cut, not a data risk (nothing to restore; same interruption the Tier-2 cap bump carries, which needs GO for its standing-config change, not for the restart)
 - `answer.ts --decision retry` — retries a blocked task; no records deleted
 
 For Tier 1, the skill **applies the fix automatically** and logs:
@@ -297,11 +298,10 @@ Then continues without pausing for GO.
 
 ### Tier 2 — Destructive or system-disruptive (GO required)
 
-Fixes that delete records or interrupt running processes:
+Fixes where the Tier-1 test (immediate reversibility, zero data risk) does not hold — records destroyed, standing configuration changed, or money spent (an in-flight-task interruption alone is not the gate: Fix A's Tier-1 restart carries the same one):
 
 - `DELETE /tasks/:id` — task record gone, irreversible
-- `docker compose build/up` — interrupts the active agent container
-- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` + `docker compose up -d agent`) — restarts the agent, interrupts in-flight tasks
+- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` + `docker compose up -d agent`) — standing configuration change (the GO reason — D-B floor list); the paired `up -d` restart also interrupts in-flight tasks, as Fix A's Tier-1 restart does
 - Transport switch to API (Fix C) — paid path, requires explicit authorization
 
 For Tier 2, the skill prints and **stops**:
@@ -313,7 +313,7 @@ MUTATION (needs GO): <exact command>
   Awaiting operator GO.
 ```
 
-Read-only fixes (re-running a probe) run freely. This split was introduced 2026-06-04 after the session-2 triage: SSH→HTTPS `insteadOf` + `retry` (both Tier 1) required two GO round-trips that added no safety value — the reversibility is immediate and the data risk is zero.
+Read-only fixes (re-running a probe) run freely. This split was introduced 2026-06-04 after the session-2 triage: SSH→HTTPS `insteadOf` + `retry` (both Tier 1) required two GO round-trips that added no safety value — the reversibility is immediate and the data risk is zero. Extended 2026-10-04 (plain-words-recap-v2 D5c): the reversible in-container runtime fixes — image rebuild (Fix A), in-container install (Fix B), mirror install (Fix D) — moved from GO-gated to Tier 1 by the same test (reversibility immediate, zero data risk); GO stays on the destructive (DELETE), spending (Fix C paid transport, §3.9 profile/transport switch), and standing-config (cap bump) mutations.
 
 ---
 
@@ -322,7 +322,7 @@ Read-only fixes (re-running a probe) run freely. This split was introduced 2026-
 - **Does NOT run the dispatch loop** — that is `/dispatcher`. `/aif-doctor` diagnoses the environment the loop runs in.
 - **Does NOT plan / score priority** — that is `/pipeline`.
 - **Does NOT add npm deps or new scripts** — reuses §1 helpers + endpoints only; a genuinely-needed new probe = surface as a finding, do not build it here.
-- **Does NOT auto-mutate destructive/system fixes** — Tier 2 mutations (DELETE task, container restart, cap bump) need operator GO (§4). Tier 1 reversible fixes (git config, npm install, retry) apply automatically.
+- **Does NOT auto-mutate destructive/system fixes** — Tier 2 mutations (DELETE task, cap bump, paid transport switch) need operator GO (§4). Tier 1 reversible fixes (git config, npm install, image rebuild, retry) apply automatically.
 - **Does NOT fix the host proxy tunnel** — but DOES run the §3.3 discriminator first; if the block is host-selective (tunnel alive, only `registry.npmjs.org` dropped), the runtime is fixable via §3.1 Fix D (mirror) **without** touching the VPN. Only a whole-tunnel-down case is name-and-stop.
 - **Does NOT edit `.claude/skills/orchestrator/`** — another skill's artefact; wrap, never fork.
 
@@ -373,7 +373,7 @@ The operator re-derives aif operational knowledge every session: which port the 
 
 ## With this skill
 
-`/aif-doctor` runs the $0 read-only sweep, classifies the failure against the empirically-grounded §3 catalogue, and prints the one mapped fix with its evidence and reversibility — in seconds, without re-derivation. It distinguishes the watchdog-recoverable cases (leave them) from the three modes the watchdog cannot see (act on them), refuses to speculate beyond observed modes, and gates every state-changing fix behind an explicit operator GO. The host-proxy block is named and handed back to the operator instead of being chased in the wrong layer.
+`/aif-doctor` runs the $0 read-only sweep, classifies the failure against the empirically-grounded §3 catalogue, and prints the one mapped fix with its evidence and reversibility — in seconds, without re-derivation. It distinguishes the watchdog-recoverable cases (leave them) from the three modes the watchdog cannot see (act on them), refuses to speculate beyond observed modes, and gates every destructive, spending, or standing-config fix behind an explicit operator GO while the Tier-1 reversible in-container fixes auto-apply with a log. The host-proxy block is named and handed back to the operator instead of being chased in the wrong layer.
 
 ---
 

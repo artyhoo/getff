@@ -77,18 +77,20 @@ The convention applies to its own implementation: Phase 8.8 commits T2-T11 carry
 
 Each artifact has one owner. Cross-owner edits require explicit handoff (separate atomic commit + rationale, not side-effect of operational work). Reviewer agents are read-only for any artifact they don't own.
 
-| Artifact | Owner | Read-only for | Why |
-|---|---|---|---|
-| [README.md](README.md) (`§Why this exists`) | maintainers (deliberate edit) | all reviewer / implementation / planning sessions | goal-redefinition is structural change |
-| [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) | maintainers + planning sessions | reviewer agents, implementation agents | operational; does not own goal |
-| [docs/meta-factory/PROPOSAL.md](docs/meta-factory/PROPOSAL.md) | frozen — historical artifact | all sessions | design-history record; do not retroactively rewrite |
-| [docs/meta-factory/prior-art-evaluations.md](docs/meta-factory/prior-art-evaluations.md) | phase research sessions, capability-commit authors | reviewer agents | append-only register per [§3](docs/meta-factory/prior-art-evaluations.md) |
-| [docs/meta-factory/retros/](docs/meta-factory/retros/) `*` | phase orchestrator at retro time | all subsequent sessions | closed historical artifact post-merge |
-| [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/) `*` | session that discovered the gap | all subsequent sessions | one patch per gap, append-only |
-| [.husky/pre-push](.husky/pre-push), [.claude/rules/](.claude/rules/) `*` | maintainers | all session agents | enforcement layer |
-| [.claude/session-bootstrap.md](.claude/session-bootstrap.md) | maintainers (deliberate edit) | reviewer agents | operational restatement; modify only when invariants/reading-order change |
-| `agents/living-docs-auditor.md`, `agents/review-sidecar.md`, `agents/rule-test-author.md` (rule-tests write-half protocol, added 2026-07-22) (consumer-facing agents); `packages/core/templates/shared/skill-context/*/SKILL.md` (shipped AIF skill-context overrides) | framework maintainers | all sessions | design-by-spec ref consumer-project paths absent in source repo (per D-AuditC-6, 2026-05-16; renamed from `docs-auditor` + `best-practices-sidecar` removed per C-1 resolution 2026-05-20; skill-context overrides added per C-1 follow-up + SSOT #50, 2026-05-20) |
-| [packages/core/principles/](packages/core/principles/) `*` | meta-tests CI | implementation agents | enforcement code |
+| Artifact | Owner | Read-only for | Why | «го» via PR? |
+|---|---|---|---|---|
+| [README.md](README.md) (`§Why this exists`) | maintainers (deliberate edit) | all reviewer / implementation / planning sessions | goal-redefinition is structural change | **yes** |
+| [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) | maintainers + planning sessions | reviewer agents, implementation agents | operational; does not own goal | no |
+| [docs/meta-factory/PROPOSAL.md](docs/meta-factory/PROPOSAL.md) | frozen — historical artifact | all sessions | design-history record; do not retroactively rewrite | **yes** |
+| [docs/meta-factory/prior-art-evaluations.md](docs/meta-factory/prior-art-evaluations.md) | phase research sessions, capability-commit authors | reviewer agents | append-only register per [§3](docs/meta-factory/prior-art-evaluations.md) | no |
+| [docs/meta-factory/retros/](docs/meta-factory/retros/) `*` | phase orchestrator at retro time | all subsequent sessions | closed historical artifact post-merge | **yes** |
+| [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/) `*` | session that discovered the gap | all subsequent sessions | one patch per gap, append-only | **yes** |
+| [.husky/pre-push](.husky/pre-push), [.claude/rules/](.claude/rules/) `*` | maintainers | all session agents | enforcement layer | no |
+| [.claude/session-bootstrap.md](.claude/session-bootstrap.md) | maintainers (deliberate edit) | reviewer agents | operational restatement; modify only when invariants/reading-order change | no |
+| `agents/living-docs-auditor.md`, `agents/review-sidecar.md`, `agents/rule-test-author.md` (rule-tests write-half protocol, added 2026-07-22) (consumer-facing agents); `packages/core/templates/shared/skill-context/*/SKILL.md` (shipped AIF skill-context overrides) | framework maintainers | all sessions | design-by-spec ref consumer-project paths absent in source repo (per D-AuditC-6, 2026-05-16; renamed from `docs-auditor` + `best-practices-sidecar` removed per C-1 resolution 2026-05-20; skill-context overrides added per C-1 follow-up + SSOT #50, 2026-05-20) | no |
+| [packages/core/principles/](packages/core/principles/) `*` | meta-tests CI | implementation agents | enforcement code | no |
+
+The `«го» via PR?` column separates the two risk classes. **No «го»** for edits to OPERATIONAL maintainer-owned rows — EXECUTION-PLAN, `.husky/pre-push`, `.claude/rules/*`, session-bootstrap, shipped agents and skill-context — when they go through a PR to `staging`: the gate is PR + CI. [packages/core/principles/](packages/core/principles/) gains no second owner — meta-tests CI already owns it. **«го» kept** for the goal-bearing row (`README.md §Why this exists`) and the frozen rows (PROPOSAL.md, retros, research-patches, closed kickoffs and `done.md` — the latter live under `.claude/orchestrator-prompts/` and carry no table row). The reason is mechanical, not ceremonial: agents merge their own `staging` PRs (see §PR strategy / merge policy) and **no CI check detects goal drift**, so without this exclusion an agent could rewrite the goal and merge it alone — the 2026-05-09 incident the whole authority hierarchy exists for. Falsifier: an agent-authored PR edits `README.md` `§Why this exists` and merges without a «го».
 
 The contract addresses the exact mechanism of the 2026-05-09 incident: reviewer agents pattern-matching on language in [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) §1 («north star»), then reinforcing the wrong goal across reviewer cycles. Read-only constraint on goal-bearing artifacts (README) prevents reviewer agents from silently re-establishing a different goal.
 

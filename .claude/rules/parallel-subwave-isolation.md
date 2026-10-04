@@ -6,11 +6,11 @@ paths:
 # Parallel sub-wave isolation — discipline rule
 
 <!-- globs: .claude/orchestrator-prompts/** -->
-<!-- inject: Parallel sub-wave isolation: use git worktrees (scripts/create-worktree.sh). Never run parallel sessions in shared workdir. Sequential fallback if worktree-add fails. -->
+<!-- inject: Parallel sub-wave isolation: use git worktrees (scripts/create-worktree.sh). Never run parallel sessions in shared workdir. Sequential fallback if worktree-add fails. Dispatch tenets (§6): read-only subagents always allowed; FORBIDDEN without operator choice = launching the EXECUTION of an umbrella stage from a kickoff (subagent / aif dispatch / claude -p alike). -->
 
 > **Class:** C — prose-only; the preventive enforcement primitive is **dogfooded from upstream** (Superpowers `using-git-worktrees`, SSOT #65) rather than built — the own AST-detection ambition is **dropped** per §4 (N7, 2026-05-22).
-> **Fires:** dispatching parallel sub-wave / batch AI sessions.
-> **Authoritative for:** parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.
+> **Fires:** dispatching parallel sub-wave / batch AI sessions; launching execution workers from a kickoff (subagent / aif dispatch / `claude -p`).
+> **Authoritative for:** parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note, §6 sub-agent dispatch tenets (the D6 allow/forbid pair + anti-expansive-reading protections).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to orchestrator skill — `.claude/skills/orchestrator/SKILL.md` may reference this rule.
 
 > **Origin:** Incident 2026-05-12, Wave 8.1/8.1b/8.2 parallel rollout. Shared working directory across parallel Sonnet sessions caused branch contamination — Wave 8.1's commit ended up on `wave-8.1b/compliance-verifier-agent` branch because junior sessions raced on `git checkout -b`. Required orchestrator-side cherry-pick surgery + caused junior REPORTs to surface false-alarm audit failures from stale working-tree files. Codified in repo following the post-Wave-9 memory-to-docs codification audit ([docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md](../../docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md)).
@@ -56,8 +56,66 @@ Sequential fallback signature: each Sonnet session completes its commit + push b
 - **Forward-check:** this demotion complies with [build-first-reuse-default.md §1](build-first-reuse-default.md) (REFERENCE over BUILD — drops a homegrown build target in favour of mature upstream), [no-paid-llm-in-ci.md](no-paid-llm-in-ci.md) (`using-git-worktrees` is pure-git — no headless `claude`, no API-billed call — verified against the shipped SKILL.md, evidence registered at [prior-art-evaluations.md row #65](../../docs/meta-factory/prior-art-evaluations.md)), [doc-authority-hierarchy.md](doc-authority-hierarchy.md) (Class + Authoritative-for header retained — see line 3 above). T16 problem-class match verified, not assumed: upstream's `.git/index`-race-avoidance == our incident-2026-05-12 problem class (this rule's §Origin).
 - **Backward-check:** scope-reducing change — the only edited bullet is §4 above (the AST build-target *removed*, none added); the SSOT cross-reference lands at [prior-art-evaluations.md row #65](../../docs/meta-factory/prior-art-evaluations.md). No other artefact silently superseded. The global orchestrator skill's worktree section is *offered* a complementary REFERENCE note (N7 step 3) — but that edit is maintainer-applied (the agent's classifier blocks self-modification of `~/.claude/skills/`), so it is **not** a landed dependency of this rule.
 
+## §6 Sub-agent dispatch tenets (plain-words-recap-v2 D6, 2026-10-04)
+
+The Agent tool and its equivalents (an aif dispatch, `claude -p`) are normal equipment in this
+repo's sessions. This section states what they may and may not do, as a positive-and-negative
+pair, written to survive expansive readings in **both** directions — a session reading the ban as
+«never spawn anything», and one reading the allowances as «so launching is fine too».
+
+1. **Allowed in ANY session** — `/pipeline` and `/dispatcher` included — for **reading, search,
+   checks and cold reviews** (Explore agents, read-only sidecars, cold reviewers, backward
+   sweeps). No operator choice is needed for these.
+2. **Allowed for writes in a normal session in its own worktree** — conditional on **R-12**, an
+   open operator fork that is never resolved in-session: whether claude-code bug 39886 (subagent
+   + worktree write loss) reproduces on the current Claude Code. The ask, with a recommendation,
+   is put to the operator; if it reproduces, this clause narrows to read-only until fixed.
+3. **FORBIDDEN without the operator's explicit choice — EXACTLY ONE class of action: launching
+   the EXECUTION of an umbrella stage from a kickoff**
+   (`#umbrella-execution-launch-without-operator`). The ban is on the **ACTION**, and it is
+   identical for a subagent dispatch, an aif dispatch, and `claude -p`. A session holding a
+   kickoff holds a specification, not the decision to execute it.
+4. **Exceptions = permission given in advance:** `/night-mode`, and the `bridge: auto` marker.
+5. **The pipeline exit MUST emit a launch card** (D7): the recommended channel + its arguments +
+   a plain-words explanation + ready artefacts per channel (chip, kickoff, subagent prompt) — so
+   that tenet 6 costs the operator one decision, not a setup session.
+6. **The operator picks the channel.** The agent's job ends at a correct, complete launch card.
+
+**Protection (a) — this rule does NOT forbid:**
+
+- spawning read-only subagents — search, checks, cold reviews, backward sweeps — in ANY session
+  (tenet 1);
+- write work in a normal session's own worktree (tenet 2, conditional on R-12): a session doing
+  its own assigned work is not «launching execution»;
+- **executing a stage the operator dispatched to the session** — the dispatch input IS the
+  operator's choice; the ban is on the agent *originating* the launch, never on executing an
+  assigned one;
+- the §1/§2 worktree-isolation mechanics for genuinely parallel sessions;
+- the operator launching execution through any channel, including ones this rule does not name.
+
+**Protection (b) — the self-test.** Before any Agent/dispatch invocation, ask: *«am I about to
+launch the EXECUTION of an UMBRELLA STAGE?»* If not, this section does not apply — proceed under
+tenets 1-2. If yes, stop: the launch becomes tenet 5's card and the operator's tenet-6 choice.
+
+**Protection (c) — naming provenance.** Tenet 3's class was formerly tagged
+`#worker-dispatch-via-subagent`; renamed 2026-10-04 (plain-words-recap-v2 D6) because the old
+name read as «subagents are the problem», while the class was never about the tool — it is about
+the launch action. Frozen texts (kickoffs, research-patches, the SSOT) keep the old name; every
+LIVE text carries the «formerly» pointer at the renamed site. This file never carried the old
+name, so its relation to the rename is an addition, not a rename.
+
+The mechanical complement to tenet 3 is principle 29 + its hook twin
+([`29-worker-dispatch-channel.ts`](../../packages/core/principles/29-worker-dispatch-channel.ts),
+[`.claude/hooks/check-worker-dispatch-channel.sh`](../hooks/check-worker-dispatch-channel.sh)):
+the gate's detection surface and this section's class statement must move together — the rule
+owns the class boundary (the self-test phrase above is its sharpest form), the gate owns the
+regex.
+
 ## See also
 
+- [docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md](../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md) — D-H, the spec owning §6's tenets (autonomy: remove text-born stops, keep risk-born ones).
+- [.claude/skills/pipeline/SKILL.md](../skills/pipeline/SKILL.md) — the pipeline exit launch card (tenet 5 / D7).
+- [packages/core/principles/29-worker-dispatch-channel.test.ts](../../packages/core/principles/29-worker-dispatch-channel.test.ts) — the gate's suite, incl. the corpus snapshot arm over `.claude/orchestrator-prompts/**/kickoff*.md`.
 - [.claude/rules/build-first-reuse-default.md](build-first-reuse-default.md) — REFERENCE-over-BUILD verdict driving the §4 demotion.
 - [.claude/rules/reviewer-discipline.md](reviewer-discipline.md) — companion rule, parallel codification batch.
 - [.claude/rules/phase-research-coverage.md §4 anti-patterns](phase-research-coverage.md) — focus-tunnel family context.
