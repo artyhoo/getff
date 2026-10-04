@@ -74,6 +74,14 @@ before/after — the triage pass decides whether the sentence or the code change
 The docs site (that is a separate surface with a separate ledger — do not re-derive its 18
 GAPs), the stack-scope decision, and anything requiring a live harness (V3).
 
+## §4c Autonomous dispatch — park-don't-guess contract (non-negotiable for the aif agent)
+
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the fork-challenge discipline `ask-question-reminder.sh` emits (`.claude/hooks/lang/en.sh:110-126`). Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+
+Recording a fired PARK is not a file write (/pipeline §5 park-record contract): it lands in the park payload and this PR's `## Parked questions`; its correction is a separate owner commit. §3's «do not edit any document» already covers the working tree — a PARK needs no edit anywhere.
+
+Known forks for this lane, stated up front (park if you meet one that §2's decision rule does not already settle): a claim that is ambiguous between lint-rules and discipline-rules is itself a finding (§2 item 4) — report it, do not choose a reading; a claim whose truth depends on the stack-scope promise (umbrella §2 out-of-scope) is out of scope — park it with the pointer, do not decide the promise.
+
 ## AI traps ([.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md))
 
 Active traps: **T2**, **T3**, **T4**, **T10**, **T14**, **T19**.
