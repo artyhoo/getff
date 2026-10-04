@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-00d2e5f27c8cf649a567dc492b40287fa4703b9246f642359bf2977efa831aa0  .ai-factory/refresh-baseline.json
+4b92637aa15b9f4eb48c3de198e46eada04d8b118e0c8d54b74a9e9803360a27  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -113,7 +113,7 @@ b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .claude/skills
 25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .claude/skills/pipeline/references/frontier.md
 9600d868581fc7680aeba00dc69a61d977f7c76bb5216f630641f5eeecbddb6b  .claude/skills/pipeline/references/master-backlog-delta.md
 b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .claude/skills/pipeline/references/mode-overrides.md
-0ef394c167bb307642722fd914b8f48b37c99a26eaf60e8c1a3c4d56a26b58c2  .claude/skills/pipeline/references/output-format.md
+a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .claude/skills/pipeline/references/output-format.md
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 55a302f7c8159825e4d2e2088a981a8e9ca1ee7f80ea36bd0709b0199866e0af  .claude/skills/pipeline/references/plain-language-tail.md
 8fab2e5fd326caa24b757f8e240178a76650dd0dd7fc9b8593684ec6c5c0d557  .claude/skills/pipeline/references/plan-cache.md
