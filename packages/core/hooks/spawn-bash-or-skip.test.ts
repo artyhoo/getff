@@ -29,7 +29,15 @@ const noSkipCtx: Skippable = {
   },
 };
 
-describe('POSIX byte-identical pass-through (the §0.11 invariant)', () => {
+// WIN_POSIX_BASH_PIN: this describe pins the POSIX arm by running a REAL bash through raw
+// spawnSync and comparing the helper against it. On win32 there is no `bash`/`/bin/bash` for
+// raw spawnSync (the helper exists precisely to resolve or named-skip it), so the raw-comparison
+// class cannot hold there; the abs-/bin/bash case is the helper's named-skip branch on win32 and
+// the noSkipCtx sentinel would (correctly) throw. The win32 decision core is asserted below via
+// pure/injected params, not via a real Windows bash.
+const WIN_POSIX_BASH_PIN = process.platform === 'win32';
+
+describe.skipIf(WIN_POSIX_BASH_PIN)('POSIX byte-identical pass-through (the §0.11 invariant)', () => {
   it('returns the same status/stdout/stderr as raw spawnSync for the same argv', () => {
     const args = ['-c', 'printf out; printf err >&2; exit 3'];
     const raw = spawnSync('bash', args, { encoding: 'utf8' });
