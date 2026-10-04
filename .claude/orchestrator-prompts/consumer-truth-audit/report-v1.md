@@ -209,7 +209,7 @@ Evidence column cites the artefact that decides the claim (T3: file:line + conte
 | S05 | same file | launch-table + GO/REVISE/STOP protocol | matches REPORT schema (I14) | TRUE |
 | S06 | same file | §1.7 PR-body requirement | matches CONTRIBUTING + pipeline spec | TRUE |
 | AH1 | install.sh:251-267 | every SHIPPED_DOCS artefact carries an Authoritative-for header | verify loop present and quoted | TRUE |
-| AH2 | all 12 surfaces | each header's claimed scope matches the artefact's actual ownership | headers read on all 12 surfaces; one authority-adjacent defect found (F4); no contradicting-authority-claims | TRUE-with-F4 |
+| AH2 | all 12 surfaces | each header's claimed scope matches the artefact's actual ownership | headers read on all 12 enumerated surfaces; the 22 further `SHIPPED_DOCS` headers (twins + preset + agents + tool-bootstrapping) are §7 PARK-1's parked scope, not silently excluded; one authority-adjacent defect found (F4); no contradicting-authority-claims | TRUE-with-F4 |
 
 ### §1a Excluded as non-claims (stated, not silently dropped)
 
@@ -258,8 +258,10 @@ packages/core/templates/shared/tier-home.md
   `gitignore`, `husky-*.sh`, `first-steps.source.json`) — not prose claim surfaces.
 - **The excluded class: the `.template` root-doc twins** (`AGENTS.md.template`,
   `CLAUDE.md.template`) — what consumers actually receive (`setup.d/30-templates.sh:112` installs
-  the consumer `AGENTS.md` from the template). Not `*.md`, so §0's named population excludes them;
-  diffed against the audited operator-side rows anyway rather than silently dropped:
+  the consumer `AGENTS.md` from the template). Outside the `*.md` glob §0 names literally — but
+  whether the header arm's «shipped artefact» also reaches them is the parked fork of record
+  (§7 PARK-1), not a settled bound; diffed against the audited operator-side rows anyway rather
+  than silently dropped:
   - `CLAUDE.md.template` (36 lines vs operator CLAUDE.md 170) is a pointer by design — «this file
     contains no rules — only pointers» (`:8`) — so **L01-L11 have no counterpart to transfer**;
     its own small claim set (unconditional `audit-ai-docs.sh`, pre-push limited to getff's checks,
@@ -275,16 +277,21 @@ packages/core/templates/shared/tier-home.md
   - `AGENTS.md.template:84` — «plus 5 reference docs in `references/`» vs six on disk
     (`ls skills/getff/references/` → ai-traps, base-core, checks-map, doc-organization, overview,
     self-testing-docs) — the F10 class.
-- **Scope disposition (no PARK fired):** the twins are not `*.md`, so the bound is §0's own text,
-  not a judgment call. The two instances are recorded verbatim above and cross-referenced from
-  F1/F10; they are **not** counted in the 153/152 denominators. Widening the population to the
-  twins is the triage pass's decision, not this lane's.
+- **Scope disposition — PARK-1 fired (2026-10-04 rework; corrects V1's «no PARK fired»):** §0's
+  surface carries a third arm — «every `> **Authoritative for:**` header on a shipped artefact»
+  (kickoff-v1.md:16) — which the first disposition answered only for the glob arm. That arm's own
+  gate is the `SHIPPED_DOCS` verify loop, and it names the twins: entries 1-2 of 30
+  (`install.sh:219-250`; all 30 header-bearing, re-verified live). Two defensible readings of
+  «shipped artefact» for header-truth exist, so per kickoff §4c the fork is parked, not picked —
+  full statement in §7 PARK-1. The two twin instances stay recorded verbatim above and
+  cross-referenced from F1/F10, uncounted under either reading; adjudicating the twin headers as
+  rows is the triage pass's decision, not this lane's.
 
 ## §3 Findings (non-BY-DESIGN, most severe first)
 
 No finding required the BY-DESIGN route, so no `cited-spec-addenda.sh VERDICT:` line is carried
 by a classification; the script's mechanics were still demonstrated twice (§4 gate 3 note).
-Nine findings; every one carries the falsifying artefact with the line's actual content (T3).
+Ten findings; every one carries the falsifying artefact with the line's actual content (T3).
 
 ### F1 · HIGH · DOC-LIES — the consumer's passport lies about two tool versions
 
@@ -443,10 +450,10 @@ shipped: `AGENTS.md.template:84` repeats the «5 references» count (§2b).
 |---|---|---|---|
 | 1 | population enumerated with file:line before any verdict (T10) | full reads of all 12 surfaces (transcript) + `ls skills/getff/references/` (6 files), `ls agents/*.md` (21 files), census `jq` class/delivery reads | §1+§2 table: full runnable grep in the fence below → **154 rows**; enumerated before verdicts were written; 153 capability claims + 1 NON-CLAIM (§1a) |
 | 2 | every claim has a verdict; none silently dropped | table rows R01-R55, I01-I27, A01-A05, C01-C10, L01-L11, U01-U14, T01-T06, H01-H05, D01-D05, X01, IR01-IR07, S01-S06, AH1-AH2 | both full runnable pipelines in the fence below → `154` rows + **`rows-with-verdict=154`**, zero EMPTY; ID-uniq grep = 154, no duplicate IDs |
-| 3 | every finding cites the falsifying artefact with the line's actual content (T3) | quoted contents in F1-F10 (e.g. `70-deps.sh:207 eslint@^9…`; `.golangci.yml:1` verbatim; `dependency-cruiser.mjs:177-179` comment text) | 9/9 findings carry file:line + actual content |
+| 3 | every finding cites the falsifying artefact with the line's actual content (T3) | quoted contents in F1-F10 (e.g. `70-deps.sh:207 eslint@^9…`; `.golangci.yml:1` verbatim; `dependency-cruiser.mjs:177-179` comment text) | 10/10 findings carry file:line + actual content |
 | 4 | backend-capability claims decided against matrices, not prose | `jq -c '.cells' packages/core/backends/golangci/capability-matrix.json` → `{"syntax":{"status":"partial",…,"evidence":{"kind":"live-fired","date":"2026-08-06",…}},"type-aware":{"status":"no","refusedCode":"FF7001"},"dep-graph":{"status":"no","refusedCode":"FF7001"}}`; same read for astgrep/cargo/npm/ruff | A05 + R48 decided from matrices (golangci partial/no cells; cargo 1 partial / 2 no); no capability verdict taken from prose |
 | 5 | calibration instances (gate-5 honesty) | `grep -n "consumers DO get" .claude/hooks/inject-matching-rule.sh` → **rc=1, no match** (fixed on this branch, :54-73 honest no-op); `sed -n 1p packages/core/templates/go/.golangci.yml` → `# generated by getff go lane v0 — do not edit by hand` (**live** → F6) | both instances state-verified; no independent-discovery claim made (§0) |
-| 6 | coverage = decided/enumerated, unreachable named | §5 below | 152 decided / 153 enumerated capability claims (99%); 1 unreachable named (R14, live-runtime) + 2 weaker-evidence rows named (R29, A03) |
+| 6 | coverage = decided/enumerated, unreachable named | §5 below | 152 decided / 153 enumerated capability claims (99%); 1 unreachable named (R14, live-runtime) + 2 weaker-evidence rows named (R29, A03) + 22 `SHIPPED_DOCS` headers parked and named (§7 PARK-1 — fork-fired, not decided) |
 | 7 | zero edits to any audited document | `git status --porcelain` → `AM .claude/orchestrator-prompts/consumer-truth-audit/report-v1.md` (the report only; re-added after cold-review edits) — **no corpus path appears** |
 | 8 | self-falsification present and non-trivial (T15) | §6 below | written; includes one self-caught verdict reversal (IR BY-DESIGN → NOT-BUILT via cited-spec protocol) |
 
@@ -480,7 +487,7 @@ rows-with-verdict=154
 
 ## §5 Coverage
 
-- **Enumerated:** 153 capability claims across 12 surfaces (README 54, INSTALL-FOR-AI 27,
+- **Enumerated:** 153 capability claims across 12 doc surfaces + 1 cross-check arm (README 54, INSTALL-FOR-AI 27,
   AGENTS 5, CONTRIBUTING 10, CLAUDE 11, AI-USAGE-GUIDE 14, tier-home 6, ARCHITECTURE.ts-server 5,
   DESCRIPTION.template 5, template-delivery cross-check 1, integration-rules 7, skill-context 6,
   header-population 2) — the 154th table row is R43, labeled NON-CLAIM (§1a).
@@ -489,11 +496,13 @@ rows-with-verdict=154
   (non-live) evidence, named:** R29 Windows/GETFF_BASH (code-read TRUE; no Windows host here) and
   A03 cross-harness auto-load (doc+census TRUE; live ZCode behaviour is V3-adjacent).
 - R43 stays visible in its table under the NON-CLAIM label (§1a).
-- **T14 check:** 9 findings on 99% coverage — the corpus is *not* clean, and the finding rate is
+- **T14 check:** 10 findings on 99% coverage — the corpus is *not* clean, and the finding rate is
   not extrapolated to the one undecided row (INCONCLUSIVE, not suspected-clean).
-- **§2b T4 sweep:** the `.template` root-doc twins are bounded outside the denominator (not
-  `*.md`, so outside §0's named population); their two surfaced instances are recorded in §2b and
-  cross-referenced from F1/F10, uncounted.
+- **§2b T4 sweep:** the `.template` root-doc twins and the 20 further `SHIPPED_DOCS` header
+  surfaces (9 preset `RULES*`/`ARCHITECTURE.*`, 9 `agents/*.md`, 2 `skills/tool-bootstrapping`)
+  sit outside the denominator under **PARK-1** (§7) — a fired fork on §0's header-arm scope, not a
+  glob-derived bound (the twins are `SHIPPED_DOCS` entries 1-2, `install.sh:219-250`); the two
+  twin instances recorded in §2b are cross-referenced from F1/F10, uncounted.
 
 ## §6 Self-falsification (T15) — what would prove this report wrong
 
@@ -531,13 +540,34 @@ rows-with-verdict=154
    Reader falsification route: re-run the gate-2 awk and the R35/U14 greps.
 7. **§2b T4 population bound:** re-run the `ls`/`find` quoted in §2b — a sixth literal
    `shared/*.md` or a third `.template` root-doc twin falsifies the population bound; the two twin
-   instances are falsified by the same greps as F1/F10.
+   instances are falsified by the same greps as F1/F10. PARK-1's scope claims are falsified by
+   `sed -n '219,250p' install.sh | grep -c '^  "'` returning anything but `30`, or by any of those
+   30 entries failing the `grep -cE '^> \*\*Authoritative for:\*\*'` header check.
 
 ## §7 Parked questions
 
-None fired beyond the pre-declared forks, both of which resolved per contract rather than by
-choice: (a) the «rules» ambiguity became finding **F4** (reported, no reading picked — kickoff
-§2 item 4); (b) no claim's truth turned out to depend on the stack-scope promise (umbrella §2),
-so no PARK-with-pointer was needed. V0's parked census-schema question was consumed read-only;
-the one row where the degenerate verdict column would have blocked a decision (agent counts) was
-decided from the installer source instead of re-classifying census rows.
+**PARK-1 — fired 2026-10-04 (corrects V1's «none fired»): does §0's third surface arm — «every
+`> **Authoritative for:**` header on a shipped artefact» (kickoff-v1.md:16) — reach the
+`SHIPPED_DOCS` artefacts beyond §0's named root-doc + `shared/*.md` surfaces, for header-*truth*?**
+The arm's own gate is the `SHIPPED_DOCS` verify loop (`install.sh:219-250`; 30 entries, all
+header-bearing — re-verified live), and it names 22 surfaces this report holds no verdict rows
+for: the two `.template` root-doc twins (entries 1-2; headers `AGENTS.md.template:6`,
+`CLAUDE.md.template:5`), 9 preset `RULES*.md`/`ARCHITECTURE.*.md`, 9 `agents/*.md`,
+2 `skills/tool-bootstrapping` files. Two defensible readings of «shipped artefact» exist; per
+kickoff §4c the fork is parked, not picked:
+
+- **Option A — «shipped artefact» = the `SHIPPED_DOCS` list** → the population grows by those 22
+  header claims, each needing a verdict row (does the header's claimed authority match the
+  artefact's actual ownership?); the 153 denominator changes.
+- **Option B — «shipped artefact» = §0's named root-doc + `shared/*.md` surfaces only** → the 22
+  stay outside the denominator and 153/152 stands as enumerated.
+
+Guessing either way ships a coverage claim the corpus contradicts. This § is the record; the
+task's park payload carries the same question for the PR's `## Parked questions` section.
+
+Resolved per contract, not by choice: (a) the «rules» ambiguity became finding **F4** (reported,
+no reading picked — kickoff §2 item 4); (b) no claim's truth turned out to depend on the
+stack-scope promise (umbrella §2), so no PARK-with-pointer was needed. V0's parked census-schema
+question was consumed read-only; the one row where the degenerate verdict column would have
+blocked a decision (agent counts) was decided from the installer source instead of re-classifying
+census rows.
