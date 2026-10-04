@@ -32,6 +32,7 @@
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -72,10 +73,12 @@ const SLOW_SHELL_MS = 60_000;
 const SPAWN_GUARD_MS = 30_000;
 
 function runScript(
+  ctx: Skippable,
   args: string[],
   env?: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [SCRIPT, ...args], {
+  // POSIX: byte-identical pass-through; win32: Git Bash resolution or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT, ...args], {
     encoding: 'utf8',
     // Pin the cwd: create-worktree.sh resolves its target repo via
     // `git rev-parse --show-toplevel` (scripts/create-worktree.sh:33), so an
@@ -218,9 +221,10 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ CC-DEFERRAL (Park-4 binding)
-  it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', () => {
+  it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', (ctx) => {
     const name = uniqueName('smoke-cc');
     const r = runScript(
+      ctx,
       [name, '--no-launch'],
       { CLAUDE_CODE_SESSION_ID: 'fake-cc-session-id' },
     );
@@ -233,9 +237,9 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ NON-CC-PRINT
-  it('NON-CC-PRINT: no CC env → prints ready command, does NOT spawn a session', () => {
+  it('NON-CC-PRINT: no CC env → prints ready command, does NOT spawn a session', (ctx) => {
     // Ensure CC env is unset for this test.
-    const r = runScript([uniqueName('smoke-noncc'), '--no-launch'], {
+    const r = runScript(ctx, [uniqueName('smoke-noncc'), '--no-launch'], {
       CLAUDE_CODE_SESSION_ID: '',
     });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
@@ -245,7 +249,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ NO-LAUNCH-FLAG (force print even in TTY)
-  it('NO-LAUNCH-FLAG: --no-launch forces print-only path', () => {
+  it('NO-LAUNCH-FLAG: --no-launch forces print-only path', (ctx) => {
     // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
     // non-TTY)" line lives on the NON-CC path (getff-work.sh:194-197), and the
     // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
@@ -260,7 +264,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     // `--no-launch) NO_LAUNCH=1` arm left this test green while the operator's flag was
     // silently ignored in a real terminal. `reason` is the only observable that separates the
     // two paths under a test runner; the paired-negative below pins the other value.
-    const r = runScript([uniqueName('smoke-nolaunch'), '--no-launch'], {
+    const r = runScript(ctx, [uniqueName('smoke-nolaunch'), '--no-launch'], {
       CLAUDE_CODE_SESSION_ID: '',
     });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
@@ -268,11 +272,11 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ NO-LAUNCH-FLAG paired-negative (same run, flag withheld)
-  it('NO-LAUNCH-FLAG (neg): without --no-launch the same print-only path reports reason=non-tty', () => {
+  it('NO-LAUNCH-FLAG (neg): without --no-launch the same print-only path reports reason=non-tty', (ctx) => {
     // Identical invocation minus the flag. Print-only is still reached (spawnSync is non-TTY),
     // so this pins the auto-enable path to its own reason value — which is what makes the
     // positive above falsifiable rather than a restatement of "the runner has no TTY".
-    const r = runScript([uniqueName('smoke-nolaunch-neg')], { CLAUDE_CODE_SESSION_ID: '' });
+    const r = runScript(ctx, [uniqueName('smoke-nolaunch-neg')], { CLAUDE_CODE_SESSION_ID: '' });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/reason=non-tty/);
     expect(r.stdout, 'the flag was not passed — reason must not claim it was').not.toMatch(
@@ -281,7 +285,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ NO-INSTALL-THROUGH-DELIVERY-SYMLINK (paired-negative for the 2026-08-16 incident)
-  it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', () => {
+  it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', (ctx) => {
     // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
     // <worktree>/node_modules as a symlink to the PRIMARY's tree
     // (worktree-node-modules.sh:440), and step 2 then ran `npm ci` with that worktree as
@@ -303,7 +307,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
       'precondition: the primary checkout must be installed for this case to mean anything',
     ).toBeGreaterThan(100);
 
-    const r = runScript([uniqueName('smoke-nmguard'), '--no-launch'], {
+    const r = runScript(ctx, [uniqueName('smoke-nmguard'), '--no-launch'], {
       CLAUDE_CODE_SESSION_ID: '',
     });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
@@ -320,29 +324,29 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   });
 
   // ✅ HELP-FLAG
-  it('HELP-FLAG: --help exits 0 and prints usage', () => {
-    const r = runScript(['--help']);
+  it('HELP-FLAG: --help exits 0 and prints usage', (ctx) => {
+    const r = runScript(ctx, ['--help']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/Usage|getff-work\.sh/i);
   });
 
   // ✅ MISSING-NAME
-  it('MISSING-NAME: no positional arg → exit 2 + usage on stderr', () => {
-    const r = runScript([]);
+  it('MISSING-NAME: no positional arg → exit 2 + usage on stderr', (ctx) => {
+    const r = runScript(ctx, []);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/usage/i);
   });
 
   // ✅ UNKNOWN-FLAG
-  it('UNKNOWN-FLAG: --bogus → exit 2 + error on stderr', () => {
-    const r = runScript(['name', '--bogus']);
+  it('UNKNOWN-FLAG: --bogus → exit 2 + error on stderr', (ctx) => {
+    const r = runScript(ctx, ['name', '--bogus']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/unknown flag|--bogus/i);
   });
 
   // ✅ NO-DOUBLE-INSTALL: when the provisioning helper already installed the worktree for real
   // (its lock diverges from the primary's installed tree), step 2 must not run a second install.
-  it('NO-DOUBLE-INSTALL: a worktree the helper installed for real is not re-installed by step 2', () => {
+  it('NO-DOUBLE-INSTALL: a worktree the helper installed for real is not re-installed by step 2', (ctx) => {
     const lock = (deps: Record<string, string>): string =>
       `${JSON.stringify({
         lockfileVersion: 3,
@@ -365,7 +369,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
       { mode: 0o755 },
     );
 
-    const r = spawnSync('bash', [join(tmpRepo, 'scripts/getff-work.sh'), 'smoke-once', '--no-launch'], {
+    const r = spawnBashOrSkip(ctx, 'bash', [join(tmpRepo, 'scripts/getff-work.sh'), 'smoke-once', '--no-launch'], {
       cwd: tmpRepo,
       encoding: 'utf8',
       timeout: SPAWN_GUARD_MS,

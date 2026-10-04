@@ -37,7 +37,8 @@
  *   gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   rmSync,
@@ -91,12 +92,14 @@ interface RunResult {
 }
 
 function runHook(
+  ctx: Skippable,
   tool: string,
   sessionId: string,
   tmp: string,
   lang = 'ru',
 ): RunResult {
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({ tool_name: tool, session_id: sessionId }),
     encoding: 'utf8',
     // Default to the Russian pack: the reason-content assertions below check
@@ -117,9 +120,11 @@ function runHook(
  *  edit then moves both sides together; a challenge that stops calling aif_msg_fork_card goes
  *  red here rather than silently drifting (#sync-by-copy-paste,
  *  .claude/rules/dual-implementation-discipline.md §8). */
-function renderPackFn(fn: string, lang: 'en' | 'ru'): string {
+function renderPackFn(ctx: Skippable, fn: string, lang: 'en' | 'ru'): string {
   const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
-  const r = spawnSync('bash', ['-c', `. "${pack}"; ${fn}`], { encoding: 'utf8' });
+  // Source-and-call form: the args array stays the same shape (`bash -c '. "${pack}"; ${fn}'`);
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', ['-c', `. "${pack}"; ${fn}`], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`${fn} (${lang}) exited ${r.status}: ${r.stderr}`);
   return (r.stdout ?? '').toString();
 }
@@ -127,9 +132,9 @@ function renderPackFn(fn: string, lang: 'en' | 'ru'): string {
 describe.skipIf(!JQ)(
   'ask-question-reminder.sh — PreToolUse:AskUserQuestion fork-challenge',
   () => {
-    it('PAIRED-NEGATIVE: AUQ without prior flag → exit 0 + deny JSON with non-trivial reason', () => {
+    it('PAIRED-NEGATIVE: AUQ without prior flag → exit 0 + deny JSON with non-trivial reason', (ctx) => {
       const { tmp, session } = makeTmpEnv();
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
 
       expect(r.status).toBe(0);
       expect(r.stdout.trim()).not.toBe('');
@@ -150,7 +155,7 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded, the deny never reaches the model). This hook uses the valid
@@ -160,7 +165,7 @@ describe.skipIf(!JQ)(
       // on ZCODE_PROJECT_DIR — it emits the same JSON on both harnesses (CC is the primary; on ZCode
       // the deny semantics differ slightly but the schema-valid shape is identical). Regression guard.
       const { tmp, session } = makeTmpEnv();
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       const json = JSON.parse(r.stdout);
       const allowedTopLevel = new Set([
         'additionalContext',
@@ -187,9 +192,9 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
     });
 
-    it('BRAINSTORM CUE (item 2): reminder steers design/strategy forks to superpowers:brainstorming', () => {
+    it('BRAINSTORM CUE (item 2): reminder steers design/strategy forks to superpowers:brainstorming', (ctx) => {
       const { tmp, session } = makeTmpEnv();
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(r.status).toBe(0);
       const reason = JSON.parse(r.stdout).hookSpecificOutput
         .permissionDecisionReason as string;
@@ -198,15 +203,15 @@ describe.skipIf(!JQ)(
       expect(reason).toMatch(/дизайн|стратеги/i);
     });
 
-    it.each(['en', 'ru'] as const)(
+    it.for(['en', 'ru'] as const)(
       '%s: the challenge EMITS the shared fork card, byte for byte (no restated contract)',
-      (lang) => {
+      (lang, ctx) => {
         const { tmp, session } = makeTmpEnv();
-        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const r = runHook(ctx, 'AskUserQuestion', session, tmp, lang);
         const reason = JSON.parse(r.stdout).hookSpecificOutput
           .permissionDecisionReason as string;
         // The card as the pack itself renders it, indented the way the challenge embeds it.
-        const card = renderPackFn('aif_msg_fork_card', lang)
+        const card = renderPackFn(ctx, 'aif_msg_fork_card', lang)
           .replace(/\n$/, '')
           .split('\n')
           .map((l) => `   ${l}`)
@@ -217,11 +222,11 @@ describe.skipIf(!JQ)(
       },
     );
 
-    it.each(['en', 'ru'] as const)(
+    it.for(['en', 'ru'] as const)(
       '%s: card BEFORE the buttons, recommendation as the FIRST option (D-C)',
-      (lang) => {
+      (lang, ctx) => {
         const { tmp, session } = makeTmpEnv();
-        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const r = runHook(ctx, 'AskUserQuestion', session, tmp, lang);
         const reason = JSON.parse(r.stdout).hookSpecificOutput
           .permissionDecisionReason as string;
         const firstOption = lang === 'en' ? /first option in the buttons/i
@@ -232,26 +237,28 @@ describe.skipIf(!JQ)(
       },
     );
 
-    it.each(['en', 'ru'] as const)(
+    it.for(['en', 'ru'] as const)(
       '%s: names the recap block and its fork section for the R-13 pointer',
-      (lang) => {
+      (lang, ctx) => {
         const { tmp, session } = makeTmpEnv();
-        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const r = runHook(ctx, 'AskUserQuestion', session, tmp, lang);
         const reason = JSON.parse(r.stdout).hookSpecificOutput
           .permissionDecisionReason as string;
         // Interpolated from the pack scalars, never hard-coded here (cold review F9: the gate and
         // its assertions read the ACTIVE pack, so a scalar rename moves both).
         for (const scalar of ['AIF_RECAP_MARKER', 'AIF_EOT_SEC_FORK']) {
-          expect(reason).toContain(renderPackFn(`printf '%s' "$${scalar}"`, lang));
+          expect(reason).toContain(renderPackFn(ctx, `printf '%s' "$${scalar}"`, lang));
         }
       },
     );
 
-    it.each(['en', 'ru'] as const)(
+    it.for(['en', 'ru'] as const)(
       '%s: the pack renders with no stderr — the brainstorming backticks never execute',
-      (lang) => {
+      (lang, ctx) => {
         const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
-        const r = spawnSync('bash', ['-c', `. "${pack}"; aif_msg_question_challenge`], {
+        // Source-and-call form: args array stays the same shape. POSIX: byte-identical
+        // spawnSync pass-through; win32: Git Bash or named skip (#1799).
+        const r = spawnBashOrSkip(ctx, 'bash', ['-c', `. "${pack}"; aif_msg_question_challenge`], {
           encoding: 'utf8',
         });
         expect(r.status).toBe(0);
@@ -261,13 +268,13 @@ describe.skipIf(!JQ)(
       },
     );
 
-    it('en pack: AIF_HOOK_LANG=en → English fork-challenge, no Russian leakage', () => {
+    it('en pack: AIF_HOOK_LANG=en → English fork-challenge, no Russian leakage', (ctx) => {
       // Confirms the language pack is wired for this hook too: en is the canonical
       // default; reason must be English ('Stop'), still name the brainstorming cue,
       // and not leak Russian. RU-pack contract covered by every other case (default
       // lang='ru'). Spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md.
       const { tmp, session } = makeTmpEnv();
-      const r = runHook('AskUserQuestion', session, tmp, 'en');
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp, 'en');
       expect(r.status).toBe(0);
       const reason = JSON.parse(r.stdout).hookSpecificOutput
         .permissionDecisionReason as string;
@@ -278,43 +285,43 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('PAIRED-POSITIVE: immediate AUQ retry after the challenge → exit 0 + empty stdout (allow)', () => {
+    it('PAIRED-POSITIVE: immediate AUQ retry after the challenge → exit 0 + empty stdout (allow)', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       // First invocation arms the "challenged" flag and emits the challenge.
-      const first = runHook('AskUserQuestion', session, tmp);
+      const first = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(first.status).toBe(0);
       expect(first.stdout.trim()).not.toBe('');
 
       // Second invocation same session = the post-challenge retry → allowed.
-      const second = runHook('AskUserQuestion', session, tmp);
+      const second = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(second.status).toBe(0);
       expect(second.stdout.trim()).toBe('');
     });
 
-    it('STATE MACHINE: deny writes "challenged"; the allowed retry rewrites it to "passed"', () => {
+    it('STATE MACHINE: deny writes "challenged"; the allowed retry rewrites it to "passed"', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
-      runHook('AskUserQuestion', session, tmp);
+      runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(readFileSync(flagPath, 'utf8')).toBe('challenged');
-      runHook('AskUserQuestion', session, tmp);
+      runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(readFileSync(flagPath, 'utf8')).toBe('passed');
     });
 
-    it('OFF-PATH: non-AUQ tool names → exit 0 + empty stdout (defensive skip)', () => {
+    it('OFF-PATH: non-AUQ tool names → exit 0 + empty stdout (defensive skip)', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       // Settings matcher restricts to AUQ already; hook line 28-30 is the defensive
       // second gate against a broadened matcher. Verify across diverse tool names.
       for (const tool of ['Bash', 'Edit', 'Read', 'Write', 'WebFetch']) {
-        const r = runHook(tool, session, tmp);
+        const r = runHook(ctx, tool, session, tmp);
         expect(r.status, `tool=${tool}`).toBe(0);
         expect(r.stdout.trim(), `tool=${tool}`).toBe('');
       }
     });
 
-    it('SLOW RETRY (2026-08-11 incident): "challenged" flag older than 45s → retry still allowed (count-based, not time-based)', () => {
+    it('SLOW RETRY (2026-08-11 incident): "challenged" flag older than 45s → retry still allowed (count-based, not time-based)', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       // First call arms the "challenged" flag (and emits deny).
-      runHook('AskUserQuestion', session, tmp);
+      runHook(ctx, 'AskUserQuestion', session, tmp);
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       expect(existsSync(flagPath)).toBe(true);
       // Backdate the flag mtime to 120s ago via Node's portable utimesSync
@@ -325,22 +332,22 @@ describe.skipIf(!JQ)(
       const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
       utimesSync(flagPath, past, past);
       // The post-challenge retry must pass however long generation took.
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(r.status).toBe(0);
       expect(r.stdout.trim()).toBe('');
       // The pass consumes the challenge: state resets to "passed".
       expect(readFileSync(flagPath, 'utf8')).toBe('passed');
     });
 
-    it('BOUNDARY: "passed" flag older than 45s window → fresh deny (genuinely-new question moment)', () => {
+    it('BOUNDARY: "passed" flag older than 45s window → fresh deny (genuinely-new question moment)', (ctx) => {
       const { tmp, session } = makeTmpEnv();
-      runHook('AskUserQuestion', session, tmp); // deny → "challenged"
-      runHook('AskUserQuestion', session, tmp); // retry allowed → "passed"
+      runHook(ctx, 'AskUserQuestion', session, tmp); // deny → "challenged"
+      runHook(ctx, 'AskUserQuestion', session, tmp); // retry allowed → "passed"
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       expect(readFileSync(flagPath, 'utf8')).toBe('passed');
       const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
       utimesSync(flagPath, past, past);
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(r.status).toBe(0);
       const json = JSON.parse(r.stdout);
       expect(json.hookSpecificOutput.permissionDecision).toBe('deny');
@@ -349,49 +356,49 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('ABANDONED CHALLENGE: "challenged" flag older than 600s TTL → fresh deny; the immediate retry then passes (no deny loop)', () => {
+    it('ABANDONED CHALLENGE: "challenged" flag older than 600s TTL → fresh deny; the immediate retry then passes (no deny loop)', (ctx) => {
       const { tmp, session } = makeTmpEnv();
-      runHook('AskUserQuestion', session, tmp); // deny → "challenged"
+      runHook(ctx, 'AskUserQuestion', session, tmp); // deny → "challenged"
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       // The model heeded the nudge and never retried; a question this much later
       // is a genuinely-new moment, so the stale challenge must not grant a pass.
       const past = Math.floor(Date.now() / 1000) - 700; // > 600s challenge TTL
       utimesSync(flagPath, past, past);
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision).toBe(
         'deny',
       );
       // Self-healing: the re-challenge re-arms "challenged" with a fresh mtime,
       // so the very next attempt passes — consecutive denies are impossible
       // without another 600s gap (loop-safety).
-      const retry = runHook('AskUserQuestion', session, tmp);
+      const retry = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(retry.status).toBe(0);
       expect(retry.stdout.trim()).toBe('');
     });
 
-    it('LEGACY FLAG: empty flag file (pre-two-state bare touch) keeps the old 45s recency semantics', () => {
+    it('LEGACY FLAG: empty flag file (pre-two-state bare touch) keeps the old 45s recency semantics', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       // What the old hook's `touch` (or the operator's touch-loop workaround)
       // left behind: an empty file. Treated as "passed" — identical to the old
       // 45s recency behaviour, so an in-flight session upgrades seamlessly.
       writeFileSync(flagPath, '');
-      const fresh = runHook('AskUserQuestion', session, tmp);
+      const fresh = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(fresh.status).toBe(0);
       expect(fresh.stdout.trim()).toBe('');
       const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
       utimesSync(flagPath, past, past);
-      const stale = runHook('AskUserQuestion', session, tmp);
+      const stale = runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(
         JSON.parse(stale.stdout).hookSpecificOutput.permissionDecision,
       ).toBe('deny');
     });
 
-    it('EFFECT: deny path touches the loop-guard flag file with current mtime', () => {
+    it('EFFECT: deny path touches the loop-guard flag file with current mtime', (ctx) => {
       const { tmp, session } = makeTmpEnv();
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       expect(existsSync(flagPath)).toBe(false);
-      runHook('AskUserQuestion', session, tmp);
+      runHook(ctx, 'AskUserQuestion', session, tmp);
       expect(existsSync(flagPath)).toBe(true);
       // mtime must be recent (within last 5s) — confirms the loop-guard mechanism
       // is intact and the flag is freshly armed, not stale-reused.
@@ -401,9 +408,9 @@ describe.skipIf(!JQ)(
       expect(ageSec).toBeLessThan(5);
     });
 
-    it('PAYLOAD SHAPE: uses PreToolUse hookSpecificOutput wrapper, NOT Stop-style top-level decision', () => {
+    it('PAYLOAD SHAPE: uses PreToolUse hookSpecificOutput wrapper, NOT Stop-style top-level decision', (ctx) => {
       const { tmp, session } = makeTmpEnv();
-      const r = runHook('AskUserQuestion', session, tmp);
+      const r = runHook(ctx, 'AskUserQuestion', session, tmp);
       const json = JSON.parse(r.stdout);
       // False-confirm hazard per memory `feedback_dual_channel_agreement_not_ground_truth`:
       // the Stop hook uses top-level `decision: "block"`; PreToolUse uses the nested
@@ -420,12 +427,13 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('missing session_id falls back to "nosession" flag without throwing', () => {
+    it('missing session_id falls back to "nosession" flag without throwing', (ctx) => {
       // Hook: `jq -r '.session_id // "nosession"'` — the // default operator
       // plus `|| echo "nosession"` make a missing field safe under `set -euo pipefail`.
       const tmp = mkdtempSync(join(tmpdir(), 'm4-6-auq-'));
       tmpDirs.push(tmp);
-      const r = spawnSync('bash', [HOOK], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
         input: JSON.stringify({ tool_name: 'AskUserQuestion' }), // no session_id
         encoding: 'utf8',
         env: { ...process.env, TMPDIR: tmp },

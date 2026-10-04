@@ -41,6 +41,8 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
@@ -67,6 +69,9 @@ function hasJq(): boolean {
   }
 }
 const JQ = hasJq();
+// win32: the grep-count case's PATH-shim mechanic (see the case comment) is POSIX-shaped —
+// /usr/bin/which resolution + extensionless shebang shim + colon-joined PATH.
+const WIN_GREP_SHIM = process.platform === 'win32';
 
 const tmpDirs: string[] = [];
 afterEach(() => {
@@ -133,10 +138,12 @@ function assistantBashToolUse(text: string, command: string) {
 }
 
 function runHook(
+  ctx: Skippable,
   stdin: Record<string, unknown>,
   env?: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(stdin),
     encoding: 'utf8',
     // Default to the Russian pack: the assertions below check Russian payload
@@ -149,6 +156,18 @@ function runHook(
     env: { ...process.env, AIF_HOOK_LANG: 'ru', CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/**
+ * `grep -cE` in JS: count of matching LINES; missing file or no match → 0 (the `|| echo 0`
+ * arm). execSync's shell is cmd.exe on win32, where grep does not exist (#1799).
+ */
+function grepCount(file: string, pattern: RegExp): number {
+  try {
+    return readFileSync(file, 'utf8').split('\n').filter((l) => pattern.test(l)).length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -218,13 +237,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // {decision, reason, systemMessage} payload shape per T-M4-B).
   // ---------------------------------------------------------------------------
 
-  it('Branch A (long markdown, no question) → emits decision:block + reason + 🎯 systemMessage', () => {
+  it('Branch A (long markdown, no question) → emits decision:block + reason + 🎯 systemMessage', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Тестовая цель сессии'),
       userTurn('первое задание'),
       assistantText(longMarkdownText() + '\n\nИтог: всё описано.'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'reminder must fire on long markdown turn (skip-condition NOT met)').not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -243,7 +262,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // used only when no ai-title record exists — must not be a tag or a bare path. NO aiTitle()
   // here: the ai-title record outranks this fallback (hook:527-534), so a transcript that opens
   // with one never reaches the line D-I changes (hook:536) and the test would be vacuous.
-  it('does not use a tag or a bare path as the anchor', () => {
+  it('does not use a tag or a bare path as the anchor', (ctx) => {
     for (const first of ['<system-reminder>stuff</system-reminder>', 'src/app/page.tsx', 'notes.md']) {
       const tr = writeTranscript([
         userTurn(first),
@@ -253,7 +272,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       // ${TMPDIR:-/tmp}/aif-eot-anchor-<session_id> (hook:527/540), and reusing one would let
       // the red run's rejected string leak back into the green run via that cache.
       const dir = mkdtempSync(join(tmpdir(), 'anchor-di-'));
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `anchor-${first.length}` },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '', TMPDIR: dir },
       );
@@ -268,10 +287,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // message opens with the worktree hook's injected `<system-reminder>` block. The hook read only
   // `ai-title` and the first LINE of that message, so the anchor was either the literal tag (the
   // pre-D-I twin) or the «not extracted» fallback — while the title sat in the transcript 58 times.
-  function anchorRun(lines: Record<string, unknown>[], id: string) {
+  function anchorRun(ctx: Skippable, lines: Record<string, unknown>[], id: string) {
     const dir = mkdtempSync(join(tmpdir(), 'anchor-goal-'));
     tmpDirs.push(dir);
-    const r = runHook(
+    const r = runHook(ctx, 
       {
         transcript_path: writeTranscript([...lines, assistantText('x'.repeat(700) + '\n\n## H\n- b\n')]),
         stop_hook_active: false,
@@ -285,15 +304,15 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     return (JSON.parse(r.stdout) as { systemMessage: string }).systemMessage;
   }
 
-  it('uses the desktop app custom-title as the anchor, and it outranks ai-title', () => {
-    const only = anchorRun(
+  it('uses the desktop app custom-title as the anchor, and it outranks ai-title', (ctx) => {
+    const only = anchorRun(ctx, 
       [{ type: 'custom-title', customTitle: 'Fix the stale plugin twin' }, userTurn('задание')],
       'anchor-custom-only',
     );
     expect(only).toContain('Fix the stale plugin twin');
 
     // An explicit name (the app, or /rename) beats the generated one, whichever came last.
-    const both = anchorRun(
+    const both = anchorRun(ctx, 
       [
         { type: 'custom-title', customTitle: 'Named by the operator' },
         aiTitle('Generated later by the model'),
@@ -306,7 +325,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
 
     // A rename mid-session appends a new record: the LAST one is the current name. An empty
     // customTitle is no name at all and must not shadow the ai-title.
-    const renamed = anchorRun(
+    const renamed = anchorRun(ctx, 
       [
         { type: 'custom-title', customTitle: 'First name' },
         userTurn('задание'),
@@ -316,15 +335,15 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     );
     expect(renamed).toContain('Renamed later');
     expect(renamed).not.toContain('First name');
-    const blank = anchorRun(
+    const blank = anchorRun(ctx, 
       [{ type: 'custom-title', customTitle: '' }, aiTitle('The generated title'), userTurn('задание')],
       'anchor-custom-blank',
     );
     expect(blank).toContain('The generated title');
   });
 
-  it('skips a leading injected tag block and anchors on the first real instruction', () => {
-    const r = anchorRun(
+  it('skips a leading injected tag block and anchors on the first real instruction', (ctx) => {
+    const r = anchorRun(ctx, 
       [
         userTurn(
           '<system-reminder>\nYou are operating in a git worktree.\nWorktree path: /x/y\n</system-reminder>\n\n' +
@@ -338,8 +357,8 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r).not.toContain('Worktree path');
   });
 
-  it('reaches the instruction in the next text block when the first block is tags only', () => {
-    const r = anchorRun(
+  it('reaches the instruction in the next text block when the first block is tags only', (ctx) => {
+    const r = anchorRun(ctx, 
       [
         {
           type: 'user',
@@ -356,8 +375,8 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r).toContain('Instruction in the second block');
   });
 
-  it('keeps a slash-command session task instead of stripping it with the tags', () => {
-    const r = anchorRun(
+  it('keeps a slash-command session task instead of stripping it with the tags', (ctx) => {
+    const r = anchorRun(ctx, 
       [
         userTurn(
           '<command-message>pipeline</command-message>\n<command-name>/pipeline</command-name>\n' +
@@ -370,7 +389,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r).not.toContain('command-');
   });
 
-  it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
+  it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', (ctx) => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
     // discarded). This Stop hook emits `{decision, reason, systemMessage}` UNCONDITIONALLY
@@ -383,7 +402,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       userTurn('первое задание'),
       assistantText(longMarkdownText() + '\n\nИтог: всё описано.'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.stdout, 'reminder must fire to exercise the JSON path').not.toBe('');
     const parsed = JSON.parse(r.stdout);
     const allowedTopLevel = new Set([
@@ -412,13 +431,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
 
   // ── orchestration-mode (marker-gated; normal mode byte-for-byte) ──────────────
   describe('orchestration-mode — Bug A: decision-mention no longer false-fires in-mode', () => {
-    it('IN-MODE — short "я выбрал Option A." (decision mention, no ?) → silent', () => {
+    it('IN-MODE — short "я выбрал Option A." (decision mention, no ?) → silent', (ctx) => {
       const tr = writeTranscript([
         aiTitle('Цель'),
         userTurn('задание'),
         assistantText('Ок, я выбрал Option A и поехал дальше.'),
       ]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { ORCHESTRATION_MODE_MARKER: writeMarker() },
       );
@@ -426,9 +445,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(r.stdout, 'decision-mention in-mode must NOT fire').toBe('');
     });
 
-    it('IN-MODE — short text ending in "… A или B?" → still fires (trailing ? kept)', () => {
+    it('IN-MODE — short text ending in "… A или B?" → still fires (trailing ? kept)', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('Что берём — A или B?')]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { ORCHESTRATION_MODE_MARKER: writeMarker() },
       );
@@ -436,7 +455,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('NORMAL-MODE — short "я выбрал Option A." is SILENT (claim-scan removed)', () => {
+    it('NORMAL-MODE — short "я выбрал Option A." is SILENT (claim-scan removed)', (ctx) => {
       // Was a "regex still active" guard from when normal mode fired on bare decision
       // mentions. The claim-scan has since been removed (see the "claim-scan removed"
       // cases below): a short decision mention with no question and no long-markdown is
@@ -446,7 +465,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         userTurn('задание'),
         assistantText('Ок, я выбрал Option A и поехал дальше.'),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }); // no marker
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }); // no marker
       expect(r.stdout, 'normal mode: short decision mention is silent post-claim-scan-removal').toBe('');
     });
   });
@@ -461,9 +480,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       '- следующий шаг — harvest после ответа, потом PR в staging\n' +
       '- риск: rework-путь не коммитит, чиним на нашей стороне';
 
-    it('IN-MODE — short STRUCTURED status (<500, markdown) → recap fires', () => {
+    it('IN-MODE — short STRUCTURED status (<500, markdown) → recap fires', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { ORCHESTRATION_MODE_MARKER: writeMarker() },
       );
@@ -471,39 +490,39 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('IN-MODE — short UNSTRUCTURED chatter "ок, удалил" → silent (markdown gate holds)', () => {
+    it('IN-MODE — short UNSTRUCTURED chatter "ок, удалил" → silent (markdown gate holds)', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('ок, удалил')]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { ORCHESTRATION_MODE_MARKER: writeMarker() },
       );
       expect(r.stdout, 'unstructured chatter must stay silent').toBe('');
     });
 
-    it('NORMAL-MODE — short structured status → silent (threshold unchanged)', () => {
+    it('NORMAL-MODE — short structured status → silent (threshold unchanged)', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }); // no marker
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }); // no marker
       expect(r.stdout, 'normal mode keeps 500-char threshold').toBe('');
     });
 
-    it('STALE marker (mtime past TTL) → behaves as normal mode', () => {
+    it('STALE marker (mtime past TTL) → behaves as normal mode', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(shortStructured)]);
       const m = writeMarker();
       execSync(
         `touch -t $(date -v-7H +%Y%m%d%H%M 2>/dev/null || date -d '7 hours ago' +%Y%m%d%H%M) "${m}"`,
       );
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { ORCHESTRATION_MODE_MARKER: m });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }, { ORCHESTRATION_MODE_MARKER: m });
       expect(r.stdout, 'stale marker must not enable in-mode').toBe('');
     });
   });
 
-  it('Branch B (short text ending in ?, no claim) → emits JSON; reason mentions fork-challenge', () => {
+  it('Branch B (short text ending in ?, no claim) → emits JSON; reason mentions fork-challenge', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Цель сессии B'),
       userTurn('первое задание'),
       assistantText('Какой вариант предпочитаешь — A или B?'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout, 'reminder must fire on bare question turn').not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -517,13 +536,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
-  it('Branch C (long markdown AND trailing question) → emits JSON; reason includes both work-recap and question-check', () => {
+  it('Branch C (long markdown AND trailing question) → emits JSON; reason includes both work-recap and question-check', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Цель сессии C'),
       userTurn('первое задание'),
       assistantText(longMarkdownText() + '\n\nКакой подход предпочитаешь — X или Y?'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout).not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -540,18 +559,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // (recall ≈0.43 / precision ≈0.20-0.25, cry-wolf). A short factual-report turn
   // with no question now stays silent — see the "short turn … → exit 0 silent"
   // case below. Rationale: research-patches/2026-06-01-remove-claim-detector.md.
-  it('short turn with a file:line citation but no question → exit 0 silent (claim-scan removed)', () => {
+  it('short turn with a file:line citation but no question → exit 0 silent (claim-scan removed)', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Цель сессии D'),
       userTurn('первое задание'),
       assistantText('Готово. Поправил packages/core/hooks/foo.ts:42 как просил.'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'short claim-bearing turn with no question must now stay silent').toBe('');
   });
 
-  it('Branch B via AskUserQuestion tool_use (no text) → emits JSON; has_askuserquestion path', () => {
+  it('Branch B via AskUserQuestion tool_use (no text) → emits JSON; has_askuserquestion path', (ctx) => {
     // hook:35-39 detects AskUserQuestion in tool_use; hook:42 keeps the turn
     // even with empty text when has_askuserquestion=true (boundary case).
     const tr = writeTranscript([
@@ -559,7 +578,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       userTurn('первое задание'),
       assistantToolUseOnly('AskUserQuestion'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout, 'AskUserQuestion-only turn must fire (has_askuserquestion → asked=true)').not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -567,7 +586,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
-  it('PAIRED-NEGATIVE: a bare NON-question tool call (no text) → exit 0 silent (hook:53-54)', () => {
+  it('PAIRED-NEGATIVE: a bare NON-question tool call (no text) → exit 0 silent (hook:53-54)', (ctx) => {
     // Companion to the AskUserQuestion case above. A tool-use-only turn whose
     // tool is NOT AskUserQuestion has empty text AND has_askuserquestion=false,
     // so hook:53-54 must exit 0 silent — a bare Bash/Read call is not a recap
@@ -577,7 +596,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       userTurn('первое задание'),
       assistantToolUseOnly('Bash'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(
       r.stdout,
@@ -589,43 +608,43 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // ✅ POSITIVE — skip conditions met: hook exits 0 silent (no stdout JSON).
   // ---------------------------------------------------------------------------
 
-  it('stop_hook_active=true → exit 0 silent (loop guard at hook:7-10)', () => {
+  it('stop_hook_active=true → exit 0 silent (loop guard at hook:7-10)', (ctx) => {
     const tr = writeTranscript([
       aiTitle('any'),
       userTurn('x'),
       assistantText(longMarkdownText()),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: true });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: true });
     expect(r.status).toBe(0);
     expect(r.stdout, 'stop_hook_active loop guard must short-circuit before any output').toBe('');
   });
 
-  it('missing transcript_path → exit 0 silent (hook:12-15)', () => {
-    const r = runHook({ stop_hook_active: false });
+  it('missing transcript_path → exit 0 silent (hook:12-15)', (ctx) => {
+    const r = runHook(ctx, { stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('transcript file does not exist → exit 0 silent (hook:13 "! -f" branch)', () => {
-    const r = runHook({ transcript_path: '/tmp/m4-5-nonexistent-transcript.jsonl', stop_hook_active: false });
+  it('transcript file does not exist → exit 0 silent (hook:13 "! -f" branch)', (ctx) => {
+    const r = runHook(ctx, { transcript_path: '/tmp/m4-5-nonexistent-transcript.jsonl', stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('transcript has no assistant turn → exit 0 silent (hook:30-33)', () => {
+  it('transcript has no assistant turn → exit 0 silent (hook:30-33)', (ctx) => {
     const tr = writeTranscript([aiTitle('cel'), userTurn('первое задание')]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('short turn with no question, no claim, no long markdown → exit 0 silent (hook:171-173)', () => {
+  it('short turn with no question, no claim, no long markdown → exit 0 silent (hook:171-173)', (ctx) => {
     const tr = writeTranscript([
       aiTitle('cel'),
       userTurn('первое задание'),
       assistantText('готово, поправил заголовок.'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout, 'short factual report with no fork should not fire a recap').toBe('');
   });
@@ -647,7 +666,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
 //  over-suppress on look-alike marker that misses "Простыми словами".
 //  ---------------------------------------------------------------------------
 
-  it('already-recapped guard: current turn contains "## 🟢 Простыми словами" → exit 0 silent', () => {
+  it('already-recapped guard: current turn contains "## 🟢 Простыми словами" → exit 0 silent', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Цель сессии'),
       userTurn('первое задание'),
@@ -655,7 +674,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         '## 🟢 Простыми словами\n\nЗакрыл шаг X. Дальше — Y.\n\n' + longMarkdownText(),
       ),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(
       r.stdout,
@@ -663,7 +682,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ).toBe('');
   });
 
-  it('already-recapped guard does NOT over-fire: "## 🟢" without "Простыми словами" → reminder still fires', () => {
+  it('already-recapped guard does NOT over-fire: "## 🟢" without "Простыми словами" → reminder still fires', (ctx) => {
     // Negative companion to the previous test. Confirms the guard matches the
     // FULL canonical marker, not just the 🟢 emoji — so a long markdown turn
     // that mentions "## 🟢 Что-то ещё" must still trigger Branch A.
@@ -672,7 +691,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       userTurn('первое задание'),
       assistantText('## 🟢 Прогресс\n\n' + longMarkdownText()),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(
       r.stdout,
@@ -694,13 +713,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // Only the latter turns red if the extraction reads an unset variable under
   // `set -u`. The marker case is kept as the paired negative for the guard's
   // silence, not as a witness for the function.
-  it('computes the turn shape through one function on a turn that reaches it', () => {
+  it('computes the turn shape through one function on a turn that reaches it', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Turn shape'),
       userTurn('go'),
       assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nShall I proceed?'),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'shape-reached' },
       { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
     );
@@ -714,13 +733,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(JSON.parse(r.stdout).decision).toBe('block');
   });
 
-  it('already-recapped guard still exits silently, ahead of the turn-shape call', () => {
+  it('already-recapped guard still exits silently, ahead of the turn-shape call', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Turn shape'),
       userTurn('go'),
       assistantText('## 🟢 In plain words\nWhere we are. Done.\n\nShall I proceed?'),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'shape-guarded' },
       { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
     );
@@ -783,13 +802,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ].join('\n');
   }
 
-  it('section-evidence arm: the 2026-10-01 incident shape — full sections, paraphrased heading → exit 0 silent', () => {
+  it('section-evidence arm: the 2026-10-01 incident shape — full sections, paraphrased heading → exit 0 silent', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Recap loop'),
       userTurn('первое задание'),
       assistantText(driftRecapText()),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-ru' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-ru' });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(
       r.stdout,
@@ -797,13 +816,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ).toBe('');
   });
 
-  it('en pack: full section set with a well-formed "From you: nothing (…)" closing → exit 0 silent', () => {
+  it('en pack: full section set with a well-formed "From you: nothing (…)" closing → exit 0 silent', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Recap loop'),
       userTurn('go'),
       assistantText(enDriftText()),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-en' },
       { AIF_HOOK_LANG: 'en' },
     );
@@ -811,7 +830,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.stdout, 'the section-evidence predicate reads the active pack, not a hard-coded language').toBe('');
   });
 
-  it('section-evidence arm does NOT over-fire: section labels mentioned in prose without the closing grammar → still blocks', () => {
+  it('section-evidence arm does NOT over-fire: section labels mentioned in prose without the closing grammar → still blocks', (ctx) => {
     // Paired negative to the incident test. Every section label appears in the
     // text, so a label-only predicate would suppress — but the final line is
     // ordinary prose, not the D-B closing grammar, and a turn without it is not
@@ -824,13 +843,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
           '\n\n**Где мы.** упоминается. **Что изменилось.** упоминается. **Дальше.** тоже в прозе.\n\nИтог: всё описано.',
       ),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-prose' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-prose' });
     expect(r.status).toBe(0);
     expect(r.stdout, 'prose mentions of the labels are not a recap — Branch A must still fire').not.toBe('');
     expect(JSON.parse(r.stdout).decision).toBe('block');
   });
 
-  it('section-evidence arm: a banned «От тебя: проверь…» closing is not recap evidence → still blocks', () => {
+  it('section-evidence arm: a banned «От тебя: проверь…» closing is not recap evidence → still blocks', (ctx) => {
     // The D-B banned-verb half of _eot_recap_defects: a full section set whose
     // closing line offloads the operator's work is NOT a well-formed recap.
     const tr = writeTranscript([
@@ -843,13 +862,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         ),
       ),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-banned' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-banned' });
     expect(r.status).toBe(0);
     expect(r.stdout, 'a banned closing line defeats the section evidence — the recap demand must fire').not.toBe('');
     expect(JSON.parse(r.stdout).decision).toBe('block');
   });
 
-  it('section-evidence arm: a malformed «ничего» without the verification trace is not recap evidence → still blocks', () => {
+  it('section-evidence arm: a malformed «ничего» without the verification trace is not recap evidence → still blocks', (ctx) => {
     // D-B: "nothing" needs its parens. Same sections, closing value «ничего.» →
     // malformed → not evidence → the demand must fire (matches what the gate
     // would demand of the marker-present twin of this turn).
@@ -863,13 +882,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         ),
       ),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-malformed' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-malformed' });
     expect(r.status).toBe(0);
     expect(r.stdout, 'a malformed closing value defeats the section evidence — the recap demand must fire').not.toBe('');
     expect(JSON.parse(r.stdout).decision).toBe('block');
   });
 
-  it('section-evidence arm: asked=true via the closing "decide:" value requires the Fork section → still blocks without it', () => {
+  it('section-evidence arm: asked=true via the closing "decide:" value requires the Fork section → still blocks without it', (ctx) => {
     // en pack: "decide:" in the closing value trips the trailing-fork pattern, so
     // the demanded section set includes **Fork.** (the same conditionality
     // _eot_recap_defects applies to the marker-present twin).
@@ -880,7 +899,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       '   From you: decide: accept the section set or demand the heading verbatim',
     ].join('\n');
     const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(forkless)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'se-negative-forkless' },
       { AIF_HOOK_LANG: 'en' },
     );
@@ -889,7 +908,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(JSON.parse(r.stdout).decision).toBe('block');
   });
 
-  it('section-evidence arm: the same asked turn WITH the Fork section → exit 0 silent', () => {
+  it('section-evidence arm: the same asked turn WITH the Fork section → exit 0 silent', (ctx) => {
     // Paired twin of the forkless negative — flips only the missing section.
     const withFork = [
       '**Where we are.** Fixed the recap guard.',
@@ -899,7 +918,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       '   From you: decide: accept the section set or demand the heading verbatim',
     ].join('\n');
     const tr = writeTranscript([aiTitle('Recap loop'), userTurn('go'), assistantText(withFork)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'se-positive-fork' },
       { AIF_HOOK_LANG: 'en' },
     );
@@ -907,7 +926,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.stdout, 'every demanded section present + well-formed closing = recap evidence').toBe('');
   });
 
-  it('section-evidence arm under the D-A gate: AIF_RECAP_GATE=1 must not re-block a well-formed section-evidence turn', () => {
+  it('section-evidence arm under the D-A gate: AIF_RECAP_GATE=1 must not re-block a well-formed section-evidence turn', (ctx) => {
     // The gate's checker reads the marker-glued slice (_eot_recap_block), which
     // for a marker-less text is the WHOLE turn — running the defect gate there
     // would cap-block the very turn the section arm just recognized (the whole
@@ -917,7 +936,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       userTurn('первое задание'),
       assistantText(driftRecapText()),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'se-gated' },
       { AIF_RECAP_GATE: '1' },
     );
@@ -925,14 +944,14 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.stdout, 'the section arm precedes the defect gate; no marker, no slice, no cap defect').toBe('');
   });
 
-  it('section-evidence arm under ZCode: a drift recap (sections, no marker) is silent — no thin-recap re-block', () => {
+  it('section-evidence arm under ZCode: a drift recap (sections, no marker) is silent — no thin-recap re-block', (ctx) => {
     // ZCode re-stops carry stop_hook_active=false, so the drift loop there is the
     // worst case. The hoisted guard region must absorb the section-evidence turn
     // before the ZCode dense branch sees it (#1706 shadowing class).
     const tr = writeTranscript([
       { message: { content: [{ type: 'text', text: enDriftText() }], role: 'assistant' } },
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'se-zcode' },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
     );
@@ -945,13 +964,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // aif_msg_eot_recap_contract() helper (D-A, D-B), instead of each branch spelling out its
   // own ad-hoc instructions. This turn is long + markdown-structural + no trailing question,
   // so it reaches Branch A (long_text=true, asked=false).
-  it('branch payloads teach the five-section contract and the from-you grammar', () => {
+  it('branch payloads teach the five-section contract and the from-you grammar', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Payload'),
       userTurn('go'),
       assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'five-section' },
       { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
     );
@@ -967,18 +986,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // buttons (slice 2) or once per question in an /arch round — section 3 of the block is ONE
   // pointer line, never a second card. The clause lives in the SHARED contract so every branch
   // payload teaches it and the later /arch slice inherits it without re-editing this sentence.
-  it.each([
+  it.for([
     ['en', /ONE pointer line/, /never a second card/, 'Otherwise — the card in full:'],
     ['ru', /ОДНА строка-указатель/, /а не вторая карточка/, 'Иначе — карточка целиком:'],
-  ] as const)(
+  ] as const,
     '%s: the recap contract carries the R-13 pointer clause',
-    (lang, pointer, notSecondCard, connector) => {
+    ([lang, pointer, notSecondCard, connector], ctx) => {
       const tr = writeTranscript([
         aiTitle('Pointer'),
         userTurn('go'),
         assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
       ]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `r13-${lang}` },
         { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '' },
       );
@@ -1009,7 +1028,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   describe('recap gate — dormant section-checker (Task 1.5)', () => {
     const RECAP_EN = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
 
-    it('armed gate names the missing section of an existing recap block', () => {
+    it('armed gate names the missing section of an existing recap block', (ctx) => {
       // Task 1.6b's retry bound (R-16) keys its once-per-block flag on
       // ${TMPDIR:-/tmp}/aif-eot-rgb-<session_id>, which survives across separate test-process
       // runs on the default OS temp dir. A fixed session id + fixed block text (both true
@@ -1019,7 +1038,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       const tdir = mkdtempSync(join(tmpdir(), 'gate-armed-'));
       tmpDirs.push(tdir);
       const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-armed' },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
       );
@@ -1028,9 +1047,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(reason).toContain('From you:'); // section 5's last line missing
     });
 
-    it('is dormant when AIF_RECAP_GATE is unset', () => {
+    it('is dormant when AIF_RECAP_GATE is unset', (ctx) => {
       const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-dormant' },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
       );
@@ -1039,9 +1058,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(r.stdout).toBe('');
     });
 
-    it('never fires on a turn that has no recap block at all', () => {
+    it('never fires on a turn that has no recap block at all', (ctx) => {
       const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('Short answer.')]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-noblock' },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
       );
@@ -1053,11 +1072,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // trace in parentheses. Before this arm the gate asserted only that the literal
     // "From you:" appeared anywhere on the line, so a bare «nothing» and free prose both
     // passed — verbatim the `#hope-as-gate` shape F5 demanded a mechanism for.
-    const gateStdout = (block: string, session: string, lang = 'en'): string => {
+    const gateStdout = (ctx: Skippable, block: string, session: string, lang = 'en'): string => {
       const tdir = mkdtempSync(join(tmpdir(), 'gate-db-'));
       tmpDirs.push(tdir);
       const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(block)]);
-      return runHook(
+      return runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: session },
         { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '1', TMPDIR: tdir },
       ).stdout;
@@ -1069,40 +1088,46 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // arm (2026-09-28) fires on every non-floor «do by hand» line, so a non-floor action here
     // would make this case assert the gate AND that arm silent. A floor keeps the claim scoped
     // to the gate's grammar check, which is what this case is about.
-    it.each([
-      'nothing (12/12 green)',
-      'waiting on: the CI run, from GitHub',
-      'do by hand: merge the promote PR into main',
-    ])('accepts the well-formed D-B value %s', (value) => {
-      expect(gateStdout(block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
+    it.for(
+      [
+        ['nothing (12/12 green)'],
+        ['waiting on: the CI run, from GitHub'],
+        ['do by hand: merge the promote PR into main'],
+      ],
+      'accepts the well-formed D-B value %s',
+      ([value], ctx) => {
+      expect(gateStdout(ctx, block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
     });
 
-    it.each([
-      ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
-      ['nothing ()', 'an empty parenthesis is not a trace'],
-      ['ping me when CI is green', 'free prose is not one of the four values'],
-    ])('rejects %s (%s)', (value) => {
-      const reason = JSON.parse(gateStdout(block(value), `db-bad-${value.slice(0, 6)}`))
+    it.for(
+      [
+        ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
+        ['nothing ()', 'an empty parenthesis is not a trace'],
+        ['ping me when CI is green', 'free prose is not one of the four values'],
+      ],
+      'rejects %s (%s)',
+      ([value], ctx) => {
+      const reason = JSON.parse(gateStdout(ctx, block(value), `db-bad-${value.slice(0, 6)}`))
         .reason as string;
       expect(reason).toContain('four allowed values');
     });
 
-    it('reads the offloading verbs only in the VALUE, never inside its own trace', () => {
+    it('reads the offloading verbs only in the VALUE, never inside its own trace', (ctx) => {
       // `review the` inside the parenthesis is the AGENT's evidence, not an errand for the
       // human — scanning the whole line rejected a correct block (final review M-3).
-      expect(gateStdout(block('nothing (I did review the failing job)'), 'db-trace')).toBe('');
+      expect(gateStdout(ctx, block('nothing (I did review the failing job)'), 'db-trace')).toBe('');
       const reason = JSON.parse(
-        gateStdout(block('review the diff and make sure it is fine'), 'db-offload'),
+        gateStdout(ctx, block('review the diff and make sure it is fine'), 'db-offload'),
       ).reason as string;
       expect(reason).toContain('your own work');
     });
 
-    it('catches English offloading in the RU pack too', () => {
+    it('catches English offloading in the RU pack too', (ctx) => {
       // An operator on AIF_HOOK_LANG=ru still reads English answers; a ru-only banned list
       // left this exact line silent in the one pack that operator runs (final review M-4).
       const ru =
         '## 🟢 Простыми словами\n**Где мы.** ок\n**Дальше.**\nЯ: жду. От тебя: review the diff and make sure it is fine';
-      expect(gateStdout(ru, 'db-ru-offload', 'ru')).not.toBe('');
+      expect(gateStdout(ctx, ru, 'db-ru-offload', 'ru')).not.toBe('');
     });
   });
 
@@ -1113,14 +1138,14 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // forever. The cap is read from AIF_EOT_RECAP_MAX_LINES (default 15) and excludes the
   // fork-card region (D-A: fork cards are never compressed).
   describe('recap gate — retry bound + line cap (Task 1.6b)', () => {
-    it('blocks a malformed block once, then exits silently on the same block under new prose', () => {
+    it('blocks a malformed block once, then exits silently on the same block under new prose', (ctx) => {
       const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-'));
       tmpDirs.push(tdir);
       const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
       const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
 
       const tr1 = writeTranscript([aiTitle('RB'), userTurn('go'), assistantText(body)]);
-      const first = runHook(
+      const first = runHook(ctx, 
         { transcript_path: tr1, stop_hook_active: false, session_id: 'retry-bound' },
         env,
       );
@@ -1130,7 +1155,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         aiTitle('RB'), userTurn('go'),
         assistantText(`I reran the suite and it is green.\n\n${body}`),
       ]);
-      const again = runHook(
+      const again = runHook(ctx, 
         { transcript_path: tr2, stop_hook_active: false, session_id: 'retry-bound' },
         env,
       );
@@ -1149,7 +1174,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // "one block per defect" the bound exists to enforce. This fixture is the guard against
     // the plausible WRONG read of that silence ("the twin swallowed a block, drop the
     // suppression"), which would hand one Stop two blocks for one defect.
-    it('blocks once when one Stop invokes the hook twice with identical input', () => {
+    it('blocks once when one Stop invokes the hook twice with identical input', (ctx) => {
       const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-twin-'));
       tmpDirs.push(tdir);
       const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
@@ -1160,21 +1185,21 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         session_id: 'retry-bound-twin',
       };
 
-      const copy1 = runHook(stdin, env);
+      const copy1 = runHook(ctx, stdin, env);
       expect(copy1.stdout, 'copy 1 of the Stop must name the defect').toContain('Fork.');
 
       // Same Stop, same stdin, same env — the second registration, not a new turn.
-      const copy2 = runHook(stdin, env);
+      const copy2 = runHook(ctx, stdin, env);
       expect(copy2.stdout, 'copy 2 of the SAME Stop must not re-block the same defect').toBe('');
     });
 
-    it('caps the retelling part but never the fork card', () => {
+    it('caps the retelling part but never the fork card', (ctx) => {
       const filler = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
       const mk = (text: string, session: string) => {
         const tdir = mkdtempSync(join(tmpdir(), 'recap-cap-'));
         tmpDirs.push(tdir);
         const tr = writeTranscript([aiTitle('Cap'), userTurn('go'), assistantText(text)]);
-        return runHook(
+        return runHook(ctx, 
           { transcript_path: tr, stop_hook_active: false, session_id: session },
           { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
         );
@@ -1203,7 +1228,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // only stores the sha inside `if [ -n "$_recap_defects" ]` never overwrites turn 1's
     // stored sha during turn 2, so turn 3 wrongly reads as "already blocked" and stays
     // silent.
-    it('names a fresh recurrence of the same defect after a well-formed turn in between', () => {
+    it('names a fresh recurrence of the same defect after a well-formed turn in between', (ctx) => {
       const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-fresh-'));
       tmpDirs.push(tdir);
       const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
@@ -1213,21 +1238,21 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         '## 🟢 In plain words\n**Where we are.** Done.\n**Next.** Me: nothing more. From you: nothing (spot check)';
 
       const tr1 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
-      const turn1 = runHook(
+      const turn1 = runHook(ctx, 
         { transcript_path: tr1, stop_hook_active: false, session_id: sessionId },
         env,
       );
       expect(turn1.stdout, 'turn 1: first sighting of the malformed block must block').toContain('Fork.');
 
       const tr2 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(wellFormed)]);
-      const turn2 = runHook(
+      const turn2 = runHook(ctx, 
         { transcript_path: tr2, stop_hook_active: false, session_id: sessionId },
         env,
       );
       expect(turn2.stdout, 'turn 2: well-formed block must not block').not.toContain('Fork.');
 
       const tr3 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
-      const turn3 = runHook(
+      const turn3 = runHook(ctx, 
         { transcript_path: tr3, stop_hook_active: false, session_id: sessionId },
         env,
       );
@@ -1250,7 +1275,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   describe('idle-suppress re-ping guard (hook:135-156)', () => {
     const RECAP = '## 🟢 Простыми словами';
 
-    it('re-ping: short question repeated verbatim after a "## 🟢" recap → exit 0 silent', () => {
+    it('re-ping: short question repeated verbatim after a "## 🟢" recap → exit 0 silent', (ctx) => {
       const question = 'Так продолжать ли с шагом Y?';
       const tr = writeTranscript([
         aiTitle('Цель сессии'),
@@ -1260,7 +1285,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         // current assistant turn: the SAME short question re-pinged (asked, short)
         assistantText(question),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(
         r.stdout,
@@ -1268,7 +1293,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       ).toBe('');
     });
 
-    it('PAIRED-NEGATIVE: a NEW short question after a recap → still FIRES (decision:block)', () => {
+    it('PAIRED-NEGATIVE: a NEW short question after a recap → still FIRES (decision:block)', (ctx) => {
       const tr = writeTranscript([
         aiTitle('Цель сессии'),
         userTurn('первое задание'),
@@ -1276,7 +1301,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         // genuinely new question — its text does NOT appear in the prev recap
         assistantText('А что насчёт совсем другого вопроса Z?'),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(
         r.stdout,
@@ -1285,7 +1310,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('long answer that re-pings a recap → long_text wins, Branch C still FIRES', () => {
+    it('long answer that re-pings a recap → long_text wins, Branch C still FIRES', (ctx) => {
       // Single-LINE long text: hook:145 compares `current_short` (first 120 bytes,
       // newlines→spaces) against prev_text via `grep -qF`. A single-line prefix
       // matches prev verbatim, so the idle-suppress inner condition WOULD be met —
@@ -1304,7 +1329,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         // so the idle-suppress entry condition (asked && long_text=false) is false.
         assistantText(longLine),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(
         r.stdout,
@@ -1313,7 +1338,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('B2 contract: an AskUserQuestion turn that re-pings a recap → must FIRE (never idle-suppress)', () => {
+    it('B2 contract: an AskUserQuestion turn that re-pings a recap → must FIRE (never idle-suppress)', (ctx) => {
       // hook:137 short-circuits idle-suppress when has_askuserquestion=true — an
       // AskUserQuestion turn is ALWAYS a live decision, even if its text echoes a
       // prior recap. Without this the operator question would be silently eaten.
@@ -1326,7 +1351,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         // via has_askuserquestion=true, and hook:137 must veto suppression.
         assistantTextAndToolUse(question, 'AskUserQuestion'),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(
         r.stdout,
@@ -1343,13 +1368,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // (suite default AIF_HOOK_LANG=ru). Spec: docs/superpowers/specs/
   // 2026-06-01-hook-lang-i18n-design.md.
   // ---------------------------------------------------------------------------
-  it('en pack: Branch C with AIF_HOOK_LANG=en → English reason + English recap marker', () => {
+  it('en pack: Branch C with AIF_HOOK_LANG=en → English reason + English recap marker', (ctx) => {
     const tr = writeTranscript([
       aiTitle('Session goal EN'),
       userTurn('first task'),
       assistantText(longMarkdownText() + '\n\nWhich approach do you prefer — X or Y?'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false }, { AIF_HOOK_LANG: 'en' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }, { AIF_HOOK_LANG: 'en' });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'en pack must fire Branch C on long markdown + trailing question').not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -1359,7 +1384,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.reason, 'en pack must not leak Russian payload').not.toMatch(/Стоп|развилк/);
   });
 
-  it('B2 fix: AskUserQuestion-only turn after prior "## 🟢" recap → must FIRE (not suppressed)', () => {
+  it('B2 fix: AskUserQuestion-only turn after prior "## 🟢" recap → must FIRE (not suppressed)', (ctx) => {
     // Scenario: previous assistant turn produced a recap (contains "## 🟢"),
     // current turn is AskUserQuestion-only with empty text. Without the B2
     // short-circuit at hook:128-131 the `grep -qF ""` against empty
@@ -1371,7 +1396,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       assistantText('## 🟢 Простыми словами\n\nЗакрыл предыдущий шаг. Дальше? Option A или Option B?'),
       assistantToolUseOnly('AskUserQuestion'),
     ]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false });
     expect(r.status).toBe(0);
     expect(r.stdout, 'B2 regression guard: AUQ-only turn after recap must still fire').not.toBe('');
     const payload = JSON.parse(r.stdout);
@@ -1379,7 +1404,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   });
 
   describe('story branch — PR-create → engaging completion recap (RU default)', () => {
-    it('`gh pr create` tool_use → emits 🎬 story (not the dry recap)', () => {
+    it('`gh pr create` tool_use → emits 🎬 story (not the dry recap)', (ctx) => {
       const tdir = mkdtempSync(join(tmpdir(), 'm4-5-story-ghpr-'));
       tmpDirs.push(tdir);
       const tr = writeTranscript([
@@ -1387,7 +1412,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         userTurn('первое задание'),
         assistantBashToolUse('Открываю PR.', 'gh pr create --base staging --title x --body y'),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-ghpr' }, { TMPDIR: tdir });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'story-ghpr' }, { TMPDIR: tdir });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(r.stdout, 'gh pr create turn must fire the story branch').not.toBe('');
       const payload = JSON.parse(r.stdout);
@@ -1399,25 +1424,25 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(payload.reason, 'D-G removed the «по актам» chronicle').not.toMatch(/по актам/i);
     });
 
-    it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', () => {
+    it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', (ctx) => {
       const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(longMarkdownText())]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-none' });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'story-none' });
       const payload = JSON.parse(r.stdout);
       expect(payload.reason).toContain('## 🟢 Простыми словами');
       expect(payload.reason, 'no PR → no story branch').not.toContain('## 🎬');
     });
 
-    it('debounce: same PR storied twice in one session → second turn silent', () => {
+    it('debounce: same PR storied twice in one session → second turn silent', (ctx) => {
       const tdir = mkdtempSync(join(tmpdir(), 'm4-5-story-'));
       tmpDirs.push(tdir);
       const mkTr = () => writeTranscript([
         aiTitle('Цель'), userTurn('задание'),
         assistantText('PR открыт: https://github.com/o/r/pull/777'),
       ]);
-      const first = runHook({ transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
+      const first = runHook(ctx, { transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
       expect(first.stdout).not.toBe('');
       expect(JSON.parse(first.stdout).reason).toContain('## 🎬');
-      const second = runHook({ transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
+      const second = runHook(ctx, { transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
       expect(second.stdout, 'same PR must not re-fire (debounce)').toBe('');
     });
   });
@@ -1430,35 +1455,35 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // → 503/503 review-gate runs fell to the legacy parser and every task parked at manual
   // review. Nobody reads a recap in an SDK session; the caller's output contract does.
   describe('SDK-entrypoint guard (aif sidecar contract, 2026-09-09)', () => {
-    it('CLAUDE_CODE_ENTRYPOINT=sdk-ts → exit 0 silent even on a long markdown turn', () => {
+    it('CLAUDE_CODE_ENTRYPOINT=sdk-ts → exit 0 silent even on a long markdown turn', (ctx) => {
       const tr = writeTranscript([
         aiTitle('any'),
         userTurn('x'),
         assistantText(longMarkdownText() + '\n\n## Blocking Findings\n- [abc] code_review | one'),
       ]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts' });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts' });
       expect(r.status, `stderr: ${r.stderr}`).toBe(0);
       expect(r.stdout, 'an SDK-driven session must never be blocked for a recap').toBe('');
     });
 
-    it('sdk-py is the same class (prefix match, not one literal)', () => {
+    it('sdk-py is the same class (prefix match, not one literal)', (ctx) => {
       const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-py' });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-py' });
       expect(r.status).toBe(0);
       expect(r.stdout).toBe('');
     });
 
-    it('PAIRED-NEGATIVE: the interactive CLI entrypoint still fires Branch A', () => {
+    it('PAIRED-NEGATIVE: the interactive CLI entrypoint still fires Branch A', (ctx) => {
       const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
-      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'cli' });
+      const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'cli' });
       expect(r.status).toBe(0);
       expect(r.stdout, 'a human-facing session keeps the recap').not.toBe('');
       expect(JSON.parse(r.stdout).decision).toBe('block');
     });
 
-    it('PAIRED-NEGATIVE: AIF_AUTONOMOUS=1 under sdk-ts is ALSO silent — the guard sits before the F10 arm', () => {
+    it('PAIRED-NEGATIVE: AIF_AUTONOMOUS=1 under sdk-ts is ALSO silent — the guard sits before the F10 arm', (ctx) => {
       const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: 'http://127.0.0.1:9' },
       );
@@ -1466,9 +1491,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(r.stdout).toBe('');
     });
 
-    it('escape hatch: AIF_EOT_SDK_RECAP=1 restores the recap demand under sdk-ts', () => {
+    it('escape hatch: AIF_EOT_SDK_RECAP=1 restores the recap demand under sdk-ts', (ctx) => {
       const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false },
         { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_EOT_SDK_RECAP: '1' },
       );
@@ -1509,12 +1534,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
 
   // ---- Part A: grep alternation — both arms load-bearing, tested in isolation ----------
 
-  it('zcode_synthetic_transcript_last_line_extracted_via_role: synthetic line has no outer type → matched via role arm', () => {
+  it('zcode_synthetic_transcript_last_line_extracted_via_role: synthetic line has no outer type → matched via role arm', (ctx) => {
     // plan-v3 §1.7 Forward row 7 + Backward "role arm dropped" row.
     // Pre-fix: grep '"type":"assistant"' alone returned 0 lines on this fixture →
     // last_line empty → hook exit 0 (runtime-DEAD on ZCode).
     // Post-fix: the `role` arm of the alternation matches → last_line non-empty → hook proceeds.
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
       // NOTE: ZCODE_PROJECT_DIR UNSET here — we want to exercise Part A's last_line extraction
       // IN ISOLATION from Part B. Part B fires later; with ZCODE_PROJECT_DIR unset, Part B is
@@ -1534,7 +1559,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     expect(parsed.decision).toBe('block');
   });
 
-  it('cc_transcript_last_line_extracted_via_type: CC fixture outer type → matched via type arm', () => {
+  it('cc_transcript_last_line_extracted_via_type: CC fixture outer type → matched via type arm', (ctx) => {
     // plan-v3 §1.7 Forward row 8 + Backward "type arm dropped" row.
     // CC legacy shape carries an OUTER "type":"assistant" field (verified Mode A on
     // ~/.claude/projects/-Users-art-code-BDDS/0b42f1ff-*.jsonl). The type arm of the
@@ -1542,7 +1567,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     // reply.") so the cascade stays silent — but the role-line extraction must NOT have
     // bailed out at hook:54 (which would happen if BOTH arms missed). We assert exit 0
     // AND that the hook did not crash on jq parsing of the extracted line.
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: CC_FIXTURE, stop_hook_active: false },
       { AIF_HOOK_LANG: 'en' },
     );
@@ -1553,31 +1578,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     expect(r.stdout).toBe('');
     // Direct grep proof of the asymmetry (re-asserted here so the test is self-documenting
     // and fails loudly if the fixture drifts).
-    const typeMatches = execSync(
-      `grep -cE '"type":"assistant"' "${CC_FIXTURE}" 2>/dev/null || echo 0`,
-    ).toString().trim();
+    const typeMatches = String(grepCount(CC_FIXTURE, /"type":"assistant"/));
     expect(parseInt(typeMatches, 10), 'CC fixture must have outer "type":"assistant"').toBeGreaterThan(0);
   });
 
-  it('Part A both arms proven asymmetric via direct grep on fixtures (load-bearing alternation)', () => {
+  it('Part A both arms proven asymmetric via direct grep on fixtures (load-bearing alternation)', (ctx) => {
     // T7 anti-pattern guard: a future edit collapsing the alternation to `"type"` only is the
     // canonical regression. This test pins the asymmetry directly so it cannot drift.
     // ZCode fixture MUST NOT match the type arm (only role); CC fixture matches both.
     // We use single-quoted grep patterns (no shell escaping of the inner doubles).
-    const zcodeTypeCount = parseInt(
-      execSync(`grep -cE '"type":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
-      10,
-    );
-    const zcodeRoleCount = parseInt(
-      execSync(`grep -cE '"role":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
-      10,
-    );
-    // The alternation pattern: shell-single-quote wraps the whole pattern so the inner
-    // double-quotes pass through literally to grep.
-    const zcodeAltCount = parseInt(
-      execSync(`grep -cE '"(type|role)":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
-      10,
-    );
+    const zcodeTypeCount = grepCount(ZCODE_FIXTURE, /"type":"assistant"/);
+    const zcodeRoleCount = grepCount(ZCODE_FIXTURE, /"role":"assistant"/);
+    const zcodeAltCount = grepCount(ZCODE_FIXTURE, /"(type|role)":"assistant"/);
     expect(zcodeTypeCount, 'ZCode fixture must have ZERO outer "type":"assistant" (only role)').toBe(0);
     expect(zcodeRoleCount, 'ZCode fixture must match the role arm').toBeGreaterThan(0);
     expect(zcodeAltCount, 'ZCode fixture must match the full alternation').toBeGreaterThan(0);
@@ -1585,11 +1597,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
 
   // ---- Part B: thin-recap branch (ZCode-gated, reason field) --------------------------
 
-  it('zcode_long_markdown_emits_block_decision_with_reason_field: >500 chars markdown under _is_zcode → {decision:block, reason}', () => {
+  it('zcode_long_markdown_emits_block_decision_with_reason_field: >500 chars markdown under _is_zcode → {decision:block, reason}', (ctx) => {
     // plan-v3 §1.7 Forward row 9 + Backward "branch absent" + "additionalContext instead of reason" rows.
     // The thin-recap branch fires when _is_zcode AND text > 500 AND markdown-dense.
     // The fixture's assistant text is 676 chars with ## headings + ** bold + blank lines.
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
@@ -1606,12 +1618,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     expect(parsed.systemMessage).toMatch(/^🎯 /);
   });
 
-  it('thin_recap_emits_reason_not_additional_context: emitted JSON has reason, NOT additionalContext (T-ZP-B)', () => {
+  it('thin_recap_emits_reason_not_additional_context: emitted JSON has reason, NOT additionalContext (T-ZP-B)', (ctx) => {
     // plan-v3 §1.7 Backward "Part B uses additionalContext instead of reason" row.
     // Stop-hook field for delivering the nudge to the MODEL is `reason` (NOT additionalContext,
     // which is a PostToolUse/PreToolUse field — comment at hook:227 documents this).
     // This test fails if anyone swaps the field by pattern-matching on other hooks.
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
@@ -1621,7 +1633,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     expect(parsed.additionalContext, 'additionalContext MUST NOT appear on Stop-hook emit (wrong channel)').toBeUndefined();
   });
 
-  it('non_zcode_skips_thin_recap: under non-ZCode env, Part B branch does not fire', () => {
+  it('non_zcode_skips_thin_recap: under non-ZCode env, Part B branch does not fire', (ctx) => {
     // plan-v3 §1.7 Forward row 10 + Backward "_is_zcode gate absent" row.
     // Without ZCODE_PROJECT_DIR, Part B MUST be skipped — otherwise CC dogfood would get
     // a duplicate nudge (Part B + the existing cascade both firing).
@@ -1633,7 +1645,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
       { type: 'user', message: { content: 'do something' } },
       assistantText(shortMarkdown),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false },
       { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
     );
@@ -1644,7 +1656,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     ).toBe('');
   });
 
-  it('non_zcode_long_markdown_still_uses_existing_cascade: Part B skipped, Branch A still fires on long markdown', () => {
+  it('non_zcode_long_markdown_still_uses_existing_cascade: Part B skipped, Branch A still fires on long markdown', (ctx) => {
     // Paired-negative companion: a long-markdown turn on non-ZCode MUST still trigger the
     // existing Branch A cascade (proving Part B is additive, not a replacement). This is
     // the "byte-for-byte unchanged on CC dogfood" contract.
@@ -1653,7 +1665,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
       { type: 'user', message: { content: 'do something' } },
       assistantText(longMarkdownText()),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false },
       { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
     );
@@ -1692,12 +1704,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
   /** >500 chars, markdown-dense (## headings + ** bold), opening with `prefix`. */
   const denseBody = (prefix: string) => `${prefix}${longMarkdownText()}`;
 
-  it('RECAP-MARKED long markdown under ZCode → silent (hoisted guard outranks the thin-recap branch)', () => {
+  it('RECAP-MARKED long markdown under ZCode → silent (hoisted guard outranks the thin-recap branch)', (ctx) => {
     // RED pre-fix: the thin-recap branch sat ABOVE the already-recapped guard, so the
     // recap that carried the very marker the block reason demands was re-blocked —
     // the #1706 live finding.
     const tr = writeTranscript([zcodeAssistantText(denseBody('## 🟢 In plain words\n\n'))]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-recap' },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
@@ -1708,13 +1720,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     ).toBe('');
   });
 
-  it('STORY-MARKED long markdown with a PR signal under ZCode → silent (story-told guard hoisted too)', () => {
+  it('STORY-MARKED long markdown with a PR signal under ZCode → silent (story-told guard hoisted too)', (ctx) => {
     // The story-told guard was shadowed by the same branch. The PR URL inside the
     // text sets story_signal; the marker satisfies the guard.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 What changed this session\n\nhttps://github.com/o/r/pull/1700\n\n')),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story' },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
@@ -1722,7 +1734,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     expect(r.stdout, 'a told story must not be re-demanded on ZCode').toBe('');
   });
 
-  it('D-G mutation check: a turn carrying the PRE-D-G marker does NOT satisfy the story-told guard', () => {
+  it('D-G mutation check: a turn carrying the PRE-D-G marker does NOT satisfy the story-told guard', (ctx) => {
     // The guard matches the CURRENT pack literal exactly (grep -qF on $AIF_STORY_MARKER).
     // Feeding the retired "## 🎬 The story" heading must NOT suppress — the exact
     // regression D-G's literal move exists to prevent (R-5: a told story re-injects),
@@ -1736,7 +1748,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story-predg' },
       { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
@@ -1746,34 +1758,34 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     expect(payload.decision).toBe('block');
   });
 
-  it('same-text loop bound: identical dense input blocks ONCE, the identical re-stop is silent', () => {
+  it('same-text loop bound: identical dense input blocks ONCE, the identical re-stop is silent', (ctx) => {
     // ZCode gives no stop_hook_active and has no harness-side block cap, so the
     // pre-fix hook re-blocked identical text forever (#1706 loop hazard).
     const tmp = privateTmp();
     const tr = writeTranscript([zcodeAssistantText(denseBody(''))]);
     const stdin = { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-loop' };
     const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
-    const first = runHook(stdin, env);
+    const first = runHook(ctx, stdin, env);
     expect(first.stdout, 'the FIRST occurrence still gets its one recap block').not.toBe('');
     expect(JSON.parse(first.stdout).decision).toBe('block');
-    const second = runHook(stdin, env);
+    const second = runHook(ctx, stdin, env);
     expect(second.status, `stderr: ${second.stderr}`).toBe(0);
     expect(second.stdout, 'an IDENTICAL re-emission is bounded — no infinite re-block chain').toBe('');
   });
 
-  it('the bound is per-CONTENT, not N-per-session: NEW dense text still blocks after the bound fired', () => {
+  it('the bound is per-CONTENT, not N-per-session: NEW dense text still blocks after the bound fired', (ctx) => {
     // Guards the rejected alternative — a global counter would falsely silence
     // after N legitimate distinct recap demands; only identical re-text is bounded.
     const tmp = privateTmp();
     const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
     const firstTr = writeTranscript([zcodeAssistantText(denseBody(''))]);
-    const first = runHook(
+    const first = runHook(ctx, 
       { transcript_path: firstTr, stop_hook_active: false, session_id: 'z1706-fresh' },
       env,
     );
     expect(first.stdout, 'first distinct text blocks').not.toBe('');
     const secondTr = writeTranscript([zcodeAssistantText(denseBody('a different opening line\n\n'))]);
-    const second = runHook(
+    const second = runHook(ctx, 
       { transcript_path: secondTr, stop_hook_active: false, session_id: 'z1706-fresh' },
       env,
     );
@@ -1796,16 +1808,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
 describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_MS }, () => {
   const DEAD_AIF = 'http://127.0.0.1:59997';
 
-  it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
+  it('OFF by default: a short turn stays silent even with work conceivably in flight', (ctx) => {
     const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
-    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'f10-off' });
+    const r = runHook(ctx, { transcript_path: tr, stop_hook_active: false, session_id: 'f10-off' });
     expect(r.status).toBe(0);
     expect(r.stdout.trim(), 'no autonomy block without AIF_AUTONOMOUS=1').toBe('');
   });
 
-  it('ON + unreachable probe: blocks and NAMES the degradation (fail-closed, not all-clear)', () => {
+  it('ON + unreachable probe: blocks and NAMES the degradation (fail-closed, not all-clear)', (ctx) => {
     const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'f10-dead' },
       { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
     );
@@ -1816,9 +1828,9 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(parsed.reason, 'must not claim the check passed').toMatch(/not an all-clear/);
   });
 
-  it('the loop guard holds: stop_hook_active=true never blocks, however work looks', () => {
+  it('the loop guard holds: stop_hook_active=true never blocks, however work looks', (ctx) => {
     const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: true, session_id: 'f10-guard' },
       { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
     );
@@ -1826,11 +1838,11 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(r.stdout.trim(), 'at most ONE forced reconsideration per stop chain — never a spin').toBe('');
   });
 
-  it('an empty task list is a genuine all-clear: no block', () => {
+  it('an empty task list is a genuine all-clear: no block', (ctx) => {
     // Serve a literal empty array, so "no work in flight" is distinguished from "probe broke".
     const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
     const r = withTasks('[]', (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-empty' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1848,10 +1860,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
   // from the list, and muting the in-flight branch outright ALL left the suite
   // green. A suite that stays green with the mechanism disabled is not a gate.
 
-  it('PAIRED-POSITIVE: an in-flight task blocks the stop and names the count', () => {
+  it('PAIRED-POSITIVE: an in-flight task blocks the stop and names the count', (ctx) => {
     const tr = writeTranscript([assistantText('ok')]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-live' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1863,7 +1875,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(parsed.reason, 'the directive is the payload, not just the fact').toMatch(/Do NOT end the turn on a report/);
   });
 
-  it('counts every NON-TERMINAL status, not a hand-maintained subset', () => {
+  it('counts every NON-TERMINAL status, not a hand-maintained subset', (ctx) => {
     // The shipped predicate enumerated {planning, implementing, review,
     // blocked_external} — a strict subset of the real vocabulary in
     // packages/runtime-bridge/src/types.ts. `backlog` was the sharp miss: at
@@ -1873,7 +1885,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     for (const status of ['backlog', 'planning', 'plan_ready', 'implementing', 'review', 'blocked_external']) {
       const tr = writeTranscript([assistantText('ok')]);
       const r = withTasks(JSON.stringify([task(status)]), (url) =>
-        runHook(
+        runHook(ctx, 
           { transcript_path: tr, stop_hook_active: false, session_id: `f10-st-${status}` },
           { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
         ),
@@ -1883,11 +1895,11 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     }
   });
 
-  it('PAIRED-NEGATIVE: terminal statuses are not in flight (or every turn would block forever)', () => {
+  it('PAIRED-NEGATIVE: terminal statuses are not in flight (or every turn would block forever)', (ctx) => {
     for (const status of ['done', 'verified']) {
       const tr = writeTranscript([assistantText('ok')]);
       const r = withTasks(JSON.stringify([task(status)]), (url) =>
-        runHook(
+        runHook(ctx, 
           { transcript_path: tr, stop_hook_active: false, session_id: `f10-term-${status}` },
           { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
         ),
@@ -1896,10 +1908,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     }
   });
 
-  it('PAIRED-NEGATIVE: a PAUSED task does not count (it cannot advance)', () => {
+  it('PAIRED-NEGATIVE: a PAUSED task does not count (it cannot advance)', (ctx) => {
     const tr = writeTranscript([assistantText('ok')]);
     const r = withTasks(JSON.stringify([{ ...task('implementing'), paused: true }]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-paused' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1915,10 +1927,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
   // mechanism was silent in precisely its motivating case, and got worse the
   // longer a session ran. These two are the regression guards.
 
-  it('a RECAP-MARKED turn still receives the continuation directive', () => {
+  it('a RECAP-MARKED turn still receives the continuation directive', (ctx) => {
     const tr = writeTranscript([assistantText(`${'детали '.repeat(120)}\n\n## 🟢 Простыми словами\nвсё готово`)]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-recap' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1929,7 +1941,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
       .toMatch(/still in flight/);
   });
 
-  it('an IDLE-SUPPRESSED re-ping still receives the continuation directive', () => {
+  it('an IDLE-SUPPRESSED re-ping still receives the continuation directive', (ctx) => {
     // idle_suppress fires when the previous turn already recapped and the current
     // turn repeats it verbatim (a re-ping). Suppressing the recap is right;
     // suppressing the autonomy directive is not — an idle re-ping while work is
@@ -1942,7 +1954,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
       assistantText(q),
     ]);
     const r = withTasks(JSON.stringify([task('planning')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-idle' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1951,7 +1963,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
       .toMatch(/still in flight/);
   });
 
-  it('a STORY-TOLD turn still receives the continuation directive', () => {
+  it('a STORY-TOLD turn still receives the continuation directive', (ctx) => {
     // The story-debounce guard suppresses re-telling the same PR's story. Like the
     // recap guard, its bare exit also swallowed the autonomy directive — and this
     // one fires right after `gh pr create`, i.e. at a moment when dispatched work
@@ -1960,7 +1972,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
       assistantBashToolUse(`## 🎬 Что изменилось за сессию\nоткрыл PR`, 'gh pr create --fill'),
     ]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-story' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1969,12 +1981,12 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
       .toMatch(/still in flight/);
   });
 
-  it('a TOOL-ONLY turn still receives the continuation directive', () => {
+  it('a TOOL-ONLY turn still receives the continuation directive', (ctx) => {
     const tr = writeTranscript([
       { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'ls' } }] } },
     ]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-toolonly' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -1988,10 +2000,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
   // clean all-clear forever. `{"tasks":[…]}` is the most plausible upstream
   // evolution of this endpoint, which is what makes it worth a gate.
 
-  it('PAIRED-NEGATIVE: a non-array payload is a DEGRADED probe, not an all-clear', () => {
+  it('PAIRED-NEGATIVE: a non-array payload is a DEGRADED probe, not an all-clear', (ctx) => {
     const tr = writeTranscript([assistantText('ok')]);
     const r = withTasks(JSON.stringify({ tasks: [task('implementing')] }), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-envelope' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -2002,10 +2014,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(parsed.reason).toMatch(/not an all-clear/);
   });
 
-  it('PAIRED-NEGATIVE: an array of non-task elements is a DEGRADED probe', () => {
+  it('PAIRED-NEGATIVE: an array of non-task elements is a DEGRADED probe', (ctx) => {
     const tr = writeTranscript([assistantText('ok')]);
     const r = withTasks(JSON.stringify(['a', 'b']), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-nonobj' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -2015,13 +2027,13 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(parsed.reason).toMatch(/non-task element/);
   });
 
-  it('the autonomy line rides ALONG with a normal recap block, never replacing it', () => {
+  it('the autonomy line rides ALONG with a normal recap block, never replacing it', (ctx) => {
     // A long substantive turn triggers Branch A. The continuation directive must
     // be appended, not swap the recap out — dropping either loses information the
     // model needs in the same turn.
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
     const r = withTasks(JSON.stringify([task('review')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-both' },
         { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -2038,7 +2050,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
   // this PR's mutation campaign proved the append had ZERO coverage — stripping
   // it left the suite GREEN. A ZCode path needs an explicit ZCode test.
 
-  it('PAIRED-NEGATIVE: ZCode thin-recap arm appends autonomy_line to its own reason', () => {
+  it('PAIRED-NEGATIVE: ZCode thin-recap arm appends autonomy_line to its own reason', (ctx) => {
     // Triggers the thin-recap branch: ZCODE_PROJECT_DIR set + >500 char markdown-dense text.
     // A dispatched task is in flight, so the autonomy directive MUST reach the model
     // on the SAME channel as the ZCode recap (single block decision, not two).
@@ -2048,7 +2060,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     tmpDirs.push(zcbTmp);
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'f10-zcode-append' },
         {
           AIF_AUTONOMOUS: '1',
@@ -2112,9 +2124,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     };
   }
 
-  it('below the soft floor: a short turn at 100k stays silent', () => {
+  it('below the soft floor: a short turn at 100k stays silent', (ctx) => {
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 100_000)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-below' },
       { TMPDIR: privateTmp() },
     );
@@ -2122,7 +2134,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(r.stdout.trim(), 'no handoff line below the soft threshold').toBe('');
   });
 
-  it('REGRESSION (false-fire): 150k on a current model id stays silent under the 1M default', () => {
+  it('REGRESSION (false-fire): 150k on a current model id stays silent under the 1M default', (ctx) => {
     // The defect this suite failed to catch: the old resolver defaulted to a 200k window and
     // only widened on a `[1m]`/`-1m` marker in the model id. `claude-fable-5` carries none, so
     // a 1M session resolved to 200k and fired its 70% tier at 140k — three wrong session stops
@@ -2132,7 +2144,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
       userTurn('go'),
       assistantWithUsage('done.', 150_000, { model: 'claude-fable-5' }),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fable-150k' },
       { TMPDIR: privateTmp() },
     );
@@ -2140,13 +2152,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(r.stdout.trim(), '150k against a 1M window is 15% spent — nothing to say').toBe('');
   });
 
-  it('PAIRED-POSITIVE: a short (normally silent) turn at 320k blocks with the generic handoff line', () => {
+  it('PAIRED-POSITIVE: a short (normally silent) turn at 320k blocks with the generic handoff line', (ctx) => {
     const tr = writeTranscript([
       aiTitle('goal'),
       userTurn('go'),
       assistantWithUsage('done.', 320_000, { model: 'claude-fable-5' }),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fire' },
       { TMPDIR: privateTmp() },
     );
@@ -2161,7 +2173,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(parsed.reason).not.toMatch(/aif|dispatcher|pipeline|\.claude/);
   });
 
-  it('PAIRED-NEGATIVE: a huge SIDECHAIN entry after a small main-thread one stays silent (isSidechain filter)', () => {
+  it('PAIRED-NEGATIVE: a huge SIDECHAIN entry after a small main-thread one stays silent (isSidechain filter)', (ctx) => {
     // Subagent turns share the transcript. Without `select(.isSidechain != true)`
     // the arm would read the sidechain's 600k as the session size and fire.
     const tr = writeTranscript([
@@ -2170,33 +2182,33 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
       assistantWithUsage('main thread, small.', 90_000),
       assistantWithUsage('subagent, huge.', 600_000, { sidechain: true }),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-side' },
       { TMPDIR: privateTmp() },
     );
     expect(r.stdout.trim(), 'a sidechain entry must never be read as the main-thread context size').toBe('');
   });
 
-  it('debounce: the same session and tier fires ONCE', () => {
+  it('debounce: the same session and tier fires ONCE', (ctx) => {
     const tmp = privateTmp();
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
-    const first = runHook(
+    const first = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
       { TMPDIR: tmp },
     );
     expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
-    const second = runHook(
+    const second = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
       { TMPDIR: tmp },
     );
     expect(second.stdout.trim(), 'second turn past the same tier is debounced').toBe('');
   });
 
-  it('AIF_CTX_WINDOW=200000: the declared small window restores the calibrated 140k soft floor', () => {
+  it('AIF_CTX_WINDOW=200000: the declared small window restores the calibrated 140k soft floor', (ctx) => {
     // T_soft(200k)=140k is RETAINED by the window-derived formula (70% of 200k) — it is
     // simply no longer reachable by assumption, only by declaration.
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-declared-200k' },
       { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
     );
@@ -2206,12 +2218,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(parsed.reason).toMatch(/150000 tokens/);
   });
 
-  it('PAIRED-NEGATIVE: a junk AIF_CTX_WINDOW falls back to the 1M default, it does not silence or spam', () => {
+  it('PAIRED-NEGATIVE: a junk AIF_CTX_WINDOW falls back to the 1M default, it does not silence or spam', (ctx) => {
     // A non-numeric or zero declaration must not be trusted: `0` would make both floors 0
     // and fire on every turn, and a word would break the integer comparisons outright.
     for (const [bad, sid] of [['not-a-number', 'junk'], ['0', 'zero'], ['', 'empty']] as const) {
       const quiet = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: quiet, stop_hook_active: false, session_id: `d7-badwin-${sid}` },
         { TMPDIR: privateTmp(), AIF_CTX_WINDOW: bad },
       );
@@ -2220,20 +2232,20 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     }
   });
 
-  it('over-window override: a declared 200k window with 250k observed is provably wrong → 1M floors, silent', () => {
+  it('over-window override: a declared 200k window with 250k observed is provably wrong → 1M floors, silent', (ctx) => {
     // Observed usage above the declared window proves the declaration wrong. Falling back to
     // the 1M default routes 250k to the 300k floor instead of firing the (stale) 140k one.
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 250_000)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-below' },
       { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
     );
     expect(r.stdout.trim(), '250k re-judged on a 1M window is below the 300k operator floor').toBe('');
   });
 
-  it('1M floor: 350k fires and names the 1M window', () => {
+  it('1M floor: 350k fires and names the 1M window', (ctx) => {
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-fire' },
       { TMPDIR: privateTmp() },
     );
@@ -2243,7 +2255,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(parsed.reason, 'the 1M default window is the one reported').toMatch(/~1000000/);
   });
 
-  it('model id carries no weight: 1M-marked and unmarked ids alike stay silent at 150k', () => {
+  it('model id carries no weight: 1M-marked and unmarked ids alike stay silent at 150k', (ctx) => {
     // The `[1m]`/`-1m` table is GONE — against a 1M default it could only confirm the
     // assumption. This pins that removing it changed no outcome for the ids it used to match.
     for (const model of ['claude-sonnet-5[1m]', 'claude-sonnet-5-1m', 'claude-opus-5', 'claude-fable-5']) {
@@ -2252,7 +2264,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
         userTurn('go'),
         assistantWithUsage('done.', 150_000, { model }),
       ]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `d7-model-${model.replace(/[^a-z0-9]/gi, '')}` },
         { TMPDIR: privateTmp() },
       );
@@ -2260,10 +2272,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     }
   });
 
-  it('boundary pair (1M default): 299999 silent, 300000 fires (>=, not >)', () => {
+  it('boundary pair (1M default): 299999 silent, 300000 fires (>=, not >)', (ctx) => {
     for (const [total, fires] of [[299_999, false], [300_000, true]] as const) {
       const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge-${total}` },
         { TMPDIR: privateTmp() },
       );
@@ -2275,10 +2287,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     }
   });
 
-  it('boundary pair (declared 200k): 139999 silent, 140000 fires — the calibrated point survives', () => {
+  it('boundary pair (declared 200k): 139999 silent, 140000 fires — the calibrated point survives', (ctx) => {
     for (const [total, fires] of [[139_999, false], [140_000, true]] as const) {
       const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge200k-${total}` },
         { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
       );
@@ -2290,37 +2302,37 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     }
   });
 
-  it('deep tier: crossing 500k fires AGAIN in a session whose soft flag is already spent', () => {
+  it('deep tier: crossing 500k fires AGAIN in a session whose soft flag is already spent', (ctx) => {
     // The debounce is per TIER, not per session: past the 1M soft floor a session
     // still gets exactly one more reminder at the ~500k mechanical-tail ceiling.
     const tmp = privateTmp();
     const soft = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
-    const first = runHook(
+    const first = runHook(ctx, 
       { transcript_path: soft, stop_hook_active: false, session_id: 'd7-deep' },
       { TMPDIR: tmp },
     );
     expect(first.stdout, 'soft-floor crossing fires first').toMatch(/\[context\]/);
     const deep = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 510_000)]);
-    const second = runHook(
+    const second = runHook(ctx, 
       { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
       { TMPDIR: tmp },
     );
     expect(second.stdout, 'the 500k ceiling is a SEPARATE tier — must fire despite the spent soft flag')
       .toMatch(/510000 tokens/);
-    const third = runHook(
+    const third = runHook(ctx, 
       { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
       { TMPDIR: tmp },
     );
     expect(third.stdout.trim(), 'the deep tier itself debounces').toBe('');
   });
 
-  it('composition inside the exit shim: autonomy + context lines ride ONE block on a short turn', () => {
+  it('composition inside the exit shim: autonomy + context lines ride ONE block on a short turn', (ctx) => {
     // A short turn normally exits silent through _autonomy_exit. With work in
     // flight AND a spent context both lines must survive on the same single block —
     // a mutation that overwrites _extra with ctx_line would drop the autonomy half.
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
-      runHook(
+      runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: 'd7-both-arms' },
         { TMPDIR: privateTmp(), AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
       ),
@@ -2331,7 +2343,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(parsed.reason, 'context half survives').toMatch(/\[context\]/);
   });
 
-  it('ZCode census consequence: an entry with NO usage fields leaves the arm inert (row 9 zcode-gap)', () => {
+  it('ZCode census consequence: an entry with NO usage fields leaves the arm inert (row 9 zcode-gap)', (ctx) => {
     // ZCode synthetic transcripts may omit .message.usage entirely — the arm must
     // degrade to silence, never to an error or a fabricated size.
     const tr = writeTranscript([
@@ -2339,7 +2351,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
       userTurn('go'),
       { message: { role: 'assistant', content: [{ type: 'text', text: 'done.' }] } },
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-no-usage' },
       { TMPDIR: privateTmp() },
     );
@@ -2347,13 +2359,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeo
     expect(r.stdout.trim(), 'no usage fields → no estimate → inert').toBe('');
   });
 
-  it('composition: the context line rides the SAME block as a Branch A recap, never a second block', () => {
+  it('composition: the context line rides the SAME block as a Branch A recap, never a second block', (ctx) => {
     const tr = writeTranscript([
       aiTitle('goal'),
       userTurn('go'),
       assistantWithUsage(longMarkdownText(), 320_000),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-compose' },
       { TMPDIR: privateTmp() },
     );
@@ -2387,7 +2399,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
   const OVER_PIPE_BUFFER = 'x'.repeat(200_000);
 
   // ── A3-5 — SIGPIPE under pipefail flips the guards ────────────────────────
-  it('A3-5: a >64 KB markdown turn still fires the recap (producer SIGPIPE must not flip long_text)', () => {
+  it('A3-5: a >64 KB markdown turn still fires the recap (producer SIGPIPE must not flip long_text)', (ctx) => {
     // hook long_text arm: `echo "$text" | grep -qE '^#|…'`. The match is on line 1, so
     // grep exits immediately and echo takes SIGPIPE → pipefail → 141 → long_text=false
     // → the hook goes silent on exactly the turn it exists to recap.
@@ -2396,7 +2408,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
       userTurn('go'),
       assistantText(`## Heading\n\n${OVER_PIPE_BUFFER}`),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a35-long' },
       { TMPDIR: privateTmpDir() },
     );
@@ -2407,7 +2419,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     expect(parsed.reason).toMatch(/🟢/);
   });
 
-  it('A3-5 PAIRED: a >64 KB turn that ALREADY carries the recap marker stays silent', () => {
+  it('A3-5 PAIRED: a >64 KB turn that ALREADY carries the recap marker stays silent', (ctx) => {
     // Same SIGPIPE mechanism on the already-recapped guard (`printf | grep -qF "$MARKER"`):
     // the marker is at the top, so grep exits early, printf dies, the guard reads false and
     // the hook re-injects a recap over an existing one. Made observable by a trailing
@@ -2417,7 +2429,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
       userTurn('go'),
       assistantText(`## 🟢 Простыми словами\n\n${OVER_PIPE_BUFFER}\n\nWhat next?`),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a35-recapped' },
       { TMPDIR: privateTmpDir() },
     );
@@ -2426,13 +2438,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
   });
 
   // ── D-2 — `grep -qF $'\n\n'` passes TWO EMPTY patterns → matches everything ─
-  it('D-2: ZCode arm does NOT fire on a >500-char single-paragraph turn (no blank line)', () => {
+  it('D-2: ZCode arm does NOT fire on a >500-char single-paragraph turn (no blank line)', (ctx) => {
     // `grep -qF $'\n\n'` splits on the newline into two EMPTY patterns, which match every
     // non-empty input — so the blank-line half of the markdown-density heuristic was always
     // true and the ZCode recap fired on every turn longer than 500 chars.
     const flat = 'plain sentence number one and it just keeps going. '.repeat(20); // >500, one line
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(flat)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd2-flat' },
       { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
     );
@@ -2440,10 +2452,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     expect(r.stdout.trim(), 'no blank line and no markdown → the density heuristic must be false').toBe('');
   });
 
-  it('D-2 PAIRED-POSITIVE: the ZCode arm still fires when the turn really has a blank line', () => {
+  it('D-2 PAIRED-POSITIVE: the ZCode arm still fires when the turn really has a blank line', (ctx) => {
     const para = `${'first paragraph text that is reasonably long. '.repeat(8)}\n\n${'second paragraph text here. '.repeat(8)}`;
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(para)]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd2-para' },
       { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
     );
@@ -2452,7 +2464,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
   });
 
   // ── D-2 (needle half) — an unescaped needle is parsed as grep OPTIONS ──────
-  it('D-2: idle-suppression survives a repeated question that starts with "-" (needle must be literal)', () => {
+  it('D-2: idle-suppression survives a repeated question that starts with "-" (needle must be literal)', (ctx) => {
     // `grep -qF "$current_short"` without `--`: a needle starting with `-` is parsed as
     // options — measured `grep: invalid option`, rc 2 — so the guard silently reads false
     // and Branch B re-fires on an idle re-ping.
@@ -2464,7 +2476,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
       assistantText(`## 🟢 Простыми словами\n\n${q}\n\nthat is all`),
       assistantText(q),
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'd2-dash' },
       { TMPDIR: privateTmpDir() },
     );
@@ -2492,9 +2504,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     return writeTranscript(lines);
   }
 
-  it('F-2: AIF_EOT_TAIL_BYTES bounds the scan — a usage entry outside the window is not read', () => {
+  it('F-2: AIF_EOT_TAIL_BYTES bounds the scan — a usage entry outside the window is not read', (ctx) => {
     const tr = transcriptWithEarlyUsage();
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'f2-windowed' },
       { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096' },
     );
@@ -2503,9 +2515,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     expect(parsed.reason, 'the 320k usage entry sits outside a 4 KB tail window').not.toMatch(/\[context\]/);
   });
 
-  it('F-2 PAIRED-POSITIVE: the same entry inside the default window IS read', () => {
+  it('F-2 PAIRED-POSITIVE: the same entry inside the default window IS read', (ctx) => {
     const tr = transcriptWithEarlyUsage();
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'f2-default' },
       { TMPDIR: privateTmpDir() },
     );
@@ -2513,7 +2525,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     expect(parsed.reason, 'default window covers the whole fixture → the ctx arm fires').toMatch(/\[context\]/);
   });
 
-  it('F-2: at most ONE grep names the full transcript per turn end (was 3-4)', () => {
+  // win32: the shim mechanic is POSIX-shaped end to end — an extensionless `#!/bin/sh`
+  // script exec'ing the real grep (resolved via /usr/bin/which, which cmd.exe cannot run)
+  // injected through a colon-joined PATH — undiagnosed on CI (no local Windows, §0.10) (#1799).
+  it.skipIf(WIN_GREP_SHIM)('F-2: at most ONE grep names the full transcript per turn end (was 3-4)', (ctx) => {
     // Deterministic stand-in for the ledger's wall-clock measurement (3.75 s per Stop on a
     // 114 MB transcript): a PATH shim logs every grep invocation, and the assertion counts
     // the ones whose argv still names the ORIGINAL transcript rather than the bounded
@@ -2527,7 +2542,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
       { encoding: 'utf8', mode: 0o755 },
     );
     const tr = transcriptWithEarlyUsage();
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'f2-scans' },
       { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096', PATH: `${binDir}:${process.env.PATH}` },
     );
@@ -2540,7 +2555,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
   }, 60_000);
 
   // ── A3-3 — the context floors must be configurable, not hard-coded ────────
-  it('A3-3: AIF_CTX_SOFT_FLOOR makes the soft tier reachable without redeclaring the window', () => {
+  it('A3-3: AIF_CTX_SOFT_FLOOR makes the soft tier reachable without redeclaring the window', (ctx) => {
     // The floors were hard-coded at min(300000, 70%) / min(500000, 90%), so a consumer whose
     // real window is smaller than the assumed 1M could never reach soft=300000 — the arm was
     // dead by default while the in-file comment claimed it merely warned late.
@@ -2555,7 +2570,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
         },
       },
     ]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a33-floor' },
       { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: '150000' },
     );
@@ -2563,7 +2578,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     expect(parsed.reason, 'a declared 150k soft floor must fire at 160k').toMatch(/\[context\]/);
   });
 
-  it('A3-3 PAIRED-NEGATIVE: a junk AIF_CTX_SOFT_FLOOR falls back to the documented 300000 default', () => {
+  it('A3-3 PAIRED-NEGATIVE: a junk AIF_CTX_SOFT_FLOOR falls back to the documented 300000 default', (ctx) => {
     const tr = writeTranscript([
       aiTitle('goal'),
       userTurn('go'),
@@ -2576,7 +2591,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
       },
     ]);
     for (const bad of ['abc', '0', '-5', '']) {
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: tr, stop_hook_active: false, session_id: `a33-junk-${bad || 'empty'}` },
         { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: bad },
       );
@@ -2630,11 +2645,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     writeFileSync(join(tmp, `aif-ctx-observed-${sessionId}`), `${value}\n`, 'utf8');
   }
 
-  it('CONTROL (the honest limit): with NO observation on record, 190k is still silent', () => {
+  it('CONTROL (the honest limit): with NO observation on record, 190k is still silent', (ctx) => {
     // Nothing observes the window before the first auto-compaction. This case is expected
     // to hold both before and after the fix — it pins that the fix does not pretend to
     // know a window nobody measured.
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-none' },
       { TMPDIR: privateTmpDir() },
     );
@@ -2642,10 +2657,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     expect(r.stdout.trim(), 'no declaration and no observation → 1M assumed → 190k is 19% spent').toBe('');
   });
 
-  it('A3-3b: an observed 195k ceiling makes the same 190k turn fire, with the observed window named', () => {
+  it('A3-3b: an observed 195k ceiling makes the same 190k turn fire, with the observed window named', (ctx) => {
     const tmp = privateTmpDir();
     recordObservation(tmp, 'a33b-observed', '195000');
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-observed' },
       { TMPDIR: tmp },
     );
@@ -2657,12 +2672,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     expect(parsed.reason).toMatch(/190000 tokens/);
   });
 
-  it('A3-3b PAIRED-NEGATIVE: an explicit AIF_CTX_WINDOW outranks the observation', () => {
+  it('A3-3b PAIRED-NEGATIVE: an explicit AIF_CTX_WINDOW outranks the observation', (ctx) => {
     // Operator intent beats measurement: a declared 1M window must not be overridden by a
     // stale observation from an earlier, smaller-window run of the same session id.
     const tmp = privateTmpDir();
     recordObservation(tmp, 'a33b-declared', '195000');
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-declared' },
       { TMPDIR: tmp, AIF_CTX_WINDOW: '1000000' },
     );
@@ -2670,7 +2685,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     expect(r.stdout.trim(), 'the declared 1M window wins → 190k is silent').toBe('');
   });
 
-  it('A3-3b PAIRED-NEGATIVE: a junk observation is ignored, it neither crashes nor silences the arm', () => {
+  it('A3-3b PAIRED-NEGATIVE: a junk observation is ignored, it neither crashes nor silences the arm', (ctx) => {
     // Same junk-value contract as every other knob in this arm: fall back to the documented
     // default rather than trusting a 0 (fires every turn) or a word (breaks the arithmetic).
     for (const [bad, sid] of [
@@ -2681,7 +2696,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     ] as const) {
       const tmp = privateTmpDir();
       recordObservation(tmp, `a33b-junk-${sid}`, bad);
-      const r = runHook(
+      const r = runHook(ctx, 
         { transcript_path: at190k(), stop_hook_active: false, session_id: `a33b-junk-${sid}` },
         { TMPDIR: tmp },
       );
@@ -2690,10 +2705,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     }
   });
 
-  it('A3-3b: the observation is per-session — another session id does not inherit it', () => {
+  it('A3-3b: the observation is per-session — another session id does not inherit it', (ctx) => {
     const tmp = privateTmpDir();
     recordObservation(tmp, 'a33b-owner', '195000');
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-stranger' },
       { TMPDIR: tmp },
     );
@@ -2731,36 +2746,36 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce k
       },
     }]);
 
-  it('A3-3c: the debounce holds for a session id carrying a path separator (key must be sanitised)', () => {
+  it('A3-3c: the debounce holds for a session id carrying a path separator (key must be sanitised)', (ctx) => {
     // RAW-id path: `${TMPDIR}/aif-ctx-a33c/slash:1-soft` names a directory that does not
     // exist, so `: > "$ctx_flag"` fails, the failure is swallowed by the `|| true` that
     // exists to keep a full disk quiet, and the debounce fails OPEN — the arm re-fires on
     // every single turn for the rest of the session.
     const tmp = privateTmpDir();
     const tr = at320k();
-    const first = runHook(
+    const first = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
       { TMPDIR: tmp },
     );
     expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
-    const second = runHook(
+    const second = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
       { TMPDIR: tmp },
     );
     expect(second.stdout.trim(), 'an odd session id must not disarm the debounce').toBe('');
   });
 
-  it('A3-3c PAIRED: the ordinary session id keeps debouncing exactly as before', () => {
+  it('A3-3c PAIRED: the ordinary session id keeps debouncing exactly as before', (ctx) => {
     // The sanitisation must not change behaviour for the ids every real session actually
     // uses (CC hands out UUIDs), or this fix trades one silent regression for another.
     const tmp = privateTmpDir();
     const tr = at320k();
-    const first = runHook(
+    const first = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
       { TMPDIR: tmp },
     );
     expect(first.stdout).toMatch(/\[context\]/);
-    const second = runHook(
+    const second = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
       { TMPDIR: tmp },
     );
@@ -2912,8 +2927,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     };
   }
 
-  function spawnCase(b: Built): { status: number; stdout: string; stderr: string } {
-    const r = spawnSync('bash', [HOOK], { input: JSON.stringify(b.stdin), encoding: 'utf8', env: b.env });
+  function spawnCase(ctx: Skippable, b: Built): { status: number; stdout: string; stderr: string } {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HOOK], { input: JSON.stringify(b.stdin), encoding: 'utf8', env: b.env });
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
@@ -2921,10 +2937,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   // pre-change hook on EVERY gate-fixture input. The goldens were captured from
   // `git show abc0876183:.claude/hooks/end-of-turn-reminder.sh` before the hook was edited;
   // this test cannot pass by tautology because the comparison target is a frozen file.
-  it('fixture 9 (paired negative): AIF_HANDOFF_GATE unset → byte-identical to the pre-change hook on every gate-fixture input', () => {
+  it('fixture 9 (paired negative): AIF_HANDOFF_GATE unset → byte-identical to the pre-change hook on every gate-fixture input', (ctx) => {
     for (const c of GOLDENS.cases) {
       const b = buildCase(c, false);
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       expect(r.status, `${c.name}: exit status (stderr: ${r.stderr})`).toBe(0);
       expect(r.stdout, `${c.name}: unarmed output must equal the captured pre-change bytes`).toBe(
         c.expectedStdout,
@@ -2933,9 +2949,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // 19 spawns of bash+jq; the default 5s vitest timeout fits ~16 of them. Measured 5.7s.
   }, 60_000);
 
-  it('fixture 1: armed, above floor, no handoff file → decision:block, reason names the path', () => {
+  it('fixture 1: armed, above floor, no handoff file → decision:block, reason names the path', (ctx) => {
     const b = buildCase(goldenCase('f1-armed-no-handoff'), true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
@@ -2950,12 +2966,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   // operator never types the argument by hand and the harness summary complements the handoff
   // file instead of restating the session. The template is quoted in BOTH packs; the path is
   // the gate's own handoff path, not a placeholder.
-  it('fixture 1b: the block carries a ready-to-paste /compact command naming the handoff file (en + ru)', () => {
+  it('fixture 1b: the block carries a ready-to-paste /compact command naming the handoff file (en + ru)', (ctx) => {
     const c = goldenCase('f1-armed-no-handoff');
     for (const lang of ['en', 'ru'] as const) {
       const b = buildCase(c, true);
       b.env.AIF_HOOK_LANG = lang;
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
       const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
       expect(parsed.decision, lang).toBe('block');
@@ -2969,10 +2985,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     }
   });
 
-  it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', () => {
+  it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', (ctx) => {
     const c = goldenCase('f2-armed-valid-allow');
     const b = buildCase(c, true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'a fresh handoff on a first in-band stop is ALLOWED').toBe('');
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
@@ -2981,37 +2997,38 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     );
   });
 
-  it('fixture 3: same file, second stop → block «unchanged»; touch first → STILL block (content, not mtime)', () => {
+  it('fixture 3: same file, second stop → block «unchanged»; touch first → STILL block (content, not mtime)', (ctx) => {
     const c = goldenCase('f3-armed-unchanged-block');
     const b = buildCase(c, true);
-    const first = spawnCase(b); // records the baseline
+    const first = spawnCase(ctx, b); // records the baseline
     expect(first.stdout).toBe('');
     // A SECOND STOP is a second TURN — say so (D38). Re-spawning on an unchanged transcript
     // is the double-registration case instead, which fixture 19 owns.
     nextTurn(b, c, 'f3-turn-2');
-    const second = spawnCase(b);
+    const second = spawnCase(ctx, b);
     const parsed = JSON.parse(second.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason, 'unchanged content blocks').toContain('unchanged');
     // mtime is never read: a touch changes nothing the sha can see.
     const before = readFileSync(b.baseline, 'utf8');
-    execSync(`touch "${b.residueDir}/_handoff-${c.session}.md"`);
+    // touch-equivalent: create if absent, never truncate (cmd.exe has no touch — #1799)
+    writeFileSync(join(b.residueDir, `_handoff-${c.session}.md`), '', { flag: 'a' });
     nextTurn(b, c, 'f3-turn-3');
-    const third = spawnCase(b);
+    const third = spawnCase(ctx, b);
     const parsed3 = JSON.parse(third.stdout) as { decision: string; reason: string };
     expect(parsed3.decision, 'a touch alone must not lift the block').toBe('block');
     expect(parsed3.reason).toContain('unchanged');
     expect(readFileSync(b.baseline, 'utf8')).toBe(before);
   });
 
-  it('fixture 4: file edited under one heading → allow; baseline advances', () => {
+  it('fixture 4: file edited under one heading → allow; baseline advances', (ctx) => {
     const c = goldenCase('f4-armed-edited-allow');
     const b = buildCase(c, true);
-    expect(spawnCase(b).stdout).toBe(''); // first stop records the baseline
+    expect(spawnCase(ctx, b).stdout).toBe(''); // first stop records the baseline
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
     writeFileSync(handoff, readFileSync(handoff, 'utf8').replace('land the delivery manifests.', 'land the delivery manifests TODAY.'), 'utf8');
     nextTurn(b, c, 'f4-turn-2'); // the edit lands on the NEXT turn (D38)
-    const second = spawnCase(b);
+    const second = spawnCase(ctx, b);
     expect(second.stdout, 'a content change is allowed').toBe('');
     expect(baselineSha(b.baseline), 'the baseline advanced to the new sha').toBe(
       sha256File(handoff),
@@ -3055,12 +3072,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     );
   };
 
-  it('fixture 19a (D38): a second invocation of ONE Stop after a real edit must NOT report «unchanged»', () => {
+  it('fixture 19a (D38): a second invocation of ONE Stop after a real edit must NOT report «unchanged»', (ctx) => {
     const c = goldenCase('f4-armed-edited-allow');
     const b = buildCase(c, true);
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
     // Turn N-1 ends: the baseline records the pre-turn sha.
-    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    expect(spawnCase(ctx, b).stdout, 'the first in-band stop allows and records').toBe('');
     const preTurn = baselineSha(b.baseline);
     // Turn N: a new assistant record, and the model rewrites the handoff.
     nextTurn(b, c, 'turn-N');
@@ -3073,14 +3090,14 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       'utf8',
     );
     // The Stop fires — copy 1 (the plugin twin).
-    const first = spawnCase(b);
+    const first = spawnCase(ctx, b);
     expect(first.stdout, 'copy 1 sees a changed file and allows').toBe('');
     expect(baselineSha(b.baseline), 'the baseline advanced past the pre-turn value').not.toBe(
       preTurn,
     );
     expect(baselineSha(b.baseline), '…to the file it just read').toBe(sha256File(handoff));
     // …and copy 2 (the project copy), same Stop, byte-identical inputs.
-    const second = spawnCase(b);
+    const second = spawnCase(ctx, b);
     expect(second.status, `stderr: ${second.stderr}`).toBe(0);
     expect(
       second.stdout,
@@ -3088,18 +3105,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     ).toBe('');
   });
 
-  it('fixture 19b (D38, paired negative): a NEW turn that leaves the handoff alone still blocks «unchanged» — for BOTH copies', () => {
+  it('fixture 19b (D38, paired negative): a NEW turn that leaves the handoff alone still blocks «unchanged» — for BOTH copies', (ctx) => {
     const c = goldenCase('f3-armed-unchanged-block');
     const b = buildCase(c, true);
-    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    expect(spawnCase(ctx, b).stdout, 'the first in-band stop allows and records').toBe('');
     // A genuine next turn — a new assistant record — with the handoff untouched.
     nextTurn(b, c, 'turn-N');
-    const second = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    const second = JSON.parse(spawnCase(ctx, b).stdout) as { decision: string; reason: string };
     expect(second.decision, 'a stale handoff on a NEW turn still blocks').toBe('block');
     expect(second.reason, 'and says why').toContain('unchanged');
     // The twin of THAT Stop repeats the verdict: the block half of the fix must not become a
     // silent pass, which is how an idempotence fix would fail open.
-    const twin = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    const twin = JSON.parse(spawnCase(ctx, b).stdout) as { decision: string; reason: string };
     expect(twin.decision, 'both copies of one blocking Stop agree').toBe('block');
     expect(twin.reason).toContain('unchanged');
   });
@@ -3117,11 +3134,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     writeFileSync(join(b.dir, `aif-handoff-${session}`), sha, 'utf8');
   };
 
-  it('fixture 20a (D39): a stale pre-D38 twin that ALLOWED first cannot make this copy report «unchanged»', () => {
+  it('fixture 20a (D39): a stale pre-D38 twin that ALLOWED first cannot make this copy report «unchanged»', (ctx) => {
     const c = goldenCase('f4-armed-edited-allow');
     const b = buildCase(c, true);
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
-    expect(spawnCase(b).stdout, 'turn N-1: allows and records').toBe('');
+    expect(spawnCase(ctx, b).stdout, 'turn N-1: allows and records').toBe('');
     nextTurn(b, c, 'turn-N');
     writeFileSync(
       handoff,
@@ -3133,7 +3150,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     );
     // The old twin wins the race: it sees the rewrite, allows, and records the NEW sha.
     writeStaleTwinBaseline(b, c.session, sha256File(handoff));
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'a rewritten handoff allows no matter which copy ran first').toBe('');
     // …nor poison: this copy never writes the old name, or the old twin would read a two-line
@@ -3141,16 +3158,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(readFileSync(join(b.dir, `aif-handoff-${c.session}`), 'utf8')).toBe(sha256File(handoff));
   });
 
-  it('fixture 20b (D39, paired negative): with the stale twin writing, an UNCHANGED handoff on a new turn still blocks', () => {
+  it('fixture 20b (D39, paired negative): with the stale twin writing, an UNCHANGED handoff on a new turn still blocks', (ctx) => {
     const c = goldenCase('f3-armed-unchanged-block');
     const b = buildCase(c, true);
-    expect(spawnCase(b).stdout, 'turn N-1: allows and records').toBe('');
+    expect(spawnCase(ctx, b).stdout, 'turn N-1: allows and records').toBe('');
     nextTurn(b, c, 'turn-N');
     // The old twin, on this unchanged turn, blocks by itself and writes nothing — but a
     // baseline left under its name from an earlier turn must not read as an allow here. On the
     // shared pre-D39 name it did: a foreign sha reads as «changed», so this copy failed OPEN.
     writeStaleTwinBaseline(b, c.session, 'f'.repeat(64));
-    const parsed = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    const parsed = JSON.parse(spawnCase(ctx, b).stdout) as { decision: string; reason: string };
     expect(readFileSync(join(b.dir, `aif-handoff-${c.session}`), 'utf8'), 'the old name stays the old twin\'s').toBe(
       'f'.repeat(64),
     );
@@ -3160,28 +3177,28 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(parsed.reason).toContain('unchanged');
   });
 
-  it('fixture 5: file missing ## Rejected alternatives → block, reason names it', () => {
+  it('fixture 5: file missing ## Rejected alternatives → block, reason names it', (ctx) => {
     const b = buildCase(goldenCase('f5-armed-missing-heading'), true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toContain('## Rejected alternatives');
   });
 
-  it('fixture 6: valid escape token → allow; a 4-char rationale → still block', () => {
+  it('fixture 6: valid escape token → allow; a 4-char rationale → still block', (ctx) => {
     // Both halves start from the SAME state — a baseline that already matches the file
     // (the "unchanged" branch would block) — so the ONLY variable is the token.
     // 6a — the 44-char rationale clears the gate line (D17): the stale handoff does not block.
     const a = buildCase(goldenCase('f6a-armed-escape-valid'), true);
     const handoffA = `${a.residueDir}/_handoff-${goldenCase('f6a-armed-escape-valid').session}.md`;
     writeFileSync(a.baseline, sha256File(handoffA), 'utf8');
-    const r = spawnCase(a);
+    const r = spawnCase(ctx, a);
     expect(r.stdout, 'a rationale ≥20 chars is an escape from an otherwise-blocking state').toBe('');
     // 6b — «mechanical-tail: done» is NOT an escape: the block reason re-quotes the grammar.
     const b = buildCase(goldenCase('f6b-armed-escape-short'), true);
     const handoffB = `${b.residueDir}/_handoff-${goldenCase('f6b-armed-escape-short').session}.md`;
     writeFileSync(b.baseline, sha256File(handoffB), 'utf8');
-    const rb = spawnCase(b);
+    const rb = spawnCase(ctx, b);
     const parsed = JSON.parse(rb.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason, 'a too-short rationale blocks and re-quotes the grammar').toContain(
@@ -3189,14 +3206,14 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     );
   });
 
-  it('fixture 7: below the floor → silent (existing branches only)', () => {
+  it('fixture 7: below the floor → silent (existing branches only)', (ctx) => {
     const b = buildCase(goldenCase('f7-below-floor-silent'), true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status).toBe(0);
     expect(r.stdout, '100k is below every floor — the gate never speaks').toBe('');
   });
 
-  it('fixture 8: stop_hook_active=true, armed → stdout empty AND the baseline is untouched (D19: the hook does NOTHING at :35-38)', () => {
+  it('fixture 8: stop_hook_active=true, armed → stdout empty AND the baseline is untouched (D19: the hook does NOTHING at :35-38)', (ctx) => {
     // NOTE: the spec's §Testing seams row 8 reads "baseline file updated", but the landed
     // D19 register (round-1 REVISE: "the step is DELETED") and the hook's control flow both
     // say otherwise — the guard exits at :35-38 BEFORE session_id is even read (:154), so a
@@ -3208,32 +3225,32 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
     writeFileSync(b.baseline, sha256File(handoff), 'utf8');
     const before = readFileSync(b.baseline, 'utf8');
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status).toBe(0);
     expect(r.stdout, 'the loop guard short-circuits before any output').toBe('');
     expect(readFileSync(b.baseline, 'utf8'), 'the stop_hook_active stop must not touch the baseline').toBe(before);
   });
 
-  it('fixture 10: floor derivation — env 300000 → 201000; settings.json autoCompactWindow → same; neither → ctx_soft', () => {
+  it('fixture 10: floor derivation — env 300000 → 201000; settings.json autoCompactWindow → same; neither → ctx_soft', (ctx) => {
     // (a) DECLARED env: floor = min(300000, 300000×67%) = 201000. 250k is above it → block.
     const a = buildCase(goldenCase('f10a-floor-env-declared'), true);
-    const ra = spawnCase(a);
+    const ra = spawnCase(ctx, a);
     const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
     expect(pa.decision).toBe('block');
     expect(pa.reason, 'the derived floor is in the reason').toContain('201000');
     // (b) settings.json autoCompactWindow only → the same 201000.
     const b = buildCase(goldenCase('f10b-floor-settings-declared'), true);
-    const rb = spawnCase(b);
+    const rb = spawnCase(ctx, b);
     const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
     expect(pb.decision).toBe('block');
     expect(pb.reason).toContain('201000');
     // (c) nothing declared → gate_floor = ctx_soft = 300000 on the 1M window → 250k is below it.
     const c = buildCase(goldenCase('f10c-floor-none'), true);
-    const rc = spawnCase(c);
+    const rc = spawnCase(ctx, c);
     expect(rc.stdout, 'without a compaction point the gate stands at ctx_soft').toBe('');
   });
 
-  it('fixture 15: floor derivation — user-level ~/.claude/settings.json autoCompactWindow is the THIRD source; a project key outranks it; junk and malformed files are ignored', () => {
+  it('fixture 15: floor derivation — user-level ~/.claude/settings.json autoCompactWindow is the THIRD source; a project key outranks it; junk and malformed files are ignored', (ctx) => {
     // WHY a third source (measured 2026-09-13): a desktop worktree session's project settings
     // are the WORKTREE's committed .claude/settings.json, never the main checkout's uncommitted
     // arming — 0 of 100+ worktrees carried a compaction point. The operator's only reach into
@@ -3258,7 +3275,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
         );
       }
       b.env.CLAUDE_PROJECT_DIR = proj;
-      return spawnCase(b);
+      return spawnCase(ctx, b);
     };
     // (a) user-level 300000, nothing else declared → floor 201000 → 250k is in the band → block.
     const a = userCase(JSON.stringify({ autoCompactWindow: 300000 }));
@@ -3282,7 +3299,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(d.stderr).toBe('');
   });
 
-  it('fixture 16: floor derivation — the project settings.local.json autoCompactWindow outranks settings.json (Claude Code precedence); junk there falls through', () => {
+  it('fixture 16: floor derivation — the project settings.local.json autoCompactWindow outranks settings.json (Claude Code precedence); junk there falls through', (ctx) => {
     // WHY: getff's session-settings group (setup.d/session-settings.sh) writes autoCompactWindow
     // into the per-person .claude/settings.local.json, which Claude Code reads BEFORE the
     // committed settings.json. A gate that skipped it would place its floor from a value the
@@ -3298,7 +3315,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
         'utf8',
       );
       b.env.CLAUDE_PROJECT_DIR = proj;
-      return spawnCase(b);
+      return spawnCase(ctx, b);
     };
     // (a) local 300000 over project 600000 → floor 201000 → 250k is in the band → block.
     const a = localCase(JSON.stringify({ autoCompactWindow: 300000 }), 600000);
@@ -3313,16 +3330,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(b.stderr).toBe('');
   });
 
-  it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {
+  it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', (ctx) => {
     // Fixtures 1-8 are short/tool-only turns and never reach the bottom emit site (:694).
     // Without THIS case, appending gate_line at only _autonomy_exit ships green — the exact
     // shadowing failure the round-1 cold review caught (M2).
     const c = goldenCase('f11-long-text-in-band');
     const b = buildCase(c, true);
-    expect(spawnCase(b).stdout, 'first stop allows and records (the recap itself still fires)')
+    expect(spawnCase(ctx, b).stdout, 'first stop allows and records (the recap itself still fires)')
       .not.toBe('');
     nextTurn(b, c, 'f11-turn-2'); // the stale handoff is stale as of the NEXT turn (D38)
-    const second = spawnCase(b);
+    const second = spawnCase(ctx, b);
     expect(second.stdout.trim().startsWith('{') && second.stdout.trim().endsWith('}'), 'exactly ONE JSON object').toBe(true);
     const parsed = JSON.parse(second.stdout) as { decision: string; reason: string; systemMessage?: string };
     expect(parsed.decision).toBe('block');
@@ -3331,17 +3348,17 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(parsed.reason, 'the context line is REPLACED by the gate (D21), never doubled').not.toMatch(/\[context\]/);
   });
 
-  it('fixture 12 (D31): armed, transcript with NO usage record → exit 0 without error (set -u guard)', () => {
+  it('fixture 12 (D31): armed, transcript with NO usage record → exit 0 without error (set -u guard)', (ctx) => {
     const b = buildCase(goldenCase('f12-armed-no-usage'), true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status, `no usage record must not abort the hook (stderr: ${r.stderr})`).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('fixture 13 (D19 fail-closed): armed, AIF_RESIDUE_DIR unwritable → block whose reason names the degradation', () => {
+  it('fixture 13 (D19 fail-closed): armed, AIF_RESIDUE_DIR unwritable → block whose reason names the degradation', (ctx) => {
     const b = buildCase(goldenCase('f13-armed-readonly-residue'), true);
     try {
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
       expect(parsed.decision, 'never a silent allow on a broken probe').toBe('block');
       expect(parsed.reason, 'names the seam').toContain('AIF_RESIDUE_DIR');
@@ -3352,16 +3369,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     }
   });
 
-  it('fixture 14 (D32/D16): over the line cap → block naming the cap; a blank section → block naming it', () => {
+  it('fixture 14 (D32/D16): over the line cap → block naming the cap; a blank section → block naming it', (ctx) => {
     // (a) 210-line handoff, all five sections present → the cap message, not a heading message.
     const a = buildCase(goldenCase('f14a-armed-over-cap'), true);
-    const ra = spawnCase(a);
+    const ra = spawnCase(ctx, a);
     const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
     expect(pa.decision).toBe('block');
     expect(pa.reason, 'condense, do not append').toContain('80-line cap');
     // (b) ## Next action present but blank → named as missing/empty.
     const b = buildCase(goldenCase('f14b-armed-blank-section'), true);
-    const rb = spawnCase(b);
+    const rb = spawnCase(ctx, b);
     const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
     expect(pb.decision).toBe('block');
     expect(pb.reason, 'a present-but-empty section is named').toContain('## Next action');
@@ -3378,13 +3395,13 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   };
   const INDEX_ROWS = '| Task in front of you | Open only |\n|---|---|\n| gate fixture state | `topic-fixture.md` |\n';
 
-  it('fixture 21a (D40): five sections present, NO index table → block naming the index (en + ru)', () => {
+  it('fixture 21a (D40): five sections present, NO index table → block naming the index (en + ru)', (ctx) => {
     const c = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
     expect(c.res.content, 'the table was actually removed').not.toContain('|---|');
     for (const [lang, word] of [['en', 'index table'], ['ru', 'таблиц']] as const) {
       const b = buildCase(c, true);
       b.env.AIF_HOOK_LANG = lang;
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
       const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
       expect(parsed.decision, `${lang}: a monolithic handoff blocks`).toBe('block');
@@ -3393,20 +3410,20 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     }
   });
 
-  it('fixture 21b (D40): a table whose rows name no .md topic file is not an index → block', () => {
+  it('fixture 21b (D40): a table whose rows name no .md topic file is not an index → block', (ctx) => {
     const c = withContent('f2-armed-valid-allow', (s) => s.replace('`topic-fixture.md`', 'see the board'));
-    const r = spawnCase(buildCase(c, true));
+    const r = spawnCase(ctx, buildCase(c, true));
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toContain('index table');
   });
 
-  it('fixture 21c (D40, paired positive): the same file WITH its index row → allow', () => {
-    const r = spawnCase(buildCase(goldenCase('f2-armed-valid-allow'), true));
+  it('fixture 21c (D40, paired positive): the same file WITH its index row → allow', (ctx) => {
+    const r = spawnCase(ctx, buildCase(goldenCase('f2-armed-valid-allow'), true));
     expect(r.stdout, 'an indexed five-section handoff is allowed').toBe('');
   });
 
-  it('fixture 21e (D40): GFM shapes — short separator and no leading pipe allow; a table inside a code fence blocks', () => {
+  it('fixture 21e (D40): GFM shapes — short separator and no leading pipe allow; a table inside a code fence blocks', (ctx) => {
     const shapes: Array<[string, string, 'allow' | 'block']> = [
       ['short separator', '| Task | Open only |\n|-|-|\n| gate fixture state | `topic-fixture.md` |\n', 'allow'],
       ['no leading pipe', 'Task | Open only\n--- | ---\ngate fixture state | `topic-fixture.md`\n', 'allow'],
@@ -3414,7 +3431,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       ['fenced table', '```\n' + INDEX_ROWS + '```\n', 'block'],
     ];
     for (const [label, rows, want] of shapes) {
-      const r = spawnCase(buildCase(withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, rows)), true));
+      const r = spawnCase(ctx, buildCase(withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, rows)), true));
       if (want === 'allow') expect(r.stdout, label).toBe('');
       else expect((JSON.parse(r.stdout) as { reason: string }).reason, label).toContain('index table');
     }
@@ -3431,19 +3448,19 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(block, 'mawk 1.3.4 20200120 silently fails on {n,}').not.toMatch(/[^$]\{[0-9]+,?[0-9]*\}/);
   });
 
-  it('fixture 21d (D40): the ≥20-char escape clears the index block; a short one does not', () => {
+  it('fixture 21d (D40): the ≥20-char escape clears the index block; a short one does not', (ctx) => {
     const noIndex = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
-    const ok = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: regenerating snapshots, CI guards them` }, true));
+    const ok = spawnCase(ctx, buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: regenerating snapshots, CI guards them` }, true));
     expect(ok.stdout, 'a valid escape allows').toBe('');
-    const short = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: done` }, true));
+    const short = spawnCase(ctx, buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: done` }, true));
     expect((JSON.parse(short.stdout) as { decision: string }).decision, 'a short rationale is no escape').toBe('block');
   });
 
-  it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', () => {
+  it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', (ctx) => {
     const b = buildCase(goldenCase('f2-armed-valid-allow'), true);
     // The gate ALLOWS (fresh handoff) — the context line stays suppressed (D21), so a short
     // in-band turn is fully silent: no ctx advice, no gate text, no fresh-session advice.
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.stdout).toBe('');
   });
 
@@ -3457,12 +3474,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   // nothing. The counter cannot be more prose in the channel that got paraphrased away
   // (attention-is-not-a-mechanism.md §1), so it is detected where it LANDS: the turn's final
   // text. These cases are in the goldens, so fixture 9 also proves the guard is silent UNARMED.
-  it('fixture 16 (D37): armed, below the floor, a /compact line in the tail → block naming the out-of-band suggestion (en + ru)', () => {
+  it('fixture 16 (D37): armed, below the floor, a /compact line in the tail → block naming the out-of-band suggestion (en + ru)', (ctx) => {
     const c = goldenCase('f16-below-floor-compact-tail');
     for (const lang of ['en', 'ru'] as const) {
       const b = buildCase(c, true);
       b.env.AIF_HOOK_LANG = lang;
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
       const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
       expect(parsed.decision, lang).toBe('block');
@@ -3478,7 +3495,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     }
   });
 
-  it('fixture 17 (D37 paired negative): armed, below the floor, /compact mentioned only INLINE → silent', () => {
+  it('fixture 17 (D37 paired negative): armed, below the floor, /compact mentioned only INLINE → silent', (ctx) => {
     // A session DISCUSSING the gate quotes `/compact …` mid-sentence; only the ready-to-paste
     // form is a line of its own. Without the line anchor this suite's own subject matter would
     // trip the guard on every turn.
@@ -3486,18 +3503,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     for (const lang of ['en', 'ru'] as const) {
       const b = buildCase(c, true);
       b.env.AIF_HOOK_LANG = lang;
-      const r = spawnCase(b);
+      const r = spawnCase(ctx, b);
       expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
       expect(r.stdout, `${lang}: an inline mention is not a suggestion`).toBe('');
     }
   });
 
-  it('fixture 18 (D37 precedence): the same /compact tail IN the band → the ordinary gate reason wins, unchanged', () => {
+  it('fixture 18 (D37 precedence): the same /compact tail IN the band → the ordinary gate reason wins, unchanged', (ctx) => {
     // The guard is guarded by `-z "$gate_line"`: in the band the stale-handoff reason already
     // holds the slot, and D36 is asking for that very command. A clone of f1 with f16's tail.
     const c = { ...goldenCase('f1-armed-no-handoff'), text: goldenCase('f16-below-floor-compact-tail').text };
     const b = buildCase(c, true);
-    const r = spawnCase(b);
+    const r = spawnCase(ctx, b);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
@@ -3534,7 +3551,7 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     for (const b of boxes.splice(0)) rmSync(b, { recursive: true, force: true });
   });
 
-  function armedRun(handoff: string | null): {
+  function armedRun(ctx: Skippable, handoff: string | null): {
     status: number;
     stdout: string;
     stderr: string;
@@ -3574,7 +3591,8 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
       'utf8',
     );
     if (handoff !== null) writeFileSync(join(residue, '_handoff-plugintwin.md'), handoff, 'utf8');
-    const r = spawnSync('bash', [TWIN_HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [TWIN_HOOK], {
       input: JSON.stringify({
         session_id: 'plugintwin',
         transcript_path: transcript,
@@ -3618,8 +3636,8 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     '',
   ].join('\n');
 
-  it('no-file case: blocks with the gate reason instead of dying (RC 127 is the regression)', () => {
-    const r = armedRun(null);
+  it('no-file case: blocks with the gate reason instead of dying (RC 127 is the regression)', (ctx) => {
+    const r = armedRun(ctx, null);
     expect(r.stderr, 'a missing lang key or lib member surfaces here first').not.toMatch(
       /command not found/,
     );
@@ -3629,10 +3647,10 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     expect(parsed.reason).toContain('handoff-gate');
   });
 
-  it('valid handoff: reaches the D19 content-hash branch, which lives past the sha256 call', () => {
+  it('valid handoff: reaches the D19 content-hash branch, which lives past the sha256 call', (ctx) => {
     // This is the arm that covers `_residue_sha256` specifically — the no-file case above
     // returns before the hash is ever taken, so it alone would pass with the member absent.
-    const r = armedRun(VALID_HANDOFF);
+    const r = armedRun(ctx, VALID_HANDOFF);
     expect(r.stderr).not.toMatch(/command not found/);
     expect(r.status).toBe(0);
     expect(r.stdout, 'a fresh handoff ALLOWS — the gate is silent (D21)').toBe('');
@@ -3667,11 +3685,12 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
     ru: { seam: 'а инструкции тебе самому:', growth: 'запиши слово в CONTEXT.md', oldJargon: 'объясняй на месте',
       rules: ['до 25 слов', 'Одна мысль — одна фраза', 'Термин из CONTEXT.md пиши голым'] },
   } as const;
-  const callPack = (pack: string, fn: string) =>
-    spawnSync('bash', ['-c', `source "$1"; ${fn}`, '_', resolve(REPO_ROOT, pack)], { encoding: 'utf8' });
+  const callPack = (ctx: Skippable, pack: string, fn: string) =>
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    spawnBashOrSkip(ctx, 'bash', ['-c', `source "$1"; ${fn}`, '_', resolve(REPO_ROOT, pack)], { encoding: 'utf8' });
 
-  it.each(D1_PACKS)('%s %s: the contract carries lines 1-3 before the seam, line 4 after it', (lang, pack) => {
-    const r = callPack(pack, 'aif_msg_eot_recap_contract');
+  it.for(D1_PACKS, '%s %s: the contract carries lines 1-3 before the seam, line 4 after it', ([lang, pack], ctx) => {
+    const r = callPack(ctx, pack, 'aif_msg_eot_recap_contract');
     expect(r.status, r.stderr).toBe(0);
     const p = D1_PHRASES[lang];
     const seamAt = r.stdout.indexOf(p.seam);
@@ -3684,8 +3703,8 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
     expect(r.stdout.indexOf(p.growth)).toBeGreaterThan(seamAt);
   });
 
-  it.each(D1_PACKS)('%s %s: the story spec carries lines 1-3 and no «jargon on the spot»', (lang, pack) => {
-    const r = callPack(pack, 'aif_msg_eot_branch_story');
+  it.for(D1_PACKS, '%s %s: the story spec carries lines 1-3 and no «jargon on the spot»', ([lang, pack], ctx) => {
+    const r = callPack(ctx, pack, 'aif_msg_eot_branch_story');
     expect(r.status, r.stderr).toBe(0);
     for (const phrase of D1_PHRASES[lang].rules) expect(r.stdout, phrase).toContain(phrase);
     expect(r.stdout).not.toContain(D1_PHRASES[lang].oldJargon);
@@ -3711,6 +3730,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   const DEAD_AIF = 'http://127.0.0.1:59997';
 
   function handsRun(
+    ctx: Skippable,
     text: string,
     opts: {
       lang?: 'en' | 'ru';
@@ -3729,19 +3749,20 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     const stdin = { transcript_path: tr, stop_hook_active: false, session_id: opts.session ?? 'hands' };
     const env = { AIF_HOOK_LANG: opts.lang ?? 'en', AIF_RECAP_GATE: '', TMPDIR: tmp, ...opts.env };
     if (opts.hook || opts.shell) {
-      const r = spawnSync(opts.shell ?? 'bash', [opts.hook ?? HOOK], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const r = spawnBashOrSkip(ctx, opts.shell ?? 'bash', [opts.hook ?? HOOK], {
         input: JSON.stringify(stdin),
         encoding: 'utf8',
         env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
       });
       return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
     }
-    return runHook(stdin, env);
+    return runHook(ctx, stdin, env);
   }
   const reasonOf = (stdout: string): string => (JSON.parse(stdout) as { reason: string }).reason;
 
-  it.skipIf(!JQ)('en: fires on «do by hand» and names the action', () => {
-    const r = handsRun('Pushed the fix.\nMe: waiting for CI. From you: do by hand: rerun the flaky job');
+  it.skipIf(!JQ)('en: fires on «do by hand» and names the action', (ctx) => {
+    const r = handsRun(ctx, 'Pushed the fix.\nMe: waiting for CI. From you: do by hand: rerun the flaky job');
     expect(r.status).toBe(0);
     const reason = reasonOf(r.stdout);
     expect(reason).toContain(HANDS_TAG);
@@ -3749,35 +3770,35 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(reason).toMatch(/spawn/);
   });
 
-  it.skipIf(!JQ)('ru: fires on «сделать руками» and names the action', () => {
-    const r = handsRun('Готово.\nЯ: жду CI. От тебя: сделать руками: закрыть задачу в aif', { lang: 'ru' });
+  it.skipIf(!JQ)('ru: fires on «сделать руками» and names the action', (ctx) => {
+    const r = handsRun(ctx, 'Готово.\nЯ: жду CI. От тебя: сделать руками: закрыть задачу в aif', { lang: 'ru' });
     const reason = reasonOf(r.stdout);
     expect(reason).toContain(HANDS_TAG);
     expect(reason).toContain('закрыть задачу в aif');
   });
 
-  it.skipIf(!JQ)('reads the LAST «From you:» line, not an earlier one', () => {
-    const r = handsRun('From you: do by hand: rerun the flaky job\n\nLater.\nFrom you: nothing (CI 12/12 green)');
+  it.skipIf(!JQ)('reads the LAST «From you:» line, not an earlier one', (ctx) => {
+    const r = handsRun(ctx, 'From you: do by hand: rerun the flaky job\n\nLater.\nFrom you: nothing (CI 12/12 green)');
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('fires on a recap-marked turn too (rides the marker-guard exit)', () => {
-    const r = handsRun(
+  it.skipIf(!JQ)('fires on a recap-marked turn too (rides the marker-guard exit)', (ctx) => {
+    const r = handsRun(ctx, 
       '## 🟢 In plain words\n**Where we are.** ok\n**Next.**\nMe: x. From you: do by hand: close the task in the tracker',
     );
     expect(reasonOf(r.stdout)).toContain('close the task in the tracker');
   });
 
-  it.skipIf(!JQ)('fires on a long turn alongside the Branch A recap — ONE JSON object', () => {
-    const r = handsRun('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nFrom you: do by hand: rerun the flaky job');
+  it.skipIf(!JQ)('fires on a long turn alongside the Branch A recap — ONE JSON object', (ctx) => {
+    const r = handsRun(ctx, 'x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nFrom you: do by hand: rerun the flaky job');
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toContain('Where we are.');
     expect(parsed.reason).toContain(HANDS_TAG);
   });
 
-  it.skipIf(!JQ)('rides the autonomy line in ONE JSON object', () => {
-    const r = handsRun('ok. From you: do by hand: rerun the flaky job', {
+  it.skipIf(!JQ)('rides the autonomy line in ONE JSON object', (ctx) => {
+    const r = handsRun(ctx, 'ok. From you: do by hand: rerun the flaky job', {
       env: { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
     });
     const parsed = JSON.parse(r.stdout) as { reason: string };
@@ -3785,122 +3806,122 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(parsed.reason).toContain(HANDS_TAG);
   });
 
-  it.skipIf(!JQ)('ZCode dense path carries the line in its single block', () => {
-    const r = handsRun('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nFrom you: do by hand: rerun the flaky job', {
+  it.skipIf(!JQ)('ZCode dense path carries the line in its single block', (ctx) => {
+    const r = handsRun(ctx, 'x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nFrom you: do by hand: rerun the flaky job', {
       env: { ZCODE_PROJECT_DIR: '/tmp/zc-hands' },
     });
     const parsed = JSON.parse(r.stdout) as { reason: string };
     expect(parsed.reason).toContain(HANDS_TAG);
   });
 
-  it.each([['nothing (CI 12/12 green)'], ['waiting on: the CI run, from GitHub']])(
+  it.for([['nothing (CI 12/12 green)'], ['waiting on: the CI run, from GitHub']],
     'silent for the non-manual value %s',
-    (value) => {
+    ([value], ctx) => {
       if (!JQ) return;
-      const r = handsRun(`Done.\nFrom you: ${value}`);
+      const r = handsRun(ctx, `Done.\nFrom you: ${value}`);
       expect(r.status, r.stderr).toBe(0);
       expect(r.stdout).toBe('');
     },
   );
 
-  it.skipIf(!JQ)('silent for «decide: A or B» — a fork is the human\'s floor', () => {
+  it.skipIf(!JQ)('silent for «decide: A or B» — a fork is the human\'s floor', (ctx) => {
     // `decide: … or …` trips the pre-existing Branch B question heuristic, so stdout is not
     // empty here; the claim is only that THIS arm stays out of it.
-    const r = handsRun('Done.\nFrom you: decide: ship now or wait for the review');
+    const r = handsRun(ctx, 'Done.\nFrom you: decide: ship now or wait for the review');
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
     // positive control: the same turn with the HANDS value fires
-    const ctl = handsRun('Done.\nFrom you: do by hand: ship now or wait for the review');
+    const ctl = handsRun(ctx, 'Done.\nFrom you: do by hand: ship now or wait for the review');
     expect(ctl.stdout).toContain(HANDS_TAG);
   });
 
-  it.each([
+  it.for([
     ['merge the promote PR into main'],
     ['npm publish the 0.4.0 release'],
     ['enter the password for the registry'],
     ['pay the invoice'],
     ['run the jq command on .claude/settings.json'],
-  ])('silent for the decision floor %s', (value) => {
+  ], 'silent for the decision floor %s', ([value], ctx) => {
     if (!JQ) return;
-    const r = handsRun(`Done.\nFrom you: do by hand: ${value}`);
+    const r = handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`);
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('ru floors: пароль / оплата never fire', () => {
+  it.skipIf(!JQ)('ru floors: пароль / оплата never fire', (ctx) => {
     for (const value of ['ввести пароль от реестра', 'оплатить счёт']) {
-      const r = handsRun(`Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru' });
+      const r = handsRun(ctx, `Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru' });
       expect(r.status, r.stderr).toBe(0);
       expect(r.stdout).toBe('');
     }
   });
 
-  it.skipIf(!JQ)('a floor named only inside the parenthesis still floors the action (whole action is matched)', () => {
-    const r = handsRun('Done.\nFrom you: do by hand: approve and merge PR #1900 (the staging→main promote)');
+  it.skipIf(!JQ)('a floor named only inside the parenthesis still floors the action (whole action is matched)', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: approve and merge PR #1900 (the staging→main promote)');
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('a bare «main» in the parenthesis, with no merge verb, is not a floor', () => {
-    const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job (unrelated to main)');
+  it.skipIf(!JQ)('a bare «main» in the parenthesis, with no merge verb, is not a floor', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job (unrelated to main)');
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
   });
 
-  it.skipIf(!JQ)('silent when the turn carries a fork card', () => {
-    const r = handsRun('**Fork.** A or B?\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
+  it.skipIf(!JQ)('silent when the turn carries a fork card', (ctx) => {
+    const r = handsRun(ctx, '**Fork.** A or B?\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
     // positive control: the same turn without the fork card fires
-    const ctl = handsRun('A or B.\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
+    const ctl = handsRun(ctx, 'A or B.\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
     expect(ctl.stdout).toContain(HANDS_TAG);
   });
 
-  it.skipIf(!JQ)('silent when the turn carries an AskUserQuestion', () => {
-    const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { askTool: true });
+  it.skipIf(!JQ)('silent when the turn carries an AskUserQuestion', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', { askTool: true });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
     // positive control: the same text without the AskUserQuestion fires
-    expect(handsRun('Done.\nFrom you: do by hand: rerun the flaky job').stdout).toContain(HANDS_TAG);
+    expect(handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job').stdout).toContain(HANDS_TAG);
   });
 
-  it.skipIf(!JQ)('AIF_EOT_HANDS_GATE=0 disables the arm', () => {
-    const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { env: { AIF_EOT_HANDS_GATE: '0' } });
+  it.skipIf(!JQ)('AIF_EOT_HANDS_GATE=0 disables the arm', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', { env: { AIF_EOT_HANDS_GATE: '0' } });
     expect(r.stdout).toBe('');
   });
 
   // Regression pin, not a claim about this arm: the stop_hook_active guard sits upstream
   // (line ~90) and silences every arm; this case only pins that it still covers this one.
-  it.skipIf(!JQ)('regression pin: stop_hook_active=true is silent (upstream guard)', () => {
+  it.skipIf(!JQ)('regression pin: stop_hook_active=true is silent (upstream guard)', (ctx) => {
     const tmp = mkdtempSync(join(tmpdir(), 'eot-hands-active-'));
     tmpDirs.push(tmp);
     const tr = writeTranscript([assistantText('Done.\nFrom you: do by hand: rerun the flaky job')]);
-    const r = runHook(
+    const r = runHook(ctx, 
       { transcript_path: tr, stop_hook_active: true, session_id: 'hands-active' },
       { AIF_HOOK_LANG: 'en', TMPDIR: tmp },
     );
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('retry bound: same action twice in one session → second silent; a different action fires', () => {
+  it.skipIf(!JQ)('retry bound: same action twice in one session → second silent; a different action fires', (ctx) => {
     const tmp = mkdtempSync(join(tmpdir(), 'eot-hands-bound-'));
     tmpDirs.push(tmp);
-    const first = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { tmp, session: 'hands-bound' });
+    const first = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', { tmp, session: 'hands-bound' });
     expect(first.stdout).toContain(HANDS_TAG);
-    const again = handsRun('Other words.\nFrom you: do by hand: rerun the flaky job', { tmp, session: 'hands-bound' });
+    const again = handsRun(ctx, 'Other words.\nFrom you: do by hand: rerun the flaky job', { tmp, session: 'hands-bound' });
     expect(again.stdout).toBe('');
-    const other = handsRun('Done.\nFrom you: do by hand: close the task in the tracker', { tmp, session: 'hands-bound' });
+    const other = handsRun(ctx, 'Done.\nFrom you: do by hand: close the task in the tracker', { tmp, session: 'hands-bound' });
     expect(other.stdout).toContain(HANDS_TAG);
   });
 
   // A consumer's delivered pack can lag the hook. Each half of the lag is its own case: with
   // both stripped at once, either guard alone would keep the case green and the other could
   // be deleted unnoticed (mutation check, this PR).
-  it.each([
+  it.for([
     ['no message function', /^aif_msg_eot_hands_step\(\) \{[\s\S]*?^\}$/m, /aif_msg_eot_hands_step\(\)/],
     // The floor value spans many lines (one ERE per line): strip the WHOLE quoted assignment.
     ['no floor key', /^AIF_EOT_HANDS_FLOOR='[^']*'$/m, /AIF_EOT_HANDS_FLOOR=/],
     ['no hand-off line key', /^AIF_EOT_HANDS_PREFIX_RE=.*$/m, /AIF_EOT_HANDS_PREFIX_RE=/],
-  ] as const)('a consumer on an OLDER pack (%s) degrades to silent, rc 0', (_label, strip, gone) => {
+  ] as const, 'a consumer on an OLDER pack (%s) degrades to silent, rc 0', ([_label, strip, gone], ctx) => {
     if (!JQ) return;
     const box = mkdtempSync(join(tmpdir(), 'eot-hands-oldpack-'));
     tmpDirs.push(box);
@@ -3910,27 +3931,27 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     const pack = readFileSync(resolve(REPO_ROOT, '.claude/hooks/lang/en.sh'), 'utf8').replace(strip, '');
     expect(pack).not.toMatch(gone);
     writeFileSync(join(box, 'lang', 'en.sh'), pack, 'utf8');
-    const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { hook: hookCopy });
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', { hook: hookCopy });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // ── Cold-review rework (2026-09-29) ──────────────────────────────────────────────────
   // MAJOR 1: the operator runs with no LANG/LC_*, so grep -i does not fold Cyrillic under C.
-  it.each([
+  it.for([
     ['Оплатить счёт за хостинг'],
     ['Ввести Пароль от реестра'],
     ['Вставить Токен доступа в CI'],
     ['Задать Секрет в настройках репо'],
-  ])('ru floor under LC_ALL=C, capitalised: %s stays silent', (value) => {
+  ], 'ru floor under LC_ALL=C, capitalised: %s stays silent', ([value], ctx) => {
     if (!JQ) return;
-    const r = handsRun(`Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru', env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, `Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru', env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('ru under LC_ALL=C: a capitalised non-floor action still fires (control)', () => {
-    const r = handsRun('Готово.\nОт тебя: сделать руками: Закрыть задачу в aif', {
+  it.skipIf(!JQ)('ru under LC_ALL=C: a capitalised non-floor action still fires (control)', (ctx) => {
+    const r = handsRun(ctx, 'Готово.\nОт тебя: сделать руками: Закрыть задачу в aif', {
       lang: 'ru',
       env: { LC_ALL: 'C', LANG: '' },
     });
@@ -3938,7 +3959,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   });
 
   // MAJOR 2: floor phrasings the first pattern missed — one case per class.
-  it.each([
+  it.for([
     ['en', 'publish 0.4.0 to npm'],
     ['ru', 'опубликовать 0.4.0 в npm'],
     ['ru', 'влить промоут-PR в мейн'],
@@ -3947,27 +3968,27 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'выполнить npm login'],
     ['en', 'enter the OTP from the authenticator'],
     ['ru', 'ввести одноразовый код из приложения'],
-  ] as const)('floor class (%s) %s stays silent', (lang, value) => {
+  ] as const, 'floor class (%s) %s stays silent', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
-    const r = handsRun(pre + value, { lang });
+    const r = handsRun(ctx, pre + value, { lang });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // MAJOR 4: operator-only harness actions are floors (the handoff gate itself asks for /compact).
-  it.each([
+  it.for([
     ['paste the /compact command above'],
     ['restart the session so the new hook loads'],
     ['approve the permission prompt for gh'],
-  ])('operator-only harness action %s stays silent', (value) => {
+  ], 'operator-only harness action %s stays silent', ([value], ctx) => {
     if (!JQ) return;
-    const r = handsRun(`Done.\nFrom you: do by hand: ${value}`);
+    const r = handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`);
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('silent while the handoff gate (D36) blocks the same turn; fires unarmed (control)', () => {
+  it.skipIf(!JQ)('silent while the handoff gate (D36) blocks the same turn; fires unarmed (control)', (ctx) => {
     const run = (armed: boolean) => {
       const dir = mkdtempSync(join(tmpdir(), 'eot-hands-d36-'));
       tmpDirs.push(dir);
@@ -4008,7 +4029,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
       delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
       delete env.AIF_HANDOFF_GATE;
       if (armed) env.AIF_HANDOFF_GATE = '1';
-      const r = spawnSync('bash', [HOOK], {
+      const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
         input: JSON.stringify({ transcript_path: transcript, session_id: 'hands-d36', stop_hook_active: false }),
         encoding: 'utf8',
         env,
@@ -4022,45 +4043,45 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   });
 
   // MAJOR 5: bare main / token / promote / secret must not exempt real manual steps.
-  it.each([
+  it.for([
     ['rerun the flaky job on the main branch'],
     ['promote the card to done in aif UI'],
     ['update the token budget in the config'],
     ['rename the secret-santa channel'],
     ['update the landing page on the main site'],
-  ])('real manual step %s fires', (value) => {
+  ], 'real manual step %s fires', ([value], ctx) => {
     if (!JQ) return;
-    expect(reasonOf(handsRun(`Done.\nFrom you: do by hand: ${value}`).stdout)).toContain(HANDS_TAG);
+    expect(reasonOf(handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`).stdout)).toContain(HANDS_TAG);
   });
 
   // MINOR 6: markdown emphasis and capitalisation do not hide the line.
-  it.each([
+  it.for([
     ['en', 'Done.\nFrom you: Do by hand: close the task in the tracker', 'close the task in the tracker'],
     ['en', 'Done.\n**From you:** do by hand: close the task in the tracker', 'close the task in the tracker'],
     ['ru', 'Готово.\nОт тебя: **сделать руками:** закрыть задачу в aif', 'закрыть задачу в aif'],
     ['en', 'Done.\nFrom you: do by hand:\n\nclose the task in the tracker', 'close the task in the tracker'],
-  ] as const)('(%s) emphasis / case / next-line action still fires: %j', (lang, text, action) => {
+  ] as const, '(%s) emphasis / case / next-line action still fires: %j', ([lang, text, action], ctx) => {
     if (!JQ) return;
-    const reason = reasonOf(handsRun(text, { lang }).stdout);
+    const reason = reasonOf(handsRun(ctx, text, { lang }).stdout);
     expect(reason).toContain(HANDS_TAG);
     expect(reason).toContain(action);
   });
 
   // MINOR 7: a «From you:» line inside a fenced code block is an example, not the hand-off.
-  it.skipIf(!JQ)('ignores «From you:» lines inside a fenced code block', () => {
-    const r = handsRun('Done.\nFrom you: nothing (CI 12/12 green)\n\nExample:\n```\nFrom you: do by hand: rerun the flaky job\n```');
+  it.skipIf(!JQ)('ignores «From you:» lines inside a fenced code block', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: nothing (CI 12/12 green)\n\nExample:\n```\nFrom you: do by hand: rerun the flaky job\n```');
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // MINOR 8: paraphrases defeat the per-action sha, so a session cap bounds the total.
-  it.skipIf(!JQ)('per-session cap: at most 2 manual-step blocks per session, whatever the wording', () => {
+  it.skipIf(!JQ)('per-session cap: at most 2 manual-step blocks per session, whatever the wording', (ctx) => {
     const tmp = mkdtempSync(join(tmpdir(), 'eot-hands-cap-'));
     tmpDirs.push(tmp);
     const o = { tmp, session: 'hands-cap' };
-    expect(handsRun('Done.\nFrom you: do by hand: rerun the flaky job', o).stdout).toContain(HANDS_TAG);
-    expect(handsRun('Done.\nFrom you: do by hand: re-run the flaky CI job', o).stdout).toContain(HANDS_TAG);
-    expect(handsRun('Done.\nFrom you: do by hand: kick the flaky job again', o).stdout).toBe('');
+    expect(handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', o).stdout).toContain(HANDS_TAG);
+    expect(handsRun(ctx, 'Done.\nFrom you: do by hand: re-run the flaky CI job', o).stdout).toContain(HANDS_TAG);
+    expect(handsRun(ctx, 'Done.\nFrom you: do by hand: kick the flaky job again', o).stdout).toBe('');
   });
 
   // ── Cold-review rework, round 2 (2026-09-29) ─────────────────────────────────────────
@@ -4072,15 +4093,15 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     const line = 'Проверил Сборку И Тесты, Всё Зелёное. Ещё Одна Строка Про Изменения В Хуке.\n';
     return line.repeat(Math.ceil((21 * 1024) / Buffer.byteLength(line)));
   };
-  it.each([
+  it.for([
     ['no hand-off line', '', false],
     ['a hand-off line at the end', '\nОт тебя: сделать руками: Закрыть задачу в aif', true],
-  ] as const)('a ≥20 KB Cyrillic turn under LC_ALL=C /bin/bash finishes in < 5 s (%s)', (_label, tail, fires) => {
+  ] as const, 'a ≥20 KB Cyrillic turn under LC_ALL=C /bin/bash finishes in < 5 s (%s)', ([_label, tail, fires], ctx) => {
     if (!JQ) return;
     const text = bigCyrillic() + tail;
     expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(20 * 1024);
     const t0 = Date.now();
-    const r = handsRun(text, { lang: 'ru', shell: MAC_BASH, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, text, { lang: 'ru', shell: MAC_BASH, env: { LC_ALL: 'C', LANG: '' } });
     const ms = Date.now() - t0;
     expect(r.status, r.stderr).toBe(0);
     expect(ms).toBeLessThan(5000);
@@ -4096,7 +4117,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   // MAJOR 2: a merge verb ANYWHERE + main ANYWHERE is the merge-to-main floor — across `;` and
   // `.`, with ё spellings and the «слить» family. The block text says «do it yourself now», so a
   // leak here invites the model to merge into main itself.
-  it.each([
+  it.for([
     ['ru', 'смёржить PR в main'],
     ['ru', 'смёржить #1900 в main'],
     ['ru', 'мёрж в main'],
@@ -4105,16 +4126,16 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'смержить #1900 (это промоут; база — main).'],
     ['en', 'merge #1900; it targets main'],
     ['en', 'merge #1900. Base is main'],
-  ] as const)('merge-to-main floor (%s) %s stays silent', (lang, value) => {
+  ] as const, 'merge-to-main floor (%s) %s stays silent', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
-    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // MAJOR 3: one case per floor class the first rework still leaked.
-  it.each([
+  it.for([
     ['money', 'en', 'top up the Anthropic credits'],
     ['money', 'en', 'renew the domain ($12)'],
     ['money', 'en', 'upgrade the plan to Pro'],
@@ -4133,83 +4154,83 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['npm release', 'en', 'release 0.4.0 to the npm registry'],
     ['fork choice', 'en', 'pick A or B'],
     ['fork choice', 'ru', 'выбрать вариант A или B'],
-  ] as const)('floor class %s (%s) %s stays silent', (_cls, lang, value) => {
+  ] as const, 'floor class %s (%s) %s stays silent', ([_cls, lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
-    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
   });
 
   // MAJOR 4: the hand-off line is read in BOTH languages whatever the pack; the explicit form
   // takes `:`, a dash or a hyphen; a manual keyword anywhere in the value fires too.
-  it.each([
+  it.for([
     ['ru', 'Готово.\nОт тебя: закрыть задачу в aif руками', 'закрыть задачу в aif руками'],
     ['ru', 'Готово.\nОт тебя: руками закрыть задачу в aif', 'руками закрыть задачу в aif'],
     ['ru', 'Готово.\n**От тебя:** сделать руками — закрыть задачу в aif', 'закрыть задачу в aif'],
     ['ru', 'Готово.\nFrom you: do by hand: close the aif task', 'close the aif task'],
     ['en', 'Done.\nОт тебя: сделать руками: закрыть задачу', 'закрыть задачу'],
     ['en', 'Done.\nFrom you: close the tracker task manually', 'close the tracker task manually'],
-  ] as const)('(%s pack) fires: %j', (lang, text, action) => {
+  ] as const, '(%s pack) fires: %j', ([lang, text, action], ctx) => {
     if (!JQ) return;
-    const r = handsRun(text, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, text, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
     const reason = reasonOf(r.stdout);
     expect(reason).toContain(HANDS_TAG);
     expect(reason).toContain(action);
   });
 
-  it.each([
+  it.for([
     ['en', 'Done.\nFrom you: close the task in the tracker'],
     ['ru', 'Готово.\nОт тебя: закрыть задачу в aif'],
     ['en', 'Done.\nFrom you: nothing (checked it manually, CI green)'],
     ['ru', 'Готово.\nОт тебя: ничего (проверил руками)'],
     ['en', 'Done.\nFrom you: decide: do it by hand or automate it'],
-  ] as const)('(%s pack) a hand-off line without a manual form stays silent: %j', (lang, text) => {
+  ] as const, '(%s pack) a hand-off line without a manual form stays silent: %j', ([lang, text], ctx) => {
     if (!JQ) return;
-    const r = handsRun(text, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, text, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
   });
 
   // MINOR 9: only a fence at column 0-3 toggles, and a fence still open at EOF is not a block.
-  it.each([
+  it.for([
     ['an indented (code-block) fence', 'Done.\nFrom you: nothing (CI green)\n\n    ```\nFrom you: do by hand: rerun the flaky job'],
     ['an unclosed fence', 'Done.\nFrom you: nothing (CI green)\n\n```\nFrom you: do by hand: rerun the flaky job'],
-  ])('a hand-off line after %s still fires', (_label, text) => {
+  ], 'a hand-off line after %s still fires', ([_label, text], ctx) => {
     if (!JQ) return;
-    expect(reasonOf(handsRun(text).stdout)).toContain(HANDS_TAG);
+    expect(reasonOf(handsRun(ctx, text).stdout)).toContain(HANDS_TAG);
   });
 
   // MINOR 10: the value may start on the line after an empty «From you:».
-  it.skipIf(!JQ)('a value on the line after an empty «From you:» fires', () => {
-    const reason = reasonOf(handsRun('Done.\nFrom you:\ndo by hand: close the task in the tracker').stdout);
+  it.skipIf(!JQ)('a value on the line after an empty «From you:» fires', (ctx) => {
+    const reason = reasonOf(handsRun(ctx, 'Done.\nFrom you:\ndo by hand: close the task in the tracker').stdout);
     expect(reason).toContain(HANDS_TAG);
     expect(reason).toContain('close the task in the tracker');
   });
 
   // MINOR 11: over-broad floor words silenced real manual steps.
-  it.each([
+  it.for([
     ['en', 'run the one-time cleanup script'],
     ['en', 'update the billing page copy'],
     ['ru', 'поправить опечатку в разделе про оплату'],
     ['ru', 'удалить секретарский шаблон'],
     ['en', 'push the fix branch and open a PR against main'],
-  ] as const)('(%s) real manual step %s fires', (lang, value) => {
+  ] as const, '(%s) real manual step %s fires', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
-    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
   });
 
   // MINOR 12: only markdown emphasis is stripped — an identifier keeps its underscores.
-  it.skipIf(!JQ)('the quoted action keeps underscores inside identifiers', () => {
-    const reason = reasonOf(handsRun('Done.\nFrom you: do by hand: rename **my_var_name** in the config').stdout);
+  it.skipIf(!JQ)('the quoted action keeps underscores inside identifiers', (ctx) => {
+    const reason = reasonOf(handsRun(ctx, 'Done.\nFrom you: do by hand: rename **my_var_name** in the config').stdout);
     expect(reason).toContain('rename my_var_name in the config');
   });
 
-  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {
-    const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', {
+  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', (ctx) => {
+    const r = handsRun(ctx, 'Done.\nFrom you: do by hand: rerun the flaky job', {
       hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder'),
     });
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
@@ -4269,7 +4290,7 @@ describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dis
     hook?: string;
   };
 
-  function chipRun(opts: Opts = {}): { status: number; stdout: string; stderr: string } {
+  function chipRun(ctx: Skippable, opts: Opts = {}): { status: number; stdout: string; stderr: string } {
     const tmp = opts.tmp ?? mkdtempSync(join(tmpdir(), 'eot-chip-'));
     if (!opts.tmp) tmpDirs.push(tmp);
     const proj = join(tmp, 'proj');
@@ -4299,7 +4320,8 @@ describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dis
       RUNTIME_BRIDGE_MODE: opts.mode === undefined ? 'aif-handoff' : (opts.mode ?? ''),
       RUNTIME_BRIDGE_AIF_URL: `file://${bridge}`,
     };
-    const r = spawnSync('bash', [opts.hook ?? HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [opts.hook ?? HOOK], {
       input: JSON.stringify(stdin),
       encoding: 'utf8',
       env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'cli', AIF_AUTONOMOUS: '', ...env },
@@ -4308,10 +4330,10 @@ describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dis
   }
   const reasonOf = (stdout: string): string =>
     stdout.trim() ? ((JSON.parse(stdout) as { reason?: string }).reason ?? '') : '';
-  const fires = (o: Opts = {}) => reasonOf(chipRun(o).stdout).includes(TAG);
+  const fires = (ctx: Skippable, o: Opts = {}) => reasonOf(chipRun(ctx, o).stdout).includes(TAG);
 
-  it.skipIf(!JQ)('fires: bridge up, chip for a kickoff.md without the auto marker', () => {
-    const r = chipRun();
+  it.skipIf(!JQ)('fires: bridge up, chip for a kickoff.md without the auto marker', (ctx) => {
+    const r = chipRun(ctx);
     expect(r.status).toBe(0);
     const reason = reasonOf(r.stdout);
     expect(reason).toContain(TAG);
@@ -4322,109 +4344,109 @@ describe('end-of-turn-reminder — dispatch-channel arm (chip where aif auto-dis
     expect(reason.indexOf('First decide')).toBeLessThan(reason.indexOf('dismiss_task'));
   });
 
-  it.skipIf(!JQ)('paired negative: the same chip for a kickoff that carries the auto marker is silent', () => {
-    expect(fires({ firstLine: AUTO })).toBe(false);
+  it.skipIf(!JQ)('paired negative: the same chip for a kickoff that carries the auto marker is silent', (ctx) => {
+    expect(fires(ctx, { firstLine: AUTO })).toBe(false);
   });
 
   // The write-time dispatcher only dispatches */kickoff.md and skips *-meta-launch/kickoff.md
   // (runtime-bridge-dispatch.sh case filter): telling the model to mark any other file would
   // dispatch nothing and lose the work silently.
-  it.skipIf(!JQ)('a stage kickoff (kickoff-s2.md) is not checked — the marker would not dispatch it', () => {
-    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo/kickoff-s2.md' })).toBe(false);
+  it.skipIf(!JQ)('a stage kickoff (kickoff-s2.md) is not checked — the marker would not dispatch it', (ctx) => {
+    expect(fires(ctx, { kickoffRel: '.claude/orchestrator-prompts/demo/kickoff-s2.md' })).toBe(false);
   });
 
-  it.skipIf(!JQ)('a *-meta-launch/kickoff.md (a /pipeline dispatch record) is not checked', () => {
-    expect(fires({ kickoffRel: '.claude/orchestrator-prompts/demo-meta-launch/kickoff.md' })).toBe(false);
+  it.skipIf(!JQ)('a *-meta-launch/kickoff.md (a /pipeline dispatch record) is not checked', (ctx) => {
+    expect(fires(ctx, { kickoffRel: '.claude/orchestrator-prompts/demo-meta-launch/kickoff.md' })).toBe(false);
   });
 
-  it.skipIf(!JQ)('a kickoff named by a RELATIVE path resolves against the stdin cwd', () => {
-    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}` })).toBe(true);
-    expect(fires({ prompt: (_a, rel) => `Read and execute ${rel}`, firstLine: AUTO })).toBe(false);
+  it.skipIf(!JQ)('a kickoff named by a RELATIVE path resolves against the stdin cwd', (ctx) => {
+    expect(fires(ctx, { prompt: (_a, rel) => `Read and execute ${rel}` })).toBe(true);
+    expect(fires(ctx, { prompt: (_a, rel) => `Read and execute ${rel}`, firstLine: AUTO })).toBe(false);
   });
 
-  it.skipIf(!JQ)('a URL ending in kickoff.md is not a local kickoff', () => {
-    expect(fires({ prompt: () => 'See https://github.com/o/r/blob/staging/x/kickoff.md for context.' })).toBe(false);
+  it.skipIf(!JQ)('a URL ending in kickoff.md is not a local kickoff', (ctx) => {
+    expect(fires(ctx, { prompt: () => 'See https://github.com/o/r/blob/staging/x/kickoff.md for context.' })).toBe(false);
   });
 
-  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE is unset (no bridge — the chip is the only channel)', () => {
-    expect(fires({ mode: null })).toBe(false);
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE is unset (no bridge — the chip is the only channel)', (ctx) => {
+    expect(fires(ctx, { mode: null })).toBe(false);
   });
 
-  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE=manual or amux (the resolver uses the manual backend)', () => {
-    expect(fires({ mode: 'manual' })).toBe(false);
-    expect(fires({ mode: 'amux' })).toBe(false);
-    expect(fires({ mode: 'auto' })).toBe(true);
+  it.skipIf(!JQ)('silent when RUNTIME_BRIDGE_MODE=manual or amux (the resolver uses the manual backend)', (ctx) => {
+    expect(fires(ctx, { mode: 'manual' })).toBe(false);
+    expect(fires(ctx, { mode: 'amux' })).toBe(false);
+    expect(fires(ctx, { mode: 'auto' })).toBe(true);
   });
 
-  it.skipIf(!JQ)('silent when the bridge does not answer /health (the resolver would fall back to manual)', () => {
-    expect(fires({ healthy: false })).toBe(false);
+  it.skipIf(!JQ)('silent when the bridge does not answer /health (the resolver would fall back to manual)', (ctx) => {
+    expect(fires(ctx, { healthy: false })).toBe(false);
   });
 
-  it.skipIf(!JQ)('escape: a chip-over-bridge rationale of 20+ chars silences the arm', () => {
-    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: stage 2 is gated on the unmerged stage 1 PR' })).toBe(false);
+  it.skipIf(!JQ)('escape: a chip-over-bridge rationale of 20+ chars silences the arm', (ctx) => {
+    expect(fires(ctx, { finalText: 'Chip above.\nchip-over-bridge: stage 2 is gated on the unmerged stage 1 PR' })).toBe(false);
   });
 
-  it.skipIf(!JQ)('escape too short, or the template placeholder quoted verbatim, does not silence', () => {
-    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: later' })).toBe(true);
+  it.skipIf(!JQ)('escape too short, or the template placeholder quoted verbatim, does not silence', (ctx) => {
+    expect(fires(ctx, { finalText: 'Chip above.\nchip-over-bridge: later' })).toBe(true);
     // The ru placeholder is 24 characters — long enough to pass a bare length check.
-    expect(fires({ finalText: 'Chip above.\nchip-over-bridge: <почему, от 20 символов>' })).toBe(true);
+    expect(fires(ctx, { finalText: 'Chip above.\nchip-over-bridge: <почему, от 20 символов>' })).toBe(true);
   });
 
-  it.skipIf(!JQ)('escape written EARLIER in the turn counts even when the turn ends on the chip', () => {
+  it.skipIf(!JQ)('escape written EARLIER in the turn counts even when the turn ends on the chip', (ctx) => {
     const early = assistantText('chip-over-bridge: the operator wants to start this round tomorrow');
-    expect(fires({ before: [early], finalText: null })).toBe(false);
-    expect(fires({ before: [assistantText('Planning the next round.')], finalText: null })).toBe(true);
+    expect(fires(ctx, { before: [early], finalText: null })).toBe(false);
+    expect(fires(ctx, { before: [assistantText('Planning the next round.')], finalText: null })).toBe(true);
   });
 
-  it.skipIf(!JQ)('a chip from a PREVIOUS turn is not re-flagged', () => {
-    expect(fires({ priorTurn: true })).toBe(false);
-    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('go on') })).toBe(false);
+  it.skipIf(!JQ)('a chip from a PREVIOUS turn is not re-flagged', (ctx) => {
+    expect(fires(ctx, { priorTurn: true })).toBe(false);
+    expect(fires(ctx, { priorTurn: true, nextPrompt: humanPrompt('go on') })).toBe(false);
   });
 
-  it.skipIf(!JQ)('an operator prompt that mentions tool_result still opens a new turn', () => {
-    expect(fires({ priorTurn: true, nextPrompt: humanPrompt('why did the tool_result come back empty?') })).toBe(false);
+  it.skipIf(!JQ)('an operator prompt that mentions tool_result still opens a new turn', (ctx) => {
+    expect(fires(ctx, { priorTurn: true, nextPrompt: humanPrompt('why did the tool_result come back empty?') })).toBe(false);
   });
 
-  it.skipIf(!JQ)('non-human user records after the chip do not end the turn (skill body, task notification)', () => {
-    expect(fires({ between: [metaSkill()] })).toBe(true);
-    expect(fires({ between: [notification()] })).toBe(true);
+  it.skipIf(!JQ)('non-human user records after the chip do not end the turn (skill body, task notification)', (ctx) => {
+    expect(fires(ctx, { between: [metaSkill()] })).toBe(true);
+    expect(fires(ctx, { between: [notification()] })).toBe(true);
   });
 
-  it.skipIf(!JQ)('a chip that names no kickoff (e.g. an out-of-scope cleanup) is left to judgment', () => {
-    expect(fires({ prompt: () => 'Remove the dead helper in scripts/foo.sh; it has no callers.' })).toBe(false);
+  it.skipIf(!JQ)('a chip that names no kickoff (e.g. an out-of-scope cleanup) is left to judgment', (ctx) => {
+    expect(fires(ctx, { prompt: () => 'Remove the dead helper in scripts/foo.sh; it has no callers.' })).toBe(false);
   });
 
-  it.skipIf(!JQ)('fail-closed: a kickoff.md that cannot be read still fires, and a directory does not crash the hook', () => {
-    const missing = chipRun({ firstLine: null });
+  it.skipIf(!JQ)('fail-closed: a kickoff.md that cannot be read still fires, and a directory does not crash the hook', (ctx) => {
+    const missing = chipRun(ctx, { firstLine: null });
     expect(reasonOf(missing.stdout)).toContain('(unreadable)');
-    const dir = chipRun({ kickoffIsDir: true });
+    const dir = chipRun(ctx, { kickoffIsDir: true });
     expect(dir.status).toBe(0);
     expect(reasonOf(dir.stdout)).toContain('(unreadable)');
   });
 
-  it.skipIf(!JQ)('the line reaches every emit site: tool-only, long answer, question, recap-marked', () => {
-    expect(fires({ finalText: null })).toBe(true);
-    expect(fires({ finalText: longMarkdownText() })).toBe(true);
-    expect(fires({ finalText: 'Ready. Should I also run the probes first?' })).toBe(true);
-    const recap = chipRun({ lang: "ru", finalText: "## 🟢 Простыми словами\nГотово, чип выше." });
+  it.skipIf(!JQ)('the line reaches every emit site: tool-only, long answer, question, recap-marked', (ctx) => {
+    expect(fires(ctx, { finalText: null })).toBe(true);
+    expect(fires(ctx, { finalText: longMarkdownText() })).toBe(true);
+    expect(fires(ctx, { finalText: 'Ready. Should I also run the probes first?' })).toBe(true);
+    const recap = chipRun(ctx, { lang: "ru", finalText: "## 🟢 Простыми словами\nГотово, чип выше." });
     expect(reasonOf(recap.stdout)).toContain(TAG);
   });
 
-  it.skipIf(!JQ)('ru pack carries the arm', () => {
-    const reason = reasonOf(chipRun({ lang: 'ru' }).stdout);
+  it.skipIf(!JQ)('ru pack carries the arm', (ctx) => {
+    const reason = reasonOf(chipRun(ctx, { lang: 'ru' }).stdout);
     expect(reason).toContain(TAG);
     expect(reason).toContain('chip-over-bridge:');
   });
 
-  it.skipIf(!JQ)('bounded: the same chip is flagged once per session; a NEW chip id still fires', () => {
+  it.skipIf(!JQ)('bounded: the same chip is flagged once per session; a NEW chip id still fires', (ctx) => {
     const tmp = mkdtempSync(join(tmpdir(), 'eot-chip-bound-'));
     tmpDirs.push(tmp);
-    expect(fires({ tmp, session: 'chip-bound' })).toBe(true);
-    expect(fires({ tmp, session: 'chip-bound', finalText: 'Other words.' })).toBe(false);
-    expect(fires({ tmp, session: 'chip-bound', chipId: 'toolu_chip2' })).toBe(true);
+    expect(fires(ctx, { tmp, session: 'chip-bound' })).toBe(true);
+    expect(fires(ctx, { tmp, session: 'chip-bound', finalText: 'Other words.' })).toBe(false);
+    expect(fires(ctx, { tmp, session: 'chip-bound', chipId: 'toolu_chip2' })).toBe(true);
   });
 
-  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {
-    expect(fires({ hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder') })).toBe(true);
+  it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', (ctx) => {
+    expect(fires(ctx, { hook: resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder') })).toBe(true);
   });
 });

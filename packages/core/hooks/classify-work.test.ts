@@ -28,6 +28,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -38,18 +39,19 @@ const HELPER = join(
   '.claude/skills/pipeline/helpers/classify-work.sh',
 );
 
-function run(arg: string | null) {
+function run(ctx: Skippable, arg: string | null) {
   const args = arg === null ? [HELPER] : [HELPER, arg];
-  return spawnSync('bash', args, { encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  return spawnBashOrSkip(ctx, 'bash', args, { encoding: 'utf8' });
 }
 
 describe('classify-work.sh — J1 strict path-shape check (Stage 5 §5 J1 fix)', () => {
-  it('EXISTING-FILE-PATH: real file on disk → exit 0, file-mode classification', () => {
+  it('EXISTING-FILE-PATH: real file on disk → exit 0, file-mode classification', (ctx) => {
     const dir = mkdtempSync(join(tmpdir(), 'classify-j1-'));
     const file = join(dir, 'kickoff.md');
     writeFileSync(file, '# fake kickoff\n\nsome content\n');
     try {
-      const r = run(file);
+      const r = run(ctx, file);
       expect(r.status).toBe(0);
       expect(r.stdout).toMatch(/^TYPE:\s+/m);
       expect(r.stdout).toMatch(/^LOC:\s+/m);
@@ -58,65 +60,65 @@ describe('classify-work.sh — J1 strict path-shape check (Stage 5 §5 J1 fix)',
     }
   });
 
-  it('DESCRIPTION-STRING-NO-PATH: bare description, no slash → exit 0, string-mode', () => {
-    const r = run('fix typo in component');
+  it('DESCRIPTION-STRING-NO-PATH: bare description, no slash → exit 0, string-mode', (ctx) => {
+    const r = run(ctx, 'fix typo in component');
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/^TYPE:\s+fix/m);
   });
 
-  it('NON-EXISTENT-PATH-SHAPE-MD: nonexistent path with .md → exit 3 MISSING-FILE', () => {
-    const r = run('nonexistent/foo.md');
+  it('NON-EXISTENT-PATH-SHAPE-MD: nonexistent path with .md → exit 3 MISSING-FILE', (ctx) => {
+    const r = run(ctx, 'nonexistent/foo.md');
     expect(r.status).toBe(3);
     expect(r.stderr).toMatch(/^MISSING-FILE: nonexistent\/foo\.md$/m);
     expect(r.stdout).toBe('');
   });
 
-  it('NON-EXISTENT-PATH-SHAPE-TS: nonexistent path with .ts → exit 3 MISSING-FILE', () => {
-    const r = run('src/this-does-not-exist.ts');
+  it('NON-EXISTENT-PATH-SHAPE-TS: nonexistent path with .ts → exit 3 MISSING-FILE', (ctx) => {
+    const r = run(ctx, 'src/this-does-not-exist.ts');
     expect(r.status).toBe(3);
     expect(r.stderr).toMatch(/MISSING-FILE: src\/this-does-not-exist\.ts/);
   });
 
-  it('NON-EXISTENT-PATH-SHAPE-SH: nonexistent path with .sh → exit 3 MISSING-FILE', () => {
-    const r = run('helpers/missing-helper.sh');
+  it('NON-EXISTENT-PATH-SHAPE-SH: nonexistent path with .sh → exit 3 MISSING-FILE', (ctx) => {
+    const r = run(ctx, 'helpers/missing-helper.sh');
     expect(r.status).toBe(3);
     expect(r.stderr).toMatch(/MISSING-FILE: helpers\/missing-helper\.sh/);
   });
 
-  it('STRING-WITH-FILENAME-NO-SLASH: filename-mention without separator → string-mode', () => {
+  it('STRING-WITH-FILENAME-NO-SLASH: filename-mention without separator → string-mode', (ctx) => {
     // Boundary case: contains code extension but no '/' separator.
     // Per fix scope, path-shape requires BOTH '/' AND extension; missing '/' → string-mode.
-    const r = run('fix typo in README.md');
+    const r = run(ctx, 'fix typo in README.md');
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/^TYPE:\s+/m);
   });
 
-  it('PATH-WITH-NO-EXTENSION: slash but no code extension → string-mode', () => {
+  it('PATH-WITH-NO-EXTENSION: slash but no code extension → string-mode', (ctx) => {
     // Boundary case: contains '/' but extension not in recognised list.
     // Per fix scope, path-shape requires BOTH; missing extension → string-mode.
-    const r = run('src/missing-no-ext');
+    const r = run(ctx, 'src/missing-no-ext');
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/^TYPE:\s+/m);
   });
 
-  it('EMPTY-ARG: no $1 → exit 2 (usage), distinct from exit 3', () => {
-    const r = run(null);
+  it('EMPTY-ARG: no $1 → exit 2 (usage), distinct from exit 3', (ctx) => {
+    const r = run(ctx, null);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/usage:/);
   });
 
-  it('EXIT-3-VS-EXIT-2-DISTINCT: missing-file path ≠ usage error', () => {
+  it('EXIT-3-VS-EXIT-2-DISTINCT: missing-file path ≠ usage error', (ctx) => {
     // Mutation guard: if someone collapses exit 3 → exit 2, this assertion fails.
     // Distinct exit codes preserve diagnostic resolution: 2 = caller bug (no arg),
     // 3 = data bug (path-shape input, file absent).
-    const missing = run('nonexistent/foo.md');
-    const usage = run(null);
+    const missing = run(ctx, 'nonexistent/foo.md');
+    const usage = run(ctx, null);
     expect(missing.status).not.toBe(usage.status);
     expect(missing.status).toBe(3);
     expect(usage.status).toBe(2);
   });
 
-  it('PATH-SHAPE-WITH-EXISTING-FILE: file present → file-mode (not exit 3)', () => {
+  it('PATH-SHAPE-WITH-EXISTING-FILE: file present → file-mode (not exit 3)', (ctx) => {
     // Inverse mutation guard: if someone removes the `[[ ! -f INPUT ]]` clause,
     // every path-shape input (even existing files) would exit 3. This guards
     // against that mutation by asserting an existing path-shape input goes to
@@ -125,7 +127,7 @@ describe('classify-work.sh — J1 strict path-shape check (Stage 5 §5 J1 fix)',
     const file = join(dir, 'present.ts');
     writeFileSync(file, 'export const x = 1;\n');
     try {
-      const r = run(file);
+      const r = run(ctx, file);
       expect(r.status).toBe(0);
       expect(r.stdout).toMatch(/^TYPE:\s+/m);
       expect(r.stderr).not.toMatch(/MISSING-FILE/);

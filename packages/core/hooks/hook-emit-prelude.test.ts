@@ -17,6 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   mkdtempSync,
@@ -45,12 +46,14 @@ const INLINE_BY_NECESSITY = new Set([
   'runtime-bridge-dispatch.sh', // setup.d/55-runtime-bridge-vendor.sh copies this single file
 ]);
 
-/** Run a snippet with the prelude sourced, under a controlled env. */
+/** Run a snippet with the prelude sourced, under a controlled env. POSIX: byte-identical
+ *  pass-through; win32: resolves Git Bash or skips with a named reason (#1799). */
 function withPrelude(
+  ctx: Skippable,
   snippet: string,
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('/bin/bash', ['-c', `set -uo pipefail; . "${PRELUDE}"; ${snippet}`], {
+  const r = spawnBashOrSkip(ctx, '/bin/bash', ['-c', `set -uo pipefail; . "${PRELUDE}"; ${snippet}`], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
     timeout: 15_000,
@@ -83,13 +86,13 @@ describe('lib/hook-emit.sh — one definition for the PostToolUse emit helpers (
     ).toEqual([]);
   });
 
-  it('every gate that sources the prelude actually resolves it (no broken-install fallback fires)', () => {
+  it('every gate that sources the prelude actually resolves it (no broken-install fallback fires)', (ctx) => {
     const hooks = readdirSync(HOOKS_DIR)
       .filter((f) => f.endsWith('.sh'))
       .filter((f) => readFileSync(join(HOOKS_DIR, f), 'utf8').includes('lib/hook-emit.sh'));
     expect(hooks.length, 'expected the five PostToolUse gates to source it').toBeGreaterThanOrEqual(5);
     for (const h of hooks) {
-      const r = spawnSync('/bin/bash', [join(HOOKS_DIR, h)], {
+      const r = spawnBashOrSkip(ctx, '/bin/bash', [join(HOOKS_DIR, h)], {
         input: JSON.stringify({ tool_name: 'Read', tool_input: { file_path: '/nowhere/x.txt' } }),
         encoding: 'utf8',
         env: { ...process.env, CLAUDE_PROJECT_DIR: REPO_ROOT },
@@ -104,8 +107,8 @@ describe('lib/hook-emit.sh — one definition for the PostToolUse emit helpers (
 });
 
 describe('_json_escape — control characters produce VALID JSON (R-2 divergence)', () => {
-  it('a message with TAB and CR yields parseable JSON (the old sed copy did not)', () => {
-    const r = withPrelude(`_emit_skip "$(printf 'a\\tb\\rc\\nd')" 2>/dev/null`);
+  it('a message with TAB and CR yields parseable JSON (the old sed copy did not)', (sk) => {
+    const r = withPrelude(sk, `_emit_skip "$(printf 'a\\tb\\rc\\nd')" 2>/dev/null`);
     expect(r.status).toBe(0);
     expect(() => JSON.parse(r.stdout.trim())).not.toThrow();
     const ctx = (
@@ -117,14 +120,14 @@ describe('_json_escape — control characters produce VALID JSON (R-2 divergence
     expect(ctx).toContain('a b c d');
   });
 
-  it('RED control: the pre-R-2 escaper emits INVALID JSON for the same input', () => {
+  it('RED control: the pre-R-2 escaper emits INVALID JSON for the same input', (ctx) => {
     // The old body, verbatim: backslash + quote escaped, newline collapsed, nothing else.
     const old = `_old() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr '\\n' ' '; }; printf '{"a":"%s"}\\n' "$(_old "$(printf 'a\\tb\\rc')")"`;
-    const r = spawnSync('/bin/bash', ['-c', old], { encoding: 'utf8', timeout: 15_000 });
+    const r = spawnBashOrSkip(ctx, '/bin/bash', ['-c', old], { encoding: 'utf8', timeout: 15_000 });
     expect(() => JSON.parse((r.stdout ?? '').trim())).toThrow();
   });
 
-  it('quotes and backslashes still round-trip', () => {
+  it('quotes and backslashes still round-trip', (sk) => {
     // Exact bytes via a file, so no JS/shell quoting layer can alter the payload before the
     // escaper sees it. `$(cat …)` strips trailing newlines only, which this payload has none of.
     const payload = 'say "hi" \\ ok';
@@ -132,7 +135,7 @@ describe('_json_escape — control characters produce VALID JSON (R-2 divergence
     const f = join(box, 'payload.txt');
     writeFileSync(f, payload, 'utf8');
     try {
-      const r = withPrelude(`_emit_skip "$(cat '${f}')" 2>/dev/null`);
+      const r = withPrelude(sk, `_emit_skip "$(cat '${f}')" 2>/dev/null`);
       const ctx = (
         JSON.parse(r.stdout.trim()) as { hookSpecificOutput: { additionalContext: string } }
       ).hookSpecificOutput.additionalContext;
@@ -142,10 +145,10 @@ describe('_json_escape — control characters produce VALID JSON (R-2 divergence
     }
   });
 
-  it('ZCode gets the bare {additionalContext} envelope, CC the hookSpecificOutput wrapper', () => {
-    const zc = withPrelude(`_emit_skip 'x' 2>/dev/null`, { ZCODE_PROJECT_DIR: REPO_ROOT });
+  it('ZCode gets the bare {additionalContext} envelope, CC the hookSpecificOutput wrapper', (ctx) => {
+    const zc = withPrelude(ctx, `_emit_skip 'x' 2>/dev/null`, { ZCODE_PROJECT_DIR: REPO_ROOT });
     expect(JSON.parse(zc.stdout.trim())).toEqual({ additionalContext: 'x' });
-    const cc = withPrelude(`unset ZCODE_PROJECT_DIR; _emit_skip 'x' 2>/dev/null`);
+    const cc = withPrelude(ctx, `unset ZCODE_PROJECT_DIR; _emit_skip 'x' 2>/dev/null`);
     expect(JSON.parse(cc.stdout.trim())).toEqual({
       hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: 'x' },
     });
@@ -153,15 +156,15 @@ describe('_json_escape — control characters produce VALID JSON (R-2 divergence
 });
 
 describe('Homebrew PATH prepend (K-1)', () => {
-  it('adds an existing Homebrew directory that a stripped PATH omitted', () => {
+  it('adds an existing Homebrew directory that a stripped PATH omitted', (ctx) => {
     const target = ['/opt/homebrew/bin', '/usr/local/bin'].find((d) => existsSync(d));
     if (!target) return; // neither exists on this host (e.g. a bare CI container) — nothing to assert
-    const r = withPrelude('printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
+    const r = withPrelude(ctx, 'printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
     expect(r.stdout.split(':')).toContain(target);
   });
 
-  it('never adds a directory twice, and never invents one that does not exist', () => {
-    const r = withPrelude('printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
+  it('never adds a directory twice, and never invents one that does not exist', (ctx) => {
+    const r = withPrelude(ctx, 'printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
     const dirs = r.stdout.split(':');
     for (const d of ['/opt/homebrew/bin', '/usr/local/bin']) {
       const n = dirs.filter((x) => x === d).length;
@@ -170,9 +173,10 @@ describe('Homebrew PATH prepend (K-1)', () => {
     }
   });
 
-  it('is idempotent — sourcing twice leaves PATH unchanged', () => {
-    const once = withPrelude('printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
-    const twice = spawnSync(
+  it('is idempotent — sourcing twice leaves PATH unchanged', (ctx) => {
+    const once = withPrelude(ctx, 'printf "%s" "$PATH"', { PATH: '/usr/bin:/bin' });
+    const twice = spawnBashOrSkip(
+      ctx,
       '/bin/bash',
       ['-c', `set -uo pipefail; . "${PRELUDE}"; . "${PRELUDE}"; printf "%s" "$PATH"`],
       { encoding: 'utf8', env: { ...process.env, PATH: '/usr/bin:/bin' }, timeout: 15_000 },
@@ -182,15 +186,17 @@ describe('Homebrew PATH prepend (K-1)', () => {
 });
 
 describe('_emit_skip_once — bounded announcement (A3-6 shape)', () => {
-  it('announces once per session_id, then stays quiet', () => {
+  it('announces once per session_id, then stays quiet', (ctx) => {
     const r = withPrelude(
+      ctx,
       `SESSION_ID=s1; TMPDIR="$(mktemp -d)"; _emit_skip_once t 'msg' 2>/dev/null; _emit_skip_once t 'msg' 2>/dev/null; rm -f "$TMPDIR"/aif-* ; rmdir "$TMPDIR"`,
     );
     expect(r.stdout.trim().split('\n').filter(Boolean)).toHaveLength(1);
   });
 
-  it('with NO session_id it repeats — silence is the failure mode being fixed', () => {
+  it('with NO session_id it repeats — silence is the failure mode being fixed', (ctx) => {
     const r = withPrelude(
+      ctx,
       `TMPDIR="$(mktemp -d)"; _emit_skip_once t 'msg' 2>/dev/null; _emit_skip_once t 'msg' 2>/dev/null; rmdir "$TMPDIR"`,
     );
     expect(r.stdout.trim().split('\n').filter(Boolean)).toHaveLength(2);

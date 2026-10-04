@@ -40,7 +40,8 @@
  * Precedent: inject-subagent-digest.test.ts (SSOT+schema pattern), deps-hash-check.test.ts:402.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   mkdirSync,
@@ -115,10 +116,12 @@ Rest of the doc.
 
 /** Run the hook with the given stdin payload (hook reads stdin to detect hook_event_name). */
 function runHook(
+  ctx: Skippable,
   hookAbs: string,
   stdin: object | null,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [hookAbs], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [hookAbs], {
     input: stdin === null ? '' : JSON.stringify(stdin),
     encoding: 'utf8',
   });
@@ -130,11 +133,11 @@ function runHook(
 }
 
 describe('inject-project-digest.sh — consumer dual-event anchor injector', () => {
-  it('SessionStart path: digest block -> plain stdout = block content verbatim (exit 0)', () => {
+  it('SessionStart path: digest block -> plain stdout = block content verbatim (exit 0)', (ctx) => {
     // The hook reads stdin only to detect hook_event_name; for SessionStart — the event install.sh
     // registers it on since 2026-09-29 — (or jq-absent) the plain-stdout branch fires.
     const { hookAbs } = makeTempRepo(DIGEST_BODY);
-    const r = runHook(hookAbs, { hook_event_name: 'SessionStart', source: 'startup' });
+    const r = runHook(ctx, hookAbs, { hook_event_name: 'SessionStart', source: 'startup' });
     expect(r.status).toBe(0);
     // Plain stdout carries the block content (awk-extracted, markers stripped).
     expect(r.stdout).toContain("consumer's project anchor");
@@ -144,7 +147,7 @@ describe('inject-project-digest.sh — consumer dual-event anchor injector', () 
     expect(r.stdout).not.toContain('digest:end');
   });
 
-  it('zero-setup: no .claude/session-bootstrap.md -> silent exit 0', () => {
+  it('zero-setup: no .claude/session-bootstrap.md -> silent exit 0', (ctx) => {
     // hook:20 — [ -f "$DIGEST_FILE" ] || exit 0. Build a temp repo then DELETE the file.
     const repoRoot = mkdtempSync(join(tmpdir(), 'ipd-nofile-'));
     tmpRepos.push(repoRoot);
@@ -157,22 +160,22 @@ describe('inject-project-digest.sh — consumer dual-event anchor injector', () 
     );
     copyFileSync(HOOK_SOURCE, hookAbs);
     // No .claude/session-bootstrap.md written.
-    const r = runHook(hookAbs, { hook_event_name: 'UserPromptSubmit' });
+    const r = runHook(ctx, hookAbs, { hook_event_name: 'UserPromptSubmit' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('empty markers: file present but no digest:start/end -> silent exit 0 (ships empty on purpose)', () => {
+  it('empty markers: file present but no digest:start/end -> silent exit 0 (ships empty on purpose)', (ctx) => {
     const { hookAbs } = makeTempRepo('# Project doc\n\nNo markers here.\n');
-    const r = runHook(hookAbs, { hook_event_name: 'UserPromptSubmit' });
+    const r = runHook(ctx, hookAbs, { hook_event_name: 'UserPromptSubmit' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('whitespace-only block -> silent exit 0 (hook:28 stripped-space guard)', () => {
+  it('whitespace-only block -> silent exit 0 (hook:28 stripped-space guard)', (ctx) => {
     const body = `# P\n\n<!-- digest:start -->\n   \n\t\n<!-- digest:end -->\n`;
     const { hookAbs } = makeTempRepo(body);
-    const r = runHook(hookAbs, { hook_event_name: 'UserPromptSubmit' });
+    const r = runHook(ctx, hookAbs, { hook_event_name: 'UserPromptSubmit' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
@@ -181,9 +184,9 @@ describe('inject-project-digest.sh — consumer dual-event anchor injector', () 
 describe.skipIf(!JQ)(
   'inject-project-digest.sh — SubagentStart JSON path (jq required)',
   () => {
-    it('SubagentStart: digest block -> JSON {hookSpecificOutput:{hookEventName, additionalContext}}', () => {
+    it('SubagentStart: digest block -> JSON {hookSpecificOutput:{hookEventName, additionalContext}}', (ctx) => {
       const { hookAbs } = makeTempRepo(DIGEST_BODY);
-      const r = runHook(hookAbs, { hook_event_name: 'SubagentStart' });
+      const r = runHook(ctx, hookAbs, { hook_event_name: 'SubagentStart' });
       expect(r.status).toBe(0);
       const json = JSON.parse(r.stdout);
       expect(json.hookSpecificOutput.hookEventName).toBe('SubagentStart');
@@ -193,7 +196,7 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (-> hook.run.failed, output
       // discarded). This hook uses the valid {hookSpecificOutput:{hookEventName, additionalContext}}
@@ -205,7 +208,7 @@ describe.skipIf(!JQ)(
       // does not render it to plugin/hooks/hooks.json (architectural gap, separate owner-decision).
       // The JSON shape must still be schema-valid for manual replay / any harness.
       const { hookAbs } = makeTempRepo(DIGEST_BODY);
-      const r = runHook(hookAbs, { hook_event_name: 'SubagentStart' });
+      const r = runHook(ctx, hookAbs, { hook_event_name: 'SubagentStart' });
       const json = JSON.parse(r.stdout);
       const allowedTopLevel = new Set([
         'additionalContext',
@@ -232,14 +235,14 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.hookEventName).toBe('SubagentStart');
     });
 
-    it('SSOT: SubagentStart additionalContext === UserPromptSubmit plain stdout (same block, one source)', () => {
+    it('SSOT: SubagentStart additionalContext === UserPromptSubmit plain stdout (same block, one source)', (ctx) => {
       // Dual-event contract: both events deliver the SAME block from ONE source. A divergence
       // would mean the two paths drift (#two-prompts-drift anti-pattern).
       const { hookAbs } = makeTempRepo(DIGEST_BODY);
-      const ups = runHook(hookAbs, { hook_event_name: 'UserPromptSubmit' })
+      const ups = runHook(ctx, hookAbs, { hook_event_name: 'UserPromptSubmit' })
         .stdout;
       const ss = JSON.parse(
-        runHook(hookAbs, { hook_event_name: 'SubagentStart' }).stdout,
+        runHook(ctx, hookAbs, { hook_event_name: 'SubagentStart' }).stdout,
       ).hookSpecificOutput.additionalContext as string;
       // The SubagentStart path uses jq --arg (preserves trailing newline); the UserPromptSubmit
       // path uses printf '%s\n'. Both carry the block content; compare trimmed to absorb the
@@ -302,11 +305,11 @@ describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-
     return { hookAbs, consumerRoot, payloadRoot };
   }
 
-  it('env_var_first_resolution_reads_consumer_root: CLAUDE_PROJECT_DIR set → fixture at consumer root IS read', () => {
+  it('env_var_first_resolution_reads_consumer_root: CLAUDE_PROJECT_DIR set → fixture at consumer root IS read', (ctx) => {
     // plan-v3 §1.7 Forward row 11: with the rewrite, the env-first arm wins and the fixture
     // at $CLAUDE_PROJECT_DIR/.claude/session-bootstrap.md is read.
     const { hookAbs, consumerRoot } = makePluginTwinScenario(DIGEST_BODY);
-    const r = runHookWithEnv(hookAbs, { hook_event_name: 'UserPromptSubmit' }, {
+    const r = runHookWithEnv(ctx, hookAbs, { hook_event_name: 'UserPromptSubmit' }, {
       CLAUDE_PROJECT_DIR: consumerRoot,
     });
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
@@ -315,12 +318,13 @@ describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-
     expect(r.stdout).toContain('edit-time');
   });
 
-  it('dogfood_fallback_when_env_unset: CLAUDE_PROJECT_DIR unset → $0-relative fallback resolves correctly', () => {
+  it('dogfood_fallback_when_env_unset: CLAUDE_PROJECT_DIR unset → $0-relative fallback resolves correctly', (ctx) => {
     // plan-v3 §1.7 Forward row 12: the fallback arm preserves dogfood behaviour (hook copied
     // into the consumer repo at .claude/hooks/depth-2 — $0-relative resolves to consumer root).
     // We use makeTempRepo (hook + fixture under the SAME temp root) and UNSET the env var.
     const { hookAbs } = makeTempRepo(DIGEST_BODY);
     const r = runHookWithEnv(
+      ctx,
       hookAbs,
       { hook_event_name: 'UserPromptSubmit' },
       { CLAUDE_PROJECT_DIR: '' },  // explicit unset (process.env may leak it)
@@ -331,7 +335,7 @@ describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-
     expect(r.stdout).toContain("consumer's project anchor");
   });
 
-  it('backward_plugin_twin_fixture_not_read_without_rewrite: simulated pre-fix behaviour → silent exit 0', () => {
+  it('backward_plugin_twin_fixture_not_read_without_rewrite: simulated pre-fix behaviour → silent exit 0', (ctx) => {
     // plan-v3 §1.7 Backward row "B1 rewrite absent": WITHOUT the env-first arm, the plugin-twin
     // scenario resolves REPO_ROOT to the payload dir (no session-bootstrap.md there) → silent exit 0.
     // We SIMULATE the pre-fix behaviour by UNSETTING CLAUDE_PROJECT_DIR in the plugin-twin
@@ -339,6 +343,7 @@ describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-
     // "fixture is NOT read without rewrite" half of the strengthened backward contract.
     const { hookAbs } = makePluginTwinScenario(DIGEST_BODY);
     const r = runHookWithEnv(
+      ctx,
       hookAbs,
       { hook_event_name: 'UserPromptSubmit' },
       { CLAUDE_PROJECT_DIR: '' },  // simulate pre-fix: env-first arm absent
@@ -355,6 +360,7 @@ describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-
  * it to '' — Node's spawnSync env replaces process.env entirely when provided).
  */
 function runHookWithEnv(
+  ctx: Skippable,
   hookAbs: string,
   stdin: object | null,
   envOverride: Record<string, string>,
@@ -368,7 +374,8 @@ function runHookWithEnv(
     TMPDIR: process.env.TMPDIR ?? '/tmp',
     ...envOverride,
   };
-  const r = spawnSync('bash', [hookAbs], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [hookAbs], {
     input: stdin === null ? '' : JSON.stringify(stdin),
     encoding: 'utf8',
     env: cleanEnv,

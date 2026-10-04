@@ -50,6 +50,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -175,12 +176,14 @@ exit 0
  * fake-dup-detect, plus any extra environment overrides.
  */
 function runHelper(
+  ctx: Skippable,
   sandboxRoot: string,
   extraEnv: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   const fakeGh = makeFakeGhSilent(sandboxRoot);
   const fakeDup = makeFakeDupDetectSilent(sandboxRoot);
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -206,7 +209,7 @@ function runHelper(
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: cold-review-fixes.md present → emits "<umbrella>-cold-review-fixes type=cleanup" line', () => {
+  it('POSITIVE: cold-review-fixes.md present → emits "<umbrella>-cold-review-fixes type=cleanup" line', (ctx) => {
     // Targets priority-score.sh section (a):
     //   find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md'
     //   echo "${umbrella}-cold-review-fixes type=cleanup kickoff=synthetic source=cold-review-fixes loc=${loc}"
@@ -219,7 +222,7 @@ describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     // Script emits: "my-umbrella-cold-review-fixes type=cleanup kickoff=synthetic source=cold-review-fixes loc=4"
     expect(r.stdout).toMatch(/my-umbrella-cold-review-fixes\s+type=cleanup/);
@@ -227,13 +230,13 @@ describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL
     expect(r.stdout).toMatch(/my-umbrella-cold-review-fixes.*source=cold-review-fixes/);
   });
 
-  it('NEGATIVE: no cold-review-fixes.md → stdout does NOT contain "cold-review-fixes"', () => {
+  it('NEGATIVE: no cold-review-fixes.md → stdout does NOT contain "cold-review-fixes"', (ctx) => {
     // Paired-negative: same umbrella WITHOUT cold-review-fixes.md → nothing emitted
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['my-umbrella']);
     // No cold-review-fixes.md written
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/cold-review-fixes/);
   });
@@ -245,7 +248,7 @@ describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: state.md contains PENDING → emits "<umbrella>-state-pending type=state-followup" line', () => {
+  it('POSITIVE: state.md contains PENDING → emits "<umbrella>-state-pending type=state-followup" line', (ctx) => {
     // Targets priority-score.sh section (b):
     //   find ... -name 'state.md' | xargs grep -l -iE 'PENDING|TODO|AWAITING|REVIEW-PENDING'
     //   echo "${umbrella}-state-pending type=state-followup kickoff=synthetic source=state.md"
@@ -257,14 +260,14 @@ describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SH
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/work-umbrella-state-pending\s+type=state-followup/);
     expect(r.stdout).toMatch(/work-umbrella-state-pending.*kickoff=synthetic/);
     expect(r.stdout).toMatch(/work-umbrella-state-pending.*source=state\.md/);
   });
 
-  it('POSITIVE: state.md contains AWAITING → also emits state-pending entry', () => {
+  it('POSITIVE: state.md contains AWAITING → also emits state-pending entry', (ctx) => {
     // Verifies the AWAITING keyword branch (one of 4 alternatives in the grep pattern)
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['awaiting-umbrella']);
@@ -274,12 +277,12 @@ describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SH
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/awaiting-umbrella-state-pending\s+type=state-followup/);
   });
 
-  it('NEGATIVE: state.md present but no PENDING/TODO/AWAITING/REVIEW-PENDING → no state-pending entry', () => {
+  it('NEGATIVE: state.md present but no PENDING/TODO/AWAITING/REVIEW-PENDING → no state-pending entry', (ctx) => {
     // Paired-negative: state.md exists but contains only "COMPLETED" — no matching keywords
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['done-umbrella']);
@@ -289,19 +292,19 @@ describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SH
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     // No state-pending should be emitted for this umbrella
     expect(r.stdout).not.toMatch(/done-umbrella-state-pending/);
   });
 
-  it('NEGATIVE: no state.md at all → no state-pending entry', () => {
+  it('NEGATIVE: no state.md at all → no state-pending entry', (ctx) => {
     // Paired-negative: umbrella directory exists but has no state.md
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['no-state-umbrella']);
     // No state.md written
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/no-state-umbrella-state-pending/);
   });
@@ -313,7 +316,7 @@ describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SH
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: wave plan has 🟡 table row → emits "wave-plan-<id> type=plan-followup" line', () => {
+  it('POSITIVE: wave plan has 🟡 table row → emits "wave-plan-<id> type=plan-followup" line', (ctx) => {
     // Targets priority-score.sh section (e):
     //   grep -E '^\|' "${MO_WAVE_PLAN}" | grep -E '🟡|🔲...' | sed row_id extraction
     //   echo "wave-plan-${row_id} type=plan-followup kickoff=synthetic source=wave-plan"
@@ -335,7 +338,7 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_
       'utf8',
     );
 
-    const r = runHelper(sandbox, { MO_WAVE_PLAN: wavePlanPath });
+    const r = runHelper(ctx, sandbox, { MO_WAVE_PLAN: wavePlanPath });
     expect(r.status).toBe(0);
     // row_id extracted from the first pipe-delimited field: "StageX"
     expect(r.stdout).toMatch(/wave-plan-StageX\s+type=plan-followup/);
@@ -345,7 +348,7 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_
     expect(r.stdout).not.toMatch(/wave-plan-StageY/);
   });
 
-  it('POSITIVE: wave plan has DEFERRED row → emits wave-plan-<id> entry', () => {
+  it('POSITIVE: wave plan has DEFERRED row → emits wave-plan-<id> entry', (ctx) => {
     // Verifies the DEFERRED keyword branch in the grep pattern
     const sandbox = makeSandbox();
     const wavePlanPath = join(sandbox, 'wave-sequencing-plan.md');
@@ -362,12 +365,12 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_
       'utf8',
     );
 
-    const r = runHelper(sandbox, { MO_WAVE_PLAN: wavePlanPath });
+    const r = runHelper(ctx, sandbox, { MO_WAVE_PLAN: wavePlanPath });
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/wave-plan-DeferredStage\s+type=plan-followup/);
   });
 
-  it('NEGATIVE: wave plan has no 🟡 / DEFERRED rows → stdout does NOT contain "wave-plan-"', () => {
+  it('NEGATIVE: wave plan has no 🟡 / DEFERRED rows → stdout does NOT contain "wave-plan-"', (ctx) => {
     // Paired-negative: all rows are DONE → no wave-plan-* entries
     const sandbox = makeSandbox();
     const wavePlanPath = join(sandbox, 'wave-sequencing-plan.md');
@@ -385,17 +388,17 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_
       'utf8',
     );
 
-    const r = runHelper(sandbox, { MO_WAVE_PLAN: wavePlanPath });
+    const r = runHelper(ctx, sandbox, { MO_WAVE_PLAN: wavePlanPath });
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/wave-plan-/);
   });
 
-  it('NEGATIVE: MO_WAVE_PLAN file missing → no wave-plan-* entries and exit 0', () => {
+  it('NEGATIVE: MO_WAVE_PLAN file missing → no wave-plan-* entries and exit 0', (ctx) => {
     // Paired-negative for missing file (section (e) is guarded by -f check)
     const sandbox = makeSandbox();
     // MO_WAVE_PLAN points to non-existent file (default from runHelper)
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/wave-plan-/);
   });
@@ -407,7 +410,7 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: open-questions.md has "### 13.42" heading → emits "openq-§13-42 type=open-question"', () => {
+  it('POSITIVE: open-questions.md has "### 13.42" heading → emits "openq-§13-42 type=open-question"', (ctx) => {
     // Targets priority-score.sh section (f):
     //   grep -nE '^### 13\.[0-9]+' "${MO_OPEN_QUESTIONS}"
     //   echo "openq-§13-${id} type=open-question kickoff=synthetic source=open-questions"
@@ -432,7 +435,7 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout
       'utf8',
     );
 
-    const r = runHelper(sandbox, { MO_OPEN_QUESTIONS: openQPath });
+    const r = runHelper(ctx, sandbox, { MO_OPEN_QUESTIONS: openQPath });
     expect(r.status).toBe(0);
     // Both §13.42 and §13.99 should be emitted
     expect(r.stdout).toMatch(/openq-§13-42\s+type=open-question/);
@@ -441,7 +444,7 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout
     expect(r.stdout).toMatch(/openq-§13-99\s+type=open-question/);
   });
 
-  it('NEGATIVE: open-questions.md has no §13.x headings → stdout does NOT contain "openq-§13-"', () => {
+  it('NEGATIVE: open-questions.md has no §13.x headings → stdout does NOT contain "openq-§13-"', (ctx) => {
     // Paired-negative: file exists but no "### 13.N" headings
     const sandbox = makeSandbox();
     const openQPath = join(sandbox, 'open-questions.md');
@@ -460,17 +463,17 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout
       'utf8',
     );
 
-    const r = runHelper(sandbox, { MO_OPEN_QUESTIONS: openQPath });
+    const r = runHelper(ctx, sandbox, { MO_OPEN_QUESTIONS: openQPath });
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/openq-§13-/);
   });
 
-  it('NEGATIVE: MO_OPEN_QUESTIONS file missing → no openq-§13- entries and exit 0', () => {
+  it('NEGATIVE: MO_OPEN_QUESTIONS file missing → no openq-§13- entries and exit 0', (ctx) => {
     // Paired-negative for missing file (section (f) is guarded by -f check)
     const sandbox = makeSandbox();
     // MO_OPEN_QUESTIONS points to non-existent file (default from runHelper)
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/openq-§13-/);
   });
@@ -482,7 +485,7 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLOW_SHELL_MS }, () => {
-  it('POSITIVE: .ts file with "// TODO: fix this" → emits "todo-<path>-<lineno> type=code-todo" line', () => {
+  it('POSITIVE: .ts file with "// TODO: fix this" → emits "todo-<path>-<lineno> type=code-todo" line', (ctx) => {
     // Targets priority-score.sh section (g):
     //   grep -rnE '//[[:space:]]*(TODO|FIXME|XXX):' "${MO_PACKAGES_DIR}" --include='*.ts' ...
     //   echo "todo-${rel}-${lineno} type=code-todo kickoff=synthetic source=code-todo"
@@ -499,7 +502,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
       'utf8',
     );
 
-    const r = runHelper(sandbox, {
+    const r = runHelper(ctx, sandbox, {
       MO_PACKAGES_DIR: pkgsDir,
       // Override REPO_ROOT so that the rel path in the output is deterministic
       REPO_ROOT: sandbox,
@@ -513,7 +516,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
     expect(r.stdout).toMatch(/todo-.*helper\.ts-2\s+type=code-todo/);
   });
 
-  it('POSITIVE: .ts file with "// FIXME: memory leak" → emits code-todo entry', () => {
+  it('POSITIVE: .ts file with "// FIXME: memory leak" → emits code-todo entry', (ctx) => {
     // Verifies the FIXME variant of the grep pattern
     const sandbox = makeSandbox();
     const pkgsDir = join(sandbox, 'packages');
@@ -529,7 +532,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
       'utf8',
     );
 
-    const r = runHelper(sandbox, {
+    const r = runHelper(ctx, sandbox, {
       MO_PACKAGES_DIR: pkgsDir,
       REPO_ROOT: sandbox,
     });
@@ -537,7 +540,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
     expect(r.stdout).toMatch(/todo-.*runner\.ts-2\s+type=code-todo/);
   });
 
-  it('NEGATIVE: .ts file without TODO/FIXME/XXX → stdout does NOT contain "code-todo"', () => {
+  it('NEGATIVE: .ts file without TODO/FIXME/XXX → stdout does NOT contain "code-todo"', (ctx) => {
     // Paired-negative: clean .ts file → no synthetic code-todo entry
     const sandbox = makeSandbox();
     const pkgsDir = join(sandbox, 'packages');
@@ -551,7 +554,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
       'utf8',
     );
 
-    const r = runHelper(sandbox, {
+    const r = runHelper(ctx, sandbox, {
       MO_PACKAGES_DIR: pkgsDir,
       REPO_ROOT: sandbox,
     });
@@ -559,7 +562,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
     expect(r.stdout).not.toMatch(/code-todo/);
   });
 
-  it('NEGATIVE: test files (.test.ts) are excluded → no code-todo from test files', () => {
+  it('NEGATIVE: test files (.test.ts) are excluded → no code-todo from test files', (ctx) => {
     // Verifies the --exclude='*.test.ts' flag in the grep command (section (g) line 274)
     const sandbox = makeSandbox();
     const pkgsDir = join(sandbox, 'packages');
@@ -574,7 +577,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
       'utf8',
     );
 
-    const r = runHelper(sandbox, {
+    const r = runHelper(ctx, sandbox, {
       MO_PACKAGES_DIR: pkgsDir,
       REPO_ROOT: sandbox,
     });
@@ -582,12 +585,12 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
     expect(r.stdout).not.toMatch(/code-todo/);
   });
 
-  it('NEGATIVE: MO_PACKAGES_DIR missing → no code-todo entries and exit 0', () => {
+  it('NEGATIVE: MO_PACKAGES_DIR missing → no code-todo entries and exit 0', (ctx) => {
     // Paired-negative for missing directory (section (g) is guarded by -d check)
     const sandbox = makeSandbox();
     // MO_PACKAGES_DIR points to non-existent dir (default from runHelper)
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/code-todo/);
   });
@@ -603,7 +606,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLO
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('closure suppression — done.md silences surfaces (a) + (b)', { timeout: SLOW_SHELL_MS }, () => {
-  it('NEGATIVE: state.md PENDING + done.md in the same dir → no state-pending entry', () => {
+  it('NEGATIVE: state.md PENDING + done.md in the same dir → no state-pending entry', (ctx) => {
     // Paired with the surface-(b) POSITIVE above: identical fixture plus done.md.
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['closed-umbrella']);
@@ -615,12 +618,12 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/closed-umbrella-state-pending/);
   });
 
-  it('NEGATIVE: cold-review-fixes.md + done.md in the same dir → no cold-review-fixes entry', () => {
+  it('NEGATIVE: cold-review-fixes.md + done.md in the same dir → no cold-review-fixes entry', (ctx) => {
     // Paired with the surface-(a) POSITIVE above: identical fixture plus done.md.
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, ['closed-umbrella']);
@@ -632,12 +635,12 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/cold-review-fixes/);
   });
 
-  it('NEGATIVE: <x>-meta-launch state.md PENDING + done.md in the PARENT <x> → no state-pending entry', () => {
+  it('NEGATIVE: <x>-meta-launch state.md PENDING + done.md in the PARENT <x> → no state-pending entry', (ctx) => {
     // Parent inheritance: `<x>-meta-launch` is the launch staging FOR `<x>`, so closing
     // `<x>` closes its staging. Live case: triage-kernel-v2 closed by PR #1407 while
     // triage-kernel-v2-meta-launch/state.md still named a superseded aif task.
@@ -656,12 +659,12 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).not.toMatch(/parent-umbrella-meta-launch-state-pending/);
   });
 
-  it('POSITIVE: inheritance is ONE-DIRECTIONAL — done.md in <x>-meta-launch does NOT silence <x>', () => {
+  it('POSITIVE: inheritance is ONE-DIRECTIONAL — done.md in <x>-meta-launch does NOT silence <x>', (ctx) => {
     // The reverse of the case above must NOT suppress: a finished launch staging says
     // nothing about the umbrella's own work. 6 dirs in the live tree are in exactly this
     // state (meta-launch done.md, parent umbrella still open).
@@ -679,12 +682,12 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
       'utf8',
     );
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/open-umbrella-state-pending\s+type=state-followup/);
   });
 
-  it('POSITIVE: a done.md does NOT silence the non-directory-scoped surfaces (f) + (g)', () => {
+  it('POSITIVE: a done.md does NOT silence the non-directory-scoped surfaces (f) + (g)', (ctx) => {
     // Per-surface decision, not a blanket rule: (c)-(h) key on repo-level artefacts
     // (memory, live PRs, wave plan, open-questions, packages/**/*.ts, research-patches),
     // where "a done.md in the same directory" is undefined. They must survive closure.
@@ -705,7 +708,7 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
       'utf8',
     );
 
-    const r = runHelper(sandbox, {
+    const r = runHelper(ctx, sandbox, {
       MO_OPEN_QUESTIONS: openQPath,
       MO_PACKAGES_DIR: pkgsDir,
       REPO_ROOT: sandbox,
@@ -721,13 +724,13 @@ describe('closure suppression — done.md silences surfaces (a) + (b)', { timeou
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('synthetic section header always present', { timeout: SLOW_SHELL_MS }, () => {
-  it('script emits the synthetic section header even with empty sandbox', () => {
+  it('script emits the synthetic section header even with empty sandbox', (ctx) => {
     // Verifies priority-score.sh line ~207:
     //   echo "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="
     const sandbox = makeSandbox();
     setupPromptsDir(sandbox, []);
 
-    const r = runHelper(sandbox);
+    const r = runHelper(ctx, sandbox);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/=== priority-score: synthetic candidates/);
   });

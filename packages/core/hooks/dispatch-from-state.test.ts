@@ -26,7 +26,7 @@
  * T-M4-B compliance: asserts both exit code AND stdout/stderr content marker.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -59,11 +59,13 @@ function makeSandbox(): { sandbox: string; stateFile: string; kickoffDir: string
 }
 
 function runHelper(
+  ctx: Skippable,
   umbrella: string,
   envOverrides: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
   const args = umbrella === '' ? [HELPER] : [HELPER, umbrella];
-  const r = spawnSync('bash', args, {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', args, {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -82,12 +84,12 @@ function writeKickoff(kickoffDir: string, umbrella: string, body: string): strin
 }
 
 describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negative contract)', () => {
-  it('NO-ARG: empty umbrella → emits state header + "no umbrella arg" line, exit 0', () => {
+  it('NO-ARG: empty umbrella → emits state header + "no umbrella arg" line, exit 0', (ctx) => {
     // Targets emit_kickoff_section no-arg branch (dispatch-from-state.sh §emit_kickoff_section:
     // `if [[ -z "${UMBRELLA}" ]]; then echo "(no umbrella arg ...)"`).
     const { stateFile, kickoffDir } = makeSandbox();
 
-    const r = runHelper('', {
+    const r = runHelper(ctx, '', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });
@@ -97,12 +99,12 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
     expect(r.stdout).toContain('no umbrella arg');
   });
 
-  it('FRESH-STATE: state file missing → emits "(no dispatch state — fresh session)", exit 0', () => {
+  it('FRESH-STATE: state file missing → emits "(no dispatch state — fresh session)", exit 0', (ctx) => {
     // Targets emit_state_section fresh-state branch (dispatch-from-state.sh §emit_state_section:
     // `if [[ ! -f "${STATE_FILE}" ]]; then echo "(no dispatch state — fresh session ...)"`).
     const { stateFile, kickoffDir } = makeSandbox();
 
-    const r = runHelper('some-umbrella', {
+    const r = runHelper(ctx, 'some-umbrella', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });
@@ -110,7 +112,7 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
     expect(r.stdout).toMatch(/no dispatch state.*fresh session/);
   });
 
-  it('STATE-PRESENT: valid state JSON → emits winner_id + sub_wave_state from file', () => {
+  it('STATE-PRESENT: valid state JSON → emits winner_id + sub_wave_state from file', (ctx) => {
     // Targets emit_state_section jq-extraction branch (dispatch-from-state.sh §emit_state_section:
     // `winner=$(jq -r '.winner_id // "(unset)"' "${STATE_FILE}")`).
     const { stateFile, kickoffDir } = makeSandbox();
@@ -120,7 +122,7 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
       'utf8',
     );
 
-    const r = runHelper('any-umbrella', {
+    const r = runHelper(ctx, 'any-umbrella', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });
@@ -129,14 +131,14 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
     expect(r.stdout).toMatch(/sub_wave_state:\s*A:GO,B:REVISE/);
   });
 
-  it('KICKOFF-FOUND: umbrella with existing kickoff → emits header with line count + body content', () => {
+  it('KICKOFF-FOUND: umbrella with existing kickoff → emits header with line count + body content', (ctx) => {
     // Targets emit_kickoff_section kickoff-present branch (dispatch-from-state.sh §emit_kickoff_section:
     // `echo "kickoff: ${kickoff} ($(wc -l < ...) lines)"` + `head -120 "${kickoff}"`).
     const { stateFile, kickoffDir } = makeSandbox();
     const body = ['# Umbrella foo', 'Body line A', 'Body line B'].join('\n');
     writeKickoff(kickoffDir, 'foo', body);
 
-    const r = runHelper('foo', {
+    const r = runHelper(ctx, 'foo', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });
@@ -147,12 +149,12 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
     expect(r.stdout).toContain('Body line B');
   });
 
-  it('MISSING-KICKOFF: umbrella with no kickoff dir → emits "MISSING kickoff: <path>"', () => {
+  it('MISSING-KICKOFF: umbrella with no kickoff dir → emits "MISSING kickoff: <path>"', (ctx) => {
     // Targets emit_kickoff_section missing-kickoff branch (dispatch-from-state.sh §emit_kickoff_section:
     // `if [[ ! -f "${kickoff}" ]]; then echo "MISSING kickoff: ..."`).
     const { stateFile, kickoffDir } = makeSandbox();
 
-    const r = runHelper('nonexistent-umbrella', {
+    const r = runHelper(ctx, 'nonexistent-umbrella', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });
@@ -160,14 +162,14 @@ describe('dispatch-from-state.sh — §3 dispatch-context emitter (paired-negati
     expect(r.stdout).toMatch(/MISSING kickoff:.*nonexistent-umbrella/);
   });
 
-  it('CORRUPT-STATE: state file is invalid JSON → stderr warning, exit 0, kickoff section continues', () => {
+  it('CORRUPT-STATE: state file is invalid JSON → stderr warning, exit 0, kickoff section continues', (ctx) => {
     // Targets emit_state_section corrupt-state branch (dispatch-from-state.sh §emit_state_section:
     // `if ! jq empty "${STATE_FILE}" 2>/dev/null; then echo "(state file corrupt ...)" >&2`).
     const { stateFile, kickoffDir } = makeSandbox();
     writeFileSync(stateFile, '{ this is not json }', 'utf8');
     writeKickoff(kickoffDir, 'bar', '# Bar umbrella body');
 
-    const r = runHelper('bar', {
+    const r = runHelper(ctx, 'bar', {
       MO_STATE_FILE: stateFile,
       MO_KICKOFF_DIR: kickoffDir,
     });

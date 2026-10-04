@@ -1790,7 +1790,7 @@ describe(
     // packages/core/synthesizer/ (3 levels) in the framework; a fixed ../../.. root pointed ABOVE a
     // consumer's root → always exit 2 (npm lane theatre). git-toplevel fixes it. Cheapest catch:
     // with NO manifest, the die() must cite the manifest path INSIDE this sandbox, not two levels up.
-    it('S5 mutation-root — run-generated-rule-mutation.sh at consumer scripts/ depth resolves the sandbox root', () => {
+    it('S5 mutation-root — run-generated-rule-mutation.sh at consumer scripts/ depth resolves the sandbox root', (ctx) => {
       const dir = mkdtempSync(join(tmpdir(), 'prepush-mutroot-'));
       sandboxes.push(dir);
       mkdirSync(join(dir, 'scripts'), { recursive: true });
@@ -1806,7 +1806,8 @@ describe(
 
       // No manifest present → die() exit 2 citing the manifest path. With the fix that path is
       // INSIDE the sandbox (git root); a regression to ../../.. would cite a path two levels above.
-      const r = spawnSync('bash', ['scripts/run-generated-rule-mutation.sh'], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const r = spawnBashOrSkip(ctx, 'bash', ['scripts/run-generated-rule-mutation.sh'], {
         cwd: dir,
         encoding: 'utf8',
       });

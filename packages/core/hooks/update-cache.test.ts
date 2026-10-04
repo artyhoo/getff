@@ -26,7 +26,7 @@
  * T-M4-B compliance: asserts both exit code AND stderr diagnostic / stdout marker.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   mkdirSync,
@@ -64,12 +64,14 @@ function makeSandbox(): string {
 }
 
 function runHelper(
+  ctx: Skippable,
   sandbox: string,
   args: [string, string],
   envOverrides: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   const cachePath = join(sandbox, 'cache.md');
-  const r = spawnSync('bash', [HELPER, args[0], args[1]], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, args[0], args[1]], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -93,24 +95,24 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     mkdirSync(wtDir, { recursive: true });
     const canonCache = join(canonDir, '_plan-cache.md');
     // Seed the canonical file with a valid template (helper writes it fresh).
-    runHelper(sandbox, ['seed', 'seed'], { MO_CACHE_FILE: canonCache });
+    runHelper(ctx, sandbox, ['seed', 'seed'], { MO_CACHE_FILE: canonCache });
     const wtCache = join(wtDir, '_plan-cache.md');
     // file target: junctions cannot express it → named win32 skip (POSIX unchanged)
     symlinkOrJunctionOrSkip(ctx, canonCache, wtCache);
 
-    const r = runHelper(sandbox, ['umbrella-x', 'outcome-y'], { MO_CACHE_FILE: wtCache });
+    const r = runHelper(ctx, sandbox, ['umbrella-x', 'outcome-y'], { MO_CACHE_FILE: wtCache });
     expect(r.status).toBe(0);
     expect(lstatSync(wtCache).isSymbolicLink()).toBe(true); // symlink preserved
     expect(readFileSync(canonCache, 'utf8')).toMatch(/umbrella-x/); // written through to CANON
   });
 
-  it('FRESH-CACHE: missing file → exit 0, template written with filled `Last invocation`', () => {
+  it('FRESH-CACHE: missing file → exit 0, template written with filled `Last invocation`', (ctx) => {
     // Targets helper §write_initial_template + decision-tree branch `if [ ! -f ... ]` (line ~95).
     const sandbox = makeSandbox();
     const cachePath = join(sandbox, 'cache.md');
     expect(existsSync(cachePath)).toBe(false);
 
-    const r = runHelper(sandbox, ['skill-memory', 'fresh-cache smoke']);
+    const r = runHelper(ctx, sandbox, ['skill-memory', 'fresh-cache smoke']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/fresh cache written/);
     expect(existsSync(cachePath)).toBe(true);
@@ -132,12 +134,12 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     expect(body).toContain('- Session outcome: fresh-cache smoke');
   });
 
-  it('IDEMPOTENT: pre-existing file → only the 4 `Last invocation` fields change; other sections preserved verbatim', () => {
+  it('IDEMPOTENT: pre-existing file → only the 4 `Last invocation` fields change; other sections preserved verbatim', (ctx) => {
     // Targets helper §update_existing awk state-machine (line ~115).
     const sandbox = makeSandbox();
 
     // First invocation: bootstrap.
-    runHelper(sandbox, ['umbrella-A', 'outcome A']);
+    runHelper(ctx, sandbox, ['umbrella-A', 'outcome A']);
 
     // Manually edit a non-«Last invocation» section to prove preservation.
     const cachePath = join(sandbox, 'cache.md');
@@ -150,7 +152,7 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     // Second invocation with different args + different timestamp / SHA.
     const NEW_TS = '2026-05-25T23:00:00Z';
     const NEW_SHA = 'def5678';
-    const r2 = runHelper(sandbox, ['umbrella-B', 'outcome B'], {
+    const r2 = runHelper(ctx, sandbox, ['umbrella-B', 'outcome B'], {
       MO_TIMESTAMP: NEW_TS,
       MO_GIT_HEAD: NEW_SHA,
     });
@@ -171,7 +173,7 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     expect(after).toContain('DRIFT-manual-edit: this line MUST survive');
   });
 
-  it('MALFORMED: file missing `## Last invocation` header → exit 1 + stderr diagnostic + .broken rename', () => {
+  it('MALFORMED: file missing `## Last invocation` header → exit 1 + stderr diagnostic + .broken rename', (ctx) => {
     // Targets helper malformed-detection branch (line ~120, `if ! grep -q`).
     const sandbox = makeSandbox();
     const cachePath = join(sandbox, 'cache.md');
@@ -180,14 +182,14 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     // only the literal section-header line is replaced — the prose blockquote on line ~3
     // contains the substring `## Last invocation` inline; helper's grep is line-anchored
     // (`grep -q '^## Last invocation$'`) so the bare-string replace would miss the real target.
-    runHelper(sandbox, ['umbrella-A', 'outcome A']);
+    runHelper(ctx, sandbox, ['umbrella-A', 'outcome A']);
     const bad = readFileSync(cachePath, 'utf8').replace(
       /^## Last invocation$/m,
       '## BORKED',
     );
     writeFileSync(cachePath, bad, 'utf8');
 
-    const r = runHelper(sandbox, ['umbrella-X', 'outcome X']);
+    const r = runHelper(ctx, sandbox, ['umbrella-X', 'outcome X']);
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/cache corrupt — missing '## Last invocation' header/);
     expect(r.stderr).toMatch(/renamed to .*\.broken\.[\d-T]+Z?\.md/);
@@ -199,11 +201,12 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     expect(brokenFiles).toHaveLength(1);
   });
 
-  it('BOUNDARY: invocation with wrong arg count → exit 2 + usage diagnostic', () => {
+  it('BOUNDARY: invocation with wrong arg count → exit 2 + usage diagnostic', (ctx) => {
     // Targets helper arg-count check (line ~43, `if [ "$#" -ne 2 ]`).
     const sandbox = makeSandbox();
     const cachePath = join(sandbox, 'cache.md');
-    const r = spawnSync('bash', [HELPER, 'only-one-arg'], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HELPER, 'only-one-arg'], {
       encoding: 'utf8',
       env: {
         ...process.env,

@@ -29,7 +29,7 @@
  * T-M4-B compliance: asserts both exit code AND stderr diagnostic / stdout marker.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   mkdirSync,
@@ -69,11 +69,13 @@ function makeSandbox(): string {
 }
 
 function runHelper(
+  ctx: Skippable,
   deltaPath: string,
   args: [string, string],
   envOverrides: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, args[0], args[1]], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, args[0], args[1]], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -94,25 +96,25 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     mkdirSync(canonDir, { recursive: true });
     mkdirSync(wtDir, { recursive: true });
     const canonDelta = join(canonDir, '_master-backlog-delta.json');
-    runHelper(canonDelta, ['seed', 'seed']); // fresh template into canon
+    runHelper(ctx, canonDelta, ['seed', 'seed']); // fresh template into canon
     const wtDelta = join(wtDir, '_master-backlog-delta.json');
     // file target: junctions cannot express it → named win32 skip (POSIX unchanged)
     symlinkOrJunctionOrSkip(ctx, canonDelta, wtDelta);
 
-    const r = runHelper(wtDelta, ['umbrella-x', 'outcome-y']);
+    const r = runHelper(ctx, wtDelta, ['umbrella-x', 'outcome-y']);
     expect(r.status).toBe(0);
     expect(lstatSync(wtDelta).isSymbolicLink()).toBe(true); // symlink preserved
     expect(() => JSON.parse(readFileSync(canonDelta, 'utf8'))).not.toThrow(); // canon valid JSON
   });
 
-  it('FRESH-DELTA: missing file → exit 0, template written with all 4 schema keys + empty arrays + correct metadata', () => {
+  it('FRESH-DELTA: missing file → exit 0, template written with all 4 schema keys + empty arrays + correct metadata', (ctx) => {
     // Targets helper §write_initial_template + decision-tree branch `if [ ! -f ... ]`
     // (update-delta.sh lines ~68-72: write_initial_template + exit 0).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
     expect(existsSync(deltaPath)).toBe(false);
 
-    const r = runHelper(deltaPath, ['test-umbrella', 'smoke outcome']);
+    const r = runHelper(ctx, deltaPath, ['test-umbrella', 'smoke outcome']);
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/fresh delta written/);
     expect(existsSync(deltaPath)).toBe(true);
@@ -140,14 +142,14 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     expect(parsed.closed_since_last).toEqual([]);
   });
 
-  it('IDEMPOTENT: pre-existing file → ONLY metadata fields updated; arrays preserved verbatim', () => {
+  it('IDEMPOTENT: pre-existing file → ONLY metadata fields updated; arrays preserved verbatim', (ctx) => {
     // Targets helper §update_existing jq branch (update-delta.sh lines ~54-62:
     // update_existing function with `jq --arg ts --arg sha ...`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
 
     // Bootstrap fresh.
-    runHelper(deltaPath, ['u1', 'o1']);
+    runHelper(ctx, deltaPath, ['u1', 'o1']);
 
     // Manually inject array entries to prove preservation across re-invocations.
     const initial = JSON.parse(readFileSync(deltaPath, 'utf8')) as {
@@ -161,7 +163,7 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     writeFileSync(deltaPath, JSON.stringify(initial, null, 2), 'utf8');
 
     // Re-invoke with new timestamp/SHA.
-    const r2 = runHelper(deltaPath, ['umbrella-B', 'outcome B'], {
+    const r2 = runHelper(ctx, deltaPath, ['umbrella-B', 'outcome B'], {
       MO_TIMESTAMP: NEW_TS,
       MO_GIT_HEAD: NEW_SHA,
     });
@@ -193,17 +195,17 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     expect(after.last_check_git_head).not.toBe(FIXED_SHA);
   });
 
-  it('MALFORMED: file with invalid JSON → exit 1 + stderr diagnostic + .broken rename', () => {
+  it('MALFORMED: file with invalid JSON → exit 1 + stderr diagnostic + .broken rename', (ctx) => {
     // Targets helper malformed-detection branch (update-delta.sh lines ~74-82:
     // `if ! jq empty ...; then` → rename to .broken.*.json + exit 1).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
 
     // Bootstrap a valid file, then overwrite with invalid JSON.
-    runHelper(deltaPath, ['u1', 'o1']);
+    runHelper(ctx, deltaPath, ['u1', 'o1']);
     writeFileSync(deltaPath, '{ this is not json }', 'utf8');
 
-    const r = runHelper(deltaPath, ['u2', 'o2']);
+    const r = runHelper(ctx, deltaPath, ['u2', 'o2']);
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/delta corrupt — invalid JSON/);
     expect(r.stderr).toMatch(/renamed to .*\.broken\.[0-9T\-]+Z?\.json/);
@@ -218,13 +220,14 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     expect(brokenFiles).toHaveLength(1);
   });
 
-  it('BOUNDARY: invocation with wrong arg count → exit 2 + usage diagnostic, no file created', () => {
+  it('BOUNDARY: invocation with wrong arg count → exit 2 + usage diagnostic, no file created', (ctx) => {
     // Targets helper arg-count check (update-delta.sh lines ~43-46:
     // `if [ "$#" -ne 2 ]; then ... exit 2`).
     const sandbox = makeSandbox();
     const deltaPath = join(sandbox, 'd.json');
 
-    const r = spawnSync('bash', [HELPER, 'only-one-arg'], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HELPER, 'only-one-arg'], {
       encoding: 'utf8',
       env: {
         ...process.env,

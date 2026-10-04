@@ -22,7 +22,8 @@
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync, unlinkSync } from 'node:fs';
@@ -47,12 +48,13 @@ const JQ = hasJq();
  * Run the hook with a SubagentStop stdin payload.
  * Returns { exitCode, stdout, stderr }.
  */
-function runHook(payload: Record<string, unknown>): {
+function runHook(ctx: Skippable, payload: Record<string, unknown>): {
   exitCode: number;
   stdout: string;
   stderr: string;
 } {
-  const result = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const result = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
   });
@@ -164,8 +166,8 @@ const NON_REPORT_PROSE = [
 
 describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WARN (SSOT #108 candidate-3)', () => {
   // ── M2: positive-A — last_assistant_message path ──────────────────────────
-  it('positive-A (M2): warns to stderr when REPORT sections are missing via last_assistant_message', () => {
-    const result = runHook(payloadWithMessage('general-purpose', REPORT_MISSING_ATTN));
+  it('positive-A (M2): warns to stderr when REPORT sections are missing via last_assistant_message', (ctx) => {
+    const result = runHook(ctx, payloadWithMessage('general-purpose', REPORT_MISSING_ATTN));
 
     // T-108-A: MUST warn (not silent)
     expect(result.exitCode).toBe(0); // ALWAYS non-blocking
@@ -188,10 +190,10 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
   });
 
   // ── M3: positive-B — agent_transcript_path JSONL path ────────────────────
-  it('positive-B (M3): warns via agent_transcript_path JSONL when last_assistant_message is empty', () => {
+  it('positive-B (M3): warns via agent_transcript_path JSONL when last_assistant_message is empty', (ctx) => {
     const { payload, cleanup } = payloadWithTranscript('general-purpose', REPORT_MISSING_CONFIDENCE);
     try {
-      const result = runHook(payload);
+      const result = runHook(ctx, payload);
 
       // T-108-A: MUST warn (path 2 actually read the file)
       expect(result.exitCode).toBe(0); // ALWAYS non-blocking
@@ -211,8 +213,8 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
   });
 
   // ── Negative: complete REPORT → silent ───────────────────────────────────
-  it('negative: silent when REPORT has all required sections (VERIFY + Confidence + ATTN)', () => {
-    const result = runHook(payloadWithMessage('general-purpose', FULL_REPORT));
+  it('negative: silent when REPORT has all required sections (VERIFY + Confidence + ATTN)', (ctx) => {
+    const result = runHook(ctx, payloadWithMessage('general-purpose', FULL_REPORT));
 
     // T-108-A: MUST be silent (not warn on everything)
     expect(result.exitCode).toBe(0);
@@ -221,9 +223,9 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
   });
 
   // ── Negative-2: Explore agent_type → silent (noise guard) ────────────────
-  it('negative-2 (noise guard): silent for Explore agent_type even if output looks like a REPORT', () => {
+  it('negative-2 (noise guard): silent for Explore agent_type even if output looks like a REPORT', (ctx) => {
     // Explore is a read-only agent — no REPORT schema expected; hook must skip entirely.
-    const result = runHook(payloadWithMessage('Explore', REPORT_MISSING_ATTN));
+    const result = runHook(ctx, payloadWithMessage('Explore', REPORT_MISSING_ATTN));
 
     // T-108-A: MUST be silent (noise guard holds for Explore)
     expect(result.exitCode).toBe(0);
@@ -232,19 +234,19 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
   });
 
   // ── Additional: non-REPORT prose → silent (noise guard part 2) ───────────
-  it('silent for arbitrary prose containing the word "confidence" (noise guard part 2)', () => {
+  it('silent for arbitrary prose containing the word "confidence" (noise guard part 2)', (ctx) => {
     // The word "confidence" in prose must NOT trigger a warning.
     // Only "Confidence:" at line start (standalone label) should match.
-    const result = runHook(payloadWithMessage('general-purpose', NON_REPORT_PROSE));
+    const result = runHook(ctx, payloadWithMessage('general-purpose', NON_REPORT_PROSE));
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
   });
 
   // ── Exit code invariant ───────────────────────────────────────────────────
-  it('always exits 0 regardless of missing sections (WARN, never blocking)', () => {
+  it('always exits 0 regardless of missing sections (WARN, never blocking)', (ctx) => {
     // Even with all sections missing, exit MUST be 0 (non-blocking per maintainer decision).
-    const result = runHook(
+    const result = runHook(ctx, 
       payloadWithMessage('general-purpose', 'VERIFY:\nSomething checked.\n\nCommit: xyz')
     );
     expect(result.exitCode).toBe(0);
@@ -260,7 +262,7 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
 import { mkdtempSync as _mkdtempSync, rmSync as _rmSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
-import { spawnSync as _spawnSync } from 'node:child_process';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
@@ -272,13 +274,16 @@ describe('dependency-missing skip is announced on the model channel', () => {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     try {
       for (const tool of ['sed', 'tr', 'cat', 'grep', 'head']) {
-        const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+        // POSIX: byte-identical spawnSync pass-through; win32: named skip — no Git Bash can
+        // stand in for an absolute MSYS binary (#1799).
+        const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
         // tool binaries are files: junctions cannot express them → named win32 skip
         if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
       }
       const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
       delete env.ZCODE_PROJECT_DIR;
-      const r = _spawnSync('/bin/bash', [HOOK], {
+      // Absolute bash path: the masked PATH cannot resolve `bash` itself — win32 named skip (#1799).
+      const r = _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
         input: JSON.stringify({ agent_type: 'general-purpose', last_assistant_message: 'VERIFY: x' }),
         encoding: 'utf8',
         env,

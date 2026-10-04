@@ -47,6 +47,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, failLoudSkipContext } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   mkdirSync,
@@ -97,7 +98,15 @@ const SANDBOX = realpathSync(
 );
 
 function git(args: string, cwd = SANDBOX): string {
-  const r = spawnSync('bash', ['-c', `git ${args}`], { cwd, encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // Sandbox setup runs in beforeAll (no vitest ctx reaches here) — so the module-scope
+  // doctrine applies: an unreachable Git Bash resolution fails LOUD, never silent.
+  const r = spawnBashOrSkip(
+    failLoudSkipContext('check-docs-refresh sandbox git setup'),
+    'bash',
+    ['-c', `git ${args}`],
+    { cwd, encoding: 'utf8' },
+  );
   if (r.status !== 0)
     throw new Error(
       `git ${args} failed (rc=${r.status}): ${(r.stderr || r.stdout).trim()}`,

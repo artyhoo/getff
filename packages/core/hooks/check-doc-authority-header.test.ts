@@ -63,6 +63,7 @@ function writeRuleDoc(body: string, name = 'test-rule.md'): string {
 }
 
 function runHook(
+  ctx: Skippable,
   absPath: string,
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
@@ -75,7 +76,8 @@ function runHook(
     fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
   else if (env.ZCODE_PROJECT_DIR !== undefined)
     fullEnv.CLAUDE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: 'Edit',
       tool_input: { file_path: absPath },
@@ -93,26 +95,26 @@ function runHook(
 describe.skipIf(!JQ)(
   'check-doc-authority-header.sh - PostToolUse doc-authority gate (consumer)',
   () => {
-    it('PAIRED-POSITIVE: scoped rule WITH header line -> exit 0, silent', () => {
+    it('PAIRED-POSITIVE: scoped rule WITH header line -> exit 0, silent', (ctx) => {
       const abs = writeRuleDoc(
         `# R\n\n> **Authoritative for:** this rule's scope.\n`,
       );
-      const r = runHook(abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
+      const r = runHook(ctx, abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
       expect(r.status).toBe(0);
       expect(r.stdout).toBe('');
       expect(r.stderr).toBe('');
     });
 
-    it('CC: scoped rule WITHOUT header -> exit 2 + stderr diagnostic (PostToolUse feedback)', () => {
+    it('CC: scoped rule WITHOUT header -> exit 2 + stderr diagnostic (PostToolUse feedback)', (ctx) => {
       const abs = writeRuleDoc(`# R\n\nNo authority header here.\n`);
-      const r = runHook(abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
+      const r = runHook(ctx, abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('doc-authority');
       expect(r.stderr).toContain('Authoritative for');
       expect(r.stdout).toBe('');
     });
 
-    it('ZCODE: scoped rule WITHOUT header under ZCODE_PROJECT_DIR -> schema-valid {additionalContext} JSON, exit 0', () => {
+    it('ZCODE: scoped rule WITHOUT header under ZCODE_PROJECT_DIR -> schema-valid {additionalContext} JSON, exit 0', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` - unknown top-level keys are REJECTED (hook.run.failed, output
       // discarded). PostToolUse cannot block on ZCode (schema Uan rejects permissionDecision;
@@ -120,7 +122,7 @@ describe.skipIf(!JQ)(
       // exits 0 - advisory, the best available mechanism. Regression guard: catches a prior shape
       // that emitted `{hookEventName, additionalContext}` at top level (silently rejected).
       const abs = writeRuleDoc(`# R\n\nNo header.\n`);
-      const r = runHook(abs, { ZCODE_PROJECT_DIR: resolve(abs, '../../..') });
+      const r = runHook(ctx, abs, { ZCODE_PROJECT_DIR: resolve(abs, '../../..') });
       expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
       expect(r.stderr).toBe('');
       expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
@@ -153,21 +155,21 @@ describe.skipIf(!JQ)(
       ).toBeUndefined();
     });
 
-    it('off-path: a .md outside .claude/rules/ -> exit 0 (silent)', () => {
+    it('off-path: a .md outside .claude/rules/ -> exit 0 (silent)', (ctx) => {
       // Place a file OUTSIDE the rules scope (top-level of the repo, not .claude/rules/*.md).
       const repo = mkdtempSync(join(tmpdir(), 'dah-offpath-'));
       tmpRepos.push(repo);
       const abs = join(repo, 'random.md');
       writeFileSync(abs, `# R\nNo header.\n`, 'utf8');
-      const r = runHook(abs, { CLAUDE_PROJECT_DIR: repo });
+      const r = runHook(ctx, abs, { CLAUDE_PROJECT_DIR: repo });
       expect(r.status).toBe(0);
     });
 
-    it('per-file exemption: 20+ char reason HTML comment -> exit 0', () => {
+    it('per-file exemption: 20+ char reason HTML comment -> exit 0', (ctx) => {
       const abs = writeRuleDoc(
         `# R\n<!-- doc-authority: exempt this is a long enough reason to skip -->\n`,
       );
-      const r = runHook(abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
+      const r = runHook(ctx, abs, { CLAUDE_PROJECT_DIR: resolve(abs, '../../..') });
       expect(r.status).toBe(0);
     });
   },
@@ -184,6 +186,8 @@ import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
 import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import type { Skippable } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
@@ -205,7 +209,7 @@ describe('dependency-missing skip is announced on the model channel', () => {
     // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
       // tool binaries are files: junctions cannot express them → named win32 skip
       if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
@@ -215,7 +219,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
       TMPDIR: opts.tmpDir ?? _mkdtempSync(_join(_tmpdir(), 'dahsess-')),
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [HOOK], {
+    // POSIX: byte-identical pass-through; win32: Git Bash or named skip (#1799).
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({
         tool_name: 'Write',
         session_id: opts.sessionId ?? 'test-session',

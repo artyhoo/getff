@@ -25,6 +25,7 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -49,8 +50,9 @@ function sandbox(): string {
   return box;
 }
 
-function run(box: string): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('/bin/bash', [join(box, 'check-parity.sh')], {
+function run(ctx: Skippable, box: string): { status: number; stdout: string; stderr: string } {
+  // POSIX: byte-identical pass-through; win32: Git Bash resolution or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, '/bin/bash', [join(box, 'check-parity.sh')], {
     encoding: 'utf8',
     timeout: 15_000,
   });
@@ -68,28 +70,28 @@ function dropKey(box: string, pack: 'en.sh' | 'ru.sh', prefix: string): void {
 }
 
 describe('.claude/hooks/lang/check-parity.sh — en/ru pack parity (A3-7, E-5)', () => {
-  it('the shipped packs are in parity (exit 0 + an OK summary)', () => {
-    const r = run(sandbox());
+  it('the shipped packs are in parity (exit 0 + an OK summary)', (ctx) => {
+    const r = run(ctx, sandbox());
     expect(r.status, `check-parity failed on the live packs. stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/^OK: en\.sh and ru\.sh expose identical keys/m);
   });
 
-  it('PAIRED-NEGATIVE: a key dropped from ONE pack → exit 1 naming the key', () => {
+  it('PAIRED-NEGATIVE: a key dropped from ONE pack → exit 1 naming the key', (ctx) => {
     const box = sandbox();
     dropKey(box, 'ru.sh', 'AIF_STORY_MARKER=');
-    const r = run(box);
+    const r = run(ctx, box);
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/DRIFT: en\.sh and ru\.sh key sets differ/);
     expect(r.stderr).toContain('AIF_STORY_MARKER');
   });
 
-  it('A3-7: a key class absent from BOTH packs is parity, not a silent abort', () => {
+  it('A3-7: a key class absent from BOTH packs is parity, not a silent abort', (ctx) => {
     // The pre-fix script exited 1 here with empty stdout AND stderr, because the final bare
     // grep in keys() found nothing and set -e killed the assignment before any report.
     const box = sandbox();
     dropKey(box, 'en.sh', 'AIF_EOT_');
     dropKey(box, 'ru.sh', 'AIF_EOT_');
-    const r = run(box);
+    const r = run(ctx, box);
     expect(
       r.status,
       `exit ${r.status} with stdout="${r.stdout.trim()}" stderr="${r.stderr.trim()}" — ` +
@@ -98,7 +100,7 @@ describe('.claude/hooks/lang/check-parity.sh — en/ru pack parity (A3-7, E-5)',
     expect(r.stdout).toMatch(/^OK: en\.sh and ru\.sh expose identical keys/m);
   });
 
-  it('every drift verdict carries a diagnostic — no silent non-zero exit on any arm', () => {
+  it('every drift verdict carries a diagnostic — no silent non-zero exit on any arm', (ctx) => {
     // The property A3-7 violated, stated directly: a non-zero exit must always say why.
     const cases: Array<() => string> = [
       () => {
@@ -118,7 +120,7 @@ describe('.claude/hooks/lang/check-parity.sh — en/ru pack parity (A3-7, E-5)',
       },
     ];
     for (const mk of cases) {
-      const r = run(mk());
+      const r = run(ctx, mk());
       if (r.status !== 0) {
         expect(
           `${r.stdout}${r.stderr}`.trim(),
