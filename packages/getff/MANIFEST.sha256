@@ -4,7 +4,7 @@
 093d93f169d881090f3e714d1382fa817f44ef6928f2a51fbd96f1c916142f94  .claude/hooks/check-doc-authority.sh
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 90092596a61ad6c640521952d2650c18d4ac603c6c709fea3cf96a8ea2da9ad6  .claude/hooks/check-kickoff-traps.sh
-8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
+57f602afb603627efdbaaf4b0c0a5484a8c3d2a2fd8a5d15cb8e650e94928dc5  .claude/hooks/check-worker-dispatch-channel.sh
 10b6d422e95b051d6fd697f16b77453f81a8ba1870e2dbf18fc88a0bb047170d  .claude/hooks/close-aif-task-on-merge.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
 ab3242e2265192215a9f2953a92463f05cb9c9d49990873d6189b20b9e20ebe5  .claude/hooks/end-of-turn-reminder.sh
@@ -32,11 +32,11 @@ fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-f738303a47914734b9c3098ff257beaa3ced934fb3c20e80397812098cc892fe  .claude/skills/aif-doctor/SKILL.md
+45cd0d262652f503db76766a599b9d21ca61ce51e65795e375f677ba0e3c5be6  .claude/skills/aif-doctor/SKILL.md
 a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016  .claude/skills/aif-doctor/helpers/aif-agent-target.sh
 b5cfb0b1f61438ef1db8489a002e2bcd429488d975beee008500354e097268c3  .claude/skills/aif-doctor/helpers/heal.sh
 516a561d50d3b8b897c62d71c264f519a935a986cb643049b9c0b3ce9f865289  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-0e6a93f44e697dcc0311dbfecd7c0e02c94305abcad90f0c32141945edf1cfde  .claude/skills/arch/SKILL.md
+e826aacaa4092ffc44b9770d56fe835171b14c3233b3be2b917c57e534dfa036  .claude/skills/arch/SKILL.md
 dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills/arch/references/ADR-FORMAT.md
 97c7ffe11168c61055acc8611b932277323dd1a8ea07ade81d6538006e5d4e9f  .claude/skills/arch/references/CONTEXT-FORMAT.md
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
@@ -61,7 +61,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
 202cbbf3ab5507e5a6ff7f36a991074ff1e9898beaa0b0ca8e202ada293c3adf  .claude/skills/harvest/SKILL.md
-ecfed81465d36cea44f2670a158e02e507b2ed26a33a4f04a88e00ddd61f770a  .claude/skills/night-mode/SKILL.md
+8412ec6d59a29d10f902027f6ab44acb1fc5e13d677105842aaa69aba2499ab1  .claude/skills/night-mode/SKILL.md
 d84b996b1e5d45acb4bdf65766a2a7c4aa9f883549e9ee2adb10a2744a23f602  .claude/skills/orchestrator/SKILL.md
 8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .claude/skills/orchestrator/helpers/memory-sweep.sh
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
@@ -75,7 +75,7 @@ efd5e33d0a62739e9658397de2c66a4285f295ef4bf43e4a194c8c9da782618b  .claude/skills
 4d389a8d92b932bd5be759ad23c44a0042272ae490d366c3680398db1c401d84  .claude/skills/orchestrator/references/rationale.md
 253b16cf17c2f1f10bc1765509ab46b18dd6070392cf7bd22a82ecf55ecfa15d  .claude/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-acbec522955b089ee307aed47d17a2681eb8574ce003218954ff5eceaa98945f  .claude/skills/pipeline/SKILL.md
+85ac4ae57ebdda1dcfb56ebf77f2803acd3a5c75507d702631727a38d7f10cbc  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -118,7 +118,7 @@ b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .claude/skills
 4e486bc946569e260c8d317820982de335008fcb90329addc5a4f171def92543  .claude/skills/pipeline/references/frontier.md
 f426e6aad305ab14d81f8826bedf49004231b4bbddc1a6300eb4a65eee726ffc  .claude/skills/pipeline/references/master-backlog-delta.md
 c605506b6c8e1b51c06d0014d001ff0039de82989200d134234b25c40866f3a4  .claude/skills/pipeline/references/mode-overrides.md
-c0a7ec9444a8164a51e57b5453851956da1494878f7f0f19d278bde7de1714d1  .claude/skills/pipeline/references/output-format.md
+ea3e30f03709720abeaa460051e433457aac5df494f8e717e46497a5e3cc630c  .claude/skills/pipeline/references/output-format.md
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 58c944577f6ce73ab879fe4c417b4473d53250ba044c3c03f4a0bad187be4362  .claude/skills/pipeline/references/plain-language-tail.md
 8d4be77096e7e5af3ad7ab095386429618b6f382f9edcd88d49dcffbf7ad177e  .claude/skills/pipeline/references/plan-cache.md
@@ -457,7 +457,7 @@ e17af43db948bcf554c9eef3e3851ff9a4af8be67d7689276bd214f1abaeee7b  packages/core/
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
 fd8b39b7fec3181e1e6396bd776330c7129ed0398e1b6797064d1746da3fd962  packages/core/hooks/check-kickoff-traps.test.ts
 a29967a291be5f5007a68a31bef794d2f82b318051e1eb136baa753c006abb0e  packages/core/hooks/check-skill-drift.test.ts
-f3bdecac9669f2f4b05fd8156d8d7888e4ef8e9869359f65c873dd988230aed4  packages/core/hooks/check-worker-dispatch-channel.test.ts
+0dc5acd01aa3e76007b077fdf4bcf013207aa666fddb2b3f9924aacbe7343f90  packages/core/hooks/check-worker-dispatch-channel.test.ts
 2f16b33894047aba70b3e251e7df26e52ef2148fa331c79c0aebedebe2eb1c72  packages/core/hooks/checks/cmd-script-liveness.test.ts
 6496993b046aba89ecb3a6d641944f5843ffafe2961e3d3627575ee8366ffacc  packages/core/hooks/checks/cmd-script-liveness.ts
 1b73508c5f4475a388b96bf35a75aa8721e62d324a92f67a3f89ffcea796a1c6  packages/core/hooks/checks/docs-card.test.ts
@@ -663,9 +663,9 @@ b5b4fff163300be53f6f7f923edbe459eaf6edefdb5488b4884d99a84dd29b37  packages/core/
 b246074354608041b4f6a43bb6c0c0b2c159f41965eddaeb6ed77d2b86fc257c  packages/core/principles/26-template-selector-sync.test.ts
 769829f4c5cc05feb09a6f287d39130c8650f930ca68d894d3ad144a5c199ef4  packages/core/principles/27-prepush-copylist-complete.test.ts
 c5685907dcf062acb24fb6b6a79f0116aa65d0408bee487df2e4ce6ba27e58dd  packages/core/principles/28-synth-wire-oracle.test.ts
-7fbd04cf57c4da12a9a5e7802f03619b019ad268bde87f28643655ce3a530a6e  packages/core/principles/29-worker-dispatch-channel.bin.ts
-a8a34d12ced4ba6556a02571d2d11f6b59178865c2f964794b678507f1c99d76  packages/core/principles/29-worker-dispatch-channel.test.ts
-a9c8f15627c634ff69fd46caff81f2f6de305d42f4930075ccbd7d67214480ab  packages/core/principles/29-worker-dispatch-channel.ts
+0e04051e71eef931ff5a5641ab88de8ff15ea596b0a8468a44f756ae8778464c  packages/core/principles/29-worker-dispatch-channel.bin.ts
+6f7e8f3effe3debf9ff37dbf69f104336beceac6a65f0ee703f31521416694b8  packages/core/principles/29-worker-dispatch-channel.test.ts
+9dd608356b4b017beb6601e2fd792ebc227b73c54e06409336957bb4e56d4ead  packages/core/principles/29-worker-dispatch-channel.ts
 c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/principles/30-research-source-trust.test.ts
 9f9aa03c0b7bca898889c9727534b2afad0ba18d662395ca3ec3f7b4ae093906  packages/core/principles/31-rule-channel-declaration.test.ts
 28d1f84033b4d5eaf2441c8b56b4db068cc6e70643b3a3af5586cb75b28733fc  packages/core/principles/31-rule-channel-declaration.ts
@@ -701,6 +701,7 @@ a24f2f5c5a67d2931139b1b679e6e912d01f79fed882b819594725c810d191b5  packages/core/
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
+b772b5c987bcd17dcd8a266ebbe6cf093fa2bf4c93a1f175daf53575f092f46d  packages/core/principles/fixtures/29-corpus-verdicts.json
 3c09aa8215a55a5d138a3e6b22542ae5bc4e0cd10754eefe6604e6f28dfdb666  packages/core/principles/fixtures/adapter-jig/marker-fixture.txt
 6fff931f3d893d6ddec216ae2c96cd2cd181a09a77293b77e8ee6acd2fecdf9c  packages/core/principles/fixtures/rule-channel/dangling-channel-exception.md
 03b85b04b7861c2d33b455cc1a2170fd4869aa990b29b4adee6be648741e466f  packages/core/principles/fixtures/rule-channel/dead-glob.md
