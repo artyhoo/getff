@@ -155,7 +155,7 @@ Evidence column cites the artefact that decides the claim (T3: file:line + conte
 | L10 | :133-160 | operational conventions (merge policy, merge-forward recipe, 600-line gate, probe-inflight script) | probe-inflight.sh present; 600-line gate live | TRUE |
 | L11 | :162-170 | WorktreeCreate NOT registered in settings.json (deny rule) | verified: no WorktreeCreate key; permissions.deny carries Edit/Write settings.json | TRUE |
 
-### Shipped templates (packages/core/templates/shared/*, 30 claims)
+### Shipped templates — the 5 literal `packages/core/templates/shared/*.md` files (30 claims + 1 template-delivery cross-check X01, counted separately in §5; 31 table rows)
 
 | # | file:line | claim | Truth-side evidence | Verdict |
 |---|---|---|---|---|
@@ -219,6 +219,67 @@ R51 «verified May 6 2026») stay **in** the table as dated rows — they claim 
 which is checkable as a statement, not re-run. **Denominator:** 154 table rows, of which **153 are capability claims** — R43 carries the
 `NON-CLAIM` label and is excluded from it.
 
+## §2b T4 counter-prompt — the category sweep (run, not designed)
+
+> **Provenance (2026-10-04 rework):** the V1 report shipped with plan task #3 checked and zero
+> trace of this sweep — the exact `#trap-stated-but-not-enforced` shape (ai-laziness-traps.md §4).
+> The gap in this lane's own first pass is recorded here rather than papered over.
+
+**The counter-prompt as run** (kickoff T4: «which *class* of claim did I not enumerate at all?
+Write it, run it, record what it surfaced»): *«§0's surface list names root docs, every
+`templates/shared/*.md`, and every `Authoritative-for` header — which kinds of shipped prose
+artefact does that enumeration's own glob silently exclude?»*
+
+**Commands + outputs (T3):**
+
+```text
+$ ls -1 packages/core/templates/shared/*.md
+packages/core/templates/shared/AI-USAGE-GUIDE.md
+packages/core/templates/shared/ARCHITECTURE.ts-server.md
+packages/core/templates/shared/DESCRIPTION.template.md
+packages/core/templates/shared/integration-rules.md
+packages/core/templates/shared/tier-home.md
+
+$ find packages/core/templates/shared -name '*.md' | sort
+packages/core/templates/shared/AI-USAGE-GUIDE.md
+packages/core/templates/shared/ARCHITECTURE.ts-server.md
+packages/core/templates/shared/DESCRIPTION.template.md
+packages/core/templates/shared/integration-rules.md
+packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md
+packages/core/templates/shared/skill-context/aif-review/SKILL.md
+packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md
+packages/core/templates/shared/tier-home.md
+```
+
+- **Literal `*.md` population: 5/5 covered** — AI-USAGE-GUIDE → U01-U14, ARCHITECTURE.ts-server →
+  H01-H05, DESCRIPTION.template.md → D01-D05, integration-rules → IR01-IR07, tier-home → T01-T06;
+  nested `skill-context/*/SKILL.md`: 3/3 covered (S01-S06). The remaining non-`.md` files are
+  configs, scripts and data (`tsconfig*.json`, `.lintstagedrc.json`, `.prettierignore`, `.nvmrc`,
+  `gitignore`, `husky-*.sh`, `first-steps.source.json`) — not prose claim surfaces.
+- **The excluded class: the `.template` root-doc twins** (`AGENTS.md.template`,
+  `CLAUDE.md.template`) — what consumers actually receive (`setup.d/30-templates.sh:112` installs
+  the consumer `AGENTS.md` from the template). Not `*.md`, so §0's named population excludes them;
+  diffed against the audited operator-side rows anyway rather than silently dropped:
+  - `CLAUDE.md.template` (36 lines vs operator CLAUDE.md 170) is a pointer by design — «this file
+    contains no rules — only pointers» (`:8`) — so **L01-L11 have no counterpart to transfer**;
+    its own small claim set (unconditional `audit-ai-docs.sh`, pre-push limited to getff's checks,
+    `ci-success` required check) mirrors already-decided R19/R20. Nothing lies.
+  - `AGENTS.md.template` (138 lines vs operator AGENTS.md 110): **A01-A03 substance present and
+    consistent** (header `:6`; universal format `:4`; CC-only auto-activation `:82`/`:90`);
+    **A04-A05 do not transfer** — they are operator-side claims with no twin counterpart, and the
+    twin makes no equivalent claim about a rule-index block or per-backend demos.
+- **What the sweep surfaced — same-class defect instances living in the twin:**
+  - `AGENTS.md.template:126` — «ESLint 10 flat config — `eslint.config.mjs`» vs
+    `setup.d/70-deps.sh:207` `eslint@^9 typescript-eslint@^8.59 @eslint/js@^9` — the F1 class,
+    on the second surface that carries it.
+  - `AGENTS.md.template:84` — «plus 5 reference docs in `references/`» vs six on disk
+    (`ls skills/getff/references/` → ai-traps, base-core, checks-map, doc-organization, overview,
+    self-testing-docs) — the F10 class.
+- **Scope disposition (no PARK fired):** the twins are not `*.md`, so the bound is §0's own text,
+  not a judgment call. The two instances are recorded verbatim above and cross-referenced from
+  F1/F10; they are **not** counted in the 153/152 denominators. Widening the population to the
+  twins is the triage pass's decision, not this lane's.
+
 ## §3 Findings (non-BY-DESIGN, most severe first)
 
 No finding required the BY-DESIGN route, so no `cited-spec-addenda.sh VERDICT:` line is carried
@@ -243,6 +304,9 @@ corpus self-contradicts.
 **Before:** `**Lint:** ESLint 10 flat config + typescript-eslint/strictTypeChecked + Prettier` /
 **After:** `**Lint:** ESLint 9 flat config + typescript-eslint/strictTypeChecked + Prettier`.
 **Before:** `Stryker 8 (mutation incremental)` / **After:** `Stryker 9 (mutation incremental)`.
+Same-class instance also shipped: the consumer twin `AGENTS.md.template:126` carries the identical
+«ESLint 10» sentence (§2b) — a triage that fixes only `DESCRIPTION.template.md` leaves the lie live
+on the AGENTS surface.
 
 ### F2 · HIGH · DOC-LIES — three mutually inconsistent agent rosters; the truth is 12
 
@@ -370,14 +434,15 @@ README.md:104-108 and INSTALL-FOR-AI.md:396 enumerate/check «5 references»; `s
 holds six (`ai-traps, base-core, checks-map, doc-organization, overview, self-testing-docs`) —
 `base-core.md` is unlisted. **Consumer consequence:** minor; a consumer diffing delivered files
 against the roster sees an unexplained extra file. **Before:** 5 refs list as-is / **After:** add
-`base-core.md — the R1–R20 rule base and layer model` (or drop the count).
+`base-core.md — the R1–R20 rule base and layer model` (or drop the count). Same-class instance also
+shipped: `AGENTS.md.template:84` repeats the «5 references» count (§2b).
 
 ## §4 The gate — run it, quote command + output (kickoff §4)
 
 | # | Gate | Command / evidence | Output / result |
 |---|---|---|---|
-| 1 | population enumerated with file:line before any verdict (T10) | full reads of all 12 surfaces (transcript) + `ls skills/getff/references/` (6 files), `ls agents/*.md` (21 files), census `jq` class/delivery reads | §1+§2 table: `grep -c "^| R\|^| I[0-9]…"` over the report = **154 rows**; enumerated before verdicts were written; 153 capability claims + 1 NON-CLAIM (§1a) |
-| 2 | every claim has a verdict; none silently dropped | table rows R01-R55, I01-I27, A01-A05, C01-C10, L01-L11, U01-U14, T01-T06, H01-H05, D01-D05, X01, IR01-IR07, S01-S06, AH1-AH2 | `sed -E 's/\|[[:space:]]*$/' report-v1.md \| awk -F'|' … {if (v=="") print "EMPTY"; else c++} END {print "rows-with-verdict=" c}` → **`rows-with-verdict=154`**, zero EMPTY; ID-uniq grep = 154, no duplicate IDs |
+| 1 | population enumerated with file:line before any verdict (T10) | full reads of all 12 surfaces (transcript) + `ls skills/getff/references/` (6 files), `ls agents/*.md` (21 files), census `jq` class/delivery reads | §1+§2 table: full runnable grep in the fence below → **154 rows**; enumerated before verdicts were written; 153 capability claims + 1 NON-CLAIM (§1a) |
+| 2 | every claim has a verdict; none silently dropped | table rows R01-R55, I01-I27, A01-A05, C01-C10, L01-L11, U01-U14, T01-T06, H01-H05, D01-D05, X01, IR01-IR07, S01-S06, AH1-AH2 | both full runnable pipelines in the fence below → `154` rows + **`rows-with-verdict=154`**, zero EMPTY; ID-uniq grep = 154, no duplicate IDs |
 | 3 | every finding cites the falsifying artefact with the line's actual content (T3) | quoted contents in F1-F10 (e.g. `70-deps.sh:207 eslint@^9…`; `.golangci.yml:1` verbatim; `dependency-cruiser.mjs:177-179` comment text) | 9/9 findings carry file:line + actual content |
 | 4 | backend-capability claims decided against matrices, not prose | `jq -c '.cells' packages/core/backends/golangci/capability-matrix.json` → `{"syntax":{"status":"partial",…,"evidence":{"kind":"live-fired","date":"2026-08-06",…}},"type-aware":{"status":"no","refusedCode":"FF7001"},"dep-graph":{"status":"no","refusedCode":"FF7001"}}`; same read for astgrep/cargo/npm/ruff | A05 + R48 decided from matrices (golangci partial/no cells; cargo 1 partial / 2 no); no capability verdict taken from prose |
 | 5 | calibration instances (gate-5 honesty) | `grep -n "consumers DO get" .claude/hooks/inject-matching-rule.sh` → **rc=1, no match** (fixed on this branch, :54-73 honest no-op); `sed -n 1p packages/core/templates/go/.golangci.yml` → `# generated by getff go lane v0 — do not edit by hand` (**live** → F6) | both instances state-verified; no independent-discovery claim made (§0) |
@@ -390,10 +455,27 @@ against the roster sees an unexplained extra file. **Before:** 5 refs list as-is
 ```text
 $ bash scripts/cited-spec-addenda.sh docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md
 MARKER: …:545:## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
-VERDICT: AMENDED later=9 markers=1        (rc=0)
+VERDICT: AMENDED later=9 markers=1        (rc=2)
 
 $ bash scripts/cited-spec-addenda.sh packages/core/templates/shared/integration-rules.md
-VERDICT: AMENDED later=6 markers=0        (rc=0 — no addendum blesses the Check lines → F3 stays NOT-BUILT)
+VERDICT: AMENDED later=6 markers=0        (rc=2 — no addendum blesses the Check lines → F3 stays NOT-BUILT)
+```
+
+**Both rcs corrected in the 2026-10-04 rework** (V1 originally quoted rc=0 for both): the script's
+`exit 0` (`scripts/cited-spec-addenda.sh:174`) is the **CLEAN** path (`later=0` and `markers=0`);
+every `AMENDED` verdict exits **2** (`:177`) — re-measured with exit codes captured unpiped. The
+verdict lines and counts above were verbatim-correct; only the parenthesized rcs were wrong, and
+the load-bearing readings (markers=1 → the withdrawing addendum exists; markers=0 → nothing
+blesses the Check lines, so F3 stays NOT-BUILT) are unchanged.
+
+**Gate 1/2 row-count — full runnable pipelines (un-elided in the 2026-10-04 rework, re-run):**
+
+```text
+$ grep -cE '^\| [A-Z]+[0-9]+ ' .claude/orchestrator-prompts/consumer-truth-audit/report-v1.md
+154
+
+$ awk -F'|' '/^\| [A-Z]+[0-9]+ /{v=""; for(i=NF-1;i>1;i--){g=$i; gsub(/[[:space:]]/,"",g); if(g!=""){v=g; break}} if(v=="") print "EMPTY:" $2; else c++} END{print "rows-with-verdict=" c}' .claude/orchestrator-prompts/consumer-truth-audit/report-v1.md
+rows-with-verdict=154
 ```
 
 ## §5 Coverage
@@ -409,6 +491,9 @@ VERDICT: AMENDED later=6 markers=0        (rc=0 — no addendum blesses the Chec
 - R43 stays visible in its table under the NON-CLAIM label (§1a).
 - **T14 check:** 9 findings on 99% coverage — the corpus is *not* clean, and the finding rate is
   not extrapolated to the one undecided row (INCONCLUSIVE, not suspected-clean).
+- **§2b T4 sweep:** the `.template` root-doc twins are bounded outside the denominator (not
+  `*.md`, so outside §0's named population); their two surfaced instances are recorded in §2b and
+  cross-referenced from F1/F10, uncounted.
 
 ## §6 Self-falsification (T15) — what would prove this report wrong
 
@@ -444,6 +529,9 @@ VERDICT: AMENDED later=6 markers=0        (rc=0 — no addendum blesses the Chec
    quoted in gate 2 (bolded-cell count was actually 19); (e) an edit accident injected a
    malformed one-cell table line into §5 (the awk row count read 155 until it was removed).
    Reader falsification route: re-run the gate-2 awk and the R35/U14 greps.
+7. **§2b T4 population bound:** re-run the `ls`/`find` quoted in §2b — a sixth literal
+   `shared/*.md` or a third `.template` root-doc twin falsifies the population bound; the two twin
+   instances are falsified by the same greps as F1/F10.
 
 ## §7 Parked questions
 
