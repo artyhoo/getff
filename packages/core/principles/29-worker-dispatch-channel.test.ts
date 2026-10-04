@@ -136,6 +136,17 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
     expect(
       lineIsViolation('We dispatch the write-task Worker via the Agent tool at stage entry.'),
     ).toBe(true); // P4 — agent-subject declarative
+    // T19 cold review (own adversarial pass, same stage) measured two more false negatives
+    // against the first clause set — the regression guards for P5 and the P3 verb extension
+    // (29-worker-dispatch-channel.ts clause (e), second tuning round).
+    expect(
+      lineIsViolation('Use the Agent tool to spawn the implementation Worker (worktree).'),
+    ).toBe(true); // P5 — the imperative wrapper no line-anchored family reaches
+    expect(lineIsViolation('The write Worker is spawned via the Agent tool.')).toBe(true); // P3 — spawned
+    expect(lineIsViolation('The stage Worker is launched via the Agent tool.')).toBe(true); // P3 — launched
+    expect(
+      lineIsViolation('The implementation is delegated to a subagent via the Agent tool (write task).'),
+    ).toBe(true); // P3 — delegated (the cold reviewer's own third sample)
   });
 
   it('NEGATIVE (§5): a kickoff that hands a subagent a reading/review task PASSES', () => {
@@ -170,6 +181,31 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
         'The Worker has been dispatched via the Agent tool twice before — both incidents are in the spec.',
       ),
     ).toBe(false);
+  });
+
+  it('T19 cold review round 2: the «use the Agent tool to …» wrapper fires, its prohibition stays silent, a review Worker passes', () => {
+    // MAJOR-1 — the imperative wrapper defeats every line-anchored family; the corpus's
+    // own idiom (slow-test-triage kickoff :296) proves the shape is attested, not contrived.
+    expect(
+      lineIsViolation('Use the Agent tool to spawn the implementation Worker (worktree).'),
+    ).toBe(true);
+    // A kickoff PROHIBITING the launch is compliant — and the silence must come from P5's
+    // negation guard, not clause (c): this line carries no read-only wording at all.
+    const prohibition = 'Do NOT use the Agent tool to spawn the write Worker in a worktree.';
+    expect(lineIsViolation(prohibition)).toBe(false);
+    expect(READONLY_CONTEXT_RE.test(prohibition)).toBe(false);
+    // Markdown emphasis between the negator and the verb must not defeat the guard —
+    // this is the corpus line's shape minus its read-only tail.
+    expect(
+      lineIsViolation('- Do NOT **use the Agent tool to dispatch a Worker** session for the write task.'),
+    ).toBe(false);
+    // MINOR-2 — a read-only review Worker dispatch is tenet-1 legitimate, and the escape
+    // token is NOT what exempts it (clause (c) carries it).
+    const reviewWorker = 'Spawn a review Worker via the Agent tool to check the plan.';
+    expect(lineIsViolation(reviewWorker)).toBe(false);
+    expect(ESCAPE_TOKEN_RE.test(reviewWorker)).toBe(false);
+    // The P3 verb extension keeps the past-tense history shapes silent.
+    expect(lineIsViolation('The Worker was spawned via the Agent tool last sprint.')).toBe(false);
   });
 
   it('blank / unrelated content never fires', () => {

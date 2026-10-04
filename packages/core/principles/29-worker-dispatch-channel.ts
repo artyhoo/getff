@@ -64,9 +64,10 @@ export const WRITE_WORKER_RE = /\bWorker\b|write[- ]task|dispatch.*Worker/;
 /**
  * Clause (c) — read-only / legitimate-channel context. A line carrying any of these
  * is meta-discussion or a legitimate read-only Agent dispatch, NOT a write-dispatch
- * instruction → excluded.
+ * instruction → excluded. `review Worker` added by the S5 T19 cold review (MINOR-2):
+ * the compound names the task, not a person, and the bare-`reviewer` spelling missed it.
  */
-export const READONLY_CONTEXT_RE = /read-only|reviewer|Phase -1|research subagent|text return/;
+export const READONLY_CONTEXT_RE = /read-only|reviewer|Phase -1|research subagent|text return|\breview\s+[Ww]orkers?\b/;
 
 /**
  * Clause (d) — the escape-hatch token (spec §2.4, DECISION-NEEDED (d) → Option A).
@@ -81,7 +82,7 @@ export const ESCAPE_TOKEN_RE = /<!--\s*channel-discipline:\s*allow/;
 /**
  * Clause (e) — the line PRESCRIBES the launch (D6 narrowing, 2026-10-04). A mention of the
  * Agent-tool write-dispatch channel is not a prescription; the gate fires on the DIRECTIVE.
- * Three signal families, kept line-anchored so third-person spec/teaching prose
+ * Six signal families, kept line-anchored so third-person spec/teaching prose
  * («a kickoff prescribing Agent-tool dispatch of a WRITE worker…») stays silent:
  *
  *   P1 — line-initial imperative dispatch verb (bullet / blockquote / numbered-list prefixes
@@ -92,11 +93,17 @@ export const ESCAPE_TOKEN_RE = /<!--\s*channel-discipline:\s*allow/;
  *        implement…), so «Run the tests» never fires while «Run the Worker via the Agent
  *        tool» does.
  *   P2 — modal + dispatch verb («must dispatch», «should spawn», «needs to run»…).
- *   P3/P3f — passive prescriptions: present «is/are dispatched», future «will be
+ *   P3/P3f — passive prescriptions: present «is/are dispatched/spawned/…», future «will be
  *        dispatched/run/executed» — a kickoff's plan statements ARE directives to the
  *        executor. Past forms («was/were/has been dispatched») are deliberately NOT
  *        covered: history notes stay silent.
  *   P4 — agent-subject declarative («we dispatch», «the orchestrator spawns»…).
+ *   P5 — «use the Agent tool to ⟨dispatch verb⟩» — the imperative wrapper that defeats
+ *        every line-anchored family above (the T19 cold-review MAJOR-1: the corpus's own
+ *        idiom is «use the Agent tool to dispatch a Worker», slow-test-triage kickoff :296).
+ *        Negation-guarded by a variable-length lookbehind: a kickoff PROHIBITING the launch
+ *        («Do NOT use the Agent tool to spawn…») is compliant, and the guard tolerates the
+ *        markdown emphasis markers the corpus puts between the negator and the verb.
  *
  * Tuning measurement (same discipline as clause (a)'s 8-FP drop): over the tracked
  * 430-file broad corpus the pre-narrowing matcher fired on exactly one line
@@ -105,7 +112,11 @@ export const ESCAPE_TOKEN_RE = /<!--\s*channel-discipline:\s*allow/;
  * in the S5 PR. The adversarial counter-prompt on the narrowing (T7, same stage) found the
  * first clause set let passive/declarative prescriptions through («The Worker is dispatched
  * via the Agent tool») — P3/P3f/P4 close that hole, re-measured corpus-clean, with the
- * past-tense history shapes still passing. The paired positives in
+ * past-tense history shapes still passing. A second adversarial round (T19 own cold review,
+ * same stage) found P3 covered only «dispatched» while P3f carried five verbs, and nothing
+ * covered the «use the Agent tool to …» wrapper — P5 + the P3 verb extension close both,
+ * re-measured corpus-clean (the one attested use-family line is a prohibition excluded by
+ * its own read-only wording AND by P5's negation guard). The paired positives in
  * 29-worker-dispatch-channel.test.ts prove the imperative write-worker prescription class
  * (with or without the words «umbrella stage») still fires.
  */
@@ -117,12 +128,18 @@ export const PRESCRIPTION_RE = new RegExp(
     String.raw`^\s*(?:>+\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:run|start)\s+(?:the\s+|a\s+|your\s+)?\w*(?:worker|subagent|dispatch|stage|implement)`,
     // P2 — modal + dispatch verb
     String.raw`\b(?:must|shall|should|needs?\s+to|has\s+to|is\s+to|are\s+to)\s+(?:\w+\s+){0,2}?(?:dispatch|spawn|launch|execute|run|start|be\s+dispatched|be\s+run|be\s+launched|be\s+spawned)\b`,
-    // P3 — present-passive prescription («the Worker is dispatched via the Agent tool»)
-    String.raw`\b(?:is|are)\s+(?:being\s+|then\s+|now\s+)?dispatched\b`,
+    // P3 — present-passive prescription («the Worker is dispatched/spawned/… via the Agent
+    // tool») — verb set mirrors P3f (T19 MAJOR-2: one verb over was a silent sibling)
+    String.raw`\b(?:is|are)\s+(?:being\s+|then\s+|now\s+)?(?:dispatched|spawned|launched|run|executed|delegated)\b`,
     // P3f — future-passive prescription («will be dispatched/run/executed»)
     String.raw`\bwill\s+be\s+(?:dispatched|spawned|launched|run|executed)\b`,
     // P4 — agent-subject declarative prescription
     String.raw`\b(?:we|the\s+(?:orchestrator|session|agent|meta-orchestrator))\s+(?:dispatch(?:es)?|spawn(?:s)?|launch(?:es)?|execute(?:s)?|run(?:s)?)\b`,
+    // P5 — «use the Agent tool to ⟨dispatch verb⟩» (T19 MAJOR-1 — the imperative wrapper no
+    // line-anchored family reaches). Negation-guarded: a prohibition («Do NOT use the Agent
+    // tool to spawn…») is compliant, and the guard's [\s*_]* gap tolerates markdown
+    // emphasis («Do NOT **use the Agent tool…»).
+    String.raw`(?<!\b(?:do\s+not|don['’]t|cannot|can['’]t|never|must\s+not|must\s+never|shall\s+not|should\s+not|forbidden\s+to|prohibited\s+from)\b[\s*_]*)\b(?:use|using)\s+the\s+Agent[ -]tool\s+to\s+(?:\w+\s+){0,2}?(?:dispatch|spawn|launch|execute|run|start|delegate)\b`,
   ].join('|'),
   'i',
 );
