@@ -133,7 +133,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389 — the worker-dispatch bullet, whose anchor was renamed to `#umbrella-execution-launch-without-operator` on that same line (2026-10-04 plain-words-recap-v2 D6).
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling

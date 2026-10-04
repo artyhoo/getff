@@ -27,7 +27,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
 | `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
-| `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions. | paths:(1), edit-time inject |
+| `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions; launching execution workers from a kickoff (subagent / aif dispatch / `claude -p`). | paths:(1), edit-time inject |
 | `phase-research-coverage.md` | A | phase research, prior-art lookups, negative-existence claims. | paths:(4) |
 | `recommendation-laziness-discipline.md` | B | before a verdict, an ambiguous fork, or a dispatch. | digest, hook |
 | `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |

@@ -16,8 +16,8 @@ sources:
   - packages/core/principles/29-worker-dispatch-channel.ts
   - plugin/hooks/hooks.json
 executed:
-  - { example: worker-dispatch-green-on-a-clean-kickoff, stack: repo, date: 2026-09-25, result: silent }
-  - { example: worker-dispatch-red-on-an-agent-tool-write-dispatch, stack: repo, date: 2026-09-25, result: printed }
+  - { example: worker-dispatch-green-on-a-clean-kickoff, stack: repo, date: 2026-10-04, result: silent }
+  - { example: worker-dispatch-red-on-an-agent-tool-write-dispatch, stack: repo, date: 2026-10-04, result: printed }
 docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
 ---
 
@@ -36,7 +36,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | name | `check-worker-dispatch-channel` |
 | kind | hook |
 | ships-to | not installed on any lane (no-lane) |
-| description | PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent |
+| description | PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name) |
 | source | `.claude/hooks/check-worker-dispatch-channel.sh:2` |
 | event | `["PostToolUse"]` |
 | matcher | `["Edit|Write|MultiEdit"]` |
@@ -49,7 +49,8 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 The framework has a rule about how write-Workers get dispatched: not from inside the
 orchestrator session through the Agent tool. A dispatched sub-agent cannot be trusted
-with shared state the way a fresh session can, and the rule — `#worker-dispatch-via-subagent`
+with shared state the way a fresh session can, and the rule — `#umbrella-execution-launch-without-operator`
+(formerly `#worker-dispatch-via-subagent`)
 — is normally enforced in CI by principle 29. But CI is late. This hook is the same
 check at the moment the kickoff is written: edit an umbrella `kickoff.md`, and every
 line you just wrote is tested for one shape — a line that names the Agent-tool
@@ -85,11 +86,12 @@ printf '%s' '{"tool_name":"Edit","session_id":"docs-demo-cwd-2",
 ```text
 ❌ worker-dispatch-channel: .claude/orchestrator-prompts/tmp-red-wd/kickoff.md:2 instructs Agent-tool dispatch of a write Worker
    Dispatch the implementation Worker via Agent tool.
-   Rule `#worker-dispatch-via-subagent` (.claude/skills/pipeline/SKILL.md §5): a write-task Worker
-   must NOT be dispatched via the Agent tool from the meta-orchestrator session. Use a fresh
-   maintainer-opened CC session (paste the §10 1-liner) or dispatch.ts. The Agent tool is ONLY
 <!-- vale off -->
 <!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
+   Rule `#umbrella-execution-launch-without-operator` (formerly `#worker-dispatch-via-subagent`)
+   (.claude/skills/pipeline/SKILL.md §5): a write-task Worker
+   must NOT be dispatched via the Agent tool from the meta-orchestrator session. Use a fresh
+   maintainer-opened CC session (paste the §10 1-liner) or dispatch.ts. The Agent tool is ONLY
    for Phase -1 read-only reviewers + read-only research subagents.
 <!-- vale on -->
    If this line legitimately QUOTES/TEACHES the anti-pattern, append on the same line:
@@ -119,8 +121,8 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
 
 ## Evidence
 
-- `.claude/hooks/check-worker-dispatch-channel.sh:2` is the header the card's
-  description row quotes: `# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent`.
+- `.claude/hooks/check-worker-dispatch-channel.sh:2` — re-verified 2026-10-04 after the D6
+  rename — is the header the card's description row quotes: `# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)`.
   Line 10 carries `# @dual-pair: channel-discipline-worker-dispatch` and lines 11-16
   give the portability rationale; the pairing spec is named at line 17
   (`docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md`).
@@ -130,10 +132,10 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
 - Single shared matcher: lines 5-8 — «Both this hook and principle 29's CI test call
   that one matcher — never two divergent copies (anti-pattern `#two-prompts-drift`)».
   The matcher module is `packages/core/principles/29-worker-dispatch-channel.ts`:
-  `CHANNEL_RE` at line 50 (`/Agent[ -]tool|via .*\bAgent\b/`), `WRITE_WORKER_RE` at
-  line 53, the read-only exclusions at line 55, the
-  `<!-- channel-discipline: allow` escape token at lines 61-66, and the four-clause
-  `lineIsViolation` at lines 81-86.
+  `CHANNEL_RE` at line 51 (`/Agent[ -]tool|via .*\bAgent\b/`), `WRITE_WORKER_RE` at
+  line 54, the read-only exclusions at line 61, the
+  `<!-- channel-discipline: allow` escape token at lines 70-71, and the four-clause
+  `lineIsViolation` at lines 81-87.
 - Scope: the bin shim (`packages/core/principles/29-worker-dispatch-channel.bin.ts:19-22`)
   filters to `.claude/orchestrator-prompts/<one-segment>/kickoff.md` and exits 0 on
   anything else; the hook narrows identically at lines 137-140.
@@ -152,5 +154,5 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
   gate earlier, to edit-time)». In this repository it is wired:
   `.claude/settings.json:169-173`.
 - Paired test: `packages/core/hooks/check-worker-dispatch-channel.test.ts` — its
-  header (lines 1-16) states the contract: «❌ kickoff that instructs Agent-tool
+  header (lines 12-18) states the contract: «❌ kickoff that instructs Agent-tool
   write-Worker dispatch -> exit 2», with the exit-2-not-1 rationale in the same lines.

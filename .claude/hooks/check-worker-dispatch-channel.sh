@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent
-# PostToolUse gate — M6 edit-time channel for `#worker-dispatch-via-subagent`.
+# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)
+# PostToolUse gate — M6 edit-time channel for `#umbrella-execution-launch-without-operator`.
 # On Edit|Write|MultiEdit of a `.claude/orchestrator-prompts/<umbrella>/kickoff.md`,
 # delegates to the SINGLE shared matcher (29-worker-dispatch-channel.bin.ts → .ts)
 # and exit 2 on a hit (the PostToolUse channel the MODEL receives — see the tail
@@ -117,7 +117,7 @@ if ! command -v jq >/dev/null 2>&1; then
   case "$_RAW_PATH" in
     */.claude/orchestrator-prompts/*/kickoff.md)
       SESSION_ID="$(printf '%s' "$_RAW" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
-      _emit_skip_once 'cwdc-nojq' '⚠ check-worker-dispatch-channel: jq unavailable — the #worker-dispatch-via-subagent check DID NOT RUN for this edit, and will not run this session. This is a SKIP, not a pass; install jq to restore enforcement. Announced once per session.' ;;
+      _emit_skip_once 'cwdc-nojq' '⚠ check-worker-dispatch-channel: jq unavailable — the #umbrella-execution-launch-without-operator check DID NOT RUN for this edit, and will not run this session. This is a SKIP, not a pass; install jq to restore enforcement. Announced once per session.' ;;
   esac
   exit 0
 fi
@@ -145,7 +145,7 @@ esac
 # Ordered AFTER the path filter so only a kickoff edit — the population this gate claims to
 # cover — can trigger the notice.
 BIN="$(_resolve_bin)" || {
-  _emit_skip_once 'cwdc-nobin' '⚠ check-worker-dispatch-channel: the principle-29 matcher shim (packages/core/principles/29-worker-dispatch-channel.bin.ts) is not present on this layout — the #worker-dispatch-via-subagent check DID NOT RUN for this kickoff, and will not run this session. This is a SKIP, not a pass; the harness-agnostic backstop is principle 29 in the framework CI, which a consumer repo does not run. Set AIF_WORKER_DISPATCH_CHANNEL=0 to opt out. Announced once per session.'
+  _emit_skip_once 'cwdc-nobin' '⚠ check-worker-dispatch-channel: the principle-29 matcher shim (packages/core/principles/29-worker-dispatch-channel.bin.ts) is not present on this layout — the #umbrella-execution-launch-without-operator check DID NOT RUN for this kickoff, and will not run this session. This is a SKIP, not a pass; the harness-agnostic backstop is principle 29 in the framework CI, which a consumer repo does not run. Set AIF_WORKER_DISPATCH_CHANNEL=0 to opt out. Announced once per session.'
   exit 0
 }
 
@@ -155,7 +155,7 @@ BIN="$(_resolve_bin)" || {
 # is indistinguishable from a pass; live-evidenced 2026-07-24 container audit PROBE 3:
 # docs/meta-factory/research-patches/2026-07-24-container-gate-reachability.md:109).
 TSX="$(_resolve_tsx)" || {
-  _emit_skip '⚠ check-worker-dispatch-channel: tsx not found — the #worker-dispatch-via-subagent check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+  _emit_skip '⚠ check-worker-dispatch-channel: tsx not found — the #umbrella-execution-launch-without-operator check DID NOT RUN for this edit. This is a SKIP, not a pass.'
   exit 0
 }
 
@@ -165,7 +165,7 @@ TSX="$(_resolve_tsx)" || {
 BIN_ERR="$("$TSX" "$BIN" "$REL_PATH" 2>&1 1>/dev/null)"
 STATUS=$?
 if [[ $STATUS -ne 0 ]] && _is_zcode; then
-  _emit_ctx "PostToolUse" "❌ check-worker-dispatch-channel: #worker-dispatch-via-subagent violation in $REL_PATH.
+  _emit_ctx "PostToolUse" "❌ check-worker-dispatch-channel: #umbrella-execution-launch-without-operator violation in $REL_PATH.
 $BIN_ERR"
   exit 0
 fi

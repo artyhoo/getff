@@ -8,8 +8,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 
 // The ONLY Cyrillic permitted in the shipped skill (excluding lang/ru.sh):
-// the Class-3 bilingual deferral-detection tokens (spec §Class 3).
-const ALLOWED = /выбирай сам|оба норм|я устал/;
+// the Class-3 bilingual deferral-detection tokens (spec §Class 3) and the D7 launch-card
+// match-data (plain-words-recap-v2 S5, kickoff §7): the two card questions are asked of a
+// Russian-speaking operator verbatim (language-discipline §1 category 3 — translating them
+// away would break recognition of the operator's answers), and the да/нет cells are the
+// matrix those questions route on. The cell patterns anchor on table-cell pipes so bare
+// «да»/«нет» prose cannot sneak past.
+const ALLOWED =
+  /выбирай сам|оба норм|я устал|хотите видеть и вмешиваться|длинная самостоятельная работа|\|\s*да\s*\||\|\s*нет\s*\||«нет \/ да»/;
 
 // The Cyrillic block U+0400-U+04FF, matched by code point in Node. Locale-independent by
 // construction: the former `LC_ALL=en_US.UTF-8 grep '[А-Яа-яЁё]'` fell back to BYTE ranges on

@@ -1,6 +1,6 @@
 # Output format — `/pipeline <umbrella>` inline session report
 
-> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract (incl. the channel order: aif auto-dispatch before any chip). Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
+> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract (incl. the channel order: aif auto-dispatch before any chip), §9A launch card (plain-words-recap-v2 D7). Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
 > **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/pipeline` skill body authority — see [`../SKILL.md`](../SKILL.md).
 
 > **Origin:** F.3 (2026-05-24). The 3-layer structure synthesises F.1 prior-art (PR #203) — Argo Workflows' `├── / └──` ASCII tree (ADAPT vocabulary, SSOT row TBA) + maintainer's binding 1-liner format refinement (parent kickoff §1 Sub-wave F.3 lines 237-254). The slash-tag draft (`/Mode-A /Roles-… /Skills-…`) was rated «not convenient» by the maintainer and has zero upstream precedent across 10 surveyed tools (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, gh workflow run, orchestrator-guide).
@@ -539,13 +539,34 @@ Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activ
 3. **Stage-gate at click time**, never frozen at plan time: a stage-N chip opens with the gate predicate AND its resolution instruction — «derive Stage N-1's head branch from the umbrella's PR list / kickoff / state.md NOW, then `gh pr list --search "is:merged head:<derived> base:staging"`; empty → HALT and report». A plan-time literal branch name is wrong on the factory path (aif names branches per task at dispatch time; harvest may rename), so the HALT would fire forever on a branch that never existed. Without this step the chips strip `When` / `Waiting on` off the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
 4. **cwd = repo root**, plus the kickoff/residue path and «read and execute».
 
-**Lifecycle.** Superseded chips get a best-effort `dismiss_task`. The operator's click IS the «maintainer opens a fresh session» channel, so `#worker-dispatch-via-subagent` is untouched — the session is born from the click, not from an Agent-tool call.
+**Lifecycle.** Superseded chips get a best-effort `dismiss_task`. The operator's click IS the «maintainer opens a fresh session» channel, so `#umbrella-execution-launch-without-operator` (formerly `#worker-dispatch-via-subagent`) is untouched — the session is born from the click, not from an Agent-tool call.
 
 **Language.** `title` and `tldr` are operator-facing prose: write them in `AIF_OUTPUT_LANG`, like the rest of the report. The chip prompt itself is machinery — English always ([language-discipline.md §1](../../../rules/language-discipline.md)). **The rendered payload therefore needs a gloss:** when `AIF_OUTPUT_LANG` is not `en`, the in-report rendering of the prompt (required above) is accompanied by a short step-by-step gloss in `AIF_OUTPUT_LANG` — what each of the four steps authorizes, plus any hard stop the payload carries. Rendering the English payload alone in a non-English report satisfies the letter of «inspectable» while leaving nothing the operator can actually read, which is `#hope-as-gate` wearing the shape of compliance. The gloss is prose about machinery, never a translated payload: the prompt that ships to the session stays English verbatim.
 
 **What principle 18 asserts, and what it does not.** The chip check asserts that THIS section and both emitter clauses literally name the three gates — it reads the files from disk and never sees a rendered report or a runtime chip payload. So a chip whose `prompt` silently drops step 1, 2, or 3 is **not** caught by any gate today: the payload rests on emitter diligence (`#hope-as-gate`, [attention-is-not-a-mechanism.md §1](../../../rules/attention-is-not-a-mechanism.md)). Emit accordingly — render the prompt in full next to the chip (above) so the omission is at least visible to the operator before the click.
 
 **Falsifier:** wrong if a chip payload is inspected anywhere before dispatch — no `spawn_task` PreToolUse matcher exists in `.claude/settings.json` as of 2026-08-17. The reachable gate + its build trigger are recorded in [ADR D1](../../../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md).
+
+## §9A Launch card (plain-words-recap-v2 D7)
+
+> **Origin:** [`2026-09-13-plain-words-recap-v2-design.md`](../../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md) D7; rule tenets 5-6 ([parallel-subwave-isolation.md §6](../../../rules/parallel-subwave-isolation.md)). Additive to §9 — chips stay; the card is the recommendation layer above them, never a dispatch path.
+
+**At the exit, emit a launch card for each routed next action** — `/pipeline` §10 item 3's report and `/arch` §3's exit routing (both already defer here) — carrying: the **recommended channel + its arguments**, a **plain-words explanation** of what that channel does (prose in `AIF_OUTPUT_LANG`), and **ready artefacts per channel** (below). The recommendation comes from two questions, asked in the card verbatim:
+
+| «хотите видеть и вмешиваться?» | «длинная самостоятельная работа?» | Recommended channel                                                                                                                        |
+| ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| да                             | да                                | paste the kickoff into a visible tab (`§4` 1-liner) — chips die on app restart, so long work wants the durable route you can check back on |
+| да                             | нет                               | chip (§9) — one click, watch and interrupt live                                                                                            |
+| нет                            | да                                | zero-click aif auto-dispatch (`dispatch.ts` / `<!-- bridge: auto -->`, §9 Channel order) — runs unattended in the factory                  |
+| нет                            | нет                               | chip — short task, click when convenient                                                                                                   |
+
+**Ready artefacts per channel** (each copy/paste-ready, in the report next to the card): chip → the §9 payload; kickoff → the §4 paste 1-liner verbatim; subagent → a self-contained Agent-tool prompt. The artefacts are the OPERATOR's instruments: the emitting session's job ends at a correct card (tenet 6) and never executes one itself (tenet 3) — the operator's pick of the channel IS the explicit choice tenet 3 names, and write-subagent spawning stays conditional on R-12 (tenet 2).
+
+**Memory-note correction.** `dispatch-channel-must-not-need-a-click` is corrected by this section: zero-click auto-dispatch is one CHANNEL among several — recommended only in the «нет / да» row, never a default that removes the choice.
+
+**Recheck record.** No `start_session` tool exists in-session (roster rechecked 2026-10-04, plain-words-recap-v2 S5) — the card's artefacts are copy/paste payloads, not invocations the emitting session can perform.
+
+**Falsifier:** wrong if the card recommends a channel whose ready artefact is absent from the report — a recommendation the operator cannot act on is `#hope-as-gate`; wrong if the emitting session dispatches the recommended channel itself ([parallel-subwave-isolation.md §6](../../../rules/parallel-subwave-isolation.md) tenet 3, `#umbrella-execution-launch-without-operator`).
 
 ## §A — See also
 

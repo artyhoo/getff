@@ -177,7 +177,7 @@
         "tier": "framework",
         "absent": "no-lane"
       },
-      "description": "PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent",
+      "description": "PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)",
       "source": {
         "path": ".claude/hooks/check-worker-dispatch-channel.sh",
         "line": 2
