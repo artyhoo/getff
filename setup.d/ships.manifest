@@ -1,0 +1,139 @@
+# Ships manifest — what of getff's OWN items reaches a consumer, per channel (one-button point 13).
+# TAB-delimited, one row per item, same parser contract as companions.manifest (single TAB, no padding):
+#   kind<TAB>name<TAB>verdict<TAB>installer<TAB>plugin<TAB>reason
+# kind      skill | hook | rule | agent | setting | mcp
+#           population (scripts/check-ships-manifest.mjs enumerates it from git):
+#             skill   = dirs with SKILL.md under skills/, .claude/skills/, plugin/skills/
+#             hook    = .claude/hooks/*.sh + the names plugin/hooks/hooks.json registers
+#             rule    = .claude/rules/*.md
+#             agent   = agents/*.md + plugin/agents/*.md
+#             setting = getff's .claude/settings.json keys (object values expanded one level:
+#                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
+#             mcp     = getff's .mcp.json mcpServers
+# verdict   ships | internal
+# installer core | env | factory | full | ask | no — the LOWEST install depth that delivers the item
+#           (core ⊂ env ⊂ factory; full = only under -y / --full; ask = a setting that changes how
+#           sessions run, written only on the pre-launch «yes» into .claude/settings.local.json with
+#           a one-command undo — its value lives in setup.d/session-settings.json, and every key
+#           there must be an `ask` row). Checked by a real install:
+#           tests/install-sh/ships-manifest.test.sh.
+# plugin    yes | no — the Claude Code plugin under plugin/ carries it (checked from the plugin tree).
+# reason    `-` or free text (no TAB). Required, >= 20 chars after its prefix, when:
+#           internal            → must start «internal, because »; installer must be `no`.
+#           internal, plugin=yes → must ALSO carry «plugin copy: <what happens / who removes it>»:
+#                                  the plugin ships an item getff calls internal — a known
+#                                  contradiction, named, not silent.
+#           ships, installer=no, plugin=no → must start «pending: » (who delivers it, and when).
+#           installer=factory|full → why the default run (env) does not install it (C1).
+#           installer=ask       → what the setting changes for the person.
+#           ships, installer=no, plugin=yes → why only the plugin carries it.
+# A population item with no row, or a row with no item, fails the check (pre-commit + CI).
+skill	getff	ships	core	yes	-
+skill	tool-bootstrapping	ships	core	yes	-
+skill	template-audit	ships	core	yes	-
+skill	ai-doc	ships	core	yes	-
+skill	rule-research	ships	core	yes	-
+skill	rule-tests	ships	core	yes	-
+skill	arch	ships	env	no	-
+skill	night-mode	ships	env	no	-
+skill	orchestrator	ships	env	no	-
+skill	pipeline	ships	env	no	-
+skill	reviewer	ships	env	no	-
+skill	dispatcher	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
+skill	aif-doctor	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
+skill	harvest	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
+skill	claude-glm-executor-handoff	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
+skill	story	ships	factory	no	no runtime reason: the operator product call of 2026-09-11 keeps it factory-only (setup.d/10-skills.sh:119-123); the report lists it as not installed by the default run
+skill	self-reflection	internal	no	no	internal, because it is the §1.7 PR self-review discipline of getff's own development process, not a consumer capability
+skill	docs-author	internal	no	no	internal, because it writes pages of the getff.ai site under docs/site/ (scripts/docs-check.mjs:83 binds it to that tree)
+skill	using-getff	ships	no	yes	plugin entry point: tells a plugin session how to find the getff skills; an installer consumer reads AGENTS.md and the installed skills instead
+skill	installing-enforcement	ships	no	yes	plugin-only bridge to the installer: wires the hard layer for a plugin user; an installer run IS that wiring, so it has nothing to do there
+hook	ask-question-reminder	ships	core	yes	-
+hook	check-doc-authority-header	ships	core	yes	-
+hook	deps-hash-check	ships	core	yes	-
+hook	end-of-turn-reminder	ships	core	yes	-
+hook	inject-matching-rule	ships	core	yes	-
+hook	inject-memory-codification	ships	core	yes	-
+hook	inject-output-language	ships	core	yes	-
+hook	inject-project-digest	ships	core	yes	-
+hook	runtime-bridge-dispatch	ships	factory	yes	dispatches work into the aif-handoff runtime through the vendored runtime bridge, which only a factory install carries
+hook	inject-session-bootstrap	internal	no	no	internal, because it injects getff's own goal and invariants into the session
+hook	check-doc-authority	internal	no	yes	internal, because it needs getff's principle-09 CLI shim and is a no-op with a getff-specific notice elsewhere; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
+hook	validate-prompt	internal	no	yes	internal, because it validates getff kickoff batch-specs through packages/core/spec-validation; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
+hook	check-worker-dispatch-channel	internal	no	yes	internal, because it needs getff's principle-29 bin and checks getff kickoff dispatch channels; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
+hook	check-kickoff-traps	internal	no	yes	internal, because it enforces getff kickoff conventions by getff principle numbers; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
+hook	check-hook-marker	internal	no	yes	internal, because it checks getff's @dual-pair hook markers and skips when dual-implementation-discipline.md is absent; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
+hook	inject-subagent-context	ships	no	yes	ZCode fallback: exits unless ZCODE_PROJECT_DIR is set; the installer targets Claude Code, which has its own subagent context channel
+hook	inject-subagent-digest	internal	no	no	internal, because it sends getff's own session digest to subagents; consumers get inject-project-digest instead
+hook	close-aif-task-on-merge	internal	no	no	internal, because it closes aif tasks through packages/runtime-bridge harvest.ts, which no install vendors
+hook	inject-handoff-on-compact	ships	env	no	installer-only: env+ installs it with the handoff group (setup.d/10-skills.sh §1k); no plugin copy, because the handoff it injects is kept only under the AIF_HANDOFF_GATE ask row, which only the installer offers, and the plugin SessionStart slot is taken (the harness renderer lists it in PLUGIN_INCOMPATIBLE)
+hook	precompact-residue	ships	env	no	installer-only: env+ installs it with the handoff group (setup.d/10-skills.sh §1k) beside its reader inject-handoff-on-compact; the group ships through the installer only, and a plugin copy is one of the follow-ons the premise-7 addendum of docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md reopens, not decided here
+hook	warn-subagent-report	internal	no	no	internal, because the REPORT block format it checks is a getff delegation convention
+hook	warn-subagent-report-zcode	ships	no	yes	ZCode variant of the subagent report check, carried only by the plugin (the ZCode channel); flagged to the hook dedup work with its Claude Code sibling
+hook	session-start	ships	no	yes	plugin bootstrap: announces the plugin skills at session start; an installer consumer gets AGENTS.md and inject-project-digest instead
+hook	glossary-inject	internal	no	no	internal, because it reads CONTEXT.md, getff's own glossary, which no install ships; registered nowhere
+hook	adopt-orchestrator-prompts	internal	no	no	internal, because it adopts files into getff's own .claude/orchestrator-prompts store; registered nowhere
+hook	worktree-setup	internal	no	no	internal, because WorktreeCreate is not registered even in getff (CLAUDE.md), and its output names getff paths
+hook	seal-primary-checkout	internal	no	no	internal, because it is an operator-repo harness hook awaiting maintainer wiring (SSOT #300), not part of the plugin payload
+rule	00-rule-index	internal	no	no	internal, because it is the generated index of getff's own rule set (scripts/render-rule-index.mjs)
+rule	ai-laziness-digest	internal	no	no	internal, because it is getff's always-on digest of ai-laziness-traps, which is what ships; principle 35 keeps the two in sync inside getff only
+rule	ai-laziness-traps	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	attention-is-not-a-mechanism	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	autonomous-loop-continuity	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	build-first-reuse-default	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	ci-tool-pinning	internal	no	no	internal, because it governs getff's own .github/workflows and shell scripts; its §2 says consumer scripts are not gated
+rule	cold-seat-economy	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	companion-install-principle	internal	no	no	internal, because it governs how getff's installer installs companions (setup.d/companions.manifest)
+rule	destination-environment-verification	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	doc-authority-hierarchy	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	dual-implementation-discipline	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	effort-worthiness	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	egress-no-api-bypass	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	evidence-regeneration	internal	no	no	internal, because it governs getff's freshness gates and consumer-matrix cells
+rule	git-conflict-merge-forward	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	kickoff-staging-placement	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	language-discipline	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	memory-codification	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	no-paid-llm-in-ci	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	parallel-subwave-isolation	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	phase-research-coverage	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	recommendation-laziness-discipline	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	research-source-trust	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	reviewer-discipline	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	rule-enforcement-channel-selection	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	seat-lifecycle	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	skill-description-quality	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	source-before-shape	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
+rule	zcode-parity-doctrine	internal	no	no	internal, because it governs getff's own hook twins and harness-config renderer
+rule	coordinator-seat-delegation	internal	no	no	internal, because .claude/rules/ is not shipped — the consumer-facing prose is the orchestrator skill; the card is operator-repo only
+agent	aif-init	ships	core	no	-
+agent	capability-reuse-auditor	ships	core	no	-
+agent	claims-conformance-auditor	ships	core	no	-
+agent	docplan-auditor	ships	core	no	-
+agent	fidelity-auditor	ships	core	no	-
+agent	memory-codification-auditor	ships	core	no	-
+agent	rule-researcher	ships	core	no	-
+agent	rule-test-author	ships	core	no	-
+agent	compliance-verifier	ships	core	yes	-
+agent	docs-form-auditor	ships	core	yes	-
+agent	living-docs-auditor	ships	core	yes	-
+agent	review-sidecar	ships	core	yes	-
+agent	orchestrator-worker-discipline	ships	factory	no	presupposes the aif-handoff operator runtime (runtime-bridge dispatch / reviewer-session protocol) that only factory installs (setup.d/20-agents.sh:33-40)
+agent	reviewer-discipline	ships	factory	no	presupposes the aif-handoff operator runtime (runtime-bridge dispatch / reviewer-session protocol) that only factory installs (setup.d/20-agents.sh:33-40)
+agent	manual-rule-liveness-prober	internal	no	no	internal, because it is an authoring-only tool for getff's own rule liveness (#552)
+agent	shipped-agent-liveness-prober	internal	no	no	internal, because it is an authoring-only probe of getff's shipped agents (M2, #552 sibling)
+agent	backward-sweep-auditor	internal	no	no	internal, because it is the authoring-only §1.7 backward-check cold sweep of getff PRs (T21)
+agent	dual-channel-drift-auditor	internal	no	no	internal, because it audits getff's own @dual-pair groups (dual-implementation-discipline §8)
+agent	adapter-jig-reviewer	internal	no	no	internal, because it reviews getff's framework-side adapter wiring (adapter-jig J1)
+agent	dispatch-input-checker	internal	no	no	internal, because it is getff's authoring-only dispatch-input reality check station (arch-v2 S-B)
+agent	getff-cold-run-prober	internal	no	no	internal, because getff runs it against a consumer; it is not run inside one (spec §9.3)
+setting	hooks	ships	core	no	-
+setting	autoCompactWindow	ships	ask	no	auto-compacts at 400k tokens instead of the harness default; offered in the pre-launch list, written to .claude/settings.local.json with a one-command undo (setup.d/session-settings.sh)
+setting	env.AIF_CTX_WINDOW	internal	no	no	internal, because 1000000 is already the shipped end-of-turn hook's default (.claude/hooks/end-of-turn-reminder.sh:299), and a declared value overrides the window the hook observes (:394-412), which would hide a smaller real window from a consumer
+setting	env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS	ships	ask	no	turns on the experimental agent-teams feature, which changes how sessions run; offered in the pre-launch list, written to .claude/settings.local.json with a one-command undo
+setting	permissions.allow	ships	ask	no	a subset: Task and Agent only; the two hook-path allows are getff operator conveniences for its own hook scripts; offered in the pre-launch list
+setting	permissions.deny	ships	ask	no	a subset: the generic destructive-command denies; the four main/master push denies stay out because they encode getff's staging-first flow, not a consumer's; offered in the pre-launch list
+setting	env.AIF_HANDOFF_GATE	ships	ask	no	arms the handoff gate, which blocks a turn in the band before compaction until the session handoff is current; offered in the pre-launch list (the two handoff hooks ship at env and are passive without it)
+setting	claudeMdExcludes	internal	no	no	internal, because every entry is a path of one of getff's own rule files
+mcp	context7	ships	full	no	written to the project .mcp.json only under -y / --full (setup.d/05-mcp.sh); the python lane writes it on every run
+mcp	deepwiki	ships	full	no	written to the project .mcp.json under -y / --full only when not configured machine-wide; --global installs it at user scope instead

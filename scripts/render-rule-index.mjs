@@ -28,7 +28,6 @@
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import {
   checkPathsGlobsParity as sharedCheckPathsGlobsParity,
@@ -38,18 +37,19 @@ import {
   extractChannelMarkers as sharedExtractChannelMarkers,
   extractLivenessExemptions as sharedExtractLivenessExemptions,
 } from '../packages/core/principles/rule-channel-glob.ts';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const RULE_INDEX_SECTION_ID = 'rule-index';
 // This renderer is its own "plan" — there is no DocPlan JSON backing the rule index; the fence
 // marker's `plan=` attribute records the generating script instead (self-descriptive, T15).
 const RULE_INDEX_PLAN_PATH = 'scripts/render-rule-index.mjs';
 
-// 4KB size ceiling asserted by --check (ii). Raised from 3KB 2026-07-21: the rule population
-// (21 rules × ~150B/row) had consumed 3044/3072 BEFORE the 22nd rule landed, so the old ceiling
-// was structurally unmeetable — any legitimate new rule broke every push repo-wide. 4KB restores
-// headroom for ~5 more rules at the same row budget; raise again only with the same reasoning,
-// and prefer trimming verbose `Fires:` lines (the row's only elastic field) first.
-const INDEX_MAX_BYTES = 4 * 1024;
+// Size ceiling asserted by --check (ii). Raised 3KB->4KB 2026-07-21 (21 rules had used 3044/3072)
+// and 4KB->5KB 2026-10-01 (29 rules had used 4092/4096; a minimal row is ~90B) — both times no
+// legitimate new rule could fit, so every push broke repo-wide. Raise again only on that same
+// reasoning, and trim verbose `Fires:` lines (the row's only elastic field) first — the 30th rule
+// (coordinator-seat-delegation) did. 5KB leaves ~6 more rules at ~150B/row.
+const INDEX_MAX_BYTES = 5 * 1024;
 
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
@@ -233,13 +233,6 @@ function run(argv) {
   return 0;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
 export { buildRows, renderIndexBlock, renderIndexFileContent, RULE_INDEX_SECTION_ID, RULE_INDEX_PLAN_PATH };

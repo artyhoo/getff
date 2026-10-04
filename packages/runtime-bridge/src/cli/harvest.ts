@@ -7,6 +7,8 @@
  *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] \
  *     [--repo-path <path>] [--work-dir <path>] [--host-repo <path>] \
  *     [--confirm-rework] [--confirm-unreported-files] [--confirm-dirty-residue]
+ *   tsx <path-to>/harvest.ts <taskId> --report-merge <prUrl>        # close one task, PR given
+ *   tsx <path-to>/harvest.ts [<taskId>] --close-merged [--project <id>] [--repo <o/r>]  # close every task whose PR merged
  *
  * aif-handoff ends a task at "committed on a local feature branch" — it has no
  * push and no PR-creation in its autonomous path (verified 2026-06-01). This
@@ -45,7 +47,7 @@
  *   4. `git -C <hostRepo> push origin <sha>:refs/heads/<branch>` — the real push, which
  *      runs `.husky/pre-push` for real. Pushing a ref the host checkout is NOT on is
  *      supported by design: the hook derives its range from git's push stdin (`local_sha`),
- *      not from HEAD (`packages/core/hooks/pre-push.ts:133-139`, the 2026-06-17
+ *      not from HEAD (`packages/core/hooks/pre-push.ts:176-187`, the 2026-06-17
  *      cross-checkout fix). Host repo from --host-repo / RUNTIME_BRIDGE_HOST_REPO, else
  *      the cwd's `git rev-parse --show-toplevel`.
  *
@@ -58,7 +60,7 @@
  * graceful degradation, no silent half-egress, and never a pointer at the dead channel.
  *
  * False-done guard (2026-06-23): aif can mark a task `done` while its agent internally
- * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:139`). That
+ * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:173`). That
  * lands as the SAME shape as a legit rework leg — dirty tree + 0 commits ahead of base.
  * Harvest no longer auto-commits that shape silently: it HOLDS (exit 2), surfaces the
  * ambiguity + any park markers from the task log, and ships only when the operator re-runs
@@ -99,13 +101,14 @@
  *   the docker coupling is acceptable per dual-implementation-discipline.md §3
  *   (internal tooling → CC/env-specific OK); it degrades to printed manual commands.
  */
-import { execFileSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
-import { getProjects, getTask, getParticipantsModeEnabled } from './aifHttp.js';
-import { postComment, postEvent, reviewEventUnreachableReason } from './answer.js';
+import { getJson, getProjects, getTask, getParticipantsModeEnabled, postJson } from './aifHttp.js';
+import { isManualReviewPark, MERGE_REPORT_PREFIX, postComment, postEvent } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
@@ -213,6 +216,15 @@ interface ParsedArgs {
    * a task whose PR merged before the return channel existed has no other way to be closed.
    */
   reportMerge?: string;
+  /**
+   * `--close-merged`: sweep aif for `done`/`review` tasks whose harvested PR has merged and close
+   * them (see {@link closeMergedTasks}); no egress. With a positional <taskId>, only that task.
+   */
+  closeMerged: boolean;
+  /** `--project <id>` (else RUNTIME_BRIDGE_AIF_PROJECT_ID): the aif project a sweep is limited to. */
+  project?: string;
+  /** `--repo <owner/repo>`: the GitHub repo a sweep searches (default: the cwd's checkout). */
+  repo?: string;
 }
 
 /**
@@ -239,6 +251,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       'confirm-unreported-files': { type: 'boolean' },
       'confirm-dirty-residue': { type: 'boolean' },
       'report-merge': { type: 'string' },
+      'close-merged': { type: 'boolean' },
+      project: { type: 'string' },
+      repo: { type: 'string' },
     },
     maxPositionals: 1,
   });
@@ -248,7 +263,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     base: str('base') ?? 'staging',
     bodyFile: str('body-file'),
     autoMerge: values['no-auto-merge'] !== true,
-    container: str('container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
+    // '' = not named: main() asks the shared resolver (resolveAgentContainer) before any egress step.
+    container: str('container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? '',
     repoPath: str('repo-path'),
     workDir: str('work-dir'),
     hostRepo: str('host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
@@ -256,6 +272,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     confirmUnreportedFiles: values['confirm-unreported-files'] === true,
     confirmDirtyResidue: values['confirm-dirty-residue'] === true,
     reportMerge: str('report-merge'),
+    closeMerged: values['close-merged'] === true,
+    project: str('project') ?? process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'],
+    repo: str('repo'),
   };
 }
 
@@ -304,22 +323,122 @@ function hostGit(hostRepo: string, args: string[], quiet = false): string {
 
 /**
  * The host clone Channel A pushes from: `--host-repo` / RUNTIME_BRIDGE_HOST_REPO, else the
- * top level of whatever checkout the operator invoked harvest in.
+ * top level of whatever checkout the operator invoked harvest in — provided that checkout
+ * belongs to the repository harvest.ts itself lives in.
  *
  * A worktree is a perfectly good answer — `.husky/pre-push` lives in every checkout of this
  * repo and the object store is shared with the main clone, so the fetched commit is visible
  * to the push either way.
+ *
+ * REPO-IDENTITY GUARD: the cwd default must share harvest.ts's own git common dir. A shell
+ * that had cd'd into a scratch consumer repo otherwise fetched the task bundle INTO that repo
+ * and pushed the branch to ITS origin — the wrong-target class of getff#1967 (backward sweep,
+ * 2026-09-30). Refused rather than redirected: the push is outward-facing, so the operator
+ * picks the host with --host-repo. The vendored consumer copy lives inside the consumer's
+ * repo (`.claude/vendor/runtime-bridge/`), so it keeps serving the consumer; a harvest.ts
+ * outside any checkout has no identity to compare and keeps the plain cwd default.
+ * `cwd` and `selfFile` have NO defaults for the reason {@link selfPath} gives.
  */
-function resolveHostRepo(explicit?: string): string {
+export function resolveHostRepo(explicit: string | undefined, cwd: string, selfFile: string): string {
   if (explicit) return explicit;
+  let top: string;
   try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+    top = gitAt(cwd, ['rev-parse', '--show-toplevel']);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `harvest: cannot resolve the host repo to push from (cwd is not a git checkout) — ${msg}. ` +
         `Pass --host-repo <path> (or set RUNTIME_BRIDGE_HOST_REPO).`,
     );
+  }
+  const selfCommon = commonDirOf(dirname(selfFile));
+  if (selfCommon !== null && commonDirOf(top) !== selfCommon) {
+    throw new Error(
+      `harvest: refusing host repo '${top}' — the cwd is not a checkout of the repository harvest runs from ` +
+        `(${selfFile}). Run from that repository's checkout, or pass --host-repo <path> ` +
+        `(or set RUNTIME_BRIDGE_HOST_REPO).`,
+    );
+  }
+  return top;
+}
+
+/** The container asked when the shared resolver is absent or finds no agent — the historical fixed name. */
+export const LEGACY_AIF_CONTAINER = 'aif-handoff-agent-1';
+
+/** Result of running the shared resolver script: its exit status and both streams. */
+export interface AgentTargetRun {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Which aif agent container to harvest from when neither `--container` nor
+ * RUNTIME_BRIDGE_AIF_CONTAINER names one. It runs the shared resolver
+ * `.claude/skills/aif-doctor/helpers/aif-agent-target.sh` under the host repo. The dispatcher's
+ * in-flight probe and the aif-doctor helpers use the same lookup, and dispatcher, aif-doctor and
+ * this vendored CLI ship in the same factory tier.
+ *
+ * - Exit 0: the one agent container, plus the docker context it runs on. The caller sets
+ *   DOCKER_CONTEXT, so every later `docker exec` / `docker cp` reaches it. Measured 2026-09-30:
+ *   on the operator's Mac the stack runs on the PC (context `pc`, container `aif-agent-1`), and
+ *   the fixed default failed there.
+ * - Exit 1 (two or more candidates): THROWS. Harvesting from a guessed container would bundle
+ *   another stack's branch.
+ * - Resolver absent, or no agent found: the legacy name, so docker's own error names the cause
+ *   later, as before.
+ */
+export function resolveAgentContainer(
+  hostRoot: string,
+  run: (helper: string) => AgentTargetRun = (helper) => {
+    const r = spawnSync('bash', [helper], { encoding: 'utf8' });
+    return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  },
+): { container: string; dockerContext?: string; note: string } {
+  const helper = join(hostRoot, '.claude/skills/aif-doctor/helpers/aif-agent-target.sh');
+  if (!existsSync(helper)) {
+    return { container: LEGACY_AIF_CONTAINER, note: `${LEGACY_AIF_CONTAINER} (default; ${helper} not installed)` };
+  }
+  const r = run(helper);
+  if (r.status === 0) {
+    const [container = '', dockerContext = ''] = r.stdout.trim().split('\t');
+    if (container) {
+      return dockerContext
+        ? { container, dockerContext, note: `${container} on docker context ${dockerContext}` }
+        : { container, note: `${container} on the current docker context` };
+    }
+  }
+  if (r.status === 1) {
+    throw new Error(
+      `harvest: ${r.stderr.trim()} — refusing to guess; pass --container <name> ` +
+        `(or set RUNTIME_BRIDGE_AIF_CONTAINER, and DOCKER_CONTEXT when it runs elsewhere).`,
+    );
+  }
+  return { container: LEGACY_AIF_CONTAINER, note: `${LEGACY_AIF_CONTAINER} (default; ${r.stderr.trim() || 'resolver gave no answer'})` };
+}
+
+/**
+ * git at `dir` with GIT_DIR / GIT_COMMON_DIR / GIT_WORK_TREE removed, so both sides of the
+ * identity comparison resolve from the directory and not from an env a git hook exported.
+ */
+function gitAt(dir: string, args: string[]): string {
+  const env = { ...process.env };
+  delete env['GIT_DIR'];
+  delete env['GIT_COMMON_DIR'];
+  delete env['GIT_WORK_TREE'];
+  return execFileSync('git', ['-C', dir, ...args], {
+    encoding: 'utf8',
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+/** Physical path of `dir`'s git common dir (shared by a clone and all its worktrees); null outside a checkout. */
+function commonDirOf(dir: string): string | null {
+  try {
+    return realpathSync(resolve(dir, gitAt(dir, ['rev-parse', '--git-common-dir'])));
+  } catch {
+    return null;
   }
 }
 
@@ -414,6 +533,12 @@ function realDeps(
   args: ResolvedArgs,
   task: AifTaskFull,
 ): { deps: HarvestDeps; checkout: () => string } {
+  // The host clone, resolved BEFORE harvestTask runs any dep: a foreign cwd is refused here,
+  // ahead of the container commit, not inside pushBranch after it (cold review 2026-09-30).
+  // gh runs in it too — `gh pr create` infers the repository from its cwd, so an operator who
+  // passed --host-repo from a foreign cwd would otherwise push to one repo and open the PR in
+  // another.
+  const hostRepo = resolveHostRepo(args.hostRepo, process.cwd(), fileURLToPath(import.meta.url));
   let resolved: WorkDirResolution | null = null;
   const dir = (branch: string): string => {
     resolved ??= resolveTaskWorkDir(container, args, task, branch);
@@ -459,7 +584,6 @@ function realDeps(
       // github.com:443 (network block, not auth) and no pre-push toolchain, so that channel
       // fails AND would bypass `.husky/pre-push`. Full rationale in the module docstring.
       const workDir = dir(branch);
-      const hostRepo = resolveHostRepo(args.hostRepo);
       // The tip we intend to land, read from the container BEFORE any transport — the
       // identity check below proves the host received exactly this commit.
       const containerSha = dockerGit(container, workDir, ['rev-parse', branch]);
@@ -538,7 +662,7 @@ function realDeps(
       const out = execFileSync(
         'gh',
         ['pr', 'create', '--base', base, '--head', branch, '--title', title, '--body', body],
-        { encoding: 'utf8' },
+        { encoding: 'utf8', cwd: hostRepo },
       );
       // `gh pr create` prints the PR URL on the last non-empty line.
       const url = out.trim().split('\n').filter(Boolean).pop() ?? '';
@@ -546,7 +670,7 @@ function realDeps(
       return url;
     },
     enableAutoMerge: async (prUrl) => {
-      execFileSync('gh', ['pr', 'merge', prUrl, '--auto', '--squash'], { stdio: 'pipe' });
+      execFileSync('gh', ['pr', 'merge', prUrl, '--auto', '--squash'], { stdio: 'pipe', cwd: hostRepo });
     },
     changedFilesVsBase: async (branch, base) => {
       // What the task actually touched, in BOTH states aif can leave the worktree in:
@@ -581,46 +705,376 @@ export interface MergeReport {
   prUrl: string;
   /** Whether the PR is actually merged (the probe's answer, never assumed). */
   merged: boolean;
-  /** Whether a comment naming the PR was attached to the task. */
+  /** The squash/merge commit GitHub recorded — the second half of the merge proof. */
+  mergeCommit?: string | null;
+  /** Set when the PR was closed unmerged and its content proven to have landed in a merge train. */
+  landedVia?: TrainLanding;
+  /** Whether a comment naming the PR was attached to the task (false when one already was). */
   commented: boolean;
   /** Whether `complete_review` was dispatched, taking the task out of `review`. */
   closedReview: boolean;
-  /** Why the review was not closed, when it was not. */
+  /** Whether `approve_done` was dispatched and the task now reads back `verified`. */
+  approved: boolean;
+  /** The task was already `verified` — nothing was written (the idempotent re-run). */
+  alreadyClosed?: true;
+  /** The task status read back after the last write (or the status found, when none was made). */
+  finalStatus?: string;
+  /** Why the task was not closed, when it was not. */
   skippedReason?: string;
 }
 
-/** Ask GitHub whether a PR is merged. Injected so the tests need neither `gh` nor a network. */
-export type PrMergeProbe = (prUrl: string) => Promise<{ merged: boolean; mergedAt?: string | null }>;
+/**
+ * Ask GitHub whether a PR is merged. Injected so the tests need neither `gh` nor a network.
+ * `mergeCommit` is the merge proof: a PR counts as merged only with `state === 'MERGED'` AND
+ * a recorded merge commit.
+ */
+export type PrMergeProbe = (prUrl: string) => Promise<PrMergeState>;
 
-/** The default probe: `gh pr view <url> --json state,mergedAt`. */
+/** What a {@link PrMergeProbe} reports about one PR. */
+export interface PrMergeState {
+  merged: boolean;
+  mergedAt?: string | null;
+  mergeCommit?: string | null;
+  /** The PR's head branch — one of the two ways a PR maps to a task ({@link prMapsToTask}). */
+  headRefName?: string | null;
+  /** The PR body — carries the {@link taskMarker} line, the other mapping. */
+  body?: string | null;
+  /**
+   * Set when the PR itself is CLOSED but its content landed inside a merged merge-train PR
+   * ({@link verifyTrainLanding}). `merged` is then true, `mergedAt` is the TRAIN's merge time and
+   * `mergeCommit` is the squash commit that carries this PR's content on the base branch.
+   */
+  landedVia?: TrainLanding;
+  /** Why the PR does not count as merged, when a train landing was claimed but not proven. */
+  notMergedReason?: string;
+}
+
+/** A proven train landing — every field was read back from GitHub, none taken from the claim. */
+export interface TrainLanding {
+  /** The merge-train PR number. */
+  trainPr: number;
+  /** The train PR's own merge commit on the base branch. */
+  trainMergeCommit: string;
+  /** The full sha of the commit that carries the member PR's content (the squash on the train). */
+  squashCommit: string;
+  /** The branch the train merged into. */
+  baseRefName: string;
+}
+
+/** A «landed via train» claim, as the seat's closing comment on a member PR states it. */
+export interface TrainLandingClaim {
+  trainPr: number;
+  /** The squash sha as written in the comment (usually abbreviated). */
+  squash: string;
+}
+
+/**
+ * The closing comment the merge-train seat leaves on a member PR it squashed into a train rather
+ * than merging (first seen on #1934, closed «landed via train» C3, #1940):
+ *   «Landed via merge train C3 (#1940, merge commit `9f69fa2097c` …) as the squash commit `a235830d7f9`»
+ * The claim is only a POINTER: nothing is trusted until {@link verifyTrainLanding} proves it.
+ */
+const TRAIN_CLAIM_RE = /landed via (?:merge )?train\b[^\n]*?\(#(\d+)\b[^\n]*?\bsquash commit `?([0-9a-f]{7,40})\b/gi;
+
+/** Every train-landing claim in a PR's comments, in comment order. */
+export function parseTrainLandingClaims(comments: ReadonlyArray<{ body?: string | null }>): TrainLandingClaim[] {
+  const out: TrainLandingClaim[] = [];
+  for (const c of comments) {
+    for (const m of (c?.body ?? '').matchAll(TRAIN_CLAIM_RE)) {
+      out.push({ trainPr: Number(m[1]), squash: m[2].toLowerCase() });
+    }
+  }
+  return out;
+}
+
+/** `<owner>/<repo>` and the PR number from a `https://github.com/<owner>/<repo>/pull/<n>` url. */
+export function parsePrUrl(prUrl: string): { repo: string; number: number } | null {
+  const m = /^https?:\/\/[^/]+\/([^/]+\/[^/]+)\/pull\/(\d+)(?:[/?#]|$)/.exec(prUrl);
+  return m ? { repo: m[1], number: Number(m[2]) } : null;
+}
+
+/** True when a `gh api repos/<r>/compare/<base>...<head>` status says `head` is an ancestor of `base`. */
+function isAncestorStatus(status: string): boolean {
+  return status === 'behind' || status === 'identical';
+}
+
+/**
+ * Prove a train-landing claim for member PR `memberNumber` of `repo`, or say why it fails. Every
+ * check reads GitHub, and the claim comment is never trusted (anyone can comment on a public PR):
+ *   1. the train PR is MERGED with a recorded merge commit;
+ *   2. the claimed squash sha resolves to exactly one commit;
+ *   3. the train PR's OWN record says so: a body table row whose first cell is `#<member>` and
+ *      which names the squash after «into» — the seat's grammar, e.g.
+ *      `| #1934 | … | `1279cae72324` | **SQUASHED** into `a235830d7f9` |`. The member's head sha in
+ *      the same row, a prose mention, or a cross-repo `owner/repo#<member>` never qualifies;
+ *   4. the squash is one of the train PR's own commits (`GET pulls/<train>/commits`: the commits
+ *      the train added over its base) — a commit already on the base before the train merged is
+ *      an ancestor of the train merge commit too, so ancestry of that commit proves nothing.
+ *      The endpoint lists at most 250 commits; a larger train fails this check (safe side);
+ *   5. the squash is an ancestor of the train's base branch head — the content is on the base
+ *      branch now (`git merge-base --is-ancestor <squash> origin/<base>`, asked of GitHub's
+ *      compare API so a stale local fetch cannot answer it).
+ * A `gh` error on any read of the claim's own data (an unknown or ambiguous short sha) is a
+ * failed proof, not a crash; a network failure still throws, after {@link ghRead}'s retries.
+ */
+export function verifyTrainLanding(
+  repo: string,
+  memberNumber: number,
+  claim: TrainLandingClaim,
+  gh: (args: string[]) => string = ghRead,
+): { ok: true; landing: TrainLanding; mergedAt: string | null } | { ok: false; reason: string } {
+  const fail = (why: string) => ({ ok: false as const, reason: `train #${claim.trainPr} claim not proven: ${why}` });
+  const read = (args: string[]): string | null => {
+    try {
+      return gh(args);
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      if (GH_TRANSIENT_RE.test(`${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`)) throw err;
+      return null;
+    }
+  };
+  const trainOut = read(['pr', 'view', String(claim.trainPr), '--repo', repo, '--json', 'state,mergedAt,mergeCommit,baseRefName,body']);
+  if (trainOut === null) return fail('the train PR could not be read');
+  const train = JSON.parse(trainOut) as {
+    state?: string;
+    mergedAt?: string | null;
+    mergeCommit?: { oid?: string | null } | null;
+    baseRefName?: string | null;
+    body?: string | null;
+  };
+  const trainMergeCommit = train.mergeCommit?.oid ?? null;
+  if (train.state !== 'MERGED' || !trainMergeCommit) return fail(`the train PR is ${train.state ?? '?'}, not MERGED with a merge commit`);
+  if (!train.baseRefName) return fail('the train PR has no base branch');
+
+  const squashCommit = (read(['api', `repos/${repo}/commits/${claim.squash}`, '--jq', '.sha']) ?? '').trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(squashCommit) || !squashCommit.startsWith(claim.squash)) {
+    return fail(`the squash sha ${claim.squash} does not resolve to one commit`);
+  }
+
+  const rowRe = new RegExp(`^\\s*\\|\\s*#${memberNumber}\\s*\\|`);
+  const recorded = (train.body ?? '').split('\n').some(
+    (line) =>
+      rowRe.test(line) &&
+      [...line.matchAll(/\binto\s+[*_`\s]*([0-9a-f]{7,40})\b/gi)].some((m) => squashCommit.startsWith(m[1].toLowerCase())),
+  );
+  if (!recorded) {
+    return fail(`the train PR's body has no \`| #${memberNumber} |\` row naming ${claim.squash} after «into»`);
+  }
+
+  const trainCommits = read(['api', '--paginate', `repos/${repo}/pulls/${claim.trainPr}/commits`, '--jq', '.[].sha']);
+  if (trainCommits === null || !trainCommits.split('\n').some((sha) => sha.trim().toLowerCase() === squashCommit)) {
+    return fail(`${claim.squash} is not one of the train PR's own commits`);
+  }
+
+  const onBase = (read(['api', `repos/${repo}/compare/${train.baseRefName}...${squashCommit}`, '--jq', '.status']) ?? '').trim();
+  if (!isAncestorStatus(onBase)) return fail(`${claim.squash} is not an ancestor of ${train.baseRefName} (compare: ${onBase || 'unreadable'})`);
+
+  return {
+    ok: true,
+    landing: { trainPr: claim.trainPr, trainMergeCommit, squashCommit, baseRefName: train.baseRefName },
+    mergedAt: train.mergedAt ?? null,
+  };
+}
+
+/**
+ * Network failures a `gh` READ is worth repeating for: Go net/http as gh prints it. Measured
+ * 2026-09-28 on the operator's Mac: through the VPN tunnel the TLS handshake to api.github.com
+ * took 2-8 s and 4 of 6 consecutive `gh api graphql` calls timed out, so a sweep making one
+ * `gh` call per task almost never finished in one piece.
+ */
+const GH_TRANSIENT_RE =
+  /TLS handshake timeout|i\/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve host/i;
+
+/**
+ * `gh <args>` for a READ, repeated on a transient network failure (4 attempts, 3 s then 6 s then
+ * 12 s apart; `RUNTIME_BRIDGE_GH_RETRY_BASE_MS` overrides the 3 s). Only for idempotent reads —
+ * never a write such as `gh pr merge`. Any other failure is thrown at once.
+ *
+ * `maxBuffer` is raised from Node's 1 MiB default: the sweep's one merged-PR search returns every
+ * matching PR body at once (measured 1.4 MB for 160 PRs on 2026-09-28), and at 1 MiB the call died
+ * with `spawnSync gh ENOBUFS` on the first live tick after #1874.
+ */
+const GH_READ_MAX_BUFFER = 64 * 1024 * 1024;
+
+export function ghRead(args: string[]): string {
+  const base = Number(process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] ?? 3000);
+  const attempts = 4;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync('gh', args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: GH_READ_MAX_BUFFER,
+      });
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      const text = `${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`;
+      if (attempt >= attempts || !GH_TRANSIENT_RE.test(text)) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, base * 2 ** (attempt - 1));
+    }
+  }
+}
+
+/**
+ * The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`.
+ *
+ * A CLOSED PR gets a second chance: the merge-train seat closes a member it SQUASHED into a train
+ * (GitHub cannot mark it merged — its head is not an ancestor of the base) with a «landed via
+ * train» comment. Then the probe reads the comments and counts the PR as merged only when one
+ * claim passes {@link verifyTrainLanding}; `mergedAt` becomes the train's merge time, so the
+ * rework guard in {@link reportMergeToAif} compares against when the content actually landed.
+ */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
-  const out = execFileSync('gh', ['pr', 'view', prUrl, '--json', 'state,mergedAt'], { encoding: 'utf8' });
-  const parsed = JSON.parse(out) as { state?: string; mergedAt?: string | null };
-  return { merged: parsed.state === 'MERGED', mergedAt: parsed.mergedAt ?? null };
+  const out = ghRead(['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit,headRefName,body']);
+  const parsed = JSON.parse(out) as {
+    state?: string;
+    mergedAt?: string | null;
+    mergeCommit?: { oid?: string | null } | null;
+    headRefName?: string | null;
+    body?: string | null;
+  };
+  const mergeCommit = parsed.mergeCommit?.oid ?? null;
+  const state: PrMergeState = {
+    merged: parsed.state === 'MERGED' && !!mergeCommit,
+    mergedAt: parsed.mergedAt ?? null,
+    mergeCommit,
+    headRefName: parsed.headRefName ?? null,
+    body: parsed.body ?? null,
+  };
+  if (parsed.state !== 'CLOSED') return state;
+
+  const pr = parsePrUrl(prUrl);
+  const { comments } = JSON.parse(ghRead(['pr', 'view', prUrl, '--json', 'comments'])) as {
+    comments?: { body?: string | null }[];
+  };
+  const claims = parseTrainLandingClaims(comments ?? []);
+  if (claims.length === 0) return { ...state, notMergedReason: 'PR is CLOSED unmerged and no comment claims a train landing' };
+  if (!pr) return { ...state, notMergedReason: `PR is CLOSED with a train claim, but ${prUrl} is not a GitHub PR url` };
+  const reasons: string[] = [];
+  for (const claim of claims) {
+    const proof = verifyTrainLanding(pr.repo, pr.number, claim);
+    if (proof.ok) {
+      return { ...state, merged: true, mergedAt: proof.mergedAt, mergeCommit: proof.landing.squashCommit, landedVia: proof.landing };
+    }
+    reasons.push(proof.reason);
+  }
+  return { ...state, notMergedReason: `PR is CLOSED unmerged; ${reasons.join('; ')}` };
 };
 
 /**
- * Tell aif that a harvested task's PR has merged — the RETURN CHANNEL harvest never had.
+ * The PR-body line that maps a PR back to the aif task it harvested. Read back by
+ * {@link ghMergedPrLookup}; written by harvest's own PR body ({@link withTaskMarker}) and, for
+ * a host-side manual harvest, by the /harvest skill §4 body.
+ */
+export function taskMarker(taskId: string): string {
+  return `aif-task: ${taskId}`;
+}
+
+/**
+ * True when the PR is this task's harvest: its body carries the exact {@link taskMarker} line, or
+ * its head branch IS the task's persisted `branchName`. A PR that merely mentions the id in prose
+ * (a follow-up, a retro) does not map.
+ */
+export function prMapsToTask(pr: { headRefName?: string | null; body?: string | null }, task: AifTaskFull): boolean {
+  if (task.branchName && pr.headRefName === task.branchName) return true;
+  const marker = taskMarker(task.id);
+  return (pr.body ?? '').split('\n').some((line) => line.trim() === marker);
+}
+
+/**
+ * Why a merged task in `review` cannot be closed with participants mode off. Deliberately no
+ * handoff advice: the work is on the base branch, and a handoff to AI only re-runs a capped
+ * review over it.
+ */
+export function mergedReviewUnclosableReason(task: AifTaskFull): string {
+  if (task.executionOwner !== 'human') {
+    return (
+      `task is ai-owned in "review" — the coordinator's auto review is still running on it, and ` +
+      `participants mode is OFF, so no event may cut it short. The work is already merged: re-run ` +
+      `--report-merge once the auto review leaves "review" (approved → done, or parked for a human ` +
+      `→ closable via the legacy manual-review exit).`
+    );
+  }
+  return (
+    `task is human-owned in "review" but not parked for manual review (manualReviewRequired is not ` +
+    `true); with participants mode OFF the legacy dispatcher serves complete_review only for such a ` +
+    `park, so there is no legal exit to close it. The work is already merged; closing it needs ` +
+    `participants mode, or an operator decision.`
+  );
+}
+
+/** A task as the return channel reads it: the REST shape plus the agent's activity log. */
+type TaskWithActivity = AifTaskFull & { agentActivityLog?: string | null };
+
+/**
+ * When the task's agent last did anything: the latest `[<ISO>]` stamp in `agentActivityLog`
+ * (aif writes one line per agent step). A rework round after a merge (request_changes →
+ * implementing → done on the same branch) writes new lines here, so a PR merged BEFORE this
+ * instant cannot carry the task's current work. Deliberately NOT `updatedAt`: this channel's own
+ * comment bumps it, so a retry after a half-finished run would refuse forever.
+ */
+export function lastAgentActivityAt(task: TaskWithActivity): string | null {
+  let latest: string | null = null;
+  for (const m of (task.agentActivityLog ?? '').matchAll(/^\[(\d{4}-\d{2}-\d{2}T[^\]]+)\]/gm)) {
+    if (latest === null || m[1] > latest) latest = m[1];
+  }
+  return latest;
+}
+
+/** True when `text` names `url` as a whole URL (so `.../pull/18` does not match `.../pull/185`). */
+function namesUrl(text: string, url: string): boolean {
+  const esc = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${esc}(?![\\w/])`).test(text);
+}
+
+/** Append the {@link taskMarker} line to a PR body unless it already carries it. */
+export function withTaskMarker(body: string, taskId: string): string {
+  const marker = taskMarker(taskId);
+  if (body.split('\n').some((line) => line.trim() === marker)) return body;
+  return `${body.trimEnd()}\n\n${marker}\n`;
+}
+
+/** One aif task comment, as far as the return channel reads it. */
+interface AifTaskComment {
+  message?: string;
+}
+
+/**
+ * The status {@link reportMergeToAif} ends at. `approve_done` is the web UI's Approve button:
+ * `useTaskDetailActions.ts` posts it to `POST /tasks/:id/events`, whose state machine moves
+ * `done → verified` (aif `packages/shared/src/stateMachine.ts:98-101`) — «close» in the UI.
+ */
+const CLOSED_STATUS = 'verified';
+
+/**
+ * Tell aif that a harvested task's PR has merged, and close the task — the RETURN CHANNEL.
  *
- * Before this, harvest was strictly one-way: the branch left the container, was pushed, PR'd
- * and merged on GitHub, and nothing ever wrote back (`grep -c "postJson|putTask"` on this file
- * returned 0). A task had no mechanism to learn that its own work had shipped, so it stayed in
- * `review` indefinitely — and `review` with `executionOwner:"ai"` counts toward the per-project
- * lane cap (`countActivePipelineTasksForProject`), so shipped work throttled new work. Measured
- * 2026-09-09: four tasks still parked with their PRs merged days earlier (#1667, #1668, #1680,
- * #1688), while the coordinator logged `"active":6,"limit":5`. Closing them depended on a human
- * remembering — bare attention as the detection layer, which
- * `.claude/rules/attention-is-not-a-mechanism.md §1` forbids for a load-bearing check.
+ * History: harvest was first strictly one-way (nothing wrote back, so shipped work sat in
+ * `review` holding a lane — four such tasks measured 2026-09-09). The first return channel
+ * (#1694) stopped at `done` and left `approve_done` to a human. Operator directive 2026-09-28
+ * retired that last manual step: a task whose PR is merged is closed here, through the same
+ * route the UI's Approve button uses. Leaving it to a human was bare attention as the
+ * detection layer (`.claude/rules/attention-is-not-a-mechanism.md §2`): two tasks, both PRs
+ * merged, still sat at `done` the next day (514693af → #1858, 71ad40d7 → #1859).
  *
- * Deliberately conservative in three ways:
- *   1. An UNMERGED PR writes nothing. A comment saying «a PR exists» is noise, and an
- *      auto-merge that later fails would leave a false claim in the task's own record.
- *   2. The comment lands BEFORE the event, so the task carries the evidence even if the
- *      transition is refused.
- *   3. `complete_review` is dispatched ONLY from `review` — the state machine accepts it from
- *      nowhere else (`stateMachine.js:91`), so any other status is reported, not forced.
- *      It lands the task in `done`, NOT `verified`: final acceptance stays a human act
- *      (`approve_done`), this only stops shipped work from occupying a lane.
+ * Guards, in order:
+ *   1. The PR must be MERGED with a recorded merge commit ({@link ghPrMergeProbe}), or CLOSED with
+ *      a PROVEN train landing ({@link verifyTrainLanding}: the train merged, names this PR and the
+ *      squash, and the squash is on the base branch). Anything else writes NOTHING — a close on an
+ *      unmerged PR would claim work that never shipped.
+ *   2. An already-`verified` task is a no-op: no comment, no event (idempotent re-runs).
+ *   2a. The PR must BE this task's harvest ({@link prMapsToTask}: head == task branch, or an exact
+ *      `aif-task: <id>` body line), and it must have merged after the task's last agent activity
+ *      ({@link lastAgentActivityAt}) — else a rework round on the same branch would be closed by
+ *      the earlier merge. Either refusal writes nothing.
+ *   3. The comment lands BEFORE any event, so the task carries the evidence even if a
+ *      transition is refused — and only once: a comment already naming the PR is not repeated.
+ *   4. `review` → `complete_review` (participants mode, or a legacy-mode manual-review park — see below),
+ *      then `done` → `approve_done` with `commitOnApprove:false` and `deletePlanFile:false`.
+ *      The UI's modal defaults `commitOnApprove` to true, which would start aif's
+ *      `/aif-commit` flow in the container for work that is already on the base branch.
+ *   5. Any other status is reported, never forced.
+ *   6. The close is proven by reading the task back: anything but `verified` throws.
  */
 export async function reportMergeToAif(
   baseUrl: string,
@@ -628,62 +1082,354 @@ export async function reportMergeToAif(
   prUrl: string,
   probe: PrMergeProbe = ghPrMergeProbe,
 ): Promise<MergeReport> {
-  const { merged, mergedAt } = await probe(prUrl);
+  const probed = await probe(prUrl);
+  const { merged, mergedAt, mergeCommit, landedVia } = probed;
   if (!merged) {
     return {
       taskId,
       prUrl,
       merged: false,
+      mergeCommit: mergeCommit ?? null,
       commented: false,
       closedReview: false,
-      skippedReason: 'PR is not merged yet — nothing reported',
+      approved: false,
+      skippedReason:
+        'PR is not merged (state MERGED + a merge commit, or a proven train landing) — nothing reported, task not closed' +
+        (probed.notMergedReason ? ` (${probed.notMergedReason})` : ''),
     };
   }
 
-  const task = await getTask(baseUrl, taskId);
-  const when = mergedAt ?? 'unknown time';
-  await postComment(
-    baseUrl,
-    taskId,
-    `Harvested and merged: ${prUrl} (merged ${when}). The deliverable is on the base branch, ` +
-      `so this task's work has shipped. Reported automatically by the harvest return channel.`,
-  );
-
-  if (task.status !== 'review') {
+  let task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
+  const base = { taskId, prUrl, merged: true, mergeCommit: mergeCommit ?? null, ...(landedVia ? { landedVia } : {}) };
+  if (task.status === CLOSED_STATUS) {
     return {
-      taskId,
-      prUrl,
-      merged: true,
-      commented: true,
+      ...base,
+      commented: false,
       closedReview: false,
-      skippedReason: `task status is "${task.status}", not "review" — complete_review is only allowed from review`,
+      approved: false,
+      alreadyClosed: true,
+      finalStatus: task.status,
     };
   }
 
-  // The close is only attempted when the deployment can serve it. With participants mode
-  // off, `complete_review` resolves through the legacy dispatcher, which has no exit from
-  // `review` for ANY owner, and the API answers 409 "Unknown task event" (measured on two
-  // live parks, 2026-09-09). That is not a harvest failure: the merge evidence is already
-  // on the task, and closing the park is bookkeeping with its own operator levers.
-  //
-  // Only an explicit `false` is skipped. A FAILING probe — a timeout, a 401/404 on
-  // /auth/session, an unparsable body — must propagate to the CLI's own error path and exit
-  // non-zero: swallowing it would report `ok:true` while a close that may well have been
-  // legal never happened, and parks would accumulate behind a green exit code with the
-  // diagnosis buried in a field nobody reads (`attention-is-not-a-mechanism.md §2`).
-  if (!(await getParticipantsModeEnabled(baseUrl))) {
+  // Is this PR the task's harvest at all? A wrong-but-merged url (a neighbouring PR of the same
+  // batch) would otherwise close a task whose own work never shipped.
+  const refused = (skippedReason: string): MergeReport => ({
+    ...base,
+    commented: false,
+    closedReview: false,
+    approved: false,
+    finalStatus: task.status,
+    skippedReason,
+  });
+  if (!prMapsToTask(probed, task)) {
+    return refused(
+      `PR does not map to this task: its head is "${probed.headRefName ?? '?'}", not the task branch ` +
+        `"${task.branchName ?? '?'}", and its body has no "${taskMarker(taskId)}" line — nothing written`,
+    );
+  }
+  // Does the merge carry the task's CURRENT work? A rework round after an earlier merge leaves the
+  // same branch and marker behind, so mapping alone would close a rework that never shipped.
+  const lastActivity = lastAgentActivityAt(task);
+  if (!mergedAt || (lastActivity !== null && Date.parse(mergedAt) < Date.parse(lastActivity))) {
+    return refused(
+      `PR merged at ${mergedAt ?? 'unknown time'}, before the task's last agent activity at ` +
+        `${lastActivity ?? '?'} — the merge cannot carry the task's current work (unshipped rework?); nothing written`,
+    );
+  }
+
+  const comments = await getJson(baseUrl, `/tasks/${taskId}/comments`);
+  if (!Array.isArray(comments)) {
+    // An unexpected shape must not read as "no comments": every retry would post a duplicate.
+    throw new Error(`aif GET /tasks/${taskId}/comments did not return an array`);
+  }
+  const alreadyCommented = (comments as AifTaskComment[]).some((c) => namesUrl(c?.message ?? '', prUrl));
+  if (!alreadyCommented) {
+    await postComment(
+      baseUrl,
+      taskId,
+      `${MERGE_REPORT_PREFIX}${prUrl} (` +
+        (landedVia
+          ? `landed via merge train #${landedVia.trainPr}, merged ${mergedAt ?? 'unknown time'} as train merge commit ` +
+            `${landedVia.trainMergeCommit}; this PR's content is the squash commit ${landedVia.squashCommit} on ${landedVia.baseRefName}`
+          : `merged ${mergedAt ?? 'unknown time'}, merge commit ${mergeCommit ?? 'unknown'}`) +
+        `). The deliverable is on the base branch, so this task's work ` +
+        `has shipped. Reported and closed automatically by the harvest return channel.`,
+    );
+  }
+  const commented = !alreadyCommented;
+
+  let closedReview = false;
+  if (task.status === 'review') {
+    // With participants mode off, `complete_review` resolves through the legacy dispatcher,
+    // which serves it for exactly one case: a manual-review park (human-owned,
+    // manualReviewRequired — the auto review hit max_iterations; artyhoo/aif-handoff#1).
+    // Every other review task is skipped, and the reason never suggests a handoff: the work is
+    // already merged, so handing it back to AI only re-runs a capped review loop. Only an
+    // explicit `false` counts as "off" — a FAILING probe propagates, so a close that may have
+    // been legal never hides behind a green exit code (`attention-is-not-a-mechanism.md §2`).
+    if (!(await getParticipantsModeEnabled(baseUrl))) {
+      if (!isManualReviewPark(task)) {
+        return {
+          ...base,
+          commented,
+          closedReview: false,
+          approved: false,
+          finalStatus: task.status,
+          skippedReason: mergedReviewUnclosableReason(task),
+        };
+      }
+      try {
+        await postEvent(baseUrl, taskId, 'complete_review');
+        closedReview = true;
+      } catch (err) {
+        // Decided by the read-back, not the error text: a park still in `review` means this aif
+        // build predates the legacy exit (or refused it) — a deploy problem, not a skip.
+        const again = (await getTask(baseUrl, taskId)) as TaskWithActivity;
+        if (again.status === 'review') {
+          throw new Error(
+            `complete_review was refused for manual-review park ${taskId} with participants mode off — ` +
+              `this aif deployment lacks the legacy manual-review exit (artyhoo/aif-handoff#1); deploy it ` +
+              `and re-run --report-merge. The merged work needs no further review. Cause: ` +
+              `${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+        // A concurrent run moved it out of `review` first — carry on from what it reads back.
+      }
+    } else {
+      await postEvent(baseUrl, taskId, 'complete_review');
+      closedReview = true;
+    }
+    task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
+  }
+
+  if (task.status !== 'done') {
     return {
-      taskId,
-      prUrl,
-      merged: true,
-      commented: true,
-      closedReview: false,
-      skippedReason: reviewEventUnreachableReason('complete_review'),
+      ...base,
+      commented,
+      closedReview,
+      approved: false,
+      finalStatus: task.status,
+      skippedReason: `task status is "${task.status}" — approve_done is only allowed from done, so the task was not closed`,
     };
   }
 
-  await postEvent(baseUrl, taskId, 'complete_review');
-  return { taskId, prUrl, merged: true, commented: true, closedReview: true };
+  try {
+    await postJson(baseUrl, `/tasks/${taskId}/events`, {
+      event: 'approve_done',
+      commitOnApprove: false,
+      deletePlanFile: false,
+    });
+  } catch (err) {
+    // A concurrent run may have closed it between our read and our write: the state machine
+    // then refuses approve_done (409, not from done). That is the idempotent outcome, not a
+    // failure — but only if the read-back proves it.
+    const again = await getTask(baseUrl, taskId);
+    if (again.status === CLOSED_STATUS) {
+      return { ...base, commented, closedReview, approved: false, alreadyClosed: true, finalStatus: again.status };
+    }
+    throw err;
+  }
+
+  const after = await getTask(baseUrl, taskId);
+  if (after.status !== CLOSED_STATUS) {
+    throw new Error(
+      `approve_done was accepted for task ${taskId} but it reads back status="${after.status}", not "${CLOSED_STATUS}"`,
+    );
+  }
+  return { ...base, commented, closedReview, approved: true, finalStatus: after.status };
+}
+
+/** A merged (or train-landed) PR as {@link PrLookup} returns it. */
+export interface MergedPr {
+  url: string;
+  body?: string;
+  headRefName?: string;
+  /** `MERGED` or `CLOSED`; absent on a `--state merged` listing. */
+  state?: string;
+  comments?: { body?: string | null }[];
+}
+
+/**
+ * Keep a listed PR as a landing candidate: MERGED, or CLOSED with at least one «landed via train»
+ * claim in its comments. The claim is only a filter here; {@link ghPrMergeProbe} proves it before
+ * anything is written.
+ */
+function isLandingCandidate(pr: MergedPr): boolean {
+  if (pr.state === undefined || pr.state === 'MERGED') return true;
+  return pr.state === 'CLOSED' && parseTrainLandingClaims(pr.comments ?? []).length > 0;
+}
+
+/**
+ * The listing that finds train-landed PRs: closed-unmerged PRs whose body carries an aif-task
+ * marker. There are few of them (10 in artyhoo/getff on 2026-09-29), so fetching their comments
+ * costs little.
+ */
+const TRAIN_CANDIDATE_JSON = 'url,body,headRefName,state,comments';
+
+/**
+ * Find the merged PR(s) that harvested one aif task. Injected so the tests need neither `gh`
+ * nor a network. Must return only PRs that map to THIS task.
+ */
+export type PrLookup = (task: AifTaskFull) => Promise<MergedPr[]>;
+
+/**
+ * Default lookup over `gh`: merged PRs whose body names the task id, plus merged PRs whose
+ * head branch is the task's persisted `branchName`. A body hit is kept only when it carries
+ * the exact {@link taskMarker} line or its head IS the task branch — a PR that merely
+ * mentions the id in prose (a later follow-up, a retro) is not the task's harvest. Both searches
+ * also return a CLOSED PR with a «landed via train» claim ({@link isLandingCandidate}) — a member
+ * the merge-train seat squashed into a train — for the probe to prove or refuse.
+ */
+export function ghMergedPrLookup(repo: string): PrLookup {
+  return async (task) => {
+    const list = (args: string[]): MergedPr[] =>
+      JSON.parse(
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', ...args, '--json', 'url,body,headRefName']),
+      ) as MergedPr[];
+    const closed = (args: string[]): MergedPr[] =>
+      (
+        JSON.parse(
+          ghRead(['pr', 'list', '--repo', repo, '--state', 'closed', '--limit', '100', ...args, '--json', TRAIN_CANDIDATE_JSON]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate);
+    const found = new Map<string, MergedPr>();
+    for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`])) found.set(pr.url, pr);
+    for (const pr of closed(['--search', `"${taskMarker(task.id)}" in:body is:unmerged`])) found.set(pr.url, pr);
+    if (task.branchName) for (const pr of closed(['--head', task.branchName])) found.set(pr.url, pr);
+    return [...found.values()].filter((pr) => prMapsToTask(pr, task));
+  };
+}
+
+/**
+ * The sweep's lookup: ONE `gh` search for every merged PR carrying an aif-task marker, fetched on
+ * the first task and matched in memory for the rest; a per-task `--head` search runs only for a
+ * task with a persisted `branchName`. {@link ghMergedPrLookup} costs one GitHub search per task,
+ * and a project sweep visits every done/review task — 241 of them on 2026-09-28, almost none with
+ * a marker, so a tick spent 10-30 min on searches that found nothing and hit the 600 s watchdog.
+ * `limit` caps the marker index (newest first); a PR older than that has long been swept. The index
+ * and the `--head` search also carry CLOSED PRs with a «landed via train» claim — one more cached
+ * search per sweep ({@link isLandingCandidate}).
+ */
+export function ghMergedPrIndexLookup(repo: string, limit = 1000): PrLookup {
+  const json = 'url,body,headRefName';
+  let index: MergedPr[] | undefined;
+  return async (task) => {
+    index ??= [
+      ...(JSON.parse(
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', String(limit), '--search', '"aif-task:" in:body', '--json', json]),
+      ) as MergedPr[]),
+      // Train-landed members: closed unmerged, kept only with a «landed via train» claim.
+      ...(
+        JSON.parse(
+          ghRead([
+            'pr', 'list', '--repo', repo, '--state', 'closed', '--limit', String(limit),
+            '--search', '"aif-task:" in:body is:unmerged', '--json', TRAIN_CANDIDATE_JSON,
+          ]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate),
+    ];
+    const found = new Map<string, MergedPr>();
+    for (const pr of index) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    if (task.branchName) {
+      const onBranch = (
+        JSON.parse(
+          ghRead(['pr', 'list', '--repo', repo, '--state', 'closed', '--limit', '100', '--head', task.branchName, '--json', TRAIN_CANDIDATE_JSON]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate);
+      for (const pr of onBranch) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    }
+    return [...found.values()];
+  };
+}
+
+/** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
+export function cwdRepo(): string {
+  return ghRead(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim();
+}
+
+/** One task's outcome in a {@link closeMergedTasks} sweep. */
+export interface SweepEntry {
+  taskId: string;
+  status: string;
+  prUrl?: string;
+  report?: MergeReport;
+  skippedReason?: string;
+  /**
+   * Set when closing THIS task threw (a refused aif transition, a failed read-back). It is
+   * recorded per task so one un-closable task cannot stop the sweep from closing the others.
+   */
+  error?: string;
+}
+
+/** The statuses a sweep looks at: a harvested task waits at one of these until closed. */
+const SWEEP_STATUSES = new Set(['done', 'review']);
+
+/**
+ * Close every aif task whose harvested PR has merged — the sweep form of the return channel.
+ *
+ * It needs no PR url from the caller: the mapping is read back from GitHub ({@link PrLookup})
+ * and every close still passes {@link reportMergeToAif}'s own merge proof. So it is safe to run
+ * after any merge, however the PR was opened (harvest.ts, a host-side bundle harvest, pc-hub),
+ * and a second run changes nothing. A task with zero or several matching PRs is reported,
+ * never guessed at. A task whose close throws is recorded with its `error`, and the sweep
+ * goes on to the next task.
+ */
+export async function closeMergedTasks(
+  baseUrl: string,
+  opts: { projectId?: string; taskId?: string },
+  lookup: PrLookup,
+  probe: PrMergeProbe = ghPrMergeProbe,
+): Promise<SweepEntry[]> {
+  let tasks: AifTaskFull[];
+  if (opts.taskId) {
+    tasks = [await getTask(baseUrl, opts.taskId)];
+  } else {
+    // A sweep spans ONE aif project, whose tasks live in ONE GitHub repo. An unscoped sweep would
+    // match every project's tasks against the one repo `lookup` searches — a branch name shared
+    // across repos would then close another project's task.
+    if (!opts.projectId) {
+      throw new Error('--close-merged without a task id needs --project <id> (or RUNTIME_BRIDGE_AIF_PROJECT_ID)');
+    }
+    const res = await getJson(baseUrl, `/tasks?projectId=${encodeURIComponent(opts.projectId)}`);
+    tasks = Array.isArray(res) ? (res as AifTaskFull[]) : [];
+  }
+  const out: SweepEntry[] = [];
+  for (const task of tasks) {
+    if (!SWEEP_STATUSES.has(task.status)) {
+      if (opts.taskId) out.push({ taskId: task.id, status: task.status, skippedReason: `status "${task.status}" is not swept` });
+      continue;
+    }
+    let prs = await lookup(task);
+    // A train-landed CLOSED PR next to exactly one MERGED PR (a rework harvested and merged the
+    // ordinary way after the train) is not ambiguous: the merged one is the task's latest landing,
+    // exactly as before train landings were looked up at all.
+    const plainMerged = prs.filter((p) => p.state !== 'CLOSED');
+    if (prs.length > 1 && plainMerged.length === 1) prs = plainMerged;
+    if (prs.length !== 1) {
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        skippedReason:
+          prs.length === 0
+            ? 'no merged PR maps to this task, nor a train-landed one (no aif-task marker, no such PR on its branch)'
+            : `ambiguous: ${prs.length} merged PRs map to this task (${prs.map((p) => p.url).join(', ')})`,
+      });
+      continue;
+    }
+    try {
+      const report = await reportMergeToAif(baseUrl, task.id, prs[0].url, probe);
+      out.push({ taskId: task.id, status: task.status, prUrl: prs[0].url, report });
+    } catch (err) {
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return out;
 }
 
 /**
@@ -694,7 +1440,10 @@ export async function reportMergeToAif(
  * it has no route to github.com, so nothing printed here is ever a push.
  */
 function containerRead(container: string, workDir: string, gitArgs: string): string {
-  return `docker exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
+  // The container may live on another docker context (resolveAgentContainer sets DOCKER_CONTEXT);
+  // name it, or the pasted command asks the current context and gets «No such container».
+  const ctx = process.env.DOCKER_CONTEXT ? `--context ${process.env.DOCKER_CONTEXT} ` : '';
+  return `docker ${ctx}exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
 }
 
 async function main(): Promise<void> {
@@ -706,17 +1455,37 @@ async function main(): Promise<void> {
     process.stderr.write(`[harvest] ${msg}\n`);
     process.exit(1);
   }
+  const baseUrl = process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
+
+  // Sweep mode: close every task whose harvested PR has merged. Needs no PR url — the mapping is
+  // read back from GitHub — so it runs after ANY merge, however the PR was opened.
+  if (parsed.closeMerged) {
+    try {
+      const repo = parsed.repo ?? cwdRepo();
+      const entries = await closeMergedTasks(
+        baseUrl,
+        { projectId: parsed.project, taskId: parsed.taskId },
+        ghMergedPrIndexLookup(repo),
+      );
+      process.stdout.write(JSON.stringify({ ok: true, repo, closeMerged: entries }) + '\n');
+      process.exit(0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[harvest] --close-merged FAILED: ${msg}\n`);
+      process.exit(1);
+    }
+  }
+
   if (!parsed.taskId) {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
         '[harvest]        harvest.ts <taskId> --report-merge <prUrl>   (return channel only, no egress)\n' +
+        '[harvest]        harvest.ts [<taskId>] --close-merged [--project <id>] [--repo o/r]   (close tasks whose PR merged)\n' +
         '[harvest]   egress = Channel A: the container\'s commit is bundled to the HOST and pushed from there\n' +
         '[harvest]   (--host-repo / RUNTIME_BRIDGE_HOST_REPO, default: the cwd\'s checkout) so .husky/pre-push runs.\n',
     );
     process.exit(1);
   }
-
-  const baseUrl = process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
 
   // Return-channel-only mode. Deliberately BEFORE every egress step: the task this closes has
   // already shipped, so re-resolving its container checkout would fail on a worktree aif has
@@ -729,6 +1498,26 @@ async function main(): Promise<void> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       process.stderr.write(`[harvest] --report-merge FAILED: ${msg}\n`);
+      process.exit(1);
+    }
+  }
+
+  // WHICH container, and on which docker context — resolved before the first container read, so
+  // the fallback warning below already names the real one.
+  if (!parsed.container) {
+    let hostRoot = process.cwd();
+    try {
+      hostRoot = resolveHostRepo(parsed.hostRepo, process.cwd(), fileURLToPath(import.meta.url));
+    } catch {
+      // the egress step reports an unresolvable host repo with its own message
+    }
+    try {
+      const target = resolveAgentContainer(hostRoot);
+      parsed.container = target.container;
+      if (target.dockerContext) process.env['DOCKER_CONTEXT'] = target.dockerContext;
+      process.stderr.write(`[harvest] agent container: ${target.note}\n`);
+    } catch (err) {
+      process.stderr.write(`[harvest] FAILED: ${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(1);
     }
   }
@@ -770,10 +1559,12 @@ async function main(): Promise<void> {
 
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
-    const body = args.bodyFile
+    // Every body carries the aif-task marker line: it is how the return channel maps the
+    // merged PR back to this task (ghMergedPrIndexLookup / ghMergedPrLookup).
+    const body = withTaskMarker(args.bodyFile
       ? readFileSync(args.bodyFile, 'utf8')
       : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
-        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`;
+        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`, args.taskId);
 
     const real = realDeps(args.container, args, task);
     const deps = real.deps;
@@ -862,8 +1653,8 @@ async function main(): Promise<void> {
     // Close the loop while we still hold the PR url. With --auto-merge the PR is usually still
     // open at this instant, so this normally reports `merged:false` and writes NOTHING — that is
     // the designed outcome, not a miss. It closes the task only when the merge already landed
-    // (a small PR whose checks were green). For the ordinary case the operator re-runs
-    // `--report-merge <prUrl>` afterwards. NEVER fatal: the egress itself has already succeeded,
+    // (a small PR whose checks were green). For the ordinary case `--close-merged` closes it after
+    // the merge (/harvest §4 step 5) — no url needed. NEVER fatal: the egress itself has already succeeded,
     // and failing the harvest over a bookkeeping call would lose that result.
     let mergeReport: MergeReport | { error: string } | undefined;
     if (res.prUrl) {
@@ -914,7 +1705,7 @@ async function main(): Promise<void> {
         // printing a broken path.
         hostRepo: (() => {
           try {
-            return resolveHostRepo(args.hostRepo);
+            return resolveHostRepo(args.hostRepo, process.cwd(), fileURLToPath(import.meta.url));
           } catch {
             return '<host-repo — pass --host-repo>';
           }

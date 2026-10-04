@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Plugin-relocated PostToolUse rule-injector — path-scoped just-in-time delivery of the
-# CONSUMER's .claude/rules/*.md. Invoked via run-hook.cmd from plugin/hooks/hooks.json.
+# Plugin-relocated card loader — injects the summaries of the CONSUMER's .claude/rules/*.md and
+# of the plugin's cards/ that match an edit, a read or a Bash command. Arms: PostToolUse
+# (Edit|Write|MultiEdit, Read), PreToolUse (Bash), SessionStart (compact). Invoked via
+# run-hook.cmd from plugin/hooks/hooks.json.
 # @dual-pair: rule-path-scoping
 # spec: .claude/hooks/inject-matching-rule.sh   ← in-repo dogfood source (SSOT)
 #       docs/superpowers/plans/plugin-hook-triage.md §3 (path-class audit)
@@ -12,45 +14,103 @@
 # so we resolve the project via $CLAUDE_PROJECT_DIR (set by Claude Code), with the original
 # self-resolution kept as the fallback so one file serves both channels.
 #
-# Mechanism: on Edit|Write, for each .claude/rules/*.md carrying a `<!-- globs: ... -->`
-# marker whose pattern matches the edited path, inject that rule's `<!-- inject: ... -->`
-# summary (fallback: title) as PostToolUse additionalContext — ONCE per session.
-# Non-blocking (exit 0 + JSON), never a gate. Output contract: PostToolUse plain stdout is
-# IGNORED; context must be JSON additionalContext.
+# Mechanism: a CARD is a markdown file — a project rule in $RULES_DIR, or a base-core card in
+# $CARDS_DIR — ${CLAUDE_PLUGIN_ROOT}/cards on the plugin channel (trigger build, slice 1, S-2).
+# Its triggers: the `paths:` frontmatter and the `<!-- globs: ... -->` marker (a union, S-3),
+# `on: read`, and `events:` (extended regexes over a Bash command, S-5). One script serves
+# every arm; the arm is read from the payload (`hook_event_name` + `tool_name`), because the
+# plugin command form `run-hook.cmd <name>` carries no argument
+# (scripts/render-harness-config.mjs emitPlugin):
+#   PostToolUse Edit|Write|MultiEdit — cards whose globs match the edited path;
+#   PostToolUse Read                  — the same, restricted to cards declaring `on: read`;
+#   PreToolUse Bash                   — cards whose `events:` regex matches tool_input.command;
+#   SessionStart source=compact       — clears the parent's once-cache (S-4), emits nothing.
+# What is injected: the `<!-- inject: ... -->` summary; with no summary, the card BODY when it
+# is within $CARD_LIMIT bytes (advisor E5 N1); else the first heading. The pointer names the
+# card's `depth:` files, or the rule file itself for a project rule without `depth:`.
+# Each card fires ONCE per (session_id, agent_id) — agent_id is empty for the parent (S-4) —
+# through an atomic `mkdir` per card (S-14). Non-blocking injection (exit 0 + JSON), never a gate.
+#
+# Output contract (verified 2026-05-22, code.claude.com/docs/en/hooks.md):
+#   plain stdout is IGNORED for PostToolUse; context must be JSON additionalContext.
+#   PreToolUse accepts hookSpecificOutput.additionalContext too (SyncHookJSONOutput,
+#   code.claude.com/docs/en/agent-sdk/typescript, read 2026-09-29); no permissionDecision is set.
+#
+# Glob → extended regex (S-1, deterministic, no glob engine): `**/` = any number of
+# directories, a trailing `**` = anything; `**` inside a segment (`a**b`) is a plain `*`, as in
+# picomatch — a `/`, the glob's ends and an alternative's ends bound a segment (`{src/**,x}`).
+# `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
+# empty alternative makes the group optional (`*.ts{,x}`; macOS regcomp rejects `(|x)`). Every
+# other regex metacharacter is literal, `|` included (picomatch reads a bare `|` as
+# alternation). A glob with no `/` matches at any depth (`*.sh` matches `setup.d/lib.sh` — the
+# pre-slice-1 behaviour, kept; native Claude Code agrees, live probe 2026-09-29). Not
+# supported: `[...]` classes (literal) and nested braces.
+#
+# Frontmatter (a YAML subset): `key: value`, `key: [a, b]`, or a `- item` block list under
+# `key:`, indented or not. Comment lines and a ` #` trailing comment are dropped (a value that
+# is only a comment is empty, so a list can follow); a quoted value or flow-list item keeps
+# everything inside its quotes, commas included, with no escape processing (quote with '...').
+# `events:` values are POSIX extended regexes run by bash `=~` — portable ones only: macOS
+# has no `\b`, `\s`, `\d`, and rejects an empty alternative such as `(|x)`.
 #
 # Honest no-op (kickoff S6 §1/§2): when the CONSUMER has NO rules corpus (RULES_DIR missing
 # OR contains zero .md files), the hook reports ONCE per session loudly, then stays quiet
 # for the rest of the session. Never a permanent silent no-op; never per-invocation spam.
-# Precedent for the once-per-session shape: this hook's own session-cache at $CACHE below +
-# deps-hash-check.sh — same ${TMPDIR:-/tmp}/cc-…-${SESSION}.txt convention.
+# Precedent for the once-per-session shape: this hook's own once-cache below +
+# deps-hash-check.sh — same ${TMPDIR:-/tmp}/cc-…-${SESSION} convention. A card directory
+# with cards counts as a corpus.
+#
+# Plugin twin of .claude/hooks/inject-matching-rule.sh — plugin/hooks/run-hook.cmd reads this
+# line to keep the plugin copy silent where the project runs its own copy.
 set -uo pipefail
-
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 # RULES_DIR_OVERRIDE: test seam (kickoff S6 §2 planner decision 2 — option (a) env-var over
 # option (b) sandbox copy). Only the test sets it; runtime consumers see the resolved default.
 RULES_DIR="${RULES_DIR_OVERRIDE:-$REPO_ROOT/.claude/rules}"
+# CARDS_DIR_OVERRIDE: the same test seam for the base-core card directory (S-2).
+CARDS_DIR="${CARDS_DIR_OVERRIDE:-${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/cards}"
+CARD_LIMIT=1000   # bytes of card body (S-8)
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
-INPUT="$(cat)"
-TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
-ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
-SESSION="$(printf '%s' "$INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null || true)"
+# One jq pass over the payload; @sh quotes every value for eval. `s` first turns every field
+# into ONE string: @sh renders an array as several quoted words, which eval would run as a
+# command. Unparsable input leaves the defaults below, and the arm dispatch then exits 0.
+EVENT=""; TOOL=""; SESSION="nosession"; AGENT=""; SOURCE=""; ABS_PATH=""; COMMAND=""
+eval "$(jq -r 'def s: if type == "string" then . else tostring end;
+  @sh "EVENT=\(.hook_event_name // "PostToolUse" | s) TOOL=\(.tool_name // "" | s)
+  SESSION=\(.session_id // "nosession" | s) AGENT=\(.agent_id // "" | s)
+  SOURCE=\(.source // "" | s) ABS_PATH=\(.tool_input.file_path // "" | s)
+  COMMAND=\(.tool_input.command // "" | s)"' 2>/dev/null)"
+SESSION_KEY="${SESSION//[^A-Za-z0-9_-]/_}"
+CACHE_KEY="$SESSION_KEY"
+[[ -n "$AGENT" ]] && CACHE_KEY="${SESSION_KEY}@${AGENT//[^A-Za-z0-9_-]/_}"
+CACHE_ROOT="${TMPDIR:-/tmp}/cc-rule-injector-${CACHE_KEY}"
 
-case "$TOOL" in Edit|Write|MultiEdit) ;; *) exit 0 ;; esac
-[[ -z "$ABS_PATH" ]] && exit 0
+case "$EVENT" in
+  SessionStart)
+    # Compaction reset (S-4): the context that held the injected cards is gone, so the
+    # parent's once-cache goes too. Subagent caches are keyed apart and left alone.
+    [[ "$SOURCE" == compact ]] && rm -rf "${TMPDIR:-/tmp}/cc-rule-injector-${SESSION_KEY}"
+    exit 0 ;;
+  PreToolUse)
+    [[ "$TOOL" == Bash && -n "$COMMAND" ]] || exit 0
+    MODE=event ;;
+  PostToolUse)
+    case "$TOOL" in Edit|Write|MultiEdit) MODE="edit" ;; Read) MODE="read" ;; *) exit 0 ;; esac
+    [[ -z "$ABS_PATH" ]] && exit 0 ;;
+  *) exit 0 ;;
+esac
 
-# Corpus-present check: RULES_DIR exists AND contains ≥1 .md file. If absent, report ONCE
-# per session loudly (kickoff §2), then exit 0. The once-marker is a session-keyed cache
-# file parallel to $CACHE below — same precedent (this hook + deps-hash-check.sh).
+# Corpus-present check: RULES_DIR or CARDS_DIR holds ≥1 .md file. If neither does, an edit
+# reports ONCE per session loudly (kickoff §2), then exit 0; the Read and event arms stay silent.
 _corpus_present=0
-if [[ -d "$RULES_DIR" ]]; then
-  for _r in "$RULES_DIR"/*.md; do
-    [[ -f "$_r" ]] && { _corpus_present=1; break; }
-  done
-fi
+for _r in "$RULES_DIR"/*.md "$CARDS_DIR"/*.md; do
+  [[ -f "$_r" ]] && { _corpus_present=1; break; }
+done
 if [[ "$_corpus_present" -eq 0 ]]; then
-  EMPTY_REPORTED="${TMPDIR:-/tmp}/cc-rule-injector-empty-${SESSION//[^A-Za-z0-9_-]/_}.txt"
+  [[ "$MODE" == edit ]] || exit 0
+  EMPTY_REPORTED="${TMPDIR:-/tmp}/cc-rule-injector-empty-${SESSION_KEY}.txt"
   if [[ ! -f "$EMPTY_REPORTED" ]]; then
     touch "$EMPTY_REPORTED" 2>/dev/null || true
     _msg="⚠ inject-matching-rule: no rules corpus found at $RULES_DIR — this hook has nothing to inject and will stay silent for the rest of this session. To enable path-scoped rule injection, add .md files under $RULES_DIR (then start a new session)."
@@ -59,52 +119,236 @@ if [[ "$_corpus_present" -eq 0 ]]; then
   exit 0
 fi
 
-REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
-[[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0   # outside project — skip
+REL_PATH=""
+if [[ "$MODE" != event ]]; then
+  REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
+  [[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0   # outside the project root — skip
+fi
 
-CACHE="${TMPDIR:-/tmp}/cc-rule-injector-${SESSION//[^A-Za-z0-9_-]/_}.txt"
-touch "$CACHE" 2>/dev/null || CACHE=""
+# Once-cache (S-14): one directory per card under $CACHE_ROOT; `mkdir` is atomic, so of
+# several parallel runs exactly one wins the card. The root is made only when a card matches
+# (the Read and event arms run on every call). No writable TMPDIR → inject every time.
+first_time() {
+  [[ -z "$CACHE_ROOT" ]] && return 0
+  mkdir -p "$CACHE_ROOT" 2>/dev/null || { CACHE_ROOT=""; return 0; }
+  mkdir "$CACHE_ROOT/$1" 2>/dev/null
+}
 
-# Match REL_PATH against one glob pattern from the supported subset. Returns 0 on match.
-glob_match() {
-  local path="$1" pat="$2"
-  case "$pat" in
-    */\*\*)  [[ "$path" == "${pat%\*\*}"* ]] ;;   # prefix/**  -> starts with prefix/
-    \*.*)    [[ "$path" == *"${pat#\*}" ]] ;;      # *.ext      -> ends with .ext
-    *)       [[ "$path" == "$pat" ]] ;;            # exact
-  esac
+trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }
+unquote() {
+  local v; v="$(trim "$1")"
+  if [[ ${#v} -ge 2 && ( "$v" == \'*\' || "$v" == \"*\" ) ]]; then v="${v:1:${#v}-2}"; fi
+  printf '%s' "$v"
+}
+# Split a comma list, but not inside `{a,b}` or inside a quoted item; one trimmed, unquoted
+# item per line.
+split_list() {
+  local s="$1" cur="" depth=0 q="" i c
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:i:1}"
+    if [[ -n "$q" ]]; then
+      [[ "$c" == "$q" ]] && q=""
+      cur+="$c"; continue
+    fi
+    case "$c" in
+      \" | \') [[ -z "$(trim "$cur")" ]] && q="$c" ;;   # a quote opens only at an item's start
+      '{') depth=$((depth + 1)) ;;
+      '}') ((depth > 0)) && depth=$((depth - 1)) ;;
+    esac
+    if [[ "$c" == ',' && $depth -eq 0 ]]; then unquote "$cur"; echo; cur=""; else cur+="$c"; fi
+  done
+  unquote "$cur"; echo
+}
+
+# Glob → anchored extended regex (S-1; the grammar is in the header).
+glob_to_ere() {
+  local g="$1" out="" i=0 n=${#1} c t prev next gp="" brace=0 alts="" cur="" empty=0
+  while ((i < n)); do
+    c="${g:i:1}"
+    t=""
+    case "$c" in
+      '*')
+        if [[ "${g:i:2}" == '**' ]]; then
+          prev=""; ((i > 0)) && prev="${g:i-1:1}"
+          next="${g:i+2:1}"
+          # An alternative's edges bound a segment as well: at its start the character before
+          # the `{` counts; at its end (`,` or `}`) the glob ends there.
+          if ((brace)); then
+            [[ -z "$cur" ]] && prev="$gp"
+            [[ "$next" == ',' || "$next" == '}' ]] && next=""
+          fi
+          i=$((i + 2))
+          if [[ -n "$prev" && "$prev" != / ]]; then t='[^/]*'   # `a**`: not a whole segment
+          elif [[ "$next" == / ]]; then t='(.*/)?'; i=$((i + 1))
+          elif [[ -z "$next" ]]; then t='.*'
+          else t='[^/]*'; fi                                  # `**b`: not a whole segment
+        else
+          t='[^/]*'; i=$((i + 1))
+        fi ;;
+      '{')
+        if ((brace == 0)) && [[ "${g:i+1}" == *'}'* ]]; then
+          gp=""; ((i > 0)) && gp="${g:i-1:1}"
+          brace=1; alts=""; cur=""; empty=0; i=$((i + 1)); continue
+        fi
+        t='[{]'; i=$((i + 1)) ;;
+      ',' | '}')
+        if ((brace)); then
+          # Close one alternative. An empty one is dropped and makes the group optional.
+          if [[ -z "$cur" ]]; then empty=1; else alts+="${alts:+|}$cur"; fi
+          cur=""; i=$((i + 1))
+          [[ "$c" == ',' ]] && continue
+          brace=0
+          if [[ -n "$alts" ]]; then
+            out+="($alts)"; ((empty)) && out+='?'
+          fi
+          continue
+        fi
+        if [[ "$c" == ',' ]]; then t=','; else t='[}]'; fi
+        i=$((i + 1)) ;;
+      '?') t='[^/]'; i=$((i + 1)) ;;
+      '^') t='\^'; i=$((i + 1)) ;;
+      '.' | '+' | '(' | ')' | '[' | ']' | '$' | '|' | \\) t="[$c]"; i=$((i + 1)) ;;
+      *) t="$c"; i=$((i + 1)) ;;
+    esac
+    if ((brace)); then cur+="$t"; else out+="$t"; fi
+  done
+  [[ "$g" != */* ]] && out="(.*/)?$out"
+  printf '^%s$' "$out"
+}
+
+# Drop a trailing YAML comment. A quoted value ends at its closing quote; an inline list at
+# its `]`; any other value at the first ` #`.
+strip_comment() {
+  local v q rest re='^(\[.*\])[[:space:]]*(#.*)?$'
+  v="$(trim "$1")"; q="${v:0:1}"
+  [[ "$q" == '#' ]] && return 0   # the whole value is a comment
+  if [[ "$q" == \" || "$q" == \' ]]; then
+    rest="${v:1}"
+    if [[ "$rest" == *"$q"* ]]; then printf '%s' "$q${rest%%"$q"*}$q"; return; fi
+  fi
+  if [[ "$v" =~ $re ]]; then printf '%s' "${BASH_REMATCH[1]}"; return; fi
+  trim "${v%%[[:space:]]#*}"
+}
+
+# Read a card's frontmatter into C_GLOBS / C_EVENTS / C_DEPTH (newline lists) + C_ONREAD.
+# The YAML subset is in the header.
+parse_frontmatter() {
+  local f="$1" line key="" k v first=1 blank_re='^[[:space:]]*(#.*)?$'
+  C_GLOBS=""; C_EVENTS=""; C_DEPTH=""; C_ONREAD=0
+  _add() {
+    case "$1" in
+      paths) C_GLOBS+="$2"$'\n' ;;
+      events) C_EVENTS+="$2"$'\n' ;;
+      depth) C_DEPTH+="$2"$'\n' ;;
+    esac
+  }
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if ((first)); then
+      first=0
+      [[ "$line" =~ ^---[[:space:]]*$ ]] || return 0
+      continue
+    fi
+    [[ "$line" =~ ^---[[:space:]]*$ ]] && return 0
+    [[ "$line" =~ $blank_re ]] && continue   # a comment or blank line keeps the key
+    if [[ -n "$key" && "$line" =~ ^[[:space:]]*-[[:space:]]+(.*)$ ]]; then
+      _add "$key" "$(unquote "$(strip_comment "${BASH_REMATCH[1]}")")"; continue
+    fi
+    key=""
+    [[ "$line" =~ ^(paths|events|depth|on):[[:space:]]*(.*)$ ]] || continue
+    k="${BASH_REMATCH[1]}"; v="$(strip_comment "${BASH_REMATCH[2]}")"
+    if [[ "$k" == on ]]; then [[ "$(unquote "$v")" == read ]] && C_ONREAD=1; continue; fi
+    if [[ -z "$v" ]]; then key="$k"; continue; fi
+    if [[ "$v" == \[*\] ]]; then
+      v="${v#\[}"; v="${v%\]}"
+      while IFS= read -r v; do [[ -n "$v" ]] && _add "$k" "$v"; done <<< "$(split_list "$v")"
+    else
+      _add "$k" "$(unquote "$v")"
+    fi
+  done < "$f"
+}
+
+# The card body: everything after the frontmatter, minus own-line HTML-comment markers.
+card_body() {
+  local b
+  b="$(awk 'NR == 1 && /^---[[:space:]]*$/ { fm = 1; next }
+            fm && /^---[[:space:]]*$/ { fm = 0; next }
+            fm { next }
+            /^[[:space:]]*<!--.*-->[[:space:]]*$/ { next }
+            { print }' "$1")"
+  trim "$b"
+}
+
+matches_path() {  # $1 = newline list of globs
+  local p re
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    re="$(glob_to_ere "$p")"
+    [[ "$REL_PATH" =~ $re ]] && return 0
+  done <<< "$1"
+  return 1
+}
+
+matches_command() {  # $1 = newline list of extended regexes
+  local re
+  while IFS= read -r re; do
+    [[ -z "$re" ]] && continue
+    [[ "$COMMAND" =~ $re ]] && return 0
+  done <<< "$1"
+  return 1
 }
 
 INJECTED=""
-for rule in "$RULES_DIR"/*.md; do
-  [[ -f "$rule" ]] || continue
-  # Marker MUST be on its own line (anchored ^) so prose that documents the syntax
-  # (e.g. `<!-- globs: … -->` inside backticks mid-paragraph) is not mis-detected.
-  globs_line="$(grep -m1 -oE '^[[:space:]]*<!--[[:space:]]*globs:.*-->' "$rule" 2>/dev/null || true)"
-  [[ -z "$globs_line" ]] && continue
-  patterns="$(printf '%s' "$globs_line" | sed -E 's/^[[:space:]]*<!--[[:space:]]*globs:[[:space:]]*//; s/[[:space:]]*-->[[:space:]]*$//')"
+case "$MODE" in event) LABEL="Command-relevant rule" ;; *) LABEL="Path-relevant rule" ;; esac
+# The Read and event arms fire on every Read / Bash call, so one grep first narrows the
+# corpus to files that can carry their key (a superset — the frontmatter parse decides).
+case "$MODE" in
+  edit) CANDIDATES="$(printf '%s\n' "$RULES_DIR"/*.md "$CARDS_DIR"/*.md)" ;;
+  read) CANDIDATES="$(grep -lE "^on:[[:space:]]*[\"']?read" "$RULES_DIR"/*.md "$CARDS_DIR"/*.md 2>/dev/null || true)" ;;
+  event) CANDIDATES="$(grep -lE '^events:' "$RULES_DIR"/*.md "$CARDS_DIR"/*.md 2>/dev/null || true)" ;;
+esac
+while IFS= read -r card; do
+  [[ -f "$card" ]] || continue
+  parse_frontmatter "$card"
+  if [[ "$MODE" == event ]]; then
+    matches_command "$C_EVENTS" || continue
+  else
+    [[ "$MODE" == read && "$C_ONREAD" -ne 1 ]] && continue
+    # Marker MUST be on its own line (anchored ^) so prose that documents the syntax
+    # (e.g. `<!-- globs: … -->` inside backticks mid-paragraph) is not mis-detected.
+    globs_line="$(grep -m1 -oE '^[[:space:]]*<!--[[:space:]]*globs:.*-->' "$card" 2>/dev/null || true)"
+    if [[ -n "$globs_line" ]]; then
+      patterns="$(printf '%s' "$globs_line" | sed -E 's/^[[:space:]]*<!--[[:space:]]*globs:[[:space:]]*//; s/[[:space:]]*-->[[:space:]]*$//')"
+      C_GLOBS+="$(split_list "$patterns")"$'\n'
+    fi
+    matches_path "$C_GLOBS" || continue
+  fi
 
-  matched=0
-  IFS=',' read -ra pats <<< "$patterns"
-  for p in "${pats[@]}"; do
-    p="$(printf '%s' "$p" | xargs 2>/dev/null || printf '%s' "$p")"  # trim
-    [[ -z "$p" ]] && continue
-    if glob_match "$REL_PATH" "$p"; then matched=1; break; fi
-  done
-  [[ "$matched" -eq 0 ]] && continue
+  slug="$(basename "$card" .md)"
+  case "$card" in "$RULES_DIR"/*) entry="rule-$slug" ;; *) entry="card-$slug" ;; esac
+  first_time "$entry" || continue   # once per (session_id, agent_id) per card
 
-  slug="$(basename "$rule" .md)"
-  if [[ -n "$CACHE" ]] && grep -qxF "$slug" "$CACHE" 2>/dev/null; then continue; fi  # once per session
+  summary="$(grep -m1 -oE '^[[:space:]]*<!--[[:space:]]*inject:.*-->' "$card" 2>/dev/null | sed -E 's/^[[:space:]]*<!--[[:space:]]*inject:[[:space:]]*//; s/[[:space:]]*-->[[:space:]]*$//' || true)"
+  if [[ -z "$summary" ]]; then
+    body="$(card_body "$card")"
+    if [[ -n "$body" && "$(printf '%s' "$body" | wc -c | tr -d ' ')" -le "$CARD_LIMIT" ]]; then
+      summary="$body"
+    else
+      summary="$(grep -m1 -E '^# ' "$card" | sed -E 's/^#[[:space:]]*//')"
+      [[ -z "$summary" ]] && summary="$slug"
+    fi
+  fi
 
-  summary="$(grep -m1 -oE '^[[:space:]]*<!--[[:space:]]*inject:.*-->' "$rule" 2>/dev/null | sed -E 's/^[[:space:]]*<!--[[:space:]]*inject:[[:space:]]*//; s/[[:space:]]*-->[[:space:]]*$//' || true)"
-  [[ -z "$summary" ]] && summary="$(grep -m1 -E '^# ' "$rule" | sed -E 's/^#[[:space:]]*//')"
-
-  INJECTED="${INJECTED}📎 Path-relevant rule — ${summary} (see .claude/rules/${slug}.md)"$'\n'
-  [[ -n "$CACHE" ]] && printf '%s\n' "$slug" >> "$CACHE"
-done
+  pointer=""
+  if [[ -n "$C_DEPTH" ]]; then
+    pointer=" (see $(printf '%s' "$C_DEPTH" | sed '/^$/d' | paste -sd ',' - | sed 's/,/, /g'))"
+  elif [[ "$entry" == rule-* ]]; then
+    pointer=" (see .claude/rules/${slug}.md)"
+  fi
+  INJECTED="${INJECTED}📎 ${LABEL} — ${summary}${pointer}"$'\n'
+done <<< "$CANDIDATES"
 
 [[ -z "$INJECTED" ]] && exit 0
 
-jq -n --arg ctx "$INJECTED" \
-  '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$ctx}}'
+jq -n --arg ev "$EVENT" --arg ctx "$INJECTED" \
+  '{hookSpecificOutput:{hookEventName:$ev,additionalContext:$ctx}}'
 exit 0

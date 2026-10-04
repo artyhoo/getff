@@ -2,8 +2,8 @@
 # setup.d/40-configs.sh — §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §4 (install.sh:866-914), §5a (install.sh:916-994),
-#          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123)
+# S0 rows: §4 (install.sh:874-922), §5a (install.sh:967-1045), cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
+#          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: 30-templates (RULES.md etc. already at $PROJECT_ROOT/.ai-factory/)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O9: intra-layer order: rule-files THEN barrel-gen; stryker copy THEN patch
@@ -13,6 +13,20 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# P2 G1: stack «generic» gets the stack-free scripts only (the docs audit above and the CI-state
+# probe); every script below it and every config in this layer is ESLint/TypeScript/npm-bound.
+if [ "$STACK" = "generic" ]; then
+  copy_safe "$PKG_ROOT/packages/core/audit-self/ci-available-probe.sh" "$PROJECT_ROOT/scripts/ci-available-probe.sh"
+  note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
+  return 0 2>/dev/null || true
+fi
+# P2 G5 / K4 (operator log entry 28, fork 1 = A: getff adapts to the project's linter): the linter and
+# formatter the project already runs, read BEFORE getff places anything. An oxlint or Biome project
+# keeps its linter as the only one — no getff ESLint config (copy_unless_foreign), no ESLint packages
+# (70-deps), lint-staged runs its linter; a Biome or dprint project keeps its formatter (no prettier).
+# Read by 70-deps and 99-finalize too.
+LINTER_SLOT=$(project_linter "$PROJECT_ROOT")
+FORMATTER_SLOT=$(project_formatter "$PROJECT_ROOT")
 # R4 probe (ts-morph) invoked by audit-ai-docs.sh via `npx tsx scripts/audit-r4.ts`.
 copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/audit-r4.ts"
 # cih-s3 F3 "+V": glob-liveness gate — fails if a custom rule matches zero source files
@@ -27,7 +41,7 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-globs.sh" 2>/dev/null || true
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-enforced.sh" "$PROJECT_ROOT/scripts/check-rule-enforced.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-enforced.sh" 2>/dev/null || true
 # GH #547 Point 2: R2 boundary probe (C1) + the shared N/A-marker reader (C4). detect-r2-boundary.sh
-# classifies the repo (boundary-present | no-boundary-confident | ambiguous) by READING it; the
+# classifies the repo (boundary-present | no-boundary-confident | no-boundary-yet | ambiguous) by READING it; the
 # installer (§6b-bis below) and BOTH inertness gates consume it. r2-na-marker.sh is sourced by
 # check-rule-globs.sh + check-rule-enforced.sh so they never diverge on honoring a recorded R2 N/A.
 copy_safe "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" "$PROJECT_ROOT/scripts/detect-r2-boundary.sh"
@@ -56,6 +70,24 @@ copy_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_RO
 # Checks core.hooksPath=.husky, pre-commit/pre-push present+executable+referencing gate commands.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-shields-up.sh" "$PROJECT_ROOT/scripts/check-shields-up.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
+# P2 C2/C3: runs what the project's record (.ai-factory/tool-decisions.md, aif:project-checks —
+# written by 99-finalize) arms: `npm run validate`, the delivered CI steps, lint-staged's steps and
+# the pre-push probe all go through it, so a check red at install blocks nothing until it is green.
+copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+# P5: getff's lint rules in the project's own linter — placed by 99-finalize (lib.sh place_lint_rules), proven
+# through the project's own lint command (`node scripts/prove-rules.mjs --prove`), removed with `--remove`.
+copy_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
+# P2 (advisor, P6 blocker class): the two pre-push sections that read the project's OWN files — its
+# workflows' tool installs, its Markdown links — run on their own through these, so the record
+# governs them like the checks above (99-finalize runs both at install: no dependencies needed).
+for _hc in check-ci-pins.sh check-doc-links.sh; do
+  copy_safe "$PKG_ROOT/packages/core/audit-self/$_hc" "$PROJECT_ROOT/scripts/$_hc"
+  chmod_safe +x "$PROJECT_ROOT/scripts/$_hc" 2>/dev/null || true
+done
+# W2-G (#1502): consumer ZCode skill-mirror check — .zcode/skills completeness, read-only.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
@@ -104,26 +136,72 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmr
 # .gitignore always wins (Layer-2) — warned below, never edited.
 copy_safe "$PKG_ROOT/packages/core/templates/shared/gitignore" "$PROJECT_ROOT/.gitignore"
 if _prettierignore_in_skipped "$PROJECT_ROOT/.gitignore" && ! grep -q 'node_modules' "$PROJECT_ROOT/.gitignore" 2>/dev/null; then
-  echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/. Consider adding node_modules/ to .gitignore (file left untouched)." >&2
+  echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/ (file left untouched)." >&2
+  note_not_wired "node_modules/ ignore — the project's own .gitignore has no node_modules line, so 'git add -A' stages it; getff does not edit a .gitignore the project already has"
 fi
-copy_safe "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
+copy_unless_foreign lint-staged "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
 # cih-s3 F14 (M3): in a workspace, a single root .lintstagedrc runs `eslint` from git-root; in
 # a pnpm/isolated-node_modules monorepo the per-package eslint binary isn't at root → ENOENT
 # blocks the commit. Drop a per-package .lintstagedrc.json stub in each EXISTING package dir so
 # lint-staged runs with cwd=that package and resolves the local binary. PM-agnostic (no
 # `pnpm exec`). Best-effort — packages added later need the same stub; scripts/check-lintstaged-
 # resolves.sh is the alarm that catches an unstubbed package before its first blocked commit.
-if [ "$DRY_RUN" != "--dry-run" ] && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
-  _ndrop=0
+# critical-review S4-4: stub only when the root config is OUR delivery — never copy a consumer's
+# own .lintstagedrc.json into every package, and never stub when their config kept ours out.
+if [ "$DRY_RUN" != "--dry-run" ] \
+  && cmp -s "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json" \
+  && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
+  _ndrop=0; _stubs=()
   while IFS= read -r _pkgjson; do
     _pkgdir=$(dirname "$_pkgjson")
     [ "$_pkgdir" = "$PROJECT_ROOT" ] && continue
-    if [ ! -f "$_pkgdir/.lintstagedrc.json" ]; then
-      cp "$PROJECT_ROOT/.lintstagedrc.json" "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
+    # …and never next to the package's OWN lint-staged config (any name, or package.json key):
+    # lint-staged uses the closest config, so the stub would silently replace theirs.
+    if [ ! -f "$_pkgdir/.lintstagedrc.json" ] && [ -z "$(foreign_tool_config "$_pkgdir" lint-staged)" ]; then
+      # lint-staged runs a stub's commands with cwd = the package: its steps reach the root's
+      # scripts/run-armed.sh by a relative path (P2 C2).
+      _pkgrel=${_pkgdir#"$PROJECT_ROOT"/}
+      _uprel=$(printf '%s' "$_pkgrel" | sed 's#[^/][^/]*#..#g')
+      sed "s#bash scripts/run-armed.sh#bash $_uprel/scripts/run-armed.sh#g" "$PROJECT_ROOT/.lintstagedrc.json" \
+        > "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1)) && _stubs+=("$_pkgdir/.lintstagedrc.json")
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
   echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"
 fi
+# P2 G5: lint-staged follows the project's linter and formatter slots — in every lint-staged config
+# getff placed above (root and stubs, recognised by the record wrapper on their eslint step).
+if [ "$DRY_RUN" != "--dry-run" ] && { [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ] \
+     || [ "$FORMATTER_SLOT" = biome ] || [ "$FORMATTER_SLOT" = dprint ]; }; then
+  while IFS= read -r _lsf; do
+    grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$_lsf" || continue
+    GETFF_LINTER="$LINTER_SLOT" GETFF_FORMATTER="$FORMATTER_SLOT" node -e '
+      const fs = require("fs"), f = process.argv[1], j = JSON.parse(fs.readFileSync(f, "utf8"));
+      // `biome lint`, not `biome check`: check also enforces formatting, which must follow format:check.
+      const lint = { oxlint: "oxlint", biome: "biome lint --no-errors-on-unmatched" }[process.env.GETFF_LINTER];
+      const ownFmt = ["biome", "dprint"].includes(process.env.GETFF_FORMATTER);
+      const fmt = { biome: "biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" }[process.env.GETFF_FORMATTER];
+      for (const [g, v] of Object.entries(j)) {
+        const steps = (Array.isArray(v) ? v : [v])
+          .flatMap((c) => {
+            const m = c.match(/^(bash \S*run-armed\.sh --if-armed .npm run format:check.) prettier /);
+            return ownFmt && m ? (fmt ? [m[1] + " " + fmt] : []) : [c];
+          })
+          .map((c) => (lint ? c.replace(/^(bash \S*run-armed\.sh --if-armed .npm run lint.) eslint .*$/, "$1 " + lint) : c));
+        if (steps.length) j[g] = steps; else delete j[g];
+      }
+      fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$_lsf" \
+      || note_not_wired "lint-staged steps in ${_lsf#"$PROJECT_ROOT"/} — not changed to your linter ($LINTER_SLOT) / formatter ($FORMATTER_SLOT): the rewrite failed, so the file runs getff's eslint / prettier steps"
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  echo "  ✓ lint-staged runs your linter ($LINTER_SLOT) and formatter ($FORMATTER_SLOT) — no getff ESLint / prettier step beside them"
+fi
+# A stub's eslint step runs in its package, with that package's config, so it must not wait on the record's
+# `npm run lint`: that is the ROOT's lint, which on a per-workspace monorepo has no config to load (#973), exits 2
+# at install and is recorded not-armed — and the stub skipped eslint on a violation the package's own eslint flags
+# (PR #1985, pnpm-monorepo cell d-2). Runs after G5, so a step G5 moved to oxlint / biome keeps its wrapper; the
+# prettier step still follows the record, and the root config keeps its eslint step behind `npm run lint`.
+for _stub in ${_stubs[@]+"${_stubs[@]}"}; do
+  sed -i.getff-bak "s#\"bash [^\"]*run-armed\.sh --if-armed 'npm run lint' eslint #\"eslint #" "$_stub" && rm -f "$_stub.getff-bak"
+done
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.
 # GH #531 (reopen): merge (not skip-if-exists) so a BROWNFIELD consumer with its own
@@ -134,8 +212,34 @@ merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" 
 # same style the shipped artefacts are formatted in (singleQuote — the framework's existing TS/JS
 # style). Without it, prettier defaults (double-quote) would flag every shipped .ts/.mjs/.cjs.
 # copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
-copy_safe "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
+copy_unless_foreign prettier "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
+# P2 G4 — per-stack arm of that copy: the shared template (NodeNext, lib ES2022, no jsx) cannot
+# compile a React file (P1 run 2026-09-29: TS17004 «Cannot use JSX», TS2584 «Cannot find name
+# 'document'»). For react-spa / react-next, ONLY when getff just wrote tsconfig.json (a project's
+# own is never edited): P3's React template (tsconfig.react.json) replaces it when this getff
+# ships one; until then the copy gets the options create-vite's react-ts template uses — jsx
+# react-jsx, DOM libs, ESNext + Bundler resolution (NodeNext would demand .js extensions on relative
+# imports in a "type": "module" project), and allowImportingTsExtensions with noEmit (Vite's own
+# `import App from './App.tsx'` is TS5097 without it; P3 measured, 2026-09-29). The template's other
+# options stay.
+_react_tsconfig="$PKG_ROOT/packages/core/templates/shared/tsconfig.react.json"
+if { [ "$STACK" = "react-spa" ] || [ "$STACK" = "react-next" ]; } && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ -f "$PROJECT_ROOT/tsconfig.json" ] && ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ -f "$_react_tsconfig" ]; then
+    cp "$_react_tsconfig" "$PROJECT_ROOT/tsconfig.json" \
+      && echo "  ✓ tsconfig.json: getff's React template (tsconfig.react.json) for $STACK"
+  elif command -v node >/dev/null 2>&1; then
+    AIF_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
+      const fs = require("fs"); const p = process.env.AIF_TSCONFIG;
+      const c = JSON.parse(fs.readFileSync(p, "utf8"));
+      Object.assign(c.compilerOptions, { module: "ESNext", moduleResolution: "Bundler",
+        lib: ["ES2022", "DOM", "DOM.Iterable"], jsx: "react-jsx",
+        allowImportingTsExtensions: true, noEmit: true });
+      fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+    ' && echo "  ✓ tsconfig.json: React options (jsx react-jsx, DOM libs, Bundler resolution, .tsx imports) for $STACK"
+  fi
+fi
 
 # ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
 # vitest.config.ts declares setupFiles: ['./tests/setup.ts'] on ts-server / react-spa /
@@ -144,12 +248,27 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROO
 # raises a hard parse error for a staged file no tsconfig includes, so delivering it anyway
 # would keep the install commit un-passable even after the --no-warn-ignored fix (issue 1529).
 # Covered ⇔ the installer wrote tsconfig.json itself (not in SKIPPED), OR the tsconfig has NO
-# include key (tsc default = whole tree), OR some include entry starts with "tests".
-# Unreadable/JSONC tsconfig → fail-OPEN: treat covered, no note, never abort the layer.
+# include key (tsc default = whole tree), OR some include entry starts with "tests", OR some include
+# entry is a glob that matches tests/setup.ts under tsconfig's own glob rules (`*` and `?` within
+# one path segment, `**/` any depth, an entry with no wildcard and no extension = a directory).
+# The glob arm is the Q4.5 layout class (2026-09-28): a whole-tree include such as `**/*.ts` (the
+# tsc --init / create-next-app family) covers tests/ too, and was read as «not covered», so
+# vitest's setupFiles pointed at a file the install had declined to ship.
+# P2 G3/F10 (2026-09-29): tsconfig is JSONC — comments and trailing commas are stripped before
+# parsing (create-vite's tsconfig.app.json has /* */ comments, and fail-open read it as covered);
+# «no include key» is the whole tree ONLY when `files` is absent too (TypeScript: include defaults
+# to [] once files is set); a solution tsconfig (`"files": []` + `"references"`) covers what its
+# referenced configs cover (a reference path is a tsconfig file or a directory holding one).
+# A config that is not even JSONC → fail-OPEN: treat covered, no note, never abort the layer.
+# P2 K4 (2026-09-29): on an oxlint / Biome project the gate does not apply at all — the withholding
+# reason is typed ESLint's, and getff's ESLint is not installed there; withheld, the project's first
+# test died «Cannot find module tests/setup.ts» (vite-shape cell, measured).
 fc3_deliver_tests_setup() {
   local src="$1"
   local covered=0
-  if ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ]; then
+    covered=1   # P2 K4: no typed ESLint lints the file, so the reason to withhold it is gone
+  elif ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
     covered=1   # greenfield (or --force refresh): installer wrote tsconfig.json
   elif [ ! -f "$PROJECT_ROOT/tsconfig.json" ]; then
     covered=1   # no tsconfig on disk → tsc default (whole tree)
@@ -158,12 +277,49 @@ fc3_deliver_tests_setup() {
   else
     local _rc=0
     AIF_FCP_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
-      try {
-        const c = JSON.parse(require("fs").readFileSync(process.env.AIF_FCP_TSCONFIG, "utf8"));
-        if (!Array.isArray(c.include)) process.exit(3); // no include key → whole tree
-        if (c.include.some((e) => String(e).startsWith("tests"))) process.exit(0);
-        process.exit(1); // include present, nothing covers tests/
-      } catch { process.exit(2); } // unreadable/JSONC → fail-open
+      const fs = require("fs"), path = require("path");
+      const root = path.dirname(process.env.AIF_FCP_TSCONFIG);
+      // JSONC → JSON: drop // and /* */ comments outside strings, then trailing commas.
+      const jsonc = (t) => {
+        let o = "", i = 0, str = false;
+        while (i < t.length) {
+          const ch = t[i], nx = t[i + 1];
+          if (str) { o += ch; if (ch === "\\") { o += nx; i += 2; continue; } if (ch === "\"") str = false; i++; continue; }
+          if (ch === "\"") { str = true; o += ch; i++; continue; }
+          if (ch === "/" && nx === "/") { while (i < t.length && t[i] !== "\n") i++; continue; }
+          if (ch === "/" && nx === "*") { i += 2; while (i < t.length && !(t[i] === "*" && t[i + 1] === "/")) i++; i += 2; continue; }
+          o += ch; i++;
+        }
+        return JSON.parse(o.replace(/,(\s*[}\]])/g, "$1"));
+      };
+      const covers = (e, base) => {
+        let p = path.relative(root, path.resolve(base, String(e))).split(path.sep).join("/").replace(/\/+$/, "");
+        if (p === "" || p === ".") return true;
+        const last = p.split("/").pop();
+        if (last === "**") p += "/*";
+        else if (!/[*?]/.test(last) && !/\.[A-Za-z0-9]+$/.test(last)) p += "/**/*";
+        const re = p.split("/").map((seg) => seg === "**" ? "(?:[^/]+/)*"
+          : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "/")
+          .join("").replace(/\/$/, "");
+        return String(e).startsWith("tests") && base === root || new RegExp("^" + re + "$").test("tests/setup.ts");
+      };
+      const seen = new Set();
+      const covered = (file, depth) => {
+        if (depth > 8 || seen.has(file)) return false;
+        seen.add(file);
+        const c = jsonc(fs.readFileSync(file, "utf8")), base = path.dirname(file);
+        if (Array.isArray(c.include)) { if (c.include.some((e) => covers(e, base))) return true; }
+        else if (!Array.isArray(c.files)) return true; // no include, no files → whole tree
+        for (const r of Array.isArray(c.references) ? c.references : []) {
+          let f = path.resolve(base, String(r && r.path));
+          try { if (fs.statSync(f).isDirectory()) f = path.join(f, "tsconfig.json"); } catch { continue; }
+          try { if (covered(f, depth + 1)) return true; } catch { /* unreadable reference: not proof of coverage */ }
+        }
+        return false;
+      };
+      let ok;
+      try { ok = covered(process.env.AIF_FCP_TSCONFIG, 0); } catch { process.exit(2); } // not JSONC → fail-open
+      process.exit(ok ? 0 : 1);
     ' 2>/dev/null || _rc=$?
     case $_rc in
       1) covered=0 ;;
@@ -173,7 +329,8 @@ fc3_deliver_tests_setup() {
   if [ "$covered" -eq 1 ]; then
     copy_safe "$src" "$PROJECT_ROOT/tests/setup.ts"
   else
-    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered (staging it would fail the install commit). Add \"tests/**/*\" to tsconfig include and re-run install, or create tests/setup.ts yourself." >&2
+    echo "  ⚠ tsconfig.json (and the configs it references) does not include tests/ — tests/setup.ts NOT delivered" >&2
+    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json (and the configs it references) does not include tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
   fi
 }
 
@@ -194,7 +351,9 @@ _copy_rule() {  # $1 = source .ts path
   [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
   [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
 }
-# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span, restricted-syntax-audit-exempt
+# Generic rules (core, every stack): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span,
+# restricted-syntax-audit-exempt, require-error-boundary (moved from the react-spa preset — one plugin for
+# every stack; a project switches a rule on in its own lint config)
 for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
   case "$f" in
     *.test.ts) continue ;;
@@ -206,17 +365,6 @@ done
 if [ "$STACK" = "react-next" ]; then
   # Stack-specific rules (preset): no-server-imports-in-client, require-form-safe-parse, require-use-server-directive
   for f in "$PKG_ROOT"/packages/preset-next-15-canonical/eslint-rules/*.ts; do
-    case "$f" in
-      *.test.ts) continue ;;
-      *.d.ts) continue ;;
-      */index.ts) continue ;;
-    esac
-    _copy_rule "$f"
-  done
-fi
-if [ "$STACK" = "react-spa" ]; then
-  # Stack-specific rules (preset): require-error-boundary
-  for f in "$PKG_ROOT"/packages/preset-react-spa/eslint-rules/*.ts; do
     case "$f" in
       *.test.ts) continue ;;
       *.d.ts) continue ;;
@@ -272,7 +420,10 @@ if [ -n "$_ws_lines" ]; then
   mkdir_safe "$PROJECT_ROOT/stryker"
   _stryker_node_ok=0
   command -v node >/dev/null 2>&1 && _stryker_node_ok=1
-  [ "$_stryker_node_ok" -eq 1 ] || echo "  ⚠ node not found — skipping per-workspace Stryker config emit (wire stryker/<workspace>.json manually per INSTALL.md)" >&2
+  if [ "$_stryker_node_ok" -ne 1 ]; then
+    echo "  ⚠ node not found — per-workspace Stryker configs NOT emitted" >&2
+    note_not_wired "per-workspace Stryker configs (stryker/<workspace>.json) — not emitted: node is not on PATH, and getff writes them through node"
+  fi
   # M2 fix (dual-review): packageManager mirrors the flat branch's patch_stryker_package_manager
   # instead of the template's hardcoded "npm" — computed ONCE (repo-global signal, detect_pm SSOT),
   # reused for every per-workspace emit below.
@@ -307,15 +458,15 @@ if [ -n "$_ws_lines" ]; then
       if [ -n "$_stryker_vcfg" ] && [ -f "$_ws_abs/tsconfig.json" ]; then
         _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
         _stryker_dst="$PROJECT_ROOT/stryker/$_ws_slug.json"
-        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:79 — precedent
-        # rewrite_arch_sot_header, lib.sh:151-156) so a consumer's hand-tuned per-package config
+        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:907 — precedent
+        # rewrite_arch_sot_header, lib.sh:1862-1867) so a consumer's hand-tuned per-package config
         # is never silently clobbered on re-install.
         if [ -e "$_stryker_dst" ] && [ "$FORCE" != "--force" ]; then
           SKIPPED+=("$_stryker_dst")
           if [ "$DRY_RUN" = "--dry-run" ]; then
             echo "  [dry-run] would skip: stryker/$_ws_slug.json (exists)"
           else
-            echo "  ⊝ stryker/$_ws_slug.json (exists — skipping; use --force to overwrite)"
+            echo "  ⊝ stryker/$_ws_slug.json (exists — skipping)"
           fi
         elif [ "$DRY_RUN" = "--dry-run" ]; then
           echo "  [dry-run] would emit: stryker/$_ws_slug.json"
@@ -349,13 +500,13 @@ if [ -n "$_ws_lines" ]; then
 
     case "$_ws_stack" in
       ts-server)
-        copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-next)
-        copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-spa)
-        copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-native)
         # RN ships TWO baselines + a shared base; detect Expo vs bare-RN per workspace package.json.
@@ -364,8 +515,8 @@ if [ -n "$_ws_lines" ]; then
         else
           _rn_eslint="eslint.config.bare-rn.mjs"
         fi
-        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
-        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
+        [ -n "$(foreign_tool_config "$_ws_abs" eslint)" ] || copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
         ;;
       unknown)
         # Still-unknown after own + explicit-arg + root fallback: KEEP as a re-checkable marker per
@@ -383,7 +534,9 @@ if [ -n "$_ws_lines" ]; then
     # instead. skip-if-exists still counts: a consumer file already at the destination is a placed
     # config, not a failure. Under --dry-run nothing is written by design, so the arm counts as placed
     # (otherwise a dry-run over a perfectly classified monorepo would trip the gate's exit 1).
-    if [ -n "$DRY_RUN" ] || [ -f "$_ws_abs/eslint.config.mjs" ]; then
+    # A consumer's own ESLint config under another name (critical-review S4-2) is a placed config
+    # too: the workspace is configured, just not by us — it is listed as not wired, not as missing.
+    if [ -n "$DRY_RUN" ] || [ -f "$_ws_abs/eslint.config.mjs" ] || [ -n "$(foreign_tool_config "$_ws_abs" eslint)" ]; then
       _ws_placed=$((_ws_placed + 1))
     else
       echo "  ⚠ $_ws_dir: eslint.config.mjs is not on disk after delivery ($_ws_stack) — not counted as placed" >&2
@@ -417,14 +570,14 @@ if [ -n "$_ws_lines" ]; then
     exit 1
   fi
   # GH #807: the multi-stack branch placed per-workspace ESLint configs but no root
-  # .dependency-cruiser.cjs, so `arch:check` (depcruise --config .dependency-cruiser.cjs) exited 1
+  # dependency-cruiser config, so `arch:check` (depcruise --config <that config>) exited 1
   # and validate went RED. Unlike ESLint's per-config (nearest-config) scoping, dependency-cruiser
   # is a REPO-WIDE arch tool that crawls from src/ — it is naturally root-level. Place it ONCE at
   # root, AFTER the per-workspace loop (NOT inside it — that would copy_safe to the same root path N
   # times). Mirrors the flat-path placement at the ts-server/react-* branches below. (kickoff ⚑M2)
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+  copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
   # #931 PR-2: the test:mutation runner for the per-workspace stryker/*.json configs emitted
-  # above. Placed ONCE after the loop (mirrors the .dependency-cruiser.cjs placement immediately
+  # above. Placed ONCE after the loop (mirrors the .dependency-cruiser.mjs placement immediately
   # above — not inside the per-workspace loop, which would copy_safe to the same root path N
   # times). setup.d/70-deps.sh wires "test:mutation" to this script on monorepo detection.
   copy_safe "$PKG_ROOT/templates/ts-server/run-mutation.sh.tmpl" "$PROJECT_ROOT/scripts/run-mutation.sh"
@@ -433,13 +586,18 @@ else
   # ── Flat / single-root repo: original single-stack behavior unchanged ──────────────────────────
   echo "▶ Stack-specific templates ($STACK) → project root"
   if [ "$STACK" = "ts-server" ]; then
-    copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_unless_foreign eslint "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts" vitest-layout
+    rewrite_vitest_source_roots "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/templates/ts-server/tests-setup.ts"
     # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
     # with no config on the ./setup path — the template exists, just copy it).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver via deliver_getff_workflow so the consumer's actual
     # default branch is substituted for the template's hard-coded `main` at install time.
@@ -453,14 +611,19 @@ else
     # for symmetry; a push to a non-main default touching .github/workflows/** now triggers it.
     deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-next" ]; then
-    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts" vitest-layout
+    rewrite_vitest_source_roots "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-next-15-canonical/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
@@ -468,15 +631,20 @@ else
     # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
     deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-spa" ]; then
-    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
-    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts" vitest-layout
+    rewrite_vitest_source_roots "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-react-spa/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries
     # in the shipped eslint.config, so dependency-cruiser stays the universal base here.
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
@@ -493,13 +661,18 @@ else
     else
       _rn_eslint="eslint.config.bare-rn.mjs"
     fi
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
+    [ -n "$(foreign_tool_config "$PROJECT_ROOT" eslint)" ] || copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
+    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts" vitest-layout
+    rewrite_vitest_source_roots "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
     # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).

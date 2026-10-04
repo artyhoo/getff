@@ -62,7 +62,7 @@ sed -n '/for f in.*agents/,/done/p' install.sh | grep -E '(case|continue|\.md)'
 | `living-docs-auditor`            | `Read, Glob, Bash`                                   | YES                            |
 | `memory-codification-auditor`    | `Read, Glob, Grep`                                   | YES                            |
 | `orchestrator-worker-discipline` | `Read`                                               | YES                            |
-| `review-sidecar`                 | `Read, Glob, Grep`                                   | YES                            |
+| `review-sidecar`                 | `Read, Glob, Grep, Bash`                             | YES                            |
 | `rule-researcher`                | `Read, Write, Bash, Grep, Glob, WebFetch, WebSearch` | YES                            |
 | `backward-sweep-auditor`         | `Read, Glob, Grep, Bash`                             | NO (authoring-only, T21)       |
 | `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent`                            | NO (authoring-only, #552)      |
@@ -102,6 +102,8 @@ Most shipped agents are **Read/Grep/Glob-shaped**: their observable-failure is a
 
 The `living-docs-auditor` declares `Bash` — it expects to run `scripts/audit-ai-docs.sh`. In a source-project context the script may be absent (the agent handles this via its Step-2 graceful degradation guard). The RED baseline for this agent focuses on the `Read`/`Glob` surface: does it read `AGENTS.md` and code files, or does it fabricate a drift report? The `Bash` tool is the _runner_ surface; `Read`/`Glob` is the _evidence_ surface. Run RED→GREEN on the evidence surface; note the Bash limitation explicitly.
 
+The `review-sidecar` is the second `Bash` carrier (granted GH #1516): it runs read-only diff inspection (`git diff`, `git log`, `git show`, `ls`) so it reviews the real diff instead of reconstructing one from files. Treat it on the same terms: `Bash` is the _runner_ surface, `Read`/`Grep`/`Glob` the _evidence_ surface. Run RED→GREEN on the evidence surface; note the Bash limitation explicitly.
+
 No shipped agent is currently marked as a **runtime-shaped** probe (where the observable consequence requires actual runtime infrastructure to observe). If any shipped agent's fixture is marked `shape: runtime` in the future, follow the analogous RUNTIME-SHAPED treatment from `agents/manual-rule-liveness-prober.md` Step 2 and defer to a runtime-probe sub-wave.
 
 ---
@@ -123,7 +125,7 @@ Dispatch a **FRESH subagent** via your harness's fresh-subagent mechanism (Claud
 
 Dispatch a **second FRESH subagent** (fresh context — do NOT reuse the Pass 1 agent; reuse leaks the RED behaviour and contaminates the delta) with the SAME `task-prompt` AND the agent's full declared tool set granted:
 
-- The subagent has access to `Read`, `Glob`, `Grep` (and `Bash` for `living-docs-auditor`) as declared in the agent frontmatter.
+- The subagent has access to `Read`, `Glob`, `Grep` (and `Bash` for `living-docs-auditor` and `review-sidecar`) as declared in the agent frontmatter.
 - Capture its full output. Record `tool_uses` count and which tools were called.
 - Inspect for the `observable-compliance` markers. Record VERBATIM the lines that match (or note their absence).
 

@@ -16,7 +16,7 @@ set -euo pipefail
 
 Z40="0000000000000000000000000000000000000000"
 HISTORICAL_CUTOFF="2026-05-12"
-# §1.7 allow-list — parity with s17.ts:18 ALLOWLIST_RE (these subjects never require a §1.7 trailer).
+# §1.7 allow-list — parity with s17.ts:18-19 ALLOWLIST_RE (these subjects never require a §1.7 trailer).
 S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
 fail=0
 
@@ -122,7 +122,7 @@ while IFS= read -r sha; do
   fi
 
   # prior-art-presence: §7 Prior-art trailer PRESENCE
-  if ! echo "${body}" | grep -q "^Prior-art:"; then
+  if ! grep -q "^Prior-art:" <<<"${body}"; then
     echo "❌ ${sha}  §7 Prior-art: trailer MISSING — ${subject}"
     echo "   Fix: add 'Prior-art: ...' to commit body (≥20 chars). See CONTRIBUTING.md."
     fail=1
@@ -132,8 +132,8 @@ while IFS= read -r sha; do
 
   # s17-presence: §1.7 discipline trailer PRESENCE (only on discipline-touching commits)
   if [[ "${subject}" =~ $S17_ALLOWLIST_RE ]]; then
-    : # allow-listed subject — §1.7 not required (parity with s17.ts:18 isDisciplineIntroducing)
-  elif echo "${body}" | grep -qE "^§1\.7(:| Bootstrap:)"; then
+    : # allow-listed subject — §1.7 not required (parity with s17.ts:67 isDisciplineIntroducing)
+  elif grep -qE "^§1\.7(:| Bootstrap:)" <<<"${body}"; then
     echo "✅ ${sha}  §1.7: present"
   else
     discipline="$(git diff-tree --no-commit-id --name-only -r "${sha}" 2>/dev/null \

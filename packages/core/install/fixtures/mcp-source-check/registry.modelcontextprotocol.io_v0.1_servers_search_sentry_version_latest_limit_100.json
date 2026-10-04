@@ -1,0 +1,458 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "com.0xpi.sdsentry/sds-lookup",
+        "description": "Free safety data sheet (SDS) lookup by product name, plus an OSHA HazCom readiness check.",
+        "title": "SDSentry — SDS Lookup & OSHA HazCom",
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://sdsentry.0xpi.com/mcp-sds"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-05T22:42:59.244556Z",
+          "publishedAt": "2026-09-05T22:42:59.244556Z",
+          "updatedAt": "2026-09-05T22:42:59.244556Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "com.mcparmory/sentry",
+        "description": "Track errors, manage performance alerts, and configure dashboards and monitors",
+        "repository": {
+          "url": "https://github.com/mcparmory/registry",
+          "source": "github"
+        },
+        "version": "1.0.2",
+        "packages": [
+          {
+            "registryType": "pypi",
+            "identifier": "mcparmory-sentry",
+            "version": "1.0.2",
+            "runtimeHint": "uvx",
+            "transport": {
+              "type": "stdio"
+            }
+          },
+          {
+            "registryType": "oci",
+            "identifier": "ghcr.io/mcparmory/sentry:1.0.2",
+            "runtimeHint": "docker",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-05-12T12:49:09.609234Z",
+          "publishedAt": "2026-05-12T12:49:09.609234Z",
+          "updatedAt": "2026-05-12T12:49:09.609234Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "com.regsentry/tracking-inspector",
+        "description": "Inspect a public site's tracking signals, grade consent evidence, and get remediation playbooks.",
+        "title": "RegSentry Website Tracking Inspector",
+        "version": "1.0.0",
+        "websiteUrl": "https://regsentry.com/mcp-guide",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://regsentry.com/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-21T17:34:50.119146Z",
+          "publishedAt": "2026-09-21T17:34:50.119146Z",
+          "updatedAt": "2026-09-21T17:34:50.119146Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.Jackxiaozhiren/datasentry",
+        "description": "Local-first MCP server for data-quality discovery, evidence, drift, and controlled repair.",
+        "title": "DataSentry",
+        "repository": {
+          "url": "https://github.com/Jackxiaozhiren/datasentry",
+          "source": "github"
+        },
+        "version": "1.0.4",
+        "websiteUrl": "https://jackxiaozhiren.github.io/datasentry/",
+        "packages": [
+          {
+            "registryType": "pypi",
+            "registryBaseUrl": "https://pypi.org",
+            "identifier": "datasentry-ai",
+            "version": "1.0.4",
+            "runtimeHint": "uvx",
+            "transport": {
+              "type": "stdio"
+            },
+            "runtimeArguments": [
+              {
+                "value": "datasentry-ai==1.0.4",
+                "type": "named",
+                "name": "--from"
+              }
+            ],
+            "packageArguments": [
+              {
+                "value": "datasentry",
+                "type": "positional"
+              },
+              {
+                "value": "mcp",
+                "type": "positional"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-29T09:07:48.777511Z",
+          "publishedAt": "2026-08-29T09:07:48.777511Z",
+          "updatedAt": "2026-08-29T09:07:48.777511Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+        "name": "io.github.Roshan6335/mcpsentry",
+        "description": "Security scanner and runtime proxy for MCP servers.",
+        "version": "0.1.4",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@roshan6335/mcpsentry",
+            "version": "0.1.2",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-21T06:07:38.722488Z",
+          "publishedAt": "2026-08-21T06:07:38.722488Z",
+          "updatedAt": "2026-08-21T06:07:38.722488Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.friendlygeorge/sentry-mcp-server",
+        "description": "MCP server for Sentry — error tracking, issues, releases, events, and projects for AI assistants.",
+        "repository": {
+          "url": "https://github.com/friendlygeorge/sentry-mcp-server",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "sentry-mcp-server",
+            "version": "1.0.0",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "Sentry auth token from Settings → Auth Tokens. Needs org:read, project:read, event:read, issue:read, issue:write scopes.",
+                "isRequired": true,
+                "format": "string",
+                "isSecret": true,
+                "name": "SENTRY_AUTH_TOKEN"
+              },
+              {
+                "description": "Sentry API base URL. Defaults to https://sentry.io/api/0/. Override for self-hosted Sentry.",
+                "format": "string",
+                "name": "SENTRY_BASE_URL"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-06-06T16:01:48.356299Z",
+          "publishedAt": "2026-06-06T16:01:48.356299Z",
+          "updatedAt": "2026-06-06T16:01:48.356299Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.getsentry/sentry-mcp",
+        "description": "MCP server for Sentry - error monitoring, issue tracking, and debugging for AI assistants",
+        "repository": {
+          "url": "https://github.com/getsentry/sentry-mcp",
+          "source": "github",
+          "subfolder": "packages/mcp-server"
+        },
+        "version": "0.42.0",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@sentry/mcp-server",
+            "version": "0.42.0",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "Your Sentry user authentication token",
+                "isRequired": true,
+                "format": "string",
+                "isSecret": true,
+                "name": "SENTRY_ACCESS_TOKEN"
+              }
+            ]
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://mcp.sentry.dev/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-25T14:49:17.516259Z",
+          "publishedAt": "2026-09-25T14:49:17.516259Z",
+          "updatedAt": "2026-09-25T14:49:17.516259Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.perceptdot/sentry",
+        "description": "AI agent vision for Sentry error tracking — with ROI measurement. perceptdot.com",
+        "title": "Perceptdot Sentry",
+        "version": "0.1.5",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@perceptdot/sentry",
+            "version": "0.1.5",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-06-01T06:26:12.170791Z",
+          "publishedAt": "2026-06-01T06:26:12.170791Z",
+          "updatedAt": "2026-06-01T06:26:12.170791Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.rezmeplxrf/insightsentry_mcp",
+        "description": "MCP server for InsightSentry financial data API - market data, options, screeners, and more",
+        "repository": {
+          "url": "https://github.com/rezmeplxrf/insight_mcp",
+          "source": "github"
+        },
+        "version": "1.4.46",
+        "packages": [
+          {
+            "registryType": "npm",
+            "identifier": "@insightsentry/mcp",
+            "version": "1.4.46",
+            "transport": {
+              "type": "stdio"
+            },
+            "environmentVariables": [
+              {
+                "description": "InsightSentry API key from https://insightsentry.com/dashboard",
+                "format": "string",
+                "isSecret": true,
+                "name": "INSIGHTSENTRY_API_KEY"
+              },
+              {
+                "description": "Optional directory for the saved insight login config. Use this when the CLI and MCP server run with different home directories.",
+                "format": "string",
+                "name": "INSIGHTSENTRY_CONFIG_DIR"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-28T12:31:39.962206Z",
+          "publishedAt": "2026-09-28T12:31:39.962206Z",
+          "updatedAt": "2026-09-28T12:31:39.962206Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.sadri-dridi/sentry-dsn-shape",
+        "description": "Check a Sentry DSN shape. Secret discarded.",
+        "title": "Sentry DSN Shape",
+        "repository": {
+          "url": "https://github.com/sadri-dridi/named-mcp-utilities",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://agent-observatory-sensor.nolimit-observatory.workers.dev/s/sentry-dsn-shape/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-08T22:53:53.571604Z",
+          "publishedAt": "2026-09-08T22:53:53.571604Z",
+          "updatedAt": "2026-09-08T22:53:53.571604Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.sentrysurface/sentrysurface",
+        "description": "Cybersecurity MCP server for URL scanning, threat intelligence, and domain reputation.",
+        "repository": {
+          "url": "https://github.com/sentrysurface/sentrysurface-mcp",
+          "source": "github",
+          "subfolder": "webhook"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://api.sentrysurface.io/mcp/mcp",
+            "headers": [
+              {
+                "description": "Bearer header using ptnet_mcp_ key, for example: Bearer ptnet_mcp_xxx",
+                "format": "string",
+                "name": "Authorization"
+              }
+            ]
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-06-08T01:23:29.4434Z",
+          "publishedAt": "2026-06-08T01:23:29.4434Z",
+          "updatedAt": "2026-06-08T01:23:29.4434Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.valtirman/ndasentry",
+        "description": "Anonymous NDA risk analysis for AI agents. $9 per report. No signup, no data retention.",
+        "title": "NDASentry",
+        "repository": {
+          "url": "https://github.com/valtirman/ndasentry-mcp",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://nda-mcp-production.up.railway.app/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-05-25T14:34:52.192671Z",
+          "publishedAt": "2026-05-25T14:34:52.192671Z",
+          "updatedAt": "2026-05-25T14:34:52.192671Z",
+          "isLatest": true
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.vasilicasijarvis/flowsentry",
+        "description": "Security scanner for n8n workflows + live MCP Trust-Check. 18 rules, OWASP mapped. Paid x402 API.",
+        "title": "FlowSentry",
+        "repository": {
+          "url": "https://github.com/vasilicasijarvis/flowsentry",
+          "source": "github"
+        },
+        "version": "0.3.0",
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://flowsentry-agentpay2.vercel.app/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-09-17T15:50:08.90735Z",
+          "publishedAt": "2026-09-17T15:50:08.90735Z",
+          "updatedAt": "2026-09-17T15:50:08.90735Z",
+          "isLatest": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "count": 13
+  }
+}

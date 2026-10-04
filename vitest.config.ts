@@ -14,7 +14,7 @@
 //
 // Excludes preserve test discovery defaults (node_modules, dist) and add the
 // worktrees scope. testTimeout covers cold npm cache + slow connection in
-// audit-ai-docs.test.ts:344 (local measurement ~24s; 60s = safe margin).
+// audit-ai-docs.test.ts:358 (local measurement ~24s; 60s = safe margin).
 // Longer-term fix: see .claude/orchestrator-prompts/slow-test-triage/.
 //
 // Ceiling: testTimeout MUST NOT exceed 120_000 without a paired slow-test-triage R-phase.

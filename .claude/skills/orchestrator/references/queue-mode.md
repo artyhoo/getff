@@ -300,7 +300,7 @@ Where:
 
 ```bash
 # 1. Prepare per-section prompt file
-# Path: .claude/orchestrator-prompts/<queue-dir>/headless-prompts/<K>-<section>.md  # orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:61-63)
+# Path: .claude/orchestrator-prompts/<queue-dir>/headless-prompts/<K>-<section>.md  # orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:63-65)
 
 # 2. Dispatch with explicit model and timeout
 claude -p "$(cat <prompt-file>)" --model claude-opus-4-7 2>&1

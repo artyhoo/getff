@@ -13,6 +13,10 @@ You are a REVIEWER subagent dispatched by an Orchestrator in Queue mode. You did
 
 Review Artefact <K> at <OUTPUT-PATH> against the kickoff at <PATH-TO-QUEUE-KICKOFF> §5.<K> acceptance criteria. Return VERDICT: GO | REVISE.
 
+Inputs-ref: <INPUTS-SHA>
+
+Every path above is an immutable snapshot of that commit (or a worktree of your own checked out at it). Quote every `path:NN` in your verdict against this one ref and name it once in the verdict header — never mix in line numbers read from a live checkout.
+
 ## Cold-read mandate
 
 You have NO shared memory with the Worker who produced this output. Do not assume the Worker's reasoning was correct. Do not give benefit of the doubt on ambiguous claims — flag them explicitly. Read the output as if you've never seen the kickoff. Then read the kickoff. Then compare cold.
@@ -39,7 +43,7 @@ You have NO shared memory with the Worker who produced this output. Do not assum
 
 ## Verdict format
 
-Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`  <!-- orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:61-63) -->
+Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`  <!-- orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:63-65) -->
 
 **Structure:**
 ```
@@ -121,15 +125,18 @@ Return: the verdict file path, verdict, count of HARD-FIX items, count of SOFT i
 
 ## Placeholder reference
 
-| Placeholder               | Fill with                                         |
-| ------------------------- | ------------------------------------------------- |
-| `<YYYY-MM-DD>`            | Today's date                                      |
-| `<K>`                     | Artefact letter (A / B / C / …)                   |
-| `<N>`                     | Iteration number (0, 1, 2, …)                     |
-| `<OUTPUT-PATH>`           | Absolute path to Worker's output file(s)          |
-| `<PATH-TO-QUEUE-KICKOFF>` | Absolute path to the controlling kickoff file     |
-| `<STATE-MD-PATH>`         | Absolute path to this session's state.md          |
-| `<queue-dir>`             | Gitignored orchestrator-prompts subdirectory name |
+| Placeholder               | Fill with                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `<YYYY-MM-DD>`            | Today's date                                                                                |
+| `<K>`                     | Artefact letter (A / B / C / …)                                                             |
+| `<N>`                     | Iteration number (0, 1, 2, …)                                                               |
+| `<INPUTS-SHA>`            | The SHA printed on line 1 of `bash scripts/snapshot-for-seat.sh <sha> <paths…>` (required)  |
+| `<OUTPUT-PATH>`           | Snapshot path(s) of the Worker's output printed by that helper — never a live worktree path |
+| `<PATH-TO-QUEUE-KICKOFF>` | Snapshot path of the controlling kickoff file (same helper call)                            |
+| `<STATE-MD-PATH>`         | Absolute path to this session's state.md                                                    |
+| `<queue-dir>`             | Gitignored orchestrator-prompts subdirectory name                                           |
+
+`<INPUTS-SHA>` is required by [cold-seat-economy.md §7](../../../rules/cold-seat-economy.md) and gated by principle 50: a seat reads snapshots, never live worktree paths.
 
 ## See also
 

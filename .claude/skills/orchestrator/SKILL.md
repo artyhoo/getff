@@ -7,7 +7,7 @@ description: |
   «автономно / волнами / работай без остановок / прогони очередь кикофов сам» при ≥2 kickoff'ах
   → Queue mode.
   SKIP: тривиальная правка по точному пути (≤5 строк, 1 файл).
-when_to_use: оркестратор, организатор, ты старшая, батч правок, umbrella, пакет фиксов, много мелких, делегируй, младшая модель, координируй, разбей на подзадачи, orchestrator, batch fixes, delegate, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
+when_to_use: организатор, ты старшая, много мелких, координируй, разбей на подзадачи, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
 ---
 
 <!-- @harness-posture: cc-native-with-fallback — Agent-tool subagent dispatch is portable (zcode evidence via night-mode SKILL.md:19); Skill-tool invocation degrades to direct file reads -->
@@ -121,18 +121,31 @@ Channel definitions (mechanism ↔ quota pool ↔ use) are owned by
 **Look at task size first, then at type.** Canonical — Phase 3 triages every batch against this
 matrix and nothing restates it elsewhere.
 
-| Task size / type                                                                       | Method                                                                                                                      |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **SMALL**: 1 file, ≤5 lines, path known, X→Y replacement                               | **Senior via `Edit`** — spawning an agent for `s/foo/bar/` costs more than doing it by hand                                 |
-| **BULK execution**: ≥2 files OR ≥10 lines OR grep OR logic changes                     | **Mode A (inline Agent on Opus)** ← DEFAULT (`isolation: "worktree"`)                                                       |
-| **Research / audit / discovery / verification**                                        | **Mode A (inline Agent)** — lands in the parent session immediately; the plan can branch on interim results                 |
-| Parallel independent batches of bulk work (file-lock OK)                               | **Mode A × N calls in one message** (`isolation: "worktree"`); **Mode B × N windows** when live-window throughput is needed |
-| Pre-flight: git stash / branch setup / final push + PR                                 | Senior                                                                                                                      |
-| N-window parallelism / audit trail / Opus pool in Red / explicit Sonnet offload needed | **Mode B (file-prompt)** — explicit option                                                                                  |
-| Explicit «do it yourself / don't write a prompt»                                       | Mode A                                                                                                                      |
-| **Autonomous research, ≥2 kickoffs in queue, maintainer wants autonomy**               | **Queue mode** (see [references/queue-mode.md](references/queue-mode.md))                                                   |
+| Task size / type                                                                              | Method                                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **SMALL**: 1 file, ≤5 lines, path known, X→Y replacement                                      | **Senior via `Edit`** — spawning an agent for `s/foo/bar/` costs more than doing it by hand                                  |
+| **BULK execution**: ≥2 files OR ≥10 lines OR grep OR logic changes                            | **Mode A (inline Agent on Opus)** ← DEFAULT (`isolation: "worktree"`)                                                        |
+| **Research / audit / discovery / verification**                                               | **Mode A (inline Agent)** — lands in the parent session immediately; the plan can branch on interim results                  |
+| Parallel independent batches of bulk work (file-lock OK)                                      | **Mode A × N calls in one message** (`isolation: "worktree"`); **Mode B × N windows** when live-window throughput is needed  |
+| Pre-flight: git stash / branch setup / final push + PR                                        | Senior                                                                                                                       |
+| N-window parallelism / audit trail / Opus pool in Red / explicit Sonnet offload needed        | **Mode B (file-prompt)** — explicit option                                                                                   |
+| Explicit «do it yourself / don't write a prompt»                                              | Mode A                                                                                                                       |
+| **Autonomous research, ≥2 kickoffs in queue, maintainer wants autonomy**                      | **Queue mode** (see [references/queue-mode.md](references/queue-mode.md))                                                    |
+| **Mechanical pipeline of work you coordinate**: poll aif, harvest, PR body, babysit CI, merge | **Chip worker** — a standalone session with a REPORT contract (§Coordinator seat); never the seat, never an in-session Agent |
 
 **Quota:** Mode A shares a pool with the Orchestrator (Opus by default; `model: "sonnet"` is acceptable for easier tasks where it genuinely splits the quota — see «Model rule»).
+
+### Coordinator seat — the mechanical pipeline goes to a chip worker
+
+When this session is the **coordinator seat** of a campaign (orchestrator + advisor over several stages), it keeps only routing work: cutting kickoffs, dispatching into aif, taking decisions, relaying operator forks. The mechanical pipeline — polling aif, harvesting finished stages into PRs, drafting PR bodies, waiting on CI and conflicts, merging — goes to a **standalone chip worker**: a separate session opened with `spawn_task` (Claude Code desktop), or, on a harness without it, a fresh session the operator opens from the same prompt (a Mode B file-prompt). The prompt is built from [references/chip-worker-template.md](references/chip-worker-template.md) and ends with a REPORT contract the seat reads back.
+
+- **An in-session `Agent` is not a chip.** Its work still flows through the seat's context and the seat stays a merge-queue participant — the recurrence that made this a rule (2026-09-28: a seat pushed a stage's edits into a background Agent but kept verifying, sequencing on the merge lock and drafting the PR body itself).
+- **The worker reports; it never decides.** Operator forks it meets (a stage stuck in manual review, a scope question) come back as `ATTN:` lines; the seat decides.
+- **Secure local-only work before the handoff.** A branch that exists nowhere on origin goes into a `git bundle` in the coordination directory first, so the worker can start from it.
+- **Not a coordinator seat:** the `dispatcher` seat, a night-mode run on the aif substrate, and the chip worker itself — their role _is_ the pipeline.
+- **Command-time nudge — operator repo only.** In this framework's own repo, [.claude/rules/coordinator-seat-delegation.md](../../rules/coordinator-seat-delegation.md) carries an `events:` card: the first harvest / aif-task-polling / babysit command of a session injects a one-line reminder (CI waits and merges are not triggers — every PR session runs them). `.claude/rules/` is not shipped, so on a consumer install this section is prose only.
+
+Why: the seat's context is the scarce resource; a worker session is cheap and disposable (operator directive 2026-09-07, after a seat hand-harvested seven stages).
 
 ---
 
@@ -166,7 +179,11 @@ When delegating through the `Agent` tool **inside the current session**, the sen
 
 **May be skipped:** a single read-only Explore / grep / file read with no parallel agents.
 
-❌ Anti-patterns: write work without isolation in bypass mode (no undo); a parallel batch without isolation «because they only read» (a race on git/index is still possible).
+**A reviewer can be a mutator.** A cold reviewer that derives REDs by editing source («disable a branch → run the test → see RED → revert») or that inspects history with `git checkout <sha> -- <file>` mutates the tree, whatever its role label says. It gets `isolation: "worktree"`, or runs **alone** (never concurrently with any other agent in the same tree), or derives its REDs on copies outside the worktree. The failure signature when this is broken: a concurrent read-only reviewer reports «flaky» or «broken» tests whose failing cases are exactly the branches the mutator was disabling — check for that mirror before accepting a flake/regression BLOCKER from a concurrent review batch. Anti-pattern `#mutating-reviewer-in-shared-tree` ([parallel-subwave-isolation.md §3](../../rules/parallel-subwave-isolation.md)).
+
+**After any non-isolated subagent ran in your tree**, before `git add`: `git status`, then check each changed file's diff **direction** against `origin/<base>` — a file you did not intend to touch, or one now _behind_ the base, is contamination; restore it with `git checkout origin/<base> -- <file>`. Never `git add -A` blind (2026-07-03: a non-isolated review workflow left four files from another PR reverted — blind staging would have reverted a security fix).
+
+❌ Anti-patterns: write work without isolation in bypass mode (no undo); a parallel batch without isolation «because they only read» (a race on git/index is still possible); a «read-only reviewer» label on an agent that edits-and-reverts to derive REDs.
 
 ---
 
@@ -379,7 +396,7 @@ Yellow/Red in #6 → switch working mode.
 
 Once, before the PR: `git log --oneline <BASE_BRANCH>..HEAD`, `git diff --stat <BASE_BRANCH>..HEAD`, and the `<CHECK_ALL>` command from discovery — once, with build. `Skill('superpowers:verification-before-completion')` owns the evidence-before-claims discipline for this step; the 6-item REPORT checklist above remains the primary gate.
 
-Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. Two project details it does not carry: pass `--base` **without** the remote prefix, and title the PR `<TASK_ID>: <short umbrella name>` per the discovery-detected convention. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch (`git stash pop`).
+Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. Two project details it does not carry: pass `--base` **without** the remote prefix, and title the PR `<TASK_ID>: <short umbrella name>` per the discovery-detected convention. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch by SHA, never by position: the stash stack is shared across worktrees and parallel sessions, so `git stash pop` can apply another session's entry. Capture the SHA right after the push (`git stash list --format='%H %gs' | grep '<tag>'`), restore with `git stash apply <sha>`, then drop the entry after re-finding its current `stash@{n}` by tag.
 
 ---
 

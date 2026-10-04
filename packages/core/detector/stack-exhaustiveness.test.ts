@@ -23,7 +23,7 @@
  * TYPE-ENUMERATION only. It does NOT retrofit resolve-ctx.ts's npm-default
  * routing — a widened variant still resolves to npmAdapter there with no
  * compile error, and per the spec that default is BY-DESIGN (types.ts:5-13 +
- * resolve-ctx.ts:39-41 declare the strict-superset npm fallthrough). What the
+ * resolve-ctx.ts:41-43 declare the strict-superset npm fallthrough). What the
  * sentinel guarantees is that the widening PR cannot land with the union
  * change alone: this switch stops compiling, forcing the author to make an
  * EXPLICIT decision for the new variant (and the spec §5 advisor consult on

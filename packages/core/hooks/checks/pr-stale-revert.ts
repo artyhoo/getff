@@ -106,7 +106,7 @@ export interface EscapeToken {
  */
 const TOKEN_LINE_RE = /^STALE-REVERT:.*$/m;
 /**
- * The well-formed token. Dash class matches pr-body-fidelity.ts:46 (ASCII hyphen plus
+ * The well-formed token. Dash class matches pr-body-fidelity.ts:56 (ASCII hyphen plus
  * en/em/figure/horizontal dashes) — a GitHub body routinely carries a typographic dash.
  */
 const TOKEN_VALID_RE = /^STALE-REVERT:[ \t]*intended[ \t]*[-–—‒―]+[ \t]*(.+)$/m;

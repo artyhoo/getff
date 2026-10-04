@@ -7,7 +7,7 @@
 # the class is live — during #1355 a hand-listed row naming four `scripts/*.test.sh` files was
 # already one short (`scripts/host-verify-coverage.test.sh`, wired to CI in #1339) before it merged,
 # and by the time THIS test was written a third consumer-matrix cell
-# (`consumer-matrix-npm-tarball-cell`, audit-self.yml:1607) had shipped without reaching the sweep's
+# (`consumer-matrix-npm-tarball-cell`, audit-self.yml:1607) had shipped without reaching the sweep's cite:historical job location when this test was written
 # own UNREACHABLE list. A gate whose failure mode is "nobody re-read the workflow" is bare attention,
 # not a mechanism (.claude/rules/attention-is-not-a-mechanism.md §1).
 #
@@ -113,13 +113,15 @@ unreachable_allowlist() {
     "tests/consumer-matrix/python-unfamiliar-stack-cell.sh${TAB}real install.sh --full into a tmp consumer plus its dependency tree: network, minutes, non-hermetic" \
     "tests/consumer-matrix/npm-tarball-cell.sh${TAB}real install.sh --full against a packed tarball: network, minutes, non-hermetic" \
     "tests/consumer-matrix/getff-dist-cell.sh${TAB}npm pack + npm i of the getff tarball into a tmp consumer, then a real getff init -y: network, minutes, non-hermetic" \
+    "tests/consumer-matrix/own-config-cell.sh${TAB}real install.sh --full into a tmp consumer that owns its configs, plus both dependency trees and an empty-cache generator run: network, minutes, non-hermetic" \
+    "scripts/ci-path-scope.sh${TAB}path-scope decides from the pull_request merge commit + event name; there is no PR merge ref locally (its logic runs locally via scripts/ci-path-scope.test.sh)" \
     "packages/core/hooks/pre-push.ts${TAB}pr-commit-trailers needs the PR base ref and the real PR commit range; its local channel is the .husky/pre-push hook, not this sweep"
 }
 
 # ── Extraction ─────────────────────────────────────────────────────────────────────────────────
 # Single-line `run:` steps only (see CEILING). Leading `VAR=value` assignments are stripped so
 # `PREPUSH_ONLY=s17 npx tsx …` classifies by its real interpreter — without that, two live gate
-# commands (audit-self.yml:844, :856) would sit outside the population unseen.
+# commands (audit-self.yml:1310 `PREPUSH_ONLY=s17`, :1322 `PREPUSH_ONLY=prior-art`) would sit outside the population unseen.
 # `- run: cmd` (step written without a `name:`) is legal YAML and unused in this workflow today —
 # which is exactly why the leading `- ` must be optional here rather than assumed away: the first
 # nameless step to land would otherwise drop out of the population silently.
@@ -153,9 +155,9 @@ ci_commands() {
   leader_re="^($(echo "$GATE_LEADERS" | tr ' ' '|')) "
   raw_run_lines | while IFS= read -r line; do
     stripped="$(printf '%s\n' "$line" | strip_env_prefix)"
-    printf '%s\n' "$stripped" | grep -qE "$leader_re" || continue
-    printf '%s\n' "$stripped" | grep -qE "$SETUP_RE" && continue
-    printf '%s\n' "$line" | grep -qE "$BATTERY_RE" && continue
+    grep -qE "$leader_re" <<<"$stripped" || continue
+    grep -qE "$SETUP_RE" <<<"$stripped" && continue
+    grep -qE "$BATTERY_RE" <<<"$line" && continue
     printf '%s\n' "$line"
   done | sort -u
 }
@@ -363,7 +365,7 @@ rm -f "$tmpwf"
 # Arm 6 proves the workflow side is live; this proves the gate-table side is too. Without it, a
 # gate table that silently emptied would still pass arm 6 (the fake is uncovered either way).
 VICTIM_CMD="npm run typecheck"
-if ! printf '%s\n' "$GATES" | grep -qF "$VICTIM_CMD"; then
+if ! grep -qF "$VICTIM_CMD" <<<"$GATES"; then
   bad "neg: probe row '$VICTIM_CMD' is no longer in the gate table — pick a live row for this arm"
 else
   SEEDED_GATES="$(printf '%s\n' "$GATES" | grep -vF "$VICTIM_CMD")"
@@ -377,8 +379,10 @@ fi
 # That row's trigger used to be a hand-written restatement of scripts/build-getff-dist.sh's
 # PAYLOAD= line — two lists, nobody reconciling them — and by 2026-09-14 it had drifted WIDER in
 # three places (`.claude/` for three named subdirectories, `packages/` for five named packages,
-# `scripts/` for six named files), so a `.claude/rules/*.md` edit selected a 547s gate whose input
-# set that file is not in. The sweep derives it now; this arm is the fixpoint that keeps the
+# `scripts/` for six named files), so a `.claude/rules/*.md` edit selected a gate whose input set
+# that file is not in — a wrong selection, not an expensive one (the 547s this note used to quote
+# was measured under parallel load; alone the gate is 9.4s). The sweep derives it now; this arm is
+# the fixpoint that keeps the
 # derivation honest in BOTH directions — every payload entry must still be selectable, and a path
 # the payload does not contain must not be.
 #
@@ -388,7 +392,7 @@ fi
 # through `--list-gates` instead of scraping the printf block.
 BUILD_DIST="$REPO_ROOT/scripts/build-getff-dist.sh"
 eval "$(sed -n '/^trigger_matches() {/,/^}/p' "$SWEEP")"
-if ! type trigger_matches 2>/dev/null | grep -q 'function'; then
+if ! grep -q 'function' <<<"$(type trigger_matches 2>/dev/null)"; then
   bad "trigger_matches could not be extracted from $SWEEP — arms 8 and 9 would be vacuous"
 else
   ok "trigger_matches extracted from the sweep under test (no second copy of the grammar)"
@@ -570,6 +574,170 @@ if [ -z "$neg_clean" ]; then
   ok "neg: a genuinely self-contained directory IS accepted as confined (the proof is not constant-false)"
 else
   bad "neg: confined() rejected a self-contained directory → the check can never be satisfied: $neg_clean"
+fi
+
+# ── 10. format-check's trigger is DERIVED from the surface format-shipped.sh actually formats ──
+# The row used to be triggered by the hand-written token `SHIPPED`
+# (skills/ agents/ packages/core/templates/ packages/preset-*/ .claude/rules/ .claude/skills/),
+# which is not the population `scripts/format-shipped.sh` checks. Measured 2026-09-27 against
+# that script's own PATHSPECS list: 57 of its 248 tracked files were invisible to the token —
+# all of `templates/`, `packages/core/eslint-rules/`, `packages/core/probes/`, the five named
+# `packages/core/hooks/` files and `packages/runtime-bridge/vendor/` — so a prettier-dirty edit
+# to any of them selected no format gate locally and went red in CI instead. Same failure class
+# as arm 8's, so it gets arm 8's shape: derive, then keep the derivation honest in both
+# directions.
+FORMAT_SHIPPED="$REPO_ROOT/scripts/format-shipped.sh"
+FMT_TRIG="$("$SWEEP" --list-gates 2>/dev/null | awk -F"$TAB" '$2=="format-check"{print $3}')"
+# The PATHSPECS=( … ) array of the script under test, one entry per line, comments stripped.
+format_entries() {
+  [ -f "$FORMAT_SHIPPED" ] || return 0
+  sed -n '/^PATHSPECS=(/,/^)/p' "$FORMAT_SHIPPED" \
+    | sed '1d;$d; s/#.*//' \
+    | tr -s ' \t' '\n' \
+    | grep -E '^[A-Za-z0-9._/-]+$'
+}
+FMT_N=$(format_entries | grep -c .)
+if [ "$FMT_N" -ge 8 ]; then
+  ok "formatted surface extracted from format-shipped.sh: $FMT_N entries (floor 8)"
+else
+  bad "only $FMT_N PATHSPECS entries parsed out of $FORMAT_SHIPPED (floor 8) — the array moved; arm 10 would be vacuous"
+fi
+
+# 10a. every entry of that surface is selectable through the row's trigger.
+uncov_fmt=""
+while IFS= read -r entry; do
+  [ -z "$entry" ] && continue
+  probe="$entry"; [ -d "$REPO_ROOT/$entry" ] && probe="$entry/probe-file.ts"
+  trigger_matches "$FMT_TRIG" "$probe" || uncov_fmt="$uncov_fmt $entry"
+done <<EOF
+$(format_entries)
+EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$uncov_fmt" ] \
+  && ok "every format-shipped.sh PATHSPECS entry is selected by the format-check trigger" \
+  || bad "formatted path(s) the format-check trigger does NOT select →$uncov_fmt — a prettier-dirty edit there reaches CI ungated"
+
+# 10b. NEG (LOAD-BEARING): a directory the formatted surface does not contain must not be selected.
+fmt_overreach=""
+for top in docs .github tests .claude/orchestrator-prompts; do
+  infmt=0
+  while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
+    case "$top/" in "$entry"/*) infmt=1 ;; esac
+    [ "$entry" = "$top" ] && infmt=1
+  done <<EOF
+$(format_entries)
+EOF
+  [ "$infmt" -eq 1 ] && continue
+  trigger_matches "$FMT_TRIG" "$top/probe-file.md" && fmt_overreach="$fmt_overreach $top"
+done
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$fmt_overreach" ] \
+  && ok "neg: paths outside the formatted surface are NOT selected by format-check (the trigger discriminates)" \
+  || bad "format-check selects path(s) format-shipped.sh does not format →$fmt_overreach — the trigger is a restatement again, not a derivation"
+
+# ── 11. byte-identical's trigger covers everything the install it snapshots can read ────────────
+# The snapshot compare replays install.sh over the payload, so ANY payload path can move a
+# fingerprint — plus tests/install-sh/ itself, which holds both the harness and the baselines.
+# Under the old `SHIPPED` token 884 of the 1111 payload files were invisible, including all of
+# setup.d/ and .claude/hooks/. Measured 2026-09-27 with the sweep itself:
+# `SWEEP_DIFF_OVERRIDE=setup.d/45-python.sh` selected 6 gates and neither byte-identical nor
+# install-sh-suite — which is exactly how PR #1853 (a setup.d/ edit) pushed green and went red on
+# `install-sh battery (shard C)`.
+BI_TRIG="$("$SWEEP" --list-gates 2>/dev/null | awk -F"$TAB" '$2=="byte-identical"{print $3}')"
+uncov_bi=""
+while IFS= read -r entry; do
+  [ -z "$entry" ] && continue
+  probe="$entry"; [ -d "$REPO_ROOT/$entry" ] && probe="$entry/probe-file.txt"
+  trigger_matches "$BI_TRIG" "$probe" || uncov_bi="$uncov_bi $entry"
+done <<EOF
+$(payload_entries)
+EOF
+trigger_matches "$BI_TRIG" "tests/install-sh/baselines/ts-server/greenfield.fingerprint" \
+  || uncov_bi="$uncov_bi tests/install-sh/"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$uncov_bi" ] \
+  && ok "every payload entry (and tests/install-sh/) is selected by the byte-identical trigger" \
+  || bad "input(s) the byte-identical trigger does NOT select →$uncov_bi — an installer-visible edit can move a fingerprint with no local snapshot compare"
+
+# 11b. NEG (LOAD-BEARING): a directory neither the payload nor the harness contains must not be
+# selected, or the row has simply become ALWAYS at 69s a push (measured alone, 2026-09-27).
+bi_overreach=""
+for top in docs .github .claude/orchestrator-prompts; do
+  trigger_matches "$BI_TRIG" "$top/probe-file.md" && bi_overreach="$bi_overreach $top"
+done
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$bi_overreach" ] \
+  && ok "neg: paths the install cannot read are NOT selected by byte-identical (the trigger discriminates)" \
+  || bad "byte-identical selects path(s) outside the payload and the harness →$bi_overreach — the row has become an unconditional 69s tax"
+
+# ── 12. OFFLOAD: the routing plan over the REAL table keeps every Mac-only signal on the Mac ──────
+# With SWEEP_HEAVY_RUNNER set, the SWEEP_ROUTABLE rows run elsewhere (on the operator's Mac: a
+# Linux PC). The list is deny-by-default, so a forgotten row only costs Mac CPU; what CAN go wrong
+# is the opposite — a row that starts the Mac's /bin/bash 3.2 / BSD userland being listed, or a
+# routed vitest suite whose shell arms silently stop being found. Read through the real parser
+# (`--route-plan`), the same way arms 8-11 read `--list-gates`.
+PLAN="$("$SWEEP" --route-plan 2>/dev/null)"
+PLAN_ROUTE_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"' | grep -c .)
+[ "$PLAN_ROUTE_N" -ge 6 ] \
+  || bad "only $PLAN_ROUTE_N rows plan to route (floor 6) — --route-plan broke; arms 12a-12d would be vacuous"
+
+# 12a. every name in SWEEP_ROUTABLE is a row (a renamed row would silently stop being routed).
+missing="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="missing"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$missing" ] && ok "every SWEEP_ROUTABLE name is a gate-table row" \
+  || bad "SWEEP_ROUTABLE names rows the table does not have: $missing"
+
+# 12b. every routable vitest row has a shape whose shell arms can be found.
+unparsed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$3=="unparsed-vitest-shape"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$unparsed" ] && ok "every routable vitest row has a parsed shape (its shell arms are findable)" \
+  || bad "routable row(s) with a vitest shape vitest_scope cannot read: $unparsed — they run here, and their arms are unknown"
+
+# 12c. no listed row starts a shell of its own: the sweep keeps such a row here anyway
+# (row_shell_reason — the command, an npm script it reaches, a node script it runs, or a vitest
+# scope where every file starts a shell), and this arm makes the list say so.
+# NEG (LOAD-BEARING): through the same plan, three real rows that start a shell one hop away and
+# a synthetic row running the real pre-push hook through `npx tsx` behind an env assignment (the
+# hook names bash itself) are kept here, and a node row that only READS .sh files (a
+# SHELL_READERS entry that starts only git and node) routes — else 12c below is vacuous.
+NEG_GATES="$(mktemp "${TMPDIR:-/tmp}/sweep-cov-gates.XXXXXX")"
+{ "$SWEEP" --list-gates 2>/dev/null; printf '99\tprepush-skill-drift\tALWAYS\tPREPUSH_ONLY=skill-drift npx tsx packages/core/hooks/pre-push.ts\n'; } >"$NEG_GATES"
+NEGPLAN="$(SWEEP_GATES_FILE="$NEG_GATES" SWEEP_ROUTABLE="format-check runtime-bundles-drift template-render reference-check prepush-skill-drift" "$SWEEP" --route-plan 2>/dev/null)"
+rm -f "$NEG_GATES"
+neg_row() { awk -F"$TAB" -v n="$1" '$1==n{print $2 " " $3}' <<<"$NEGPLAN"; }
+if [ "$(neg_row format-check)" = "local runs-a-shell" ] \
+  && [ "$(neg_row runtime-bundles-drift)" = "local starts-a-shell:scripts/build-runtime-bundles.mjs" ] \
+  && [ "$(neg_row template-render)" = "local every-file-starts-a-shell" ] \
+  && [ "$(neg_row prepush-skill-drift)" = "local starts-a-shell:packages/core/hooks/pre-push.ts" ] \
+  && [ "$(neg_row reference-check)" = "route " ]; then
+  ok "neg: row_shell_reason catches an npm hop, a node script's spawn, a tsx-run hook and an all-shell suite, and not a listed reader of .sh"
+else
+  bad "row_shell_reason misjudged a row (format-check='$(neg_row format-check)' runtime-bundles-drift='$(neg_row runtime-bundles-drift)' template-render='$(neg_row template-render)' prepush-skill-drift='$(neg_row prepush-skill-drift)' reference-check='$(neg_row reference-check)') — 12c below is vacuous"
+fi
+shell_listed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="local" && $3!="" && $3!="unparsed-vitest-shape"{print $1 "(" $3 ")"}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$shell_listed" ] && ok "no SWEEP_ROUTABLE row starts a shell of its own (the Mac keeps its bash 3.2 signal)" \
+  || bad "SWEEP_ROUTABLE lists row(s) that start a shell: $shell_listed — take them off the list"
+
+# 12d. the shell arms derivation is live on real files: vitest-principles keeps a file that pins
+# '/bin/bash', one that spawns PATH `bash` (the same binary on a stock Mac), and one marked only
+# through its import (31-rule-channel-declaration.test.ts names no shell; the
+# 31-rule-channel-declaration.ts it imports names a .sh file in a comment — so this anchor guards
+# import-following, and rewording that comment would need a new anchor) — and the arms floor holds.
+pr_arms=" $(printf '%s\n' "$PLAN" | awk -F"$TAB" '$1=="vitest-principles"{print $3}') "
+ARMS_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"{print $3}' | tr ' ' '\n' | grep -c .)
+arms_lost=""
+for f in principles/20-bundle-classification.test.ts principles/02-paired-negative-test.test.ts \
+  principles/31-rule-channel-declaration.test.ts; do
+  case "$pr_arms" in *" $f "*) ;; *) arms_lost="$arms_lost $f" ;; esac
+done
+if [ -n "$arms_lost" ]; then
+  bad "vitest-principles lost shell arm(s):$arms_lost — routing would move bash 3.2 tests to Linux"
+elif [ "$ARMS_N" -lt 20 ]; then
+  bad "only $ARMS_N shell arm files found (floor 20) — the derivation lost files"
+else
+  ok "the shell arms are found ($ARMS_N files: pinned /bin/bash, PATH bash, and one marked through an import)"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

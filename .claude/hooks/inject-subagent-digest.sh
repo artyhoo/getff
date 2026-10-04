@@ -12,13 +12,13 @@
 #   block a spawn) and delivers context via JSON hookSpecificOutput.additionalContext.
 #   Plain stdout is a SILENT NO-OP here (unlike UserPromptSubmit, which auto-injects
 #   stdout) — emitting the wrong format = the hook fires but does nothing (#discipline-theatre,
-#   T-108-A). Hence the jq-wrapped JSON below, mirroring inject-matching-rule.sh:78-79.
+#   T-108-A). Hence the jq-wrapped JSON below, mirroring inject-matching-rule.sh's closing emit.
 set -uo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
-# Single source of truth for the digest text: reuse the UserPromptSubmit digest
+# Single source of truth for the digest text: reuse the SessionStart digest
 # verbatim (one logic, two channels — dual-implementation-discipline §7).
 DIGEST="$(bash "$HOOK_DIR/inject-session-bootstrap.sh" 2>/dev/null || true)"
 [[ -z "$DIGEST" ]] && exit 0

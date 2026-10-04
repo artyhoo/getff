@@ -13,7 +13,9 @@
  * scripts/render-rule-index.mjs and packages/core/principles/31-rule-channel-declaration.ts
  * import it.
  *
- * Grammar mirrors .claude/hooks/inject-matching-rule.sh:44-51 glob_match: `prefix/**` (prefix
+ * Grammar is the subset the loader's old glob_match accepted; trigger build slice 1 replaced it
+ * with glob_to_ere in .claude/hooks/inject-matching-rule.sh, which accepts a superset (`*`, `**`,
+ * `?`, `{a,b}`), so every glob valid here still matches there: `prefix/**` (prefix
  * may contain slashes, e.g. ".github/workflows/**"), `*.ext` (suffix match), or an exact path —
  * each alternative anchored so a pattern must be wholly one shape, never a mix.
  */

@@ -107,6 +107,7 @@
           ".claude/rules/attention-is-not-a-mechanism.md",
           ".claude/rules/dual-implementation-discipline.md",
           ".claude/rules/no-paid-llm-in-ci.md",
+          ".claude/rules/phase-research-coverage.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/night-mode/SKILL.md",
           "agents/compliance-verifier.md",
@@ -187,6 +188,7 @@
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
           ".claude/rules/cold-seat-economy.md",
+          ".claude/rules/doc-authority-hierarchy.md",
           ".claude/rules/git-conflict-merge-forward.md",
           ".claude/skills/dispatcher/SKILL.md",
           ".claude/skills/harvest/SKILL.md",
@@ -265,14 +267,15 @@
           "ts-server"
         ]
       },
-      "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix.",
+      "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516).",
       "source": {
         "path": "agents/review-sidecar.md",
         "line": 3
       },
       "extras": {
-        "tools": "Read, Glob, Grep",
+        "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
+          ".claude/rules/ai-laziness-traps.md",
           ".claude/rules/no-paid-llm-in-ci.md",
           ".claude/rules/reviewer-discipline.md",
           ".claude/skills/reviewer/SKILL.md",

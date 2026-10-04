@@ -5,7 +5,7 @@
 #
 #   _workspace_pkg_dirs [root]        — enumerate workspace package dirs (those WITH a package.json)
 #                                       under the 5-dir convention (apps packages services libs
-#                                       modules — same set as setup.d/70-deps.sh:37), node-free, no
+#                                       modules — same set as setup.d/lib.sh:3015), node-free, no
 #                                       yq/pnpm/turbo dependency. Echoes one relative dir per line.
 #   _detect_stacks_per_workspace [root] — walk each workspace dir × _detect_stack_from_pkg <dir> →
 #                                       echo `dir<TAB>stack` per workspace (mirrors the 15-companions
@@ -30,9 +30,9 @@ ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # ws_run <fixture_dir> <shell-snippet> — source install.sh in lib-only mode with PROJECT_ROOT=cwd
-# set to the fixture (install.sh:38 `PROJECT_ROOT="$(pwd)"`), then run the snippet. Mirrors the
+# set to the fixture (install.sh:56 `PROJECT_ROOT="$(pwd)"`), then run the snippet. Mirrors the
 # stack-autodetect.test.sh harness. Helpers are exposed because lib.sh is sourced before the
-# INSTALL_SH_LIB_ONLY guard (install.sh:43/50). set -euo pipefail is active (install.sh:34).
+# INSTALL_SH_LIB_ONLY guard (install.sh:61/68). set -euo pipefail is active (install.sh:52).
 ws_run() {
   local dir="$1" snippet="$2"
   ( cd "$dir" && INSTALL_SH_LIB_ONLY=1 bash -c 'source "'"$INSTALL_SH"'"; '"$snippet" 2>/dev/null )
@@ -52,11 +52,11 @@ mkdir -p "$T/apps/docs"    # NO package.json on purpose
 
 echo "▶ UNIT: _workspace_pkg_dirs enumerates workspace package dirs (5-dir convention, node-free)"
 DIRS=$(ws_run "$T" '_workspace_pkg_dirs')
-printf '%s\n' "$DIRS" | grep -qx 'apps/api'        && ok "lists apps/api"        || bad "apps/api missing from ($DIRS)"
-printf '%s\n' "$DIRS" | grep -qx 'apps/mobile'     && ok "lists apps/mobile"     || bad "apps/mobile missing from ($DIRS)"
-printf '%s\n' "$DIRS" | grep -qx 'packages/config' && ok "lists packages/config" || bad "packages/config missing from ($DIRS)"
+grep -qx 'apps/api' <<<"$DIRS"        && ok "lists apps/api"        || bad "apps/api missing from ($DIRS)"
+grep -qx 'apps/mobile' <<<"$DIRS"     && ok "lists apps/mobile"     || bad "apps/mobile missing from ($DIRS)"
+grep -qx 'packages/config' <<<"$DIRS" && ok "lists packages/config" || bad "packages/config missing from ($DIRS)"
 # NEG (load-bearing): a child dir WITHOUT package.json is NOT a workspace package.
-if printf '%s\n' "$DIRS" | grep -qx 'apps/docs'; then
+if grep -qx 'apps/docs' <<<"$DIRS"; then
   bad "neg: apps/docs (no package.json) was enumerated → reader fabricates non-packages"
 else
   ok "neg: apps/docs (no package.json) NOT enumerated → reader requires package.json"
@@ -65,8 +65,8 @@ fi
 echo ""
 echo "▶ UNIT: _detect_stacks_per_workspace → {dir<TAB>stack} map (T-MSM-A: neither stack dropped)"
 MAP=$(ws_run "$T" '_detect_stacks_per_workspace')
-printf '%s\n' "$MAP" | grep -qxF "apps/api${TAB}ts-server"       && ok "apps/api → ts-server"                                        || bad "apps/api→ts-server missing ($MAP)"
-printf '%s\n' "$MAP" | grep -qxF "apps/mobile${TAB}react-native" && ok "apps/mobile → react-native (secondary stack NOT dropped — #780 nuance)" || bad "apps/mobile→react-native missing ($MAP)"
+grep -qxF "apps/api${TAB}ts-server" <<<"$MAP"       && ok "apps/api → ts-server"                                        || bad "apps/api→ts-server missing ($MAP)"
+grep -qxF "apps/mobile${TAB}react-native" <<<"$MAP" && ok "apps/mobile → react-native (secondary stack NOT dropped — #780 nuance)" || bad "apps/mobile→react-native missing ($MAP)"
 
 echo ""
 echo "▶ NEG (T-MSM-A core): root-only detection DROPS the secondary stack — per-workspace walk is load-bearing"
@@ -76,17 +76,17 @@ if [ "$ROOT_ONLY" = "react-native" ]; then
 else
   ok "neg: root-only detect = '$ROOT_ONLY' (drops apps/mobile react-native) → root-only is insufficient"
 fi
-printf '%s\n' "$MAP" | grep -q 'react-native' \
+grep -q 'react-native' <<<"$MAP" \
   && ok "neg-pair: per-workspace map recovers the react-native root-only dropped" \
   || bad "neg-pair: per-workspace map also lacks react-native — walk adds nothing"
 
 echo ""
 echo "▶ per-workspace 'unknown' → re-checkable marker (kept in map, NOT dropped, NOT exit 1)"
-printf '%s\n' "$MAP" | grep -qxF "packages/config${TAB}unknown" \
+grep -qxF "packages/config${TAB}unknown" <<<"$MAP" \
   && ok "packages/config (no stack signal) → 'unknown' marker kept (re-checkable)" \
   || bad "packages/config not mapped to 'unknown' ($MAP)"
 # NEG (load-bearing): the unknown workspace must NOT be silently assigned a concrete stack.
-if printf '%s\n' "$MAP" | grep -qE "packages/config${TAB}(ts-server|react-next|react-spa|react-native)"; then
+if grep -qE "packages/config${TAB}(ts-server|react-next|react-spa|react-native)" <<<"$MAP"; then
   bad "neg: packages/config silently assigned a concrete stack (false detect)"
 else
   ok "neg: packages/config not silently assigned a concrete stack (honest 'unknown')"

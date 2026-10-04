@@ -107,11 +107,48 @@ function checkTEntry(entry: TEntry, digestMap: Map<string, string>): string[] {
  *  character in the digest is under-counted (Cyrillic costs 2 bytes and 1 unit; an emoji
  *  costs 4 bytes and 2 units). The digest carries Cyrillic, so `.length` made the budget
  *  gate looser than it declared — 141 B looser as of 2026-08-07. Same idiom as
- *  `scripts/render-rule-index.mjs:200`. Found by the cold backward sweep behind arch-v2
+ *  `scripts/render-rule-index.mjs:199`. Found by the cold backward sweep behind arch-v2
  *  S-L (PR #1263 §6); the unit-binds-to-the-channel rule that names this class is
  *  `docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md` §1. */
 function digestBytes(src: string): number {
   return Buffer.byteLength(src, 'utf8');
+}
+
+/** T19's counter must not state who merges — CLAUDE.md «Agent PR merge policy» owns that.
+ *  The counter used to say «Merge» is the maintainer's decision while CLAUDE.md had agents
+ *  merge their own staging PRs (operator directive 2026-09-10); both texts reach every
+ *  session, so the contradiction was live (found 2026-09-28). The check: the counter (and
+ *  its digest quote) points at the CLAUDE.md bullet, that bullet exists, and no sentence —
+ *  with the pointer text itself removed, so sharing a sentence with the pointer is no
+ *  shelter — pairs a merge verb («merge/merges/merging», or «land» with «PR») with a role
+ *  (maintainer, operator, human, owner, agent). «merged» is not a merge verb: «revert a
+ *  merged PR» states no authority. Agents count as a role so a restated copy of the policy
+ *  itself («an agent merges its own staging PR») is rejected too — one source, CLAUDE.md. */
+const MERGE_POLICY_POINTER = 'CLAUDE.md «Agent PR merge policy»';
+
+function checkT19MergeAuthority(counter: string, digestLine: string, claudeMd: string): string[] {
+  const errs: string[] = [];
+  if (!/^- \*\*Agent PR merge policy\b/m.test(claudeMd)) {
+    errs.push('CLAUDE.md has no «Agent PR merge policy» bullet — the T19 pointer is dead');
+  }
+  for (const [where, text] of [['catalogue T19 counter', counter], ['digest T19 line', digestLine]] as const) {
+    if (!text.includes(MERGE_POLICY_POINTER)) {
+      errs.push(`${where}: does not point to ${MERGE_POLICY_POINTER}`);
+    }
+    for (const sentence of text.split(/(?<=[.;])\s+/)) {
+      const bare = sentence.split(MERGE_POLICY_POINTER).join('');
+      const mergeVerb = /\bmerg(e|es|ing)\b/i.test(bare) || (/\bland(s|ing)?\b/i.test(bare) && /\bPRs?\b/.test(bare));
+      if (mergeVerb && /\b(maintainers?|operators?|humans?|owners?|agents?)\b/i.test(bare)) {
+        errs.push(`${where}: restates merge authority instead of pointing to CLAUDE.md: "${sentence.trim()}"`);
+      }
+    }
+  }
+  return errs;
+}
+
+function t19Counter(): string {
+  const t19 = parseCatalogue().find((e) => e.num === 'T19');
+  return t19?.block.split('\n').find((l) => l.startsWith('Counter:')) ?? '';
 }
 
 /** Check the entire digest against the catalogue. Accepts an optional mutated digest
@@ -150,6 +187,61 @@ describe('Principle 35 — ai-laziness-digest anti-drift (catalogue ↔ digest)'
     // otherwise this guard would be vacuous on the artefact it actually protects.
     const src = readFileSync(DIGEST_PATH, 'utf8');
     expect(digestBytes(src)).toBeGreaterThan(src.length);
+  });
+
+  describe('N35-3 — T19 defers merge authority to CLAUDE.md «Agent PR merge policy»', () => {
+    const claudeMd = (): string => readFileSync(resolve(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+    // The pre-2026-09-28 counter ending, verbatim.
+    const RETIRED = ' «Merge» is the maintainer\'s decision; «QA» is yours.';
+
+    it('GREEN: the catalogue counter and its digest quote point to CLAUDE.md and restate nothing', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      expect(t19Counter()).not.toBe('');
+      expect(checkT19MergeAuthority(t19Counter(), digestLine, claudeMd())).toEqual([]);
+    });
+
+    it('RED: the retired «Merge is the maintainer\'s decision» counter is rejected', () => {
+      const old = t19Counter().replace(/ «QA» is yours whoever merges;.*?(?= \*\(codifies)/, RETIRED);
+      expect(old).toContain(RETIRED); // sanity: the rewrite fired
+      const errs = checkT19MergeAuthority(old, old, claudeMd());
+      expect(errs.some((e) => e.includes('restates merge authority'))).toBe(true);
+      expect(errs.some((e) => e.includes('does not point to'))).toBe(true);
+    });
+
+    it('RED: a paraphrased merge claim next to the pointer is still rejected', () => {
+      const counter = `${t19Counter()} Merging stays the operator's call.`;
+      const errs = checkT19MergeAuthority(counter, counter, claudeMd());
+      expect(errs.some((e) => e.includes("Merging stays the operator's call."))).toBe(true);
+    });
+
+    it('RED: other phrasings of a human merge role are rejected, even inside the pointer sentence', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      for (const claim of [
+        'Merging stays with the maintainers.',
+        "Merging is the owner's call.",
+        'Only the maintainer may land the PR.',
+        `Merging stays with the maintainers per ${MERGE_POLICY_POINTER}.`,
+        'An agent merges its own `base=staging` PR once CI is green.',
+      ]) {
+        const counter = `${t19Counter()} ${claim}`;
+        const errs = checkT19MergeAuthority(counter, digestLine, claudeMd());
+        expect(errs.some((e) => e.includes(claim)), claim).toBe(true);
+      }
+    });
+
+    it('GREEN: a sentence that names a role and a merged PR without assigning who merges passes', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      const counter = `${t19Counter()} The operator may still revert a merged PR.`;
+      expect(checkT19MergeAuthority(counter, digestLine, claudeMd())).toEqual([]);
+    });
+
+    it('RED: a pointer to a CLAUDE.md bullet that no longer exists is rejected', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      const gone = claudeMd().replace(/^- \*\*Agent PR merge policy\b/m, '- **Something else');
+      expect(checkT19MergeAuthority(t19Counter(), digestLine, gone)).toContain(
+        'CLAUDE.md has no «Agent PR merge policy» bullet — the T19 pointer is dead',
+      );
+    });
   });
 
   describe('N35-1 — paired-negative: deleting one digest line makes the check RED', () => {

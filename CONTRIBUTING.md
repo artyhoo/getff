@@ -24,6 +24,8 @@ ln -s /abs/path/to/main-checkout/node_modules node_modules
 ln -s /abs/path/to/main-checkout/packages/core/node_modules packages/core/node_modules
 ```
 
+A worktree may run another checkout's hook files: the Claude desktop app writes an absolute `core.hooksPath=<main-checkout>/.husky` into every worktree it opens. Each `.husky/*` hook therefore begins with a `husky-own-worktree-delegate` block that re-executes the worktree's own copy, and the pre-push `hooks-path` section repoints the worktree (`git config --worktree core.hooksPath .husky`) when the foreign copy predates that block. Keep the block at the top of any new hook — `packages/core/hooks/husky-self-delegate.test.ts` fails a hook without it.
+
 ## What hooks check
 
 ### pre-commit (target: <5 seconds)
@@ -48,7 +50,7 @@ Runs on every `git push`:
 |---|---|---|
 | Workflow linting | `.github/workflows/*.yml` | `actionlint` |
 | Security scan | `.github/workflows/` | `zizmor` |
-| Self-test pipeline | `packages/core/audit-self/` | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts` |
+| Self-test pipeline | `packages/core/audit-self/` fixtures, then the whole repo live | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts`, then `bash packages/core/audit-self/audit-ai-docs.sh` + `npx tsx packages/core/audit-self/audit-ai-docs.ts` (a FAIL blocks the push) |
 | Manifest render drift | `packages/core/manifest/rules-manifest.json` ↔ rendered `RULES.md` | `npx tsx packages/core/render/render-rules.ts --check` |
 | Spec discipline | staged `.claude/orchestrator-prompts/*.md` | `npx tsx packages/core/spec-validation/validate-batch-spec.ts` (pre-commit soft warn, pre-push hard fail) |
 
@@ -210,7 +212,7 @@ independently):
 
 ```text
 Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).
-Prior-art: REUSE — setup.d/lib.sh:359 (the copy_safe idiom this reuses).
+Prior-art: REUSE — setup.d/lib.sh:893 (the copy_safe idiom this reuses).
 Prior-art: see PR #1094 (the squash-trailer-loss incident this gate came from).
 ```
 

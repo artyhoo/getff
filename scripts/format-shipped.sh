@@ -27,20 +27,38 @@ MODE="${1:---check}"
 case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check [files...]" >&2; exit 2 ;; esac
 [ "$#" -gt 0 ] && shift
 FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full shipped surface)
-# `cd ""` returns 0 and stays put (measured), so a bare `cd "$(git rev-parse ...)"` outside a
-# git worktree would silently format the CURRENT tree as if it were the repo. Fail instead.
-REPO_TOP="$(git rev-parse --show-toplevel)" || exit 1
+# ── REPO-ANCHOR ─────────────────────────────────────────────────────────────
+# Format the shipped surface of the checkout this script LIVES in, not of whatever repo the
+# cwd is in: the root used to come from the cwd's `git rev-parse --show-toplevel`, so
+# `bash /abs/path/scripts/format-shipped.sh --write` from a scratch consumer repo rewrote that
+# repo's skills/, agents/, templates/ … in place (the getff#1971 backward sweep; same class as
+# scripts/link-coordination.sh's REPO-IDENTITY GUARD, #1967). Every in-repo caller (package.json
+# `format`, .husky/pre-commit, the install-sh fixtures that copy this file into their own tree)
+# runs the copy inside the tree it formats, so the anchor changes nothing for them.
+# CDPATH is cleared because `cd scripts/..` on a relative invocation would search it. The git
+# env is scrubbed for THIS lookup only: later git calls keep the caller's env on purpose —
+# under .husky/pre-commit, the env git exports to hooks (e.g. GIT_INDEX_FILE) names the tree being
+# committed, and `git ls-files` must read that index.
+unset CDPATH
+REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
+  && env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null)" || REPO_TOP=""
+# ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
+# `cd ""` returns 0 and stays put (measured), so an empty root would silently format the CURRENT
+# tree as if it were the repo. Fail instead.
+[ -n "$REPO_TOP" ] || { echo "format-shipped: cannot resolve the repository root (not inside a git checkout)" >&2; exit 1; }
 cd "$REPO_TOP" || exit 1
 
-# Shipped paths (dirs + the exact pre-push closure — NOT the whole hooks/ dir, which is mostly
-# framework-internal tests + the dynamically-imported guard-liveness.ts that does not ship).
+# Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the
+# prebuilt pre-push.bundle.mjs (raw esbuild output, drift-gated by build-runtime-bundles.mjs --check
+# and ignored by the consumer's .prettierignore), not as the formatted .ts sources it shipped as
+# before 2026-09-28.
 #
 # `.claude/skills` is taken WHOLE, not as an allowlist of shipped slugs. The former list
 # (pipeline / dispatcher / aif-doctor / template-audit) was hand-maintained and had drifted from
 # what setup.d/10-skills.sh actually delivers: eight shipped slugs — ai-doc, arch,
 # claude-glm-executor-handoff, harvest, night-mode, rule-research, rule-tests, story — were
 # outside the gate's population, and two of them (arch, night-mode) shipped Prettier-dirty as a
-# result (GH #1377 class). The two slugs that do NOT ship (reviewer, self-reflection) are
+# result (GH #1377 class). The slugs that do NOT ship (setup.d/ships.manifest names them) are
 # repo-internal docs; formatting them costs nothing and removes the drift class by construction,
 # which an allowlist + a completeness gate could only detect after the fact.
 PATHSPECS=(
@@ -48,8 +66,6 @@ PATHSPECS=(
   .claude/skills
   agents
   packages/core/eslint-rules packages/core/probes
-  packages/core/hooks/pre-push.ts packages/core/hooks/utils/run-check.ts packages/core/hooks/utils/git.ts
-  packages/core/hooks/checks/prior-art.ts packages/core/hooks/checks/s17.ts
   packages/core/templates
   packages/preset-next-15-canonical/eslint-rules packages/preset-next-15-canonical/templates
   templates
@@ -62,6 +78,9 @@ PATHSPECS=(
   # shipped/non-shipped boundary is exactly where formatting starts, and a future hand re-copy
   # from src now lands dirty and goes RED here instead of silently reaching consumers.
   packages/runtime-bridge/vendor
+  # The one prettier-handled script setup.d/40-configs.sh copies out of audit-self (to scripts/prove-rules.mjs);
+  # the rest of audit-self is shell, framework tests, or fixtures that never ship.
+  packages/core/audit-self/prove-rules.mjs
 )
 
 FILES=()
@@ -71,7 +90,7 @@ while IFS= read -r f; do
     *.template) continue ;;              # handled below, parsed as markdown
     *.test.ts | *.test.tsx) continue ;;  # framework-internal tests do not ship
     */eslint-rules/*.mjs | */eslint-rules/*.d.ts) continue ;; # compiled rule artifacts (raw tsc output, baseline-identical, generated — ship as-is, #752 Variant A)
-    */install/*.bundle.mjs) continue ;;  # esbuild-generated zero-dep bundle (#755, raw esbuild output, drift-gated by build-synth-bundle.sh --check — Prettier would break byte-reproducibility)
+    *.bundle.mjs) continue ;;            # esbuild-generated zero-dep bundles (#755 synth, 2026-09-28 pre-push + rule generator — raw esbuild output, drift-gated by build-synth-bundle.sh / build-runtime-bundles.mjs --check; Prettier would break byte-reproducibility)
     packages/core/templates/python/*) continue ;; # getff-rendered Python delivery templates (S1 T4): verbatim backend-renderer output, byte-drift-gated (packages/core/backends/python-templates-drift.test.ts) — Prettier would break byte-reproducibility, same class as *.bundle.mjs above
     *.md | *.mjs | *.cjs | *.json | *.yml | *.yaml | *.ts | *.tsx) FILES+=("$f") ;;
   esac
@@ -214,11 +233,11 @@ fi
 # 24-plugin-manifest-integrity.test.ts (d)/(e)/(g)) and as the vendor hook ↔ .claude/hooks twin.
 #
 # WHY HERE and not a principle test: this check needs the SAME pinned Prettier the vendor copy is
-# formatted with. The principles CI job installs packages/core only (audit-self.yml:265-268) and
+# formatted with. The principles CI job installs packages/core only (audit-self.yml:334-335) and
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
-# (.husky/pre-commit:125) — the earliest channel that can see the pair. Prior art for the
+# (.husky/pre-commit:254, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
 # regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
 #
 # DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently

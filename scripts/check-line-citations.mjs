@@ -23,7 +23,7 @@
  * that was WRONG WHEN WRITTEN is green (its blame commit IS the birth commit, so
  * «then» and «now» agree), and any later reflow of the citing line resets the
  * baseline forever. The RED-proof for this file found both: reintroducing the
- * motivating `arch/SKILL.md:94` drift in a fresh commit produced exit 0.
+ * motivating `arch/SKILL.md:94` drift in a fresh commit produced exit 0. cite:historical line number at incident time
  *
  * ARM 2 — blank landing. The cited line is empty. Reads only today's target, so
  * it is birth-correct and reflow-proof — exactly ARM 1's hole. Nobody deliberately
@@ -47,6 +47,16 @@
  *   --strict             additionally exit 1 when ANY citation could not be resolved
  *   --affected-by=<path> repeatable; run ARM 1 only for citations touching these paths
  *   --corpus             check the live-authority corpus (below) instead of named files
+ *   --in-corpus          keep only the named files the corpus contains (pre-commit's scope)
+ *   --show-skips         list unresolvable citations in code files too (counted by default)
+ *
+ * Both arms read two citation shapes: `path:NN` and the explicit prose form
+ * «line 63 of `setup.d/lib.sh`» / «`setup.d/10-skills.sh`, lines 22 to 27» that the
+ * docs/site pages write (PROSE_OF_RE below, with why a bare «line N» is excluded).
+ * A bare sibling `:NN` inherits the file of the nearest preceding `path:NN` in the same
+ * sentence: backticked on the same line anywhere (BACKREF_RE), and un-backticked in a
+ * code comment, across the comment block's wrapped lines (CODE_BACKREF_RE — with the
+ * 2026-09-29 corpus measurement of why the sentence bound is the precision line).
  *
  * WHICH FILES the caller passes is the other half of coverage, and scoping it to the
  * push's changed Markdown — what pre-push §9 did until 2026-09-14 — has a structural
@@ -97,6 +107,34 @@
  * is that the basename matched the wrong file. An author-named path keeps the hard
  * failure.
  *
+ * Partial paths resolve the same way (2026-09-29). A slashed token that misses both
+ * relative to the citing file and to the repo root — `install/wire-eslint-r2.ts:NN`
+ * for `packages/core/install/wire-eslint-r2.ts` — is looked up as a UNIQUE tracked path
+ * ending in `/<token>`; several matches are `ambiguous-basename` with candidates, none
+ * is `path-missing`, and a match is weak exactly like a basename one. Before this, every
+ * such token was `path-missing` at once and, in a code file, vanished into the skip
+ * count: the corpus carried 31 stale citations that exit 0 had hidden. A
+ * token starting with `/`, `./` or `../` is never suffix-matched — it names a place, not a tail.
+ *
+ * No blame baseline is reported too (2026-09-30). A citation that resolves but that
+ * ARM 1 cannot compare — the citing file has no git history (untracked, or outside the
+ * repository), the citing line is an uncommitted edit, or the cited path/line did not
+ * exist in the baseline commit — was dropped with a bare `return` after already being
+ * counted under `resolved`. Over the agent-memory corpus that read «resolved 368» with
+ * not one blame behind it; on the live-authority corpus 34 citations (all
+ * `target-absent-at-baseline`) were green the same way. Such citations now leave
+ * `resolved` and print per citing file as `not drift-checked (<reason>)`, under
+ * `no-history`, `uncommitted`, `target-absent-at-baseline`; `--strict` fails on them as
+ * on skips.
+ *
+ * Out-of-repo corpora get no new mode, because one already exists: `--blank-only` is
+ * exactly «ARM 2, no git reads», and ARM 2 is the only arm that CAN run where no history
+ * exists. What was missing was the refusal: `--check` on a file outside the repository
+ * now exits 2 naming the file and the `--blank-only` command, instead of a green it
+ * cannot back; and `--blank-only` over such files says in its summary that ARM 1 was not
+ * run. Agent memory is outside CI by construction (.claude/rules/memory-codification.md
+ * §1), so this is a local-audit path only — no channel runs it.
+ *
  * `--strict` is deliberately NOT wired into pre-push §9: 32 citations on that corpus
  * remain unresolvable and most are out-of-repo by construction, so switching it on
  * would be the «gate nobody can make green» this file already refuses to build.
@@ -109,24 +147,173 @@
  *
  * Rationale-length floor mirrors the escape-token precedent in
  * `.claude/rules/ci-tool-pinning.md` §3.
+ *
+ * Generator-owned regions (`<!-- getff:begin … plan=<generator> -->` … `:end`, the
+ * docs/site B-cards): ARM 1 DEFERS inside one. The region's currency is the generator's
+ * own byte-identity gate (`render-reference.mjs --check`, wired in CI) — an emitted row
+ * whose bytes did not change cannot be re-born when the SCANNED source's content
+ * changes, so ARM 1's blame baseline is unreachable green there, not merely expensive
+ * (first hit, 2026-09-21: the plain-words-recap-v2 PR rewrote `story/SKILL.md:3` and the
+ * byte-stable B-card `| source |` row citing it went red with no legal repair — a hand
+ * edit breaks the render gate, and `cite:historical` would assert a past state that
+ * never existed). ARM 2 deliberately still applies inside regions.
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { dirname, join, normalize, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
+/**
+ * `path:NN`, `path:NN-MM`, and `path:NN,MM,PP-QQ` — the comma list is group 4, parsed by
+ * `commaMembers` below.
+ *
+ * The path is either an extension we ship or one of the EXTENSIONLESS files the corpus
+ * already names as citing files (`CODE_EXTENSIONLESS`). The closed set is the whole
+ * safety argument: `word:12` is far too common in code to gate on, so an open «any bare
+ * name» rule would ship false reds. Measured 2026-09-27 over the 980-file code corpus —
+ * 7 citations name one of these files (`.husky/pre-commit:112` at
+ * `packages/core/principles/39-skill-fence-orch-home.test.ts:59`), and the FP probe found
+ * exactly one other `setup:NN`-shaped string, which was that same citation. Before this,
+ * such a citation was not a citation at all: not judged, and not even counted as a skip,
+ * so `--show-skips` could not surface it either. One had already drifted and was found by
+ * hand (principle 39 cited `:92`, repaired to `:112` in #1838).
+ *
+ * `d` flag: group indices locate the NUMBERS, which is what `--write` rewrites in a comma
+ * list — see the `pos` branch in `commaMembers`.
+ */
 const CITATION_RE =
-  /(?<![\w/.-])((?:\.{0,2}[/\w][\w./-]*)\.(?:md|markdown|ts|tsx|js|mjs|cjs|sh|json|jsonc|yml|yaml|py|toml))[:](\d+)(?:-(\d+))?/g;
+  /(?<![\w/.-])((?:\.{0,2}[/\w][\w./-]*)\.(?:md|markdown|ts|tsx|js|mjs|cjs|sh|json|jsonc|yml|yaml|py|toml)|\.husky\/(?:pre-commit|pre-push|post-checkout)|setup|Makefile)[:](\d+)(?:-(\d+))?((?:,\d+(?:-\d+)?)+)?/gd;
 const MD_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+const COMMA_MEMBER_RE = /(\d+)(?:-(\d+))?/g;
+/**
+ * The line references one `path:NN[,MM…]` match carries — the anchor, then each member of
+ * the comma list. Measured 2026-09-27: 18 sites in the code corpus write a list, and
+ * nothing checked anything but the first number — `.claude/hooks/inject-subagent-context.sh:50`
+ * writes `inject-project-digest.sh:31,39`, whose first number was judged and whose second
+ * was not a citation at all.
+ *
+ * A plain `path:NN` stays exactly as it was: one member, no `pos`, rewritten by token.
+ * A list cannot be: the token writer anchors on `:\d+(-\d+)?$`, which a list never ends
+ * with, so it would no-op on every member and report a fix it did not make — the same
+ * silent half-fix the BACKREF_RE note records. List members therefore carry `pos` and go
+ * through the prose writer's right-to-left, digits-asserted positional edit. Each member
+ * also gets its own display token so a finding names `path:MM`, not the whole list.
+ */
+function commaMembers(m, srcLine) {
+  const anchor = { n: Number(m[2]), end: m[3] ? Number(m[3]) : null };
+  if (!m[4]) return [{ ...anchor, token: m[0], pos: null }];
+  const digitsAt = (gi) => {
+    const [s, e] = m.indices[gi];
+    return { line: srcLine, col: s, len: e - s, was: m[0].slice(s - m.index, e - m.index) };
+  };
+  const members = [
+    {
+      ...anchor,
+      token: `${m[1]}:${m[2]}${m[3] ? `-${m[3]}` : ''}`,
+      pos: { start: digitsAt(2), end: m[3] ? digitsAt(3) : null },
+    },
+  ];
+  const tailAt = m.indices[4][0];
+  for (const t of m[4].matchAll(COMMA_MEMBER_RE)) {
+    const col = tailAt + t.index;
+    members.push({
+      n: Number(t[1]),
+      end: t[2] ? Number(t[2]) : null,
+      token: `${m[1]}:${t[0]}`,
+      pos: {
+        start: { line: srcLine, col, len: t[1].length, was: t[1] },
+        end: t[2]
+          ? { line: srcLine, col: col + t[0].length - t[2].length, len: t[2].length, was: t[2] }
+          : null,
+      },
+    });
+  }
+  return members;
+}
 /**
  * Bare backreference — `` `:272` `` — a second line in the file the nearest
- * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271`
+ * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271` cite:historical example of the backref form, not a live pointer
  * (`rustup toolchain install …`) + `:272` (`rustup default …`)"). Left unchecked,
  * `--write` half-fixes such a sentence: the anchor moves, the sibling does not.
  * Resolution is deterministic — nearest preceding resolved citation, same line.
  */
 const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
+/**
+ * The same backreference as code comments write it — no backticks, and often wrapped
+ * onto the next comment line: «45-python.sh:1398-1400 classifies … — and :1346 extends
+ * the contract», «ARCHITECTURE.md source (:1335/:1363 — …». Three of these had gone
+ * stale unseen (fidelity audit on PR #1931, 2026-09-29), because nothing read them.
+ *
+ * Scope, each part measured on the code corpus that day (30 un-backticked `:NN` with a
+ * `path:NN` earlier in the same comment block; 118 more with none, never bound):
+ *   - CODE FILES ONLY, COMMENT LINES ONLY (`#`, `//`, `*`, `/*` after indentation). A
+ *     code line both ends the block and is never scanned: `${x:1}`, `host:3009`.
+ *   - The antecedent is the nearest preceding `path:NN` on the same line OR on an
+ *     earlier line of the same contiguous comment block.
+ *   - The SAME-SENTENCE guard of BACKREF_RE applies across the wrap. Without it the arm
+ *     bound 30 siblings, of which the 12 that crossed a sentence included sure misbinds —
+ *     ports (`AifHandoffBackend.ts`: «(:3009). MCP (HTTP) = mcpUrl (:3100)»), and «same
+ *     reason integer-name-guard.sh documents at :23-25» bound to a `setup.d/lib.sh`
+ *     named a sentence earlier. With it: 18 bound, 18 to the file the author meant.
+ * A sibling in the next sentence is therefore NOT checked; write its path out
+ * (`45-python.sh:1429`) and CITATION_RE covers it. Markdown keeps the backticked-only
+ * form: prose uses a bare «:NN» for times and ratios as well as lines.
+ * `/` is an allowed left neighbour so a slash-joined pair (`:1335/:1363`) yields both.
+ */
+const CODE_BACKREF_RE = /(?<=^|[\s(/,]):(\d+)(?:-(\d+))?(?![\w:`])/dg;
+const CODE_COMMENT_LINE_RE = /^\s*(?:#|\/\/|\*|\/\*)/;
+// A comment line that is only its marker (a paragraph break) or that opens a list item
+// starts a new sentence even with no period before it — headings and bullets rarely end
+// in one, and «# Sources: t.sh:2 / # / # Ports: base (:3009)» otherwise bound the port
+// (cold review of this arm, 2026-09-29).
+const CODE_COMMENT_BREAK_RE = /^\s*(?:#|\/\/|\*|\/\*)\s*(?:$|[-*+]\s|\d+[.)]\s)/;
+const SENTENCE_BREAK_RE = /[.!?]\s/;
+/**
+ * Prose form — the docs/site reference pages cite in sentences, not `path:NN`:
+ * «line 63 of `setup.d/lib.sh`», «lines 163 to 167 of `setup.d/10-skills.sh`»,
+ * «`setup.d/10-skills.sh`, lines 22 to 27». Invisible to CITATION_RE, so W1-A (#1821)
+ * and W1-B (#1826) moved both files under 13 such pages with every arm here green
+ * (repaired by hand in PR #1830, 2026-09-21).
+ *
+ * Only the EXPLICIT form counts: the sentence names its file right next to the number.
+ * A bare «line 6» leans on an antecedent the prose chose — sometimes the previous
+ * sentence's file, sometimes a file named two bullets up, sometimes «the skill file»
+ * with no path at all. Binding it to the nearest preceding backticked path was measured
+ * the same day over docs/site: ~22 of ~150 bound to the wrong file, several of them past
+ * that file's end, so a hard gate on them would ship false reds. Same precision stance
+ * as the sentence guard on BACKREF_RE.
+ *
+ * Matched over the whole file, not per line: pages are hard-wrapped, and «line 63 of\n
+ * `setup.d/lib.sh`» is one citation. `d` flag: group indices locate the NUMBERS, which
+ * is where blame is taken and what `--write` rewrites.
+ */
+const PROSE_NUM = String.raw`\blines?\s+(\d+)(?:(?:\s+(?:to|through)\s+|\s*[-–]\s*)(\d+))?(?!\s*(?:,|and)\s*\d)`;
+const PROSE_PATH = '`([^`\\s:]+)`';
+const PROSE_OF_RE = new RegExp(`${PROSE_NUM}\\s+(?:of|in)\\s+${PROSE_PATH}`, 'gid');
+const PROSE_COMMA_RE = new RegExp(`${PROSE_PATH},?\\s+${PROSE_NUM}\\b`, 'gid');
 const ESCAPE_RE = /<!--\s*cite:historical\s+([^>]*?)\s*-->/;
+/**
+ * The same escape in a code file, which has no HTML comment: the bare token anywhere on
+ * the citing line, rationale running to the end of the line (a closing comment marker is
+ * not part of it). Code-only on purpose — in Markdown prose a sentence that merely
+ * MENTIONS «cite:historical» would otherwise silence a real drift on its own line.
+ * Declared limits: the 20-character floor counts whatever follows the token, so code
+ * after it on the same line counts toward the rationale; and the escape silences every
+ * citation on its line, so write the token after the last live citation, or split the line.
+ */
+const ESCAPE_CODE_RE = /cite:historical\s+(.*?)\s*(?:\*\/|-->)?\s*$/;
 const ESCAPE_RATIONALE_MIN = 20;
+/**
+ * Generator-owned region markers — `<!-- getff:begin section=B-card-story
+ * plan=scripts/render-reference.mjs -->` … `<!-- getff:end section=B-card-story -->`,
+ * the frame render-reference.mjs's injectRegion rewrites. The `plan=` attribute is the
+ * load-bearing half: it NAMES the writer, so the region's freshness currency is that
+ * generator's byte-identity gate, not this file's blame baseline (header, «Generator-
+ * owned regions»). Matched loosely on the `:begin`/`:end` comment shape plus `plan=`
+ * so a second generator can adopt the frame without editing this file.
+ */
+const GENERATOR_REGION_BEGIN_RE = /<!--\s*[\w-]*:begin\b[^>]*\bplan=\S+/;
+const GENERATOR_REGION_END_RE = /<!--\s*[\w-]*:end\b/;
 
 /** ARM-2-only mode (`--blank-only`): the pre-commit channel, set by `run()`. */
 let blankOnly = false;
@@ -207,8 +394,8 @@ function tracked(basename) {
  *   spec.
  * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight birth-wrong
  *   citations would NOT have fired here. Verified at the pre-fix tree `7b600f2e7d3`:
- *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the
- *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so
+ *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the cite:historical coordinates at pre-fix tree 7b600f2e7d3
+ *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so cite:historical coordinates at pre-fix tree 7b600f2e7d3
  *   ARM 2 cannot see them and ARM 1 is green by construction on a citation wrong at
  *   birth. ARM 3, the arm that would have covered that class, was built and rejected in
  *   the same patch.
@@ -223,6 +410,14 @@ function tracked(basename) {
  * incident where a spec citation drifts AFTER authorship and misleads a reader — the
  * class ARM 1 actually covers. Today's 363 are repair debt, not that evidence.
  *
+ * `docs/site/` joined 2026-09-21: the public docs are the live authority a CONSUMER
+ * reads, and their reference pages carry ~90 explicit prose citations (PROSE_OF_RE) into
+ * installer and skill files that move often. Not snapshots — each page's `sources:`
+ * frontmatter is refreshed by the D26 gate (scripts/check-docs-refresh.mjs), which proves
+ * a page was TOUCHED when a source moved, never that its numbers are right. Cost when
+ * admitted: 18 `path:NN` citations, all clean; the prose arm's findings were zero after
+ * PR #1830's hand repair.
+ *
  * `plugin/agents/` is excluded because it is a byte-identical generated twin of
  * `agents/` — gating both would report every finding twice and demand the fix land in a
  * derived copy.
@@ -234,8 +429,53 @@ const LIVE_AUTHORITY_MD = [
   'CLAUDE.md',
   'AGENTS.md',
   'CONTRIBUTING.md',
+  'docs/site/',
 ];
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
+
+/**
+ * The CODE half of the corpus (2026-09-22): a comment in a script or module — «mirrors
+ * setup.d/10-skills.sh:92-94», «parity with render-clippy.ts:40» — is the same checkable
+ * claim as a sentence in a rule file, and a maintainer following it lands on the wrong
+ * line just the same. Nothing read those comments until then. The first sweep found 403
+ * stale citations in 1,035 code files, against 11 on the whole Markdown corpus the week
+ * before; one of them sent `setup.d/45-python.sh` readers to an installer block that had
+ * moved 51 lines.
+ *
+ * Every tracked source file, minus what is not live authority:
+ * - `plugin/` — generated twins of `.claude/hooks/` and `agents/`, fixed at the source;
+ * - `.claude/orchestrator-prompts/` — kickoff material, closed once its umbrella lands;
+ * - `docs/` — its code is lint configuration and captured corpora, and its prose half is
+ *   already governed by the Markdown list above;
+ * - `packages/getff/` — the published bundle, a build output;
+ * - vendored trees, build output and fixture data (`vendor/`, `dist/`, `node_modules/`,
+ *   `fixtures/`), whose citations belong to someone else's tree or are test data.
+ *
+ * Code carries far more citations the checker cannot follow than prose does — fixture
+ * strings, consumer illustrations, package-relative paths — 221 on the first sweep. Those
+ * are counted but not printed one per line (`--show-skips` lists them), so the push log
+ * keeps the Markdown skip lines readable instead of burying them.
+ */
+const CODE_EXT_RE = /\.(?:sh|bash|mjs|cjs|js|ts|tsx|py|yml|yaml)$/;
+const CODE_EXTENSIONLESS = new Set(['setup', 'Makefile', '.husky/pre-commit', '.husky/pre-push', '.husky/post-checkout']);
+const CODE_EXCLUDED_PREFIXES = ['plugin/', '.claude/orchestrator-prompts/', 'docs/', 'packages/getff/'];
+const CODE_EXCLUDED_SEGMENT_RE = /(?:^|\/)(?:vendor|dist|node_modules|fixtures|__fixtures__)\//;
+
+const isCodeFile = (f) => CODE_EXT_RE.test(f) || CODE_EXTENSIONLESS.has(f);
+
+function inCorpus(f) {
+  if (f.endsWith('.md')) {
+    return (
+      !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
+      LIVE_AUTHORITY_MD.some((p) => (p.endsWith('/') ? f.startsWith(p) : f === p))
+    );
+  }
+  return (
+    isCodeFile(f) &&
+    !CODE_EXCLUDED_PREFIXES.some((p) => f.startsWith(p)) &&
+    !CODE_EXCLUDED_SEGMENT_RE.test(f)
+  );
+}
 
 /**
  * The corpus as TRACKED files, or `null` when git could not be asked.
@@ -256,17 +496,7 @@ function corpusFiles() {
   } catch {
     return null;
   }
-  return listing
-    .split('\0')
-    .filter(
-      (f) =>
-        f.length > 0 &&
-        f.endsWith('.md') &&
-        !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
-        LIVE_AUTHORITY_MD.some((p) =>
-          p.endsWith('/') ? f.startsWith(p) : f === p,
-        ),
-    );
+  return listing.split('\0').filter((f) => f.length > 0 && inCorpus(f));
 }
 
 /**
@@ -277,7 +507,8 @@ function corpusFiles() {
  * citation cannot be followed. A reason is NOT a failure: it is the line the reader
  * needs in order to decide, which until 2026-09-14 this function threw away.
  *
- * Bare basenames are resolved only when the basename is UNIQUE among tracked files.
+ * Bare basenames — and partial paths, by tracked suffix — are resolved only when the
+ * match is UNIQUE among tracked files.
  * Two files named `questions.ts` (a vendored copy beside its source) make the citation
  * genuinely ambiguous, and guessing one would manufacture a confident wrong answer —
  * the shape `.claude/rules/ai-laziness-traps.md` T3 exists to forbid.
@@ -292,17 +523,41 @@ function resolveCitedPath(srcFile, citedPath, linkTarget) {
   candidates.push(normalize(join(dirname(srcFile), citedPath)));
   candidates.push(normalize(citedPath));
   for (const c of candidates) {
-    if (!c || c.startsWith('..')) continue;
-    if (existsSync(resolve(REPO_ROOT, c))) return { target: c, weak: false };
+    // In-repo REGULAR files only: the prose form accepts any backticked token, so a
+    // directory (`packages/core`, `.`) once reached readFileSync as EISDIR and aborted the
+    // scan, and an absolute path (`/etc/hosts`) read a file outside the repository.
+    if (!c || c.startsWith('..') || isAbsolute(c)) continue;
+    const abs = resolve(REPO_ROOT, c);
+    if (existsSync(abs) && statSync(abs).isFile()) return { target: c, weak: false };
   }
-  if (citedPath.includes('/')) return { reason: 'path-missing', candidates: [] };
+  if (citedPath.includes('/')) {
+    // A partial path (`install/wire-eslint-r2.ts:NN` for
+    // `packages/core/install/wire-eslint-r2.ts`) resolves by UNIQUE tracked suffix, the
+    // basename rule's analogue. Until 2026-09-29 it went straight to `path-missing`, so a
+    // stale partial-path cite was folded into the code-file skip count and passed —
+    // measured that day: 31 stale citations in the corpus (PR #1899 found the first).
+    // A token rooted at `/`, `./` or `../` names a location, not a suffix, and is left alone.
+    if (/^(\/|\.\.?\/)/.test(citedPath)) return { reason: 'path-missing', candidates: [] };
+    const suffix = '/' + normalize(citedPath);
+    const base = citedPath.slice(citedPath.lastIndexOf('/') + 1);
+    const hits = tracked(base).filter((t) => t.endsWith(suffix));
+    if (hits.length === 1) return { target: hits[0], weak: true };
+    if (hits.length > 1) return { reason: 'ambiguous-basename', candidates: hits };
+    return { reason: 'path-missing', candidates: [] };
+  }
   const hits = tracked(citedPath);
   if (hits.length === 1) return { target: hits[0], weak: true };
   if (hits.length > 1) return { reason: 'ambiguous-basename', candidates: hits };
   return { reason: 'bare-basename', candidates: [] };
 }
 
-/** The commit in which a human last wrote this line (null when uncommitted). */
+/**
+ * The commit in which a human last wrote this line, as `{ sha }` — or `{ none: <why> }`
+ * when there is no such commit to compare against: `no-history` when git has no history
+ * for the file at all (untracked, or outside the repository — blame throws), and
+ * `uncommitted` for a working-tree edit of a tracked file. The reason is kept because a
+ * caller that drops it cannot tell «checked, clean» from «never checked» (2026-09-30).
+ */
 function blameCommit(srcFile, line) {
   let sha;
   try {
@@ -310,9 +565,34 @@ function blameCommit(srcFile, line) {
       .split('\n')[0]
       .split(' ')[0];
   } catch {
-    return null;
+    return { none: 'no-history' };
   }
-  return /^0+$/.test(sha) ? null : sha;
+  return /^0+$/.test(sha) ? { none: 'uncommitted' } : { sha };
+}
+
+/**
+ * The newest of the commits that last wrote each of these lines — the baseline for a
+ * citation wrapped over several lines. Any line without a baseline makes the whole
+ * citation baseline-less, with that line's reason, as for a single line.
+ */
+function newestBlame(srcFile, lineNos) {
+  const shas = [];
+  for (const l of lineNos) {
+    const b = blameCommit(srcFile, l);
+    if (!b.sha) return b;
+    if (!shas.includes(b.sha)) shas.push(b.sha);
+  }
+  if (shas.length === 1) return { sha: shas[0] };
+  let newest = shas[0];
+  for (const sha of shas.slice(1)) {
+    try {
+      git(['merge-base', '--is-ancestor', newest, sha]);
+      newest = sha; // newest is an ancestor of sha, so sha is newer
+    } catch {
+      // not an ancestor: keep the current newest
+    }
+  }
+  return { sha: newest };
 }
 
 function fileAt(commit, path) {
@@ -326,13 +606,178 @@ function fileAt(commit, path) {
 export function scanFile(srcFile) {
   const rel = relative(REPO_ROOT, resolve(REPO_ROOT, srcFile)) || srcFile;
   const lines = readFileSync(resolve(REPO_ROOT, rel), 'utf8').split('\n');
+  const code = !rel.endsWith('.md');
+  const escapeOf = (t) => ESCAPE_RE.exec(t) ?? (code ? ESCAPE_CODE_RE.exec(t) : null);
   const findings = [];
   const skips = [];
   let resolvedCount = 0;
+  // Rows the generator-region defer exempted from ARM 1. Counted separately so the
+  // `resolved N / skipped M` summary keeps meaning «ARM-verified» (one declared
+  // exception: `--affected-by` narrows ARM 1 on purpose, and its unscoped citations stay
+  // in `resolved` — the CI full sweep is their check): a deferred row is
+  // neither — its freshness currency is the generator's own byte-identity gate (header,
+  // «Generator-owned regions»). Cold-review NIT 1, 2026-09-21.
+  let deferredCount = 0;
+  // Citations ARM 1 reached but could not compare: no blame baseline, or a baseline in
+  // which the target had no such line. Neither drift-checked nor a defect, so — like the
+  // deferred rows — they leave `resolved` and are reported as their own count.
+  const unbaselined = [];
 
+  // Generator-owned region lines (1-based), for the ARM-1 defer in `judge`. The marker
+  // lines themselves stay hand-authored — only the interior is emitted.
+  const generatorLines = new Set();
+  let inGeneratorRegion = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (GENERATOR_REGION_BEGIN_RE.test(lines[i])) inGeneratorRegion = true;
+    else if (GENERATOR_REGION_END_RE.test(lines[i])) inGeneratorRegion = false;
+    else if (inGeneratorRegion) generatorLines.add(i + 1);
+  }
+
+  // One verdict per resolved citation, shared by both citation forms: `path:NN` (and its
+  // bare backreferences) from the per-line pass, and the prose form from the whole-file
+  // pass below. `pos` is set only for prose, where `--write` edits the numbers in place.
+  function judge({ srcLine, token, target, weak, n, end, escape, pos = null, spans = [srcLine] }) {
+    resolvedCount += 1;
+
+    if (escape) {
+      if (squash(escape[1]).length < ESCAPE_RATIONALE_MIN) {
+        findings.push({
+          kind: 'weak-escape',
+          srcFile: rel,
+          srcLine,
+          token,
+          detail: `cite:historical rationale must be >= ${ESCAPE_RATIONALE_MIN} chars, got ${squash(escape[1]).length}`,
+        });
+      }
+      return;
+    }
+
+    const current = readFileSync(resolve(REPO_ROOT, target), 'utf8').split(
+      '\n',
+    );
+    if (n > current.length) {
+      // A basename-inferred target that does not even have the cited line is more
+      // likely the WRONG file than a real beyond-EOF defect, so the weak arm reports
+      // rather than blocks. An author-named path keeps the hard failure.
+      if (weak) {
+        resolvedCount -= 1;
+        skips.push({
+          srcFile: rel,
+          srcLine,
+          token,
+          reason: 'line-out-of-range',
+          candidates: [target],
+          detail: `${target} has ${current.length} lines`,
+        });
+        return;
+      }
+      findings.push({
+        kind: 'beyond-eof',
+        srcFile: rel,
+        srcLine,
+        token,
+        target,
+        detail: `${target} has ${current.length} lines`,
+      });
+      return;
+    }
+
+    // Arm 2 — blank landing. Independent of blame, so unlike arm 1 it holds for
+    // a citation that was WRONG AT BIRTH and survives a reflow of the citing
+    // line (which resets arm 1's baseline). Nobody deliberately cites an empty
+    // line, so this arm has no false-positive shape. It is what catches the
+    // motivating case: `arch/SKILL.md:94` was an empty line. cite:historical line number at incident time
+    if (squash(current[n - 1]) === '') {
+      findings.push({
+        kind: 'blank-landing',
+        srcFile: rel,
+        srcLine,
+        token,
+        target,
+        detail: `${target}:${n} is an empty line — the citation points at nothing`,
+      });
+      return;
+    }
+
+    if (blankOnly) return; // pre-commit channel: ARM 2 only, no git reads
+
+    // Generator-owned region: ARM 1 defers (header, «Generator-owned regions»). The
+    // rows inside a `plan=<generator>` region are emitted bytes — blame records the
+    // generator's last run, not an authorship event, and a byte-stable row cannot be
+    // re-born when the scanned source's content changes, so the drift verdict here
+    // would be unreachable green by construction. The generator's own byte-identity
+    // gate (render-reference.mjs --check, wired in CI) is those rows' freshness
+    // currency. ARM 2 above deliberately still applies: a generated row landing on a
+    // blank line is wrong at birth exactly like a hand-written one.
+    if (spans.some((l) => generatorLines.has(l))) {
+      deferredCount += 1;
+      return;
+    }
+
+    // Reverse-index scoping. New staleness enters the corpus through exactly two
+    // doors: the citing sentence was rewritten, or the cited file moved under it.
+    // ARM 1 costs a `git blame` plus a `git show` per citation (~53ms measured
+    // 2026-09-14, i.e. 6.4s over the 119 resolvable citations of the live-authority
+    // corpus), so a caller that knows which paths its push touched can skip every
+    // citation neither door applies to. Over the last 60 first-parent commits that
+    // leaves 72% of pushes running ZERO blames and a mean of 1.33 (max 15).
+    // Deliberately one-sided: the flag narrows ARM 1 only. ARM 2 and the beyond-EOF
+    // check read today's tree and cost no git call, so narrowing them would buy
+    // nothing and would hide a defect this file can see for free.
+    if (
+      affectedBy !== null &&
+      !affectedBy.has(rel) &&
+      !affectedBy.has(target)
+    ) {
+      return;
+    }
+
+    const base = newestBlame(rel, spans);
+    if (!base.sha) {
+      unbaselined.push({ srcFile: rel, srcLine, token, reason: base.none });
+      return;
+    }
+    const historical = fileAt(base.sha, target);
+    if (historical === null || n > historical.length) {
+      unbaselined.push({ srcFile: rel, srcLine, token, reason: 'target-absent-at-baseline' });
+      return;
+    }
+
+    const wasText = squash(historical[n - 1]);
+    const nowText = squash(current[n - 1]);
+    if (wasText === nowText) return;
+
+    const matches = current
+      .map((l, i) => (squash(l) === wasText ? i + 1 : 0))
+      .filter(Boolean);
+    const movedTo = wasText && matches.length ? matches[0] : null;
+    findings.push({
+      kind: 'drifted',
+      srcFile: rel,
+      srcLine,
+      token,
+      target,
+      movedTo,
+      // A range citation moves as a block: shift the end by the same delta the
+      // start moved, rather than collapsing `:89-128` to a single line.
+      movedEnd: movedTo && end ? movedTo + (end - n) : null,
+      ambiguous: matches.length > 1,
+      pos,
+      was: wasText.slice(0, 100),
+      now: nowText.slice(0, 100),
+    });
+  }
+
+  // CODE_BACKREF_RE's antecedent when it sits on an EARLIER line of the same comment
+  // block: the last `path:NN` seen (resolved or not — an unresolved nearer citation must
+  // not let the sibling fall through to an older one) and the comment text after it,
+  // which the same-sentence guard reads across the wrap.
+  let carry = null;
   lines.forEach((text, idx) => {
     const srcLine = idx + 1;
-    const escape = ESCAPE_RE.exec(text);
+    const escape = escapeOf(text);
+    const commentLine = code && CODE_COMMENT_LINE_RE.test(text);
+    if (!commentLine || CODE_COMMENT_BREAK_RE.test(text)) carry = null;
     const links = [...text.matchAll(MD_LINK_RE)].map((m) => [
       m.index,
       m.index + m[0].length,
@@ -342,37 +787,74 @@ export function scanFile(srcFile) {
     // Anchors first: a bare `:NN` backreference inherits the target of the
     // nearest preceding path:NN citation on the same line.
     const anchors = [];
+    const lineAnchors = [];
     for (const m of text.matchAll(CITATION_RE)) {
       const linkTarget = links.find(
         ([s, e]) => s <= m.index && m.index < e,
       )?.[2];
       const t = resolveCitedPath(rel, m[1], linkTarget);
       if (t.target) anchors.push({ at: m.index, target: t.target, weak: t.weak });
+      lineAnchors.push({ at: m.index, target: t.target ?? null, weak: t.weak ?? false });
     }
     const cites = [
       ...[...text.matchAll(CITATION_RE)].map((m) => ({
         m,
         token: m[0],
         path: m[1],
-        n: Number(m[2]),
-        end: m[3] ? Number(m[3]) : null,
+        members: commaMembers(m, srcLine),
         bare: false,
       })),
       ...[...text.matchAll(BACKREF_RE)].map((m) => ({
         m,
         token: m[0],
         path: null,
-        n: Number(m[1]),
-        end: m[2] ? Number(m[2]) : null,
+        members: [
+          { n: Number(m[1]), end: m[2] ? Number(m[2]) : null, token: m[0], pos: null },
+        ],
         bare: true,
+      })),
+      ...(commentLine ? [...text.matchAll(CODE_BACKREF_RE)] : []).map((m) => ({
+        m,
+        token: m[0],
+        path: null,
+        members: [
+          {
+            n: Number(m[1]),
+            end: m[2] ? Number(m[2]) : null,
+            token: m[0],
+            // Positional, like a comma-list member: the token `:13` would also split
+            // `:1346` elsewhere on the line in the token writer.
+            pos: {
+              start: { line: srcLine, col: m.indices[1][0], len: m[1].length, was: m[1] },
+              end: m[2]
+                ? { line: srcLine, col: m.indices[2][0], len: m[2].length, was: m[2] }
+                : null,
+            },
+          },
+        ],
+        codeBare: true,
       })),
     ].sort((a, b) => a.m.index - b.m.index);
 
     for (const c of cites) {
-      const { m, token, n } = c;
+      const { m, token } = c;
       let target;
       let weak = false;
-      if (c.bare) {
+      let spans;
+      if (c.codeBare) {
+        const same = lineAnchors.filter((a) => a.at < m.index).pop();
+        const between = same
+          ? text.slice(same.at, m.index)
+          : carry && `${carry.tail} ${text.slice(0, m.index)}`;
+        const anchor = same ?? carry;
+        if (!anchor || SENTENCE_BREAK_RE.test(between)) continue; // CODE_BACKREF_RE header
+        if (anchor.target === null) continue; // the nearer citation is itself a skip
+        target = anchor.target;
+        weak = anchor.weak;
+        // Blame every line from the anchor down, as the prose pass does: re-pointing the
+        // anchor to another file must move the sibling's baseline with it.
+        if (!same) spans = Array.from({ length: srcLine - carry.line + 1 }, (_, i) => carry.line + i);
+      } else if (c.bare) {
         const anchor = anchors.filter((a) => a.at < m.index).pop();
         if (!anchor) continue; // no antecedent on this line — not a citation
         // Bind only within the SAME SENTENCE. Measured 2026-09-13: crossing a
@@ -405,119 +887,79 @@ export function scanFile(srcFile) {
         }
       }
       if (target === null) continue;
-      resolvedCount += 1;
-
-      if (escape) {
-        if (squash(escape[1]).length < ESCAPE_RATIONALE_MIN) {
-          findings.push({
-            kind: 'weak-escape',
-            srcFile: rel,
-            srcLine,
-            token,
-            detail: `cite:historical rationale must be >= ${ESCAPE_RATIONALE_MIN} chars, got ${squash(escape[1]).length}`,
-          });
-        }
-        continue;
-      }
-
-      const current = readFileSync(resolve(REPO_ROOT, target), 'utf8').split(
-        '\n',
-      );
-      if (n > current.length) {
-        // A basename-inferred target that does not even have the cited line is more
-        // likely the WRONG file than a real beyond-EOF defect, so the weak arm reports
-        // rather than blocks. An author-named path keeps the hard failure.
-        if (weak) {
-          resolvedCount -= 1;
-          skips.push({
-            srcFile: rel,
-            srcLine,
-            token,
-            reason: 'line-out-of-range',
-            candidates: [target],
-            detail: `${target} has ${current.length} lines`,
-          });
-          continue;
-        }
-        findings.push({
-          kind: 'beyond-eof',
-          srcFile: rel,
+      // One resolve per match, one verdict per member: a comma list whose path does not
+      // resolve is ONE skip line, not one per number.
+      for (const mem of c.members) {
+        judge({
           srcLine,
-          token,
+          token: mem.token,
           target,
-          detail: `${target} has ${current.length} lines`,
+          weak,
+          n: mem.n,
+          end: mem.end,
+          escape,
+          pos: mem.pos,
+          ...(spans ? { spans } : {}),
         });
-        continue;
       }
-
-      // Arm 2 — blank landing. Independent of blame, so unlike arm 1 it holds for
-      // a citation that was WRONG AT BIRTH and survives a reflow of the citing
-      // line (which resets arm 1's baseline). Nobody deliberately cites an empty
-      // line, so this arm has no false-positive shape. It is what catches the
-      // motivating case: `arch/SKILL.md:94` was an empty line.
-      if (squash(current[n - 1]) === '') {
-        findings.push({
-          kind: 'blank-landing',
-          srcFile: rel,
-          srcLine,
-          token,
-          target,
-          detail: `${target}:${n} is an empty line — the citation points at nothing`,
-        });
-        continue;
-      }
-
-      if (blankOnly) continue; // pre-commit channel: ARM 2 only, no git reads
-
-      // Reverse-index scoping. New staleness enters the corpus through exactly two
-      // doors: the citing sentence was rewritten, or the cited file moved under it.
-      // ARM 1 costs a `git blame` plus a `git show` per citation (~53ms measured
-      // 2026-09-14, i.e. 6.4s over the 119 resolvable citations of the live-authority
-      // corpus), so a caller that knows which paths its push touched can skip every
-      // citation neither door applies to. Over the last 60 first-parent commits that
-      // leaves 72% of pushes running ZERO blames and a mean of 1.33 (max 15).
-      // Deliberately one-sided: the flag narrows ARM 1 only. ARM 2 and the beyond-EOF
-      // check read today's tree and cost no git call, so narrowing them would buy
-      // nothing and would hide a defect this file can see for free.
-      if (
-        affectedBy !== null &&
-        !affectedBy.has(rel) &&
-        !affectedBy.has(target)
-      ) {
-        continue;
-      }
-
-      const sha = blameCommit(rel, srcLine);
-      if (sha === null) continue; // uncommitted edit — nothing to compare against yet
-      const historical = fileAt(sha, target);
-      if (historical === null || n > historical.length) continue; // target absent then
-
-      const wasText = squash(historical[n - 1]);
-      const nowText = squash(current[n - 1]);
-      if (wasText === nowText) continue;
-
-      const matches = current
-        .map((l, i) => (squash(l) === wasText ? i + 1 : 0))
-        .filter(Boolean);
-      const movedTo = wasText && matches.length ? matches[0] : null;
-      findings.push({
-        kind: 'drifted',
-        srcFile: rel,
-        srcLine,
-        token,
-        target,
-        movedTo,
-        // A range citation moves as a block: shift the end by the same delta the
-        // start moved, rather than collapsing `:89-128` to a single line.
-        movedEnd: movedTo && c.end ? movedTo + (c.end - n) : null,
-        ambiguous: matches.length > 1,
-        was: wasText.slice(0, 100),
-        now: nowText.slice(0, 100),
-      });
+    }
+    if (commentLine) {
+      const last = lineAnchors[lineAnchors.length - 1];
+      if (last) carry = { target: last.target, weak: last.weak, tail: text.slice(last.at), line: srcLine };
+      else if (carry) carry.tail += ` ${text}`;
     }
   });
 
-  return { findings, skips, resolved: resolvedCount };
+  // Prose pass (PROSE_OF_RE / PROSE_COMMA_RE header). Over the whole text so a wrapped
+  // citation is one citation; a match spanning a blank line is two paragraphs, not one.
+  const text = lines.join('\n');
+  const lineOf = (off) => text.slice(0, off).split('\n').length;
+  const colOf = (off) => off - text.lastIndexOf('\n', off - 1) - 1;
+  const numAt = ([s, e]) => ({ line: lineOf(s), col: colOf(s), len: e - s, was: text.slice(s, e) });
+  const ofMatches = [...text.matchAll(PROSE_OF_RE)].map((m) => ({ m, path: m[3], ni: 1 }));
+  // «`X`, line N of `Y`»: the number belongs to Y. A comma-form match whose number the
+  // «of» form already claimed is dropped, never double-bound to the token before it.
+  const claimed = new Set(ofMatches.map(({ m }) => m.indices[1][0]));
+  const commaMatches = [...text.matchAll(PROSE_COMMA_RE)]
+    .map((m) => ({ m, path: m[1], ni: 2 }))
+    .filter(({ m }) => !claimed.has(m.indices[2][0]));
+  for (const { m, path, ni } of [...ofMatches, ...commaMatches]) {
+    if (/\n\s*\n/.test(m[0])) continue;
+    const start = m.indices[ni];
+    const endIdx = m.indices[ni + 1];
+    const srcLine = lineOf(start[0]); // the finding is reported at the number's line
+    // Blame and escape look at EVERY line the citation spans: the newest of their commits
+    // is the baseline, so fixing the number self-heals (the fix is newest) and so does
+    // re-pointing the path on its own wrapped line.
+    const first = lineOf(m.index);
+    const spans = Array.from({ length: lineOf(m.index + m[0].length - 1) - first + 1 }, (_, i) => first + i);
+    const token = squash(m[0]);
+    const r = resolveCitedPath(rel, path, null);
+    if (!r.target) {
+      skips.push({ srcFile: rel, srcLine, token, reason: r.reason, candidates: r.candidates });
+      continue;
+    }
+    judge({
+      srcLine,
+      token,
+      target: r.target,
+      weak: r.weak,
+      n: Number(m[ni]),
+      end: m[ni + 1] ? Number(m[ni + 1]) : null,
+      escape: spans.map((l) => escapeOf(lines[l - 1])).find(Boolean) ?? null,
+      pos: { start: numAt(start), end: endIdx ? numAt(endIdx) : null },
+      spans,
+    });
+  }
+
+  for (const k of skips) k.code = code;
+  return {
+    findings,
+    skips,
+    resolved: resolvedCount - deferredCount - unbaselined.length,
+    deferred: deferredCount,
+    unbaselined,
+  };
 }
 
 function renumber(findings) {
@@ -531,12 +973,29 @@ function renumber(findings) {
   for (const [file, fs_] of byFile) {
     const abs = resolve(REPO_ROOT, file);
     const lines = readFileSync(abs, 'utf8').split('\n');
-    for (const f of fs_) {
+    // Prose citations are edited by POSITION, not by token: the token was squashed
+    // across a wrap and no longer occurs verbatim. Edits run right-to-left so an earlier
+    // one never shifts a later column; the ORIGINAL digits are asserted before the write,
+    // so a file changed since the scan (or named twice) is skipped rather than corrupted.
+    const edits = fs_
+      .filter((f) => f.pos)
+      .flatMap((f) => [
+        [f.pos.start, f.movedTo, true],
+        ...(f.pos.end && f.movedEnd ? [[f.pos.end, f.movedEnd, false]] : []),
+      ])
+      .sort(([a], [b]) => b.line - a.line || b.col - a.col);
+    for (const [{ line, col, len, was }, value, isStart] of edits) {
+      const l = lines[line - 1];
+      if (l.slice(col, col + len) !== was) continue;
+      lines[line - 1] = l.slice(0, col) + value + l.slice(col + len);
+      if (isStart) written += 1; // one per citation, as for the token form
+    }
+    for (const f of fs_.filter((x) => !x.pos)) {
       const span = f.movedEnd ? `${f.movedTo}-${f.movedEnd}` : `${f.movedTo}`;
       // The trailing backtick is part of a bare backreference's token (`` `:272` ``),
       // so an end-anchored `:\d+$` never matches one and `--write` silently half-fixed
       // the sentence: the anchor moved, the sibling did not. Measured 2026-09-13 on
-      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the
+      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the cite:historical line as measured on 2026-09-13
       // sibling, because rewriting the line makes its blame uncommitted.
       const fixed = f.token.replace(/:\d+(-\d+)?(`?)$/, `:${span}$2`);
       lines[f.srcLine - 1] = lines[f.srcLine - 1].split(f.token).join(fixed);
@@ -557,6 +1016,15 @@ const SKIP_HINT = {
   'line-out-of-range': 'basename matched, but the line does not exist there',
 };
 
+/** Why ARM 1 had nothing to compare against — see `blameCommit`. */
+const NO_BASELINE_HINT = {
+  'no-history': 'git has no history for this file (untracked) — commit it, or run --blank-only',
+  uncommitted: 'the citing line is an uncommitted edit — ARM 1 runs once it is committed',
+  'target-absent-at-baseline':
+    'the cited path or line did not exist in the commit that last wrote the citing line ' +
+    '(target created or renamed later) — check it by hand',
+};
+
 function reportSkip(s) {
   const extra = s.candidates?.length
     ? `  candidates: ${s.candidates.join(', ')}`
@@ -572,6 +1040,7 @@ export function run(argv) {
   const check = argv.includes('--check');
   const strict = argv.includes('--strict');
   blankOnly = argv.includes('--blank-only');
+  const showSkips = argv.includes('--show-skips');
   // Absent flag => null => unscoped. An omitted `--affected-by` must fail OPEN into a
   // full sweep: the failure mode of the opposite default is a caller that silently
   // checks nothing, which is the silence this script's header already refuses once.
@@ -584,7 +1053,8 @@ export function run(argv) {
   if (!write && !check) {
     console.error(
       'usage: check-line-citations.mjs\n' +
-        '  --check [--corpus] [--blank-only] [--strict] [--affected-by=<path>]... [<file.md>...]\n' +
+        '  --check [--corpus] [--in-corpus] [--blank-only] [--strict] [--show-skips]\n' +
+        '          [--affected-by=<path>]... [<file>...]\n' +
         '  --write <file.md>...',
     );
     return 2;
@@ -602,12 +1072,78 @@ export function run(argv) {
     }
     files = [...new Set([...corpus, ...named])];
   }
+  // `--in-corpus`: keep only the named files the corpus contains. The pre-commit hook
+  // passes every staged path and lets this definition decide — the hand-kept copy of the
+  // scope it carried until 2026-09-22 could not express the code exclusions above.
+  if (argv.includes('--in-corpus')) {
+    const corpus = corpusFiles();
+    if (corpus === null) {
+      console.error('❌ --in-corpus: `git ls-files` failed, so corpus membership is unknown.');
+      return 2;
+    }
+    const members = new Set(corpus);
+    files = files.filter((f) => members.has(relative(REPO_ROOT, resolve(REPO_ROOT, f))));
+  }
   if (files.length === 0) return 0;
+
+  // A citing file outside the repository has no git history by construction, so ARM 1
+  // can never run on it — not «later», never. Agent memory (`~/.claude/projects/<slug>/
+  // memory/`) is the standing case: outside CI and outside the tree on purpose
+  // (.claude/rules/memory-codification.md §1). The full check refuses such a file by name
+  // rather than printing a green it cannot back; `--blank-only` is the mode that can run
+  // there, and it says in its output that ARM 1 did not (2026-09-30).
+  // Canonicalise first: REPO_ROOT is a realpath (`git rev-parse --show-toplevel`), so an
+  // in-repo file named through a symlinked directory — `/tmp/...` for `/private/tmp/...`
+  // on macOS — would otherwise read as outside and be refused (cold-review MINOR 1,
+  // 2026-09-30). An in-repo file is handed on repo-relative, so blame reaches it too.
+  const isOutside = (r) => r === '..' || r.startsWith(`..${sep}`) || isAbsolute(r);
+  files = files.map((f) => {
+    const abs = resolve(REPO_ROOT, f);
+    if (!existsSync(abs)) return f;
+    const r = relative(REPO_ROOT, realpathSync(abs));
+    return isOutside(r) ? f : r;
+  });
+  const outside = files.filter((f) => isOutside(relative(REPO_ROOT, resolve(REPO_ROOT, f))));
+  if (outside.length > 0 && !blankOnly && !write) {
+    console.error(
+      `❌ ${outside.length} file(s) lie outside the repository, so ARM 1 (drift since\n` +
+        '   authorship) has no git history to blame against there and would check nothing:\n' +
+        outside
+          .slice(0, 5)
+          .map((f) => `     ${f}\n`)
+          .join('') +
+        (outside.length > 5 ? `     … and ${outside.length - 5} more\n` : '') +
+        '   For an out-of-repo corpus (agent memory, a scratch note) run ARM 2 alone:\n' +
+        '     node scripts/check-line-citations.mjs --check --blank-only <files>',
+    );
+    return 2;
+  }
 
   const scans = files.map(scanFile);
   const findings = scans.flatMap((r) => r.findings);
   const skips = scans.flatMap((r) => r.skips);
   const resolved = scans.reduce((a, r) => a + r.resolved, 0);
+  const deferred = scans.reduce((a, r) => a + (r.deferred ?? 0), 0);
+  const unbaselined = scans.flatMap((r) => r.unbaselined ?? []);
+  const byReason = new Map();
+  for (const u of unbaselined) byReason.set(u.reason, (byReason.get(u.reason) ?? 0) + 1);
+  const unbaselinedClause =
+    unbaselined.length > 0
+      ? ` (${unbaselined.length} not drift-checked — no blame baseline: ` +
+        `${[...byReason].map(([r, k]) => `${k} ${r}`).join(', ')})`
+      : '';
+  // `--blank-only` never reaches ARM 1; on a run that includes out-of-repo files — the
+  // one place this mode is the ONLY mode — the summary names that, so a clean ARM-2 run
+  // over memory is not read as a drift-clean one. Pre-commit (all in-repo) stays quiet.
+  const arm1Clause =
+    blankOnly && outside.length > 0
+      ? ` ARM 1 (drift since authorship) not run — --blank-only; ${outside.length} ` +
+        'file(s) are outside the repository, where no blame baseline can exist.'
+      : '';
+  // The deferred clause prints only when non-zero: the `resolved N / skipped M`
+  // substring is asserted verbatim by the unit suite (test.sh), and a permanent
+  // `0 deferred` suffix on every non-generator run would be noise.
+  const deferredClause = deferred > 0 ? ` (${deferred} deferred to generator regions)` : '';
 
   if (write) {
     if (findings.length === 0) return 0;
@@ -625,10 +1161,34 @@ export function run(argv) {
   // Skipped citations are printed even when the gate passes. A citation the checker
   // cannot follow is not coverage; dropping it silently made 98 of 141 citations on
   // the getff.ai specs look checked when none of them were (measured 2026-09-14).
-  if (skips.length > 0) {
-    for (const s of skips) reportSkip(s);
+  // Same honesty for the deferred clause: a corpus run that deferred rows to generator
+  // regions must say so even when nothing else needs printing.
+  if (skips.length > 0 || deferred > 0 || unbaselined.length > 0 || arm1Clause) {
+    const listed = skips.filter((s) => showSkips || !s.code);
+    for (const s of listed) reportSkip(s);
+    const hidden = skips.length - listed.length;
+    if (hidden > 0) {
+      console.error(
+        `check-line-citations: ${hidden} unresolvable citation(s) in code files not listed (--show-skips lists them).`,
+      );
+    }
+    // One line per citing file and reason, not per citation: a whole untracked file
+    // would otherwise print one identical line for each of its citations.
+    const perFile = new Map();
+    for (const u of unbaselined) {
+      const key = `${u.srcFile}\0${u.reason}`;
+      perFile.set(key, [...(perFile.get(key) ?? []), u.srcLine]);
+    }
+    for (const [key, lineNos] of perFile) {
+      const [srcFile, reason] = key.split('\0');
+      console.error(
+        `${srcFile}:${lineNos.join(',')}  — ${lineNos.length} citation(s) not drift-checked ` +
+          `(${reason}): ${NO_BASELINE_HINT[reason]}`,
+      );
+    }
     console.error(
-      `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).`,
+      `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).` +
+        `${deferredClause}${unbaselinedClause}${arm1Clause}`,
     );
   }
 
@@ -636,7 +1196,8 @@ export function run(argv) {
     console.error(
       `\n❌ ${findings.length} stale \`path:line\` citation(s).\n` +
         `   Fix: npx tsx scripts/check-line-citations.mjs --write <files>\n` +
-        `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line.`,
+        `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line\n` +
+        `   (in a code comment: \`cite:historical <why>\` to the end of the line).`,
     );
     return 1;
   }
@@ -644,9 +1205,10 @@ export function run(argv) {
   // Default stays 0 on skipped-only so the new visibility can land without turning
   // every push red on citations that are out-of-repo by design. `--strict` is the
   // opt-in gate for a caller that wants every citation to be followable.
-  if (strict && skips.length > 0) {
+  if (strict && (skips.length > 0 || unbaselined.length > 0)) {
     console.error(
-      `\n❌ --strict: ${skips.length} citation(s) could not be resolved.`,
+      `\n❌ --strict: ${skips.length} citation(s) could not be resolved, ` +
+        `${unbaselined.length} could not be drift-checked.`,
     );
     return 1;
   }
@@ -667,11 +1229,6 @@ function report(f) {
   }
 }
 
-const isMainEntry = () => {
-  try {
-    return new URL(import.meta.url).pathname === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-};
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+// Entry guard: scripts/lib/is-main-entry.mjs realpaths both sides (SSOT #269) — a checkout
+// reached through a symlinked directory otherwise exits 0 without running a single check.
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));

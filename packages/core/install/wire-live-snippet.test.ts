@@ -21,7 +21,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -216,7 +216,7 @@ describe('#827 B2 — live snippet wires for a stack with NO STACK_PATTERNS entr
       cwd: REPO_ROOT,
       stdio: 'pipe',
       // Anchor the bundle's fs-based schema reads (import.meta.url collapses to install/ under
-      // bundling, #755) — the same env var 99-finalize.sh:34 sets when it runs the bundle.
+// bundling, #755) — the same env var eslint-wire.sh:514 sets when it runs the bundle.
       env: { ...process.env, AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, 'packages/core') },
     });
 
@@ -346,4 +346,149 @@ describe('#829 — shipped bundle self-registers the rules-as-tests plugin when 
       }
     },
   );
+});
+
+describe('Q4.7 — --own-config writes getff\'s block into a config the consumer owns (shipped bundle)', () => {
+  // The install used to keep a consumer-owned eslint config byte-identical and print «add it by hand».
+  // Now 99-finalize.sh runs the bundle with --own-config: machinery ignores + (boundary found) R2 with
+  // its RULE_GLOBS block + the stack's rules, all as insertions, then the post-write lint probe.
+  // The fixture dir sits under install/ so the config's `typescript-eslint` import resolves from the
+  // repo's node_modules — a tmpdir config could import nothing.
+  const R2 = 'rules-as-tests/no-unsafe-zod-parse';
+  const ESLINT_RESOLVABLE = existsSync(resolve(REPO_ROOT, 'node_modules/eslint/package.json'));
+  const OWN = [
+    `import tseslint from 'typescript-eslint';`,
+    ``,
+    `export default tseslint.config(`,
+    `  { ignores: ['dist/**'] },`,
+    `  ...tseslint.configs.recommended,`,
+    `);`,
+    ``,
+  ].join('\n');
+  const MACHINERY = ['--ignore', 'eslint-rules-local/**', '--ignore', 'packages/core/**'];
+
+  const fixture = (config: string): { dir: string; cfg: string } => {
+    const dir = mkdtempSync(resolve(HERE, '.own-config-cli-'));
+    const cfg = resolve(dir, 'eslint.config.mjs');
+    writeFileSync(cfg, config);
+    // The consumer's prettier style, pinned so the repo's own .prettierrc.json above does not apply.
+    writeFileSync(resolve(dir, '.prettierrc.json'), '{ "singleQuote": true }\n');
+    mkdirSync(resolve(dir, 'eslint-rules-local'));
+    writeFileSync(
+      resolve(dir, 'eslint-rules-local/index.mjs'),
+      [
+        `const rule = { meta: { type: 'problem', schema: false }, create: () => ({}) };`,
+        `export default { rules: { 'no-unsafe-zod-parse': rule, 'no-server-imports-in-client': rule, 'restricted-syntax-audit-exempt': rule } };`,
+        ``,
+      ].join('\n'),
+    );
+    return { dir, cfg };
+  };
+  /** Whether the consumer's prettier (format:check) accepts `text` as `cfg`. */
+  const prettierAccepts = async (text: string, cfg: string): Promise<boolean> => {
+    const prettier = (await import('prettier')) as unknown as {
+      resolveConfig: (f: string) => Promise<object | null>;
+      check: (t: string, o: object) => Promise<boolean>;
+    };
+    return prettier.check(text, { ...(await prettier.resolveConfig(cfg)), filepath: cfg });
+  };
+  const run = (stack: string, cfg: string, extra: string[]): { rc: number; out: string } => {
+    try {
+      const out = execFileSync('node', [BUNDLE, '--stack', stack, '--path', cfg, '--snippet', resolve(dirname(cfg), 'none.json'), '--own-config', ...extra], {
+        cwd: REPO_ROOT,
+        stdio: 'pipe',
+        env: { ...process.env, AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, 'packages/core') },
+      });
+      return { rc: 0, out: String(out) };
+    } catch (e) {
+      const err = e as { status?: number; stdout?: Buffer; stderr?: Buffer };
+      return { rc: err.status ?? -1, out: `${String(err.stdout ?? '')}${String(err.stderr ?? '')}` };
+    }
+  };
+  /** Every original line survives, in order — the write only added lines. */
+  const keepsEveryLine = (before: string, after: string): boolean => {
+    const b = before.split('\n');
+    let i = 0;
+    for (const line of after.split('\n')) if (i < b.length && line === b[i]) i++;
+    return i === b.length;
+  };
+
+  it.skipIf(!TS_MORPH_AVAILABLE || !ESLINT_RESOLVABLE)(
+    'ts-server + boundary ⇒ ignores, RULE_GLOBS and R2 land (a stack with no synthesized rules is not a no-op); re-run is byte-identical',
+    async () => {
+      const { dir, cfg } = fixture(OWN);
+      try {
+        expect(await prettierAccepts(OWN, cfg)).toBe(true);
+        const first = run('ts-server', cfg, [...MACHINERY, '--r2-boundary', '**/routes/**/*.{ts,tsx}']);
+        expect(first.out).not.toMatch(/no-op/);
+        expect(first.rc).toBe(0);
+        const after = readFileSync(cfg, 'utf8');
+        expect(keepsEveryLine(OWN, after)).toBe(true);
+        expect(after).toContain(`{ ignores: ['eslint-rules-local/**', 'packages/core/**'] }`);
+        expect(after).toMatch(/const RULE_GLOBS = \{\n {2}boundary: \[\n {4}'\*\*\/routes\/\*\*\/\*\.\{ts,tsx\}',\n {2}\],\n\};/);
+        expect(after).toContain(`'${R2}': 'error'`);
+        expect(after).toContain(`import customRules from './eslint-rules-local/index.mjs';`);
+        expect(await prettierAccepts(after, cfg)).toBe(true); // format:check stays green
+
+        const second = run('ts-server', cfg, [...MACHINERY, '--r2-boundary', '**/routes/**/*.{ts,tsx}']);
+        expect(second.rc).toBe(0);
+        expect(readFileSync(cfg, 'utf8')).toBe(after);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE || !ESLINT_RESOLVABLE)(
+    'a config that cannot parse TypeScript where R2 would run ⇒ rolled back, rc 3, the reason printed',
+    () => {
+      const plain = `export default [{ rules: {} }];\n`;
+      const { dir, cfg } = fixture(plain);
+      try {
+        const r = run('ts-server', cfg, [...MACHINERY, '--r2-boundary', '**/routes/**/*.{ts,tsx}']);
+        expect(r.rc).toBe(3);
+        expect(readFileSync(cfg, 'utf8')).toBe(plain);
+        expect(r.out).toMatch(/not wired: .*rolled back/);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE || !ESLINT_RESOLVABLE)(
+    'react-next, no boundary ⇒ the stack rules and the ignores land in one write, no RULE_GLOBS',
+    async () => {
+      const { dir, cfg } = fixture(OWN);
+      try {
+        const r = run('react-next', cfg, MACHINERY);
+        expect(r.out).toContain(`getff's block added to`);
+        expect(r.rc).toBe(0);
+        const after = readFileSync(cfg, 'utf8');
+        expect(keepsEveryLine(OWN, after)).toBe(true);
+        expect(after).toContain(`{ ignores: ['eslint-rules-local/**', 'packages/core/**'] }`);
+        expect(after).toContain(R12);
+        expect(after).toContain(R14_SELECTOR_FRAGMENT);
+        expect(after).not.toContain('RULE_GLOBS');
+        expect(await prettierAccepts(after, cfg)).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('--own-config with an unrecognised (CommonJS) config ⇒ rc 3, file untouched', () => {
+    const cjs = `module.exports = [{ rules: {} }];\n`;
+    const { dir, cfg } = fixture(cjs);
+    try {
+      const r = run('ts-server', cfg, MACHINERY);
+      expect(r.rc).toBe(3);
+      expect(readFileSync(cfg, 'utf8')).toBe(cjs);
+      expect(r.out).toMatch(/not wired: /);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

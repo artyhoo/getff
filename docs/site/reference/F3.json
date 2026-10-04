@@ -18,9 +18,30 @@
       },
       "extras": {
         "wired-from": [
+          "packages/core/hooks/pre-push.ts:1762 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:200 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:300 (quoted-path-token, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "build-runtime-bundles.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "prebuild the pre-push hook and the rule generator as .mjs bundles.",
+      "source": {
+        "path": "scripts/build-runtime-bundles.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1620 (spawn-argument)",
+          ".github/workflows/audit-self.yml:614 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -39,8 +60,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1404 (spawn-argument)",
-          ".github/workflows/audit-self.yml:527 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:1666 (spawn-argument)",
+          ".github/workflows/audit-self.yml:580 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -59,8 +80,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1316 (spawn-argument)",
-          ".github/workflows/audit-self.yml:532 (workflow-run:invocation-verb)",
+          "packages/core/hooks/pre-push.ts:1553 (spawn-argument)",
+          ".github/workflows/audit-self.yml:585 (workflow-run:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
         ]
@@ -81,7 +102,7 @@
       },
       "extras": {
         "wired-from": [
-          "scripts/render-reference.mjs:56 (es-import, closure)"
+          "scripts/render-reference.mjs:55 (es-import, closure)"
         ]
       },
       "example": null
@@ -100,8 +121,28 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1331 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:2225 (spawn-argument)",
+          ".github/workflows/audit-self.yml:1492 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-arch-retell.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "every point of an /arch consensus retell names where it came from.",
+      "source": {
+        "path": "scripts/check-arch-retell.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2668 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:241 (quoted-path-token)"
         ]
       },
       "example": null
@@ -120,8 +161,28 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1667 (spawn-argument)",
-          "install.sh:1149 (quoted-path-token)"
+          "packages/core/hooks/pre-push.ts:2258 (spawn-argument)",
+          "install.sh:1188 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-bash32.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "refuse bash-4-only syntax and BSD-userland traps in the shell that install.sh",
+      "source": {
+        "path": "scripts/check-bash32.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2286 (spawn-argument)",
+          ".github/workflows/audit-self.yml:2848 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -133,7 +194,7 @@
         "tier": "framework",
         "absent": "no-lane"
       },
-      "description": "guard against PHANTOM synth-bundle drift.",
+      "description": "guard against PHANTOM bundle drift.",
       "source": {
         "path": "scripts/check-bundle-dep-parity.sh",
         "line": 2
@@ -141,6 +202,25 @@
       "extras": {
         "wired-from": [
           "scripts/build-synth-bundle.sh:52 (quoted-path-token, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-docs-refresh.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the D26 refresh MERGE GATE (getff-ai-site R13).",
+      "source": {
+        "path": "scripts/check-docs-refresh.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2604 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -159,8 +239,48 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2270 (workflow-run:invocation-verb)",
-          ".husky/pre-commit:172 (quoted-path-token)"
+          ".github/workflows/audit-self.yml:2653 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:181 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-pipefail-early-exit.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "refuse a pipe into an early-exiting `grep` in a shell script that",
+      "source": {
+        "path": "scripts/check-pipefail-early-exit.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:798 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:203 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-ships-manifest.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "fails when a getff skill, hook, rule, agent, setting or MCP server is unmarked.",
+      "source": {
+        "path": "scripts/check-ships-manifest.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2701 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
       "example": null
@@ -179,8 +299,27 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1019 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1110 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "ci-path-scope.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "decide whether audit-self.yml's install-area jobs must run for this event.",
+      "source": {
+        "path": "scripts/ci-path-scope.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:44 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +338,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2366 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2824 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -224,8 +363,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1253 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1220 (quoted-path-token)",
+          "install.sh:1222 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -246,8 +385,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1237 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1242 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1398 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1403 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -266,9 +405,10 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:184 (quoted-path-token)",
+          ".husky/pre-commit:254 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
-          "package.json:1 (json-value:invocation-verb)"
+          "package.json:1 (json-value:invocation-verb)",
+          "scripts/run-local-ci-sweep.sh:329 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -287,7 +427,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:311 (quoted-path-token)"
+          ".husky/pre-commit:423 (quoted-path-token)"
         ]
       },
       "example": null
@@ -306,7 +446,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:290 (quoted-path-token)"
+          ".husky/pre-commit:402 (quoted-path-token)"
         ]
       },
       "example": null
@@ -331,7 +471,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1222 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -353,7 +493,7 @@
         "wired-from": [
           ".claude/hooks/check-kickoff-traps.sh:176 (quoted-path-token)",
           "plugin/hooks/check-kickoff-traps:177 (quoted-path-token)",
-          "scripts/host-verify.sh:60 (invocation-verb, closure)"
+          "scripts/host-verify.sh:62 (invocation-verb, closure)"
         ]
       },
       "example": null
@@ -379,7 +519,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1222 (for-in-list)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -412,6 +552,25 @@
       "example": null
     },
     {
+      "name": "plugin-source-hashes.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "print the plugin's source-hash manifest for a repo root.",
+      "source": {
+        "path": "scripts/plugin-source-hashes.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "scripts/generate-plugin-twins.sh:195 (quoted-path-token, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "render-face-facts.mjs",
       "kind": "script",
       "shipsTo": {
@@ -425,8 +584,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1479 (spawn-argument)",
-          ".github/workflows/audit-self.yml:262 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:1927 (spawn-argument)",
+          ".github/workflows/audit-self.yml:308 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -445,8 +604,28 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:252 (workflow-run:invocation-verb)",
-          "scripts/render-reference.mjs:53 (es-import, closure)"
+          ".github/workflows/audit-self.yml:298 (workflow-run:invocation-verb)",
+          "scripts/render-reference.mjs:52 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-invariants.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "renders the session digest's `INVARIANTS_LINE` from README.md.",
+      "source": {
+        "path": "scripts/render-invariants.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2770 (spawn-argument)",
+          ".husky/pre-commit:361 (quoted-path-token)"
         ]
       },
       "example": null
@@ -465,7 +644,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:254 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:300 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -484,8 +663,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1461 (spawn-argument)",
-          ".github/workflows/audit-self.yml:258 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:1909 (spawn-argument)",
+          ".github/workflows/audit-self.yml:304 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -504,9 +683,9 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1444 (spawn-argument)",
-          ".github/workflows/audit-self.yml:247 (workflow-run:invocation-verb)",
-          "scripts/render-reference.mjs:52 (es-import, closure)"
+          "packages/core/hooks/pre-push.ts:1892 (spawn-argument)",
+          ".github/workflows/audit-self.yml:293 (workflow-run:invocation-verb)",
+          "scripts/render-reference.mjs:51 (es-import, closure)"
         ]
       },
       "example": null
@@ -525,7 +704,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1265 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1426 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -544,14 +723,15 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/10-skills.sh:172 (quoted-path-token)",
-          "setup.d/10-skills.sh:173 (quoted-path-token)",
-          "setup.d/10-skills.sh:174 (quoted-path-token)",
-          "install.sh:1154 (quoted-path-token)",
-          "install.sh:1155 (quoted-path-token)",
-          "install.sh:1156 (quoted-path-token)",
-          "install.sh:1157 (quoted-path-token)",
-          "install.sh:1158 (quoted-path-token)"
+          "setup.d/10-skills.sh:179 (quoted-path-token)",
+          "setup.d/10-skills.sh:180 (quoted-path-token)",
+          "setup.d/10-skills.sh:181 (quoted-path-token)",
+          "install.sh:1193 (quoted-path-token)",
+          "install.sh:1194 (quoted-path-token)",
+          "install.sh:1195 (quoted-path-token)",
+          "install.sh:1196 (quoted-path-token)",
+          "install.sh:1197 (quoted-path-token)",
+          "scripts/run-local-ci-sweep.sh:1188 (command-substitution, closure)"
         ]
       },
       "example": null
@@ -576,7 +756,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1222 (for-in-list)",
           ".claude/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
@@ -589,6 +769,14 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "apply-getff-manifest-staged-precommit.sh",
+    "apply-seal-primary-wiring.sh",
+    "check-getff-manifest-staged.sh",
+    "check-merge-pushed.sh",
+    "ci-capture.sh",
+    "cited-spec-addenda.sh",
+    "close-merged-sweep.sh",
+    "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
     "getff-glm-onebutton.sh",
     "host-verify-coverage.sh",
@@ -596,16 +784,22 @@
     "kickoff-hv-inventory.sh",
     "measure-session-start-tokens.sh",
     "measure-turn-attribution.sh",
+    "merge-forward-round.sh",
     "probe-channels.sh",
+    "probe-hook-stdin.sh",
     "probe-zcode-runtime.sh",
+    "register-glossary-hook.sh",
     "register-handoff-gate.sh",
     "register-precompact-hook.sh",
     "register-recap-gate.sh",
     "render-harness-config.mjs",
     "render-rule-channels.mjs",
     "render-zcode-parity-rollup.mjs",
+    "rule-load-adherence.sh",
+    "rule-load-replay.sh",
     "run-install-sh-suite.sh",
     "setup-cc-adoptions.sh",
+    "snapshot-for-seat.sh",
     "triage-corpus-probe.mjs",
     "triage-s0-run.mjs",
     "triage-s0-score.mjs",

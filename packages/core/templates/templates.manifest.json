@@ -116,10 +116,6 @@
     "description": "gitignore additions installed into consumer repos (node_modules, dist, …)."
   },
   {
-    "path": "packages/core/templates/shared/hooks-package.json",
-    "description": "Minimal package.json for the consumer's hooks directory (type: module)."
-  },
-  {
     "path": "packages/core/templates/shared/husky-pre-commit.sh",
     "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI."
   },
@@ -150,5 +146,9 @@
   {
     "path": "packages/core/templates/shared/tsconfig.json",
     "description": "Base tsconfig template installed into consumer repos."
+  },
+  {
+    "path": "packages/core/templates/shared/tsconfig.react.json",
+    "description": "React tsconfig template (Bundler resolution, react-jsx, DOM, noEmit) for Vite-style React projects; which stack gets it is the installer's routing."
   }
 ]

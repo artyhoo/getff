@@ -99,7 +99,41 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "none")
 # named warning, never a hard network dependency (shipped-axis agnosticism).
 if [ "$REMOTE_URL" != "none" ]; then
   if ! git fetch origin >/dev/null 2>&1; then
-    echo "WARN: git fetch origin failed (offline?) — base freshness not verified; using local '$BASE_REF' at $BASE_SHA"
+    # A non-zero exit is not "nothing fetched": git exits 1 when ANY ref is
+    # rejected (e.g. a moved tag, "would clobber existing tag") yet still
+    # updates the others, the base included. Keeping the pre-fetch sha then
+    # gates a stale base — the #1466/W-1 shape the success branch below closes.
+    # So re-resolve whenever the ref still resolves (FETCH_HEAD exempt, as below).
+    PRE_FETCH_SHA=$BASE_SHA
+    BASE_GONE=0
+    case "$BASE_REF" in
+      FETCH_HEAD*) ;;
+      *) BASE_SHA=$(git rev-parse --verify "${BASE_REF}^{commit}" 2>/dev/null) || { BASE_SHA=$PRE_FETCH_SHA; BASE_GONE=1; } ;;
+    esac
+    if [ "$BASE_GONE" -eq 1 ]; then
+      echo "WARN: git fetch origin failed and '$BASE_REF' no longer resolves — base freshness not verified; using the pre-fetch sha $BASE_SHA"
+    elif [ "$BASE_SHA" != "$PRE_FETCH_SHA" ]; then
+      echo "WARN: git fetch origin exited non-zero but updated '$BASE_REF' ($PRE_FETCH_SHA -> $BASE_SHA) — partial fetch failure; gating the updated base"
+    else
+      echo "WARN: git fetch origin failed (offline, or a partial fetch failure that left '$BASE_REF' unchanged) — base freshness not verified; using local '$BASE_REF' at $BASE_SHA"
+    fi
+  else
+    # BASE_SHA is re-resolved AFTER the fetch: gating the pre-fetch sha silently
+    # verifies a stale base — on a behind clone the containment probe then reports
+    # "base already contained" and gates the head tree alone (#1466 shape, W-1).
+    # FETCH_HEAD is exempt: this fetch rewrites it, so re-reading would swap the
+    # sha the user fetched for whatever branch head the carrier's fetch wrote.
+    case "$BASE_REF" in
+      FETCH_HEAD*) ;;
+      *)
+        if ! BASE_SHA=$(git rev-parse --verify "${BASE_REF}^{commit}" 2>/dev/null); then
+          # The fetch can PRUNE a ref as well as advance it; a base that vanished
+          # is a config error, not a verdict.
+          echo "error: base ref '$BASE_REF' no longer resolves after 'git fetch origin'" >&2
+          die_usage
+        fi
+        ;;
+    esac
   fi
 else
   echo "WARN: no 'origin' remote — base freshness not verifiable; using local '$BASE_REF' at $BASE_SHA"
@@ -311,7 +345,7 @@ run_npm_lane() {
   # Declared gates = the script names named in the wired validate after the
   # npm-run-all2 token (flags skipped). If the consumer rewired validate away
   # from npm-run-all2, the vacuity control falls back to the aggregate itself.
-  _agg=$(printf '%s\n' "$_validate" | awk '{for(i=1;i<=NF;i++) if($i ~ /npm-run-all/) {print $i; exit}}')
+  _agg=$(awk '{for(i=1;i<=NF;i++) if($i ~ /npm-run-all/) {print $i; exit}}' <<<"$_validate")
   if [ -n "$_agg" ]; then
     while IFS= read -r _tok; do
       [ -n "$_tok" ] && _declared+=("$_tok")
@@ -400,7 +434,7 @@ EOF
   # ── UI-preset extension (react-next / react-spa / react-native): per-preset
   # additions DERIVED from the merge tree's .github/workflows/ci.yml
   # ci-success.needs — never hardcoded. ts-server's ci-success.needs carries no
-  # `build` (templates/ts-server/github-actions-ci.yml:221), so ts trees never
+  # `build` (templates/ts-server/github-actions-ci.yml:235), so ts trees never
   # widen; react-native's carries no build/browser legs -> validate only.
   if [ -f "$WORKTREE_DIR/.github/workflows/ci.yml" ]; then
     while IFS= read -r _x; do

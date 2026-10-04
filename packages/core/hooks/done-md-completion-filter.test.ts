@@ -35,7 +35,7 @@
  *     (paired-negative for the negative space — principle 15 paired-negative discipline)
  *
  * T3 compliance: each assertion cites the helper source line/region it targets.
- * T11/T12: L2 jaccard is REUSE (dup-detect.sh:62); no reimplementation.
+ * T11/T12: L2 jaccard is REUSE (dup-detect.sh:132); no reimplementation.
  * T16: SSOT #77 Cline problem-class match ~85% cited above.
  * T17: priority-score.sh Layer C1 (branch-matcher) from #272 preserved verbatim.
  *

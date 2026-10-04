@@ -8,13 +8,13 @@ paths:
 ---
 
 <!-- globs: .claude/rules/**, agents/**, .claude/skills/**, packages/core/templates/** -->
-<!-- inject: Rule: every canonical doc must carry an Authoritative-for header. Rule files also need a Class: field. See doc-authority-hierarchy.md §2-§3. -->
+<!-- inject: Rule: every canonical doc must carry an Authoritative-for header. Rule files also need a Class: field. See doc-authority-hierarchy.md §2-§3. On a premise change, amend the merged doc that declares the intent (§4.1). -->
 
 # Doc authority hierarchy — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts).
 > **Fires:** creating/editing any canonical or shipped consumer-facing doc.
-> **Authoritative for:** doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 four anti-patterns, §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.
+> **Authoritative for:** doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 five anti-patterns + §4.1 supersession clause (premise change amends the declaring artefact), §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion principle test — see [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts).
 
 > **Origin:** 2026-05-09 goal-hierarchy restructure incident — `EXECUTION-PLAN.md §1` silently re-defined the project's goal as «recursive self-application is the north star», overriding `README.md#why-this-exists`. The drift went uncaught for months because the project had code-level discipline (R1-R20, principles 01-08, build-vs-reuse SSOT, search-coverage rule) but no doc-authority discipline.
@@ -43,11 +43,11 @@ Conflicting authority claims become detectable at review time and at session-sta
 ## §2 When a doc needs Authoritative-for header
 
 **Required for:**
-- Project-root docs: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `INSTALL.md`, `INSTALL-FOR-AI.md`
+- Project-root docs: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `INSTALL.md`, `INSTALL-FOR-AI.md`, `CONTEXT.md`
 - Operational reference docs under `docs/meta-factory/*.md` (excluding the transient-by-naming subset below)
 - Skill primary docs + cold references: `skills/*/SKILL.md`, `skills/*/references/*.md`
 - Hot operational docs: `.claude/session-bootstrap.md`, `.claude/rules/*.md`
-- Shipped consumer-facing artefacts copied to consumer projects via `install.sh:192-231`: framework templates under `packages/core/templates/shared/`, preset shared rules + arch under `packages/preset-next-15-canonical/`, sub-agent prompts under `agents/`. Canonical list `REQUIRED_HEADER_DOCS` is defined + exported in the sibling module [`packages/core/principles/09-doc-authority-hierarchy.ts`](../../packages/core/principles/09-doc-authority-hierarchy.ts) (consumed by the [`.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts)). Generated-doc compliance trigger ([§13.21](../../docs/meta-factory/closed-questions.md)) — Wave 1 + Wave 2 closure (2026-05-09).
+- Shipped consumer-facing artefacts copied to consumer projects via `install.sh:211-250`: framework templates under `packages/core/templates/shared/`, preset shared rules + arch under `packages/preset-next-15-canonical/`, sub-agent prompts under `agents/`. Canonical list `REQUIRED_HEADER_DOCS` is defined + exported in the sibling module [`packages/core/principles/09-doc-authority-hierarchy.ts`](../../packages/core/principles/09-doc-authority-hierarchy.ts) (consumed by the [`.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts)). Generated-doc compliance trigger ([§13.21](../../docs/meta-factory/closed-questions.md)) — Wave 1 + Wave 2 closure (2026-05-09).
 
 **Folder-level authority (single header in folder README, individual files inherit):**
 - `docs/meta-factory/retros/` — closed historical artifacts post-merge; individual files scope-bound by phase ID
@@ -107,6 +107,19 @@ In addition to the Authoritative-for header, rule files under `.claude/rules/*.m
 - **`#missing-authority-header`** — canonical doc has no Authoritative-for declaration. Default-implicit authority leaves scope ambiguous; future readers (and AI agents) pattern-match on whatever language sounds authoritative.
 - **`#contradicting-authority-claims`** — two docs claim authority for the same scope without subordination marker. Resolve by promoting one to authoritative + adding subordinate marker to the other.
 - **`#frozen-doc-still-edited`** — doc marked FROZEN (e.g. PROPOSAL.md) receives substantive content edits beyond its scope. Frozen docs may receive ONLY: (a) authority-header updates, (b) typo fixes, (c) link repairs. Substantive content updates require either un-freezing (with rationale) or moving content to a current authoritative doc.
+- **`#superseded-intent-left-standing`** — a premise change overturns a decision argued in a merged doc, and the correction lives only in a new task, issue or kickoff. The stale doc keeps its authority: an audit that classifies a delta as `BY-DESIGN` by citing «the artefact that declares the intent» cites it correctly and blesses a real gap. Counter: §4.1.
+
+### §4.1 Supersession clause
+
+When a premise changes, first ask which merged artefact an auditor would cite to justify the current shape (usually a spec under `docs/superpowers/specs/` or an umbrella kickoff). Amend **that** artefact in place — an appended, dated addendum whose heading says what it does (`Addendum`, `withdraws`, `supersedes`) — and in it:
+
+1. **Record the premise** — what changed, who decided it, when.
+2. **List the lapsed conclusions** by their IDs, and the verified facts that still stand.
+3. **Leave the reopened decisions undecided** and name where they will be decided. The amendment removes a false authority; it does not design the replacement.
+
+A new task may carry the follow-on work, never the withdrawal itself. The addendum is also the auditor-side contract: before stamping a delta `BY-DESIGN`, the auditor runs [`scripts/cited-spec-addenda.sh`](../../scripts/cited-spec-addenda.sh) `<path>[:<line>]` on the cited artefact — exit 2 lists every later commit and every addendum heading, and each must be read before the citation counts; exit 3 — or any run that prints no `VERDICT:` line — means the citation cannot carry `BY-DESIGN` yet (untracked or never committed, line out of range, shallow clone). Consumers: [agents/fidelity-auditor.md](../../agents/fidelity-auditor.md) protocol step 1, the `consumer-truth-audit` umbrella's `BY-DESIGN` definition.
+
+Precedent: PR #1675 appended the `Consumer-axis addendum` to `docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md`, withdrawing D18/D20 before `consumer-truth-audit` could stamp the undelivered residue writer `BY-DESIGN` off them.
 
 ## §5 Folder-level authority pattern
 

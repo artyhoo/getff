@@ -360,6 +360,13 @@ function validateUrlAgainstTiers(
   }
 
   if (tier1Miss) return tier1Miss;
+  // A provenance that names a Tier-1 package while its entry names none: Tier 1 could not
+  // activate (the entry-level package is the scope-lock), so say THAT instead of FF2005, which
+  // names the wrong field. `opts` present = the plan gate's resolved path (gates/provenance.ts);
+  // the Tier-0-only path passes no opts and keeps FF2005.
+  if (packageName !== undefined && opts !== undefined && opts.entryPackage === undefined) {
+    return diag('FF2017', { packageName });
+  }
   return diag('FF2005', { allowlistKey: p.allowlistKey });
 }
 

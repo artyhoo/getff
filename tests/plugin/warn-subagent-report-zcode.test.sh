@@ -8,16 +8,19 @@
 #   1. CC Arm A — missing sections emit plain stderr warning
 #   2. ZCode Arm A — JSON wrap ({additionalContext:"..."})
 #   3. Noise guard — non-REPORT text skips silently
-#   4. Arm A dedup — second fire of same toolCallId is silent
+#   4. Arm A dedup — second fire of same tool_use_id is silent
 #   5. Arm B Stop — transcript sweep catches partial entry, leaves complete one alone
 #   6. Arm B dedup honors Arm A's prior warning (cross-arm dedup by id)
 #   7. stop_hook_active=true exits early
 #   8. Missing transcript file is a silent no-op
 #   9. ZCode role:"assistant" transcript shape extracts text (parity with end-of-turn-reminder)
+#  10-11. see the per-case headers below
+#  12. Arm A reads ONLY the canonical stdin id `tool_use_id`, never a guessed name
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PLUGIN="$REPO_ROOT/plugin"
-HOOK="$PLUGIN/hooks/warn-subagent-report-zcode"
+# WSR_ZCODE_HOOK lets the paired-negative run point this suite at another revision of the hook.
+HOOK="${WSR_ZCODE_HOOK:-$PLUGIN/hooks/warn-subagent-report-zcode}"
 PASS=0; FAIL=0; SKIP=0
 ok(){  PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
@@ -73,13 +76,13 @@ fire_env() {
 # Case 1 — CC Arm A — missing sections emit plain stderr warning
 # ─────────────────────────────────────────────────────────────────────────────
 clean_state "$SESS_NS-1"
-PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-1"'","tool_input":"## VERIFY\nran grep at file:1\n","tool_call_id":"tc-1"}'
+PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-1"'","tool_input":"## VERIFY\nran grep at file:1\n","tool_use_id":"tc-1"}'
 fire_env 0 "$PAYLOAD"
 # A3-1 (#1597 ledger): stderr on an exit-0 hook reaches the OPERATOR TRANSCRIPT ONLY — the
 # live probe in docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md
 # §2 measured zero bytes arriving in the model's context. The warning's consumer is the
 # orchestrator MODEL, so the same text must also go out as stdout JSON
-# hookSpecificOutput.additionalContext (the shape .claude/hooks/warn-subagent-report.sh:56-58
+# hookSpecificOutput.additionalContext (the shape .claude/hooks/warn-subagent-report.sh:54-56
 # already uses). The stderr copy stays for terminal/CI readers; the old assertion pinned the
 # DEFECT ("must not contain additionalContext") and is inverted here.
 CC_CTX="$(printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["hookSpecificOutput"]["hookEventName"]); print(d["hookSpecificOutput"]["additionalContext"])' 2>/dev/null || true)"
@@ -100,7 +103,7 @@ fi
 # Case 2 — ZCode Arm A — JSON wrap
 # ─────────────────────────────────────────────────────────────────────────────
 clean_state "$SESS_NS-2"
-PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-2"'","tool_input":"## VERIFY\npartial\n","tool_call_id":"tc-2"}'
+PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-2"'","tool_input":"## VERIFY\npartial\n","tool_use_id":"tc-2"}'
 if [ "$SHIM_LIMITED" -eq 1 ]; then
   skip "(2) ZCode Arm A — {additionalContext:<warning>} (container jq shim lacks -Rs/-e support; real jq verified by inspection of _ze_classify at plugin/hooks/_zcode-emit:62-87)"
 else
@@ -133,10 +136,10 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Case 4 — Arm A dedup — second fire of same toolCallId is silent
+# Case 4 — Arm A dedup — second fire of same tool_use_id is silent
 # ─────────────────────────────────────────────────────────────────────────────
 clean_state "$SESS_NS-4"
-PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-4"'","tool_input":"## VERIFY\npartial\n","tool_call_id":"tc-4"}'
+PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-4"'","tool_input":"## VERIFY\npartial\n","tool_use_id":"tc-4"}'
 fire_env 0 "$PAYLOAD"
 FIRST_OUT="$OUT"; FIRST_ERR="$ERR"; FIRST_RC=$rc
 fire_env 0 "$PAYLOAD"
@@ -172,8 +175,8 @@ clean_state "$SESS_NS-6"
 cat >"$TMPD/t6.jsonl" <<'JSONL'
 {"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"x6-1","content":"## VERIFY\nsame content\n"}]}}
 JSONL
-# Arm A: tool_call_id matches transcript tool_use_id → cross-arm dedup by id
-PAYLOAD_A='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-6"'","tool_input":"## VERIFY\nsame content\n","tool_call_id":"x6-1"}'
+# Arm A: stdin tool_use_id matches transcript tool_use_id → cross-arm dedup by id
+PAYLOAD_A='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-6"'","tool_input":"## VERIFY\nsame content\n","tool_use_id":"x6-1"}'
 fire_env 0 "$PAYLOAD_A"
 A_OUT="$OUT"; A_ERR="$ERR"
 PAYLOAD_B='{"hook_event_name":"Stop","session_id":"'"$SESS_NS-6"'","transcript_path":"'"$TMPD"'/t6.jsonl"}'
@@ -282,6 +285,43 @@ if [ "$rc" -eq 0 ] && [ "${JQ_SPAWNS:-9999}" -le 20 ] \
   ok "(11) Arm B — 300 tool_result lines cost $JQ_SPAWNS jq spawns (budget 20), warning still emitted"
 else
   bad "(11) Arm B jq spawns=$JQ_SPAWNS rc=$rc (budget 20) out=$(printf '%s' "$OUT" | head -c 120)"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case 12 — Arm A dedup id is the ONE canonical stdin field `tool_use_id`
+# ─────────────────────────────────────────────────────────────────────────────
+# .claude/rules/dual-implementation-discipline.md §4: an unpublished stdin field is probed, not
+# guessed. The hook used to read `.toolCallId // .tool_call_id // .toolCallID`. Probed fields:
+# ZCode's createClaudeCompatibleHookStdin (zcode.cjs) sets `tool_use_id=e.toolCallId`; a CC
+# PostToolUse capture (scripts/probe-hook-stdin.sh) carries `tool_use_id` and none of the three
+# guessed names. Arm A and the transcript use DIFFERENT text here, so the text-hash fallback can
+# never produce the cross-arm match — only reading the id can.
+#   12a (positive): real payload shape, `tool_use_id` only → Arm B stays silent (deduped by id).
+#       The old chain never read `tool_use_id` → hashed the text → Arm B warned again. RED on it.
+#   12b (negative): guessed `toolCallId` only → it must NOT be taken as the id: Arm B warns again,
+#       and Arm A names the missing canonical field on stderr. The old chain read it. RED on it.
+clean_state "$SESS_NS-12a"
+cat >"$TMPD/t12.jsonl" <<'JSONL'
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_12","content":"## VERIFY\ntranscript copy\n"}]}}
+JSONL
+fire_env 0 '{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-12a"'","tool_input":"## VERIFY\nlive copy\n","tool_use_id":"toolu_12"}'
+A_ALL="$OUT$ERR"
+fire_env 0 '{"hook_event_name":"Stop","session_id":"'"$SESS_NS-12a"'","transcript_path":"'"$TMPD"'/t12.jsonl"}'
+if [ -n "$A_ALL" ] && ! printf '%s' "$A_ALL" | grep -q 'no tool_use_id' \
+  && [ "$rc" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; then
+  ok "(12a) canonical tool_use_id keys Arm A — Arm B deduped by id"
+else
+  bad "(12a) tool_use_id — A=[$(printf '%s' "$A_ALL" | head -c 120)] B=[$(printf '%s' "$OUT$ERR" | head -c 120)]"
+fi
+clean_state "$SESS_NS-12b"
+fire_env 0 '{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-12b"'","tool_input":"## VERIFY\nlive copy\n","toolCallId":"toolu_12"}'
+A_ERR="$ERR"
+fire_env 0 '{"hook_event_name":"Stop","session_id":"'"$SESS_NS-12b"'","transcript_path":"'"$TMPD"'/t12.jsonl"}'
+if printf '%s' "$A_ERR" | grep -q 'no tool_use_id' \
+  && [ "$rc" -eq 0 ] && printf '%s' "$OUT$ERR" | grep -q '⚠ Stop: subagent REPORT missing section(s):'; then
+  ok "(12b) guessed toolCallId is ignored — drift named on stderr, no false cross-arm dedup"
+else
+  bad "(12b) toolCallId — A_err=[$(printf '%s' "$A_ERR" | head -c 120)] B=[$(printf '%s' "$OUT$ERR" | head -c 120)]"
 fi
 
 echo ""

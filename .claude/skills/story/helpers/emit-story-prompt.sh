@@ -5,7 +5,8 @@
 # Sources the active-language hook lang pack (AIF_HOOK_LANG, default en, EN
 # fallback) and echoes the full story-instruction prose (aif_msg_eot_branch_story).
 # The /story SKILL.md invokes this via `!bash` (markdown cannot `source`), then
-# narrates by acts. Single SSOT: the prose lives only in .claude/hooks/lang/{en,ru}.sh.
+# renders the session-scale recap the instruction prescribes. Single SSOT: the prose
+# lives only in .claude/hooks/lang/{en,ru}.sh.
 set -euo pipefail
 
 _repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"

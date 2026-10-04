@@ -48,7 +48,7 @@
  */
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join, basename } from 'node:path';
+import { resolve, dirname, join, basename, normalize, isAbsolute, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { runCheck, type CheckResult } from '../utils/run-check.ts';
@@ -114,6 +114,20 @@ export interface RunOptions {
   runCheckFn?: typeof runCheck;
   /** Repo root for workflow/config/script resolution (injectable for tests). */
   repoRoot?: string;
+  /**
+   * Repo-relative manifest path (trigger build S3, spec S-9). The CALLER names it
+   * by layout — framework `packages/core/manifest/rules-manifest.json`, consumer
+   * `.ai-factory/synthesizer-output/rules-manifest-additions.json` — never
+   * re-derived here from a second `existsSync` probe (one detection axis:
+   * `ctx.isFrameworkRepo`, threaded from pre-push.ts).
+   */
+  manifestRel?: string;
+  /**
+   * Layout axis (D17). `framework` keeps the tracked-basename-under-`packages/`
+   * resolver with its ambiguity FAIL; `consumer` resolves `check.script` AS
+   * WRITTEN among tracked files and refuses paths that escape the project.
+   */
+  layout?: 'framework' | 'consumer';
 }
 
 /**
@@ -247,6 +261,35 @@ function resolveTrackedBasename(repoRoot: string, name: string): BasenameResolut
   return { kind: 'found', path: join(repoRoot, candidates[0]) };
 }
 
+/**
+ * Consumer-layout refusal (trigger build S3 item 2): `check.script` must name a
+ * project-relative path. An absolute path or a `..` segment would have the runner
+ * execute something OUTSIDE the project — status `fail` naming the token as
+ * written, never resolved and never run. The `relative()` arm is belt-and-braces
+ * for tokens that escape only after normalisation.
+ */
+function refuseOutsideProject(repoRoot: string, token: string): string | null {
+  const escapesToken = isAbsolute(token) || normalize(token).split('/').includes('..');
+  const rel = relative(repoRoot, resolve(repoRoot, token));
+  if (escapesToken || rel.startsWith('..') || isAbsolute(rel)) {
+    return `script '${token}' resolves outside the project — absolute paths and '..' segments are refused, never resolved and never run`;
+  }
+  return null;
+}
+
+/**
+ * Consumer-layout resolution (trigger build S3 item 2): `check.script` AS
+ * WRITTEN, matched exactly among the repo's tracked files (same trackedness
+ * predicate as the framework resolver). No basename guessing, no `packages/`
+ * scoping — the token either names a tracked file exactly, or the rule SKIPs
+ * visibly with the consumer wording.
+ */
+function resolveTrackedAsWritten(repoRoot: string, token: string): string | null {
+  const rel = normalize(token);
+  const found = trackedPaths(repoRoot).find((p) => p === rel);
+  return found ? join(repoRoot, found) : null;
+}
+
 // ── Mode runners ─────────────────────────────────────────────────────────────
 
 /**
@@ -369,6 +412,7 @@ function resolveAndRun(
   rule: CmdScriptRule,
   run: typeof runCheck,
   repoRoot: string,
+  layout: 'framework' | 'consumer' = 'framework',
 ): RuleLivenessResult {
   const fixture = rule.fixture;
   if (!fixture || !fixture['setup-script']) {
@@ -388,10 +432,33 @@ function resolveAndRun(
     };
   }
   const rawPath = extractRunnable(rule.check.script ?? rule.check.command ?? '');
-  const scriptName = basename(rawPath.split(/\s+/)[0] ?? '');
-  if (!scriptName) {
+  const firstToken = rawPath.split(/\s+/)[0] ?? '';
+  if (!firstToken) {
     return { status: 'no-data', mode: 'resolve-and-run', reason: 'check.script has no path' };
   }
+
+  // Consumer layout (trigger build S3 item 2): the token is a repo-relative path
+  // taken AS WRITTEN — resolved among tracked files, never guessed by basename,
+  // and refused outright if it escapes the project.
+  if (layout === 'consumer') {
+    const refusal = refuseOutsideProject(repoRoot, firstToken);
+    if (refusal) {
+      return { status: 'fail', mode: 'resolve-and-run', failures: [refusal] };
+    }
+    const resolvedAsWritten = resolveTrackedAsWritten(repoRoot, firstToken);
+    if (!resolvedAsWritten) {
+      return {
+        status: 'skipped',
+        mode: 'resolve-and-run',
+        reason: `script '${firstToken}' not found among tracked files (consumer layout, resolved as written) — install to enable`,
+      };
+    }
+    return runResolvedScriptPair(ruleId, rule, run, resolvedAsWritten, firstToken);
+  }
+
+  // Framework layout: the consumer-relative path is dangling here, so resolve by
+  // basename among tracked files under packages/ — with the ambiguity FAIL.
+  const scriptName = basename(firstToken);
   const resolution = resolveTrackedBasename(repoRoot, scriptName);
   if (resolution.kind === 'none') {
     return {
@@ -409,9 +476,24 @@ function resolveAndRun(
       ],
     };
   }
-  const resolved = resolution.path;
+  return runResolvedScriptPair(ruleId, rule, run, resolution.path, scriptName);
+}
 
-  const interp = scriptName.endsWith('.ts')
+/**
+ * The clean-pass + violating-fail PAIR over an already-resolved script (operator
+ * rework 2026-06-13, MAJOR fix) — both layouts land here after their own
+ * resolver. `displayName` is what every message names: the basename on the
+ * framework layout, the path as written on the consumer layout.
+ */
+function runResolvedScriptPair(
+  ruleId: string,
+  rule: CmdScriptRule,
+  run: typeof runCheck,
+  resolved: string,
+  displayName: string,
+): RuleLivenessResult {
+  const fixture = rule.fixture as Fixture;
+  const interp = displayName.endsWith('.ts')
     ? { bin: 'node', args: ['--experimental-strip-types', resolved] }
     : { bin: 'bash', args: [resolved] };
 
@@ -433,7 +515,7 @@ function resolveAndRun(
       return {
         status: 'skipped',
         mode: 'resolve-and-run',
-        reason: `check non-functional in env (clean state did not pass): resolved script '${scriptName}' exited ${cleanR.exitCode} before evaluating the fixture (e.g. a missing dependency such as ts-morph)`,
+        reason: `check non-functional in env (clean state did not pass): resolved script '${displayName}' exited ${cleanR.exitCode} before evaluating the fixture (e.g. a missing dependency such as ts-morph)`,
       };
     }
 
@@ -451,7 +533,7 @@ function resolveAndRun(
       return {
         status: 'fail',
         mode: 'resolve-and-run',
-        failures: [`resolved script '${scriptName}' passed clean but exited 0 on the violating fixture — the guard does not catch its violation`],
+        failures: [`resolved script '${displayName}' passed clean but exited 0 on the violating fixture — the guard does not catch its violation`],
       };
     }
     return { status: 'pass', mode: 'resolve-and-run' };
@@ -522,7 +604,9 @@ function workflowExists(rule: CmdScriptRule, repoRoot: string): RuleLivenessResu
  * exists in the repo. Today: an architectural dependency-cruiser config.
  */
 function configPresence(rule: CmdScriptRule, repoRoot: string): RuleLivenessResult {
-  const candidates = findConfigs(repoRoot, /^(\.?dependency-cruiser)\.(c?js|json|ts)$/);
+  // Every extension dependency-cruiser loads a config from (doc/cli.md `--config`): the
+  // shipped template is .mjs since 2026-09-28.
+  const candidates = findConfigs(repoRoot, /^(\.?dependency-cruiser)\.([cm]?js|[cm]?ts|json)$/);
   if (candidates.length === 0) {
     return {
       status: 'fail',
@@ -565,7 +649,7 @@ export function runRuleLiveness(
     case 'run-and-assert':
       return runAndAssert(ruleId, rule, run);
     case 'resolve-and-run':
-      return resolveAndRun(ruleId, rule, run, repoRoot);
+      return resolveAndRun(ruleId, rule, run, repoRoot, opts.layout ?? 'framework');
     case 'workflow-exists':
       return workflowExists(rule, repoRoot);
     case 'config-presence':
@@ -585,28 +669,49 @@ export interface CmdScriptLivenessReport {
   skipped: string[];
   exempt: string[];
   noData: string[];
+  /** Counted population (E18 F1 condition 1): cmd/script rules in the CURRENT manifest. */
+  population?: number;
+  /** How many of them changed vs the base — what this push actually re-proved. */
+  changedCount?: number;
+  /** The manifest the report was built from, repo-relative, as the caller named it. */
+  manifestRel?: string;
+  /**
+   * Fail-closed signal (trigger build S3): set when the current OR the base
+   * manifest exists but does not parse. The section prints it and exits 1 —
+   * never the uncaught-`JSON.parse` «pre-push hook crashed», never the old
+   * silent «base unparsable ⇒ treat everything as changed».
+   */
+  fatal?: string;
 }
 
-/** Get command/script rule IDs that changed between the base and current manifest. */
+/** The arm's population predicate (E18 F1): a manifest rule of check.type `command` or `script`. */
+export function isCmdScriptRule(rule: CmdScriptRule): boolean {
+  return rule.check.type === 'command' || rule.check.type === 'script';
+}
+
+/**
+ * Get command/script rule IDs that changed between the base and current manifest.
+ * An unparsable BASE still means «all changed» HERE — the fail-closed behaviour
+ * lives one layer up in `runCmdScriptLivenessGate`, which validates both documents
+ * before calling this and returns a `fatal` instead.
+ */
 export function getChangedCmdScriptRuleIds(
   baseManifestJson: string | null,
   currentManifestJson: string,
 ): string[] {
   const current = JSON.parse(currentManifestJson) as Record<string, CmdScriptRule>;
-  const isCmdScript = (r: CmdScriptRule): boolean =>
-    r.check.type === 'command' || r.check.type === 'script';
   if (!baseManifestJson) {
-    return Object.keys(current).filter((k) => isCmdScript(current[k]));
+    return Object.keys(current).filter((k) => isCmdScriptRule(current[k]));
   }
   let base: Record<string, CmdScriptRule>;
   try {
     base = JSON.parse(baseManifestJson) as Record<string, CmdScriptRule>;
   } catch {
-    return Object.keys(current).filter((k) => isCmdScript(current[k]));
+    return Object.keys(current).filter((k) => isCmdScriptRule(current[k]));
   }
   const changed: string[] = [];
   for (const [id, rule] of Object.entries(current)) {
-    if (!isCmdScript(rule)) continue;
+    if (!isCmdScriptRule(rule)) continue;
     const baseRule = base[id];
     if (!baseRule || JSON.stringify(baseRule) !== JSON.stringify(rule)) changed.push(id);
   }
@@ -653,23 +758,56 @@ export function runCmdScriptLivenessCheck(
   return report;
 }
 
+function emptyReport(fatal?: string): CmdScriptLivenessReport {
+  return { failures: [], passed: [], skipped: [], exempt: [], noData: [], ...(fatal ? { fatal } : {}) };
+}
+
 /**
- * Gate function for pre-push: loads the manifest, determines changed cmd/script
- * rules vs the base, runs only those. Reads the base manifest via `git show`.
+ * Gate function for pre-push: loads the manifest the CALLER names (trigger build
+ * S3 item 1 — `opts.manifestRel`, framework default), determines changed
+ * cmd/script rules vs the base, runs only those. The base manifest is read via
+ * `git show <base>:<same path>`; absent at the base → every cmd/script rule
+ * counts as changed. Fail-closed: a manifest that EXISTS but does not parse —
+ * current or base — returns a report whose `fatal` names the path (and the ref,
+ * for the base) and runs nothing; the section prints it and exits 1. Never an
+ * uncaught `JSON.parse`, never the old silent «base unparsable ⇒ all changed».
+ * The report also carries the counted stats (E18 F1): `population` over the
+ * WHOLE current manifest, `changedCount` = what this push re-proves, and the
+ * `manifestRel` actually read.
  */
 export function runCmdScriptLivenessGate(base: string, opts: RunOptions = {}): CmdScriptLivenessReport {
   const repoRoot = opts.repoRoot ?? DEFAULT_REPO_ROOT;
-  const manifestPath = resolve(repoRoot, MANIFEST_REL);
+  const manifestRel = opts.manifestRel ?? MANIFEST_REL;
+  const manifestPath = resolve(repoRoot, manifestRel);
   const currentJson = readFileSync(manifestPath, 'utf8');
-  const run = opts.runCheckFn ?? runCheck;
-  const baseResult = run('git', ['show', `${base}:${MANIFEST_REL}`], { cwd: repoRoot });
-  const baseJson = baseResult.exitCode === 0 ? baseResult.stdout : null;
-  const changedIds = getChangedCmdScriptRuleIds(baseJson, currentJson);
-  if (changedIds.length === 0) {
-    return { failures: [], passed: [], skipped: [], exempt: [], noData: [] };
+  let current: Record<string, CmdScriptRule>;
+  try {
+    current = JSON.parse(currentJson) as Record<string, CmdScriptRule>;
+  } catch (err) {
+    return emptyReport(
+      `the rules manifest at '${manifestRel}' does not parse (${(err as Error).message}) — failing closed: no command/script rule is proven, fix the manifest JSON before pushing`,
+    );
   }
-  const manifest = JSON.parse(currentJson) as Record<string, CmdScriptRule>;
-  return runCmdScriptLivenessCheck(changedIds, manifest, opts);
+  const run = opts.runCheckFn ?? runCheck;
+  const baseResult = run('git', ['show', `${base}:${manifestRel}`], { cwd: repoRoot });
+  const baseJson = baseResult.exitCode === 0 ? baseResult.stdout : null;
+  if (baseJson !== null) {
+    try {
+      JSON.parse(baseJson) as Record<string, CmdScriptRule>;
+    } catch (err) {
+      return emptyReport(
+        `the rules manifest at '${manifestRel}' on base '${base}' does not parse (${(err as Error).message}) — failing closed: no command/script rule is proven, fix the manifest JSON before pushing`,
+      );
+    }
+  }
+  const changedIds = getChangedCmdScriptRuleIds(baseJson, currentJson);
+  const stats = {
+    population: Object.values(current).filter(isCmdScriptRule).length,
+    changedCount: changedIds.length,
+    manifestRel,
+  };
+  if (changedIds.length === 0) return { ...emptyReport(), ...stats };
+  return { ...runCmdScriptLivenessCheck(changedIds, current, opts), ...stats };
 }
 
 export type { CheckResult };

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context
-# Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
-# stdout is injected into Claude Code's prompt context by the harness automatically.
+# inject-session-bootstrap.sh — SessionStart hook — injects the session-bootstrap digest into session context
+# Wave 7 sub-wave 7.2.a (moved from UserPromptSubmit to SessionStart 2026-09-29: once per context, not per prompt).
+# stdout is injected into Claude Code's session context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).
-# @cc-only-rationale: UserPromptSubmit digest injection — CC+ZCode dual-harness via inline
+# @cc-only-rationale: SessionStart digest injection — CC+ZCode dual-harness via inline
 #   _emit_ctx branching on ZCODE_PROJECT_DIR. No separate portable counterpart artifact (one
 #   file serves both harnesses), so @dual-pair does not apply; the inline branch IS the
-#   portability. The digest content itself lives identically in .claude/session-bootstrap.md.
+#   portability. The invariant line is rendered from README.md (see the generated region).
 # Under CC, plain stdout is auto-injected; under ZCode, stdout must be strict-JSON
 # {additionalContext} (plain is discarded + run marked failed). _emit_ctx (inlined below)
 # branches on ZCODE_PROJECT_DIR so CC behaviour is unchanged.
@@ -14,7 +14,7 @@
 # R4 (consumer-refresh-integrity, issue 1484): consumer-aware digest. Consumers receive
 # this hook through the plugin twin, where $0-relative paths point at the plugin dir, not
 # the consumer root — so the tree root resolves env-first (CLAUDE_PROJECT_DIR, then
-# ZCODE_PROJECT_DIR, then $0-relative), the same pattern as inject-project-digest.sh:28.
+# ZCODE_PROJECT_DIR, then $0-relative), the same pattern as inject-project-digest.sh:38.
 # Every path-shaped citation below is existence-checked against that live tree at render
 # time; an absent target degrades to the rule/target NAME without the dead path — never a
 # silent drop of the invariant text itself. Fail-open: an unreachable tree degrades all
@@ -31,7 +31,7 @@ REPO_ROOT="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.
 # NB: env-first resolution — under the plugin twin $0 points into the plugin dir, so
 # $0-relative fallback is the LAST resort, not the primary (issue 1484 root cause).
 
-# Cheap file-tests only (this hook fires on EVERY prompt submit — no subprocess storms).
+# Cheap file-tests only (this hook fires on every session start and every subagent spawn — no subprocess storms).
 _has() { [ -f "$REPO_ROOT/$1" ]; }
 _rule_ref() { # .claude/rules/<name>.md -> "(.claude/rules/<name>.md)" | "(rule <name>)"
   if _has ".claude/rules/$1.md"; then
@@ -54,19 +54,25 @@ _rule_name() { # bare ".claude/rules/<name>.md" -> "<name>.md" | "<name>" (no de
     printf '%s' "$1"
   fi
 }
+_make_ref() { # Makefile target -> "make <target>" | "<target>" (no dead command)
+  if _has Makefile && grep -q "^$1:" "$REPO_ROOT/Makefile" 2>/dev/null; then
+    printf 'make %s' "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
 
 # --- digest lines, each with its canonical degradation (missing target -> name, text kept) ---
 
 GOAL_LINE="Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate."
 if _has README.md; then GOAL_LINE="$GOAL_LINE"' (README.md#why-this-exists)'; fi
 
-BFR_REF=$(_rule_ref build-first-reuse-default)
-if _has Makefile && grep -q '^self-audit:' "$REPO_ROOT/Makefile" 2>/dev/null; then
-  SELF_AUDIT=' (make self-audit)'
-else
-  SELF_AUDIT=''
-fi
-INVARIANTS_LINE="Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline $BFR_REF; (2) recursive self-application green$SELF_AUDIT; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort)."
+# The invariant line below is RENDERED from README.md «What must not break (invariants)» by
+# scripts/render-invariants.mjs (--write regenerates, --check gates at pre-push and in the
+# hook's vitest suite). Edit README, never this region.
+# <!-- getff:begin section=invariants-line plan=scripts/render-invariants.mjs -->
+INVARIANTS_LINE="Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit $(_rule_ref build-first-reuse-default); (2) Recursive self-application — $(_make_ref self-audit) green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing $(_rule_ref phase-research-coverage); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription $(_rule_ref no-paid-llm-in-ci); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel."
+# <!-- getff:end section=invariants-line -->
 
 # Step-0 reading order: only live targets stay in the arrow list.
 STEP0_LIST=''
@@ -99,8 +105,8 @@ fi
 # (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->`) points HERE: the
 # "Recommendation discipline (H1):" line in the digest above is that rule's always-on alt-channel
 # (the rule itself is evicted from always-on rule context per CTX Stage 1; this digest line +
-# ai-laziness-traps T20 (Tier-0 core) are what still fires at every prompt).
-DIGEST="[session-bootstrap digest — auto-injected at prompt submit]
+# ai-laziness-traps T20 (Tier-0 core) are what still fires in every session).
+DIGEST="[session-bootstrap digest — auto-injected at session start]
 $GOAL_LINE
 $INVARIANTS_LINE
 $STEP0_LINE
@@ -109,7 +115,7 @@ $FOOTER_LINE
 [/session-bootstrap digest]"
 
 # B1 (language-discipline): when the operator pins a non-English human-facing language,
-# tell the model — every turn, all skills. Precisely scoped so repo artifacts stay English.
+# tell the model — at every context start (incl. compaction), all skills; repo artifacts stay English.
 # See .claude/rules/language-discipline.md §2. (No path-shaped citations in this block.)
 case "${AIF_HOOK_LANG:-en}" in
   en|'') : ;;  # English default — nothing to inject
@@ -135,7 +141,7 @@ esac
 # already said out loud at least once. The problem is not that they were never said — it is
 # that a spoken authorization lives in one turn and does not survive compaction, so the next
 # stretch of the same session re-derives the constraint from scratch. An injection is re-fed
-# every turn by construction, which is the only property that matters here.
+# at every context start, compaction included, by construction — the only property that matters here.
 #
 # HONEST CLASSIFICATION (attention-is-not-a-mechanism.md §1): this is PROSE delivered
 # reliably, NOT a gate. It can be decision authority; it is not a detection layer. The first
@@ -161,4 +167,26 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   DIGEST="$DIGEST"$'\n[autonomy] Standing operator authorization for this unattended run — do NOT re-ask for it, and do NOT infer a narrower constraint than is written here:\n  (1) Cold sub-agents are AUTHORIZED. Dispatch them for adversarial review of your own output and for backward-sweep enumeration over a change class. This is the operator\'s standing request, so the "unless the user requested it" condition on any session-prompt default is SATISFIED. Reviewing your own artefacts alone is author-blind ('$TRAPS_NAME$' T19/T21).\n  (2) Do NOT end a turn merely because you have something reportable. Report AND continue in the same turn while work remains — dispatched tasks in flight, an unharvested accepted branch, an open item you own. Ending on a report while work is in flight is finding F10; it recurred twice in one day. Stop only when blocked on the operator, or genuinely finished.\n  (3) A constraint you cannot trace to a citable line in '$CMD_SOURCE$'a rule file, or a skill is NOT a constraint. A predecessor session invented "merging is the operator\'s click", obeyed its own invention for seven PRs, and the operator merged six by hand.\n  (4) §2 wait rule (silence ≠ health): a monitor that has died and a monitor with nothing to report look identical. For any wait the loop depends on, use a bounded waiter that ALWAYS emits a terminal verdict — the awaited state, a timeout, or a fetch failure — never nothing. In this repo that is '$AWAIT_REF$' (always pass `--timeout-ms` on a load-bearing wait), or a plain `until`-loop whose every exit path prints one line. Treat any monitor as a BONUS signal, never as the primary one.'
 fi
 
-_emit_ctx "UserPromptSubmit" "$DIGEST"
+# SKILL INDEX (source=compact only) — the harness re-injects everything it loaded at startup
+# after a compaction EXCEPT its skill listing, so the model stops knowing which skills exist.
+# lib/skill-index.sh rebuilds a name-only index from the session's own last listing. It rides
+# on this hook because this hook is already registered on the `compact` matcher: a separate
+# hook would need a `.claude/settings.json` registration no agent can write.
+# Guarded source: this file is also copied standalone (test sandboxes, consumer installs)
+# with no lib/ sibling — then the block is simply absent. stdin is read only when it is not
+# a terminal, and the payload is used for nothing else.
+# BOUNDED read, never `cat`: a caller that hands over a closed stdin, or a pipe nobody
+# writes to, must still get the digest. `cat` blocks forever on both (measured: exit 137
+# under a 5 s kill); `read -t` gives up after one second and the index is simply skipped.
+_hook_input=""
+if ! [ -t 0 ]; then IFS= read -r -d '' -t 1 _hook_input 2>/dev/null || true; fi
+_skill_lib="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/lib/skill-index.sh"
+if [ -f "$_skill_lib" ] && . "$_skill_lib" 2>/dev/null; then
+  # The harness caps one hook's output at 10,000 characters and replaces anything longer
+  # with a 2,000-character preview (code.claude.com/docs/en/hooks, fetched 2026-09-29), so
+  # the index only gets the room the digest left — it must never cost the digest itself.
+  _skill_room=$((9500 - $(printf '%s' "$DIGEST" | LC_ALL=C wc -c)))
+  _skill_block=$(_skill_index_block "$_hook_input" "$REPO_ROOT" "$_skill_room" 2>/dev/null || true)
+  if [ -n "$_skill_block" ]; then DIGEST="$DIGEST"$'\n'"$_skill_block"; fi
+fi
+_emit_ctx "SessionStart" "$DIGEST"

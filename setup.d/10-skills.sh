@@ -2,7 +2,7 @@
 # setup.d/10-skills.sh — §1 Skills + §1b Hooks (deps-hash-check CC hook).
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §1 (install.sh:689-745), §1b (install.sh:747-778)
+# S0 rows: §1 (install.sh:716-772), §1b (install.sh:755-786) cite:historical pre-split install.sh line ranges, section code now lives in this setup.d layer
 # Depends on: (none — first content layer)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
@@ -17,6 +17,11 @@ if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; the
     echo "  ⊝ .claude/skills/getff (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
+  # W1-A review MAJOR 2: the dry-run arm never reaches _copy_tree_with_transform's guard, so a
+  # diverged copy under --force showed only "would copy". Preview the guard when the dst exists
+  # (= the --force overwrite case; a greenfield copy overwrites nothing). Transform parity: the
+  # delivered tree's .md are post-processed. Writes nothing under --dry-run.
+  [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && _pre_overwrite_guard "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff" transform
   echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
@@ -34,6 +39,8 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
     echo "  ⊝ .claude/skills/tool-bootstrapping (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
+  # Same MAJOR 2 preview as the getff arm above (reached only when dst is absent or --force).
+  [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && _pre_overwrite_guard "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" transform
   echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
@@ -80,14 +87,14 @@ fi
 #                      aif mention in SKILL.md, zero across references/*.md), so env is the
 #                      right depth: it wraps `superpowers:*` companions and degrades without
 #                      the aif runtime. Its `](../dispatcher/SKILL.md)` ref is factory-tier and
-#                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:366
-#                      and arch/SKILL.md:24 (→ night-mode); tracked with D4, not fixed here.
+#                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:159
+#                      and arch/SKILL.md:27 (→ night-mode); tracked with D4, not fixed here.
 #   - pipeline       — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #                      env+, not factory: the design SSOT defines the env depth as carrying
 #                      «pipeline presets, status, …» verbatim
 #                      (docs/superpowers/specs/2026-07-23-beta-program-design.md:211).
 #   - reviewer       — interactive GO/REVISE/STOP verdict seat. Joined env 2026-08-17 (#1432):
-#                      arch/SKILL.md:94 promises consumers that in-repo `/reviewer` loads the
+#                      arch/SKILL.md «Effort-worthiness» promises consumers that in-repo `/reviewer` loads the
 #                      project skill, a promise that dangled while reviewer sat in no tier.
 #   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
 #                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
@@ -109,7 +116,7 @@ fi
 #   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
-#   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
+#   - story          — plain-language recap of what changed in a session (AIF_HOOK_LANG-gated
 #                      output). The original gate reason (#934 lang-pack crash) is RESOLVED —
 #                      #1003 §1c ships lang/{en,ru}.sh to every consumer — so the gate is now a
 #                      product choice, not a blocker fix: operator call 2026-09-11 keeps story
@@ -137,7 +144,7 @@ for _skill in $GETFF_SKILLS_CORE; do
   copy_skill_with_transform "$_skill"
 done
 # env+ contour surface (spec A8): /arch is the architecture-design skill that produces the
-# contour; consumer-facing at env+. /reviewer joined env 2026-08-17: arch/SKILL.md:94 tells the
+# contour; consumer-facing at env+. /reviewer joined env 2026-08-17: arch/SKILL.md «Effort-worthiness» tells the
 # consumer that in-repo `/reviewer` loads the project skill (skill precedence over a same-named
 # personal command) and that it binds the reviewer-discipline §6 severity contract — a promise
 # that dangled, because reviewer was in no tier. env is the minimal sufficient depth: arch is
@@ -152,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:620-621), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
@@ -184,7 +191,7 @@ fi
 # gated suite, so its helpers surface only when the suite was installed.
 _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
 if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
-  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
+  chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" "$_AIF_HELPERS/aif-agent-target.sh" 2>/dev/null || true
   echo "  ✓ aif-doctor heal helpers → .claude/skills/aif-doctor/helpers/ (executable)"
   echo "    ↳ opt-in: export RUNTIME_BRIDGE_PREFLIGHT='bash .claude/skills/aif-doctor/helpers/heal.sh' to auto-heal the aif base before each dispatch"
 fi
@@ -224,8 +231,8 @@ elif command -v jq >/dev/null 2>&1; then
     echo "  ⊝ .claude/hooks/deps-hash-check.sh already registered in settings.json"
   fi
 else
-  echo "  ⚠ jq not found — add manually to .claude/settings.json:"
-  echo "    UserPromptSubmit: [{\"hooks\":[{\"type\":\"command\",\"command\":\"$HOOK_CMD\"}]}]"
+  # No jq: register_cc_hook appends through node, and names a NOT-wired line if it cannot.
+  register_cc_hook "$SETTINGS" "UserPromptSubmit" "$HOOK_CMD" "deps-hash-check"
 fi
 
 # ─── 1c. End-of-turn session-recap Stop hook + lang pack (GH #934) ────────────
@@ -263,37 +270,12 @@ if [ -f "$EOT_SRC" ]; then
     # (orthogonal to --profile), so a full install arms it; a plain install does not. The
     # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
     # so this mirrors the hand-action sibling that arms the SAME key,
-    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
-    # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
+    # scripts/register-recap-gate.sh:167-183, and through it the shape's origin
+    # scripts/register-handoff-gate.sh:162-176: temp file, `jq -e .` validate, atomic mv, skip
     # when already set. Never write the target in place: a malformed settings.json silently
     # disables EVERY setting in it.
     if [ "${FULL:-}" = "--full" ]; then
-      # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
-      # no-op that prints nothing leaves the operator believing the gate is on when it is not.
-      # Same shape as this file's deps-hash-check jq-less branch (:227).
-      if ! command -v jq >/dev/null 2>&1; then
-        echo "  ⚠ jq not found — AIF_RECAP_GATE NOT armed; add manually to $SETTINGS:" >&2
-        echo '    "env": { "AIF_RECAP_GATE": "1" }' >&2
-      elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
-        echo "  AIF_RECAP_GATE already armed"
-      else
-        # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
-        # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
-        # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
-        # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
-        # the install clean while the operator believed the gate was armed (review M-7).
-        _rg_tmp="$SETTINGS.recapgate.tmp"
-        if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
-           && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
-          if mv "$_rg_tmp" "$SETTINGS"; then
-            echo "  AIF_RECAP_GATE=1 armed (--full)"
-          else
-            rm -f "$_rg_tmp"; echo "  ⚠ could not write $SETTINGS — AIF_RECAP_GATE NOT armed"
-          fi
-        else
-          rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
-        fi
-      fi
+      arm_recap_gate "$SETTINGS"   # setup.d/lib.sh — do_refresh arms it too under --full (sweep G8)
     fi
   fi
 fi
@@ -320,39 +302,49 @@ if [ -f "$AQR_SRC" ]; then
   fi
 fi
 
-# ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934) ─────────────────
-# Consumers DO get .claude/rules/* installed; without this hook that rules channel is cold-load
-# only. This edit-time injector delivers the matching rule's `inject:` summary the moment a scoped
-# path is edited. Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
+# ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934; claim corrected by GH #1520) ──
+# The HOOK below ships + registers; the `.claude/rules/` CORPUS it reads does NOT ship — it is
+# consumer-owned project data (delivery ships zero rules/ lines; setup.d/lib.sh:89-90 records the
+# non-delivery; the plugin twin carries the same corrected model). The former §1e SHIP line
+# asserting the rules corpus reaches consumers was inherited unverified from #934's draft
+# classification via PR #1004 and is retracted (2026-09-15, #1520 option B). This edit-time
+# injector delivers the matching rule's `inject:` summary the moment a scoped path is edited.
+# Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
 # framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
-# Registered with the "Edit|Write|MultiEdit" matcher (parity with the framework's own settings.json).
+# Registered on three events (trigger build, slice 1 — parity with the framework's own
+# settings.json): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm),
+# PreToolUse "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset).
+# register_imr_hooks lives in setup.d/lib.sh — install.sh --refresh calls the same function.
 IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
 IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
 if [ -f "$IMR_SRC" ]; then
   copy_safe "$IMR_SRC" "$IMR_DST"
   chmod_safe +x "$IMR_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+    register_imr_hooks "$SETTINGS"
   fi
 fi
 
-# ─── 1f. Output-language UserPromptSubmit hook (GH #934 batch B) ──────────────
+# ─── 1f. Output-language SessionStart hook (GH #934 batch B) ──────────────────
 # The consumer-generic slice EXTRACTED from the maintainer-only inject-session-bootstrap.sh: when the
 # operator pins AIF_HOOK_LANG, tell the model to address them in that language (repo artefacts stay
 # English). The framework-self-referential goal/invariants digest is NOT shipped — it stays INTERNAL.
 # Consumer-safe: pure bash, no jq, no framework-internal dependency; en/unset → no-op (zero-setup).
-# Registered as UserPromptSubmit (no matcher — not a tool-scoped event), non-destructive/idempotent.
+# Registered on SessionStart (startup|resume|clear|compact) — once per context, not per prompt
+# (2026-09-29; an install from before that date had it on UserPromptSubmit, which is removed here so a
+# re-install moves it instead of doubling it). Non-destructive/idempotent.
 OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
 OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
 if [ -f "$OLH_SRC" ]; then
   copy_safe "$OLH_SRC" "$OLH_DST"
   chmod_safe +x "$OLH_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-output-language as a UserPromptSubmit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-output-language as a SessionStart:startup|resume|clear|compact hook in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-output-language"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language" "startup|resume|clear|compact"
   fi
 fi
 
@@ -382,7 +374,9 @@ fi
 # Project-agnostic adaptation of the maintainer-only inject-session-bootstrap + inject-subagent-digest
 # pair (which hard-code the FRAMEWORK's own goal/invariants digest). This ONE hook injects the
 # CONSUMER's own anchor — the digest block of THEIR .claude/session-bootstrap.md — into BOTH the main
-# session (UserPromptSubmit) and every subagent (SubagentStart). We also ship a starter template
+# session (SessionStart — once per context: startup|resume|clear|compact, since 2026-09-29; it was
+# UserPromptSubmit before, which re-injected an unchanged block on every prompt) and every subagent
+# (SubagentStart). We also ship a starter template
 # (copy_safe → .claude/session-bootstrap.md, non-destructive) that ships EMPTY, so nothing is injected
 # until the consumer fills it (zero-setup, zero token cost by default).
 PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
@@ -393,9 +387,10 @@ if [ -f "$PDG_SRC" ]; then
   # Starter template → consumer's .claude/session-bootstrap.md (never overwrite a filled one).
   [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-project-digest as UserPromptSubmit + SubagentStart hooks"
+    echo "  [dry-run] would: register inject-project-digest as SessionStart:startup|resume|clear|compact + SubagentStart hooks"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-project-digest"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest" "startup|resume|clear|compact"
     register_cc_hook "$SETTINGS" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
   fi
 fi
@@ -417,6 +412,17 @@ if [ -f "$MCF_SRC" ]; then
   fi
 fi
 
+# ─── 1i′. Liveness lib of the shared hooks above (spec 2026-09-28 D12) ─────────
+# Every hook delivered in §1c-§1i sources lib/hook-live.sh from a guarded prelude: it marks each
+# event the project copy starts, and getff's plugin copy of the same hook stays silent only after
+# claiming that mark. Delivered once, BY NAME, like lib/residue-dir.sh in §1c. Without it the hooks
+# run unchanged, but their source-hash closure no longer matches the plugin's manifest, so both
+# copies run (a duplicate, never a lost hook).
+if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+  copy_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+fi
+
 # ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
 # Consolidated to ONE ship-point: the worktree
 # helper scripts cluster (create-worktree.sh + worktree-node-modules.sh + link-coordination.sh
@@ -426,3 +432,30 @@ fi
 # requirement (create-worktree → worktree-node-modules → link-coordination) means a partial
 # ship from two sites drifts independently; 85 is the single owner now. Gate semantics
 # identical (env|factory|WITH_AIF_SUITE). See setup.d/85-worktree-scripts.sh §1.
+
+# ─── 1k. Handoff group: PreCompact residue writer + SessionStart:compact re-injector ──────
+# env+ (PROFILE=env|factory, OR WITH_AIF_SUITE — the §1 contour-surface gate). Measured end to
+# end in a bare env consumer before it shipped (advisor verdict 10): the Stop hook's handoff gate
+# names .ai-factory/orchestrator-prompts/_handoff-<session>.md, precompact-residue.sh writes
+# _residue-<session>.md beside it at compaction, and inject-handoff-on-compact.sh puts the handoff
+# back into the compacted session. Both hooks are passive without the gate: the residue writer also
+# records the observed context ceiling that end-of-turn-reminder.sh reads (its OBSERVED arm is
+# empty without it), and the injector is silent when no handoff exists. The gate itself
+# (AIF_HANDOFF_GATE=1) blocks a turn, so it is NOT set here: it is an `ask` row of the
+# session-settings group (setup.d/session-settings.json), written only on the pre-launch «yes».
+# The two per-session files are machine state: git-ignored through .git/info/exclude, the
+# clone's own list (the project's .gitignore is left alone).
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  for _hg in precompact-residue inject-handoff-on-compact; do
+    [ -f "$PKG_ROOT/.claude/hooks/$_hg.sh" ] || continue
+    copy_safe "$PKG_ROOT/.claude/hooks/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
+    chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true
+  done
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register precompact-residue (PreCompact) + inject-handoff-on-compact (SessionStart:compact) in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PreCompact" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh"' "precompact-residue"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh"' "inject-handoff-on-compact" "compact"
+    handoff_ignore_local "$PROJECT_ROOT"
+  fi
+fi

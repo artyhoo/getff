@@ -105,7 +105,7 @@ grep -q '"TID251"' "$LOCK" && grep -q '"TID253"' "$LOCK" \
 # @arm:D2:pos no-silent-fingerprint-degrade — hash tool present → authoritative digest, no degrade
 echo ""; echo "  ── (4) sourceFingerprint shape ──"
 fp1=$(lock_field "$LOCK" sourceFingerprint)
-printf '%s' "$fp1" | grep -qE '^[0-9a-f]{16}$' \
+grep -qE '^[0-9a-f]{16}$' <<<"$fp1" \
   && ok "(4) sourceFingerprint is 16-hex ($fp1)" \
   || bad "(4) sourceFingerprint not 16-hex: '$fp1'"
 
@@ -162,7 +162,7 @@ else
 fi
 
 # ── (9) REGRESSION (W3 rework, MAJOR): --force re-delivery must NOT leave a STALE lock ─────────────
-# copy_safe (lib.sh:79) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
+# copy_safe (lib.sh:907) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
 # job is to record the DELIVERED set (ruleIds/ruffBans/sourceFingerprint) — must therefore be regenerated
 # on --force too, not only on --refresh. Before the fix _py_write_rules_lock regenerated ONLY on
 # GETFF_TOOLCHAIN_REFRESH=1, so `install.sh python --force` over a prior install whose template CHANGED
@@ -218,7 +218,7 @@ warn10=$(
 fp10=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$P10/$LOCK_REL" 2>/dev/null)
 # NOTE: lock_field's greedy `s/.*://` cannot extract a value containing a colon — the prefixed
 # constant needs the same direct sed the cargo/go arms use for their `sha256:…` fingerprints.
-printf '%s' "$warn10" | grep -q "non-authoritative" \
+grep -q "non-authoritative" <<<"$warn10" \
   && ok "(10) loud stderr warning emitted when no hash tool is on PATH (RED before fix — was silent)" \
   || bad "(10) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
 [ "$fp10" = "sha256:unknown" ] \
@@ -295,7 +295,7 @@ fi
 # SCOPE OF THIS ARM (PARK-S1-7, round-5 audit): it proves the READER, not the producer. The
 # fragment below is hand-written under the DELIVERED ast-grep id, because that is the key
 # `_py_json_rules` looks up. The synthesizer keys its fragments by the PLAN id instead
-# (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:52 /
+# (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:62 /
 # synthesize.ts:90), and (pre-S1b) the researched-python path returned before emit ran at all
 # (rule-bootstrap-cli.ts `--from-practice` arm). S1b UNPARKED this: the producer now lives in
 # runPracticeRender and writes its fragment to `generation-context/python/<entryId>.json`
@@ -337,7 +337,7 @@ URL_13="https://pyyaml.org/wiki/PyYAMLDocumentation"
 # spreads the original fields via tier.ts:26-29), so coverage of all three beats coverage of one.
 ALLOWKEY_13="pyyaml"
 FETCHEDAT_13="2026-07-11T00:00:00.000Z"
-# Find tsx (mirror rule-bootstrap-practice.test.ts:52 tsxBin): per-dir CI layouts install
+# Find tsx (mirror rule-bootstrap-practice.test.ts:54 tsxBin): per-dir CI layouts install
 # packages/core deps only, so tsx lives in packages/core/node_modules/.bin before any root hoist.
 TSX_BIN=""
 for _cand in "$REPO_ROOT/packages/core/node_modules/.bin/tsx" "$REPO_ROOT/node_modules/.bin/tsx"; do
@@ -360,7 +360,7 @@ else
     P13=$(py_fixture)
     # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
-    # there; setup.d/46-cargo.sh:198-199 + 47-go.sh:164-165). The prior arm pointed at
+    # there; setup.d/lib.sh:1668-1669, the lock writer both lanes share). The prior arm pointed at
     # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
     # tree and both branches took the `else`, emitting `ok`. THAT wrong path was the whole
     # defect; the seeds below are not what makes the lanes run.
@@ -368,7 +368,7 @@ else
     # R2 correction (cold audit round 2, MINOR): an earlier draft of this comment claimed the
     # lanes «declined at manifest-detect» without a Cargo.toml/go.mod. There is no such gate —
     # the positional `cargo`/`go` arg sets TOOLCHAIN and routes to do_cargo_lane/do_go_lane
-    # (install.sh:152/155 → :290/:318), which export GETFF_TOOLCHAIN and deliver unconditionally;
+    # (install.sh:173/:176 → :417/:426), which export GETFF_TOOLCHAIN and deliver unconditionally;
     # `_cargo_write_rules_lock` runs before the firing self-check, so the lock lands either way.
     # The seeds stay because a cargo lock emitted onto a tree with no Cargo.toml is an artefact
     # of the fixture rather than a realistic consumer — but they are a REALISM choice, not a
@@ -538,12 +538,12 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (46-cargo.sh:262, 47-go.sh:229). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1697,1733 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
-    # (setup.d/46-cargo.sh:198-199, 47-go.sh:164-165) — NOT .getff/ (only the PYTHON lock lives
-    # there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
+    # (setup.d/lib.sh:1668-1669, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
+    # lock lives there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
     # on every tree and both branches took the `else`, emitting `ok`. With Cargo.toml + go.mod
     # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition
     # unmet), NOT a trivial pass — an assertion whose positive branch never runs is not an assertion.
@@ -649,7 +649,7 @@ else
   _out14b=$( cd "$P14" && bash "$INSTALL" python < /dev/null 2>&1 )
   _lock_sha_after=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
 
-  echo "$_out14b" | grep -q 'fingerprint unchanged' \
+  grep -q 'fingerprint unchanged' <<<"$_out14b" \
     && ok "(14b) no-delta re-run still prints the content-aware skip (hashing more inputs did not defeat idempotency)" \
     || bad "(14b) skip line GONE on a no-delta re-run — the lock now regenerates every pass (emittedAt churn): $(echo "$_out14b" | grep -i 'rules-lock' | tr '\n' '|' | cut -c1-160)"
 

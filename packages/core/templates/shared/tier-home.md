@@ -36,7 +36,7 @@ the paths against the consumer's repo root — not against the doc's own install
 
 **Who classifies:** the senior interactive session (the top-tier model working with the operator) decides the tier at the moment of dispatch — a judgment, never an automated classifier. Building a «simple vs complex» auto-detector would be `#parallel-evolution-creep` over a judgment call; per `attention-is-not-a-mechanism.md` §1, a judgment may be the decision AUTHORITY, never faked as a mechanical gate. This section exists so the classification is applied by **fixed criteria**, not re-invented per task.
 
-**Tiers are RELATIVE capability tiers, not hard-coded models** (same posture as `night-mode/SKILL.md` «Overnight model posture» paragraph, the SSOT for the tier→model instantiation — the window slides to whatever the active harness offers, so this stays AI-agnostic). This section owns the _criteria_; night-mode + the aif runtime profile config own _which model fills which tier_. Roles below: **top tier** = the strongest reasoner (plans complex work, reviews from above); **executor tier** = the cheaper strong-agentic model (plans simple work, implements, reviews from below). _Current instantiation on this operator's stack (2026-07, NOT load-bearing — lives in the profile config, not here): top = Opus, executor = GLM._
+**Tiers are RELATIVE capability tiers, not hard-coded models** (same posture as `night-mode/SKILL.md` «Overnight model posture» paragraph, the SSOT for the tier→model instantiation — the window slides to whatever the active harness offers, so this stays AI-agnostic). This section owns the _criteria_; night-mode + the aif runtime profile config own _which model fills which tier_. Roles below: **top tier** = the strongest reasoner (plans complex work, reviews from above); **executor tier** = the cheaper strong-agentic model (plans simple work, implements, reviews from below). _Current instantiation on this operator's stack (2026-10, NOT load-bearing — lives in the profile config and the night-mode posture, not here): top = Fable/Opus in host sessions, executor = GLM inside the aif factory and Sonnet for in-session implementer + fix subagents. The executor tier implements and fixes; the review layer above it is the safety net, so in an SDD / night-mode run implementer and fix work is never raised to the review tier «for quality» (orchestrator Mode A delegation picks subagent models by task difficulty instead — `.claude/skills/orchestrator/SKILL.md` «Model rule for Mode A») (parity with night-mode is gated by `packages/core/principles/49-executor-tier-parity.test.ts` in the source repo)._
 
 **Two questions, three tiers:**
 
@@ -57,6 +57,15 @@ the paths against the consumer's repo root — not against the doc's own install
 **Tie-breaker (binding):** when unsure between Tier 1 and Tier 2, default to **Tier 2 (top tier plans)**. A wrong-but-cheap plan from the weaker tier costs a full re-do downstream; over-investing one planning pass is the cheaper error. This matches the project thesis «decisions with a real cost of error route to the stronger tier».
 
 **Discriminator in one line:** if you can state the «how» in a single sentence and the rest is expansion → Tier 1; if stating the «how» forces you to _choose_ → Tier 2.
+
+**Rework routing (binding; added 2026-10-01, not part of the verbatim lift).** The tiers above classify new work by how hard its _plan_ is. Rework of already-adjudicated work is routed by one question: **does the acceptance report leave a design decision open?**
+
+| Rework case          | Trigger (fixed criteria)                                                                                                                          | Who does it                        | Mechanic                                                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| specified rework     | the report (fidelity / acceptance / code review) names every fix at `file:line` and offers no choice between approaches; the root cause is stated | the current host session, in place | fix in-session on the existing branch/PR — no round-2 kickoff, no re-dispatch to aif; the cold seats at the PR boundary still run, so the acceptance contour is unbroken |
+| open-decision rework | the report offers a choice, the root cause is unclear, or a fix changes the kickoff's deliverable set                                             | per the Tier 0/1/2 criteria above  | normal tier routing (a round-2 kickoff is a new plan)                                                                                                                    |
+
+Why: a report that already specifies every fix has spent the planning judgment Tier 2 exists to buy; re-dispatching it pays the full plan → implement → review → harvest premium for a plan that already exists (operator directive 2026-07-31, arch-v2-context-pipeline S-A: a one-sentence SKILL.md fix plus one ~50-line function had been drafted as a round-2 kickoff). Scope: work whose branch is already on the host. This covers a post-harvest code-review `REVISE` too (`/dispatcher` §2.5). A factory task that `/dispatcher` still holds pre-egress on a `FIDELITY: REVISE` (§2.4, factory depth only) keeps its own rework path through the aif task — the fail-closed fidelity gate is not bypassed. Tie-breaker: unsure whether a decision is open → treat it as open.
 
 The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packages/runtime-bridge` (header-region-only parse in `kickoff.ts`, name→id resolution in `AifHandoffBackend.ts` — it resolves an arbitrary profile _name_, not a hard-coded model); the per-mode project defaults Tier 2 relies on live in the aif runtime profile config (Plan→top tier, Review/Task→executor tier).
 
@@ -83,20 +92,29 @@ Columns: `| Capability absent | Tier-system degradation | Current evidence sourc
 | no Fable (top-tier advisor seat absent — Claude-stack-specific instance of «the top-tier model is unavailable») | The advisor seat (night-mode «top tier → advisor + SDD's final whole-branch review», currently instantiated as Fable on this operator's Claude stack) slides down to the next-available tier. Per night-mode: «Claude with no Fable → [advisor Opus, executor Sonnet, cheap Haiku]» — Opus takes the advisor seat; the tier-routing criteria and the executor tier are unaffected. This is an instantiation-level degradation, not a criteria-level one.                                                                                                                                                                                                      | `.claude/skills/night-mode/SKILL.md:17`: «Claude with no Fable → [advisor Opus, executor Sonnet, cheap Haiku]». Spec §4 A3 (`docs/superpowers/specs/2026-07-23-beta-program-design.md:262`): «no Fable → Opus tops».                                                                                                                                                                                                            | TO-BE-VALIDATED by C3 — **C3 probe class: top-tier advisor seat enumerator** over `runtime-bridge/runtime-profiles` + `night-mode/SKILL.md` advisor-consult mechanism (delta item 7). Built in umbrella C, post-A3.                                                                                                                                                                          |
 | non-CC harness (Claude Code primitives absent — zcode/GLM/other)                                                | Per `night-mode/SKILL.md:19` portability table: the loop runs on any harness with sequential subagent dispatch; CC-named primitives degrade gracefully — `Workflow` (context-economy) → manual summaries-only discipline; `ScheduleWakeup` (quota-backoff) → harness sleep/resume or manual; `isolation:"worktree"` (parallel executors) → sequential; subagent **hooks** (digest/report injection) absent on zcode event set → carried in the dispatch prompt instead. Per-artifact: 16 zcode plugin twins (S1 inventory §1.7) carry the dispatch surface on the plugin channel. Net: only parallel-executor speedup and hook-based context-hygiene degrade. | `.claude/skills/night-mode/SKILL.md:19`: full portability table (verified 2026-07-04: `~/.zcode/cli/agents/` holds real subagent sessions). S1 inventory §1.7 (`docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md:86-94`): 16 zcode twins catalogued. Spec §4 A3 (`docs/superpowers/specs/2026-07-23-beta-program-design.md:262-263`): «non-CC harness → per-artifact degradations (validated by C3)».       | TO-BE-VALIDATED by C3 — **C3 probe class: harness-portability degradation enumerator** over `plugin/hooks/` zcode twins + `.claude/rules/zcode-parity-doctrine.md §2` census. C3 verifies the per-artifact degradation claims by exercising the non-CC harness path end-to-end (night-mode §5 declares portability «designed-not-proven» as of S3 stage time). Built in umbrella C, post-A3. |
 
+> **Where the evidence paths above live (consumer reachability):** repo-root `CLAUDE.md`,
+> `.claude/rules/…`, `plugin/hooks/…`, `docs/superpowers/specs/…` and `docs/meta-factory/research-patches/…` are framework-repo
+> records — NOT delivered to your install; read them on the public tree at
+> <https://github.com/artyhoo/getff>. The `.claude/skills/night-mode/SKILL.md` citations DO
+> resolve on your machine: the `env`/`factory` profiles install the night-mode skill into
+> `.claude/skills/` (line numbers match — the delivery transform rewrites links in place and
+> never reflows lines).
+
 ---
 
-## §4 Payload home — F-A′ PARKED
+## §4 Payload home — F-A′ (resolved 2026-08-07)
 
-> **Fork status:** **PARKED** (HANDOFF_MODE=1 worker, kickoff §7). Decision deferred to the
-> maintainer. Both candidate install locations are wired in `setup.d/30-templates.sh` per the
-> parking discipline; the maintainer's post-decision follow-up removes the unchosen path.
+> **Fork status:** **RESOLVED 2026-08-07 (operator-delegated) — Option A shipped, Option B
+> dropped** (Resolution at the end of this section). The tradeoff below is design history. Only
+> Option A is wired: `setup.d/30-templates.sh` §3e installs `.ai-factory/tier-home.md` (env+
+> profiles); the Option B skill-context slot was never installed (no live reader).
 
 **The fork (spec §11 F-A′):** the spec explicitly leaves the payload home open: «pick the home
 that the C1 AGENTS.md pointer + non-CC harnesses read most cheaply; decided in A3 planning with
-a one-beat read test». Under the autonomous worker posture the one-beat test is not run; the
-decision is parked.
+a one-beat read test». Under the autonomous worker posture the one-beat test had not run at
+ship time; the Fork status above records the outcome.
 
-**Option A — `.ai-factory/tier-home.md` (shipped default for the PARKED path):**
+**Option A — `.ai-factory/tier-home.md` (the shipped default):**
 
 - **Pros:** readable by `AGENTS.md` pointer + non-CC harnesses cheaply (just a file on disk);
   no skill-context mechanism required; lighter-weight; matches the existing `.ai-factory/` doc
@@ -116,8 +134,9 @@ aif-review,aif-rules-check}/SKILL.md` pattern.
 
 **Decision rule (kickoff §1.1 + §7):** DECIDED via one-beat read test under interactive mode
 (author the doc, then for each candidate home check whether a fresh AGENTS.md-following agent +
-a non-CC harness (zcode) read it cheaply; pick the cheaper). PARKED under autonomous worker
-posture; both options shipped so the maintainer's decision is delete-one-not-rewrite.
+a non-CC harness (zcode) read it cheaply; pick the cheaper). This test did NOT run pre-ship
+(autonomous worker posture) — the Resolution below supplies the outcome; Option B was never
+installed (no live reader), so there was nothing to delete-one-of.
 
 **Resolution (2026-08-07, operator-delegated):** Option A — the install step copies the doc
 source (`packages/core/templates/shared/tier-home.md`) to `.ai-factory/tier-home.md` only,

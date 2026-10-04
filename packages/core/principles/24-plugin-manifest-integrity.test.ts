@@ -42,6 +42,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 
 // A REAL YAML parser — the point of the P3 strengthening (a presence-regex cannot see a parse
 // error). js-yaml@4.1.1 is transitively present via the markdownlint-cli2 (root) + eslint
@@ -393,6 +394,219 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
 
 const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
+// ── (j) source-hash manifest — the ground truth of the consumer yield (spec 2026-09-28 D8/D10/D11) ──
+// plugin/hooks/run-hook.cmd silences a plugin hook in a consumer only when the installed copy hashes
+// to plugin/hooks/lib/source-sha256.txt. A stale line would let an OLDER installed copy silence a
+// newer plugin copy; a missing entry silently keeps the duplicate; a diverged packages/core/hooks
+// copy means the installer delivers bytes the manifest does not describe.
+//
+// D5 ruling (supersedes an earlier draft of this check): on the plugin channel the
+// `[output-language]` line has ONE owner, plugin/hooks/inject-output-language. Any other plugin
+// hook may carry the literal text only behind the `AIF_HOOK_CHANNEL` runtime guard, with a
+// `plugin:*)` arm whose body is `:` (no emission). The bootstrap twin that first needed the guard
+// stopped shipping with the SessionStart move (#1925); the check now sweeps every plugin hook, so
+// a future twin cannot bring the second line back. The companion half is plugin/hooks/run-hook.cmd,
+// which must export `AIF_HOOK_CHANNEL=plugin` so such a guard, and the D12 prelude's
+// never-mark-the-twin rule (.claude/hooks/lib/hook-live.sh), actually fire on the plugin channel.
+const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
+
+// Positional, not presence-only: every code line (comments dropped) that carries
+// `[output-language]` must sit between a `case "${AIF_HOOK_CHANNEL:-}…" in` opener and its
+// `esac`, and that block must hold the silent `plugin:*) : ;;` arm. Guard text that exists only
+// in a comment, or an extra unconditional echo outside the block, is RED. The silent arm must
+// also come BEFORE any emitting line, because case takes the first matching arm. The runtime
+// CR3 arm in tests/plugin/run-hook.test.sh still owns the one-line count end to end.
+export function bootstrapLanguageLineGuarded(src: string): boolean {
+  const lines = src.split('\n').map((l) => l.replace(/^\s*#.*$/, ''));
+  let open = -1;
+  let guardedBlock = false;
+  for (const line of lines) {
+    if (open < 0 && /^\s*case\s+"\$\{AIF_HOOK_CHANNEL:-\}[^"]*"\s+in\b/.test(line)) {
+      open = 1;
+      guardedBlock = false;
+      continue;
+    }
+    if (open > 0) {
+      if (/^\s*case\b/.test(line)) open++;
+      if (/^\s*esac\b/.test(line) && --open === 0) {
+        open = -1;
+        continue;
+      }
+      if (/^\s*plugin:\*\)\s*:\s*;;/.test(line)) guardedBlock = true;
+      if (line.includes('[output-language]') && !guardedBlock) return false;
+      continue;
+    }
+    if (line.includes('[output-language]')) return false;
+  }
+  return true;
+}
+
+export function sourceHashManifestViolations(root: string): string[] {
+  const out: string[] = [];
+  const rel = 'plugin/hooks/lib/source-sha256.txt';
+  const read = (p: string) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : '');
+  let want = '';
+  try {
+    want = execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    out.push(`${rel}: the writer failed — ${String((e as { stderr?: string }).stderr ?? e).trim()}`);
+  }
+  const have = read(rel);
+  if (want && want !== have) out.push(`${rel} is stale — run: bash scripts/generate-plugin-twins.sh`);
+  const hookDir = join(root, 'plugin/hooks');
+  for (const n of existsSync(hookDir) ? readdirSync(hookDir, { withFileTypes: true }) : []) {
+    if (!n.isFile() || ['inject-output-language', 'run-hook.cmd', 'hooks.json'].includes(n.name)) continue;
+    if (!bootstrapLanguageLineGuarded(read(`plugin/hooks/${n.name}`)))
+      out.push(`plugin/hooks/${n.name} emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone`);
+  }
+  if (!read('plugin/hooks/inject-output-language').includes('[output-language]'))
+    out.push('plugin/hooks/inject-output-language no longer emits [output-language] — the line would reach nobody');
+  if (!read('plugin/hooks/run-hook.cmd').includes('AIF_HOOK_CHANNEL=plugin'))
+    out.push('plugin/hooks/run-hook.cmd no longer exports AIF_HOOK_CHANNEL=plugin — the channel guard above cannot fire');
+  const twinDir = join(root, 'plugin/hooks');
+  const twins = existsSync(twinDir) ? readdirSync(twinDir) : [];
+  for (const n of twins) {
+    const a = read(`.claude/hooks/${n}.sh`);
+    const b = read(`packages/core/hooks/${n}.sh`);
+    if (a && b && a !== b)
+      out.push(`packages/core/hooks/${n}.sh differs from .claude/hooks/${n}.sh — the installer delivers bytes the manifest does not describe`);
+  }
+  const installer = ['setup.d/10-skills.sh', 'setup.d/45-python.sh', 'install.sh'].map(read).join('\n');
+  const delivered = new Set([...installer.matchAll(/\.claude\/hooks\/([a-z0-9-]+)\.sh/g)].map((m) => m[1]));
+  for (const n of delivered) {
+    if (!twins.includes(n)) continue;
+    if (!have.split('\n').some((l) => l.endsWith(`  ${n}.sh`)))
+      out.push(`${n}: the installer delivers it and the plugin twins it, but ${rel} has no entry — declare the files it reads on # @plugin-yield-deps`);
+  }
+  return out;
+}
+
+
+// ── (i) version-bump gate — a payload change ships under a NEW version ────────────────────────
+// Claude Code caches an installed plugin under `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`
+// and refreshes it only when the declared version changes: «If the resolved version matches what
+// a user already has, `/plugin update` and auto-update skip the plugin»
+// (https://code.claude.com/docs/en/plugin-marketplaces). ZCode's update check is the same shape
+// (docs/meta-factory/research-patches/2026-09-13-cdn-zcode-official-research.md F4), and the
+// marketplace this repo publishes is `artyhoo/getff` at its DEFAULT branch — staging — so every
+// merge that changes `plugin/**` is a release. Measured 2026-09-23: the D38 fix (#1783) edited
+// `plugin/hooks/end-of-turn-reminder` under an unchanged 0.3.0, the operator's cache kept the
+// pre-D38 twin (`grep -c gate_base_turn` → 0 in the cache, 3 in the repo), and that stale copy
+// ran beside the fixed project hook on every Stop — the D39 incident. Re-running the update
+// command could not have helped: same version, nothing to fetch.
+//
+// TWO comparison modes, because one cannot see everything:
+//   • merge-base (PRs, local pre-push, non-trunk pushes): the merge-base with the branch the change
+//     lands on — GITHUB_BASE_REF when that is staging or main, else staging (a stacked PR's base is
+//     a feature branch whose own bump must not force a second one). «Bump once per release», not
+//     per commit: after the first payload-changing PR bumps, later branches see a version that
+//     already differs from their base and pass.
+//   • direct (a push to staging/main, `before..after`): the trunk check. Staging protection is NOT
+//     strict (`required_status_checks.strict: false`, measured 2026-09-23), so two PRs branched
+//     from the same base can each bump 0.3.1 → 0.3.2, each go green against that base, and land
+//     one after the other with no conflict — identical edits to the `"version"` line merge
+//     cleanly. Only the second landing's own `before..after` shows a payload change under an
+//     unchanged version. Same event split as the D26 docs-refresh job in audit-self.yml.
+// A version must also move FORWARD: a cache holding 0.3.2 is not refreshed by a «bump» to 0.3.1.
+
+/** Numeric `x.y.z` (a pre-release/build suffix is ignored), or null when the string is not one. */
+function parseSemver(v: string): [number, number, number] | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(v);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+/** Pure: the violation for one base→head comparison, or null. Exported shape for (i)'s arms. */
+export function versionBumpViolation(
+  changedPayload: readonly string[],
+  baseVersion: string | undefined,
+  headVersion: string | undefined,
+): string | null {
+  if (changedPayload.length === 0) return null;
+  if (baseVersion === undefined) return null; // the plugin did not exist at the base
+  const b = parseSemver(baseVersion);
+  const h = headVersion === undefined ? null : parseSemver(headVersion);
+  const forward =
+    b && h
+      ? h[0] !== b[0]
+        ? h[0] > b[0]
+        : h[1] !== b[1]
+          ? h[1] > b[1]
+          : h[2] > b[2]
+      : headVersion !== baseVersion;
+  if (forward) return null;
+  const shown =
+    changedPayload.slice(0, 5).join(', ') +
+    (changedPayload.length > 5 ? ', …' : '');
+  return (
+    `plugin payload changed (${changedPayload.length} file(s): ${shown}) but plugin.json version ` +
+    `went ${baseVersion} → ${headVersion}, not forward — installed caches refresh only on a new ` +
+    `version. Bump the version in plugin/.claude-plugin/plugin.json, .claude-plugin/marketplace.json ` +
+    `(both fields) and plugin/install/fetch-and-wire.sh RAT_PLUGIN_VERSION (arms (a)/(c) enforce ` +
+    `the parity).`
+  );
+}
+
+export type BumpMode = 'merge-base' | 'direct';
+
+/** Which base (i) compares against, from the CI event environment. On a trunk push the
+ *  `before` sha comes from the event payload GitHub writes to GITHUB_EVENT_PATH on every run —
+ *  no workflow wiring. An unreadable payload THROWS: falling back to the merge-base there would
+ *  compare HEAD with itself, a silent pass. `readEvent` is the seam the arms stub. */
+export function bumpComparisonBase(
+  env: NodeJS.ProcessEnv,
+  readEvent: (path: string) => string = (path) => readFileSync(path, 'utf8'),
+): {
+  ref: string;
+  mode: BumpMode;
+} {
+  const trunk = (b: string | undefined): b is string =>
+    b === 'staging' || b === 'main';
+  if (env.GITHUB_EVENT_NAME === 'push' && trunk(env.GITHUB_REF_NAME)) {
+    const before = String(
+      (JSON.parse(readEvent(env.GITHUB_EVENT_PATH ?? '')) as { before?: unknown }).before ?? '',
+    );
+    // An all-zero `before` = the push created the branch: no range exists (D26 precedent).
+    if (before && !/^0+$/.test(before)) return { ref: before, mode: 'direct' };
+  }
+  return {
+    ref: `origin/${trunk(env.GITHUB_BASE_REF) ? env.GITHUB_BASE_REF : 'staging'}`,
+    mode: 'merge-base',
+  };
+}
+
+/** Git plumbing for (i): resolve the base, read both sides. Throws when `baseRef` cannot be
+ *  resolved — the caller decides whether that is a skip or a failure. */
+export function pluginVersionBumpCheck(
+  repo: string,
+  baseRef: string,
+  mode: BumpMode = 'merge-base',
+): string | null {
+  const git = (...args: string[]): string =>
+    execFileSync('git', ['-C', repo, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  const base =
+    mode === 'direct'
+      ? git('rev-parse', '--verify', `${baseRef}^{commit}`).trim()
+      : git('merge-base', baseRef, 'HEAD').trim();
+  const changed = git('diff', '--name-only', base, 'HEAD', '--', 'plugin/')
+    .split('\n')
+    .filter(Boolean);
+  const versionAt = (rev: string): string | undefined => {
+    try {
+      return (
+        JSON.parse(git('show', `${rev}:plugin/.claude-plugin/plugin.json`)) as {
+          version?: string;
+        }
+      ).version;
+    } catch {
+      return undefined;
+    }
+  };
+  return versionBumpViolation(changed, versionAt(base), versionAt('HEAD'));
+}
+
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
   // marketplace.json lives at the repo-root marketplace dir; plugin.json is resolved FROM its
@@ -451,15 +665,17 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     // Same @dual-pair anchor (the §5 dual-implementation contract).
     expect(plugin).toMatch(/@dual-pair: rule-path-scoping/);
     expect(source).toMatch(/@dual-pair: rule-path-scoping/);
-    // The ONLY legitimate divergence is the relocation (header + the project-dir resolution,
-    // which lives ABOVE glob_match). From `glob_match()` to EOF — the matcher + injection core —
-    // the two MUST be byte-identical, so a regression inside that logic is caught (not just a
-    // string-presence check). S6 cold-review hardening.
+    // The ONLY legitimate divergence is the relocation (header, the liveness prelude, and the
+    // project-dir + card-dir resolution, which all live ABOVE the jq guard). From the jq guard to
+    // EOF — the arm dispatch, the once-cache, the glob translation and the injection core — the
+    // two MUST be byte-identical, so a regression inside that logic is caught (not just a
+    // string-presence check). S6 cold-review hardening; the anchor moved from `glob_match()` to
+    // the jq guard when trigger build slice 1 put the arm dispatch above the matcher.
     const coreOf = (s: string): string => {
-      const i = s.indexOf('glob_match()');
+      const i = s.indexOf('\ncommand -v jq >/dev/null');
       return i === -1 ? '' : s.slice(i);
     };
-    expect(coreOf(plugin), 'plugin hook must contain the glob_match core').not.toBe('');
+    expect(coreOf(plugin), 'plugin hook must contain the core from the jq guard on').not.toBe('');
     expect(coreOf(plugin), 'plugin/hooks/inject-matching-rule core logic drifted from .claude/hooks/inject-matching-rule.sh').toBe(coreOf(source));
   });
 
@@ -653,9 +869,318 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     }
   });
 
+  // ── (i) version-bump gate (D39) ─────────────────────────────────────────────
+  const bump = bumpComparisonBase(process.env);
+  const bumpBase = bump.ref;
+  const bumpBaseResolvable = (() => {
+    try {
+      execFileSync(
+        'git',
+        [
+          '-C',
+          REPO_ROOT,
+          'rev-parse',
+          '--verify',
+          '--quiet',
+          `${bumpBase}^{commit}`,
+        ],
+        {
+          stdio: 'ignore',
+        },
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  it('(i) real-tree: a plugin payload change since the base carries a version bump', () => {
+    // In CI the base MUST resolve (the job checks out with fetch-depth 0) — a skip there would
+    // be a silent pass. Locally, a clone without the remote ref is the only skip.
+    if (!bumpBaseResolvable) {
+      expect(
+        process.env.CI,
+        `${bumpBase} unresolvable in CI — refusing to skip the gate`,
+      ).toBeFalsy();
+      return;
+    }
+    const v = pluginVersionBumpCheck(REPO_ROOT, bumpBase, bump.mode);
+    expect(v, v ?? '').toBeNull();
+  });
+
+  it('(i) paired-negative: a payload edit under the base version is RED; the bump, and no payload edit, are GREEN', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'p24-bump-'));
+    try {
+      const git = (...a: string[]) =>
+        execFileSync('git', ['-C', tmp, ...a], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      git('init', '-q', '-b', 'staging');
+      git('config', 'user.email', 't@example.invalid');
+      git('config', 'user.name', 't');
+      const pj = (v: string) =>
+        writeFileSync(
+          join(tmp, 'plugin/.claude-plugin/plugin.json'),
+          JSON.stringify({ name: 'x', version: v }),
+        );
+      mkdirSync(join(tmp, 'plugin/.claude-plugin'), { recursive: true });
+      mkdirSync(join(tmp, 'plugin/hooks'), { recursive: true });
+      pj('0.3.0');
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'old\n');
+      writeFileSync(join(tmp, 'README.md'), 'r\n');
+      git('add', '-A');
+      git('commit', '-qm', 'base');
+      git('checkout', '-qb', 'feature');
+
+      // A change outside the payload needs no bump.
+      writeFileSync(join(tmp, 'README.md'), 'r2\n');
+      git('commit', '-qam', 'docs');
+      expect(
+        pluginVersionBumpCheck(tmp, 'staging'),
+        'non-payload change',
+      ).toBeNull();
+
+      // The D38 shape: the twin changes, the version does not.
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'new\n');
+      git('commit', '-qam', 'twin edit');
+      const red = pluginVersionBumpCheck(tmp, 'staging');
+      expect(red, 'a twin edit under an unchanged version must be RED').toMatch(
+        /plugin\/hooks\/h/,
+      );
+      expect(red).toMatch(/0\.3\.0 → 0\.3\.0, not forward/);
+
+      pj('0.3.1');
+      git('commit', '-qam', 'bump');
+      expect(
+        pluginVersionBumpCheck(tmp, 'staging'),
+        'the bump clears it',
+      ).toBeNull();
+
+      // The next release, branched AFTER this one landed, needs its own bump.
+      git('checkout', '-q', 'staging');
+      git('merge', '-q', '--no-ff', '-m', 'land feature', 'feature');
+      git('checkout', '-qb', 'second');
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'newer\n');
+      git('commit', '-qam', 'second twin edit, no bump');
+      expect(
+        pluginVersionBumpCheck(tmp, 'staging'),
+        'the next release needs its own bump',
+      ).not.toBeNull();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('(i) paired-negative: two PARALLEL PRs bumping to the same version — green each on its own base, RED on the trunk push that lands the second', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'p24-par-'));
+    try {
+      const git = (...a: string[]) =>
+        execFileSync('git', ['-C', tmp, ...a], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      git('init', '-q', '-b', 'staging');
+      git('config', 'user.email', 't@example.invalid');
+      git('config', 'user.name', 't');
+      const pj = (v: string) =>
+        writeFileSync(
+          join(tmp, 'plugin/.claude-plugin/plugin.json'),
+          JSON.stringify({ name: 'x', version: v }) + '\n',
+        );
+      mkdirSync(join(tmp, 'plugin/.claude-plugin'), { recursive: true });
+      mkdirSync(join(tmp, 'plugin/hooks'), { recursive: true });
+      pj('0.3.1');
+      writeFileSync(join(tmp, 'plugin/hooks/a'), 'a\n');
+      writeFileSync(join(tmp, 'plugin/hooks/b'), 'b\n');
+      git('add', '-A');
+      git('commit', '-qm', 'base');
+      // Both PRs branch from the SAME base and bump to the SAME value.
+      for (const [br, f] of [
+        ['pr-a', 'a'],
+        ['pr-b', 'b'],
+      ] as const) {
+        git('checkout', '-q', '-b', br, 'staging');
+        writeFileSync(join(tmp, `plugin/hooks/${f}`), `${f}2\n`);
+        pj('0.3.2');
+        git('commit', '-qam', `${br}: twin edit + bump`);
+        expect(
+          pluginVersionBumpCheck(tmp, 'staging'),
+          `${br} is green against its own base`,
+        ).toBeNull();
+      }
+      git('checkout', '-q', 'staging');
+      git('merge', '-q', '--no-ff', '-m', 'land pr-a', 'pr-a');
+      const before = git('rev-parse', 'HEAD').trim();
+      // The identical `"version"` edit merges cleanly — no conflict forces a merge-forward.
+      git('merge', '-q', '--no-ff', '-m', 'land pr-b', 'pr-b');
+      expect(
+        pluginVersionBumpCheck(tmp, before, 'direct'),
+        'the trunk push that lands pr-b ships new payload under the 0.3.2 pr-a already published',
+      ).toMatch(/plugin\/hooks\/b/);
+      // …while the push that landed pr-a alone is clean: the direct arm is not a blanket RED.
+      git('checkout', '-q', '-b', 'probe', before);
+      expect(
+        pluginVersionBumpCheck(tmp, 'HEAD~1', 'direct'),
+        'landing pr-a alone',
+      ).toBeNull();
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('(i) base selection and version direction: trunk pushes compare before..after; stacked PRs use staging; a downgrade is RED', () => {
+    // The stub echoes the event path back as `before`, so each case names its own sha.
+    const stubEvent = (path: string) => JSON.stringify({ before: path });
+    expect(
+      bumpComparisonBase(
+        {
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_REF_NAME: 'staging',
+        GITHUB_EVENT_PATH: 'abc123',
+      },
+        stubEvent,
+      ),
+    ).toEqual({ ref: 'abc123', mode: 'direct' });
+    expect(
+      bumpComparisonBase(
+        {
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_REF_NAME: 'staging',
+        GITHUB_EVENT_PATH: '0'.repeat(40),
+      },
+        stubEvent,
+      ).mode,
+    ).toBe('merge-base');
+    expect(
+      bumpComparisonBase(
+        {
+        GITHUB_EVENT_NAME: 'push',
+        GITHUB_REF_NAME: 'chore/x',
+        GITHUB_EVENT_PATH: 'abc123',
+      },
+        stubEvent,
+      ),
+    ).toEqual({ ref: 'origin/staging', mode: 'merge-base' });
+    expect(
+      bumpComparisonBase({
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_BASE_REF: 'main',
+      }).ref,
+    ).toBe('origin/main');
+    expect(
+      bumpComparisonBase({
+        GITHUB_EVENT_NAME: 'pull_request',
+        GITHUB_BASE_REF: 'feature/stacked',
+      }).ref,
+    ).toBe('origin/staging');
+    expect(bumpComparisonBase({}).ref).toBe('origin/staging');
+    expect(
+      () =>
+        bumpComparisonBase(
+          { GITHUB_EVENT_NAME: 'push', GITHUB_REF_NAME: 'main', GITHUB_EVENT_PATH: '/nonexistent/event.json' },
+        ),
+      'an unreadable trunk-push payload must fail, not fall back to HEAD-vs-HEAD',
+    ).toThrow();
+    const files = ['plugin/hooks/h'];
+    expect(
+      versionBumpViolation(files, '0.3.2', '0.3.1'),
+      'a downgrade never refreshes a 0.3.2 cache',
+    ).not.toBeNull();
+    expect(
+      versionBumpViolation(files, '0.3.9', '0.4.0'),
+      'minor bump',
+    ).toBeNull();
+    expect(
+      versionBumpViolation(files, '0.3.1', '0.3.1'),
+      'unchanged',
+    ).not.toBeNull();
+    expect(
+      versionBumpViolation([], '0.3.1', '0.3.1'),
+      'no payload change',
+    ).toBeNull();
+  });
+
   // ── (f) T15 self-application — this gate is itself an executable artifact ────
   it('(f) self-application: the integrity check is a pure function, exercised both green and red', () => {
     // checkPluginIntegrity is exported + run on the real tree (a) AND the broken fixture (b).
     expect(typeof checkPluginIntegrity).toBe('function');
+  });
+
+  // ── (j) source-hash manifest (spec 2026-09-28 D8/D10/D11, D5 ruling) ─────────
+  it('(j) real-tree: the source-hash manifest is fresh and complete, and the language line has one owner', () => {
+    expect(sourceHashManifestViolations(REPO_ROOT)).toEqual([]);
+  });
+
+  it('(j) paired-negative: each way the manifest can lie is RED', () => {
+    const root = mkdtempSync(join(tmpdir(), 'p24j-'));
+    const w = (p: string, s: string) => {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), s);
+    };
+    const pin = () => w('plugin/hooks/lib/source-sha256.txt', execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8' }));
+    try {
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      w('plugin/hooks/a', '#!/usr/bin/env bash\n# AUTO-GENERATED from .claude/hooks/a.sh\necho a\n');
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      // Green baseline for the D5 pair: the bootstrap twin carries the literal text ONLY behind
+      // the AIF_HOOK_CHANNEL guard, and run-hook.cmd exports the channel that guard reads.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      w('setup.d/10-skills.sh', `register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/a.sh"' "a"\n`);
+      pin();
+      expect(sourceHashManifestViolations(root)).toEqual([]);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho CHANGED\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/is stale/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n. "$(dirname "$0")/x.sh"\n');
+      pin();
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/a: the installer delivers it .* no entry/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n# @plugin-yield-deps: gone.sh\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/writer failed/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      pin();
+      // D5 ruling: an unguarded [output-language] line in the bootstrap twin is RED.
+      w('plugin/hooks/inject-session-bootstrap', 'echo "[output-language] x"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits \[output-language\] on the plugin channel/);
+      // Presence is not enough (task-4 review): guard text only in a comment is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        '# case "${AIF_HOOK_CHANNEL:-}:x" in\n#  plugin:*) : ;;\necho "[output-language] x"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... a real guard plus one stray unconditional echo outside it is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\necho "[output-language] y"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... and an emitting arm placed BEFORE the silent plugin arm is RED (first match wins).
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  *:ru) echo "[output-language] x" ;;\n  plugin:*) : ;;\nesac\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // Re-guard it, then break the OTHER half of the D5 pair: run-hook.cmd without the export.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\necho "no channel export"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/run-hook\.cmd no longer exports AIF_HOOK_CHANNEL=plugin/);
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      rmSync(join(root, 'plugin/hooks/inject-output-language'));
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/no longer emits \[output-language\]/);
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      w('packages/core/hooks/a.sh', '#!/usr/bin/env bash\necho other\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/packages\/core\/hooks\/a\.sh differs/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -65,7 +65,7 @@ function hasGh(): boolean {
 
 /**
  * Check whether the hook's own tsx resolution will succeed. Post-fix the hook resolves tsx
- * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:48-62): repo-local,
+ * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:53-67): repo-local,
  * main-worktree via `git --git-common-dir`, then `command -v tsx` on PATH. This guard must
  * mirror that tier list or every test under describe.skipIf(!TSX) silently skips when the
  * suite happens to run in a linked worktree (the very defect class this sweep closes — the
@@ -138,7 +138,7 @@ function writeOrchestratorPrompt(content: string, name = 'kickoff.md'): string {
  * Run validate-prompt.sh with the given stdin JSON. Returns exit code.
  * Uses `spawnSync` identical to the check-hook-marker.test.ts reference pattern.
  * env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the
- * exit-code branch (mirrors deps-hash-check.test.ts:106). Pass ZCODE_PROJECT_DIR to
+ * exit-code branch (mirrors deps-hash-check.test.ts:339). Pass ZCODE_PROJECT_DIR to
  * exercise the JSON additionalContext branch (hook:47-50).
  */
 function runHook(
@@ -610,7 +610,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // Tier 2 is the only path that can resolve tsx — exactly the defect class scenario.
     const wt = _mkdtempSync(_join(_tmpdir(), 'vp-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
-    _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
+    // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
+    // real post-checkout hook runs scripts/link-coordination.sh, which walks the operator's
+    // ~/.claude-coordination store (519 files on 2026-10-01, ~600 git spawns) and took
+    // 18-28 s of this case's 30 s budget under load — a timeout sized by $HOME, not the test.
+    _execSync(`git -c core.hooksPath=/dev/null worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
     tmpWorktrees.push(wt);
     // Overwrite the worktree's checked-out hook with the FIXED working-tree version
     // (HEAD's hook is the pre-fix version; the worktree checks out HEAD).

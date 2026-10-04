@@ -45,7 +45,7 @@ for h in $pop; do
     record channel-coverage "$h" "wired in settings.json but absent from tree" 1 WIRED-SCRIPT-MISSING
     continue
   fi
-  # Marker must be on its own comment line (anchored ^# ) — mirrors check-hook-marker.sh:42,
+  # Marker must be on its own comment line (anchored ^# ) — mirrors check-hook-marker.sh:134,
   # so prose documenting the syntax inside a heredoc/backtick is not mis-counted.
   marker=$(grep -m1 -E '^# @(dual-pair|cc-only-rationale):' "$REPO_ROOT/$h" || true)
   if [ -z "$marker" ]; then

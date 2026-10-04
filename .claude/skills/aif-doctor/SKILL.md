@@ -12,10 +12,12 @@ allowed-tools:
   - Bash(ls *)
   - Bash(cat *)
   - Bash(grep *)
+  - Bash(date *)   # GH #1581: age-threshold arithmetic for the -t --tail log windows (§3.7/§3.8)
+  - Bash(awk *)    # GH #1581: age cut on docker logs -t timestamps (§3.7/§3.8)
   - Read
 ---
 
-<!-- @harness-posture: cc-only — deliberate: operator-internal diagnostic runbook, slash-command auto-invocation is CC-native, markdown content readable anywhere (matches the existing @cc-only-rationale, SKILL.md:20) -->
+<!-- @harness-posture: cc-only — deliberate: operator-internal diagnostic runbook, slash-command auto-invocation is CC-native, markdown content readable anywhere (matches the existing @cc-only-rationale, SKILL.md:22) -->
 
 <!-- @cc-only-rationale: operator-internal diagnostic runbook for the maintainer's local aif-handoff stack; the markdown content is harness-agnostic (any session can read it), only the slash-command auto-invocation is CC-native. No portable counterpart to keep in sync → §6 dual-implementation-discipline.md marker is @cc-only, not @dual-pair. -->
 
@@ -64,7 +66,7 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 ## §2 The triage flow
 
-1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.
+1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom, then read the agent log's error levels — `docker logs <agent> --tail 20000 2>&1 | grep -E '"level":(40|50|60)' | tail` — because a provider rejection (§3.9) is recorded nowhere else and every heartbeat probe stays green through it. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.
 2. **Classify** the failure into one §3 mode using the detector signatures. If no §3 mode matches and `bridge-health.sh` is green → report «no known failure mode; collect a fresh symptom» (do NOT speculate, T-AIFDOC-B).
 3. **Emit the mapped fix command** with its file:line / log-line evidence and a one-line reversibility note. Read-only fixes (re-run a probe) you may run; **mutations stop here for GO**.
 4. **On GO** (and only then): run the mutation, re-run the relevant §1 probe to confirm, report the delta.
@@ -75,7 +77,7 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 2026-06-03: it checks container-present / dirty_worktree / park-code+net / dedup; count-free wording — the list grows on incidence, never speculatively).
 
-> The commands below hard-code `aif-handoff-agent-1`. If the compose project was renamed, resolve the real name first (same logic `bridge-health.sh` uses): `C=$(docker ps --filter name=agent --format '{{.Names}}' | grep -i aif | head -1)` and substitute `$C`, or set `RUNTIME_BRIDGE_AGENT_CONTAINER`.
+> The commands below hard-code `aif-handoff-agent-1`. Resolve the real name and docker context first: `bash .claude/skills/aif-doctor/helpers/aif-agent-target.sh` prints `<name><TAB><context>` (an empty context means the current one). Substitute the name, and prefix `DOCKER_CONTEXT=<context>` when one is printed. The helper exits 1 with the candidates when more than one agent container matches, and 2 when none does. `refresh-aif-base.sh`, `heal.sh`, `bridge-health.sh`, `bridge-cleanup.sh`, `harvest.ts` and the dispatcher's in-flight probe all use the same lookup. The PC-hosted stack (2026-09) names it `aif-agent-1` (compose project `aif`), reached from the Mac through docker context `pc`. The in-container path `/home/www/rules-as-tests-aif` follows the aif projects-mount convention (`<host projects dir> -> /home/www`, one subdirectory per project named after its host main clone). On the PC stack that is `/home/etot/aif/projects -> /home/www` (verified 2026-09-30 via `docker inspect aif-agent-1`). For another project, or a different mount, substitute `/home/www/<main-clone dir name>`. `refresh-aif-base.sh` derives the same path and accepts `AIF_CONTAINER_REPO` as an override. The `heal.sh` hook-sync step uses the parent `/home/www`, overridable with `AIF_CONTAINER_REPO_ROOT`. When only `AIF_CONTAINER_REPO` is set, it takes that value's parent directory.
 
 ### §3.1 Runtime native-binary missing → task crash-loops in `planning`
 
@@ -155,10 +157,43 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
 - **The failure class:** a task dispatched while another task of the same project is mid-flight sits in `backlog` for the remainder of the active lane's _current pass_, despite free capacity. A pass ends at task termination (`done`) OR at an internal review→rework boundary (review is the last stage of `processProjectLane`'s single iteration, so a rework request closes the cycle mid-flight). Measured 2026-07-25, two observed windows at `active=1, limit=5` (four slots idle), with `grep -c "at capacity"` over the coordinator log = **0**: (1) **47 minutes** ending when the blocking task reached `done` at `09:37:52.345Z` — same second the coordinator logged `Poll cycle complete` → `Starting poll cycle` (do…while follow-up) → `Auto-queue advanced next backlog task` → `Auto-queue advance pass complete`, and the waiting task's activity opened with `[auto-queue] Advanced by project auto-queue mode (pool 1/5)`; (2) a second task admitted at `11:02:24Z` (worktree created, planner started) after the first task's review gate logged `rework_requested` at `11:00:57.359Z` and `Poll cycle complete` at `11:00:57.365Z` — the same instant, because the review→implementing rework transition ended the pass and closed the cycle, while the first task was still mid-rework. This is **admission latency bounded by the active lane's pass-exit (termination OR rework boundary), not starvation and not capacity** — the «only DELETE frees it» folklore (§3.2) does NOT apply to this state. A task whose review passes on iteration 1 yields exactly one pass (the original 47-min shape); a task with rework rounds opens a window per round.
 - **Detect (read-only):**
   ```bash
-  # no admission since the last advance, while a task is active and capacity is free:
-  docker logs aif-handoff-agent-1 --since 30m | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
-  docker logs aif-handoff-agent-1 --since 30m | grep -c '"at capacity"'                                          # 0 = not a §3.2 capacity problem
-  docker logs aif-handoff-agent-1 --since 30m | grep -c 'Poll cycle already active'                              # >0 = cycle busy → LATENCY, not starvation
+  # no admission since the last advance, while a task is active and capacity is free.
+  # NEVER `docker logs --since <t>`: Docker 29.2.x returns 0 lines whenever the filter has
+  # to exclude anything, so all three counters read permanently 0 and every triage
+  # degenerates to "admission window closed" (GH #1581; corroborated:
+  # docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md).
+  # `--tail N` has its own trap (measured 2026-09-21, Docker 29.8.0, json-file): once N
+  # reaches back past a break in the container's log (one sat between 14:22:11 and the
+  # 14:23:34 container start; a later start at 17:04:41 left none), it returns ONLY the
+  # lines before the break and drops every newer one, and those count to a plausible 0.
+  # So a bigger budget is not a safer one, and a bare count is never trusted: win() cuts the
+  # window (`date -u`, BSD -v first, GNU -d fallback; lexicographic compare at second
+  # resolution; 2>&1 merges stdout+stderr) and returns it ONLY when the slice (a) reaches the
+  # newest line, read first via `--tail 1` (`>=` absorbs lines logged between the two
+  # reads), and (b) starts at or before the cutoff. Otherwise it returns one WINDOW-UNCOVERED
+  # line, which cnt() prints instead of a count. A window that spans a break cannot be
+  # covered by --tail at all: shorten it to start after the break.
+  W30_CUTOFF=$(date -u -v-30M +%FT%T 2>/dev/null || date -u -d '30 minutes ago' +%FT%T)
+  win() {  # win <container> <budget> <cutoff>
+    newest=$(docker logs -t --tail 1 "$1" 2>&1 | awk '{print substr($1,1,19)}')
+    docker logs -t --tail "$2" "$1" 2>&1 | awk -v c="$3" -v n="$newest" '
+      NR == 1 { first = substr($1,1,19) }
+      { last = substr($1,1,19) }
+      substr($1,1,19) >= c { keep[++k] = $0 }
+      END {
+        if (n !~ /^[0-9]/) { print "WINDOW-UNCOVERED: no timestamped log line (" n ")"; exit }
+        if (last < n) { print "WINDOW-UNCOVERED: slice ends " last ", newest line is " n " (--tail stopped at a log break)"; exit }
+        if (first > c) { print "WINDOW-UNCOVERED: slice starts " first ", after cutoff " c " (budget too small, or the window spans a log break)"; exit }
+        for (i = 1; i <= k; i++) print keep[i]
+      }'
+  }
+  cnt() {  # cnt <slice> <grep args>: the count, or the slice's WINDOW-UNCOVERED line
+    case "$1" in WINDOW-UNCOVERED*) echo "$1" ;; *) s=$1; shift; grep "$@" <<<"$s" ;; esac
+  }
+  W30=$(win aif-handoff-agent-1 5000 "$W30_CUTOFF")
+  cnt "$W30" -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
+  cnt "$W30" -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
+  cnt "$W30" -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
   ```
 - **Discriminator (latency vs §3.2 capacity saturation):** the same-second `done` → `Auto-queue advanced` sequence (09:37:52) and the same-instant `rework_requested` → `Poll cycle complete` sequence (11:00:57) together prove admission fires at lane-pass exit, not only at task termination. If `Poll cycle already active` appears in the log alongside a long-running active task and `at capacity` does NOT, the wait is LATENCY (this mode). If `at capacity` appears with `active==limit`, escalate to §3.2 (true capacity saturation). The two are NOT the same mode — §3.2 has zero free slots; this mode has free slots the cycle structure cannot reach until the active lane's current pass ends.
 - **Mechanism (source-verified in `/app/packages/agent/dist/coordinator.js`, all anchors re-checked 2026-07-25):**
@@ -187,19 +222,53 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   curl -s localhost:3009/tasks/<id> | jq -r '.reviewComments' | grep -c '^## Blocking Findings'   # 0 = contract never reached
   # hook-drift discriminator (defect 2) — 0 = pre-fix hook in THIS worktree, 2 = fixed:
   docker exec <agent> grep -c CLAUDE_CODE_ENTRYPOINT <worktreePath>/.claude/hooks/end-of-turn-reminder.sh
-  # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow:
-  docker logs <agent> --since 2h | grep -c 'Structured review contract not satisfied'   # >0 across iterations
+  # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow
+  # (no `--since` and no bare `--tail` count, GH #1581 — needs win()/cnt() from the §3.7 Detect block):
+  W2H_CUTOFF=$(date -u -v-2H +%FT%T 2>/dev/null || date -u -d '2 hours ago' +%FT%T)
+  cnt "$(win <agent> 8000 "$W2H_CUTOFF")" -c 'Structured review contract not satisfied'   # >0 across iterations
   docker exec <api> node -e 'const t=require("better-sqlite3")("/data/aif.sqlite").prepare("SELECT length(auto_review_state_json) n FROM tasks WHERE id=?").get("<id>");console.log(t.n)'  # growing across iterations
   # no-subagent fallback (variant) — reviewComments ~105 chars containing 'Unknown command: /aif-review'
   ```
   Remote-layout note (pc-lan/ssh): keep every remote command inside a single-quoted `sh -c '…'` block — a PowerShell ssh host eats `"`, `$( )`, `{{…}}` and pipes sent bare; or run heal.sh with `AIF_DOCKER_CMD="ssh <host> docker"`.
 - **Fix — mapped by defect (Tier per §4):**
   1. **Hook drift → `heal.sh` hook-sync (SHIPPED with this entry, Tier 1, in-flight-safe):** the heal entrypoint now syncs every base clone's `.claude/hooks/` regular files into each sibling `<base>-feature-*` worktree BEFORE the in-flight interlock (atomic cp+mv per file; overwritten files backed up fail-closed to `/tmp/doctor-hooksync/<ts>/` in the container — no backup, no overwrite; on the SOURCE side symlinks/dirs/extra worktree files are never touched — the §3.5 EEXIST shape). First live run: 371 files across 3 real bases, 176 backed up, loop unaffected. `AIF_HEAL_HOOK_SYNC=0` skips; `AIF_DOCKER_CMD="ssh <host> docker"` reaches remote containers.
-  2. **Release a review park (Tier 2 — GO):** in non-participants mode NO task event exits `review` (`resolveLegacyAction` → 409 "Unknown task event"; `HUMAN_ACTIONS_BY_STATUS.review = []`); the working exit is `POST /tasks/:id/handoff {"executionOwner":"ai","expectedOwnershipRevision":<int>,"expectedExecutionOwner":"human","expectedStatus":"review","reason":…}` — fetch each task's `ownershipRevision` first; retry once on SQLITE_BUSY. Documented in our own `packages/runtime-bridge/src/cli/answer.ts:232` (`reviewEventUnreachableReason`).
+  2. **Release a review park (Tier 2 — GO):** in non-participants mode the legacy dispatcher's ONLY event out of `review` is `complete_review` for a manual-review park (`executionOwner=human` AND `manualReviewRequired=true`, artyhoo/aif-handoff#1) — `answer.ts --task <id> --decision complete_review` sends it; on merged work `harvest.ts --report-merge` does it for you. Every other review task (and `request_review_changes`) gets 409 "Unknown task event"; for those, while the work is NOT merged, the exit is `POST /tasks/:id/handoff {"executionOwner":"ai","expectedOwnershipRevision":<int>,"expectedExecutionOwner":"human","expectedStatus":"review","reason":…}` — fetch each task's `ownershipRevision` first; retry once on SQLITE_BUSY. On merged work a handoff only re-runs a capped review over shipped code — close it instead. Documented in our own `packages/runtime-bridge/src/cli/answer.ts` (`reviewEventUnreachableReason`).
   3. **Bijection-deadlocked state reset (Tier 2 — GO + backup):** the API cannot write `autoReviewState` (`updateTaskSchema` lacks it), so surgery is direct SQLite: `UPDATE tasks SET auto_review_state_json=NULL, manual_review_required=0, review_iteration_count=0 WHERE id=?` — an exact mirror of the state machine's `CLEAN_STATE_RESET` (`packages/shared/src/stateMachine.ts`). Back up all rows first (night backup: `/tmp/doctor-ars-backup.json` in the api container — container-local, gone on rebuild).
   4. **Iteration budget (Tier 1):** `PUT /tasks/:id {"maxReviewIterations":6}` for parked tasks (route is PUT — PATCH 404s); recurrence is closed at the source — the bridge now sends `maxReviewIterations: 4` on every create (`AifHandoffBackend.DEFAULT_MAX_REVIEW_ITERATIONS`).
   5. **`Unknown command: /aif-review` variant:** per-task escape is `PUT {"useSubagents:true}` (the subagent route skips the missing slash command, `reviewer.ts:168`); verified live — security-sidecar completed, code-review ran real commands.
 - **Parked, not prescribed:** the durable fixes for defects 3–4 belong in `lee-to/aif-handoff` — subset adjudication (treat unadjudicated remembered findings as `still_blocking`) and/or dedupe-at-state-write (canonical IDs over normalized text), plus a sane `AGENT_MAX_REVIEW_ITERATIONS` default. Batch them into one base refresh at a board-drain point (§3.4).
+
+### §3.9 Provider quota exhausted (Z.AI 429 [1310]) — blind heartbeat (verified live 2026-09-23)
+
+- **The failure class:** the model provider rejects every request because the plan's quota is spent. The task never fails for good: aif retries the stage every few minutes, forever, and nothing on the task record says why. Measured 2026-09-23: tasks `514693af` and `71ad40d7` sat in `status:"implementing"` from 2026-09-22 ~09:17Z with **zero** new commits for ~22 h.
+- **Symptom:**
+  - the task's `agentActivityLog` (on `GET /tasks/<id>`) alternates `aif-implement started (runtime=claude, transport=sdk, model=glm-5.3-flash, …)` / `aif-implement failed (runtime=claude) — Runtime request failed.` roughly every 3 minutes — hundreds of failures. The log lines are **not strictly time-ordered**, so count the pairs, do not read the last line as «the current state»;
+  - `lastHeartbeatAt` / `updatedAt` stay fresh, and `/agent/status` showed `activeTasks: []` at the same moment.
+- **Why every heartbeat detector misses it:** the coordinator writes `lastHeartbeatAt` / `updatedAt` for **every locked task in the same poll** (identical to the millisecond across tasks) — the value proves the coordinator is alive, not that the worker made progress. The upstream 90-min watchdog (§1) and any «heartbeat older than N» check stay green. Same blind-spot family as §3.1 and §3.5, but with no crash in the task record at all.
+- **Discriminator (progress, not heartbeat):**
+  - worktree commits — `docker exec <agent> git -C <worktreePath> log --oneline origin/staging..HEAD` (`worktreePath` from `GET /tasks/<id>`) is empty or unchanged across polls, and `docker exec <agent> sh -c 'cd <worktreePath> && find . -mmin -60 -not -path "./.git/*" | head'` prints nothing;
+  - the activity-log failure cadence above (a started/failed pair every ~3 min).
+  - Both together = the worker is being refused, not slow. A slow worker writes files; this one writes nothing.
+- **Detect the cause (read-only) — it is ONLY in the agent container log, at level 50:**
+  ```bash
+  docker logs <agent> --tail 20000 2>&1 | grep -E '"level":(40|50|60)' | tail
+  ```
+  → `diagnosticsReason`: `API Error: Request rejected (429) · [1310][Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-09-25 18:33:59]`. Use `--tail`, never `--since` (returns 0 lines on this host — the §3.7 trap). If the stack runs on another machine, run `docker` against that machine's daemon (a docker context, `ssh <host> docker`, or a command-routing wrapper); a local daemon answers `No such container`, which says where you ran it, not that the agent is gone. Container name observed on 2026-09-23: `aif-agent-1` — resolve yours per the §3 note.
+- **The reset time is in UTC+8, not UTC.** Proven by the request id: prefix `20260923153116…` was logged at 07:31:19Z, an 8-hour offset. So `2026-09-25 18:33:59` = **10:34Z**. Convert before telling the operator when work resumes.
+- **Root cause:** every aif project routes task, plan and review stages to Z.AI runtime profiles, and those profiles share one `ZAI_API_KEY`. One exhausted plan therefore stops **the whole factory**, not one task.
+- **Fix — tiered (§4):**
+  1. **Wait for the reset (no-op, default).** aif keeps retrying on its own; no task needs touching. Report the converted reset time and the stalled task ids. Unverified as of 2026-09-23: that every task resumes cleanly after the reset — check worktree commits after it.
+  2. **Operator tops up the plan** — the operator's money and the operator's account; name it and stop.
+  3. **Switch runtime profile or transport (Tier 2 — GO required).** Not a fix on its own: the other Z.AI profile reads the same key, and a Claude profile may be disabled by operator policy (on the maintainer's stack: «GLM only inside aif»). Any switch to a paid path also falls under §8.
+- **Do NOT:** restart containers, delete or re-dispatch the stalled tasks, or treat the fresh heartbeat as health. None of these touches the quota; a re-dispatch only adds a second refused task.
+
+### §3.10 Root-owned base clone → task `blocked_external` at worktree creation (verified live 2026-09-30)
+
+- **Symptom:** a freshly dispatched task goes straight to `blocked_external`; its record carries `worktree_create_failed` with `cannot lock ref 'refs/heads/feature/<branch>': Unable to create '<repo>/.git/refs/heads/feature/<branch>.lock': Permission denied`. No task on this project can start; other projects on the same stack are fine.
+- **Detect (read-only):** `docker exec <agent> sh -c 'cd <repo> && find .git -not -user node | wc -l'` is non-zero (1368 on 2026-09-30), and `find . -path ./.git -prune -o -path "*/node_modules" -prune -o -not -user node -print` lists working-tree files too (920 files in 42 directories). The base reflog (`.git/logs/HEAD`) dates it: here a root `git gc` at 21:59:48 and `merge origin/staging: Fast-forward` at 22:04:07 on 2026-09-29.
+- **Root cause:** `docker exec` runs as the image's default user (root on the aif stack) while aif runs tasks as the clone's owner (`node`). Any git write through a bare `docker exec` — `refresh-aif-base.sh` before its 2026-09-30 fix (`icg()` had no `-u`), a hand-run fetch or merge, an auto-gc those trigger — leaves root-owned refs, index, reflogs, packs and every file a merge rewrites. aif's own pre-worktree `git pull --ff-only` then cannot write those directories either.
+- **Fix — Tier 2 (GO required; reversible in principle, not in practice):** `docker exec -u 0 <agent> chown -R node:node <repo>` (the whole clone, not only `.git`: a `.git`-only chown fixes ref locks but leaves the working tree unwritable for the next base refresh), then `bash .claude/skills/aif-doctor/helpers/refresh-aif-base.sh` — which since 2026-09-30 runs every in-container git as the owner of the clone (`docker exec -u <uid>:<gid>`, from `ls -nd <repo>`; `AIF_CONTAINER_USER` overrides) — then retry the task. Pinned by `tests/aif-doctor/refresh-aif-base.test.sh` AC9/AC10.
+- **Do NOT:** run git inside the base clone through a bare `docker exec` (no `-u`), even to read-then-write, and do not hand-run `refresh-aif-base.sh` from before the fix — each re-creates the root-owned state.
 
 ---
 
@@ -327,3 +396,4 @@ The operator re-derives aif operational knowledge every session: which port the 
 - No existing rule or skill is superseded; this is a new operational artefact added on incidence (the 2026-06-03 environment breakage).
 - **Incidence-driven update 2026-06-04 (T-AIFDOC-B — grow on pain, not speculation):** the second live incidence added §3.1 **Fix D (mirror install)** + the §3.3 **discriminator** (github/google/mirror probe) + §7.1 bench-row. No new failure _mode_ invented — these refine the existing §3.1/§3.3 modes with an empirically-verified resolution path (`registry.npmmirror.com` → 200; `claude --version` → `2.1.161`; 0 errors/45s; task resumed). The earlier §3.3 framing «whole-tunnel down → name-and-stop» was over-absolute (T20: it asserted the tunnel was dead without the github/mirror discriminator that proves it host-selective). Corrected in place; no other artefact superseded; `bridge-health.sh`/`verify-bridge.sh` still REUSED unedited.
 - **Incidence-driven update 2026-07-24 (T15 self-application — the detector was teaching the same blind spot the helper had):** §1 base-currency probe + §3.4 Mismatch + §3.4 helper description were corrected to require the two-part check (branch ref AND working-tree HEAD), matching the fix ported into `refresh-aif-base.sh` the same day. The prior detector (`gh api … vs rev-parse staging` — ref only) reproduced the exact blind spot of the buggy helper: a base clone whose ref was current but whose working tree was parked on another branch certified as healthy. The §3.4 symptom list now names «base clone checked out on another branch» as a named cause of stale-base garbage, parallel to the synthetic-base and tunnel-block causes.
+- **Incidence-driven update 2026-09-23 (T-AIFDOC-B — a new mode, observed live, not pre-enumerated):** §3.9 added after tasks `514693af` / `71ad40d7` sat `implementing` for ~22 h behind a Z.AI 429 [1310] quota rejection that every heartbeat probe — including the §1 upstream watchdog — reported as healthy. §2 step 1 now reads the agent log's error levels, the only place the cause was recorded. No existing mode superseded; the §3.7 `--since` warning is reused, not restated.

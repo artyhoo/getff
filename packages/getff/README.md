@@ -27,6 +27,14 @@ required nor used. See [INSTALL.md § Windows](https://github.com/artyhoo/getff/
 
 Depth is a product decision, not a flag combination: `core` = rules + tests + guards; `env` = plus the in-session tooling; `factory` = plus the pipeline. Upgrade by re-running `init` with a deeper profile.
 
+Beyond the files it copies, `init` can install **companion tools** — the Claude Code plugins, MCP
+servers and CLIs listed in `setup.d/companions.manifest`. Each row's detect and install commands
+are `eval`'d verbatim by the shipped engine (`setup.d/engine.sh:39` and `setup.d/engine.sh:65`), so
+installing getff means trusting those command strings the same way you trust the installer itself;
+without `-y` each one is confirmed interactively first. Companions carry **no version pin** — they
+are installed through their own official registries and update to whatever those registries serve,
+independently of the getff version you installed.
+
 ## What is in the tarball
 
 This package is **assembled**, not hand-authored: its contents mirror the repository root (`install.sh`, `setup`, `setup.d/`, `agents/`, `skills/`, `templates/`, `.claude/`, `packages/`, `scripts/`) so that the installer reads every path exactly where it does in a clone. `MANIFEST.sha256` lists every shipped file; `scripts/build-getff-dist.sh --check` in the repository is the drift gate that keeps the two in sync.

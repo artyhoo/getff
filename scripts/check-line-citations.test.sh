@@ -12,9 +12,9 @@
 #
 # The last two sections step outside that hermetic frame on purpose, because a checker
 # nobody calls is not a gate: they run the REAL `.husky/pre-commit` over a fixture repo
-# to prove the blank-landing arm actually blocks a commit, and compare the hook's
-# `CITE_SCOPE` against pre-push.ts's `LIVE_AUTHORITY_MD` so the two channels cannot
-# silently come to gate different surfaces.
+# to prove the blank-landing arm actually blocks a commit, and pin that the hook takes
+# its scope from the checker (`--in-corpus`) instead of keeping a copy that could
+# silently come to gate a different surface.
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$DIR/check-line-citations.mjs"
@@ -59,6 +59,36 @@ expect_fail() {
     echo "FAIL: $name — stderr did not mention '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
   fi
 }
+
+# ------------------------------------------------ preflight: the checker runs at all
+# The entry-point guard once compared `import.meta.url` (resolved through symlinks) with
+# the unresolved `argv[1]`, so a checkout reached through a symlinked directory never
+# called run() and exited 0 with no output. Measured 2026-09-29 on the PC mirror, where
+# /home/etot/mirror is a symlink to /mnt/wsl/spill/mirror: 61 arms failed as «expected
+# exit 1, got 0» without one line naming why. Both probes below fail by name instead.
+new_repo preflight
+printf 'alpha\n' >"$REPO/target.md"
+printf 'See `target.md:9`.\n' >"$REPO/cite.md"
+commit_all
+preflight_probe() {
+  local via="$1" script="$2" rc
+  (cd "$REPO" && node "$script" --check cite.md) >"$TMP/out" 2>"$TMP/err"; rc=$?
+  [ "$rc" -eq 1 ] && grep -qF 'cite.md:1' "$TMP/err" && return 0
+  echo "FAIL: preflight ($via) — checker exited $rc on a past-EOF citation"
+  if [ "$rc" -eq 0 ] && [ ! -s "$TMP/err" ] && [ ! -s "$TMP/out" ]; then
+    echo "    cause: exit 0 with no output = the module never ran run(); its entry-point"
+    echo "    guard (isMainEntry) did not recognise argv[1] '$script'"
+    echo "    against realpath '$(cd "$(dirname "$script")" && pwd -P)/$(basename "$script")'"
+  fi
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); return 1
+}
+if ! preflight_probe "as invoked, $CHECK" "$CHECK"; then
+  echo "check-line-citations paired-negative: preflight failed — every arm below would"
+  echo "report the same silence as its own failure; stopping here."
+  exit 1
+fi
+ln -s "$DIR" "$TMP/linked-scripts"
+preflight_probe "through a symlinked directory" "$TMP/linked-scripts/$(basename "$CHECK")"
 
 # ---------------------------------------------------------------- arm 1: drift by blame
 new_repo drift
@@ -114,6 +144,69 @@ expect_pass "--blank-only leaves ARM 1 drift to pre-push" --blank-only cite.md
 printf 'alpha\n\nbeta\n' >"$REPO/target.md"
 expect_fail "--blank-only still catches the blank landing" "is an empty line" --blank-only cite.md
 
+# ------------------------------------------- no blame baseline is counted, not «resolved»
+# ARM 1 compares against the commit that last wrote the citing line. A citing file git has
+# no history for — untracked, or outside the repository — has no such commit, and until
+# 2026-09-30 `blameCommit` returned null, the citation was dropped with a bare `return`,
+# and the summary still counted it under `resolved`: a run that drift-checked nothing read
+# exactly like a clean one (on the agent-memory corpus, «resolved 368» with zero blames).
+new_repo no-baseline
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target only"
+printf 'The cap is `target.md:2`.\n' >"$REPO/cite.md"   # never committed
+expect_pass "an untracked citing file does not fail the default gate" cite.md
+for needle in 'resolved 0 / skipped 0' '1 not drift-checked' 'no-history'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: an unbaselined citation was not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+# --strict is the gate for «every citation fully checked»: it must refuse this run too.
+if (cd "$REPO" && node "$CHECK" --check --strict cite.md) >"$TMP/out" 2>"$TMP/err"; then
+  echo "FAIL: --strict passed a run whose only citation was never drift-checked"; fails=$((fails + 1))
+fi
+
+# --- the other two reasons: an uncommitted edit of the citing line, and a baseline commit
+# in which the cited line did not exist yet (target grown later). Each is named by reason
+# and in the per-file line, so a mutation of either branch goes RED here.
+new_repo no-baseline-reasons
+printf 'alpha\n' >"$REPO/target.md"
+printf 'The cap is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+commit_all "line 3 cited before the target has it"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target grows to three lines"
+printf 'The cap, reworded, is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+expect_pass "unbaselined citations do not fail the default gate" cite.md
+for needle in '1 uncommitted' '1 target-absent-at-baseline' 'resolved 0 / skipped 0' \
+  'cite.md:1  — 1 citation(s) not drift-checked (uncommitted)' \
+  'cite.md:2  — 1 citation(s) not drift-checked (target-absent-at-baseline)'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: unbaselined reasons not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- an in-repo file named through a symlinked directory is still in the repo: it must be
+# blamed, not refused as outside (cold-review MINOR 1 — `/tmp` is `/private/tmp` on macOS).
+ln -s "$REPO" "$TMP/repo-link"
+git -C "$REPO" checkout -q -- cite.md
+expect_pass "a symlinked path to an in-repo file is checked, not refused" "$TMP/repo-link/cite.md"
+grep -qF 'outside the repository' "$TMP/err" && {
+  echo "FAIL: an in-repo file reached through a symlink was refused as outside"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a file OUTSIDE the repository can never have a blame baseline, so the full check
+# refuses it by name (exit 2) instead of reporting a green it cannot back, and points at
+# the mode that can run there: --blank-only (ARM 2 only), which says so in its output.
+mkdir -p "$TMP/outside-no-baseline"
+printf 'The cap is `target.md:2`.\n' >"$TMP/outside-no-baseline/memo.md"
+(cd "$REPO" && node "$CHECK" --check "$TMP/outside-no-baseline/memo.md") >"$TMP/out" 2>"$TMP/err"; rc=$?
+if [ "$rc" -ne 2 ] || ! grep -qF -- '--blank-only' "$TMP/err"; then
+  echo "FAIL: --check on an out-of-repo file exited $rc instead of refusing (2) with a --blank-only hint"
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+expect_pass "--blank-only runs ARM 2 on an out-of-repo file" --blank-only "$TMP/outside-no-baseline/memo.md"
+grep -qF 'ARM 1 (drift since authorship) not run' "$TMP/err" || {
+  echo "FAIL: --blank-only on an out-of-repo file did not say ARM 1 was not run"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+printf 'alpha\n\ngamma\n' >"$REPO/target.md"
+expect_fail "--blank-only still catches a blank landing from outside the repo" "is an empty line" \
+  --blank-only "$TMP/outside-no-baseline/memo.md"
+
 # --------------------------------------------------------------------- beyond EOF
 new_repo eof
 printf 'alpha\nbeta\n' >"$REPO/target.md"
@@ -139,6 +232,45 @@ expect_pass "cite:historical suppresses the drift finding" cite.md
 printf 'At incident time `target.md:2` said alpha. <!-- cite:historical old -->\n' >"$REPO/cite.md"
 commit_all "escape with a placeholder rationale"
 expect_fail "a too-short escape rationale is rejected" "rationale must be >= 20 chars" cite.md
+
+# ------------------------------------------------ generator-owned region (ARM 1 defers)
+# Lines inside a `plan=<generator>` region are emitted bytes: blame records the
+# generator's last run, not an authorship event, and a byte-stable row cannot be
+# re-born when the SCANNED source's content changes — so ARM 1 inside such a region
+# is unreachable green by construction (first hit, 2026-09-21: the plain-words-recap-v2
+# PR rewrote story/SKILL.md:3 under the byte-stable B-card `| source |` row citing it).
+# The region's freshness currency is the generator's own byte-identity gate
+# (render-reference.mjs --check), which runs in CI. ARM 1 defers; the paired negatives
+# prove the defer is region-SCOPED (same drift outside still fires) and ARM 2 still
+# applies inside (a generated row landing on a blank line is wrong at birth).
+new_repo genregion
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+cat >"$REPO/page.md" <<'EOF'
+Outside the region, a plain citation: `target.md:3`.
+<!-- getff:begin section=B-card plan=scripts/render-reference.mjs -->
+| source | `target.md:2` |
+<!-- getff:end section=B-card -->
+EOF
+commit_all "page born while target read alpha/beta/gamma"
+# The scanned source's line 2 — the row the generator emitted — is rewritten, exactly
+# the D-G shape: source content changed, emitted row byte-stable.
+printf 'alpha\nBETA-REWRITTEN\ngamma\n' >"$REPO/target.md"
+commit_all "scanned source line rewritten under the emitted row"
+expect_pass "ARM 1 defers inside a plan= region" page.md
+# The defer must be VISIBLE in the accounting, not silently folded into `resolved` —
+# a summary that counts deferred rows as ARM-verified overstates coverage (cold-review
+# NIT 1, 2026-09-21). At this point: the outside citation :3 is blame-green (resolved 1),
+# the region row :2 is deferred (1), nothing is skipped.
+grep -qF 'resolved 1 / skipped 0 citation(s). (1 deferred to generator regions)' "$TMP/err" \
+  || { echo "FAIL: deferred rows must be accounted separately in the summary"; fails=$((fails + 1)); }
+# The defer is region-scoped, not global: the same drift outside the region fires.
+printf 'alpha\nBETA-REWRITTEN\nGAMMA-REWRITTEN\n' >"$REPO/target.md"
+commit_all "the outside citation's target is rewritten too"
+expect_fail "the same drift outside the region still fires" "page.md:1" page.md
+# ...and ARM 2 (blank landing) stays on inside the region.
+printf 'alpha\n\nGAMMA-REWRITTEN\n' >"$REPO/target.md"
+commit_all "the region row's cited line is now blank"
+expect_fail "blank landing still fires inside a plan= region" "is an empty line" page.md
 
 # ------------------------------------------------------------ bare backreference
 new_repo backref
@@ -167,6 +299,98 @@ printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
 printf 'Pinned at `target.md:1`. The audit numbers it `:99`.\n' >"$REPO/cite.md"
 commit_all "backref across a sentence boundary"
 expect_pass "a backref in the next sentence is not bound to the anchor" cite.md
+
+# ------------------------------------------------ bare backreference in a code comment
+# Code comments write the sibling WITHOUT backticks and wrap it onto the next comment
+# line, e.g. «45-python.sh:1398-1400 … — and :1346 extends» cite:historical line numbers of the PR #1931 audit, quoted as an example
+# Three such
+# siblings had gone stale unseen in refresh-covers-full-delivery.test.sh / 45-python.sh
+# (fidelity audit on PR #1931, 2026-09-29).
+new_repo code-backref
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# pinned at target.sh:2 and the\n# rest at :3 (same sentence, next line).\ntrue\n' >"$REPO/cite.sh"
+commit_all "unbackticked sibling on the next comment line"
+expect_pass "an accurate unbackticked sibling is quiet" cite.sh
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+expect_fail "an unbackticked sibling on the next comment line is checked" "cite.sh:3" cite.sh
+(cd "$REPO" && node "$CHECK" --write cite.sh) >/dev/null 2>&1
+if ! grep -qF '# rest at :4 (same sentence' "$REPO/cite.sh" || ! grep -qF 'target.sh:3 and' "$REPO/cite.sh"; then
+  echo "FAIL: --write did not move the unbackticked sibling: $(cat "$REPO/cite.sh")"; fails=$((fails + 1))
+fi
+
+# --write edits the sibling by POSITION: the token writer would also rewrite the `:13` inside
+# `target.sh:1346` sharing the line.
+new_repo code-backref-pos
+seq 1 1400 >"$REPO/target.sh"
+printf '# target.sh:1346 and :13 here\n' >"$REPO/cite.sh"
+commit_all "sibling whose token is a prefix of the anchor's number"
+{ echo INSERTED; seq 1 1400; } >"$REPO/target.sh"
+commit_all "target shifted by one"
+(cd "$REPO" && node "$CHECK" --write cite.sh) >/dev/null 2>&1
+if ! grep -qxF '# target.sh:1347 and :14 here' "$REPO/cite.sh"; then
+  echo "FAIL: --write mangled a sibling sharing digits with its anchor: $(cat "$REPO/cite.sh")"; fails=$((fails + 1))
+fi
+
+# A wrapped sibling blames from its ANCHOR's line down: re-pointing only the anchor line at
+# another file must re-baseline the sibling, or it is judged against the new file as that
+# file stood when the sibling line was written (a false drift red).
+new_repo code-backref-spans
+printf 'a1\na2\na3\n' >"$REPO/a.sh"
+printf 'b1\nb2\nb3\n' >"$REPO/b.sh"
+printf '# see a.sh:1 and the\n# rest at :3 here\n' >"$REPO/cite.sh"
+commit_all "sibling written against a.sh"
+printf 'b0\nb1\nb2\nb3\n' >"$REPO/b.sh"
+commit_all "b.sh grows a line"
+printf '# see b.sh:2 and the\n# rest at :3 here\n' >"$REPO/cite.sh"
+commit_all "anchor re-pointed to b.sh; the sibling line is untouched"
+expect_pass "a re-pointed anchor re-baselines its wrapped sibling" cite.sh
+
+# Same line, slash-joined pair («(:1335/:1363 — …»): both members are checked.
+new_repo code-backref-pair
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '# target.sh:1 sources (:2/:3 - two copies).\n' >"$REPO/cite.sh"
+commit_all "slash-joined siblings"
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+run_check cite.sh
+if [ "$(grep -cF 'cite.sh:1' "$TMP/err")" -lt 3 ]; then
+  echo "FAIL: slash-joined siblings were not both checked"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+
+# Paired negatives — each is a shape the corpus measurement (2026-09-29) showed binding
+# to the WRONG referent, or a shape that is not a comment at all. Every bare number meant
+# to stay unbound is past target.sh's end, so a wrong bind would be a red, not a silent pass
+# (`${x:1}` is in range; the lookbehind rejects it, and `:98` on its line is what proves a
+# code line is never scanned).
+new_repo code-backref-neg
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+# (1) next sentence on the next comment line re-points the referent — ports, in the
+#     measured case (`AifHandoffBackend.ts`: «… (:3009). MCP (HTTP) = mcpUrl (:3100)»).
+# (2) a code line ends the comment block; (3) a trailing code-line `:NN` is not a comment;
+# (4) bash substring expansion; (5) Markdown keeps the backticked-only rule — on a
+# `#`-heading line, which WOULD pass the comment-line test if Markdown were scanned;
+# (6) a bare comment marker is a paragraph break, and (7) a new list item a new sentence,
+# even without a closing period; (8) an unresolvable nearer citation stops the sibling
+# from falling through to an older, resolvable one.
+cat >"$REPO/cite.sh" <<'EOF'
+# anchored at target.sh:1.
+# Ports: base (:3009), mcp (:3100).
+# Sources: target.sh:2
+#
+# Ports: base (:3008)
+# - target.sh:3 does the thing
+# - the server (:3007) answers
+# see target.sh:1 and nowhere-at-all.sh:5 then :3006
+# anchored again at target.sh:2 with no sentence end
+x=1
+# after code :99 must not bind
+y="${x:1}"; echo at target.sh:2 then :98
+EOF
+printf '# Pinned at `target.md:1` and then :97 unbackticked\n' >"$REPO/cite.md"
+printf 'one\n' >"$REPO/target.md"
+commit_all "shapes that must not bind"
+expect_pass "unbackticked siblings bind only within one comment sentence" cite.sh cite.md
 
 # ============================================================ skipped-citation visibility
 # Until 2026-09-14 a citation whose path did not resolve was dropped with a bare
@@ -238,6 +462,45 @@ commit_all "bare basename matching no tracked file"
 expect_pass "an unmatched bare basename does not fail the gate" cite.md
 grep -qF 'bare-basename' "$TMP/err" || {
   echo "FAIL: unmatched bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a PARTIAL path names a nested file by its tail, so it resolves by unique suffix and
+# its drift is caught. Until 2026-09-29 any slashed token that missed at the repo root was
+# `path-missing` at once — PR #1899's stale `install/wire-eslint-r2.ts:NN` cite in a code
+# comment passed that way, one of 29 in the corpus.
+new_repo partial-unique
+mkdir -p "$REPO/packages/core/install"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+printf 'The cap is `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "partial-path citation to a nested file"
+expect_pass "an accurate partial-path citation is quiet" cite.md
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+commit_all "target reflowed under the partial-path citation"
+expect_fail "drift behind a partial path is caught, not skipped" "cite.md:1" cite.md
+
+# --- an ambiguous suffix is REPORTED with its candidates, never guessed
+new_repo partial-ambiguous
+mkdir -p "$REPO/a/install" "$REPO/b/install"
+printf 'alpha\nbeta\n' >"$REPO/a/install/wire.ts"
+printf 'ZULU\nYANKEE\n' >"$REPO/b/install/wire.ts"
+printf 'See `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "same suffix in two places"
+expect_pass "an ambiguous partial path does not fail the gate" cite.md
+for needle in 'ambiguous-basename' 'a/install/wire.ts' 'b/install/wire.ts'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: ambiguous partial path did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- a suffix is matched on a path-segment boundary: `wire.ts` under `reinstall/` is not a
+# tail of `install/wire.ts`, and a `./`-rooted token names a place, not a suffix
+new_repo partial-boundary
+mkdir -p "$REPO/pkg/reinstall" "$REPO/pkg/install"
+printf 'alpha\nbeta\n' >"$REPO/pkg/reinstall/wire.ts"
+printf 'alpha\nbeta\n' >"$REPO/pkg/install/wire.ts"
+printf 'See `install/wire.ts:2` and `./install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "suffix must align to a segment"
+expect_pass "a segment-aligned suffix resolves; a dot-rooted token is left alone" cite.md
+grep -qF 'resolved 1 / skipped 1' "$TMP/err" || {
+  echo "FAIL: suffix boundary / dot-rooted handling wrong"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 
 # ========================================== --affected-by (reverse-index push scoping)
 # The hole this closes: a citation goes stale when the CITED file moves, and the cited
@@ -337,6 +600,303 @@ if grep -qF 'untracked.md' "$TMP/err"; then
 fi
 rm -f "$REPO/.claude/rules/untracked.md"
 
+# ======================================================== prose form (docs/site Evidence)
+# The docs/site reference pages cite lines in prose — «line 63 of `setup.d/lib.sh`»,
+# «`setup.d/10-skills.sh`, lines 22 to 27» — and every arm above was blind to it: the
+# `path:NN` regex never matches. Measured 2026-09-21: W1-A (#1821) and W1-B (#1826) moved
+# `setup.d/lib.sh` and `setup.d/10-skills.sh` under 13 such pages and nothing fired; PR
+# #1830 repaired them by hand. Only the EXPLICIT form is a citation here — a sentence that
+# names its file. A bare «line 6» leans on an antecedent the prose chose, and binding it to
+# the nearest preceding path mis-bound ~22 of ~150 on docs/site that day.
+
+# --- ARM 1: drift since authorship, both word orders
+new_repo prose-drift
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf 'The cap is line 2 of `target.sh`.\nThe block is `target.sh`, lines 2 to 3.\n' >"$REPO/cite.md"
+commit_all "prose citations written while line 2 said beta"
+expect_pass "accurate prose citations are quiet" cite.md
+printf 'alpha\nINSERTED\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target reflowed under the prose citations"
+expect_fail "prose «line N of \`path\`» drift is caught" "cite.md:1" cite.md
+grep -qF 'cite.md:2' "$TMP/err" || {
+  echo "FAIL: prose «\`path\`, lines N to M» drift was not caught"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- --write renumbers prose in place, a range moving as a block
+(cd "$REPO" && node "$CHECK" --write cite.md) >/dev/null 2>&1
+if ! grep -qF 'line 3 of `target.sh`' "$REPO/cite.md" || ! grep -qF '`target.sh`, lines 3 to 4' "$REPO/cite.md"; then
+  echo "FAIL: --write did not renumber the prose citations: $(cat "$REPO/cite.md")"; fails=$((fails + 1))
+fi
+
+# --- a citation wrapped across a line break is still one citation, and blame is taken on
+# the line carrying the NUMBER: after the number is fixed and committed, the sentence's
+# other line still blames the old commit, and blaming it would re-fire forever.
+new_repo prose-wrapped
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf -- '- The cap is on line 2 of\n  `target.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "wrapped prose citation"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_fail "a wrapped prose citation's drift is caught" "cite.md:1" cite.md
+printf -- '- The cap is on line 3 of\n  `target.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "number fixed; the path line untouched"
+expect_pass "a fixed wrapped prose citation self-heals" cite.md
+
+# --- ARM 2: a prose citation born onto a blank line
+new_repo prose-blank
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf 'The cap is line 2 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "prose citation wrong at birth"
+expect_fail "a prose citation landing on a blank line is caught" "is an empty line" cite.md
+
+# --- non-coverage stays non-failing: a contextual «line N» names no file, and an
+# explicit path that does not resolve is reported, like its `path:NN` sibling
+new_repo prose-quiet
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf 'See `target.sh`. The marker is line 2.\nConsumers keep it at line 4 of `src/app/route.ts`.\n' >"$REPO/cite.md"
+commit_all "contextual line number + out-of-repo prose path"
+expect_pass "a contextual «line N» is not bound to a guessed antecedent" cite.md
+grep -qF 'path-missing' "$TMP/err" || {
+  echo "FAIL: an unresolved prose path was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- «line N of `X`» outranks «`Y`, line N»: in «`GETFF_SKILLS_CORE`, line 63 of
+# `setup.d/lib.sh`» the number belongs to the file after it, not the token before it
+# Line 2 of the file is BLANK so the binding is observable: a quiet run would pass with
+# the prose arm deleted outright, which is what this arm first did (cold review, #1832).
+new_repo prose-precedence
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf 'It is in `SOME_LIST`, line 2 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "number between a non-path token and its file"
+expect_fail "the «of» form binds the number to the file after it" "is an empty line" cite.md
+if grep -qF 'SOME_LIST' "$TMP/err"; then
+  echo "FAIL: the number was also bound to the token before it"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+
+# --- the docs site is live authority: --corpus sweeps it
+new_repo prose-corpus
+mkdir -p "$REPO/docs/site/reference"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf 'The cap is line 2 of `target.sh`.\n' >"$REPO/docs/site/reference/page.md"
+commit_all "docs site page with a prose citation"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_fail "--corpus reaches docs/site" "docs/site/reference/page.md:1" --corpus --affected-by=target.sh
+
+# --- a prose path that is not a regular in-repo file is a skip, never a crash: a
+# directory once reached readFileSync (EISDIR) and aborted the whole scan, and the
+# pre-commit hook reported that as a blank landing; an absolute path read outside the repo
+new_repo prose-nonfile
+mkdir -p "$REPO/sub"
+printf 'x\n' >"$REPO/sub/f.sh"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf 'The helper is on line 1 in `sub`.\nThe host is line 1 of `/etc/hosts`.\nThe cap is line 2 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "directory + absolute prose paths ahead of a real blank landing"
+expect_fail "non-file prose paths are skipped and the scan reaches the real defect" "cite.md:3" cite.md
+if grep -qE 'EISDIR|cite.md:[12] ' "$TMP/err" && ! grep -qE 'cite.md:[12] .*skipped' "$TMP/err"; then
+  echo "FAIL: a non-file prose path was judged instead of skipped"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+expect_fail "--blank-only survives a directory prose path too" "is an empty line" --blank-only cite.md
+
+# --- a wrapped citation whose PATH line is later edited: the baseline is the newest commit
+# over every line the citation spans, not just the number's line. Blaming the number's
+# line alone compared against the file the sentence cited BEFORE the edit (cold review).
+new_repo prose-path-edit
+printf 'alpha\nbeta\ngamma\n' >"$REPO/a.sh"
+printf 'x\nOLD\nz\n' >"$REPO/b.sh"
+printf -- '- The cap is on line 2 of\n  `a.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "wrapped citation of a.sh"
+printf 'x\nbeta\nz\n' >"$REPO/b.sh"
+commit_all "b.sh line 2 changes"
+printf -- '- The cap is on line 2 of\n  `b.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "the citation now names b.sh, whose line 2 is correct"
+expect_pass "editing only the path line re-baselines the citation" cite.md
+
+# --- «lines 2 and 3» is a list, not a range: it is not read at all, rather than read as
+# 2..3 and then rewritten as a block when the two lines moved independently
+new_repo prose-list
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf 'The pair is `target.sh`, lines 2 and 3.\n' >"$REPO/cite.md"
+commit_all "a list of two lines"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_pass "a list of line numbers is not a range citation" cite.md
+
+# --- the escape counts on any line the citation spans, e.g. after the path it wraps onto
+new_repo prose-escape-wrapped
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf -- '- The cap was on line 2 of\n  `target.sh`. <!-- cite:historical snapshot of the old layout, kept on purpose -->\n' >"$REPO/cite.md"
+commit_all "historical wrapped citation"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_pass "an escape on the wrapped path line is honoured" cite.md
+
+# --- --write with the same file named twice edits each number once: the positional write
+# checks the ORIGINAL digits, so a second pass over «10» does not become «100»
+new_repo prose-write-twice
+printf '1\n2\n3\n4\n5\n6\n7\n8\nNINE\n' >"$REPO/target.sh"
+printf 'The mark is line 9 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "citation of line 9"
+printf '0\n1\n2\n3\n4\n5\n6\n7\n8\nNINE\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+(cd "$REPO" && node "$CHECK" --write cite.md cite.md) >/dev/null 2>&1
+grep -qF 'line 10 of `target.sh`' "$REPO/cite.md" || {
+  echo "FAIL: --write applied a prose edit twice: $(cat "$REPO/cite.md")"; fails=$((fails + 1)); }
+
+# ------------------------------------------------ code comments are corpus too
+# A comment in a script («mirrors setup.d/10-skills.sh:92-94») is the same checkable
+# claim as a sentence in a rule file, and until 2026-09-22 nothing read it: a sweep that
+# day found 403 stale citations in code comments against 11 in the Markdown corpus.
+new_repo code-corpus
+mkdir -p "$REPO/scripts" "$REPO/plugin/hooks" "$REPO/.claude/orchestrator-prompts/k" \
+  "$REPO/tests/fixtures" "$REPO/.husky"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/tool.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/.husky/pre-commit"
+printf '// mirrors target.sh:2\n' >"$REPO/scripts/tool.ts"
+for f in plugin/hooks/twin.sh .claude/orchestrator-prompts/k/gen.mjs tests/fixtures/data.sh; do
+  printf '# mirrors target.sh:2\n' >"$REPO/$f"
+done
+commit_all "code comments citing line 2"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_fail "--corpus reaches a shell comment" "scripts/tool.sh:2" --corpus
+for needle in scripts/tool.ts:1 .husky/pre-commit:2; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: --corpus did not reach $needle"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+# Generated twins, closed kickoff material and fixture data are not live authority.
+for f in plugin/hooks/twin.sh .claude/orchestrator-prompts/k/gen.mjs tests/fixtures/data.sh; do
+  grep -qF "$f" "$TMP/err" && {
+    echo "FAIL: --corpus swept $f"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- the escape in a language with no HTML comment
+new_repo code-escape
+printf 'alpha\nbeta\n' >"$REPO/target.sh"
+printf '# target.sh:2 said beta at incident time  cite:historical quoted as of the 2026-09 incident\n' >"$REPO/tool.sh"
+printf '# target.sh:2 said beta  cite:historical short\n' >"$REPO/short.sh"
+commit_all "escaped code citations"
+printf 'alpha\nCHANGED\n' >"$REPO/target.sh"
+commit_all "target changed"
+expect_pass "cite:historical in a code comment suppresses the drift finding" tool.sh
+expect_fail "a too-short code-comment escape is rejected" "rationale must be >= 20 chars" short.sh
+
+# --- the HTML-comment escape stays the only Markdown form: a bare token in prose is
+# not an escape, or «see cite:historical» in a sentence would silence a real drift.
+new_repo md-bare-escape
+printf 'alpha\nbeta\n' >"$REPO/target.md"
+printf 'The cap is `target.md:2`, cite:historical explains the escape syntax here.\n' >"$REPO/cite.md"
+commit_all "markdown with a bare escape token"
+printf 'alpha\nCHANGED\n' >"$REPO/target.md"
+commit_all "target changed"
+expect_fail "a bare cite:historical in Markdown prose is not an escape" "cite.md:1" cite.md
+
+# --- unresolvable citations in code collapse to a count; Markdown keeps one line each.
+# Code carries fixture strings and consumer illustrations by the hundred (221 skips on
+# the 2026-09-22 sweep), and printing each on every push is a log nobody reads.
+new_repo code-skips
+mkdir -p "$REPO/scripts"
+printf '# see nope/missing.ts:3\n' >"$REPO/scripts/tool.sh"
+printf 'See `nope/missing.ts:3`.\n' >"$REPO/cite.md"
+commit_all "unresolvable citations in both kinds of file"
+expect_pass "unresolvable code citations do not fail the gate" scripts/tool.sh cite.md
+grep -qF 'cite.md:1' "$TMP/err" || {
+  echo "FAIL: the Markdown skip line disappeared"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+grep -qF 'scripts/tool.sh:1' "$TMP/err" && {
+  echo "FAIL: a code skip was printed line by line"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+grep -qF 'skipped 2' "$TMP/err" || {
+  echo "FAIL: the summary does not count the collapsed code skip"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+expect_pass "--show-skips lists code skips too" --show-skips scripts/tool.sh
+grep -qF 'scripts/tool.sh:1' "$TMP/err" || {
+  echo "FAIL: --show-skips did not list the code skip"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- `--in-corpus` narrows named files to corpus members: how pre-commit asks the
+# checker for the scope instead of keeping a copy of it
+new_repo in-corpus
+mkdir -p "$REPO/scripts" "$REPO/plugin/hooks"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# see target.sh:2\n' >"$REPO/scripts/tool.sh"
+printf '# see target.sh:2\n' >"$REPO/plugin/hooks/twin.sh"
+commit_all "two blank landings, one outside the corpus"
+expect_fail "--in-corpus keeps a corpus member" "scripts/tool.sh:1" --blank-only --in-corpus scripts/tool.sh plugin/hooks/twin.sh
+grep -qF 'plugin/hooks/twin.sh' "$TMP/err" && {
+  echo "FAIL: --in-corpus kept a file outside the corpus"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in-corpus plugin/hooks/twin.sh
+
+# =================================== extensionless targets + comma-separated line lists
+# Two shapes the path grammar could not see. Measured 2026-09-27 over the 980-file code
+# corpus: 7 citations name an extensionless file (`.husky/pre-commit:127`
+# at `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
+# `tests/install-sh/aif-guided-install-gating.test.sh:8`), and 18 sites carry a comma list
+# whose second and later numbers nothing checked (`inject-project-digest.sh:40,48` at
+# `.claude/hooks/inject-subagent-context.sh:54`). Neither shape even reached the skip
+# tally — they were not citations at all, so `--show-skips` could not surface them either.
+# Both populations were blank-landing-clean, so arm 2 had nothing to say; arm 1 found two
+# that had genuinely drifted, repaired in the commit after this one.
+#
+# The extensionless set is the SAME closed set the corpus already names as citING files
+# (`CODE_EXTENSIONLESS`), not an open «any path» rule: a bare word plus a colon plus
+# digits is too common in code to gate on. FP probe over the same corpus: exactly one
+# `setup:NN` occurrence, the real citation above.
+
+# --- ARM 1: drift behind a citation to an extensionless file
+new_repo extensionless-drift
+mkdir -p "$REPO/.husky" "$REPO/scripts"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/.husky/pre-commit"
+printf 'set -e\ncheck\n' >"$REPO/setup"
+printf '# the gate runs at .husky/pre-commit:2\n# the flag is documented at setup:2\n' >"$REPO/scripts/tool.sh"
+commit_all "citations to two extensionless files, both accurate"
+expect_pass "accurate extensionless citations are quiet" scripts/tool.sh
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/.husky/pre-commit"
+commit_all "the hook grew a line under the citation"
+expect_fail "drift behind an extensionless citation is caught" "scripts/tool.sh:1" scripts/tool.sh
+
+# --- ARM 2: a blank landing in an extensionless target, at the pre-commit channel
+new_repo extensionless-blank
+mkdir -p "$REPO/.husky" "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/.husky/pre-push"
+printf '# see .husky/pre-push:2\n' >"$REPO/scripts/tool.sh"
+commit_all "citation lands on the blank line"
+expect_fail "blank landing in an extensionless target is caught" "scripts/tool.sh:1" --blank-only scripts/tool.sh
+
+# --- a bare word that merely looks like one is NOT a citation (the FP guard)
+new_repo extensionless-fp
+mkdir -p "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# teardown:2 and Setup:2 and my-setup:2 are not citations\n' >"$REPO/scripts/tool.sh"
+commit_all "lookalikes only"
+expect_pass "lookalike words are not treated as extensionless citations" --blank-only scripts/tool.sh
+
+# --- every number in a comma list is checked, not only the first
+new_repo comma-list
+mkdir -p "$REPO/scripts"
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '# see target.sh:1,3\n' >"$REPO/scripts/tool.sh"
+commit_all "both numbers accurate at authorship"
+expect_pass "an accurate comma list is quiet" scripts/tool.sh
+# The FIRST number stays put (line 1 is untouched); only the second one drifts, so an arm
+# that checked the anchor alone would stay green here.
+printf 'alpha\nbeta\nINSERTED\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "only the second number's line moved"
+expect_fail "drift behind a later number in a comma list is caught" "scripts/tool.sh:1" scripts/tool.sh
+grep -qF 'target.sh:3' "$TMP/err" || {
+  echo "FAIL: the finding does not name the drifted member of the comma list"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a range inside a comma list is a range, and a blank landing on a later member fires
+new_repo comma-list-blank
+mkdir -p "$REPO/scripts"
+printf 'alpha\nbeta\n\ndelta\n' >"$REPO/target.sh"
+printf '# see target.sh:1,3-4\n' >"$REPO/scripts/tool.sh"
+commit_all "third member is blank"
+expect_fail "blank landing on a later comma-list member is caught" "scripts/tool.sh:1" --blank-only scripts/tool.sh
+
+# --- the escape covers the whole list, as it does every citation on its line
+new_repo comma-list-escape
+mkdir -p "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# see target.sh:1,2 cite:historical records the pre-extraction layout\n' >"$REPO/scripts/tool.sh"
+commit_all "escaped comma list"
+expect_pass "the code escape silences a whole comma list" --blank-only scripts/tool.sh
+
 # ============================================ the pre-commit CHANNEL, not just the flag
 # The `--blank-only` arms above prove the MODE works. They say nothing about whether any
 # channel invokes it — and for a day it did not: the mode shipped 2026-09-13, pre-push.ts
@@ -348,22 +908,34 @@ rm -f "$REPO/.claude/rules/untracked.md"
 # `.husky/pre-commit` — copied byte-for-byte into the fixture, never re-implemented here —
 # and assert on its exit code.
 #
-# Two stubs, both named rather than smuggled in through PATH surgery: `npx` (the
+# Three stubs, all named rather than smuggled in through PATH surgery: `npx` (the
 # markdownlint and prettier sections would otherwise reach the network from a fixture with
-# no node_modules) and `scripts/format-shipped.sh` (absent in the fixture, so the prettier
-# section would go red for an unrelated reason and make every arm below meaningless).
+# no node_modules), `scripts/format-shipped.sh` (absent in the fixture, so the prettier
+# section would go red for an unrelated reason and make every arm below meaningless), and
+# `scripts/check-ships-manifest.mjs` (the ships-manifest section fires on every staged
+# `.claude/rules/*` path, which these arms stage; absent, node throws MODULE_NOT_FOUND and
+# the two pass arms go red — measured 2026-09-30; the checker has its own arms in
+# scripts/check-ships-manifest.test.sh).
+# One real sibling checker, copied like this one: `scripts/check-pipefail-early-exit.mjs`,
+# which the hook runs on every staged file — absent, node throws MODULE_NOT_FOUND and every
+# arm goes red. It passes here because no fixture path is in its population.
 # Nothing else in the hook fires: its remaining sections are scoped to staged manifest,
 # orchestrator-prompts, hooks, agents and skills paths, and this fixture stages none.
+# (The ships-manifest section's scope includes `.claude/rules/*`, hence its stub above.)
 REAL_ROOT="$(cd "$DIR/.." && pwd)"
 HOOK="$REAL_ROOT/.husky/pre-commit"
 
 new_hook_repo() {
   new_repo "$1"
-  mkdir -p "$REPO/scripts" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
+  mkdir -p "$REPO/scripts/lib" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
   cp "$CHECK" "$REPO/scripts/check-line-citations.mjs"
+  # The checker imports its entry guard from scripts/lib/ — copy the helper with it.
+  cp "$DIR/lib/is-main-entry.mjs" "$REPO/scripts/lib/is-main-entry.mjs"
+  cp "$DIR/check-pipefail-early-exit.mjs" "$REPO/scripts/check-pipefail-early-exit.mjs"
   cp "$HOOK" "$REPO/.husky/pre-commit"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/_stub_bin/npx"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/scripts/format-shipped.sh"
+  printf 'process.exit(0);\n' >"$REPO/scripts/check-ships-manifest.mjs"
   chmod +x "$REPO/_stub_bin/npx" "$REPO/scripts/format-shipped.sh"
 }
 
@@ -415,6 +987,14 @@ printf '# Note\n\nAt the time `target.md:2` said beta.\n' >"$REPO/docs/cite.md"
 git -C "$REPO" add docs
 expect_hook_pass "pre-commit leaves closed historical material alone"
 
+# --- the docs site is in scope, and the prose form is what its pages use
+new_hook_repo precommit-docs-site
+mkdir -p "$REPO/docs/site"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# Page\n\nThe cap is line 2 of `target.sh`.\n' >"$REPO/docs/site/page.md"
+git -C "$REPO" add docs/site target.sh
+expect_hook_block "pre-commit refuses a blank-landing prose citation on docs/site" "is an empty line"
+
 # --- a path staged and then deleted from the working tree must not produce a verdict
 # about citations. Measured 2026-09-14: without the `-f` filter the checker threw
 # `ENOENT` and the hook reported it as «blank-landing citation(s)» — a red naming a
@@ -430,38 +1010,40 @@ grep -qF 'ENOENT' "$TMP/hook" && {
   echo "FAIL: the checker still crashed on the vanished path"
   sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); }
 
-# --------------------------------------------- scope parity with the corpus definition
-# `CITE_SCOPE` in .husky/pre-commit is a hand-kept copy of LIVE_AUTHORITY_MD — bash cannot
-# read the checker's const. A copy whose drift is caught by «somebody notices both files»
-# is the shape this repo refuses, so the two lists are compared mechanically here.
-# Divergence is silent by construction: the hook would simply gate a narrower surface than
-# the corpus defines, and a birth-wrong citation on the dropped path would sail through
-# with every arm above still green.
-#
-# The list MOVED on 2026-09-14. It lived in packages/core/hooks/pre-push.ts until
-# `--corpus` made it a three-consumer population (pre-push §9, the CI backstop, this
-# hook), at which point a TS copy beside the checker's own would have been the
-# `#sync-by-copy-paste` shape .claude/rules/dual-implementation-discipline.md §8 names.
-# This arm follows it to scripts/check-line-citations.mjs. Reading the old home would now
-# extract nothing at all, which is exactly why the emptiness guard below is load-bearing
-# and not decoration: without it this arm would have gone green comparing two empty
-# strings the moment the constant moved.
-#
-# Unlike every arm above this one reads the real repository, on purpose: a hermetic copy
-# of the lists would be the drift it is meant to catch.
-mjs_scope=$(awk '/^const LIVE_AUTHORITY_MD/,/^\];/' "$CHECK" |
-  grep -oE "'[^']+'" | tr -d "'" | sort)
-sh_scope=$(grep -E '^CITE_SCOPE=' "$HOOK" | head -1 | cut -d"'" -f2 | tr ' ' '\n' | grep -v '^$' | sort)
-if [ -z "$mjs_scope" ] || [ -z "$sh_scope" ]; then
-  # An extraction that silently yields nothing would make this arm pass on two empty
-  # strings — the tautology it exists to exclude.
-  echo "FAIL: scope parity — extraction came back empty (check-line-citations.mjs: $(printf '%s' "$mjs_scope" | wc -c) bytes, .husky/pre-commit: $(printf '%s' "$sh_scope" | wc -c) bytes)"
-  fails=$((fails + 1))
-elif [ "$mjs_scope" != "$sh_scope" ]; then
-  echo "FAIL: .husky/pre-commit CITE_SCOPE has diverged from LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs:"
-  diff <(printf '%s\n' "$mjs_scope") <(printf '%s\n' "$sh_scope") | sed 's/^/    /'
-  fails=$((fails + 1))
+# --- code files are in scope at commit time too
+new_hook_repo precommit-code
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/tool.sh"
+git -C "$REPO" add target.sh scripts/tool.sh
+expect_hook_block "pre-commit refuses a blank-landing citation in a code comment" "is an empty line"
+
+# --- a staged path with a space is one argument, not two fragments --in-corpus drops
+new_hook_repo precommit-code-space
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/my tool.sh"
+git -C "$REPO" add target.sh "scripts/my tool.sh"
+expect_hook_block "pre-commit checks a staged code file whose path has a space" "is an empty line"
+
+# --- ...and outside the corpus they are not: the hook asks the checker for the scope
+new_hook_repo precommit-code-scope
+mkdir -p "$REPO/.claude/orchestrator-prompts/k"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '// mirrors target.sh:2\n' >"$REPO/.claude/orchestrator-prompts/k/gen.mjs"
+git -C "$REPO" add target.sh .claude/orchestrator-prompts
+expect_hook_pass "pre-commit leaves closed kickoff material alone"
+
+# --------------------------------------------- one scope definition, no copy to drift
+# Until 2026-09-22 the hook kept `CITE_SCOPE`, a hand copy of LIVE_AUTHORITY_MD, and an
+# arm here diffed the two lists. The code corpus has exclusion rules no flat list can
+# express, so the hook now passes every staged file with `--in-corpus` and the checker
+# applies its own definition. This arm pins that the copy stays gone: a second list in
+# the hook would be the `#sync-by-copy-paste` shape
+# .claude/rules/dual-implementation-discipline.md §8 names, with nothing left to diff it.
+if grep -qE '^CITE_SCOPE=' "$HOOK"; then
+  echo "FAIL: .husky/pre-commit keeps its own CITE_SCOPE list again"; fails=$((fails + 1))
 fi
+grep -qF -- '--in-corpus' "$HOOK" || {
+  echo "FAIL: .husky/pre-commit does not ask the checker for its scope (--in-corpus)"; fails=$((fails + 1)); }
 
 if [ "$fails" -eq 0 ]; then
   echo "check-line-citations paired-negative: all arms passed"

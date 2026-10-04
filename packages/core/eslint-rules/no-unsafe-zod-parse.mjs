@@ -1,5 +1,3 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-const createRule = ESLintUtils.RuleCreator((_name) => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`);
 // Returns true if node is (or contains) a direct z.* call/member chain.
 // Handles z.object({}).parse(x), z.string().nullable().parse(x), etc.
 function isZodChain(node) {
@@ -75,11 +73,11 @@ function isStaticLiteral(node) {
             return false;
     }
 }
-export const noUnsafeZodParse = createRule({
-    name: 'no-unsafe-zod-parse',
+export const noUnsafeZodParse = {
     meta: {
         type: 'problem',
         docs: {
+            url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`,
             description: 'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) and fully-static literal arguments (fail-fast config parses) are not flagged.',
         },
         messages: {
@@ -111,4 +109,4 @@ export const noUnsafeZodParse = createRule({
             },
         };
     },
-});
+};

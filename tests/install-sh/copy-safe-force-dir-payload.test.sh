@@ -15,7 +15,7 @@
 # — on clean AND on violating input. That kills the CI gate (.github/workflows/getff-python.yml),
 # the .getff/hooks/pre-push rung and _py_firing_self_check in one move.
 #
-# Second directory call site with the same shape: setup.d/40-configs.sh:54 (fences-fire fixtures).
+# Second directory call site with the same shape: setup.d/40-configs.sh:68 (fences-fire fixtures).
 # Both are covered here; the fix lives in copy_safe itself so every present and future directory
 # call site is uniform.
 #
@@ -162,7 +162,7 @@ done
 
 # ── Arm 9: a consumer-RESEARCHED rule survives the newly-wiping --force pass ─
 # The fix makes --force a rm-rf-replace pass for .getff/astgrep-rules, which is exactly what
-# _py_join_researched_rules' docstring already claims (setup.d/45-python.sh:153 — "install /
+# _py_join_researched_rules' docstring already claims (setup.d/45-python.sh:276 — "install /
 # --force / --refresh"). Its durable home is .getff/rules-research/, and the join runs after the
 # copy on every pass, so the wipe must not strand a researched rule.
 mkdir -p "$P/.getff/rules-research"
@@ -192,7 +192,7 @@ echo "  ── live-fire: ast-grep scan (pinned @ast-grep/cli@0.44.1; SKIP if un
 if command -v npx >/dev/null 2>&1 && npx --yes -p @ast-grep/cli@0.44.1 ast-grep --version >/dev/null 2>&1; then
   printf 'x = 1\n' > "$P/clean_module.py"
   sg_out=$(cd "$P" && npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan . 2>&1); sg_rc=$?
-  if echo "$sg_out" | grep -qi 'Duplicate rule id'; then
+  if grep -qi 'Duplicate rule id' <<<"$sg_out"; then
     bad "live-fire: ast-grep aborted with a duplicate-rule-id error (rc=$sg_rc): $(echo "$sg_out" | tr '\n' '|' | cut -c1-200)"
   else
     ok "live-fire: ast-grep scan ran without a duplicate-rule-id abort after install --force"
@@ -201,7 +201,7 @@ else
   skip "live-fire ast-grep SKIP — @ast-grep/cli@0.44.1 not obtainable (npx/network absent); arm6 tree shape carries CI"
 fi
 
-# ── Arm 8: the second directory call site (40-configs.sh:54 fences-fire fixtures) ──
+# ── Arm 8: the second directory call site (40-configs.sh:68 fences-fire fixtures) ──
 echo ""
 echo "  ── second directory call site: fences-fire fixtures (setup.d/40-configs.sh) ──"
 FIX_SRC="$REPO_ROOT/packages/core/audit-self/fixtures/fences-fire"
@@ -211,7 +211,7 @@ if [ -d "$FIX_SRC" ]; then
   FORCE="--force"; copy_safe "$FIX_SRC" "$FIX_DST" >/dev/null; FORCE=""
   [ ! -e "$FIX_DST/fences-fire" ] \
     && ok "arm8: fences-fire fixtures dir not nested after a --force re-install" \
-    || bad "arm8: NESTED $FIX_DST/fences-fire — the 40-configs.sh:54 call site still nests under --force"
+    || bad "arm8: NESTED $FIX_DST/fences-fire — the 40-configs.sh:68 call site still nests under --force"
 else
   bad "arm8: fixture source $FIX_SRC missing — the audited call site moved; re-audit copy_safe dir call sites"
 fi

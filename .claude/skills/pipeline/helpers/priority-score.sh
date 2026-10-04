@@ -14,11 +14,16 @@
 #     Strip conventional branch prefix from merged-PR headRefNames; exact-match against
 #     umbrella name. Covers single-stage umbrellas with clean `feat/<name>` branches.
 #
-#   completion Layer C2 (jaccard PR-title overlap, ~4% additional per §4 estimate):
-#     REUSE dup-detect.sh jaccard logic (sub-shell call + output parsing). Any
+#   completion Layer C2 (dup-detect citation — xref or jaccard, ~4% additional per §4):
+#     REUSE dup-detect.sh jaccard+xref logic (sub-shell call + output parsing). Any
 #     POTENTIAL_DUPE: line from dup-detect.sh --all implies completion candidate for
 #     the named umbrella. Uses MO_JACCARD_THRESHOLD (default 30%) from dup-detect.sh.
-#     SSOT: helpers/dup-detect.sh:62 — zero new LOC for the jaccard algorithm itself.
+#     SSOT: helpers/dup-detect.sh:126 — zero new LOC for the jaccard algorithm itself.
+#     GATED (#1517): a POTENTIAL_DUPE citation classifies DONE only when frontier.sh
+#     AGREES — a non-empty FRONTIER: line means the umbrella still has dispatchable
+#     stages, so the cited merged PR is PROVENANCE (a landed stage recorded inline),
+#     not completion. The basis is passed through from the dup-detect line (xref|jaccard),
+#     no longer hardcoded to jaccard.
 #
 #   completion Layer C3 (done.md file, load-bearing fallback — ADAPT Cline SSOT #77):
 #     Check ${PROMPTS_DIR}/<umbrella>/done.md existence. If present, parse
@@ -86,6 +91,9 @@ MO_GH_BIN="${MO_GH_BIN:-gh}"
 # C2 jaccard seam: override dup-detect.sh path for testing (completion-detection Layer C2).
 _DEFAULT_DUP_DETECT="${REPO_ROOT}/.claude/skills/pipeline/helpers/dup-detect.sh"
 MO_DUP_DETECT_BIN="${MO_DUP_DETECT_BIN:-${_DEFAULT_DUP_DETECT}}"
+# C2 frontier-agreement seam (#1517): override frontier.sh path for testing — same
+# REPO_ROOT-derived default + env override pattern as MO_DUP_DETECT_BIN directly above.
+MO_FRONTIER_BIN="${MO_FRONTIER_BIN:-${REPO_ROOT}/.claude/skills/pipeline/helpers/frontier.sh}"
 # W4: derive the CC project-memory slug from REPO_ROOT (path with `/`→`-`) instead of a
 # hardcoded repo path, so the helper works on any checkout / consumer clone. The synthetic
 # section (c) below already guards `[[ -d "${MO_MEM_DIR}" ]]` → missing dir is skipped
@@ -141,7 +149,7 @@ for _d in "${PROMPTS_DIR}"/*/; do
   [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
   [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
   if [[ -n "${_merged_branch_names}" ]] \
-      && printf '%s\n' "${_merged_branch_names}" | grep -qxF "${_n}" 2>/dev/null; then
+      && grep -qxF "${_n}" 2>/dev/null <<<"${_merged_branch_names}"; then
     continue                                          # C1 cheap-closed → skip expensive C2
   fi
   _open_survivors+="${_n}"$'\n'
@@ -195,18 +203,20 @@ for dir in "${PROMPTS_DIR}"/*/; do
 
   # Extract Type from kickoff header (line 2-5 typically)
   type_line="$(grep -m1 '^\*\*Type:\*\*\|^> \*\*Type:\*\*' "${kickoff}" 2>/dev/null || echo '')"
-  if echo "${type_line}" | grep -qi 'R-phase\|research'; then
+  if grep -qi 'R-phase\|research' <<<"${type_line}"; then
     wave_type="R-phase"
-  elif echo "${type_line}" | grep -qi 'I-phase\|execution\|build'; then
+  elif grep -qi 'I-phase\|execution\|build' <<<"${type_line}"; then
     wave_type="I-phase"
-  elif echo "${type_line}" | grep -qi 'wiring\|config\|ci'; then
+  elif grep -qi 'wiring\|config\|ci' <<<"${type_line}"; then
     wave_type="wiring"
   else
     wave_type="unknown"
   fi
 
-  # Estimate volume from kickoff LOC as a proxy
-  loc="$(wc -l < "${kickoff}" 2>/dev/null || echo 0)"
+  # Estimate volume from kickoff LOC as a proxy. `tr -d ' '` strips the column padding
+  # BSD wc -l emits (macOS prints `     776`, which breaks the `-lt` compares and the
+  # emitted `loc=     776`); frontier.sh strips it the same way.
+  loc="$(wc -l < "${kickoff}" 2>/dev/null | tr -d ' ' || echo 0)"
   if [[ "${loc}" -lt 100 ]]; then
     volume="S"
   elif [[ "${loc}" -lt 250 ]]; then
@@ -237,9 +247,36 @@ for dir in "${PROMPTS_DIR}"/*/; do
     [[ -n "${done_pr}" ]] && done_basis="branch"
   fi
 
-  # completion Layer C2 — jaccard PR-title overlap (REUSE dup-detect.sh sub-shell output).
+  # completion Layer C2 — dup-detect citation, xref OR jaccard (REUSE dup-detect.sh output).
   # Consumes _dup_detect_all_output pre-fetched above. Parses "POTENTIAL_DUPE: <umbrella> ..."
   # lines; extracts PR number from "merged #<num>" pattern. First match wins per umbrella.
+  # Basis pass-through (#1517a): the dup-detect line names its own basis (xref|jaccard);
+  # the old code hardcoded "jaccard" and misreported every xref-sourced closure. Falls back
+  # to "jaccard" only if a line ever arrives without a basis token (defensive; all three
+  # signals today emit basis=).
+  # Frontier-agreement veto (#1517b): a POTENTIAL_DUPE citation is completion evidence ONLY
+  # when frontier.sh agrees — a non-empty FRONTIER: line means dispatchable stages remain,
+  # so the cited merged PR is PROVENANCE (a landed stage recorded inline), not completion;
+  # the veto leaves done_pr empty and the umbrella stays a ranked candidate (SKILL §2 Step 5
+  # drops DONE BEFORE filter, never after). Chose frontier agreement over the issue's other
+  # candidate (excluding xrefs inside MERGED/CLOSED/DONE-marked rows): both recorded #1517
+  # repros cite the merged PR in BARE PROSE (getff-ai-site/kickoff.md:136,
+  # plain-words-recap-v2/kickoff.md:302), which row-marker exclusion cannot see, while live
+  # frontier.sh runs on both yield non-empty FRONTIER: (S0a S0q S0b S1 S2 / S3 S4 S5) —
+  # and frontier is already the completion authority this skill trusts elsewhere, so the
+  # veto never pushes authors to delete PR numbers another helper demands. The veto reads
+  # FRONTIER-CONTENT only (both repros also emit DEGRADE: for the missing `Depends on`
+  # column while still producing a usable frontier — DEGRADE-absence is the wrong
+  # predicate). Applied to the whole C2 layer (xref AND jaccard — both read a citation's or
+  # a title's presence as completion). Frontier unavailable/not executable → no veto
+  # (fail-open preserves the historical signal; the veto fires only on positive content).
+  # Completion-bearing exemption (harvest rework round 2, 2026-09-27): a kickoff line
+  # that states the closure of the CITED PR outright — `Final PR:` / `Closed by:` /
+  # `Completed by:` + the same `#<num>` — is completion evidence, not provenance, so it
+  # overrides the veto (kickoff §5 falsifier: a `Final PR: #N` body plus an OPEN stage
+  # table must read DONE, not ACTIVE). The number is matched with a non-digit boundary
+  # so `#177` never satisfies `#1773`; a bare prose cite elsewhere in the body does NOT
+  # satisfy the exemption — only these three closure-stating line shapes do.
   if [[ -z "${done_pr}" && -n "${_dup_detect_all_output}" ]]; then
     _c2_line="$(printf '%s\n' "${_dup_detect_all_output}" \
       | grep "^POTENTIAL_DUPE: ${name} " | head -n1 || true)"
@@ -247,7 +284,23 @@ for dir in "${PROMPTS_DIR}"/*/; do
       done_pr="$(printf '%s' "${_c2_line}" | grep -oE 'merged #[0-9]+' | grep -oE '[0-9]+' | head -n1 || true)"
       # Extract score for output annotation (e.g. "score=42%")
       _c2_score="$(printf '%s' "${_c2_line}" | grep -oE 'score=[0-9]+%' | head -n1 || true)"
-      [[ -n "${done_pr}" ]] && done_basis="jaccard${_c2_score:+ ${_c2_score}}"
+      _c2_basis="$(printf '%s' "${_c2_line}" | grep -oE 'basis=[a-z-]+' | head -n1 || true)"
+      _c2_basis="${_c2_basis#basis=}"
+      _c2_completion_line=""
+      if [[ -n "${done_pr}" && -x "${MO_FRONTIER_BIN}" ]]; then
+        _c2_frontier="$(grep -m1 '^FRONTIER: ' <<<"$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
+          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null)" || true)"
+        _c2_frontier="${_c2_frontier#FRONTIER: }"
+        if [[ -n "${_c2_frontier}" && "${_c2_frontier}" != "(none)" ]]; then
+          _c2_completion_line="$(grep -m1 -E \
+            "^[-*]?[[:space:]]*(Final PR|Closed by|Completed by)[[:space:]]*:?[[:space:]]*#${done_pr}([^0-9]|$)" \
+            "${kickoff}" 2>/dev/null || true)"
+          if [[ -z "${_c2_completion_line}" ]]; then
+            done_pr=""  # provenance citation, not completion — keep the umbrella ranked
+          fi
+        fi
+      fi
+      [[ -n "${done_pr}" ]] && done_basis="${_c2_basis:-jaccard}${_c2_score:+ ${_c2_score}}"
     fi
   fi
 

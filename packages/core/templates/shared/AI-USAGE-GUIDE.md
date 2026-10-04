@@ -3,7 +3,7 @@
 > **Authoritative for:** the AI-facing lifecycle of a getff-equipped project past install — the
 > First-Steps sequences per install depth (rendered from the SSOT named in §1), the daily cycle,
 > and the routing to what is not yet shipped.
-> **NOT authoritative for:** installation itself — see `INSTALL-FOR-AI.md`. Tier-routing criteria
+> **NOT authoritative for:** installation itself — see the getff repo's INSTALL.md (<https://github.com/artyhoo/getff/blob/main/INSTALL.md>). Tier-routing criteria
 > and the capability-absence degradation matrix — see `.ai-factory/tier-home.md` (§4 points there
 > and never restates it). This project's own rules — see `.ai-factory/RULES.md`. Project goal —
 > see your own `README.md`.
@@ -94,7 +94,7 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 <!-- step: run-the-gate -->
 
 7. **Run the gate you will run every day** — `bash scripts/audit-ai-docs.sh` (~10 sec). Expect
-   findings on a fresh project; `INSTALL-FOR-AI.md` «Expected first-run failures» lists the normal
+   findings on a fresh project; the getff repo's INSTALL-FOR-AI.md § «Expected first-run failures» (<https://github.com/artyhoo/getff/blob/main/INSTALL-FOR-AI.md#expected-first-run-failures-this-is-ok>) lists the normal
    ones.
 
 <!-- step: research-your-stack -->
@@ -207,8 +207,9 @@ The steady-state loop once First Steps is done. Every command below is shipped b
    `bash scripts/check-lintstaged-resolves.sh`. The pre-commit hook runs lint-staged on its own.
 4. **On push** — `.husky/pre-push` fires automatically. It runs **getff's own rule checks**:
    rule-glob liveness (an active rule whose globs match no file fails), lint-staged binary
-   resolution, generated-rule firing, link-check on changed Markdown, and un-pinned tool
-   installs in workflows. It does **not** run your typecheck or your test suite — those stay
+   resolution, generated-rule firing, command/script check liveness, link-check on changed
+   Markdown, and un-pinned tool installs in workflows. It does **not** run your typecheck or
+   your test suite — those stay
    yours to wire, at pre-commit or in your CI. It is not optional and not to be bypassed with
    `--no-verify`.
 5. **On the PR** — CI (`ci-success`) is the last-resort gate. It is the authority that does not
@@ -284,6 +285,8 @@ rather than implying uniformity:
 | Skills (`/rule-research`, `/arch`, `/pipeline`, …) | auto-activate on relevant queries | do **not** auto-activate — read the matching `SKILL.md` by hand when the topic comes up |
 | `.claude/settings.json` hooks                      | works                             | inert — layers 1-4 above are unaffected                                                 |
 
+**ZCode (plugin channel):** the «Other harnesses» column is the ZCode story too, with two further named degradations — PostToolUse gate hooks run **advisory-only** (ZCode's schema consumes `additionalContext`, not `permissionDecision`) and plugin sub-agents are recorded but not executed; skills still load and auto-trigger via the SessionStart bootstrap, and the hard layer (`.husky` + CI) remains opt-in by running the installer yourself. Per-hook parity census: <https://github.com/artyhoo/getff#as-a-zcode-plugin-per-harness>.
+
 ---
 
 ## §6 Not shipped yet — named, not described
@@ -326,7 +329,7 @@ Resolve details (tier routing, predicates) live in the preset JSON itself and
 - **§2 SSOT:** `packages/core/templates/shared/first-steps.source.json`. Edit the JSON, then this
   render; the parity check fails on any step reordered or retitled in one of them alone.
 - **Editing your installed copy — read this before you edit.** This doc is **framework-owned**
-  (Layer 1 of the three-layer authority model in `INSTALL-FOR-AI.md`), not a file you are expected
+  (Layer 1 of the three-layer authority model in the getff repo's INSTALL-FOR-AI.md — <https://github.com/artyhoo/getff/blob/main/INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts>), not a file you are expected
   to maintain. A plain re-install leaves your copy alone: `install.sh` skips a destination that
   already exists. **`install.sh --refresh` DOES overwrite it**, on purpose — refreshing is how a
   framework doc receives fixes, and its §2 renders from a source that moves. So in-place edits

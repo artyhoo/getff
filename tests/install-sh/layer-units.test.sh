@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: sources every setup.d unit under set -u; the bash-3.2-only empty-array aborts it caught (#989) never show on bash >= 4.4
 # layer-units.test.sh — Per-layer unit tests (Task 15, modular-install-fullpack S1).
 #
 # Sources each setup.d/NN-*.sh in isolation (with lib.sh loaded first) and asserts:
@@ -34,6 +35,7 @@ _setup_dispatcher_scope() {
   SHIPPED_DOCS=()
   SKIPPED=()
   DEVDEPS=()
+  NOT_WIRED=()   # install.sh:190 — 99-finalize.sh reads ${#NOT_WIRED[@]} (critical-review wave 1)
   export _r2_verdict=""
   export DEPS_INSTALLED=""
 }

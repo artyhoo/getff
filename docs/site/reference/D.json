@@ -198,6 +198,31 @@
       "example": null
     },
     {
+      "name": "close-aif-task-on-merge",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse(Bash) hook — close the aif task a merged harvest PR names",
+      "source": {
+        "path": ".claude/hooks/close-aif-task-on-merge.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Bash"
+        ],
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "deps-hash-check",
       "kind": "hook",
       "shipsTo": {
@@ -258,11 +283,42 @@
       "example": null
     },
     {
-      "name": "inject-handoff-on-compact",
+      "name": "glossary-inject",
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
         "absent": "no-lane"
+      },
+      "description": "UserPromptSubmit hook: glossary injection + usage counter (plain-words-recap-v2 D-F).",
+      "source": {
+        "path": ".claude/hooks/glossary-inject.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-handoff-on-compact",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "SessionStart:compact hook — re-injects the model-authored handoff after compaction",
       "source": {
@@ -295,17 +351,21 @@
           "ts-server"
         ]
       },
-      "description": "PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries",
+      "description": "card loader hook — injects the rule and card summaries that match an edit, a read or a Bash command",
       "source": {
         "path": ".claude/hooks/inject-matching-rule.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "PostToolUse"
+          "PostToolUse",
+          "PreToolUse",
+          "SessionStart"
         ],
         "matcher": [
-          "Edit|Write|MultiEdit"
+          "Bash",
+          "Edit|Write|MultiEdit|Read",
+          "compact"
         ],
         "delivery": [
           "@dual-pair:rule-path-scoping",
@@ -357,16 +417,18 @@
           "ts-server"
         ]
       },
-      "description": "UserPromptSubmit hook — injects the active output-language line into prompt context",
+      "description": "SessionStart hook — injects the active output-language line into session context",
       "source": {
         "path": ".claude/hooks/inject-output-language.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "UserPromptSubmit"
+          "SessionStart"
         ],
-        "matcher": [],
+        "matcher": [
+          "startup|resume|clear|compact"
+        ],
         "delivery": [
           "@cc-only-rationale",
           "plugin"
@@ -386,17 +448,19 @@
           "ts-server"
         ]
       },
-      "description": "UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points",
+      "description": "SessionStart + SubagentStart hook — injects the project digest at both fire-points",
       "source": {
         "path": ".claude/hooks/inject-project-digest.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "SubagentStart",
-          "UserPromptSubmit"
+          "SessionStart",
+          "SubagentStart"
         ],
-        "matcher": [],
+        "matcher": [
+          "startup|resume|clear|compact"
+        ],
         "delivery": [
           "@cc-only-rationale",
           "plugin"
@@ -411,19 +475,20 @@
         "tier": "framework",
         "absent": "no-lane"
       },
-      "description": "UserPromptSubmit hook — injects the session-bootstrap digest into prompt context",
+      "description": "SessionStart hook — injects the session-bootstrap digest into session context",
       "source": {
         "path": ".claude/hooks/inject-session-bootstrap.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "UserPromptSubmit"
+          "SessionStart"
         ],
-        "matcher": [],
+        "matcher": [
+          "startup|resume|clear|compact"
+        ],
         "delivery": [
-          "@cc-only-rationale",
-          "plugin"
+          "@cc-only-rationale"
         ]
       },
       "example": null
@@ -482,7 +547,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PreCompact hook — writes the session-residue note before compaction",
       "source": {
@@ -524,6 +594,31 @@
         "delivery": [
           "@cc-only-rationale",
           "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "seal-primary-checkout",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PreToolUse deny gate — seal the PRIMARY checkout's protected paths",
+      "source": {
+        "path": ".claude/hooks/seal-primary-checkout.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PreToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale"
         ]
       },
       "example": null

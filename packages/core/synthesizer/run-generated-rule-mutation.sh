@@ -22,7 +22,8 @@
 #   NODE-2    Suffix first node type            '<NodeType>_Y'
 #   LOGIC-1   Negate first attribute            [attr='val'] → [attr!='val']
 #
-# exit 0 = all rules ≥60% kill; exit 1 = below floor OR all-skipped (rules present but
+# exit 2 = cannot run (no manifest, no tsx, the generator toolchain could not be installed).
+# exit 0 = all rules ≥60% kill; exit 1 = below floor, a rule the probe could not evaluate, OR all-skipped (rules present but
 # none testable — selector-blind negative-test; the #skip-reported-as-green defect class).
 # Skips are tracked in OVERALL_SKIPPED and surface in the summary line + final verdict;
 # the summary never vanishes when rules were present (RULE_COUNT>0).
@@ -65,46 +66,49 @@ for _t in \
 done
 [ -n "$TSX_BIN" ] || die "tsx not found — run npm install"
 
-ESLINT_BIN=""
-for _e in \
-  "$REPO_ROOT/node_modules/.bin/eslint" \
-  "$REPO_ROOT/packages/core/node_modules/.bin/eslint" \
-  "/app/node_modules/.bin/eslint"; do
-  [ -x "$_e" ] && ESLINT_BIN="$_e" && break
-done
-[ -n "$ESLINT_BIN" ] || die "eslint not found — run npm install"
-
-NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
-
 # ─── Scratch + probe script ────────────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
 trap 'rm -rf "$SCRATCH"' EXIT
-ln -sf "$NM_SRC" "$SCRATCH/node_modules"
 
 cat > "$SCRATCH/selector-probe.mts" << 'PROBE'
 import { Linter } from 'eslint';
-const selector = process.env['PROBE_SELECTOR'] ?? '';
-const code     = process.env['PROBE_CODE'] ?? '';
-if (!selector || !code) { process.stderr.write('missing env\n'); process.exit(9); }
+// One process per rule: PROBE_SELECTORS holds the original selector and its mutations, one per line, and
+// the probe prints one line per selector, in order: its code — 0 fired, 1 did not fire, 9 cannot evaluate
+// (the input does not parse, or ESLint threw on the selector) — and, after a tab, the error of a 9. Loading ESLint and the parser once per rule
+// instead of once per selector is what keeps the push-time check inside its budget (P6 run 3 N6: one
+// process per selector took 60 s for six rules on an idle 16-core machine).
+const selectors = (process.env['PROBE_SELECTORS'] ?? '').split('\n').filter(Boolean);
+const code      = process.env['PROBE_CODE'] ?? '';
+if (!selectors.length || !code) { process.stderr.write('missing env\n'); process.exit(9); }
 const linter = new Linter();
 // `files` is REQUIRED: in ESLint flat config an object without a `files` key matches
 // only the default js/mjs/cjs set, so `linter.verify(..., { filename: 'probe.ts' })`
 // below returns "No matching configuration found for probe.ts" and the rule never
 // runs — _probe then exits non-zero for EVERY selector, so every rule takes the
 // selector-not-firing skip path and no mutation is ever measured. Same trap as #832
-// in audit-self/check-fences-fire.sh:177-182; the paired-negative arm that pins this
+// in audit-self/check-fences-fire.sh:268-273; the paired-negative arm that pins this
 // is `POSITIVE (probe liveness)` in run-generated-rule-mutation-skip.test.ts.
-const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module' } }];
-try {
-  const msgs = linter.verify(code, cfg, { filename: 'probe.ts' });
-  process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
-} catch (e) { process.stderr.write(String(e) + '\n'); process.exit(9); }
+// Generated negative inputs are TypeScript and may hold JSX, so parse them as the consumer's lint
+// does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).
+let parser: unknown;
+try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
+const oneLine = (m: string): string => m.replace(/\s+/g, ' ').trim();
+const verdict = (selector: string, first: boolean): string => {
+  const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
+  try {
+    const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
+    // A parse error comes back as a fatal message, not a throw: 9 (cannot evaluate), never «did not fire».
+    const fatal = msgs.find(m => m.fatal);
+    if (fatal) { if (first) process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); return '9\tinput does not parse: ' + oneLine(fatal.message); }
+    return msgs.some(m => m.ruleId === 'no-restricted-syntax') ? '0' : '1';
+  } catch (e) { if (first) process.stderr.write(String(e) + '\n'); return '9\t' + oneLine(String(e)); }
+};
+process.stdout.write(selectors.map((sel, i) => verdict(sel, i === 0)).join('\n') + '\n');
 PROBE
 
-_probe() {
-  local SEL="$1" CODE="$2"
-  cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>/dev/null
-  return $?
+# _probe_all <code> <selectors, one per line> → one code per selector on stdout (see the probe above).
+_probe_all() {
+  ( cd "$SCRATCH" && PROBE_SELECTORS="$2" PROBE_CODE="$1" "$TSX_BIN" selector-probe.mts 2>"$SCRATCH/probe.err" )
 }
 
 # ─── Selector perturbation helpers ───────────────────────────────────────────
@@ -135,21 +139,37 @@ _mutate() {
 }
 
 # ─── Extract rules from manifest ──────────────────────────────────────────────
-RULES_JSON=$(node --input-type=module -e "
+# critical-review S8-1 — fail closed. The extraction used to end in `2>/dev/null || echo '[]'`, so
+# a manifest that did not parse took the RULE_COUNT=0 exit («nothing to test», exit 0) and the push
+# gate stayed green on material it never read. The path also used to be spliced into a JS string
+# literal (a `'` in it broke the parse the same way); it now travels in the environment. A
+# declarative rule without usable negative-test inputs (key missing, misspelled or empty) is kept
+# with inputs=[] so the loop below counts it as a malformed skip instead of it vanishing here.
+_rules_err=$(mktemp)
+if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -e "
   import { readFileSync } from 'node:fs';
-  const m = JSON.parse(readFileSync('$MANIFEST', 'utf8'));
+  const m = JSON.parse(readFileSync(process.env.GETFF_MUTATION_MANIFEST, 'utf8'));
+  if (m === null || typeof m !== 'object' || Array.isArray(m)) throw new Error('manifest is not a JSON object');
   const rules = [];
   for (const [id, rule] of Object.entries(m)) {
-    const r = rule;
+    const r = rule ?? {};
     const check = r.check ?? {};
     const selector = check.selector ?? '';
     if (!selector || check.type !== 'declarative') continue;
     const nt = r['negative-test'] ?? r['negativeTest'] ?? null;
-    if (!nt || !Array.isArray(nt.input) || !nt.input.length) continue;
-    rules.push({ id, selector, inputs: nt.input });
+    const inputs = nt && Array.isArray(nt.input) ? nt.input : [];
+    rules.push({ id, selector, inputs });
   }
   process.stdout.write(JSON.stringify(rules));
-" 2>/dev/null || echo '[]')
+" 2>"$_rules_err"); then
+  # Node prints the throwing SOURCE LINE (`… throw new Error('…');`) above the message, so match
+  # the message line itself — `Error: …` / `SyntaxError: …` / `Error [ERR_…]: …` at column 0 (#1390).
+  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E '^[A-Za-z]*Error( \[[A-Z0-9_]+\])?: ' "$_rules_err" || head -n 1 "$_rules_err")"
+  echo "NOT green: the generated-rule material was not tested (regenerate it: ./setup --full)"
+  rm -f "$_rules_err"
+  exit 1
+fi
+rm -f "$_rules_err"
 
 RULE_COUNT=$(node --input-type=module -e "
   const chunks = [];
@@ -162,11 +182,49 @@ if [ "$RULE_COUNT" -eq 0 ]; then
   exit 0
 fi
 
+# The probe needs ESLint AND typescript-eslint's parser from ONE node_modules: the generated negative
+# inputs are TypeScript, and without the parser every input fails to parse and no rule is tested (P6
+# run 2 N1, 2026-09-30: an oxlint project with no parser, the generator's temp toolchain gone, 7 of 7
+# rules untested and the first push blocked). The project's own set when it has both; otherwise getff's
+# rule-generator toolchain, which setup.d/80-rule-bootstrap.sh keeps in the project's node_modules/.cache
+# (git, the linters, prettier, tsc and test runners skip node_modules; no package.json key is written).
+# A clone without it (a fresh checkout, CI, a wiped node_modules) gets it installed here, the same
+# packages the install uses (GEN_TOOL_PKGS = _rb_tool_pkgs, kept equal by generator-tools-root.test.sh arm L).
+# Resolved only once there is a rule to test: a manifest with none installs nothing. `npm ci` empties
+# node_modules, so the first run after it installs the toolchain again. That install runs inside the push, so
+# npm's retries are bounded: offline it gives up in seconds (unbounded it took 211 s) and the run exits 2.
+GEN_TOOL_PKGS=(eslint@^9 typescript-eslint typescript)
+GEN_TOOLS="$REPO_ROOT/node_modules/.cache/getff/generator-tools"
+_has_set() { [ -f "$1/eslint/package.json" ] && [ -f "$1/typescript-eslint/package.json" ]; }
+NM_SRC=""
+for _nm in "$REPO_ROOT/node_modules" "$REPO_ROOT/packages/core/node_modules" "/app/node_modules"; do
+  _has_set "$_nm" && NM_SRC="$_nm" && break
+done
+if [ -z "$NM_SRC" ]; then
+  # `.complete` is written only after npm exited 0 with both packages present: an install killed part-way
+  # (Ctrl-C at push, the armed probe's time limit, a dropped network) leaves package.json files behind, and
+  # without the marker that half tree would be taken as the toolchain on every later push.
+  if ! { [ -f "$GEN_TOOLS/.complete" ] && _has_set "$GEN_TOOLS/node_modules"; }; then
+    [ -d "$REPO_ROOT/node_modules" ] || die "the project's dependencies are not installed — run npm install"
+    echo "getff's rule-generator toolchain (${GEN_TOOL_PKGS[*]}) is not in $GEN_TOOLS — installing it there (the project's package.json is not touched)"
+    rm -f "$GEN_TOOLS/.complete"
+    mkdir -p "$GEN_TOOLS" \
+      && npm install --prefix "$GEN_TOOLS" --no-audit --no-fund --loglevel=error \
+           --fetch-retries=1 --fetch-timeout=20000 --fetch-retry-mintimeout=2000 --fetch-retry-maxtimeout=10000 \
+           "${GEN_TOOL_PKGS[@]}" >&2 \
+      || die "could not install getff's rule-generator toolchain into $GEN_TOOLS (npm failed) — the generated rules are not tested"
+    _has_set "$GEN_TOOLS/node_modules" || die "getff's rule-generator toolchain in $GEN_TOOLS has no eslint + typescript-eslint after npm install"
+    : > "$GEN_TOOLS/.complete"
+  fi
+  NM_SRC="$GEN_TOOLS/node_modules"
+fi
+ln -sf "$NM_SRC" "$SCRATCH/node_modules"
+
 echo "=== generated rule mutation: ${RULE_COUNT} rule(s), floor=${MIN_KILL}% ==="
 echo "manifest: $MANIFEST"
 echo
 
-OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0
+OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0; OVERALL_UNTESTABLE=0; OVERALL_UNEVAL=0
 
 # Iterate rules
 IDX=0
@@ -192,27 +250,47 @@ while true; do
   echo "--- $RULE_ID ---"
   echo "selector: $RULE_SEL"
 
-  # Verify original fires
-  if ! _probe "$RULE_SEL" "$RULE_INPUT"; then
+  # The original first, then its mutations: one probe process for the rule. A process that dies before
+  # it answers (ESLint cannot be imported) answers nothing, and the original takes its exit code as before.
+  MUTS=$(_mutate "$RULE_SEL" | grep -v '^$' || true)
+  _sels=$(printf '%s\n%s' "$RULE_SEL" "$MUTS")
+  _want=$(printf '%s\n' "$_sels" | grep -c .)
+  _prc=0; RCS=$(_probe_all "$RULE_INPUT" "$_sels") || _prc=$?
+  if [ "$(printf '%s\n' "$RCS" | grep -c .)" -ne "$_want" ]; then
+    _orig_rc=$(( _prc == 0 ? 9 : _prc )); RCS=""
+  else
+    _orig_rc=$(printf '%s\n' "$RCS" | head -n 1 | cut -f1)
+  fi
+  if [ "$_orig_rc" -eq 9 ]; then
+    # P6 run 2 N1: a probe error (the input does not parse, the parser is missing) used to take the skip
+    # below, and one other tested rule made the run PASS — generation then armed a check that had not
+    # tested this rule. getff generated the input, so it is getff's material failing: a FAIL, named.
+    echo "  FAIL: could not be tested — the probe could not evaluate its negative-test input: $(head -n 1 "$SCRATCH/probe.err" 2>/dev/null)"
+    OVERALL_FAIL=$((OVERALL_FAIL+1)); OVERALL_UNTESTABLE=$((OVERALL_UNTESTABLE+1))
+    IDX=$((IDX+1)); continue
+  elif [ "$_orig_rc" -ne 0 ]; then
     echo "  WARN: original selector did NOT fire on negative-test input — skipping rule"
     OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
     IDX=$((IDX+1)); continue
   fi
 
-  KILLED=0; SURVIVED=0; SURVIVORS=()
-  while IFS= read -r MUT; do
+  KILLED=0; SURVIVED=0; UNEVAL=0; SURVIVORS=()
+  # A mutation survives when it still fires (0) and is killed when it stops firing (1). One the probe
+  # cannot evaluate (9: ESLint rejects the mutated selector — ATTR-1 on `:matches([…], …)` leaves
+  # `:matches(, …)`) was not tested: it is named, counted apart and left out of the kill rate (P6 run 4 N10).
+  while IFS=$'\t' read -r MUT _rc _err; do
     [ -z "$MUT" ] && continue
-    if _probe "$MUT" "$RULE_INPUT"; then
-      SURVIVED=$((SURVIVED+1))
-      SURVIVORS+=("$MUT")
-    else
-      KILLED=$((KILLED+1))
-    fi
-  done < <(_mutate "$RULE_SEL")
+    case "$_rc" in
+      0) SURVIVED=$((SURVIVED+1)); SURVIVORS+=("$MUT") ;;
+      9) UNEVAL=$((UNEVAL+1)); echo "  unevaluable: $MUT — $_err" ;;
+      *) KILLED=$((KILLED+1)) ;;
+    esac
+  done < <(paste <(printf '%s\n' "$MUTS") <(printf '%s\n' "$RCS" | tail -n +2))
+  OVERALL_UNEVAL=$((OVERALL_UNEVAL+UNEVAL))
 
   TOTAL=$((KILLED+SURVIVED))
   if [ "$TOTAL" -eq 0 ]; then
-    echo "  WARN: zero mutations probed for $RULE_ID — skipping (perturbations produced no candidates)"
+    echo "  WARN: zero mutations probed for $RULE_ID — skipping (perturbations produced no candidates, or none could be evaluated)"
     OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
     IDX=$((IDX+1)); continue
   fi
@@ -245,17 +323,19 @@ done
 # case (OVERALL_TOTAL=0) is the one that most needs a printed verdict — never let
 # the summary vanish. Mirrors pre-push.ts generatedRuleMaterialSection LOUD-DEGRADE
 # idiom: never a silent pass, never a vanishing verdict.
+_untestable=""; [ "$OVERALL_UNTESTABLE" -eq 0 ] || _untestable=" untestable=$OVERALL_UNTESTABLE"
+[ "$OVERALL_UNEVAL" -eq 0 ] || _untestable="$_untestable unevaluable=$OVERALL_UNEVAL"
 if [ "$RULE_COUNT" -gt 0 ]; then
   if [ "$OVERALL_TOTAL" -gt 0 ]; then
     OVERALL_PCT=$((OVERALL_KILLED * 100 / OVERALL_TOTAL))
-    echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) skipped=$OVERALL_SKIPPED floor=${MIN_KILL}% ==="
+    echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) skipped=$OVERALL_SKIPPED${_untestable} floor=${MIN_KILL}% ==="
   else
-    echo "=== overall: skipped=$OVERALL_SKIPPED — NOT green (rules present, none tested) ==="
+    echo "=== overall: skipped=$OVERALL_SKIPPED${_untestable} — NOT green (rules present, none tested) ==="
   fi
 fi
 
 if [ "$OVERALL_FAIL" -gt 0 ]; then
-  echo "FAIL — $OVERALL_FAIL rule(s) below kill-rate floor"
+  echo "FAIL — $OVERALL_FAIL rule(s) below kill-rate floor or not testable"
   exit 1
 elif [ "$OVERALL_TOTAL" -eq 0 ] && [ "$RULE_COUNT" -gt 0 ]; then
   # Rules were present but none were actually tested (all skipped). This is MATERIAL

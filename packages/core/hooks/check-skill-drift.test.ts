@@ -327,6 +327,27 @@ describe('check-skill-drift.sh — paired-negative mutation contract', () => {
     expect(stdout).toContain('check-skill-drift: PASS (0 errors)');
   });
 
+  it('Case 2b: a link inside a fenced block is sample text, not a ref; the same link outside it is', () => {
+    // Vendored upstream text (.claude/skills/arch/references/CONTEXT-FORMAT.md) shows a sample
+    // CONTEXT-MAP.md with ./src/<context>/CONTEXT.md links inside a ```md fence; no renderer
+    // follows them, and the upstream bytes may not be edited. The fence is the boundary.
+    const { root } = makeSandbox();
+    const skillDir = join(root, '.claude', 'skills', 'my-skill');
+    mkdirSync(skillDir, { recursive: true });
+    const head = ['---', 'name: my-skill', 'description: A test skill', '---', '', '# My Skill', ''];
+    const fenced = ['```md', '- [Ordering](./src/ordering/CONTEXT.md)', '```', '', '~~~', '[x](gone.md)', '~~~'];
+    writeFileSync(join(skillDir, 'SKILL.md'), [...head, ...fenced].join('\n'), 'utf8');
+    const clean = run(root);
+    expect(clean.stdout).not.toContain('BROKEN-REF:');
+    expect(clean.status).toBe(0);
+
+    writeFileSync(join(skillDir, 'SKILL.md'), [...head, ...fenced, '', 'See [x](gone.md).'].join('\n'), 'utf8');
+    const dirty = run(root);
+    expect(dirty.status).toBe(1);
+    expect(dirty.stdout).toContain('BROKEN-REF: .claude/skills/my-skill/SKILL.md → gone.md');
+    expect(dirty.stdout.match(/BROKEN-REF:/g)).toHaveLength(1);
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // Case 3 — Missing frontmatter
   // ──────────────────────────────────────────────────────────────────────────

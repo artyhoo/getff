@@ -143,7 +143,7 @@ grep -nE '"agents/(best-practices-sidecar|docs-auditor)\.md"' install.sh extensi
 # ts-server configs stay at root templates/ts-server/ (Phase-3 Gate 2 option A — kept legacy).
 # react-next configs moved to the preset package; shared/ deleted from root (canonical in packages/).
 ls templates/ts-server/ packages/preset-next-15-canonical/templates/
-# EXPECTED: templates/ts-server/ has eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, github-actions-ci.yml
+# EXPECTED: templates/ts-server/ has eslint.config.mjs, vitest.config.ts, dependency-cruiser.mjs, stryker.config.json, github-actions-ci.yml
 # EXPECTED: packages/preset-next-15-canonical/templates/ has eslint.config.react.mjs, github-actions-ci-ui.yml, ARCHITECTURE.react-next.md
 ```
 

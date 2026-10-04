@@ -65,7 +65,7 @@ count_token_hits() {
   local hay="$1" hits=0 t
   while IFS= read -r t; do
     [[ -z "${t}" ]] && continue
-    if printf '%s' "${hay}" | grep -qF "${t}"; then hits=$((hits + 1)); fi
+    if grep -qF "${t}" <<<"${hay}"; then hits=$((hits + 1)); fi
   done <<< "${SLUG_TOKENS}"
   printf '%s' "${hits}"
 }
@@ -76,7 +76,7 @@ count_token_hits() {
 # generic stopwords.
 matches_slug() {
   local hay; hay="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
-  if printf '%s' "${hay}" | grep -qF "${SLUG}"; then return 0; fi
+  if grep -qF "${SLUG}" <<<"${hay}"; then return 0; fi
   [[ -z "${SLUG_TOKENS}" ]] && return 1
   local hits; hits="$(count_token_hits "${hay}")"
   [[ "${hits}" -ge "${EFFECTIVE_MIN}" ]]

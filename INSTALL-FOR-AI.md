@@ -24,8 +24,8 @@ cd /tmp/getff
 
 **ALWAYS — proceed without asking the user:**
 
-- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + companions) or `bash install.sh <stack>` (framework-only).
-- Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine, and `--all` are chosen only by the human's answer to the one pre-launch question of the prompt below. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
+- Draft `.ai-factory/DESCRIPTION.md` from the project's own files (the `draft-passport` step) when it is still the shipped template.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 
 **ASK FIRST — pause and report your reasoning before acting:**
@@ -48,34 +48,30 @@ cd /tmp/getff
 ## Quick install — copy-paste prompt
 
 ```text
-Install getff into this project. Follow these steps exactly:
+Install getff into this project. Walk the steps below in order, in this one session.
 
-1. Verify prerequisites:
-   - Node.js 22.23+ (`node --version`)
-   - npm available
-   - git initialized in this project
-
-2. Detect the project stack, or omit the positional and let the installer do it.
-   `setup.d/lib.sh` `_detect_stack_from_pkg` takes the FIRST matching package.json dep key:
-   `react-native`→react-native, `next`→react-next, `react`→**react-spa** (a plain React dep does NOT give react-next), `typescript`→ts-server, else "unknown". `next.config.*` is never read.
-   Show me the detection result and ask if I want to override.
-
-3. From THIS project's directory (not the framework checkout — the installer
-   refuses to run inside the package directory itself), run:
+1. [preflight] Check the installer's prerequisites
+   git is initialized here and the getff checkout from Step 0 exists. On an npm project also
+   Node.js 22.23+ and npm: the installer needs them, my project does not have to.
+2. [preview] Preview the stack and the tool list
+   From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
+   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list». The «✓» lines name every tool the install will handle, MCP servers included. The «Companions» section ends with a line «MCP servers … — not added in this mode»: that describes the bare dry run only; the command of step 4 adds them. Run no probe of your own.
+   The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
+   lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
+3. [ask-once] Ask the ONE question
+   Show me the stack, what goes into this project and what would go machine-wide; name getff's own MCP servers the chosen command adds, the names from the «MCP servers …» line of the dry run, and say that each one costs context in every session; then ask once, as ONE list of
+   four parts. (a) «Where may I install?» — 1, 2 or 3; it picks the command of step 4:
+   1 — this project only:
    `bash /tmp/getff/setup -y <detected-stack>`
-   (adjust the path if Step 0 cloned the framework elsewhere)
-
-   `-y` installs the curated consumer set at `env` depth — the right default. Use
-   `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
-   tell you this machine runs the aif-handoff operator runtime: --all
-   additionally ships the AIF operator suite (5 skills + 2 agents +
-   skill-context) at `factory` depth that dead-ends without that runtime.
-   Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
-   new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
-   (i.e. env). Pass `--profile core` for the rules-only depth below the default. See
-   "Install depth profiles" below for the full core/env/factory breakdown.
-
-   This installs (verified against a real default install, 2026-08-17):
+   2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
+   3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`. Offer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
+   (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`, passed unless I say no. Before asking, name the groups the dry run printed and say in plain words: they go into my own uncommitted `.claude/settings.local.json`; my values are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command.
+   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. Before asking, say in plain words: some of these servers run on my computer at every session start, through `npx`, the vendor's own package at its latest version; the rest work over the internet; the report shows each local one with a ⚠ line and the command that removes it, `claude mcp remove <name> -s project`. (d) «Research rules for my stack?» yes/no.
+   Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools yes, research yes»;
+   a part I leave out means (a) 1, (b) yes, (c) yes, (d) yes — so «1» alone means everything on, this project only. Ask nothing else during the run.
+4. [install] Run the installer with the chosen flag
+   Run the command my answer picked with the variables before it on the same line — with no «no» in my answer: `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash /tmp/getff/setup -y <detected-stack>`; a «no» drops its variable (adjust the path if Step 0 cloned elsewhere). Keep the
+   «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
    - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
    - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
@@ -85,32 +81,36 @@ Install getff into this project. Follow these steps exactly:
    - .ai-factory/DESCRIPTION.template.md + DESCRIPTION.md, ARCHITECTURE.ts-server.md + ARCHITECTURE.md, RULES.md, RULES.react-next.md (if applicable), AI-USAGE-GUIDE.md, tool-decisions.md, skill-context/{aif-review,aif-rules-check}/
    - AGENTS.md — written as a `getff:begin section=getff-framework` fenced block, so a root AGENTS.md another tool already generates is extended, never replaced
    - scripts/audit-ai-docs.sh (or .react-next.sh) + the check-\* gate scripts
-   - Configs in project root: eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
+   - Configs in project root: eslint.config.mjs, vitest.config.ts, .dependency-cruiser.mjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
    - .husky/pre-commit, .husky/pre-push
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
+5. [verify-payload] Verify the payload landed
+   `ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/`
+6. [draft-passport] Draft the project passport
+   If `.ai-factory/DESCRIPTION.md` is byte-identical to `.ai-factory/DESCRIPTION.template.md`, draft it
+   from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
+   `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
+7. [tools-parity] Check that everything getff uses for itself is installed or marked
+   Names: the «✓ <name>» lines of «Stack-aware companion selection» from step 2, without the external services runtime-bridge and aif-handoff, plus context7. Per tool quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
+8. [base-core-status] Read the base-core list with a status per principle
+   Read `.claude/skills/getff/references/base-core.md`, change nothing: each row not `fires`, or whose «not on stack» names my stack, is one line of PRINCIPLES NOT WIRED YET. File absent → «not done: list absent in this older install» and under it the one line I may run myself, `bash /tmp/getff/install.sh <detected-stack> --refresh`; do not run it and do not ask about it.
+9. [research] Research rules for the stack
+   Unless I said no to research: follow `/tmp/getff/agents/rule-researcher.md`; my one answer is the confirmation it asks for, so write without asking; report where it ended.
+10. [place-rules] Write one rule table and place each rule in its home
+   After step 9, with the same variables as in step 4 before it: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
+11. [prove-rules] Prove the placed rules in one batch run
+   From that same output quote the proof line (bad → exit ≠0, good → exit 0). Script absent → both steps «not done».
+12. [project-checks] Run the project's own check commands as the installer wired them
+   Run each command under `armed:` in the `aif:project-checks` block of `.ai-factory/tool-decisions.md`; quote exit codes, failing lines, and the `not-armed:` lines with their reasons.
+   A failure on my existing code is a finding, not a stop. Block absent → «not done: no check record»; nothing armed → «not done: no check armed».
+13. [report] Print the final report
+   Use the format under «What the AI will produce»: one line per step above, in order, none omitted.
 
-4. After setup completes, do these checks and report results:
-   a. `npm run typecheck` — should pass on a fresh project
-   b. `npm run lint` — may have warnings on existing code, that's OK
-   c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm the 11 files listed above exist; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --profile factory / --with-aif-suite / --all
-   e. `ls -la .ai-factory/` — confirm DESCRIPTION.md, ARCHITECTURE.md, RULES.md, AI-USAGE-GUIDE.md exist
-
-5. Read .ai-factory/DESCRIPTION.md and tell me which placeholders need filling.
-   DO NOT fill them yourself — these are project-specific and require my input.
-
-6. Read .ai-factory/RULES.md (R1-R11) and ask me which rules to keep, adjust, or remove for this project.
-
-7. If stack is react-next, also read .ai-factory/RULES.react-next.md (R12-R20).
-
-8. Stop here. Do NOT start implementing features. The setup is meant to be reviewed before use.
-
-After all this, tell me:
-- What was installed (file count, total size)
-- Any warnings or errors encountered
-- The 3 most important things I should manually edit
-- The exact command to verify everything is wired up: `npm run validate && npm run audit:docs`
+Rules of the road: do not stop between steps and ask me nothing after the one question of step 3.
+When a step cannot be done, write «not done» with the reason and go on to the next step. Do not
+remove or skip a rule, and do not start implementing features of the project: the road ends at the
+report.
 ```
 
 ---
@@ -201,12 +201,30 @@ The installer NEVER reads the key value — only the env-var name `ANTHROPIC_AUT
 
 ## What the AI will produce
 
-After running the prompt, the AI owes you a structured summary containing exactly these four things — counts come from the install output, never from this doc:
+After the last step the AI prints this report and writes no file for it. Counts and lines come from
+the run, never from this doc. Three rules keep it readable:
 
-1. **What landed** — the file count and the per-directory breakdown the installer printed (`.claude/agents/`, `.claude/skills/`, `.ai-factory/`, `scripts/`, root configs, `.husky/`).
-2. **Warnings and errors** — verbatim, not summarised. Pre-existing lint errors in your `src/` are normal on a brownfield repo.
-3. **Manual edits needed, in priority order** — typically `.ai-factory/DESCRIPTION.md` placeholders first, then a pass over `.ai-factory/RULES.md` to drop rules that do not fit, then project-specific probes in `scripts/audit-ai-docs.sh`.
-4. **The verification command** — `npm run validate && npm run audit:docs`.
+- A step reads «done» or «not done: reason» — there is no third status. A step that ran and found
+  problems is «done», and what it found goes on the lines under it.
+- The passport is printed as its full text, never a summary: the human corrects what they can read.
+- «What I need from you» holds decisions only the human can make about their own project. A defect
+  of getff itself is a finding under the step that met it, not a question.
+
+```text
+getff install report — <project> — <date>
+Answer to the pre-launch question: <answer> → flag <flag>, variables <the variables actually passed, or «none»>, research <yes|no>
+
+STEPS
+<n>. [<id>] <title> — done
+      check: <command that re-proves it>
+<n>. [<id>] <title> — not done: <reason>
+
+NOT WIRED BY THE INSTALL      (the installer's own «NOT wired» lines, verbatim)
+PRINCIPLES NOT WIRED YET      (one line per principle that does not fire: <id> <principle> — <status>: <reason>; or why the list is unavailable)
+PASSPORT DRAFT                (full text of .ai-factory/DESCRIPTION.md; «also drafted: <path>»; count of
+                               guessed lines; «to correct it, tell me in words what is wrong»)
+WHAT I NEED FROM YOU          («nothing», or real decisions only — never a list of manual edits)
+```
 
 ---
 
@@ -345,12 +363,12 @@ project/
 ├── vitest.config.ts                   ← unit/integration/audit test discovery
 ├── tests/setup.ts                     ← vitest setup hook (skipped unless your tsconfig include covers tests/ — add "tests/**/*", re-run; the install-time ⚠ note says so)
 ├── stryker.config.json                ← mutation testing
-├── .dependency-cruiser.cjs            ← architectural rules
+├── .dependency-cruiser.mjs            ← architectural rules
 ├── .gitignore                         ← seed (node_modules/, dist/, coverage/, …); skipped when your own exists
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
-│   ├── pre-commit                     ← runs lint-staged
+│   ├── pre-commit                     ← runs the ZCode mirror check + lint-staged (full text, docs/site/learn/stop-a-bad-commit.md)
 │   └── pre-push                       ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── .github/workflows/ci.yml           ← full CI pipeline
 ├── .ai-factory/
@@ -362,7 +380,7 @@ project/
 │   ├── tool-decisions.md              ← accepted/rejected MCP + skill decisions (committed)
 │   ├── tier-home.md                   ← ONLY at --profile env / factory: tier criteria + degradation matrix
 │   ├── rules/integration-rules.md     ← only for microservices
-│   └── skill-context/
+│   └── skill-context/                 ← co-owned with /aif-evolve: getff rewrites only its fenced block
 │       ├── aif-review/SKILL.md        ← anti-tautology content for AIF review sidecar
 │       ├── aif-rules-check/SKILL.md   ← R10-naming + test-existence content for AIF rules-check
 │       └── aif-orchestrator-discipline/ ← ONLY at --profile factory
@@ -439,7 +457,7 @@ The three-layer model maps onto these patterns: Layer 1 ≈ the shareable preset
 
 ## Refreshing framework artefacts after an upgrade
 
-When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook, or a revised skill), consumers who installed before the fix need a safe way to pull in the change without losing their own customisations.
+When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook, or a revised skill), consumers who installed before the fix need a safe way to pull in the change without losing their own customisations. Removing getff from a project entirely is the inverse operation — `INSTALL.md § Uninstalling` walks it command by command.
 
 **Use `install.sh --refresh`** — an opt-in, stateless re-sync that overwrites the framework-owned set and respects the three-layer authority model:
 
@@ -457,17 +475,17 @@ Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
 - `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface — 5 skills (`arch`, `night-mode`, `orchestrator`, `pipeline`, `reviewer`) — under `--profile env`/`factory`; the AIF operator suite — 5 skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
-- `.claude/hooks/deps-hash-check.sh` — session hook
+- `.claude/hooks/deps-hash-check.sh` — session hook, plus wiring an older install may lack, each added only where missing: that hook's `UserPromptSubmit` registration in `.claude/settings.json`, husky's `core.hooksPath`, getff's `package.json` scripts (never devDependencies — `--refresh` installs nothing, so each missing one is named in the `NOT wired` summary instead), getff's R2 / synth blocks in your eslint config, an unedited python `.pre-commit-config.yaml` entry, and — only under `--refresh --full` — the recap gate and the MCP companion rows (same consent as install). A getff CI gate missing from your workflows is named in the summary, never added.
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
-- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides
+- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides, **co-owned**: the same file is AI Factory's `/aif-evolve` store, so getff owns only the block between its `<!-- getff:begin section=getff-skill-context … -->` / `<!-- getff:end section=getff-skill-context -->` marker lines. Install and `--refresh` rewrite that block alone; the text outside it — every rule `/aif-evolve` added — is never rewritten. getff recognises its own older text by every template revision it has shipped: a file delivered whole before the markers existed is split on the first run (those leading lines become the block, the rest is kept), and a block whose markers were removed is replaced by one fenced block. Text getff cannot prove is its own is always kept, with the current block appended beside it. A block somebody edited is parked as `.ai-factory/refresh-conflicts/<skill>-SKILL.md.<sha8>` before it is replaced; an unedited one is replaced silently.
 
 ### What `--refresh` never touches
 
 Consumer-authored files are **never** in the refresh set — they are not framework-owned:
 
 - `AGENTS.md`, `.ai-factory/RULES.md`, `.ai-factory/ARCHITECTURE.*.md` (filled in by you)
-- `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json`
+- `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json` — never rewritten; `--refresh` only adds getff's own missing eslint blocks (above)
 - `.github/workflows/ci.yml`, `.prettierignore`
 - Any file with a sibling `.override.md` (Layer 3 — you have taken ownership); and, inside a framework-delivered **directory** payload, any file `--refresh` cannot attribute to a past delivery — kept and named with a `⚠ ORPHAN:` line, because such a payload may be a declared extension point (`scripts/fences-fire-fixtures/` is one — see [INSTALL.md — Consumer-extensible directory payloads](INSTALL.md#consumer-extensible-directory-payloads))
 
@@ -476,10 +494,10 @@ Consumer-authored files are **never** in the refresh set — they are not framew
 | Layer                              | File state                                            | `--refresh` behaviour                                                           |
 | ---------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
 | **1. Framework default**           | File was never edited by the consumer                 | Overwrites to latest framework version                                          |
-| **2. Consumer in-place edit**      | Consumer edited the file directly (no `.override.md`) | **Also overwrites** — Layer-2 in-place edits are not preserved. See note below. |
+| **2. Consumer in-place edit**      | Consumer edited the file directly (no `.override.md`) | Depends on provenance: baselined + diverged → your copy preserved under `.ai-factory/refresh-conflicts/` + `⚠` line, then overwritten (`--dry-run` prints `would-flag`). **No baseline entry → copy preserved silently (no per-file line; one aggregate line per run), then overwritten.** See note below. |
 | **3. `.override.md` escape hatch** | Consumer created `<file>.override.md` sibling         | **Skips** — the base file is left untouched                                     |
 
-> **Note on Layer-2 edits:** `--refresh` is stateless (no hash stamp) and cannot distinguish a consumer-edited Layer-2 file from an unedited one. If you have edited a framework-owned file in place **without** using `.override.md`, run `--dry-run` first and rescue any customisations before applying. The recommended divergence path is to move your edits into `<file>.override.md` before refreshing — then `--refresh` is always safe to run.
+> **Note on Layer-2 edits:** a plain `--refresh` DOES detect an in-place edit for any file delivered under the refresh baseline (hashed at install and at each refresh): diverged bytes → your copy preserved under `.ai-factory/refresh-conflicts/` + a `⚠ overwriting locally-modified file` line, then the overwrite; `--dry-run` prints `would-flag` instead. A file with **no baseline entry** (pre-baseline installs, files getff never delivered) is also overwritten on first refresh, but your bytes are preserved under `.ai-factory/refresh-conflicts/` with no per-file line — one aggregate line per run reports the count; getff cannot tell such a file from its own older residue, which is why the `.override.md` escape hatch still exists. `--force` and skill-tree replaces guard baselined files the same way, with the same silent preserve and aggregate line for unbaselined diverged files. Either way: run `--dry-run` first, and keep standing customisations in `<file>.override.md` so `--refresh` is always safe.
 
 ### Refresh-safe divergence workflow
 
@@ -496,9 +514,7 @@ To diverge from a framework file AND keep `--refresh` safe:
 
 ### Editor coupling (Claude Code only)
 
-This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4.
-
-The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
+This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`SessionStart`, `UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
 
 **Per layer, what a non-Claude-Code harness actually gets:**
 
@@ -509,7 +525,7 @@ The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json
 | 4 — skills (`.claude/skills/*`)                 | auto-activate on relevant queries | present on disk; do **not** auto-activate — read the `SKILL.md` when the topic comes up |
 | 5 — harness hooks (`.claude/settings.json`)     | activate automatically on install | inert; nothing above is affected                                                        |
 
-So the title's "Claude Code, Cursor, etc." (install + layers 1-4) and this section's "Claude Code-specific" (layer 5) are both true at their own altitude.
+So the title's "Claude Code, Cursor, etc." (install + layers 1-4) and this section's "Claude Code-specific" (layer 5) are both true at their own altitude. On ZCode specifically the plugin channel delivers skills + advisory-only PostToolUse gates and cannot execute sub-agents — per-hook parity census: <https://github.com/artyhoo/getff#as-a-zcode-plugin-per-harness>.
 
 ### Subscription requirement
 
@@ -543,6 +559,7 @@ After `bash install.sh` on a fresh project, these checks **fail intentionally** 
 | `npm run validate`              | typecheck: no `src/index.ts`                       | Empty src tree                         | Re-run after first source files                                                                                                                                                                                  |
 | `bash scripts/audit-ai-docs.sh` | R7: no `infrastructure/clock/`                     | Optional infrastructure                | Add when you need time injection                                                                                                                                                                                 |
 | `eslint .` (R8)                 | `require-otel-span` on async exports without spans | OTel not wired yet                     | Turn the rule off in your `eslint.config.mjs` if OTel isn't planned — that is the channel that actually stops it firing (the rule ships at `packages/core/eslint-rules/require-otel-span.ts`, `install.sh:1188`) |
+| `git push` (pre-push)           | R2 rule-glob liveness: matches ZERO source files    | Fresh layout, shipped globs miss it    | Widen `RULE_GLOBS.boundary` in your `eslint.config.mjs` to cover your layout — see `AI-USAGE-GUIDE.md` §3 «Daily cycle» (on push) and §3.1 «widening the globs»; the check ships as `scripts/check-rule-globs.sh` (prepush-claim: allow — the two backticked phrases name a failure reason and a guide cross-reference, not pre-push section ids) |
 
 If a check fails for a reason not in this table — **stop and report**, do not silently disable.
 
@@ -561,40 +578,4 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
 | Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
-| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
-
----
-
-## After install — continue into `/rule-research` in the same session
-
-The install prompt above ends with "Stop here. Do NOT start implementing features" — that
-injunction applies to **feature implementation**. It does **not** end the session: the same
-agent that just installed the framework proceeds directly into `/rule-research` to bootstrap
-stack-specific rules from live documentation, in the same session, before reporting back to
-the operator. The rule-research loop is part of the install — the framework's thesis is that
-rules are tested for firing at delivery time, not shipped pre-baked; researched rules are how
-that thesis extends beyond the curated starter set the installer delivered.
-
-**How the agent continues** (per stack):
-
-- **npm lanes** (`ts-server` / `react-next` / `react-spa` / `react-native`) — read
-  `agents/rule-researcher.md` for the author → render → join → lock sequence (the
-  `AstgrepResearchedPractice` arm covers ast-grep structural rules; the ESLint arm covers L4
-  single-token-diff candidates via `./setup --full`).
-- **python lane** — read `agents/rule-researcher.md` python arm. Generation needs Node
-  (`npx tsx …` from the framework checkout); the python install itself stays Node-free (the
-  fork F-A resolution cited at the python-segment scope note above).
-- **cargo lane** — `agents/rule-researcher.md` rust arm points at the clippy bridge. The
-  pre-rendered clippy-bans delivery lane (`setup.d/46-cargo.sh`, W4 / #1080, activated by
-  `GETFF_TOOLCHAIN=cargo`) has landed; the research/join seam (a `--from-rust-practice` CLI arm
-  - `_cargo_join_researched_rules` consumer-side helper) is the honest residual gap, named as a
-    widening stage in the rust arm — NOT a silent promise that the full loop is closed.
-
-**Stopping rule:** research is skipped **only** on an explicit operator opt-out. The shape of
-the opt-out (an env var, a prompt at install time, or a documented sentence the agent reads)
-is intentionally not fixed by this doc — three candidate consumer contracts exist and the
-choice is itself an operator decision. **Surface it explicitly at first contact; do NOT
-silently assume a shape.** (Parked per `getff-any-stack-trace` S3 §4; spec §6.1 fixes that an
-opt-out exists, not what it is.) Until the operator settles the shape, the safe behaviour is
-to **prompt the operator before continuing past install** — that is one of the three candidate
-shapes and it satisfies «explicit opt-out» by construction (the operator says no out loud).
+| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `SessionStart` + `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                       |

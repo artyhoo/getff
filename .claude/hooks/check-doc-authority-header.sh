@@ -23,7 +23,13 @@
 # Consumer-safe: pure bash + jq, no framework-internal dependency; degrades LOUDLY (scoped
 # JSON skip-notice) when jq is absent — a silent skip is indistinguishable from a pass, the
 # exact defect class this gate exists to prevent (aif-parity S4 §3 item 1, 2026-07-23).
+# @plugin-yield-deps: lib/hook-live.sh
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live check-doc-authority-header || true; fi
 
 # ── Repo-wide opt-out ─────────────────────────────────────────────────────────
 [[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0
@@ -80,7 +86,7 @@ fi
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 
 # ── Per-file exemption escape hatch (rationale ≥20 chars, single-line HTML comment) ─
-if printf '%s\n' "$CONTENT" | grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->'; then
+if grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->' <<<"$CONTENT"; then
   exit 0
 fi
 
@@ -90,7 +96,7 @@ fi
 #    A stray *unbalanced* fence could over-strip vs the TS `stripFencedCodeBlocks` regex, but real
 #    authority headers sit above any code block, so this bound is not reachable in practice.
 STRIPPED="$(printf '%s\n' "$CONTENT" | awk '/^```/{f=!f; next} !f')"
-if printf '%s\n' "$STRIPPED" | grep -qE '^> \*\*Authoritative for:\*\*'; then
+if grep -qE '^> \*\*Authoritative for:\*\*' <<<"$STRIPPED"; then
   exit 0
 fi
 

@@ -115,11 +115,19 @@ l_skip()     { LOAD_SKIP=$((LOAD_SKIP+1));       skip "$1"; }
 # be present but is not first. Measured (tsx 4.22.4 / node 24): line 1 is BLANK, line 2 is the
 # frame header (`node:internal/modules/run_main:105`), and `Cannot find package '…'` is line 5 —
 # so the rendered parenthetical came out empty and the skip was misattributed for a full slice.
-# Prefer the line matching the error pattern; fall back to the first non-blank line.
+# Node 24.20 (measured 2026-09-29) also prints the SOURCE LINE that built the error above it —
+# `  throw new ERR_MODULE_NOT_FOUND(packageName, …);`, `  return new ERR_PACKAGE_PATH_NOT_EXPORTED(`
+# — so a bare ERR_ token matched that excerpt first. Any line constructing `new ERR_…(` is
+# source, never the message, and is dropped before every tier. Tiers: the `Cannot find` line,
+# then the first line naming a resolution code — with the excerpt gone that is the
+# `Error [ERR_…]:` message line — then the first non-blank line. No tier takes an arbitrary
+# `Error [ERR_…]:` line: in a cause chain that is the WRAPPER, and the cause is what went missing.
 _first_err() {
-  local _line
-  _line=$(printf '%s\n' "$1" | grep -m1 -iE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT')
-  [ -z "$_line" ] && _line=$(printf '%s\n' "$1" | grep -m1 -vE '^[[:space:]]*$')
+  local _out _line
+  _out=$(grep -vE 'new ERR_[A-Z0-9_]+\(' <<<"$1")
+  _line=$(grep -m1 -iE 'cannot find (module|package)' <<<"$_out")
+  [ -z "$_line" ] && _line=$(grep -m1 -iE 'ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT' <<<"$_out")
+  [ -z "$_line" ] && _line=$(grep -m1 -vE '^[[:space:]]*$' <<<"$_out")
   printf '%s' "$_line" | tr -d '\n' | cut -c1-240
 }
 # skip_dep: a SKIP caused specifically by a MISSING DEPENDENCY (tsx/eslint binary absent, or
@@ -165,7 +173,13 @@ finish() {
       exit 1
     fi
   fi
-  [ "$FAIL" -eq 0 ] && exit 0 || exit 1
+  [ "$FAIL" -eq 0 ] || exit 1
+  # No fence was proved to fire (no manifest, or every one skipped under an allowed escape): the
+  # run checked nothing. rc 0 for every existing caller; the install self-verify capstone passes
+  # GETFF_SKIP_RC=77 (the automake/TAP SKIP code) so it counts this as SKIP, not as «fences
+  # fire» (critical-review S4-7). Load-probe passes prove configs import, never that a rule fires.
+  [ "$FIXTURE_OK" -gt 0 ] || exit "${GETFF_SKIP_RC:-0}"
+  exit 0
 }
 
 if [ -z "$FIXTURE_DIR" ]; then
@@ -265,8 +279,10 @@ const cfg = [{
 const badCode  = readFileSync(badFile, 'utf8');
 const goodCode = readFileSync(goodFile, 'utf8');
 
-const badMsgs  = linter.verify(badCode,  cfg, { filename: 'bad.ts' });
-const goodMsgs = linter.verify(goodCode, cfg, { filename: 'good.ts' });
+// The parser reads JSX only from a `.tsx` filename, so a `.tsx` / `.tsx.txt` fixture is verified as `.tsx`.
+const probeExt = (f: string) => (/\.tsx(\.txt)?$/.test(f) ? 'tsx' : 'ts');
+const badMsgs  = linter.verify(badCode,  cfg, { filename: 'bad.'  + probeExt(badFile) });
+const goodMsgs = linter.verify(goodCode, cfg, { filename: 'good.' + probeExt(goodFile) });
 
 const badFired  = badMsgs.some(m => m.ruleId === ruleId);
 const goodFired = goodMsgs.some(m => m.ruleId === ruleId);
@@ -294,9 +310,9 @@ _run_fixture() {
   local FIXTURE_BASE
   FIXTURE_BASE="$(dirname "$MANIFEST")/$BASE"
 
-  # Find bad and good files (support .ts and .tsx)
+  # Find bad and good files (support .ts and .tsx; `.tsx.txt` = a JSX fixture kept out of the repo's own tsc)
   local BAD_FILE="" GOOD_FILE=""
-  for _ext in .ts .tsx .js .jsx .txt; do
+  for _ext in .ts .tsx .js .jsx .tsx.txt .txt; do
     [ -z "$BAD_FILE"  ] && [ -f "${FIXTURE_BASE}.bad${_ext}"  ] && BAD_FILE="${FIXTURE_BASE}.bad${_ext}"
     [ -z "$GOOD_FILE" ] && [ -f "${FIXTURE_BASE}.good${_ext}" ] && GOOD_FILE="${FIXTURE_BASE}.good${_ext}"
   done
@@ -336,7 +352,7 @@ _run_fixture() {
     "$TSX_BIN" fence-probe.mts 2>&1)
   RC=$?
 
-  if echo "$OUT" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package'; then
+  if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package' <<<"$OUT"; then
     FIXTURE_SKIP=$((FIXTURE_SKIP+1))
     skip_dep "[$BASE] tsx module load failed ($(_first_err "$OUT")) — dep missing; barrel present"
     return
@@ -350,7 +366,7 @@ _run_fixture() {
   # gate has. A verdict now requires the sentinel the probe prints just before exiting; its
   # absence is a dep-class skip (never a PASS), and if it is the only outcome the non-vacuity
   # assertion in finish() turns the run red in every mode.
-  if [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -q 'FENCE_PROBE_DONE'; then
+  if [ "$RC" -eq 0 ] && ! grep -q 'FENCE_PROBE_DONE' <<<"$OUT"; then
     FIXTURE_SKIP=$((FIXTURE_SKIP+1))
     skip_dep "[$BASE] probe exited 0 without the FENCE_PROBE_DONE sentinel — the probe never executed, so nothing was proved${OUT:+ (output: $(_first_err "$OUT"))}"
     return
@@ -358,9 +374,9 @@ _run_fixture() {
 
   if [ "$RC" -eq 0 ]; then
     f_ok "[$BASE] fence fires on bad input; good input passes — $RULE_ID ACTIVE"
-  elif echo "$OUT" | grep -q 'FENCE_SILENT'; then
+  elif grep -q 'FENCE_SILENT' <<<"$OUT"; then
     f_bad "[$BASE] FENCE SILENT: $RULE_ID did NOT flag the bad fixture (rule deleted/broken/misconfigured)"
-  elif echo "$OUT" | grep -q 'FALSE_POSITIVE'; then
+  elif grep -q 'FALSE_POSITIVE' <<<"$OUT"; then
     f_bad "[$BASE] FALSE POSITIVE: $RULE_ID flagged the good fixture (selector too broad)"
   else
     f_bad "[$BASE] probe failed (rc=$RC): $(echo "$OUT" | head -3 | tr '\n' '|')"
@@ -412,8 +428,12 @@ done
 # EXCLUDES: node_modules (installed deps), templates/ (source templates import a
 # relative barrel that only exists post-install → would false-fail), and scratch/build
 # dirs. In the framework repo (no active root eslint.config.mjs, only the template) this
-# finds nothing → structural skip.
+# finds nothing → structural skip. The root eslint.config.js is probed too: it is the name ESLint
+# loads first, and the install adds getff's block to a consumer's own one (Q4.7, 2026-09-28). Only
+# the root one — the per-workspace passes wire eslint.config.mjs files, so a nested eslint.config.js
+# (an example app, a fixture) is a config getff never placed or wrote (cold-review F7).
 _PLACED_CONFIGS=()
+[ -f "$PROJECT_ROOT/eslint.config.js" ] && _PLACED_CONFIGS+=("$PROJECT_ROOT/eslint.config.js")
 while IFS= read -r -d '' _c; do _PLACED_CONFIGS+=("$_c"); done < <(
   find "$PROJECT_ROOT" -maxdepth 4 -name 'eslint.config.mjs' \
     -not -path '*/node_modules/*' \
@@ -426,7 +446,7 @@ while IFS= read -r -d '' _c; do _PLACED_CONFIGS+=("$_c"); done < <(
     -print0 2>/dev/null | sort -z)
 
 if [ "${#_PLACED_CONFIGS[@]}" -eq 0 ]; then
-  l_skip "load-probe: no placed eslint.config.mjs found under $PROJECT_ROOT — skipped (pre-install/authoring, or framework repo)"
+  l_skip "load-probe: no eslint.config.mjs / eslint.config.js found under $PROJECT_ROOT — skipped (pre-install/authoring, or framework repo)"
 else
   for _cfg in "${_PLACED_CONFIGS[@]}"; do
     _rel="${_cfg#"$PROJECT_ROOT"/}"
@@ -436,7 +456,7 @@ else
     _lp_rc=$?
     if [ "$_lp_rc" -eq 0 ]; then
       l_ok "load-probe: placed $_rel loads (imports resolve — real \`eslint .\` channel wired)"
-    elif echo "$_lp_out" | grep -qiE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package'; then
+    elif grep -qiE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package' <<<"$_lp_out"; then
       if [ "${FENCES_FIRE_LOAD_PROBE:-}" = "1" ]; then
         l_bad "load-probe: placed $_rel NON-LOADABLE ($(_first_err "$_lp_out")) — a --full install claimed success but a plugin dep is absent; the consumer's \`eslint .\` is dead (#976)"
       else

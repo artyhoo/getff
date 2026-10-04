@@ -24,6 +24,9 @@
 #   scripts/build-getff-dist.sh            # assemble packages/getff/ + rewrite MANIFEST.sha256
 #   scripts/build-getff-dist.sh --check    # drift gate: exit 1 if committed manifest != fresh assembly,
 #                                          # or if package.json `files` misses a payload root
+#   scripts/build-getff-dist.sh --list-payload   # one PAYLOAD pathspec per line, for callers that
+#                                          # need to ask "is this changed path shipped?" without
+#                                          # keeping a second copy of the list (pre-push payload-drift)
 #
 # Runs from any cwd (root derived from this file's location). Bash 3.2-compatible (macOS default).
 set -euo pipefail
@@ -35,8 +38,9 @@ MANIFEST="$PKG/MANIFEST.sha256"
 # Every path the installer reads from PKG_ROOT, plus the two entry scripts. Adding a root here
 # requires the same root in packages/getff/package.json `files` (checked below) and in
 # packages/getff/.gitignore (or the copy would be committed).
-# scripts/: the SHIPPED SUBSET only — the six files install.sh / setup.d read from PKG_ROOT
-# (install.sh:1015,1024 + the worktree cluster install.sh:1113-1118 / setup.d/85-worktree-scripts.sh:46-51).
+# scripts/: the SHIPPED SUBSET only — six files, five of which install.sh / setup.d read from PKG_ROOT
+# (install.sh:1194 + the worktree cluster install.sh:1220-1225 / setup.d/85-worktree-scripts.sh:50-55;
+# check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1188 only reports a stale consumer copy).
 # Not the whole tree: factory-only scripts (measure-*, render-*, *.test.sh, this assembler) would
 # couple every framework PR to the drift gate and ship operator tooling to consumers.
 PAYLOAD="install.sh setup setup.d agents skills templates .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh"
@@ -118,6 +122,42 @@ case "$MODE" in
     rm -f "$tmp.manifest"
     echo "✓ packages/getff/MANIFEST.sha256 in sync with the repo root ($(wc -l < "$MANIFEST" | tr -d ' ') files); \`files\` covers every payload root"
     ;;
+  --list-payload)
+    # The payload list is a single source. scripts/run-local-ci-sweep.sh already parses
+    # this file's `PAYLOAD=` line with sed to derive its trigger; a second consumer
+    # (packages/core/hooks/pre-push.ts payloadDriftSection) asks for it properly instead
+    # of growing a third hand-kept copy.
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    printf '%s\n' $PAYLOAD
+    ;;
+  --check-index)
+    # The --check comparison with BOTH sides read from the git INDEX, not the working tree: the
+    # manifest as staged against a fresh assembly of the payload as staged. --check cannot see a
+    # staging mistake by construction — a path-scoped `git commit` that leaves the rebuilt
+    # manifest out keeps the working tree in sync and --check GREEN (#1627). Consumer:
+    # scripts/check-getff-manifest-staged.sh (pre-commit). git honours GIT_INDEX_FILE here, so a
+    # hook under `git commit -a` / `git commit <path>` checks the index the commit will record.
+    # `files` coverage is not re-checked: it reads package.json, which --check covers at push.
+    work="$(mktemp -d "${TMPDIR:-/tmp}/getff-dist-index.XXXXXX")"
+    trap 'rm -rf "$work"' EXIT
+    git -C "$ROOT" show ":packages/getff/MANIFEST.sha256" > "$work/staged.manifest" 2>/dev/null \
+      || fail "DRIFT: packages/getff/MANIFEST.sha256 is not in the index"
+    # A symlink would hash differently here (checkout-index writes the link, `find -type f` skips
+    # it) than in assemble() (`cp -p` follows it) — refuse rather than report false drift.
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    links="$(git -C "$ROOT" ls-files -s -- $PAYLOAD | awk '$1 == "120000" { sub(/^[^\t]*\t/, ""); print }')"
+    [ -z "$links" ] || fail "tracked symlink(s) in the payload — --check-index cannot hash them like assemble() does: $(tr '\n' ' ' <<<"$links")"
+    mkdir "$work/tree"
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    git -C "$ROOT" ls-files -z -- $PAYLOAD | git -C "$ROOT" checkout-index -z --stdin --prefix="$work/tree/"
+    manifest "$work/tree" > "$work/fresh.manifest"
+    if ! diff -q "$work/staged.manifest" "$work/fresh.manifest" >/dev/null 2>&1; then
+      echo "DRIFT: the STAGED packages/getff/MANIFEST.sha256 differs from a fresh assembly of the STAGED payload:" >&2
+      diff "$work/staged.manifest" "$work/fresh.manifest" | grep -E '^[<>]' | sed -E 's/^< ([0-9a-f]+)  /  staged     /; s/^> ([0-9a-f]+)  /  fresh      /' | head -40 >&2
+      exit 1
+    fi
+    echo "✓ staged packages/getff/MANIFEST.sha256 in sync with the staged payload ($(wc -l < "$work/staged.manifest" | tr -d ' ') files)"
+    ;;
   build)
     files_check || exit 1
     assemble "$PKG"
@@ -125,7 +165,7 @@ case "$MODE" in
     echo "✓ assembled packages/getff/ from the repo root — $(wc -l < "$MANIFEST" | tr -d ' ') files in MANIFEST.sha256"
     ;;
   *)
-    echo "usage: scripts/build-getff-dist.sh [--check]" >&2
+    echo "usage: scripts/build-getff-dist.sh [--check|--check-index|--list-payload]" >&2
     exit 2
     ;;
 esac

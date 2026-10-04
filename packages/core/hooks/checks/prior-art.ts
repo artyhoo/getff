@@ -59,10 +59,31 @@ export function loadSsotIds(ssotContent: string): Set<number> {
 const ROW_RENAMED_RE = /<!--\s*prior-art:renamed\s+([^>]*?)\s*-->/;
 const ROW_RENAMED_RATIONALE_MIN = 20;
 
+/**
+ * Moved-row marker: `<!-- prior-art:was <old id> in <citing sha> -->` on a row
+ * that was renumbered under a trailer which can no longer be amended. Unlike the
+ * renamed escape it is a CLAIM the C2 arm verifies, never trusts: the citation
+ * `#<old id>` is accepted only from the commit the sha prefix names (7-40 hex, as
+ * git abbreviates), and only when the old id's title in that commit's own tree
+ * equals this row's title at the tip. Every other case stays red.
+ * Incident 2026-09-30 (the one-button landing): three part lanes appended rows
+ * 291-294 while staging landed its own 291-297, so the join renumbered the parts'
+ * rows to 298-301; the part commits sit under merges, cannot be amended, and CI's
+ * prior-art job checks the whole PR range, so pushing the parts first cannot help.
+ */
+const ROW_MOVED_RE = /<!--\s*prior-art:was\s+(\d+)\s+in\s+([0-9a-f]{7,40})\s*-->/g;
+
+/** One moved-row marker: the id the row had in the citing commit's tree. */
+export interface RowMove {
+  oldId: number;
+  sha: string;
+}
+
 /** Normalise a register title cell: emphasis and spacing are not identity. */
 function normaliseRowTitle(cell: string): string {
   return cell
     .replace(ROW_RENAMED_RE, '')
+    .replace(ROW_MOVED_RE, '')
     .replace(/[*`_]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -95,6 +116,21 @@ export function loadSsotRowTitles(ssotContent: string): Map<number, string> {
   return titles;
 }
 
+/** Map each numeric register row id to the moved-row markers it carries. */
+export function loadSsotRowMoves(ssotContent: string): Map<number, RowMove[]> {
+  const moves = new Map<number, RowMove[]>();
+  for (const line of ssotContent.split('\n')) {
+    const m = /^\|\s*(\d+)\s*\|/.exec(line);
+    if (m === null) continue;
+    const found = [...line.matchAll(ROW_MOVED_RE)].map((x) => ({
+      oldId: Number(x[1]),
+      sha: x[2],
+    }));
+    if (found.length > 0) moves.set(Number(m[1]), found);
+  }
+  return moves;
+}
+
 /**
  * The C2 renumbered-citation arm's two views of the register: as the citing
  * commit saw it, and as the tip being pushed sees it. A trailer is written
@@ -108,12 +144,37 @@ export interface SsotTitleViews {
   atCommit: ReadonlyMap<number, string> | undefined;
   /** Titles in the tree being pushed; `undefined` = unreadable, arm no-ops. */
   atTip: ReadonlyMap<number, string> | undefined;
+  /** Moved-row markers in the tree being pushed (`loadSsotRowMoves`). */
+  tipMoves?: ReadonlyMap<number, readonly RowMove[]>;
+  /** The citing commit's full sha; without it no moved-row marker can be checked. */
+  sha?: string;
+}
+
+/**
+ * Whether a moved-row marker at the tip verifies the citation of `id`: a row
+ * whose marker names `id` and a prefix of the citing commit's sha, and whose tip
+ * title equals the title `id` had in that commit's tree (`then`).
+ */
+function movedRowVerifies(
+  id: number,
+  then: string,
+  views: SsotTitleViews,
+): boolean {
+  const { atTip, tipMoves, sha } = views;
+  if (atTip === undefined || tipMoves === undefined || sha === undefined)
+    return false;
+  for (const [row, moves] of tipMoves) {
+    const claims = moves.some((mv) => mv.oldId === id && sha.startsWith(mv.sha));
+    if (claims && atTip.get(row) === then) return true;
+  }
+  return false;
 }
 
 /**
  * Ids whose register row names a DIFFERENT prior art at the tip than it did in
- * the citing commit's tree. Ids absent from either view are skipped: absence is
- * «cannot compare», never «mismatch» (the C1 arm owns non-existence).
+ * the citing commit's tree, unless a moved-row marker verifies where that prior
+ * art went. Ids absent from either view are skipped: absence is «cannot
+ * compare», never «mismatch» (the C1 arm owns non-existence).
  */
 export function renumberedCitedIds(
   citedIds: readonly number[],
@@ -125,7 +186,7 @@ export function renumberedCitedIds(
     const then = atCommit.get(id);
     const now = atTip.get(id);
     if (then === undefined || now === undefined) return false;
-    return then !== now;
+    return then !== now && !movedRowVerifies(id, then, views);
   });
 }
 
@@ -136,7 +197,7 @@ export function renumberedCitedIds(
  *
  *   1. an SSOT row — `prior-art-evaluations.md#N` (the documented primary form,
  *      additionally existence-checked by the C1 arm below);
- *   2. a concrete artefact path — `setup.d/lib.sh:359`,
+ *   2. a concrete artefact path — `setup.d/lib.sh:359`, cite:historical example of the trailer form, not a live pointer
  *      `research-patches/2026-05-23-guard-liveness-gate.md §2`;
  *   3. an issue / PR reference — `#1271`, `PR #1094`.
  *
@@ -294,9 +355,9 @@ const ENFORCEMENT_FILE_RE = /^packages\/core\/principles\/[^/]+$/;
  * Both halves match the OTHER enforcement channel of the same invariant, which
  * has held this semantic since it shipped: principle 11 (SSOT #48) builds its
  * capability set from «non-test» TS files only
- * (`packages/core/principles/11-build-first-reuse-default.test.ts:192`) while
+ * (`packages/core/principles/11-build-first-reuse-default.test.ts:238`) while
  * singling principle tests out as needing «a dedicated SSOT entry with verbatim
- * path OR a Prior-art trailer» (`…:525`). This carve-out brings the pre-push
+ * path OR a Prior-art trailer» (`…:573`). This carve-out brings the pre-push
  * channel into parity with the CI one.
  */
 function isExemptTestMaterial(path: string): boolean {
@@ -500,6 +561,8 @@ export type SsotIdsSource =
 export interface SsotTitlesSource {
   atCommit: (sha: string) => ReadonlyMap<number, string> | undefined;
   atTip: ReadonlyMap<number, string> | undefined;
+  /** Moved-row markers at the tip; each commit is checked with its own sha. */
+  tipMoves?: ReadonlyMap<number, readonly RowMove[]>;
 }
 
 /**
@@ -521,8 +584,8 @@ export interface PrBodyPriorArtResult {
 /**
  * PR-body arm of the §7 check (2026-07-22 squash-trailer-loss incident,
  * PR #1094 → #1097 on artyhoo/getff): a squash merge writes ONE commit whose
- * diff is the whole PR range and whose message the agent merge path takes from
- * the PR BODY — branch-commit `Prior-art:` trailers do NOT survive, so the F1
+ * diff is the whole PR range and whose message is the PR BODY (repo setting
+ * squash_merge_commit_message=PR_BODY, 2026-09-28) — branch-commit `Prior-art:` trailers do NOT survive, so the F1
  * gate (principle 11) goes red on the next unrelated PR. Counter: a capability
  * PR must carry a valid `Prior-art:` line in the PR body itself.
  *
@@ -576,7 +639,12 @@ export function runPriorArtCheck(
     const views =
       ssotTitles === undefined
         ? undefined
-        : { atCommit: ssotTitles.atCommit(sha), atTip: ssotTitles.atTip };
+        : {
+            atCommit: ssotTitles.atCommit(sha),
+            atTip: ssotTitles.atTip,
+            tipMoves: ssotTitles.tipMoves,
+            sha,
+          };
     const { code, message } = checkTrailerBody(
       g.commitBody(sha),
       g.authorDate(sha),

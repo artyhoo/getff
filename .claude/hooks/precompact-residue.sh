@@ -3,11 +3,11 @@
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
 #   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart
-#   exists by nature. Framework-internal (operator-axis) for now: not delivered by
-#   install.sh / setup.d, and its reader is the framework's own /pipeline §1 injection.
-#   Audience triage per .claude/rules/dual-implementation-discipline.md §3 — «internal
-#   tooling → CC-native only»; widening to the consumer axis is a separate decision, not a
-#   side effect of this hook shipping.
+#   exists by nature. Delivered to consumers by the installer at env+ with the handoff group
+#   (setup.d/10-skills.sh §1k), beside its reader inject-handoff-on-compact.sh; no plugin
+#   copy — setup.d/ships.manifest records it installer-only, with the reason. Audience triage
+#   per .claude/rules/dual-implementation-discipline.md §3 — CC-native only; a plugin copy is
+#   a follow-on the 2026-09-08 handoff-currency-gate spec's premise-7 addendum reopens.
 # spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D8 (S2b)
 #
 # WHAT IT DOES — the hook itself WRITES the residue; it never asks the model to.
@@ -167,17 +167,23 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# Same cascade as end-of-turn-reminder.sh:245-253 — CC's own session title first (present
-# even when the first user message carries no extractable text block), head of the first
-# user instruction second. grep-then-jq avoids slurping a large transcript.
+# The title and first-instruction extraction of end-of-turn-reminder.sh:666-726, without its
+# per-session cache and D-I filter — the session title first (an explicit `custom-title`,
+# which the desktop app writes INSTEAD of CC's `ai-title`, outranks the generated one), head
+# of the first user instruction second, with the tag blocks a hook injects ahead of it
+# (`<system-reminder>…</system-reminder>`) dropped — see that hook for the 2026-09-24
+# incident and for what `cmd` / `lead` do. grep-then-jq avoids slurping a large transcript.
 anchor=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  anchor=$(grep '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 \
-    | jq -r '.aiTitle // empty' 2>/dev/null || true)
+  anchor=$(grep -E '"type":"(custom|ai)-title"' "$transcript" 2>/dev/null \
+    | jq -rs '([.[] | .customTitle // empty | select(. != "")] | last) // ([.[] | .aiTitle // empty | select(. != "")] | last) // empty' 2>/dev/null || true)
   if [ -z "$anchor" ]; then
     anchor=$(grep -m1 '"type":"user"' "$transcript" 2>/dev/null \
-      | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null \
+      | jq -r 'def cmd: if test("^\\s*<command-(name|message)>") then [(capture("<command-name>(?<n>[^<]*)</command-name>").n), (capture("<command-args>(?<a>[^<]*)</command-args>").a)] | join(" ") else . end; def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | cmd | lead) else (.message.content // empty | cmd | lead) end | select(test("\\S"))' 2>/dev/null \
       | head -1 | tr '\n' ' ' | cut -c1-120 || true)
+    # The `tr` turns head's own trailing newline into a space; strip it so a candidate is
+    # never a lone blank that passes the `-n` test below.
+    anchor="${anchor%"${anchor##*[![:space:]]}"}"
   fi
 fi
 [ -n "$anchor" ] || anchor="(no session anchor in the transcript)"
@@ -186,7 +192,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:269 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:747 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""
@@ -266,7 +272,10 @@ if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # payload the SessionStart injector reads); only the acceptance baseline resets, so the
   # post-compaction climb re-judges from scratch instead of inheriting a hash from a
   # window that no longer exists. AUTO only, for the same refused-compact evidence.
-  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
+  # Two exact names (D39): `.v2` is the current gate's baseline; the unsuffixed one belongs
+  # to a pre-D38 plugin twin that may still run beside it from a stale plugin cache.
+  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}.v2" \
+        "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
 fi
 
 # ── Branch + head, for the continuing session ────────────────────────────────

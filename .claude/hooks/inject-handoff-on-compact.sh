@@ -5,8 +5,8 @@
 #   SessionStart(source=compact) is the one event that fires at that instant. ZCode has no
 #   compaction-lifecycle event of any kind (the zcode-parity-doctrine.md §2 row 21 rationale
 #   covers this whole event class), so no portable counterpart exists by nature.
-#   OPERATOR-AXIS ONLY (parent F6): consumers receive no residue writer, so no handoff file
-#   ever exists for them to inject. NOT in plugin/hooks/ either — the plugin SessionStart
+#   INSTALLER-ONLY: env+ consumers receive it with the residue writer (setup.d/10-skills.sh
+#   §1k; setup.d/ships.manifest). NOT in plugin/hooks/ — the plugin SessionStart
 #   slot is occupied by the session-start bootstrap (PLUGIN_INCOMPATIBLE in
 #   scripts/render-harness-config.mjs records the skip loudly at render time).
 # spec: docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md (D20)
@@ -36,7 +36,7 @@ source_kind=$(printf '%s' "$input" | jq -r '.source // empty' 2>/dev/null || tru
 
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -n "$session_id" ] || exit 0
-# The writer's own sanitisation (precompact-residue.sh:122, Stop hook :307).
+# The writer's own sanitisation (precompact-residue.sh:123, Stop hook end-of-turn-reminder.sh:435).
 session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
 
 # Repo root: CLAUDE_PROJECT_DIR is set by CC in the hook subprocess; the payload's `cwd`
@@ -71,8 +71,8 @@ handoff_file="${residue_dir}/_handoff-${session_key}.md"
 # band; the injector's contract is only to not lose one that does.
 [ -f "$handoff_file" ] || exit 0
 
-cap="${AIF_HANDOFF_MAX_LINES:-200}"
-case "$cap" in '' | *[!0-9]* | 0) cap=200 ;; esac
+cap="${AIF_HANDOFF_MAX_LINES:-80}"   # same default as the Stop gate (D32, lowered by D40)
+case "$cap" in '' | *[!0-9]* | 0) cap=80 ;; esac
 handoff_body=$(head -n "$cap" "$handoff_file" 2>/dev/null || true)
 [ -n "$handoff_body" ] || exit 0
 

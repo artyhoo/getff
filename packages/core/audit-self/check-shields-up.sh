@@ -12,7 +12,13 @@
 # as a fast-follow: the gate-wiring check above catches the most common failure mode
 # (shields raised but not wired; hooksPath overridden by a subsequent git config call).
 #
-# SKIP GRACEFULLY when not inside a git repo (e.g. container with no .git) — rc=0.
+# SKIP GRACEFULLY when not inside a git repo (e.g. container with no .git) — rc=0, or
+# ${GETFF_SKIP_RC} when set: the install self-verify capstone passes 77 (the automake/TAP SKIP code)
+# so a check that checked nothing is counted as SKIP, not PASS (critical-review S4-7).
+#
+# AIF_SHIELDS_CONSUMER_HOOKS (space-separated hook names): hooks install.sh kept because they are
+# the consumer's own. Only those are skipped by name — hooksPath and the other hook are still
+# checked, so one kept pre-commit cannot hide a dead push shield (critical-review wave 2).
 #
 # CONSUMER PATH: scripts/check-shields-up.sh (copied by setup.d/40-configs.sh).
 #
@@ -45,12 +51,12 @@ skip() { SKIP=$((SKIP+1)); echo "  · $1"; }
 # ─── Must be inside a git repo ───────────────────────────────────────────────
 if ! command -v git &>/dev/null; then
   skip "check-shields-up SKIP — git not available"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
 if ! git -C "$PROJECT_ROOT" rev-parse --show-toplevel &>/dev/null 2>&1; then
   skip "check-shields-up SKIP — $PROJECT_ROOT is not a git repository (Husky requires git)"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
 GIT_ROOT="$(git -C "$PROJECT_ROOT" rev-parse --show-toplevel)"
@@ -112,9 +118,13 @@ fi
 
 HUSKY_DIR="$GIT_ROOT/.husky"
 
+is_consumer_hook() { case " ${AIF_SHIELDS_CONSUMER_HOOKS:-} " in *" $1 "*) return 0 ;; esac; return 1; }
+
 # ─── Check 2: .husky/pre-commit ───────────────────────────────────────────────
 PRE_COMMIT="$HUSKY_DIR/pre-commit"
-if [ ! -f "$PRE_COMMIT" ]; then
+if is_consumer_hook pre-commit; then
+  skip "pre-commit: your own hook was kept at install — not the framework shield, not checked (see NOT wired in the install summary)"
+elif [ ! -f "$PRE_COMMIT" ]; then
   bad "pre-commit hook missing at $PRE_COMMIT — commit-time shield not installed"
 elif [ ! -x "$PRE_COMMIT" ]; then
   bad "$PRE_COMMIT exists but is not executable — chmod +x .husky/pre-commit to activate"
@@ -128,7 +138,9 @@ fi
 
 # ─── Check 3: .husky/pre-push ─────────────────────────────────────────────────
 PRE_PUSH="$HUSKY_DIR/pre-push"
-if [ ! -f "$PRE_PUSH" ]; then
+if is_consumer_hook pre-push; then
+  skip "pre-push: your own hook was kept at install — not the framework shield, not checked (see NOT wired in the install summary)"
+elif [ ! -f "$PRE_PUSH" ]; then
   bad "pre-push hook missing at $PRE_PUSH — push-time shield not installed"
 elif [ ! -x "$PRE_PUSH" ]; then
   bad "$PRE_PUSH exists but is not executable — chmod +x .husky/pre-push to activate"

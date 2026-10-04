@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Prints the resolved orchestration home — `.claude/orchestrator-prompts` in the framework
 # repo, `.ai-factory/orchestrator-prompts` in a consumer install (resolve_orch_home() in
-# lib/common.sh; the framework dir is NEVER delivered, setup.d/lib.sh:65-66).
+# lib/common.sh; the framework dir is NEVER delivered, setup.d/lib.sh:98-99).
 #
 # WHY IT EXISTS: SKILL.md's `!shell` fences cannot source lib/common.sh — they are single
 # commands vetted against this skill's allowed-tools, not sourced shells. Before this helper

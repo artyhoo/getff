@@ -48,6 +48,29 @@ exclude_path = [
   'docs/superpowers/',
 ]
 
+# A `main`-pinned blob URL born on `staging` is expected-404 until the next
+# promote, and that is a mechanism, not link rot: the plugin twin must be
+# byte-identical to its source, so a link escaping the twin's directory is
+# written as an absolute `blob/main/` URL the moment the file is authored — on
+# `staging`, where `main` does not carry it yet. Measured: PR #1807 merged over
+# exactly this RED (plugin/README.md:27 → 404), and the URL self-healed at
+# promote #4 (research-patches/2026-09-21-main-pinned-blob-url-red-at-merge.md).
+#
+# Remap — rather than exclude — so the audit stays a real rot detector on this
+# class: it checks the SAME path against the ref that carries it. A renamed or
+# deleted target still 404s. Measured on lychee v0.24.2 (the version
+# lycheeverse/lychee-action@e747777 installs by default) with the file this rule
+# was written for: without the remap the URL is an error (exit 2), with it the
+# check passes (exit 0), and a `blob/main/` URL whose path exists on NEITHER ref
+# still fails (exit 2). The trade-off is stated and accepted: the audit verifies
+# a ref the reader of a shipped twin does not follow. That gap closes at every
+# promote, whereas an `exclude` would make the gate structurally unable to fail
+# on the class it exists to police (attention-is-not-a-mechanism.md §2
+# `#hope-as-gate`).
+remap = [
+  "https://github.com/artyhoo/getff/blob/main/ https://github.com/artyhoo/getff/blob/staging/",
+]
+
 # GitHub's own hosts appear ~340 times across the scoped docs (github.com,
 # raw.githubusercontent.com); authenticating via the action's `token` input
 # raises the rate limit substantially, but transient 429s/5xxs still happen

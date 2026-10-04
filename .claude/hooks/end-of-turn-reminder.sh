@@ -7,7 +7,13 @@
 #   aif_msg_eot_branch_story branch"), delivered by install.sh + do_refresh. Consumer-safe: no
 #   framework-internal artefact dependency (the only path refs are comment-citations); degrades
 #   to exit 0 when jq or a transcript is absent.
+# @plugin-yield-deps: lang/ lib/residue-dir.sh lib/hook-live.sh
 set -euo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live end-of-turn-reminder || true; fi
 
 # Consumer-skip guard (GH #934): the hook parses the transcript with jq. Absent jq → no work
 # possible → exit 0 silently (never error-spam a consumer's every turn). The framework session
@@ -25,24 +31,41 @@ _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 # Provides AIF_RECAP_MARKER (the recap heading, used by the guard below AND embedded
 # in the messages) + aif_msg_eot_* functions.
 # @dual-pair: hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)
+#
+# Glossary thresholds (plain-words-recap-v2 D-F) ride the pack as CONFIG keys
+# (AIF_GLOSSARY_USES / AIF_GLOSSARY_EXPLAINS — key parity guarded by lang/check-parity.sh).
+# The operator's env override must beat the pack value, and the source below is
+# UNCONDITIONAL, so the env is captured here and put back after it — the same reason
+# AIF_EOT_RECAP_MAX_LINES stays OUT of the packs (:876-879). A pack older than this
+# feature (consumer delivery lag) simply never assigns the keys; every read of them in
+# this hook uses `${AIF_GLOSSARY_USES:-3}` so `set -u` (:9) cannot abort on the gap.
+_gloss_env_uses="${AIF_GLOSSARY_USES:-}"
+_gloss_env_explains="${AIF_GLOSSARY_EXPLAINS:-}"
 _lang_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lang"
 _lang_file="${_lang_dir}/${AIF_HOOK_LANG:-en}.sh"
 [ -f "$_lang_file" ] || _lang_file="${_lang_dir}/en.sh"
 # shellcheck source=/dev/null
 . "$_lang_file"
+if [ -n "$_gloss_env_uses" ]; then AIF_GLOSSARY_USES="$_gloss_env_uses"; fi
+if [ -n "$_gloss_env_explains" ]; then AIF_GLOSSARY_EXPLAINS="$_gloss_env_explains"; fi
+unset _gloss_env_uses _gloss_env_explains
 
 # Residue-directory primitives (D29) — the cascade the handoff-currency gate needs, shared
 # with the PreCompact writer. GUARDED source, never unconditional: this hook runs under
 # `set -euo pipefail` (:9), so sourcing a missing lib would abort it on EVERY turn of any
 # project the delivery step has not reached. Lib absent or unreadable → the inline fallback
 # below, identical logic, so the gate still resolves the same directory the writer does.
-# (The check-doc-authority.sh:40-48 guard shape — with a fallback instead of a SKIP:
+# (The check-doc-authority.sh:41-49 guard shape — with a fallback instead of a SKIP:
 # silently skipping the gate on a missing lib would be fail-open.)
 _residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
 if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
   _residue_dir() {
     if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
-    local _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    # The ZCODE arm mirrors the lib's (and the inject hook's env-first pin): the PLUGIN twin
+    # always runs this fallback (plugin/hooks/lib ships no residue-dir.sh), and a ZCode plugin
+    # run sets neither CLAUDE_PROJECT_DIR nor `root` — without the arm its counters path
+    # diverges from the inject side's (cold-review m2, 2026-09-14).
+    local _rd_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
     local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
     if [ -f "$_rd_helper" ]; then
       _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)
@@ -126,6 +149,18 @@ esac
 autonomy_line=""
 ctx_line=""
 gate_line=""
+# Glossary demand line (plain-words-recap-v2 D-F), computed later — AFTER $text exists
+# (:700+) — but initialized HERE because _autonomy_exit reads it and the early exits
+# (:405 / :426 / :625) precede the arm. Empty unless the glossary arm has something to
+# demand, so every pre-existing golden path is byte-identical.
+glossary_line=""
+# Manual-step line (operator directive 2026-09-28), computed by the arm just above the marker
+# guards; initialised HERE for the same reason as glossary_line — _autonomy_exit reads it and
+# every early exit above that arm must find it set under `set -u`.
+hands_line=""
+# Dispatch-channel line (recommendation-laziness-discipline.md §3), computed by its arm just
+# above the story-branch detection; initialised HERE for the same `set -u` reason.
+chip_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -202,6 +237,35 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${gate_line}"
     else
       _extra="${gate_line}"
+    fi
+  fi
+  # plain-words-recap-v2 D-F: the glossary demand rides the same single block — never a
+  # second block per turn (:185-187) — and this slot is the ONLY way it survives a
+  # recap-marked turn: the already-recapped guard exits through here, and a re-stop after
+  # the block carries the marker, so an arm placed behind that guard would never fire.
+  if [ -n "${glossary_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${glossary_line}"
+    else
+      _extra="${glossary_line}"
+    fi
+  fi
+  # Manual-step arm: same single block, and — like the glossary slot — the ONLY way the line
+  # survives a recap-marked turn, which is where the final «From you:» line usually lives.
+  if [ -n "${hands_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${hands_line}"
+    else
+      _extra="${hands_line}"
+    fi
+  fi
+  # Dispatch-channel arm: same single block. It must survive the tool-only guard — a turn that
+  # ENDS on the spawn_task call has no text and exits through here.
+  if [ -n "${chip_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${chip_line}"
+    else
+      _extra="${chip_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -427,7 +491,7 @@ if [ -n "$ctx_entry" ]; then
     case "$gate_handoff_pct" in '' | *[!0-9]* | 0) gate_handoff_pct=67 ;; esac
     # D14 — the floor: min(ctx_soft, compaction_point × pct). The compaction point is
     # DECLARED, resolved in Claude Code's OWN precedence for the key: the env wins, else the
-    # PROJECT settings.json's autoCompactWindow, else the USER one (~/.claude/settings.json;
+    # project's settings.local.json, else its settings.json, else the USER one (~/.claude/settings.json;
     # jq is already a hard dependency at :14). Nothing declared → gate_floor = ctx_soft, the
     # gate stands exactly where the prose arm stands — one derived number, no second absolute
     # (F3's lesson). The user step exists because a desktop WORKTREE session's project
@@ -438,7 +502,7 @@ if [ -n "$ctx_entry" ]; then
     gate_compact="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
     case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
     for _gate_settings in \
-      "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.json}" \
+      "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.local.json}" "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.json}" \
       "${HOME:+${HOME}/.claude/settings.json}"
     do
       [ -n "$gate_compact" ] && break
@@ -459,7 +523,19 @@ if [ -n "$ctx_entry" ]; then
       gate_handoff_file="${gate_residue_dir}/_handoff-${ctx_key}.md"
       # Same key derivation as the D7 flags (:307); the writer clears it BY EXACT NAME at
       # compaction (D34), so a rename here silently unlinks that contract.
-      gate_baseline="${TMPDIR:-/tmp}/aif-handoff-${ctx_key}"
+      #
+      # D39 — the `.v2` suffix names the baseline FORMAT (line 1 sha, line 2 D38 turn key), and
+      # it exists because the two Stop copies can run DIFFERENT versions of this hook: the
+      # installed plugin cache refreshes only when `plugin.json` `version` changes, so a twin
+      # edit shipped under an unchanged version leaves the pre-D38 copy running beside this one.
+      # Measured 2026-09-23 (session 9620a56b, plugin cache 0.3.0): on the shared pre-D38 name
+      # the old copy's ALLOW rewrote the baseline as a bare sha, this copy then read an empty
+      # turn key and a matching sha, and blocked «CONTENT unchanged» on a turn that had
+      # rewritten the file — on EVERY such turn the old copy happened to win the race. A
+      # format change therefore takes a new name: each copy judges against the baseline it
+      # wrote, and a stale twin can neither satisfy nor poison this one. Any future change to
+      # the baseline format MUST bump the suffix for the same reason.
+      gate_baseline="${TMPDIR:-/tmp}/aif-handoff-${ctx_key}.v2"
       if ! mkdir -p "$gate_residue_dir" 2>/dev/null || [ ! -w "$gate_residue_dir" ]; then
         # D19 — fail CLOSED and SAY the probe broke (F10 property 2); never a silent pass.
         gate_line="$(aif_msg_eot_handoff_gate_degraded "$gate_residue_dir")"
@@ -485,10 +561,35 @@ if [ -n "$ctx_entry" ]; then
             break
           fi
         done
+        # D40 — the handoff is a THIN INDEX (.claude/rules/seat-lifecycle.md §1.1): a
+        # markdown table whose separator row is followed by at least one row naming a `.md`
+        # topic file. State lives in those topic files, so a task reloads only its own. Checked
+        # AFTER the headings (a missing section is the more basic defect) and BEFORE the cap
+        # (a monolith is told to split, not merely to shrink). Shape only: whether each topic
+        # file opens with «Read when:» is not checked — table paths are free-form (relative,
+        # `~/`, directory-anchored in prose), and a partial resolve would read as a guarantee.
+        # POSIX awk only: no interval expressions (`-{3,}`) — mawk 1.3.4 20200120 (Ubuntu
+        # 20.04/22.04, Debian 12) ignores them, so a valid index blocked there (cold review).
+        # A fenced block is skipped (a table quoted inside ``` is not the index). Separator =
+        # a line of only `| : -` and blanks carrying at least one `|` and one `-` (GFM allows
+        # `|-|-|` and a table with no leading pipe); a data row = a line with a `|`.
+        if [ -z "$gate_line" ] && ! awk '
+            { sub(/\r$/, "") }
+            /^[[:space:]]*(```|~~~)/ { fence = !fence; sep = 0; next }
+            fence { next }
+            /^[[:space:]:|-]+$/ && /\|/ && /-/ { sep = 1; next }
+            sep && /\|/ && /\.md([^[:alnum:]_]|$)/ { found = 1; exit }
+            sep && !/\|/ { sep = 0 }
+            END { exit (found ? 0 : 1) }
+          ' "$gate_handoff_file" 2>/dev/null; then
+          gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" index)"
+        fi
         if [ -z "$gate_line" ]; then
           # D32 — current state, not a log: over the cap, condense — never append.
-          gate_max_lines="${AIF_HANDOFF_MAX_LINES:-200}"
-          case "$gate_max_lines" in '' | *[!0-9]* | 0) gate_max_lines=200 ;; esac
+          # D40 lowered the default 200 → 80: with state in topic files, the index itself is
+          # ~40 lines (title, table, five one-line sections); 80 is 2× that headroom.
+          gate_max_lines="${AIF_HANDOFF_MAX_LINES:-80}"
+          case "$gate_max_lines" in '' | *[!0-9]* | 0) gate_max_lines=80 ;; esac
           gate_lines=$(wc -l < "$gate_handoff_file" 2>/dev/null | tr -d '[:space:]' || echo 0)
           case "$gate_lines" in '' | *[!0-9]*) gate_lines=0 ;; esac
           if [ "$gate_lines" -gt "$gate_max_lines" ]; then
@@ -500,7 +601,8 @@ if [ -n "$ctx_entry" ]; then
             # than once per Stop. The Stop channel carries it twice in any project holding
             # BOTH the plugin registration (the plugin's hooks.json → `run-hook.cmd
             # end-of-turn-reminder`) and the project one the installer writes
-            # (setup.d/10-skills.sh:260, install.sh:959). Both copies derive this baseline path
+            # (setup.d/10-skills.sh:267, and install.sh's --refresh `register_cc_hook … "Stop"` call).
+            # Both copies derive this baseline path
             # from session_id alone, so the first copy's ALLOW wrote the new sha and the second
             # compared the file against what its twin had just written: «CONTENT unchanged» on a
             # turn that had in fact rewritten the file. Measured 2026-09-14 (session 319c1945):
@@ -515,9 +617,10 @@ if [ -n "$ctx_entry" ]; then
             # that finds its own turn key there re-uses that Stop's already-computed ALLOW
             # (only the allow branch writes, so a BLOCKING Stop is re-derived identically by
             # both copies — the fix must not turn a real block into a silent pass).
-            # Line 1 stays the sha — the D34 clearer still deletes one file by one exact name,
-            # and a pre-D38 single-line baseline reads back with an EMPTY turn, which can never
-            # match, so it falls through to the sha compare with no migration.
+            # Line 1 stays the sha — the D34 clearer still deletes this file by one exact name.
+            # A single-line baseline under THIS name reads back with an EMPTY turn, which can
+            # never match, so it falls through to the sha compare; the pre-D38 writer's own
+            # single-line file lives under the old, unsuffixed name and is never read here (D39).
             #
             # The key is the content hash of the turn's LAST assistant record — the same grep
             # the `last_line` arm runs below, over the same bounded window. Two invocations of
@@ -560,10 +663,13 @@ if [ -n "$ctx_entry" ]; then
   fi
 fi
 
-# Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
-# title (`{"type":"ai-title","aiTitle":...}`) — empirically present even when the
-# first user message has no extractable text block. Fallback: head of the first
-# user instruction. grep avoids a full-file jq slurp (cheap on large transcripts).
+# Session-goal anchor (deterministic, no LLM). Primary signal: the session title. An explicit
+# name (`{"type":"custom-title","customTitle":...}`, written by the desktop app and by /rename)
+# outranks CC's generated one (`{"type":"ai-title","aiTitle":...}`) — the desktop app writes
+# ONLY custom-title, so an ai-title-only read left every desktop session without a title
+# (incident 2026-09-24: 58 custom-title records, 0 ai-title, anchor fell to the fallback).
+# Fallback: head of the first user instruction. grep avoids a full-file jq slurp (cheap on
+# large transcripts).
 #
 # F-2: both source records sit near the START of the session, so re-deriving the anchor from
 # the whole file on EVERY turn was the most wasteful of this hook's passes. Resolution order:
@@ -572,15 +678,32 @@ fi
 #   (2) the per-session cache — one file per session_id, same convention as the ctx/story flags;
 #   (3) one full scan, whose result is cached so no later turn in this session repeats it.
 _anchor_cache="${TMPDIR:-/tmp}/aif-eot-anchor-${session_id}"
-anchor=$(grep -F '"type":"ai-title"' "$scan_file" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+# ONE grep for both record types (F-2 budget: at most one full-transcript grep per turn end);
+# jq then prefers the last non-empty custom-title and falls back to the last ai-title. Known
+# limit: precedence holds within ONE read — a window holding only an ai-title wins over a
+# custom-title written once before the window. The desktop app re-writes custom-title
+# throughout the session, so its title stays inside the window.
+_session_title() {
+  grep -E '"type":"(custom|ai)-title"' "$1" 2>/dev/null \
+    | jq -rs '([.[] | .customTitle // empty | select(. != "")] | last) // ([.[] | .aiTitle // empty | select(. != "")] | last) // empty' 2>/dev/null || true
+}
+anchor=$(_session_title "$scan_file")
 if [ -z "$anchor" ] && [ -f "$_anchor_cache" ]; then
   anchor=$(cat "$_anchor_cache" 2>/dev/null || true)
 fi
 if [ -z "$anchor" ] && [ "$scan_file" != "$transcript" ]; then
-  anchor=$(grep -F '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+  anchor=$(_session_title "$transcript")
 fi
 if [ -z "$anchor" ]; then
-  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+  # `lead` drops the tag blocks a hook injects AHEAD of the instruction — the worktree
+  # SessionStart hook prepends `<system-reminder>…</system-reminder>` to the first message, so
+  # its first line was the bare tag and D-I (below) rejected it, leaving no anchor at all.
+  # split/join rather than index(): jq 1.6 index() on strings returns BYTE offsets while
+  # slicing counts codepoints, which would cut a Cyrillic instruction mid-word. `cmd` keeps a
+  # slash-command session's task — `<command-name>/x</command-name><command-args>y</…>` becomes
+  # «/x y» instead of being stripped to nothing — and `select(test("\\S"))` drops a text block
+  # that was tags only, so `head -1` reaches the instruction in the NEXT block.
+  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'def cmd: if test("^\\s*<command-(name|message)>") then [(capture("<command-name>(?<n>[^<]*)</command-name>").n), (capture("<command-args>(?<a>[^<]*)</command-args>").a)] | join(" ") else . end; def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | cmd | lead) else (.message.content // empty | cmd | lead) end | select(test("\\S"))' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
   # `head -1` echoes the line's own trailing newline, which the `tr` just above turns into a
   # trailing space on every candidate (verified live: a plain "src/app/page.tsx" comes out of
   # the pipeline above as "src/app/page.tsx "). Strip it before the space-arm check below, or
@@ -640,7 +763,7 @@ text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | 
 # that returned before this point (no last assistant line at :405, tool-only turn at :426)
 # the token is unreadable and a stale handoff BLOCKS — the deliberate fail-closed side.
 # Here-string, never `printf | grep -q`: under pipefail an early grep exit SIGPIPEs the
-# producer and the guard silently reads false (this hook's own A3-5 lesson at :398-402).
+# producer and the guard silently reads false (this hook's own A3-5 lesson at :697-702).
 # Per-turn, never sticky (D17): every turn in the band either moves the handoff or
 # re-states the token.
 if [ -n "$gate_line" ] && grep -qE 'mechanical-tail:[[:space:]]*.{20,}' <<<"$text"; then
@@ -672,7 +795,7 @@ fi
 # `-z "$gate_line"` guard keeps it that way from the other side.
 # Line-anchored: the ready-to-paste form is a line of its own inside a fenced block, while a
 # session DISCUSSING the gate mentions /compact inline — anchoring keeps the discussion out.
-# Here-string, never `printf | grep -q` (this file's own A3-5 SIGPIPE lesson at :398-402).
+# Here-string, never `printf | grep -q` (this file's own A3-5 SIGPIPE lesson at :697-702).
 # Per-turn, never sticky, and not an unpassable gate: the next Stop carries stop_hook_active
 # and exits at :35-38, so a deliberate re-emit costs one turn and then stands.
 if [ "${AIF_HANDOFF_GATE:-0}" = "1" ] && [ -z "$gate_line" ] &&
@@ -681,6 +804,119 @@ if [ "${AIF_HANDOFF_GATE:-0}" = "1" ] && [ -z "$gate_line" ] &&
   grep -qE '^[[:space:]]{0,3}/compact([[:space:]]|$)' <<<"$text"; then
   gate_line="$(aif_msg_eot_compact_out_of_band "$ctx_tokens" "$gate_floor")"
 fi
+# ── Dispatch-channel arm (chip where aif auto-dispatch was available) ─────────
+# #CHIP anchor — channel token for .claude/rules/recommendation-laziness-discipline.md
+# (`<!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#CHIP -->`) points HERE.
+# spec: .claude/rules/recommendation-laziness-discipline.md §3 «zero-click dispatch first» + §5
+# `#chip-over-available-bridge`. Incident 2026-09-08: an /arch contour ended with a spawn_task
+# chip for the follow-on round while the aif auto-dispatch path was up; the chip waits for a
+# human click, a `<!-- bridge: auto -->` kickoff is dispatched on write by
+# runtime-bridge-dispatch.sh with zero clicks. Error-with-escape, not a warning
+# (attention-is-not-a-mechanism.md §1): the escape is a `chip-over-bridge: <20+ chars>` line
+# anywhere in the turn's text — e.g. a stage gated on an unmerged predecessor.
+#
+# The mechanizable slice only. The arm fires when ALL hold:
+#   (a) RUNTIME_BRIDGE_MODE is set and is neither `manual` (the operator forced the paste
+#       backend) nor `amux` (reserved — the resolver falls back to manual), AND the bridge
+#       answers `${RUNTIME_BRIDGE_AIF_URL}/health` — the resolver (packages/runtime-bridge/src/
+#       resolver.ts) also falls back to manual when aif is unreachable, and then a chip IS right;
+#   (b) THIS turn — the records after the last operator prompt — called spawn_task;
+#   (c) the chip prompt names a kickoff the write-time dispatcher would actually dispatch:
+#       `*/kickoff.md`, not `*-meta-launch/kickoff.md` — the SAME case filter as
+#       runtime-bridge-dispatch.sh. A stage kickoff (`kickoff-s2.md`) is NOT checked: the marker
+#       does nothing there, so telling the model to add it would lose the work silently;
+#   (d) that file's first line is not exactly the marker. Unreadable counts as unmarked
+#       (fail-closed).
+# A chip that names no such kickoff is judgment, left to the rule's prose.
+# Turn start = the last `user` record that is a human prompt: `origin.kind == "human"` where the
+# transcript carries origin (measured 2026-10-01 over 40 local transcripts: tool_result,
+# isMeta skill bodies and peer messages, task-notification, local-command records are all
+# non-human), else a non-meta record whose content is not a tool_result / notification tag.
+# A compaction summary also starts a turn. Earliest reachable channel: no PreToolUse matcher
+# for spawn_task exists and .claude/settings.json is agent-uncommittable. Bounded: each
+# spawn_task tool_use id is flagged once per session (TMP flag). ZCode has no spawn_task.
+if [ -n "${RUNTIME_BRIDGE_MODE:-}" ] && [ "${RUNTIME_BRIDGE_MODE}" != "manual" ] \
+   && [ "${RUNTIME_BRIDGE_MODE}" != "amux" ] && ! _is_zcode \
+   && command -v aif_msg_eot_chip_over_bridge >/dev/null 2>&1 \
+   && grep -qF 'spawn_task' "$scan_file" 2>/dev/null; then
+  # One jq pass: U<TAB>id<TAB>b64(prompt) per spawn_task call, T<TAB>b64(text) per text block,
+  # both only after the turn start. -R + fromjson? tolerates a malformed line.
+  _cb_rows="$(jq -Rrn '
+    def human: .type == "user" and (.isMeta != true) and (
+      (.isCompactSummary == true)
+      or (if (.origin.kind? // null) != null then .origin.kind == "human"
+          elif (.message.content | type) == "string" then
+            (.message.content | test("^\\s*<(task-notification|local-command-|ci-monitor-event|system-reminder)") | not)
+          else ((.message.content // []) | all(.type != "tool_result")) end));
+    [inputs | (fromjson? // null)] as $r
+    | ([range(0; $r | length) | select($r[.] != null and ($r[.] | human))] | last // -1) as $s
+    | $r[($s + 1):][] | select(. != null and (.type == "assistant" or .message.role? == "assistant"))
+    | .message.content[]?
+    | if .type == "tool_use" and ((.name // "") | test("(^|__)spawn_task$")) then
+        "U\t\(.id // "noid")\t\((.input.prompt // "") | @base64)"
+      elif .type == "text" then "T\t\((.text // "") | @base64)"
+      else empty end' "$scan_file" 2>/dev/null || true)"
+  if grep -q '^U' <<<"$_cb_rows"; then
+    _cb_b64d() { printf '%s' "$1" | base64 -d 2>/dev/null || printf '%s' "$1" | base64 -D 2>/dev/null || true; }
+    _cb_turn_text=""
+    while IFS=$'\t' read -r _cb_k _cb_v _; do
+      [ "$_cb_k" = "T" ] && _cb_turn_text="${_cb_turn_text}"$'\n'"$(_cb_b64d "$_cb_v")"
+    done <<<"$_cb_rows"
+    # The escape needs a real reason: 20+ chars that do not start with `<` (a model quoting the
+    # template placeholder verbatim is not a reason).
+    if ! grep -qE 'chip-over-bridge:[[:space:]]*[^<[:space:]].{19,}' <<<"${_cb_turn_text}"$'\n'"${text}"; then
+      _cb_base="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+      [ -n "$_cb_base" ] || _cb_base="${CLAUDE_PROJECT_DIR:-$PWD}"
+      _cb_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+      _cb_flag="${TMPDIR:-/tmp}/aif-eot-chip-${_cb_key}"
+      _cb_hits=""
+      _cb_ids=""
+      while IFS=$'\t' read -r _cb_k _cb_id _cb_v; do
+        [ "$_cb_k" = "U" ] || continue
+        if [ -f "$_cb_flag" ] && grep -qxF -- "$_cb_id" "$_cb_flag" 2>/dev/null; then continue; fi
+        _cb_paths="$(grep -oE '[A-Za-z0-9_./~-]*kickoff\.md' <<<"$(_cb_b64d "$_cb_v")" | sort -u || true)"
+        _cb_this=""
+        while IFS= read -r _cb_p; do
+          # The dispatcher's own filter (runtime-bridge-dispatch.sh); `//` = a URL, not a path.
+          case "$_cb_p" in
+            //*|*-meta-launch/kickoff.md) continue ;;
+            */kickoff.md|kickoff.md) ;;
+            *) continue ;;
+          esac
+          case "$_cb_p" in
+            /*) _cb_abs="$_cb_p" ;;
+            \~/*) _cb_abs="${HOME}/${_cb_p#\~/}" ;;
+            *) _cb_abs="${_cb_base}/${_cb_p}" ;;
+          esac
+          _cb_first=""
+          if [ -f "$_cb_abs" ] && [ -r "$_cb_abs" ]; then
+            _cb_first="$(head -n1 "$_cb_abs" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true)"
+          else
+            _cb_p="${_cb_p} (unreadable)"
+          fi
+          if [ "$_cb_first" != '<!-- bridge: auto -->' ]; then
+            _cb_this="${_cb_this}${_cb_this:+, }${_cb_p}"
+          fi
+        done <<<"$_cb_paths"
+        if [ -n "$_cb_this" ]; then
+          _cb_hits="${_cb_hits}${_cb_hits:+, }${_cb_this}"
+          _cb_ids="${_cb_ids}${_cb_id}"$'\n'
+        fi
+      done <<<"$_cb_rows"
+      # Liveness probe LAST — it costs a network round-trip, so only a turn that would otherwise
+      # fire pays it. Bridge down → the resolver would fall back to manual → the chip is right.
+      if [ -n "$_cb_hits" ] \
+         && [ -n "$(curl -sf --max-time 2 "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health" 2>/dev/null || true)" ]; then
+        { printf '%s' "$_cb_ids" >> "$_cb_flag"; } 2>/dev/null || true
+        chip_line="$(aif_msg_eot_chip_over_bridge "$_cb_hits" "$RUNTIME_BRIDGE_MODE")"
+      fi
+    fi
+    unset -f _cb_b64d 2>/dev/null || true
+  fi
+  unset _cb_rows _cb_turn_text _cb_k _cb_v _cb_base _cb_key _cb_flag _cb_hits _cb_ids _cb_id \
+    _cb_paths _cb_this _cb_p _cb_abs _cb_first 2>/dev/null || true
+fi
+
 # -- story branch detection: a PR was just created this turn → engaging recap ----
 # (session_id is read above, before the D7 context-arm.)
 story_signal=""
@@ -693,6 +929,141 @@ if [ -z "$text" ] && [ "$has_askuserquestion" != "true" ] && [ -z "$story_signal
   # Tool-only turn. Nothing to recap — but an unattended turn that ends on a tool call with
   # dispatched work outstanding is still F10.
   _autonomy_exit
+fi
+
+# ── Glossary explanations arm (plain-words-recap-v2 D-F) ─────────────────────
+# spec: docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md §D-F.
+# The UserPromptSubmit twin (glossary-inject.sh) wrote THIS session's pending file when the
+# operator's prompt used a still-unlearned glossary term (CONTEXT.md). Here — at the Stop of
+# the turn answering that prompt — the arm counts the fixed «term (explanation)» form in the
+# answer (once per message, per term) into `_glossary-counts.json`, and when the answer does
+# NOT carry the form and the term is still below threshold, demands the inline form once:
+# per-term one-shot flag, OWN prefix `aif-glossary-dem-` (one flag shared between two bounds
+# lets each suppress the other's first block — #1644->#1651). The flag is the loop bound of
+# the same class as the #1706 sha-bounds: ZCode re-stops carry stop_hook_active=false
+# (:1017-1019), so an unbounded demand re-blocks identical text forever there.
+#
+# POSITION IS LOAD-BEARING: after the tool-only guard above — a turn with no answer text
+# cannot carry an explanation, so it must not spend the one-shot — and BEFORE the marker
+# guards (:905+), whose _autonomy_exit routes carry the line via the glossary slot. A
+# recap-marked answer is exactly where the demand must survive (see the slot comment).
+#
+# Learned = usages ≥ AIF_GLOSSARY_USES OR explanations ≥ AIF_GLOSSARY_EXPLAINS (D-F),
+# thresholds read from the env-restored pack keys with literal defaults (a pack older than
+# this feature must not abort the hook under set -u). Known undercount, accepted: the RETRY
+# stop after the demand exits at the stop_hook_active guard (:72) before reaching this arm,
+# so an explanation written to satisfy the demand is not counted — the same accepted shape
+# as the recap gate, whose fixed defects in the retry turn are likewise not re-verified.
+#
+# Inert unless ALL of: the answer has text, CONTEXT.md exists at the project root (an
+# unarmed tree → glossary_line stays empty → the unarmed goldens keep byte-identity), the
+# pending file for THIS session exists (the UserPromptSubmit twin ran on this prompt), jq is
+# present (:14). The counters file is created on demand: the Stop side must be able to
+# count explanations even when the inject side never ran (registration lag) — its usages
+# simply stay 0.
+# The root is resolved env-first (CLAUDE → ZCODE → pwd), the same chain the inject side
+# pins and _residue_dir now carries — under a harness whose hook cwd ≠ project root, the
+# CONTEXT.md check and the counters file must land on the SAME tree (cold-review m2).
+# ── Counters lock (plain-words-recap-v2 S3, cold review 2026-09-21) ──────────
+# The counters file is machine-shared BY DESIGN (kickoff-s3.md §1 item 4), and the
+# increment below is a read-modify-write: two sessions that read the same value both
+# write value+1 and one usage is lost. Measured before this block existed: 10 concurrent
+# prompts carrying one term → `usages: 2`; the same 10 run one at a time → `usages: 10`.
+# With 4+ worktree sessions the norm here, `usages >= AIF_GLOSSARY_USES` was effectively
+# unreachable, so the «stop explaining after N times» throttle — the whole BUILD rationale
+# of prior-art row #283 — never engaged.
+#
+# `mkdir` is the portable atomic test-and-set (flock(1) is absent on macOS). Best-effort by
+# construction, exactly like every other counters write here: a lock we cannot take within
+# the bound is skipped, never fatal — a hook that blocks a turn over a learning counter is
+# worse than an undercount. Bound: 100 × 20 ms = 2 s. A lock dir older than a minute is a
+# crashed holder and is reclaimed, so one killed session cannot wedge the counter forever.
+_gl_lock() {
+  _gl_lockdir="${1}.lock"
+  _gl_held=""
+  _gl_i=0
+  while ! mkdir "$_gl_lockdir" 2>/dev/null; do
+    if [ -n "$(find "$_gl_lockdir" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$_gl_lockdir" 2>/dev/null || true
+      continue
+    fi
+    _gl_i=$((_gl_i + 1))
+    [ "$_gl_i" -ge 100 ] && return 1
+    sleep 0.02 2>/dev/null || true
+  done
+  _gl_held=1
+  return 0
+}
+_gl_unlock() {
+  [ -n "${_gl_held:-}" ] || return 0
+  rmdir "$_gl_lockdir" 2>/dev/null || true
+  _gl_held=""
+}
+
+_gl_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
+if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
+  _gl_session_key="$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)"
+  _gl_pending="${TMPDIR:-/tmp}/aif-glossary-pending-${_gl_session_key}"
+  if [ -f "$_gl_pending" ]; then
+    _gl_counts="$(_residue_dir)/_glossary-counts.json"
+    _gl_uses="${AIF_GLOSSARY_USES:-3}"
+    case "$_gl_uses" in '' | *[!0-9]* | 0) _gl_uses=3 ;; esac
+    _gl_explains="${AIF_GLOSSARY_EXPLAINS:-5}"
+    case "$_gl_explains" in '' | *[!0-9]* | 0) _gl_explains=5 ;; esac
+    [ -f "$_gl_counts" ] || { printf '{"terms":{}}' > "$_gl_counts" 2>/dev/null || true; }
+    _gl_tmp="${_gl_counts}.tmp-$$"
+    while IFS=$'\t' read -r _gl_term _gl_word; do
+      [ -n "${_gl_term:-}" ] && [ -n "${_gl_word:-}" ] || continue
+      # One lock hold spans the read and the write — see the _gl_lock block above.
+      _gl_lock "$_gl_counts" || true
+      _gl_u="$(jq -r --arg t "$_gl_term" '(.terms[$t].usages // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
+      _gl_e="$(jq -r --arg t "$_gl_term" '(.terms[$t].explanations // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
+      case "$_gl_u" in '' | *[!0-9]*) _gl_u=0 ;; esac
+      case "$_gl_e" in '' | *[!0-9]*) _gl_e=0 ;; esac
+      if [ "$_gl_u" -ge "$_gl_uses" ] || [ "$_gl_e" -ge "$_gl_explains" ]; then
+        _gl_unlock
+        continue  # learned between the prompt and this Stop — nothing fires (D-F); drop it
+      fi
+      if grep -qF -- "${_gl_term} (" <<<"$text"; then
+        # The answer carries the fixed form — count it (once per message: this loop visits a
+        # term once per Stop). It just explained, so never demand on this same turn; the
+        # next prompt-use of the term re-arms the demand while it is still below threshold.
+        _gl_e=$((_gl_e + 1))
+        if jq --arg t "$_gl_term" --argjson e "$_gl_e" '.terms[$t].explanations = $e' \
+             "$_gl_counts" > "$_gl_tmp" 2>/dev/null; then
+          mv -f "$_gl_tmp" "$_gl_counts" 2>/dev/null || rm -f "$_gl_tmp" 2>/dev/null || true
+        fi
+        _gl_unlock
+        continue
+      fi
+      # No counter write on the demand path — release before the (slower) message work.
+      _gl_unlock
+      _gl_flag="${TMPDIR:-/tmp}/aif-glossary-dem-${_gl_session_key}-$(printf '%s' "$_gl_term" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-48)"
+      # command -v BEFORE the call AND before the flag: an undefined function in a cmdsubst
+      # aborts the WHOLE hook under set -e (measured: rc 127) — a pack older than this
+      # feature lacks aif_msg_glossary_demand while still carrying every aif_msg_eot_* the
+      # arms above call. Degradation: the demand is skipped but the explanation still counts
+      # above, and the flag stays unset so the next turn retries once the pack catches up
+      # (cold-review m1, 2026-09-14 — the arm's pack-lag comment claimed keys only).
+      if [ ! -f "$_gl_flag" ] && command -v aif_msg_glossary_demand >/dev/null 2>&1; then
+        _gl_demand="$(aif_msg_glossary_demand "$_gl_term" "$_gl_word")"
+        { printf 'fired' > "$_gl_flag"; } 2>/dev/null || true
+        if [ -n "$glossary_line" ]; then
+          glossary_line="${glossary_line}"$'\n'"${_gl_demand}"
+        else
+          glossary_line="${_gl_demand}"
+        fi
+      fi
+    done < "$_gl_pending"
+    # Pending is consumed at the first Stop that reaches this arm — learned terms dropped,
+    # explained terms counted, unexplained terms demanded once. The next prompt-use of the
+    # term (the operator uses these words repeatedly — that is the measured pattern) re-arms
+    # it via the UserPromptSubmit twin.
+    rm -f "$_gl_pending" 2>/dev/null || true
+    rm -f "$_gl_tmp" 2>/dev/null || true
+  fi
+  unset _gl_session_key _gl_pending _gl_counts _gl_uses _gl_explains _gl_tmp \
+        _gl_term _gl_word _gl_u _gl_e _gl_flag 2>/dev/null || true
 fi
 
 text_length=${#text}
@@ -886,6 +1257,204 @@ _eot_recap_defects() {
   printf '%s' "${d#; }"
 }
 
+# Section-evidence predicate for the already-recapped guard (2026-10-01 recap-loop
+# incident, desktop session e1ee5b76, AIF_HOOK_LANG=ru): the model answered the
+# recap block with the full five-section shape but a PARAPHRASED heading — a bare
+# `🟢` line, no $AIF_RECAP_MARKER literal — so the exact-literal grep above never
+# recognized the turn, and every fresh turn re-blocked with the same instruction
+# (stop_hook_active cannot help across fresh turns; on ZCode re-stops carry
+# stop_hook_active=false). The guard and the demand must agree: a turn whose final
+# text carries the demand's full well-formed section set IS recap evidence.
+# Required set = the same sections _eot_recap_defects validates (WHERE/NEXT always,
+# FORK when asked, CHANGED when the long answer demands section 2) + the D-B
+# closing grammar as the last non-empty line (prefix present, value not banned,
+# well-formed). NOT a defect-gate re-run: _eot_recap_block() slices from the marker
+# and glues the marker onto the WHOLE text when it is absent, so the line cap has
+# no slice to read on this path — the cap (and the D-A defect gate) stay
+# marker-path-only. A pack lagging any key keeps the arm inert (the hands-arm
+# pack-lag contract at :1198-1202).
+_eot_recap_sections_wellformed() {
+  local last value
+  [ -n "${AIF_EOT_SEC_WHERE:-}" ] && [ -n "${AIF_EOT_SEC_CHANGED:-}" ] \
+    && [ -n "${AIF_EOT_SEC_FORK:-}" ] && [ -n "${AIF_EOT_SEC_NEXT:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_PREFIX:-}" ] && [ -n "${AIF_EOT_FOR_YOU_NOTHING:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_WAITING:-}" ] && [ -n "${AIF_EOT_FOR_YOU_DECIDE:-}" ] \
+    && [ -n "${AIF_EOT_FOR_YOU_HANDS:-}" ] && [ -n "${AIF_EOT_FOR_YOU_BANNED:-}" ] || return 1
+  _eot_turn_shape
+  grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$text" || return 1
+  grep -qF -- "$AIF_EOT_SEC_NEXT" <<<"$text" || return 1
+  if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$text"; then return 1; fi
+  if [ "$long_text" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$text"; then return 1; fi
+  last="$(grep -v '^[[:space:]]*$' <<<"$text" | tail -n 1 || true)"
+  grep -qF -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$last" || return 1
+  value="${last#*"$AIF_EOT_FOR_YOU_PREFIX"}"
+  value="${value# }"
+  if grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"${value%%(*}"; then return 1; fi
+  _eot_for_you_wellformed "$value" || return 1
+  return 0
+}
+
+# ── Manual-step arm (operator directive 2026-09-28) ──────────────────────────
+# «Everything the operator does by hand must be automated»: a final «From you: do by hand:
+# <action>» line is a PROCESS DEFECT, not a normal ending. The arm reads the LAST hand-off line
+# of the final assistant text — outside fenced code blocks (an example is not the hand-off) —
+# and, when its value is a manual step whose action is not a decision floor, asks the model to
+# do the step itself or to spawn a task that builds its automation.
+#
+# The hand-off line is recognised in BOTH languages whatever the active pack (an operator on
+# either pack writes in either language): AIF_EOT_HANDS_PREFIX_RE finds the line, and its value
+# is a manual step when it either STARTS with the explicit form (AIF_EOT_HANDS_TOKEN_RE — the
+# «do by hand» token of either pack followed by `:`, a dash or a hyphen; the action follows) or
+# carries a manual keyword (AIF_EOT_HANDS_KEYWORD_RE) before its first `(` while not being one of
+# the other D-B values (AIF_EOT_HANDS_SKIP_RE; the action is the whole value). A hand-off line
+# with neither stays silent. `decide:` never fires: it IS the fork floor. An empty value takes
+# the next non-empty line, and so does an empty action after the explicit form.
+#
+# Cost is linear in the turn (cold review BLOCKER, 2026-09-29): a per-letter `${s//X/Y}` loop over
+# the whole turn was super-linear under bash 3.2 in the C locale (16 KB of Cyrillic took 44 s).
+# Markdown emphasis is stripped (`*` runs, and `_` runs at a word edge — an identifier such as
+# GH_TOKEN keeps its underscore) and the text is lowercased in ONE sed pass each — ASCII by `y`,
+# Cyrillic capitals (U+0410..U+042F, U+0401) by byte-exact substitution, because the operator's
+# shell carries no LANG/LC_*, and `grep -i` under the C locale does not fold Cyrillic. Both
+# passes keep every byte length, so a byte offset found in the lowercase text addresses the same
+# value in the original-case text (every awk below runs under LC_ALL=C: offsets are bytes).
+#
+# Default ON — deliberately NOT inside the recap gate (_eot_recap_defects), which is dormant
+# unless AIF_RECAP_GATE=1. AIF_EOT_HANDS_GATE=0 turns it off; the default lives HERE (`:-1`),
+# never in the packs, which are sourced after the env and would clobber an override (the
+# AIF_EOT_RECAP_MAX_LINES precedent).
+#
+# Exemptions: a fork card ($AIF_EOT_SEC_FORK) or an AskUserQuestion anywhere in the turn — the
+# human is being asked to decide, which is a floor — and a handoff-gate block on the same stop
+# (gate_line carrying the D36/D37 `/compact` message: that block is the one instruction the
+# turn gets, and it itself hands the operator a /compact command). Floors (AIF_EOT_HANDS_FLOOR,
+# one lowercase ERE per line, one bilingual value) are matched on the WHOLE lowercased action,
+# parenthesis included: a floor named only in the parenthesis («merge PR #1900 (the
+# staging→main promote)») is still a floor.
+#
+# POSITION IS LOAD-BEARING: after the tool-only guard (a turn with no text has no line), after
+# the handoff gate has set gate_line, BEFORE the marker guards — the «From you:» line lives in
+# the recap block, so a recap-marked turn is exactly where the arm must fire; it rides every exit
+# through _autonomy_exit, the ZCode dense block and the bottom block (one block per stop).
+#
+# Loop bounds: ZCode re-stops carry stop_hook_active=false, so a per-session OWN-prefix flag
+# (aif-eot-hands-, never shared with another arm's bound — #1644->#1651) records the sha of
+# every action already blocked; the same action again is silent. A paraphrase defeats a sha,
+# so the flag's line count also caps the arm at _hs_max (2) blocks per session in total. An
+# empty sha (no hashing tool) still writes a line, so the cap holds without one.
+# Known limits, accepted: a stop with no session_id shares ONE flag (and so one cap) with every
+# other session-less stop on the machine; the flag files are never cleaned up (they live in
+# $TMPDIR, one short file per session, and the OS temp sweep removes them).
+#
+# Consumer on an OLDER pack: no floor/line key or no message function ⇒ the arm is inert. The
+# `command -v` guard is load-bearing: an undefined function in a cmdsubst aborts the whole hook
+# under set -e (the glossary arm's rc-127 lesson). The floor-key check states the intent
+# explicitly; an empty ERE would match every action anyway (BSD and GNU grep alike), so its
+# removal is an equivalent mutant — kept so the inert-on-lag contract does not rest on that.
+_hs_lower() {
+  printf '%s\n' "$1" | LC_ALL=C sed "$_hs_lower_sed"
+}
+_hs_plain() {
+  printf '%s\n' "$1" | LC_ALL=C sed -E 's/\*+//g; s/(^|[^[:alnum:]])_+/\1/g; s/_+([^[:alnum:]]|$)/\1/g'
+}
+# $1 = text, $2 = line, $3 = byte offset (1-based): the bytes of that line from that offset.
+_hs_cut() {
+  LC_ALL=C awk -v n="$2" -v o="$3" 'NR == n { print substr($0, o); exit }' <<<"$1"
+}
+_hs_trim() {
+  local v="$1" t=$'\t'
+  while [ "${v# }" != "$v" ] || [ "${v#"$t"}" != "$v" ]; do v="${v# }"; v="${v#"$t"}"; done
+  while [ "${v% }" != "$v" ] || [ "${v%"$t"}" != "$v" ]; do v="${v% }"; v="${v%"$t"}"; done
+  printf '%s' "$v"
+}
+# $1 = text, $2 = line, $3 = byte offset: "<line> <offset>" of the first non-blank value at or
+# after that point — the rest of the line when it has any text, else the next non-empty line.
+_hs_value_at() {
+  printf '%s\n' "$1" | LC_ALL=C awk -v n="$2" -v o="$3" '
+    NR == n { if (substr($0, o) ~ /[^[:space:]]/) { print NR, o; exit }; next }
+    NR > n && /[^[:space:]]/ { print NR, 1; exit }'
+}
+if [ "${AIF_EOT_HANDS_GATE:-1}" != "0" ] && [ -n "$text" ] \
+   && [ "$has_askuserquestion" != "true" ] \
+   && [ -n "${AIF_EOT_HANDS_FLOOR:-}" ] && [ -n "${AIF_EOT_FOR_YOU_PREFIX:-}" ] \
+   && [ -n "${AIF_EOT_HANDS_PREFIX_RE:-}" ] && [ -n "${AIF_EOT_HANDS_TOKEN_RE:-}" ] \
+   && [ -n "${AIF_EOT_HANDS_KEYWORD_RE:-}" ] && [ -n "${AIF_EOT_HANDS_SKIP_RE:-}" ] \
+   && [ -n "${AIF_EOT_SEC_FORK:-}" ] \
+   && command -v aif_msg_eot_hands_step >/dev/null 2>&1 \
+   && ! grep -qF -- '/compact' <<<"${gate_line:-}" \
+   && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$text"; then
+  # Pairs are ANSI-C octal escapes of the UTF-8 bytes (upper:lower, U+0410..U+042F and U+0401):
+  # machinery shell stays free of Cyrillic literals (principle 22 Surface 1); the bytes are the
+  # letters. No byte here is `/`, so each pair is a safe sed `s///` operand.
+  _hs_lower_sed='y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'
+  for _hs_p in $'\320\220:\320\260' $'\320\221:\320\261' $'\320\222:\320\262' $'\320\223:\320\263' $'\320\224:\320\264' $'\320\225:\320\265' \
+    $'\320\201:\321\221' $'\320\226:\320\266' $'\320\227:\320\267' $'\320\230:\320\270' $'\320\231:\320\271' $'\320\232:\320\272' \
+    $'\320\233:\320\273' $'\320\234:\320\274' $'\320\235:\320\275' $'\320\236:\320\276' $'\320\237:\320\277' $'\320\240:\321\200' \
+    $'\320\241:\321\201' $'\320\242:\321\202' $'\320\243:\321\203' $'\320\244:\321\204' $'\320\245:\321\205' $'\320\246:\321\206' \
+    $'\320\247:\321\207' $'\320\250:\321\210' $'\320\251:\321\211' $'\320\252:\321\212' $'\320\253:\321\213' $'\320\254:\321\214' \
+    $'\320\255:\321\215' $'\320\256:\321\216' $'\320\257:\321\217'; do
+    _hs_lower_sed="${_hs_lower_sed}"$'\n'"s/${_hs_p%%:*}/${_hs_p#*:}/g"
+  done
+  _hs_norm="$(_hs_plain "$text")"
+  _hs_low="$(_hs_lower "$_hs_norm")"
+  # The LAST hand-off line outside a fence, as "<line> <byte offset of its value>". Only a fence
+  # at column 0-3 toggles (deeper indentation is code-block text, not a fence), and a fence still
+  # open at EOF is an unclosed marker, not a code block: a match after it counts.
+  _hs_loc="$(printf '%s\n' "$_hs_low" | LC_ALL=C awk -v re="$AIF_EOT_HANDS_PREFIX_RE" '
+    /^(   |  | )?(```|~~~)/ { f = !f; c = 0; next }
+    match($0, re) { if (f) { c = NR; co = RSTART + RLENGTH } else { n = NR; o = RSTART + RLENGTH } }
+    END { if (f && c) { n = c; o = co }; if (n) print n, o }')"
+  _hs_action=""
+  if [ -n "$_hs_loc" ]; then
+    _hs_vloc="$(_hs_value_at "$_hs_low" "${_hs_loc% *}" "${_hs_loc#* }")"
+    if [ -n "$_hs_vloc" ]; then
+      _hs_vn="${_hs_vloc% *}"
+      _hs_lv="$(_hs_trim "$(_hs_cut "$_hs_low" "$_hs_vn" "${_hs_vloc#* }")")"
+      _hs_ov="$(_hs_trim "$(_hs_cut "$_hs_norm" "$_hs_vn" "${_hs_vloc#* }")")"
+      _hs_tlen="$(printf '%s\n' "$_hs_lv" | LC_ALL=C awk -v re="$AIF_EOT_HANDS_TOKEN_RE" 'NR == 1 && match($0, re) { print RLENGTH }')"
+      if [ -n "$_hs_tlen" ]; then
+        _hs_action="$(_hs_trim "$(_hs_cut "$_hs_ov" 1 $(( _hs_tlen + 1 )))")"
+        if [ -z "$_hs_action" ]; then
+          _hs_aloc="$(_hs_value_at "$_hs_norm" $(( _hs_vn + 1 )) 1)"
+          [ -n "$_hs_aloc" ] && _hs_action="$(_hs_trim "$(_hs_cut "$_hs_norm" "${_hs_aloc% *}" 1)")"
+        fi
+      elif ! LC_ALL=C grep -qE -- "$AIF_EOT_HANDS_SKIP_RE" <<<"$_hs_lv" \
+         && LC_ALL=C grep -qE -- "$AIF_EOT_HANDS_KEYWORD_RE" <<<"${_hs_lv%%(*}"; then
+        _hs_action="$_hs_ov"
+      fi
+    fi
+  fi
+  if [ -n "$_hs_action" ]; then
+    _hs_lact="$(_hs_lower "$_hs_action")"
+    # One ERE per pack line; blank lines are dropped (an empty ERE would match every action).
+    _hs_floor="$(printf '%s\n' "$AIF_EOT_HANDS_FLOOR" | LC_ALL=C grep -v '^[[:space:]]*$' || true)"
+    if ! LC_ALL=C grep -qE -e "$_hs_floor" <<<"$_hs_lact"; then
+      _hs_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+      _hs_flag="${TMPDIR:-/tmp}/aif-eot-hands-${_hs_key}"
+      _hs_tmp="${TMPDIR:-/tmp}/aif-eot-handst-${_hs_key}-$$"
+      _hs_max=2
+      _hs_count=0
+      if [ -f "$_hs_flag" ]; then
+        _hs_count="$(wc -l < "$_hs_flag" 2>/dev/null | tr -d '[:space:]')"
+        case "$_hs_count" in ''|*[!0-9]*) _hs_count=0 ;; esac
+      fi
+      _hs_sha=""
+      if printf '%s' "$_hs_lact" > "$_hs_tmp" 2>/dev/null; then
+        _hs_sha="$(_residue_sha256 "$_hs_tmp")"
+        rm -f "$_hs_tmp" 2>/dev/null || true
+      fi
+      if [ "$_hs_count" -lt "$_hs_max" ] \
+         && { [ -z "$_hs_sha" ] || ! { [ -f "$_hs_flag" ] && grep -qxF -- "$_hs_sha" "$_hs_flag" 2>/dev/null; }; }; then
+        { printf '%s\n' "${_hs_sha:-nosha}" >> "$_hs_flag"; } 2>/dev/null || true
+        hands_line="$(aif_msg_eot_hands_step "$_hs_action")"
+      fi
+    fi
+  fi
+  unset _hs_lower_sed _hs_p _hs_norm _hs_low _hs_loc _hs_vloc _hs_vn _hs_lv _hs_ov _hs_tlen \
+    _hs_action _hs_aloc _hs_lact _hs_floor _hs_key _hs_flag _hs_tmp _hs_max _hs_count _hs_sha \
+    2>/dev/null || true
+fi
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -967,6 +1536,18 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
       gate_line="$(aif_msg_eot_recap_gate "$_recap_defects")"
     fi
   fi
+  _autonomy_exit
+fi
+
+# Section-evidence arm (2026-10-01 recap-loop incident) — the marker grep's twin:
+# a turn carrying the demand's full well-formed section set without the literal
+# heading. Same suppression, same _autonomy_exit routing (the F10/ctx/gate/
+# glossary/hands slots ride exactly as on the marker path), same hoisted position —
+# it must precede the story guard and the ZCode thin-recap branch (the #1706
+# shadowing class this hoist exists for). It deliberately does NOT run the D-A
+# defect gate: the gate reads the marker slice, which does not exist without the
+# marker (see _eot_recap_sections_wellformed's comment above).
+if [ -n "$text" ] && _eot_recap_sections_wellformed; then
   _autonomy_exit
 fi
 
@@ -1062,7 +1643,16 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$gate_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${gate_line}"
     fi
-    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
+    # Same parity arm for the glossary demand (D-F): rides the dense block, never a second
+    # block per turn. Works on ZCode — the pending file is TMP-residue, not transcript data.
+    if [ -n "$glossary_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${glossary_line}"
+    fi
+    # Manual-step arm — same parity append (one block per stop).
+    if [ -n "$hands_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
+    fi
+    _ze_glance="🎯 $(head -c 60 < <(printf '%s' "${anchor}") | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
       reason: $msg,
@@ -1133,7 +1723,7 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
       if grep -qF -- '## 🟢' <<<"${prev_text}"; then
-        current_short=$(printf '%s' "$text" | head -c 120 | LC_ALL=C tr '\n' ' ')
+        current_short=$(head -c 120 < <(printf '%s' "$text") | LC_ALL=C tr '\n' ' ')
         # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything).
         # D-2: `--` is load-bearing — current_short is the head of the assistant's own text, so
         # a turn opening with a bullet ("- ...") made grep parse the NEEDLE as options
@@ -1152,7 +1742,7 @@ fi
 
 # -- P-user glance-line (systemMessage field) ---------------------------------
 # Shown to the USER in CC UI (not to the model). Format: 🎯 <anchor ≤60 chars>
-anchor_short=$(echo "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')
+anchor_short=$(head -c 60 < <(echo "${anchor}") | LC_ALL=C tr '\n' ' ')
 glance_line="🎯 ${anchor_short}"
 
 # Three branches:
@@ -1205,6 +1795,18 @@ fi
 # substantive turns it exists for (the F10 shadowing class, postmortem at :51-62).
 if [ -n "$gate_line" ]; then
   reminder="${reminder}"$'\n\n'"${gate_line}"
+fi
+# The glossary demand (D-F) rides the same block — one block per turn (:185-187).
+if [ -n "$glossary_line" ]; then
+  reminder="${reminder}"$'\n\n'"${glossary_line}"
+fi
+# The manual-step line rides the same block too.
+if [ -n "$hands_line" ]; then
+  reminder="${reminder}"$'\n\n'"${hands_line}"
+fi
+# And the dispatch-channel line.
+if [ -n "$chip_line" ]; then
+  reminder="${reminder}"$'\n\n'"${chip_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

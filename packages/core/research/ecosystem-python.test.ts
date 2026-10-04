@@ -433,11 +433,11 @@ describe('pipAdapter.readInstalledMeta — D7 Project-URL: Documentation', () =>
 //
 // Spec §3.2 B3: listDirectDeps returns DIRECT dependencies only — never the
 // transitive closure. This is the load-bearing trust assumption the resolver
-// delegates to the adapter (allowlist-resolver.ts:211 gates on
+// delegates to the adapter (allowlist-resolver.ts:217 gates on
 // `listDirectDeps(root).has(bareName)` BEFORE any metadata read): a
 // closure-listing adapter would silently widen Tier-1 trust to every transitive
 // dep's self-declared metadata. Retrofit gap this closes: the python
-// transitive-exclusion (ecosystem-python.ts:219 reads ONLY pyproject.toml) was
+// transitive-exclusion (ecosystem-python.ts:250 reads ONLY pyproject.toml) was
 // entirely untested — a plausible convenience refactor (scan .dist-info dirs to
 // catch deps missing from pyproject) would have widened trust with zero RED.
 //

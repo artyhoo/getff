@@ -106,7 +106,7 @@ fi
 
 # Never install THROUGH a delivery symlink. create-worktree.sh provisions
 # `$WORKTREE_PATH/node_modules` as a symlink to the PRIMARY checkout's tree
-# (scripts/worktree-node-modules.sh:131 — the D2 workspace optimisation), so an
+# (scripts/worktree-node-modules.sh:440 — the D2 workspace optimisation), so an
 # install run here writes into the primary: npm reifies against the worktree's own
 # lock and PRUNES every package outside that closure from the primary's real
 # node_modules, emptying `node_modules/.bin` on the way. The sibling guard in
@@ -126,6 +126,16 @@ fi
 if [ -n "$PKG_MANAGER" ] && [ -L "$WORKTREE_PATH/node_modules" ]; then
   echo "  ⊝ node_modules is a delivery symlink into the primary checkout — skipping $PKG_MANAGER install"
   echo "    (installing here would reify the PRIMARY's tree through the link and prune it)"
+  PKG_MANAGER=""
+fi
+
+# When the worktree's lock diverges from the primary's installed tree, create-worktree.sh's
+# provisioning helper has already installed it for real and left a marker holding the locks'
+# checksum (`pending` while an install is in flight). A completed marker means the deps are
+# in place — a second install here would only repeat minutes of network.
+if [ -n "$PKG_MANAGER" ] && [ -f "$WORKTREE_PATH/node_modules/.wnm-lock" ] \
+   && [ "$(cat "$WORKTREE_PATH/node_modules/.wnm-lock" 2>/dev/null)" != "pending" ]; then
+  echo "  ⊝ node_modules already installed for real by worktree-node-modules.sh — skipping $PKG_MANAGER install"
   PKG_MANAGER=""
 fi
 

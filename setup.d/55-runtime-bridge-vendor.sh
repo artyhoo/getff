@@ -18,15 +18,15 @@
 #      (idempotent with the runtime/setup-runtime-bridge.sh flow — see
 #      "Coordination" below).
 #
+#   3. Registers that hook in $PROJECT_ROOT/.claude/settings.json (PostToolUse +
+#      PostToolUseFailure) and writes RUNTIME_BRIDGE_AIF_URL + RUNTIME_BRIDGE_AIF_PROJECT_ID
+#      into the machine-local .claude/settings.local.json `env` when aif-handoff answers and lists exactly one project whose rootPath
+#      is this project (bridge-guided.sh: bridge_register_dispatch_hook). Registration does
+#      not start dispatching: only a kickoff whose first line is `<!-- bridge: auto -->`
+#      auto-dispatches (kickoff §7 opt-in).
+#
 # What this layer does NOT do:
-#   - Register the PostToolUse hook in .claude/settings.json — that is the
-#     runtime/interactive decision the consumer makes when they bring up
-#     aif-handoff (packages/runtime-bridge/scripts/setup-runtime-bridge.sh OFFERS
-#     to auto-write the settings.json entry once the runtime is reachable).
-#     Installing the file at install-time does NOT activate it — activation is a
-#     separate runtime decision (kickoff §7 opt-in: only `<!-- bridge: auto -->`
-#     kickoffs auto-dispatch; without the settings.json registration the hook is a
-#     no-op even if the file is present).
+#   - Pick an aif-handoff project by name, or write a shell rc (project scope only).
 #   - Install aif-handoff itself (DETECT + INSTRUCT only — see
 #     setup.d/bridge-guided.sh + setup-runtime-bridge.sh).
 #
@@ -36,16 +36,16 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:405-408).
+#                        install.sh:620-621).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
-#   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
-#     packages/runtime-bridge/scripts/, which the consumer does NOT receive via
-#     install.sh). When the consumer's setup.d/bridge-guided.sh runs and
-#     aif-handoff is reachable, it looks for that script at
-#     $root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh; absent in a
-#     consumer install, it prints the docs/runtime-bridge-setup.md pointer
-#     (bridge-guided.sh:46-48).
+#   - setup-runtime-bridge.sh wires the repository it ships in (it lives at
+#     packages/runtime-bridge/scripts/, which install.sh does NOT copy into the
+#     consumer). When ./setup's bridge-guided step runs and aif-handoff is
+#     reachable, bridge-guided.sh runs that script only when its own root is the
+#     project being set up (the getff repository itself); from the npm package
+#     or a getff clone used as the installer it records a NOT-wired fact instead
+#     (bridge_guided_run's state=up arm).
 #   - This layer 55 runs at INSTALL time; setup-runtime-bridge.sh runs at
 #     RUNTIME (post-install, when the consumer invokes ./setup's bridge-guided
 #     step OR sources bridge-guided.sh and aif-handoff answers /health).
@@ -97,16 +97,16 @@ fi
 # Real install path.
 mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 # Wipe + recopy (vendor updates land via re-running ./setup --force; matches
-# the existing skills/* idempotent wipe-and-recopy pattern in 10-skills.sh:22).
+# the existing skills/* idempotent wipe-and-recopy pattern in 10-skills.sh:31).
 # Wipe + recopy + rewrite repo-internal relative refs in the DELIVERED markdown (2026-08-17).
 # This bare `cp -r` used to be the only shipped-markdown path in setup.d/ that skipped
-# transform_internal_refs (cf. 10-skills.sh:29,48 · 20-agents.sh:50 · lib.sh:900,930), so
+# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:180), so
 # vendor/README.md's two `](../../../…)` refs shipped verbatim. They resolve in-repo —
 # packages/runtime-bridge/vendor/ sits three levels below the repo root, the same depth as
 # .claude/vendor/runtime-bridge/ below a consumer root — which is exactly why the breakage is
 # invisible here and fatal there: on a consumer both targets are absent, and pre-push §8
 # (`lychee --offline` over changed *.md) goes red on the FIRST push. That is the 2026-07-10
-# flat-install smoke incident (lib.sh:65-93).
+# flat-install smoke incident (lib.sh:86-93).
 # Delivery-time, not source-time, ON PURPOSE: PR #1417 keeps this vendor drop byte-identical to
 # its tracked source, and rewriting the delivered copy preserves that (the tracked file is not
 # touched) where re-authoring the README would break it.
@@ -124,13 +124,12 @@ if [ -f "$HOOK_SRC" ]; then
   chmod_safe +x "$HOOK_DST" 2>/dev/null || true
 fi
 
-# Surface the install + the post-install manual step (the consumer still needs
-# to set RUNTIME_BRIDGE_* env vars + register the PostToolUse hook in
-# settings.json when they bring up aif-handoff — see vendor README).
+# The hook is registered in the project's own .claude/settings.json and pointed (through the
+# machine-local .claude/settings.local.json env) at the aif-handoff project whose rootPath is this project (bridge-guided.sh: bridge_register_dispatch_hook). What
+# the install cannot decide — aif-handoff down, no project or two projects at this path — is a
+# NOT-wired line with its reason, never a to-do list (Q4.7, 2026-09-28).
 echo "  ✓ .claude/vendor/runtime-bridge/ (vendored COPY per spec A7; P1-P5 parked)"
 echo "  ✓ .claude/hooks/runtime-bridge-dispatch.sh (PostToolUse dispatch hook)"
-echo "    ↳ NEXT (consumer runtime step, not install-time): when you bring up"
-echo "      aif-handoff, run \`bash packages/runtime-bridge/scripts/setup-runtime-bridge.sh\`"
-echo "      (if you have the framework checkout) OR set RUNTIME_BRIDGE_MODE +"
-echo "      RUNTIME_BRIDGE_AIF_URL + RUNTIME_BRIDGE_AIF_PROJECT_ID + register the"
-echo "      hook in .claude/settings.json — see .claude/vendor/runtime-bridge/README.md"
+# shellcheck source=setup.d/bridge-guided.sh
+BRIDGE_LIB_ONLY=1 . "$PKG_ROOT/setup.d/bridge-guided.sh"
+bridge_register_dispatch_hook "$PROJECT_ROOT"

@@ -10,7 +10,7 @@
 
 Enumeration run at the audited head (T10 — denominator before any finding):
 
-```
+```text
 git diff --name-status origin/main...origin/staging -- packages/getff setup.d install.sh tests/install-sh scripts/build-getff-dist.sh
   → 18 A + 42 M (60 files)
 git diff --numstat <same paths>  → +7165 −1409
@@ -42,7 +42,7 @@ Every command below was executed this session, in this worktree, with output quo
 
 **§9 host-verify fence (re-run at report time):**
 
-```
+```text
 node --version   → v22.23.2
 git --version    → git version 2.39.5
 npx vitest --version (npm_config_cache=/tmp/npmcache-p2a2) → vitest/4.1.8 linux-x64 node-v22.23.2
@@ -50,7 +50,7 @@ npx vitest --version (npm_config_cache=/tmp/npmcache-p2a2) → vitest/4.1.8 linu
 
 **§5 suite gate — all 24 `tests/install-sh/*.test.sh` suites, as subprocesses, `env -u CLAUDE_CODE_ENTRYPOINT`:**
 
-```
+```text
 24/24 suites rc=0. Per-suite PASS totals:
 aif-guided-install-gating 32 · bridge-guided 15 · cargo-entry-lane 50 · cic-s3-dep-install 53 ·
 copy-safe-force-dir-payload 15 · deliver-gate-scripts 23 · engine 15 · eslint-barrel-preserve-consumer 20 ·
@@ -68,7 +68,7 @@ delta defect.
 
 **Throwaway consumer (npm lane end-to-end), 2026-09-15:**
 
-```
+```text
 /tmp/p2a-consumer2$ printf '{"name":"p2a-probe",…,"dependencies":{"typescript":"^5.0.0"}}' > package.json
 $ node <repo>/packages/getff/bin/getff init ts-server -y   → rc=0 (log on file)
 observed on disk: eslint.config.mjs, vitest.config.ts, stryker.config.json, tsconfig.json,
@@ -79,7 +79,7 @@ $ grep -c 'npm publish' .github/workflows/ci.yml → 0
 
 **Package assembly + pack gate:**
 
-```
+```text
 $ bash scripts/build-getff-dist.sh --check → green, 1083 files (MANIFEST bijection, no drift)
 $ bash scripts/build-getff-dist.sh         → assembles packages/getff payload (run in a scratch
   checkout state; assembled payload is gitignored — working tree stayed clean, §6 honoured)
@@ -88,7 +88,7 @@ $ node packages/getff/bin/getff --version → 0.1.0 ; unknown arg → usage, exi
 
 **MANIFEST.sha256 bijection (falsifier for the pack-surface claim):**
 
-```
+```text
 cut -d' ' -f3- packages/getff/MANIFEST.sha256 | sort          vs
 git ls-files -z -- bin setup setup.d agents skills templates .claude .prettierrc.json packages scripts MANIFEST.sha256 install.sh | tr '\0' '\n' | sort
 comm -3 → 0 manifest-not-tracked, 0 tracked-not-in-manifest   (1083 rows)
@@ -96,7 +96,7 @@ comm -3 → 0 manifest-not-tracked, 0 tracked-not-in-manifest   (1083 rows)
 
 **Guard pairing (kickoff §3 step 5 — removing the guard turns the negative RED; neuter in throwaway form only):**
 
-```
+```text
 neutered setup.d/05-mcp.sh's jq-failure guard back to the unconditional-success shape →
   bash tests/install-sh/stale-tmp-unconditional-success.test.sh → rc=1, PASS=35 FAIL=1,
   "✗ C: '> \"…tmp\" && mv' outside an if/while condition still present"
@@ -125,7 +125,7 @@ delivered bytes today — no rot.
 
 **Egress probes (kickoff §9 expectation):**
 
-```
+```text
 git push --dry-run origin <lane branch> → remote: Invalid username or token … fatal: Authentication failed
 gh auth status → "You are not logged into any GitHub hosts."
 → per the rework instruction: commit locally, hand exact commands to the coordinator.

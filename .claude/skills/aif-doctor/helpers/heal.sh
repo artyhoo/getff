@@ -34,7 +34,7 @@
 # "idle" and yanked the base out from under running workers. We now scan /tasks directly
 # and treat any fetch/parse error as BUSY (fail-closed): skipping the heal is NOT the
 # same as failing the dispatch (runPreflight warns-and-proceeds regardless —
-# packages/runtime-bridge/src/cli/dispatch.ts:74-89).
+# packages/runtime-bridge/src/cli/dispatch.ts:122-137).
 #
 # A task is in-flight when:
 #   status ∈ {planning, implementing, review}                              — always
@@ -55,8 +55,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo
 # $C is resolved lazily (inside heal_hook_drift) so an AIF_HEAL_HOOK_SYNC=0 consumer
 # pays no docker invocation; the base-refresh helper below does its own discovery.
 DC="${AIF_DOCKER_CMD:-docker}"
+# The shared resolver (aif-agent-target.sh — also used by refresh-aif-base.sh and the dispatcher's
+# in-flight probe) reads names the same brace-free way. Only an UNAMBIGUOUS candidate is used: two
+# or more => this step is skipped rather than syncing hooks into a guessed container. With a plain
+# `docker` it may find the agent on another docker context; it then sets DOCKER_CONTEXT here.
+# Prints the name on success; prints nothing (and says why on stderr) otherwise.
 discover_agent_container() {
-  $DC ps --filter name=agent 2>/dev/null | tail -n +2 | awk '{print $NF}' | grep -i aif | head -1
+  if [ ! -f "$SCRIPT_DIR/aif-agent-target.sh" ]; then
+    $DC ps --filter name=agent 2>/dev/null | tail -n +2 | awk '{print $NF}' | grep -i aif | head -1
+    return 0
+  fi
+  # shellcheck disable=SC1091  # sibling helper, resolved at runtime from this script's directory
+  . "$SCRIPT_DIR/aif-agent-target.sh"
+  AIF_AGENT_DOCKER="$DC" aif_agent_resolve
+  case $? in
+    0)
+      if [ -n "$AIF_AGENT_CONTEXT" ]; then export DOCKER_CONTEXT="$AIF_AGENT_CONTEXT"; fi
+      echo "[aif-doctor heal] agent: $AIF_AGENT_NOTE" >&2
+      echo "$AIF_AGENT_NAME"
+      ;;
+    *) echo "[aif-doctor heal] $AIF_AGENT_REASON" >&2 ;;
+  esac
 }
 
 # ── Tier-1 heal #1: hook-drift sync, base clones → live task worktrees. ───────────
@@ -77,7 +96,13 @@ discover_agent_container() {
 #   when absent; an unlikely symlinked destination FILE is replaced by the real file.)
 heal_hook_drift() {
   [ "${AIF_HEAL_HOOK_SYNC:-1}" = "1" ] || { echo "[aif-doctor heal] hook-sync skipped (AIF_HEAL_HOOK_SYNC=0)"; return 0; }
-  local C="${AIF_AGENT_CONTAINER:-$(discover_agent_container)}"
+  # Not `$(discover_agent_container)`: a subshell would drop the DOCKER_CONTEXT it may set.
+  local C="${AIF_AGENT_CONTAINER:-}" found_file
+  if [ -z "$C" ]; then
+    found_file=$(mktemp)
+    discover_agent_container >"$found_file"
+    C=$(cat "$found_file"); rm -f "$found_file"
+  fi
   [ -n "$C" ] || { echo "[aif-doctor heal] hook-sync skipped — no aif agent container reachable via: $DC"; return 0; }
   # POSIX sh inside the container; script piped via stdin so no nested quoting is needed.
   # The root override is passed through ONLY when set locally (-e with an empty value

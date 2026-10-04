@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(npx *)
   - Bash(bash *)
   - Bash(docker *)
+  - Bash(curl *)   # GH #1704: §1 step-0 host-side bridge-health preflight
   - Read
 ---
 
@@ -47,6 +48,14 @@ allowed-tools:
 
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 
+<!-- GH #1704 preflight: host-side /health check at SKILL START, not at push time.
+     Session-start bridge-health hook deliberately NOT added — the aif-doctor/SKILL.md §Class
+     promotion criterion ("≥2 «re-derived aif operational knowledge» incidents → consider a
+     session-start bridge-health hook") stands at 1/2 recorded incidents (2026-09-10 smoke =
+     incident 1; this skill-embed preflight is the D6 channel). A 2nd recorded incident
+     triggers the hook per that criterion — this comment records the count. -->
+
+0. **Bridge-health preflight — run BEFORE any egress work (GH #1704).** From the HOST (a plain session, not inside the container): `curl -s -m5 localhost:3009/health` — expected `{"status":"ok",…}`. On failure (timeout, connection refused, or anything but `"status":"ok"`), the aif channel is down: print the remediation below and **STOP — do not begin step 1**. A missing channel must surface here, at skill start — not at push time, after the wave's work is done. Remediation to print (wording from [docs/runtime-bridge-setup.md §Quick start](../../../docs/runtime-bridge-setup.md)): bring the service up — in your aif-handoff checkout with the docker daemon available, `docker compose up -d agent` (rebuild context: [/aif-doctor §3.1 Fix A](../aif-doctor/SKILL.md)); native CLI on `PATH` → start it; neither → follow the install pointer in that doc — then re-run this probe and continue.
 1. **Inspect first — in the TASK's worktree, never the base clone.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1). aif runs each task in its own worktree (`<root>-<branch-slug>-<taskId>`, also on the task's `worktreePath`); the base clone sits on `staging` with permanent `?? .claude/worktrees/` residue, so measuring it fabricates the step-2 `0-ahead + dirty` shape and strands the task on a bogus HOLD (2026-08-07 defect). `harvest.ts` now resolves the worktree itself (git's worktree list → `worktreePath` → `--work-dir`) and refuses to run the guards unless that checkout's HEAD **is** the task branch.
 2. **0-commits-ahead + dirty tree** is ambiguous (false-done / parked-partial vs genuine rework). `harvest.ts` returns `needsConfirm` and exits non-zero — inspect the park signals, pass `--confirm-rework` ONLY for a genuine complete rework (false-done guard, [2026-06-23 spec](../../../docs/superpowers/specs/2026-06-23-aif-harvest-false-done-guard-design.md)).
    **≥1-commit-ahead + TRACKED files modified** is the D12 shape (aif review gate passed `done` with the deliverable partly uncommitted — 2×2026-07-25): `harvest.ts` HOLDs (`needsResidueConfirm`, exit 2). Preferred fix: a `request_changes` round so the worker commits its own work; `--confirm-dirty-residue` ships the commits and abandons the modifications (untracked-only dirt like `?? .claude/worktrees/` never holds).
@@ -54,7 +63,7 @@ Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out
 4. **Push channel — host-pull + host `git push` is the DEFAULT** (runs the real `.husky/pre-push` gate — the earliest reachable channel, per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)). The container is a **runtime, not a push env** (it cannot reach `github.com:443` — a network block, not auth — and lacks the pre-push toolchain), so do NOT push from inside it. Instead bring the committed branch to the **host** and push there: bundle the agent's commit out (`docker exec <agent> git -C <worktree> bundle create /tmp/<b>.bundle <branch>` → `docker cp` → host `git fetch /tmp/<b>.bundle <branch>`), check out the branch on the host, `git fetch origin && git rebase origin/staging` (the host carries the cost the API-land avoided — keep the branch rebased on live staging), then `git push origin <branch>` from the host. The host has working transport + the full toolchain (`gh`/`actionlint`/`zizmor`), so the literal pre-push hook runs. **NEVER `git push --no-verify`** (blocked by `git-safety.sh` and it would defeat the point).
 5. **Break-glass ONLY — Git Data API land** (`harvest-via-api.sh`), used **solely when the host transport is ALSO dead** (host `git ls-remote origin` fails too). It lands server-side (blobs→tree→commit→ref on the LIVE staging tree), so it **skips the pre-push hook by construction** — this is why it is the channel of last resort, not the default ([egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)). When taken, the §3 `run-local-ci-sweep.sh` sweep is the **mandatory** gate-substitute. Command: `bash .claude/skills/dispatcher/helpers/harvest-via-api.sh --repo <o/r> --base staging --branch <b> --message <m> --srcdir <explicit paths…>` — pass each path as a separate literal arg, never a `$VAR` that won't word-split (gotcha 5 / 9).
 6. **Clobber check (both channels, before landing).** When rebasing onto live staging (default) or building on the LIVE remote tree (break-glass), for every MODIFIED override path confirm `gh api .../compare/<fork-base>...staging --jq '.files[].filename'` ∩ your override-path list is **empty** (no shared file drifted past your fork), else rebuild that file = remote-base + your delta (gotcha 6 / 8).
-7. **Capability-commit trailer.** A harvested file **≥80 LOC under `packages/`** is a capability-commit — the commit message MUST carry a `Prior-art:` line (the PR-body §1.7 does NOT satisfy the real-commit backstop). For a test-wrapper-of-existing-capability the honest form is `Prior-art: skipped — <why, ≥20 chars>` (gotcha 9).
+7. **Capability-commit trailer.** A harvested non-doc file **≥80 LOC under `packages/`** is a capability-commit — the commit message MUST carry a `Prior-art:` line naming a resolvable referent (an SSOT row `prior-art-evaluations.md#<ID>`, an artefact path, or an issue/PR reference); the PR-body §1.7 does NOT satisfy the real-commit backstop. Pure test material (`*.test.*` / `*.spec.*`, or files under `test(s)/`, `__tests__/`, `*fixtures/`) no longer trips the detector since the 2026-09-06 carve-out ([CLAUDE.md «What is a capability commit?»](../../../CLAUDE.md)), so a test-wrapper-of-existing-capability needs no trailer. One exception: a file directly in `packages/core/principles/` still counts, because a principle is the enforcement capability itself. Do NOT use `Prior-art: skipped — …` on a commit the detector does flag: the substance arm of `packages/core/hooks/checks/prior-art.ts` rejects the escape hatch on a capability commit by default (`PA_SUBSTANCE_WARN_ONLY` only downgrades it to a warning) — cite the SSOT row instead.
 
 ## §2 — Cross-stage integration (parallel branches touching shared files)
 
@@ -71,7 +80,7 @@ bash scripts/run-local-ci-sweep.sh --full     # explicit full CI-equivalent (~5 
 
 Every gate's output is written to a per-run log directory (`SWEEP_LOG_DIR` pins it); a FAIL prints that gate's log path plus the last 40 lines inline, and the final line names the directory — so a red never has to be reproduced by hand to be read.
 
-The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmapped path, runs cheapest-first with fail-fast. **Interpret reds against the merge-base:** a gate red on your branch AND on `origin/staging` is pre-existing (e.g. `layer-units`) — surface it, do NOT attribute it to the harvest. A **branch-introduced** red ⇒ **STOP, do not push** — fix it first. Whole-tree markdown gates (md-line / dead-links) and the `framework-self-*` self-install matrix are CI-only (see spec §Known gaps) — the sweep flags them as advisory, rely on CI for those.
+The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmapped path, runs cheapest-first with fail-fast. A stop prints `SWEEP: NOT RUN: <gates>` — the selected gates it never reached; those are **unknown, not green** — re-run with `--keep-going` (runs every selected gate, exits 1 at the end naming all FAILs) before claiming coverage. **Interpret reds against the merge-base:** a gate red on your branch AND on `origin/staging` is pre-existing (e.g. `layer-units`) — surface it, do NOT attribute it to the harvest. A **branch-introduced** red ⇒ **STOP, do not push** — fix it first. Whole-tree markdown gates (md-line / dead-links) and the `framework-self-*` self-install matrix are CI-only (see spec §Known gaps) — the sweep flags them as advisory, rely on CI for those.
 
 ## §4 — Cold-review + fidelity + PR
 
@@ -86,6 +95,12 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
    round number — nothing else (no chat, no logs).
    **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4): inline the kickoff scope sections + diff into the dispatch prompt (~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for file-reading — row 4 vs row 3). File-reading is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B owns the bottom-seat check station; not implemented here).
+   Either format, the seat prompt carries the ref every input was taken at; in the file-reading fallback the paths are snapshots from `scripts/snapshot-for-seat.sh`, never live worktree paths ([cold-seat-economy.md §7](../../rules/cold-seat-economy.md)):
+
+   ```text
+   Inputs-ref: <HEAD sha the diff and every file path in this prompt are taken at>
+   ```
+
    `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
@@ -93,6 +108,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
    PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
    <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+
    **Seat economy** ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): dispatch this
    WHAT-audit only once the diff is FINAL (step 1's code-review first — its fixes invalidate a
    parallel fidelity verdict), and at round 1 have the seat leave a compact **watch-list**
@@ -104,6 +120,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    when the watch-list cannot carry the substance) — never a full re-audit, never a
    self-issued verdict.
    <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+
    **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
    the seat has reached its natural end, the cached-prefix cost discipline applies —
    - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
@@ -114,9 +131,13 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
      invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
      of the config-change class — rev 4 moved P3d there; same handoff rule applies until
      verified otherwise).
-3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
+
+3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. End the body with the line `aif-task: <taskId>` — the PR → task mapping step 5 reads back (`harvest.ts` appends it itself; a host-side bundle harvest writes it here). Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
    **After the PR is open, any push that moves the head off `Audited-SHA` reds the gate** — most often a merge-forward commit taken to re-run acceptance against current staging. What to push instead (and the force-push one-way door that closes the cheap option): [git-conflict-merge-forward.md §9](../../rules/git-conflict-merge-forward.md). The body can be checked against a candidate head before pushing, with the gate's own `checkPrBodyFidelity` — command in that §9.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
+5. **Close the aif task after the merge — never by hand in the UI.** Right after `gh pr merge` succeeds:
+   `tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged` (or `--close-merged --project <id>` to sweep every task of that project whose PR has merged). It re-checks the merge (`state: MERGED` + a merge commit, or a CLOSED PR the merge-train seat squashed into a train — proven against GitHub from its «Landed via merge train» comment, never trusted on the comment alone), that the PR is this task's (the `aif-task:` line or the task branch as head) and that it merged after the task's last agent activity, then fires the UI's Approve route (`approve_done`, `done → verified`, `commitOnApprove:false`); any failed check → no writes, already `verified` → no-op. Operator directive 2026-09-28: a task left open after its PR merged is a process defect.
+   **Auto-merge path:** a PR armed with `gh pr merge --auto` merges later, when no session is running, so nothing in-session can close its task. That path is covered by a scheduled sweep, not by you: `scripts/close-merged-sweep.sh` runs as the launchd user agent `dev.getff.aif-close-merged` (every 15 min and on wake; probes aif `/health` first and logs `SKIP aif-down` while `aif-tunnel` is off; runs `origin/staging`'s harvest.ts, not the clone's checked-out branch; ERROR/FAIL raise a macOS notification; log `~/Library/Logs/aif-close-merged.log`). Install once on the operator's Mac: `bash scripts/close-merged-sweep.sh install`; check it: `bash scripts/close-merged-sweep.sh status`.
 
 ---
 

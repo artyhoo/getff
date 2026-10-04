@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: its greenfield arm catches the bash 3.2 abort on an empty "${SKIPPED[@]}" under set -u; bash >= 4.4 never aborts
 # gh-531-shipped-prettier.test.sh — the shipped surface must be Prettier-clean out-of-box.
 #
 # Deterministic core (no network): (1) the shipped .prettierignore excludes the GENERATED install
@@ -32,7 +33,7 @@ grep -qE '^\.claude/skills/?\*?\*?$|^\.claude/\*\*?$' "$IGN" \
 # config (printWidth 80, singleQuote, no plugins); a consumer with its OWN .prettierrc rejects the
 # same bytes (config mismatch, NOT version skew). Framework CONFIG files are handled CONDITIONALLY
 # (Arm 1c), not here — they might be consumer-authored. ──
-for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts'; do
+for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts' 'scripts/prove-rules.mjs'; do
   grep -qxF "$p" "$IGN" \
     && ok "shipped .prettierignore excludes vendored source '$p'" \
     || bad "shipped .prettierignore missing vendored source '$p' (consumer prettier --check would fail on it)"
@@ -40,7 +41,7 @@ done
 # NEG (load-bearing): framework CONFIG files must NOT be statically hard-ignored — a consumer may own
 # any of them (copy_safe keeps theirs), and a static line here would hide a consumer-authored config
 # (violates the project's "format authored content, don't hide it" rule). They are conditional (Arm 1c).
-for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.config.ts' '.dependency-cruiser.cjs' 'stryker.config.json' '.lintstagedrc.json' '.github/workflows/ci.yml' '.github/workflows/workflow-integrity.yml'; do
+for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.config.ts' '.dependency-cruiser.mjs' 'stryker.config.json' '.lintstagedrc.json' '.github/workflows/ci.yml' '.github/workflows/workflow-integrity.yml'; do
   grep -qxF "$p" "$IGN" \
     && bad "neg: static .prettierignore hard-ignores config '$p' — would hide a consumer-authored copy (must be conditional)" \
     || ok "neg: config '$p' is NOT statically ignored (handled conditionally — consumer-owned copy stays checked)"
@@ -88,7 +89,7 @@ fi
 # parentheses — `copy_safe|deliver_getff_workflow [^|]*...` without them would bind the alternation
 # wrongly. Bare verb (no env prefix) is correct on BOTH sides here because this gate iterates the
 # union (FRESH ∪ REFRESH) — there is no FRESH/REFRESH asymmetry to preserve.
-shipped_root=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
+shipped_root=$(grep -ohE '(copy_safe|copy_unless_foreign|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
   $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | grep -vx '.prettierrc.json' | sort -u)
 shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' \
@@ -98,9 +99,13 @@ shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/
 # S4's copy_safe → deliver_getff_workflow swap did (shipped_wf went 5 → 0 entries, gate stayed 42/0
 # green). A derived set with no non-empty guard is a green that can mean "nothing was checked".
 [ -n "$shipped_wf" ] || { echo "FATAL: shipped_wf empty — workflow copy verb extraction broke"; exit 1; }
+# Critical-review wave 1 moved every eslint.config.mjs placement onto copy_unless_foreign, and the
+# root extraction went blind to it the same way (the neg arm below went VACUOUS in CI, PR #1840).
+grep -qx 'eslint.config.mjs' <<<"$shipped_root" \
+  || { echo "FATAL: shipped_root lacks eslint.config.mjs — root copy verb extraction broke"; exit 1; }
 cand_miss=""
 for c in $shipped_root $shipped_wf; do
-  printf '%s\n' "$cand_block" | grep -qF "\"$c\"" || cand_miss="$cand_miss $c"
+  grep -qF "\"$c\"" <<<"$cand_block" || cand_miss="$cand_miss $c"
 done
 [ -z "$cand_miss" ] \
   && ok "every shipped consumer-ownable config is in ignore_shipped_configs candidates[] (no drift)" \
@@ -109,7 +114,7 @@ done
 cand_block_neg=$(printf '%s\n' "$cand_block" | sed 's/"eslint.config.mjs" //')
 neg_caught=0
 for c in $shipped_root $shipped_wf; do
-  printf '%s\n' "$cand_block_neg" | grep -qF "\"$c\"" || neg_caught=1
+  grep -qF "\"$c\"" <<<"$cand_block_neg" || neg_caught=1
 done
 [ "$neg_caught" -eq 1 ] \
   && ok "neg: dropping a config from candidates[] makes the completeness guard fail (non-vacuous)" \
@@ -122,7 +127,7 @@ _stryker_src="$REPO_ROOT/install.sh"
 grep -q 'replace(/("packageManager"' "$_stryker_src" \
   && ok "stryker patch swaps the packageManager VALUE in place (preserves prettier formatting)" \
   || bad "stryker patch is not an in-place value replace (#531 regression risk)"
-if grep -A6 'patch_stryker_package_manager' "$_stryker_src" | grep -q 'JSON.stringify(cfg'; then
+if grep -q 'JSON.stringify(cfg' <<<"$(grep -A6 'patch_stryker_package_manager' "$_stryker_src")"; then
   bad "neg: stryker patch still uses JSON.stringify (re-expands prettier-collapsed arrays → re-breaks consumer)"
 else
   ok "neg: stryker patch no longer JSON.stringify-re-serializes the whole config"
@@ -241,7 +246,7 @@ fi
 #   (b) *.md BLANKET — the fixture .prettierignore used to carry `*.md`, which hid the vendored
 #       README.md (1 of the 7). Removed: the shipped .md family is covered by its own managed block
 #       (#884, Arm 9), so a real md escape must FAIL this arm rather than be masked by fixture noise.
-# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1153).
+# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1668).
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   TB=$(mktemp -d)
   printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"
@@ -310,7 +315,7 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # Capture into a var first: `prettier --check` exits 1 when it finds issues, and piping it straight
   # into the conditional would trip `set -o pipefail` (the pipeline inherits prettier's exit 1).
   out7=$( cd "$TC" && npx --yes prettier@3.8.3 --check . 2>&1 )
-  printf '%s\n' "$out7" | grep -q 'eslint.config.mjs' \
+  grep -q 'eslint.config.mjs' <<<"$out7" \
     && ok "prettier --check still flags the consumer's own dirty eslint.config.mjs (kept under check)" \
     || bad "prettier --check does NOT see the consumer's eslint.config.mjs (it was hidden after all)"
 else
@@ -387,7 +392,7 @@ done
 _ign_884_neg=$(grep -vxF '.ai-factory/DESCRIPTION.template.md' "$_ign_884")
 neg884_caught=0
 for f in $shipped_aif_md; do
-  printf '%s\n' "$_ign_884_neg" | grep -qxF "$f" || neg884_caught=1
+  grep -qxF "$f" <<<"$_ign_884_neg" || neg884_caught=1
 done
 [ "$neg884_caught" -eq 1 ] \
   && ok "#884 neg: dropping DESCRIPTION.template.md from the block flips the population guard to fail (non-vacuous)" \
@@ -421,7 +426,7 @@ done
 _ign_v_neg=$(grep -vxF '.claude/vendor/runtime-bridge/**' "$_ign_v")
 negv_caught=0
 for v in $shipped_vendor; do
-  printf '%s\n' "$_ign_v_neg" | grep -qxF "$v/**" || negv_caught=1
+  grep -qxF "$v/**" <<<"$_ign_v_neg" || negv_caught=1
 done
 [ "$negv_caught" -eq 1 ] \
   && ok "vendor neg: dropping runtime-bridge from the block flips the population guard to fail (non-vacuous)" \
@@ -447,57 +452,92 @@ grep -qE '^[[:space:]]*packages/runtime-bridge/vendor[[:space:]]*$' "$_fmt_v" \
 # A5-3 / K-2 / K-3 / A5-6). format-shipped.sh Phase 3 owns it now; these arms prove the check is
 # real and, critically, that it does NOT fire on the formatting difference that is by design. ──
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
-  _p3_src="$REPO_ROOT/packages/runtime-bridge/src/idempotency.ts"
-  _p3_bak=$(mktemp)
-  cp "$_p3_src" "$_p3_bak"
+  # POS: the REAL tracked tree passes (read-only — this is the only call that runs against the
+  # checkout; every probe below plants drift in a throwaway copy).
+  ( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check ) >/dev/null 2>&1 \
+    && ok "vendor parity: the tracked tree is in parity (vendor == prettier(src))" \
+    || bad "vendor parity: the tracked tree FAILS its own parity check — vendor drifted from src"
 
-  # POS: clean tree passes (and the phase is actually reached — see the vacuity guard below).
-  ( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check ) >/dev/null 2>&1     && ok "vendor parity: the tracked tree is in parity (vendor == prettier(src))"     || bad "vendor parity: the tracked tree FAILS its own parity check — vendor drifted from src"
+  # The NEG probes below WRITE drift into the files they test. They used to do it in the real
+  # checkout with a cp-backup/restore around it, so a run killed in between (Ctrl-C, suite
+  # timeout, a parallel runner kill) left packages/runtime-bridge/src/idempotency.ts edited in the
+  # developer's tree and failed the next run (2026-09-28, during PR #1889); two suites in one
+  # checkout also raced on it. Now they run in a scratch git repo holding exactly the surface
+  # Phase 3 reads — format-shipped.sh resolves its root with `git rev-parse --show-toplevel` and
+  # enumerates with `git ls-files`, so an indexed copy is a complete stand-in and the checkout is
+  # never written. GIT_* is stripped: under a git hook GIT_DIR is exported and would point the
+  # scratch repo's `git` calls back at the real one.
+  _p3_real_src="$REPO_ROOT/packages/runtime-bridge/src/idempotency.ts"
+  _p3_real_hook="$REPO_ROOT/packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh"
+  _p3_sum_before=$(cksum "$_p3_real_src" "$_p3_real_hook")
+  _p3_tree=$(mktemp -d)
+  trap 'rm -rf "$_p3_tree"' EXIT
+  _p3_git() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR git -C "$_p3_tree" "$@"; }
+  _p3_fmt() { ( cd "$_p3_tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX -u GIT_COMMON_DIR bash scripts/format-shipped.sh --check "$@" ) 2>&1; }
+  mkdir -p "$_p3_tree/scripts" "$_p3_tree/packages/runtime-bridge" "$_p3_tree/.claude/hooks"
+  cp "$REPO_ROOT/scripts/format-shipped.sh" "$_p3_tree/scripts/"
+  cp "$REPO_ROOT/.prettierrc.json" "$_p3_tree/"
+  cp -R "$REPO_ROOT/packages/runtime-bridge/src" "$REPO_ROOT/packages/runtime-bridge/vendor" "$_p3_tree/packages/runtime-bridge/"
+  cp "$REPO_ROOT/.claude/hooks/runtime-bridge-dispatch.sh" "$_p3_tree/.claude/hooks/"
+  _p3_git init -q && _p3_git add -A
+  _p3_src="$_p3_tree/packages/runtime-bridge/src/idempotency.ts"
+  _hv="$_p3_tree/packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh"
+
+  # Scratch control: the unplanted copy must pass, and the vendor files must actually be enumerated
+  # there — otherwise a RED below could be the copy being incomplete, not the planted drift.
+  [ "$(_p3_git ls-files -- packages/runtime-bridge/vendor/src | grep -c '\.ts$')" -gt 0 ] \
+    && _p3_fmt >/dev/null \
+    && ok "vendor parity: the scratch copy of the tree is green before any drift is planted" \
+    || bad "vendor parity: the scratch copy is RED or empty before planting — the NEG arms below prove nothing"
 
   # NEG (load-bearing): a real CONTENT change in src with no re-vendor must go RED. Without this
   # the POS arm above is satisfied by a check that never looks at anything.
   perl -pi -e "s|'/tmp/runtime-bridge-dedup\.jsonl'|'/tmp/_neg_probe_drift.jsonl'|" "$_p3_src"
-  _p3_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
-  printf '%s' "$_p3_out" | grep -q 'DRIFT .*vendor/src/idempotency\.ts' \
-    && ok "vendor parity neg: a content edit to src/ with no re-vendor is caught (non-vacuous)" \
-    || bad "vendor parity neg: planted src drift NOT caught → the parity check is VACUOUS"
-  cp "$_p3_bak" "$_p3_src"
+  if ! cmp -s "$_p3_src" "$_p3_real_src"; then
+    # Captured, not piped: under pipefail `_p3_fmt | grep -q` takes the script's exit 1 (the
+    # very drift being probed) and reads a match as a miss.
+    _p3_out=$(_p3_fmt) || true
+    grep -q 'DRIFT .*vendor/src/idempotency\.ts' <<<"$_p3_out" \
+      && ok "vendor parity neg: a content edit to src/ with no re-vendor is caught (non-vacuous)" \
+      || bad "vendor parity neg: planted src drift NOT caught → the parity check is VACUOUS"
+  else
+    bad "vendor parity neg: the drift probe did not modify src — arm is VACUOUS, update the pattern"
+  fi
+  cp "$_p3_real_src" "$_p3_src"
 
   # NEG-2 (the false-positive arm, equally load-bearing): src is deliberately NOT prettier-formatted,
   # so a check that compared raw bytes would flag all 19 files forever and be turned off within a day.
   # Reflowing a signature in src changes no code and MUST stay green.
   perl -0pi -e "s|export function resolveDedupPath\(env: NodeJS\.ProcessEnv = process\.env\): string \{|export function resolveDedupPath(\n  env: NodeJS.ProcessEnv = process.env,\n): string {|" "$_p3_src"
-  if ! cmp -s "$_p3_bak" "$_p3_src"; then
-    ( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check ) >/dev/null 2>&1 \
+  if ! cmp -s "$_p3_real_src" "$_p3_src"; then
+    _p3_fmt >/dev/null \
       && ok "vendor parity: a FORMATTING-only reflow of src stays green (no false positive)" \
       || bad "vendor parity: reflowing src went RED — the check compares bytes, not content; unusable"
   else
     bad "vendor parity: the reflow probe did not modify src — arm is VACUOUS, update the pattern"
   fi
-  cp "$_p3_bak" "$_p3_src"
-  rm -f "$_p3_bak"
+  cp "$_p3_real_src" "$_p3_src"
 
   # The vendor drop's OTHER pair: the bash hook twin, byte-identical (no prettier in the loop).
   # It was the one remaining ungated copy of this class (#1597 ledger addendum D-5) — the backward
   # sweep for the parity rule found it, so Phase 3 closes it in the same pass.
-  _hv="$REPO_ROOT/packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh"
-  _hv_bak=$(mktemp)
-  cp "$_hv" "$_hv_bak"
   printf '\n# _neg_probe twin drift\n' >> "$_hv"
-  _hv_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
-  printf '%s' "$_hv_out" | grep -q 'dispatch hook has drifted' \
+  _hv_out=$(_p3_fmt) || true
+  grep -q 'dispatch hook has drifted' <<<"$_hv_out" \
     && ok "hook twin neg: vendor/hooks ↔ .claude/hooks drift is caught (D-5 gap closed, non-vacuous)" \
     || bad "hook twin neg: planted twin drift NOT caught → the twin is still ungated"
   # Change-scoped reality: a commit staging ONLY the .claude/hooks half must still wake the phase.
-  _hv_scoped=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check .claude/hooks/runtime-bridge-dispatch.sh 2>&1 )
-  printf '%s' "$_hv_scoped" | grep -q 'dispatch hook has drifted' \
+  _hv_scoped=$(_p3_fmt .claude/hooks/runtime-bridge-dispatch.sh) || true
+  grep -q 'dispatch hook has drifted' <<<"$_hv_scoped" \
     && ok "hook twin: a filter naming only the .claude/hooks half still runs the parity phase" \
     || bad "hook twin: filtering to the .claude/hooks half skipped the phase — pre-commit blind spot"
-  cp "$_hv_bak" "$_hv"
-  rm -f "$_hv_bak"
-  cmp -s "$_hv" "$REPO_ROOT/.claude/hooks/runtime-bridge-dispatch.sh" \
-    && ok "hook twin: restored — the tracked pair is byte-identical" \
-    || bad "hook twin: the probe left the pair drifted (restore failed)"
+
+  # The point of the scratch tree: the checkout was never written, whatever the probes did.
+  [ "$(cksum "$_p3_real_src" "$_p3_real_hook")" = "$_p3_sum_before" ] \
+    && ok "vendor parity probes: the real checkout was not modified (drift planted in a scratch copy only)" \
+    || bad "vendor parity probes: the real checkout's src/hook bytes CHANGED during the probes"
+  rm -rf "$_p3_tree"
+  trap - EXIT
 
   # Vacuity sentinel: every arm above is meaningless if Phase 3 was never wired in.
   grep -q 'Phase 3: vendored-copy' "$_fmt_v" \

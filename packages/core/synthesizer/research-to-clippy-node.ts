@@ -14,16 +14,16 @@
 // renderers (render-clippy.ts:4).
 //
 // WHY A NEW SIBLING (not an extension of research-to-node.ts): the astgrep bridge is hard-coded to
-// clippy-incompatible values — `selectorClass:'syntax'` (research-to-node.ts:167, which render-clippy
+// clippy-incompatible values — `selectorClass:'syntax'` (research-to-node.ts:196, which render-clippy
 // REFUSES with FF7001), astgrep kinds `{call,attribute,import}` + a `pattern` param, and a default
-// severity of `'error'` (research-to-node.ts:150, which render-clippy DEGRADES with FF7003). Clippy's
-// RENDER CONTRACT (Phase-1-grounded, render-clippy.ts:81-133) needs ALL of: `selectorClass:'type-aware'`,
+// severity of `'error'` (research-to-node.ts:179, which render-clippy DEGRADES with FF7003). Clippy's
+// RENDER CONTRACT (Phase-1-grounded, render-clippy.ts:83-156) needs ALL of: `selectorClass:'type-aware'`,
 // `params:{kind ∈ {method,type,macro}, path:<FQ-path>}` (a fully-qualified path to ban, NOT an astgrep
 // pattern), `defaultSeverity:'warning'` (→ `rendered`; `error`/`note` → `degraded`). Extending the
 // astgrep bridge to carry both shapes would risk the landed LG-S1 for zero reuse gain. So this is a
 // sibling that REUSES the frozen `ConventionNode` IR, `runGrammarGate`, the exported
 // `firstProvenanceRejection` (the canonical provenance-rejection wrapper — R-5), and the
-// exported `ResearchOnlyReason`/`ResearchToNodeResult` result types (research-to-node.ts:80-84).
+// exported `ResearchOnlyReason`/`ResearchToNodeResult` result types (research-to-node.ts:96-100).
 //
 // TWO HONESTY LINES, both non-negotiable (§Qb + Phase -1), identical to the astgrep lane:
 //   1. Degrade-not-inert (MAJOR-1): a practice that does NOT reduce to a single clippy path-ban of
@@ -56,14 +56,14 @@ import { firstProvenanceRejection, type ResearchOnlyReason, type ResearchToNodeR
 // without depending on the astgrep bridge module name. The types themselves are REUSED verbatim.
 export type { ResearchOnlyReason, ResearchToNodeResult } from './research-to-node.ts';
 
-/** The frozen-IR-expressible clippy node kinds. Kept in lockstep with render-clippy.ts:40's private
+/** The frozen-IR-expressible clippy node kinds. Kept in lockstep with render-clippy.ts:42's private
  *  `VALID_KINDS` — a practice whose `kind` is outside this set cannot be honestly rendered as a
  *  clippy disallowed-{methods,types,macros} path-ban (§Qb).
  *
- *  DRIFT-PARITY GAP (Phase-1, deliberate): render-clippy.ts:40 does NOT export its `VALID_KINDS`
+ *  DRIFT-PARITY GAP (Phase-1, deliberate): render-clippy.ts:42 does NOT export its `VALID_KINDS`
  *  (unlike render-astgrep.ts, whose `VALID_KINDS` LG-S1 exported so the bridge asserts set-equality).
  *  Exporting it would be a `backends/cargo/**` edit = a cross-owner boundary violation (#977-owned).
- *  So this constant is hard-coded here with a comment ref to render-clippy.ts:40, and the set-equality
+ *  So this constant is hard-coded here with a comment ref to render-clippy.ts:42, and the set-equality
  *  drift-parity test the astgrep lane has is a DOCUMENTED GAP (a cross-owner handoff request to #977,
  *  NOT silently dropped honesty). If a kind is added to render-clippy's VALID_KINDS but not here, an
  *  expressible practice for it degrades to research-only (conservative — never an inert node); if added
@@ -72,7 +72,7 @@ export const CLIPPY_EXPRESSIBLE_KINDS: readonly string[] = ['method', 'type', 'm
 
 /**
  * A researched rust practice, clippy-shaped — the bridge's OWN input interface (not a frozen type).
- * Sibling of `AstgrepResearchedPractice` (research-to-node.ts:50): the frozen-IR `kind` discriminator
+ * Sibling of `AstgrepResearchedPractice` (research-to-node.ts:66): the frozen-IR `kind` discriminator
  * plus clippy's `path` (a fully-qualified path to ban, e.g. `std::mem::forget`) in place of astgrep's
  * `pattern`. Only the OUTPUT node is frozen.
  */
@@ -102,14 +102,14 @@ export interface ClippyResearchedPractice {
   /** Provenance chain — VALIDATED by the bridge's Tier-0 validateProvenance call. */
   provenance: Provenance[];
   /** Rendered-rule severity; defaults to 'warning' — the ONLY severity render-clippy renders (not
-   *  degrades) into clippy.toml (render-clippy.ts:119). 'error'/'note' degrade FF7003. */
+   *  degrades) into clippy.toml (render-clippy.ts:142). 'error'/'note' degrade FF7003. */
   defaultSeverity?: Severity;
 }
 
 /**
  * §Qb MAJOR-1 expressibility filter: true iff the practice reduces to a single clippy path-ban of a
  * method/type/macro kind. This is the frozen-IR ceiling made testable — everything else is a
- * research-only finding. Sibling of isSinglePatternExpressible (research-to-node.ts:91).
+ * research-only finding. Sibling of isSinglePatternExpressible (research-to-node.ts:107).
  */
 export function isClippyExpressible(p: ClippyResearchedPractice): boolean {
   return (
@@ -185,12 +185,12 @@ export function researchedPracticeToClippyNode(
   return { status: 'node', node };
 }
 
-// The ONLY severity render-clippy.ts renders (not degrades) into clippy.toml (render-clippy.ts:119).
+// The ONLY severity render-clippy.ts renders (not degrades) into clippy.toml (render-clippy.ts:142).
 const DEFAULT_SEVERITY: Severity = 'warning';
 
 /** Build the frozen ConventionNode from an already-expressible practice (params guaranteed present by
  *  isClippyExpressible). NO field added to the frozen IR — selectorClass is 'type-aware' (the clippy
- *  render class per render-clippy.ts:95) and params carry the {kind, path} the backend validates. */
+ *  render class per render-clippy.ts:118) and params carry the {kind, path} the backend validates. */
 function buildClippyNode(practice: ClippyResearchedPractice): ConventionNode {
   const params: Record<string, string | number> = {
     kind: practice.kind,

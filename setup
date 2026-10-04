@@ -7,7 +7,8 @@
 #   ./setup ts-server               # interactive install; explicit stack; companions optional
 #   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
 #   ./setup --yes ts-server         # alias for -y
-#   ./setup --all ts-server         # EVERYTHING: -y + the AIF operator suite (operator machines)
+#   ./setup -y --global ts-server   # -y + machine-global companions (user-scope plugins/MCP, npm -g, getff-repo bridge rc)
+#   ./setup --all ts-server         # EVERYTHING: -y --global + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
 #   ./setup --profile factory ts-server   # install depth profiles (beta-delivery-ux S1 / A1):
@@ -37,7 +38,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
   if [ "$_awaiting_profile_value" -eq 1 ]; then
-    # Cold-QA MINOR fix parity with install.sh:133 (flag-after-`--profile` guard): a value
+    # Cold-QA MINOR fix parity with install.sh:150 (flag-after-`--profile` guard): a value
     # that starts with `-` is another flag, not the profile name. Mirror install.sh's own
     # fail-loud instead of silently consuming the flag as the value.
     if [ "${a#-}" != "${a:-}" ]; then
@@ -52,7 +53,11 @@ for a in "$@"; do
     -y|--yes)          MODE="yes"; FULL="--full" ;;
     # --all = everything: the -y full path PLUS the AIF operator suite (owner directive
     # 2026-07-11). Consumer defaults (-y/--full) stay curated; --all is the operator switch.
-    --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
+    --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
+    # critical-review S1-4 (operator decision 2026-09-23): -y installs into the project only;
+    # machine-global companions (user-scope plugins/MCP, npm -g) and the getff repository's own
+    # runtime-bridge wizard (it writes your shell rc) need this explicit flag. Exported: install.sh's 05-mcp reads it too.
+    --global)          export GETFF_GLOBAL=1 ;;
     --full)            MODE="yes"; FULL="--full" ;;
     --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
     # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the
@@ -72,14 +77,33 @@ for a in "$@"; do
     # The companion steps below still run (the python lane's own linter is offered there); the
     # runtime-bridge step stays opt-in [y/N] as usual.
     python|cargo|go) STACK="$a" ;;
+    # generic = a project whose stack getff does not know: the stack-free part only (P2 G1).
+    generic) STACK="$a" ;;
+    # A misspelt stack used to vanish here and the install auto-detected instead; with `generic`
+    # that would install the stack-free part on a typo. Unknown flags stay ignored.
+    -*|"") ;;
+    *) echo "❌ Unknown stack: $a (use ts-server, react-next, react-spa, react-native, generic, python, cargo, or go)" >&2; exit 1 ;;
   esac
 done
-# Cold-QA MINOR fix parity with install.sh:133 (end-of-args guard): if --profile was the LAST
+# --dry-run wins in any flag order: `--dry-run -y` let -y reset MODE to «yes», so install.sh
+# previewed while the companion and bridge steps ran for real (P6 run 2 N4). FULL stays as given,
+# so a `-y --dry-run` preview walks the -y path (05-mcp included).
+[ -n "$DRY" ] && MODE="dry-run"
+# Cold-QA MINOR fix parity with install.sh:150 (end-of-args guard): if --profile was the LAST
 # token with no value following it, fail-loud rather than silently passing an empty value.
 if [ "$_awaiting_profile_value" -eq 1 ]; then
   echo "❌ --profile requires a value (core|env|factory)" >&2
   exit 1
 fi
+
+# The two --profile spellings land in two different variables above, because the wrapper
+# forwards them verbatim and never interprets them. The runtime-bridge step below is the one
+# place in this file that has to KNOW the depth (its cross-layer warning fires at factory), so
+# funnel both spellings into one lower-cased variable for it. Validation stays in install.sh —
+# an unknown value never reaches the bridge step, because install.sh exits 1 first.
+PROFILE_DEPTH="$PROFILE_VALUE"
+case "$PROFILE_FLAG" in --profile=*) PROFILE_DEPTH="${PROFILE_FLAG#--profile=}" ;; esac
+PROFILE_DEPTH="$(printf '%s' "$PROFILE_DEPTH" | tr '[:upper:]' '[:lower:]')"
 
 echo "▶ Preflight"
 for tool in bash git python3 curl; do
@@ -102,11 +126,33 @@ while IFS=$'\t' read -r name detect install kind stacks; do
   [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install
   companion_step "$name" "$detect" "$install" "$kind" "$emode"
 done < "$HERE/setup.d/companions.manifest"
+# The MCP servers are handled inside install.sh (05-mcp, -y only), so name them here too: the
+# section then lists every tool the run adds or records (P6 run 2 N4).
+companion_mcp_preview "$FULL" "$MODE"
+# The MCP servers install.sh wrote (05-mcp) get their versions row here: tool-decisions.md is seeded
+# later in that run (30-templates), so only now can the row land (road step 7, one-button P3).
+[ "$MODE" = "dry-run" ] || companion_record_mcp_versions
+
+# Skill routing: stamp colliding satellite skills (mattpocock-skills:tdd, :resolving-merge-conflicts)
+# with disable-model-invocation — see setup.d/skill-routing.sh. The plugin cache is user-scope, so
+# this is machine-global and follows the companion consent rule: -y needs --global.
+echo "▶ Skill routing"
+sr_rc=0
+bash "$HERE/setup.d/skill-routing.sh" install "$MODE" || sr_rc=$?
+case "$sr_rc" in
+  0) ;;
+  3) companion_not_wired "skill routing — not applied: it edits user-scope plugin files, and without --global a non-interactive install writes into this project only" ;;
+  *) companion_not_wired "skill routing — a stamp failed (its output is above)" ;;
+esac
 
 echo "▶ Runtime-bridge"
 if [ "$MODE" = "dry-run" ]; then
   echo "  [dry-run] would run bridge guided-detect"
 elif [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; then
+  # No --global gate here: for a project getff installs into, the bridge step writes only that
+  # project's .claude/settings.json (hook registration) and .claude/settings.local.json (env). The one machine-global write — the getff repository's own
+  # wizard keeping RUNTIME_BRIDGE_* in the shell rc — is gated on --global inside
+  # bridge_guided_run, which reads MODE and GETFF_GLOBAL from this scope.
   source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run
 else
   printf '  Set up runtime-bridge (aif-handoff)? [y/N]: '
@@ -114,5 +160,6 @@ else
   case "$ans" in [yY]|[yY][eE][sS]) source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run ;; *) echo "  ⊝ runtime-bridge skipped" ;; esac
 fi
 
+companion_not_wired_summary
 echo ""
 echo "✅ ./setup complete (${MODE})."

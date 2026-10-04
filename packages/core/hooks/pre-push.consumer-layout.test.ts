@@ -2,8 +2,9 @@
  * Consumer-context regression test for pre-push.ts (GH #920 / #921).
  *
  * The bug: several pre-push sections shell out to MAINTAINER-ONLY paths that a
- * consumer install never receives. `install.sh` ships only
- * `packages/core/{hooks,eslint-rules}` to a consumer — NOT `package.json`,
+ * consumer install never receives. `install.sh` ships only the hook itself to a consumer
+ * (since 2026-09-28 the prebuilt `packages/core/hooks/pre-push.bundle.mjs` + its bash
+ * fallback; before that `packages/core/{hooks,eslint-rules}` source) — NOT `package.json`,
  * `audit-self/`, `render/`, `manifest/`, `spec-validation/`, nor `docs/meta-factory/`.
  * Sections that referenced those paths without the `existsSync` consumer-skip guard
  * their siblings (3b–3f/4b) use would `die()` (or bubble a raw ENOENT → "pre-push
@@ -12,14 +13,17 @@
  * executes the check chain. Only a REAL push does.
  *
  * This test closes that coverage gap: it runs the ACTUAL orchestrator against a
- * fixture consumer layout (a copy of exactly the install.sh consumer copy-list,
- * with every maintainer-only path absent) and asserts the push reaches `exit 0`.
+ * fixture consumer layout (the hook source tree, with every maintainer-only path
+ * absent) and asserts the push reaches `exit 0`. The last describe block runs the
+ * SHIPPED artefact — the bundle on plain node, with nothing else from getff beside it.
  * Runs in CI via `test:hooks` (audit-self.yml → `vitest run hooks/`).
  *
  * Coverage of all 8 guards (each exercised by a case whose failure the guard prevents,
  * so deleting the guard reddens the suite):
- *   - §3 audit-self, §4 render, §5–5d meta-tests, guard/cmd-script-liveness manifest
+ *   - §3 audit-self, §4 render, §5–5d meta-tests, guard-liveness manifest
  *     → the plain POSITIVE case (their absent paths would each hard-fail the push).
+ *     (cmd-script-liveness left that class in trigger build S3: it ships owner
+ *     `both`, reads the layout's manifest, and its S3 cases below run the FULL hook.)
  *   - §7 prior-art / §1.7  → the capability-commit POSITIVE (skip) + SSOT-planted NEGATIVE.
  *   - §6 spec-validate     → the orchestrator-prompt POSITIVE (skip) + validator-planted NEGATIVE.
  *
@@ -57,7 +61,14 @@ import {
 import { resolve, dirname, join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import {
+  CANON_PHRASE,
+  DOWNSTREAM_DOCS,
+  GOAL_POINTER,
+  GOAL_POINTER_DOCS,
+} from '../audit-self/audit-ai-docs.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -105,7 +116,7 @@ const CLEANUP_RETRY_DELAY_MS = 50;
  *  1. **Retry** narrows the window. This is a Node-side recursive-rm race (nodejs/node#54561,
  *     "[fs.rm] Reports ENOTEMPTY randomly"), not an un-reaped child of ours: every git
  *     invocation on this path is synchronous — `execSync` in the fixture builders above,
- *     and `spawnSync` inside the hook itself (`utils/run-check.ts:51`, the single funnel
+ *     and `spawnSync` inside the hook itself (`utils/run-check.ts:99`, the single funnel
  *     `utils/git.ts` routes all git I/O through) — so each is reaped before control
  *     returns here. There is no child left to await.
  *  2. **Tolerate** is the structural guarantee: teardown is hygiene, never an assertion,
@@ -153,8 +164,8 @@ function rootPkg(dependencies: Record<string, string>): string {
 }
 
 /**
- * Build a temp git repo mirroring a CONSUMER install: only the two directory
- * groups install.sh ships (`packages/core/{hooks,eslint-rules}`), a node_modules
+ * Build a temp git repo mirroring a CONSUMER install at SOURCE level: the hook source
+ * tree the bundle is built from (`packages/core/{hooks,eslint-rules}`), a node_modules
  * symlink for tsx/esm, and exit-0 stubs for the consumer-appropriate binaries.
  * Every maintainer-only path (package.json / audit-self / render / manifest /
  * spec-validation / docs/meta-factory) is DELIBERATELY absent.
@@ -163,7 +174,8 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
   const dir = mkdtempSync(join(tmpdir(), 'prepush-consumer-'));
   sandboxes.push(dir);
 
-  // The exact install.sh consumer copy-list (install.sh:343-367).
+  // The hook source graph (what install.sh shipped before 2026-09-28 and what
+  // scripts/build-runtime-bundles.mjs bundles today).
   cpSync(
     resolve(REPO_ROOT, 'packages/core/hooks'),
     join(dir, 'packages/core/hooks'),
@@ -711,7 +723,7 @@ describe(
       chmodSync(join(stubBin, 'lychee'), 0o755);
 
       // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
-      // 30-templates.sh:81) carrying a dangling framework-internal ref — the exact shape
+      // 30-templates.sh:112) carrying a dangling framework-internal ref — the exact shape
       // that blocked a consumer's first push before Part 1.
       addConsumerCommit(
         dir,
@@ -1092,6 +1104,221 @@ describe(
       expect(existsSync(marker), out).toBe(true);
     });
 
+    // ── OBS8: the payload-drift section (generated artefacts, pre-push channel) ──
+    // Two committed generated artefacts had NO pre-push gate and were detected only by
+    // a CI round-trip: packages/getff/MANIFEST.sha256 (scripts/build-getff-dist.sh) and
+    // tests/install-sh/baselines/**/*.fingerprint (tests/install-sh/snapshot.sh). Both
+    // fired live during the #1851/#1852/#1853 sequence; the baseline half cost a red
+    // shard C and a merge-forward.
+    //
+    // The section is change-scoped in BOTH arms, so every arm below pairs a positive
+    // with the negative that proves the scoping is not a hole.
+
+    /** sha256 of a string — the hash form both MANIFEST.sha256 and the install
+     *  fingerprints record (`<sha256>  <path>`). */
+    function sha256(s: string): string {
+      return createHash('sha256').update(s).digest('hex');
+    }
+
+    /** Plant the maintainer-side inputs of arm A: the payload lister (the single
+     *  source for WHICH repo paths ship) and a manifest. Written UNCOMMITTED on
+     *  purpose — committing them would put them in the push's changed set and
+     *  contaminate the scoping arms. */
+    function plantGetffDist(
+      dir: string,
+      payload: string[],
+      manifest: Record<string, string>,
+    ): void {
+      const script = join(dir, 'scripts/build-getff-dist.sh');
+      mkdirSync(dirname(script), { recursive: true });
+      writeFileSync(
+        script,
+        `#!/bin/sh\n[ "$1" = "--list-payload" ] || exit 2\n` +
+          payload.map((p) => `echo "${p}"`).join('\n') +
+          '\n',
+      );
+      chmodSync(script, 0o755);
+      const m = join(dir, 'packages/getff/MANIFEST.sha256');
+      mkdirSync(dirname(m), { recursive: true });
+      writeFileSync(
+        m,
+        Object.entries(manifest)
+          .map(([p, h]) => `${h}  ${p}`)
+          .join('\n') + '\n',
+      );
+    }
+
+    /** Plant one install fingerprint. `rows` maps a CONSUMER-destination path to the
+     *  sha256 of the bytes the installer delivered there. */
+    function plantBaseline(
+      dir: string,
+      name: string,
+      rows: Record<string, string>,
+    ): void {
+      const f = join(dir, `tests/install-sh/baselines/${name}.fingerprint`);
+      mkdirSync(dirname(f), { recursive: true });
+      writeFileSync(
+        f,
+        Object.entries(rows)
+          .map(([p, h]) => `${h}  ${p}`)
+          .join('\n') + '\n',
+      );
+    }
+
+    /** A shipped file that exists at the sandbox's base commit, with its pre-image. */
+    const VICTIM = 'packages/core/hooks/utils/run-check.ts';
+    function preimageOf(dir: string, baseSha: string, path: string): string {
+      return execSync(`git show ${baseSha}:${path}`, { cwd: dir }).toString();
+    }
+
+    it('P-0 — the REAL assembler answers --list-payload (the sandbox stub is not a lie)', () => {
+      const script = resolve(REPO_ROOT, 'scripts/build-getff-dist.sh');
+      if (!existsSync(script)) return; // consumer checkout: nothing to assert
+      const r = spawnSync('bash', [script, '--list-payload'], {
+        encoding: 'utf8',
+        cwd: REPO_ROOT,
+      });
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+      const lines = r.stdout.split('\n').filter(Boolean);
+      // The flag exists so the hook never keeps a second copy of the payload list.
+      expect(lines.length, out).toBeGreaterThanOrEqual(15);
+      expect(lines, out).toContain('install.sh');
+      expect(lines, out).toContain('packages/core');
+    });
+
+    it('P-1 — a non-payload push does NOT judge the manifest (arm A is change-scoped)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // A manifest that is WRONG about an untouched payload file. An unscoped arm
+      // would red on it; a change-scoped one never looks.
+      plantGetffDist(dir, ['packages/core'], {
+        [VICTIM]: sha256('not what is on disk'),
+      });
+      addConsumerCommit(dir, 'docs/notes.md', '# Notes\n', 'docs: a docs push');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-2 — a payload file edited without re-running the assembler is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantGetffDist(dir, ['packages/core'], {
+        [VICTIM]: sha256('the content the manifest was built from'),
+      });
+      addConsumerCommit(
+        dir,
+        VICTIM,
+        preimageOf(dir, baseSha, VICTIM) + '\n// touched\n',
+        'chore: touch a shipped file',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain(VICTIM);
+      expect(out, out).toMatch(/build-getff-dist\.sh/);
+    });
+
+    it('P-3 paired-negative — the same edit WITH the manifest re-run is clean', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const next = preimageOf(dir, baseSha, VICTIM) + '\n// touched\n';
+      plantGetffDist(dir, ['packages/core'], { [VICTIM]: sha256(next) });
+      addConsumerCommit(dir, VICTIM, next, 'chore: touch a shipped file');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-4 — a NEW payload file missing from the manifest is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantGetffDist(dir, ['packages/core'], { [VICTIM]: sha256('whatever') });
+      addConsumerCommit(
+        dir,
+        'packages/core/brand-new.ts',
+        'export const x = 1;\n',
+        'feat(core): a new shipped file',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain('packages/core/brand-new.ts');
+    });
+
+    it('P-4b — a DELETED payload file still listed in the manifest is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // Not VICTIM: the hook imports run-check.ts, so deleting it crashes the loader
+      // before any section runs (measured). A rule source is shipped and unimported.
+      const doomed = 'packages/core/eslint-rules/no-direct-time-randomness.ts';
+      plantGetffDist(dir, ['packages/core'], {
+        [doomed]: sha256(preimageOf(dir, baseSha, doomed)),
+      });
+      rmSync(join(dir, doomed));
+      execSync(`git add -A "${doomed}"`, { cwd: dir });
+      execSync('git commit -m "chore: drop a shipped file"', { cwd: dir });
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      // Both assertions matter: a bare exit-1 arm passed against the UNKNOWN-section
+      // error while the section did not exist yet (measured while watching RED).
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain(doomed);
+    });
+
+    it('P-5 — a changed file whose OLD bytes are still in an install baseline is STALE', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const before = preimageOf(dir, baseSha, VICTIM);
+      // The baseline records a CONSUMER-destination path, which is not the repo path —
+      // membership is by hash precisely so the source→destination map is not needed.
+      plantBaseline(dir, 'ts-server/greenfield', {
+        '.ai-factory/vendor/run-check.ts': sha256(before),
+      });
+      addConsumerCommit(dir, VICTIM, before + '\n// touched\n', 'chore: touch');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/baselines/);
+      expect(out, out).toContain(VICTIM);
+      expect(out, out).toMatch(/SNAPSHOT_MODE=capture/);
+    });
+
+    it('P-6 paired-negative — a push that ALSO re-captures the baseline is clean', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const before = preimageOf(dir, baseSha, VICTIM);
+      const after = before + '\n// touched\n';
+      // Baselines are read at HEAD, so a re-capture in the same push removes the old
+      // hash and the arm has nothing to report.
+      plantBaseline(dir, 'ts-server/greenfield', {
+        '.ai-factory/vendor/run-check.ts': sha256(after),
+      });
+      addConsumerCommit(dir, VICTIM, after, 'chore: touch');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-7 — a consumer (no manifest, no baselines) is never blocked', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      addConsumerCommit(
+        dir,
+        VICTIM,
+        preimageOf(dir, baseSha, VICTIM) + '\n// touched\n',
+        'chore: touch',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+      expect(out, out).not.toMatch(/DRIFT|STALE/);
+    });
+
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────
     // The kickoff's explicit smoke: a tmp repo whose default branch is `main`, only the
     // consumer copy-list installed (no maintainer packages/core parts, no SSOT register),
@@ -1103,7 +1330,9 @@ describe(
       const dir = mkdtempSync(join(tmpdir(), 'prepush-smoke-'));
       sandboxes.push(dir);
 
-      // Consumer copy-list only (install.sh:343-367 shape): hooks + eslint-rules.
+      // The source tree the bundle is built from (hooks + eslint-rules), run through tsx: this
+      // pins main()'s default-branch resolution. The shipped bundle on plain node, in the
+      // shipped layout, is the `pre-push.bundle.mjs` describe block further down.
       cpSync(
         resolve(REPO_ROOT, 'packages/core/hooks'),
         join(dir, 'packages/core/hooks'),
@@ -1557,6 +1786,142 @@ describe(
         `${basename(dir)}/.ai-factory/synthesizer-output/rules-manifest-additions.json`,
       );
     });
+
+    // P6 run 2 N1 follow-up (seam with P2): the consumer's mutation check goes through run-armed.sh, and
+    // run-armed exits 2 on its OWN precondition (no readable project-checks record) as well as passing the
+    // runner's exit 2 through. The skip line must not name the runner as the cause: it names the exit code,
+    // and the check's own stderr (which does name the cause) follows it.
+    it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(
+        join(dir, 'scripts/run-armed.sh'),
+        '#!/bin/sh\necho "run-armed: no readable project-checks record - re-run the getff install to write it" >&2\nexit 2\n',
+      );
+
+      const r = runMaterialSection(dir, hook, { strip: false });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/DEGRADED: generated-rule mutation check exited 2/);
+      expect(out, out).not.toMatch(/runner could not resolve its inputs/);
+      expect(out, out).toContain('run-armed: no readable project-checks record');
+      expect(r.status, out).toBe(0);
+    });
+
+    // P6 run 3 N6: the section ran under the hook's default 120 s, and a run over it PASSED the push with a
+    // DEGRADED line — a warning nobody must read. run-armed skips a not-armed check at once, so a consumer
+    // run that reaches the budget is a check that ran: it blocks like any other red, and the section's
+    // budget is its own (PREPUSH_MUTATION_TIMEOUT_MS here, so the test does not wait minutes).
+    it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(join(dir, 'scripts/run-armed.sh'), '#!/bin/sh\nsleep 4\nexit 0\n');
+
+      const r = runMaterialSection(dir, hook, {
+        strip: false,
+        env: { PREPUSH_MUTATION_TIMEOUT_MS: '1000' },
+      });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/generated-rule mutation check ran over its budget \(1 s\) — NOT green/);
+      expect(out, out).not.toMatch(/DEGRADED: generated-rule mutation/);
+      expect(r.status, out).toBe(1);
+    });
+
+    // ── §3 audit-ai-docs LIVE on the repo itself (2026-09-28) ────────────────────
+    // The section used to run only the auditor's fixture tests: the auditor never ran on
+    // the repo that ships it, and its first live run found D3 + D5 failures that had sat
+    // unread since #1228 / #1420. These arms copy the REAL auditor (both implementations)
+    // into a maintainer-layout sandbox and drive the section through the PREPUSH_ONLY seam.
+    // The fixture test file is deliberately NOT copied, so only the live arm runs.
+    function plantLiveAuditLayout(dir: string): void {
+      const dst = join(dir, 'packages/core/audit-self');
+      mkdirSync(dst, { recursive: true });
+      for (const f of ['audit-ai-docs.sh', 'audit-ai-docs.ts']) {
+        cpSync(resolve(REPO_ROOT, 'packages/core/audit-self', f), join(dst, f));
+      }
+      // Every enrolled goal-bearing doc, so D3 holds; a pointer doc carries the link.
+      for (const doc of DOWNSTREAM_DOCS) {
+        const p = join(dir, doc);
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(
+          p,
+          GOAL_POINTER_DOCS.includes(doc)
+            ? `[goal](${GOAL_POINTER})\n`
+            : `Goal: ${CANON_PHRASE}.\n`,
+        );
+      }
+      execSync('git add -A', { cwd: dir });
+      execSync('git commit -q -m "chore: goal docs + auditor"', { cwd: dir });
+    }
+
+    it('audit-ai-docs live POSITIVE — every goal-bearing file enrolled → the section passes and reports the live run', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      // Both implementations ran — a section that silently skipped the live arm would
+      // also exit 0, so the pass line is what makes this positive non-vacuous.
+      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: \d+ PASS, 0 FAIL/);
+      expect(out, out).toMatch(/audit-ai-docs\.ts live: Audit complete: \d+ PASS, 0 FAIL/);
+    });
+
+    it('audit-ai-docs live NEGATIVE — an unenrolled file restating the goal blocks the push', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+      addConsumerCommit(
+        dir,
+        'docs/new-goal-copy.md',
+        `We exist so ${CANON_PHRASE}.\n`,
+        'docs: restate the goal somewhere new',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/audit-ai-docs\.sh FAILED on this repo/);
+      expect(out, out).toContain('docs/new-goal-copy.md');
+    });
+
+    it('audit-ai-docs live NEGATIVE — the .ts arm gates on its own: a bash twin that passes vacuously does not let the orphan through', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+      // A twin that prints a clean summary and exits 0 whatever the tree holds.
+      writeFileSync(
+        join(dir, 'packages/core/audit-self/audit-ai-docs.sh'),
+        '#!/usr/bin/env bash\necho "Audit complete: 6 PASS, 0 FAIL, 0 WARN"\nexit 0\n',
+      );
+      addConsumerCommit(
+        dir,
+        'docs/new-goal-copy.md',
+        `We exist so ${CANON_PHRASE}.\n`,
+        'docs: restate the goal somewhere new',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: 6 PASS, 0 FAIL/);
+      expect(out, out).toMatch(/audit-ai-docs\.ts FAILED on this repo/);
+      expect(out, out).toContain('docs/new-goal-copy.md');
+    });
   },
 );
 
@@ -1646,3 +2011,188 @@ describe('removeSandbox — fixture teardown contract', () => {
     }
   });
 });
+
+// ── The SHIPPED layout (2026-09-28). The arms above run the hook SOURCE through tsx so each
+//    section's guard can be exercised against its source; what a consumer actually receives is
+//    ONE prebuilt file plus its bash fallback (principle 27 arm (a)/(b)), run by the dispatcher
+//    with plain `node` (packages/core/templates/shared/husky-pre-push.sh). This arm runs exactly
+//    that: no tsx loader, no NODE_PATH, no node_modules, no getff source beside the bundle, and a
+//    root package.json with no "type" field (the .mjs extension alone makes it ESM).
+describe(
+  'pre-push.bundle.mjs — the shipped hook on plain node, in the shipped layout',
+  { timeout: SLOW_SHELL_MS },
+  () => {
+    const SHIPPED = [
+      'packages/core/hooks/pre-push.bundle.mjs',
+      'packages/core/hooks/pre-push.fallback.sh',
+    ];
+
+    function makeShippedLayout(): { dir: string; baseSha: string } {
+      const dir = mkdtempSync(join(tmpdir(), 'prepush-shipped-'));
+      sandboxes.push(dir);
+      for (const rel of SHIPPED) {
+        mkdirSync(dirname(join(dir, rel)), { recursive: true });
+        cpSync(resolve(REPO_ROOT, rel), join(dir, rel));
+      }
+      writeFileSync(
+        join(dir, 'package.json'),
+        `${JSON.stringify({ name: 'shipped-fixture', private: true }, null, 2)}\n`,
+      );
+      execSync('git init', { cwd: dir });
+      execSync('git config user.email t@t.com', { cwd: dir });
+      execSync('git config user.name Test', { cwd: dir });
+      execSync('git config commit.gpgsign false', { cwd: dir });
+      writeFileSync(join(dir, 'README.md'), 'base\n');
+      execSync('git add -A', { cwd: dir });
+      execSync('git commit -m "chore: base"', { cwd: dir });
+      const baseSha = execSync('git rev-parse HEAD', { cwd: dir })
+        .toString()
+        .trim();
+      return { dir, baseSha };
+    }
+
+    function runPlainNode(
+      dir: string,
+      entry: string,
+      baseRef: string,
+    ): { status: number; out: string } {
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PREPUSH_UPSTREAM_REF: baseRef,
+      };
+      delete env['NODE_PATH'];
+      delete env['NODE_OPTIONS'];
+      const r = spawnSync('node', [join(dir, entry)], {
+        encoding: 'utf8',
+        cwd: dir,
+        env,
+      });
+      return {
+        status: r.status ?? -1,
+        out: `${r.stdout ?? ''}\n${r.stderr ?? ''}`,
+      };
+    }
+
+    it('POSITIVE — `node pre-push.bundle.mjs` in the shipped layout reaches exit 0 on a consumer push', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.out, r.out).not.toMatch(/ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION/);
+      expect(r.out, r.out).not.toMatch(/pre-push hook crashed/);
+      expect(r.status, r.out).toBe(0);
+    });
+
+    // The arm above cannot tell a hook that ran every section from a module that was only
+    // imported: when the bundle's direct-run check comes out false, `node` loads it, runs
+    // nothing and exits 0 — every consumer push silently checks nothing. A section the
+    // consumer composition carries must be seen rejecting a push.
+    it('NEGATIVE — the bundle really runs the consumer sections: an unpinned workflow install is rejected', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        '.github/workflows/ci.yml',
+        'jobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pip install requests\n',
+        'ci: add a workflow',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(1);
+      expect(r.out, r.out).toMatch(/Unpinned bare-run tool install/);
+      expect(r.out, r.out).toMatch(/\.github\/workflows\/ci\.yml:5: /);
+    });
+
+    it('NEGATIVE — the same layout holds no hook source: the pre-2026-09-28 entry cannot run there', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+      // Only the entry file, as a stale partial copy would leave it; its imports are absent.
+      cpSync(
+        resolve(REPO_ROOT, 'packages/core/hooks/pre-push.ts'),
+        join(dir, 'packages/core/hooks/pre-push.ts'),
+      );
+
+      const r = runPlainNode(dir, 'packages/core/hooks/pre-push.ts', baseSha);
+
+      // Proves the POSITIVE arm's exit 0 comes from the bundle, not from a reachable source graph.
+      expect(r.status, r.out).not.toBe(0);
+    });
+
+    // ── trigger build S3 (spec S-9 / advisor E18 F1): the cmd-script liveness arm
+    //    ships INSIDE the bundle with owner `both` and reads the CONSUMER manifest.
+    //    These run the FULL hook with NO PREPUSH_ONLY — that seam looks the section up
+    //    in SECTIONS, bypassing the owner filter, so it proves logic, never
+    //    composition. The ℹ line in (iii) is therefore the OWNER proof: it can only
+    //    appear if the section composes on a consumer layout. And per E18 F1, the
+    //    empty run is a COUNTED ZERO, never a green check.
+    const CONSUMER_MANIFEST_REL = '.ai-factory/synthesizer-output/rules-manifest-additions.json';
+
+    it('S3 (i) FULL hook — a DEAD command rule in the generated manifest blocks a consumer push', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        CONSUMER_MANIFEST_REL,
+        `${JSON.stringify(
+          {
+            G1: {
+              check: { type: 'command', command: 'true' },
+              fixture: { 'setup-script': 'echo bad > violating.txt' },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'feat: generated rules manifest',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(1);
+      expect(r.out, r.out).toContain('G1');
+      expect(r.out, r.out).toMatch(/did NOT exit non-zero on the violating fixture/);
+      expect(r.out, r.out).toContain(
+        `command/script checks: 1 in ${CONSUMER_MANIFEST_REL}, 1 changed in this push`,
+      );
+    });
+
+    it('S3 (ii) FULL hook — the LIVE twin passes, the push is not blocked, and the pass is said out loud', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        CONSUMER_MANIFEST_REL,
+        `${JSON.stringify(
+          {
+            G1: {
+              check: { type: 'command', command: 'test ! -e violating.txt' },
+              fixture: { 'setup-script': 'echo bad > violating.txt' },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'feat: generated rules manifest',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(0);
+      expect(r.out, r.out).not.toMatch(/did NOT exit non-zero/);
+      expect(r.out, r.out).toMatch(
+        /✅ cmd-script-liveness: 1 command\/script rule\(s\) passed liveness check/,
+      );
+    });
+
+    it('S3 (iii) FULL hook — an empty consumer prints the counted 0 (owner proof) and never a green line', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(0);
+      expect(r.out, r.out).toContain('command/script checks: 0 — nothing to check yet');
+      expect(r.out, r.out).toContain(`(no rules manifest at ${CONSUMER_MANIFEST_REL})`);
+      expect(r.out, r.out).not.toMatch(/✅ cmd-script-liveness/);
+    });
+  },
+);

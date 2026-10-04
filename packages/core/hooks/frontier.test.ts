@@ -565,7 +565,7 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 
   it('PROSE-EDGE: an edge stated outside the table is reported with its line number', () => {
     // Cold-review MAJOR: 11 of the 27 tracked kickoffs that mention the edge state it as a
-    // prose header line — meta-orchestrator-bundle-autonomous/kickoff.md:5 even says «Do NOT
+    // prose header line; meta-orchestrator-bundle-autonomous/kickoff.md:5 even says «Do NOT
     // dispatch this umbrella before …» while the degrade line said every stage is frontier.
     const kickoffDir = makeSandbox();
     writeKickoff(

@@ -10,12 +10,12 @@
 # Members:
 #   _residue_dir            the cascade: AIF_RESIDUE_DIR → print-orch-home.sh → inline default
 #   _residue_sha256 <file>  portable file sha256 (sha256sum → shasum -a 256), the
-#                           deps-hash-check.sh:97-104 two-branch shape; used by the
+#                           deps-hash-check.sh:146-152 two-branch shape; used by the
 #                           handoff-currency gate's baseline (D19) and the PreCompact
 #                           pointer line (D15)
 #
 # LOADING CONTRACT (D29) — never source this file UNCONDITIONALLY. Both consumers load it
-# behind the guarded shape (`if ! [ -f … ] || ! . …`, the check-doc-authority.sh:40-48
+# behind the guarded shape (`if ! [ -f … ] || ! . …`, the check-doc-authority.sh:41-49
 # guard shape with an inline fallback instead of a SKIP), because end-of-turn-reminder.sh
 # runs under `set -euo pipefail`: an unconditional `.` of a missing lib aborts the Stop
 # hook on EVERY turn of any project the delivery step has not reached. Each consumer
@@ -30,10 +30,10 @@
 # ── Residue directory — ONE resolution, shared with the readers ───────────────
 # AIF_RESIDUE_DIR is the test seam + operator escape hatch (precedent: MO_ORCH_HOME).
 # Otherwise call the /pipeline helper that §1's injection fence already calls, with
-# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:17) so the helper
+# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:36-65) so the helper
 # resolves THIS repo rather than whatever git toplevel the hook's cwd happens to be in.
 # The inline branch at the end is the no-helper fallback (a consumer install without the
-# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:50-57).
+# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:98-105).
 # The repo root is `$root` when the caller set it (the PreCompact writer derives it from
 # CLAUDE_PROJECT_DIR → payload cwd → pwd), else CLAUDE_PROJECT_DIR → pwd — so a caller
 # that never resolves a root itself still lands in THIS project, not in the cwd a
@@ -41,7 +41,11 @@
 _residue_dir() {
   if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
   local _rd_root="${root:-}"
-  [ -n "$_rd_root" ] || _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  # CLAUDE_PROJECT_DIR → ZCODE_PROJECT_DIR → pwd: a ZCode plugin run sets neither `root` nor
+  # CLAUDE_PROJECT_DIR, so without the middle arm a harness run resolves a DIFFERENT residue
+  # root than the inject side, which pins env-first for exactly this reason (cold-review m2,
+  # 2026-09-14 — the counters file would split per harness).
+  [ -n "$_rd_root" ] || _rd_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
   local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
   if [ -f "$_rd_helper" ]; then
     _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)
@@ -54,7 +58,7 @@ _residue_dir() {
   fi
 }
 
-# ── sha256 of a file — portable, two-branch (deps-hash-check.sh:97-104 shape) ──
+# ── sha256 of a file — portable, two-branch (deps-hash-check.sh:146-152 shape) ──
 # Echoes the hex digest, or EMPTY when no hashing tool exists. An empty digest is the
 # caller's signal to skip the compare (the deps-hash precedent: "treats empty-current as
 # 'skip compare'") — the gate must never treat a missing tool as "content unchanged".

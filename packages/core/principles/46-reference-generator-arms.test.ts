@@ -24,7 +24,7 @@
  *
  * No paid LLM (no-paid-llm-in-ci.md): fs + regex + the generator's own deterministic modules.
  */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
   mkdtempSync,
@@ -48,6 +48,27 @@ const SCHEMA_DIR = join(REPO_ROOT, 'docs/site/reference/schema');
 const GOLD_FIXTURES = join(HERE, 'fixtures/reference-gold');
 
 const gen = async () => import(GEN);
+
+// One full reference build (file reads + git subprocesses, ~2 s alone) shared by every arm
+// that reads the live repo. Five arms used to rebuild it each, and under the pre-push
+// principles suite's default parallelism that ~10 s of duplicated work tipped arms B/C past
+// vitest's 5 s per-test default (measured 2026-09-21). The result is deep-frozen so an arm
+// that mutated it would throw instead of silently leaking state into a sibling arm.
+// The memo holds the PROMISE, not the value: a build that throws rejects it, and each of the
+// five arms re-awaits it and fails with the build's own error, while the arms that never read
+// the live build (A, D, G, D32) still run and report on their own.
+// Typed as whatever the untyped .mjs generator returns — the same type each arm got before.
+type Families = ReturnType<Awaited<ReturnType<typeof gen>>['buildAllFamilies']>;
+const deepFreeze = <T>(v: T): T => {
+  if (v && typeof v === 'object' && !Object.isFrozen(v)) {
+    Object.freeze(v);
+    for (const x of Object.values(v as object)) deepFreeze(x);
+  }
+  return v;
+};
+let liveBuild: Promise<Families> | undefined;
+const liveFamilies = (): Promise<Families> =>
+  (liveBuild ??= gen().then((g) => deepFreeze(g.buildAllFamilies(REPO_ROOT))));
 
 const FAMILY_IDS = [
   'A',
@@ -168,6 +189,15 @@ function scaffold(root: string) {
 }
 
 describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
+  // Warm the build outside every per-test 5 s budget. The hook timeout covers the single
+  // build; vitest's 10 s hook default is the same order of magnitude as one loaded-runner
+  // build, so it is set explicitly. A rejection is NOT swallowed: it stays in the memo and
+  // fails each of the five arms that await it. The hook only declines to re-throw it,
+  // because a failing beforeAll would skip every arm in the file instead of the dependent ones.
+  beforeAll(async () => {
+    await liveFamilies().catch(() => undefined);
+  }, 60_000);
+
   it('the generator exists and exposes the arm-testable surface', async () => {
     const g = await gen();
     for (const fn of ['buildFamily', 'buildAllFamilies', 'familyDoc', 'run']) {
@@ -234,7 +264,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   it('arm B: every family doc validates against its draft-07 schema; no empty strings', async () => {
     const g = await gen();
     const ajv = new Ajv({ allErrors: true, strict: false });
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     for (const id of FAMILY_IDS) {
       const schemaPath = join(SCHEMA_DIR, `${id}.schema.json`);
       expect(
@@ -272,7 +302,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   // ---- Arm C — population ↔ cards 1:1, re-derived from §4, never from the output ----
   it('arm C: per family, the §4 population predicate re-derived independently equals the member set (both directions)', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const emitted = (id: string) =>
       families[id].map((m: { name: string }) => m.name).sort();
 
@@ -487,7 +517,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
 
   it('arm C: absence tokens count per reason, printed and asserted; every token is enum-closed', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const counts: Record<string, number> = {};
     const walk = (id: string, v: unknown) => {
       if (Array.isArray(v)) return v.forEach((x) => walk(id, x));
@@ -999,7 +1029,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   // ---- Arm E — F.1 parity vs the committed rule index ----
   it('arm E: reference F.1 rows are identical to the 00-rule-index.md rows', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const index = readFileSync(
       join(REPO_ROOT, '.claude/rules/00-rule-index.md'),
       'utf8',
@@ -1043,7 +1073,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       'the header table must be exported for the shared-gate contract',
     ).toBeTypeOf('object');
 
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     // Families whose description IS the header (A, D, F.3, H) are already header-gated by
     // construction: buildFamily threw if any member lacked it. So the backstop here asserts
     // the census⇒header implication directly on the live tree:

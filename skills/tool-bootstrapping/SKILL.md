@@ -17,7 +17,7 @@ In your project, after running `install.sh`, this skill auto-triggers when:
 - Starting work on a new project for the first time (onboarding moment)
 - User asks which MCPs or skills to install
 - `package.json` dependencies change since last tool-bootstrap
-- `.ai-factory/tool-decisions.md` is missing or stale
+- `.ai-factory/tool-decisions.md` is missing or stale (stale: edit it in place, never regenerate it from the template — Rule 6)
 - A consumer who separately runs AIF invokes `/aif` and wants the decisions persisted (AIF is optional — see §2)
 
 ## The 6 rules
@@ -28,11 +28,11 @@ Read `package.json`, `.mcp.json`, and framework config files to enumerate explic
 
 ### Rule 2 — Propose tool set
 
-Based on detected stack, surface relevant MCPs and skills. The proposal vocabulary is adopted from AIF's `skills.sh` (search → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs) because aligning names avoids cross-tool drift; the concrete `npx skills …` commands only run where that registry is actually installed, so treat the vocabulary as the shape of your proposal, not as commands to issue blindly. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.
+Based on detected stack, surface relevant MCPs and skills. **Hard step (GH #1507): after Rule 1's enumeration, run exactly ONE `npx skills search <core>` per detected framework core** (the language, the UI framework, the metaframework, the database — one search per core, no more). From each result, surface the **top first-party candidate** — published by the owner of the dependency or framework it serves (the same GitHub org, npm scope or homepage domain); an install count is not a source check — in the Rule 3 confirmation block — propose it, never install it. **Vendor MCP servers for direct dependencies** come only from the namespace that dependency's owner holds in the official MCP registry (`registry.modelcontextprotocol.io`); when the getff install ran that check, its decisions are already lines in `.ai-factory/tool-decisions.md` — read them, never re-propose them. This step does not depend on a stack detector or a locally installed registry: `npx skills search` fetches the registry on demand, so ambient stack cores (present since onboarding, invisible as dep-deltas) still get their proposal. The rest of the proposal vocabulary is adopted from AIF's `skills.sh` (search → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs) because aligning names avoids cross-tool drift; the `search` above is the one command you issue up front, while every step after it is the shape of the flow you run ONLY after the Rule 3 confirmation — never something to issue blindly. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.
 
 ### Rule 3 — Confirm bulk
 
-Show the full proposed list in one block with per-item rationale, single Y/n confirmation (matching AIF `/aif` baseline). **Hard rule: never install any MCP or skill without explicit user confirmation. No env/config bypass.**
+Show the full proposed list in one block with per-item rationale, single Y/n confirmation (matching AIF `/aif` baseline). **Hard rule: never install any MCP or skill without explicit user confirmation. No env/config bypass.** The one confirmation given outside this block is the «yes» in the getff install's pre-launch list (it reaches the installer as `GETFF_STACK_TOOLS=1`), and it covers only vendor MCP servers that two ownership signals tie to the dependency's owner (its GitHub org, its homepage domain, its npm scope) and that need nothing from the person — an http remote, or an npm server whose current package names it, run as `npx -y <package>` on the person's machine (the pre-launch list says so; not pinned; its line warns that it runs locally, records the version npm served and names `claude mcp remove <name> -s project`); everything else the install found is recorded as «proposed, not installed» and still comes through this block.
 
 ### Rule 4 — Token-economy gate
 
@@ -45,6 +45,8 @@ At each session start, a UserPromptSubmit hook — registered in `.claude/settin
 ### Rule 6 — Persistence
 
 Accepted and rejected decisions are recorded in `.ai-factory/tool-decisions.md` (committed, team-shared). Schema → see [references/decision-format.md](references/decision-format.md). Never re-propose a rejected tool unless the rejection entry carries an explicit re-evaluation trigger that has since fired. A starter template is provided in [templates/tool-decisions.md.template](templates/tool-decisions.md.template).
+
+The installer writes into the same file. Its blocks sit between `<!-- <ns>:<name>:begin -->` and `<!-- <ns>:<name>:end -->` lines: `<!-- aif:project-checks:begin -->` (how the project checks itself — the record `scripts/run-armed.sh` reads, which its pre-commit `--fold` also rewrites), `<!-- aif:r2-na:begin -->` (the recorded R2 not-applicable verdict and its precondition) and `<!-- getff:installed-versions:begin -->` (the tool versions the install recorded, where your getff writes it). Edit the file in place; never regenerate it from the template; keep each installer block byte-for-byte — the installer replaces a block by its markers, so an edit inside one is lost on the next install, and a block that disappears takes its record with it.
 
 ## §2 Build-vs-reuse note
 
