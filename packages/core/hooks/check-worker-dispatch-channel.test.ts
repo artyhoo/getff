@@ -149,7 +149,7 @@ function runHook(
 }
 
 // A line that satisfies BOTH clause (a) Agent-tool channel (CHANNEL_RE) AND clause (b)
-// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:80.
+// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:173.
 const VIOLATION_LINE =
   'Dispatch the write-task Worker via the Agent tool in isolation: worktree.';
 
@@ -176,7 +176,7 @@ describe.skipIf(!JQ || !TSX)(
     });
 
     it('exemption: per-line escape token `<!-- channel-discipline: allow -->` → exit 0', () => {
-      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:70 — a same-line exemption suppresses
+      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:81 — a same-line exemption suppresses
       // the violation. The reason in the token is the documented carve-out for prose that
       // teaches/quotes the anti-pattern.
       const abs = writeKickoff(

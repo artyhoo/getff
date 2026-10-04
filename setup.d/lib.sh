@@ -133,7 +133,9 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389 — the
+#     worker-dispatch bullet (anchor renamed to `#umbrella-execution-launch-without-operator`
+#     on that same line, 2026-10-04 plain-words-recap-v2 D6).
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
@@ -738,7 +740,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1894                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1662          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
@@ -2158,7 +2160,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3015, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3017, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default

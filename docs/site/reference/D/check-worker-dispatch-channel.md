@@ -121,8 +121,8 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
 
 ## Evidence
 
-- `.claude/hooks/check-worker-dispatch-channel.sh:2` is the header the card's
-  description row quotes: `# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)`.
+- `.claude/hooks/check-worker-dispatch-channel.sh:2` — re-verified 2026-10-04 after the D6
+  rename — is the header the card's description row quotes: `# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)`.
   Line 10 carries `# @dual-pair: channel-discipline-worker-dispatch` and lines 11-16
   give the portability rationale; the pairing spec is named at line 17
   (`docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md`).

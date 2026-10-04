@@ -457,7 +457,7 @@ e17af43db948bcf554c9eef3e3851ff9a4af8be67d7689276bd214f1abaeee7b  packages/core/
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
 fd8b39b7fec3181e1e6396bd776330c7129ed0398e1b6797064d1746da3fd962  packages/core/hooks/check-kickoff-traps.test.ts
 a29967a291be5f5007a68a31bef794d2f82b318051e1eb136baa753c006abb0e  packages/core/hooks/check-skill-drift.test.ts
-0dc5acd01aa3e76007b077fdf4bcf013207aa666fddb2b3f9924aacbe7343f90  packages/core/hooks/check-worker-dispatch-channel.test.ts
+a3e04c8fa7d423b570b0351163f3cb566ed6f12f963e3c0d7686c6ab31012f16  packages/core/hooks/check-worker-dispatch-channel.test.ts
 2f16b33894047aba70b3e251e7df26e52ef2148fa331c79c0aebedebe2eb1c72  packages/core/hooks/checks/cmd-script-liveness.test.ts
 6496993b046aba89ecb3a6d641944f5843ffafe2961e3d3627575ee8366ffacc  packages/core/hooks/checks/cmd-script-liveness.ts
 1b73508c5f4475a388b96bf35a75aa8721e62d324a92f67a3f89ffcea796a1c6  packages/core/hooks/checks/docs-card.test.ts
@@ -503,7 +503,7 @@ a513d55f61b908fb34b2f16ba1ae52fbf2819d3de4de03c611807a1fe4014d25  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-f5e44579f29f5d6d0db4c8f330437aa17227589157dfa0b2227491ff1271cf17  packages/core/hooks/end-of-turn-reminder.test.ts
+88a0b528a22f5fd4f63d2636425c9ebea6cf298416e4c80c1246d0e92da6c4c7  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
@@ -1191,7 +1191,7 @@ e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create
 2c01e6243d17f5f55e03cba81d3a98e4e3ddc24872ed1f8fe5e1390de4636d78  setup.d/companions.manifest
 e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine.sh
 0b4cbd27c6da86d69e3b1683fb40b24a1f89cfe8a50f5bc46c3d71277abc0376  setup.d/eslint-wire.sh
-8a0cd88ca2875eb36a6bbfd4f5623aedf6ec1a9797b813e89a383e063013b6e8  setup.d/lib.sh
+6a27d8f67a4d5e5a54eb20b24cb619185dd850af8a534fa76c1c01bf3e7779a5  setup.d/lib.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
 bf3c4b495d47b98c08241b8cf163193e5e380003deabafe507e54a6a13a5630a  setup.d/ships.manifest

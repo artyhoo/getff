@@ -6,7 +6,7 @@
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-0c6321ded1d5949b1162785bb42a4b099d0a4943b58ac0e34c3dd7c444550ffb  .ai-factory/refresh-baseline.json
+3b2a8213fc48e06b790e0b453c3261d550de4447c38ff46bee628d617da33415  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -44,7 +44,7 @@ d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-064045579eab32bf3ee501260a841122aa031c5539f9d2fe9c6f488cdcd54972  .claude/skills/arch/SKILL.md
+7c2f34c57d962d0af5ee907be776546d6209cd34bf6bec5811b086be9f566e83  .claude/skills/arch/SKILL.md
 49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .claude/skills/arch/references/ADR-FORMAT.md
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills/arch/references/CONTEXT-FORMAT.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .claude/skills/arch/references/domain-modeling.md
@@ -56,7 +56,7 @@ c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .claude/skills
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .claude/skills/getff/references/self-testing-docs.md
-281c188314b2b5c14600baa8bd48c8322d28a9e6b31c1f1dc8db61a3fd7e81f1  .claude/skills/night-mode/SKILL.md
+06d56d36bad761bcb8dc3d0c924b8e4911da917e3df91215c7e17d009dad1825  .claude/skills/night-mode/SKILL.md
 4a7d908502de2cbe0437b7dd17161c47979d79d97d17ba1c5fd5b15bf17290d7  .claude/skills/orchestrator/SKILL.md
 8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .claude/skills/orchestrator/helpers/memory-sweep.sh
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
@@ -70,7 +70,7 @@ cbbc1b85447ca5a142ead82554f21a213db7bbe1b991d9635d8cf9ad566bb981  .claude/skills
 51e3cedd718d6c3ecb484d3e76e39afbba4e678779762201d39ec9b91bd355e0  .claude/skills/orchestrator/references/rationale.md
 2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .claude/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-f747b1f4e237bc74d0430aebe5c679925b8f7bbd7cb38669452778fae9249838  .claude/skills/pipeline/SKILL.md
+8df6b8a7fbff80b877e65f9df9c2ca7708f1cfc3c32fa2fcb0cf0c9b62b1bf21  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -113,7 +113,7 @@ b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .claude/skills
 25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .claude/skills/pipeline/references/frontier.md
 9600d868581fc7680aeba00dc69a61d977f7c76bb5216f630641f5eeecbddb6b  .claude/skills/pipeline/references/master-backlog-delta.md
 b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .claude/skills/pipeline/references/mode-overrides.md
-e20389aee9c776a46ffe9cea52f6575750bd2205582402fc742a7b881e56a9ce  .claude/skills/pipeline/references/output-format.md
+0ef394c167bb307642722fd914b8f48b37c99a26eaf60e8c1a3c4d56a26b58c2  .claude/skills/pipeline/references/output-format.md
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 55a302f7c8159825e4d2e2088a981a8e9ca1ee7f80ea36bd0709b0199866e0af  .claude/skills/pipeline/references/plain-language-tail.md
 8fab2e5fd326caa24b757f8e240178a76650dd0dd7fc9b8593684ec6c5c0d557  .claude/skills/pipeline/references/plan-cache.md
