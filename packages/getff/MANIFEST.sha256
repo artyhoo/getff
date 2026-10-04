@@ -547,7 +547,7 @@ cd59f3e600ad02d4172ae2fd7515f58852e35464f7d010480b64f3af697d7592  packages/core/
 9c8af98af8c18c46310526b0bfafd85ae50c9c201d37870165dec6b265cf2706  packages/core/hooks/session-start.test.ts
 230616f7147bfbf760cb1c9fca1e12b444fcbf481f76dc18c6942ce4e460ebdf  packages/core/hooks/skill-index-on-compact.test.ts
 ff221acb4a2cc5229dc58b1bb49173c235718cecb9cfe9ce67a8559b0ea25cc9  packages/core/hooks/snapshot-for-seat.test.ts
-86f61e316f916f1f22e97137283cd6c359685389f0f06999d5a126423ed12026  packages/core/hooks/spawn-bash-or-skip.test.ts
+d40ba8aedb89747e8568abcc288bea6e5d5959a764de7a6e4bf4eeb80ef6db6c  packages/core/hooks/spawn-bash-or-skip.test.ts
 ab9ca8f69699efcd8f5d00aef6328dbbd9aff8844ad8ca56183ad78da5a31694  packages/core/hooks/spawn-bash-or-skip.ts
 cbf4be6f0d8b7aff4052e4e41996c26332d3ba9ab4e344ccc1fe325432f72974  packages/core/hooks/symlink-or-junction-or-skip.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
