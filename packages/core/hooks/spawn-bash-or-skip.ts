@@ -166,6 +166,9 @@ export function spawnBashOrSkip(
   if (plan.kind === 'skip') {
     debugWinSpawn(plan.note);
     ctx.skip(plan.note);
+    // Unreachable at runtime — vitest ctx.skip() aborts the running test; the throw is
+    // what narrows `plan` to the 'spawn' arm for tsc (ctx.skip is typed `void`).
+    throw new Error('unreachable: ctx.skip aborts the test');
   }
   debugWinSpawn(`win32 resolved ${command} -> ${plan.file}`);
   return spawnSync(plan.file, args as string[], options);

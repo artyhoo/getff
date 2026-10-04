@@ -989,7 +989,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   it.for([
     ['en', /ONE pointer line/, /never a second card/, 'Otherwise — the card in full:'],
     ['ru', /ОДНА строка-указатель/, /а не вторая карточка/, 'Иначе — карточка целиком:'],
-  ] as const,
+  ] as const)(
     '%s: the recap contract carries the R-13 pointer clause',
     ([lang, pointer, notSecondCard, connector], ctx) => {
       const tr = writeTranscript([
@@ -1093,7 +1093,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         ['nothing (12/12 green)'],
         ['waiting on: the CI run, from GitHub'],
         ['do by hand: merge the promote PR into main'],
-      ],
+      ])(
       'accepts the well-formed D-B value %s',
       ([value], ctx) => {
       expect(gateStdout(ctx, block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
@@ -1104,7 +1104,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
         ['nothing ()', 'an empty parenthesis is not a trace'],
         ['ping me when CI is green', 'free prose is not one of the four values'],
-      ],
+      ])(
       'rejects %s (%s)',
       ([value], ctx) => {
       const reason = JSON.parse(gateStdout(ctx, block(value), `db-bad-${value.slice(0, 6)}`))
@@ -3012,6 +3012,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // mtime is never read: a touch changes nothing the sha can see.
     const before = readFileSync(b.baseline, 'utf8');
     // touch-equivalent: create if absent, never truncate (cmd.exe has no touch — #1799)
+    if (!b.residueDir) throw new Error('fixture 3 golden case must provision a residue dir');
     writeFileSync(join(b.residueDir, `_handoff-${c.session}.md`), '', { flag: 'a' });
     nextTurn(b, c, 'f3-turn-3');
     const third = spawnCase(ctx, b);
@@ -3689,7 +3690,7 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
     // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
     spawnBashOrSkip(ctx, 'bash', ['-c', `source "$1"; ${fn}`, '_', resolve(REPO_ROOT, pack)], { encoding: 'utf8' });
 
-  it.for(D1_PACKS, '%s %s: the contract carries lines 1-3 before the seam, line 4 after it', ([lang, pack], ctx) => {
+  it.for(D1_PACKS)( '%s %s: the contract carries lines 1-3 before the seam, line 4 after it', ([lang, pack], ctx) => {
     const r = callPack(ctx, pack, 'aif_msg_eot_recap_contract');
     expect(r.status, r.stderr).toBe(0);
     const p = D1_PHRASES[lang];
@@ -3703,7 +3704,7 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
     expect(r.stdout.indexOf(p.growth)).toBeGreaterThan(seamAt);
   });
 
-  it.for(D1_PACKS, '%s %s: the story spec carries lines 1-3 and no «jargon on the spot»', ([lang, pack], ctx) => {
+  it.for(D1_PACKS)( '%s %s: the story spec carries lines 1-3 and no «jargon on the spot»', ([lang, pack], ctx) => {
     const r = callPack(ctx, pack, 'aif_msg_eot_branch_story');
     expect(r.status, r.stderr).toBe(0);
     for (const phrase of D1_PHRASES[lang].rules) expect(r.stdout, phrase).toContain(phrase);
@@ -3814,7 +3815,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(parsed.reason).toContain(HANDS_TAG);
   });
 
-  it.for([['nothing (CI 12/12 green)'], ['waiting on: the CI run, from GitHub']],
+  it.for([['nothing (CI 12/12 green)'], ['waiting on: the CI run, from GitHub']])(
     'silent for the non-manual value %s',
     ([value], ctx) => {
       if (!JQ) return;
@@ -3841,7 +3842,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['enter the password for the registry'],
     ['pay the invoice'],
     ['run the jq command on .claude/settings.json'],
-  ], 'silent for the decision floor %s', ([value], ctx) => {
+  ])( 'silent for the decision floor %s', ([value], ctx) => {
     if (!JQ) return;
     const r = handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`);
     expect(r.status, r.stderr).toBe(0);
@@ -3921,7 +3922,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     // The floor value spans many lines (one ERE per line): strip the WHOLE quoted assignment.
     ['no floor key', /^AIF_EOT_HANDS_FLOOR='[^']*'$/m, /AIF_EOT_HANDS_FLOOR=/],
     ['no hand-off line key', /^AIF_EOT_HANDS_PREFIX_RE=.*$/m, /AIF_EOT_HANDS_PREFIX_RE=/],
-  ] as const, 'a consumer on an OLDER pack (%s) degrades to silent, rc 0', ([_label, strip, gone], ctx) => {
+  ] as const)( 'a consumer on an OLDER pack (%s) degrades to silent, rc 0', ([_label, strip, gone], ctx) => {
     if (!JQ) return;
     const box = mkdtempSync(join(tmpdir(), 'eot-hands-oldpack-'));
     tmpDirs.push(box);
@@ -3943,7 +3944,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['Ввести Пароль от реестра'],
     ['Вставить Токен доступа в CI'],
     ['Задать Секрет в настройках репо'],
-  ], 'ru floor under LC_ALL=C, capitalised: %s stays silent', ([value], ctx) => {
+  ])( 'ru floor under LC_ALL=C, capitalised: %s stays silent', ([value], ctx) => {
     if (!JQ) return;
     const r = handsRun(ctx, `Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru', env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
@@ -3968,7 +3969,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'выполнить npm login'],
     ['en', 'enter the OTP from the authenticator'],
     ['ru', 'ввести одноразовый код из приложения'],
-  ] as const, 'floor class (%s) %s stays silent', ([lang, value], ctx) => {
+  ] as const)( 'floor class (%s) %s stays silent', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
     const r = handsRun(ctx, pre + value, { lang });
@@ -3981,7 +3982,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['paste the /compact command above'],
     ['restart the session so the new hook loads'],
     ['approve the permission prompt for gh'],
-  ], 'operator-only harness action %s stays silent', ([value], ctx) => {
+  ])( 'operator-only harness action %s stays silent', ([value], ctx) => {
     if (!JQ) return;
     const r = handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`);
     expect(r.status, r.stderr).toBe(0);
@@ -4049,7 +4050,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['update the token budget in the config'],
     ['rename the secret-santa channel'],
     ['update the landing page on the main site'],
-  ], 'real manual step %s fires', ([value], ctx) => {
+  ])( 'real manual step %s fires', ([value], ctx) => {
     if (!JQ) return;
     expect(reasonOf(handsRun(ctx, `Done.\nFrom you: do by hand: ${value}`).stdout)).toContain(HANDS_TAG);
   });
@@ -4060,7 +4061,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['en', 'Done.\n**From you:** do by hand: close the task in the tracker', 'close the task in the tracker'],
     ['ru', 'Готово.\nОт тебя: **сделать руками:** закрыть задачу в aif', 'закрыть задачу в aif'],
     ['en', 'Done.\nFrom you: do by hand:\n\nclose the task in the tracker', 'close the task in the tracker'],
-  ] as const, '(%s) emphasis / case / next-line action still fires: %j', ([lang, text, action], ctx) => {
+  ] as const)( '(%s) emphasis / case / next-line action still fires: %j', ([lang, text, action], ctx) => {
     if (!JQ) return;
     const reason = reasonOf(handsRun(ctx, text, { lang }).stdout);
     expect(reason).toContain(HANDS_TAG);
@@ -4096,7 +4097,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   it.for([
     ['no hand-off line', '', false],
     ['a hand-off line at the end', '\nОт тебя: сделать руками: Закрыть задачу в aif', true],
-  ] as const, 'a ≥20 KB Cyrillic turn under LC_ALL=C /bin/bash finishes in < 5 s (%s)', ([_label, tail, fires], ctx) => {
+  ] as const)( 'a ≥20 KB Cyrillic turn under LC_ALL=C /bin/bash finishes in < 5 s (%s)', ([_label, tail, fires], ctx) => {
     if (!JQ) return;
     const text = bigCyrillic() + tail;
     expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(20 * 1024);
@@ -4126,7 +4127,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'смержить #1900 (это промоут; база — main).'],
     ['en', 'merge #1900; it targets main'],
     ['en', 'merge #1900. Base is main'],
-  ] as const, 'merge-to-main floor (%s) %s stays silent', ([lang, value], ctx) => {
+  ] as const)( 'merge-to-main floor (%s) %s stays silent', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
     const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
@@ -4154,7 +4155,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['npm release', 'en', 'release 0.4.0 to the npm registry'],
     ['fork choice', 'en', 'pick A or B'],
     ['fork choice', 'ru', 'выбрать вариант A или B'],
-  ] as const, 'floor class %s (%s) %s stays silent', ([_cls, lang, value], ctx) => {
+  ] as const)( 'floor class %s (%s) %s stays silent', ([_cls, lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
     const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
@@ -4171,7 +4172,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'Готово.\nFrom you: do by hand: close the aif task', 'close the aif task'],
     ['en', 'Done.\nОт тебя: сделать руками: закрыть задачу', 'закрыть задачу'],
     ['en', 'Done.\nFrom you: close the tracker task manually', 'close the tracker task manually'],
-  ] as const, '(%s pack) fires: %j', ([lang, text, action], ctx) => {
+  ] as const)( '(%s pack) fires: %j', ([lang, text, action], ctx) => {
     if (!JQ) return;
     const r = handsRun(ctx, text, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
@@ -4186,7 +4187,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['en', 'Done.\nFrom you: nothing (checked it manually, CI green)'],
     ['ru', 'Готово.\nОт тебя: ничего (проверил руками)'],
     ['en', 'Done.\nFrom you: decide: do it by hand or automate it'],
-  ] as const, '(%s pack) a hand-off line without a manual form stays silent: %j', ([lang, text], ctx) => {
+  ] as const)( '(%s pack) a hand-off line without a manual form stays silent: %j', ([lang, text], ctx) => {
     if (!JQ) return;
     const r = handsRun(ctx, text, { lang, env: { LC_ALL: 'C', LANG: '' } });
     expect(r.status, r.stderr).toBe(0);
@@ -4197,7 +4198,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   it.for([
     ['an indented (code-block) fence', 'Done.\nFrom you: nothing (CI green)\n\n    ```\nFrom you: do by hand: rerun the flaky job'],
     ['an unclosed fence', 'Done.\nFrom you: nothing (CI green)\n\n```\nFrom you: do by hand: rerun the flaky job'],
-  ], 'a hand-off line after %s still fires', ([_label, text], ctx) => {
+  ])( 'a hand-off line after %s still fires', ([_label, text], ctx) => {
     if (!JQ) return;
     expect(reasonOf(handsRun(ctx, text).stdout)).toContain(HANDS_TAG);
   });
@@ -4216,7 +4217,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['ru', 'поправить опечатку в разделе про оплату'],
     ['ru', 'удалить секретарский шаблон'],
     ['en', 'push the fix branch and open a PR against main'],
-  ] as const, '(%s) real manual step %s fires', ([lang, value], ctx) => {
+  ] as const)( '(%s) real manual step %s fires', ([lang, value], ctx) => {
     if (!JQ) return;
     const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
     const r = handsRun(ctx, pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
