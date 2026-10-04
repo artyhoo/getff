@@ -55,9 +55,13 @@ import {
   mkdirSync,
   rmSync,
   cpSync,
-  symlinkSync,
   chmodSync,
 } from 'node:fs';
+import {
+  symlinkOrJunctionOrSkip,
+  failLoudSkipContext,
+  type Skippable,
+} from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -186,7 +190,15 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
     join(dir, 'packages/core/eslint-rules'),
     { recursive: true },
   );
-  symlinkSync(REAL_NODE_MODULES, join(dir, 'node_modules'));
+  // dir-target link into the real node_modules: a junction expresses it on win32 with no
+  // privilege (the 'dir' hint is ignored on POSIX — byte-identical link). The fail-loud
+  // stub only fires if that junction-arm invariant ever breaks.
+  symlinkOrJunctionOrSkip(
+    failLoudSkipContext('makeConsumerSandbox node_modules'),
+    REAL_NODE_MODULES,
+    join(dir, 'node_modules'),
+    'dir',
+  );
 
   // A realistic modern consumer is ESM — its root package.json declares
   // "type":"module", so tsx loads the .ts hook as ESM (without it tsx defaults the
@@ -306,6 +318,7 @@ function runHook(
  * (otherwise §1 dies first and §2's onMissing wiring is never exercised).
  */
 function runHookStrippedTools(
+  ctx: Skippable,
   dir: string,
   hook: string,
   baseRef: string,
@@ -313,9 +326,10 @@ function runHookStrippedTools(
 ): { status: number; stdout: string; stderr: string } {
   const toolsBin = join(dir, '.tools-bin');
   mkdirSync(toolsBin, { recursive: true });
-  symlinkSync(process.execPath, join(toolsBin, 'node'));
+  // node/git are binary FILES: junctions cannot express them → named win32 skip
+  symlinkOrJunctionOrSkip(ctx, process.execPath, join(toolsBin, 'node'));
   const gitPath = execSync('command -v git').toString().trim();
-  symlinkSync(gitPath, join(toolsBin, 'git'));
+  symlinkOrJunctionOrSkip(ctx, gitPath, join(toolsBin, 'git'));
   for (const tool of presentStubs) {
     const p = join(toolsBin, tool);
     writeFileSync(p, '#!/bin/sh\nexit 0\n');
@@ -517,7 +531,7 @@ describe(
     // unpinned-install regex gate is DISTINCT and stays `owner: both` on its WORKFLOW
     // population (ci-tool-pinning.md §2 pop 1) — see the dedicated pop-1 arms further down.
 
-    it('P0.1b — consumer with NO .github/workflows/ + scanners absent → exit 0 (workflow scanners not composed on a consumer)', () => {
+    it('P0.1b — consumer with NO .github/workflows/ + scanners absent → exit 0 (workflow scanners not composed on a consumer)', (ctx) => {
       const { dir, baseSha, hook } = makeConsumerSandbox();
       // No workflow dir at all (the CI-less consumer). Scanners stripped from PATH.
       addConsumerCommit(
@@ -527,7 +541,7 @@ describe(
         'feat: app',
       );
 
-      const r = runHookStrippedTools(dir, hook, baseSha);
+      const r = runHookStrippedTools(ctx, dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
 
       // actionlint/zizmor are maintainer-owned → not composed on a consumer → never
@@ -537,7 +551,7 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
-    it('P0.1c (F-push) — consumer WITH a pre-existing unpinned workflow + zizmor PRESENT and REJECTING it → push still reaches exit 0 (the scanner is not composed on a consumer)', () => {
+    it('P0.1c (F-push) — consumer WITH a pre-existing unpinned workflow + zizmor PRESENT and REJECTING it → push still reaches exit 0 (the scanner is not composed on a consumer)', (ctx) => {
       const { dir, baseSha, hook } = makeConsumerSandbox();
       // Make the consumer's zizmor/actionlint stubs REJECT (exit 1) — i.e. an installed
       // scanner that WOULD block, mimicking real `unpinned-uses` findings on `@v6`. This
@@ -571,7 +585,7 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
-    it('P0.1c — FRAMEWORK layout (SSOT present) WITH a workflow + scanners absent → fail-closed (nonzero, die not DEGRADE)', () => {
+    it('P0.1c — FRAMEWORK layout (SSOT present) WITH a workflow + scanners absent → fail-closed (nonzero, die not DEGRADE)', (ctx) => {
       const { dir, baseSha, hook } = makeConsumerSandbox();
       // Flip the framework-repo signal: the SSOT register exists → onMissing = 'die'.
       mkdirSync(join(dir, 'docs/meta-factory'), { recursive: true });
@@ -586,7 +600,7 @@ describe(
         'ci: add workflow',
       );
 
-      const r = runHookStrippedTools(dir, hook, baseSha);
+      const r = runHookStrippedTools(ctx, dir, hook, baseSha);
       const out = `${r.stdout}\n${r.stderr}`;
 
       // ci-tool-pinning discipline preserved: on the framework repo a missing workflow
@@ -596,7 +610,7 @@ describe(
       expect(out, out).not.toMatch(/DEGRADED/);
     });
 
-    it('P0.1c — FRAMEWORK layout, actionlint present+passing, zizmor absent → §2 zizmor fail-closed (nonzero, die not DEGRADE)', () => {
+    it('P0.1c — FRAMEWORK layout, actionlint present+passing, zizmor absent → §2 zizmor fail-closed (nonzero, die not DEGRADE)', (ctx) => {
       // Distinct from the arm above: there §1 actionlint dies FIRST, so §2 zizmor's
       // onMissing='die' wiring is never reached. Here actionlint is stubbed present+
       // passing so execution flows past §1 into §2 — proving the zizmor requireTool
@@ -615,7 +629,7 @@ describe(
         'ci: add workflow',
       );
 
-      const r = runHookStrippedTools(dir, hook, baseSha, ['actionlint']);
+      const r = runHookStrippedTools(ctx, dir, hook, baseSha, ['actionlint']);
       const out = `${r.stdout}\n${r.stderr}`;
 
       // §1 actionlint passed (stubbed exit 0); §2 zizmor is absent → die, NOT DEGRADE.
@@ -1343,7 +1357,14 @@ describe(
         join(dir, 'packages/core/eslint-rules'),
         { recursive: true },
       );
-      symlinkSync(REAL_NODE_MODULES, join(dir, 'node_modules'));
+      // dir-target link into the real node_modules: a junction expresses it on win32
+      // with no privilege (the 'dir' hint is ignored on POSIX — byte-identical link).
+      symlinkOrJunctionOrSkip(
+        failLoudSkipContext('S3 smoke node_modules'),
+        REAL_NODE_MODULES,
+        join(dir, 'node_modules'),
+        'dir',
+      );
       writeFileSync(join(dir, 'package.json'), rootPkg({}));
 
       // Consumer-appropriate external tools stubbed exit 0 (hermetic).
@@ -1451,6 +1472,7 @@ describe(
      *  PATH with just node+git (no lane tool, no bash) to exercise the TOOL-ABSENCE axis. `env`
      *  merges extra vars (e.g. GETFF_PREPUSH_CARGO_FIRE=1). */
     function runMaterialSection(
+      ctx: Skippable,
       dir: string,
       hook: string,
       { strip, env = {} }: { strip: boolean; env?: Record<string, string> },
@@ -1459,8 +1481,10 @@ describe(
       if (strip) {
         const only = join(dir, '.only-bin');
         mkdirSync(only, { recursive: true });
-        symlinkSync(process.execPath, join(only, 'node'));
-        symlinkSync(
+        // node/git are binary FILES: junctions cannot express them → named win32 skip
+        symlinkOrJunctionOrSkip(ctx, process.execPath, join(only, 'node'));
+        symlinkOrJunctionOrSkip(
+          ctx,
           execSync('command -v git').toString().trim(),
           join(only, 'git'),
         );
@@ -1557,7 +1581,7 @@ describe(
       spawnSync('ast-grep', ['--version']).status === 0 ||
       spawnSync('sg', ['scan', '--help']).status === 0;
 
-    it('S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)', () => {
+    it('S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       // Sound material (would fire if ast-grep were present); the point is the tool is absent.
       seedRuleTestsFixture(
@@ -1566,7 +1590,7 @@ describe(
         ['import yaml\ndata = yaml.safe_load(raw)\n'],
       );
 
-      const r = runMaterialSection(dir, hook, { strip: true });
+      const r = runMaterialSection(ctx, dir, hook, { strip: true });
       const out = `${r.stdout}\n${r.stderr}`;
 
       // Loud DEGRADE, never silent: the honesty wording family + "NOT green".
@@ -1578,7 +1602,7 @@ describe(
 
     it.skipIf(!hasAstGrep)(
       'S5 NEGATIVE — astgrep sidecar with BROKEN material (a bad[] sample that does not fire) + tool PRESENT → exit 1 RED',
-      () => {
+      (ctx) => {
         const { dir, hook } = makeConsumerSandbox();
         // BROKEN: the bad[] sample is actually clean Python (safe_load) — the rule is blind to it,
         // so the standing arm MUST reject it. good[] stays conforming.
@@ -1588,7 +1612,7 @@ describe(
           ['import yaml\ndata = yaml.safe_load(raw)\n'],
         );
 
-        const r = runMaterialSection(dir, hook, { strip: false });
+        const r = runMaterialSection(ctx, dir, hook, { strip: false });
         const out = `${r.stdout}\n${r.stderr}`;
 
         expect(r.status, out).toBe(1);
@@ -1600,7 +1624,7 @@ describe(
 
     it.skipIf(!hasAstGrep)(
       'S5 NEGATIVE-guard GREEN — same layout with SOUND material + tool present → exit 0 (the arm is not always-red)',
-      () => {
+      (ctx) => {
         const { dir, hook } = makeConsumerSandbox();
         seedRuleTestsFixture(
           dir,
@@ -1608,7 +1632,7 @@ describe(
           ['import yaml\ndata = yaml.safe_load(raw)\n'],
         );
 
-        const r = runMaterialSection(dir, hook, { strip: false });
+        const r = runMaterialSection(ctx, dir, hook, { strip: false });
         const out = `${r.stdout}\n${r.stderr}`;
 
         expect(out, out).toMatch(/bad sample fired RED/);
@@ -1620,7 +1644,7 @@ describe(
     // Runs UNGUARDED (strip:true, no lane tool) — the JSON validity check must fire before, and
     // independent of, tool presence. Without the up-front guard the runner reads zero samples
     // from the unparseable file and the push sails through green.
-    it('S5 BLOCKER — corrupt sidecar JSON → exit 1 RED (no lane tool needed)', () => {
+    it('S5 BLOCKER — corrupt sidecar JSON → exit 1 RED (no lane tool needed)', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       seedRuleTestsFixture(
         dir,
@@ -1633,7 +1657,7 @@ describe(
         '{ this is : not valid json ]\n',
       );
 
-      const r = runMaterialSection(dir, hook, { strip: true });
+      const r = runMaterialSection(ctx, dir, hook, { strip: true });
       const out = `${r.stdout}\n${r.stderr}`;
 
       expect(r.status, out).toBe(1);
@@ -1644,7 +1668,7 @@ describe(
     // BLOCKER (whole-work): SHAPE, not just parse. A field typo (`badd`) or an empty `bad[]` is
     // valid JSON but yields zero samples → the runner would end green. The up-front shape probe
     // (mirror of the S2 loader) must RED both, UNGUARDED (no lane tool).
-    it("S5 BLOCKER-shape (a) — typo'd key `badd` → exit 1 RED (no lane tool needed)", () => {
+    it("S5 BLOCKER-shape (a) — typo'd key `badd` → exit 1 RED (no lane tool needed)", (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       seedRuleTestsFixture(dir, ['x'], ['y']);
       writeFileSync(
@@ -1657,14 +1681,14 @@ describe(
         }),
       );
 
-      const r = runMaterialSection(dir, hook, { strip: true });
+      const r = runMaterialSection(ctx, dir, hook, { strip: true });
       const out = `${r.stdout}\n${r.stderr}`;
 
       expect(r.status, out).toBe(1);
       expect(out, out).toMatch(/unexpected key "badd"/);
     });
 
-    it('S5 BLOCKER-shape (b) — empty `bad[]` → exit 1 RED (no lane tool needed)', () => {
+    it('S5 BLOCKER-shape (b) — empty `bad[]` → exit 1 RED (no lane tool needed)', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       seedRuleTestsFixture(dir, ['x'], ['y']);
       writeFileSync(
@@ -1677,7 +1701,7 @@ describe(
         }),
       );
 
-      const r = runMaterialSection(dir, hook, { strip: true });
+      const r = runMaterialSection(ctx, dir, hook, { strip: true });
       const out = `${r.stdout}\n${r.stderr}`;
 
       expect(r.status, out).toBe(1);
@@ -1689,7 +1713,7 @@ describe(
     // ── FIX-2: ruff lane coverage (paired-negative, end-to-end through _fire_ruff) ──
     it.skipIf(!hasRuff)(
       'S5 ruff GREEN — TID251-keyed sidecar, bad[] fires + good[] clean → exit 0',
-      () => {
+      (ctx) => {
         const { dir, hook } = makeConsumerSandbox();
         seedRuffFixture(
           dir,
@@ -1697,7 +1721,7 @@ describe(
           ['import httpx\nx = httpx.get(1)\n'],
         );
 
-        const r = runMaterialSection(dir, hook, { strip: false });
+        const r = runMaterialSection(ctx, dir, hook, { strip: false });
         const out = `${r.stdout}\n${r.stderr}`;
 
         expect(out, out).toMatch(/\[ruff TID251\] bad sample fired RED/);
@@ -1708,7 +1732,7 @@ describe(
 
     it.skipIf(!hasRuff)(
       'S5 ruff NEGATIVE — broken bad[] (does not violate the ban) → exit 1 RED',
-      () => {
+      (ctx) => {
         const { dir, hook } = makeConsumerSandbox();
         // bad[] imports httpx (not the banned `requests`) → the rule is blind to it → broken.
         seedRuffFixture(
@@ -1717,7 +1741,7 @@ describe(
           ['import httpx\nx = httpx.get(1)\n'],
         );
 
-        const r = runMaterialSection(dir, hook, { strip: false });
+        const r = runMaterialSection(ctx, dir, hook, { strip: false });
         const out = `${r.stdout}\n${r.stderr}`;
 
         expect(r.status, out).toBe(1);
@@ -1728,11 +1752,11 @@ describe(
     );
 
     // ── FIX-2: cargo toggle logic (no cargo / no compile needed) ──
-    it('S5 cargo — toggle unset → loud opt-in skip + exit 0', () => {
+    it('S5 cargo — toggle unset → loud opt-in skip + exit 0', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       seedCargoFixture(dir);
 
-      const r = runMaterialSection(dir, hook, { strip: true });
+      const r = runMaterialSection(ctx, dir, hook, { strip: true });
       const out = `${r.stdout}\n${r.stderr}`;
 
       // Shared substring with the runner (FIX-4 unify) — drift breaks this assert.
@@ -1740,11 +1764,11 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
-    it('S5 cargo — GETFF_PREPUSH_CARGO_FIRE=1 + cargo absent → DEGRADED loud skip + exit 0', () => {
+    it('S5 cargo — GETFF_PREPUSH_CARGO_FIRE=1 + cargo absent → DEGRADED loud skip + exit 0', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       seedCargoFixture(dir);
 
-      const r = runMaterialSection(dir, hook, {
+      const r = runMaterialSection(ctx, dir, hook, {
         strip: true,
         env: { GETFF_PREPUSH_CARGO_FIRE: '1' },
       });
@@ -1791,7 +1815,7 @@ describe(
     // run-armed exits 2 on its OWN precondition (no readable project-checks record) as well as passing the
     // runner's exit 2 through. The skip line must not name the runner as the cause: it names the exit code,
     // and the check's own stderr (which does name the cause) follows it.
-    it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', () => {
+    it('S5 mutation exit 2 from run-armed — loud skip names the exit, not the runner, and prints the real cause', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
       writeFileSync(
@@ -1805,7 +1829,7 @@ describe(
         '#!/bin/sh\necho "run-armed: no readable project-checks record - re-run the getff install to write it" >&2\nexit 2\n',
       );
 
-      const r = runMaterialSection(dir, hook, { strip: false });
+      const r = runMaterialSection(ctx, dir, hook, { strip: false });
       const out = `${r.stdout}\n${r.stderr}`;
 
       expect(out, out).toMatch(/DEGRADED: generated-rule mutation check exited 2/);
@@ -1818,7 +1842,7 @@ describe(
     // DEGRADED line — a warning nobody must read. run-armed skips a not-armed check at once, so a consumer
     // run that reaches the budget is a check that ran: it blocks like any other red, and the section's
     // budget is its own (PREPUSH_MUTATION_TIMEOUT_MS here, so the test does not wait minutes).
-    it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', () => {
+    it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', (ctx) => {
       const { dir, hook } = makeConsumerSandbox();
       mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
       writeFileSync(
@@ -1829,7 +1853,7 @@ describe(
       writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
       writeFileSync(join(dir, 'scripts/run-armed.sh'), '#!/bin/sh\nsleep 4\nexit 0\n');
 
-      const r = runMaterialSection(dir, hook, {
+      const r = runMaterialSection(ctx, dir, hook, {
         strip: false,
         env: { PREPUSH_MUTATION_TIMEOUT_MS: '1000' },
       });

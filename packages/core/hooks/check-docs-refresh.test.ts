@@ -3,7 +3,7 @@
  * contract (getff-ai-site S1 BUILD). NOT pre-push.test.ts (R13: the seam is the script, not
  * the hook section; the hook section only resolves the range and delegates).
  *
- * Reference pattern: packages/core/hooks/check-doc-authority.test.ts:8,133
+ * Reference pattern: packages/core/hooks/check-doc-authority.test.ts:8,137
  * (vitest + spawnSync + mkdtempSync sandbox + delta-based tree-guard).
  *
  * The D26 refresh gate (docs/superpowers/specs/2026-09-13-getff-ai-site-design.md D26,

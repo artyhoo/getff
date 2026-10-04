@@ -394,17 +394,19 @@ console.log(JSON.stringify({
 // auto-dispatch the kickoff opted into (aif-parity F1 criterion (a); channel
 // verified 2026-07-24 — research-patches/2026-07-24-posttooluse-channel-verification.md).
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync, writeFileSync as _writeFileSync, mkdirSync as _mkdirSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync, writeFileSync as _writeFileSync, mkdirSync as _mkdirSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip fires only for auto-marked bridge kickoffs', () => {
-  function runNoJq(filePath: string): { status: number; stdout: string } {
+  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
       const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
@@ -424,8 +426,8 @@ describe('dependency-missing skip fires only for auto-marked bridge kickoffs', (
     return abs;
   }
 
-  it('jq missing + auto-marked kickoff → JSON notice that the dispatch DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq(kickoffWith('<!-- bridge: auto -->'));
+  it('jq missing + auto-marked kickoff → JSON notice that the dispatch DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, kickoffWith('<!-- bridge: auto -->'));
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -435,14 +437,14 @@ describe('dependency-missing skip fires only for auto-marked bridge kickoffs', (
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/dispatch manually/i);
   });
 
-  it('jq missing + kickoff WITHOUT the auto marker → silent exit 0 (injection stays quiet)', () => {
-    const { status, stdout } = runNoJq(kickoffWith('# plain kickoff, no bridge marker'));
+  it('jq missing + kickoff WITHOUT the auto marker → silent exit 0 (injection stays quiet)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, kickoffWith('# plain kickoff, no bridge marker'));
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
 
-  it('jq missing + non-kickoff path → silent exit 0', () => {
-    const { status, stdout } = runNoJq('/x/src/app.ts');
+  it('jq missing + non-kickoff path → silent exit 0', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/src/app.ts');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
@@ -514,12 +516,13 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
     expect((r.stderr ?? '').trim()).toBe('');
   });
 
-  it('E-4: the jq/node-miss hint names the consumer path, not only the framework one', () => {
+  it('E-4: the jq/node-miss hint names the consumer path, not only the framework one', (sk) => {
     const { root, abs } = consumerKickoff('<!-- bridge: auto -->');
     const binDir = _mkdtempSync(_join(_tmpdir(), 'rbd-nodeps-'));
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
       const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(sk, real, _join(binDir, tool));
     }
     const r = run(root, abs, binDir);
     expect(r.status).toBe(0);

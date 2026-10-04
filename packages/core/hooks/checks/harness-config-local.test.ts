@@ -24,10 +24,10 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from '../symlink-or-junction-or-skip.ts';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -155,11 +155,13 @@ describe('harness-config-local — the renderer-would-skip states (cold-review M
     expect(calls).toEqual([]);
   });
 
-  it('N3b: a dangling .zcode/skills link without config.json is still partial', () => {
+  it('N3b: a dangling .zcode/skills link without config.json is still partial', (ctx) => {
     const s = rendered();
     rmSync(join(s, '.zcode/config.json'));
     unlinkSync(join(s, '.zcode/skills'));
-    symlinkSync('../no-such-dir', join(s, '.zcode/skills'));
+    // dangling RELATIVE link: a junction would rewrite it to an absolute target, changing
+    // the fixture → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, '../no-such-dir', join(s, '.zcode/skills'));
 
     expect(checkLocalHarnessConfig(s, realRunner).kind).toBe('partial');
   });

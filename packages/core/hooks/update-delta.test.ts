@@ -33,7 +33,6 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   mkdirSync,
-  symlinkSync,
   lstatSync,
   writeFileSync,
   readFileSync,
@@ -41,6 +40,7 @@ import {
   existsSync,
   readdirSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -87,7 +87,7 @@ function runHelper(
 }
 
 describe('update-delta.sh — master-backlog-delta writer (paired-negative contract)', () => {
-  it('SYMLINK-AWARE: delta symlinked into CANON survives metadata update — share preserved (would FAIL on plain mv)', () => {
+  it('SYMLINK-AWARE: delta symlinked into CANON survives metadata update — share preserved (would FAIL on plain mv)', (ctx) => {
     const sandbox = makeSandbox();
     const canonDir = join(sandbox, 'canon');
     const wtDir = join(sandbox, 'wt');
@@ -96,7 +96,8 @@ describe('update-delta.sh — master-backlog-delta writer (paired-negative contr
     const canonDelta = join(canonDir, '_master-backlog-delta.json');
     runHelper(canonDelta, ['seed', 'seed']); // fresh template into canon
     const wtDelta = join(wtDir, '_master-backlog-delta.json');
-    symlinkSync(canonDelta, wtDelta);
+    // file target: junctions cannot express it → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, canonDelta, wtDelta);
 
     const r = runHelper(wtDelta, ['umbrella-x', 'outcome-y']);
     expect(r.status).toBe(0);

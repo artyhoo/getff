@@ -35,9 +35,9 @@ import {
   readlinkSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -177,9 +177,16 @@ describe('worktree-node-modules.sh — provisioning SSOT', { timeout: SLOW_SHELL
     expect(existsSync(resolve(wt, 'node_modules/some-package/index.js'))).toBe(true);
   });
 
-  it('re-points a DANGLING symlink (not provisioned, but safe to replace)', () => {
+  it('re-points a DANGLING symlink (not provisioned, but safe to replace)', (ctx) => {
     seed();
-    symlinkSync(resolve(primary, 'gone-away'), resolve(wt, 'node_modules'));
+    // dangling but dir-shaped and absolute: the 'dir' hint takes the junction arm on
+    // win32 (junctions may dangle); POSIX ignores the type (byte-identical link)
+    symlinkOrJunctionOrSkip(
+      ctx,
+      resolve(primary, 'gone-away'),
+      resolve(wt, 'node_modules'),
+      'dir',
+    );
     expect(run('--check')).toBe(1);
     expect(run('--apply')).toBe(0);
     expect(readlinkSync(resolve(wt, 'node_modules'))).toBe(resolve(primary, 'node_modules'));
@@ -314,11 +321,15 @@ describe('worktree-node-modules.sh — nested workspace layers', { timeout: SLOW
     expect(run('--check')).toBe(0);
   });
 
-  it('NEGATIVE: a root link to anything but the primary root layer gets no nested layer either', () => {
+  it('NEGATIVE: a root link to anything but the primary root layer gets no nested layer either', (ctx) => {
     seed({ dirs: [SPA], workspaces: ['packages/*'] });
     installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
     mkdirSync(resolve(primary, 'elsewhere/node_modules/x'), { recursive: true });
-    symlinkSync(resolve(primary, 'elsewhere/node_modules'), resolve(wt, 'node_modules'));
+    symlinkOrJunctionOrSkip(
+      ctx,
+      resolve(primary, 'elsewhere/node_modules'),
+      resolve(wt, 'node_modules'),
+    );
 
     expect(run('--apply')).toBe(0);
 
@@ -485,10 +496,14 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     expect(existsSync(resolve(primary, 'node_modules/dep'))).toBe(false);
   });
 
-  it('DIVERGED (the incident): an already-linked worktree whose lock moved is unlinked, then installed', () => {
+  it('DIVERGED (the incident): an already-linked worktree whose lock moved is unlinked, then installed', (ctx) => {
     seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
-    symlinkSync(resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
-    symlinkSync(resolve(primary, 'packages/core/node_modules'), resolve(wt, 'packages/core/node_modules'));
+    symlinkOrJunctionOrSkip(ctx, resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
+    symlinkOrJunctionOrSkip(
+      ctx,
+      resolve(primary, 'packages/core/node_modules'),
+      resolve(wt, 'packages/core/node_modules'),
+    );
 
     expect(runNpm('--check').status).toBe(3);
     expect(runNpm('--apply').status).toBe(0);
@@ -499,15 +514,19 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     expect(existsSync(resolve(primary, 'packages/core/node_modules/.keep'))).toBe(true);
   });
 
-  it('DIVERGED with a NESTED workspace link: every node_modules link is dropped before npm runs', () => {
+  it('DIVERGED with a NESTED workspace link: every node_modules link is dropped before npm runs', (ctx) => {
     // The nested-layer links (packages/<ws>/node_modules -> the primary's) are delivery links
     // too; npm reifying through one would write into the shared clone's workspace layer.
     seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
     const WS = 'packages/preset-react-spa';
     mkdirSync(resolve(primary, WS, 'node_modules/eslint-plugin-jsx-a11y'), { recursive: true });
     mkdirSync(resolve(wt, WS), { recursive: true });
-    symlinkSync(resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
-    symlinkSync(resolve(primary, WS, 'node_modules'), resolve(wt, WS, 'node_modules'));
+    symlinkOrJunctionOrSkip(ctx, resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
+    symlinkOrJunctionOrSkip(
+      ctx,
+      resolve(primary, WS, 'node_modules'),
+      resolve(wt, WS, 'node_modules'),
+    );
     rmSync(stubDir, { recursive: true, force: true });
     writeStub(`[ -L ${WS}/node_modules ] && echo NESTED_LINK >> "${'$'}(dirname "$0")/npm.log"; mkdir -p ${WS}/node_modules/written`);
 
@@ -609,9 +628,9 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     expect(runNpm('--check').status).toBe(3);
   });
 
-  it('--check on a diverged, linked worktree never writes', () => {
+  it('--check on a diverged, linked worktree never writes', (ctx) => {
     seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
-    symlinkSync(resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
+    symlinkOrJunctionOrSkip(ctx, resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
     expect(runNpm('--check').status).toBe(3);
     expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(true);
     expect(npmCalls()).toEqual([]);
