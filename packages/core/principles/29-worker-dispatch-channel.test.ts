@@ -32,7 +32,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   lineIsViolation,
@@ -454,6 +454,108 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
       ).toHaveLength(0);
     },
   );
+
+  /**
+   * Kickoff-s5 §9 makes the pre-narrowing RED flip list «checkable, and check it» at
+   * review time — but the S5 PR body does not exist until egress (review_gate
+   * 44efbc21bc61: the fixture cannot just claim «preserved in the PR body»). The
+   * committed `preNarrowingRedRun` record in the fixture is the review-time carrier;
+   * this arm is its mechanical check: the flip list is re-derived from the TWO PINNED
+   * COMMITS (`git show <sha>:fixture`) and must reproduce the recorded flips exactly —
+   * non-empty (a green first run of the narrowing is the failure, §9), each entry
+   * carrying a non-empty per-entry verdict, every recorded direction consistent with
+   * what the two pinned vectors actually say. Both endpoints are immutable history, so
+   * the arm cannot false-RED on any future legitimate adjudication; it fails only when
+   * the record and the history disagree.
+   */
+  it('pre-narrowing RED run record is re-derivable from the pinned commits', () => {
+    const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as {
+      preNarrowingRedRun?: {
+        preNarrowingSnapshotCommit: string;
+        postAdjudicationCommit: string;
+        flips: {
+          file: string;
+          snapshotLines: number[];
+          flip: string;
+          verdict: string;
+        }[];
+      };
+    };
+    const record = snap.preNarrowingRedRun;
+    if (!record) {
+      throw new Error(
+        '29 corpus fixture lost its `preNarrowingRedRun` record — the pre-narrowing RED ' +
+          'flip list with per-entry verdicts must stay COMMITTED (kickoff-s5 §9, ' +
+          'review_gate 44efbc21bc61); restore it from this file’s history, never re-derive ' +
+          'it from the live tree',
+      );
+    }
+
+    // Throw-on-failure discipline (same class as trackedBroadCorpus): an unreachable
+    // pinned commit must fail LOUDLY, never masquerade as a passing check. Needs full
+    // history — the audit-self vitest job already checks out fetch-depth: 0 (principle
+    // 11 precedent for git history in this suite).
+    const vectorAt = (sha: string): Record<string, number[]> => {
+      let out: string;
+      try {
+        out = execFileSync(
+          'git',
+          ['show', `${sha}:${relative(REPO_ROOT, SNAPSHOT_PATH)}`],
+          { cwd: REPO_ROOT, encoding: 'utf8' },
+        );
+      } catch (err) {
+        throw new Error(
+          `29 pre-narrowing RED record: \`git show ${sha}\` FAILED — pinned commit ` +
+            `unreachable from this checkout (shallow clone? fetch-depth: 0 required). ` +
+            `Refusing to silently skip the kickoff-s5 §9 check. Underlying error: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      return (JSON.parse(out).vector ?? {}) as Record<string, number[]>;
+    };
+
+    const pre = vectorAt(record.preNarrowingSnapshotCommit);
+    const post = vectorAt(record.postAdjudicationCommit);
+
+    expect(
+      record.flips.length,
+      'recorded flip list is EMPTY — the pre-narrowing RED run must have produced at ' +
+        'least one flip (kickoff-s5 §9: «a green first run of the new arm is the ' +
+        'failure, not the pass»)',
+    ).toBeGreaterThan(0);
+
+    // Reconstruct the post-adjudication vector from pre + the recorded flips, checking
+    // each record entry against the pinned pre-vector as we go (direction + lines).
+    const recordedPost: Record<string, number[]> = { ...pre };
+    for (const f of record.flips) {
+      if (typeof f.verdict !== 'string' || f.verdict.trim().length === 0) {
+        throw new Error(
+          `flip ${f.file} carries no per-entry verdict — kickoff-s5 §9 requires every ` +
+            `flip entry adjudicated`,
+        );
+      }
+      if (f.flip === 'FIRE→PASS') {
+        expect(
+          pre[f.file],
+          `recorded FIRE→PASS for ${f.file}, but the pinned pre-narrowing snapshot has ` +
+            `no firing for it (recorded lines: [${f.snapshotLines.join(', ')}])`,
+        ).toEqual(f.snapshotLines);
+        delete recordedPost[f.file];
+      } else if (f.flip === 'PASS→FIRE') {
+        expect(pre[f.file]).toBeUndefined();
+        recordedPost[f.file] = f.snapshotLines;
+      } else {
+        throw new Error(`unknown flip direction in the record: ${f.flip}`);
+      }
+    }
+
+    expect(
+      recordedPost,
+      'recorded flips do not reproduce the pinned post-adjudication vector — the ' +
+        'committed record and the two pinned commits disagree:\n' +
+        diffVectors(post, recordedPost).join('\n'),
+    ).toEqual(post);
+  });
 
   it('comparator discriminates (paired-negative for the snapshot arm itself)', () => {
     expect(diffVectors({ 'a.md': [1] }, { 'a.md': [1] })).toHaveLength(0);

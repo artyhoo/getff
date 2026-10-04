@@ -1,9 +1,24 @@
 {
-  "description": "Verdict vector of principle 29's matcher (lineIsViolation) over the tracked BROAD kickoff corpus — .claude/orchestrator-prompts/**/kickoff*.md, basename ^kickoff.*\\.md$, any depth (430 files at capture, vs the 352 the narrow */kickoff.md sweep reaches). Captured with the D6-NARROWED matcher (plain-words-recap-v2 S5 commit B) — the narrowed predicate fires on kickoffs that PRESCRIBE auto-launch of a stage's execution; reading/review tasks and third-person teaching prose pass. Every later flip is a red test whose fix is a reviewed diff of this file — never a silent pass, never a PR-body listing. Values are 1-based violating line numbers per file; files with zero violations are absent. Flip record vs the pre-narrowing snapshot (committed 814bed03a, vector {kickoff-s5.md:[205]}): exactly ONE flip — kickoff-s5.md:205 FIRE→PASS, adjudicated FALSE POSITIVE of the pre-narrowing spelling (third-person teaching prose stating the gate's own contract in that kickoff's §5, not a directive to any executing agent; the imperative write-worker prescription class still fires per the paired-positive suite). The pre-narrowing RED run with this flip list is preserved in the S5 PR body.",
+  "description": "Verdict vector of principle 29's matcher (lineIsViolation) over the tracked BROAD kickoff corpus — .claude/orchestrator-prompts/**/kickoff*.md, basename ^kickoff.*\\.md$, any depth (430 files at capture, vs the 352 the narrow */kickoff.md sweep reaches). Captured with the D6-NARROWED matcher (plain-words-recap-v2 S5 commit B) — the narrowed predicate fires on kickoffs that PRESCRIBE auto-launch of a stage's execution; reading/review tasks and third-person teaching prose pass. Every later flip is a red test whose fix is a reviewed diff of this file — never a silent pass, never a PR-body listing. Values are 1-based violating line numbers per file; files with zero violations are absent. Flip record vs the pre-narrowing snapshot (committed 814bed03a, vector {kickoff-s5.md:[205]}): exactly ONE flip — kickoff-s5.md:205 FIRE→PASS, adjudicated FALSE POSITIVE of the pre-narrowing spelling (third-person teaching prose stating the gate's own contract in that kickoff's §5, not a directive to any executing agent; the imperative write-worker prescription class still fires per the paired-positive suite). The pre-narrowing RED run's flip list — every entry with its per-entry verdict — ships COMMITTED in the preNarrowingRedRun block below, so the kickoff-s5 §9 check («checkable, and check it») is runnable at review time, BEFORE the PR exists: the `pre-narrowing RED run record is re-derivable` arm in 29-worker-dispatch-channel.test.ts re-derives the flip list mechanically from the two pinned commits; the S5 PR body «Kickoff §9 falsifiers» §2 reproduces it verbatim at egress.",
   "captured": "2026-10-04",
   "capturedAtCommit": "post-narrowing (S5 commit B; pre-narrowing capture at f6170940fb3dc3c0d0269a26656a7ece0ff2812c)",
   "glob": ".claude/orchestrator-prompts/**/kickoff*.md (tracked only)",
   "corpusSize": 430,
   "regenerate": "SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts",
+  "preNarrowingRedRun": {
+    "preNarrowingSnapshotCommit": "814bed03a200da03fee2d187bb879547c2a32afd",
+    "postAdjudicationCommit": "906e08c4d3b6a2792cbc630c109938eb8f87bff1",
+    "corpusSize": 430,
+    "flips": [
+      {
+        "file": ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md",
+        "snapshotLines": [205],
+        "flip": "FIRE→PASS",
+        "verdict": "false positive — kickoff-s5.md:205 is that kickoff's own §5 teaching text stating the gate's contract in third person («…a kickoff prescribing Agent-tool dispatch of a WRITE worker without the words…»), not a directive to any executing agent; the pre-narrowing spelling lacked a prescription clause. The imperative write-prescription class still fires — proven by the §8 paired positive.",
+        "adjudicatedInCommit": "906e08c4d3b6a2792cbc630c109938eb8f87bff1"
+      }
+    ],
+    "carriedIn": "this committed block (review-time checkable pre-PR — review_gate 44efbc21bc61) + the S5 PR body «Kickoff §9 falsifiers» §2 at egress; mechanically re-derived from the two pinned commits by the re-derivation arm in 29-worker-dispatch-channel.test.ts"
+  },
   "vector": {}
 }
