@@ -11,11 +11,19 @@
  *
  * @dual-pair: channel-discipline-worker-dispatch
  *
- * Rule enforced (.claude/skills/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`):
- * a WRITE-task Worker must NOT be dispatched via the Agent tool / a subagent from
- * the meta-orchestrator session. The Agent tool is ONLY for Phase -1 read-only
- * reviewers + read-only research subagents (text return). Write-task Workers run as
- * a fresh maintainer-opened session (a pasted §10 1-liner) or via dispatch.ts.
+ * Rule enforced (.claude/skills/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`;
+ * class boundary owned by .claude/rules/parallel-subwave-isolation.md §D6 tenets + protections):
+ * a kickoff must not PRESCRIBE auto-launch of a stage's EXECUTION. Imperative write-worker
+ * dispatch prescriptions fire; reading/review-task dispatch passes (tenet 1); a session
+ * executing the stage the operator dispatched to it is out of scope entirely (protection (a)
+ * bullet 3 — the ban is on ORIGINATING the launch, never on executing an assigned one).
+ * NARROWED 2026-10-04 (plain-words-recap-v2 S5, kickoff §5(d)) from the pre-narrowing
+ * «any Agent-tool write-Worker dispatch mention fires» spelling: the pre-narrowing matcher
+ * fired on this repo's own teaching corpus (kickoff-s5.md:205, a third-person spec statement),
+ * the exact false-positive class the narrowing removes. Same tuning discipline as the
+ * original 8-false-positive clause (c) drop below: measured over the tracked 430-file broad
+ * corpus — exactly ONE firing line pre-narrowing, ZERO post-narrowing, the single flip
+ * adjudicated as teaching text in the S5 PR.
  *
  * Spec: docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md
  *       §0/§3/§4 (M6 design, candidate matrix, regex sketch, escape-token).
@@ -71,17 +79,71 @@ export const ESCAPE_TOKEN = 'channel-discipline: allow';
 export const ESCAPE_TOKEN_RE = /<!--\s*channel-discipline:\s*allow/;
 
 /**
+ * Clause (e) — the line PRESCRIBES the launch (D6 narrowing, 2026-10-04). A mention of the
+ * Agent-tool write-dispatch channel is not a prescription; the gate fires on the DIRECTIVE.
+ * Three signal families, kept line-anchored so third-person spec/teaching prose
+ * («a kickoff prescribing Agent-tool dispatch of a WRITE worker…») stays silent:
+ *
+ *   P1 — line-initial imperative dispatch verb (bullet / blockquote / numbered-list prefixes
+ *        tolerated — kickoffs prescribe in bullets). Deliberately EXCLUDES `run`/`start`,
+ *        which are too common as line-initial words to stay precise alone; those two are
+ *        covered by the object-anchored P1b instead.
+ *   P1b — line-initial `run`/`start` anchored to a dispatch object (worker/subagent/stage/
+ *        implement…), so «Run the tests» never fires while «Run the Worker via the Agent
+ *        tool» does.
+ *   P2 — modal + dispatch verb («must dispatch», «should spawn», «needs to run»…).
+ *   P3/P3f — passive prescriptions: present «is/are dispatched», future «will be
+ *        dispatched/run/executed» — a kickoff's plan statements ARE directives to the
+ *        executor. Past forms («was/were/has been dispatched») are deliberately NOT
+ *        covered: history notes stay silent.
+ *   P4 — agent-subject declarative («we dispatch», «the orchestrator spawns»…).
+ *
+ * Tuning measurement (same discipline as clause (a)'s 8-FP drop): over the tracked
+ * 430-file broad corpus the pre-narrowing matcher fired on exactly one line
+ * (kickoff-s5.md:205, teaching) and the clause-(e) conjunction on zero — the single flip
+ * (FIRE→PASS) adjudicated as a false positive of the old spelling, not a missed violation,
+ * in the S5 PR. The adversarial counter-prompt on the narrowing (T7, same stage) found the
+ * first clause set let passive/declarative prescriptions through («The Worker is dispatched
+ * via the Agent tool») — P3/P3f/P4 close that hole, re-measured corpus-clean, with the
+ * past-tense history shapes still passing. The paired positives in
+ * 29-worker-dispatch-channel.test.ts prove the imperative write-worker prescription class
+ * (with or without the words «umbrella stage») still fires.
+ */
+export const PRESCRIPTION_RE = new RegExp(
+  [
+    // P1 — line-initial imperative dispatch verb (bullet/quote/number prefixes tolerated)
+    String.raw`^\s*(?:>+\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:dispatch|spawn|launch|execute|send|delegate)\b`,
+    // P1b — line-initial run/start anchored to a dispatch object
+    String.raw`^\s*(?:>+\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:run|start)\s+(?:the\s+|a\s+|your\s+)?\w*(?:worker|subagent|dispatch|stage|implement)`,
+    // P2 — modal + dispatch verb
+    String.raw`\b(?:must|shall|should|needs?\s+to|has\s+to|is\s+to|are\s+to)\s+(?:\w+\s+){0,2}?(?:dispatch|spawn|launch|execute|run|start|be\s+dispatched|be\s+run|be\s+launched|be\s+spawned)\b`,
+    // P3 — present-passive prescription («the Worker is dispatched via the Agent tool»)
+    String.raw`\b(?:is|are)\s+(?:being\s+|then\s+|now\s+)?dispatched\b`,
+    // P3f — future-passive prescription («will be dispatched/run/executed»)
+    String.raw`\bwill\s+be\s+(?:dispatched|spawned|launched|run|executed)\b`,
+    // P4 — agent-subject declarative prescription
+    String.raw`\b(?:we|the\s+(?:orchestrator|session|agent|meta-orchestrator))\s+(?:dispatch(?:es)?|spawn(?:s)?|launch(?:es)?|execute(?:s)?|run(?:s)?)\b`,
+  ].join('|'),
+  'i',
+);
+
+/**
  * The single matcher. A line is a violation iff it
  *   (a) names the Agent-tool write-dispatch channel, AND
  *   (b) targets a write Worker, AND
+ *   (e) PRESCRIBES the launch (imperative/modal directive — clause (e) above), AND
  *   (c) is NOT excluded by read-only / legitimate-channel context, AND
  *   (d) does NOT carry the escape token.
- * Per-line by construction — the spec §4 hand-trace and clause (c)/(d) are per-line.
+ * Per-line by construction — the spec §4 hand-trace and clause (c)/(d)/(e) are per-line.
+ * Clause (e) added by the 2026-10-04 D6 narrowing (plain-words-recap-v2 S5); removing it
+ * re-widens the gate to mere mentions and re-fires on teaching text (clause-(e)-is-
+ * load-bearing arm in the paired suite).
  */
 export function lineIsViolation(line: string): boolean {
   return (
     CHANNEL_RE.test(line) &&
     WRITE_WORKER_RE.test(line) &&
+    PRESCRIPTION_RE.test(line) &&
     !READONLY_CONTEXT_RE.test(line) &&
     !ESCAPE_TOKEN_RE.test(line)
   );

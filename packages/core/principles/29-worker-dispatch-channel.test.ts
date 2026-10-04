@@ -8,7 +8,10 @@
  *         (Stage A R-phase — M6 design, candidate matrix, regex sketch, escape-token)
  *
  * Invariant: no TRACKED `.claude/orchestrator-prompts/<umbrella>/kickoff.md` may
- * carry an unescaped line that instructs Agent-tool write-dispatch of a Worker.
+ * carry an unescaped line that PRESCRIBES auto-launch of a stage's execution — an
+ * imperative/Agent-tool write-Worker dispatch directive (clause (e), the 2026-10-04 D6
+ * narrowing). A kickoff that hands a subagent a reading/review task PASSES, and so does
+ * third-person teaching prose — mere mentions no longer fire.
  * This is the harness-agnostic backstop of the dual pair — it fires for every PR
  * via CI regardless of who authored the kickoff or in what tool. The edit-time
  * half (.claude/hooks/check-worker-dispatch-channel.sh) moves the same single
@@ -38,6 +41,10 @@ import {
   FIXTURE_READONLY,
   FIXTURE_ESCAPED,
   ESCAPE_TOKEN,
+  CHANNEL_RE,
+  WRITE_WORKER_RE,
+  READONLY_CONTEXT_RE,
+  ESCAPE_TOKEN_RE,
 } from './29-worker-dispatch-channel.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +96,79 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
     // (c) add read-only context → silent
     expect(
       lineIsViolation('Dispatch Worker via Agent tool (read-only research subagent, text return)'),
+    ).toBe(false);
+    // (e) drop the prescription signal → the D6-narrowed gate falls silent where the
+    // pre-narrowing conjunction (a∧b∧¬c∧¬d) still fired — mere mentions pass
+    const descriptive = 'The Agent tool dispatched a Worker last sprint for a smoke check';
+    expect(lineIsViolation(descriptive)).toBe(false);
+    expect(
+      CHANNEL_RE.test(descriptive) &&
+        WRITE_WORKER_RE.test(descriptive) &&
+        !READONLY_CONTEXT_RE.test(descriptive) &&
+        !ESCAPE_TOKEN_RE.test(descriptive),
+    ).toBe(true);
+  });
+
+  // ---- D6 narrowing (plain-words-recap-v2 S5, kickoff §5(d) + §8 paired positive) ----
+
+  it('PAIRED POSITIVE (§8): a synthetic kickoff prescribing Agent-tool dispatch of a WRITE worker, WITHOUT the words «umbrella stage», goes RED', () => {
+    // The narrowing's falsifier (kickoff-s5 §9): if this passes, R-7 is broken and the
+    // class the gate exists for is re-opened. Bullet-imperative shape — kickoffs
+    // prescribe in bullets, and the prescription clause is bullet-aware by design.
+    const synthetic = [
+      '# Wave kickoff — stage 3',
+      '',
+      '- Spawn the implement Worker with the Agent tool (`isolation: worktree`) and let it run the stage end-to-end.',
+      '- Report back with the harvest draft.',
+    ].join('\n');
+    const hits = findViolations(synthetic);
+    expect(hits, `write-worker prescription must fire:\n${hits.map((h) => `${h.line}: ${h.text}`).join('\n')}`).not.toHaveLength(0);
+    expect(hits.map((h) => h.line)).toEqual([3]);
+    // The T7 adversarial counter-prompt (plain-words-recap-v2 S5) found the first clause
+    // set let passive/declarative prescriptions through — these are the regression guards
+    // for the tightened families P3 / P3f / P4 (29-worker-dispatch-channel.ts clause (e)).
+    expect(
+      lineIsViolation('The stage Worker is dispatched via the Agent tool with isolation: worktree.'),
+    ).toBe(true); // P3 — present-passive plan statement
+    expect(
+      lineIsViolation('The Worker will be dispatched via the Agent tool once the R-phase lands.'),
+    ).toBe(true); // P3f — future-passive plan statement
+    expect(
+      lineIsViolation('We dispatch the write-task Worker via the Agent tool at stage entry.'),
+    ).toBe(true); // P4 — agent-subject declarative
+  });
+
+  it('NEGATIVE (§5): a kickoff that hands a subagent a reading/review task PASSES', () => {
+    const synthetic = [
+      '# Wave kickoff — stage 3 R-phase',
+      '',
+      '- Run a cold review of the plan diff via the Agent tool (read-only reviewer, text return).',
+      '- No writes; findings go into the research output only.',
+    ].join('\n');
+    expect(findViolations(synthetic)).toHaveLength(0);
+  });
+
+  it('D6 narrowing: third-person teaching prose is NOT a prescription (the :205 flip class)', () => {
+    // The exact corpus line the pre-narrowing matcher fired on (snapshot fixture,
+    // commit 814bed03a) — this repo's own kickoff teaching text about the gate.
+    const teaching =
+      '**write-task** case: a kickoff prescribing Agent-tool dispatch of a WRITE worker without the words';
+    expect(lineIsViolation(teaching)).toBe(false);
+    // The escape token is NOT what exempts it — the prescription clause is. A teaching
+    // line must not need opt-out comments (that was the pre-narrowing tax).
+    expect(ESCAPE_TOKEN_RE.test(teaching)).toBe(false);
+    // History notes stay silent too — past forms are deliberately outside P3/P3f
+    // (a gate that fires on incident write-ups would tax exactly the texts that
+    // document why it exists).
+    expect(
+      lineIsViolation(
+        'The Worker was dispatched via the Agent tool last sprint; that incident is why this gate exists.',
+      ),
+    ).toBe(false);
+    expect(
+      lineIsViolation(
+        'The Worker has been dispatched via the Agent tool twice before — both incidents are in the spec.',
+      ),
     ).toBe(false);
   });
 

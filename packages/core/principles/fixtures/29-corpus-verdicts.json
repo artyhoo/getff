@@ -1,13 +1,9 @@
 {
-  "description": "Verdict vector of principle 29's matcher (lineIsViolation) over the tracked BROAD kickoff corpus — .claude/orchestrator-prompts/**/kickoff*.md, basename ^kickoff.*\\.md$, any depth (430 files at capture, vs the 352 the narrow */kickoff.md sweep reaches). Captured with the CURRENT pre-narrowing matcher (plain-words-recap-v2 S5 commit A) so every later flip is a red test whose fix is a reviewed diff of this file — never a silent pass, never a PR-body listing. Values are 1-based violating line numbers per file; files with zero violations are absent. The sole captured violation (.claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md:[205]) is that stage's own teaching text, examined and dispositioned in the S5 PR — never snapshot-blessed.",
+  "description": "Verdict vector of principle 29's matcher (lineIsViolation) over the tracked BROAD kickoff corpus — .claude/orchestrator-prompts/**/kickoff*.md, basename ^kickoff.*\\.md$, any depth (430 files at capture, vs the 352 the narrow */kickoff.md sweep reaches). Captured with the D6-NARROWED matcher (plain-words-recap-v2 S5 commit B) — the narrowed predicate fires on kickoffs that PRESCRIBE auto-launch of a stage's execution; reading/review tasks and third-person teaching prose pass. Every later flip is a red test whose fix is a reviewed diff of this file — never a silent pass, never a PR-body listing. Values are 1-based violating line numbers per file; files with zero violations are absent. Flip record vs the pre-narrowing snapshot (committed 814bed03a, vector {kickoff-s5.md:[205]}): exactly ONE flip — kickoff-s5.md:205 FIRE→PASS, adjudicated FALSE POSITIVE of the pre-narrowing spelling (third-person teaching prose stating the gate's own contract in that kickoff's §5, not a directive to any executing agent; the imperative write-worker prescription class still fires per the paired-positive suite). The pre-narrowing RED run with this flip list is preserved in the S5 PR body.",
   "captured": "2026-10-04",
-  "capturedAtCommit": "f6170940fb3dc3c0d0269a26656a7ece0ff2812c",
+  "capturedAtCommit": "post-narrowing (S5 commit B; pre-narrowing capture at f6170940fb3dc3c0d0269a26656a7ece0ff2812c)",
   "glob": ".claude/orchestrator-prompts/**/kickoff*.md (tracked only)",
   "corpusSize": 430,
   "regenerate": "SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts",
-  "vector": {
-    ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md": [
-      205
-    ]
-  }
+  "vector": {}
 }
