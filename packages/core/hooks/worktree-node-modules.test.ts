@@ -52,6 +52,8 @@ const SCRIPT = resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh');
 // every case whose SUBJECT is the created link's shape (readlinkSync/isSymbolicLink) cannot
 // hold and is skipped with a named reason; cases asserting only statuses/existence still run.
 const WIN_SUT_LINK = process.platform === 'win32';
+// win32: POSIX file-mode semantics (chmod/exec-bit preservation) — see the mode-change case.
+const WIN_MODE_BITS = process.platform === 'win32';
 
 // Every case here spawns scripts/worktree-node-modules.sh under bash against a fresh
 // primary + linked git worktree, so multi-second runtimes under load are inherent and the
@@ -596,7 +598,10 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     expect(readFileSync(resolve(wt, 'packages/core/package-lock.json'), 'utf8')).toBe(before);
   });
 
-  it("keeps a mode change the user made before the install (it is the user's, not npm's)", (ctx) => {
+  // win32: the case's subject IS POSIX mode bits (a user chmod +x preserved across npm ci;
+  // asserted via statSync().mode & 0o777) — `chmod` does not resolve under cmd.exe and NTFS
+  // does not carry the exec-bit semantics under test, so the OS shape is the subject (#1799).
+  it.skipIf(WIN_MODE_BITS)("keeps a mode change the user made before the install (it is the user's, not npm's)", (ctx) => {
     seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
     writeFileSync(resolve(wt, 'run.sh'), '#!/bin/sh\n', { mode: 0o644 });
     execSync('git add run.sh && git -c user.email=t@e.com -c user.name=t commit -q -m run', { cwd: wt });

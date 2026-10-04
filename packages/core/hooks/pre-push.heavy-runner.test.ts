@@ -21,6 +21,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
   writeFileSync,
   readFileSync,
   chmodSync,
@@ -127,7 +128,8 @@ describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
   it('empty value = unset: the suite does not go through the runner', () => {
     // Fake npm first on PATH proves which path ran without running a real suite.
     const bin = join(dir, 'bin');
-    spawnSync('mkdir', ['-p', bin]);
+    // mkdirSync, not spawnSync('mkdir'): cmd.exe has no mkdir.exe on win32 (#1799).
+    mkdirSync(bin, { recursive: true });
     const npmRecord = join(dir, 'npm-record.txt');
     writeFileSync(
       join(bin, 'npm'),
