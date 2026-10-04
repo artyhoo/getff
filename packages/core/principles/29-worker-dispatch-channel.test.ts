@@ -24,7 +24,7 @@
  * Slot 29 rationale: slots 01-28 occupied as of 2026-06-27.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -116,4 +116,124 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
       ).toHaveLength(0);
     },
   );
+});
+
+/**
+ * Corpus snapshot arm (plain-words-recap-v2 S5, kickoff-s5 §5 — the precondition is
+ * a TEST, not a PR-body listing): runs the matcher over the BROAD tracked corpus
+ * (glob "kickoff*.md" at any depth under .claude/orchestrator-prompts — 430 files at
+ * capture vs the 352 the narrow sweep above reaches) and compares the per-file
+ * violating-line VECTOR against the committed fixture `fixtures/29-corpus-verdicts.json`.
+ *
+ * This arm asserts a VECTOR, not zero violations: the capture-time matcher already
+ * fires on exactly one corpus line, and every later flip — from the D6 narrowing or
+ * from any future matcher/kickoff edit — must surface here as a red test whose fix
+ * is a REVIEWED diff of the snapshot, each flip adjudicated (real violation → fix
+ * the kickoff or add the escape token; false positive → matcher change; legitimate
+ * → regenerate). A silent drift would be the `#warning-nobody-reads` shape the
+ * snapshot exists to replace.
+ *
+ * Capture mode (repo precedent: SNAPSHOT_MODE=capture tests/install-sh/snapshot.sh):
+ *   SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts
+ * rewrites the fixture from the live tree. Capture is deliberate and loud — never a
+ * substitute for adjudicating the flips that forced it.
+ */
+
+/** Violating-line vector for the tracked broad corpus: relpath → sorted 1-based lines (non-empty only). */
+function corpusVector(files: string[]): Record<string, number[]> {
+  const vector: Record<string, number[]> = {};
+  for (const rel of files) {
+    const hits = findViolations(readFileSync(resolve(REPO_ROOT, rel), 'utf8')).map((h) => h.line);
+    if (hits.length) vector[rel] = hits;
+  }
+  return vector;
+}
+
+/** Tracked broad corpus: any depth under .claude/orchestrator-prompts, basename kickoff*.md. */
+function trackedBroadCorpus(): string[] {
+  try {
+    const out = execFileSync('git', ['ls-files', '-z', '--', '.claude/orchestrator-prompts'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    return out.split('\0').filter((f) => /(^|\/)kickoff[^/]*\.md$/.test(f));
+  } catch {
+    return [];
+  }
+}
+
+/** Compare snapshot vs live vector; return one human-readable line per flip (empty = identical). */
+function diffVectors(
+  expected: Record<string, number[]>,
+  actual: Record<string, number[]>,
+): string[] {
+  const flips: string[] = [];
+  const keys = [...new Set([...Object.keys(expected), ...Object.keys(actual)])].sort();
+  for (const k of keys) {
+    const e = (expected[k] ?? []).join(', ');
+    const a = (actual[k] ?? []).join(', ');
+    if (e === a) continue;
+    if (e.length === 0) flips.push(`NEW violations   ${k}: [${a}]`);
+    else if (a.length === 0) flips.push(`GONE             ${k}: snapshot had [${e}]`);
+    else flips.push(`CHANGED          ${k}: snapshot [${e}] → now [${a}]`);
+  }
+  return flips;
+}
+
+describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
+  const SNAPSHOT_PATH = resolve(HERE, 'fixtures/29-corpus-verdicts.json');
+  const SNAPSHOT_GENERATE_HINT =
+    'SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts';
+  const CAPTURE = process.env.SNAPSHOT_MODE === 'capture';
+  const broad = trackedBroadCorpus();
+
+  it.skipIf(broad.length === 0)(
+    'verdict vector matches the committed snapshot (every flip is a reviewed snapshot diff)',
+    () => {
+      const actual = corpusVector(broad);
+      if (CAPTURE) {
+        const snap = existsSync(SNAPSHOT_PATH)
+          ? JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'))
+          : {};
+        writeFileSync(
+          SNAPSHOT_PATH,
+          `${JSON.stringify(
+            {
+              ...snap,
+              captured: new Date().toISOString().slice(0, 10),
+              glob: '.claude/orchestrator-prompts/**/kickoff*.md (tracked only)',
+              corpusSize: broad.length,
+              regenerate: SNAPSHOT_GENERATE_HINT,
+              vector: Object.fromEntries(Object.entries(actual).sort(([a], [b]) => a.localeCompare(b))),
+            },
+            null,
+            2,
+          )}\n`,
+        );
+        return;
+      }
+      expect(existsSync(SNAPSHOT_PATH), 'snapshot missing — generate it: ' + SNAPSHOT_GENERATE_HINT).toBe(true);
+      const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as { vector?: Record<string, number[]> };
+      const flips = diffVectors(snap.vector ?? {}, actual);
+      expect(
+        flips,
+        `Corpus verdict vector drifted from fixtures/29-corpus-verdicts.json. Every flip ` +
+          `needs a reviewed snapshot diff — adjudicate each (real violation → fix the kickoff ` +
+          `or append "<!-- ${ESCAPE_TOKEN} <reason> -->"; false positive → matcher change; ` +
+          `legitimate → regenerate). Regenerate ONLY after adjudication:\n` +
+          `  ${SNAPSHOT_GENERATE_HINT}\n` +
+          flips.join('\n'),
+      ).toHaveLength(0);
+    },
+  );
+
+  it('comparator discriminates (paired-negative for the snapshot arm itself)', () => {
+    expect(diffVectors({ 'a.md': [1] }, { 'a.md': [1] })).toHaveLength(0);
+    expect(diffVectors({ 'a.md': [1] }, { 'a.md': [1, 2] })).toEqual([
+      'CHANGED          a.md: snapshot [1] → now [1, 2]',
+    ]);
+    expect(diffVectors({ 'a.md': [1] }, { 'a.md': [2] })).toHaveLength(1);
+    expect(diffVectors({}, { 'b.md': [3] })).toEqual(['NEW violations   b.md: [3]']);
+    expect(diffVectors({ 'c.md': [4] }, {})).toEqual(['GONE             c.md: snapshot had [4]']);
+  });
 });
