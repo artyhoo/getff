@@ -67,7 +67,8 @@ export const WRITE_WORKER_RE = /\bWorker\b|write[- ]task|dispatch.*Worker/;
  * instruction → excluded. `review Worker` added by the S5 T19 cold review (MINOR-2):
  * the compound names the task, not a person, and the bare-`reviewer` spelling missed it.
  */
-export const READONLY_CONTEXT_RE = /read-only|reviewer|Phase -1|research subagent|text return|\breview\s+[Ww]orkers?\b/;
+export const READONLY_CONTEXT_RE =
+  /read-only|reviewer|Phase -1|research subagent|text return|\breview\s+[Ww]orkers?\b/;
 
 /**
  * Clause (d) — the escape-hatch token (spec §2.4, DECISION-NEEDED (d) → Option A).
@@ -122,10 +123,23 @@ export const ESCAPE_TOKEN_RE = /<!--\s*channel-discipline:\s*allow/;
  */
 export const PRESCRIPTION_RE = new RegExp(
   [
-    // P1 — line-initial imperative dispatch verb (bullet/quote/number prefixes tolerated)
-    String.raw`^\s*(?:>+\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:dispatch|spawn|launch|execute|send|delegate)\b`,
-    // P1b — line-initial run/start anchored to a dispatch object
-    String.raw`^\s*(?:>+\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:run|start)\s+(?:the\s+|a\s+|your\s+)?\w*(?:worker|subagent|dispatch|stage|implement)`,
+    // P1 — line-initial imperative dispatch verb (bullet/quote/number prefixes tolerated).
+    // The prefix group is DE-AMBIGUATED (`>\s*`, not `>+\s*` — rework 2026-10-04, review_gate
+    // 8f5e9a5dcca4): `>+\s*` inside the quantified group is a nested quantifier over a
+    // variable-length alternative, so a run of N `>` markers has 2^(N-1) partitions and an
+    // overall-match failure explores all of them — measured 3227.9 ms at N=28 (≈16x per +4
+    // chars; minutes-to-hours at N≥36), enough to hang the edit-time PostToolUse hook past
+    // its timeout and to time out the corpus-snapshot arm below. `>\s*` is language-
+    // equivalent (`>+\s*` matches exactly the strings `(>\s*)+` matches) but forces ONE
+    // iteration per marker — a unique parse, linear matching. JavaScript has no atomic
+    // groups or possessive quantifiers to group-order its way out; de-ambiguation is the
+    // only JS-native shape. The remaining alternatives already consume deterministically
+    // (`-+\s+` / `\*\s+` / `\d+[.)]\s+` each have exactly one parse per position: the
+    // dash/star/digit runs cannot re-enter `\s+`). Shared verbatim by P1b below.
+    String.raw`^\s*(?:>\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:dispatch|spawn|launch|execute|send|delegate)\b`,
+    // P1b — line-initial run/start anchored to a dispatch object (prefix group: see the
+    // de-ambiguation note on P1 above)
+    String.raw`^\s*(?:>\s*|-+\s+|\*\s+|\d+[.)]\s+)*(?:run|start)\s+(?:the\s+|a\s+|your\s+)?\w*(?:worker|subagent|dispatch|stage|implement)`,
     // P2 — modal + dispatch verb
     String.raw`\b(?:must|shall|should|needs?\s+to|has\s+to|is\s+to|are\s+to)\s+(?:\w+\s+){0,2}?(?:dispatch|spawn|launch|execute|run|start|be\s+dispatched|be\s+run|be\s+launched|be\s+spawned)\b`,
     // P3 — present-passive prescription («the Worker is dispatched/spawned/… via the Agent

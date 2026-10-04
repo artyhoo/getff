@@ -31,6 +31,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -90,16 +91,25 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
 
   it('each clause is load-bearing (removing any one makes the fixture stop firing)', () => {
     // (a) drop the Agent-tool channel signal → silent
-    expect(lineIsViolation('Dispatch Worker in a fresh session, isolation: worktree')).toBe(false);
+    expect(
+      lineIsViolation(
+        'Dispatch Worker in a fresh session, isolation: worktree',
+      ),
+    ).toBe(false);
     // (b) drop the Worker target → silent
-    expect(lineIsViolation('Run the review via Agent tool with model: opus')).toBe(false);
+    expect(
+      lineIsViolation('Run the review via Agent tool with model: opus'),
+    ).toBe(false);
     // (c) add read-only context → silent
     expect(
-      lineIsViolation('Dispatch Worker via Agent tool (read-only research subagent, text return)'),
+      lineIsViolation(
+        'Dispatch Worker via Agent tool (read-only research subagent, text return)',
+      ),
     ).toBe(false);
     // (e) drop the prescription signal → the D6-narrowed gate falls silent where the
     // pre-narrowing conjunction (a∧b∧¬c∧¬d) still fired — mere mentions pass
-    const descriptive = 'The Agent tool dispatched a Worker last sprint for a smoke check';
+    const descriptive =
+      'The Agent tool dispatched a Worker last sprint for a smoke check';
     expect(lineIsViolation(descriptive)).toBe(false);
     expect(
       CHANNEL_RE.test(descriptive) &&
@@ -122,30 +132,47 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
       '- Report back with the harvest draft.',
     ].join('\n');
     const hits = findViolations(synthetic);
-    expect(hits, `write-worker prescription must fire:\n${hits.map((h) => `${h.line}: ${h.text}`).join('\n')}`).not.toHaveLength(0);
+    expect(
+      hits,
+      `write-worker prescription must fire:\n${hits.map((h) => `${h.line}: ${h.text}`).join('\n')}`,
+    ).not.toHaveLength(0);
     expect(hits.map((h) => h.line)).toEqual([3]);
     // The T7 adversarial counter-prompt (plain-words-recap-v2 S5) found the first clause
     // set let passive/declarative prescriptions through — these are the regression guards
     // for the tightened families P3 / P3f / P4 (29-worker-dispatch-channel.ts clause (e)).
     expect(
-      lineIsViolation('The stage Worker is dispatched via the Agent tool with isolation: worktree.'),
+      lineIsViolation(
+        'The stage Worker is dispatched via the Agent tool with isolation: worktree.',
+      ),
     ).toBe(true); // P3 — present-passive plan statement
     expect(
-      lineIsViolation('The Worker will be dispatched via the Agent tool once the R-phase lands.'),
+      lineIsViolation(
+        'The Worker will be dispatched via the Agent tool once the R-phase lands.',
+      ),
     ).toBe(true); // P3f — future-passive plan statement
     expect(
-      lineIsViolation('We dispatch the write-task Worker via the Agent tool at stage entry.'),
+      lineIsViolation(
+        'We dispatch the write-task Worker via the Agent tool at stage entry.',
+      ),
     ).toBe(true); // P4 — agent-subject declarative
     // T19 cold review (own adversarial pass, same stage) measured two more false negatives
     // against the first clause set — the regression guards for P5 and the P3 verb extension
     // (29-worker-dispatch-channel.ts clause (e), second tuning round).
     expect(
-      lineIsViolation('Use the Agent tool to spawn the implementation Worker (worktree).'),
+      lineIsViolation(
+        'Use the Agent tool to spawn the implementation Worker (worktree).',
+      ),
     ).toBe(true); // P5 — the imperative wrapper no line-anchored family reaches
-    expect(lineIsViolation('The write Worker is spawned via the Agent tool.')).toBe(true); // P3 — spawned
-    expect(lineIsViolation('The stage Worker is launched via the Agent tool.')).toBe(true); // P3 — launched
     expect(
-      lineIsViolation('The implementation is delegated to a subagent via the Agent tool (write task).'),
+      lineIsViolation('The write Worker is spawned via the Agent tool.'),
+    ).toBe(true); // P3 — spawned
+    expect(
+      lineIsViolation('The stage Worker is launched via the Agent tool.'),
+    ).toBe(true); // P3 — launched
+    expect(
+      lineIsViolation(
+        'The implementation is delegated to a subagent via the Agent tool (write task).',
+      ),
     ).toBe(true); // P3 — delegated (the cold reviewer's own third sample)
   });
 
@@ -187,30 +214,69 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
     // MAJOR-1 — the imperative wrapper defeats every line-anchored family; the corpus's
     // own idiom (slow-test-triage kickoff :296) proves the shape is attested, not contrived.
     expect(
-      lineIsViolation('Use the Agent tool to spawn the implementation Worker (worktree).'),
+      lineIsViolation(
+        'Use the Agent tool to spawn the implementation Worker (worktree).',
+      ),
     ).toBe(true);
     // A kickoff PROHIBITING the launch is compliant — and the silence must come from P5's
     // negation guard, not clause (c): this line carries no read-only wording at all.
-    const prohibition = 'Do NOT use the Agent tool to spawn the write Worker in a worktree.';
+    const prohibition =
+      'Do NOT use the Agent tool to spawn the write Worker in a worktree.';
     expect(lineIsViolation(prohibition)).toBe(false);
     expect(READONLY_CONTEXT_RE.test(prohibition)).toBe(false);
     // Markdown emphasis between the negator and the verb must not defeat the guard —
     // this is the corpus line's shape minus its read-only tail.
     expect(
-      lineIsViolation('- Do NOT **use the Agent tool to dispatch a Worker** session for the write task.'),
+      lineIsViolation(
+        '- Do NOT **use the Agent tool to dispatch a Worker** session for the write task.',
+      ),
     ).toBe(false);
     // MINOR-2 — a read-only review Worker dispatch is tenet-1 legitimate, and the escape
     // token is NOT what exempts it (clause (c) carries it).
-    const reviewWorker = 'Spawn a review Worker via the Agent tool to check the plan.';
+    const reviewWorker =
+      'Spawn a review Worker via the Agent tool to check the plan.';
     expect(lineIsViolation(reviewWorker)).toBe(false);
     expect(ESCAPE_TOKEN_RE.test(reviewWorker)).toBe(false);
     // The P3 verb extension keeps the past-tense history shapes silent.
-    expect(lineIsViolation('The Worker was spawned via the Agent tool last sprint.')).toBe(false);
+    expect(
+      lineIsViolation('The Worker was spawned via the Agent tool last sprint.'),
+    ).toBe(false);
   });
 
   it('blank / unrelated content never fires', () => {
     expect(findViolations('')).toHaveLength(0);
-    expect(findViolations('# Kickoff\n\nStage 1 — Mode A inline session.\n')).toHaveLength(0);
+    expect(
+      findViolations('# Kickoff\n\nStage 1 — Mode A inline session.\n'),
+    ).toHaveLength(0);
+  });
+
+  it('PERF regression: a pathological blockquote-marker line cannot trigger catastrophic backtracking (ReDoS)', () => {
+    // review_gate 8f5e9a5dcca4 (plain-words-recap-v2 S5 rework, 2026-10-04). The P1/P1b
+    // prefix group used to read `(?:>+\s*|…)*` — a nested quantifier over the
+    // variable-length `>+\s*` alternative. A run of N `>` markers has 2^(N-1) partitions
+    // and an overall-match failure explores every one of them: measured against the real
+    // exported matcher, 204.6 ms at N=24 and 3227.9 ms at N=28 (≈16x per +4 chars →
+    // minutes-to-hours at N≥36) — ONE such kickoff line hangs the edit-time PostToolUse
+    // hook past its timeout and times out the corpus-snapshot arm below. The
+    // de-ambiguated `>\s*` (29-worker-dispatch-channel.ts clause (e)) is language-
+    // equivalent but forces one iteration per marker: unique parse, linear matching.
+    const pathological =
+      '>'.repeat(48) +
+      ' blockquote prose naming the Agent tool and a Worker with no directive verb anywhere here';
+    // The line must be gate-REACHABLE — the (a)∧(b) conjunction hands it to
+    // PRESCRIPTION_RE — otherwise this arm would pass vacuously.
+    expect(CHANNEL_RE.test(pathological)).toBe(true);
+    expect(WRITE_WORKER_RE.test(pathological)).toBe(true);
+    const t0 = performance.now();
+    const verdict = lineIsViolation(pathological);
+    const elapsedMs = performance.now() - t0;
+    // The verdict itself is unchanged: prose, not a prescription (no directive verb).
+    expect(verdict).toBe(false);
+    // Sub-millisecond post-fix (measured 0.00 ms at N=48); pre-fix this line needs
+    // minutes-to-hours at N=48. The 2 s bound keeps 3+ orders of magnitude of CI-jitter
+    // headroom while staying far below the pre-fix cost — pre-fix, vitest's own timeout
+    // would fire first, so this arm is RED either way on a regression.
+    expect(elapsedMs).toBeLessThan(2000);
   });
 
   // ---- Live-tree sweep: every tracked kickoff is clean (or explicitly escaped) ----
@@ -221,7 +287,9 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
     () => {
       const violations: string[] = [];
       for (const rel of kickoffs) {
-        const hits = findViolations(readFileSync(resolve(REPO_ROOT, rel), 'utf8'));
+        const hits = findViolations(
+          readFileSync(resolve(REPO_ROOT, rel), 'utf8'),
+        );
         for (const h of hits) {
           violations.push(`${rel}:${h.line}  ${h.text}`);
         }
@@ -261,23 +329,45 @@ describe('Principle 29 — kickoffs do not instruct Agent-tool write-dispatch of
 function corpusVector(files: string[]): Record<string, number[]> {
   const vector: Record<string, number[]> = {};
   for (const rel of files) {
-    const hits = findViolations(readFileSync(resolve(REPO_ROOT, rel), 'utf8')).map((h) => h.line);
+    const hits = findViolations(
+      readFileSync(resolve(REPO_ROOT, rel), 'utf8'),
+    ).map((h) => h.line);
     if (hits.length) vector[rel] = hits;
   }
   return vector;
 }
 
-/** Tracked broad corpus: any depth under .claude/orchestrator-prompts, basename kickoff*.md. */
+/**
+ * Tracked broad corpus: any depth under .claude/orchestrator-prompts, basename kickoff*.md.
+ *
+ * Empty-vs-errored discipline (review_gate 5fcf26dc762a, plain-words-recap-v2 S5 rework):
+ * a `git ls-files` FAILURE throws — it must never masquerade as an empty corpus. An
+ * actually-empty corpus is a legitimate skip (a repo with no kickoffs has no population to
+ * compare), but a failed enumeration means this arm cannot see its population AT ALL, and
+ * returning [] there would make `it.skipIf(broad.length === 0)` silently skip enforcement —
+ * the exact silent-enforcement-loss shape this arm exists to prevent. Throwing at describe
+ * time fails the suite loudly with the reason instead.
+ */
 function trackedBroadCorpus(): string[] {
+  let out: string;
   try {
-    const out = execFileSync('git', ['ls-files', '-z', '--', '.claude/orchestrator-prompts'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-    });
-    return out.split('\0').filter((f) => /(^|\/)kickoff[^/]*\.md$/.test(f));
-  } catch {
-    return [];
+    out = execFileSync(
+      'git',
+      ['ls-files', '-z', '--', '.claude/orchestrator-prompts'],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+      },
+    );
+  } catch (err) {
+    throw new Error(
+      '29 corpus snapshot arm: `git ls-files` enumeration FAILED — refusing to silently skip ' +
+        'enforcement (an empty corpus is a legitimate skip; an enumeration error is not, or ' +
+        'every flip would go unobserved on a green run). ' +
+        `Underlying error: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
+  return out.split('\0').filter((f) => /(^|\/)kickoff[^/]*\.md$/.test(f));
 }
 
 /** Compare snapshot vs live vector; return one human-readable line per flip (empty = identical). */
@@ -286,13 +376,16 @@ function diffVectors(
   actual: Record<string, number[]>,
 ): string[] {
   const flips: string[] = [];
-  const keys = [...new Set([...Object.keys(expected), ...Object.keys(actual)])].sort();
+  const keys = [
+    ...new Set([...Object.keys(expected), ...Object.keys(actual)]),
+  ].sort();
   for (const k of keys) {
     const e = (expected[k] ?? []).join(', ');
     const a = (actual[k] ?? []).join(', ');
     if (e === a) continue;
     if (e.length === 0) flips.push(`NEW violations   ${k}: [${a}]`);
-    else if (a.length === 0) flips.push(`GONE             ${k}: snapshot had [${e}]`);
+    else if (a.length === 0)
+      flips.push(`GONE             ${k}: snapshot had [${e}]`);
     else flips.push(`CHANGED          ${k}: snapshot [${e}] → now [${a}]`);
   }
   return flips;
@@ -304,6 +397,16 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
     'SNAPSHOT_MODE=capture npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts';
   const CAPTURE = process.env.SNAPSHOT_MODE === 'capture';
   const broad = trackedBroadCorpus();
+  if (broad.length === 0) {
+    // A legitimate-empty skip must be VISIBLE (review_gate 5fcf26dc762a): a silent skip
+    // is indistinguishable from enforcement loss on a green run. Enumeration ERRORS never
+    // reach this branch — trackedBroadCorpus throws on those instead of returning [].
+    console.warn(
+      '[29-corpus] tracked broad corpus enumerated EMPTY (git ls-files succeeded, 0 ' +
+        'kickoff*.md tracked) — snapshot arm SKIPPED: no kickoff population this run, ' +
+        'enforcement over the corpus is NOT running.',
+    );
+  }
 
   it.skipIf(broad.length === 0)(
     'verdict vector matches the committed snapshot (every flip is a reviewed snapshot diff)',
@@ -322,7 +425,9 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
               glob: '.claude/orchestrator-prompts/**/kickoff*.md (tracked only)',
               corpusSize: broad.length,
               regenerate: SNAPSHOT_GENERATE_HINT,
-              vector: Object.fromEntries(Object.entries(actual).sort(([a], [b]) => a.localeCompare(b))),
+              vector: Object.fromEntries(
+                Object.entries(actual).sort(([a], [b]) => a.localeCompare(b)),
+              ),
             },
             null,
             2,
@@ -330,8 +435,13 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
         );
         return;
       }
-      expect(existsSync(SNAPSHOT_PATH), 'snapshot missing — generate it: ' + SNAPSHOT_GENERATE_HINT).toBe(true);
-      const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as { vector?: Record<string, number[]> };
+      expect(
+        existsSync(SNAPSHOT_PATH),
+        'snapshot missing — generate it: ' + SNAPSHOT_GENERATE_HINT,
+      ).toBe(true);
+      const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as {
+        vector?: Record<string, number[]>;
+      };
       const flips = diffVectors(snap.vector ?? {}, actual);
       expect(
         flips,
@@ -351,7 +461,11 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
       'CHANGED          a.md: snapshot [1] → now [1, 2]',
     ]);
     expect(diffVectors({ 'a.md': [1] }, { 'a.md': [2] })).toHaveLength(1);
-    expect(diffVectors({}, { 'b.md': [3] })).toEqual(['NEW violations   b.md: [3]']);
-    expect(diffVectors({ 'c.md': [4] }, {})).toEqual(['GONE             c.md: snapshot had [4]']);
+    expect(diffVectors({}, { 'b.md': [3] })).toEqual([
+      'NEW violations   b.md: [3]',
+    ]);
+    expect(diffVectors({ 'c.md': [4] }, {})).toEqual([
+      'GONE             c.md: snapshot had [4]',
+    ]);
   });
 });
