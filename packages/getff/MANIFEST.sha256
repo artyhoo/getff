@@ -503,7 +503,7 @@ e24ffe2c25ba080a9c405c15ef71cf937a76f0bf84d3aef685715ae97d258850  packages/core/
 9925882af86c7cfc6f19dbfa08bee8cc95908f051d647949fc0520391fc66067  packages/core/hooks/dispatch-from-state.test.ts
 dbc6fcc1dccea4c7abfb2b81a7d56a86f9ffcff6cabb3e9ce3be8a903cfe67ca  packages/core/hooks/done-md-completion-filter.test.ts
 01813de218a3687ea5b481a380585f50802f5195a137b5cb11dad5bfeb801ffb  packages/core/hooks/dup-detect-empty-arg.test.ts
-004d4c70aaef1a43719660130155d383b54e9d1d6fe18a9df9f07ce98b6a5693  packages/core/hooks/end-of-turn-reminder.test.ts
+2805d568f1936d5ecf5e85de1861c3d6c3b26cc52d635e1bc5e6bd67a399204d  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 d66039905d7adce74d397f5e86b84db9bfb20b3602ec6a77897214822f227eef  packages/core/hooks/format-shipped-anchor.test.ts
 4c3adfe53de91e1118d6b1ffc6e4eb16e082a0b7174db700354abbcd723e700e  packages/core/hooks/frontier.test.ts
@@ -548,7 +548,7 @@ cd59f3e600ad02d4172ae2fd7515f58852e35464f7d010480b64f3af697d7592  packages/core/
 230616f7147bfbf760cb1c9fca1e12b444fcbf481f76dc18c6942ce4e460ebdf  packages/core/hooks/skill-index-on-compact.test.ts
 ff221acb4a2cc5229dc58b1bb49173c235718cecb9cfe9ce67a8559b0ea25cc9  packages/core/hooks/snapshot-for-seat.test.ts
 86f61e316f916f1f22e97137283cd6c359685389f0f06999d5a126423ed12026  packages/core/hooks/spawn-bash-or-skip.test.ts
-61fe8fefcd40d080e31ae9f805af9cc8f82ae61db021bd4c1289d15d3d9abe1e  packages/core/hooks/spawn-bash-or-skip.ts
+ab9ca8f69699efcd8f5d00aef6328dbbd9aff8844ad8ca56183ad78da5a31694  packages/core/hooks/spawn-bash-or-skip.ts
 cbf4be6f0d8b7aff4052e4e41996c26332d3ba9ab4e344ccc1fe325432f72974  packages/core/hooks/symlink-or-junction-or-skip.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
 cde55b32756759da508bf798446041f9222c31d70c40beb8bd18daf7b67656d3  packages/core/hooks/update-cache.test.ts
