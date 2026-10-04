@@ -32,7 +32,7 @@ fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-45cd0d262652f503db76766a599b9d21ca61ce51e65795e375f677ba0e3c5be6  .claude/skills/aif-doctor/SKILL.md
+d4388c165a1f4c547e30474de8ffc234bccafb2d9532b9cc2115de435e4297ac  .claude/skills/aif-doctor/SKILL.md
 a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016  .claude/skills/aif-doctor/helpers/aif-agent-target.sh
 b5cfb0b1f61438ef1db8489a002e2bcd429488d975beee008500354e097268c3  .claude/skills/aif-doctor/helpers/heal.sh
 516a561d50d3b8b897c62d71c264f519a935a986cb643049b9c0b3ce9f865289  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
