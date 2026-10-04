@@ -283,9 +283,9 @@ import {
   mkdirSync as _mkdirSync,
   mkdtempSync as _mkdtempSync,
   rmSync as _rmSync,
-  symlinkSync as _symlinkSync,
   writeFileSync as _writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
 import { execSync as _execSync, spawnSync as _spawnSync } from 'node:child_process';
 import { join as _join } from 'node:path';
 import { tmpdir as _osTmpdir } from 'node:os';
@@ -321,11 +321,12 @@ afterEach(() => {
 });
 
 /** Scrub tsx from PATH so tier 3 deterministically misses (isolates tier-1/tier-2). */
-function scrubbedPathBin(): string {
+function scrubbedPathBin(ctx: Skippable): string {
   const binDir = _mkdtempSync(_join(_osTmpdir(), 'wdc-scrubbed-bin-'));
   for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf', 'bash', 'sh', 'node']) {
     const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-    if (real) _symlinkSync(real, _join(binDir, tool));
+    // tool binaries are files: junctions cannot express them → named win32 skip
+    if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
   }
   return binDir;
 }
@@ -363,7 +364,7 @@ function stubBin(repoRoot: string): void {
 // default closes that gap for every case, present and future; the per-test values
 // below are now redundant-but-harmless restatements of it.
 describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
-  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', () => {
+  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', (ctx) => {
     const wt = _mkdtempSync(_join(_osTmpdir(), 'wdc-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
     // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
@@ -375,7 +376,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // Overwrite worktree's checked-out hook with the FIXED working-tree version.
     copyHook(_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));
 
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     const abs = writeKickoffAt(wt, `# C1 kickoff\n\n${VIOLATION_LINE}\n`);
     const env: Record<string, string> = {
       ...process.env,
@@ -402,7 +403,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C2: precedence held — repo-local tsx wins (structural)', () => {
+  it('C2: precedence held — repo-local tsx wins (structural)', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c2-'));
     const nmBin = _join(dir, 'node_modules', '.bin');
     _mkdirSync(nmBin, { recursive: true });
@@ -419,7 +420,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
 
     const abs = writeKickoffAt(dir, `# C2 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     _writeFileSync(_join(binDir, 'tsx'), '#!/bin/sh\necho "TIER3_INVOKED_WRONG" >&2\n', 'utf8');
     _execSync(`chmod +x "${binDir}/tsx"`);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
@@ -444,13 +445,14 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(r.stderr).not.toContain('TIER3_INVOKED_WRONG');
   });
 
-  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', () => {
+  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c3-'));
     const abs = writeKickoffAt(dir, `# C3 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
+    // tsx is a binary FILE: junctions cannot express it → named win32 skip.
     const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
-    if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
+    if (realTsx) _symlinkOrJunctionOrSkip(ctx, realTsx, _join(binDir, 'tsx'));
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -477,10 +479,10 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked', () => {
+  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked', (ctx) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c4-'));
     const abs = writeKickoffAt(dir, `# C4 kickoff\n\n${VIOLATION_LINE}\n`);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -503,11 +505,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     ).not.toMatch(/fatal: not a git repository|fatal: this operation must be run in a work tree/i);
   });
 
-  it('C5: no tier resolves → skip notice fires on model channel + exit 0', () => {
+  it('C5: no tier resolves → skip notice fires on model channel + exit 0', (sk) => {
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c5-'));
     const abs = writeKickoffAt(dir, `# C5 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(sk);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -541,14 +543,14 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
 // Post-fix: _emit_skip fires → stdout has hookSpecificOutput JSON; model sees the skip.
 // ═══════════════════════════════════════════════════════════════════════════════
 describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (silence is gone)', () => {
-  it('pre-fix silent-exit-0 NO LONGER HOLDS — stdout is non-empty + carries the skip notice', () => {
+  it('pre-fix silent-exit-0 NO LONGER HOLDS — stdout is non-empty + carries the skip notice', (ctx) => {
     // Setup mirrors C5: non-git temp dir, no tsx anywhere, scrubbed PATH. Feed a
     // kickoff.md with a VIOLATION_LINE so the path filter passes and the only thing
     // standing between the edit and the matcher is tsx resolution.
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-silent-'));
     const abs = writeKickoffAt(dir, `# silence-test\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
@@ -710,13 +712,15 @@ describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
     expect(r.stdout.trim()).toBe('');
   });
 
-  it('E-6: jq absent + kickoff edit → loud SKIP (pre-fix: bare `|| exit 0`, silent)', () => {
+  it('E-6: jq absent + kickoff edit → loud SKIP (pre-fix: bare `|| exit 0`, silent)', (sk) => {
     const t = consumerTree();
     const binDir = _mkdtempSync(_join(_osTmpdir(), 'wdc-nojq-'));
     tierWorktrees.push(binDir);
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'git']) {
       const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      // (`sk`: this test already uses the local name `ctx` for the parsed hook output)
+      if (real) _symlinkOrJunctionOrSkip(sk, real, _join(binDir, tool));
     }
     const r = run(t, t.kickoff, 'sess-wdc-E6-a', binDir);
     expect(r.status).toBe(0);

@@ -26,9 +26,9 @@ import {
   readdirSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -175,9 +175,11 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'refuses a directory, a symlink and a submodule entry before writing anything',
-    () => {
+    (ctx) => {
       commitFile('docs/a.md', 'a\n', 'one');
-      symlinkSync('docs/a.md', join(repo, 'link.md'));
+      // the committed-file link IS the assertion subject: junctions cannot express a
+      // file link → named win32 skip (POSIX unchanged)
+      symlinkOrJunctionOrSkip(ctx, 'docs/a.md', join(repo, 'link.md'));
       git('add', 'link.md');
       const sub = git('rev-parse', 'HEAD');
       git('update-index', '--add', '--cacheinfo', `160000,${sub},vendor/sub`);

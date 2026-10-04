@@ -30,7 +30,6 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   mkdirSync,
-  symlinkSync,
   lstatSync,
   writeFileSync,
   readFileSync,
@@ -38,6 +37,7 @@ import {
   existsSync,
   readdirSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +83,7 @@ function runHelper(
 }
 
 describe('update-cache.sh — plan-cache writer (paired-negative contract)', () => {
-  it('SYMLINK-AWARE: cache symlinked into CANON survives update — share preserved (would FAIL on plain mv)', () => {
+  it('SYMLINK-AWARE: cache symlinked into CANON survives update — share preserved (would FAIL on plain mv)', (ctx) => {
     // Regression guard for coordination-persistence SW-B: a shared symlink must be
     // written THROUGH, not replaced. `mv tmp <symlink>` replaces the link → share lost.
     const sandbox = makeSandbox();
@@ -95,7 +95,8 @@ describe('update-cache.sh — plan-cache writer (paired-negative contract)', () 
     // Seed the canonical file with a valid template (helper writes it fresh).
     runHelper(sandbox, ['seed', 'seed'], { MO_CACHE_FILE: canonCache });
     const wtCache = join(wtDir, '_plan-cache.md');
-    symlinkSync(canonCache, wtCache);
+    // file target: junctions cannot express it → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, canonCache, wtCache);
 
     const r = runHelper(sandbox, ['umbrella-x', 'outcome-y'], { MO_CACHE_FILE: wtCache });
     expect(r.status).toBe(0);

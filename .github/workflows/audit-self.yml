@@ -2351,6 +2351,17 @@ jobs:
             os: windows-latest
             scoped: true  # 8.5 of this job's ~12 runner-minutes; path-scoped via RUN_CELL
             label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
+          # W3-H (#1799): the hooks suite itself on Windows. fs.symlinkSync needs the
+          # SeCreateSymbolicLinkPrivilege there, so every fixture died at setup and the
+          # suite could not run at all; symlinkOrJunctionOrSkip() (POSIX byte-identical
+          # pass-through, junction-or-NAMED-skip on win32) makes the fixtures portable.
+          # This cell is the ONLY Windows proof channel for that claim — Windows success
+          # is asserted from here, never locally (destination-environment-verification.md).
+          # Non-scoped: unlike the getff-dist arm above this is not a consumer-install
+          # path, it is this repo's own change surface.
+          - cell: windows-hooks
+            os: windows-latest
+            label: "windows-hooks cell — packages/core/hooks suite on Windows (#1799 junction-or-skip fixtures)"
     steps:
       # Unconditional guard for RUN_CELL, which ci-success cannot see (a cell whose steps all
       # skip still concludes `success`): whenever the path-scope decision is `true`, every
@@ -2511,6 +2522,55 @@ jobs:
         run: bash tests/consumer-matrix/getff-dist-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
+      # W3-H (#1799) — the Windows proof channel for the hooks suite. Dependency setup is
+      # the ships-manifest job's lockfile-exact pair: `npm ci --prefix packages/core`
+      # puts vitest where CI keeps it (only packages/core/node_modules — root
+      # vitest.config.ts NOTE), the workspace `npm ci` hoists tsx to
+      # root/node_modules/.bin so the hooks' own 3-tier tsx resolution hits tier 1 and
+      # the tsx-spawning arms RUN rather than skip. Vitest is invoked from
+      # packages/core, so the suite is spelled `hooks` from that cwd — the same
+      # population `npx vitest run packages/core/hooks` names from the repo root.
+      # `run: |` block + `shell: bash` mirrors the R2 Windows arm above; a multi-line
+      # block also stays outside run-local-ci-sweep-coverage's single-line token
+      # extraction (CEILING comment), which has no local sweep row to reconcile a
+      # Windows-only vitest invocation against.
+      # Anti-hollow floor (the R2 arm's require-by-name, generalized): a skip-heavy
+      # run still exits 0, so the JSON reporter is parsed and the cell REDs unless a
+      # floor of cases actually PASSED — junction-arm fixtures included — and the
+      # skip/passed counts land in the step summary so the hollowing axis stays
+      # visible run over run.
+      - name: Install packages/core deps (vitest lives only in packages/core on CI)
+        if: matrix.cell == 'windows-hooks'
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (lockfile-exact; hoists tsx to root)
+        if: matrix.cell == 'windows-hooks'
+        run: npm ci --silent
+      - name: Run the hooks suite on Windows (npx vitest run packages/core/hooks)
+        if: matrix.cell == 'windows-hooks'
+        shell: bash
+        run: |
+          cd packages/core
+          rc=0
+          NO_COLOR=1 npx --no-install vitest run hooks \
+            --reporter=default --reporter=json --outputFile.json="$RUNNER_TEMP/win-hooks.json" \
+            > "$RUNNER_TEMP/win-hooks.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/win-hooks.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          node - "$RUNNER_TEMP/win-hooks.json" <<'JS'
+          const fs = require('node:fs');
+          const all = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).testResults
+            .flatMap((f) => f.assertionResults).map((a) => a.status);
+          const passed = all.filter((s) => s === 'passed').length;
+          const skipped = all.filter((s) => s === 'skipped' || s === 'todo').length;
+          const line = `win-hooks: ${passed} passed, ${skipped} skipped (named), ${all.length} total`;
+          if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\`\`\`\n${line}\n\`\`\`\n`);
+          console.log(line);
+          const FLOOR = 100;
+          if (passed < FLOOR) {
+            console.log(`::error::only ${passed} hooks cases PASSED on Windows (floor ${FLOOR}) — the cell ran hollow (mass skips); investigate before trusting this green`);
+            process.exit(1);
+          }
+          JS
 
   # D26 docs refresh gate (getff-ai-site S1, R13 of
   # docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md) —

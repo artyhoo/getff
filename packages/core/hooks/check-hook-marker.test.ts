@@ -704,19 +704,21 @@ describe.skipIf(!JQ)(
 // check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
 // 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
-  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string; stderr: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
       const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
@@ -728,8 +730,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
-  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq('/x/.claude/hooks/foo.sh');
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/.claude/hooks/foo.sh');
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -739,8 +741,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 
-  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
-    const { status, stdout } = runNoJq('/x/README.md');
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/README.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
