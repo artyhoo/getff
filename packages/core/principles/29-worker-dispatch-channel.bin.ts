@@ -43,7 +43,8 @@ for (const rel of paths) {
 
 if (failed) {
   process.stderr.write(
-    '   Rule `#worker-dispatch-via-subagent` (.claude/skills/pipeline/SKILL.md §5): a write-task Worker\n' +
+    '   Rule `#umbrella-execution-launch-without-operator` (formerly `#worker-dispatch-via-subagent`)\n' +
+      '   (.claude/skills/pipeline/SKILL.md §5): a write-task Worker\n' +
       '   must NOT be dispatched via the Agent tool from the meta-orchestrator session. Use a fresh\n' +
       '   maintainer-opened CC session (paste the §10 1-liner) or dispatch.ts. The Agent tool is ONLY\n' +
       '   for Phase -1 read-only reviewers + read-only research subagents.\n' +

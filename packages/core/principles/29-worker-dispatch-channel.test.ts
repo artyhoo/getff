@@ -1,7 +1,9 @@
 /**
- * Principle 29 — `#worker-dispatch-via-subagent` channel-discipline gate (M6, CI half).
+ * Principle 29 — `#umbrella-execution-launch-without-operator` channel-discipline gate
+ * (M6, CI half; formerly `#worker-dispatch-via-subagent` — renamed 2026-10-04,
+ * plain-words-recap-v2 D6).
  *
- * Source: .claude/skills/pipeline/SKILL.md §5 `#worker-dispatch-via-subagent`
+ * Source: .claude/skills/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`
  *         docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md
  *         (Stage A R-phase — M6 design, candidate matrix, regex sketch, escape-token)
  *

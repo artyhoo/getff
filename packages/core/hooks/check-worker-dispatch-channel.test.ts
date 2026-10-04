@@ -1,6 +1,7 @@
 /**
  * Functional tests for the PostToolUse gate check-worker-dispatch-channel.sh
- * (M6 edit-time channel for #worker-dispatch-via-subagent).
+ * (M6 edit-time channel for #umbrella-execution-launch-without-operator;
+ * formerly #worker-dispatch-via-subagent — renamed 2026-10-04, plain-words-recap-v2 D6).
  *
  * Channel: edit-time PostToolUse. Fires on Edit|Write|MultiEdit of a
  * .claude/orchestrator-prompts/<umbrella>/kickoff.md and delegates to the single
@@ -275,7 +276,7 @@ describe.skipIf(!JQ || !TSX)(
 //   (2) SILENT exit 0 on tsx-miss (the loudness defect unique to this hook) — closed
 //       by the new _emit_skip + _json_escape helpers.
 // The SILENCE-GONE test (Block 2) is the WHOLE POINT of the PR: this hook is the
-// edit-time gate for #worker-dispatch-via-subagent; while inert-and-silent, a kickoff
+// edit-time gate for #umbrella-execution-launch-without-operator; while inert-and-silent, a kickoff
 // author gets neither enforcement nor notice (audit PROBE 3, 2026-07-24).
 // ═══════════════════════════════════════════════════════════════════════════════
 import {

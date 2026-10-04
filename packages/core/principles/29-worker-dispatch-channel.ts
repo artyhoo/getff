@@ -1,5 +1,6 @@
 /**
- * Principle 29 — shared matcher for `#worker-dispatch-via-subagent` (M6).
+ * Principle 29 — shared matcher for `#umbrella-execution-launch-without-operator` (M6)
+ * (formerly `#worker-dispatch-via-subagent` — renamed 2026-10-04, plain-words-recap-v2 D6).
  *
  * Single source of truth (dual-implementation-discipline.md §7): this module
  * holds the ONE matcher. Both enforcement channels call it — never two divergent
@@ -10,7 +11,7 @@
  *
  * @dual-pair: channel-discipline-worker-dispatch
  *
- * Rule enforced (.claude/skills/pipeline/SKILL.md §5 `#worker-dispatch-via-subagent`):
+ * Rule enforced (.claude/skills/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`):
  * a WRITE-task Worker must NOT be dispatched via the Agent tool / a subagent from
  * the meta-orchestrator session. The Agent tool is ONLY for Phase -1 read-only
  * reviewers + read-only research subagents (text return). Write-task Workers run as
