@@ -125,6 +125,16 @@ export function planWin32BashSpawn(
   return { kind: 'spawn', file: command };
 }
 
+/** Directory holding the resolved bash.exe — for constructing a child-env PATH in which
+ *  a SUT that ITSELF spawns bash (e.g. the pre-push hook funnel) resolves it. Null
+ *  off-Windows, so POSIX callers append nothing and the PATH string is unchanged (the
+ *  §0.11 byte-identical invariant). */
+export function gitBashPathDir(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (process.platform !== 'win32') return null;
+  const exe = findGitBashExe(env);
+  return exe ? dirname(exe) : null;
+}
+
 function debugWinSpawn(msg: string): void {
   if (process.env.DEBUG_WIN_SPAWN === '1') console.error(`[spawn-bash-or-skip] ${msg}`);
 }

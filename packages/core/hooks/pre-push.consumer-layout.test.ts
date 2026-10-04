@@ -62,7 +62,8 @@ import {
   failLoudSkipContext,
   type Skippable,
 } from './symlink-or-junction-or-skip.ts';
-import { resolve, dirname, join, basename } from 'node:path';
+import { resolve, dirname, join, basename, delimiter } from 'node:path';
+import { spawnBashOrSkip, gitBashPathDir } from './spawn-bash-or-skip.ts';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -288,13 +289,19 @@ function runHook(
   baseRef: string,
 ): { status: number; stdout: string; stderr: string } {
   const stubBin = join(dir, '.stub-bin');
+  // win32: let the hook's OWN bash spawns (utils/run-check.ts funnel) resolve Git Bash;
+  // POSIX: gitBashPathDir() is null → this PATH string is byte-identical to before.
+  const bashDir = gitBashPathDir();
+  const childPath = [stubBin, resolve(REAL_NODE_MODULES, '.bin'), bashDir, process.env['PATH']]
+    .filter(Boolean)
+    .join(delimiter);
   const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
     encoding: 'utf8',
     cwd: dir,
     env: {
       ...process.env,
       NODE_PATH: REAL_NODE_MODULES,
-      PATH: `${stubBin}:${resolve(REAL_NODE_MODULES, '.bin')}:${process.env['PATH']}`,
+      PATH: childPath,
       PREPUSH_UPSTREAM_REF: baseRef,
     },
   });
@@ -1185,10 +1192,10 @@ describe(
       return execSync(`git show ${baseSha}:${path}`, { cwd: dir }).toString();
     }
 
-    it('P-0 — the REAL assembler answers --list-payload (the sandbox stub is not a lie)', () => {
+    it('P-0 — the REAL assembler answers --list-payload (the sandbox stub is not a lie)', (ctx) => {
       const script = resolve(REPO_ROOT, 'scripts/build-getff-dist.sh');
       if (!existsSync(script)) return; // consumer checkout: nothing to assert
-      const r = spawnSync('bash', [script, '--list-payload'], {
+      const r = spawnBashOrSkip(ctx, 'bash', [script, '--list-payload'], {
         encoding: 'utf8',
         cwd: REPO_ROOT,
       });
