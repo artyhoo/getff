@@ -226,8 +226,8 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-0b48d529983cf0541eeefb4036a384fe6e430106d4481836a64fdbab378d1e67  packages/core/audit-self/pre-merge-local.sh
-e0dd358e29349eca60a50947da028b0d6c946f8f6c2247c07ca76483375378b2  packages/core/audit-self/pre-merge-local.test.sh
+9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh
+7a75cd786d897e6ee05c30757d7f639735346f07ca53a901852b8e2024445983  packages/core/audit-self/pre-merge-local.test.sh
 2ecb7c63d661594c7eadbdfa874adabca47205679bb5deef6119dd7faa7e91cc  packages/core/audit-self/prove-rules-parity.test.ts
 4a1971c15529184e4dc79a9f4b460c8bfab3477518f38ccfbd3c88d0dac0afec  packages/core/audit-self/prove-rules.mjs
 e63585a137d832c0cc3bbd0f028288bc291995b8ba0ca8d6ba3a6f5286ab60e9  packages/core/audit-self/prove-rules.test.ts
@@ -471,6 +471,7 @@ f49fce0be37115a17d877a51685b0ad5f904f395303d76ec8ec77287417d63fc  packages/core/
 21da3f6b1d19b9722dfb07be47872c9255800f904fec77942143ae0f16f6881f  packages/core/hooks/checks/harness-config-local.ts
 ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/hooks/checks/hooks-path.test.ts
 0e99dd01da436e9b31735fbbedbf6a76bbcd16b545cd8d8ddddbdead615907b4  packages/core/hooks/checks/hooks-path.ts
+cc3a54223bb624e310bb87df203c253d7a2bc128591b48049cacc9e806cdc363  packages/core/hooks/checks/pr-body-base-freshness.test.ts
 5cd34075b76e975b064acd03a8824b114a90e754f4d7f2d939fd35d690b722b8  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
 70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7  packages/core/hooks/checks/pr-body-fidelity-bin.ts
 dc027cb90a29f27f0610e2ce12168369835142bea85ece4591fe4ac5afa6ae84  packages/core/hooks/checks/pr-body-fidelity.test.ts
