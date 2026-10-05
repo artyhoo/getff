@@ -1,6 +1,7 @@
 # Dot staging review gate — canonical umbrella kickoff
 
 > **Status:** PUBLISHED 2026-10-05 as the staging dispatch input for this umbrella. Protocol pinned `dot-staging-review/1.0`. This kickoff authorizes nothing by itself: autonomous launch stays BLOCKED until every [setup manifest](../../../../docs/meta-factory/dot-review-handoff.md#setup-manifest) field resolves and S0–S4 receipts exist.
+> **Rigor label (L0):** `build-and-verify` — every stage needs live receipts against the declared host-verify contract; no new research is authorized by dispatches under this kickoff.
 > **Authoritative for:** dispatch order, scope boundaries and the host-verification contract for any future `/pipeline dot-staging-review-gate` or aif stage dispatch.
 > **NOT authoritative for:** Dot's operating instructions — [DotStagingReviewV1 protocol](../../../../docs/meta-factory/dot-review-protocol.md); result shape — [schema](../../../../docs/meta-factory/dot-review-result.schema.json); setup receipts and runbooks — [handoff](../../../../docs/meta-factory/dot-review-handoff.md); design rationale — [spec](../../../../docs/superpowers/specs/2026-10-05-dot-staging-review-gate-design.md); full stage detail — [implementation kickoff](../../../../docs/superpowers/plans/2026-10-05-dot-staging-review-gate-kickoff.md); project goal — [README §why-this-exists](../../../../README.md#why-this-exists).
 
