@@ -40,8 +40,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       # Pinned per ci-tool-pinning.md Rule A — matches the getff framework CI pin.
+      # Node 22 (not 20): the getff framework itself declares engines node>=22
+      # (packages/core/package.json), and its CI pins '22' — same floor here.
       - name: Install ast-grep (pinned)
         run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       # Fails RED when a getff ast-grep rule fires (sgconfig.yml resolves .getff/astgrep-rules).

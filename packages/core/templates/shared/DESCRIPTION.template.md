@@ -1,56 +1,60 @@
 # <PROJECT_NAME>
 
-> Replace placeholders below. This file is loaded by every AI agent at session start.
+> Fill the marked region below. This file is loaded by every AI agent at session start.
 > Keep ≤150 lines. Cold content goes to `.claude/skills/` and `.claude/rules/`.
 >
-> **Authoritative for:** consumer-project description template — domain / stack / constraints / non-goals scaffolding.
-> **NOT authoritative for:** project goal — see consumer's README.md.
+> **Authoritative for:** the consumer-project passport — the getff-owned marked region below is the project's goal source of truth (goal scope / goal core / invariants / never / non-goals).
+> **NOT authoritative for:** the consumer's own prose outside the marked region (project narrative lives in the consumer's README.md) and the concrete stack — fill that from the real dependency tree.
 
-## What it is
+<!-- getff:begin section=passport -->
+<!-- getff-owned region: the passport's goal source of truth. Fill the marked placeholders;
+     getff refreshes this region's scaffolding, never your filled values. -->
 
-<One-paragraph project description. Domain, primary users, core value proposition.>
+### Goal scope
+
+<One paragraph: what this project IS — domain, primary users, core value proposition.>
+
+### Goal core
+
+<One sentence every change must serve. A change that does not serve it does not ship.>
+
+### Invariants
+
+<Properties every change must preserve. Enforce mechanically (lint/test/CI) where possible.>
+
+- Example: the public API stays backwards-compatible within the current major version.
+
+### Never
+
+<Things this project will never do, even when asked — stops the AI from widening scope.>
+
+- Example: no new runtime dependency without a recorded decision.
+
+### Non-goals
+
+<Things explicitly NOT in scope.>
+
+- Example: no offline mode in v1.
+
+<!-- getff:end section=passport -->
 
 ## Stack
 
-- **Runtime:** Node.js 22.23+
-- **Language:** TypeScript 5.7+ (strict + noUncheckedIndexedAccess)
-- **Framework:** <Fastify | Hono | Express | Next.js 15 App Router>
-- **Database:** <Postgres | MySQL | SQLite> + <Drizzle | Prisma | Kysely>
-- **Validation:** Zod (schemas at every external boundary)
-- **Tests:** Vitest 4.x (unit + integration), fast-check (property-based), Stryker 8 (mutation incremental)
-- **Lint:** ESLint 10 flat config + typescript-eslint/strictTypeChecked + Prettier
-- **Architecture:** dependency-cruiser (no-cycles, layered)
-- **Pre-commit:** Husky + lint-staged
-- **CI:** GitHub Actions
-- **Observability:** OpenTelemetry → <Honeycomb | Datadog | Grafana Cloud>
-- **<UI only> Storybook 9:** play functions for behavioural tests
-- **<UI only> Playwright:** e2e + component testing
+<The project's actual stack — fill from the real dependency tree.>
 
-## Hard constraints
-
-These are non-negotiable. Enforced by lint/test/CI.
-
-- All external inputs (HTTP body/query, env, message queues, DB rows) parsed via Zod.
-- Domain layer (`src/domain/`) imports stdlib + Zod ONLY — no framework, no infrastructure.
-- No `as any`, no non-null assertions (`!`), no `enum`.
-- All public exports have at least one test.
-- Mutation kill rate ≥70% on PR diff (Stryker incremental).
-- All time, randomness, IO injected via interfaces — no `Date.now()`/`Math.random()`/`fs.*` in production code.
-
-## Non-goals
-
-<Things explicitly NOT in scope. Helps the AI not over-engineer.>
-
-- Example: no support for offline mode in v1.
-- Example: no real-time collaboration features.
-- Example: no PostgreSQL replication setup — single-region deployment.
+- **Runtime:** <runtime + version>
+- **Language:** <language + strictness profile>
+- **Framework:** <web framework, if any>
+- **Persistence:** <database + access layer, if any>
+- **Tests:** <runner + property-based / mutation tooling, if any>
+- **Lint / format:** <linter + formatter>
+- **CI:** <CI system + required checks>
 
 ## Source-of-truth pointers
 
-- DB schema: `<prisma/schema.prisma | drizzle/schema.ts>`
-- API contract: `openapi/<service-name>.yaml` (auto-generated from Zod via `zod-to-openapi`)
-- Architecture decisions: `docs/adr/`
-- Rules R1–R20 (enforced): `.ai-factory/RULES.md`
+- DB schema: `<path in this repo>`
+- API contract: `<path in this repo>`
+- Rules (enforced): `.ai-factory/RULES.md`
 - Layer rules: `.ai-factory/ARCHITECTURE.md`
 
 ## Workflow

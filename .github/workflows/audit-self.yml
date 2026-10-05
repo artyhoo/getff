@@ -2668,8 +2668,9 @@ jobs:
         run: node scripts/check-arch-retell.mjs
 
   ships-manifest:
-    # One-button point 13: every skill, hook, rule, agent, setting and MCP server getff has is
-    # marked in setup.d/ships.manifest as shipping (and through which channel) or internal, and why.
+    # One-button point 13: every skill, hook, rule, agent, setting, MCP server and docs-gate
+    # script getff has is marked in setup.d/ships.manifest as shipping (and through which channel)
+    # or internal, and why.
     # Arm A (marking) also runs at pre-commit when a population path is staged; this job is its
     # backstop for `--no-verify` and aif-container commits. Arm B checks every row against a real
     # core/env/factory install; its N1 arm proves a false row turns it red. Placed after every
@@ -2697,7 +2698,7 @@ jobs:
         run: npm ci --silent
       - name: Run ships-manifest marking gate paired-negative (Arm A)
         run: bash scripts/check-ships-manifest.test.sh
-      - name: ships-manifest marking gate (every skill/hook/rule/agent/setting/mcp marked)
+      - name: ships-manifest marking gate (every skill/hook/rule/agent/setting/mcp/docs-gate script marked)
         run: node scripts/check-ships-manifest.mjs
       - name: Run install-sh ships-manifest real-install test (Arm B)
         run: bash tests/install-sh/ships-manifest.test.sh

@@ -353,6 +353,10 @@ do_toolchain_lane() {
   else
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert the delivered config fires RED)"
   fi
+  # HO-3 (one-button w2 docs hand-over): the shared curated agent surface — passport with its
+  # marked region, rule-research skills/agents, hooks, .mcp.json, AGENTS.md, the docs gate. Same
+  # slot the python lane's own body delivers it (after the firing self-check, before the closers).
+  _lane_deliver_agent_surface "$lane"
   # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
   record_lane_checks "$lane"
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
