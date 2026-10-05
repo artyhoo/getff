@@ -58,6 +58,7 @@
   "packages/core/skills/dispatcher/advance-frontier.test.ts": "4c98aef847ddeb1bd5a4ae3e4bd2014f2e0177542c839c9682741890c346c3c7",
   "packages/core/skills/dispatcher/dispatch.test.ts": "446c4a061b2031c9a6ed46771e4245376b9cedb3e9759dfb7f2766617009b9a5",
   "packages/core/skills/dispatcher/probe-inflight.test.ts": "112e0dc8be2d92c865fec5e89a780e39962fc403b024e8bec2f88cd27f9e0d66",
+  "packages/getff/MANIFEST.sha256": "c1ccf715b95048d7b877cc25b21013881b9fd2a662a8a4e6d61f579f97403727",
   "plugin/skills/getff/SKILL.md": "e3f3c85f8ff525ee9d3f40f32840f08bd896285dc55e17dc0ec60eada677cd32",
   "plugin/skills/rule-research/SKILL.md": "655473880d675c47beab8437d7bc8450ca083eec92e5a00877f77613e6c0b131",
   "plugin/skills/rule-tests/SKILL.md": "0867f01e478763f36658368c6ee2c665f7cbdadf652c29bdeb9a430cef7c29d7",
