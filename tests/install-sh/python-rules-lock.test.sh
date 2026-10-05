@@ -693,6 +693,31 @@ else
 fi
 rm -rf "$P15"
 
+# ── (16) dir present but EMPTY (consumer deleted every *.yml) → the plain re-run completes ─────────
+# copy_safe (lib.sh:893) skips an EXISTING dst on a plain re-run, so a consumer who emptied
+# .getff/astgrep-rules/ is never re-populated. The top-of-function guard only checked the DIR
+# ([ -d ]), and the ids assignment ran `grep … "$rules_dir"/*.yml` as a command-substitution
+# ASSIGNMENT under install.sh's set -euo pipefail: with no *.yml the glob stays literal, grep exits
+# 2, pipefail propagates and stderr is suppressed → the lane died message-lessly at the rules-lock
+# step (firing self-check, agent surface and record_lane_checks never ran; refresh_baseline_flush
+# only ran via the EXIT trap). The no-*.yml case must behave like the no-dir case: the same ⊝ skip
+# line, return 0.
+echo ""; echo "  ── (16) emptied rules dir: plain re-run completes with the rules-lock skip line ──"
+P16=$(py_fixture)
+( cd "$P16" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+rm "$P16"/.getff/astgrep-rules/*.yml
+[ -d "$P16/.getff/astgrep-rules" ] && [ -z "$(ls "$P16/.getff/astgrep-rules" 2>/dev/null)" ] \
+  && ok "(16) repro precondition: rules dir present and emptied (copy_safe will not re-populate it)" \
+  || bad "(16) repro precondition FAILED: rules dir not present-and-empty after the wipe"
+out16=$( cd "$P16" && bash "$INSTALL" python < /dev/null 2>&1 ); rc16=$?
+[ "$rc16" -eq 0 ] \
+  && ok "(16) plain re-run over the emptied dir exits 0 (lane completes — was exit 2, message-less)" \
+  || bad "(16) plain re-run over the emptied dir exits $rc16 — the lane still dies message-lessly at the rules-lock step"
+grep -q 'rules-lock: no .getff/astgrep-rules present — skipping' <<<"$out16" \
+  && ok "(16) the no-dir ⊝ skip line prints for the empty-dir case" \
+  || bad "(16) no rules-lock skip line in the re-run output (died before the lock step, or wrong branch)"
+rm -rf "$P16"
+
 rm -rf "$P" "$P2"
 echo ""
 echo "── python-rules-lock: $PASS passed, $FAIL failed ──"
