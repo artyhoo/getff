@@ -33,15 +33,25 @@ export GETFF_DEEPWIKI_MACHINE_WIDE=0
 # check-doc-links.sh is armed only where lychee is on PATH. CI has no lychee, and a Mac with
 # Homebrew often does, so hide it: each PATH entry that holds a lychee is replaced by a copy of that
 # entry, made of symlinks, without it. Then a baseline captured on either machine compares equal.
+# The python lane's record (setup.d/45-python.sh _py_record_project_checks) is tool-truthed the same
+# way: its three check lines read «not wired: <tool> is not on PATH» exactly when ast-grep / ruff are
+# absent — and tool-decisions.md IS fingerprinted. Hide the two tools the record's own probes look
+# for (`command -v ast-grep` / `command -v ruff`, the hook's view) so a baseline captured on a
+# tool-equipped host compares equal on a bare CI runner, as lychee's does.
 SNAPSHOT_TOOL_SHADOW=$(mktemp -d "${TMPDIR:-/tmp}/snapshot-path.XXXXXX")
 trap 'rm -rf "$SNAPSHOT_TOOL_SHADOW"' EXIT
 _hermetic_path="" _n=0
 _old_ifs=$IFS; IFS=:
 for _d in $PATH; do
-  if [ -n "$_d" ] && [ -e "$_d/lychee" ]; then
+  _hide=""
+  # literal list, NOT a space-separated variable: IFS is ":" inside this loop, so an unquoted
+  # variable would not split and the hide-set would silently degrade to one bogus entry.
+  for _t in lychee ast-grep ruff; do [ -e "$_d/$_t" ] && _hide=1; done
+  if [ -n "$_d" ] && [ -n "$_hide" ]; then
     _n=$((_n + 1)); mkdir -p "$SNAPSHOT_TOOL_SHADOW/$_n"
     for _f in "$_d"/*; do
-      [ "${_f##*/}" = lychee ] || ln -s "$_f" "$SNAPSHOT_TOOL_SHADOW/$_n/"
+      case "${_f##*/}" in lychee|ast-grep|ruff) continue ;; esac
+      ln -s "$_f" "$SNAPSHOT_TOOL_SHADOW/$_n/"
     done
     _d="$SNAPSHOT_TOOL_SHADOW/$_n"
   fi

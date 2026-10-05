@@ -849,7 +849,7 @@ jobs:
       - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
         run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
       - name: Run install-sh AGENTS.md fenced co-ownership test (beta-ai-docs-agnosticism S1 D1b)
-        run: bash tests/install-sh/fence-agents-coownership.test.sh
+        run: bash tests/install-sh/fence-agents-coownership.test.sh && bash tests/install-sh/install-toolchain-docs.test.sh && bash tests/install-sh/install-tier-home-reachability.test.sh
       - name: "install-sh — critical-review S4-4 consumer-owned eslint / lint-staged / prettier configs kept"
         run: bash tests/install-sh/foreign-tool-configs.test.sh
       - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
@@ -893,7 +893,7 @@ jobs:
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
       - name: "install-sh — refresh TTY guard (#1597 ultra review: the depth menu must never fire on a --refresh pass — Enter would deepen core→env)"
-        run: bash tests/install-sh/install-refresh-tty-guard.test.sh
+        run: bash tests/install-sh/install-refresh-tty-guard.test.sh && bash tests/install-sh/install-dual-refresh.test.sh && bash tests/install-sh/install-refresh-npm-evidence.test.sh
       - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
         run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
       - name: "install-sh — no tsx step (the prebuilt pre-push hook needs no tsx; a positional stack skips the profile menu)"

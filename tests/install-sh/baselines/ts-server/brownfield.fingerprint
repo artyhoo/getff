@@ -15,7 +15,7 @@ d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/
 4df7392c5a977ad476d3cdb970b50ec91e92a6d82e260800dbfc5caae3344573  .agents/hooks/precompact-residue.sh
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .agents/procedures/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .agents/procedures/ai-doc/anthropic-and-aif-residue.md
-7c2f34c57d962d0af5ee907be776546d6209cd34bf6bec5811b086be9f566e83  .agents/procedures/arch/SKILL.md
+0d492f0b387b74ec543771c0bce392427287881e87f568ecf512ccd87b00241d  .agents/procedures/arch/SKILL.md
 49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .agents/procedures/arch/references/ADR-FORMAT.md
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .agents/procedures/arch/references/CONTEXT-FORMAT.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .agents/procedures/arch/references/domain-modeling.md
@@ -28,7 +28,7 @@ c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .agents/proced
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .agents/procedures/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .agents/procedures/getff/references/self-testing-docs.md
 defe62c6234680239424440bdf95137ed49236c5537e5b1ea72fe8d5cb1276ab  .agents/procedures/night-mode/SKILL.md
-4a7d908502de2cbe0437b7dd17161c47979d79d97d17ba1c5fd5b15bf17290d7  .agents/procedures/orchestrator/SKILL.md
+871df7a3f1856e89346a79123eae9703842cd9a0d1f6de96fc4750b3c8ba808b  .agents/procedures/orchestrator/SKILL.md
 8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .agents/procedures/orchestrator/helpers/memory-sweep.sh
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .agents/procedures/orchestrator/references/ai-laziness-traps-orchestrator.md
 e96ad34debe07261f4bdfb2c6fd3e4fd64cd4b73ef5b720658b769e29875e4e2  .agents/procedures/orchestrator/references/batch-prompt-template.md
@@ -162,18 +162,18 @@ d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/template-audit/agents/openai.yaml
 19d1b80f71e325379f81cffdbca7c8e72b4ad77d26bd62800938d7a38c8c9442  .agents/skills/tool-bootstrapping/SKILL.md
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/tool-bootstrapping/agents/openai.yaml
-3a0d33b2e008c49b019e3571b838f30d86e2863dcb8648f90758c4146c0ada8c  .ai-factory/AI-USAGE-GUIDE.md
+44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48  .ai-factory/AI-USAGE-GUIDE.md
 df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/ARCHITECTURE.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
-9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.md
-9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
+a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.md
+a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-8b62e361ee12b23f2afcc01f573714c7a999c3d05e06456a21e08805f30a264b  .ai-factory/refresh-baseline.json
+d1ba8358d8d019854471733c7e5b14aec7b825aadee36a6e9c82c840c977be55  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
-cd7765c267add628bbfc8f17b73e03cc7942cd8fa8250af31f2a0693e1bcd0b2  .ai-factory/tier-home.md
+f6844f9af829a3252cdaa5b7045c0a352141eb54a635729c453fe8befc669327  .ai-factory/tier-home.md
 43bffdaad5a3bbc8d48aa0106caa89445e6a59096259559100cf49efdf34d959  .ai-factory/tool-decisions.md
 link  .claude/agents/aif-init.md -> ../../.agents/roles/aif-init.md
 link  .claude/agents/capability-reuse-auditor.md -> ../../.agents/roles/capability-reuse-auditor.md
@@ -406,7 +406,7 @@ link  .zcode/skills/template-audit/SKILL.md -> ../../../.agents/procedures/templ
 link  .zcode/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
 link  .zcode/skills/tool-bootstrapping/references/decision-format.md -> ../../../../.agents/procedures/tool-bootstrapping/references/decision-format.md
 link  .zcode/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
-284338ae97c8e94e3616f44a8f52387d50883ff644a601746052e60002f77fe0  AGENTS.md
+f5e4b395baa096190372cd843864ba82060ae2cb1708c6096082d100b260c146  AGENTS.md
 530d36bb3b8680d900b25a3efae04c726464e238f14a882ef24afaff4a5c8a99  eslint-rules-local/index.mjs
 4b845c52cd83126c642143ae8c9ad3b32c3d8a35919fb2bf50cee3b78b952f6f  eslint-rules-local/no-direct-time-randomness.d.ts
 c641bbe9b16fc02d96c583df6c0ab9e09351045f4d47a5d2689113199a063f7c  eslint-rules-local/no-direct-time-randomness.mjs
@@ -426,9 +426,9 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-l
 7f121c47da0752045f301e46d44db45217b721ebabe976adabf66cc11bb020b2  eslint.config.mjs
 16e5860fd46561bb05acd547cf080ff61ad1f5ea9744877f1a4d920bac696db9  index.ts
 7720e54a67a6bd482a167708418e4606b4a865136b4e5e936d67230e19de75c9  package.json
-a217c307ed0dc0672501843e083d4ce71f2aab26357683aca2049d020ca34641  packages/core/hooks/pre-push.bundle.mjs
+d4ba7153c2ee0f122ae17b62d51dae9fb155abce856b6ec1fedc64540a42f4b1  packages/core/hooks/pre-push.bundle.mjs
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
-d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  scripts/audit-ai-docs.sh
+2746e922917be946544d8fb01e35e9d25d91a76f1053858b3e60b9bfea845790  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  scripts/check-arch-boundaries.sh
 a31c7ad0b16499c8f0b776037abac8796572d7d30f77fdad42b758826d05f9b0  scripts/check-ci-pins.sh

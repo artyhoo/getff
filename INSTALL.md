@@ -5,7 +5,6 @@
 > - Tool bootstrapping (MCP/skill seeding at install time): see [INSTALL-FOR-AI.md — Tool bootstrapping](INSTALL-FOR-AI.md#tool-bootstrapping--mcp-and-skill-recommendations-at-install-time).
 
 Three ways to install. Pick one.
----
 
 The canonical `.agents` procedures, roles, rules and checks feed the native bindings
 and installer payload. See [the contributor guide](CONTRIBUTING.md).
@@ -18,7 +17,6 @@ cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
----
 
 ## Windows
 
@@ -92,6 +90,7 @@ git rm --cached -r . && git reset --hard
 - **Not yet measured:** a full, non-dry `./setup -y <stack>` run to completion on Windows, and
   any run on a machine with no WSL at all (there `bash` does not resolve, so the symptom differs
   while the breakage is the same). If you hit either, please open an issue.
+
 ---
 
 ## Path A: AIF extension (recommended once schema lands)
@@ -110,7 +109,6 @@ ai-factory extension list
 ```
 
 If AIF doesn't recognize the manifest format yet, fall back to Path B.
----
 
 ## Path B: install.sh (guaranteed to work today)
 
@@ -159,7 +157,7 @@ Five further opt-in flags (see `install.sh` header for exact semantics): `--full
 
 ### Python lane — the local hook rung and `GETFF_SKIP_HOOKS`
 
-Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob **named `GETFF_*`** any getff-delivered hook body consults at runtime (runtime variables with other prefixes exist — see [Environment knobs](#environment-knobs-read-by-delivered-artefacts) below).
+Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. Each arm is **record-gated**: the install probes each command once on your tree as it was and writes the result into the `aif:project-checks` block of `.ai-factory/tool-decisions.md`, read through `scripts/run-armed.sh` (both delivered to your repo — commit them like the rest of `.getff/`); a check the install probed red prints its `· not armed` reason and does **not** block the push — what was green before the install stays green; a reason carrying a **finding count re-probes on every push**, arming itself the day it turns green, while a structural `not wired:` reason (the tool absent from the machine that ran the install) **never re-probes** — install the tool, then `install.sh python --refresh` re-arms it. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob **named `GETFF_*`** any getff-delivered hook body consults at runtime (runtime variables with other prefixes exist — see [Environment knobs](#environment-knobs-read-by-delivered-artefacts) below).
 
 | When | Command | Effect |
 | --- | --- | --- |
