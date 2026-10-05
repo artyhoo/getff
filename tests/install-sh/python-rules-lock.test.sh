@@ -704,7 +704,11 @@ rm -rf "$P15"
 # line, return 0.
 echo ""; echo "  ── (16) emptied rules dir: plain re-run completes with the rules-lock skip line ──"
 P16=$(py_fixture)
-( cd "$P16" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+rc_setup16=0
+( cd "$P16" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1 || rc_setup16=$?
+[ "$rc_setup16" -eq 0 ] \
+  && ok "(16) repro setup: fresh install delivered the starter rules (exit 0)" \
+  || bad "(16) repro setup FAILED: fresh install exited $rc_setup16 — the wiped-dir repro is meaningless"
 rm "$P16"/.getff/astgrep-rules/*.yml
 [ -d "$P16/.getff/astgrep-rules" ] && [ -z "$(ls "$P16/.getff/astgrep-rules" 2>/dev/null)" ] \
   && ok "(16) repro precondition: rules dir present and emptied (copy_safe will not re-populate it)" \
