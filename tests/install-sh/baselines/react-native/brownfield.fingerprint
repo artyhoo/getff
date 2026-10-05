@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-63d344cdfdb331c4381ee20472eeabef098308a35a740dced23166fc84f108aa  .ai-factory/refresh-baseline.json
+33ca06896925d056e846c215c3f95711ded3a6067bbbe8b6e3e52aeb92d40943  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -28,7 +28,7 @@ c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
-ab3242e2265192215a9f2953a92463f05cb9c9d49990873d6189b20b9e20ebe5  .claude/hooks/end-of-turn-reminder.sh
+5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .claude/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
 c2faeadc6d8bd8f8f9e2c7e228459924c600ad8cc4d9bfe25fbaa1b15d47cfbd  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
