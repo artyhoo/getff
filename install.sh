@@ -704,7 +704,7 @@ echo "[profile] $PROFILE"
 # Calls stay plain: set -e must propagate a failed delivery rather than continue green.
 if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && [ -z "$TOOLCHAIN" ] \
    && [ -n "$_REFRESH_LANES_PRESENT" ]; then
-  for _refresh_lane in "${_REFRESH_LANES[@]}"; do
+  for _refresh_lane in ${_REFRESH_LANES[@]+"${_REFRESH_LANES[@]}"}; do
     (
       case "$_refresh_lane" in
         python) do_python_lane ;;
