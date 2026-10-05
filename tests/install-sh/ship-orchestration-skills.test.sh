@@ -40,14 +40,14 @@ for s in dispatcher aif-doctor template-audit night-mode ai-doc rule-research ha
 done
 
 # ── transform: repo-internal refs rewritten, none left dangling ──────────────
-D="$T/.claude/skills/dispatcher/SKILL.md"
-if [ -f "$D" ]; then
-  if grep -qE '\]\((\.\./)+(docs|packages)/' "$D" || grep -qE '\]\((\.\./)+README\.md' "$D"; then
-    bad "dispatcher SKILL.md still has un-transformed repo-internal refs (consumer-dangling)"
+D="$T/.claude/skills/dispatcher"
+if [ -f "$D/SKILL.md" ]; then
+  if grep -rqE --include='*.md' '\]\((\.\./)+(docs|packages)/|\]\((\.\./)+README\.md' "$D"; then
+    bad "dispatcher card/reference still has un-transformed repo-internal refs (consumer-dangling)"
   else
     ok "dispatcher repo-internal refs transformed (no surviving ../../../{docs,packages,README}; rules/+hooks/ stay relative by convention)"
   fi
-  grep -q 'github.com/.*/blob/' "$D" \
+  grep -rq --include='*.md' 'github.com/.*/blob/' "$D" \
     && ok "dispatcher refs rewritten to GitHub blob URLs" \
     || bad "dispatcher has no blob URL — transform did not run"
 else
@@ -55,7 +55,7 @@ else
 fi
 
 # ── non-vacuity: the SOURCE dispatcher has repo-internal refs to transform ────
-if grep -qE '\]\((\.\./)+(docs/|README\.md)' "$REPO_ROOT/.claude/skills/dispatcher/SKILL.md"; then
+if grep -rqE --include='*.md' '\]\((\.\./)+(docs/|README\.md)' "$REPO_ROOT/.claude/skills/dispatcher"; then
   ok "source dispatcher carries repo-internal refs (transform assertion is non-vacuous)"
 else
   bad "source dispatcher has NO repo-internal refs — transform assertion would be vacuous"
@@ -68,21 +68,44 @@ fi
 # (tests/install-sh/transform-internal-refs.test.sh #4/#4b/#4c/#5). A surviving transform-target
 # link in a SHIPPED copy = a transform miss (consumer-dangling). Sibling-skill + same-dir links
 # are consumer-valid.
-for s in night-mode ai-doc rule-research harvest story; do
-  SF="$T/.claude/skills/$s/SKILL.md"
-  [ -f "$SF" ] || { bad "clean-check: shipped skill missing: $s"; continue; }
-  if grep -qE '\]\((\.\./)+(docs|packages|rules)/|\]\((\.\./)+\.claude/rules/|\]\((\.\./)+(README\.md|install\.sh)' "$SF"; then
+for s in night-mode ai-doc rule-research harvest story pipeline dispatcher aif-doctor arch orchestrator; do
+  SF="$T/.claude/skills/$s"
+  [ -f "$SF/SKILL.md" ] || { bad "clean-check: shipped skill missing: $s"; continue; }
+  if grep -rqE --include='*.md' '\]\((\.\./)+(docs|packages|rules)/|\]\((\.\./)+\.claude/rules/|\]\((\.\./)+(README\.md|install\.sh)' "$SF"; then
     bad "$s: surviving transform-target repo-internal link (consumer-dangling) — transform missed it"
   else
     ok "$s: no dangling transform-target link"
   fi
 done
 # night-mode carries docs/ refs → its shipped copy must show blob URLs (transform actually ran):
-grep -q 'github.com/.*/blob/' "$T/.claude/skills/night-mode/SKILL.md" \
+grep -rq --include='*.md' 'github.com/.*/blob/' "$T/.claude/skills/night-mode" \
   && ok "night-mode transform ran (blob URLs present)" \
   || bad "night-mode has no blob URL — transform did not run"
 
 # ── neg (load-bearing): a never-shipped skill name is genuinely absent ────────
+
+# Thin cards route to cold resources; assert delivery of every source reference, not only SKILL.md.
+for s in pipeline dispatcher aif-doctor arch orchestrator night-mode; do
+  missing=0
+  while IFS= read -r source_ref; do
+    rel="${source_ref#"$REPO_ROOT/.claude/skills/$s/"}"
+    [ -f "$T/.claude/skills/$s/$rel" ] || missing=$((missing+1))
+  done < <(find "$REPO_ROOT/.claude/skills/$s/references" -type f -name '*.md')
+  [ "$missing" -eq 0 ] \
+    && ok "$s: every conditional reference delivered" \
+    || bad "$s: $missing conditional references missing"
+done
+
+# A transform leak in a cold reference must trip the same directory-wide probe.
+leak="$D/references/__transform-negative.md"
+printf '[missing](../../../../docs/__never__.md)\n' > "$leak"
+if grep -rqE --include='*.md' '\]\((\.\./)+(docs|packages)/|\]\((\.\./)+README\.md' "$D"; then
+  ok "neg arm: cold-reference transform leak detected"
+else
+  bad "neg arm vacuous: cold-reference transform leak escaped"
+fi
+rm "$leak"
+
 if [ -f "$T/.claude/skills/__never_shipped__/SKILL.md" ]; then
   bad "neg arm vacuous: a bogus skill path reported present"
 else

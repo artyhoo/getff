@@ -39,8 +39,8 @@ const FENCE_OPEN = /^[ \t]*(`{3,}|~{3,})/;
 
 /** Dispatch contracts that carry no prompt skeleton (so no marker) but still send a cold seat. */
 const DECLARED_EXTRAS = [
-  '.claude/skills/arch/SKILL.md',
-  '.claude/skills/dispatcher/SKILL.md',
+  '.claude/skills/arch/references/design-review.md',
+  '.claude/skills/dispatcher/references/execution.md',
   '.claude/skills/harvest/SKILL.md',
 ];
 
@@ -93,6 +93,11 @@ function carriesInputsRef(text: string): boolean {
 }
 
 describe('principle 50 — cold-seat dispatch templates carry Inputs-ref', () => {
+  it('moved cold contracts are required before review/dispatch', () => {
+    const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
+    expect(read('.claude/skills/arch/SKILL.md')).toContain('Before design review, read [design review](references/design-review.md)');
+    expect(read('.claude/skills/dispatcher/SKILL.md')).toContain('[execution](references/execution.md)');
+  });
   it('the population is non-vacuous: the two orchestrator templates are discovered by predicate', () => {
     const pop = coldSeatTemplates();
     expect(pop).toContain('.claude/skills/orchestrator/references/reviewer-template.md');

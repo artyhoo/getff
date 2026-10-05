@@ -1,6 +1,6 @@
 ---
 name: using-getff
-description: Use when starting any conversation in a repo that has the getff plugin installed — establishes how to find and use the getff skills, the instruction-priority ladder (the project's own CLAUDE.md/AGENTS.md win), and the "invoke the relevant skill before responding" discipline. Trigger on session start, before any first reply, and whenever code quality, linting, CI, pre-commit/pre-push hooks, architecture rules, mutation/contract testing, or "stop the AI breaking my conventions" comes up.
+description: Use when choosing getff plugin skills for a code-quality enforcement task — linting, CI, hooks, architecture rules, mutation/contract tests or preventing AI convention drift. Explains skill access, invocation scope and the consumer instruction envelope; unrelated conversation does not require getff activation.
 ---
 
 # Using Getff
@@ -12,19 +12,19 @@ This is your entry point to the **getff** plugin: a discipline for turning every
 
 ## Instruction priority (read this first)
 
-This skill changes default behaviour, but **the host project's own instructions always win**:
+Apply this skill within binding host, system, developer and tool rules. Within that envelope, direct user requests and project scope govern skill defaults:
 
-1. **The project's `CLAUDE.md` / `AGENTS.md` / direct user requests** — highest. If they say "don't use TDD" and a skill says "always TDD", follow the project.
+1. **The project's `CLAUDE.md` / `AGENTS.md` / direct user requests** — within the binding host envelope. If they say "don't use TDD" and a skill says "always TDD", follow the project.
 2. **getff skills** — override default model behaviour where they conflict.
-3. **Default system behaviour** — lowest.
+3. **Default model preferences** — yield to applicable skill guidance; binding system instructions never do.
 
 The plugin never overrides the consumer's repo. It supplies discipline; the consumer stays in control.
 
 ## The rule
 
-**Invoke the relevant skill BEFORE you respond or act — even before clarifying questions.** If there is even a ~1% chance a skill applies to what you are about to do, invoke it to check. If it turns out not to fit, you do not have to use it. Knowing the concept is not the same as using the skill — invoke it; skills evolve.
+For an enforcement task, load the relevant skill before giving detailed advice or acting. Use the map below to select it. Session start in an installed repo is an opportunity to identify available skills; unrelated conversation needs no getff activation.
 
-Access skills with the **Skill tool** (Claude Code) / your harness's skill mechanism. Never read a skill file with the Read tool to "use" it — invoke it.
+Use the **Skill tool** when available and permitted, or the harness's actual skill-reading mechanism (including reading SKILL.md directly). Preserve each skill's invocation flags: reading an explicit-only procedure does not authorize self-initiation; already authorized work may follow its documented steps.
 
 ## Skills in this plugin
 
