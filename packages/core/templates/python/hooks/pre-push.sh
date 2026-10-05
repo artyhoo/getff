@@ -23,7 +23,9 @@
 # through scripts/run-armed.sh — the same block .github/workflows/getff-python.yml reads — and
 # the command strings below are byte-identical to the record lines the install writes
 # (setup.d/45-python.sh _py_record_project_checks): a one-char drift would run a check the
-# record skips (the ci-runs-every-recorded-check gate asserts writer/hook/CI agree). Body mirrors
+# record skips. The ci-runs-every-recorded-check gate asserts the writer↔CI half of that
+# agreement; hook↔record parity is asserted by the live push fixtures (python-entry-lane
+# section 19, cells 19c-19f and 19j). Body mirrors
 # the CI template — keep the two in sync on any pin bump (both bump together per
 # .claude/rules/ci-tool-pinning.md Rule A).
 set -euo pipefail
@@ -114,11 +116,17 @@ fi
 # record's byte-exact lines either way.
 # `-f` alone would trust a truncated (e.g. zero-byte) runner: bash exits 0 on an empty script, so
 # every run_recorded call would silently pass and the --probe would no-op — a silent no-check push
-# (the exact T-S2B-A shape). The content grep (the marker the runner itself parses) is the sanity
-# floor; anything that fails it takes the loud direct fallback below.
-if [ -f scripts/run-armed.sh ] && grep -q 'aif:project-checks' scripts/run-armed.sh 2>/dev/null; then
+# (the exact T-S2B-A shape). The content grep is the sanity floor, and the literal is the runner's
+# own usage string — it lives inside the final `case` dispatch, three lines from EOF, so EVERY
+# prefix a truncation can leave either lacks the literal (→ the loud direct fallback below) or
+# contains an unterminated `case` (→ bash syntax error, rc 2 — fail-closed through run_recorded's
+# record-readability arm and the probe's die-loud arm, never a silent pass). A marker near the top
+# of the file would NOT close this: a runner cut off at any earlier line boundary still parses and
+# exits 0 with the marker intact. If the runner's usage text ever changes, update the literal —
+# its failure mode is the loud fallback, never silence.
+if [ -f scripts/run-armed.sh ] && grep -q 'usage: run-armed.sh validate' scripts/run-armed.sh 2>/dev/null; then
 
-  # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
+  # ast-grep arm — mirror of .github/workflows/getff-python.yml:60-61 (sgconfig.yml resolves
   # .getff/astgrep-rules).
   if [[ "$have_ast_grep" == "1" ]]; then
     if ! run_recorded "ast-grep scan"; then
@@ -127,7 +135,7 @@ if [ -f scripts/run-armed.sh ] && grep -q 'aif:project-checks' scripts/run-armed
     fi
   fi
 
-  # ruff arm — mirror of .github/workflows/getff-python.yml:71-72 (discovered config) + :80-81
+  # ruff arm — mirror of .github/workflows/getff-python.yml:84-85 (discovered config) + :94-95
   # (getff bans isolated via --config). The two ruff runs are TWO record lines (T-OBW2P-A): a
   # green bans run must not arm a red discovered-config run, so neither line implies the other.
   if [[ "$have_ruff" == "1" ]]; then
@@ -160,7 +168,7 @@ else
 
   echo "⚠ getff pre-push: scripts/run-armed.sh missing, unreadable, or not a run-armed script (empty/truncated counts) — running the checks directly, NOT through the project-checks record (a brownfield tree will be blocked by pre-existing findings; restore the runner: bash /path/to/getff/install.sh python --refresh)." >&2
 
-  # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
+  # ast-grep arm — mirror of .github/workflows/getff-python.yml:60-61 (sgconfig.yml resolves
   # .getff/astgrep-rules).
   if [[ "$have_ast_grep" == "1" ]]; then
     if ! ast-grep scan; then
@@ -169,7 +177,7 @@ else
     fi
   fi
 
-  # ruff arm — mirror of .github/workflows/getff-python.yml:71-72 (discovered config) + :80-81
+  # ruff arm — mirror of .github/workflows/getff-python.yml:84-85 (discovered config) + :94-95
   # (getff bans isolated via --config).
   if [[ "$have_ruff" == "1" ]]; then
     if ! ruff check .; then

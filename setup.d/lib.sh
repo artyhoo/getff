@@ -3719,7 +3719,15 @@ record_project_checks() {
   else
     { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo; echo; echo "$b"; printf '%s\n' "$body"; echo "$e"; } > "$tmp"
   fi
-  cat "$tmp" > "$file"; rm -f "$tmp"
+  # The WRITE's status is the function's — a failed final cat (read-only .ai-factory/, a 444
+  # record file, ENOSPC mid-write) must reach every caller's not-wired arm, not be swallowed by
+  # rm's 0. Callers branch on this status to decide between «recorded» and the loud
+  # note_not_wired degradation (99-finalize.sh arm pass, record_lane_checks, the python lane's
+  # _py_record_project_checks, whose runner ships only behind a written record).
+  local rc=0
+  cat "$tmp" > "$file" || rc=1
+  rm -f "$tmp"
+  return "$rc"
 }
 
 # record_add_unlisted <file> <reason> <command…> — each command the record lists under neither

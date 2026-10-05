@@ -4,7 +4,7 @@ fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  .ai-factory/AR
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.md
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 49062080a90b66eaa853a548d45c5a505f3cfef86eaf1baa2d8d4bc27c9ee2fd  .ai-factory/RULES.md
-2625263d7bd2a989a7282958c0d3194a2b8bfe4aa94865fb078d008c66a793ba  .ai-factory/refresh-baseline.json
+c69fe8a85f87920426002e658bae428d265292739aef2a10f6553742de2710c9  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -31,7 +31,7 @@ bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  .getff/astgrep
 e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  .getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  .getff/astgrep-rules/getff-no-eval.yml
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  .getff/astgrep-rules/getff-no-os-system.yml
-7103cfa2a4748fcc50ed0d4e2b94832bf36bab59263d3f003c6cec6b707def06  .getff/hooks/pre-push
+9cd1d097450d9180f405f9f5ffd6514e92ccbaed98d58a752657722de300c9f3  .getff/hooks/pre-push
 f335376ad81b5988f2b072716938bb57c8bba1da96d998b62847900041658c6b  .getff/ruff-bans.toml
 ea780cfbc515ba0e82483d3c50bdeb13f28c088f875b2b30874999f07d2d873f  .github/workflows/getff-python.yml
 04a8c48d0583c1d1a59c80643c664281298b7cb3b274fe0b89ad9f602aac2585  .mcp.json

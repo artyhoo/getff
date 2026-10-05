@@ -1031,7 +1031,31 @@ grep -q '^stack: python$' "$P/.ai-factory/tool-decisions.md" && [ -x "$P/scripts
   || bad "(19h) integration case lost the record/runner: rec=$(grep -c 'stack: python' "$P/.ai-factory/tool-decisions.md" 2>/dev/null) runner=$([ -x "$P/scripts/run-armed.sh" ] && echo y || echo n)"
 rm -rf "$P"
 
-# (19c)-(19f) tool-gated: the push fixtures need ast-grep AND ruff exactly where the hook's own
+# (19i) a record write that FAILS must not read as «recorded»: the runner ships only behind a
+# written record, the lane says so loudly, and the file's prior content is untouched (T-S2B-A —
+# a hook die-louding «no readable record» with nothing to restore to is worse than its fallback).
+# The 444 file makes the final cat in record_project_checks fail (EACCES); copy_safe skips the
+# pre-existing file (no --force), so the mode survives to the record step. Tool-independent.
+P=$(py_fixture); git -C "$P" init -q
+mkdir -p "$P/.ai-factory"
+printf '# Tool decisions\n\nmy own notes\n' > "$P/.ai-factory/tool-decisions.md"
+chmod 444 "$P/.ai-factory/tool-decisions.md"
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19i) install exited $_rc — a failed record write is fail-open, not a lane abort"
+[ ! -e "$P/scripts/run-armed.sh" ] \
+  && ok "(19i) the runner is NOT delivered behind an unwritten record" \
+  || bad "(19i) scripts/run-armed.sh delivered although the record write failed"
+grep -qF 'not written, and scripts/run-armed.sh not delivered' "$P/.install.log" \
+  && ok "(19i) the failed write is named loudly in the lane's NOT-wired summary" \
+  || bad "(19i) the summary lacks the not-written line: $(grep -A3 'NOT wired' "$P/.install.log" | head -4 | tr '\n' '|')"
+grep -qxF 'my own notes' "$P/.ai-factory/tool-decisions.md" \
+  && ! grep -q 'aif:project-checks' "$P/.ai-factory/tool-decisions.md" \
+  && ok "(19i) the record file kept its prior content (nothing half-written)" \
+  || bad "(19i) the 444 record changed under the failed write: $(tr '\n' '|' < "$P/.ai-factory/tool-decisions.md" | head -c 120)"
+chmod 644 "$P/.ai-factory/tool-decisions.md" 2>/dev/null || true
+rm -rf "$P"
+
+# (19c)-(19f), (19j) tool-gated: the push fixtures need ast-grep AND ruff exactly where the hook's own
 # `command -v` looks (a uvx-only host cannot arm `ruff check .`, so the assertions would diverge
 # from the hook's view). SKIP loudly otherwise — a vacuous GREEN is worse than a visible SKIP.
 if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
@@ -1148,11 +1172,39 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
     || bad "(19f) blocked without the die-loud line: $(printf '%s' "$_ru_out" | tail -3 | tr '\n' '|')"
   mv "$P/.ai-factory/tool-decisions.md.stash" "$P/.ai-factory/tool-decisions.md"
   rm -rf "$P" "$REMOTE"
+
+  # (19j) a TRUNCATED runner must never read as the record path: bash exits 0 on an early-cut
+  # script (it runs to EOF having only defined functions), so a 30-line prefix would have made
+  # every run_recorded call pass without running anything — the silent no-check push. The floor is
+  # the runner's own usage literal (line 92 of the source, inside the final `case`): a prefix that
+  # parses lacks it → the loud ⚠ direct fallback below; a cut deep enough to keep it is an
+  # unterminated `case` → rc 2, fail-closed. Green tree → the fallback runs the same checks → 0.
+  echo ""; echo "  ── (19j) truncated runner → loud direct fallback, never a silent pass ──"
+  P=$(py_fixture); git -C "$P" init -q
+  git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
+  git -C "$P" commit -q -m init --allow-empty 2>/dev/null
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19j) install exited $_rc — the truncation arm needs a healthy install"
+  head -30 "$P/scripts/run-armed.sh" > "$P/scripts/run-armed.sh.cut" \
+    && mv "$P/scripts/run-armed.sh.cut" "$P/scripts/run-armed.sh" \
+    || bad "(19j) could not truncate the delivered runner"
+  REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
+  BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  _rt_out=$( { cat /dev/null; PATH="$RT_PATH" git -C "$P" push origin "$BR" 2>&1; } || true )
+  if PATH="$RT_PATH" git -C "$P" push -q origin "$BR" 2>/dev/null; then
+    ok "(19j) truncated runner: a green push still exits 0 (the fallback ran the same checks)"
+  else
+    bad "(19j) truncated runner blocked a green push: $(printf '%s' "$_rt_out" | tail -4 | tr '\n' '|')"
+  fi
+  grep -qF 'missing, unreadable, or not a run-armed script' <<<"$_rt_out" \
+    && ok "(19j) the truncation is named loudly (the ⚠ direct-fallback line), never silent" \
+    || bad "(19j) push passed with no fallback line — silent no-check push: $(printf '%s' "$_rt_out" | tail -3 | tr '\n' '|')"
+  rm -rf "$P" "$REMOTE"
 else
-  echo ""; echo "  · (19c)-(19f) SKIP record push fixtures (ast-grep and/or ruff not on PATH)"
+  echo ""; echo "  · (19c)-(19f), (19j) SKIP record push fixtures (ast-grep and/or ruff not on PATH)"
   echo "    └─ the arming assertions need the hook's own view of the tools; a uvx-only host diverges."
   [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ] \
-    && bad "(19c-f) REQUIRED but skipped: ast-grep and/or ruff missing while GETFF_REQUIRE_RESEARCH_TOOLS=1"
+    && bad "(19c-f,19j) REQUIRED but skipped: ast-grep and/or ruff missing while GETFF_REQUIRE_RESEARCH_TOOLS=1"
 fi
 
 echo ""
