@@ -988,8 +988,11 @@ grep -q '^stack: python$' "$_rec" \
 [ "$(awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$_rec" | grep -c '^- ')" = 3 ] \
   && ok "(19a) exactly 3 record lines (the two ruff runs recorded separately, T-OBW2P-A)" \
   || bad "(19a) record does not carry exactly 3 check lines"
-grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache' "$_rec" \
-  && ok "(19a) bans line byte-exact against the canonical string" \
+# prefix, not byte-exact: this arm is deterministic (runs on tool-less hosts too), where the
+# probe records the line not-armed with a ` # …` reason suffix; the ARMED byte-exact string is
+# asserted where it can hold — tool-gated (19d).
+grep -qE '^- ruff check \. --config \.getff/ruff-bans\.toml --no-cache( # .*)?$' "$_rec" \
+  && ok "(19a) bans line is the canonical command (armed bare, or not-armed with its reason)" \
   || bad "(19a) bans record line drifted from 'ruff check . --config .getff/ruff-bans.toml --no-cache'"
 # one block only (falsifier 3: never a second record format)
 [ "$(grep -c 'aif:project-checks:begin' "$_rec")" = 1 ] \
