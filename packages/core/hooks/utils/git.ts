@@ -280,7 +280,17 @@ export function rangeGit(baseSha: string, headSha: string): GitProvider {
   return {
     packageJsonDiff: () => gitOut(['diff', mb, headSha, '--', 'package.json']),
     changedFiles: () =>
-      parseNameStatus(gitOut(['diff', '--name-status', mb, headSha])),
+      // --no-renames: with detection on, git collapses a rename to ONE
+      // `R100\told\tnew` row, which parseNameStatus splits on the FIRST tab
+      // into {status:'R100', path:'old\tnew'} — skipped by BOTH
+      // `status !== 'A'` arms in checks/prior-art.ts, so a capability file
+      // delivered via git mv + rewrite escaped the PR-body Prior-art gate.
+      // Expanded A+D rows put the new path in front of the A arm (sibling
+      // precedent: pr-body-removal-consumers-bin.ts; the diff-tree single-
+      // commit path never collapses renames in the first place).
+      parseNameStatus(
+        gitOut(['diff', '--name-status', '--no-renames', mb, headSha]),
+      ),
     fileContent: (_sha, path) => {
       const r = runCheck('git', ['show', `${headSha}:${path}`]);
       return r.exitCode === 0 ? r.stdout : null;

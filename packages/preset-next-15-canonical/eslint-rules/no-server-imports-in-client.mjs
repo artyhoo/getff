@@ -11,10 +11,17 @@ function isServerOnlyImport(spec) {
 function isExempt(line) {
     return line.includes('// audit:exempt');
 }
-function fileHasUseClient(lines) {
-    for (let i = 0; i < Math.min(3, lines.length); i++) {
-        const line = lines[i] ?? '';
-        if (/^\s*['"]use client['"]\s*;?\s*$/.test(line))
+// A directive prologue is the leading run of string-literal expression statements; comments
+// and whitespace are trivia and never enter the AST, so a directive after a license-header
+// comment block is honored here (SWEEP-4 §4.2) while one following real code is not.
+function directivePrologueHasUseClient(body) {
+    for (const stmt of body) {
+        if (stmt.type !== 'ExpressionStatement')
+            return false;
+        const expr = stmt.expression;
+        if (expr.type !== 'Literal' || typeof expr.value !== 'string')
+            return false;
+        if (expr.value === 'use client')
             return true;
     }
     return false;
@@ -35,7 +42,7 @@ export const noServerImportsInClient = {
     create(context) {
         const sourceCode = context.sourceCode;
         const lines = sourceCode.lines;
-        const isClientFile = fileHasUseClient(lines);
+        const isClientFile = directivePrologueHasUseClient(sourceCode.ast.body);
         if (!isClientFile)
             return {};
         return {

@@ -162,7 +162,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2258 (spawn-argument)",
-          "install.sh:1192 (quoted-path-token)"
+          "install.sh:1226 (quoted-path-token)"
         ]
       },
       "example": null
@@ -363,8 +363,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1224 (quoted-path-token)",
-          "install.sh:1226 (for-in-list)",
+          "install.sh:1258 (quoted-path-token)",
+          "install.sh:1260 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -471,7 +471,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1226 (for-in-list)",
+          "install.sh:1260 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -519,7 +519,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1226 (for-in-list)",
+          "install.sh:1260 (for-in-list)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -726,11 +726,11 @@
           "setup.d/10-skills.sh:179 (quoted-path-token)",
           "setup.d/10-skills.sh:180 (quoted-path-token)",
           "setup.d/10-skills.sh:181 (quoted-path-token)",
-          "install.sh:1197 (quoted-path-token)",
-          "install.sh:1198 (quoted-path-token)",
-          "install.sh:1199 (quoted-path-token)",
-          "install.sh:1200 (quoted-path-token)",
-          "install.sh:1201 (quoted-path-token)",
+          "install.sh:1231 (quoted-path-token)",
+          "install.sh:1232 (quoted-path-token)",
+          "install.sh:1233 (quoted-path-token)",
+          "install.sh:1234 (quoted-path-token)",
+          "install.sh:1235 (quoted-path-token)",
           "scripts/run-local-ci-sweep.sh:1188 (command-substitution, closure)"
         ]
       },
@@ -756,7 +756,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1226 (for-in-list)",
+          "install.sh:1260 (for-in-list)",
           ".claude/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
