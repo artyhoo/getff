@@ -455,6 +455,15 @@ $(awk '
 ' "$WORKTREE_DIR/.github/workflows/ci.yml")
 EOF
     echo "[npm] UI extension: ci.yml ci-success.needs = ${_needs[*]-}" >>"$LOG_FILE"
+    # zero-gates guard (mirror of the python lane's): a PRESENT ci.yml whose
+    # ci-success block drifted off the tolerated shape (e.g. re-indented)
+    # parses to ZERO needs — _build_owed would stay 0 and a green validate
+    # would print PASS while CI's build leg is red. Refuse instead.
+    if [ "${#_needs[@]}" -eq 0 ]; then
+      CANNOT_RUN+=("npm:zero-gates-parsed")
+      echo "CANNOT-RUN: ci.yml is present but ZERO ci-success.needs entries parsed from .github/workflows/ci.yml — the workflow drifted off the tolerated ci-success shape; refusing to report a silent subset as PASS" >&2
+      return 0
+    fi
     for _x in ${_needs[@]+"${_needs[@]}"}; do
       case "$_x" in
         build)
