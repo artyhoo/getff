@@ -403,8 +403,11 @@ do_python_lane() {
   # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
   # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
   _py_deliver_agent_surface
-  # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
-  record_lane_checks python
+  # The lane exits before 99-finalize, so it writes its own project-checks record (P2, one-button):
+  # each check the delivered pre-push hook runs is probed once on the tree as it stands — green
+  # arms, red records its reason, an absent tool records a structural «not wired:» (_py_record_
+  # project_checks, setup.d/45-python.sh; also delivers scripts/run-armed.sh, the record's reader).
+  _py_record_project_checks
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
   refresh_baseline_flush
