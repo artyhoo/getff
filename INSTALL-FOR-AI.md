@@ -26,7 +26,7 @@ cd /tmp/getff
 
 - Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine, and `--all` are chosen only by the human's answer to the one pre-launch question of the prompt below. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
 - Draft `.ai-factory/DESCRIPTION.md` from the project's own files (the `draft-passport` step) when it is still the shipped template.
-- Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
+- Run the project's check commands. On npm stack layers, run `npm run validate` and `bash scripts/audit-ai-docs.sh`; on toolchain lanes, run the delivered native configuration checks described below.
 
 **ASK FIRST — pause and report your reasoning before acting:**
 
@@ -86,10 +86,11 @@ Install getff into this project. Walk the steps below in order, in this one sess
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
 5. [verify-payload] Verify the payload landed
-   `ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/`
+   On npm layers: `ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/`. Python has context, four research skills, two agents and native configs; cargo/Go have native configs/workflows/locks only. Use the lane verification below; absent npm scripts do not mean a failed lane install.
 6. [draft-passport] Draft the project passport
    If `.ai-factory/DESCRIPTION.md` is byte-identical to `.ai-factory/DESCRIPTION.template.md`, draft it
-   from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
+   from this project's own files. Follow `.claude/agents/aif-init.md` only when installed (npm);
+   on Python inspect the manifest, source, tests and native configs directly, replacing npm starter examples with actual project constraints. Mark every guess
    `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
 7. [tools-parity] Check that everything getff uses for itself is installed or marked
    Names: the «✓ <name>» lines of «Stack-aware companion selection» from step 2, without the external services runtime-bridge and aif-handoff, plus context7. Per tool quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
@@ -98,9 +99,9 @@ Install getff into this project. Walk the steps below in order, in this one sess
 9. [research] Research rules for the stack
    Unless I said no to research: follow `/tmp/getff/agents/rule-researcher.md`; my one answer is the confirmation it asks for, so write without asking; report where it ended.
 10. [place-rules] Write one rule table and place each rule in its home
-   After step 9, with the same variables as in step 4 before it: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
+   After step 9, with the same variables as in step 4 before it: `bash /tmp/getff/setup --full <detected-stack>`, then, on an npm stack, `node scripts/prove-rules.mjs --prove` once; quote its table. Toolchain lanes instead run their native configuration proof checks.
 11. [prove-rules] Prove the placed rules in one batch run
-   From that same output quote the proof line (bad → exit ≠0, good → exit 0). Script absent → both steps «not done».
+   From that same output quote the proof line (bad → exit ≠0, good → exit 0). On npm stacks, script absent → both steps «not done». On toolchain lanes quote the native gate's RED/clean evidence instead.
 12. [project-checks] Run the project's own check commands as the installer wired them
    Run each command under `armed:` in the `aif:project-checks` block of `.ai-factory/tool-decisions.md`; quote exit codes, failing lines, and the `not-armed:` lines with their reasons.
    A failure on my existing code is a finding, not a stop. Block absent → «not done: no check record»; nothing armed → «not done: no check armed».
@@ -566,6 +567,10 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 ---
 
 ## Verification checklist (after install)
+
+The table below describes npm stack layers. For Python, verify `.getff/astgrep-rules`, `.getff/ruff-bans.toml`, `sgconfig.yml`, `.github/workflows/getff-python.yml`, root AGENTS/context and the four research skills/two rule agents; run each delivered YAML explicitly with `ast-grep scan --rule "$getff_rule" .` using the fail-fast loop in AI Usage Guide §2.4, then `ruff check .` and `ruff check . --config .getff/ruff-bans.toml --no-cache`. Python ships only its ZCode mirror-check script, not npm audit scripts.
+
+Cargo/Go deliver no root AGENTS, passport or skill surface. Cargo must select the delivered `clippy.toml` or `getff-clippy.toml`, then run Clippy with `-D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros`. A parked reference does not govern ordinary Clippy. Go selects `getff-golangci.yml` when present, otherwise `.golangci.yml`, and runs `golangci-lint run --enable forbidigo --config <selected-config> ./...`. The Python-delivered AI Usage Guide §2.4 gives copy-ready native blocks for all three lanes. Missing tools mean firing not proven; quote the installer's RED planted-violation and GREEN clean-control results rather than treating absent npm gates as an unfinished install.
 
 | Check                                   | Command                                               | Expected                                                                                       |
 | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
