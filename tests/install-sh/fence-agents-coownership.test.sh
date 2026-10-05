@@ -101,44 +101,19 @@ else
 fi
 mv "$W/AGENTS.md.bak" "$W/AGENTS.md"
 
-# (c) FENCE-LESS copy of an OLDER version of our own template → adopted exactly once.
-# Uses a REAL historical revision from git, not a hand-written lookalike: the whole point is
-# that every pre-fence consumer install must be recognised.
+# (c) A pinned historical template is divergent consumer content: retain its bytes.
+# Fixture: a46a8bf7b4c64ace3b10b946feade98b850dd4a1, before fenced adoption.
 W=$(mktemp -d)
-# --follow's oldest entry is the RENAME-ORIGIN commit, where the blob does not yet exist at this
-# path — so walk oldest-first and take the first revision that actually materialises content.
-OLD_SHA=""
-for _sha in $(git -C "$REPO_ROOT" log --format=%H --follow -- "packages/core/templates/shared/AGENTS.md.template" | tail -r 2>/dev/null || git -C "$REPO_ROOT" log --format=%H --reverse --follow -- "packages/core/templates/shared/AGENTS.md.template"); do
-  if git -C "$REPO_ROOT" show "$_sha:packages/core/templates/shared/AGENTS.md.template" > "$W/AGENTS.md" 2>/dev/null && [ -s "$W/AGENTS.md" ]; then
-    OLD_SHA="$_sha"; break
-  fi
-done
-if [ -n "$OLD_SHA" ]; then
-  OLD_LINES=$(wc -l < "$W/AGENTS.md" | tr -d ' ')
-  TPL_LINES=$(wc -l < "$TPL" | tr -d ' ')
-  install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
-  NEW_LINES=$(wc -l < "$W/AGENTS.md" | tr -d ' ')
-  if [ "$(count_beg "$W/AGENTS.md")" = "1" ] && [ "$(count_end "$W/AGENTS.md")" = "1" ]; then
-    ok "(c) pre-fence getff copy (rev ${OLD_SHA:0:8}): exactly one begin + one end"
-  else
-    bad "(c) pre-fence getff copy: $(count_beg "$W/AGENTS.md") begin / $(count_end "$W/AGENTS.md") end"
-  fi
-  # ADOPT, not APPEND: the result is the template + 4 wrapper lines (begin, blank, blank, end),
-  # NOT old+new concatenated. The +5 slack absorbs a trailing-newline difference; it stays far
-  # below the doubled size (old + template ≈ 254), which is the failure this arm exists to catch.
-  if [ "$NEW_LINES" -le $((TPL_LINES + 5)) ]; then
-    ok "(c) adopted (${OLD_LINES} → ${NEW_LINES} lines ≈ template ${TPL_LINES} + markers), not doubled"
-  else
-    bad "(c) file DOUBLED: ${OLD_LINES} → ${NEW_LINES} lines (template is ${TPL_LINES}) — appended instead of adopting"
-  fi
-  # Re-running on the adopted file must stay idempotent.
-  SNAP3=$(cat "$W/AGENTS.md"); install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
-  [ "$SNAP3" = "$(cat "$W/AGENTS.md")" ] \
-    && ok "(c) adopted file is idempotent on re-run" \
-    || bad "(c) adopted file changed bytes on re-run"
-else
-  bad "(c) could not materialise a historical template revision ($OLD_SHA)"
-fi
+cp "$REPO_ROOT/tests/install-sh/fixtures/agents-pre-fence-a46a8bf7.md" "$W/AGENTS.md"
+cp "$W/AGENTS.md" "$W/before"
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+head -c "$(wc -c < "$W/before" | tr -d ' ')" "$W/AGENTS.md" > "$W/prefix"
+cmp -s "$W/before" "$W/prefix" && ok "(c) historical body preserved byte-for-byte" || bad "(c) historical body replaced"
+[ "$(count_beg "$W/AGENTS.md")" = 1 ] && [ "$(count_end "$W/AGENTS.md")" = 1 ] \
+  && ok "(c) one appended framework section" || bad "(c) wrong fence count"
+cp "$W/AGENTS.md" "$W/before"
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+cmp -s "$W/before" "$W/AGENTS.md" && ok "(c) rerun is idempotent" || bad "(c) rerun changes bytes"
 
 # (c-neg) PAIRED NEGATIVE — a file carrying only ONE sentinel must NOT be adopted.
 # Guards the dangerous direction: a false-positive adopt destroys a consumer's own file.
@@ -151,23 +126,20 @@ else
   bad "(c-neg) one sentinel only → file was adopted/clobbered — false-positive adopt"
 fi
 
-# (c-edit) critical-review S2-3 — a pre-fence copy the consumer EXTENDED (both sentinels still
-# present) used to be replaced whole: no copy kept, no warning, their additions gone. The adopt may
-# still happen, but only after the consumer's bytes are kept under .ai-factory/refresh-conflicts/
-# and a warning names the copy.
+# (c-edit) Both sentinels establish ancestry, not ownership of consumer additions.
 W=$(mktemp -d)
 { cat "$TPL"; printf '\n## Our team conventions\n\nTEAM-EDIT-KEEPME\n'; } > "$W/AGENTS.md"
+cp "$W/AGENTS.md" "$W/before"
 _saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
 _out=$(install_agents_md "$TPL" "$W/AGENTS.md" 2>&1)
 PROJECT_ROOT="$_saved_pr"
-if grep -rqF 'TEAM-EDIT-KEEPME' "$W/.ai-factory/refresh-conflicts/" 2>/dev/null; then
-  ok "(c-edit) the consumer's extended pre-fence copy was kept under .ai-factory/refresh-conflicts/"
-else
-  bad "(c-edit) adopting an extended pre-fence copy destroyed the consumer's additions (no copy kept)"
-fi
-grep -q 'refresh-conflicts' <<<"$_out" \
-  && ok "(c-edit) the adopt warned and named the kept copy" \
-  || bad "(c-edit) no warning naming the kept copy (got: $_out)"
+head -c "$(wc -c < "$W/before" | tr -d ' ')" "$W/AGENTS.md" > "$W/prefix"
+cmp -s "$W/before" "$W/prefix" \
+  && ok "(c-edit) extended sentinel-matching body remains active byte-for-byte" \
+  || bad "(c-edit) extended sentinel-matching body was replaced"
+[ ! -e "$W/.ai-factory/refresh-conflicts" ] \
+  && ok "(c-edit) preserved active body needs no conflict copy" \
+  || bad "(c-edit) unnecessary conflict copy"
 # paired negative: a byte-identical pre-fence copy of the CURRENT template loses nothing → no copy.
 W=$(mktemp -d); cp "$TPL" "$W/AGENTS.md"
 _saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
@@ -176,6 +148,11 @@ PROJECT_ROOT="$_saved_pr"
 [ ! -e "$W/.ai-factory/refresh-conflicts" ] \
   && ok "(c-edit neg) an unedited copy of the current template is adopted without a conflict copy" \
   || bad "(c-edit neg) a conflict copy was made for an unedited template copy (noise)"
+
+[ "$(count_beg "$W/AGENTS.md")" = 1 ] && [ "$(count_end "$W/AGENTS.md")" = 1 ] \
+  && [ "$(wc -l < "$W/AGENTS.md")" -eq "$(( $(wc -l < "$TPL") + 4 ))" ] \
+  && ok "(c-edit neg) pristine template wrapped once without duplicate body" \
+  || bad "(c-edit neg) pristine template was appended or not fenced"
 
 # (b-edit) critical-review S2-3 (same contract) — an edit INSIDE our fenced body was discarded
 # silently on the next plain run. The section is still ours to replace, but the previous bytes
@@ -263,6 +240,24 @@ if [ "$(count_beg "$T/AGENTS.md")" = "1" ] && [ "$SNAP" = "$(cat "$T/AGENTS.md")
 else
   bad "wiring: second real install duplicated or mutated the section"
 fi
+
+# Sentinel-matching consumer additions survive both production delivery lanes.
+for lane in ts-server python; do
+  T=$(mktemp -d)
+  if [ "$lane" = python ]; then
+    printf '[project]\nname = "fence"\nversion = "0.0.1"\n' > "$T/pyproject.toml"
+  else
+    printf '{"name":"fence","version":"0.0.0"}\n' > "$T/package.json"
+  fi
+  { cat "$TPL"; printf '\nLANE-CONSUMER-ADDITION\n'; } > "$T/AGENTS.md"
+  cp "$T/AGENTS.md" "$T/before"
+  ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" "$lane" --force < /dev/null ) > "$T/out" 2>&1
+  rc=$?
+  [ "$rc" = 0 ] && ok "$lane: real install succeeds" || bad "$lane: real install rc=$rc"
+  head -c "$(wc -c < "$T/before" | tr -d ' ')" "$T/AGENTS.md" > "$T/prefix"
+  cmp -s "$T/before" "$T/prefix" && ok "$lane: extended body stays active" || bad "$lane: extended body replaced"
+  [ "$(count_beg "$T/AGENTS.md")" = 1 ] && ok "$lane: framework section delivered" || bad "$lane: framework section missing"
+done
 
 # ── §3 FACTORY-GATE DOC PARITY — the template's `factory` row names every gated agent ──
 #

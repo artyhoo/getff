@@ -36,6 +36,7 @@
  *     must carry a `Failure-scenario:` line inside the entry. Summary counts
  *     ("0 BLOCKER / 2 MAJOR") do not open an entry; ESCALATED/MINOR entries are exempt.
  */
+import { remark } from 'remark';
 import { stripHtmlComments } from '../utils/markdown-comments.ts';
 import { FILE_LINE_RE } from './s17.ts';
 
@@ -93,12 +94,33 @@ const FAILURE_SCENARIO_RE = /Failure-scenario:/;
 
 interface SectionResult { section: string | null; error?: string; }
 
-/** True for a line that closes a section — a heading NOT inside a fenced code block. */
-function sectionEndAt(lines: string[], from: number): number {
-  let fenced = false;
+/**
+ * CommonMark 0.31.2 §§4.4/4.5: four-space delimiters are literal at the
+ * root, but may open fences inside lists. Delegate container indentation,
+ * delimiter character/length and closing syntax to the existing parser.
+ */
+interface MarkdownNode {
+  type: string;
+  position?: { start: { line: number }; end: { line: number } };
+  children?: MarkdownNode[];
+}
+
+function codeLines(lines: string[]): Set<number> {
+  const out = new Set<number>();
+  const walk = (node: MarkdownNode): void => {
+    if (node.type === 'code' && node.position) {
+      for (let i = node.position.start.line - 1; i < node.position.end.line; i++) out.add(i);
+    }
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(remark().parse(lines.join('\n')));
+  return out;
+}
+
+/** True for a line that closes a section — a heading outside code. */
+function sectionEndAt(lines: string[], from: number, code: Set<number>): number {
   for (let i = from; i < lines.length; i++) {
-    if (/^[ \t]*(```|~~~)/.test(lines[i])) { fenced = !fenced; continue; }
-    if (!fenced && SECTION_END_RE.test(lines[i])) return i;
+    if (!code.has(i) && SECTION_END_RE.test(lines[i])) return i;
   }
   return lines.length;
 }
@@ -106,9 +128,10 @@ function sectionEndAt(lines: string[], from: number): number {
 /** Bodies of EVERY section with this heading — not just the first (a decoy would hide the rest). */
 function sectionBodies(lines: string[], headingRe: RegExp): string[] {
   const out: string[] = [];
+  const code = codeLines(lines);
   for (let i = 0; i < lines.length; i++) {
-    if (!headingRe.test(lines[i])) continue;
-    out.push(lines.slice(i + 1, sectionEndAt(lines, i + 1)).join('\n'));
+    if (code.has(i) || !headingRe.test(lines[i])) continue;
+    out.push(lines.slice(i + 1, sectionEndAt(lines, i + 1, code)).join('\n'));
   }
   return out;
 }
@@ -164,7 +187,8 @@ function reviewFindingsErrors(lines: string[]): string[] {
 
 function extractSection(body: string): SectionResult {
   const lines = stripHtmlComments(body).split(/\r?\n/);
-  const starts = lines.reduce<number[]>((acc, l, i) => (HEADING_RE.test(l) ? [...acc, i] : acc), []);
+  const code = codeLines(lines);
+  const starts = lines.reduce<number[]>((acc, l, i) => (!code.has(i) && HEADING_RE.test(l) ? [...acc, i] : acc), []);
   if (starts.length === 0) {
     return { section: null, error: 'missing `## Fidelity verdict` section (see spec D3; agents/fidelity-auditor.md)' };
   }
@@ -172,7 +196,7 @@ function extractSection(body: string): SectionResult {
     return { section: null, error: `found ${starts.length} \`## Fidelity verdict\` sections — exactly one is allowed (replace the prior round's block, do not append)` };
   }
   const start = starts[0];
-  return { section: lines.slice(start + 1, sectionEndAt(lines, start + 1)).join('\n') };
+  return { section: lines.slice(start + 1, sectionEndAt(lines, start + 1, code)).join('\n') };
 }
 
 /**
