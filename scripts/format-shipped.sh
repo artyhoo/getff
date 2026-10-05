@@ -357,7 +357,7 @@ if [ "$parity_scope" -eq 1 ] && [ -d "$RB_VENDOR" ]; then
   fi
 
   # The vendor drop also carries a bash hook, and that pair is BYTE-identical (no prettier in the
-  # loop — the twin is copied verbatim, and setup.d/55-runtime-bridge-vendor.sh:115 delivers it to
+  # loop — the twin is copied verbatim, and setup.d/55-runtime-bridge-vendor.sh:116 delivers it to
   # .claude/hooks/ on the consumer). It had no gate either (#1597 review-ledger addendum D-5); the
   # backward sweep for the parity rule above found it as the one remaining ungated copy of this
   # class — every other in-repo copy pair is already covered (plugin twins → principle 24(d)/(e)/(g),
