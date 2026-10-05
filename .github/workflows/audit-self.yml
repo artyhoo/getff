@@ -313,6 +313,24 @@ jobs:
       # must run on the PRs that battery skips (scripts/ci-path-scope.sh SKIP_PATTERNS).
       - name: Run face-facts generator arms test (getff-ai-site S0a)
         run: bash scripts/render-face-facts.test.sh
+      # Dot staging review gate (S4 offline negative matrix): the 11 paired-negative
+      # suites, one named line each so principle 41's comment-stripped registry sees
+      # them. Hermetic — local node + loopback sockets only, no network, no LLM calls.
+      # node:sqlite needs node >= 22.13 (unflagged); the setup-node '22' pin resolves
+      # to the latest 22.x line, which satisfies that.
+      - name: Run dot-review-gate suites (S4 offline matrix)
+        run: |
+          bash scripts/dot-review-gate/harness.test.sh
+          bash scripts/dot-review-gate/strict-json.test.sh
+          bash scripts/dot-review-gate/load-policy.test.sh
+          bash scripts/dot-review-gate/readiness.test.sh
+          bash scripts/dot-review-gate/validate-report.test.sh
+          bash scripts/dot-review-gate/ledger.test.sh
+          bash scripts/dot-review-gate/intake.test.sh
+          bash scripts/dot-review-gate/publisher.test.sh
+          bash scripts/dot-review-gate/reporter.test.sh
+          bash scripts/dot-review-gate/armer.test.sh
+          bash scripts/dot-review-gate/service.test.sh
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)

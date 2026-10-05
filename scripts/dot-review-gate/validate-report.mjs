@@ -23,6 +23,7 @@
 import { createRequire } from 'node:module';
 import { parseStrictJson } from './strict-json.mjs';
 import { sha256Hex } from './digest.mjs';
+import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 const require = createRequire(
   new URL('../../packages/core/package.json', import.meta.url),
@@ -323,6 +324,6 @@ export function cli(argv) {
   return 1;
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`, 'file://').href) {
+if (isMainEntry(import.meta.url)) {
   process.exit(cli(process.argv));
 }
