@@ -954,6 +954,7 @@ _py_record_project_checks() {
   _cache=$(mktemp -d) || _cache=""
   while IFS=$'\t' read -r _c _tool _cfg; do
     [ -n "$_c" ] || continue
+    _uvx_proved=""
     # Tool discovery mirrors the HOOK's own view (pre-push.sh: command -v ast-grep / ruff), so a
     # check armed here is one the hook can actually run at push time — the self-check's uvx/sg
     # routes prove the rules but cannot arm a command the hook cannot execute.
@@ -961,6 +962,22 @@ _py_record_project_checks() {
       _why="not wired: $_cfg is missing"
     elif ! command -v "$_tool" >/dev/null 2>&1; then
       _why="not wired: $_tool is not on PATH"
+      # Q4.7 (install-no-manual-step Y5): a tool the lane's own uvx route just proved (the firing
+      # self-check fetched and ran it) is wired — through uvx — for every gate but the hook's
+      # direct execution, which is exactly what the record line below mirrors. Such a tool must
+      # not carry a NOT-wired line: only a tool with no PATH binary AND no working uvx fetch does.
+      _uvx_proved=""
+      if command -v uvx >/dev/null 2>&1; then
+        _uv_ver=""
+        case "$_tool" in
+          ast-grep) _uv_ver=$(uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null || true) ;;
+          ruff)     _uv_ver=$(uvx ruff@0.15.21 --version 2>/dev/null || true) ;;
+        esac
+        case "$_tool" in
+          ast-grep) if grep -qi 'ast-grep' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+          ruff)     if grep -qi 'ruff' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+        esac
+      fi
     else
       _rc=0
       # ${_log:-/dev/null}, not ${_log:?}: an empty log (mktemp failed — TMPDIR exhausted) must
@@ -979,6 +996,10 @@ _py_record_project_checks() {
       _why=$(_py_check_not_armed_why "$_c" "$_rc" "${_log:-/dev/null}")
     fi
     _py_not+=("$_c # $_why")
+    if [ -n "${_uvx_proved:-}" ]; then
+      echo "  · not armed: $_c — $_why (uvx route live: the CI gate runs it; the hook runs only PATH-resolved checks)"
+      continue
+    fi
     echo "  · not armed: $_c — $_why"
     # Q4.7 (NOT-wired summary): every line names what was left undone and why — a check that
     # does not block is wired only in part, so the lane's summary says so; the record line above

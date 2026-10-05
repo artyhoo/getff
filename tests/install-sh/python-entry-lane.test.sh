@@ -1100,7 +1100,7 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   _rec="$P/.ai-factory/tool-decisions.md"
   grep -qxF -- '- ast-grep scan' "$_rec" && grep -qxF -- '- ruff check .' "$_rec" \
     && grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache' "$_rec" \
-    && [ "$(awk '/^not-armed:/{f=1;next} /^armed:/{f=0} f && /^- /' "$_rec" | wc -l)" = 0 ] \
+    && [ "$(awk '/^not-armed:/{f=1;next} /^armed:/{f=0} f && /^- /' "$_rec" | wc -l | tr -d ' ')" = 0 ] \
     && ok "(19d) greenfield: all three checks armed (not-armed list empty)" \
     || bad "(19d) greenfield record not fully armed: $(tr '\n' '|' < "$_rec" | grep -o 'armed:.*' | head -1)"
   REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"

@@ -126,7 +126,7 @@ grep -qx 'stack: generic' <<<"$(block "$D")" && ok "(D) generic: stack: generic"
 # (kickoff deliverable 2; T-OBW2P-A: the two ruff runs stay two lines). Host-independent invariant:
 # exactly three check lines across the two lists, each line accounted for.
 # The reason grep pins the not-on-PATH vocabulary: the other structural reason (bans config
-# missing, 45-python.sh:982) is unreachable here — the bans file is always delivered before
+# missing, 45-python.sh:961) is unreachable here — the bans file is always delivered before
 # the record probes (:27, :394).
 for lane in python cargo go; do
   L=$(proj "")
