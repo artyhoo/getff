@@ -30,6 +30,7 @@ export async function createGateService({
   readState,
   resolveRunIdentity,
   publisherApp,
+  allowMemoryLedger = false,
   now = () => Date.now(),
 } = {}) {
   // startup fail-closed: an unresolved manifest or missing schema is a refusal, never
@@ -45,7 +46,19 @@ export async function createGateService({
     e.code = 'E_CONFIG';
     throw e;
   }
-  const ledger = ledgerPath ? openLedger(ledgerPath) : openLedger(':memory:');
+  // persistence guard (packet increment 4): production journal must be durable —
+  // in-memory storage is fixture-only and requires the explicit flag, never an
+  // accident of an omitted path.
+  let ledger;
+  if (ledgerPath && ledgerPath !== ':memory:') {
+    ledger = openLedger(ledgerPath);
+  } else if (allowMemoryLedger === true) {
+    ledger = openLedger(':memory:');
+  } else {
+    const e = new Error('[service] a persistent ledger path is required (in-memory storage is fixture-only — pass allowMemoryLedger to opt in)');
+    e.code = 'E_NO_PERSISTENT_PATH';
+    throw e;
+  }
 
   const expired = () => Date.parse(policy.authorization_expiry) <= now();
   const gate = (kind) => {
@@ -176,6 +189,9 @@ export async function createGateService({
     drainOutbox,
     isPaused: () => ledger.isPaused(),
     setPaused: (v) => ledger.setPaused(v),
-    close: () => intake.close(),
+    close: async () => {
+      await intake.close();
+      ledger.close(); // checkpoint + release the journal (WAL) on shutdown
+    },
   };
 }

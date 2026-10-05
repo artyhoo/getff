@@ -84,6 +84,45 @@ CREATE TABLE IF NOT EXISTS control (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS finding_occurrences (
+  id TEXT PRIMARY KEY,
+  finding_key TEXT NOT NULL,
+  source_report_id TEXT NOT NULL,
+  requirement TEXT,
+  category TEXT,
+  severity TEXT,
+  blocking INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_occurrences_key ON finding_occurrences(finding_key);
+CREATE TABLE IF NOT EXISTS finding_claims (
+  assignment_id TEXT PRIMARY KEY,
+  occurrence_id TEXT NOT NULL REFERENCES finding_occurrences(id),
+  owner TEXT NOT NULL,
+  fencing_token TEXT NOT NULL,
+  claimed_at TEXT NOT NULL,
+  lease_expires_at TEXT NOT NULL,
+  state TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_claims_occurrence ON finding_claims(occurrence_id);
+CREATE TABLE IF NOT EXISTS finding_receipts (
+  id TEXT PRIMARY KEY,
+  occurrence_id TEXT NOT NULL REFERENCES finding_occurrences(id),
+  kind TEXT NOT NULL,
+  revision TEXT,
+  payload_digest TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  recorded_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_receipts_occurrence ON finding_receipts(occurrence_id);
+CREATE TABLE IF NOT EXISTS retry_reservations (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  max INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 const IN_FLIGHT_STATES = ['DISCOVERED', 'WAITING_MECHANICAL', 'ELIGIBLE', 'CLAIMED', 'REVIEWING', 'SUBMITTED', 'VALIDATING'];
@@ -130,6 +169,14 @@ export function tupleDigest(t) {
 function isTerminal(state) {
   return TERMINAL_STATES.includes(state);
 }
+
+// Finding lifecycle (follow-up packet increment 4 / §6). Occurrence states are the
+// packet's table; closure dispositions are the packet's allowlist. Claims are the
+// single-active-corrective-owner rule: an expired lease does NOT free the slot by
+// itself (lease expiry is not cessation) — replacement requires an explicit revoke.
+const FINDING_OPEN_STATES = ['OPEN', 'ASSIGNED', 'ACKNOWLEDGED', 'VERIFYING', 'DECISION_REQUIRED'];
+const RECEIPT_KINDS = ['fix_response', 'check_receipt', 'change_review', 'dot_closure', 'closure', 'revoke'];
+const CLOSURE_DISPOSITIONS = ['VERIFIED', 'ALREADY_FIXED', 'NOT_APPLICABLE', 'REJECTED_WITH_EVIDENCE'];
 
 function code(name, message) {
   const e = new Error(message);
@@ -369,6 +416,209 @@ export function openLedger(dbPath, { faultAfter } = {}) {
 
     getChallenge(claimId) {
       return db.prepare('SELECT * FROM challenges WHERE claim_id = ?').get(claimId);
+    },
+
+    // ── finding lifecycle (packet §6 / increment 4) ─────────────────────────────
+    // Occurrences are recorded per accepted report; a replay of the SAME report
+    // records nothing new (dedup on finding_key + source_report_id). A later report
+    // sighting the same key opens a NEW occurrence — lineage is append-only.
+    recordFindings(reportId, findings) {
+      return tx(() => {
+        let inserted = 0;
+        for (const f of findings ?? []) {
+          if (!f?.key) throw code('E_LIMITS', 'recordFindings requires finding.key');
+          const dup = db.prepare(
+            'SELECT id FROM finding_occurrences WHERE finding_key = ? AND source_report_id = ?',
+          ).get(f.key, reportId);
+          if (dup) continue;
+          const ts = now();
+          db.prepare(
+            'INSERT INTO finding_occurrences (id, finding_key, source_report_id, requirement, category, severity, blocking, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run(randomUUID(), f.key, reportId, f.requirement ?? null, f.category ?? null, f.severity ?? null, f.blocking ? 1 : 0, 'OPEN', ts, ts);
+          inserted += 1;
+        }
+        return { inserted };
+      });
+    },
+
+    listOpenFindings() {
+      return db.prepare(
+        `SELECT * FROM finding_occurrences WHERE state IN (${FINDING_OPEN_STATES.map(() => '?').join(',')}) ORDER BY rowid`,
+      ).all(...FINDING_OPEN_STATES);
+    },
+
+    lineage(findingKey) {
+      return db.prepare(
+        'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid',
+      ).all(findingKey);
+    },
+
+    getOccurrence(id) {
+      return db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(id);
+    },
+
+    // One active corrective owner per finding (packet §6): the latest occurrence of
+    // the key is claimed; an active (unexpired) claim refuses a second owner, and an
+    // EXPIRED one still holds the slot until an explicit revoke — lease expiry alone
+    // does not prove the old worker stopped (E_CESSATION_UNKNOWN).
+    claimFinding({ findingKey, owner, leaseMinutes, nowMs = Date.now() } = {}) {
+      if (!owner || !Number.isInteger(leaseMinutes) || leaseMinutes <= 0) {
+        throw code('E_LIMITS', 'claimFinding requires owner and a positive leaseMinutes');
+      }
+      return tx(() => {
+        const tail = db.prepare(
+          'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+        ).get(findingKey);
+        if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
+        if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', `finding "${findingKey}" is resolved at its latest occurrence`);
+        const active = db.prepare(
+          `SELECT c.* FROM finding_claims c
+           WHERE c.occurrence_id = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
+           ORDER BY c.claimed_at DESC LIMIT 1`,
+        ).get(tail.id);
+        if (active) {
+          if (Date.parse(active.lease_expires_at) > nowMs) {
+            throw code('E_ALREADY_CLAIMED', `finding "${findingKey}" is claimed by ${active.owner} until ${active.lease_expires_at}`);
+          }
+          throw code('E_CESSATION_UNKNOWN', `the expired claim of ${active.owner} was not revoked — cessation is not established, replacement held`);
+        }
+        const assignmentId = randomUUID();
+        const token = randomUUID();
+        const claimedAt = new Date(nowMs).toISOString();
+        const expiresAt = new Date(nowMs + leaseMinutes * 60 * 1000).toISOString();
+        db.prepare(
+          'INSERT INTO finding_claims (assignment_id, occurrence_id, owner, fencing_token, claimed_at, lease_expires_at, state) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ).run(assignmentId, tail.id, owner, token, claimedAt, expiresAt, 'ASSIGNED');
+        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('ASSIGNED', now(), tail.id);
+        return { assignment_id: assignmentId, fencing_token: token, occurrence_id: tail.id, lease_expires_at: expiresAt };
+      });
+    },
+
+    // Every consumer of an assignment must present the CURRENT fencing token; a
+    // revoked (or unknown) assignment refuses the same way — a stale worker cannot
+    // push work into the lifecycle after it was replaced.
+    requireClaim(assignmentId, fencingToken) {
+      const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+      if (!c || c.fencing_token !== fencingToken || c.state === 'REVOKED') {
+        throw code('E_FENCING', `assignment ${assignmentId} does not accept this token`);
+      }
+      return c;
+    },
+
+    acknowledgeFinding({ assignmentId, fencingToken, workLocation, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        const c = this.requireClaim(assignmentId, fencingToken);
+        const occ = db.prepare('SELECT state FROM finding_occurrences WHERE id = ?').get(c.occurrence_id);
+        if (!occ || occ.state !== 'ASSIGNED') throw code('E_STATE', `occurrence is ${occ?.state}, not ASSIGNED`);
+        db.prepare('UPDATE finding_claims SET state = ? WHERE assignment_id = ?').run('ACKNOWLEDGED', assignmentId);
+        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('ACKNOWLEDGED', now(), c.occurrence_id);
+        if (workLocation !== undefined) {
+          db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(randomUUID(), c.occurrence_id, 'ack', workLocation, payloadDigest(String(workLocation)), JSON.stringify({ work_location: workLocation }), now());
+        }
+        return { assignment_id: assignmentId, state: 'ACKNOWLEDGED' };
+      });
+    },
+
+    recordFixResponse({ assignmentId, fencingToken, fixRevision, digest, payload, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        const c = this.requireClaim(assignmentId, fencingToken);
+        if (!digest) throw code('E_LIMITS', 'recordFixResponse requires a payload digest');
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(randomUUID(), c.occurrence_id, 'fix_response', fixRevision ?? null, digest, payload ?? '{}', now());
+        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', now(), c.occurrence_id);
+        return { occurrence_id: c.occurrence_id, state: 'VERIFYING' };
+      });
+    },
+
+    revokeClaim({ assignmentId, reason, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+        if (!c) throw code('E_NOT_FOUND', `unknown assignment ${assignmentId}`);
+        db.prepare('UPDATE finding_claims SET state = ? WHERE assignment_id = ?').run('REVOKED', assignmentId);
+        const occ = db.prepare('SELECT state FROM finding_occurrences WHERE id = ?').get(c.occurrence_id);
+        if (occ && ['ASSIGNED', 'ACKNOWLEDGED'].includes(occ.state)) {
+          db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('OPEN', now(), c.occurrence_id);
+        }
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(randomUUID(), c.occurrence_id, 'revoke', null, payloadDigest(String(reason ?? '')), JSON.stringify({ reason: reason ?? '', owner: c.owner }), now());
+        return { assignment_id: assignmentId, revoked: true };
+      });
+    },
+
+    recordReceipt({ occurrenceId, kind, revision, digest, payload, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        if (!RECEIPT_KINDS.includes(kind)) throw code('E_DISPOSITION', `receipt kind "${kind}" is not in the allowlist`);
+        const occ = db.prepare('SELECT id FROM finding_occurrences WHERE id = ?').get(occurrenceId);
+        if (!occ) throw code('E_NOT_FOUND', `unknown occurrence ${occurrenceId}`);
+        const id = randomUUID();
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(id, occurrenceId, kind, revision ?? null, digest ?? payloadDigest(String(payload ?? '')), payload ?? '{}', now());
+        return { receipt_id: id };
+      });
+    },
+
+    // Closure is mechanical, not asserted: VERIFIED needs the fix receipt, no
+    // check failure recorded AFTER that fix, and one independent verification
+    // receipt (change_review or dot_closure). The packet's other dispositions are
+    // reviewer-evidence assertions and are recorded with their verifier.
+    recordClosure({ findingKey, disposition, verifier, revision, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
+          throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
+        }
+        const tail = db.prepare(
+          'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+        ).get(findingKey);
+        if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
+        if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', 'latest occurrence is already resolved');
+        const receipts = db.prepare(
+          'SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid',
+        ).all(tail.id);
+        if (disposition === 'VERIFIED') {
+          const fixIdx = receipts.findIndex((r) => r.kind === 'fix_response');
+          if (fixIdx < 0) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a recorded fix response');
+          // the LATEST check receipt after the fix is the current word: a failure there
+          // keeps the finding open; a newer passing check supersedes an older failure
+          const checksAfterFix = receipts.slice(fixIdx + 1).filter((r) => r.kind === 'check_receipt');
+          const latestCheck = checksAfterFix.at(-1);
+          if (latestCheck) {
+            let conclusion;
+            try { conclusion = JSON.parse(latestCheck.payload)?.conclusion; } catch { /* opaque payload */ }
+            if (conclusion === 'failure') {
+              throw code('E_NOT_RESOLVABLE', 'a check failure recorded after the fix keeps the finding open');
+            }
+          }
+          const verified = receipts.some((r) => r.kind === 'change_review' || r.kind === 'dot_closure');
+          if (!verified) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a change_review or dot_closure receipt');
+        }
+        const id = randomUUID();
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), now());
+        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
+        return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
+      });
+    },
+
+    // Bounded retry reservations (packet §9): a persisted per-key counter; exceeding
+    // the bound refuses (E_BUDGET) and the count survives crashes and restarts.
+    reserveRetry(key, max, nowMs = Date.now()) {
+      return tx(() => {
+        const row = db.prepare('SELECT * FROM retry_reservations WHERE key = ?').get(key);
+        if (!row) {
+          db.prepare('INSERT INTO retry_reservations (key, count, max, updated_at) VALUES (?, ?, ?, ?)').run(key, 1, max, now());
+          return { count: 1 };
+        }
+        if (row.count >= row.max) {
+          throw code('E_BUDGET', `reservation "${key}" exhausted (${row.count}/${row.max})`);
+        }
+        db.prepare('UPDATE retry_reservations SET count = count + 1, max = ?, updated_at = ? WHERE key = ?').run(max, now(), key);
+        return { count: row.count + 1 };
+      });
+    },
+
+    close() {
+      db.close();
     },
 
     outboxEnqueue(eventType, payload, dedupKey) {

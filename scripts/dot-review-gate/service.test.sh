@@ -325,6 +325,27 @@ try {
   } else log('ok revise-publishes-named-failure');
   await svcR.close();
 
+  // ── persistence guard (packet increment 4): in-memory storage is fixture-only —
+  // a service without a persistent ledger path refuses to start; the fixture escape
+  // is an explicit allowMemoryLedger flag, never an accident of omission.
+  try {
+    await createGateService({
+      ledgerPath: ':memory:', policyText: POLICY_TEXT, schemaBytes, oauth,
+      webhookSecret: 's', readState, publisherApp, now: () => clock,
+    });
+    fail('in-memory ledger started without the fixture flag');
+  } catch (e) {
+    if (e.code === 'E_NO_PERSISTENT_PATH') log('ok memory-ledger-refused');
+    else fail(`memory guard ${e.code ?? e.message}`);
+  }
+  const svcMem = await createGateService({
+    policyText: POLICY_TEXT, schemaBytes, oauth, webhookSecret: 's',
+    readState, publisherApp, allowMemoryLedger: true, now: () => clock,
+  });
+  if (!svcMem || typeof svcMem.drainOutbox !== 'function') fail('fixture memory service');
+  else log('ok memory-allowed-for-fixtures');
+  await svcMem.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -345,5 +366,6 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   expiry-stops-claims expiry-stops-publication pause-stops-claims-and-publication \
   unpause-resumes restart-drains-single-publication \
   accept-revise-persisted replay-idempotent forged-envelope-rejected \
-  stale-tuple-submit-refused revise-publishes-named-failure || exit 1
+  stale-tuple-submit-refused revise-publishes-named-failure \
+  memory-ledger-refused memory-allowed-for-fixtures || exit 1
 echo "service.test.sh: all green"
