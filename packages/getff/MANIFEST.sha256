@@ -1045,9 +1045,9 @@ dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893  packages/core/
 288103356341825ec7a54e19529eeb1af41dc0050406244858c6873d852ea554  packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
 5d95dc9596ef77270a5595f8810f2a721d872904545f17b43aac7c80d1b9aba8  packages/preset-next-15-canonical/eslint-rules/index.ts
 595f854bf84368a42fd8400ec010e2c339dfbf396a4954f9beab603b1d9d7d61  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.d.ts
-e58ec20ae8689421a1895e32eeda65608bb40b42546d064dce1743fad3268b58  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs
-2c872b64d26653d9f5605100434c3a55a32ea7065973d8843f2193aa9a79584a  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts
-c4872b3262f1dee5d9662c2b0f6b3a19c8ceddbde95c25283df805c6e70cc14d  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts
+cf76ec897d5e4c203903db7d7a83e726e31a7a172ace2891515fe0c67b7a2add  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs
+41bcea59d3ac9fc9fee913cd9dcead1dca1947afcec5e277ee03926f84d1d8fe  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts
+816ca6055a31cbdc774687f3027f8023714007f1d3e760fbe979d04b52ad13ae  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts
 7bbd7fc4cca9c4a5262d43a97e02154b558a8e15fa9cb808157f51435ac40fa2  packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts
 d724f1d469d8bf60fb6d7b1d66554c0cb8aee66db06210435eda0fc0e33d2dc3  packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts
 e807bcae00d857ae025cfa2ddabfe8ff06fd8b8d919265c3a115c1f27107db07  packages/preset-next-15-canonical/package.json

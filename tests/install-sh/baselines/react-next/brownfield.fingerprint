@@ -6,7 +6,7 @@ a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DE
 a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-696fab567e473af0231ed78578e5f232958c2a17dfa6023ae416e44f413ea911  .ai-factory/refresh-baseline.json
+6fdcecaf15e4fe8481ef5239256a08f8ac60f99690920a7b4cee1212e87a195e  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -150,8 +150,8 @@ f5e4b395baa096190372cd843864ba82060ae2cb1708c6096082d100b260c146  AGENTS.md
 c641bbe9b16fc02d96c583df6c0ab9e09351045f4d47a5d2689113199a063f7c  eslint-rules-local/no-direct-time-randomness.mjs
 debdaff056606dfd76f3ecf16a0a7bf69596ea2b992644b6e8582ead30b361f5  eslint-rules-local/no-direct-time-randomness.ts
 595f854bf84368a42fd8400ec010e2c339dfbf396a4954f9beab603b1d9d7d61  eslint-rules-local/no-server-imports-in-client.d.ts
-e58ec20ae8689421a1895e32eeda65608bb40b42546d064dce1743fad3268b58  eslint-rules-local/no-server-imports-in-client.mjs
-c4872b3262f1dee5d9662c2b0f6b3a19c8ceddbde95c25283df805c6e70cc14d  eslint-rules-local/no-server-imports-in-client.ts
+cf76ec897d5e4c203903db7d7a83e726e31a7a172ace2891515fe0c67b7a2add  eslint-rules-local/no-server-imports-in-client.mjs
+816ca6055a31cbdc774687f3027f8023714007f1d3e760fbe979d04b52ad13ae  eslint-rules-local/no-server-imports-in-client.ts
 bbdf6774a0f79b75c6b39cd1bbecef641ca077e8acaea0d64ecc6392b1983910  eslint-rules-local/no-unsafe-zod-parse.d.ts
 9deada5113e1e281f5f0c5ef6d833d4bc69f916aa2ed845e8a37a5ef6fd2dc82  eslint-rules-local/no-unsafe-zod-parse.mjs
 7cff72b7553c7af6e8e125d18fc9ce46efb27a16ba365b697e2447dc021d1e74  eslint-rules-local/no-unsafe-zod-parse.ts
