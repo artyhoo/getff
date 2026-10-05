@@ -292,6 +292,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -323,6 +325,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
