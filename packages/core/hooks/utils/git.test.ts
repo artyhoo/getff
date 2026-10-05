@@ -19,6 +19,7 @@ const {
   getCommits,
   getChangedFiles,
   realGit,
+  rangeGit,
   parsePushRefs,
   commitsNotOnRemotes,
   Z40,
@@ -496,6 +497,35 @@ describe('realGit.changedFiles (parseNameStatus)', () => {
     // Exact shape: ['diff-tree', '--no-commit-id', '--name-status', '-r', sha]
     expect(args).toEqual(['diff-tree', '--no-commit-id', '--name-status', '-r', 'abc123']);
     // No arg should be an empty string.
+    expect(args.every((a: string) => a !== '')).toBe(true);
+  });
+});
+
+// ── rangeGit.changedFiles ─────────────────────────────────────────────────────
+// --no-renames is load-bearing (2026-10-05): without it the porcelain range diff
+// collapses a rename to ONE `R100\told\tnew` row, parseNameStatus splits on the
+// FIRST tab into {status:'R100', path:'old\tnew'}, and both `status !== 'A'`
+// arms in checks/prior-art.ts skip it — a git-mv-delivered capability file
+// escaped the PR-body Prior-art gate. Real-git behavior proof (rename → A+D
+// rows): git.range-renames.test.ts.
+describe('rangeGit.changedFiles', () => {
+  beforeEach(() => runCheckMock.mockReset());
+
+  // Call 0 is rangeGit's merge-base; call 1 is the changedFiles diff.
+  it('passes the exact range-diff args including --no-renames', () => {
+    runCheckMock
+      .mockReturnValueOnce(ok('mb00001\n')) // merge-base baseSha headSha
+      .mockReturnValueOnce(ok('')); // diff --name-status mb headSha
+    rangeGit('basesha1', 'headsha2').changedFiles();
+    const [cmd, args] = runCheckMock.mock.calls[1];
+    expect(cmd).toBe('git');
+    expect(args).toEqual([
+      'diff',
+      '--name-status',
+      '--no-renames',
+      'mb00001',
+      'headsha2',
+    ]);
     expect(args.every((a: string) => a !== '')).toBe(true);
   });
 });
