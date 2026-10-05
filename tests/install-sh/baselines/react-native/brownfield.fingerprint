@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 326253db168ae6c5fe68be52ce852fac0af56f9ecaa5fdec84f52431a9883a2a  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-8d03c6ba9986d7f8fc6b5f80b5aba8e1e63d46f1e063a93274f1dc6ac1354050  .ai-factory/refresh-baseline.json
+f41bbd20188864118e55d056d0013a79d72017c42ec3074a5396d42dab174c08  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -51,7 +51,7 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
 a092bdc802f3f6e1d8b247672ffa581110f499e8dbd364b609a337354c212dec  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
-c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .claude/skills/getff/references/base-core.md
+b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .claude/skills/getff/references/base-core.md
 0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .claude/skills/getff/references/checks-map.md
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md

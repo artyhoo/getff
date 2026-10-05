@@ -37,7 +37,7 @@ stacks read the row as `not_wired`.
 <!-- prettier-ignore -->
 | id | principle | primary trigger | status | reason | carrier in the project | plugin rule | not on stack |
 |---|---|---|---|---|---|---|---|
-| A1 | Every rule has an executable check | check | `partial` | gap-named | `scripts/check-rule-enforced.sh` | — | python |
+| A1 | Every rule has an executable check | check | `partial` | gap-named | `scripts/check-rule-enforced.sh` | — | cargo,go,python |
 | A2 | Every check has a paired negative | check | `not_wired` | trigger-to-build | — | — | — |
 | A3 | A check that cannot fail proves nothing | file | `not_wired` | rule-file-not-shipped | — | — | — |
 | A4 | Check structure, not text | skill | `fires` | — | `.claude/skills/rule-research/SKILL.md` | — | — |
@@ -45,33 +45,33 @@ stacks read the row as `not_wired`.
 | A6 | Earliest reachable channel | file | `not_wired` | rule-file-not-shipped | — | — | — |
 | A7 | Gate what a machine can detect | skill | `not_wired` | trigger-to-build | — | — | — |
 | A8 | Nobody's attention is a check | file | `not_wired` | rule-file-not-shipped | — | — | — |
-| A9 | Every check actually runs | check | `partial` | gap-named | `scripts/check-shields-up.sh`, `.github/workflows/workflow-integrity.yml` | — | python |
+| A9 | Every check actually runs | check | `partial` | gap-named | `scripts/check-shields-up.sh`, `.github/workflows/workflow-integrity.yml` | — | cargo,go,python |
 | A10 | No bypass | event | `not_wired` | trigger-to-build | — | — | — |
 | A11 | A rule states its reason | check | `not_wired` | trigger-to-build | — | — | — |
 | A12 | Every fixed bug gets a regression test that fails on the old … | check | `not_wired` | trigger-to-build | — | — | — |
 | A13 | The rules apply to the project's own tooling too | check | `not_wired` | trigger-to-build | — | — | — |
 | A15 | Fail closed | file | `not_wired` | rule-file-not-shipped | — | — | — |
-| A16 | Every reference resolves | check | `fires` | — | `scripts/check-rule-globs.sh`, `scripts/check-lintstaged-resolves.sh`, `scripts/check-arch-boundaries.sh` | — | python |
+| A16 | Every reference resolves | check | `fires` | — | `scripts/check-rule-globs.sh`, `scripts/check-lintstaged-resolves.sh`, `scripts/check-arch-boundaries.sh` | — | cargo,go,python |
 | A17 | The rule list learns | check | `not_wired` | trigger-to-build | — | — | — |
 | A18 | Forward-check | skill | `not_wired` | trigger-to-build | — | — | — |
 | A20 | A failing check says what is wrong, where, and how to fix it | skill | `not_wired` | trigger-to-build | — | — | — |
 | B1 | Architecture tests | check | `not_wired` | generated-pending | — | — | — |
-| B2 | Meta-tests | check | `partial` | gap-named | `scripts/audit-r4.ts` | — | python |
+| B2 | Meta-tests | check | `partial` | gap-named | `scripts/audit-r4.ts` | — | cargo,go,python |
 | B3 | Specification by example | file | `not_wired` | rule-file-not-shipped | — | — | — |
-| B4 | Mutation testing on the changed lines, with a stated kill … | check | `partial` | gap-named | `stryker.config.json` | — | python |
+| B4 | Mutation testing on the changed lines, with a stated kill … | check | `partial` | gap-named | `stryker.config.json` | — | cargo,go,python |
 | B5 | Living documentation | check | `partial` | gap-named | `scripts/audit-ai-docs.sh` | — | python |
 | B6 | Extensions where the project has the surface | skill | `fires` | conditional | `.claude/skills/tool-bootstrapping/SKILL.md` | — | — |
 | B7 | Lint hygiene | check | `not_wired` | generated-pending | — | — | — |
 | B8 | Every change is reviewed before merge by a seat that did not … | event | `not_wired` | trigger-to-build | — | — | — |
 | C2 | One source of truth per fact | check | `partial` | gap-named | `scripts/audit-ai-docs.sh` | — | python |
-| C3 | An authority-bearing doc states what it owns and what it … | check | `fires` | — | `.claude/hooks/check-doc-authority-header.sh` | — | python |
+| C3 | An authority-bearing doc states what it owns and what it … | check | `fires` | — | `.claude/hooks/check-doc-authority-header.sh` | — | cargo,go,python |
 | C4 | Agent guides state known-true facts and point at enforced rules | file | `not_wired` | rule-file-not-shipped | — | — | — |
 | C5 | Files an agent reads fit its budget | check | `not_wired` | trigger-to-build | — | — | — |
 | C6 | Hot and cold | check | `not_wired` | trigger-to-build | — | — | — |
 | C7 | Skill descriptions are precise, and two skills never claim … | file | `not_wired` | rule-file-not-shipped | — | — | — |
-| C8 | Durable conventions go into the repo as a rule with a check … | event | `fires` | — | `.claude/hooks/inject-memory-codification.sh` | — | python |
-| C9 | Internal machinery in English | event | `not_wired` | opt-in | `.claude/hooks/inject-output-language.sh` | — | python |
-| C10 | The operator's own words are kept in a glossary, one … | event | `fires` | conditional | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
+| C8 | Durable conventions go into the repo as a rule with a check … | event | `fires` | — | `.claude/hooks/inject-memory-codification.sh` | — | cargo,go,python |
+| C9 | Internal machinery in English | event | `not_wired` | opt-in | `.claude/hooks/inject-output-language.sh` | — | cargo,go,python |
+| C10 | The operator's own words are kept in a glossary, one … | event | `fires` | conditional | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
 | C11 | Docs, rules and research carry a date and are re-checked … | check | `not_wired` | trigger-to-build | — | — | — |
 | C12 | A doc changes in the same change as the code it describes | check | `partial` | gap-named | `scripts/audit-ai-docs.sh` | — | python |
 | C13 | Frozen and append-only records are not rewritten | check | `not_wired` | trigger-to-build | — | — | — |
@@ -89,25 +89,25 @@ stacks read the row as `not_wired`.
 | D9 | Facts, versions and state come from their source now — the … | always-on | `not_wired` | always-on-set-not-built | — | — | — |
 | D10 | Every number and limit cites its source | check | `not_wired` | trigger-to-build | — | — | — |
 | D11 | A tool is installed by its own official installer, … | event | `not_wired` | trigger-to-build | — | — | — |
-| D12 | CI is deterministic | check | `partial` | gap-named | `packages/core/hooks/pre-push.bundle.mjs` | — | python |
+| D12 | CI is deterministic | check | `partial` | gap-named | `packages/core/hooks/pre-push.bundle.mjs` | — | cargo,go,python |
 | D13 | A decided call is not re-argued without new evidence | file | `not_wired` | rule-file-not-shipped | — | — | — |
 | D14 | Before starting, look for the same work already in flight … | event | `not_wired` | trigger-to-build | — | — | — |
 | E1 | The stopping point is an external check passing, not «I'm done» | event | `not_wired` | trigger-to-build | — | — | — |
 | E2 | No verdict without evidence in the same turn | always-on | `not_wired` | always-on-set-not-built | — | — | — |
-| E3 | Enumerate the whole population before sampling | skill | `partial` | gap-named | `.claude/agents/claims-conformance-auditor.md` | — | python |
+| E3 | Enumerate the whole population before sampling | skill | `partial` | gap-named | `.claude/agents/claims-conformance-auditor.md` | — | cargo,go,python |
 | E5 | Cover every declared section, then ask «what category did I … | skill | `not_wired` | trigger-to-build | — | — | — |
 | E8 | Preserve before destroying | event | `not_wired` | trigger-to-build | — | — | — |
-| E10 | A reviewer surfaces a decision and never picks the strategy | skill | `fires` | — | `.claude/skills/reviewer/SKILL.md` | — | python |
+| E10 | A reviewer surfaces a decision and never picks the strategy | skill | `fires` | — | `.claude/skills/reviewer/SKILL.md` | — | cargo,go,python |
 | E11 | Prove it where it runs | check | `not_wired` | trigger-to-build | — | — | — |
-| E12 | Effort follows reversibility | skill | `fires` | — | `.claude/skills/arch/SKILL.md` | — | python |
-| E13 | A finding opens a new review round only with a concrete … | skill | `fires` | — | `.claude/skills/reviewer/SKILL.md` | — | python |
-| F1 | Ask only a real fork | event | `fires` | — | `.claude/hooks/ask-question-reminder.sh` | — | python |
+| E12 | Effort follows reversibility | skill | `fires` | — | `.claude/skills/arch/SKILL.md` | — | cargo,go,python |
+| E13 | A finding opens a new review round only with a concrete … | skill | `fires` | — | `.claude/skills/reviewer/SKILL.md` | — | cargo,go,python |
+| F1 | Ask only a real fork | event | `fires` | — | `.claude/hooks/ask-question-reminder.sh` | — | cargo,go,python |
 | F2 | Every question carries a recommendation and its main reason | event | `not_wired` | trigger-to-build | — | — | — |
-| F4 | No silent forks | event | `fires` | — | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
-| F5 | A turn that ends with a long answer or with a question … | event | `fires` | — | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
-| F6 | A manual human step is a defect | event | `partial` | gap-named | `.claude/hooks/lang/en.sh` | — | python |
-| F7 | An unattended agent does not stop while work remains just … | event | `not_wired` | opt-in | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
-| F8 | Answers are short | event | `partial` | gap-named | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
+| F4 | No silent forks | event | `fires` | — | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
+| F5 | A turn that ends with a long answer or with a question … | event | `fires` | — | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
+| F6 | A manual human step is a defect | event | `partial` | gap-named | `.claude/hooks/lang/en.sh` | — | cargo,go,python |
+| F7 | An unattended agent does not stop while work remains just … | event | `not_wired` | opt-in | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
+| F8 | Answers are short | event | `partial` | gap-named | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
 | F9 | Forks — including forks a review raises (B8) — and loosening … | event | `not_wired` | trigger-to-build | — | — | — |
 | G1 | Do exactly the task that was asked, nothing on the side | always-on | `not_wired` | always-on-set-not-built | — | — | — |
 | G2 | Each artifact has one owner | file | `not_wired` | rule-file-not-shipped | — | — | — |
@@ -115,22 +115,22 @@ stacks read the row as `not_wired`.
 | G4 | Parallel agents work in isolated worktrees, never in one … | event | `not_wired` | trigger-to-build | — | — | — |
 | G5 | Tests are isolated | check | `not_wired` | trigger-to-build | — | — | — |
 | G6 | Evidence is pasted from a fresh run of the exact commit, … | event | `not_wired` | trigger-to-build | — | — | — |
-| G7 | Nothing load-bearing lives only in a session's memory | event | `not_wired` | opt-in | `.claude/hooks/end-of-turn-reminder.sh` | — | python |
+| G7 | Nothing load-bearing lives only in a session's memory | event | `not_wired` | opt-in | `.claude/hooks/end-of-turn-reminder.sh` | — | cargo,go,python |
 | H1 | Do not bypass the type system | check | `not_wired` | generated-pending | — | — | — |
 | H2 | No new convenience dependency where the project standardised … | check | `not_wired` | generated-pending | — | — | — |
 | H3 | No layer violations and no cycles | check | `not_wired` | generated-pending | — | — | — |
 | H4 | No unawaited async work | check | `not_wired` | generated-pending | — | — | — |
-| H5 | No direct time, randomness or network in production code … | check | `not_wired` | opt-in | `eslint.config.mjs`, `eslint-rules-local/no-direct-time-randomness.mjs` | `no-direct-time-randomness` | python, react-native |
+| H5 | No direct time, randomness or network in production code … | check | `not_wired` | opt-in | `eslint.config.mjs`, `eslint-rules-local/no-direct-time-randomness.mjs` | `no-direct-time-randomness` | cargo,go,python, react-native |
 | H6 | No public API inflation | check | `not_wired` | trigger-to-build | — | — | — |
 | H7 | No global mutable state | check | `not_wired` | generated-pending | — | `restricted-syntax-audit-exempt` | — |
-| H8 | Errors are handled, not hidden | check | `partial` | gap-named | `eslint.config.mjs`, `eslint-rules-local/require-error-boundary.mjs` | `require-error-boundary` | python, react-native |
-| H9 | Operations leave a trace | check | `not_wired` | opt-in | `eslint.config.mjs`, `eslint-rules-local/require-otel-span.mjs` | `require-otel-span` | python, react-native |
+| H8 | Errors are handled, not hidden | check | `partial` | gap-named | `eslint.config.mjs`, `eslint-rules-local/require-error-boundary.mjs` | `require-error-boundary` | cargo,go,python, react-native |
+| H9 | Operations leave a trace | check | `not_wired` | opt-in | `eslint.config.mjs`, `eslint-rules-local/require-otel-span.mjs` | `require-otel-span` | cargo,go,python, react-native |
 | H10 | Names follow the project's stated convention | check | `not_wired` | generated-pending | — | — | — |
 | H11 | A UI is accessible | check | `not_wired` | generated-pending | — | — | — |
 | H12 | No dead code | check | `not_wired` | trigger-to-build | — | — | — |
-| I1 | Input from outside the process is validated at the boundary … | check | `fires` | conditional | `eslint.config.mjs`, `eslint-rules-local/no-unsafe-zod-parse.mjs` | `no-unsafe-zod-parse` | python, react-native |
-| I2 | No dependency with a known high-severity vulnerability | check | `partial` | gap-named | `.github/workflows/ci.yml` | — | python |
-| I3 | No secret in a commit | check | `partial` | gap-named | `.github/workflows/ci.yml` | — | python |
+| I1 | Input from outside the process is validated at the boundary … | check | `fires` | conditional | `eslint.config.mjs`, `eslint-rules-local/no-unsafe-zod-parse.mjs` | `no-unsafe-zod-parse` | cargo,go,python, react-native |
+| I2 | No dependency with a known high-severity vulnerability | check | `partial` | gap-named | `.github/workflows/ci.yml` | — | cargo,go,python |
+| I3 | No secret in a commit | check | `partial` | gap-named | `.github/workflows/ci.yml` | — | cargo,go,python |
 | I4 | A critical security rule is a check, not only text | check | `not_wired` | generated-pending | — | `restricted-syntax-audit-exempt` | — |
 | I5 | A path from outside is resolved and confined | check | `not_wired` | generated-pending | — | — | — |
 | I6 | A new dependency is verified before it is installed | event | `not_wired` | trigger-to-build | — | — | — |
