@@ -8,10 +8,10 @@
 ## Identity and exact scope
 
 - Workspace: `/Users/art/.codex/worktrees/9d39/rules-as-tests-aif`.
-- Branch: `codex/skills-standards-repair`; base/main-worktree HEAD: `c4532e16aa369ef3c66e227dd59d8ceef9e60263`. No implementation commit/push/PR/merge in this checkout yet; junior creates the delivery commit.
+- Branch: `codex/skills-standards-repair`; base/main-worktree HEAD: `c4532e16aa369ef3c66e227dd59d8ceef9e60263`. Task commits 5024b8e26ff, e7a87061610 and fd6c7b07017 exist; normal pushes have stopped at required dependent drift gates, so no PR/merge yet. Junior continues delivery of the refreshed identity.
 - Clean disposable implementation snapshot: `/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skills-repair-candidate-7aci2dof/repo` at `1332a811a76f7bb8618827065aa93e1695cc876b`. It contains the original 56 core implementation files including new resources; its clean status was checked after generation tests.
-- Frozen binary implementation patch: `/tmp/skills-repair-accepted.patch`; SHA256 `c6ff3f55672448079c22051b7d1a3ec4517e052a99a0b9a736660cf77b62d4bb`.
-- [Implementation manifest](2026-10-05-skills-repair-manifest.json): SHA256 `a7ffa779c952cdec77cada066d5e32f61cbcada9706f91dd4e1d464895e4b4a6`; each of the 70 paths has its own SHA256. This excludes administrative task docs deliberately, avoiding a report hashing itself.
+- Frozen binary implementation patch: `/tmp/skills-repair-accepted.patch`; SHA256 `d7eedde987d0746abde774dfb9fb1aabf8498235db2a084f7fbccc78fbab4ed1`.
+- [Implementation manifest](2026-10-05-skills-repair-manifest.json): SHA256 `3a5243a3a2edb430d22e201424255d41aaca3c115623964c4a5722e314b0c6ae`; each of the 81 paths has its own SHA256. This excludes administrative task docs deliberately, avoiding a report hashing itself.
 - Implementation: **14 source cards + 4 generated cards = 18 SKILL.md files**, 29 new conditional references, one amended existing claim reference, eight existing test files. No new executable skill helper or dependency.
 - Administrative task files: HANDOFF, original audit, six existing preparation/role packet files, this result, manifest and [implementation review receipt](../superpowers/plans/2026-10-05-skills-standards-implementation-review.md). Stage only this manifest plus these eleven task documents; preserve unrelated WIP.
 
@@ -106,3 +106,9 @@ Additional verification: full citation corpus exit 0 (1032 resolved, 312 skipped
 ## Distribution index refresh (senior, 2026-10-06)
 
 The next normal push passed committed citation checks (1064 resolved/312 skipped), AI docs (218/218 plus live audits 4 PASS/0 FAIL/2 WARN) and skill drift, then refused the stale distribution manifest. The actual build-getff-dist assembler regenerated packages/getff/MANIFEST.sha256 and ignored payload copies. Read-only delta verification: exactly 52 accepted payload paths changed, 29 additions, no removals/unrelated paths; every changed digest matches accepted source. Fresh --check PASS: 1249 files, all package.json payload roots covered. No findings. The accepted implementation/dependency manifest now covers **70 paths**, adding this generated index to the previous69; eleven administrative docs remain excluded. No package publication or release performed. ACCEPTED for Git delivery with refreshed identities.
+
+## Installed baselines refresh (senior, 2026-10-06)
+
+The next normal push passed distribution and stopped at installed snapshot drift. Actual SNAPSHOT_MODE=capture performed all15 temporary-fixture installs; eleven fingerprints changed (eight npm greenfield/brownfield, three Python). Read-only inventory: npm rows have31 changed entries/20 new procedure files each; Python rows have4 changed entries/no additions; zero removals. Deltas contain only changed skills and the derived refresh-baseline/prettierignore records (ignore_shipped_configs enumerates freshly shipped markdown, lib.sh; no ignore logic changed). Cargo/go fingerprints stayed unchanged. Repeated actual SNAPSHOT_MODE=compare: **15 PASS/0 FAIL**, byte-identical installed trees. Full citation corpus PASS1037resolved/312skipped,56 generator deferrals/27 pre-existing missing blame baselines, no uncommitted skips. Arch’s fingerprint evidence now names its skill paths instead of the earlier contiguous line range; docs-check PASS0errors. No findings in complete baseline/reference delta review. No snapshot assertions removed or modified. Process completion confirmed before freezing.
+
+The accepted implementation/dependency manifest now has **81 paths** (previous70 +11 installed fingerprints), plus eleven excluded administrative docs. This supersedes earlier scope counts/identities. ACCEPTED for junior delivery through remaining gates.

@@ -134,7 +134,7 @@ helper/install examples are unchanged. No live runtime certification is claimed.
   `.claude/skills/arch/references/grilling.md` and `domain-modeling.md` in that folder;
   each carries its upstream provenance, with the glossary/decision formats beside it.
 - The copies ship with the skill: they are listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 45 to 48.
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, under the arch skill paths.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.
