@@ -286,7 +286,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
   // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
   // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
-  // (lib.sh:1733, shared lock writer), so a python lane fragment in the subdir is invisible to
+  // (lib.sh:1739, shared lock writer), so a python lane fragment in the subdir is invisible to
   // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //
