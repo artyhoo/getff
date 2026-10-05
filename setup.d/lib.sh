@@ -990,14 +990,14 @@ copy_safe() {
 #                               The existing begin marker line is kept VERBATIM (forward-compat
 #                               attributes an older/newer writer put on it survive) — same rule
 #                               as fence.ts injectRegion.
-#   (c) dst is a FENCE-LESS copy of an older version of our own template → adopt it exactly
-#                               once by REPLACING the whole file with the fenced form. This is
-#                               every consumer installed before this stage; a fence-writer that
-#                               only knew case (a) would append and silently DOUBLE their file.
+#   (c) dst is a byte-identical FENCE-LESS copy of the current template → adopt it exactly
+#                               once by wrapping it in the fenced form. An older or edited copy
+#                               is consumer-owned: case (a) retains its complete active body and
+#                               appends the current framework section without deleting content.
 #
 # Case (c) detection is deliberately conservative — a false-positive adopt would destroy a
-# consumer's own file. TWO independent sentinels must BOTH be present, and both were verified
-# present in all 20 historical revisions of AGENTS.md.template (git log --follow, 2026-08-08):
+# consumer's own file. TWO independent sentinels must BOTH be present, and the entire file
+# must be byte-identical to the source. Sentinels alone establish ancestry, never ownership:
 #   1. the template's H1 line, and 2. the `.ai-factory/RULES.md` convention reference.
 # Sentinels are caller-supplied (args 5/6) so the helper stays generic; with no sentinels
 # passed, case (c) never fires and an unrecognised file takes the safe (a) path.
@@ -1101,11 +1101,11 @@ merge_fenced() {
     elif [ "${MERGE_FENCED_SHIPPED_BODY:-0}" != 1 ] && ! cmp -s "$tmp" "$dst"; then
       # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
       # keep the previous bytes before they are gone (a no-op re-run never reaches here).
-      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
+      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed" || _splice_ok=0
     fi
     if [ "$_splice_ok" = "0" ] || ! mv "$tmp" "$dst"; then
       rm -f "$tmp" 2>/dev/null || true
-      echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
+      echo "  ⚠ $dst: fenced splice failed (preparation, preservation or write error) — left unchanged, section=$section" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1113,18 +1113,18 @@ merge_fenced() {
     return 0
   fi
 
-  # ── (c) fence-less copy of an older version of our own template → adopt once ─
+  # ── (c) byte-identical fence-less copy of the current template → adopt once ─
   if [ -n "$sentinel_1" ] && [ -n "$sentinel_2" ] \
-    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst"; then
+    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst" && cmp -s "$src" "$dst"; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would adopt (wrap in fence): $dst"
       return 0
     fi
-    # critical-review S2-3: the sentinels prove the file STARTED as our template, not that it
-    # still is one — a consumer who extended it would lose every addition. Keep their bytes first.
-    if ! cmp -s "$src" "$dst"; then
-      _merge_fenced_keep_copy "$dst" "pre-fence copy differs from the current template"
-    fi
+    # Equality establishes that no consumer bytes would be removed by this wrapping.
+    # Sentinel-matching older templates and locally edited copies take the append path.
+    # This includes in-place placeholder fills: their ownership is not ours to infer.
+    # Keep the entire divergent body active; a parked backup is not active preservation.
+    # The equality probe above also applies to dry-run's advertised adoption decision.
     { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
     return 0
@@ -1145,7 +1145,7 @@ merge_fenced() {
 # replaces part of it with bytes the consumer may have written (critical-review S2-3). Same
 # location and naming as the refresh guard (_preserve_diverged_copy); merge_fenced sits outside
 # the baseline manifest, so it cannot tell a consumer edit from an older template and keeps a
-# copy whenever the replaced bytes differ. Fail-open: a failed copy changes only the message.
+# copy whenever the replaced bytes differ. Failure refuses replacement and records a skip.
 _merge_fenced_keep_copy() {
   local dst="$1" why="$2" conflicts sum8 kept
   conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
@@ -1156,8 +1156,8 @@ _merge_fenced_keep_copy() {
       return 0
     fi
   fi
-  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; replacing anyway"
-  return 0
+  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; REFUSING to replace" >&2
+  return 1
 }
 
 # install_agents_md <src> <dst>
