@@ -230,7 +230,7 @@
       {
         "id": "base-core-status",
         "title": "Read the base-core list with a status per principle",
-        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, report this step as «not done: list absent in this older install» and print one line under it: the command `bash <getff>/install.sh <stack> --refresh`, which brings the list and which the person may run. Do not run it and do not ask about it.",
+        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, refresh this older install before reading: run `bash <getff>/install.sh <stack> --refresh --dry-run` from this project's directory, quote in the report every line of its plan that ends «(locally modified)», then run `bash <getff>/install.sh <stack> --refresh`. In the report quote every `⚠ overwriting locally-modified file` line it printed and list every entry it placed under `.ai-factory/refresh-conflicts/`. Then read the table as above. Still absent, or the refresh exited non-zero → report this step as «not done: the refresh did not bring the list» with the last error line.",
         "doneTest": "the count of lines in «PRINCIPLES NOT WIRED YET» equals the count of such rows in the file"
       },
       {

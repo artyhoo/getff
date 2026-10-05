@@ -20,7 +20,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+);
 const SOURCE_PATH = 'packages/core/templates/shared/first-steps.source.json';
 const RENDER_PATH = 'packages/core/templates/shared/AI-USAGE-GUIDE.md';
 
@@ -41,7 +46,9 @@ interface FirstStepsSource {
   sequences: Record<string, SourceSequence>;
 }
 
-const source: FirstStepsSource = JSON.parse(readFileSync(join(REPO_ROOT, SOURCE_PATH), 'utf8'));
+const source: FirstStepsSource = JSON.parse(
+  readFileSync(join(REPO_ROOT, SOURCE_PATH), 'utf8'),
+);
 const render = readFileSync(join(REPO_ROOT, RENDER_PATH), 'utf8');
 
 /** `### §2.N \`<profile>\` — …` opens a per-profile block; the next `###`/`---` closes it. */
@@ -68,7 +75,8 @@ function renderSections(md: string): Map<string, string> {
  * the bold text alone would have no stable identity to order against.
  */
 function renderedSteps(section: string): Array<{ id: string; title: string }> {
-  const re = /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*(.+?)\*\*/g;
+  const re =
+    /<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->\s*\n\s*\d+\.\s+\*\*(.+?)\*\*/g;
   const steps: Array<{ id: string; title: string }> = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(section)) !== null) {
@@ -77,13 +85,16 @@ function renderedSteps(section: string): Array<{ id: string; title: string }> {
   return steps;
 }
 
-const key = (s: { id: string; title: string }): string => `${s.id} :: ${s.title}`;
+const key = (s: { id: string; title: string }): string =>
+  `${s.id} :: ${s.title}`;
 
 describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
   const sections = renderSections(render);
 
   it('renders every profile the source declares, and no extra ones', () => {
-    expect([...sections.keys()].sort()).toEqual(Object.keys(source.sequences).sort());
+    expect([...sections.keys()].sort()).toEqual(
+      Object.keys(source.sequences).sort(),
+    );
   });
 
   it('declares both renders in the source (the source knows who consumes it)', () => {
@@ -95,8 +106,13 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     it(`\`${profile}\`: rendered step list matches the source, in order`, () => {
       const sequence = source.sequences[profile] as SourceSequence;
       const section = sections.get(profile);
-      expect(section, `no §2.x section renders the \`${profile}\` sequence`).toBeDefined();
-      expect(renderedSteps(section as string).map(key)).toEqual(sequence.steps.map(key));
+      expect(
+        section,
+        `no §2.x section renders the \`${profile}\` sequence`,
+      ).toBeDefined();
+      expect(renderedSteps(section as string).map(key)).toEqual(
+        sequence.steps.map(key),
+      );
     });
 
     it(`\`${profile}\`: every source step carries runnable evidence`, () => {
@@ -104,9 +120,10 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
       expect(sequence.steps.length).toBeGreaterThan(0);
       for (const step of sequence.steps) {
         // An unevidenced step is exactly the aspirational instruction this guide must not ship.
-        expect(step.evidence.trim().length, `step \`${step.id}\` has no evidence`).toBeGreaterThan(
-          0,
-        );
+        expect(
+          step.evidence.trim().length,
+          `step \`${step.id}\` has no evidence`,
+        ).toBeGreaterThan(0);
         expect(step.action.trim().length).toBeGreaterThan(0);
       }
     });
@@ -129,25 +146,35 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     const lib = readFileSync(join(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
     const listOf = (name: string): string[] => {
       const m = new RegExp(`^${name}="([^"]*)"`, 'm').exec(lib);
-      expect(m, `setup.d/lib.sh no longer defines ${name} — the tier lists moved`).not.toBeNull();
+      expect(
+        m,
+        `setup.d/lib.sh no longer defines ${name} — the tier lists moved`,
+      ).not.toBeNull();
       return (m as RegExpExecArray)[1].split(/\s+/).filter(Boolean);
     };
     const tiers: Record<string, string> = {};
     for (const skill of listOf('GETFF_SKILLS_CORE')) tiers[skill] = 'core';
     for (const skill of listOf('GETFF_SKILLS_ENV')) tiers[skill] = 'env+';
-    for (const skill of listOf('GETFF_SKILLS_FACTORY')) tiers[skill] = 'factory';
+    for (const skill of listOf('GETFF_SKILLS_FACTORY'))
+      tiers[skill] = 'factory';
     return tiers;
   })();
 
   /** `.claude/skills/<name>/…` occurrences in a string, deduplicated in first-seen order. */
   const skillsNamedIn = (text: string): string[] => [
-    ...new Set([...text.matchAll(/\.claude\/skills\/([a-z0-9-]+)\//g)].map((m) => m[1] as string)),
+    ...new Set(
+      [...text.matchAll(/\.claude\/skills\/([a-z0-9-]+)\//g)].map(
+        (m) => m[1] as string,
+      ),
+    ),
   ];
 
   it('lib.sh still declares all three tier lists, and they are disjoint and non-empty', () => {
     // Non-vacuity floor: an empty or collapsed map would make both arms below pass for free.
     expect(Object.keys(SKILL_TIERS).length).toBeGreaterThanOrEqual(12);
-    expect(new Set(Object.values(SKILL_TIERS))).toEqual(new Set(['core', 'env+', 'factory']));
+    expect(new Set(Object.values(SKILL_TIERS))).toEqual(
+      new Set(['core', 'env+', 'factory']),
+    );
   });
 
   it('`factory`: verify-payload names EXACTLY the skills factory adds over env', () => {
@@ -189,12 +216,17 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     let checked = 0;
     for (const [profile, sequence] of Object.entries(source.sequences)) {
       for (const step of (sequence as SourceSequence).steps) {
-        const claim = /\.claude\/skills\/([a-z0-9-]+)\/SKILL\.md \(shipped at ([a-z+]+)/.exec(
-          step.evidence,
-        );
+        const claim =
+          /\.claude\/skills\/([a-z0-9-]+)\/SKILL\.md \(shipped at ([a-z+]+)/.exec(
+            step.evidence,
+          );
         if (!claim) continue;
         checked += 1;
-        const [, skill, claimedTier] = claim as unknown as [string, string, string];
+        const [, skill, claimedTier] = claim as unknown as [
+          string,
+          string,
+          string,
+        ];
         const realTier = SKILL_TIERS[skill];
         if (realTier !== claimedTier) {
           wrong.push(
@@ -205,8 +237,14 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
       }
     }
     // Non-vacuity: a regex that stopped matching would make this arm pass on any drift.
-    expect(checked, 'no «shipped at <tier>» evidence claim was parsed at all').toBeGreaterThan(0);
-    expect(wrong, `Evidence claims contradicting setup.d/lib.sh:\n${wrong.join('\n')}`).toEqual([]);
+    expect(
+      checked,
+      'no «shipped at <tier>» evidence claim was parsed at all',
+    ).toBeGreaterThan(0);
+    expect(
+      wrong,
+      `Evidence claims contradicting setup.d/lib.sh:\n${wrong.join('\n')}`,
+    ).toEqual([]);
   });
 
   it('every rendered step marker belongs to a declared source step (no orphan markers)', () => {
@@ -214,9 +252,9 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     for (const sequence of Object.values(source.sequences)) {
       for (const step of sequence.steps) declared.add(step.id);
     }
-    const rendered = [...render.matchAll(/<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g)].map(
-      (m) => m[1] as string,
-    );
+    const rendered = [
+      ...render.matchAll(/<!--\s*step:\s*([A-Za-z0-9-]+)\s*-->/g),
+    ].map((m) => m[1] as string);
     expect(rendered.length).toBeGreaterThan(0);
     expect(rendered.filter((id) => !declared.has(id))).toEqual([]);
   });
@@ -263,7 +301,9 @@ function externalServices(manifest: string): string[] {
 function excludedByRoad(text: string): string[] {
   // A name is never a joining word: «…aif-handoff, and add context7» ends the list at the comma.
   const name = '(?!(?:and|plus|add)\\b)[a-z0-9-]+';
-  const m = new RegExp(`external services (${name}(?:(?:, | and )${name})*)`).exec(text);
+  const m = new RegExp(
+    `external services (${name}(?:(?:, | and )${name})*)`,
+  ).exec(text);
   return m?.[1] ? m[1].split(/, | and /).sort() : [];
 }
 
@@ -364,7 +404,9 @@ describe('The road ↔ install prompt parity', () => {
     const head = doc.indexOf('## What the AI will produce');
     expect(head).toBeGreaterThan(-1);
     const section = doc.slice(head, doc.indexOf('\n---', head));
-    const statuses = [...section.matchAll(/^<n>\. \[<id>\] <title> — (.+)$/gm)].map((m) => m[1]);
+    const statuses = [
+      ...section.matchAll(/^<n>\. \[<id>\] <title> — (.+)$/gm),
+    ].map((m) => m[1]);
     expect(statuses).toEqual(['done', 'not done: <reason>']);
     // Prose wraps, so the three rules are matched on whitespace-normalised text.
     const prose = section.replace(/\s+/g, ' ');
@@ -386,7 +428,9 @@ describe('The road ↔ install prompt parity', () => {
     );
     expect(runs.map((s) => s.id)).toEqual(['place-rules']);
     expect(prompt).toMatch(/setup --full <detected-stack>/);
-    expect(prompt.match(/node scripts\/prove-rules\.mjs --prove/g)).toHaveLength(1);
+    expect(
+      prompt.match(/node scripts\/prove-rules\.mjs --prove/g),
+    ).toHaveLength(1);
   });
 
   it('no road step is a placeholder: each one names what it reads', () => {
@@ -402,27 +446,43 @@ describe('The road ↔ install prompt parity', () => {
     };
     for (const [id, what] of Object.entries(reads)) {
       const step = steps.find((s) => s.id === id);
-      expect(step?.action, `road step \`${id}\` does not name what it reads`).toMatch(what);
-      expect(step?.action, `road step \`${id}\` has no fallback`).toMatch(/«not done/);
-      expect(prompt, `the prompt does not name what \`${id}\` reads`).toMatch(what);
+      expect(
+        step?.action,
+        `road step \`${id}\` does not name what it reads`,
+      ).toMatch(what);
+      expect(step?.action, `road step \`${id}\` has no fallback`).toMatch(
+        /«not done/,
+      );
+      expect(prompt, `the prompt does not name what \`${id}\` reads`).toMatch(
+        what,
+      );
     }
   });
 
   it('the one question carries every pre-launch choice the installer waits for', () => {
     // The installer writes two groups only on a pre-launch «yes» that reaches it as a variable;
     // a choice the question never offers cannot be made through the road.
-    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
     for (const name of ['GETFF_SESSION_SETTINGS=1', 'GETFF_STACK_TOOLS=1']) {
-      expect(ask?.action, `the question does not offer ${name}`).toContain(name);
+      expect(ask?.action, `the question does not offer ${name}`).toContain(
+        name,
+      );
       expect(prompt, `the prompt does not pass ${name}`).toContain(name);
     }
-    expect(prompt.match(/\bask once\b/gi), 'the prompt must ask exactly once').toHaveLength(1);
+    expect(
+      prompt.match(/\bask once\b/gi),
+      'the prompt must ask exactly once',
+    ).toHaveLength(1);
   });
 
   it('a part the answer leaves out has one stated default, the same in the data and the prompt', () => {
     // Both opt-in groups default to yes (operator decisions 2026-09-30). The road carries the
     // defaults, not the installer: a bare `setup -y` run by hand behaves as before.
-    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
     const defaults = /\(a\) 1, \(b\) yes, \(c\) yes, \(d\) yes/;
     expect(ask?.action.replace(/\s+/g, ' ')).toMatch(defaults);
     expect(prompt.replace(/\s+/g, ' ')).toMatch(defaults);
@@ -430,7 +490,9 @@ describe('The road ↔ install prompt parity', () => {
   });
 
   it('a choice that defaults to yes says in plain words what the person gets', () => {
-    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
     for (const text of [ask?.action ?? '', prompt]) {
       const flat = text.replace(/\s+/g, ' ');
       expect(flat).toMatch(/handoff gate holds a turn/);
@@ -439,14 +501,18 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
-  it('the tools choice says that some servers run on the person\'s computer and how to remove one', () => {
+  it("the tools choice says that some servers run on the person's computer and how to remove one", () => {
     // A verified npm server is written as `npx -y <pkg>` (setup.d/35-stack-tools.sh) and runs at
     // every session start, in agent sessions without any approval prompt — the pre-launch yes is
     // the only consent, so it must name that (operator, 2026-09-30).
-    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
     for (const text of [ask?.action ?? '', prompt]) {
       const flat = text.replace(/\s+/g, ' ');
-      expect(flat).toMatch(/some of these servers run on (?:my|the person's) computer/);
+      expect(flat).toMatch(
+        /some of these servers run on (?:my|the person's) computer/,
+      );
       expect(flat).toMatch(/`npx`/);
       expect(flat).toMatch(/the rest work over the internet/);
       expect(flat).toMatch(/⚠ line/);
@@ -454,10 +520,12 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
-  it('before the one question the agent names getff\'s own MCP servers and their cost', () => {
+  it("before the one question the agent names getff's own MCP servers and their cost", () => {
     // Operator (log entry 44, 2026-09-30): warn at least about what will be installed. The names
     // come from the dry run's «MCP servers …» line (COMPANION_MCP_NAMES); the road holds no copy.
-    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const ask = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'ask-once',
+    );
     for (const text of [ask?.action ?? '', prompt]) {
       const flat = text.replace(/\s+/g, ' ');
       expect(flat).toMatch(/getff's own MCP servers/);
@@ -468,7 +536,9 @@ describe('The road ↔ install prompt parity', () => {
   });
 
   it('the tools step checks two sources and probes nothing itself', () => {
-    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
     for (const text of [tools?.action ?? '', prompt]) {
       expect(text).toMatch(/getff:installed-versions/);
       expect(text).toMatch(/NOT[- ]wired/);
@@ -496,20 +566,29 @@ describe('The road ↔ install prompt parity', () => {
   it('the tools step leaves out exactly the external services the manifest holds', () => {
     // The road names the external services in words. A name list kept true by attention is
     // `#hope-as-gate`: a third external service in the manifest would read as a false «MISSING».
-    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
     const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
     const leftOut = excludedByRoad(tools?.action ?? '');
-    expect(leftOut.length, 'the road row names no external service').toBeGreaterThan(0);
+    expect(
+      leftOut.length,
+      'the road row names no external service',
+    ).toBeGreaterThan(0);
     expect(leftOut).toEqual(externalServices(manifest));
     expect(excludedByRoad(prompt)).toEqual(leftOut);
   });
 
   it('a third external service in the manifest is detected (the comparison is not vacuous)', () => {
-    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const tools = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'tools-parity',
+    );
     const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
     const third = `${manifest}\nnew-service\t-\t-\texternal-service\t*\n`;
     expect(externalServices(third)).toContain('new-service');
-    expect(excludedByRoad(tools?.action ?? '')).not.toEqual(externalServices(third));
+    expect(excludedByRoad(tools?.action ?? '')).not.toEqual(
+      externalServices(third),
+    );
     // A row of another kind changes nothing: only `external-service` rows are left out.
     const other = `${manifest}\nnew-tool\t-\t-\tcli\t*\n`;
     expect(externalServices(other)).toEqual(externalServices(manifest));
@@ -521,19 +600,26 @@ describe('The road ↔ install prompt parity', () => {
     const steps = (road as Road | undefined)?.steps ?? [];
     const first = ['preview', 'ask-once', 'install'];
     const reruns = steps.filter(
-      (s) => !first.includes(s.id) && /setup (?:--full|-y|--all|--refresh)/.test(s.action),
+      (s) =>
+        !first.includes(s.id) &&
+        /setup (?:--full|-y|--all|--refresh)/.test(s.action),
     );
     expect(reruns.map((s) => s.id)).toContain('place-rules');
     for (const step of reruns) {
-      expect(step.action, `road step \`${step.id}\` re-runs the installer bare`).toMatch(
-        /same variables/,
-      );
+      expect(
+        step.action,
+        `road step \`${step.id}\` re-runs the installer bare`,
+      ).toMatch(/same variables/);
     }
-    expect(prompt).toMatch(/same variables as in step 4[^\n]*setup --full <detected-stack>/);
+    expect(prompt).toMatch(
+      /same variables as in step 4[^\n]*setup --full <detected-stack>/,
+    );
   });
 
   it('the preview reads the selection and probes nothing itself', () => {
-    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
     expect(preview?.action).toMatch(/Run no probe of your own/);
     expect(prompt.match(/Run no probe of your own/g)).toHaveLength(2);
   });
@@ -541,22 +627,30 @@ describe('The road ↔ install prompt parity', () => {
   it('the preview says what the dry run prints for the MCP servers', () => {
     // Since setup names the MCP servers at the end of «Companions» (companion_mcp_preview in
     // setup.d/engine.sh), the old sentence «leaves MCP servers out» is false.
-    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
     for (const text of [preview?.action ?? '', prompt]) {
       expect(text).not.toMatch(/leaves MCP servers out/);
-      expect(text).toMatch(/«Companions» section ends with a line «MCP servers … — not added in this mode»/);
+      expect(text).toMatch(
+        /«Companions» section ends with a line «MCP servers … — not added in this mode»/,
+      );
       expect(text).toMatch(/the command of step 4 adds them/);
     }
   });
 
   it('the research step takes the one answer as its confirmation', () => {
-    const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
+    const research = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'research',
+    );
     expect(research?.action).toMatch(/without asking/);
     expect(prompt).toMatch(/without asking/);
   });
 
   it('the preview shows the stack word as the installer prints it', () => {
-    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    const preview = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'preview',
+    );
     expect(preview?.action).toMatch(/`generic`/);
     expect(prompt).toMatch(/`generic`/);
     expect(prompt).not.toMatch(/else unknown/);
@@ -568,27 +662,60 @@ describe('The road ↔ install prompt parity', () => {
     const asks = /\?|yes[- ]or[- ]no|yes\/no/i;
     const steps = (road as Road | undefined)?.steps ?? [];
     const asking = steps
-      .filter((s) => s.id !== 'ask-once' && asks.test(`${s.action} ${s.doneTest}`))
+      .filter(
+        (s) => s.id !== 'ask-once' && asks.test(`${s.action} ${s.doneTest}`),
+      )
       .map((s) => s.id);
-    expect(asking, 'road rows that ask the person outside `ask-once`').toEqual([]);
+    expect(asking, 'road rows that ask the person outside `ask-once`').toEqual(
+      [],
+    );
 
     const bodies = prompt.split(/^(?=\d+\.\s+\[[a-z0-9-]+\])/m);
     const askingInPrompt = bodies
       .filter((b) => !/^\d+\.\s+\[ask-once\]/.test(b) && asks.test(b))
-      .map((b) => /^\d+\.\s+\[([a-z0-9-]+)\]/.exec(b)?.[1] ?? '(text around the steps)');
-    expect(askingInPrompt, 'prompt steps that ask the person outside step 3').toEqual([]);
+      .map(
+        (b) =>
+          /^\d+\.\s+\[([a-z0-9-]+)\]/.exec(b)?.[1] ?? '(text around the steps)',
+      );
+    expect(
+      askingInPrompt,
+      'prompt steps that ask the person outside step 3',
+    ).toEqual([]);
     // Not vacuous: the one question itself is seen by the same pattern.
     expect(bodies.filter((b) => asks.test(b))).toHaveLength(1);
   });
 
-  it('an absent base-core list ends in a command the person may run, which the road never runs', () => {
+  it('an absent base-core list is refreshed by the road itself, which quotes the dry-run plan and every overwrite', () => {
     // `setup` does not know `--refresh` (its flag loop drops it); the installer itself does.
-    const step = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'base-core-status');
-    expect(step?.action).toMatch(/`bash <getff>\/install\.sh <stack> --refresh`/);
-    expect(step?.action).toMatch(/do not run it/i);
-    expect(prompt).toMatch(
-      /not done: list absent in this older install[^\n]*`bash \/tmp\/getff\/install\.sh <detected-stack> --refresh`[^\n]*do not run it/,
+    const step = ((road as Road | undefined)?.steps ?? []).find(
+      (s) => s.id === 'base-core-status',
     );
+    expect(step?.action).toMatch(
+      /`bash <getff>\/install\.sh <stack> --refresh --dry-run`/,
+    );
+    expect(step?.action).toMatch(
+      /`bash <getff>\/install\.sh <stack> --refresh`/,
+    );
+    // The dry-run plan flags a person's edit as `<path> (locally modified)`; the real run
+    // prints `⚠ overwriting locally-modified file: …` and copies the edit to refresh-conflicts/.
+    expect(step?.action).toMatch(/locally modified/);
+    expect(step?.action).toMatch(/overwriting locally-modified file/);
+    expect(step?.action).toMatch(/refresh-conflicts\//);
+    expect(step?.action).toMatch(
+      /«not done: the refresh did not bring the list»/,
+    );
+    // The defect this replaces: the road printed the command for the person and forbade itself to run it.
+    expect(step?.action).not.toMatch(/the person may run|do not run it/i);
+    expect(prompt).not.toMatch(/I may run myself|do not run it/);
+    expect(prompt).toMatch(
+      /run `bash \/tmp\/getff\/install\.sh <detected-stack> --refresh --dry-run`[\s\S]*?then run `bash \/tmp\/getff\/install\.sh <detected-stack> --refresh`/,
+    );
+    expect(prompt).toMatch(/overwriting locally-modified file/);
+    expect(prompt).toMatch(/\.ai-factory\/refresh-conflicts\//);
+    // The dry-run-plan duty and the fallback are pinned on BOTH surfaces: a prompt-side edit
+    // dropping either reds the same way a source-side edit does.
+    expect(prompt).toMatch(/«\(locally modified\)»/);
+    expect(prompt).toMatch(/«not done: the refresh did not bring the list»/);
   });
 
   it('the shipped road names no internal program part', () => {

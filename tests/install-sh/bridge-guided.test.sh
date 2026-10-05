@@ -259,7 +259,11 @@ nomanual W6
 P=$(wproj nojq)
 AIF_PROJECTS="[{\"id\":\"p-nojq\",\"name\":\"n\",\"rootPath\":\"$P\"}]"
 NOJQ="$W/bin"; mkdir -p "$NOJQ"
-for t in node mkdir mv rm cat dirname grep sed tr printf; do _p=$(command -v "$t" 2>/dev/null) && [ -x "$_p" ] && ln -sf "$_p" "$NOJQ/$t"; done
+for t in node mkdir mv rm cp mktemp cmp sha256sum awk cat dirname grep sed tr printf; do _p=$(command -v "$t" 2>/dev/null) && [ -x "$_p" ] && ln -sf "$_p" "$NOJQ/$t"; done
+# the stub WITHOUT the keep tools (no mktemp/cp): the machine where even the original of the
+# person's file cannot be copied aside — the wire must write nothing (W7e)
+NOJQ2="$W/bin2"; mkdir -p "$NOJQ2"
+for t in node mkdir mv rm cat dirname grep sed tr printf; do _p=$(command -v "$t" 2>/dev/null) && [ -x "$_p" ] && ln -sf "$_p" "$NOJQ2/$t"; done
 ( PATH="$NOJQ"; ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; bridge_wire_project "$P" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
 [ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-nojq" ] && ok "W7: without jq the id is written through node" || bad "W7: $(cat "$QLOG")"
 # W7c a matching project with no id: neither path writes a made-up id (node printed «undefined»)
@@ -275,6 +279,14 @@ AIF_PROJECTS="[{\"id\":\"p-bad\",\"name\":\"n\",\"rootPath\":\"$P\"}]"
 ( PATH="$NOJQ"; ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; bridge_wire_project "$P" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
 [ "$(cat "$P/.claude/settings.local.json")" = '{"env":"str"}' ] && ok "W7d: node leaves a non-object env untouched" || bad "W7d: $(cat "$P/.claude/settings.local.json")"
 grep -q 'could not be written' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W7d: the unwritable env is a NOT-wired line" || bad "W7d: $(cat "$QLOG")"
+# W7e no keep tools on PATH (no mktemp): the person's original cannot be copied aside, so
+# nothing is written at all — the file is as it was, and the NOT-wired line says why
+P=$(wproj nosnap); printf '{"myOwnKey":"v"}\n' > "$P/.claude/settings.local.json"
+AIF_PROJECTS="[{\"id\":\"p-ns\",\"name\":\"n\",\"rootPath\":\"$P\"}]"
+( PATH="$NOJQ2"; ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; bridge_wire_project "$P" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
+grep -q 'myOwnKey' "$P/.claude/settings.local.json" && ! grep -q 'RUNTIME_BRIDGE_AIF_URL' "$P/.claude/settings.local.json" && ok "W7e: nothing was written without the keep tools" || bad "W7e: the file changed: $(cat "$P/.claude/settings.local.json")"
+grep -q 'could not be copied aside' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W7e: the NOT-wired line names the uncopied original" || bad "W7e: $(cat "$QLOG")"
+nomanual W7e
 
 # W7b aif-handoff stores rootPath as typed: a symlinked spelling of the project matches too
 P=$(wproj real); ln -s "$P" "$W/link"
@@ -300,6 +312,82 @@ AIF_PROJECTS="[{\"id\":\"p-glink\",\"name\":\"g\",\"rootPath\":\"$W/guidedlink\"
 ( cd "$W/guidedlink" && RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bridge_guided_run ) > "$QLOG" 2>&1
 [ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-glink" ] && ok "W8b: the guided arm matches the symlinked spelling" || bad "W8b: $(cat "$QLOG")"
 rm -rf "$TMP_C"
+
+# --- The wire keeps the person's original (Q4.7, the session-settings pattern) ---------------
+# The single production change that flips W10/W11/W13 from RED to GREEN is bridge_wire_project
+# calling keep_original_snapshot/settle/mark around _bridge_write_env; W12 pins the sibling
+# channel (KEPT_ORIGINALS) so a naive always-snapshot fix cannot pass it.
+# W8 sourced this lib from $TMP_C (since deleted), which is where BASH_SOURCE now points —
+# re-source the repo copy so the wire's lib.sh fallback resolves (same re-source idiom as above).
+BRIDGE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/bridge-guided.sh"
+PERSON='{"permissions":{"allow":["Bash(git status:*)"]},"myOwnKey":"person-value"}'
+
+# W10 the person's settings.local.json survives the wiring with its original kept: getff's env
+# keys land, the person's own key stays, and the pre-write bytes sit in .ai-factory/before-getff/
+# under the <name>.<sha8> shape the undo command restores
+P=$(wproj keporig); git -C "$P" init -q
+printf '%s\n' "$PERSON" > "$P/.claude/settings.local.json"
+AIF_PROJECTS="[{\"id\":\"p-k\",\"name\":\"k\",\"rootPath\":\"$P\"}]"
+wire "$P"
+[ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-k" ] && ok "W10: the env keys are written" || bad "W10: no id written: $(cat "$QLOG")"
+grep -q 'myOwnKey' "$P/.claude/settings.local.json" && ok "W10: the person's own key survives" || bad "W10: the person's key was lost: $(cat "$P/.claude/settings.local.json")"
+KEEPF=$(echo "$P"/.ai-factory/before-getff/.claude/settings.local.json.*)
+[ -f "$KEEPF" ] && ok "W10: the original is kept under .ai-factory/before-getff/" || bad "W10: no kept original: $(ls "$P/.ai-factory/before-getff/.claude/" 2>&1)"
+if [ -f "$KEEPF" ]; then
+  cmp -s "$KEEPF" <(printf '%s\n' "$PERSON") && ok "W10: the kept original is the pre-write bytes" || bad "W10: kept original differs from the pre-write file"
+  grep -q 'RUNTIME_BRIDGE' "$KEEPF" && bad "W10: the kept original already carries getff's keys" || ok "W10: the kept original carries none of getff's keys"
+  [ "$(basename "$KEEPF")" = "settings.local.json.$(sha256sum "$KEEPF" | awk '{print $1}' | cut -c1-8)" ] && ok "W10: the kept name carries the original's sha8" || bad "W10: name=$(basename "$KEEPF")"
+fi
+grep -q 'your original kept at' "$QLOG" && ok "W10: the wired line names the kept original" || bad "W10: $(cat "$QLOG")"
+nomanual W10
+
+# W11 the original cannot be kept aside → the write is undone, the file is as it was
+P=$(wproj keepfail); git -C "$P" init -q
+printf '%s\n' "$PERSON" > "$P/.claude/settings.local.json"
+mkdir -p "$P/.ai-factory" && : > "$P/.ai-factory/before-getff"  # a file where the keep dir must be
+AIF_PROJECTS="[{\"id\":\"p-f\",\"name\":\"f\",\"rootPath\":\"$P\"}]"
+wire "$P"
+grep -q 'myOwnKey' "$P/.claude/settings.local.json" && ! grep -q 'RUNTIME_BRIDGE_AIF_URL' "$P/.claude/settings.local.json" && ok "W11: the write was undone — the file is as it was" || bad "W11: the file kept getff's change: $(cat "$P/.claude/settings.local.json")"
+grep -qE 'could not be kept, so getff.s change was undone' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W11: the NOT-wired line names the undone change" || bad "W11: $(cat "$QLOG")"
+[ -z "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" ] && ok "W11: no id left in the env" || bad "W11: id=$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)"
+nomanual W11
+
+# W12 a file this run already kept (session settings wrote it first) is not kept twice: the
+# wire writes over the same KEPT_ORIGINALS entry, and no second original appears
+P=$(wproj keptonce); git -C "$P" init -q
+printf '%s\n' "$PERSON" > "$P/.claude/settings.local.json"
+AIF_PROJECTS="[{\"id\":\"p-d\",\"name\":\"d\",\"rootPath\":\"$P\"}]"
+( ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"; unset INSTALL_SH_LIB_ONLY; keep_original_mark "$P/.claude/settings.local.json"; bridge_wire_project "$P" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
+[ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-d" ] && ok "W12: the env keys land although the file was already kept this run" || bad "W12: $(cat "$QLOG")"
+[ ! -e "$P/.ai-factory/before-getff" ] && ok "W12: no second original is kept" || bad "W12: a second original appeared: $(ls "$P/.ai-factory/before-getff/.claude/" 2>&1)"
+grep -q 'kept once for this run' "$QLOG" && ok "W12: the line says the original is kept once" || bad "W12: $(cat "$QLOG")"
+nomanual W12
+
+# W12b the same keep, spelled through a symlinked project root: session settings marks the file
+# the way install.sh spells it (the logical $PROJECT_ROOT it was launched from), while the wire
+# resolves its root with pwd -P — an exact-string KEPT_ORIGINALS compare misses, the wire
+# snapshots the intermediate and the undo command would restore that instead of the person's
+# original (rework review 56ca7a86b7e4). The single production change that flips this case is the
+# canonical key in lib.sh's keep_original_snapshot/mark (_keep_original_canon); T22: the sibling
+# channel moves the input, so the gate pins the disagreeing spelling, not only W12's agreeing one.
+P=$(wproj symkept); git -C "$P" init -q
+LNK="$W/symkept-link"; ln -s "$P" "$LNK"
+printf '%s\n' "$PERSON" > "$P/.claude/settings.local.json"
+AIF_PROJECTS="[{\"id\":\"p-s\",\"name\":\"s\",\"rootPath\":\"$LNK\"}]"
+( ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"; unset INSTALL_SH_LIB_ONLY; keep_original_mark "$LNK/.claude/settings.local.json"; bridge_wire_project "$LNK" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
+[ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-s" ] && ok "W12b: the env keys land through the symlinked spelling" || bad "W12b: $(cat "$QLOG")"
+[ ! -e "$P/.ai-factory/before-getff" ] && ok "W12b: no second original for the symlinked spelling" || bad "W12b: a second original appeared: $(ls "$P/.ai-factory/before-getff/.claude/" 2>&1)"
+grep -q 'kept once for this run' "$QLOG" && ok "W12b: the line says the original is kept once" || bad "W12b: $(cat "$QLOG")"
+nomanual W12b
+
+# W13 the bridge created the file (it did not exist before): the .absent record tells the undo
+# command to remove it, as session-settings' own created-file arm does
+P=$(wproj absentloc); git -C "$P" init -q
+AIF_PROJECTS="[{\"id\":\"p-a\",\"name\":\"a\",\"rootPath\":\"$P\"}]"
+wire "$P"
+[ "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" = "p-a" ] && ok "W13: the file is created with the env keys" || bad "W13: $(cat "$QLOG")"
+[ -f "$P/.ai-factory/before-getff/.claude/settings.local.json.absent" ] && ok "W13: the .absent record names the file getff created" || bad "W13: no .absent record: $(ls "$P/.ai-factory/before-getff/.claude/" 2>&1)"
+nomanual W13
 
 # W9 the getff repository itself, non-interactive without --global: its wizard writes the shell
 # rc, so it does not run, and the gap is a NOT-wired fact.

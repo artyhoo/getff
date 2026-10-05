@@ -105,7 +105,7 @@ the `python` [lane](../../terms.md#lane), which receives four skills and not thi
   which checks run in CI and which three are left to this skill.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
   to 145 of `setup.d/10-skills.sh`. Line 67 there says what it is for.
-- The `python` lane copies four skills by name, lines 1563 to 1569 of
+- The `python` lane copies four skills by name, lines 1576 to 1582 of
   `setup.d/45-python.sh`, and this skill is missing from
   `tests/install-sh/baselines/python/greenfield.fingerprint`.
 - The card is built from `docs/site/reference/B.json`. Line 37 of
