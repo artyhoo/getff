@@ -3,6 +3,7 @@
 > **Status:** INPUT — published to staging; dispatch only after packet-visibility proof.
 <!-- host-verify: none — dispatch-input umbrella: acceptance commands live in the factory kickoff and the review kickoff; this file delegates, it runs no host command -->
 > **Type:** execution-build.
+> Rigor label (L0): build-and-verify — factory executes a prepared implementation; every gate needs a receipt, no new research.
 > **Authoritative for:** one isolated AIF continuation task covering the remaining implementation of both operator stages.
 > **NOT authoritative for:** publishing, host trust or project goal.
 > **Spec:** docs/superpowers/specs/2026-10-05-agents-canonical-completion-design.md.
