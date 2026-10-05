@@ -97,11 +97,13 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
   };
 
   const validation = validateReport(row.payload, { schemaBytes, policy, now, currentState, trustedInventory });
-  const fatal = validation.errors.filter((e) => !['E_NOT_AUTHORIZING', 'E_KIND_RECAST'].includes(e.code));
-  if (fatal.length > 0) {
-    const e = new Error(`[publisher] E_VALIDATION: stored record fails validation (${fatal.map((x) => x.code).join(', ')})`);
+  // validation.ok is now the pure acceptable-document predicate (follow-up packet
+  // increment 2): non-authorizing status rides in validation.nonAuthorizing, so every
+  // error here is fatal for publication.
+  if (!validation.ok) {
+    const e = new Error(`[publisher] E_VALIDATION: stored record fails validation (${validation.errors.map((x) => x.code).join(', ')})`);
     e.code = 'E_VALIDATION';
-    e.errors = fatal;
+    e.errors = validation.errors;
     throw e;
   }
   const report = validation.report;
@@ -139,14 +141,14 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     e.blocking = readiness.blocking;
     throw e;
   }
-  return { row, report, currentM, pr };
+  return { row, report, authorizing: validation.authorizing === true, currentM, pr };
 }
 
 // Publish the admission success check for the CURRENT M.
 export async function publishAdmission({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
   const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
-  const { report, currentM } = result;
-  if (report.kind !== 'admission' || report.completion !== 'COMPLETE' || report.verdict !== 'GO') {
+  const { report, authorizing, currentM } = result;
+  if (!authorizing) {
     return refuse('E_NOT_AUTHORIZING', `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
   }
   return createCheck({ app, policy, transport, sha: currentM, conclusion: 'success', externalId, report });

@@ -13,7 +13,10 @@
 //     can never authorize an open PR (E_KIND_RECAST), no field-recast loophole.
 //
 // Usage (module): validateReport(text, {schemaBytes, policy, now, currentState, trustedInventory})
-//   → {ok, errors:[{code, path?, message}], report?}
+//   → {ok, authorizing, errors:[{code, path?, message}], nonAuthorizing:[{code, message}], report?}
+//   `ok` = acceptable document (persisted, routed); `authorizing` = may authorize an
+//   admission (kind=admission ∧ COMPLETE ∧ GO). Non-authorizing status is a named
+//   marker in nonAuthorizing, never a validation error.
 //   trustedInventory is the TRUSTED changed-file list (the diff the service reads from
 //   GitHub and pins to the generation at claim time — review R4). An admission in a
 //   live context without one fails closed (E_NO_INVENTORY): a report may not be the
@@ -51,6 +54,7 @@ function loadSchema(schemaBytes) {
 
 export function validateReport(text, { schemaBytes, policy, now, currentState, trustedInventory } = {}) {
   const errors = [];
+  const nonAuthorizing = [];
   let report;
   try {
     report = parseStrictJson(text ?? '');
@@ -85,24 +89,23 @@ export function validateReport(text, { schemaBytes, policy, now, currentState, t
 
   if (currentState) tupleChecks(report, errors, currentState);
 
-  if (currentState) {
-    // With a live admission context attached, only a current admission GO/COMPLETE
-    // authorizes. Historical/baseline GO payloads stay valid documents but can never
-    // satisfy this call — that is the "historical GO cannot become admission" line.
-    // Reported independently of tuple drift so a recast is named even when stale.
-    if (
-      report.kind !== 'admission' ||
-      report.completion !== 'COMPLETE' ||
-      report.verdict !== 'GO'
-    ) {
-      errors.push({
-        code: report.kind !== 'admission' ? 'E_KIND_RECAST' : 'E_NOT_AUTHORIZING',
-        message: `kind=${report.kind} completion=${report.completion} verdict=${report.verdict} cannot authorize admission`,
-      });
-    }
+  // Acceptance ≠ admission (follow-up packet increment 2): `ok` says the document is
+  // acceptable (format, schema, semantics, inventory, tuple); `authorizing` says it can
+  // authorize an admission. A valid REVISE/PARTIAL/historical review is an acceptable
+  // document — it is persisted and routed to corrective work — and carries its named
+  // non-authorizing marker (E_NOT_AUTHORIZING / E_KIND_RECAST) in `nonAuthorizing`,
+  // never in `errors`: an acceptance rejection here used to 422 valid reviews before
+  // the ledger ever saw them, leaving the publisher's failure path unreachable.
+  const authorizing =
+    report?.kind === 'admission' && report?.completion === 'COMPLETE' && report?.verdict === 'GO';
+  if (!authorizing && report && typeof report === 'object') {
+    nonAuthorizing.push({
+      code: report.kind !== 'admission' ? 'E_KIND_RECAST' : 'E_NOT_AUTHORIZING',
+      message: `kind=${report.kind} completion=${report.completion} verdict=${report.verdict} cannot authorize admission`,
+    });
   }
 
-  return { ok: errors.length === 0, report, errors };
+  return { ok: errors.length === 0, authorizing, report, errors, nonAuthorizing };
 }
 
 function semanticChecks(r, errors, { policy, now }) {
@@ -317,7 +320,7 @@ export function cli(argv) {
   const policy = policyPath ? JSON.parse(readFileSync(policyPath, 'utf8')) : undefined;
   const result = validateReport(text, { schemaBytes, policy, now });
   if (result.ok) {
-    console.log(JSON.stringify({ ok: true, kind: result.report?.kind, verdict: result.report?.verdict, completion: result.report?.completion }));
+    console.log(JSON.stringify({ ok: true, authorizing: result.authorizing, kind: result.report?.kind, verdict: result.report?.verdict, completion: result.report?.completion }));
     return 0;
   }
   console.log(JSON.stringify({ ok: false, errors: result.errors }, null, 2));

@@ -29,11 +29,15 @@ const state = $state_expr;
 const report = $expr;
 const r = validateReport(JSON.stringify(report), { schemaBytes, policy, now: '$NOW', currentState: state });
 const ok = r.ok ? 'PASS' : 'FAIL';
-const codes = r.errors.map((e) => e.code).join(',');
-console.log(ok + '|' + codes);
+const codes = r.errors.concat(r.nonAuthorizing ?? []).map((e) => e.code).join(',');
+const auth = r.authorizing ? 'AUTH' : 'NONAUTH';
+console.log(ok + '|' + codes + '|' + auth);
 " 2>&1 | tail -1)
   if [[ "$want_ok" == PASS && "$out" != PASS* ]]; then
     echo "FAIL[$name] expected accept, got: $out"; fails=$((fails+1)); return
+  fi
+  if [[ "$want_ok" == PASS && -n "$want_code" && "$out" != *"$want_code"* ]]; then
+    echo "FAIL[$name] expected to carry $want_code, got: $out"; fails=$((fails+1)); return
   fi
   if [[ "$want_ok" == REJECT ]]; then
     if [[ "$out" != FAIL* ]]; then echo "FAIL[$name] expected reject, got: $out"; fails=$((fails+1)); return; fi
@@ -48,7 +52,7 @@ P='true'   # policy attached (inventory cross-checks on)
 NOP='false'
 
 # ── GREEN: canonical fixtures pass ────────────────────────────────────────────
-run_case admission-valid          PASS '' 'makeAdmission()' "$P"
+run_case admission-valid          PASS 'AUTH' 'makeAdmission()' "$P"
 run_case admission-no-policy      PASS '' 'makeAdmission()' "$NOP"
 run_case baseline-valid           PASS '' 'makeBaseline()'  "$P"
 run_case historical-valid         PASS '' 'makeHistorical()' "$P"
@@ -101,10 +105,15 @@ const policy = makePolicyFixture();
 const state = $state_js;
 const r = validateReport(JSON.stringify($expr), { schemaBytes, policy, now: '$NOW', currentState: state, trustedInventory: $trusted });
 const ok = r.ok ? 'PASS' : 'FAIL';
-console.log(ok + '|' + r.errors.map((e) => e.code).join(','));
+const codes = r.errors.concat(r.nonAuthorizing ?? []).map((e) => e.code).join(',');
+const auth = r.authorizing ? 'AUTH' : 'NONAUTH';
+console.log(ok + '|' + codes + '|' + auth);
 " 2>&1 | tail -1)
   if [[ "$want_ok" == PASS && "$out" != PASS* ]]; then
     echo "FAIL[$name] expected accept, got: $out"; fails=$((fails+1)); return
+  fi
+  if [[ "$want_ok" == PASS && -n "$want_code" && "$out" != *"$want_code"* ]]; then
+    echo "FAIL[$name] expected to carry $want_code, got: $out"; fails=$((fails+1)); return
   fi
   if [[ "$want_ok" == REJECT ]]; then
     if [[ "$out" != FAIL* ]]; then echo "FAIL[$name] expected reject, got: $out"; fails=$((fails+1)); return; fi
@@ -136,8 +145,11 @@ run_inv_case spec-id-unknown          REJECT 'E_INVENTORY'        'makeAdmission
 run_case tuple-head-drift         REJECT 'E_TUPLE'       'makeAdmission()' "$P" '{base_sha:"b".repeat(40), head_sha:"NEW".padEnd(40,"0"), tested_merge_sha:"d".repeat(40), policy_sha256:"2".repeat(64), protocol_version:"dot-staging-review/1.0", repository_id:1231007068, pr_number:2042, pr_node_id:"PR_kwDOM9YQhs6AbCdEfGh"}'
 run_case tuple-policy-drift       REJECT 'E_TUPLE'       'makeAdmission()' "$P" '{base_sha:"b".repeat(40), head_sha:"c".repeat(40), tested_merge_sha:"d".repeat(40), policy_sha256:"9".repeat(64), protocol_version:"dot-staging-review/1.0", repository_id:1231007068, pr_number:2042, pr_node_id:"PR_kwDOM9YQhs6AbCdEfGh"}'
 run_case tuple-M-drift            REJECT 'E_TUPLE'       'makeAdmission()' "$P" '{base_sha:"b".repeat(40), head_sha:"c".repeat(40), tested_merge_sha:"8".repeat(40), policy_sha256:"2".repeat(64), protocol_version:"dot-staging-review/1.0", repository_id:1231007068, pr_number:2042, pr_node_id:"PR_kwDOM9YQhs6AbCdEfGh"}'
-run_case tuple-revise-not-gate    REJECT 'E_NOT_AUTHORIZING' 'makeAdmission({verdict:"REVISE"})' "$P" '{base_sha:"b".repeat(40), head_sha:"c".repeat(40), tested_merge_sha:"d".repeat(40), policy_sha256:"2".repeat(64), protocol_version:"dot-staging-review/1.0", repository_id:1231007068, pr_number:2042, pr_node_id:"PR_kwDOM9YQhs6AbCdEfGh"}'
-run_case kind-recast-historical   REJECT 'E_KIND_RECAST' 'makeHistorical()' "$P" '{base_sha:"b".repeat(40), head_sha:"c".repeat(40), tested_merge_sha:"d".repeat(40), policy_sha256:"2".repeat(64), protocol_version:"dot-staging-review/1.0", repository_id:1231007068, pr_number:2042, pr_node_id:"PR_kwDOM9YQhs6AbCdEfGh"}'
+# Acceptance ≠ admission: a valid REVISE on the CURRENT tuple is an acceptable
+# document (persisted by the intake) that carries the named E_NOT_AUTHORIZING marker
+# and can never authorize. The historical-GO recast marker stays named the same way.
+run_inv_case tuple-revise-not-gate PASS 'E_NOT_AUTHORIZING' 'makeAdmission({verdict:"REVISE"})' "$STATE_ARG"
+run_case kind-recast-historical   PASS 'E_KIND_RECAST' 'makeHistorical()' "$P"
 
 # dup-key raw-text arm (cannot be expressed through object builders)
 dup_out=$(node --input-type=module -e "

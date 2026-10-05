@@ -154,11 +154,12 @@ const call = async (base, cookie, path, body, raw) => {
   try { json = JSON.parse(text); } catch { /* non-JSON */ }
   return { status: res.status, json };
 };
-const envelopeFor = (claim) => {
+const envelopeFor = (claim, reportOverrides = {}) => {
   const report = makeAdmission({
     claim_id: claim.json.claim_id,
     generation: claim.json.generation,
     revision: { base_ref: 'staging', base_sha: sha('b'), head_sha: sha('c'), merge_base_sha: sha('a'), tested_merge_sha: sha('d') },
+    ...reportOverrides,
   });
   return { claim_id: claim.json.claim_id, generation: claim.json.generation, report };
 };
@@ -274,6 +275,56 @@ try {
   if (afterOne !== 1 || rTransport.checkRuns.length !== 1) fail(`restart drain ${afterOne}/${rTransport.checkRuns.length}`);
   else log('ok restart-drains-single-publication');
   await svcB.close();
+
+  // ── acceptance vs admission (follow-up packet, increment 2): a VALID non-authorizing
+  // review (REVISE/INCOMPLETE) is ACCEPTED into the ledger with a receipt and routes to
+  // ONE named failure check on M — never a 422, never a success check, never a merge.
+  state = REPO_STATE();
+  const svcR = await newService();
+  const baseR = `http://127.0.0.1:${svcR.port}`;
+  const cookieR = await login(baseR);
+  const claimR = await call(baseR, cookieR, '/claim', {});
+  if (claimR.status !== 200) fail(`revise claim ${claimR.status} ${JSON.stringify(claimR.json).slice(0, 120)}`);
+  const envRevise = envelopeFor(claimR, { verdict: 'REVISE', completion: 'INCOMPLETE', execution: { failure: true, failure_reason: 'lease expired mid-review' } });
+  const submittedRev = await call(baseR, cookieR, '/submit', envRevise);
+  if (submittedRev.status !== 200 || !submittedRev.json?.report_id) {
+    fail(`revise submit ${submittedRev.status} ${JSON.stringify(submittedRev.json).slice(0, 140)}`);
+  } else log('ok accept-revise-persisted');
+
+  // RED: identical bytes again → the SAME receipt, replayed:true, no second record
+  const replayedRev = await call(baseR, cookieR, '/submit', envRevise);
+  if (
+    replayedRev.status !== 200 ||
+    replayedRev.json?.report_id !== submittedRev.json?.report_id ||
+    replayedRev.json?.replayed !== true
+  ) fail(`revise replay ${replayedRev.status} ${JSON.stringify(replayedRev.json).slice(0, 140)}`);
+  else log('ok replay-idempotent');
+
+  // RED: stitched envelope (inner claim_id disagrees) → 422 E_ENVELOPE, nothing persisted
+  const forged = JSON.parse(JSON.stringify(envRevise));
+  forged.report.claim_id = '00000000-0000-0000-0000-000000000000';
+  const forgedRes = await call(baseR, cookieR, '/submit', forged);
+  if (forgedRes.status !== 422 || forgedRes.json?.code !== 'E_ENVELOPE') fail(`forged ${forgedRes.status} ${JSON.stringify(forgedRes.json).slice(0, 120)}`);
+  else log('ok forged-envelope-rejected');
+
+  // RED: head moves after the claim → the old report no longer matches the live tuple
+  // → 422 E_TUPLE; an issued review delayed by a push can never authorize the new head
+  state = { ...REPO_STATE(), head_sha: sha('e') };
+  const staleRes = await call(baseR, cookieR, '/submit', envRevise);
+  if (staleRes.status !== 422 || !JSON.stringify(staleRes.json?.errors ?? '').includes('E_TUPLE')) fail(`stale tuple ${staleRes.status} ${JSON.stringify(staleRes.json).slice(0, 120)}`);
+  else log('ok stale-tuple-submit-refused');
+
+  // RED: the drain routes the accepted REVISE record to ONE failure check on M —
+  // zero success checks anywhere (a REVISE can never merge)
+  const tRev = makePublisherTransport();
+  const dRev = await svcR.drainOutbox({ publisherTransport: tRev.fetchJson });
+  const successCount = tRev.checkRuns.filter((c) => c.conclusion === 'success').length;
+  const failureOnM = tRev.checkRuns.filter((c) => c.conclusion === 'failure' && c.head_sha === M).length;
+  if (successCount !== 0 || failureOnM !== 1) {
+    fail(`revise routing success=${successCount} failureOnM=${failureOnM} drain=${JSON.stringify(dRev)} checks=${JSON.stringify(tRev.checkRuns.map((c) => [c.conclusion, c.head_sha]))}`);
+  } else log('ok revise-publishes-named-failure');
+  await svcR.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -292,5 +343,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   startup-unresolved-policy-refused e2e-publish-once re-drain-no-second-check \
   red-mechanics-stop-claims state-outage-stops-claims lease-frees-claim-slot \
   expiry-stops-claims expiry-stops-publication pause-stops-claims-and-publication \
-  unpause-resumes restart-drains-single-publication || exit 1
+  unpause-resumes restart-drains-single-publication \
+  accept-revise-persisted replay-idempotent forged-envelope-rejected \
+  stale-tuple-submit-refused revise-publishes-named-failure || exit 1
 echo "service.test.sh: all green"
