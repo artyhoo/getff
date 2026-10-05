@@ -171,7 +171,7 @@ function deriveFirstSteps(root) {
   const rel = 'packages/core/templates/shared/first-steps.source.json';
   const raw = JSON.parse(readSource(root, rel, 'the first-steps SSOT'));
   log('firstSteps: sequences + renders copied verbatim from', rel);
-  return { source: rel, renders: raw.renders, sequences: raw.sequences };
+  return { source: rel, renders: raw.renders, sequences: raw.sequences, toolchainLanes: raw.toolchainLanes };
 }
 
 // ── rosters: the D29 family JSON, READ, never re-derived (§7) ───────────────────────────────
