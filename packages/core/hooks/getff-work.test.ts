@@ -297,7 +297,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   // ✅ NO-LAUNCH-FLAG (force print even in TTY)
   it('NO-LAUNCH-FLAG: --no-launch forces print-only path', () => {
     // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
-    // non-TTY)" line lives on the NON-CC path (getff-work.sh:194-197), and the
+    // non-TTY)" line lives on the NON-CC path (getff-work.sh:200-203), and the
     // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
     // test inherited the ambient env, so it passed in CI and failed inside any
     // real CC session — a latent env-dependency that the branch-collision

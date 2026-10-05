@@ -14,7 +14,7 @@
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
  * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
- * (`copy_skill_with_transform`, setup.d/lib.sh:2435), so a fence that hardcodes the framework
+ * (`copy_skill_with_transform`, setup.d/lib.sh:2441), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
  * ends in `2>/dev/null` or a `[ -d "$dir" ] || exit 0` short-circuit.
  *
@@ -26,7 +26,7 @@
  * resolve the home (#1244) — so the two halves of `/pipeline` read and wrote different
  * directories, and nothing noticed.
  *
- * `transform_internal_refs` (setup.d/lib.sh:146) already rewrites the *markdown-link* shape of
+ * `transform_internal_refs` (setup.d/lib.sh:170) already rewrites the *markdown-link* shape of
  * this same literal on delivery. This gate is the executable-fence half of that pair: the half
  * no transform can fix, because a fence is a command, not a link.
  *

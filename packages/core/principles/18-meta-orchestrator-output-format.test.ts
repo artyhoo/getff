@@ -174,7 +174,7 @@ interface Surface {
 
 // Consumer-mirror surfaces removed 2026-05-25 (Item 12 closure): install.sh now
 // generates the consumer copy at install time from these authoring files via
-// transform_internal_refs() — see setup.d/lib.sh:146-167 + tests/install-sh/transform-internal-refs.test.sh.
+// transform_internal_refs() — see setup.d/lib.sh:170-191 + tests/install-sh/transform-internal-refs.test.sh.
 const SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10',

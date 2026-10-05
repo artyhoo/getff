@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1633 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1636 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -67,7 +67,7 @@
 # this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
 # which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
 # after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
-# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:290), so
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:325), so
 # re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
 if ! declare -F _lane_log >/dev/null 2>&1; then
   # shellcheck source=setup.d/lib.sh
@@ -105,7 +105,7 @@ _py_copy_or_refresh() {
 # (do_python_lane exits at install.sh:692, long before do_refresh at install.sh:1617).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:801-802 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:803-804 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:893).
+# orchestration-skills arm (install.sh:895).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:837). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:839). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1348, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1392, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1739). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1710). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1739), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1710), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -1429,7 +1429,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:801-802 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:803-804 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1549,7 +1549,7 @@ $msgs"
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + its three arms via register_imr_hooks)
+#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + its three arms via register_imr_hooks, GETFF_HOOK_SOURCE seam)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1616,7 +1616,7 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-326 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-328 (kickoff §2 item 1 binding).
   local _py_imr_src="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
@@ -1679,7 +1679,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1515). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1517). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:87-98). AGENTS.md.template sends the

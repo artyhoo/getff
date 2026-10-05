@@ -124,7 +124,7 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
 - The description comes from line 3 of `.claude/skills/aif-doctor/SKILL.md`. Line 5
   sets `disable-model-invocation: false`, and line 38 says the skill "auto-fires". The
   posture marker is line 20.
-- Line 328 of `scripts/render-reference.mjs` prints `slash-only` whenever that key is
+- Line 343 of `scripts/render-reference.mjs` prints `slash-only` whenever that key is
   present, whatever its value. That explains the card row.
 - The probes are lines 51 to 59, with the address on line 55 and the container filter
   on line 57. The watchdog note is line 61. The four moves are lines 69 to 72. Line 69

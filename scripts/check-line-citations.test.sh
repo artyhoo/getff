@@ -828,7 +828,7 @@ expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in
 # at `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
 # `tests/install-sh/aif-guided-install-gating.test.sh:8`), and 18 sites carry a comma list
 # whose second and later numbers nothing checked (`inject-project-digest.sh:40,48` at
-# `.claude/hooks/inject-subagent-context.sh:54`). Neither shape even reached the skip
+# `.claude/hooks/inject-subagent-context.sh:55`). Neither shape even reached the skip
 # tally — they were not citations at all, so `--show-skips` could not surface them either.
 # Both populations were blank-landing-clean, so arm 2 had nothing to say; arm 1 found two
 # that had genuinely drifted, repaired in the commit after this one.
