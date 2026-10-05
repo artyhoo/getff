@@ -1914,6 +1914,15 @@ _lane_plain_skill_deliver() {
       return 0
     fi
     if [ "$DRY_RUN" = "--dry-run" ]; then
+      # W1-A review MAJOR 2 (cold-review 2026-10-05): the dry-run arm never reaches
+      # _copy_tree_with_transform's guard, so a diverged copy under --force showed only
+      # "would copy". Preview the guard when the dst exists (= the --force overwrite
+      # case; a greenfield copy overwrites nothing) — setup.d/10-skills.sh:22-24 pattern.
+      # Read-only under --dry-run. Transform parity: the delivered tree's .md are
+      # post-processed by _copy_tree_with_transform.
+      if [ -e "$dst" ]; then
+        _pre_overwrite_guard "$src" "$dst" transform
+      fi
       echo "  [dry-run] would copy: $src → $dst"
       return 0
     fi
