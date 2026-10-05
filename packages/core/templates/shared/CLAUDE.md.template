@@ -12,7 +12,7 @@ This project follows the AGENTS.md standard. Claude Code reads BOTH this file AN
 - **`AGENTS.md`** — what we're building, workflow, slim list of rules
 - **`.ai-factory/DESCRIPTION.md`** — stack, hard constraints, non-goals
 - **`.ai-factory/ARCHITECTURE.md`** — layer rules, dependency direction
-- **`.ai-factory/RULES.md`** — code rules R1–R20 (enforced)
+- **`.ai-factory/RULES.md`** — installed rules (npm R1–R20 or lane-native rules)
 
 ## Workflow
 
@@ -29,8 +29,8 @@ Don't bypass an installed native or npm gate with `--no-verify`. If a rule is in
 ## What NOT to put here
 
 - Code style → ESLint/Prettier configs
-- Test conventions → `RULES.md` R4 + `audit-ai-docs.sh`
-- Architectural rules → `dependency-cruiser` + `RULES.md` R3
+- Test conventions → the installed rule table and native tests; npm uses R4 + `audit-ai-docs.sh`
+- Architectural rules → the installed architecture checks; npm uses `dependency-cruiser` + R3
 - Project description → `AGENTS.md` + `.ai-factory/DESCRIPTION.md`
 
 `CLAUDE.md` is a pointer. Real rules are enforced, not described.
