@@ -195,8 +195,10 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 ## §3 Daily cycle
 
-The steady-state loop once First Steps is done. Every command below is shipped by the installer at
-**every** depth — nothing here needs a companion tool.
+The steady-state loop once First Steps is done. Every command below ships with its lane's install —
+nothing here needs a companion tool. Lane contour: steps 2–3's ESLint rules and probe scripts ship on
+the npm stacks (the cargo and go lanes deliver only the docs-gate script of step 3, and python's
+`scripts/` set differs) — step 4's per-lane note names each lane's local gate.
 
 1. **Before you edit** — read `AGENTS.md`, then the `.ai-factory/` doc it points at for your task
    (`RULES.md` for what is enforced, `ARCHITECTURE.md` for layer direction).
@@ -215,7 +217,9 @@ The steady-state loop once First Steps is done. Every command below is shipped b
    your test suite — those stay
    yours to wire, at pre-commit or in your CI. It is not optional and not to be bypassed with
    `--no-verify`.
-5. **On the PR** — CI (`ci-success`) is the last-resort gate. It is the authority that does not
+5. **On the PR** — CI gates the merge on the npm stacks (`ci-success` required check); the toolchain
+   lanes ship only getff's own audit workflow (`getff-python.yml` / `getff-cargo.yml` /
+   `getff-go.yml`), not a consumer CI gate. It is the authority that does not
    depend on anyone's local tooling, which is exactly why it must never be the FIRST place a
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
    account exhausts its private-repo Actions-minutes pool, every first-party check fails in ~2 s

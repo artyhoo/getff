@@ -59,11 +59,11 @@
 
 ## Workflow
 
-Before every commit / PR, run the gate this installer ships (unconditional — needs no extra install):
+Before every commit / PR, run the gates your lane actually ships (each needs no extra install — a gate the lane does not ship yet is named in its bullet, not silently absent):
 
 - `./scripts/audit-ai-docs.sh` — drift + code-vs-docs probes.
 - the git pre-push hook fires on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links), not your typecheck or tests. Where it installs depends on the lane: `.husky/pre-push` on the npm stacks, `.getff/hooks/pre-push` on the python lane; the cargo and go lanes install no pre-push hook yet — the script above is their local gate.
-- CI gates the PR (`ci-success` required check) — the last-resort authority, independent of local tooling.
+- CI gates the PR on the npm stacks (`ci-success` required check); the toolchain lanes ship only getff's own audit workflow (`getff-python.yml` / `getff-cargo.yml` / `getff-go.yml`), not a consumer CI gate — still the last-resort authority, independent of local tooling.
 
 For the lifecycle past install — First Steps per install depth, the daily cycle, and what degrades when a capability is absent — see `.ai-factory/AI-USAGE-GUIDE.md`.
 
