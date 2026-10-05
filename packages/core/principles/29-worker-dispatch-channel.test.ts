@@ -460,18 +460,22 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
    * review time — but the S5 PR body does not exist until egress (review_gate
    * 44efbc21bc61: the fixture cannot just claim «preserved in the PR body»). The
    * committed `preNarrowingRedRun` record in the fixture is the review-time carrier;
-   * this arm is its mechanical check: the flip list is re-derived from the TWO PINNED
-   * COMMITS (`git show <sha>:fixture`) and must reproduce the recorded flips exactly —
-   * non-empty (a green first run of the narrowing is the failure, §9), each entry
-   * carrying a non-empty per-entry verdict, every recorded direction consistent with
-   * what the two pinned vectors actually say. Both endpoints are immutable history, so
-   * the arm cannot false-RED on any future legitimate adjudication; it fails only when
-   * the record and the history disagree.
+   * this arm is its mechanical check: the recorded flips replayed over the committed
+   * `preNarrowingVector` must reproduce the vector pinned at the post-adjudication
+   * commit (`git show <sha>:fixture`) exactly — non-empty (a green first run of the
+   * narrowing is the failure, §9), each entry carrying a non-empty per-entry verdict,
+   * every recorded direction consistent with what the two vectors actually say. The
+   * pre side ships committed rather than pinned: the original capture SHAs died with
+   * the squash-merged, deleted S5 branch (2026-10-05), and a squash-merge makes ANY
+   * branch-side pin unreachable — the post pin survives because it points at the
+   * staging squash commit itself. That endpoint is immutable history, so the arm
+   * cannot false-RED on any future legitimate adjudication; it fails only when the
+   * record and the pinned history disagree.
    */
-  it('pre-narrowing RED run record is re-derivable from the pinned commits', () => {
+  it('pre-narrowing RED run record is re-derivable', () => {
     const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as {
       preNarrowingRedRun?: {
-        preNarrowingSnapshotCommit: string;
+        preNarrowingVector?: Record<string, number[]>;
         postAdjudicationCommit: string;
         flips: {
           file: string;
@@ -514,7 +518,15 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
       return (JSON.parse(out).vector ?? {}) as Record<string, number[]>;
     };
 
-    const pre = vectorAt(record.preNarrowingSnapshotCommit);
+    if (!record.preNarrowingVector) {
+      throw new Error(
+        '29 pre-narrowing RED record lost its `preNarrowingVector` — the committed ' +
+          'pre-narrowing vector the flips replay over (kickoff-s5 §9, review_gate ' +
+          '44efbc21bc61); restore it from this file’s history, never re-derive it ' +
+          'from the live tree',
+      );
+    }
+    const pre = record.preNarrowingVector;
     const post = vectorAt(record.postAdjudicationCommit);
 
     expect(
