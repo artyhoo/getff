@@ -924,12 +924,8 @@ _py_check_not_armed_why() {
 }
 
 _py_record_project_checks() {
-  # The record's readers need the runner: the pre-push hook, the delivered CI workflow.
-  # Framework-owned → _py_copy_or_refresh (--refresh overwrites; .override.md honoured).
-  _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
-  chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
-
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would deliver scripts/run-armed.sh — the record's reader (the pre-push hook and the CI workflow run every check through it)"
     echo "  [dry-run] would probe each getff python check once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
     return 0
   fi
@@ -954,17 +950,20 @@ _py_record_project_checks() {
       _why="not wired: $_tool is not on PATH"
     else
       _rc=0
+      # ${_log:-/dev/null}, not ${_log:?}: an empty log (mktemp failed — TMPDIR exhausted) must
+      # degrade THIS probe's reason to «exits <rc> at install», not abort the whole lane mid-arm
+      # (set -u turns :? into an install death — the check would end up neither armed nor recorded).
       if [ -n "$_cache" ]; then
-        ( cd "$PROJECT_ROOT" && RUFF_CACHE_DIR="$_cache" bash -c "$_c" ) > "${_log:?}" 2>&1 || _rc=$?
+        ( cd "$PROJECT_ROOT" && RUFF_CACHE_DIR="$_cache" bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
       else
-        ( cd "$PROJECT_ROOT" && bash -c "$_c" ) > "${_log:?}" 2>&1 || _rc=$?
+        ( cd "$PROJECT_ROOT" && bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
       fi
       if [ "$_rc" -eq 0 ]; then
         _py_armed+=("$_c")
         echo "  ✓ armed: $_c"
         continue
       fi
-      _why=$(_py_check_not_armed_why "$_c" "$_rc" "$_log")
+      _why=$(_py_check_not_armed_why "$_c" "$_rc" "${_log:-/dev/null}")
     fi
     _py_not+=("$_c # $_why")
     echo "  · not armed: $_c — $_why"
@@ -990,11 +989,18 @@ not-armed:"
   for _c in ${_py_not[@]+"${_py_not[@]}"}; do _body="$_body
 - $_c"; done
   if record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "$_body"; then
+    # The runner ships only behind a written record (the record's readers need it, but a reader
+    # without a record is the worse half): a consumer whose .ai-factory/ is read-only, or a disk
+    # mid-ENOSPC, keeps the hook's loud direct fallback — noisy but functional — instead of a hook
+    # that die-louds «no readable record» on every push with nothing to restore to. Framework-
+    # owned → _py_copy_or_refresh (--refresh overwrites; .override.md honoured).
+    _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+    chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
     echo ""
     echo "How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):"
     printf '%s\n' "$_body" | sed -n '2,$p' | sed 's/^/    /'
   else
-    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, so scripts/run-armed.sh (the pre-push hook, the CI workflow) stops with «no readable record»"
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, and scripts/run-armed.sh not delivered with it (the pre-push hook keeps its direct, record-less fallback; fix the write failure, then install.sh python --refresh delivers both)"
   fi
 }
 

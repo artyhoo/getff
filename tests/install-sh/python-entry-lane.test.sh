@@ -976,7 +976,8 @@ echo ""; echo "  ── (19) project-checks record: probe at install, arm only i
 
 # (19a) deterministic: record written + runner delivered + three lines (T-OBW2P-A)
 P=$(py_fixture); git -C "$P" init -q
-( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19a) install exited $_rc — a crashed install must not read as a green arm"
 _rec="$P/.ai-factory/tool-decisions.md"
 grep -q '^stack: python$' "$_rec" \
   && ok "(19a) record written into .ai-factory/tool-decisions.md (stack: python)" \
@@ -998,7 +999,8 @@ rm -rf "$P"
 
 # (19b) --dry-run writes neither the record block nor the runner
 P=$(py_fixture)
-( cd "$P" && bash "$INSTALL" python --dry-run < /dev/null ) >/dev/null 2>&1
+( cd "$P" && bash "$INSTALL" python --dry-run < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19b) dry-run install exited $_rc — the plan phase itself must not fail"
 if [ ! -e "$P/scripts/run-armed.sh" ] && ! grep -q 'aif:project-checks:begin' "$P/.ai-factory/tool-decisions.md" 2>/dev/null; then
   ok "(19b) --dry-run wrote neither the record block nor the runner"
 else
@@ -1011,7 +1013,8 @@ rm -rf "$P"
 # the only externally reachable shape, since a healthy install always writes the file first).
 P=$(py_fixture); git -C "$P" init -q
 mkdir -p "$P/.getff/ruff-bans.toml"
-( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19g) install exited $_rc — the bans-missing arm is fail-open, not a lane abort"
 grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache # not wired: .getff/ruff-bans.toml is missing' "$P/.ai-factory/tool-decisions.md" \
   && ok "(19g) bans config absent at probe → structural not-armed reason recorded" \
   || bad "(19g) expected the structural bans-missing reason: $(grep 'ruff-bans' "$P/.ai-factory/tool-decisions.md" | tr '\n' '|')"
@@ -1021,7 +1024,8 @@ rm -rf "$P"
 # regardless of rung activation (the record write is independent of GETFF_SKIP_HOOKS/the rung).
 P=$(py_fixture); git -C "$P" init -q
 git -C "$P" config core.hooksPath .my-hooks
-( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+[ "$_rc" -eq 0 ] || bad "(19h) install exited $_rc — an owned hooksPath must not abort the lane"
 grep -q '^stack: python$' "$P/.ai-factory/tool-decisions.md" && [ -x "$P/scripts/run-armed.sh" ] \
   && ok "(19h) consumer-owned core.hooksPath: record + runner still delivered (§8-3)" \
   || bad "(19h) integration case lost the record/runner: rec=$(grep -c 'stack: python' "$P/.ai-factory/tool-decisions.md" 2>/dev/null) runner=$([ -x "$P/scripts/run-armed.sh" ] && echo y || echo n)"
@@ -1038,7 +1042,8 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   printf 'import os\nimport tensorflow\n\ndef main():\n    return 1\n' > "$P/app.py"
   git -C "$P" add -A; git -C "$P" commit -q -m init
-  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19c) brownfield install exited $_rc — the lane must not abort on pre-existing findings"
   grep -qE '^- ruff check \. # [0-9]+ ruff finding\(s\) at install$' "$P/.ai-factory/tool-decisions.md" \
     && ok "(19c) the pre-existing finding recorded not-armed with its count reason" \
     || bad "(19c) expected a count-bearing not-armed line: $(grep 'ruff' "$P/.ai-factory/tool-decisions.md" | tr '\n' '|')"
@@ -1063,7 +1068,8 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   P=$(py_fixture); git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" add -A 2>/dev/null; git -C "$P" commit -q -m init --allow-empty 2>/dev/null
-  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19d) greenfield install exited $_rc — arming must not fail the lane that armed it"
   _rec="$P/.ai-factory/tool-decisions.md"
   grep -qxF -- '- ast-grep scan' "$_rec" && grep -qxF -- '- ruff check .' "$_rec" \
     && grep -qxF -- '- ruff check . --config .getff/ruff-bans.toml --no-cache' "$_rec" \
@@ -1101,7 +1107,8 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
       [ -e "$_notools/$_b" ] || ln -s "$_f" "$_notools/$_b" 2>/dev/null || true
     done
   done
-  ( cd "$P" && PATH="$_notools" bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1
+  ( cd "$P" && PATH="$_notools" bash "$INSTALL" python < /dev/null ) >"$P/.install.log" 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19e) tool-absent install exited $_rc — absent tools are structural not-armed, never an abort"
   _rec="$P/.ai-factory/tool-decisions.md"
   grep -qF -- '- ast-grep scan # not wired: ast-grep is not on PATH' "$_rec" \
     && grep -qF -- '- ruff check . # not wired: ruff is not on PATH' "$_rec" \
@@ -1125,7 +1132,8 @@ if command -v ast-grep >/dev/null 2>&1 && command -v ruff >/dev/null 2>&1; then
   P=$(py_fixture); git -C "$P" init -q
   git -C "$P" config user.email test@test.test; git -C "$P" config user.name test; git -C "$P" config commit.gpgsign false
   git -C "$P" commit -q -m init --allow-empty 2>/dev/null
-  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1; _rc=$?
+  [ "$_rc" -eq 0 ] || bad "(19f) install exited $_rc — the unreadable-record arm needs a healthy install to corrupt"
   mv "$P/.ai-factory/tool-decisions.md" "$P/.ai-factory/tool-decisions.md.stash"
   REMOTE=$(mktemp -d); git init -q --bare "$REMOTE"; git -C "$P" remote add origin "$REMOTE"
   BR=$(git -C "$P" symbolic-ref --short HEAD 2>/dev/null || echo main)

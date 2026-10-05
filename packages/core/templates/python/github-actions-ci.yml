@@ -5,8 +5,12 @@
 # record (the same block the local pre-push hook reads): a check the install recorded not-armed —
 # pre-existing findings on a brownfield tree, or the tool absent from the machine that ran the
 # install — prints its «· not armed» reason and does NOT fail the job; what was green before the
-# install stays green, and a not-armed check arms itself the day it turns green. COMMIT
-# .ai-factory/tool-decisions.md (the record) and scripts/run-armed.sh
+# install stays green. Arming is a LOCAL act: the pre-push hook's probe arms a finding-count
+# not-armed check the day it exits 0, into the clone's own sidecar — this workflow never probes,
+# so the flip reaches CI only when the record is updated (install.sh python --refresh) and
+# committed; a structural «not wired:» reason never re-probes anywhere. COMMIT both the record
+# (.ai-factory/tool-decisions.md) and the runner (scripts/run-armed.sh): a CI checkout missing
+# either fails these steps loud (the runner exits 2 — it refuses to guess what may pass).
 #
 # Tool installs are version-PINNED per .claude/rules/ci-tool-pinning.md Rule A: the pins match
 # what the getff framework CI itself fires (@ast-grep/cli@0.44.1, ruff==0.15.21) so the consumer's

@@ -6,9 +6,11 @@
 #   getff python CI gate runs, probed once at install: a check that was green at install blocks
 #   the push; one that was red (pre-existing findings) or unrunnable is recorded «not armed» in
 #   .ai-factory/tool-decisions.md and does NOT block — what was green before the install stays
-#   green. A not-armed check re-probes on every push (scripts/run-armed.sh --probe) and arms
-#   itself the day it turns green — no human step. CI is the last-resort gate, not the primary
-#   one (README.md#why-this-exists).
+#   green. A not-armed check whose reason is a finding count re-probes on every push
+#   (scripts/run-armed.sh --probe) and arms itself the day it turns green — no human step. A
+#   structural «not wired:» reason (the tool was absent from the machine that ran the install)
+#   never re-probes: install the tool, then `install.sh python --refresh` re-arms it. CI is the
+#   last-resort gate, not the primary one (README.md#why-this-exists).
 #
 # Opt-out:
 #   - Set GETFF_SKIP_HOOKS=1 in your env to skip this rung for one push:
@@ -52,15 +54,20 @@ cd "$(git rev-parse --show-toplevel)"
 # run_recorded <exact-record-command> — run ONE check through the project-checks record
 # (scripts/run-armed.sh). The runner prints the check's own output plus a «· not armed» line for
 # a command the install recorded as red/unrunnable — those must not block (what was green before
-# the install stays green). Exit 2 means the record itself is missing or unreadable: that is not
-# a skip — die loud, because silently pushing with NO checks is the silent-no-op rung
-# anti-pattern this hook exists against (T-S2B-A). Output is streamed after capture so the
-# findings above the ✗ line are visible under `set -o pipefail` too.
+# the install stays green). The runner exits 2 for a record problem (missing / unreadable / no
+# armed: + not-armed: block) — but a CHECK may itself exit 2 (ruff exits 2 on a broken config)
+# and the runner propagates that verbatim, so the record file decides: unreadable → die loud,
+# because silently pushing with NO checks is the silent-no-op rung anti-pattern this hook exists
+# against (T-S2B-A); readable → the 2 is the check's own (or a malformed block, whose
+# «❌ run-armed:» line is already in the streamed output above) — return it and let the push
+# BLOCK on the check, never demote it via a false «restore the record» hint (a re-probe would
+# record the still-broken check not-armed and the gate would skip itself). Output is streamed
+# after capture so the findings above the ✗ line are visible under `set -o pipefail` too.
 run_recorded() {
   local _rc=0 _out
   _out=$(bash scripts/run-armed.sh "$1" 2>&1) || _rc=$?
   printf '%s\n' "$_out"
-  if [ "$_rc" -eq 2 ]; then
+  if [ "$_rc" -eq 2 ] && [ ! -r .ai-factory/tool-decisions.md ]; then
     echo "✗ getff pre-push: the project-checks record (.ai-factory/tool-decisions.md) is missing or unreadable — scripts/run-armed.sh cannot tell which checks are armed. Restore it: bash /path/to/getff/install.sh python --refresh (or reinstall)." >&2
     exit 1
   fi
@@ -105,7 +112,11 @@ fi
 # fallback (runner absent — consumer removed it, or a hook left from a pre-record install): the
 # exact pre-record body, kept so the rung never degrades silently. The command strings are the
 # record's byte-exact lines either way.
-if [ -f scripts/run-armed.sh ]; then
+# `-f` alone would trust a truncated (e.g. zero-byte) runner: bash exits 0 on an empty script, so
+# every run_recorded call would silently pass and the --probe would no-op — a silent no-check push
+# (the exact T-S2B-A shape). The content grep (the marker the runner itself parses) is the sanity
+# floor; anything that fails it takes the loud direct fallback below.
+if [ -f scripts/run-armed.sh ] && grep -q 'aif:project-checks' scripts/run-armed.sh 2>/dev/null; then
 
   # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
   # .getff/astgrep-rules).
@@ -147,7 +158,7 @@ if [ -f scripts/run-armed.sh ]; then
 
 else
 
-  echo "⚠ getff pre-push: scripts/run-armed.sh not found — running the checks directly, NOT through the project-checks record (a brownfield tree will be blocked by pre-existing findings; restore the runner: bash /path/to/getff/install.sh python --refresh)." >&2
+  echo "⚠ getff pre-push: scripts/run-armed.sh missing, unreadable, or not a run-armed script (empty/truncated counts) — running the checks directly, NOT through the project-checks record (a brownfield tree will be blocked by pre-existing findings; restore the runner: bash /path/to/getff/install.sh python --refresh)." >&2
 
   # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
   # .getff/astgrep-rules).
