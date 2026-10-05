@@ -1,7 +1,9 @@
 # DotPRReviewV2 bounded examples
 
 Paired examples for the `DotPRReviewV2` / `dot-pr-review/2.0.0` contract
-([schema](../dot-review-result-v2.schema.json), [spec](../../superpowers/specs/2026-10-06-dot-pr-coordination-design.md)).
+(schema: pinned one level up as `tests/dot-review-gate/fixtures/v2/schema.json`;
+canonical copies live in the docs lane: `docs/meta-factory/dot-review-result-v2.schema.json`,
+`docs/superpowers/specs/2026-10-06-dot-pr-coordination-design.md`).
 Every record is **synthetic**: identifiers, principals, SHAs and digests are placeholder
 hex/UUIDs chosen to satisfy the schema's shapes — they name no repository revision, no
 enrolled principal and no executed review. Do not cite them as evidence of any live event.
