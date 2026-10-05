@@ -886,6 +886,8 @@ jobs:
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: "install-sh — refresh TTY guard (#1597 ultra review: the depth menu must never fire on a --refresh pass — Enter would deepen core→env)"
+        run: bash tests/install-sh/install-refresh-tty-guard.test.sh
       - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
         run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
       - name: "install-sh — no tsx step (the prebuilt pre-push hook needs no tsx; a positional stack skips the profile menu)"
@@ -1197,6 +1199,8 @@ jobs:
         run: bash tests/install-sh/rules-lock-version-diff.test.sh
       - name: "install-sh — rules-lock malformed-value vectors: consumer manifest toxins never reach the lock (getff-freshness-widening S1 criterion 7)"
         run: bash tests/install-sh/rules-lock-malformed-values.test.sh
+      - name: "install-sh — rules-lock version-grep null-tolerance: a versionless or many-match generation-context manifest must not abort the lane under pipefail (ultra-review #1597)"
+        run: bash tests/install-sh/rules-lock-version-grep-null-tolerant.test.sh
       - name: "install-sh — rules-lock scope trap: no research/detector fixtures in branch diff (getff-freshness-widening S1 criterion 9)"
         run: bash tests/install-sh/rules-lock-scope-trap.test.sh
       - name: "install-sh — snapshot exclusion guard: volatile-only exclusions never mask deterministic drift (adapter-jig C3)"
@@ -1817,7 +1821,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/lib.sh:3253-3262, merge_canonical_scripts) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:3259-3268, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`

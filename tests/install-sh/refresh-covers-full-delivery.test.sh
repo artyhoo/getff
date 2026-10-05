@@ -67,7 +67,7 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:2237-2239 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
+# setup.d/lib.sh:2243-2245 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
 # the test cleanly with a message rather than crashing on the array expansion below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1610 + setup.d/lib.sh:2228 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1610 + setup.d/lib.sh:2234 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
@@ -334,7 +334,7 @@ fi
 # which the alternation already covers.
 # ── LANE_EXCLUDED: $PKG_ROOT-sourced delivery SOURCES deliberately NOT refreshed, per lane ────────
 # A2-11's widened extraction sees a SECOND source form (`$PKG_ROOT/…`). Widening without an escape
-# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1651-1653
+# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1664-1666
 # classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
 # classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
 # EXCLUDED list» — and 45-python.sh:1682 extends the contract to the sibling docs («consumer-editable by
@@ -343,8 +343,8 @@ fi
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
-  # 45-python.sh agent-surface docs (45-python.sh:1647-1682). The ARCHITECTURE.md token is the
-  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1654/:1686 — two consumer-owned
+  # 45-python.sh agent-surface docs (45-python.sh:1660-1695). The ARCHITECTURE.md token is the
+  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1667/:1699 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python
   45-python.sh|$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md

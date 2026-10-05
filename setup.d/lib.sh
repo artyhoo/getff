@@ -729,7 +729,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
 #   install.sh:1500                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1686          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1699          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
@@ -738,9 +738,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:2132                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:2138                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1662          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1675          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -1719,7 +1719,13 @@ _lane_write_toolchain_lock() {
   # synthesised, the manifest carries its version and the lock reports it — no code change.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding): a manifest without a "version" key exits grep 1, and one whose grep output
+    # exceeds the 64KiB pipe buffer SIGPIPEs grep through `head -1` (141) — either status aborts
+    # the lane after file delivery but BEFORE this lock write, leaving the `[ -n ] || 'null'`
+    # fallback below dead code for exactly its intended case. Masking the status makes that
+    # fallback reachable; the healthy path's extracted value is unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   # §3a option B / §6 fork 2: derive the per-rule slice from the fragment dir
@@ -2398,7 +2404,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3255, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3261, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
