@@ -47,11 +47,23 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             packages/core/package-lock.json
+      - name: Resolve fresh squash-preview base
+        id: pr_range
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Refresh the named base; event base.sha can predate sibling merges.
+          git check-ref-format "refs/heads/$BASE_REF"
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          base_sha=$(git merge-base "refs/remotes/origin/$BASE_REF" "$HEAD_SHA")
+          test -n "$base_sha"
+          printf 'base_sha=%s\n' "$base_sha" >> "$GITHUB_OUTPUT"
       - name: Install packages/core deps (tsx runtime)
         run: npm ci --prefix packages/core --silent
       - name: Check PR body Prior-art line against the squash-preview diff
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ steps.pr_range.outputs.base_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-body-prior-art-bin.ts
