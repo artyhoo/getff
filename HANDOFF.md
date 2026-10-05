@@ -89,3 +89,9 @@ Full pre-push stopped at 14 dependent citations after task commit 5024b8e26ff; n
 Distribution gate continuation: committed citation check passed; pre-push next refused getff distribution drift. Senior regenerated and verified packages/getff/MANIFEST.sha256:52 accepted changed paths/29 additions/no removals, fresh1249-file check PASS. Implementation/dependency identity now70paths +11admin; accepted for junior delivery. Ignored build payload is not to be committed/published.
 
 Install-baseline continuation: actual capture15cases, compare15PASS/0FAIL. Eleven fingerprints updated, only skills and derived inventory/ignore records,20refs added per npm fixture,no removals; cargo/go unchanged. Arch evidence names fingerprint skill paths. Citation fullsweep PASS1037resolved/312skipped. No active snapshot process remains. Accepted current manifest81paths +11admin; read latest hashes/result before junior delivery.
+
+## Git-only prompt refreshed — 2026-10-06
+
+Operator requested the junior push/merge prompt again. Updated docs/superpowers/plans/2026-10-05-skills-standards-junior-prompt.md with current81-file identity, existing b3abb96509e checkpoint, no duplicate implementation/PR, actual-gate requirements and senior report-back verification. This administrative prompt refresh is accepted; junior can commit it with factual handoff updates. Full pre-push retry is in progress; no successful push/PR/merge observed at this checkpoint.
+
+Face-facts continuation: pre-push next refused derived spec count. Senior regenerated exactly98→99, verified predicate and --check PASS, read-onlyNo findings. Finalaccepted manifest82paths +11admin. Updated juniorprompt has this final identity; no successfulpush/PR/merge yet at b3abb96509e checkpoint.

@@ -18,3 +18,5 @@ Full pre-push follow-up: 14 stale dependent citations led to a senior repair of 
 Distribution follow-up: read-only inspected the regenerated hash index against old index and accepted source identities. All52 changed entries are accepted payload paths,29 additions,no removals; fresh1249-file gate PASS. **No findings.** No source behavior or publication change.
 
 Install-baseline follow-up: reviewed complete eleven fingerprint deltas and arch evidence wording. Only accepted skills/new procedure paths and derived refresh inventory/ignore hashes changed; no removal, unrelated installed file or test-logic edit. Actual repeated fixture installs15/15byte-identical; full citation and arch form checks pass. **No findings.** Accepted81-file manifest supersedes earlier identities.
+
+Face-facts follow-up: full one-line diff98→99 matches the actual design-spec filename predicate, including this task’s spec. Actual renderer/check PASS. **No findings.** Accepted82-file identity.
