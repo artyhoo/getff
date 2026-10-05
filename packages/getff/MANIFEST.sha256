@@ -226,8 +226,8 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-0b48d529983cf0541eeefb4036a384fe6e430106d4481836a64fdbab378d1e67  packages/core/audit-self/pre-merge-local.sh
-35328bfb258f5ae620bdeea93427f2af6602e590300a114b0d8173e336a7898e  packages/core/audit-self/pre-merge-local.test.sh
+9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh
+76f44ec5abfdcf12eac932da719568a66c8f86af25997ca5453528053ced21ae  packages/core/audit-self/pre-merge-local.test.sh
 2ecb7c63d661594c7eadbdfa874adabca47205679bb5deef6119dd7faa7e91cc  packages/core/audit-self/prove-rules-parity.test.ts
 4a1971c15529184e4dc79a9f4b460c8bfab3477518f38ccfbd3c88d0dac0afec  packages/core/audit-self/prove-rules.mjs
 e63585a137d832c0cc3bbd0f028288bc291995b8ba0ca8d6ba3a6f5286ab60e9  packages/core/audit-self/prove-rules.test.ts
