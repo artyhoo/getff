@@ -181,9 +181,15 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       ) {
         return send(res, 400, { error: 'claim_id (string), generation (integer) and report (object) required' });
       }
-      // envelope ↔ report identity: the inner report asserts its own claim/generation;
-      // a mismatch means the bytes were stitched (review R2: wrong inner claim_id).
-      if (envelope.report.claim_id !== envelope.claim_id || envelope.report.generation !== envelope.generation) {
+      // envelope ↔ record identity: the inner record must assert the same claim it is
+      // submitted under — a mismatch means the bytes were stitched (review R2). V1
+      // reports carry claim_id/generation at the top level; a V2 record binds through
+      // review_identity.assignment_id (the protocol pins the field spelling).
+      if (envelope.report.protocol_version === 'dot-pr-review/2.0.0') {
+        if (envelope.report.review_identity?.assignment_id !== envelope.claim_id) {
+          return send(res, 422, { error: 'review_identity.assignment_id does not match the envelope claim', code: 'E_ENVELOPE' });
+        }
+      } else if (envelope.report.claim_id !== envelope.claim_id || envelope.report.generation !== envelope.generation) {
         return send(res, 422, { error: 'report claim/generation does not match the envelope', code: 'E_ENVELOPE' });
       }
       let state;
@@ -209,6 +215,7 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       }
       const createHash = (await import('node:crypto')).createHash;
       const digest = createHash('sha256').update(canonicalText).digest('hex');
+      const isV2 = envelope.report.protocol_version === 'dot-pr-review/2.0.0';
       let receipt;
       try {
         receipt = ledger.submitReport({
@@ -216,8 +223,10 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           reviewerId: auth.principalId, // authenticated envelope — never report authorship
           digest,
           payload: canonicalText,
-          verdict: envelope.report.verdict,
-          kind: envelope.report.kind,
+          // the ledger stores TEXT columns: a V2 verdict is an object (serialize it)
+          // and its record kind lives in record_type
+          verdict: isV2 ? JSON.stringify(envelope.report.verdict) : envelope.report.verdict,
+          kind: isV2 ? envelope.report.record_type : envelope.report.kind,
           leaseMinutes: policy.limits.claim_lease_minutes,
           nowMs: now(),
           expectedTupleDigest: tupleDigest(state),

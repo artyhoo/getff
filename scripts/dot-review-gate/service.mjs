@@ -25,6 +25,7 @@ export async function createGateService({
   ledgerPath,
   policyText,
   schemaBytes,
+  schemaBytesV2,
   oauth,
   webhookSecret,
   readState,
@@ -89,6 +90,7 @@ export async function createGateService({
 
   const validator = (text, extra) => import('./validate-report.mjs').then((m) => m.validateReport(text, {
     schemaBytes,
+    schemaBytesV2,
     policy,
     now: new Date(now()).toISOString(),
     currentState: extra?.currentState,
@@ -142,7 +144,7 @@ export async function createGateService({
       try {
         outcome = await publishChecked({ publisherTransport, reportId: payload.report_id });
       } catch (e) {
-        results.push({ event: event.event_type, action: 'kept-pending', code: e.code ?? 'E_TRANSPORT' });
+        results.push({ event: event.event_type, action: 'kept-pending', code: e.code ?? 'E_TRANSPORT', reason: e.message });
         continue; // at-least-once: stay pending, redeliver on the next drain
       }
       if (outcome.published) {
@@ -150,7 +152,7 @@ export async function createGateService({
         ledger.recordSideEffect(event.id, outcome.kind, outcome.externalId);
         results.push({ event: event.event_type, action: 'published', conclusion: outcome.kind });
       } else {
-        results.push({ event: event.event_type, action: 'kept-pending', code: outcome.code });
+        results.push({ event: event.event_type, action: 'kept-pending', code: outcome.code, reason: outcome.reason });
       }
     }
     return results;
@@ -165,9 +167,10 @@ export async function createGateService({
       now: new Date(now()).toISOString(),
     };
     // the report's PR number comes from its own record — resolve it once
+    // (V1 carries pull_request at the top level; V2 nests it in review_identity)
     const row = ledger.getReport(reportId);
     const report = JSON.parse(row.payload);
-    run.app.prNumber = report.pull_request?.number;
+    run.app.prNumber = report.pull_request?.number ?? report.review_identity?.pull_request?.number;
     try {
       const res = await publishAdmission(run);
       return { published: true, kind: 'success', externalId: res.check?.external_id ?? res.check?.id };
@@ -177,7 +180,7 @@ export async function createGateService({
         const res = await publishFailure({ ...run, reason: 'review verdict is not GO/COMPLETE' });
         return { published: true, kind: 'failure', externalId: res.check?.external_id ?? res.check?.id };
       }
-      return { published: false, code: e.code ?? 'E_TRANSPORT' };
+      return { published: false, code: e.code ?? 'E_TRANSPORT', reason: e.message };
     }
   }
 

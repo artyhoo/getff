@@ -151,7 +151,87 @@ run_case tuple-M-drift            REJECT 'E_TUPLE'       'makeAdmission()' "$P" 
 run_inv_case tuple-revise-not-gate PASS 'E_NOT_AUTHORIZING' 'makeAdmission({verdict:"REVISE"})' "$STATE_ARG"
 run_case kind-recast-historical   PASS 'E_KIND_RECAST' 'makeHistorical()' "$P"
 
-# dup-key raw-text arm (cannot be expressed through object builders)
+# ── V2 (DotPRReviewV2/2.0.0 — follow-up packet increment 3) ──────────────────
+# The V2 bytes are PINNED copies of the docs lane's CONTRACT_READY receipt
+# (tests/dot-review-gate/fixtures/v2/), never re-designed field spelling. The 13
+# published records + expectations run through THIS validator — an independent
+# re-execution of the packet's table, not a restatement of it.
+V2FIX="$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/make-v2.mjs"
+
+run_v2_arm() { # NAME EXPECT VALID/INVALID JS-EXPR [nostate]
+  local name="$1" want_valid="$2" expr="$3" mode="${4:-state}"
+  local out
+  out=$(node --input-type=module -e "
+import { makeV2Review, v2StateFrom, loadExample, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+// trusted inputs are computed from the CANONICAL example, never from the mutated expr
+const canonical = makeV2Review();
+const trusted = { changed_files: canonical.scope.changed_paths.map((c) => c.path) };
+const live = $([[ "$mode" == nostate ]] && echo false || echo true);
+const r = validateReport($expr, { schemaBytesV2: V2_SCHEMA_BYTES, now: '$NOW', ...(live ? { currentState: v2StateFrom(canonical), trustedInventory: trusted } : {}) });
+const codes = r.errors.concat(r.nonAuthorizing ?? []).map((e) => e.code).join(',');
+console.log((r.ok ? 'PASS' : 'FAIL') + '|' + codes + '|' + (r.authorizing ? 'AUTH' : 'NONAUTH'));
+" 2>&1 | tail -1)
+  if [[ "$want_valid" == valid && "$out" != PASS* ]]; then
+    echo "FAIL[$name] expected valid, got: $out"; fails=$((fails+1)); return
+  fi
+  if [[ "$want_valid" == invalid && "$out" != FAIL* ]]; then
+    echo "FAIL[$name] expected invalid, got: $out"; fails=$((fails+1)); return
+  fi
+  echo "ok[$name]"
+}
+
+# pin integrity: the fixture copy IS the receipt bytes; if the canonical file is
+# present in-tree (after the docs PR merges) both copies must be byte-identical
+pin_out=$(node --input-type=module -e "
+import { V2_SCHEMA_SHA256, RECEIPT_SCHEMA_SHA256 } from '$V2FIX';
+import { readFileSync, existsSync } from 'node:fs';
+if (V2_SCHEMA_SHA256 !== RECEIPT_SCHEMA_SHA256) { console.log('MISMATCH pin vs receipt'); process.exit(0); }
+const canon = '$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result-v2.schema.json';
+if (existsSync(canon)) {
+  const h = (await import('node:crypto')).createHash('sha256').update(readFileSync(canon)).digest('hex');
+  if (h !== RECEIPT_SCHEMA_SHA256) { console.log('MISMATCH canonical vs receipt'); process.exit(0); }
+}
+console.log('PIN-OK');
+" 2>&1 | tail -1)
+if [[ "$pin_out" != "PIN-OK" ]]; then echo "FAIL[v2-schema-pin-integrity] got: $pin_out"; fails=$((fails+1)); else echo "ok[v2-schema-pin-integrity]"; fi
+
+# all 13 published records vs their own expectation table
+exp_out=$(node --input-type=module -e "
+import { v2Expectations, loadExample, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+const exp = v2Expectations();
+const bad = [];
+for (const [file, want] of Object.entries(exp)) {
+  const r = validateReport(loadExample(file), { schemaBytesV2: V2_SCHEMA_BYTES, now: '$NOW' });
+  const got = r.ok ? 'valid' : 'invalid';
+  if (got !== want) bad.push(file + ':' + got + '(' + r.errors.map((e) => e.code).join(',') + ')');
+}
+console.log(bad.length === 0 ? 'ALL-13-MATCH' : 'DRIFT ' + bad.join(' '));
+" 2>&1 | tail -1)
+if [[ "$exp_out" != "ALL-13-MATCH" ]]; then echo "FAIL[v2-expectations-13] got: $exp_out"; fails=$((fails+1)); else echo "ok[v2-expectations-13]"; fi
+
+# the schema cannot see a MISSING dimension id: COMPLETE coverage with one of the
+# seven role dimensions absent must be invalid (the published invalid-missing-dimension
+# record pins exactly this), and an UNVERIFIED dimension cannot sit under COMPLETE
+run_v2_arm v2-missing-dimension-invalid invalid "JSON.stringify(loadExample('invalid-missing-dimension.json'))"
+run_v2_arm v2-unverified-forces-partial invalid "JSON.stringify(makeV2Review({ assessments: { system_coverage: 'COMPLETE' }, dimensions: makeV2Review().dimensions.map((d) => d.dimension === 'CONTEXT_ECONOMY' ? { ...d, status: 'UNVERIFIED' } : d) }))"
+run_v2_arm v2-unverified-partial-is-valid valid "JSON.stringify(makeV2Review({ assessments: { system_coverage: 'PARTIAL' }, verdict: { outcome: 'REVISE', rationale: 'one dimension unverified', blockers: [] }, dimensions: makeV2Review().dimensions.map((d) => d.dimension === 'CONTEXT_ECONOMY' ? { ...d, status: 'UNVERIFIED' } : d) }))"
+
+# the authorizing predicate: GO ∧ COMPLETE ∧ SUFFICIENT ∧ no blocking findings —
+# INSUFFICIENT/UNKNOWN prior review and blocking findings never authorize
+# (the material-delta/historical records pin a DIFFERENT revision — validated as
+# documents, without a live context, exactly like the V1 non-authorizing arms)
+run_v2_arm v2-positive-go-authorizing valid "JSON.stringify(makeV2Review())"
+run_v2_arm v2-insufficient-prior-not-authorizing valid "JSON.stringify(loadExample('material-delta.json'))" nostate
+run_v2_arm v2-historical-not-authorizing valid "JSON.stringify(loadExample('historical.json'))" nostate
+run_v2_arm v2-blocking-not-authorizing valid "JSON.stringify(makeV2Review({ findings: [...JSON.parse(loadExample('historical.json')).findings.map((f) => ({ ...f, finding_id: 'F-x', occurrence_id: 'O-x' }))] }))"
+
+# trusted comparisons: live-tuple drift and inventory both directions (V2 identity
+# fields under review_identity — the report is never its own witness)
+run_v2_arm v2-tuple-drift invalid "JSON.stringify(makeV2Review({ review_identity: { ...makeV2Review().review_identity, revisions: { ...makeV2Review().review_identity.revisions, head_sha: 'f'.repeat(40) } } }))"
+run_v2_arm v2-inventory-missing invalid "JSON.stringify(makeV2Review({ scope: { changed_paths: makeV2Review().scope.changed_paths.slice(1), omissions: [] } }))"
+run_v2_arm v2-inventory-unknown invalid "JSON.stringify(makeV2Review({ scope: { changed_paths: [...makeV2Review().scope.changed_paths, { path: 'ghost/invented.ts', treatment: 'SYSTEM_ANALYZED', rationale: 'invented' }], omissions: [] } }))"
 dup_out=$(node --input-type=module -e "
 import { validateReport } from '$MOD';
 import { readFileSync } from 'node:fs';

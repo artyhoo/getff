@@ -19,6 +19,10 @@ export const DOT_CHECK_CONTEXT = 'dot-review/v1';
 export const OBSERVE_CHECK_CONTEXT = 'dot-review/observe-v1';
 export const PAUSE_CHECK_CONTEXT = 'dot-review/pause';
 export const PROTOCOL_VERSION = 'dot-staging-review/1.0';
+// The gate spans both contract eras: V1 (DotStagingReviewV1) and V2 (DotPRReviewV2,
+// follow-up packet §5). A deployment's policy declares WHICH era it runs; the
+// validators dispatch per record.
+export const SUPPORTED_PROTOCOLS = ['dot-staging-review/1.0', 'dot-pr-review/2.0.0'];
 
 const PLACEHOLDER = /^\s*(UNRESOLVED|TBD|PLACEHOLDER)\s*$/i;
 
@@ -36,7 +40,9 @@ export function loadPolicy(text) {
   };
 
   noPlaceholder(p.policy_version, 'policy_version');
-  if (p.protocol_version !== PROTOCOL_VERSION) reject('E_PROTOCOL', `protocol_version must be ${PROTOCOL_VERSION}`);
+  if (!SUPPORTED_PROTOCOLS.includes(p.protocol_version)) {
+    reject('E_PROTOCOL', `protocol_version must be one of ${SUPPORTED_PROTOCOLS.join(' | ')}`);
+  }
 
   if (p.repository_id !== 1231007068 || p.repository_full_name !== 'artyhoo/getff') {
     reject('E_REPOSITORY', 'repository identity must be artyhoo/getff (1231007068)');

@@ -20,8 +20,9 @@ trap 'rm -rf "$TMP"' EXIT
 SCRIPT="$TMP/run-service-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
 import { generateKeyPairSync } from 'node:crypto';
-const [servicePath, fixPath, validatorPath, schemaPath, tmp] = process.argv.slice(2);
+const [servicePath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture } = await import(fixPath);
+const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
 const { createGateService } = await import(servicePath);
 const { readFileSync } = await import('node:fs');
 const schemaBytes = readFileSync(schemaPath);
@@ -126,6 +127,7 @@ async function newService(over = {}) {
     ledgerPath: over.ledgerPath ?? `${tmp}/service-${Math.random().toString(36).slice(2)}.sqlite`,
     policyText: over.policyText ?? POLICY_TEXT,
     schemaBytes,
+    schemaBytesV2: over.schemaBytesV2,
     oauth,
     webhookSecret: 'hook-secret',
     readState: over.readState ?? readState,
@@ -346,6 +348,73 @@ try {
   else log('ok memory-allowed-for-fixtures');
   await svcMem.close();
 
+  // ── V2 records end-to-end (packet increment 3): DotPRReviewV2/2.0.0 documents flow
+  // through claim → submit → drain on the SAME service; a REVISE/INSUFFICIENT V2
+  // record routes to ONE named failure check (never success), a fully qualifying V2
+  // GO authorizes exactly one success check on M, and a stitched V2 envelope is 422.
+  const canonicalV2 = makeV2Review();
+  // the V2 era has its OWN policy epoch — the record's policy pin must be the digest
+  // of the policy this service actually runs, and the publisher re-derives its tuple
+  // state from that same policy (protocol dot-pr-review/2.0.0)
+  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+  const V2_POLICY_TEXT = JSON.stringify(V2_POLICY);
+  const v2PolicyDigestOf = policyDigestOf(V2_POLICY);
+  const v2Live = (over = {}, assignmentId) => makeV2Review({
+    review_identity: {
+      ...canonicalV2.review_identity,
+      assignment_id: assignmentId,
+      repository: { id: 1231007068, full_name: 'artyhoo/getff' },
+      pull_request: { number: 2042, node_id: 'PR_kwDOM9YQhs6AbCdEfGh' },
+      mode: 'OPEN_PR',
+      comparison_basis: 'HEAD_TO_MERGE_CANDIDATE',
+      revisions: { head_sha: sha('c'), base_sha: sha('b'), merge_base_sha: sha('a'), tested_merge_sha: sha('d') },
+      policy: { version: '2026-10-05.1', sha256: v2PolicyDigestOf, epoch: 1 },
+    },
+    scope: { changed_paths: [{ path: 'packages/core/principles/44-x.test.ts', treatment: 'SYSTEM_ANALYZED', rationale: 'gate change reviewed against the base' }], omissions: [] },
+    ...over,
+  });
+  const v2State = () => ({ ...REPO_STATE(), protocol_version: 'dot-pr-review/2.0.0', policy_sha256: v2PolicyDigestOf });
+  state = v2State();
+  const svcV2 = await newService({ schemaBytesV2: V2_SCHEMA_BYTES, policyText: V2_POLICY_TEXT });
+  const baseV2 = `http://127.0.0.1:${svcV2.port}`;
+  const cookieV2 = await login(baseV2);
+  const claimV2 = await call(baseV2, cookieV2, '/claim', {});
+  if (claimV2.status !== 200) fail(`v2 claim ${claimV2.status} ${JSON.stringify(claimV2.json).slice(0, 120)}`);
+  const v2Env = (report) => ({ claim_id: claimV2.json.claim_id, generation: claimV2.json.generation, report });
+  const stitched = v2Env(v2Live({}, claimV2.json.claim_id));
+  stitched.report.review_identity.assignment_id = '00000000-0000-0000-0000-000000000000';
+  const stitchedRes = await call(baseV2, cookieV2, '/submit', stitched);
+  if (stitchedRes.status !== 422 || stitchedRes.json?.code !== 'E_ENVELOPE') fail(`v2 stitched ${stitchedRes.status} ${JSON.stringify(stitchedRes.json).slice(0, 120)}`);
+  else log('ok v2-stitched-envelope-rejected');
+  const v2ReviseRec = v2Live({
+    verdict: { outcome: 'REVISE', rationale: 'prior review insufficient for the material delta', blockers: [] },
+    assessments: { ...canonicalV2.assessments, prior_review_sufficiency: 'INSUFFICIENT' },
+  }, claimV2.json.claim_id);
+  const subV2Rev = await call(baseV2, cookieV2, '/submit', v2Env(v2ReviseRec));
+  if (subV2Rev.status !== 200 || !subV2Rev.json?.report_id) fail(`v2 revise submit ${subV2Rev.status} ${JSON.stringify(subV2Rev.json).slice(0, 160)}`);
+  else log('ok v2-revise-accepted-persisted');
+  const tV2R = makePublisherTransport();
+  const dV2R = await svcV2.drainOutbox({ publisherTransport: tV2R.fetchJson });
+  const v2SuccessR = tV2R.checkRuns.filter((c) => c.conclusion === 'success').length;
+  const v2FailOnM = tV2R.checkRuns.filter((c) => c.conclusion === 'failure' && c.head_sha === M).length;
+  if (v2SuccessR !== 0 || v2FailOnM !== 1) fail(`v2 revise routing success=${v2SuccessR} failureOnM=${v2FailOnM} drain=${JSON.stringify(dV2R)}`);
+  else log('ok v2-revise-publishes-named-failure');
+
+  // the V2 GO record: same tuple, new claim after the first generation consumed
+  state = v2State();
+  const claimG = await call(baseV2, cookieV2, '/claim', {});
+  if (claimG.status !== 200) fail(`v2 go claim ${claimG.status} ${JSON.stringify(claimG.json).slice(0, 120)}`);
+  const subV2Go = await call(baseV2, cookieV2, '/submit', { claim_id: claimG.json.claim_id, generation: claimG.json.generation, report: v2Live({}, claimG.json.claim_id) });
+  if (subV2Go.status !== 200 || !subV2Go.json?.report_id) fail(`v2 go submit ${subV2Go.status} ${JSON.stringify(subV2Go.json).slice(0, 160)}`);
+  else log('ok v2-go-accepted');
+  const tV2G = makePublisherTransport();
+  await svcV2.drainOutbox({ publisherTransport: tV2G.fetchJson });
+  const v2SuccessG = tV2G.checkRuns.filter((c) => c.conclusion === 'success' && c.head_sha === M).length;
+  const v2FailG = tV2G.checkRuns.filter((c) => c.conclusion === 'failure').length;
+  if (v2SuccessG !== 1 || v2FailG !== 0) fail(`v2 go routing successOnM=${v2SuccessG} failure=${v2FailG} checks=${JSON.stringify(tV2G.checkRuns.map((c) => c.conclusion))}`);
+  else log('ok v2-go-authorizes-single-success');
+  await svcV2.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -359,6 +428,7 @@ out="$(node "$SCRIPT" \
   "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" \
   "$DIR/validate-report.mjs" \
   "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" \
+  "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/make-v2.mjs" \
   "$TMP" 2>&1)"; status=$?
 assert_suite_arms "service.test.sh" "$status" "$out" \
   startup-unresolved-policy-refused e2e-publish-once re-drain-no-second-check \
@@ -367,5 +437,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   unpause-resumes restart-drains-single-publication \
   accept-revise-persisted replay-idempotent forged-envelope-rejected \
   stale-tuple-submit-refused revise-publishes-named-failure \
-  memory-ledger-refused memory-allowed-for-fixtures || exit 1
+  memory-ledger-refused memory-allowed-for-fixtures \
+  v2-stitched-envelope-rejected v2-revise-accepted-persisted \
+  v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success || exit 1
 echo "service.test.sh: all green"

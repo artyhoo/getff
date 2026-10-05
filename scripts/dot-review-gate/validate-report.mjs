@@ -12,11 +12,12 @@
 //   - only kind=admission + COMPLETE + GO can be authorizing; baseline/historical GO
 //     can never authorize an open PR (E_KIND_RECAST), no field-recast loophole.
 //
-// Usage (module): validateReport(text, {schemaBytes, policy, now, currentState, trustedInventory})
+// Usage (module): validateReport(text, {schemaBytes, schemaBytesV2, policy, now, currentState, trustedInventory})
 //   → {ok, authorizing, errors:[{code, path?, message}], nonAuthorizing:[{code, message}], report?}
 //   `ok` = acceptable document (persisted, routed); `authorizing` = may authorize an
-//   admission (kind=admission ∧ COMPLETE ∧ GO). Non-authorizing status is a named
-//   marker in nonAuthorizing, never a validation error.
+//   admission. Dispatches on protocol_version: dot-pr-review/2.0.0 documents take the
+//   V2 path (schemaBytesV2 = the PINNED docs-lane schema bytes); everything else is
+//   V1. Non-authorizing status is a named marker in nonAuthorizing, never an error.
 //   trustedInventory is the TRUSTED changed-file list (the diff the service reads from
 //   GitHub and pins to the generation at claim time — review R4). An admission in a
 //   live context without one fails closed (E_NO_INVENTORY): a report may not be the
@@ -52,7 +53,7 @@ function loadSchema(schemaBytes) {
   return validate;
 }
 
-export function validateReport(text, { schemaBytes, policy, now, currentState, trustedInventory } = {}) {
+export function validateReport(text, { schemaBytes, schemaBytesV2, policy, now, currentState, trustedInventory } = {}) {
   const errors = [];
   const nonAuthorizing = [];
   let report;
@@ -60,6 +61,14 @@ export function validateReport(text, { schemaBytes, policy, now, currentState, t
     report = parseStrictJson(text ?? '');
   } catch (e) {
     return { ok: false, report: undefined, errors: [{ code: e.code || 'E_PARSE', message: e.message }] };
+  }
+
+  // V2 dispatch: a DotPRReviewV2 document never enters the V1 machinery — the two
+  // contracts share nothing at field level and a validator must not accidentally
+  // interpret V2 as V1 (follow-up packet §10). The pinned schema validates it; the
+  // semantics below carry what JSON Schema cannot see.
+  if (report && typeof report === 'object' && report.protocol_version === 'dot-pr-review/2.0.0') {
+    return validateV2Report(report, { schemaBytesV2, policy, now, currentState, trustedInventory });
   }
 
   if (schemaBytes) {
@@ -98,10 +107,131 @@ export function validateReport(text, { schemaBytes, policy, now, currentState, t
   // the ledger ever saw them, leaving the publisher's failure path unreachable.
   const authorizing =
     report?.kind === 'admission' && report?.completion === 'COMPLETE' && report?.verdict === 'GO';
-  if (!authorizing && report && typeof report === 'object') {
+  if (!authorizing && report && typeof report === 'object' && typeof report.verdict === 'string') {
     nonAuthorizing.push({
       code: report.kind !== 'admission' ? 'E_KIND_RECAST' : 'E_NOT_AUTHORIZING',
       message: `kind=${report.kind} completion=${report.completion} verdict=${report.verdict} cannot authorize admission`,
+    });
+  }
+
+  return { ok: errors.length === 0, authorizing, report, errors, nonAuthorizing };
+}
+
+// ── DotPRReviewV2 (dot-pr-review/2.0.0) ────────────────────────────────────────
+// Schema: the PINNED docs-lane bytes (tests/dot-review-gate/fixtures/v2/schema.json,
+// receipt sha256 b110a641…) — never a re-designed copy. What the schema cannot see,
+// checked here per the follow-up packet §5:
+//   - COMPLETE coverage requires EVERY one of the seven role dimensions present
+//     exactly once (all-path accounting is not dimension coverage); any UNVERIFIED
+//     required dimension forces coverage PARTIAL;
+//   - the live tuple and the trusted changed-file inventory are re-checked against
+//     review_identity/scope — the report is never its own witness;
+//   - authorizing = review_report ∧ GO ∧ COMPLETE ∧ prior review SUFFICIENT ∧ no
+//     blocking finding (PARTIAL/UNKNOWN/INSUFFICIENT never authorize by default).
+const V2_DIMENSION_IDS = [
+  'GOAL_ARCHITECTURE', 'AI_DOC_AUTHORITY', 'SKILL_RULE_ROUTING', 'AGNOSTICISM_PORTABILITY',
+  'CONTEXT_ECONOMY', 'DETERMINISTIC_ENFORCEMENT', 'PRIOR_REVIEW_ADEQUACY',
+];
+const v2SchemaCache = new Map();
+
+function loadV2Schema(schemaBytes) {
+  const key = sha256Hex(schemaBytes);
+  const hit = v2SchemaCache.get(key);
+  if (hit) return hit;
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  addFormats(ajv);
+  const validate = ajv.compile(JSON.parse(schemaBytes.toString('utf8')));
+  v2SchemaCache.set(key, validate);
+  return validate;
+}
+
+function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInventory } = {}) {
+  void now;
+  const errors = [];
+  const nonAuthorizing = [];
+
+  if (schemaBytesV2) {
+    try {
+      const validate = loadV2Schema(schemaBytesV2);
+      if (!validate(report)) {
+        for (const err of validate.errors ?? []) {
+          errors.push({ code: 'E_SCHEMA', path: err.instancePath, message: `${err.instancePath || '/'} ${err.message}` });
+        }
+      }
+    } catch (e) {
+      errors.push({ code: 'E_SCHEMA_COMPILE', message: e.message });
+    }
+  }
+
+  if (report?.record_type === 'review_report') {
+    const dims = Array.isArray(report.dimensions) ? report.dimensions : [];
+    dupCheck(dims.map((x) => x?.dimension), '/dimensions', errors);
+    const present = new Set(dims.map((x) => x?.dimension));
+    const missing = V2_DIMENSION_IDS.filter((id) => !present.has(id));
+    if (missing.length > 0) {
+      errors.push({ code: 'E_V2_DIMENSIONS', path: '/dimensions', message: `system coverage requires every role dimension assessed; missing ${missing.join(', ')}` });
+    }
+    const unverified = dims.filter((x) => x?.status === 'UNVERIFIED').map((x) => x?.dimension);
+    if (report.assessments?.system_coverage === 'COMPLETE' && unverified.length > 0) {
+      errors.push({ code: 'E_V2_COVERAGE', path: '/assessments/system_coverage', message: `COMPLETE coverage contradicts UNVERIFIED dimensions (${unverified.join(', ')}) — coverage is PARTIAL` });
+    }
+
+    if (currentState) {
+      const id = report.review_identity ?? {};
+      const mismatches = [];
+      if (id.repository?.id !== undefined && id.repository.id !== currentState.repository_id) mismatches.push('repository_id');
+      const pr = id.pull_request;
+      if (pr && currentState.pr_number !== undefined && pr.number !== currentState.pr_number) mismatches.push('pr_number');
+      if (pr && currentState.pr_node_id !== undefined && pr.node_id !== currentState.pr_node_id) mismatches.push('pr_node_id');
+      const rev = id.revisions ?? {};
+      for (const k of ['base_sha', 'head_sha', 'merge_base_sha', 'tested_merge_sha']) {
+        if (currentState[k] !== undefined && currentState[k] !== null && rev[k] !== currentState[k]) mismatches.push(k);
+      }
+      if (currentState.policy_sha256 !== undefined && id.policy?.sha256 !== currentState.policy_sha256) mismatches.push('policy_sha256');
+      if (currentState.protocol_version !== undefined && report.protocol_version !== currentState.protocol_version) mismatches.push('protocol_version');
+      if (mismatches.length > 0) {
+        errors.push({ code: 'E_TUPLE', path: '/review_identity', message: `report does not match the current tuple: ${mismatches.join(', ')}` });
+      }
+
+      // trusted inventory: an OPEN_PR review accounts for EXACTLY the trusted diff —
+      // both directions, regardless of each path's treatment label
+      if (id.mode === 'OPEN_PR') {
+        const claimed = (report.scope?.changed_paths ?? []).map((c) => c?.path).filter((p) => typeof p === 'string');
+        if (!Array.isArray(trustedInventory?.changed_files)) {
+          errors.push({ code: 'E_NO_INVENTORY', path: '/scope/changed_paths', message: 'an OPEN_PR review requires the trusted changed-file inventory' });
+        } else {
+          const trusted = trustedInventory.changed_files;
+          if (new Set(claimed).size !== claimed.length) {
+            errors.push({ code: 'E_DUP_CHANGED', path: '/scope/changed_paths', message: 'changed_paths carries duplicate paths' });
+          }
+          const claimedSet = new Set(claimed);
+          for (const p of trusted) {
+            if (!claimedSet.has(p)) errors.push({ code: 'E_CHANGED_MISSING', path: '/scope/changed_paths', message: `trusted changed file "${p}" is absent from the review scope` });
+          }
+          for (const p of claimedSet) {
+            if (!trusted.includes(p)) errors.push({ code: 'E_CHANGED_UNKNOWN', path: '/scope/changed_paths', message: `"${p}" is not in the trusted changed-file inventory` });
+          }
+        }
+      }
+    }
+  }
+
+  const authorizing =
+    report?.record_type === 'review_report' &&
+    report?.verdict?.outcome === 'GO' &&
+    report?.assessments?.system_coverage === 'COMPLETE' &&
+    report?.assessments?.prior_review_sufficiency === 'SUFFICIENT' &&
+    !(report?.findings ?? []).some((f) => f?.blocking === true);
+  if (!authorizing && report?.record_type === 'review_report') {
+    const why = [
+      report?.verdict?.outcome !== 'GO' && `verdict ${report?.verdict?.outcome}`,
+      report?.assessments?.system_coverage !== 'COMPLETE' && `coverage ${report?.assessments?.system_coverage}`,
+      report?.assessments?.prior_review_sufficiency !== 'SUFFICIENT' && `prior review ${report?.assessments?.prior_review_sufficiency}`,
+      (report?.findings ?? []).some((f) => f?.blocking === true) && 'blocking findings open',
+    ].filter(Boolean).join(', ');
+    nonAuthorizing.push({
+      code: 'E_NOT_AUTHORIZING',
+      message: `record cannot authorize a merge (${why})`,
     });
   }
 

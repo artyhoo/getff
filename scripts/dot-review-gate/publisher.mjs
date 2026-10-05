@@ -93,7 +93,7 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     head_sha: pr.head?.sha,
     tested_merge_sha: currentM,
     policy_sha256: policyDigest(policy),
-    protocol_version: PROTOCOL_VERSION,
+    protocol_version: policy.protocol_version ?? PROTOCOL_VERSION,
   };
 
   const validation = validateReport(row.payload, { schemaBytes, policy, now, currentState, trustedInventory });
@@ -141,15 +141,17 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     e.blocking = readiness.blocking;
     throw e;
   }
-  return { row, report, authorizing: validation.authorizing === true, currentM, pr };
+  return { row, report, authorizing: validation.authorizing === true, nonAuthorizing: validation.nonAuthorizing, currentM, pr };
 }
 
 // Publish the admission success check for the CURRENT M.
 export async function publishAdmission({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
   const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
-  const { report, authorizing, currentM } = result;
+  const { report, authorizing, nonAuthorizing, currentM } = result;
   if (!authorizing) {
-    return refuse('E_NOT_AUTHORIZING', `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
+    // the validator's marker message is protocol-shaped (V2 verdicts are objects —
+    // never template them here)
+    return refuse('E_NOT_AUTHORIZING', nonAuthorizing?.[0]?.message ?? `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
   }
   return createCheck({ app, policy, transport, sha: currentM, conclusion: 'success', externalId, report });
 }
