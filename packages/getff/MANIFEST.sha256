@@ -471,6 +471,7 @@ f49fce0be37115a17d877a51685b0ad5f904f395303d76ec8ec77287417d63fc  packages/core/
 21da3f6b1d19b9722dfb07be47872c9255800f904fec77942143ae0f16f6881f  packages/core/hooks/checks/harness-config-local.ts
 ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/hooks/checks/hooks-path.test.ts
 0e99dd01da436e9b31735fbbedbf6a76bbcd16b545cd8d8ddddbdead615907b4  packages/core/hooks/checks/hooks-path.ts
+cc3a54223bb624e310bb87df203c253d7a2bc128591b48049cacc9e806cdc363  packages/core/hooks/checks/pr-body-base-freshness.test.ts
 5cd34075b76e975b064acd03a8824b114a90e754f4d7f2d939fd35d690b722b8  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
 70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7  packages/core/hooks/checks/pr-body-fidelity-bin.ts
 dc027cb90a29f27f0610e2ce12168369835142bea85ece4591fe4ac5afa6ae84  packages/core/hooks/checks/pr-body-fidelity.test.ts
