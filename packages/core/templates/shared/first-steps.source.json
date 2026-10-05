@@ -18,7 +18,8 @@
     "",
     "Render contract (what the parity fixture enforces): for every step, in order, the render",
     "carries a line `<!-- step: <id> -->` immediately followed by a line whose first bold span is",
-    "exactly `title`. Reordering steps or editing a title in one render only goes RED."
+    "exactly `title`. Reordering steps or editing a title in one render only goes RED.",
+    "Depth sequences describe npm framework layers. Toolchain lanes use toolchainLanes native verification at every profile; missing npm scripts or skills does not make a lane install incomplete."
   ],
   "renders": [
     "packages/core/templates/shared/AI-USAGE-GUIDE.md — AI render (C1, this repo; parity-gated)",
@@ -32,49 +33,49 @@
         {
           "id": "install",
           "title": "Install at core depth",
-          "action": "From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup cargo` or `bash install.sh cargo`, the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
+          "action": "On npm stack layers: From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup cargo` or `bash install.sh cargo`, the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
           "evidence": "install.sh; setup.d/30-templates.sh"
         },
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls AGENTS.md .ai-factory/ scripts/` — you should see AGENTS.md, `.ai-factory/{DESCRIPTION.md,ARCHITECTURE.md,RULES.md}` and `scripts/audit-ai-docs.sh`. Nothing here is optional; a missing file means the install did not finish.",
+          "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` — you should see AGENTS.md, `.ai-factory/{DESCRIPTION.md,ARCHITECTURE.md,RULES.md}` and `scripts/audit-ai-docs.sh`. These payload requirements apply to npm stacks; toolchain lanes use their native payload lists. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "tests/install-sh/f8d-ai-factory-sot-materialized.test.sh"
         },
         {
           "id": "fill-passport",
           "title": "Fill the project passport",
-          "action": "Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md` (domain, stack, constraints, non-goals). This is the file AGENTS.md sends every future session to first, so a passport left unfilled degrades every later session.",
+          "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md` (domain, stack, constraints, non-goals). This is the file AGENTS.md sends every future session to first, so a passport left unfilled degrades every later session. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
         },
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
+          "action": "On npm stack layers: `bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "scripts/check-rule-globs.sh (shipped at core; verified in a temp consumer 2026-08-08)"
         },
         {
           "id": "watch-a-rule-fire",
           "title": "Watch a rule actually fire",
-          "action": "`bash scripts/check-fences-fire.sh` — plants deliberately-bad input in a temp dir and asserts the installed ESLint rules go RED on it. This is the first-rule-fires moment: an installed rule that has never been seen to fire is an unproven claim.",
+          "action": "On npm stack layers: `bash scripts/check-fences-fire.sh` — plants deliberately-bad input in a temp dir and asserts the installed ESLint rules go RED on it. This is the first-rule-fires moment: an installed rule that has never been seen to fire is an unproven claim. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "scripts/check-fences-fire.sh (shipped at core; prior-art-evaluations.md#184)"
         },
         {
           "id": "fire-on-your-code",
           "title": "Fire a rule on YOUR code, not a fixture",
-          "action": "Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var(\"X\")`, run `cargo clippy`; go — add `os.Getenv(\"X\")`, run `golangci-lint run`.",
+          "action": "On npm stack layers: Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`).",
           "evidence": "templates/ts-server/eslint.config.mjs:180 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
         },
         {
           "id": "run-the-gate",
           "title": "Run the gate you will run every day",
-          "action": "`bash scripts/audit-ai-docs.sh` — drift + code-vs-docs probes (~10 sec). Expect findings on a fresh project; the INSTALL-FOR-AI «Expected first-run failures» table lists which ones are normal.",
+          "action": "On npm stack layers: `bash scripts/audit-ai-docs.sh` — drift + code-vs-docs probes (~10 sec). Expect findings on a fresh project; the INSTALL-FOR-AI «Expected first-run failures» table lists which ones are normal. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "scripts/audit-ai-docs.sh"
         },
         {
           "id": "research-your-stack",
           "title": "Continue into rule research in the same session",
-          "action": "Invoke `/rule-research` (or read `.claude/agents/rule-researcher.md` on a harness without skills). The installer delivered a curated starter set; researching stack-specific rules from live documentation is the next step of the same lifecycle, not a later project.",
+          "action": "On npm stack layers: Invoke `/rule-research` (or read `.claude/agents/rule-researcher.md` on a harness without skills). The installer delivered a curated starter set; researching stack-specific rules from live documentation is the next step of the same lifecycle, not a later project. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": ".claude/skills/rule-research/SKILL.md (shipped at core)"
         }
       ]
@@ -86,37 +87,37 @@
         {
           "id": "install",
           "title": "Install at env depth",
-          "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and every core artefact stays byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach for `--refresh` to upgrade: it re-delivers fixes to what you already have and does not reliably deepen an install — on a `core` project `--refresh --profile env` exits 0 while `tier-home.md` and `.claude/skills/arch/` stay absent.",
-          "evidence": "install.sh:1342-1350 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (the worktree-scripts arm at install.sh:1251-1256 was ungated and delivered 4 env-tier scripts on a core project; it has carried the env|factory|presence gate since #1334, so that depth-boundary defect is closed); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
+          "action": "On an npm layer, re-run `bash <getff>/install.sh <stack> --profile env`, or explicitly opt in with `--refresh --profile env`. Bare --refresh preserves existing depth. Toolchain lanes use native verification instead of the npm skill roster.",
+          "evidence": "install.sh do_refresh; setup.d/10-skills.sh; setup.d/30-templates.sh; tests/install-sh/install-refresh-tty-guard.test.sh"
         },
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.",
+          "action": "On npm stack layers: `ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "setup.d/30-templates.sh (tier-home at env+); verified in a temp consumer 2026-08-08"
         },
         {
           "id": "fill-passport",
           "title": "Fill the project passport",
-          "action": "Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`.",
+          "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
         },
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
+          "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
         },
         {
           "id": "read-tier-home",
           "title": "Read the tier + degradation SSOT",
-          "action": "Open `.ai-factory/tier-home.md`. It owns the Tier 0/1/2 routing criteria and the capability-absence degradation matrix — what still works when there is no aif runtime, no executor-tier model, or a non-Claude-Code harness. AGENTS.md only points here; the criteria live in this one file.",
+          "action": "On npm stack layers: Open `.ai-factory/tier-home.md`. It owns the Tier 0/1/2 routing criteria and the capability-absence degradation matrix — what still works when there is no aif runtime, no executor-tier model, or a non-Claude-Code harness. AGENTS.md only points here; the criteria live in this one file.",
           "evidence": "packages/core/templates/shared/tier-home.md §2, §3"
         },
         {
           "id": "arch-one-idea",
           "title": "Take one idea through `/arch`",
-          "action": "Invoke `/arch <topic>` — the external design contour turns a raw idea into a reviewed design plus a routed handoff. On a harness without skills, read `.claude/skills/arch/SKILL.md` and follow it by hand.",
+          "action": "On npm stack layers: Invoke `/arch <topic>` — the external design contour turns a raw idea into a reviewed design plus a routed handoff. On a harness without skills, read `.claude/skills/arch/SKILL.md` and follow it by hand.",
           "evidence": ".claude/skills/arch/SKILL.md (shipped at env+; verified in a temp consumer 2026-08-08)"
         }
       ]
@@ -128,49 +129,49 @@
         {
           "id": "install",
           "title": "Install at factory depth",
-          "action": "`bash <getff>/install.sh <stack> --profile factory`. Pick this ONLY if this machine runs the aif-handoff operator runtime — the factory payload dead-ends without it.",
+          "action": "On npm stack layers: `bash <getff>/install.sh <stack> --profile factory`. Pick this ONLY if this machine runs the aif-handoff operator runtime — the factory payload dead-ends without it.",
           "evidence": "install.sh; INSTALL-FOR-AI.md «Install depth profiles»"
         },
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/` and `.claude/skills/claude-glm-executor-handoff/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there.",
+          "action": "On npm stack layers: `ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/` and `.claude/skills/claude-glm-executor-handoff/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "setup.d/10-skills.sh; verified in a temp consumer 2026-08-08"
         },
         {
           "id": "fill-passport",
           "title": "Fill the project passport",
-          "action": "Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`.",
+          "action": "On npm stack layers: Replace every `<PLACEHOLDER>` in `.ai-factory/DESCRIPTION.md`. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "packages/core/templates/shared/DESCRIPTION.template.md"
         },
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
+          "action": "On npm stack layers: `bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
           "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
         },
         {
           "id": "read-tier-home",
           "title": "Read the tier + degradation SSOT",
-          "action": "Open `.ai-factory/tier-home.md` — it decides which tier a task routes to, and what degrades when a capability is absent.",
+          "action": "On npm stack layers: Open `.ai-factory/tier-home.md` — it decides which tier a task routes to, and what degrades when a capability is absent.",
           "evidence": "packages/core/templates/shared/tier-home.md §2, §3"
         },
         {
           "id": "write-a-kickoff",
           "title": "Write your first kickoff",
-          "action": "Create `.ai-factory/orchestrator-prompts/<work-item>/kickoff.md`: a `Type:` line (`fix` / `research` / `feature`), the goal, and — if the work splits into parallel sub-steps — a `## §1 Sub-wave` section with one table row per sub-step.",
+          "action": "On npm stack layers: Create `.ai-factory/orchestrator-prompts/<work-item>/kickoff.md`: a `Type:` line (`fix` / `research` / `feature`), the goal, and — if the work splits into parallel sub-steps — a `## §1 Sub-wave` section with one table row per sub-step.",
           "evidence": "setup.d/30-templates.sh (creates .ai-factory/orchestrator-prompts/)"
         },
         {
           "id": "run-pipeline",
           "title": "Ask the pipeline what to start next",
-          "action": "Invoke `/pipeline`. It reads your kickoffs plus `.ai-factory/orchestrator-prompts/plan.md` (created on first run), ranks them, and emits a launch table. An empty backlog reports «nothing queued» — that is normal, not an error.",
+          "action": "On npm stack layers: Invoke `/pipeline`. It reads your kickoffs plus `.ai-factory/orchestrator-prompts/plan.md` (created on first run), ranks them, and emits a launch table. An empty backlog reports «nothing queued» — that is normal, not an error.",
           "evidence": ".claude/skills/pipeline/SKILL.md (shipped at env+; verified in a temp consumer 2026-08-08)"
         },
         {
           "id": "dispatch-one",
           "title": "Dispatch the top row and read the result",
-          "action": "Dispatch the launch table's top row, then bring the finished branch back with `/harvest`. If a task stalls or the runtime misbehaves, `/aif-doctor` is the diagnostic entry point.",
+          "action": "On npm stack layers: Dispatch the launch table's top row, then bring the finished branch back with `/harvest`. If a task stalls or the runtime misbehaves, `/aif-doctor` is the diagnostic entry point.",
           "evidence": ".claude/skills/harvest/SKILL.md; .claude/skills/aif-doctor/SKILL.md (shipped at factory)"
         }
       ]
@@ -264,5 +265,48 @@
         "doneTest": "the report carries exactly one line per step id, each reading «done» with a check command or «not done» with a reason"
       }
     ]
+  },
+  "toolchainLanes": {
+    "python": {
+      "verification": [
+        "set -e",
+        "test -f AGENTS.md",
+        "test -f .ai-factory/DESCRIPTION.md",
+        "test -f .ai-factory/ARCHITECTURE.md",
+        "test -f .ai-factory/RULES.md",
+        "test -d .getff/astgrep-rules",
+        "test -f .getff/ruff-bans.toml",
+        "for getff_rule in .getff/astgrep-rules/*.yml; do\n  test -f \"$getff_rule\"\n  ast-grep scan --rule \"$getff_rule\" .\ndone",
+        "ruff check .",
+        "ruff check . --config .getff/ruff-bans.toml --no-cache"
+      ],
+      "guideSection": "§2.4"
+    },
+    "cargo": {
+      "verification": [
+        "set -e",
+        "test -f .github/workflows/getff-cargo.yml",
+        "clippy_config_dir=$(mktemp -d)",
+        "trap 'rm -rf \"$clippy_config_dir\"' EXIT",
+        "if [ -f getff-clippy.toml ]; then",
+        "  cp getff-clippy.toml \"$clippy_config_dir/clippy.toml\"",
+        "else",
+        "  cp clippy.toml \"$clippy_config_dir/clippy.toml\"",
+        "fi",
+        "CLIPPY_CONF_DIR=\"$clippy_config_dir\" cargo clippy --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros"
+      ],
+      "guideSection": "§2.4"
+    },
+    "go": {
+      "verification": [
+        "set -e",
+        "test -f .github/workflows/getff-go.yml",
+        "getff_go_config=.golangci.yml",
+        "[ ! -f getff-golangci.yml ] || getff_go_config=getff-golangci.yml",
+        "test -f \"$getff_go_config\"",
+        "golangci-lint run --enable forbidigo --config \"$getff_go_config\" ./..."
+      ],
+      "guideSection": "§2.4"
+    }
   }
 }

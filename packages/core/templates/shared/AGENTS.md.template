@@ -15,21 +15,22 @@ See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, for
 
 ## Project rules (enforced by lint, tests, CI, audit-ai-docs)
 
-`.ai-factory/RULES.md` is the rule list and the only place rules are stated — R1–R11 for every stack, plus R12–R20 for React/Next (`.ai-factory/RULES.react-next.md`) and IR1–IR6 for microservices (`.ai-factory/rules/integration-rules.md`). Each rule names its own enforcement channel there. Read it before your first edit; do not rely on a summary.
+Read the delivered `.ai-factory/RULES.md` for this layer. On npm stacks it lists R1–R11, plus R12–R20 for React/Next (`.ai-factory/RULES.react-next.md`) and IR1–IR6 for microservices (`.ai-factory/rules/integration-rules.md`). Each rule names its own enforcement channel there. Read it before your first edit; do not rely on a summary.
 
-**Runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set; R2 (validation at boundaries) stays unconditional.
+**On npm stacks, runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set; R2 (validation at boundaries) stays unconditional.
 
 ## Environment layer — which depth is installed here
 
-The framework installs at one of three monotonic depths. **No flag is recorded on disk, so detect the depth by what is present** — then read only the row that matches:
+Npm framework layers have three monotonic depths; toolchain lanes have their own payload. Detect the installed layer from files, then detect npm depth where that layer is present. A Python install does not gain npm env/factory skills from the profile flag alone. On polyglot projects, apply the native checks as well as the npm row.
 
-| Detect (from the project root)                                            | Depth     | What the environment layer gives you here                                                                                                                                                                                                                                                                                                                         |
-| ------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/audit-ai-docs.sh` present, `.ai-factory/tier-home.md` **absent** | `core`    | Rules + tests + gate hooks + CI. No model-tier routing surface is installed, so tier-routing instructions do not apply to this project.                                                                                                                                                                                                                           |
-| `.ai-factory/tier-home.md` **and** `.claude/skills/arch/` present         | `env`     | core + the multi-model contour surface: tier-routing criteria on disk, and the `/arch` design contour.                                                                                                                                                                                                                                                            |
-| also `.claude/skills/dispatcher/` present                                 | `factory` | env + the 5-skill operator suite (`dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`) **and the two factory-gated sub-agents** (`.claude/agents/orchestrator-worker-discipline.md`, `.claude/agents/reviewer-discipline.md` — every other shipped agent installs from `core` up). Presupposes the aif-handoff runtime on this machine. |
+| Detect (from the project root)                                                       | Depth       | What the environment layer gives you here                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm audit script absent; `.getff/astgrep-rules/` or a `.getff-*-install.log` present | `toolchain` | Native lint/config layer; Python also has project context, four research skills and two rule agents. See the toolchain walkthrough in `.ai-factory/AI-USAGE-GUIDE.md` §2.4 when delivered. Cargo/Go install no context/skills surface.                                                                                                                          |
+| `scripts/audit-ai-docs.sh` present, `.ai-factory/tier-home.md` **absent**            | `core`      | Rules + tests + gate hooks + CI. No model-tier routing surface is installed, so tier-routing instructions do not apply to this project.                                                                                                                                                                                                                         |
+| `.ai-factory/tier-home.md` **and** `.claude/skills/arch/` present                    | `env`       | core + the multi-model contour surface: tier-routing criteria on disk, and the `/arch` design contour.                                                                                                                                                                                                                                                          |
+| also `.claude/skills/dispatcher/` present                                            | `factory`   | env + the 5-skill operator suite (`dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`) **and the two factory-gated sub-agents** (`.claude/agents/orchestrator-worker-discipline.md`, `.claude/agents/reviewer-discipline.md` — other npm-surface agents install from `core` up). Presupposes the aif-handoff runtime on this machine. |
 
-**Criteria and degradations live in ONE file, not here.** When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no executor-tier model subscription, no top-tier advisor model, non-Claude-Code harness), the authoritative criteria **and** the per-capability degradation matrix are `.ai-factory/tier-home.md` (§2 criteria, §3 degradations). This file states no criterion and no degradation row — open that file. On a `core` install it is absent by design: nothing above the lint / hook / CI layers was installed, so there is no tier system to degrade.
+**Criteria and degradations live in ONE file, not here.** When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no executor-tier model subscription, no top-tier advisor model, non-Claude-Code harness), the authoritative criteria **and** the per-capability degradation matrix are `.ai-factory/tier-home.md` (§2 criteria, §3 degradations). This file states no criterion and no degradation row — open that file only when present. It is absent on npm `core` and on Python at every profile: nothing above the lint / hook / CI layers was installed, so there is no tier system to degrade.
 
 **Lifecycle past install** — `.ai-factory/AI-USAGE-GUIDE.md`: First Steps for each depth, the daily cycle, harness portability, and what is not shipped yet (named with an owner, not described as if it existed).
 
@@ -37,9 +38,11 @@ The framework installs at one of three monotonic depths. **No flag is recorded o
 
 ## Workflow
 
-### Gate before commit / PR (always present — shipped by this installer)
+### Gate before commit / PR — use the installed layer
 
-Before every commit or PR, run the gate this installer actually ships:
+On a toolchain lane, run the native checks in the guide's §2.4: Python uses ast-grep and Ruff, cargo uses the selected getff Clippy bans, Go uses the selected golangci config. Python's local hook is `.getff/hooks/pre-push`, unless the install log says it was kept or disabled; cargo/Go do not ship Husky hooks. Missing tools mean firing is **not proven**. CI is authoritative only when a workflow actually runs these checks and branch protection requires it.
+
+The following scripts and Husky hooks belong to npm stack installs. Run the ones actually delivered:
 
 - **`./scripts/audit-ai-docs.sh`** — drift + code-vs-docs probes (~10 sec). Run it before you commit.
 - **`./scripts/check-rule-globs.sh`** — fails if a custom ESLint rule (R2 always; R7/R8 under `AIF_STRICT_RUNTIME=1`) matches **zero** source files, i.e. is silently inert against your layout. Wired into `npm run validate` and the shipped CI `lint` job. Widening the globs, monorepo shadowing-package FAIL/WARN semantics, and the brownfield-CI case where the gate runs local-only: `.ai-factory/AI-USAGE-GUIDE.md` §3.1.
@@ -48,7 +51,7 @@ Before every commit or PR, run the gate this installer actually ships:
 - The **pre-push hook** (`.husky/pre-push`) fires automatically on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links). It does not run your typecheck or your tests.
 - **CI** gates the PR (`ci-success` required check). This is the last-resort authority that does not depend on local tooling.
 
-These are unconditional — they ship with the project and need no extra install.
+A generic stack-free layer has the docs audit, but no npm rule/hook bundle. Toolchain-only installs need none of these npm scripts; their absence is expected.
 
 ### Structural code search (ast-grep)
 
@@ -58,7 +61,7 @@ For structure-aware queries — counting real array/object members, finding lang
 
 - `git commit --no-verify` — bypassing pre-commit/pre-push hooks.
 - `git push -f` to `main`.
-- Skipping `./scripts/audit-ai-docs.sh` / the pre-push hook before PR.
+- Skipping an installed native or npm gate before PR.
 - Adding rules to AGENTS.md / RULES.md without a measurable check.
 
 ## Orchestration — backlog & /pipeline
@@ -68,7 +71,7 @@ For structure-aware queries — counting real array/object members, finding lang
 - **Kickoffs / handoffs** (one task-brief per work item): `.ai-factory/orchestrator-prompts/<work-item-name>/kickoff.md`
 - **Backlog plan** (priority registry across all work items): `.ai-factory/orchestrator-prompts/plan.md`
 - These paths are harness-agnostic (`.ai-factory/`, not `.claude/`) so the backlog stays portable across Claude Code / Cursor / Codex / Aider.
-- Kickoff format and how a task is dispatched: `.ai-factory/AI-USAGE-GUIDE.md` §2.3 (`factory` depth only — a `core` install ships no dispatch surface). The ranking criteria themselves are `/pipeline`'s own; read `.claude/skills/pipeline/SKILL.md` for them.
+- Kickoff format and how a task is dispatched: `.ai-factory/AI-USAGE-GUIDE.md` §2.3 (`factory` depth only — a `core` install ships no dispatch surface). The ranking criteria themselves are `/pipeline`'s own; read `.claude/skills/pipeline/SKILL.md` for them only when installed. Native-only Python has no pipeline or dispatch roster; continue through its delivered rule-research skill instead.
 
 ## Rule research — continue post-install and on demand
 
@@ -84,8 +87,8 @@ These skills are installed under `.claude/skills/` and **auto-activate on releva
 - **`getff`** — five-layer framework (architecture / meta-tests / spec by example / mutation / living docs), plus 5 reference docs in `references/`. On Claude Code, auto-triggers on questions about ESLint, Stryker, Pact, dependency-cruiser, AI-driven code drift.
 - **`tool-bootstrapping`** — when project deps change, analyses the stack for MCP/skill fit, proposes a confirmation list, persists accepted/rejected decisions in `.ai-factory/tool-decisions.md`.
 - **`rule-research`** / **`rule-tests`** — bootstrap rules from live documentation; write or repair the firing test material that proves a rule fires.
-- **`ai-doc`** / **`template-audit`** — AI-doc authoring standard; local advisory audit of the shipped templates.
-- At `env` depth also **`arch`**, `night-mode`, `orchestrator`, `pipeline`, `reviewer`; at `factory` depth also `dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`.
+- **npm layer only: `ai-doc`** / **`template-audit`** — AI-doc authoring standard; local advisory audit of the shipped templates.
+- On npm layers at `env` depth also **`arch`**, `night-mode`, `orchestrator`, `pipeline`, `reviewer`; at `factory` depth also `dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`.
 
 > On other harnesses (Cursor, Codex CLI, Aider, Windsurf, Roo Code) skills do **not** auto-activate — load the skill manually / read its `SKILL.md` when the topic comes up.
 
@@ -93,7 +96,7 @@ Add additional project skills here as you create them. Don't list a skill until 
 
 ## Sub-agents (Claude Code)
 
-Installed in `.claude/agents/` — read the file itself for each one's protocol:
+Python installs `rule-researcher` and `rule-test-author` only. The npm layer additionally installs the other agents below; read only files actually present in `.claude/agents/`:
 
 - **`review-sidecar`** — two-AI tautology review; reads tests as an external reviewer with no memory of how they were written.
 - **`living-docs-auditor`** — runs `scripts/audit-ai-docs.sh` and interprets PASS/FAIL (drift + code-vs-docs).
@@ -102,7 +105,7 @@ Installed in `.claude/agents/` — read the file itself for each one's protocol:
 
 ## Test + validate commands
 
-`package.json` owns the script list the installer wrote — run `npm run` to see it. The ones you will use daily:
+On npm stack installs, `package.json` owns the script list the installer wrote — run `npm run` to see it. The ones you will use daily:
 
 ```bash
 npm run validate   # typecheck + lint + format:check + arch:check + audit:docs + test (parallel)
@@ -120,7 +123,7 @@ npm run test-storybook             # Storybook test runner — needs @storybook/
 npx playwright test                # E2E — react-next config only; needs @playwright/test
 ```
 
-## Stack constraints (enforced)
+## Npm stack constraints (enforced)
 
 - TypeScript strict + `noUncheckedIndexedAccess`; Node.js version pinned in `.nvmrc` (CI depends on it).
 - ESLint 10 flat config — `eslint.config.mjs`.
