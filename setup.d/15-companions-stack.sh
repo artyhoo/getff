@@ -20,10 +20,14 @@
 
 MANIFEST="$PKG_ROOT/setup.d/companions.manifest"
 
-# Stack detection lives in lib.sh (_detect_stack_from_pkg) — SSOT shared with the install.sh
-# stack-pick (GH #780 fresh-install auto-detect). lib.sh is sourced before this layer (install.sh
-# sources lib.sh at the top, then the numbered layers), so the function is in scope here. The
-# detector is node-free (grep-based) per the install-time node-optional repo-read model.
+# Stack detection lives in lib.sh (_detect_stack_name / _detect_stack_from_pkg) — SSOT shared
+# with the install.sh stack-pick (GH #780 fresh-install auto-detect). lib.sh is sourced before
+# this layer (install.sh sources lib.sh at the top, then the numbered layers), so the functions
+# are in scope here. The detector is node-free (grep/stat-based) per the install-time
+# node-optional repo-read model. W2: this report line shows the detected NAME (astro /
+# svelte-kit / …), not its preset projection — a named framework matches only the stacks=*
+# rows (no row lists it), which is exactly the generic-like selection §3.2 of the W2 plan
+# prescribes for preset-bound layers; `unknown` keeps the historic include-all fallback.
 
 # _stack_matches <stacks_field> <detected_stack>
 # Returns 0 (true) if the stacks field covers the detected stack.
@@ -47,7 +51,7 @@ if [ ! -f "$MANIFEST" ]; then
   return 0 2>/dev/null || true
 fi
 
-DETECTED_STACK=$(_detect_stack_from_pkg)
+DETECTED_STACK=$(_detect_stack_name)
 
 echo "  ▶ Stack-aware companion selection (detected: $DETECTED_STACK)"
 

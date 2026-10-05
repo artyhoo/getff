@@ -754,6 +754,8 @@ jobs:
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
+      - name: Run install-sh W2 stack-detect-by-files test (one-button W2 — files-before-keys detector + layer-80 linter gate)
+        run: bash tests/install-sh/w2-stack-detect-by-files.test.sh
       - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)

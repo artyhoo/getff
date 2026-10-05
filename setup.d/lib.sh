@@ -2120,14 +2120,38 @@ detect_pm() {
   printf '%s' "$_pm"
 }
 
-# _detect_stack_from_pkg — classify the consumer's stack from package.json dependency signals.
-# Pure bash + grep, NODE-FREE: install.sh runs BEFORE the consumer installs deps, so this must not
-# depend on `node` being present (node-optional install-time repo-read model — same posture as
+# _detect_stack_name [target] — classify the consumer's stack from the project's FILES (framework
+# config files) plus package.json manifest keys, into a NAME (one-button W2, stack-detect-by-files).
+# Pure bash + grep/stat, NODE-FREE: install.sh runs BEFORE the consumer installs deps, so this must
+# not depend on `node` being present (node-optional install-time repo-read model — same posture as
 # detect_pm above, packages/core/audit-self/detect-r2-boundary.sh, and the expo-detect in
-# setup.d/40-configs.sh, all of which read package.json with grep, not node).
-# SSOT — this is the single stack detector; both the install.sh stack-pick (fresh `--yes`/`--full`
-# auto-detect, GH #780) and 15-companions-stack.sh consume it, so the signal logic never drifts.
-# Signal order is most-specific-first: react-native → next → react → typescript → unknown.
+# setup.d/40-configs.sh, all of which read the repo with grep/stat, not node).
+#
+# Why files, not only the four dependency keys: a manifest key names a LIBRARY, a config file names
+# a SHAPE. A SvelteKit app lists `typescript` (measured: `npx sv create --template minimal --types
+# ts`, 2026-10-05) and the four-key ladder answered `ts-server` — a Node-server preset on a
+# SvelteKit app, the exact wrong-shape install this function exists to stop. Framework shape is
+# checked BEFORE the generic dependency keys, so a framework project never gets a preset whose
+# shape it does not have, however many generic keys it lists.
+#
+# Ladder, most-specific-first (each rung measured against a real scaffold — see the W2 PR body):
+#   react-native  «react-native» dependency key (unchanged #780 signal; cannot co-occur with the
+#                 framework files below in any real project)
+#   astro         astro.config.{mjs,js,ts,cjs,json} present. FILE-only, deliberately: every
+#                 create-astro template writes the config, while the «astro» KEY is unusable —
+#                 create-astro also writes a SCRIPTS key "astro": "astro dev" (measured), so the
+#                 key-anchor would fire on the scripts block of every Astro project and on nothing
+#                 else useful; the file is the honest signal.
+#   svelte-kit    «@sveltejs/kit» dependency key (scoped — cannot collide with a scripts key), OR
+#                 a svelte.config.{js,ts,mjs} AND src/routes/ (the kit directory shape; measured:
+#                 sv create's minimal template writes NO svelte.config.js, so the key is the
+#                 primary signal and the file-pair the fallback for shapes that hoist it).
+#   svelte        svelte.config.{js,ts,mjs} without kit — the vite-svelte shape. Named (not
+#                 `unknown`) so its research file and report lines can say what it is.
+#   react-next    «next» key (unchanged) · react-spa «react» key (unchanged) ·
+#   ts-server     «typescript» key (unchanged — now only reached when NO framework shape matched)
+#   unknown       no signal at all.
+#
 # The grep anchor '"<dep>"[[:space:]]*:' matches a package.json dependency KEY exactly (the closing
 # quote excludes prefixes — '"react"' does NOT match '"react-native":' / '"react-dom":', and a
 # string VALUE like "next build" is not matched — there is no '"next":' key there).
@@ -2136,20 +2160,55 @@ detect_pm() {
 # consumer package.json this is equal-or-more-inclusive and never the #780 "silent wrong install"
 # failure (an app peer-depending on next is next-related); the install path fail-louds only on
 # `unknown`, never on a mis-detect.
-# Reads <target>/package.json (target defaults to $PROJECT_ROOT). Echoes exactly one of:
-#   react-native | react-next | react-spa | ts-server | unknown
-# I-2 (§13.5): the optional <target> arg lets the per-workspace walk (_detect_stacks_per_workspace)
-# classify each workspace dir; the no-arg form is unchanged (back-compat — the I-1 install stack-pick
-# and 15-companions-stack.sh both call it no-arg → $PROJECT_ROOT).
-_detect_stack_from_pkg() {
+# Reads <target> (defaults to $PROJECT_ROOT). Echoes exactly one of:
+#   react-native | react-next | react-spa | ts-server | astro | svelte-kit | svelte | unknown
+_detect_stack_name() {
   local target="${1:-$PROJECT_ROOT}"
   local pkg="$target/package.json"
   [ -f "$pkg" ] || { echo "unknown"; return; }
-  if   grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"
-  elif grep -qE '"next"[[:space:]]*:'         "$pkg"; then echo "react-next"
-  elif grep -qE '"react"[[:space:]]*:'        "$pkg"; then echo "react-spa"
-  elif grep -qE '"typescript"[[:space:]]*:'   "$pkg"; then echo "ts-server"
+  if grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"; return; fi
+  local f
+  for f in astro.config.mjs astro.config.js astro.config.ts astro.config.cjs astro.config.json; do
+    if [ -f "$target/$f" ]; then echo "astro"; return; fi
+  done
+  if grep -qE '"@sveltejs/kit"[[:space:]]*:' "$pkg"; then echo "svelte-kit"; return; fi
+  for f in svelte.config.js svelte.config.ts svelte.config.mjs; do
+    if [ -f "$target/$f" ] && [ -d "$target/src/routes" ]; then echo "svelte-kit"; return; fi
+  done
+  for f in svelte.config.js svelte.config.ts svelte.config.mjs; do
+    if [ -f "$target/$f" ]; then echo "svelte"; return; fi
+  done
+  if   grep -qE '"next"[[:space:]]*:'       "$pkg"; then echo "react-next"
+  elif grep -qE '"react"[[:space:]]*:'      "$pkg"; then echo "react-spa"
+  elif grep -qE '"typescript"[[:space:]]*:' "$pkg"; then echo "ts-server"
   else echo "unknown"; fi
+}
+
+# _name_to_preset <name> — project a _detect_stack_name answer onto the PRESET selector space: the
+# four npm presets pass through; every other name (astro | svelte-kit | svelte | unknown) projects
+# to `unknown`. The preset-bound layers (install.sh arms, 30/40/50/60/70) keep seeing only preset
+# space, so a framework getff has no preset for is installed exactly like `generic` — the NAME
+# travels separately (STACK_NAME, install.sh) for the report, the research-file key and the
+# NOT-wired lines (W2 §3.2: a stack getff has no preset for gets a NAME).
+_name_to_preset() {
+  case "$1" in
+    react-native|react-next|react-spa|ts-server) echo "$1" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+# _detect_stack_from_pkg — the PRESET-SPACE detector (W2: the projection of _detect_stack_name).
+# SSOT — this is the single stack detector; both the install.sh stack-pick (fresh `--yes`/`--full`
+# auto-detect, GH #780) and 15-companions-stack.sh consume it, so the signal logic never drifts
+# (the ladder lives once, in _detect_stack_name above). Echoes exactly one of:
+#   react-native | react-next | react-spa | ts-server | unknown
+# I-2 (§13.5): the optional <target> arg lets the per-workspace walk (_detect_stacks_per_workspace)
+# classify each workspace dir; the no-arg form is unchanged (back-compat — the I-1 install stack-pick
+# and 15-companions-stack.sh both call it no-arg → $PROJECT_ROOT). The per-workspace map stays in
+# preset space deliberately: its consumers place per-stack PRESET configs (40-configs) and route
+# preset synth-wire (99-finalize); a named no-preset workspace degrades like any unrecognized one.
+_detect_stack_from_pkg() {
+  _name_to_preset "$(_detect_stack_name "${1:-$PROJECT_ROOT}")"
 }
 
 # _workspace_pkg_dirs [root] — enumerate workspace package directories (those that contain a
@@ -3685,6 +3744,27 @@ project_linter() {
     echo eslint; return 0
   fi
   echo none
+}
+
+# project_lint_command <dir> — the project's scripts.lint string, '' when absent/empty (W2: the
+# «drivable lint command» half of the 80-rule-bootstrap gate; the other half is project_linter).
+# Node reads it exactly (mirrors project_linter's scripts.lint read); without node, a grep
+# presence check stands in — a lint key with an EMPTY string value is pathological, and the
+# caller treats '' as not-drivable, so the fallback can only under-report in that corner, never
+# let a lint-less project through. What «drivable» means is defined by the consumer the gate
+# serves: scripts/prove-rules.mjs lintShape (kind 'none' when scripts.lint is absent or blank —
+# its realLint has nothing to append to), so this helper answers the same question the proof asks.
+project_lint_command() {
+  local dir="$1"
+  if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1; then
+    GETFF_PKG="$dir/package.json" node -e '
+      try { const s = (JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {}).lint;
+        if (typeof s === "string" && s.trim()) console.log(s); } catch {}' 2>/dev/null
+  elif [ -f "$dir/package.json" ]; then
+    grep -qE '"lint"[[:space:]]*:[[:space:]]*"[^"]' "$dir/package.json" && echo "(lint key present)"
+    return 0
+  fi
+  return 0
 }
 
 # project_formatter <dir> — the formatter the project in <dir> has: prettier | biome | dprint | none.
