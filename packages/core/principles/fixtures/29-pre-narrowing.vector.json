@@ -2,8 +2,6 @@
   "vectorSourceCommit": "599aad09bddcbea7eca9734547e0926c280f8abc",
   "note": "Vendored 2026-10-05: the squash merge of plain-words-recap-v2 (#2030) deleted its feature branch, leaving this rebuild SHA unreachable from any fresh clone (staging ci-success RED, run 37220805585). Byte-derived from git show at the pinned commit; the re-derivation arm in 29-worker-dispatch-channel.test.ts reads this file instead of dereferencing git.",
   "vector": {
-    ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md": [
-      205
-    ]
+    ".claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s5.md": [205]
   }
 }
