@@ -34,9 +34,7 @@ const REPO_ROOT = resolve(HERE, '../../../');
  */
 const EXEMPT_SKILLS: readonly string[] = [
   '.claude/skills/self-reflection/SKILL.md',
-  '.claude/skills/template-audit/SKILL.md',
   '.claude/skills/tool-bootstrapping/SKILL.md',
-  'skills/getff/SKILL.md',
   'skills/tool-bootstrapping/SKILL.md',
 ];
 

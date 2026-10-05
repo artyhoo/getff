@@ -1,8 +1,8 @@
 ---
 name: harvest
-description: Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).
+description: 'Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).'
 arguments: [taskId]
-argument-hint: "[aif-taskId-or-branch]"
+argument-hint: '[aif-taskId-or-branch]'
 disable-model-invocation: true
 model: opus
 allowed-tools:
@@ -12,7 +12,7 @@ allowed-tools:
   - Bash(npx *)
   - Bash(bash *)
   - Bash(docker *)
-  - Bash(curl *)   # GH #1704: §1 step-0 host-side bridge-health preflight
+  - Bash(curl *) # GH #1704: §1 step-0 host-side bridge-health preflight
   - Read
 ---
 

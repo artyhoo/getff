@@ -1,0 +1,14 @@
+# Skill implementation — read-only review receipt
+
+> **Authoritative for:** senior review of this task's actual candidate and its repair/recheck outcome.
+> **NOT authoritative for:** independent model validation, cold-seat certification or Git delivery.
+
+Operator-invoked skill: `/Users/art/.codex/skills/.system/review-agent/SKILL.md`. Applicable AGENTS, spec, audit and real helpers/installers were read. No review delegated; no source writes, commits or external publication while in review role. Source repair and read-only review were separate phases in this author session.
+
+Round 1: **[P2] Remove literal diff markers from the API-harvest command — .claude/skills/dispatcher/references/execution.md:243.** The multiline command contained literal `+` arguments, so the helper treated one as a source path and failed before producing the commit. The frozen pre-fix snippet reproduced exit 2 with the existing gh stub. Returned to author phase, removed the markers and executed the documented two-file command: exit 0, both explicit paths in the minted Git Data tree, no live API call.
+
+Final pass: **No findings.** Checked all 18 changed entrypoints, all moved procedures against their originals, concrete edited sections, generated ownership and helper interfaces, all eight test diffs/negative controls, conditional reachability, authorization/stop/chip rules, metadata values, pinned upstream files and actual receipts. All 83 original top-level sections remain present; doctor §6's heading link changed relative depth, not content. Existing test assertions were retargeted to their actual procedure owners, with card-reachability checks; they were not removed to obtain green.
+
+Accepted deterministic A1–A5 as recorded in [the result](../../audits/2026-10-05-skills-repair-result.md). F9 stays OPEN. This is an author-session read-only review, not an independent cold seat. Full live aif dispatch/repair, cross-harness execution and model routing were not exercised. Three initial parallel shell-test failures passed the isolated rerun without weakened checks. Administrative delivery changes require their own factual verification; a green merge does not prove byte identity.
+
+Delivery-gate follow-up: pre-commit found three blank-landed harness-posture citations. Senior author repaired all copied migrated marker pointers and the obsolete dispatcher single-file comment, then read-only reviewed the complete ten-file delta: **No findings.** Procedure targets inspected, formatting and citation gate passed, principle 21 passed 24/24. No substantive behavior or gate assertion changed. Accepted refreshed manifest/patch identity in the result.
