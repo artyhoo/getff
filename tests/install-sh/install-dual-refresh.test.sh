@@ -8,6 +8,7 @@ TMP=$(mktemp -d); trap '[ -n "${KEEP_FIXTURES:-}" ] || rm -rf "$TMP"' EXIT
 echo "Fixtures: $TMP"
 PASS=0; FAIL=0
 check() { if "$@"; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); echo "FAIL: $*"; fi; }
+fail() { cat "$TMP/seed.log"; exit 1; }
 mkdir "$TMP/bin"
 for pm in npm pnpm yarn; do printf '#!/bin/sh\necho called >> "$PM_LOG"\nexit 0\n' > "$TMP/bin/$pm"; chmod +x "$TMP/bin/$pm"; done
 export PATH="$TMP/bin:$PATH" PM_LOG="$TMP/pm.log"
@@ -42,8 +43,8 @@ seed() {
  mkdir -p "$dir"; printf '{"name":"consumer","version":"0.0.0"}\n' > "$dir/package.json"
  printf '[project]\nname="consumer"\nversion="0.0.0"\n' > "$dir/pyproject.toml"
  git -C "$dir" init -q
- (cd "$dir" && bash "$INSTALL_ROOT/install.sh" "$stack" --profile core </dev/null) > "$TMP/seed.log" 2>&1 || { cat "$TMP/seed.log"; exit 1; }
- (cd "$dir" && bash "$INSTALL_ROOT/install.sh" python --profile core </dev/null) >> "$TMP/seed.log" 2>&1 || { cat "$TMP/seed.log"; exit 1; }
+ (cd "$dir" && bash "$INSTALL_ROOT/install.sh" "$stack" --profile core </dev/null) > "$TMP/seed.log" 2>&1 || fail
+ (cd "$dir" && bash "$INSTALL_ROOT/install.sh" python --profile core </dev/null) >> "$TMP/seed.log" 2>&1 || fail
  cp "$dir/scripts/audit-ai-docs.sh" "$dir/npm.expected"
  cp "$dir/.getff/astgrep-rules/getff-no-eval.yml" "$dir/python.expected"
 }
@@ -60,10 +61,11 @@ PYRECORD
  : > "$PM_LOG"
  if [ "$mode" = tty ]; then
   (cd "$dir" && python3 "$TMP/drive-terminal.py" bash "$INSTALL_ROOT/install.sh" --refresh) > "$TMP/$mode.log" 2>&1; rc=$?
+  if [ "$rc" -eq 0 ]; then check true; else check false; fi
  else
   (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh </dev/null) > "$TMP/$mode.log" 2>&1; rc=$?
+  if [ "$rc" -eq 0 ]; then check true; else check false; fi
  fi
- check test "$rc" -eq 0
  check cmp -s "$dir/npm.expected" "$dir/scripts/audit-ai-docs.sh"
  check cmp -s "$dir/python.expected" "$dir/.getff/astgrep-rules/getff-no-eval.yml"
  check test ! -e "$dir/.ai-factory/tier-home.md"
@@ -73,38 +75,44 @@ PYRECORD
  check bash -c '! rg -q "What install depth|What stack|blocked on input" "$1"' _ "$TMP/$mode.log"
  tamper "$dir"
  (cd "$dir" && bash "$INSTALL_ROOT/install.sh" ts-server --refresh </dev/null) > "$TMP/explicit.log" 2>&1
- check test "$?" -eq 0
+ rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
  check cmp -s "$dir/npm.expected" "$dir/scripts/audit-ai-docs.sh"
  check rg -q 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
  tamper "$dir"
  (cd "$dir" && bash "$INSTALL_ROOT/install.sh" python --refresh </dev/null) > "$TMP/explicit-python.log" 2>&1
- check test "$?" -eq 0
+ rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
  check rg -q 'stale npm' "$dir/scripts/audit-ai-docs.sh"
  check cmp -s "$dir/python.expected" "$dir/.getff/astgrep-rules/getff-no-eval.yml"
 done
 # Python + unrelated package.json must not acquire an npm framework layer.
 dir="$TMP/pure"; mkdir "$dir"; printf '{}\n' > "$dir/package.json"; printf '[project]\nname="pure"\nversion="0.0.0"\n' > "$dir/pyproject.toml"
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" python --profile core </dev/null && bash "$INSTALL_ROOT/install.sh" --refresh </dev/null) > "$TMP/pure.log" 2>&1
-check test "$?" -eq 0
+rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
 check test ! -e "$dir/scripts/audit-ai-docs.sh"
 # A generic + Python installation stays generic even though Python supplies RULES.md.
 dir="$TMP/generic"; seed "$dir" generic; tamper "$dir"
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh </dev/null) > "$TMP/generic.log" 2>&1
-check test "$?" -eq 0
+rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
 check cmp -s "$dir/npm.expected" "$dir/scripts/audit-ai-docs.sh"
 check test ! -e "$dir/eslint-rules-local"
 check test ! -e "$dir/packages/core/hooks/pre-push.bundle.mjs"
 # Every previously installed table lane participates; dry-run preserves all bytes.
 dir="$TMP/pipe"; touch "$dir/.getff-cargo-install.log" "$dir/.getff-go-install.log"; tamper "$dir"
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh --dry-run </dev/null) > "$TMP/all.log" 2>&1
-check test "$?" -eq 0
+rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
 for label in Python Rust/cargo Go; do check rg -q "Refreshing getff $label" "$TMP/all.log"; done
 check rg -q 'stale npm' "$dir/scripts/audit-ai-docs.sh"
 check rg -q 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
 # A deleted npm passport must not strand its still-installed enforcement payload.
 rm -f "$dir/.ai-factory/ARCHITECTURE.ts-server.md"
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh --dry-run </dev/null) > "$TMP/no-passport.log" 2>&1
-check test "$?" -eq 0
+rc=$?
+if [ "$rc" -eq 0 ]; then check true; else check false; fi
 check rg -q 'stack: ts-server' "$TMP/no-passport.log"
 check rg -q '\[dry-run\] would refresh: .*pre-push.bundle.mjs' "$TMP/no-passport.log"
 echo "PASS=$PASS FAIL=$FAIL"; test "$FAIL" -eq 0
