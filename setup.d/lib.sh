@@ -1719,7 +1719,13 @@ _lane_write_toolchain_lock() {
   # synthesised, the manifest carries its version and the lock reports it — no code change.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding): a manifest without a "version" key exits grep 1, and one whose grep output
+    # exceeds the 64KiB pipe buffer SIGPIPEs grep through `head -1` (141) — either status aborts
+    # the lane after file delivery but BEFORE this lock write, leaving the `[ -n ] || 'null'`
+    # fallback below dead code for exactly its intended case. Masking the status makes that
+    # fallback reachable; the healthy path's extracted value is unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   # §3a option B / §6 fork 2: derive the per-rule slice from the fragment dir

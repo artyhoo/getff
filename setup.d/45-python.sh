@@ -833,7 +833,13 @@ _py_write_rules_lock() {
   local _ctx="$_synth_dir/generation-context.json"
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding, same fix as lib.sh `_lane_write_toolchain_lock`): a manifest without a
+    # "version" key exits grep 1, and one whose grep output exceeds the 64KiB pipe buffer SIGPIPEs
+    # grep through `head -1` (141) — either status aborts the lane after file delivery but BEFORE
+    # this lock write, leaving the `[ -n ] || 'null'` fallback below dead code for exactly its
+    # intended case. Masking the status makes that fallback reachable; healthy value unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   {
