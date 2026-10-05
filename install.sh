@@ -646,9 +646,9 @@ fi
 # real pty — when the menu ate `n` it exited 1 (16/3 red, when the arm lived in
 # the since-retired gh-636-ensure-tsx-root test). A positional stack signals the user is already on the existing flow;
 # depth selection via `--profile <name>` still works as a flag in that case.
-# The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
+# The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY). REFRESH also skips it: a refresh keeps the depth already on disk (the arm below) — letting the Enter default answer the menu would deepen a deliberate `core` install to `env` (ultra review of #1597, re-verified live 2026-10-05); `--refresh --profile env` is the explicit way up.
 if [ -z "$PROFILE" ]; then
-  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ] && [ -z "$TOOLCHAIN" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ] && [ -z "$TOOLCHAIN" ] && [ -z "$REFRESH" ]; then
     echo "What install depth do you want?"
     echo "  1) core    — rules + tests + guard hooks + killer payload only. No operator contour, no AIF runtime."
     echo "  2) env     — core + the operator working contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD, tier criteria); no AIF runtime. THE DEFAULT."

@@ -886,6 +886,8 @@ jobs:
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: "install-sh — refresh TTY guard (#1597 ultra review: the depth menu must never fire on a --refresh pass — Enter would deepen core→env)"
+        run: bash tests/install-sh/install-refresh-tty-guard.test.sh
       - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
         run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
       - name: "install-sh — no tsx step (the prebuilt pre-push hook needs no tsx; a positional stack skips the profile menu)"
