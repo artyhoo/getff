@@ -12,6 +12,8 @@
 
 ## Stack
 
+Replace these npm starter defaults with the actual installed stack and tools, including Python native tooling where applicable.
+
 - **Runtime:** Node.js 22.23+
 - **Language:** TypeScript 5.7+ (strict + noUncheckedIndexedAccess)
 - **Framework:** <Fastify | Hono | Express | Next.js 15 App Router>
@@ -28,7 +30,9 @@
 
 ## Hard constraints
 
-These are non-negotiable. Enforced by lint/test/CI.
+The following are npm starter examples. Replace every example and default with this project's actual stack, validation, test and native gate constraints; they are not mandatory Python policies.
+
+After replacing the examples, record which constraints the installed lint/test/CI gates actually enforce.
 
 - All external inputs (HTTP body/query, env, message queues, DB rows) parsed via Zod.
 - Domain layer (`src/domain/`) imports stdlib + Zod ONLY — no framework, no infrastructure.
@@ -50,12 +54,12 @@ These are non-negotiable. Enforced by lint/test/CI.
 - DB schema: `<prisma/schema.prisma | drizzle/schema.ts>`
 - API contract: `openapi/<service-name>.yaml` (auto-generated from Zod via `zod-to-openapi`)
 - Architecture decisions: `docs/adr/`
-- Rules R1–R20 (enforced): `.ai-factory/RULES.md`
+- Installed rule list (npm R1–R20 or lane-native rules): `.ai-factory/RULES.md`
 - Layer rules: `.ai-factory/ARCHITECTURE.md`
 
 ## Workflow
 
-Before every commit / PR, run the gate this installer ships (unconditional — needs no extra install):
+Before every commit / PR, run the gates for the layer actually installed. Toolchain lanes use the native checks in `.ai-factory/AI-USAGE-GUIDE.md` §2.4 when that guide is delivered (Python); cargo/Go use the delivered native configs and install log. Missing tools or kept hooks mean enforcement is not proven. The following audit and Husky gates belong to npm stack layers:
 
 - `./scripts/audit-ai-docs.sh` — drift + code-vs-docs probes.
 - the pre-push hook (`.husky/pre-push`) fires on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links), not your typecheck or tests.
@@ -63,7 +67,7 @@ Before every commit / PR, run the gate this installer ships (unconditional — n
 
 For the lifecycle past install — First Steps per install depth, the daily cycle, and what degrades when a capability is absent — see `.ai-factory/AI-USAGE-GUIDE.md`.
 
-Don't bypass the pre-push hook / `./scripts/audit-ai-docs.sh` with `--no-verify`. If a rule is genuinely incompatible — discuss it, don't silently skip.
+Don't bypass an installed native or npm gate with `--no-verify`. If a rule is genuinely incompatible — discuss it, don't silently skip.
 
 ## NDA / security
 
