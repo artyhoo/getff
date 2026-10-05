@@ -356,22 +356,7 @@
         },
         {
           "stack": "python",
-          "lane": "brownfield-ruff",
-          "path": ".ai-factory/ARCHITECTURE.python.md"
-        },
-        {
-          "stack": "python",
           "lane": "brownfield-sgconfig",
-          "path": ".ai-factory/ARCHITECTURE.python.md"
-        },
-        {
-          "stack": "python",
-          "lane": "brownfield-sgconfig",
-          "path": ".ai-factory/ARCHITECTURE.python.md"
-        },
-        {
-          "stack": "python",
-          "lane": "greenfield",
           "path": ".ai-factory/ARCHITECTURE.python.md"
         },
         {
@@ -410,16 +395,32 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "python"
+        ]
       },
       "description": "GitHub Actions CI for the python stack — runs the getff ast-grep structural rules (python-delivery-v0).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 51
       },
-      "installedTo": {
-        "absent": "not-byte-copied"
-      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".github/workflows/getff-python.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".github/workflows/getff-python.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".github/workflows/getff-python.yml"
+        }
+      ],
       "extras": {
         "format": "yml"
       },
@@ -799,6 +800,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -812,6 +815,26 @@
         "line": 95
       },
       "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
         {
           "stack": "python",
           "lane": "brownfield-ruff",
@@ -898,32 +921,12 @@
         },
         {
           "stack": "react-native",
-          "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-native",
           "lane": "greenfield",
           "path": ".ai-factory/ARCHITECTURE.ts-server.md"
         },
         {
           "stack": "react-next",
           "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
           "path": ".ai-factory/ARCHITECTURE.ts-server.md"
         },
         {
@@ -934,16 +937,6 @@
         {
           "stack": "react-spa",
           "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
           "path": ".ai-factory/ARCHITECTURE.ts-server.md"
         },
         {
@@ -954,16 +947,6 @@
         {
           "stack": "ts-server",
           "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
           "path": ".ai-factory/ARCHITECTURE.ts-server.md"
         },
         {
