@@ -70,20 +70,20 @@ PYRECORD
  check cmp -s "$dir/python.expected" "$dir/.getff/astgrep-rules/getff-no-eval.yml"
  check test ! -e "$dir/.ai-factory/tier-home.md"
  check test ! -s "$PM_LOG"
- check rg -q '^stack: ts-server$' "$dir/.ai-factory/tool-decisions.md"
- check bash -c 'sed -n "/^armed:/,/^not-armed:/p" "$1" | rg -q "^- npm run lint$"' _ "$dir/.ai-factory/tool-decisions.md"
- check bash -c '! rg -q "What install depth|What stack|blocked on input" "$1"' _ "$TMP/$mode.log"
+ check grep -Eq '^stack: ts-server$' "$dir/.ai-factory/tool-decisions.md"
+ check bash -c 'sed -n "/^armed:/,/^not-armed:/p" "$1" | grep -Eq "^- npm run lint$"' _ "$dir/.ai-factory/tool-decisions.md"
+ check bash -c '! grep -Eq "What install depth|What stack|blocked on input" "$1"' _ "$TMP/$mode.log"
  tamper "$dir"
  (cd "$dir" && bash "$INSTALL_ROOT/install.sh" ts-server --refresh </dev/null) > "$TMP/explicit.log" 2>&1
  rc=$?
 if [ "$rc" -eq 0 ]; then check true; else check false; fi
  check cmp -s "$dir/npm.expected" "$dir/scripts/audit-ai-docs.sh"
- check rg -q 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
+ check grep -Eq 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
  tamper "$dir"
  (cd "$dir" && bash "$INSTALL_ROOT/install.sh" python --refresh </dev/null) > "$TMP/explicit-python.log" 2>&1
  rc=$?
 if [ "$rc" -eq 0 ]; then check true; else check false; fi
- check rg -q 'stale npm' "$dir/scripts/audit-ai-docs.sh"
+ check grep -Eq 'stale npm' "$dir/scripts/audit-ai-docs.sh"
  check cmp -s "$dir/python.expected" "$dir/.getff/astgrep-rules/getff-no-eval.yml"
 done
 # Python + unrelated package.json must not acquire an npm framework layer.
@@ -105,14 +105,14 @@ dir="$TMP/pipe"; touch "$dir/.getff-cargo-install.log" "$dir/.getff-go-install.l
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh --dry-run </dev/null) > "$TMP/all.log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then check true; else check false; fi
-for label in Python Rust/cargo Go; do check rg -q "Refreshing getff $label" "$TMP/all.log"; done
-check rg -q 'stale npm' "$dir/scripts/audit-ai-docs.sh"
-check rg -q 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
+for label in Python Rust/cargo Go; do check grep -Eq "Refreshing getff $label" "$TMP/all.log"; done
+check grep -Eq 'stale npm' "$dir/scripts/audit-ai-docs.sh"
+check grep -Eq 'stale python' "$dir/.getff/astgrep-rules/getff-no-eval.yml"
 # A deleted npm passport must not strand its still-installed enforcement payload.
 rm -f "$dir/.ai-factory/ARCHITECTURE.ts-server.md"
 (cd "$dir" && bash "$INSTALL_ROOT/install.sh" --refresh --dry-run </dev/null) > "$TMP/no-passport.log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then check true; else check false; fi
-check rg -q 'stack: ts-server' "$TMP/no-passport.log"
-check rg -q '\[dry-run\] would refresh: .*pre-push.bundle.mjs' "$TMP/no-passport.log"
+check grep -Eq 'stack: ts-server' "$TMP/no-passport.log"
+check grep -Eq '\[dry-run\] would refresh: .*pre-push.bundle.mjs' "$TMP/no-passport.log"
 echo "PASS=$PASS FAIL=$FAIL"; test "$FAIL" -eq 0
