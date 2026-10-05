@@ -1,4 +1,5 @@
 {
+  ".claude/rules/reviewer-discipline.md": "37101db4deaa28948e156d4a499e923fa8bbd2c99439320ca57041b6d9727c59",
   ".claude/skills/aif-doctor/SKILL.md": "c26b00b37f8649d229608cd4d9702eb25933f6f58dddbd84d8bf816ea5396bbb",
   ".claude/skills/aif-doctor/references/failure-catalogue.md": "f3cd395b881e87fba3dff3038620af8fa3c09adb93fd57d33fa6c9e7be949ce2",
   ".claude/skills/aif-doctor/references/inventory-and-triage.md": "5a53627ae62d7485103b33ab74c3f25b308d5676c3902b161494ba0aaa3b4f67",
@@ -41,6 +42,15 @@
   ".claude/skills/rule-tests/SKILL.md": "879047727bf65aa5e06ed3cde620e5e9d4a06ef31ea00609a636252e55f5f74f",
   ".claude/skills/template-audit/SKILL.md": "620536d73bffc4c966eddf9c279774de7df7c6905829198eb29ee4768be4629c",
   ".claude/skills/tool-bootstrapping/SKILL.md": "571a73ba8497dc7eaa4ef7d083859a06ec233c4904b7721ecdc2e1651f5263a8",
+  "docs/site/reference/B/aif-doctor.md": "74b5cdd88582e82cf4f597e45a529a8097952349ce28857d563c28a966626fba",
+  "docs/site/reference/B/arch.md": "3148ae0e50931a9bb5915cc3b9991fa4fc2f36dc53d009607a57b16287edbfda",
+  "docs/site/reference/B/claude-glm-executor-handoff.md": "7d64968fd1a26bab491678c2b5378a5795178e591222316b07b4e5c2404ac73b",
+  "docs/site/reference/B/dispatcher.md": "b7a2684f90dc903a875244823eb5432ec17057d55ba9ee8fa0b3f7eddf8a9d72",
+  "docs/site/reference/B/harvest.md": "824ee5d900ce187990109471d2340073414cd91510654e3943696bdf68e60c7e",
+  "docs/site/reference/B/pipeline.md": "d13cec16113c80b2f8d09506a7990f38991565766f9569afda8a75e114353dd7",
+  "docs/site/reference/B/template-audit.md": "d92066c2755b1da526e6327c8fe3ce963e9a4e2c5ee1bc05e50f79044c88f469",
+  "docs/site/reference/C.json": "4511c946a13f04b30a5f6d7ef93e22067d5be1977e0aa8646875e7203d66a5e0",
+  "docs/site/reference/I.json": "dfb2c9e7e8e02e8a62427b07ec27ff9f1d4a05f72f78def8dd60a2176c174866",
   "packages/core/principles/15-skill-paired-negative.test.ts": "a07bf6de31d345d5fe7903c3431fb8208d9f2bc65aa10b32d2045b729173e0f8",
   "packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts": "d76ea73a51256ec2a97f0417e18968a04d32c68f6a71ca206833aa8b1de54363",
   "packages/core/principles/49-executor-tier-parity.test.ts": "ceec860a5ad0c66f2a1fe00984640ee5c7ee39d71e3fed893dda038d5694f12c",
@@ -53,6 +63,9 @@
   "plugin/skills/rule-tests/SKILL.md": "0867f01e478763f36658368c6ee2c665f7cbdadf652c29bdeb9a430cef7c29d7",
   "plugin/skills/template-audit/SKILL.md": "0029c7a6bb9a34a7a83913423875a6ba12fa1a95093980f80668d8a464a09aad",
   "plugin/skills/using-getff/SKILL.md": "5b43a4a02d81d1a4387f6725036d9db11e5e101a5bea131859f0a1b9f9f58460",
+  "setup.d/10-skills.sh": "e9ca01435c865279708f193caae38c0414278b7deb08063dcbfcc72689a94a2f",
+  "setup.d/lib.sh": "bbed66c25ad29994a811b255080ba0e6ce7af63b7d5409d1ba6fd0755e2ebcf7",
   "skills/getff/SKILL.md": "e3f3c85f8ff525ee9d3f40f32840f08bd896285dc55e17dc0ec60eada677cd32",
-  "tests/install-sh/ship-orchestration-skills.test.sh": "b5bd52c6c225f59c39aff2dfc371bc3412d641a9bf1b9d6bfe12821790c3f124"
+  "tests/install-sh/ship-orchestration-skills.test.sh": "b5bd52c6c225f59c39aff2dfc371bc3412d641a9bf1b9d6bfe12821790c3f124",
+  "tests/install-sh/transform-internal-refs.test.sh": "46ed13017e5b5f61e05a5d3fbfbd8d1ded2ce5dfda77a3a9fa27e017ee9f199e"
 }
