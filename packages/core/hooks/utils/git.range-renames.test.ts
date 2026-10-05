@@ -87,7 +87,8 @@ describe('rangeGit.changedFiles over a git-mv rename (real git)', () => {
   // capability arm never reads the new file.
   it('yields an A entry for the new path — the row the capability arms read', () => {
     const { base, head } = repoWithRenameIntoPackages();
-    const entries = rangeGit(base, head).changedFiles();
+    // sha is part of the GitProvider interface; rangeGit ignores it (range view).
+    const entries = rangeGit(base, head).changedFiles(head);
     expect(entries).toContainEqual({
       status: 'A',
       path: 'packages/core/fresh/capability.ts',
@@ -98,7 +99,7 @@ describe('rangeGit.changedFiles over a git-mv rename (real git)', () => {
   // the corrupt first-tab parse shape (status R100, path holding a raw tab).
   it('yields the D entry for the old path and no tab-corrupted R row', () => {
     const { base, head } = repoWithRenameIntoPackages();
-    const entries = rangeGit(base, head).changedFiles();
+    const entries = rangeGit(base, head).changedFiles(head);
     expect(entries).toContainEqual({ status: 'D', path: 'legacy/capability.ts' });
     expect(entries.some((e) => e.path.includes('\t'))).toBe(false);
     expect(entries.some((e) => e.status.startsWith('R'))).toBe(false);

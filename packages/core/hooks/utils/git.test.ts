@@ -516,7 +516,7 @@ describe('rangeGit.changedFiles', () => {
     runCheckMock
       .mockReturnValueOnce(ok('mb00001\n')) // merge-base baseSha headSha
       .mockReturnValueOnce(ok('')); // diff --name-status mb headSha
-    rangeGit('basesha1', 'headsha2').changedFiles();
+    rangeGit('basesha1', 'headsha2').changedFiles('headsha2');
     const [cmd, args] = runCheckMock.mock.calls[1];
     expect(cmd).toBe('git');
     expect(args).toEqual([
