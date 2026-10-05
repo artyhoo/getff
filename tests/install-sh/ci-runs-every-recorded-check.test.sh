@@ -84,4 +84,36 @@ else
   bad "(2)(4) no react-spa install to run the negatives on"
 fi
 
+# ── python lane (one-button W2): the same both-direction gate, python surfaces ──
+# Differences from the npm lanes: the workflow is the NAMESPACED getff-python.yml (never ci.yml —
+# the python lane never clobbers the consumer's own), the record floor is 3 (ast-grep scan /
+# ruff check . / ruff check . --config .getff/ruff-bans.toml --no-cache — the two ruff runs are
+# TWO record lines, T-OBW2P-A: a green bans run must not arm a red discovered-config run), and
+# there is no .lintstagedrc.json on the python lane. The tools need not be installed here: a
+# structurally not-armed line (tool absent) is still a record line its CI step must exist for.
+pd=$(mktemp -d); TMPS+=("$pd")
+if ! ( cd "$pd" && git init -q && bash "$REPO_ROOT/install.sh" python < /dev/null > "$pd/.install.log" 2>&1 ); then
+  bad "(py0) python: install.sh exited non-zero (tail: $(tail -3 "$pd/.install.log" | tr '\n' '|'))"
+else
+  prec="$pd/.ai-factory/tool-decisions.md" pwf="$pd/.github/workflows/getff-python.yml"
+  pn=$(awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$prec" 2>/dev/null | grep -c '^- ')
+  if [ ! -f "$pwf" ] || [ "${pn:-0}" -lt 3 ]; then
+    bad "(py1) python: no getff-python.yml or a record of ${pn:-0} checks — the install did not run (tail: $(tail -3 "$pd/.install.log" | tr '\n' '|'))"
+  else
+    pmiss=$(missing_steps "$prec" "$pwf")
+    [ -z "$pmiss" ] && ok "(py1) python: all $pn recorded checks have a run-armed step in getff-python.yml" \
+      || bad "(py1) python: recorded but never run in CI: $(tr '\n' ';' <<<"$pmiss")"
+    poff=$(off_record "$prec" "$pwf")
+    [ -z "$poff" ] && ok "(py3) python: every run-armed caller in getff-python.yml is a recorded command" \
+      || bad "(py3) python: a caller the record does not list (runs even when not armed): $(tr '\n' ';' <<<"$poff")"
+    # (2p)(4p) the python predicates are not vacuous either
+    grep -v 'run-armed.sh ast-grep scan' "$pwf" > "$pd/wf-minus.yml"
+    grep -qx 'ast-grep scan' <<<"$(missing_steps "$prec" "$pd/wf-minus.yml")" \
+      && ok "(py2) paired negative: a deleted step is named" || bad "(py2) a deleted step went unnoticed (vacuous predicate)"
+    sed 's#run-armed\.sh ruff check \.#run-armed.sh ruff check .x#' "$pwf" > "$pd/wf-typo.yml"
+    grep -q 'ruff check .x' <<<"$(off_record "$prec" "$pd/wf-typo.yml")" \
+      && ok "(py4) paired negative: a mistyped caller is named" || bad "(py4) a mistyped caller went unnoticed (vacuous predicate)"
+  fi
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

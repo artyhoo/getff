@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1664 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1667 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,10 +102,10 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:720-721, long before do_refresh at install.sh:1645).
+# (do_python_lane exits at install.sh:720-721, long before do_refresh at install.sh:1648).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:832-833 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:835-836 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:924).
+# orchestration-skills arm (install.sh:927).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:868). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:871). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -900,6 +900,144 @@ deliver_python_toolchain() {
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
 }
 
+# _py_record_project_checks — the python lane's project-checks record (P2, one-button chain).
+# The lane exits before 99-finalize, so this replaces the EMPTY record the lane used to write
+# here (record_lane_checks python): each check the delivered pre-push hook would run is probed
+# ONCE on the tree as the install leaves it — exit 0 → `armed`; red → `not-armed` with the
+# reason; the tool or the bans config absent → a structural «not wired:» reason the runner never
+# re-probes (run-armed.sh). What was green before the install stays green (operator log entry 28,
+# fork 1 = A): a brownfield tree pushes, and the runner's probe arms a check the day it turns
+# green — no human step. NO baseline of old findings is built here (entry 32: the trigger build
+# owns it). Reuses the npm primitives — record_project_checks (lib.sh) for the write, the
+# DELIVERED scripts/run-armed.sh (the byte-identical audit-self original, 40-configs.sh shape)
+# for every read — never a python copy of either (dual-implementation-discipline.md §8). Runs
+# with no node on PATH (§8-1): bash/awk/mktemp only. Independent of GETFF_SKIP_HOOKS: the record
+# is written even when the rung is declined, because the delivered CI workflow reads the same
+# record. The two ruff runs are TWO checks (T-OBW2P-A): arming them as one line would let a green
+# bans run arm a red discovered-config run.
+_py_check_not_armed_why() {
+  # <command> <rc> <log> → why a red check is not armed; the npm arm pass's _pc_reason shape
+  # (99-finalize.sh): count-bearing when the tool's summary parses, «exits <rc> at install»
+  # when it does not — a reason, never bare (T3).
+  local n
+  case "$1" in
+    "ast-grep scan")
+      # ast-grep's own summary line (verified against the pinned 0.44.x output:
+      # `Error: 1 error(s) found in code.`); the `┌─ file:line:col` location
+      # lines are the second resort — they sit mid-line, not at line start.
+      n=$(sed -n 's/^Error: \([0-9][0-9]*\) error(s) found in code\./\1/p' "$3" | tail -1)
+      [ -n "$n" ] && { echo "$n ast-grep finding(s) at install"; return 0; }
+      n=$(grep -cE '─ .*[^ :]+:[0-9]+:[0-9]+' "$3" 2>/dev/null || true)
+      [ "${n:-0}" -gt 0 ] && { echo "$n ast-grep finding(s) at install"; return 0; } ;;
+    "ruff check ."*)
+      n=$(sed -n 's/^Found \([0-9][0-9]*\) error.*/\1/p' "$3" | tail -1)
+      [ -n "$n" ] && { echo "$n ruff finding(s) at install"; return 0; } ;;
+  esac
+  echo "exits $2 at install"
+}
+
+_py_record_project_checks() {
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would deliver scripts/run-armed.sh — the record's reader (the pre-push hook and the CI workflow run every check through it)"
+    echo "  [dry-run] would probe each getff python check once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
+    return 0
+  fi
+
+  echo "▶ arming getff's python checks: each runs once on your code; only a green one blocks"
+  local _py_armed=() _py_not=() _c _tool _cfg _rc _why
+  local _log _cache
+  _log=$(mktemp) || _log=""
+  # ruff's cache: the probe is the tree's first write-shaped touch — keep it out of the consumer
+  # tree the way the firing self-check keeps its files in an OS temp dir (the STOP line arm (1)
+  # of python-entry-lane.test.sh asserts). RUFF_CACHE_DIR moves it aside; the RECORDED command
+  # stays the byte-exact string the hook and CI run.
+  _cache=$(mktemp -d) || _cache=""
+  while IFS=$'\t' read -r _c _tool _cfg; do
+    [ -n "$_c" ] || continue
+    _uvx_proved=""
+    # Tool discovery mirrors the HOOK's own view (pre-push.sh: command -v ast-grep / ruff), so a
+    # check armed here is one the hook can actually run at push time — the self-check's uvx/sg
+    # routes prove the rules but cannot arm a command the hook cannot execute.
+    if [ -n "$_cfg" ] && [ ! -f "$PROJECT_ROOT/$_cfg" ]; then
+      _why="not wired: $_cfg is missing"
+    elif ! command -v "$_tool" >/dev/null 2>&1; then
+      _why="not wired: $_tool is not on PATH"
+      # Q4.7 (install-no-manual-step Y5): a tool the lane's own uvx route just proved (the firing
+      # self-check fetched and ran it) is wired — through uvx — for every gate but the hook's
+      # direct execution, which is exactly what the record line below mirrors. Such a tool must
+      # not carry a NOT-wired line: only a tool with no PATH binary AND no working uvx fetch does.
+      _uvx_proved=""
+      if command -v uvx >/dev/null 2>&1; then
+        _uv_ver=""
+        case "$_tool" in
+          ast-grep) _uv_ver=$(uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null || true) ;;
+          ruff)     _uv_ver=$(uvx ruff@0.15.21 --version 2>/dev/null || true) ;;
+        esac
+        case "$_tool" in
+          ast-grep) if grep -qi 'ast-grep' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+          ruff)     if grep -qi 'ruff' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+        esac
+      fi
+    else
+      _rc=0
+      # ${_log:-/dev/null}, not ${_log:?}: an empty log (mktemp failed — TMPDIR exhausted) must
+      # degrade THIS probe's reason to «exits <rc> at install», not abort the whole lane mid-arm
+      # (set -u turns :? into an install death — the check would end up neither armed nor recorded).
+      if [ -n "$_cache" ]; then
+        ( cd "$PROJECT_ROOT" && RUFF_CACHE_DIR="$_cache" bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
+      else
+        ( cd "$PROJECT_ROOT" && bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
+      fi
+      if [ "$_rc" -eq 0 ]; then
+        _py_armed+=("$_c")
+        echo "  ✓ armed: $_c"
+        continue
+      fi
+      _why=$(_py_check_not_armed_why "$_c" "$_rc" "${_log:-/dev/null}")
+    fi
+    _py_not+=("$_c # $_why")
+    if [ -n "${_uvx_proved:-}" ]; then
+      echo "  · not armed: $_c — $_why (uvx route live: the CI gate runs it; the hook runs only PATH-resolved checks)"
+      continue
+    fi
+    echo "  · not armed: $_c — $_why"
+    # Q4.7 (NOT-wired summary): every line names what was left undone and why — a check that
+    # does not block is wired only in part, so the lane's summary says so; the record line above
+    # is the machine-readable half.
+    note_not_wired "pre-push check \`$_c\` — not armed: $_why"
+  done <<'EOF'
+ast-grep scan	ast-grep
+ruff check .	ruff
+ruff check . --config .getff/ruff-bans.toml --no-cache	ruff	.getff/ruff-bans.toml
+EOF
+  [ -z "$_log" ] || rm -f "$_log"
+  [ -z "$_cache" ] || rm -rf "$_cache"
+
+  local _body="### How this project checks itself (recorded by install.sh)
+stack: python
+armed:"
+  for _c in ${_py_armed[@]+"${_py_armed[@]}"}; do _body="$_body
+- $_c"; done
+  _body="$_body
+not-armed:"
+  for _c in ${_py_not[@]+"${_py_not[@]}"}; do _body="$_body
+- $_c"; done
+  if record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "$_body"; then
+    # The runner ships only behind a written record (the record's readers need it, but a reader
+    # without a record is the worse half): a consumer whose .ai-factory/ is read-only, or a disk
+    # mid-ENOSPC, keeps the hook's loud direct fallback — noisy but functional — instead of a hook
+    # that die-louds «no readable record» on every push with nothing to restore to. Framework-
+    # owned → _py_copy_or_refresh (--refresh overwrites; .override.md honoured).
+    _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+    chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+    echo ""
+    echo "How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):"
+    printf '%s\n' "$_body" | sed -n '2,$p' | sed 's/^/    /'
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, and scripts/run-armed.sh not delivered with it (the pre-push hook keeps its direct, record-less fallback; fix the write failure, then install.sh python --refresh delivers both)"
+  fi
+}
+
 # _py_deliver_local_hook_rung — D-S2b (getff-any-stack-trace-s2b): close the python lane's empty
 # local git-hook rung by delivering a pre-push hook that runs the SAME ast-grep + ruff checks the
 # CI template runs, but BEFORE the push leaves the machine (README.md#why-this-exists). The
@@ -1429,7 +1567,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:832-833 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:835-836 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1679,7 +1817,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1546). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1549). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:87-98). AGENTS.md.template sends the

@@ -88,7 +88,7 @@ fi
 #                      right depth: it wraps `superpowers:*` companions and degrades without
 #                      the aif runtime. Its `](../dispatcher/SKILL.md)` ref is factory-tier and
 #                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:159
-#                      and arch/SKILL.md:27 (→ night-mode); tracked with D4, not fixed here.
+#                      and arch/SKILL.md:27 (→ night-mode); tracked with D4, not fixed here. cite:historical pre-extraction line at the recorded delivery incident
 #   - pipeline       — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #                      env+, not factory: the design SSOT defines the env depth as carrying
 #                      «pipeline presets, status, …» verbatim
@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:633-634), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:636-637), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"

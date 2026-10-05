@@ -87,7 +87,7 @@ Production-ready configs, shipped from the framework repo's `packages/core/templ
 2. **Read the relevant reference file** (overview / ai-traps / checks-map) before writing detailed advice.
 3. **Reach for templates** when giving config recommendations — they are already correct (versions verified, paths consistent, edge cases handled).
 4. **Don't dump all 5 layers at once.** Match recommendation depth to the user's question. If they ask about pre-commit, don't lecture about chaos engineering.
-5. **For React/Next questions**, also load `templates/eslint.config.react.mjs` and apply Server/Client boundary rules from R12–R20.
+5. **For React/Next questions**, read `packages/preset-next-15-canonical/templates/eslint.config.react.mjs` in the framework checkout, or the consumer's delivered ESLint config (resolve its actual filename first); then apply Server/Client boundary rules from R12–R20.
 6. **For AI-generated code worries**, prioritize: meta-tests (Layer 2) + mutation testing (Layer 4) + AIF `review-sidecar` two-AI review pattern. These three together catch ~80% of AI-specific failures.
 
 ## Verification protocol — apply before publishing any config
@@ -101,6 +101,14 @@ A bug pattern this skill explicitly fights: dependency lists with stale versions
 5. **Each shell command must work on edge cases** — empty branch, missing upstream, fresh checkout.
 
 If you skip this and produce buggy artifacts, you have failed the user — the entire skill is _about_ getting these details right.
+
+## Without this skill
+
+An agent copies a remembered lint config into a React consumer, guesses template paths and marks the setup complete without checking its delivered imports or firing tests. The config can look plausible while conventions still fail at no reachable channel.
+
+## With this skill
+
+The agent selects the relevant enforcement layer, reads the real preset or delivered config and verifies paths, dependencies and meaningful firing tests before publishing. Missing consumer prerequisites remain explicit instead of becoming an invented passing setup.
 
 ## Universal AI angle
 
