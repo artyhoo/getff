@@ -1,0 +1,5 @@
+{
+  "vectorSourceCommit": "7cf6795db62ffd4463db8e98cbe6009d4f0aa0eb",
+  "note": "Vendored 2026-10-05: see 29-pre-narrowing.vector.json for why the pinned commit is no longer dereferenced at run time.",
+  "vector": {}
+}

@@ -32,7 +32,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
-import { resolve, dirname, relative } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   lineIsViolation,
@@ -460,15 +460,20 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
    * review time — but the S5 PR body does not exist until egress (review_gate
    * 44efbc21bc61: the fixture cannot just claim «preserved in the PR body»). The
    * committed `preNarrowingRedRun` record in the fixture is the review-time carrier;
-   * this arm is its mechanical check: the flip list is re-derived from the TWO PINNED
-   * COMMITS (`git show <sha>:fixture`) and must reproduce the recorded flips exactly —
-   * non-empty (a green first run of the narrowing is the failure, §9), each entry
-   * carrying a non-empty per-entry verdict, every recorded direction consistent with
-   * what the two pinned vectors actually say. Both endpoints are immutable history, so
-   * the arm cannot false-RED on any future legitimate adjudication; it fails only when
-   * the record and the history disagree.
+   * this arm is its mechanical check: the flip list is re-derived from the TWO VENDORED
+   * PINNED VECTORS (fixtures/29-pre-narrowing.vector.json + 29-post-adjudication.vector.json)
+   * and must reproduce the recorded flips exactly — non-empty (a green first run of the
+   * narrowing is the failure, §9), each entry carrying a non-empty per-entry verdict, every
+   * recorded direction consistent with what the two vendored vectors actually say. The
+   * vectors are committed DATA (vendored 2026-10-05): the record's original
+   * `git show <sha>:fixture` dereference died when the squash merge of
+   * plain-words-recap-v2 (#2030) deleted its feature branch, leaving the pinned rebuild
+   * SHAs unreachable from ANY fresh clone (staging ci-success RED, run 37220805585). The
+   * SHAs stay in the record and in the vendored files as provenance — cross-checked below —
+   * but nothing is dereferenced at run time, so the arm cannot false-RED on origin ref
+   * survival and fails only when the record and the vendored history disagree.
    */
-  it('pre-narrowing RED run record is re-derivable from the pinned commits', () => {
+  it('pre-narrowing RED run record is re-derivable from the vendored pinned vectors', () => {
     const snap = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8')) as {
       preNarrowingRedRun?: {
         preNarrowingSnapshotCommit: string;
@@ -491,31 +496,45 @@ describe('Principle 29 — corpus snapshot arm (broad kickoff corpus)', () => {
       );
     }
 
-    // Throw-on-failure discipline (same class as trackedBroadCorpus): an unreachable
-    // pinned commit must fail LOUDLY, never masquerade as a passing check. Needs full
-    // history — the audit-self vitest job already checks out fetch-depth: 0 (principle
-    // 11 precedent for git history in this suite).
-    const vectorAt = (sha: string): Record<string, number[]> => {
-      let out: string;
+    // Throw-on-failure discipline (same class as trackedBroadCorpus): a missing vendored
+    // vector must fail LOUDLY, never masquerade as a passing check.
+    const vendoredVector = (fixture: string): {
+      vectorSourceCommit: string;
+      vector: Record<string, number[]>;
+    } => {
+      let raw: string;
       try {
-        out = execFileSync(
-          'git',
-          ['show', `${sha}:${relative(REPO_ROOT, SNAPSHOT_PATH)}`],
-          { cwd: REPO_ROOT, encoding: 'utf8' },
-        );
+        raw = readFileSync(resolve(HERE, 'fixtures', fixture), 'utf8');
       } catch (err) {
         throw new Error(
-          `29 pre-narrowing RED record: \`git show ${sha}\` FAILED — pinned commit ` +
-            `unreachable from this checkout (shallow clone? fetch-depth: 0 required). ` +
-            `Refusing to silently skip the kickoff-s5 §9 check. Underlying error: ` +
-            `${err instanceof Error ? err.message : String(err)}`,
+          `29 pre-narrowing RED record: vendored vector fixture ${fixture} is MISSING — ` +
+            `the kickoff-s5 §9 check is unrunnable without it. Refusing to silently skip. ` +
+            `Restore it from this file's history, never re-derive it from the live tree. ` +
+            `Underlying error: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
-      return (JSON.parse(out).vector ?? {}) as Record<string, number[]>;
+      return JSON.parse(raw) as {
+        vectorSourceCommit: string;
+        vector: Record<string, number[]>;
+      };
     };
 
-    const pre = vectorAt(record.preNarrowingSnapshotCommit);
-    const post = vectorAt(record.postAdjudicationCommit);
+    const preDoc = vendoredVector('29-pre-narrowing.vector.json');
+    const postDoc = vendoredVector('29-post-adjudication.vector.json');
+    // Provenance cross-check: the vendored vectors must be exactly the commits the record
+    // names — otherwise the record's provenance and the vendored data could drift apart
+    // silently, resurrecting the disagreement this arm exists to catch.
+    expect(
+      preDoc.vectorSourceCommit,
+      '29-pre-narrowing.vector.json drifted from the record it vendors',
+    ).toBe(record.preNarrowingSnapshotCommit);
+    expect(
+      postDoc.vectorSourceCommit,
+      '29-post-adjudication.vector.json drifted from the record it vendors',
+    ).toBe(record.postAdjudicationCommit);
+
+    const pre = preDoc.vector;
+    const post = postDoc.vector;
 
     expect(
       record.flips.length,
