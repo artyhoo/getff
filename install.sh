@@ -407,11 +407,14 @@ do_python_lane() {
   # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
   # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
   _py_deliver_agent_surface
-  # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
+  # The lane exits before 99-finalize, so it writes its own project-checks record (P2, one-button):
+  # each check the delivered pre-push hook runs is probed once on the tree as it stands — green
+  # arms, red records its reason, an absent tool records a structural «not wired:» (_py_record_
+  # project_checks, setup.d/45-python.sh; also delivers scripts/run-armed.sh, the record's reader).
   # Bare multi-layer refresh preserves the project's already armed checks.
   if [ -z "${_REFRESH_LANES_PRESENT:-}" ] \
      || ! grep -qxF '<!-- aif:project-checks:begin -->' "$PROJECT_ROOT/.ai-factory/tool-decisions.md" 2>/dev/null; then
-    record_lane_checks python
+    _py_record_project_checks
   fi
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
@@ -639,8 +642,8 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:786 take `generic` instead of showing
-# the stack menu; --full/--dry-run at :500 claim the detected python/cargo/go
+# else in this script (--full/-y at install.sh:789 take `generic` instead of showing
+# the stack menu; --full/--dry-run at :503 claim the detected python/cargo/go
 # lane without a prompt) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation the INSTALL-FOR-AI.md
 # prompt tells an AI to run (its `setup -y <detected-stack>` line) — hangs on
@@ -685,7 +688,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:944 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:947 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1205,7 +1208,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:675-677), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:678-680), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2247-2250).
   #
