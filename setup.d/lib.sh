@@ -729,7 +729,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
 #   install.sh:1496                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1686          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1699          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
@@ -738,9 +738,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1898                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1662          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1675          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -990,14 +990,14 @@ copy_safe() {
 #                               The existing begin marker line is kept VERBATIM (forward-compat
 #                               attributes an older/newer writer put on it survive) — same rule
 #                               as fence.ts injectRegion.
-#   (c) dst is a FENCE-LESS copy of an older version of our own template → adopt it exactly
-#                               once by REPLACING the whole file with the fenced form. This is
-#                               every consumer installed before this stage; a fence-writer that
-#                               only knew case (a) would append and silently DOUBLE their file.
+#   (c) dst is a byte-identical FENCE-LESS copy of the current template → adopt it exactly
+#                               once by wrapping it in the fenced form. An older or edited copy
+#                               is consumer-owned: case (a) retains its complete active body and
+#                               appends the current framework section without deleting content.
 #
 # Case (c) detection is deliberately conservative — a false-positive adopt would destroy a
-# consumer's own file. TWO independent sentinels must BOTH be present, and both were verified
-# present in all 20 historical revisions of AGENTS.md.template (git log --follow, 2026-08-08):
+# consumer's own file. TWO independent sentinels must BOTH be present, and the entire file
+# must be byte-identical to the source. Sentinels alone establish ancestry, never ownership:
 #   1. the template's H1 line, and 2. the `.ai-factory/RULES.md` convention reference.
 # Sentinels are caller-supplied (args 5/6) so the helper stays generic; with no sentinels
 # passed, case (c) never fires and an unrecognised file takes the safe (a) path.
@@ -1101,11 +1101,11 @@ merge_fenced() {
     elif [ "${MERGE_FENCED_SHIPPED_BODY:-0}" != 1 ] && ! cmp -s "$tmp" "$dst"; then
       # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
       # keep the previous bytes before they are gone (a no-op re-run never reaches here).
-      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
+      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed" || _splice_ok=0
     fi
     if [ "$_splice_ok" = "0" ] || ! mv "$tmp" "$dst"; then
       rm -f "$tmp" 2>/dev/null || true
-      echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
+      echo "  ⚠ $dst: fenced splice failed (preparation, preservation or write error) — left unchanged, section=$section" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1113,18 +1113,18 @@ merge_fenced() {
     return 0
   fi
 
-  # ── (c) fence-less copy of an older version of our own template → adopt once ─
+  # ── (c) byte-identical fence-less copy of the current template → adopt once ─
   if [ -n "$sentinel_1" ] && [ -n "$sentinel_2" ] \
-    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst"; then
+    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst" && cmp -s "$src" "$dst"; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would adopt (wrap in fence): $dst"
       return 0
     fi
-    # critical-review S2-3: the sentinels prove the file STARTED as our template, not that it
-    # still is one — a consumer who extended it would lose every addition. Keep their bytes first.
-    if ! cmp -s "$src" "$dst"; then
-      _merge_fenced_keep_copy "$dst" "pre-fence copy differs from the current template"
-    fi
+    # Equality establishes that no consumer bytes would be removed by this wrapping.
+    # Sentinel-matching older templates and locally edited copies take the append path.
+    # This includes in-place placeholder fills: their ownership is not ours to infer.
+    # Keep the entire divergent body active; a parked backup is not active preservation.
+    # The equality probe above also applies to dry-run's advertised adoption decision.
     { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
     return 0
@@ -1145,7 +1145,7 @@ merge_fenced() {
 # replaces part of it with bytes the consumer may have written (critical-review S2-3). Same
 # location and naming as the refresh guard (_preserve_diverged_copy); merge_fenced sits outside
 # the baseline manifest, so it cannot tell a consumer edit from an older template and keeps a
-# copy whenever the replaced bytes differ. Fail-open: a failed copy changes only the message.
+# copy whenever the replaced bytes differ. Failure refuses replacement and records a skip.
 _merge_fenced_keep_copy() {
   local dst="$1" why="$2" conflicts sum8 kept
   conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
@@ -1156,8 +1156,8 @@ _merge_fenced_keep_copy() {
       return 0
     fi
   fi
-  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; replacing anyway"
-  return 0
+  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; REFUSING to replace" >&2
+  return 1
 }
 
 # install_agents_md <src> <dst>
@@ -1719,7 +1719,13 @@ _lane_write_toolchain_lock() {
   # synthesised, the manifest carries its version and the lock reports it — no code change.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding): a manifest without a "version" key exits grep 1, and one whose grep output
+    # exceeds the 64KiB pipe buffer SIGPIPEs grep through `head -1` (141) — either status aborts
+    # the lane after file delivery but BEFORE this lock write, leaving the `[ -n ] || 'null'`
+    # fallback below dead code for exactly its intended case. Masking the status makes that
+    # fallback reachable; the healthy path's extracted value is unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   # §3a option B / §6 fork 2: derive the per-rule slice from the fragment dir
@@ -2158,7 +2164,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3015, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3024, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2886,7 +2892,10 @@ format_getff_writes() {
       git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
       # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
       # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
-      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # The probe canonicalizes like the mark (KEPT_ORIGINALS keys are _keep_original_canon spellings),
+      # so a symlinked project root — the writers' logical $PROJECT_ROOT against the wire's pwd -P —
+      # still matches (rework review 56ca7a86b7e4).
+      case " ${KEPT_ORIGINALS[*]-} " in *" $(_keep_original_canon "$PROJECT_ROOT/$rel") "*) ;; *) continue ;; esac
       # the newest record for this path is the state just before the latest install that wrote it
       for kept_f in "$kept/$rel".*; do
         case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
@@ -3551,15 +3560,35 @@ note_eslint_config_not_esm() {
 # KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
 # two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
 # first only: the second pass's copy would already carry the first pass's block, and be announced
-# as a second «original» (cold-review F9).
+# as a second «original» (cold-review F9). Keyed on the PHYSICAL path (_keep_original_canon): the
+# writers spell one file differently — session-settings marks install.sh's logical $PROJECT_ROOT,
+# the wire resolves pwd -P — and an exact compare then double-keeps settings.local.json when the
+# install runs from a symlinked project root (rework review 56ca7a86b7e4): the second original
+# holds the intermediate, and the undo command restores that instead of the person's file.
 KEPT_ORIGINALS=()
+
+# _keep_original_canon <path> — echo <path> in the one KEPT_ORIGINALS spelling: its real directory
+# (cd + pwd -P, what bridge_wire_project already resolves) + the final component, built from shell
+# expansions only — W7e runs the keep with a PATH that has neither dirname nor basename. A path
+# whose directory cannot be resolved echoes unchanged, so the key stays stable for it.
+_keep_original_canon() {
+  local d b
+  case "$1" in
+    */*) d="${1%/*}" b="${1##*/}" ;;
+    *) d=. b="$1" ;;
+  esac
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { echo "$1"; return 0; }
+  echo "$d/$b"
+}
 
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
-# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS) — the compare is
+# on the canonical spelling, so the writers' differing path spellings cannot double-keep.
 keep_original_snapshot() {
-  local f="$1" snap k
+  local f k snap
+  f=$(_keep_original_canon "$1")
   for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
@@ -3567,10 +3596,11 @@ keep_original_snapshot() {
 }
 
 # keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
-# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
-# own shell: settle runs inside $(…), where a global it set would be lost.
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. The key is canonical
+# (_keep_original_canon), one spelling for every writer. Call it in the install's own shell: settle
+# runs inside $(…), where a global it set would be lost.
 keep_original_mark() {
-  KEPT_ORIGINALS+=("$1")
+  KEPT_ORIGINALS+=("$(_keep_original_canon "$1")")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -3581,11 +3611,18 @@ keep_original_mark() {
 # original goes back in place, a warning names the file on stderr — and it returns 1: the caller
 # reports getff's block as not wired (cold-review F10: the snapshot used to be deleted silently).
 keep_original_settle() {
-  local f="$1" snap="$2" sum8 dest rel
+  local f snap sum8 dest rel root
+  f=$(_keep_original_canon "$1")
+  snap="$2"
   [ -n "$snap" ] && [ -f "$snap" ] || return 0
   if cmp -s "$snap" "$f"; then rm -f "$snap"; return 0; fi
   sum8=$(_hash256 "$snap") || sum8=original
-  rel="${f#"${PROJECT_ROOT:-.}"/}"
+  # The rel strip compares one spelling on both sides: a caller's file under a symlinked project
+  # root (the wire's pwd -P against install.sh's logical $PROJECT_ROOT) strips to the same
+  # relative path as the agreeing case, so the original lands at .ai-factory/before-getff/<rel>
+  # and not nested under a spelled-out absolute path.
+  root=$(_keep_original_canon "${PROJECT_ROOT:-.}")
+  rel="${f#"$root"/}"
   dest="${PROJECT_ROOT:-.}/.ai-factory/before-getff/$rel.${sum8:0:8}"
   if mkdir -p "$(dirname "$dest")" 2>/dev/null && mv "$snap" "$dest" 2>/dev/null; then
     echo "$dest"
