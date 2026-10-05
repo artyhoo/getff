@@ -42,7 +42,7 @@ dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
 4be720ce0a9b0cd2ca88447af62c65ba7580ce7a4375762842a9e1ae8e39ff11  .claude/skills/arch/references/grilling.md
 e3bba025e05c493a9237c034019e32703869552c6eb15afbd7a7ddab719acfe8  .claude/skills/claude-glm-executor-handoff/SKILL.md
-0f561ec86471a05d428c63621f4b11213f59b14d038e9bbb4aab8d0b221687bc  .claude/skills/dispatcher/SKILL.md
+53dd206f7143383cbc72b919e93f0c8ead7f97a070379007113ab582c8a792aa  .claude/skills/dispatcher/SKILL.md
 c12fd8d7b8a4af335822c600904719c147c5ea859fb27cb7ab843f125e9d5a28  .claude/skills/dispatcher/helpers/advance-frontier.sh
 8639f374fbfeec377f0ac94a930c725e601d1775b3952407cebff5de0bcb2c27  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
@@ -462,6 +462,7 @@ a3e04c8fa7d423b570b0351163f3cb566ed6f12f963e3c0d7686c6ab31012f16  packages/core/
 6496993b046aba89ecb3a6d641944f5843ffafe2961e3d3627575ee8366ffacc  packages/core/hooks/checks/cmd-script-liveness.ts
 1b73508c5f4475a388b96bf35a75aa8721e62d324a92f67a3f89ffcea796a1c6  packages/core/hooks/checks/docs-card.test.ts
 50a6ff9e76ac0b90a6f10f6771fa8da7674cea190fbc1fd280165ab323157084  packages/core/hooks/checks/docs-card.ts
+43fab9877e14612f6f56a34e98ae539263464691788d512e8fb6d319fb16561a  packages/core/hooks/checks/fixtures/fidelity-indented-fence-history.json
 cff85d30ae62cf8a7e30e6f9d25c1084135cb5797b7c456ac8c710a41858017b  packages/core/hooks/checks/guard-liveness-fullsweep.test.ts
 c3948b93be91c68c6052ff9525ec5992bf261c96e67b51b1347e8fcc9c3fdc62  packages/core/hooks/checks/guard-liveness-fullsweep.ts
 3200f762806ac49f1c615339f2aa70a5c169686f761300eb40a4acfafb2b99cc  packages/core/hooks/checks/guard-liveness.test.ts
@@ -472,8 +473,8 @@ ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/
 0e99dd01da436e9b31735fbbedbf6a76bbcd16b545cd8d8ddddbdead615907b4  packages/core/hooks/checks/hooks-path.ts
 5cd34075b76e975b064acd03a8824b114a90e754f4d7f2d939fd35d690b722b8  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
 70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7  packages/core/hooks/checks/pr-body-fidelity-bin.ts
-b771b40ece396161a4365e237491a674bf19eb46a46923e1b03a8c170070c761  packages/core/hooks/checks/pr-body-fidelity.test.ts
-e8749896d4983c582b7641c99548235b59f9751c0c3c7f44226b1387c0c116dc  packages/core/hooks/checks/pr-body-fidelity.ts
+dc027cb90a29f27f0610e2ce12168369835142bea85ece4591fe4ac5afa6ae84  packages/core/hooks/checks/pr-body-fidelity.test.ts
+36f4e0008871a0fe00fb0130b3f5e3e1fcfc9ef98a1da00bce4af6828ef0627f  packages/core/hooks/checks/pr-body-fidelity.ts
 6cc37df35fa1ab5bb1280baf24835f975d1a377147784ec78cab8ae12ddca950  packages/core/hooks/checks/pr-body-prior-art-bin.ts
 b36d5d662865b0eaebe55c62c0f8e20e5697ecbbd368bad29ac1d97a959f10b6  packages/core/hooks/checks/pr-body-prior-art.test.ts
 950523f4f017ba5ad395f750875cffcf4b3321eb9970f5baa346585cf5dbf087  packages/core/hooks/checks/pr-body-removal-consumers-bin.test.ts
@@ -482,8 +483,8 @@ eba404be079f455f31bda3c6e021fdd642e556bedda81694f9abcd61e49d5ae0  packages/core/
 6b7ad442093544051f31a79b6bf82b9057a78b48401aa14546d4075e65d0a470  packages/core/hooks/checks/pr-body-removal-consumers.ts
 a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/hooks/checks/pr-stale-revert-bin.test.ts
 730722f2bd939bd3731ce6f18eb2df7d9269403213d3f18b2b687349a5501e16  packages/core/hooks/checks/pr-stale-revert-bin.ts
-9730af4e54c6c39619afe0519327d4af807c6400d65454b954052431db3a1617  packages/core/hooks/checks/pr-stale-revert.test.ts
-630604998a6f498662408c6933a9f913b8a6e3d82f02fcd48cdc77b46402ef2e  packages/core/hooks/checks/pr-stale-revert.ts
+613273221f5dfc672380ded30742b5991bbaf52d994087afa31ba2332683ce40  packages/core/hooks/checks/pr-stale-revert.test.ts
+164b0f95c4338296801449c1e67ae69c3afebec59881f289dd2e5ea8056e6f41  packages/core/hooks/checks/pr-stale-revert.ts
 0c2a5bf671782d350df7a379409d1b07cde9ffb2e9f0e7d9ea47b9b70ad844e6  packages/core/hooks/checks/prior-art.test.ts
 46988d2fa631f17ea8af03f16e441927266707cf6d4524f8676e00b4bb2ff185  packages/core/hooks/checks/prior-art.ts
 0d6905e01c812d51d05069b844e3afc46dcaab5485319c9e5aadc7f106b6953a  packages/core/hooks/checks/registry.test.ts
