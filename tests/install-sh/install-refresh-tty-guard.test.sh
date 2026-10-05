@@ -112,7 +112,8 @@ else
 fi
 
 # ════ Arm B — paired-negative: the SAME paths appear under an explicit deeper profile ════
-( cd "$TC" && bash "$INSTALL_ROOT/install.sh" --refresh --profile env < /dev/null ) >/dev/null 2>&1
+( cd "$TC" && bash "$INSTALL_ROOT/install.sh" --refresh --profile env < /dev/null ) >/dev/null 2>&1; RC=$?
+if [ "$RC" -eq 0 ]; then ok "B: --refresh --profile env rc=0"; else bad "B: --refresh --profile env rc=$RC"; fi
 _still=""
 for _p in "${ENV_DEPTH_ARTEFACTS[@]}"; do
   [ -e "$TC/$_p" ] || _still="$_still $_p"
