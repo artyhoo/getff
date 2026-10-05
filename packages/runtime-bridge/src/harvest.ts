@@ -72,37 +72,76 @@ export function scanParkSignals(task: ParkScanInput): string[] {
  * JSON blocks, each of which may carry an `"affected_files": [...]` array (aif's review /
  * security gates self-report the files they scoped their review to — see
  * `.claude/skills/aif-review/SKILL.md`). This is NOT a JSON document, so it cannot be
- * `JSON.parse`d whole; the affected_files arrays are located by pattern and parsed
+ * `JSON.parse`d whole; affected_files properties are located by string-aware scanning and parsed
  * individually, then unioned across gate blocks.
  *
  * Returns:
- *   • `string[]` — the union of every parseable `affected_files` array (possibly empty
- *     `[]` when a gate explicitly self-reported no files).
- *   • `null`     — no parseable affected_files block present (aif did not emit a structured
- *     self-report for this task). The divergence guard treats null as "nothing to
- *     cross-check" and proceeds (warn-only), never HOLDing on an unknown/absent format.
+ *   • `string[]` — the union of valid top-level string arrays; `[]` also means a
+ *     recognized malformed report (no trustworthy coverage, so changed files HOLD).
+ *   • `null`     — no affected_files property present outside quoted JSON/inline code.
+ *     Only absence skips the divergence guard. A broken recognized report never does.
+ *     Quoted malformed property prose can therefore HOLD; confirmation remains available.
  *
  * Pure, deterministic, ZERO LLM.
  */
 export function extractAffectedFiles(reviewComments: string | null | undefined): string[] | null {
   if (!reviewComments) return null;
-  // Locate each `"affected_files": [ ... ]` array (paths never contain `]`, so the
-  // greedy-to-first-`]` capture is safe) and JSON.parse it individually; skip any
-  // malformed block. `found` distinguishes an explicit empty self-report ([]) from an
-  // absent one (null).
-  const re = /"affected_files"\s*:\s*(\[[^\]]*\])/g;
   const files = new Set<string>();
   let found = false;
-  for (let m = re.exec(reviewComments); m !== null; m = re.exec(reviewComments)) {
-    try {
-      const arr: unknown = JSON.parse(m[1]);
-      if (Array.isArray(arr)) {
-        found = true;
-        for (const f of arr) if (typeof f === 'string') files.add(f);
-      }
-    } catch {
-      // malformed affected_files block — not extractable, skip it
+  // Tokenize strings before looking for property names: escaped JSON examples are data,
+  // not another report. Array depth likewise ignores brackets inside escaped strings.
+  const stringEnd = (start: number): number => {
+    for (let end = start + 1; end < reviewComments.length; end++) {
+      if (reviewComments[end] === '\\') end++;
+      else if (reviewComments[end] === '"') return end + 1;
+      else if (reviewComments[end] === '\n' || reviewComments[end] === '\r') return -1;
     }
+    return -1;
+  };
+  const afterSpace = (start: number): number => {
+    while (/\s/.test(reviewComments[start] ?? '') && start < reviewComments.length) start++;
+    return start;
+  };
+  for (let i = 0; i < reviewComments.length; i++) {
+    if (reviewComments[i] === '`') {
+      const ticks = /^`+/.exec(reviewComments.slice(i))![0];
+      const lineStart = reviewComments.lastIndexOf('\n', i - 1) + 1;
+      // JSON fences remain report containers; inline code is a quoted example.
+      if (ticks.length < 3 || !/^[ \t]{0,3}$/.test(reviewComments.slice(lineStart, i))) {
+        const end = reviewComments.indexOf(ticks, i + ticks.length);
+        if (end !== -1) i = end + ticks.length - 1;
+      } else i += ticks.length - 1;
+      continue;
+    }
+    if (reviewComments[i] !== '"') continue;
+    const end = stringEnd(i);
+    if (end === -1) continue;
+    let key: unknown;
+    try { key = JSON.parse(reviewComments.slice(i, end)); } catch { i = end - 1; continue; }
+    i = end - 1;
+    const colon = afterSpace(end);
+    if (key !== 'affected_files' || reviewComments[colon] !== ':') continue;
+    found = true;
+    const start = afterSpace(colon + 1);
+    if (reviewComments[start] !== '[') return [];
+    let depth = 1;
+    let close = start + 1;
+    for (; close < reviewComments.length && depth > 0; close++) {
+      if (reviewComments[close] === '"') {
+        const end = stringEnd(close);
+        if (end === -1) return [];
+        close = end - 1;
+      } else if (reviewComments[close] === '[') depth++;
+      else if (reviewComments[close] === ']') depth--;
+    }
+    if (depth !== 0) return [];
+    try {
+      const arr: unknown = JSON.parse(reviewComments.slice(start, close));
+      // Any malformed report invalidates the union; partial coverage is not clearance.
+      if (!Array.isArray(arr) || !arr.every((file) => typeof file === 'string')) return [];
+      for (const file of arr) files.add(file);
+    } catch { return []; }
+    i = close - 1;
   }
   return found ? [...files] : null;
 }
