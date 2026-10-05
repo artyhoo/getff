@@ -391,3 +391,56 @@ describe('checkPrBodyFidelity — comment stripping is markdown-aware', () => {
     );
   });
 });
+
+// F1: only sectionEndAt changes these results. SHA, provenance and evidence
+// grammar are pinned so neighbouring channels cannot supply the failure.
+describe('checkPrBodyFidelity — CommonMark section boundaries', () => {
+  it.each(['    ```', '     ~~~', '\t```', '- example\n\n    ```'])('does not borrow evidence after literal or list-contained %s', (opener) => {
+    const body = `## Fidelity verdict\n${goSection({ evidence: '' })}\n\n${opener}\n\n## Neighbour\nEvidence: src/foreign.ts:42\n`;
+    const result = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(result.ok).toBe(false);
+    expect(result.errors.join()).toMatch(/file:line evidence/);
+  });
+
+  it.each(['', ' ', '  ', '   '])('accepts a real fence with %s indentation', (indent) => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n${indent}\`\`\`bash\n# quoted heading\n${indent}\`\`\`\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+
+  it('accepts evidence after a closed list-nested fence', () => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n- example\n\n    \`\`\`bash\n    # quoted heading\n    \`\`\`\n\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+
+  it.each(['~~~', '```', '```` trailing text'])('does not close a four-backtick fence with %s', (falseCloser) => {
+    const body = wrap(`${goSection({ evidence: '' })}\n\n\`\`\`\`md\n${falseCloser}\n# quoted heading\n\`\`\`\`\nEvidence: src/own.ts:42`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});
+
+describe('checkPrBodyFidelity — quoted section headings', () => {
+  it('does not accept an entire quoted verdict as a real section', () => {
+    const body = `\`\`\`md\n## Fidelity verdict\n${goSection()}\n\`\`\`\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+  it('does not count a quoted verdict as a duplicate', () => {
+    const body = wrap(`${goSection()}\n\n\`\`\`md\n## Fidelity verdict\nexample\n\`\`\``);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it.each(['## Provenance\nSubstrate: quoted example', '## Review findings\n- MAJOR: quoted example'])('ignores quoted sibling section %s', (quoted) => {
+    const body = `\`\`\`md\n${quoted}\n\`\`\`\n` + wrap('FIDELITY: skipped — bug fix, no new capability');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});
+
+// Complete indented-fence population of first-parent staging history at the
+// pinned corpus HEAD. Historical bodies are data, never live path citations.
+describe('checkPrBodyFidelity — merged indented-fence compatibility corpus', () => {
+  const corpus = JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/fidelity-indented-fence-history.json', import.meta.url)), 'utf8'));
+  for (const row of corpus.rows) {
+    it(`preserves merged PR #${row.pr.join(',')} (${row.sha.slice(0, 12)})`, () => {
+      const headSha = row.body.match(/^Audited-SHA:\s*(\S+)/m)?.[1] ?? row.sha;
+      expect(checkPrBodyFidelity({ body: row.body, headSha }).ok).toBe(true);
+    });
+  }
+});
