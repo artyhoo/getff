@@ -15,6 +15,11 @@ Finish the existing prepared .agents architecture and consumer installer, then e
 Read the complete spec and plan above; do not restart the migration from staging.
 Required continuation packet: continuation.json, packet.sha256, original-wip.bundle and checkpoint/integrated-source-in-progress.tar.gz.
 Dispatcher must supply a verified worker-visible packet location before release. Mac origin paths are not remote input locations.
+Verified packet location (dispatcher receipt, 2026-10-05): `/home/www/aif-inputs/agents-canonical-completion/canonical-factory-transfer` on container aif-agent-1, uid-1000-readable. Archive receipt: `agents-canonical-factory-transfer.tar.gz` sha256 `d45cae89a4c354cd83be6697ecb95b35b9e73ad5ffa09af1626f90271ae0bd06`; `sha256sum -c packet.sha256` = 101/101 OK in place. Re-verify before reading source as authoritative: `cd /home/www/aif-inputs/agents-canonical-completion/canonical-factory-transfer && sha256sum -c packet.sha256`.
+
+## §4c Park contract (dispatch prerequisite)
+
+Park it as a question whenever a fork is not decidable from the spec, plan and packet alone: scope or design conflicts, protected artifacts (sealed hashes in continuation.json: `.claude/settings.json`, `.ai-factory/harness-model.json`), changes that would require trust review, or publication beyond the authorized task scope. Do not guess a fork silently. Technical/in-scope mechanics resolve autonomously; anything else parks with concrete evidence and both options named.
 
 ## §2 Sub-waves
 
