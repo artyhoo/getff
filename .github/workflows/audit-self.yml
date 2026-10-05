@@ -843,7 +843,7 @@ jobs:
       - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
         run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
       - name: Run install-sh AGENTS.md fenced co-ownership test (beta-ai-docs-agnosticism S1 D1b)
-        run: bash tests/install-sh/fence-agents-coownership.test.sh && bash tests/install-sh/install-toolchain-docs.test.sh
+        run: bash tests/install-sh/fence-agents-coownership.test.sh && bash tests/install-sh/install-toolchain-docs.test.sh && bash tests/install-sh/install-tier-home-reachability.test.sh
       - name: "install-sh — critical-review S4-4 consumer-owned eslint / lint-staged / prettier configs kept"
         run: bash tests/install-sh/foreign-tool-configs.test.sh
       - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
