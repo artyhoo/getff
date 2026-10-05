@@ -727,9 +727,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1527                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1530                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1699          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1837          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
@@ -740,7 +740,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1898                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1675          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1813          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -3756,7 +3756,15 @@ record_project_checks() {
   else
     { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo; echo; echo "$b"; printf '%s\n' "$body"; echo "$e"; } > "$tmp"
   fi
-  cat "$tmp" > "$file"; rm -f "$tmp"
+  # The WRITE's status is the function's — a failed final cat (read-only .ai-factory/, a 444
+  # record file, ENOSPC mid-write) must reach every caller's not-wired arm, not be swallowed by
+  # rm's 0. Callers branch on this status to decide between «recorded» and the loud
+  # note_not_wired degradation (99-finalize.sh arm pass, record_lane_checks, the python lane's
+  # _py_record_project_checks, whose runner ships only behind a written record).
+  local rc=0
+  cat "$tmp" > "$file" || rc=1
+  rm -f "$tmp"
+  return "$rc"
 }
 
 # record_add_unlisted <file> <reason> <command…> — each command the record lists under neither

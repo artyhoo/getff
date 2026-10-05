@@ -402,12 +402,12 @@
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 283
+      "count": 284
     },
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 99
+      "count": 100
     },
     "academicSources": {
       "source": [

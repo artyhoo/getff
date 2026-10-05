@@ -120,7 +120,14 @@ grep -qx 'stack: generic' <<<"$(block "$D")" && ok "(D) generic: stack: generic"
 [ -z "$(section "$D" armed)$(section "$D" not-armed)" ] && grep -qx 'armed:' <<<"$(block "$D")" \
   && ok "(D) generic: both lists empty, headers present" || bad "(D) lists: $(block "$D" | tr '\n' ';')"
 
-# ── (I) alpha lanes: the record with both lists empty ───────────────────────────────────────────
+# ── (I) alpha lanes: cargo/go record both lists empty; the python lane records its three checks ──
+# The python lane (one-button-w2-python-prepush-under-record) writes the real record: each of its
+# three commands is armed, or not-armed with a structural `not wired: <tool> is not on PATH` reason
+# (kickoff deliverable 2; T-OBW2P-A: the two ruff runs stay two lines). Host-independent invariant:
+# exactly three check lines across the two lists, each line accounted for.
+# The reason grep pins the not-on-PATH vocabulary: the other structural reason (bans config
+# missing, 45-python.sh:961) is unreachable here — the bans file is always delivered before
+# the record probes (:27, :394).
 for lane in python cargo go; do
   L=$(proj "")
   case "$lane" in
@@ -131,8 +138,20 @@ for lane in python cargo go; do
   ( cd "$L" && bash "$INSTALL" "$lane" < /dev/null >/dev/null 2>&1 ); rc=$?
   [ "$rc" -eq 0 ] || { echo "FAIL: install.sh exited $rc"; exit 1; }
   grep -qx "stack: $lane" <<<"$(block "$L")" && grep -qx 'armed:' <<<"$(block "$L")" && grep -qx 'not-armed:' <<<"$(block "$L")" \
-    && [ -z "$(section "$L" armed)$(section "$L" not-armed)" ] \
-    && ok "(I) $lane lane: record with both lists empty" || bad "(I) $lane lane record: $(block "$L" 2>/dev/null | tr '\n' ';')"
+    && ok "(I) $lane lane: stack + both headers present" || bad "(I) $lane headers: $(block "$L" 2>/dev/null | tr '\n' ';')"
+  if [ "$lane" = python ]; then
+    _py_lines="$(section "$L" armed)$(section "$L" not-armed)"
+    [ "$(grep -c '^- ' <<<"$_py_lines")" = 3 ] \
+      && grep -q -- '- ast-grep scan' <<<"$_py_lines" \
+      && grep -q -- '- ruff check \.' <<<"$_py_lines" \
+      && grep -q -- '- ruff check . --config .getff/ruff-bans.toml --no-cache' <<<"$_py_lines" \
+      && [ "$(grep -c '# not wired: .* is not on PATH' <<<"$(section "$L" not-armed)")" = "$(grep -c '^- ' <<<"$(section "$L" not-armed)")" ] \
+      && ok "(I) python lane: the three record lines accounted for (armed or structural not-wired)" \
+      || bad "(I) python record lines: $(block "$L" 2>/dev/null | tr '\n' ';')"
+  else
+    [ -z "$(section "$L" armed)$(section "$L" not-armed)" ] \
+      && ok "(I) $lane lane: record with both lists empty" || bad "(I) $lane lane record: $(block "$L" 2>/dev/null | tr '\n' ';')"
+  fi
 done
 
 # ── (E) second install: one block, neighbour untouched ──────────────────────────────────────────
