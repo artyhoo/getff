@@ -7,7 +7,7 @@
 57f602afb603627efdbaaf4b0c0a5484a8c3d2a2fd8a5d15cb8e650e94928dc5  .claude/hooks/check-worker-dispatch-channel.sh
 10b6d422e95b051d6fd697f16b77453f81a8ba1870e2dbf18fc88a0bb047170d  .claude/hooks/close-aif-task-on-merge.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
-ab3242e2265192215a9f2953a92463f05cb9c9d49990873d6189b20b9e20ebe5  .claude/hooks/end-of-turn-reminder.sh
+5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .claude/hooks/end-of-turn-reminder.sh
 34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .claude/hooks/glossary-inject.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
 c2faeadc6d8bd8f8f9e2c7e228459924c600ad8cc4d9bfe25fbaa1b15d47cfbd  .claude/hooks/inject-matching-rule.sh
@@ -503,7 +503,7 @@ a513d55f61b908fb34b2f16ba1ae52fbf2819d3de4de03c611807a1fe4014d25  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-88a0b528a22f5fd4f63d2636425c9ebea6cf298416e4c80c1246d0e92da6c4c7  packages/core/hooks/end-of-turn-reminder.test.ts
+06d91a81263a56b983bb40a6b469f917410c69d78c347ee9802aaf28e265cac0  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 08e03d865203e18c8e7600b66ba4a8aacec57676790359697e1f1d6caa7fe805  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
