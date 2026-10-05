@@ -241,7 +241,7 @@ const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
 /**
  * The same backreference as code comments write it — no backticks, and often wrapped
  * onto the next comment line: «45-python.sh:1398-1400 classifies … — and :1346 extends
- * the contract», «ARCHITECTURE.md source (:1335/:1363 — …». Three of these had gone
+ * the contract», «ARCHITECTURE.md source (:1335/:1370 — …». Three of these had gone
  * stale unseen (fidelity audit on PR #1931, 2026-09-29), because nothing read them.
  *
  * Scope, each part measured on the code corpus that day (30 un-backticked `:NN` with a
