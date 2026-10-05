@@ -2674,7 +2674,7 @@ describe('consumer mode — D3/D5 skip outside the authoring repo', () => {
 // CLAUDE.md and D5 on four tracked files plus every gitignored checkout it walked
 // into. Each describe below is a paired positive/negative for one fix, and every
 // arm runs BOTH implementations on the same fixture: the canonical .ts and the .sh
-// twin install.sh ships to consumers (install.sh:1257), so neither can drift alone.
+// twin install.sh ships to consumers (install.sh:1288), so neither can drift alone.
 
 const CORE_SH = join(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh');
 // Stryker-sandbox guard, as in the R4/R17 bash tests: the twin is absent there.
