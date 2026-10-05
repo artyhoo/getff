@@ -193,6 +193,7 @@ bridge_wire_project() {
       # print channel (companion_not_wired_summary).
       local had_companion=""
       command -v companion_not_wired >/dev/null 2>&1 && had_companion=1
+      # shellcheck source=setup.d/lib.sh
       INSTALL_SH_LIB_ONLY=1 . "$lib"
       unset INSTALL_SH_LIB_ONLY
       [ -n "$had_companion" ] && unset -f note_not_wired
