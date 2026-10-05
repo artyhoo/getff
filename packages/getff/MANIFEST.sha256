@@ -674,7 +674,7 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 1425319ff3163e5e6b0488437f3b67a0482ab775bd36c65eb4a48bea9154032f  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 d4fdba5eb0954792c779636cb02742bc8f80195cf6ac4e0bc40f670eea24e2ad  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-860301e467d97f23acd9c0571f0c98b546c3f82103f106597c42074f28f75e5f  packages/core/principles/36-ci-needs-completeness.test.ts
+342cd4e433ded3f04cea7065bb0ad674cb0e6fdce2be824924c599227b103ce5  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 06e46533e411203e2235cfaa9d8f66286e434a439e3a7c5461656fdd219785ba  packages/core/principles/37-required-context-completeness.test.ts
 5a6f7e4e86da93e863f234af9c5756fcd22a6a6eb0b5f3b600a7421d0b408408  packages/core/principles/38-vitest-include-ci-coverage.test.ts
