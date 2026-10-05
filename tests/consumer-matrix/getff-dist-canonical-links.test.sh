@@ -54,5 +54,8 @@ tar -xzf "$WORK/$(cat "$WORK/pack.log")" -C "$WORK/unpacked"
 rm -rf "$fixture"
 [ -f "$WORK/unpacked/package/.agents/procedures/example/SKILL.md" ]
 [ "$(bash "$WORK/unpacked/package/.claude/skills/example/helpers/probe.sh")" = HELPER_OK ]
-if find "$WORK/unpacked/package" -type l | rg .; then echo 'FAIL npm payload has a link'; exit 1; fi
+# `grep .`, not `grep -q .`: under pipefail an early-exit grep SIGPIPEs find into rc=141,
+# which `if` reads as false — the failing case would hollow-pass. Consuming grep keeps the
+# pipeline's status truthful in both branches (rg is likewise not guaranteed on every host).
+if find "$WORK/unpacked/package" -type l | grep .; then echo 'FAIL npm payload has a link'; exit 1; fi
 echo 'PASS tracked-only canonical roots, npm link materialization, index isolation, drift and standalone helper closure'

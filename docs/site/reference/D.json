@@ -34,7 +34,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PreToolUse:AskUserQuestion hook — pre-question fork-challenge nudge (consumer-safe session UX)",
       "source": {
@@ -87,7 +92,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PostToolUse gate — zero-dep consumer reimplementation of the doc-authority header check",
       "source": {
@@ -217,7 +227,13 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)",
       "source": {
@@ -241,7 +257,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "Stop hook — end-of-turn recap + goal-drift verdict reminder",
       "source": {
@@ -292,7 +313,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "SessionStart:compact hook — re-injects the model-authored handoff after compaction",
       "source": {
@@ -317,7 +343,13 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "card loader hook — injects the rule and card summaries that match an edit, a read or a Bash command",
       "source": {
@@ -347,7 +379,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PostToolUse hook — path-scoped codify-then-pointer discipline reminder",
       "source": {
@@ -373,7 +410,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "SessionStart hook — injects the active output-language line into session context",
       "source": {
@@ -399,7 +441,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "SessionStart + SubagentStart hook — injects the project digest at both fire-points",
       "source": {
@@ -500,7 +547,12 @@
       "kind": "hook",
       "shipsTo": {
         "tier": "framework",
-        "absent": "no-lane"
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "PreCompact hook — writes the session-residue note before compaction",
       "source": {

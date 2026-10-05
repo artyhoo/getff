@@ -107,11 +107,17 @@ function absentEnums(
   return out;
 }
 
-/** Parse the 15 install fingerprints into {stack, lane, hash, path} rows (input class 5). */
+/** Parse the 15 install fingerprints into {stack, lane, hash, path} rows (input class 5). Link rows
+ * (canonical fingerprint format, `link  path -> target`) carry hash:null: the consumer path is
+ * PRESENT on the lane, but the bytes live at the canonical owner the target points at. */
 function fingerprintRows(root = REPO_ROOT) {
   const dir = join(root, 'tests/install-sh/baselines');
-  const rows: { stack: string; lane: string; hash: string; path: string }[] =
-    [];
+  const rows: {
+    stack: string;
+    lane: string;
+    hash: string | null;
+    path: string;
+  }[] = [];
   for (const stack of readdirSync(dir)) {
     for (const f of readdirSync(join(dir, stack))) {
       if (!f.endsWith('.fingerprint')) continue;
@@ -120,7 +126,12 @@ function fingerprintRows(root = REPO_ROOT) {
         '\n',
       )) {
         const m = line.match(/^([0-9a-f]{64})  (.+)$/);
-        if (m) rows.push({ stack, lane, hash: m[1], path: m[2] });
+        if (m) {
+          rows.push({ stack, lane, hash: m[1], path: m[2] });
+          continue;
+        }
+        const l = line.match(/^link  (.+?) -> (.+)$/);
+        if (l) rows.push({ stack, lane, hash: null, path: l[1] });
       }
     }
   }

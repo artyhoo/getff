@@ -129,7 +129,9 @@ function memo(key, build) {
   return cache.get(key);
 }
 
-/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. */
+/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. Link rows
+ * (canonical fingerprint format, `link  path -> target`) carry hash:null: the consumer path is
+ * PRESENT on the lane, but the bytes live at the canonical owner the target points at. */
 function fingerprints(root) {
   return memo(`fp:${root}`, () => {
     const dir = join(root, FINGERPRINT_DIR);
@@ -142,7 +144,12 @@ function fingerprints(root) {
         const lane = f.replace(/\.fingerprint$/, '');
         for (const line of readFileSync(join(stackDir, f), 'utf8').split('\n')) {
           const m = line.match(/^([0-9a-f]{64})  (.+)$/);
-          if (m) rows.push({ stack, lane, hash: m[1], path: m[2] });
+          if (m) {
+            rows.push({ stack, lane, hash: m[1], path: m[2] });
+            continue;
+          }
+          const l = line.match(/^link  (.+?) -> (.+)$/);
+          if (l) rows.push({ stack, lane, hash: null, path: l[1] });
         }
       }
     }

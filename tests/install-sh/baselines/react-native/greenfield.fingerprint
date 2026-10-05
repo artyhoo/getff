@@ -1,3 +1,167 @@
+13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .agents/hooks/ask-question-reminder.sh
+5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .agents/hooks/check-doc-authority-header.sh
+cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
+5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .agents/hooks/end-of-turn-reminder.sh
+47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
+7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
+403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
+305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .agents/hooks/inject-output-language.sh
+ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .agents/hooks/inject-project-digest.sh
+ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .agents/hooks/lang/check-parity.sh
+db4b9215972f881e86998c832c28861fdd09446e3682a1630527137bb3d43a55  .agents/hooks/lang/en.sh
+2d6116e62e8fceccaebc39bef91f743f04bb952948e793c7b8447fceff85f46a  .agents/hooks/lang/ru.sh
+b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/lib/hook-live.sh
+d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
+4df7392c5a977ad476d3cdb970b50ec91e92a6d82e260800dbfc5caae3344573  .agents/hooks/precompact-residue.sh
+85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .agents/procedures/ai-doc/SKILL.md
+63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .agents/procedures/ai-doc/anthropic-and-aif-residue.md
+7c2f34c57d962d0af5ee907be776546d6209cd34bf6bec5811b086be9f566e83  .agents/procedures/arch/SKILL.md
+49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .agents/procedures/arch/references/ADR-FORMAT.md
+dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .agents/procedures/arch/references/CONTEXT-FORMAT.md
+7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .agents/procedures/arch/references/domain-modeling.md
+80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .agents/procedures/arch/references/grilling.md
+a092bdc802f3f6e1d8b247672ffa581110f499e8dbd364b609a337354c212dec  .agents/procedures/getff/SKILL.md
+99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .agents/procedures/getff/references/ai-traps.md
+c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .agents/procedures/getff/references/base-core.md
+0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .agents/procedures/getff/references/checks-map.md
+94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .agents/procedures/getff/references/doc-organization.md
+aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .agents/procedures/getff/references/overview.md
+7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .agents/procedures/getff/references/self-testing-docs.md
+defe62c6234680239424440bdf95137ed49236c5537e5b1ea72fe8d5cb1276ab  .agents/procedures/night-mode/SKILL.md
+4a7d908502de2cbe0437b7dd17161c47979d79d97d17ba1c5fd5b15bf17290d7  .agents/procedures/orchestrator/SKILL.md
+8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .agents/procedures/orchestrator/helpers/memory-sweep.sh
+e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .agents/procedures/orchestrator/references/ai-laziness-traps-orchestrator.md
+e96ad34debe07261f4bdfb2c6fd3e4fd64cd4b73ef5b720658b769e29875e4e2  .agents/procedures/orchestrator/references/batch-prompt-template.md
+60cb51ebd2544e63a2f6e99c7a6fcc25d540fd4a334a0dce3247f834e07d809c  .agents/procedures/orchestrator/references/chip-worker-template.md
+b82203d0fb7d648b23bedd644b9b7cba33f52283c412cf3419a5d51217deedeb  .agents/procedures/orchestrator/references/discovery.md
+76321b6ce601093af02c4295be9b1789d6d9ffb98b075195f315a129dac9be49  .agents/procedures/orchestrator/references/glossary.md
+1d92b20261061efcffee908a6945a0585655891badf99e32d72e79ab957dfaf8  .agents/procedures/orchestrator/references/phase-minus-1.md
+be5a370ad5b96842daf98dcb21cd191116e671025986fbe4076a76f334dc37fe  .agents/procedures/orchestrator/references/queue-mode.md
+cbbc1b85447ca5a142ead82554f21a213db7bbe1b991d9635d8cf9ad566bb981  .agents/procedures/orchestrator/references/quota-and-burn.md
+51e3cedd718d6c3ecb484d3e76e39afbba4e678779762201d39ec9b91bd355e0  .agents/procedures/orchestrator/references/rationale.md
+2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .agents/procedures/orchestrator/references/reviewer-template.md
+6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .agents/procedures/orchestrator/references/worker-template.md
+e28d583a5880371383f2f39810a3b6e7d4133077438a401264b1701d04c20217  .agents/procedures/pipeline/SKILL.md
+7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .agents/procedures/pipeline/evals/RESULTS.md
+29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .agents/procedures/pipeline/evals/evals.json
+3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md
+8ca1a4cfb1cfbdc0d119db4d4d8b9fa85389fd3670c42e62ac90a3174de2cae9  .agents/procedures/pipeline/evals/files/scenario-2-named-state.md
+12683e909a0f5438c991653ed3f4b07672b25c500a2d7c2a29dcfbb6d736a50d  .agents/procedures/pipeline/evals/files/scenario-3-dnpark-state.md
+2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .agents/procedures/pipeline/helpers/assign-skill.sh
+7298ef71fe47ddb71083e8fc8f52163bf965d7abd4222f5a05fc533107db55dd  .agents/procedures/pipeline/helpers/bundle-curate.sh
+3fa635c533bc94327d92f04bb7b8cd561921910c82657aec8a27b8b700301def  .agents/procedures/pipeline/helpers/classify-each-candidate.sh
+2553b71667d7fb43621ba35a16b463253eea764775805a44a488f6d4050a6e09  .agents/procedures/pipeline/helpers/classify-work.sh
+f58b54fd4a2c3b1bb1e99e7abc78984a8d74651612970157b233ee300b5a0a15  .agents/procedures/pipeline/helpers/delta-diff.sh
+80fed096ecdfe8d345ca3eee9b34759276edac25621067f5574fe2edf2cd35d8  .agents/procedures/pipeline/helpers/delta-write-from-state.sh
+ff684aaf1d642a9d9d2dac1db6e8fcf442f47e7edeeff02e31d83523b0c970d6  .agents/procedures/pipeline/helpers/dispatch-from-state.sh
+396867837d26f179c85e007f47cbad66b8493b32615bc870dcc6df81fb14ce4c  .agents/procedures/pipeline/helpers/dup-detect.sh
+ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .agents/procedures/pipeline/helpers/emit-output-strings.sh
+20d1b96ef42f25852699c91d0245cb95fa712821ebf3fc63faa16d4a618ff878  .agents/procedures/pipeline/helpers/frontier.sh
+aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .agents/procedures/pipeline/helpers/inflight-check.sh
+9c948c28312c11fd97ebaff63d2bcde8bb84de999ee2f0d6d68b812eb5be82bc  .agents/procedures/pipeline/helpers/integer-name-guard.sh
+0776a001cc180337dfe402495855f8bb783cb8597c72c84a739d63c857783962  .agents/procedures/pipeline/helpers/launch-table-generator.sh
+ec3486cbf44276fa4ead0d50325ec9b462b95850013dbb57b8d7b53778ce743b  .agents/procedures/pipeline/helpers/lib/common.sh
+e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .agents/procedures/pipeline/helpers/list-presets.sh
+db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .agents/procedures/pipeline/helpers/parse-override-flags.sh
+f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/procedures/pipeline/helpers/plan-currency-check.sh
+3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
+8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
+77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
+120670abb91c3e6b8e7ec8c5d291ba1dd20e8e42e719c7b3169b93da3d44d8da  .agents/procedures/pipeline/helpers/priority-score.sh
+0e4d579cbf69690b0282d8da90bd217bb8c23e74564fa4481e2c8a8a6caccc63  .agents/procedures/pipeline/helpers/render-status.sh
+be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .agents/procedures/pipeline/helpers/resolve-preset.sh
+2c2a0920175c2693db7d879b1dfaa4d4c5e7d74fbf9505876cb8af9592bf6528  .agents/procedures/pipeline/helpers/run-helper.sh
+d697edc56c5c4f4066b85e8f25576982bb20abf26d83e08da01aca6e42f544a3  .agents/procedures/pipeline/helpers/update-cache.sh
+8b9d62aa997117442a78b406255f9bc973b54a000197b239648a3cee4028e911  .agents/procedures/pipeline/helpers/update-delta.sh
+2fff8884e6b2e2d74f68a1e1f5a44f33986e81ffd28309d73222b898f2684738  .agents/procedures/pipeline/lang/check-parity.sh
+8da5a12c87f9af23448da52624ed5f97bbc020d300bf3bb0f4dde6691ccc460b  .agents/procedures/pipeline/lang/en.sh
+0ed72514e5547689cb29219c5c69eb3620d68bddf39f78c82e7759b42d0a385b  .agents/procedures/pipeline/lang/ru.sh
+e582b3e6cc13ae7a0cc95143cb945a1af4576ea4ba73e768bc6d53acf0874ca8  .agents/procedures/pipeline/references/anti-rationalization.md
+4d213fba9b3e79fd24beea3e43652b255e00046dd2b593f20e25f9dcb112b415  .agents/procedures/pipeline/references/bundle-composition.md
+5ca2b586ce888607e4cfef262a17466c643303b892e8fec00224ef0d9871ec42  .agents/procedures/pipeline/references/claim-machinery.md
+f6f504d1cbd154908a4a0ae667aec2af346cd0531c3ab4f8d1f070a48bd9ba2a  .agents/procedures/pipeline/references/dogfood.md
+b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .agents/procedures/pipeline/references/failures.md
+25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .agents/procedures/pipeline/references/frontier.md
+7685b36cc19187b3342b5cc0faf3a3294b72e13cada08a20c5994e2600eeee52  .agents/procedures/pipeline/references/master-backlog-delta.md
+b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .agents/procedures/pipeline/references/mode-overrides.md
+a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .agents/procedures/pipeline/references/output-format.md
+751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .agents/procedures/pipeline/references/placeholders.md
+55a302f7c8159825e4d2e2088a981a8e9ca1ee7f80ea36bd0709b0199866e0af  .agents/procedures/pipeline/references/plain-language-tail.md
+293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .agents/procedures/pipeline/references/plan-cache.md
+82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .agents/procedures/pipeline/references/presets/aif.json
+93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .agents/procedures/pipeline/references/presets/economy.json
+12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .agents/procedures/pipeline/references/presets/night.json
+b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .agents/procedures/pipeline/references/presets/sdd.json
+002379dd4b444b4b6a15012937cc615149f1458b592e9ae3d4fab8b77e38e14d  .agents/procedures/pipeline/references/red-flags.md
+bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .agents/procedures/pipeline/references/stage-gates.md
+9fffe32cef9a34b5174c3c257573e17cbbbf2147c7ca0f16e6efc2e89ebe20d5  .agents/procedures/pipeline/templates/meta-kickoff.template.md
+e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .agents/procedures/pipeline/templates/state.md.template
+b7ff524284e4c5e734eda6de64fa9b00e5429b5e16ddbbe6b7e98ba7abb48dcb  .agents/procedures/reviewer/SKILL.md
+d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .agents/procedures/rule-research/SKILL.md
+3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .agents/procedures/rule-tests/SKILL.md
+a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .agents/procedures/template-audit/SKILL.md
+b148168130597b3f7468d887861edc1993f66a6a3b236f065df8ae8e128e4b3d  .agents/procedures/tool-bootstrapping/SKILL.md
+1914179163d2c12fc67733cb2f84236272ac80225f667f0f7c66374e587e9437  .agents/procedures/tool-bootstrapping/references/decision-format.md
+f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
+c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296  .agents/roles/aif-init.md
+baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .agents/roles/capability-reuse-auditor.md
+4786b0b3d8b639cecf9a333ee27d807c451ead7b708092e3d9be38a35b113d63  .agents/roles/claims-conformance-auditor.md
+502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622  .agents/roles/compliance-verifier.md
+7fd839ccb2ad1faba23a6a423aaaa3f0524336f174a6e41236a602917374fc5e  .agents/roles/docplan-auditor.md
+3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453  .agents/roles/docs-form-auditor.md
+4502ccefb649d35ad0561759c3c9a77b9b4d098f75c3793f7d2859f9f401f062  .agents/roles/fidelity-auditor.md
+0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .agents/roles/living-docs-auditor.md
+dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .agents/roles/memory-codification-auditor.md
+2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f  .agents/roles/review-sidecar.md
+05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .agents/roles/rule-researcher.md
+c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .agents/roles/rule-test-author.md
+5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
+5257802b57f8f314db52cd8db234e460995edbbe2cbe38ccbb7a97b8f0b5a813  .agents/skills/ai-doc/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/ai-doc/agents/openai.yaml
+df99cc161d3884d1d361964ec4039bb70e0be63d454f6bcb86edc3057505e1fc  .agents/skills/aif-init/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/aif-init/agents/openai.yaml
+057d4644bae989e86256931869d9946b56c644b315f093c4a24ff6dae6653178  .agents/skills/arch/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/arch/agents/openai.yaml
+afb84809cbe9d0861e83710f3f3058a0360f18d49c3af51b9dc0a64c23816768  .agents/skills/capability-reuse-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/capability-reuse-auditor/agents/openai.yaml
+a4a780d96fb075c56b233fbcab1ca97194f1222d329ec593852ca00719d608e3  .agents/skills/claims-conformance-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/claims-conformance-auditor/agents/openai.yaml
+0a4eb13b0a4f759acc20d5dc83c394c73f5f33b2dfc74fb008b1f0546c8048dd  .agents/skills/compliance-verifier/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/compliance-verifier/agents/openai.yaml
+17aa8e7bf6056b7d88bbd95b00678a66c8fd56d80e696fac23a7e4baddfa1712  .agents/skills/docplan-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/docplan-auditor/agents/openai.yaml
+c913b72f4e65020f97bb919947ad0842495c9eae42e74a4ba75d6473c24381f5  .agents/skills/docs-form-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/docs-form-auditor/agents/openai.yaml
+bca372ac62f75556709e42e39797c0398ff6971096b720af414bc060e75b1a57  .agents/skills/fidelity-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/fidelity-auditor/agents/openai.yaml
+6c00b79d3ff8b3a0ff62f4664dae443e75083a5f5c768094ee219bde7b3221d3  .agents/skills/getff/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/getff/agents/openai.yaml
+79f440497ea4350cfd070de49e1d663c03f29e712fd7e6a8ca97a53a69cc95f6  .agents/skills/living-docs-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/living-docs-auditor/agents/openai.yaml
+7f0015f21640056f0c1957415a3b4147264cbd93d792991ecbe6372faa4fdc4e  .agents/skills/memory-codification-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/memory-codification-auditor/agents/openai.yaml
+9196e2106bea64a73151ab54144edb07089d2a56a47f87c9a82a7aa054d8e8a7  .agents/skills/night-mode/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/night-mode/agents/openai.yaml
+fbbd67e35f2497b89ce34b3af3bb2d4cdf2f6819818c49008bbdea83363ac4bd  .agents/skills/orchestrator/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/orchestrator/agents/openai.yaml
+ba634dceacb7f8d92300b3426ad5808eeb368c7167f720344cfda3dd58c988ca  .agents/skills/pipeline/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/pipeline/agents/openai.yaml
+8fe277495b5871fbc15bf1efef5fd02db1a0bb9a7e40c0b15505a3d8961f257d  .agents/skills/review-sidecar/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/review-sidecar/agents/openai.yaml
+494b902740760a0ff2d856366b12faa35c313c82cc92ad70012678fdc73ee89d  .agents/skills/reviewer/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/reviewer/agents/openai.yaml
+a78de190f07e64b3ce1e9879d38f58ac0c6f3b38685d928e74687b026386d1d0  .agents/skills/rule-research/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/rule-research/agents/openai.yaml
+491c4f8418266acc30c553db1fd864ec34e15c68c3ee5e251e6dc1100d89428d  .agents/skills/rule-researcher/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/rule-researcher/agents/openai.yaml
+0e1bcbb316250ada8e8212e5373192547002b3cbfe4225ae39316988c19310de  .agents/skills/rule-test-author/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/rule-test-author/agents/openai.yaml
+d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills/rule-tests/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/rule-tests/agents/openai.yaml
+64b25f87aaca0121d37002518fbfdd70cc1ed8f1d58e7d3dfea19c5f6dd400ae  .agents/skills/template-audit/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/template-audit/agents/openai.yaml
+19d1b80f71e325379f81cffdbca7c8e72b4ad77d26bd62800938d7a38c8c9442  .agents/skills/tool-bootstrapping/SKILL.md
+8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/tool-bootstrapping/agents/openai.yaml
 3a0d33b2e008c49b019e3571b838f30d86e2863dcb8648f90758c4146c0ada8c  .ai-factory/AI-USAGE-GUIDE.md
 acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/ARCHITECTURE.md
 acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/ARCHITECTURE.react-native.md
@@ -6,131 +170,131 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-71431eeb51a5f89c90c439f6f7456f2123469180bc1a274483e696bf5a83ba1e  .ai-factory/refresh-baseline.json
+a851048b114eaae826b3effcbce65eab4e6d59b35262a612387e383dede4a969  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
 cd7765c267add628bbfc8f17b73e03cc7942cd8fa8250af31f2a0693e1bcd0b2  .ai-factory/tier-home.md
 25c4962990d049fdd8ac7c0149e0b263aae7507e272005869226d7b80bf4b283  .ai-factory/tool-decisions.md
-c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296  .claude/agents/aif-init.md
-baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents/capability-reuse-auditor.md
-b02f777e22aebaaf970752897b29ebc4eebf7c360eabe33fa2ee32b831ff71b1  .claude/agents/claims-conformance-auditor.md
-502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622  .claude/agents/compliance-verifier.md
-7fd839ccb2ad1faba23a6a423aaaa3f0524336f174a6e41236a602917374fc5e  .claude/agents/docplan-auditor.md
-3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453  .claude/agents/docs-form-auditor.md
-badaf85d1173e73248d6ef5fe168525311a6b7a8c95de2973c288db60a95f6ba  .claude/agents/fidelity-auditor.md
-0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
-dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .claude/agents/memory-codification-auditor.md
-2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f  .claude/agents/review-sidecar.md
-05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .claude/agents/rule-researcher.md
-c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents/rule-test-author.md
-13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
-67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
-cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
-5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .claude/hooks/end-of-turn-reminder.sh
-47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
-c2faeadc6d8bd8f8f9e2c7e228459924c600ad8cc4d9bfe25fbaa1b15d47cfbd  .claude/hooks/inject-matching-rule.sh
-403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
-16f97c89f6e987d8673bc0485931932aef83eaf3cf8fc2f624ee68d8d37b1194  .claude/hooks/inject-output-language.sh
-c4c072845e4bb660a21f3310ce026c90c05334a1324b1c6bc97b4aed74775097  .claude/hooks/inject-project-digest.sh
-ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
-db4b9215972f881e86998c832c28861fdd09446e3682a1630527137bb3d43a55  .claude/hooks/lang/en.sh
-2d6116e62e8fceccaebc39bef91f743f04bb952948e793c7b8447fceff85f46a  .claude/hooks/lang/ru.sh
-b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
-d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
-4df7392c5a977ad476d3cdb970b50ec91e92a6d82e260800dbfc5caae3344573  .claude/hooks/precompact-residue.sh
-5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
+link  .claude/agents/aif-init.md -> ../../.agents/roles/aif-init.md
+link  .claude/agents/capability-reuse-auditor.md -> ../../.agents/roles/capability-reuse-auditor.md
+link  .claude/agents/claims-conformance-auditor.md -> ../../.agents/roles/claims-conformance-auditor.md
+link  .claude/agents/compliance-verifier.md -> ../../.agents/roles/compliance-verifier.md
+link  .claude/agents/docplan-auditor.md -> ../../.agents/roles/docplan-auditor.md
+link  .claude/agents/docs-form-auditor.md -> ../../.agents/roles/docs-form-auditor.md
+link  .claude/agents/fidelity-auditor.md -> ../../.agents/roles/fidelity-auditor.md
+link  .claude/agents/living-docs-auditor.md -> ../../.agents/roles/living-docs-auditor.md
+link  .claude/agents/memory-codification-auditor.md -> ../../.agents/roles/memory-codification-auditor.md
+link  .claude/agents/review-sidecar.md -> ../../.agents/roles/review-sidecar.md
+link  .claude/agents/rule-researcher.md -> ../../.agents/roles/rule-researcher.md
+link  .claude/agents/rule-test-author.md -> ../../.agents/roles/rule-test-author.md
+link  .claude/hooks/ask-question-reminder.sh -> ../../.agents/hooks/ask-question-reminder.sh
+link  .claude/hooks/check-doc-authority-header.sh -> ../../.agents/hooks/check-doc-authority-header.sh
+link  .claude/hooks/deps-hash-check.sh -> ../../.agents/hooks/deps-hash-check.sh
+link  .claude/hooks/end-of-turn-reminder.sh -> ../../.agents/hooks/end-of-turn-reminder.sh
+link  .claude/hooks/inject-handoff-on-compact.sh -> ../../.agents/hooks/inject-handoff-on-compact.sh
+link  .claude/hooks/inject-matching-rule.sh -> ../../.agents/hooks/inject-matching-rule.sh
+link  .claude/hooks/inject-memory-codification.sh -> ../../.agents/hooks/inject-memory-codification.sh
+link  .claude/hooks/inject-output-language.sh -> ../../.agents/hooks/inject-output-language.sh
+link  .claude/hooks/inject-project-digest.sh -> ../../.agents/hooks/inject-project-digest.sh
+link  .claude/hooks/lang/check-parity.sh -> ../../../.agents/hooks/lang/check-parity.sh
+link  .claude/hooks/lang/en.sh -> ../../../.agents/hooks/lang/en.sh
+link  .claude/hooks/lang/ru.sh -> ../../../.agents/hooks/lang/ru.sh
+link  .claude/hooks/lib/hook-live.sh -> ../../../.agents/hooks/lib/hook-live.sh
+link  .claude/hooks/lib/residue-dir.sh -> ../../../.agents/hooks/lib/residue-dir.sh
+link  .claude/hooks/precompact-residue.sh -> ../../.agents/hooks/precompact-residue.sh
+link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 8f20ed77dcdda8abcf5198dad3dbe61a757907ecb7257864483bc005f463eccc  .claude/settings.json
-85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
-63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-7c2f34c57d962d0af5ee907be776546d6209cd34bf6bec5811b086be9f566e83  .claude/skills/arch/SKILL.md
-49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .claude/skills/arch/references/ADR-FORMAT.md
-dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills/arch/references/CONTEXT-FORMAT.md
-7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .claude/skills/arch/references/domain-modeling.md
-80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
-a092bdc802f3f6e1d8b247672ffa581110f499e8dbd364b609a337354c212dec  .claude/skills/getff/SKILL.md
-99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
-c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .claude/skills/getff/references/base-core.md
-0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .claude/skills/getff/references/checks-map.md
-94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
-aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
-7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .claude/skills/getff/references/self-testing-docs.md
-06d56d36bad761bcb8dc3d0c924b8e4911da917e3df91215c7e17d009dad1825  .claude/skills/night-mode/SKILL.md
-4a7d908502de2cbe0437b7dd17161c47979d79d97d17ba1c5fd5b15bf17290d7  .claude/skills/orchestrator/SKILL.md
-8abda27819afc9049817e3c592aa857b07ccbedf0871e16a7610e1c84bc55bcd  .claude/skills/orchestrator/helpers/memory-sweep.sh
-e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
-e96ad34debe07261f4bdfb2c6fd3e4fd64cd4b73ef5b720658b769e29875e4e2  .claude/skills/orchestrator/references/batch-prompt-template.md
-60cb51ebd2544e63a2f6e99c7a6fcc25d540fd4a334a0dce3247f834e07d809c  .claude/skills/orchestrator/references/chip-worker-template.md
-b82203d0fb7d648b23bedd644b9b7cba33f52283c412cf3419a5d51217deedeb  .claude/skills/orchestrator/references/discovery.md
-76321b6ce601093af02c4295be9b1789d6d9ffb98b075195f315a129dac9be49  .claude/skills/orchestrator/references/glossary.md
-1d92b20261061efcffee908a6945a0585655891badf99e32d72e79ab957dfaf8  .claude/skills/orchestrator/references/phase-minus-1.md
-be5a370ad5b96842daf98dcb21cd191116e671025986fbe4076a76f334dc37fe  .claude/skills/orchestrator/references/queue-mode.md
-cbbc1b85447ca5a142ead82554f21a213db7bbe1b991d9635d8cf9ad566bb981  .claude/skills/orchestrator/references/quota-and-burn.md
-51e3cedd718d6c3ecb484d3e76e39afbba4e678779762201d39ec9b91bd355e0  .claude/skills/orchestrator/references/rationale.md
-2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .claude/skills/orchestrator/references/reviewer-template.md
-6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-8df6b8a7fbff80b877e65f9df9c2ca7708f1cfc3c32fa2fcb0cf0c9b62b1bf21  .claude/skills/pipeline/SKILL.md
-7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
-29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
-3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
-8ca1a4cfb1cfbdc0d119db4d4d8b9fa85389fd3670c42e62ac90a3174de2cae9  .claude/skills/pipeline/evals/files/scenario-2-named-state.md
-12683e909a0f5438c991653ed3f4b07672b25c500a2d7c2a29dcfbb6d736a50d  .claude/skills/pipeline/evals/files/scenario-3-dnpark-state.md
-2f9a076df8cdcc176daf66050327f4060dff4d800bc31358b0b132dc2673fbaf  .claude/skills/pipeline/helpers/assign-skill.sh
-7298ef71fe47ddb71083e8fc8f52163bf965d7abd4222f5a05fc533107db55dd  .claude/skills/pipeline/helpers/bundle-curate.sh
-3fa635c533bc94327d92f04bb7b8cd561921910c82657aec8a27b8b700301def  .claude/skills/pipeline/helpers/classify-each-candidate.sh
-2553b71667d7fb43621ba35a16b463253eea764775805a44a488f6d4050a6e09  .claude/skills/pipeline/helpers/classify-work.sh
-f58b54fd4a2c3b1bb1e99e7abc78984a8d74651612970157b233ee300b5a0a15  .claude/skills/pipeline/helpers/delta-diff.sh
-80fed096ecdfe8d345ca3eee9b34759276edac25621067f5574fe2edf2cd35d8  .claude/skills/pipeline/helpers/delta-write-from-state.sh
-ff684aaf1d642a9d9d2dac1db6e8fcf442f47e7edeeff02e31d83523b0c970d6  .claude/skills/pipeline/helpers/dispatch-from-state.sh
-396867837d26f179c85e007f47cbad66b8493b32615bc870dcc6df81fb14ce4c  .claude/skills/pipeline/helpers/dup-detect.sh
-ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills/pipeline/helpers/emit-output-strings.sh
-20d1b96ef42f25852699c91d0245cb95fa712821ebf3fc63faa16d4a618ff878  .claude/skills/pipeline/helpers/frontier.sh
-aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .claude/skills/pipeline/helpers/inflight-check.sh
-5c2b538822adc222addab19ca037a3200d79ef12a297a573550ee7803bc91026  .claude/skills/pipeline/helpers/integer-name-guard.sh
-0776a001cc180337dfe402495855f8bb783cb8597c72c84a739d63c857783962  .claude/skills/pipeline/helpers/launch-table-generator.sh
-fe28858ce2eec9f72de0b7423fc977ba2b6ce2b5d45770c586eceedacfcb6d06  .claude/skills/pipeline/helpers/lib/common.sh
-e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .claude/skills/pipeline/helpers/list-presets.sh
-1a73d2af447b5d5461100d9ff941ed0677986ead5463cbb6fa2a97e437f6229e  .claude/skills/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills/pipeline/helpers/plan-currency-check.sh
-00d60661046a1111ad93ebcce72e82c41729958de4aa47e970e5cc56a0b97fa7  .claude/skills/pipeline/helpers/print-orch-home.sh
-56a08403ffffe491fb20b8dd2a687cbb6f4583a114578e6ab89f0c7668de0b72  .claude/skills/pipeline/helpers/print-plan-path.sh
-77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-120670abb91c3e6b8e7ec8c5d291ba1dd20e8e42e719c7b3169b93da3d44d8da  .claude/skills/pipeline/helpers/priority-score.sh
-0e4d579cbf69690b0282d8da90bd217bb8c23e74564fa4481e2c8a8a6caccc63  .claude/skills/pipeline/helpers/render-status.sh
-be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
-2c2a0920175c2693db7d879b1dfaa4d4c5e7d74fbf9505876cb8af9592bf6528  .claude/skills/pipeline/helpers/run-helper.sh
-d697edc56c5c4f4066b85e8f25576982bb20abf26d83e08da01aca6e42f544a3  .claude/skills/pipeline/helpers/update-cache.sh
-8b9d62aa997117442a78b406255f9bc973b54a000197b239648a3cee4028e911  .claude/skills/pipeline/helpers/update-delta.sh
-2fff8884e6b2e2d74f68a1e1f5a44f33986e81ffd28309d73222b898f2684738  .claude/skills/pipeline/lang/check-parity.sh
-8da5a12c87f9af23448da52624ed5f97bbc020d300bf3bb0f4dde6691ccc460b  .claude/skills/pipeline/lang/en.sh
-0ed72514e5547689cb29219c5c69eb3620d68bddf39f78c82e7759b42d0a385b  .claude/skills/pipeline/lang/ru.sh
-e582b3e6cc13ae7a0cc95143cb945a1af4576ea4ba73e768bc6d53acf0874ca8  .claude/skills/pipeline/references/anti-rationalization.md
-759f0fd0b1eec744c619ee12788c7b7bbd109146aca3140eebd434c01d9b480b  .claude/skills/pipeline/references/bundle-composition.md
-6839ab79707d65115ee3d409e135eb83c1ff1cfa0dc8943302f470e7ead7a401  .claude/skills/pipeline/references/claim-machinery.md
-f6f504d1cbd154908a4a0ae667aec2af346cd0531c3ab4f8d1f070a48bd9ba2a  .claude/skills/pipeline/references/dogfood.md
-b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .claude/skills/pipeline/references/failures.md
-25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .claude/skills/pipeline/references/frontier.md
-9600d868581fc7680aeba00dc69a61d977f7c76bb5216f630641f5eeecbddb6b  .claude/skills/pipeline/references/master-backlog-delta.md
-b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .claude/skills/pipeline/references/mode-overrides.md
-a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .claude/skills/pipeline/references/output-format.md
-751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
-55a302f7c8159825e4d2e2088a981a8e9ca1ee7f80ea36bd0709b0199866e0af  .claude/skills/pipeline/references/plain-language-tail.md
-8fab2e5fd326caa24b757f8e240178a76650dd0dd7fc9b8593684ec6c5c0d557  .claude/skills/pipeline/references/plan-cache.md
-82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .claude/skills/pipeline/references/presets/aif.json
-93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .claude/skills/pipeline/references/presets/economy.json
-12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .claude/skills/pipeline/references/presets/night.json
-b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
-002379dd4b444b4b6a15012937cc615149f1458b592e9ae3d4fab8b77e38e14d  .claude/skills/pipeline/references/red-flags.md
-bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .claude/skills/pipeline/references/stage-gates.md
-9fffe32cef9a34b5174c3c257573e17cbbbf2147c7ca0f16e6efc2e89ebe20d5  .claude/skills/pipeline/templates/meta-kickoff.template.md
-e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
-e0b25a4e2e09595e28a22e0db5e8687854a8e2f6cc5b196ea82318e63d2c0948  .claude/skills/reviewer/SKILL.md
-d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
-3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
-a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .claude/skills/template-audit/SKILL.md
-b148168130597b3f7468d887861edc1993f66a6a3b236f065df8ae8e128e4b3d  .claude/skills/tool-bootstrapping/SKILL.md
-1914179163d2c12fc67733cb2f84236272ac80225f667f0f7c66374e587e9437  .claude/skills/tool-bootstrapping/references/decision-format.md
-f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
+link  .claude/skills/ai-doc/SKILL.md -> ../../../.agents/procedures/ai-doc/SKILL.md
+link  .claude/skills/ai-doc/anthropic-and-aif-residue.md -> ../../../.agents/procedures/ai-doc/anthropic-and-aif-residue.md
+link  .claude/skills/arch/SKILL.md -> ../../../.agents/procedures/arch/SKILL.md
+link  .claude/skills/arch/references/ADR-FORMAT.md -> ../../../../.agents/procedures/arch/references/ADR-FORMAT.md
+link  .claude/skills/arch/references/CONTEXT-FORMAT.md -> ../../../../.agents/procedures/arch/references/CONTEXT-FORMAT.md
+link  .claude/skills/arch/references/domain-modeling.md -> ../../../../.agents/procedures/arch/references/domain-modeling.md
+link  .claude/skills/arch/references/grilling.md -> ../../../../.agents/procedures/arch/references/grilling.md
+link  .claude/skills/getff/SKILL.md -> ../../../.agents/procedures/getff/SKILL.md
+link  .claude/skills/getff/references/ai-traps.md -> ../../../../.agents/procedures/getff/references/ai-traps.md
+link  .claude/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
+link  .claude/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
+link  .claude/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .claude/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
+link  .claude/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .claude/skills/night-mode/SKILL.md -> ../../../.agents/procedures/night-mode/SKILL.md
+link  .claude/skills/orchestrator/SKILL.md -> ../../../.agents/procedures/orchestrator/SKILL.md
+link  .claude/skills/orchestrator/helpers/memory-sweep.sh -> ../../../../.agents/procedures/orchestrator/helpers/memory-sweep.sh
+link  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md -> ../../../../.agents/procedures/orchestrator/references/ai-laziness-traps-orchestrator.md
+link  .claude/skills/orchestrator/references/batch-prompt-template.md -> ../../../../.agents/procedures/orchestrator/references/batch-prompt-template.md
+link  .claude/skills/orchestrator/references/chip-worker-template.md -> ../../../../.agents/procedures/orchestrator/references/chip-worker-template.md
+link  .claude/skills/orchestrator/references/discovery.md -> ../../../../.agents/procedures/orchestrator/references/discovery.md
+link  .claude/skills/orchestrator/references/glossary.md -> ../../../../.agents/procedures/orchestrator/references/glossary.md
+link  .claude/skills/orchestrator/references/phase-minus-1.md -> ../../../../.agents/procedures/orchestrator/references/phase-minus-1.md
+link  .claude/skills/orchestrator/references/queue-mode.md -> ../../../../.agents/procedures/orchestrator/references/queue-mode.md
+link  .claude/skills/orchestrator/references/quota-and-burn.md -> ../../../../.agents/procedures/orchestrator/references/quota-and-burn.md
+link  .claude/skills/orchestrator/references/rationale.md -> ../../../../.agents/procedures/orchestrator/references/rationale.md
+link  .claude/skills/orchestrator/references/reviewer-template.md -> ../../../../.agents/procedures/orchestrator/references/reviewer-template.md
+link  .claude/skills/orchestrator/references/worker-template.md -> ../../../../.agents/procedures/orchestrator/references/worker-template.md
+link  .claude/skills/pipeline/SKILL.md -> ../../../.agents/procedures/pipeline/SKILL.md
+link  .claude/skills/pipeline/evals/RESULTS.md -> ../../../../.agents/procedures/pipeline/evals/RESULTS.md
+link  .claude/skills/pipeline/evals/evals.json -> ../../../../.agents/procedures/pipeline/evals/evals.json
+link  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md
+link  .claude/skills/pipeline/evals/files/scenario-2-named-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-2-named-state.md
+link  .claude/skills/pipeline/evals/files/scenario-3-dnpark-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-3-dnpark-state.md
+link  .claude/skills/pipeline/helpers/assign-skill.sh -> ../../../../.agents/procedures/pipeline/helpers/assign-skill.sh
+link  .claude/skills/pipeline/helpers/bundle-curate.sh -> ../../../../.agents/procedures/pipeline/helpers/bundle-curate.sh
+link  .claude/skills/pipeline/helpers/classify-each-candidate.sh -> ../../../../.agents/procedures/pipeline/helpers/classify-each-candidate.sh
+link  .claude/skills/pipeline/helpers/classify-work.sh -> ../../../../.agents/procedures/pipeline/helpers/classify-work.sh
+link  .claude/skills/pipeline/helpers/delta-diff.sh -> ../../../../.agents/procedures/pipeline/helpers/delta-diff.sh
+link  .claude/skills/pipeline/helpers/delta-write-from-state.sh -> ../../../../.agents/procedures/pipeline/helpers/delta-write-from-state.sh
+link  .claude/skills/pipeline/helpers/dispatch-from-state.sh -> ../../../../.agents/procedures/pipeline/helpers/dispatch-from-state.sh
+link  .claude/skills/pipeline/helpers/dup-detect.sh -> ../../../../.agents/procedures/pipeline/helpers/dup-detect.sh
+link  .claude/skills/pipeline/helpers/emit-output-strings.sh -> ../../../../.agents/procedures/pipeline/helpers/emit-output-strings.sh
+link  .claude/skills/pipeline/helpers/frontier.sh -> ../../../../.agents/procedures/pipeline/helpers/frontier.sh
+link  .claude/skills/pipeline/helpers/inflight-check.sh -> ../../../../.agents/procedures/pipeline/helpers/inflight-check.sh
+link  .claude/skills/pipeline/helpers/integer-name-guard.sh -> ../../../../.agents/procedures/pipeline/helpers/integer-name-guard.sh
+link  .claude/skills/pipeline/helpers/launch-table-generator.sh -> ../../../../.agents/procedures/pipeline/helpers/launch-table-generator.sh
+link  .claude/skills/pipeline/helpers/lib/common.sh -> ../../../../../.agents/procedures/pipeline/helpers/lib/common.sh
+link  .claude/skills/pipeline/helpers/list-presets.sh -> ../../../../.agents/procedures/pipeline/helpers/list-presets.sh
+link  .claude/skills/pipeline/helpers/parse-override-flags.sh -> ../../../../.agents/procedures/pipeline/helpers/parse-override-flags.sh
+link  .claude/skills/pipeline/helpers/plan-currency-check.sh -> ../../../../.agents/procedures/pipeline/helpers/plan-currency-check.sh
+link  .claude/skills/pipeline/helpers/print-orch-home.sh -> ../../../../.agents/procedures/pipeline/helpers/print-orch-home.sh
+link  .claude/skills/pipeline/helpers/print-plan-path.sh -> ../../../../.agents/procedures/pipeline/helpers/print-plan-path.sh
+link  .claude/skills/pipeline/helpers/priority-score-synthetic.sh -> ../../../../.agents/procedures/pipeline/helpers/priority-score-synthetic.sh
+link  .claude/skills/pipeline/helpers/priority-score.sh -> ../../../../.agents/procedures/pipeline/helpers/priority-score.sh
+link  .claude/skills/pipeline/helpers/render-status.sh -> ../../../../.agents/procedures/pipeline/helpers/render-status.sh
+link  .claude/skills/pipeline/helpers/resolve-preset.sh -> ../../../../.agents/procedures/pipeline/helpers/resolve-preset.sh
+link  .claude/skills/pipeline/helpers/run-helper.sh -> ../../../../.agents/procedures/pipeline/helpers/run-helper.sh
+link  .claude/skills/pipeline/helpers/update-cache.sh -> ../../../../.agents/procedures/pipeline/helpers/update-cache.sh
+link  .claude/skills/pipeline/helpers/update-delta.sh -> ../../../../.agents/procedures/pipeline/helpers/update-delta.sh
+link  .claude/skills/pipeline/lang/check-parity.sh -> ../../../../.agents/procedures/pipeline/lang/check-parity.sh
+link  .claude/skills/pipeline/lang/en.sh -> ../../../../.agents/procedures/pipeline/lang/en.sh
+link  .claude/skills/pipeline/lang/ru.sh -> ../../../../.agents/procedures/pipeline/lang/ru.sh
+link  .claude/skills/pipeline/references/anti-rationalization.md -> ../../../../.agents/procedures/pipeline/references/anti-rationalization.md
+link  .claude/skills/pipeline/references/bundle-composition.md -> ../../../../.agents/procedures/pipeline/references/bundle-composition.md
+link  .claude/skills/pipeline/references/claim-machinery.md -> ../../../../.agents/procedures/pipeline/references/claim-machinery.md
+link  .claude/skills/pipeline/references/dogfood.md -> ../../../../.agents/procedures/pipeline/references/dogfood.md
+link  .claude/skills/pipeline/references/failures.md -> ../../../../.agents/procedures/pipeline/references/failures.md
+link  .claude/skills/pipeline/references/frontier.md -> ../../../../.agents/procedures/pipeline/references/frontier.md
+link  .claude/skills/pipeline/references/master-backlog-delta.md -> ../../../../.agents/procedures/pipeline/references/master-backlog-delta.md
+link  .claude/skills/pipeline/references/mode-overrides.md -> ../../../../.agents/procedures/pipeline/references/mode-overrides.md
+link  .claude/skills/pipeline/references/output-format.md -> ../../../../.agents/procedures/pipeline/references/output-format.md
+link  .claude/skills/pipeline/references/placeholders.md -> ../../../../.agents/procedures/pipeline/references/placeholders.md
+link  .claude/skills/pipeline/references/plain-language-tail.md -> ../../../../.agents/procedures/pipeline/references/plain-language-tail.md
+link  .claude/skills/pipeline/references/plan-cache.md -> ../../../../.agents/procedures/pipeline/references/plan-cache.md
+link  .claude/skills/pipeline/references/presets/aif.json -> ../../../../../.agents/procedures/pipeline/references/presets/aif.json
+link  .claude/skills/pipeline/references/presets/economy.json -> ../../../../../.agents/procedures/pipeline/references/presets/economy.json
+link  .claude/skills/pipeline/references/presets/night.json -> ../../../../../.agents/procedures/pipeline/references/presets/night.json
+link  .claude/skills/pipeline/references/presets/sdd.json -> ../../../../../.agents/procedures/pipeline/references/presets/sdd.json
+link  .claude/skills/pipeline/references/red-flags.md -> ../../../../.agents/procedures/pipeline/references/red-flags.md
+link  .claude/skills/pipeline/references/stage-gates.md -> ../../../../.agents/procedures/pipeline/references/stage-gates.md
+link  .claude/skills/pipeline/templates/meta-kickoff.template.md -> ../../../../.agents/procedures/pipeline/templates/meta-kickoff.template.md
+link  .claude/skills/pipeline/templates/state.md.template -> ../../../../.agents/procedures/pipeline/templates/state.md.template
+link  .claude/skills/reviewer/SKILL.md -> ../../../.agents/procedures/reviewer/SKILL.md
+link  .claude/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
+link  .claude/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
+link  .claude/skills/template-audit/SKILL.md -> ../../../.agents/procedures/template-audit/SKILL.md
+link  .claude/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
+link  .claude/skills/tool-bootstrapping/references/decision-format.md -> ../../../../.agents/procedures/tool-bootstrapping/references/decision-format.md
+link  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
 e6cd6caa96d4325ffa2d10e62b320fe62ed4724f6d41ba74ee9ba7c66210d56d  .dependency-cruiser.mjs
 c4e762314a793b902771d199cd1b0e07770c26b2268b044ce8dd5155dacf2ce9  .github/workflows/ci.yml
 d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workflows/workflow-integrity.yml
@@ -139,8 +303,110 @@ d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workfl
 dafb464814540ab3fc9062918dd733be073fa237584e0ff278218d48b4a03467  .husky/pre-push
 6080c804ca7ad3beb2729037d9942bce7b17d67bbfed13b5c46d45bcc48436f6  .lintstagedrc.json
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
-9b0ccb830c691ffa00525b4cec71da40b077c82e3792bee12a1365ae2cf67e84  .prettierignore
+b6078f77f6bbad5f24c0a85b0a8b21461a6f54fba172d85545b2558233917c6d  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
+link  .zcode/agents/aif-init.md -> ../../.agents/roles/aif-init.md
+link  .zcode/agents/capability-reuse-auditor.md -> ../../.agents/roles/capability-reuse-auditor.md
+link  .zcode/agents/claims-conformance-auditor.md -> ../../.agents/roles/claims-conformance-auditor.md
+link  .zcode/agents/compliance-verifier.md -> ../../.agents/roles/compliance-verifier.md
+link  .zcode/agents/docplan-auditor.md -> ../../.agents/roles/docplan-auditor.md
+link  .zcode/agents/docs-form-auditor.md -> ../../.agents/roles/docs-form-auditor.md
+link  .zcode/agents/fidelity-auditor.md -> ../../.agents/roles/fidelity-auditor.md
+link  .zcode/agents/living-docs-auditor.md -> ../../.agents/roles/living-docs-auditor.md
+link  .zcode/agents/memory-codification-auditor.md -> ../../.agents/roles/memory-codification-auditor.md
+link  .zcode/agents/review-sidecar.md -> ../../.agents/roles/review-sidecar.md
+link  .zcode/agents/rule-researcher.md -> ../../.agents/roles/rule-researcher.md
+link  .zcode/agents/rule-test-author.md -> ../../.agents/roles/rule-test-author.md
+link  .zcode/skills/ai-doc/SKILL.md -> ../../../.agents/procedures/ai-doc/SKILL.md
+link  .zcode/skills/ai-doc/anthropic-and-aif-residue.md -> ../../../.agents/procedures/ai-doc/anthropic-and-aif-residue.md
+link  .zcode/skills/arch/SKILL.md -> ../../../.agents/procedures/arch/SKILL.md
+link  .zcode/skills/arch/references/ADR-FORMAT.md -> ../../../../.agents/procedures/arch/references/ADR-FORMAT.md
+link  .zcode/skills/arch/references/CONTEXT-FORMAT.md -> ../../../../.agents/procedures/arch/references/CONTEXT-FORMAT.md
+link  .zcode/skills/arch/references/domain-modeling.md -> ../../../../.agents/procedures/arch/references/domain-modeling.md
+link  .zcode/skills/arch/references/grilling.md -> ../../../../.agents/procedures/arch/references/grilling.md
+link  .zcode/skills/getff/SKILL.md -> ../../../.agents/procedures/getff/SKILL.md
+link  .zcode/skills/getff/references/ai-traps.md -> ../../../../.agents/procedures/getff/references/ai-traps.md
+link  .zcode/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
+link  .zcode/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
+link  .zcode/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .zcode/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
+link  .zcode/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .zcode/skills/night-mode/SKILL.md -> ../../../.agents/procedures/night-mode/SKILL.md
+link  .zcode/skills/orchestrator/SKILL.md -> ../../../.agents/procedures/orchestrator/SKILL.md
+link  .zcode/skills/orchestrator/helpers/memory-sweep.sh -> ../../../../.agents/procedures/orchestrator/helpers/memory-sweep.sh
+link  .zcode/skills/orchestrator/references/ai-laziness-traps-orchestrator.md -> ../../../../.agents/procedures/orchestrator/references/ai-laziness-traps-orchestrator.md
+link  .zcode/skills/orchestrator/references/batch-prompt-template.md -> ../../../../.agents/procedures/orchestrator/references/batch-prompt-template.md
+link  .zcode/skills/orchestrator/references/chip-worker-template.md -> ../../../../.agents/procedures/orchestrator/references/chip-worker-template.md
+link  .zcode/skills/orchestrator/references/discovery.md -> ../../../../.agents/procedures/orchestrator/references/discovery.md
+link  .zcode/skills/orchestrator/references/glossary.md -> ../../../../.agents/procedures/orchestrator/references/glossary.md
+link  .zcode/skills/orchestrator/references/phase-minus-1.md -> ../../../../.agents/procedures/orchestrator/references/phase-minus-1.md
+link  .zcode/skills/orchestrator/references/queue-mode.md -> ../../../../.agents/procedures/orchestrator/references/queue-mode.md
+link  .zcode/skills/orchestrator/references/quota-and-burn.md -> ../../../../.agents/procedures/orchestrator/references/quota-and-burn.md
+link  .zcode/skills/orchestrator/references/rationale.md -> ../../../../.agents/procedures/orchestrator/references/rationale.md
+link  .zcode/skills/orchestrator/references/reviewer-template.md -> ../../../../.agents/procedures/orchestrator/references/reviewer-template.md
+link  .zcode/skills/orchestrator/references/worker-template.md -> ../../../../.agents/procedures/orchestrator/references/worker-template.md
+link  .zcode/skills/pipeline/SKILL.md -> ../../../.agents/procedures/pipeline/SKILL.md
+link  .zcode/skills/pipeline/evals/RESULTS.md -> ../../../../.agents/procedures/pipeline/evals/RESULTS.md
+link  .zcode/skills/pipeline/evals/evals.json -> ../../../../.agents/procedures/pipeline/evals/evals.json
+link  .zcode/skills/pipeline/evals/files/scenario-1-noarg-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md
+link  .zcode/skills/pipeline/evals/files/scenario-2-named-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-2-named-state.md
+link  .zcode/skills/pipeline/evals/files/scenario-3-dnpark-state.md -> ../../../../../.agents/procedures/pipeline/evals/files/scenario-3-dnpark-state.md
+link  .zcode/skills/pipeline/helpers/assign-skill.sh -> ../../../../.agents/procedures/pipeline/helpers/assign-skill.sh
+link  .zcode/skills/pipeline/helpers/bundle-curate.sh -> ../../../../.agents/procedures/pipeline/helpers/bundle-curate.sh
+link  .zcode/skills/pipeline/helpers/classify-each-candidate.sh -> ../../../../.agents/procedures/pipeline/helpers/classify-each-candidate.sh
+link  .zcode/skills/pipeline/helpers/classify-work.sh -> ../../../../.agents/procedures/pipeline/helpers/classify-work.sh
+link  .zcode/skills/pipeline/helpers/delta-diff.sh -> ../../../../.agents/procedures/pipeline/helpers/delta-diff.sh
+link  .zcode/skills/pipeline/helpers/delta-write-from-state.sh -> ../../../../.agents/procedures/pipeline/helpers/delta-write-from-state.sh
+link  .zcode/skills/pipeline/helpers/dispatch-from-state.sh -> ../../../../.agents/procedures/pipeline/helpers/dispatch-from-state.sh
+link  .zcode/skills/pipeline/helpers/dup-detect.sh -> ../../../../.agents/procedures/pipeline/helpers/dup-detect.sh
+link  .zcode/skills/pipeline/helpers/emit-output-strings.sh -> ../../../../.agents/procedures/pipeline/helpers/emit-output-strings.sh
+link  .zcode/skills/pipeline/helpers/frontier.sh -> ../../../../.agents/procedures/pipeline/helpers/frontier.sh
+link  .zcode/skills/pipeline/helpers/inflight-check.sh -> ../../../../.agents/procedures/pipeline/helpers/inflight-check.sh
+link  .zcode/skills/pipeline/helpers/integer-name-guard.sh -> ../../../../.agents/procedures/pipeline/helpers/integer-name-guard.sh
+link  .zcode/skills/pipeline/helpers/launch-table-generator.sh -> ../../../../.agents/procedures/pipeline/helpers/launch-table-generator.sh
+link  .zcode/skills/pipeline/helpers/lib/common.sh -> ../../../../../.agents/procedures/pipeline/helpers/lib/common.sh
+link  .zcode/skills/pipeline/helpers/list-presets.sh -> ../../../../.agents/procedures/pipeline/helpers/list-presets.sh
+link  .zcode/skills/pipeline/helpers/parse-override-flags.sh -> ../../../../.agents/procedures/pipeline/helpers/parse-override-flags.sh
+link  .zcode/skills/pipeline/helpers/plan-currency-check.sh -> ../../../../.agents/procedures/pipeline/helpers/plan-currency-check.sh
+link  .zcode/skills/pipeline/helpers/print-orch-home.sh -> ../../../../.agents/procedures/pipeline/helpers/print-orch-home.sh
+link  .zcode/skills/pipeline/helpers/print-plan-path.sh -> ../../../../.agents/procedures/pipeline/helpers/print-plan-path.sh
+link  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh -> ../../../../.agents/procedures/pipeline/helpers/priority-score-synthetic.sh
+link  .zcode/skills/pipeline/helpers/priority-score.sh -> ../../../../.agents/procedures/pipeline/helpers/priority-score.sh
+link  .zcode/skills/pipeline/helpers/render-status.sh -> ../../../../.agents/procedures/pipeline/helpers/render-status.sh
+link  .zcode/skills/pipeline/helpers/resolve-preset.sh -> ../../../../.agents/procedures/pipeline/helpers/resolve-preset.sh
+link  .zcode/skills/pipeline/helpers/run-helper.sh -> ../../../../.agents/procedures/pipeline/helpers/run-helper.sh
+link  .zcode/skills/pipeline/helpers/update-cache.sh -> ../../../../.agents/procedures/pipeline/helpers/update-cache.sh
+link  .zcode/skills/pipeline/helpers/update-delta.sh -> ../../../../.agents/procedures/pipeline/helpers/update-delta.sh
+link  .zcode/skills/pipeline/lang/check-parity.sh -> ../../../../.agents/procedures/pipeline/lang/check-parity.sh
+link  .zcode/skills/pipeline/lang/en.sh -> ../../../../.agents/procedures/pipeline/lang/en.sh
+link  .zcode/skills/pipeline/lang/ru.sh -> ../../../../.agents/procedures/pipeline/lang/ru.sh
+link  .zcode/skills/pipeline/references/anti-rationalization.md -> ../../../../.agents/procedures/pipeline/references/anti-rationalization.md
+link  .zcode/skills/pipeline/references/bundle-composition.md -> ../../../../.agents/procedures/pipeline/references/bundle-composition.md
+link  .zcode/skills/pipeline/references/claim-machinery.md -> ../../../../.agents/procedures/pipeline/references/claim-machinery.md
+link  .zcode/skills/pipeline/references/dogfood.md -> ../../../../.agents/procedures/pipeline/references/dogfood.md
+link  .zcode/skills/pipeline/references/failures.md -> ../../../../.agents/procedures/pipeline/references/failures.md
+link  .zcode/skills/pipeline/references/frontier.md -> ../../../../.agents/procedures/pipeline/references/frontier.md
+link  .zcode/skills/pipeline/references/master-backlog-delta.md -> ../../../../.agents/procedures/pipeline/references/master-backlog-delta.md
+link  .zcode/skills/pipeline/references/mode-overrides.md -> ../../../../.agents/procedures/pipeline/references/mode-overrides.md
+link  .zcode/skills/pipeline/references/output-format.md -> ../../../../.agents/procedures/pipeline/references/output-format.md
+link  .zcode/skills/pipeline/references/placeholders.md -> ../../../../.agents/procedures/pipeline/references/placeholders.md
+link  .zcode/skills/pipeline/references/plain-language-tail.md -> ../../../../.agents/procedures/pipeline/references/plain-language-tail.md
+link  .zcode/skills/pipeline/references/plan-cache.md -> ../../../../.agents/procedures/pipeline/references/plan-cache.md
+link  .zcode/skills/pipeline/references/presets/aif.json -> ../../../../../.agents/procedures/pipeline/references/presets/aif.json
+link  .zcode/skills/pipeline/references/presets/economy.json -> ../../../../../.agents/procedures/pipeline/references/presets/economy.json
+link  .zcode/skills/pipeline/references/presets/night.json -> ../../../../../.agents/procedures/pipeline/references/presets/night.json
+link  .zcode/skills/pipeline/references/presets/sdd.json -> ../../../../../.agents/procedures/pipeline/references/presets/sdd.json
+link  .zcode/skills/pipeline/references/red-flags.md -> ../../../../.agents/procedures/pipeline/references/red-flags.md
+link  .zcode/skills/pipeline/references/stage-gates.md -> ../../../../.agents/procedures/pipeline/references/stage-gates.md
+link  .zcode/skills/pipeline/templates/meta-kickoff.template.md -> ../../../../.agents/procedures/pipeline/templates/meta-kickoff.template.md
+link  .zcode/skills/pipeline/templates/state.md.template -> ../../../../.agents/procedures/pipeline/templates/state.md.template
+link  .zcode/skills/reviewer/SKILL.md -> ../../../.agents/procedures/reviewer/SKILL.md
+link  .zcode/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
+link  .zcode/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
+link  .zcode/skills/template-audit/SKILL.md -> ../../../.agents/procedures/template-audit/SKILL.md
+link  .zcode/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
+link  .zcode/skills/tool-bootstrapping/references/decision-format.md -> ../../../../.agents/procedures/tool-bootstrapping/references/decision-format.md
+link  .zcode/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
 284338ae97c8e94e3616f44a8f52387d50883ff644a601746052e60002f77fe0  AGENTS.md
 530d36bb3b8680d900b25a3efae04c726464e238f14a882ef24afaff4a5c8a99  eslint-rules-local/index.mjs
 4b845c52cd83126c642143ae8c9ad3b32c3d8a35919fb2bf50cee3b78b952f6f  eslint-rules-local/no-direct-time-randomness.d.ts
@@ -161,8 +427,8 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-l
 fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797  eslint.config.mjs
 c335d2bab3855aa3a52c03a769a57f24b1cdd44fa819adf232d3bf64b78b0725  eslint.config.rn-common.mjs
 881d44cfc8d332820bbf368149e0337ef647b0aa7a5b7590711a8bb6d02ca126  package.json
-f78c5a03a453f1bfc0b6fc2c7f845a4a195f5aa1032a321b5457ecdb3c05fad0  packages/core/hooks/pre-push.bundle.mjs
-674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
+a217c307ed0dc0672501843e083d4ce71f2aab26357683aca2049d020ca34641  packages/core/hooks/pre-push.bundle.mjs
+d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
@@ -193,10 +459,10 @@ e2e920195050964b2ebe54a2b837204d29d8afeb67c6c65ddf7cbce0e2bed01f  scripts/fences
 ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  scripts/fences-fire-fixtures/require-use-server-directive.bad.txt
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  scripts/fences-fire-fixtures/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  scripts/fences-fire-fixtures/require-use-server-directive.manifest.json
-86dacb69569030bb28b65ef8ef6322644676fceaf590ce3df65824e9aa23d49f  scripts/getff-work.sh
+6e93bd43540cd691c6513e2692b779bf3f7b2ee36b9e956ef3a33c8b3cd97fcb  scripts/getff-work.sh
 0e2eb8ab4ace1c0f8dee3c0e7e144ae73b902377fc5fdef614d59f2c744cad73  scripts/link-coordination.sh
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  scripts/pre-merge-local.sh
-4a1971c15529184e4dc79a9f4b460c8bfab3477518f38ccfbd3c88d0dac0afec  scripts/prove-rules.mjs
+baa899663c314b6a47d45de4c552555b1c782dfc3eedbdefbe09e44ab23e1a26  scripts/prove-rules.mjs
 4946d771cb55e82ce8d447b5ef317ea0e564bbe77726c7509262ff8107cdb89a  scripts/r2-na-marker.sh
 a6c6a7ef50a8ea31c9e81b1cff916a55a2d2faa38744baa1c63200868471c04b  scripts/run-armed.sh
 55de0f7c1a0438aa11f36e2d35de05316012fa4bee8c8c3f7c4a676a2832e443  scripts/run-generated-rule-mutation.sh

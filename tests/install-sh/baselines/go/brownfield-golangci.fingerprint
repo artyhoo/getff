@@ -1,5 +1,7 @@
-b8c875ec7ca4af2801bd29443eb11a23b38273e647d6c4bfe9ec313a9a450512  .ai-factory/refresh-baseline.json
+5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
+fc50a1a1220fcba860e6149d4abffa4b58d74686935224034dbb759a4280e49b  .ai-factory/refresh-baseline.json
 33396de229a2068858f546636e0bb4d0b3312fb737df9fdee0ec8c454b2bec0c  .ai-factory/tool-decisions.md
+link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 8b5ed10ffd8638a50bbbad25201352dec7667a01037108df5aff3c14dddd1cb6  .github/workflows/getff-go.yml
 c6cc74c6bac7a2ba482341c16c3dd57a74e790d08df202cfdea5a3c813751ca5  .golangci.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  getff-golangci.yml
