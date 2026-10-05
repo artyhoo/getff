@@ -2,8 +2,13 @@
 # getff Python pre-push hook — local git rung on the python lane.
 #
 # What this does:
-#   Runs the SAME ast-grep + ruff checks the getff python CI gate runs, but BEFORE the push leaves
-#   your machine. CI is the last-resort gate, not the primary one (README.md#why-this-exists).
+#   Runs the checks the getff project-checks record arms — the SAME ast-grep + ruff checks the
+#   getff python CI gate runs, probed once at install: a check that was green at install blocks
+#   the push; one that was red (pre-existing findings) or unrunnable is recorded «not armed» in
+#   .ai-factory/tool-decisions.md and does NOT block — what was green before the install stays
+#   green. A not-armed check re-probes on every push (scripts/run-armed.sh --probe) and arms
+#   itself the day it turns green — no human step. CI is the last-resort gate, not the primary
+#   one (README.md#why-this-exists).
 #
 # Opt-out:
 #   - Set GETFF_SKIP_HOOKS=1 in your env to skip this rung for one push:
@@ -12,9 +17,13 @@
 #     if you have no other hooks under .getff/hooks/).
 #   - Or remove the whole getff gate by deleting `.getff/` and uninstalling per the project README.
 #
-# Delivered by the getff Python lane (setup.d/45-python.sh). Body mirrors the CI template at
-# .github/workflows/getff-python.yml — keep the two in sync on any pin bump (both bump together
-# per .claude/rules/ci-tool-pinning.md Rule A).
+# Delivered by the getff Python lane (setup.d/45-python.sh). Reads the project-checks record
+# through scripts/run-armed.sh — the same block .github/workflows/getff-python.yml reads — and
+# the command strings below are byte-identical to the record lines the install writes
+# (setup.d/45-python.sh _py_record_project_checks): a one-char drift would run a check the
+# record skips (the ci-runs-every-recorded-check gate asserts writer/hook/CI agree). Body mirrors
+# the CI template — keep the two in sync on any pin bump (both bump together per
+# .claude/rules/ci-tool-pinning.md Rule A).
 set -euo pipefail
 
 # Opt-out — honoured at runtime (runs when the consumer pushes).
@@ -39,6 +48,24 @@ if command -v ruff      >/dev/null 2>&1; then have_ruff=1; fi
 # Run from the repo root so relative paths (.getff/astgrep-rules, .getff/ruff-bans.toml) resolve
 # even when the user invokes `git push` from a subdirectory.
 cd "$(git rev-parse --show-toplevel)"
+
+# run_recorded <exact-record-command> — run ONE check through the project-checks record
+# (scripts/run-armed.sh). The runner prints the check's own output plus a «· not armed» line for
+# a command the install recorded as red/unrunnable — those must not block (what was green before
+# the install stays green). Exit 2 means the record itself is missing or unreadable: that is not
+# a skip — die loud, because silently pushing with NO checks is the silent-no-op rung
+# anti-pattern this hook exists against (T-S2B-A). Output is streamed after capture so the
+# findings above the ✗ line are visible under `set -o pipefail` too.
+run_recorded() {
+  local _rc=0 _out
+  _out=$(bash scripts/run-armed.sh "$1" 2>&1) || _rc=$?
+  printf '%s\n' "$_out"
+  if [ "$_rc" -eq 2 ]; then
+    echo "✗ getff pre-push: the project-checks record (.ai-factory/tool-decisions.md) is missing or unreadable — scripts/run-armed.sh cannot tell which checks are armed. Restore it: bash /path/to/getff/install.sh python --refresh (or reinstall)." >&2
+    exit 1
+  fi
+  return "$_rc"
+}
 
 # ZCode skill-mirror check (#1502) — the same read-only completeness gate the npm lane wires into
 # .husky/pre-commit; the python lane's only local git rung is pre-push, so it rides here (and via
@@ -73,30 +100,81 @@ if [[ "$have_ast_grep" == "0" && "$have_ruff" == "0" ]]; then
   exit 0
 fi
 
-# ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
-# .getff/astgrep-rules).
-if [[ "$have_ast_grep" == "1" ]]; then
-  if ! ast-grep scan; then
-    echo "✗ getff pre-push: ast-grep structural rule(s) fired — push blocked. See violations above." >&2
-    exit 1
-  fi
-fi
+# The three checks. Record path (the lane delivers scripts/run-armed.sh alongside this hook):
+# each command runs through the record, so only the checks the install armed can block. Direct
+# fallback (runner absent — consumer removed it, or a hook left from a pre-record install): the
+# exact pre-record body, kept so the rung never degrades silently. The command strings are the
+# record's byte-exact lines either way.
+if [ -f scripts/run-armed.sh ]; then
 
-# ruff arm — mirror of .github/workflows/getff-python.yml:71-72 (discovered config) + :80-81
-# (getff bans isolated via --config).
-if [[ "$have_ruff" == "1" ]]; then
-  if ! ruff check .; then
-    echo "✗ getff pre-push: ruff (discovered config) fired — push blocked." >&2
-    exit 1
-  fi
-  if [[ -f .getff/ruff-bans.toml ]]; then
-    if ! ruff check . --config .getff/ruff-bans.toml --no-cache; then
-      echo "✗ getff pre-push: ruff (getff bans --config) fired — push blocked." >&2
+  # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
+  # .getff/astgrep-rules).
+  if [[ "$have_ast_grep" == "1" ]]; then
+    if ! run_recorded "ast-grep scan"; then
+      echo "✗ getff pre-push: ast-grep structural rule(s) fired — push blocked. See violations above." >&2
       exit 1
     fi
-  else
-    echo "⚠ getff pre-push: .getff/ruff-bans.toml missing — getff TID bans NOT enforced by this rung." >&2
   fi
+
+  # ruff arm — mirror of .github/workflows/getff-python.yml:71-72 (discovered config) + :80-81
+  # (getff bans isolated via --config). The two ruff runs are TWO record lines (T-OBW2P-A): a
+  # green bans run must not arm a red discovered-config run, so neither line implies the other.
+  if [[ "$have_ruff" == "1" ]]; then
+    if ! run_recorded "ruff check ."; then
+      echo "✗ getff pre-push: ruff (discovered config) fired — push blocked." >&2
+      exit 1
+    fi
+    if [[ -f .getff/ruff-bans.toml ]]; then
+      if ! run_recorded "ruff check . --config .getff/ruff-bans.toml --no-cache"; then
+        echo "✗ getff pre-push: ruff (getff bans --config) fired — push blocked." >&2
+        exit 1
+      fi
+    else
+      echo "⚠ getff pre-push: .getff/ruff-bans.toml missing — getff TID bans NOT enforced by this rung." >&2
+    fi
+  fi
+
+  # Self-arming probe — a check the install could not arm re-probes here and arms itself the day
+  # it turns green, with no human step (run-armed.sh --probe: armed and structural «not wired:»
+  # lines are skipped, so the common push pays only the not-yet-green checks). Non-blocking —
+  # EXCEPT exit 2 (record unreadable), which dies loud for the same reason run_recorded does.
+  _probe_rc=0
+  bash scripts/run-armed.sh --probe || _probe_rc=$?
+  if [ "$_probe_rc" -eq 2 ]; then
+    echo "✗ getff pre-push: the project-checks record (.ai-factory/tool-decisions.md) is missing or unreadable — scripts/run-armed.sh cannot tell which checks are armed. Restore it: bash /path/to/getff/install.sh python --refresh (or reinstall)." >&2
+    exit 1
+  fi
+
+else
+
+  echo "⚠ getff pre-push: scripts/run-armed.sh not found — running the checks directly, NOT through the project-checks record (a brownfield tree will be blocked by pre-existing findings; restore the runner: bash /path/to/getff/install.sh python --refresh)." >&2
+
+  # ast-grep arm — mirror of .github/workflows/getff-python.yml:48-49 (sgconfig.yml resolves
+  # .getff/astgrep-rules).
+  if [[ "$have_ast_grep" == "1" ]]; then
+    if ! ast-grep scan; then
+      echo "✗ getff pre-push: ast-grep structural rule(s) fired — push blocked. See violations above." >&2
+      exit 1
+    fi
+  fi
+
+  # ruff arm — mirror of .github/workflows/getff-python.yml:71-72 (discovered config) + :80-81
+  # (getff bans isolated via --config).
+  if [[ "$have_ruff" == "1" ]]; then
+    if ! ruff check .; then
+      echo "✗ getff pre-push: ruff (discovered config) fired — push blocked." >&2
+      exit 1
+    fi
+    if [[ -f .getff/ruff-bans.toml ]]; then
+      if ! ruff check . --config .getff/ruff-bans.toml --no-cache; then
+        echo "✗ getff pre-push: ruff (getff bans --config) fired — push blocked." >&2
+        exit 1
+      fi
+    else
+      echo "⚠ getff pre-push: .getff/ruff-bans.toml missing — getff TID bans NOT enforced by this rung." >&2
+    fi
+  fi
+
 fi
 
 exit 0
