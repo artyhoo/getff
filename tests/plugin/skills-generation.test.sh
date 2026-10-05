@@ -5,7 +5,7 @@
 # Covers:
 #   (1) real tree: generator exits 0 and is a byte-level no-op (regen writes nothing)
 #   (2) transform parity (F2(c) gate): the generator's first 15 arms == setup.d/lib.sh's
-#       transform_internal_refs arms; the 16th textstrip arm is the documented generator-only
+#       transform_internal_refs arms; the 21st textstrip arm is the documented generator-only
 #       divergence (lib.sh must NOT grow one without this test going RED)
 #   (3) sandbox: created entry / in-sync no-op / tampered payload → exit 3, untouched /
 #       stale payload after a committed source edit → re-synced
@@ -23,13 +23,15 @@ bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+before_payload=$(git -C "$REPO_ROOT" diff --binary HEAD -- plugin/skills)
+
 # ── (1) real tree ─────────────────────────────────────────────────────────────
 if bash "$GEN" >/dev/null 2>&1; then
   ok "generator exits 0 on the real tree"
 else
   bad "generator non-zero exit on the real tree"
 fi
-if [ -z "$(git -C "$REPO_ROOT" status --porcelain -- plugin/skills)" ]; then
+if [ "$before_payload" = "$(git -C "$REPO_ROOT" diff --binary HEAD -- plugin/skills)" ]; then
   ok "regeneration is a no-op on a clean tree"
 else
   bad "regeneration wrote to a clean tree"
@@ -47,20 +49,20 @@ lib_arms=$(arms_of "$REPO_ROOT/setup.d/lib.sh" '/^transform_internal_refs()/,/^}
 gen_arms=$(arms_of "$GEN" '/# BEGIN TRANSFORM ARMS/,/# END TRANSFORM ARMS/p')
 lib_n=$(printf '%s\n' "$lib_arms" | grep -c .)
 gen_n=$(printf '%s\n' "$gen_arms" | grep -c .)
-if [ "$lib_n" -eq 15 ]; then
-  ok "lib.sh transform exposes 15 arms"
+if [ "$lib_n" -eq 20 ]; then
+  ok "lib.sh transform exposes 20 arms"
 else
-  bad "lib.sh transform arm count changed: $lib_n (expected 15) — update the parity gate AND the generator"
+  bad "lib.sh transform arm count changed: $lib_n (expected 20) — update the parity gate AND the generator"
 fi
-if [ "$(printf '%s\n' "$gen_arms" | head -15)" = "$(printf '%s\n' "$lib_arms")" ]; then
-  ok "transform parity: generator arms 1-15 identical to setup.d/lib.sh"
+if [ "$(printf '%s\n' "$gen_arms" | head -20)" = "$(printf '%s\n' "$lib_arms")" ]; then
+  ok "transform parity: generator arms 1-20 identical to setup.d/lib.sh"
 else
   bad "transform parity FAILED — arm sets diverged (edit both in pairs: setup.d/lib.sh + generator header block)"
 fi
-if [ "$gen_n" -eq 16 ] && printf '%s\n' "$gen_arms" | sed -n '16p' | grep -qF '(\.\./)+'; then
-  ok "16th textstrip arm present, generator-only as documented"
+if [ "$gen_n" -eq 21 ] && printf '%s\n' "$gen_arms" | sed -n '21p' | grep -qF '(\.\./)+'; then
+  ok "21st textstrip arm present, generator-only as documented"
 else
-  bad "16th textstrip arm missing or lib.sh grew an arm ($gen_n generator arms vs $lib_n lib arms)"
+  bad "21st textstrip arm missing or lib.sh grew an arm ($gen_n generator arms vs $lib_n lib arms)"
 fi
 
 # ── sandbox helper ────────────────────────────────────────────────────────────
@@ -73,7 +75,7 @@ mk_sandbox() {
   # four; a row-enumerated deletion list silently left them in the sandbox where their source
   # populations don't exist, failing 3 checks with rc=1). Keep this helper shape-agnostic:
   # rename the first row to the probe entry, drop every other table-shaped row.
-  sed 's/  "getff|skills|transform+textstrip"/  "probe-a|skills|byte-copy"/; /^  "[a-z][a-z-]*|/ { /probe-a/!d; }' "$GEN" > "$sb/gen.sh"
+  sed 's/  "getff|procedures|transform+textstrip"/  "probe-a|skills|byte-copy"/; /^  "[a-z][a-z-]*|/ { /probe-a/!d; }' "$GEN" > "$sb/gen.sh"
   printf '# probe source v1\n' > "$sb/skills/probe-a/SKILL.md"
   git -C "$sb" init -q
   git -C "$sb" add -A

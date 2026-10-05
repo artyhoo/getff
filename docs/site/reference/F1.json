@@ -12,7 +12,7 @@
       },
       "description": "the resident hot digest — every §2 T-number + its one-line counter (exact-prefix quotes from the catalogue).",
       "source": {
-        "path": ".claude/rules/ai-laziness-digest.md",
+        "path": ".agents/rules/ai-laziness-digest.md",
         "line": 5
       },
       "extras": {
@@ -30,13 +30,13 @@
       },
       "description": "ai-laziness-traps discipline rule — §1 problem this solves, §2 canonical trap catalogue, §3 kickoff-author obligations (cite + extend, no blanket reference), §4 anti-patterns, §5 promotion / retirement triggers.",
       "source": {
-        "path": ".claude/rules/ai-laziness-traps.md",
-        "line": 17
+        "path": ".agents/rules/ai-laziness-traps.md",
+        "line": 20
       },
       "extras": {
         "class": "A",
         "fires": "any R-phase, audit, sample-based investigation, or open-ended AI task.",
-        "channels": "paths:(5), edit-time inject"
+        "channels": "paths:(8), edit-time inject"
       },
       "example": null
     },
@@ -48,7 +48,7 @@
       },
       "description": "the attention-is-not-a-mechanism discipline — §1 the rule (human/AI",
       "source": {
-        "path": ".claude/rules/attention-is-not-a-mechanism.md",
+        "path": ".agents/rules/attention-is-not-a-mechanism.md",
         "line": 5
       },
       "extras": {
@@ -66,7 +66,7 @@
       },
       "description": "the autonomous-loop continuity discipline — §1 the stop rule and its mechanism, §2 the wait rule (silence ≠ health), §3 anti-patterns, §4 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/autonomous-loop-continuity.md",
+        "path": ".agents/rules/autonomous-loop-continuity.md",
         "line": 12
       },
       "extras": {
@@ -84,13 +84,13 @@
       },
       "description": "project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2).",
       "source": {
-        "path": ".claude/rules/build-first-reuse-default.md",
-        "line": 19
+        "path": ".agents/rules/build-first-reuse-default.md",
+        "line": 22
       },
       "extras": {
         "class": "A",
         "fires": "capability commit/proposal; shipped-file removal.",
-        "channels": "paths:(7), edit-time inject"
+        "channels": "paths:(10), edit-time inject"
       },
       "example": null
     },
@@ -102,7 +102,7 @@
       },
       "description": "CI tool pinning discipline — §1 the two rules (version pin + lockfile-aware install), §2 scope (this repo's `.github/workflows/` + tracked shell scripts), §3 escape hatch, §4 relationship to companion-install-principle.md, §5 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/ci-tool-pinning.md",
+        "path": ".agents/rules/ci-tool-pinning.md",
         "line": 20
       },
       "extras": {
@@ -120,7 +120,7 @@
       },
       "description": "the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer.",
       "source": {
-        "path": ".claude/rules/cold-seat-economy.md",
+        "path": ".agents/rules/cold-seat-economy.md",
         "line": 17
       },
       "extras": {
@@ -138,7 +138,7 @@
       },
       "description": "how this project installs companions/external services — §1 the principle, §2 trigger, §3 the manifest mechanism, §4 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/companion-install-principle.md",
+        "path": ".agents/rules/companion-install-principle.md",
         "line": 14
       },
       "extras": {
@@ -156,13 +156,13 @@
       },
       "description": "the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/coordinator-seat-delegation.md",
-        "line": 18
+        "path": ".agents/rules/coordinator-seat-delegation.md",
+        "line": 19
       },
       "extras": {
         "class": "C",
         "fires": "a coordinator seat about to run the stage pipeline itself.",
-        "channels": "paths:(1)"
+        "channels": "paths:(2)"
       },
       "example": null
     },
@@ -174,7 +174,7 @@
       },
       "description": "the destination-environment verification discipline — §1 the positive contract and its grammar, §1b the negative direction (claims that the destination *cannot*), §2 the incident base, §3 why a green container run is not evidence, §4 anti-patterns, §5 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/destination-environment-verification.md",
+        "path": ".agents/rules/destination-environment-verification.md",
         "line": 14
       },
       "extras": {
@@ -192,13 +192,13 @@
       },
       "description": "doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 five anti-patterns + §4.1 supersession clause (premise change amends the declaring artefact), §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.",
       "source": {
-        "path": ".claude/rules/doc-authority-hierarchy.md",
-        "line": 17
+        "path": ".agents/rules/doc-authority-hierarchy.md",
+        "line": 20
       },
       "extras": {
         "class": "A",
         "fires": "creating/editing any canonical or shipped consumer-facing doc.",
-        "channels": "paths:(4), edit-time inject"
+        "channels": "paths:(7), edit-time inject"
       },
       "example": null
     },
@@ -210,13 +210,13 @@
       },
       "description": "dual-implementation discipline rule — §1 problem, §2 triggers + non-triggers, §3 audience triage, §4 detection mechanism, §5 drift check, §6 CC-bias mitigation, §7 single source of truth, §8 anti-patterns, §9 promotion / retirement, §10 see also.",
       "source": {
-        "path": ".claude/rules/dual-implementation-discipline.md",
-        "line": 16
+        "path": ".agents/rules/dual-implementation-discipline.md",
+        "line": 19
       },
       "extras": {
         "class": "A",
         "fires": "shipping a new CC-native hook + choosing its delivery channel(s).",
-        "channels": "paths:(3), edit-time inject"
+        "channels": "paths:(6), edit-time inject"
       },
       "example": null
     },
@@ -228,7 +228,7 @@
       },
       "description": "the effort-worthiness discipline — §1 the rule + four-test card,",
       "source": {
-        "path": ".claude/rules/effort-worthiness.md",
+        "path": ".agents/rules/effort-worthiness.md",
         "line": 10
       },
       "extras": {
@@ -246,7 +246,7 @@
       },
       "description": "the egress channel-preference rule — §1 the two channels (host-push default / API break-glass), §2 trigger, §3 mechanism + why the container cannot push, §4 promotion / retirement, §5 §1.7 self-reflexive note.",
       "source": {
-        "path": ".claude/rules/egress-no-api-bypass.md",
+        "path": ".agents/rules/egress-no-api-bypass.md",
         "line": 7
       },
       "extras": {
@@ -264,7 +264,7 @@
       },
       "description": "the evidence-regeneration procedure — §1 the rule, §2 the verified per-backend loop (numbered) + the safety interlocks, §3 the two entry conditions + the firing-evidence invariant, §4 the paste-from-fresh-stdout anti-theatre rule, §5 anti-patterns, §6 promotion/retirement.",
       "source": {
-        "path": ".claude/rules/evidence-regeneration.md",
+        "path": ".agents/rules/evidence-regeneration.md",
         "line": 14
       },
       "extras": {
@@ -282,7 +282,7 @@
       },
       "description": "the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict, §10 when a merge of staging into a PR branch is warranted at all, §11 the recovery when a foreign commit lands on your pushed branch.",
       "source": {
-        "path": ".claude/rules/git-conflict-merge-forward.md",
+        "path": ".agents/rules/git-conflict-merge-forward.md",
         "line": 7
       },
       "extras": {
@@ -300,7 +300,7 @@
       },
       "description": "where dispatch-input kickoffs must live before a `/pipeline` or aif dispatch is initiated, and why; the edit-time reminder mechanism; **the kickoff-authoring failure modes that render as success on this surface** (§5) — an authoring mistake under `.claude/orchestrator-prompts/**` that produces no warning at any channel.",
       "source": {
-        "path": ".claude/rules/kickoff-staging-placement.md",
+        "path": ".agents/rules/kickoff-staging-placement.md",
         "line": 14
       },
       "extras": {
@@ -318,13 +318,13 @@
       },
       "description": "the language-discipline rule — §1 the 3-category model, §2 the human-facing language gate, §3 the keep-list, §4 enforcement channels, §5 anti-patterns, §6 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/language-discipline.md",
-        "line": 15
+        "path": ".agents/rules/language-discipline.md",
+        "line": 17
       },
       "extras": {
         "class": "A",
         "fires": "writing any internal machinery or human-facing output.",
-        "channels": "paths:(3), edit-time inject"
+        "channels": "paths:(5), edit-time inject"
       },
       "example": null
     },
@@ -336,7 +336,7 @@
       },
       "description": "memory-codification discipline rule — §2 what counts as a *durable convention* (trigger + non-triggers), §3 the write-time codify-then-pointer discipline, §4 compensating mechanisms (local-audit grep + auditor agent; no CI by constraint), §5 anti-patterns, §6 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/memory-codification.md",
+        "path": ".agents/rules/memory-codification.md",
         "line": 7
       },
       "extras": {
@@ -354,7 +354,7 @@
       },
       "description": "no-paid-LLM-in-CI policy rationale, scope (CI/GH Actions surface), escape-hatch process (explicit operator override per session with rationale), AI-agnostic sub-agent fallback pattern.",
       "source": {
-        "path": ".claude/rules/no-paid-llm-in-ci.md",
+        "path": ".agents/rules/no-paid-llm-in-ci.md",
         "line": 15
       },
       "extras": {
@@ -372,7 +372,7 @@
       },
       "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note, §6 sub-agent dispatch tenets (the D6 allow/forbid pair + anti-expansive-reading protections).",
       "source": {
-        "path": ".claude/rules/parallel-subwave-isolation.md",
+        "path": ".agents/rules/parallel-subwave-isolation.md",
         "line": 13
       },
       "extras": {
@@ -390,7 +390,7 @@
       },
       "description": "searching-layer discipline rule — §1 coverage methodology checklist, §2 self-reflection prompts for retros, §3 research-patches/ accumulator format (mirrors AIF /aif-evolve), §4 named anti-patterns for fast pattern-match.",
       "source": {
-        "path": ".claude/rules/phase-research-coverage.md",
+        "path": ".agents/rules/phase-research-coverage.md",
         "line": 14
       },
       "extras": {
@@ -408,7 +408,7 @@
       },
       "description": "mechanism layer + named anti-pattern catalogue for the inline-chat verdict-without-evidence pattern, fork closure (a fork closes only on an explicit operator choice), the liability-shield pattern, the zero-click dispatch-channel order, and the human-touchpoint justification; promotion criterion in §6.",
       "source": {
-        "path": ".claude/rules/recommendation-laziness-discipline.md",
+        "path": ".agents/rules/recommendation-laziness-discipline.md",
         "line": 8
       },
       "extras": {
@@ -426,7 +426,7 @@
       },
       "description": "the trust-tier discipline for rule-research provenance — §1 the tier model (pointer, not a copy), §2 the §4.5 re-tightening trigger, §3 anti-patterns, §4 ecosystem-prefix parsing (shipped in S4), §5 promotion / retirement.",
       "source": {
-        "path": ".claude/rules/research-source-trust.md",
+        "path": ".agents/rules/research-source-trust.md",
         "line": 16
       },
       "extras": {
@@ -444,7 +444,7 @@
       },
       "description": "reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers, §5 classification, §6 severity contract + ESCALATED grammar, §6.1 the deployed three-axis triage rubric + its per-axis measurement provenance, §6.2 the calibrated L4 round-budget config + its derivation and provenance label.",
       "source": {
-        "path": ".claude/rules/reviewer-discipline.md",
+        "path": ".agents/rules/reviewer-discipline.md",
         "line": 7
       },
       "extras": {
@@ -462,13 +462,13 @@
       },
       "description": "rule-enforcement-channel-selection discipline — §1 the two-axis principle, §2 triggers/non-triggers, §3 the selection procedure, §4 channel catalogue (this repo), §5 anti-patterns, §6 promotion/retirement.",
       "source": {
-        "path": ".claude/rules/rule-enforcement-channel-selection.md",
-        "line": 12
+        "path": ".agents/rules/rule-enforcement-channel-selection.md",
+        "line": 13
       },
       "extras": {
         "class": "A",
         "fires": "codifying any new rule / choosing its enforcement channel.",
-        "channels": "paths:(2), edit-time inject"
+        "channels": "paths:(3), edit-time inject"
       },
       "example": null
     },
@@ -480,13 +480,13 @@
       },
       "description": "the lifecycle SEQUENCE — §1 the four phases, which settled",
       "source": {
-        "path": ".claude/rules/seat-lifecycle.md",
-        "line": 18
+        "path": ".agents/rules/seat-lifecycle.md",
+        "line": 22
       },
       "extras": {
         "class": "B",
         "fires": "seat birth, self-cleaning handoff, or retirement in a seat session.",
-        "channels": "paths:(4)"
+        "channels": "paths:(8)"
       },
       "example": null
     },
@@ -498,13 +498,13 @@
       },
       "description": "SKILL.md `description` field quality discipline — §1 the problem and evidence, §2 the deferred discipline and its rationale, §3 promotion criterion (≥3 misrouting incidents / 6 months), §4 §1.7 self-reflexive note, §5 see-also.",
       "source": {
-        "path": ".claude/rules/skill-description-quality.md",
-        "line": 14
+        "path": ".agents/rules/skill-description-quality.md",
+        "line": 15
       },
       "extras": {
         "class": "C",
         "fires": "authoring/updating any SKILL.md `description` field.",
-        "channels": "paths:(1), edit-time inject"
+        "channels": "paths:(2), edit-time inject"
       },
       "example": null
     },
@@ -516,13 +516,13 @@
       },
       "description": "the **edit-time delivery layer** for source-before-shape discipline — §1 the PRIORITY-CHECK, §2 trigger / non-triggers, §3 mechanism + its honest limitations, §4 the `#authoring-from-internal-state` anti-pattern family, §5 promotion / retirement, §6 §1.7 self-reflexive note.",
       "source": {
-        "path": ".claude/rules/source-before-shape.md",
-        "line": 15
+        "path": ".agents/rules/source-before-shape.md",
+        "line": 17
       },
       "extras": {
         "class": "B",
         "fires": "creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff.",
-        "channels": "paths:(3), edit-time inject"
+        "channels": "paths:(5), edit-time inject"
       },
       "example": null
     },
@@ -534,13 +534,13 @@
       },
       "description": "the canonical ZCode-parity SSOT — §2 per-hook census (binding, extends [census.md](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)), §3 per-stage decision rollup (binding, extends [decisions.md](../../docs/meta-factory/zcode-parity-mega.decisions.md)), §4 degradation rationale per CC-only hook, §5 agnosticism tier table.",
       "source": {
-        "path": ".claude/rules/zcode-parity-doctrine.md",
-        "line": 19
+        "path": ".agents/rules/zcode-parity-doctrine.md",
+        "line": 20
       },
       "extras": {
         "class": "A",
         "fires": "editing hook twins, the harness-config renderer, or zcode-parity decision docs.",
-        "channels": "paths:(10), edit-time inject"
+        "channels": "paths:(11), edit-time inject"
       },
       "example": null
     }

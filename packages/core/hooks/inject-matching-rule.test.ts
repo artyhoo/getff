@@ -44,7 +44,7 @@ const picomatch = createRequire(import.meta.url)('picomatch') as (
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-matching-rule.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-matching-rule.sh');
 
 function hasJq(): boolean {
   try {

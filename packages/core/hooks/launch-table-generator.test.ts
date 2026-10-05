@@ -85,7 +85,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/launch-table-generator.sh',
+  '.agents/procedures/pipeline/helpers/launch-table-generator.sh',
 );
 
 const sandboxes: string[] = [];

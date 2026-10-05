@@ -57,7 +57,8 @@ if [ -z "$MODE" ]; then
 fi
 
 # compute_fingerprint <dir>
-# Produces a sorted list of "hash  relative-path" lines for all files under <dir>,
+# Produces sorted "hash  relative-path" file lines and "link  path -> target"
+# identities under <dir>. Links are never followed, including external/broken links.
 # excluding .git and node_modules. Uses sha256sum or md5/md5sum for portability.
 compute_fingerprint() {
   local dir="$1"
@@ -77,7 +78,7 @@ compute_fingerprint() {
   # Cargo.lints.toml / getff-cargo.yml, still fingerprint; gated by cargo-entry-lane.test.sh).
   # The go lane's two non-deterministic outputs are excluded for the SAME reason (adapter-jig J3):
   # the timestamped .getff-go-install.log audit trail, and rules-lock.go.json.
-  find "$dir" -type f \
+  find "$dir" \( -type f -o -type l \) \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
     -not -name '.getff-python-install.log' \
@@ -88,7 +89,14 @@ compute_fingerprint() {
     -not -name 'rules-lock.go.json' \
     | sort \
     | while IFS= read -r f; do
-        local h
+        local h target
+        if [ -L "$f" ]; then
+          # Record native entry identity without following a broken/external
+          # target. Hashing resolved bytes would swallow an equal-byte swap.
+          target=$(readlink "$f")
+          printf 'link  %s -> %s\n' "${f#"$dir/"}" "$target"
+          continue
+        fi
         if command -v sha256sum >/dev/null 2>&1; then
           h=$(sha256sum "$f" | awk '{print $1}')
         elif command -v shasum >/dev/null 2>&1; then

@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../');
 const FIXTURE_DIR = resolve(REPO_ROOT, 'tests/fixtures/shipped-agent-liveness');
-const PROBER = resolve(REPO_ROOT, 'agents/shipped-agent-liveness-prober.md');
+const PROBER = resolve(REPO_ROOT, '.agents/roles/shipped-agent-liveness-prober.md');
 
 /** Split an inline comma list into a sorted, de-duplicated tool set; `#` starts a comment. */
 export function toolSet(value: string): string[] {
@@ -122,7 +122,7 @@ function loadRealTree(): ParityInput {
   const roster = parseRoster(readFileSync(PROBER, 'utf8'));
   const agentTools = new Map<string, string[] | null>();
   for (const slug of new Set([...fixtures.keys(), ...roster.map((r) => r.slug)])) {
-    const p = resolve(REPO_ROOT, 'agents', `${slug}.md`);
+    const p = resolve(REPO_ROOT, '.agents/roles', `${slug}.md`);
     agentTools.set(slug, existsSync(p) ? frontmatterTools(readFileSync(p, 'utf8')) : null);
   }
   return { fixtures, roster, agentTools };

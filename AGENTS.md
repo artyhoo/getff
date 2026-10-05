@@ -4,7 +4,7 @@
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). CC-specific session boot — see [CLAUDE.md](CLAUDE.md) (auto-loaded by Claude Code at session start).
 
 Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC harnesses.
-**Claude Code users:** `CLAUDE.md` is your authoritative entry doc — CC auto-loads it AND `.claude/rules/*.md`. Read this file only if working across harnesses or onboarding off-CC.
+**Claude Code users:** `CLAUDE.md` is your authoritative entry doc — CC auto-loads it AND the compatibility `.claude/rules/*.md` entries. Read this file only if working across harnesses or onboarding off-CC.
 
 ## What this project is
 
@@ -15,37 +15,37 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 ## Session start (Step 0)
 
 1. Read [README.md#why-this-exists](README.md#why-this-exists) — the project goal.
-2. Read [.claude/session-bootstrap.md](.claude/session-bootstrap.md) — goal restatement + invariants (compaction-resilient).
+2. Read [.agents/session-bootstrap.md](.agents/session-bootstrap.md) — goal restatement + invariants (compaction-resilient).
 3. Read the rules below that apply to your task.
 
 ## Rules
 
-**On Claude Code:** `.claude/rules/*.md` auto-load at session start — no manual action needed.
+**On Claude Code:** `.claude/rules/*.md` compatibility entries auto-load at session start — no manual action needed.
 **On other harnesses (Cursor, Codex, Aider, Windsurf):** these rules do NOT auto-load. Read the ones relevant to your task from the list below before starting.
 
 <!-- getff:begin section=rule-index plan=scripts/render-rule-index.mjs -->
-One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude/rules/00-rule-index.md`).
+One line per rule — full text: read `.agents/rules/<name>.md` (index: `.agents/rules/00-rule-index.md`).
 
 | Rule | Class | Fires | Channel(s) |
 |---|---|---|---|
 | `ai-laziness-digest.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
-| `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | paths:(5), edit-time inject |
+| `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | paths:(8), edit-time inject |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook, digest |
-| `build-first-reuse-default.md` | A | capability commit/proposal; shipped-file removal. | paths:(7), edit-time inject |
+| `build-first-reuse-default.md` | A | capability commit/proposal; shipped-file removal. | paths:(10), edit-time inject |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script. | paths:(6), edit-time inject |
 | `cold-seat-economy.md` | C | re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA. | skill-embed(3) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
-| `coordinator-seat-delegation.md` | C | a coordinator seat about to run the stage pipeline itself. | paths:(1) |
+| `coordinator-seat-delegation.md` | C | a coordinator seat about to run the stage pipeline itself. | paths:(2) |
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
-| `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
-| `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
+| `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(7), edit-time inject |
+| `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(6), edit-time inject |
 | `effort-worthiness.md` | C | any effort/rigor fork: probe demand, extra round, budget breach. | skill-embed(4) |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
 | `evidence-regeneration.md` | B | a freshness gate RED, or a first live-fired matrix cell. | paths:(1), edit-time inject |
 | `git-conflict-merge-forward.md` | B | CONFLICTING PR; rebase/force-push/merge-in urge. | claude-md |
 | `kickoff-staging-placement.md` | A | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
-| `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
+| `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(5), edit-time inject |
 | `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
 | `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions; launching execution workers from a kickoff (subagent / aif dispatch / `claude -p`). | paths:(1), edit-time inject |
@@ -53,11 +53,11 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `recommendation-laziness-discipline.md` | B | before a verdict, an ambiguous fork, or a dispatch. | digest, hook |
 | `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
 | `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
-| `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
-| `seat-lifecycle.md` | B | seat birth, self-cleaning handoff, or retirement in a seat session. | paths:(4) |
-| `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
-| `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |
-| `zcode-parity-doctrine.md` | A | editing hook twins, the harness-config renderer, or zcode-parity decision docs. | paths:(10), edit-time inject |
+| `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(3), edit-time inject |
+| `seat-lifecycle.md` | B | seat birth, self-cleaning handoff, or retirement in a seat session. | paths:(8) |
+| `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(2), edit-time inject |
+| `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(5), edit-time inject |
+| `zcode-parity-doctrine.md` | A | editing hook twins, the harness-config renderer, or zcode-parity decision docs. | paths:(11), edit-time inject |
 <!-- getff:end section=rule-index -->
 
 ## Key files for contributors
@@ -66,7 +66,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 |---|---|
 | Project goal (authoritative) | [README.md#why-this-exists](README.md#why-this-exists) |
 | AI-tooling conventions, capability-commit gates | [CLAUDE.md](CLAUDE.md) |
-| Session bootstrap + invariants | [.claude/session-bootstrap.md](.claude/session-bootstrap.md) |
+| Session bootstrap + invariants | [.agents/session-bootstrap.md](.agents/session-bootstrap.md) |
 | Build-vs-reuse SSOT | [docs/meta-factory/prior-art-evaluations.md](docs/meta-factory/prior-art-evaluations.md) |
 | Execution plan | [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) |
 

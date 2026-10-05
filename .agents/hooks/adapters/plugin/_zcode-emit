@@ -1,0 +1,90 @@
+# _zcode-emit — universal emit-wrapper helper (Mechanism 1, plan-v3 §"Mechanism 1").
+#
+# Sourced (NOT executed) by plugin/hooks twins that want a single, consistent
+# adapter between plain-stdout CC semantics and strict-JSON ZCode semantics.
+# Adoption is per-twin and OPTIONAL; zero existing twins source this today
+# (declared follow-up umbrella — plan-v3 §"Non-goals"). This file is internal
+# infrastructure, not a delivery-channel artifact, so it intentionally does NOT
+# carry @dual-pair / @cc-only-rationale (it is in tests/plugin/hook-paths.test.sh
+# skip-list for exactly that reason — T-ZP-C).
+#
+# Sourcing contract: the adopter MUST define `_is_zcode` BEFORE sourcing this
+# file (canonical form: `_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }`,
+# verified across 7 plugin twins — plan-v3 §"Codebase convention"). On ZCode
+# the adopter's payload must be strict-JSON; on CC plain stdout is auto-injected.
+#
+# Functions:
+#   _ze_classify  — reads stdin, classifies the payload, echoes the right shape:
+#                     * empty stdin                       → silent (no stdout)
+#                     * valid JSON with ≥1 allowed key    → byte-identical pass-through
+#                     * anything else (plain text, JSON
+#                       without an allowed key)           → wrapped as
+#                                                          {additionalContext:<text>}
+#   _ze_emit      — _is_zcode gate around _ze_classify:
+#                     ZCode   → classify (JSON-shape output)
+#                     non-ZC  → `cat` (plain pass-through, no-op for CC dogfood)
+#
+# Allowed top-level keys (any one makes the JSON a pass-through):
+#   additionalContext, additional_context, hookSpecificOutput, hookEventName,
+#   decision, reason, systemMessage, continue, stopReason, suppressOutput.
+# This set matches every shape the codebase emits today:
+#   {additionalContext}                       — PostToolUse/PreToolUse/UserPromptSubmit
+#   {hookSpecificOutput:{...}}                — SubagentStart
+#   {hookEventName, additionalContext}        — legacy UserPromptSubmit (deps-hash-check)
+#   {decision:"block", reason, systemMessage} — Stop hook (end-of-turn-reminder)
+#
+# `keys[0]` (jq) returns the FIRST key in input order — jq preserves object key insertion
+# order per the JSON spec, so this honours the adopter's chosen first-key for the
+# pass-through decision (matches the canonical emit shapes above where the channel-
+# signalling key is always authored first).
+_ze_is_allowed_key() {
+  case "$1" in
+    additionalContext|additional_context|hookSpecificOutput|hookEventName|decision|reason|systemMessage|continue|stopReason|suppressOutput) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+_ze_classify() {
+  local payload
+  payload="$(cat 2>/dev/null || true)"
+  # Empty (or whitespace-only) stdin → silent. Avoids emitting a stray
+  # {"additionalContext":""} that would inject empty context on ZCode.
+  if [ -z "$(printf '%s' "$payload" | tr -d '[:space:]')" ]; then
+    return 0
+  fi
+  # Plain-text fallback path when jq is absent: a ZCode env without jq is already broken
+  # (every hook here depends on jq), so this branch is defenseless-by-design; emit raw.
+  if ! command -v jq >/dev/null 2>&1; then
+    printf '%s\n' "$payload"
+    return 0
+  fi
+  # Valid JSON? jq parses the WHOLE stream as ONE value (multiple objects → parse error,
+  # which is the correct strict-mode behaviour for one-message-per-emission).
+  if printf '%s' "$payload" | jq -e . >/dev/null 2>&1; then
+    # Byte-identical pass-through when the FIRST top-level key is an allowed key.
+    # `keys[0]` extraction (not regex on serialized form) is robust to pretty-printing
+    # and key order — a regex anchored on `^"` would miss `{"key":…}` (leading `{`).
+    local first_key
+    first_key="$(printf '%s' "$payload" | jq -r 'keys[0]' 2>/dev/null || true)"
+    if _ze_is_allowed_key "$first_key"; then
+      printf '%s' "$payload"
+    else
+      # Valid JSON but no allowed top-level key (e.g. {"foo":"bar"}) → wrap the ORIGINAL
+      # bytes (NOT the jq-reserialized form) inside additionalContext, so the adopter's
+      # chosen formatting survives the wrap.
+      printf '%s' "$payload" | jq -Rs --arg c "$payload" '{additionalContext:$c}'
+    fi
+  else
+    # Plain text → {additionalContext:"<escaped text>"}. jq -Rs string-escapes safely
+    # (handles embedded quotes, newlines, backslashes — defense against injection).
+    printf '%s' "$payload" | jq -Rs '{additionalContext:.}'
+  fi
+}
+
+_ze_emit() {
+  if _is_zcode; then
+    _ze_classify
+  else
+    cat
+  fi
+}

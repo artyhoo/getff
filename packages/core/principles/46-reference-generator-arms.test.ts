@@ -299,6 +299,23 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     }
   });
 
+  it('authored reference families cite canonical owners rather than native loaders', async () => {
+    const families = await liveFamilies();
+    for (const [id, owner] of Object.entries({
+      B: '.agents/procedures/', C: '.agents/roles/', D: '.agents/hooks/', F1: '.agents/rules/',
+    })) {
+      expect(families[id].length, `${id}: source population must be nonempty`).toBeGreaterThan(0);
+      for (const member of families[id]) {
+        // Native plugin boot glue has no shared hook body; it stays in the plugin family.
+        if (id === 'D' && !existsSync(join(REPO_ROOT, owner, `${member.name}.sh`))
+          && !existsSync(join(REPO_ROOT, owner, 'adapters/plugin', member.name))) continue;
+        expect(member.source.path, `${id}/${member.name}`).toMatch(new RegExp(`^${owner.replaceAll('.', '\\.')}`));
+      }
+    }
+    const check = families.F3.find((member: { name: string }) => member.name === 'check-ask-files.sh');
+    expect(check?.source.path).toBe('.agents/checks/check-ask-files.sh');
+  });
+
   // ---- Arm C — population ↔ cards 1:1, re-derived from §4, never from the output ----
   it('arm C: per family, the §4 population predicate re-derived independently equals the member set (both directions)', async () => {
     const g = await gen();
@@ -317,16 +334,16 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     // not repo members — a readdir here would make the population machine-dependent); outside
     // a git repo (synthetic fixtures) it falls back to readdir.
     const opSkillDirs = (): string[] => {
-      const abs = join(REPO_ROOT, '.claude/skills');
+      const abs = join(REPO_ROOT, '.agents/procedures');
       if (existsSync(join(REPO_ROOT, '.git'))) {
-        const out = execFileSync('git', ['ls-files', '.claude/skills'], {
+        const out = execFileSync('git', ['ls-files', '.agents/procedures'], {
           cwd: REPO_ROOT,
           encoding: 'utf8',
         });
         const dirs = new Set<string>();
         for (const line of out.split('\n')) {
           const parts = line.split('/');
-          if (parts[0] === '.claude' && parts[1] === 'skills' && parts[2])
+          if (parts[0] === '.agents' && parts[1] === 'procedures' && parts[2])
             dirs.add(parts[2]!);
         }
         return [...dirs]
@@ -338,8 +355,8 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       );
     };
     const opSkills = opSkillDirs();
-    const shipSkills = readdirSync(join(REPO_ROOT, 'skills')).filter((d) =>
-      existsSync(join(REPO_ROOT, 'skills', d, 'SKILL.md')),
+    const shipSkills = readdirSync(join(REPO_ROOT, '.agents/procedures')).filter((d) =>
+      existsSync(join(REPO_ROOT, '.agents/procedures', d, 'SKILL.md')),
     );
     const popB = [...new Set([...opSkills, ...shipSkills])].sort();
     expect(
@@ -361,7 +378,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     ).toEqual(popC);
 
     // D — .claude/hooks/*.sh stems ∪ plugin-only registered stems
-    const hookStems = readdirSync(join(REPO_ROOT, '.claude/hooks'))
+    const hookStems = readdirSync(join(REPO_ROOT, '.agents/hooks'))
       .filter((f) => f.endsWith('.sh'))
       .map((f) => f.replace(/\.sh$/, ''));
     const hooksJson = JSON.parse(
@@ -401,7 +418,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     ).toEqual(tpl.sort());
 
     // F.1 — rules minus the generated index (the same filter render-rule-index applies)
-    const ruleFiles = readdirSync(join(REPO_ROOT, '.claude/rules'))
+    const ruleFiles = readdirSync(join(REPO_ROOT, '.agents/rules'))
       .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
       .map((f) => f.replace(/\.md$/, ''));
     expect(
@@ -1031,7 +1048,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     const g = await gen();
     const families = await liveFamilies();
     const index = readFileSync(
-      join(REPO_ROOT, '.claude/rules/00-rule-index.md'),
+      join(REPO_ROOT, '.agents/rules/00-rule-index.md'),
       'utf8',
     );
     const indexRows = new Map<
@@ -1272,7 +1289,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   it('arm G: the real advisory block at check-hook-marker.sh wires render-harness-config NOTHING (live Q1 proof)', async () => {
     const censusMod = await censusModule();
     const marker = readFileSync(
-      join(REPO_ROOT, '.claude/hooks/check-hook-marker.sh'),
+      join(REPO_ROOT, '.agents/hooks/check-hook-marker.sh'),
       'utf8',
     );
     const known = new Set(

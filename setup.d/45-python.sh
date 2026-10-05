@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:690-691, long before do_refresh at install.sh:1614).
+# (do_python_lane exits at install.sh:692, long before do_refresh at install.sh:1617).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:801-802 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -131,7 +131,7 @@ _py_skill_copy_or_refresh() {
 # comes from _copy_tree_with_transform (setup.d/lib.sh) so the two cannot drift (ledger S-7).
 _py_plain_skill_deliver() {
   local slug="$1"
-  local src="$PKG_ROOT/skills/$slug"
+  local src; src="$(procedure_source "$slug")"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   local override="${dst}.override.md"
   [ -d "$src" ] || return 0
@@ -1590,7 +1590,7 @@ _py_deliver_agent_surface() {
   for _py_agent in rule-researcher rule-test-author; do
     # A2-4: refresh-aware. The skip-freshly-written-transform-on-skipped-file contract of
     # 20-agents.sh:41-46 now lives inside the helper, together with the --refresh branch.
-    _py_agent_copy_or_refresh "$PKG_ROOT/agents/${_py_agent}.md" \
+    _py_agent_copy_or_refresh "$(role_source_root)/${_py_agent}.md" \
                               "$PROJECT_ROOT/.claude/agents/${_py_agent}.md"
   done
 
@@ -1617,7 +1617,7 @@ _py_deliver_agent_surface() {
   fi
 
   # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-326 (kickoff §2 item 1 binding).
-  local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  local _py_imr_src="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
     _py_copy_or_refresh "$_py_imr_src" "$_py_imr_dst"   # A2-4: refresh-aware
@@ -1633,7 +1633,7 @@ _py_deliver_agent_surface() {
   # D12), delivered as setup.d/10-skills.sh §1i′ does on the npm lanes. Without it the hook runs
   # unchanged, but its source-hash closure never matches the plugin manifest, so getff's plugin
   # copy runs too and the rule is injected twice. Refresh-aware like the hooks above.
-  local _py_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
+  local _py_hl_src="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/hook-live.sh"
   if [ -f "$_py_hl_src" ]; then
     mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
     _py_copy_or_refresh "$_py_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
@@ -1671,10 +1671,10 @@ _py_deliver_agent_surface() {
   _py_render_rules_md "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/RULES.md" \
                       "$PROJECT_ROOT/.ai-factory/RULES.md"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
-  if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
-    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
+  if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$(procedure_source tool-bootstrapping)/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
+    copy_safe "$(procedure_source tool-bootstrapping)/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
   else
-    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+    copy_safe "$(procedure_source tool-bootstrapping)/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
   fi
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.

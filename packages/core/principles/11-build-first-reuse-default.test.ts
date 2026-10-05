@@ -63,9 +63,9 @@ import { execSync } from 'node:child_process';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SSOT_PATH = resolve(REPO_ROOT, 'docs/meta-factory/prior-art-evaluations.md');
-const RULES_DIR = resolve(REPO_ROOT, '.claude/rules');
-const SKILLS_DIR = resolve(REPO_ROOT, '.claude/skills');
-const AGENTS_DIR = resolve(REPO_ROOT, 'agents');
+const RULES_DIR = resolve(REPO_ROOT, '.agents/rules');
+const SKILLS_DIR = resolve(REPO_ROOT, '.agents/procedures');
+const AGENTS_DIR = resolve(REPO_ROOT, '.agents/roles');
 
 const GRANDFATHER_COMMIT = '809d7eb';
 

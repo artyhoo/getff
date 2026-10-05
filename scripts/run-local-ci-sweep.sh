@@ -443,6 +443,7 @@ gate_table() {
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
+    "3${TAB}getff-dist-canonical-links${TAB}$(getff_payload_trigger),tests/consumer-matrix/getff-dist-canonical-links.test.sh${TAB}bash tests/consumer-matrix/getff-dist-canonical-links.test.sh" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}$(getff_payload_trigger),tests/install-sh/${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \

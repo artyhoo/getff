@@ -1,0 +1,4 @@
+name = "orchestrator-worker-discipline"
+description = "Discipline for aif-dispatched workers — REPORT schema (incl. advisor-consult sub-form on BLOCKER), park-vs-proceed, stage-gate check. Read when you are a worker dispatched via runtime-bridge/dispatch.ts."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/orchestrator-worker-discipline.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

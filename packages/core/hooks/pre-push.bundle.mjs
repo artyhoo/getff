@@ -807,8 +807,8 @@ function runCmdScriptLivenessGate(base, opts = {}) {
 // packages/core/hooks/checks/s17.ts
 var S17_HISTORICAL_CUTOFF = "2026-05-12";
 var ALLOWLIST_RE = /^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):/;
-var DISCIPLINE_FILE_RE = /^(\.claude\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|\.claude\/skills\/[^/]+\/SKILL\.md)$/;
-var DISCIPLINE_DIR_RE = /^(\.claude\/rules\/|packages\/core\/principles\/|\.claude\/skills\/)/;
+var DISCIPLINE_FILE_RE = /^((?:\.claude|\.agents)\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|(?:\.claude\/skills|\.agents\/procedures)\/[^/]+\/SKILL\.md)$/;
+var DISCIPLINE_DIR_RE = /^((?:\.claude|\.agents)\/rules\/|packages\/core\/principles\/|(?:\.claude\/skills|\.agents\/procedures)\/)/;
 var SECTION_MARKER_RE = /^\+(## §|export const [A-Z_]+: )/;
 var PLACEHOLDERS2 = /* @__PURE__ */ new Set([
   "todo",

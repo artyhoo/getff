@@ -85,16 +85,19 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # (plugin/README.md + spec 2026-06-22:111 + decisions ledger — supersession notes landed with
 # this change; operator GO 2026-09-11, kickoff §0/§7).
 ENTRY_TABLE=(
-  "getff|skills|transform+textstrip"
-  "tool-bootstrapping|skills|byte-copy"
-  "ai-doc|claude-skills|transform"
-  "rule-research|claude-skills|transform"
-  "rule-tests|claude-skills|transform"
-  "template-audit|claude-skills|transform"
+  "getff|procedures|transform+textstrip"
+  "tool-bootstrapping|consumer-procedures|transform"
+  "ai-doc|procedures|transform"
+  "rule-research|procedures|transform"
+  "rule-tests|procedures|transform"
+  "template-audit|procedures|transform"
+  "using-getff|procedures|transform"
+  "installing-enforcement|procedures|transform"
 )
 
 population_dir() {
   case "$1" in
+    procedures|consumer-procedures) printf '%s/.agents/procedures' "$REPO_ROOT" ;;
     skills)        printf '%s/skills' "$REPO_ROOT" ;;
     claude-skills) printf '%s/.claude/skills' "$REPO_ROOT" ;;
     *) return 1 ;;
@@ -125,6 +128,11 @@ transform_one_file() {
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/rules/#](${UPSTREAM_BLOB_URL}/.agents/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+\.agents/roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+\.agents/hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
@@ -188,6 +196,16 @@ marker_rationale() {
 guard_tree_clobber() {
   local src_dir="$1" dst_dir="$2" mode="$3" name="$4"
   local src_rel="${src_dir#"$REPO_ROOT"/}"
+  local previous_mode="$mode"
+  if ! git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null && [[ "$src_rel" == .agents/procedures/* ]]; then
+    local source_name="${src_rel##*/}"
+    case "$source_name" in
+      getff) src_rel="skills/getff" ;;
+      tool-bootstrapping-consumer) src_rel="skills/tool-bootstrapping"; previous_mode=byte-copy ;;
+      using-getff|installing-enforcement) src_rel="plugin/skills/$source_name"; previous_mode=byte-copy ;;
+      *) src_rel=".claude/skills/$source_name" ;;
+    esac
+  fi
   local have_head=0
   if git -C "$REPO_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 \
      && git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null; then
@@ -218,7 +236,7 @@ guard_tree_clobber() {
       local head_src_file
       head_src_file=$(mktemp)
       if git -C "$REPO_ROOT" show "HEAD:$src_rel/$rel" > "$head_src_file" 2>/dev/null \
-         && cmp -s <(render_one "$head_src_file" "$mode") "$dst_file"; then
+         && cmp -s <(render_one "$head_src_file" "$previous_mode") "$dst_file"; then
         rm -f "$head_src_file"
         continue  # stale payload — the normal case this generator exists to fix
       fi
@@ -265,7 +283,9 @@ for entry in "${ENTRY_TABLE[@]}"; do
     *) echo "[ERROR] generate-plugin-skills: $name — unknown derivation mode: $mode" >&2; exit 2 ;;
   esac
 
-  src_dir="$(population_dir "$pop")/$name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
+  source_name="$name"
+  [ "$pop" != "consumer-procedures" ] || source_name="tool-bootstrapping-consumer"
+  src_dir="$(population_dir "$pop")/$source_name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
   if [ ! -d "$src_dir" ]; then
     echo "[ERROR] generate-plugin-skills: $name — source population missing: $src_dir" >&2
     exit 1

@@ -356,6 +356,7 @@ do_toolchain_lane() {
   # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
   record_lane_checks "$lane"
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  install_portable_bindings
   refresh_baseline_flush
   # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
   print_not_wired
@@ -407,6 +408,7 @@ do_python_lane() {
   record_lane_checks python
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
+  install_portable_bindings
   refresh_baseline_flush
   # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
   print_not_wired
@@ -812,7 +814,7 @@ do_refresh() {
 
   # ── Sub-agents ──────────────────────────────────────────
   echo "▶ Sub-agents → .claude/agents/"
-  for f in "$PKG_ROOT"/agents/*.md; do
+  for f in "$(role_source_root)"/*.md; do
     case "$(basename "$f")" in
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
@@ -850,7 +852,7 @@ do_refresh() {
   _PLAIN_SKILLS="getff tool-bootstrapping"
   echo "▶ Skills ($_PLAIN_SKILLS) → .claude/skills/"
   for _slug in $_PLAIN_SKILLS; do
-    _src="$PKG_ROOT/skills/$_slug"
+    _src="$(procedure_source "$_slug")"
     _dst="$PROJECT_ROOT/.claude/skills/$_slug"
     _override="${_dst}.override.md"
     [ -d "$_src" ] || continue
@@ -1016,7 +1018,7 @@ do_refresh() {
   # GH #934: refresh coverage for the end-of-turn session-recap Stop hook + lang pack (parity with
   # the fresh-install delivery in setup.d/10-skills.sh §1c — closes the refresh-drift class #869/#890).
   # A brownfield consumer that installed before #934 gets the hook + the Stop registration via --refresh.
-  _EOT_SRC="$PKG_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+  _EOT_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/end-of-turn-reminder.sh"
   _EOT_DST="$PROJECT_ROOT/.claude/hooks/end-of-turn-reminder.sh"
   if [ -f "$_EOT_SRC" ]; then
     refresh_safe "$_EOT_SRC" "$_EOT_DST"
@@ -1025,15 +1027,15 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_EOT_DST" ]; then chmod_safe +x "$_EOT_DST" 2>/dev/null || true; fi
     mkdir_safe "$PROJECT_ROOT/.claude/hooks/lang"
     for _lp in en.sh ru.sh check-parity.sh; do
-      [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && refresh_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
+      [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lang/$_lp" ] && refresh_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
     done
     # D29: the Stop hook sources lib/residue-dir.sh (the handoff-currency gate's residue
     # cascade) — delivered BY NAME like the lang packs above, because grep finds no
     # hooks/lib copy step anywhere else in the delivery surface. The hook degrades to its
     # inline fallback without it; this line is what makes the lib the operative path.
-    if [ -f "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" ]; then
+    if [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/residue-dir.sh" ]; then
       mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-      refresh_safe "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
+      refresh_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
     fi
     if [ "$DRY_RUN" != "--dry-run" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
@@ -1049,7 +1051,7 @@ do_refresh() {
   # ask-question-reminder (PreToolUse:AskUserQuestion) + inject-matching-rule (register_imr_hooks: three events).
   # A brownfield consumer installed before #934 gets both hooks + their matcher-scoped registration
   # via --refresh (not --force-only). ask-question-reminder reuses the lang pack refreshed above.
-  _AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
+  _AQR_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/ask-question-reminder.sh"
   _AQR_DST="$PROJECT_ROOT/.claude/hooks/ask-question-reminder.sh"
   if [ -f "$_AQR_SRC" ]; then
     refresh_safe "$_AQR_SRC" "$_AQR_DST"
@@ -1058,7 +1060,7 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PreToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh"' "ask-question-reminder" "AskUserQuestion"
     fi
   fi
-  _IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  _IMR_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-matching-rule.sh"
   _IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_IMR_SRC" ]; then
     refresh_safe "$_IMR_SRC" "$_IMR_DST"
@@ -1070,7 +1072,7 @@ do_refresh() {
   # GH #934 batch B: refresh coverage for the output-language SessionStart hook (UserPromptSubmit before
   # 2026-09-29 — the stale registration is removed so a refresh moves it, never doubles it) (setup.d/10-skills.sh
   # §1f parity). A brownfield consumer installed before batch B gets it + the registration via --refresh.
-  _OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
+  _OLH_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-output-language.sh"
   _OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
   if [ -f "$_OLH_SRC" ]; then
     refresh_safe "$_OLH_SRC" "$_OLH_DST"
@@ -1084,7 +1086,7 @@ do_refresh() {
   # GH #934 (per-hook audit follow-up): refresh coverage for the doc-authority-header PostToolUse gate
   # (setup.d/10-skills.sh §1g parity). A brownfield consumer installed before this batch gets the hook +
   # the Edit|Write|MultiEdit registration via --refresh (closes the refresh-drift class #869/#890).
-  _DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
+  _DAH_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/check-doc-authority-header.sh"
   _DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
   if [ -f "$_DAH_SRC" ]; then
     refresh_safe "$_DAH_SRC" "$_DAH_DST"
@@ -1097,7 +1099,7 @@ do_refresh() {
   # + the memory-codification reminder (§1i). The HOOKS are framework-owned → refresh_safe (overwrite).
   # The .claude/session-bootstrap.md TEMPLATE is a consumer-owned seed → copy_safe (never clobber a
   # filled anchor); it is on the refresh-covers EXCLUDED list.
-  _PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
+  _PDG_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-project-digest.sh"
   _PDG_DST="$PROJECT_ROOT/.claude/hooks/inject-project-digest.sh"
   if [ -f "$_PDG_SRC" ]; then
     refresh_safe "$_PDG_SRC" "$_PDG_DST"
@@ -1109,7 +1111,7 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
     fi
   fi
-  _MCF_SRC="$PKG_ROOT/.claude/hooks/inject-memory-codification.sh"
+  _MCF_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-memory-codification.sh"
   _MCF_DST="$PROJECT_ROOT/.claude/hooks/inject-memory-codification.sh"
   if [ -f "$_MCF_SRC" ]; then
     refresh_safe "$_MCF_SRC" "$_MCF_DST"
@@ -1121,9 +1123,9 @@ do_refresh() {
   # Spec 2026-09-28 D12: the shared hooks refreshed above source lib/hook-live.sh (the liveness
   # mark the plugin copy claims before it stays silent) — refreshed BY NAME like residue-dir.sh,
   # parity with setup.d/10-skills.sh §1i′.
-  if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+  if [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/hook-live.sh" ]; then
     mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-    refresh_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+    refresh_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
   fi
 
   # ── Vendored runtime-bridge subset (factory depth; spec A7) — #869 refresh parity ──
@@ -1520,8 +1522,8 @@ do_refresh() {
   if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
      || [ -f "$PROJECT_ROOT/.claude/hooks/precompact-residue.sh" ]; then
     for _hg in precompact-residue inject-handoff-on-compact; do
-      [ -f "$PKG_ROOT/.claude/hooks/$_hg.sh" ] || continue
-      refresh_safe "$PKG_ROOT/.claude/hooks/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
+      [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" ] || continue
+      refresh_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
       if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.claude/hooks/$_hg.sh" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true; fi
     done
     if [ "$DRY_RUN" != "--dry-run" ]; then
@@ -1595,6 +1597,7 @@ do_refresh() {
   # consumer-refresh-integrity R1: persist the delivery baseline now that every refresh arm
   # (and its post-copy transforms — the guard hashes FINAL on-disk bytes, see setup.d/lib.sh)
   # has run. Fail-open: a failed flush never fails the refresh.
+  install_portable_bindings
   refresh_baseline_flush
 
   echo ""
