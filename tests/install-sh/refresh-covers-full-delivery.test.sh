@@ -334,16 +334,16 @@ fi
 # which the alternation already covers.
 # ── LANE_EXCLUDED: $PKG_ROOT-sourced delivery SOURCES deliberately NOT refreshed, per lane ────────
 # A2-11's widened extraction sees a SECOND source form (`$PKG_ROOT/…`). Widening without an escape
-# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1657-1659
+# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1664-1666
 # classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
 # classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
-# EXCLUDED list» — and 45-python.sh:1675 extends the contract to the sibling docs («consumer-editable by contract»).
+# EXCLUDED list» — and 45-python.sh:1682 extends the contract to the sibling docs («consumer-editable by contract»).
 # Rows are `<layer-basename>|<source token>`. Source-keyed (unlike the npm EXCLUDED above, which keys
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
-  # 45-python.sh agent-surface docs (45-python.sh:1653-1688). The ARCHITECTURE.md token is the
-  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1660/:1692 — two consumer-owned
+  # 45-python.sh agent-surface docs (45-python.sh:1660-1695). The ARCHITECTURE.md token is the
+  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1667/:1699 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python
   45-python.sh|$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md

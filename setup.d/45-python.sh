@@ -730,6 +730,13 @@ _py_write_rules_lock() {
     return 0
   fi
 
+  # Dir present but holds NO *.yml (consumer emptied it; copy_safe skips an existing dst, so a plain
+  # re-run never re-populates) → same skip as no-dir: otherwise the ids assignment's unexpanded glob
+  # makes grep exit 2 and, under install.sh's set -euo pipefail, kills the whole lane message-lessly
+  # (before the firing self-check, agent surface and record_lane_checks; tests/install-sh/
+  # python-rules-lock.test.sh arm (16)).
+  compgen -G "$rules_dir/*.yml" >/dev/null || { echo "  ⊝ rules-lock: no .getff/astgrep-rules present — skipping"; return 0; }
+
   # Delivered ast-grep rule ids (the `id: "…"` field, double-quoted per the renderer), sorted+unique.
   local ids
   ids=$(grep -hE '^id:' "$rules_dir"/*.yml 2>/dev/null \

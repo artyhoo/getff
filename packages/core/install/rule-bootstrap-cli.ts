@@ -105,7 +105,7 @@ function parseArgs(argv: string[]): Args {
 // eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
 // («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
 // diagnostics/registry.ts:193), and install() needs Node at install time, which the python lane
-// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1555).
+// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1562).
 // (Until D8/#1169 this sentence said the lane FORBIDS `.ai-factory/`; it has shipped the agent
 // surface there ever since — tests/install-sh/python-entry-lane.test.sh:51.) The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →

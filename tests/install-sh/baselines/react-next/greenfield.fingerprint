@@ -6,7 +6,11 @@
 9df864970a6ebe5d1244ac18d1fc66e207869427ffb59ea88d96ad35f4842cf7  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
+<<<<<<< HEAD
 7e261476b300664929bd9cc0fadb0a12efa6f9b09bceefdf54cb08ab2c72b576  .ai-factory/refresh-baseline.json
+=======
+b333907b4d77b4b98389987ab6e60bc29d0f454073e45a2b749dce14b325d48b  .ai-factory/refresh-baseline.json
+>>>>>>> origin/staging
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -165,7 +169,11 @@ fa864074769cbe791277f472a267c855da0a1a6b30e5e40f5aa997447a5f7146  eslint-rules-l
 f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-local/restricted-syntax-audit-exempt.ts
 d756f1f55af7fbb01a18287dfd73f255c23d7f24dcc050fd77de0490002b42c0  eslint.config.mjs
 913d99503272b114be8da860458e596250e8b4a740259303875c8d61b08d807d  package.json
+<<<<<<< HEAD
 e0d391b1a0eb7ce6dd33f44c64cfe4579de18a3350fa744d2fc303f78c19483c  packages/core/hooks/pre-push.bundle.mjs
+=======
+1ffb11458a737b77130704ccb3cf9731c3757f05d68937df8b39a67a3a90d74d  packages/core/hooks/pre-push.bundle.mjs
+>>>>>>> origin/staging
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 578b02c6d837b17f21d3950c62c7edd165e08043805f9afc75d4900cd8195686  playwright.config.ts
 288103356341825ec7a54e19529eeb1af41dc0050406244858c6873d852ea554  scripts/audit-ai-docs.react-next.sh

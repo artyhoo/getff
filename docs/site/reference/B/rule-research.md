@@ -105,7 +105,7 @@ is a pointer only, and the `go` lane is out of scope. The skill text says to run
   lines 262 and 293.
 - The built-in allowed hosts start on line 20 of `packages/core/research/allowlist.ts`.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
-  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1573 of
+  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1580 of
   `setup.d/45-python.sh`. The method file is on the installer's list at line 245 of
   `install.sh`.
 - The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 88 to
