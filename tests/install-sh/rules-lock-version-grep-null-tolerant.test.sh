@@ -17,10 +17,12 @@
 # toolchain with no rules-lock and a failed install. The fix is `|| true` on the pipeline, which
 # makes the existing fallback reachable; healthy-path lock bytes stay identical.
 #
-# Arms (a versionless and a many-match manifest on BOTH lane families): the lane must COMPLETE
+# Arms (a versionless and a many-match manifest on the lane families): the lane must COMPLETE
 # (rc=0) and write the lock with version null — the many-match manifest seeds `"version": null`
 # values, so the preserved first-match extraction itself yields null. Healthy-path guards: a
 # manifest WITH a version must still surface that version in the lock, exactly as before the fix.
+# The install exit code is asserted inline at every arm (principle 50): a captured `rc` compared
+# with `-eq` right after the capture, so a mid-lane abort can never read green here.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -52,12 +54,9 @@ many_match_ctx() { # <consumer-root> — 10000 `"version": null` entries: grep e
   }' > "$1/.ai-factory/synthesizer-output/generation-context.json"
 }
 
-# assert_lock <label> <rc> <out> <lock-path> <expected-version>
+# assert_lock <label> <lock-path> <expected-version> — lock emitted, version as expected, valid JSON
 assert_lock() {
-  local label="$1" rc="$2" out="$3" lock="$4" want="$5" got
-  [ "$rc" -eq 0 ] \
-    && ok "$label: install completed (rc=0)" \
-    || bad "$label: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+  local label="$1" lock="$2" want="$3" got
   if [ -f "$lock" ]; then
     ok "$label: lock emitted"
     got=$(lock_version_raw "$lock")
@@ -83,7 +82,9 @@ C1=$(mktemp -d)
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$C1/Cargo.toml"
 seed_ctx "$C1" '{"rules": []}'
 out=$( cd "$C1" && bash "$INSTALL" cargo --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(1) cargo versionless" "$rc" "$out" "$C1/.ai-factory/synthesizer-output/rules-lock.cargo.json" "null"
+[ "$rc" -eq 0 ] && ok "(1) cargo versionless: install completed (rc=0)" \
+  || bad "(1) cargo versionless: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+assert_lock "(1) cargo versionless" "$C1/.ai-factory/synthesizer-output/rules-lock.cargo.json" "null"
 rm -rf "$C1"
 
 # ── (2) go + versionless manifest — the SAME shared writer as (1), both lanes covered ────────────
@@ -92,7 +93,9 @@ C2=$(mktemp -d)
 printf 'module example.com/demo\n\ngo 1.22\n' > "$C2/go.mod"
 seed_ctx "$C2" '{"rules": []}'
 out=$( cd "$C2" && bash "$INSTALL" go --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(2) go versionless" "$rc" "$out" "$C2/.ai-factory/synthesizer-output/rules-lock.go.json" "null"
+[ "$rc" -eq 0 ] && ok "(2) go versionless: install completed (rc=0)" \
+  || bad "(2) go versionless: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+assert_lock "(2) go versionless" "$C2/.ai-factory/synthesizer-output/rules-lock.go.json" "null"
 rm -rf "$C2"
 
 # ── (3) python + versionless manifest — the second writer (45-python.sh), same defect shape ──────
@@ -101,7 +104,9 @@ P3=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$P3/pyproject.toml"
 seed_ctx "$P3" '{"rules": []}'
 out=$( cd "$P3" && bash "$INSTALL" python --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(3) python versionless" "$rc" "$out" "$P3/.getff/rules-lock.python.json" "null"
+[ "$rc" -eq 0 ] && ok "(3) python versionless: install completed (rc=0)" \
+  || bad "(3) python versionless: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+assert_lock "(3) python versionless" "$P3/.getff/rules-lock.python.json" "null"
 rm -rf "$P3"
 
 # ── (4) cargo + many-match manifest (failure mode b: SIGPIPE 141 through `head -1`) ──────────────
@@ -110,7 +115,9 @@ C4=$(mktemp -d)
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$C4/Cargo.toml"
 many_match_ctx "$C4"
 out=$( cd "$C4" && bash "$INSTALL" cargo --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(4) cargo many-match" "$rc" "$out" "$C4/.ai-factory/synthesizer-output/rules-lock.cargo.json" "null"
+[ "$rc" -eq 0 ] && ok "(4) cargo many-match: install completed (rc=0)" \
+  || bad "(4) cargo many-match: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+assert_lock "(4) cargo many-match" "$C4/.ai-factory/synthesizer-output/rules-lock.cargo.json" "null"
 rm -rf "$C4"
 
 # ── (5) python + many-match manifest — failure mode b on the second writer ───────────────────────
@@ -119,7 +126,9 @@ P5=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$P5/pyproject.toml"
 many_match_ctx "$P5"
 out=$( cd "$P5" && bash "$INSTALL" python --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(5) python many-match" "$rc" "$out" "$P5/.getff/rules-lock.python.json" "null"
+[ "$rc" -eq 0 ] && ok "(5) python many-match: install completed (rc=0)" \
+  || bad "(5) python many-match: install exit $rc — lane aborted (RED arm; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|'))"
+assert_lock "(5) python many-match" "$P5/.getff/rules-lock.python.json" "null"
 rm -rf "$P5"
 
 # ── (6) HEALTHY PATH, cargo: a manifest WITH a version still surfaces it in the lock ─────────────
@@ -130,7 +139,9 @@ C6=$(mktemp -d)
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$C6/Cargo.toml"
 seed_ctx "$C6" '{"framework": "cargo", "version": "15.0.0", "rules": []}'
 out=$( cd "$C6" && bash "$INSTALL" cargo --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(6) cargo healthy" "$rc" "$out" "$C6/.ai-factory/synthesizer-output/rules-lock.cargo.json" '"15.0.0"'
+[ "$rc" -eq 0 ] && ok "(6) cargo healthy: install completed (rc=0)" \
+  || bad "(6) cargo healthy: install exit $rc — lane aborted; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+assert_lock "(6) cargo healthy" "$C6/.ai-factory/synthesizer-output/rules-lock.cargo.json" '"15.0.0"'
 rm -rf "$C6"
 
 # ── (7) HEALTHY PATH, python: same guard on the second writer ───────────────────────────────────
@@ -139,7 +150,9 @@ P7=$(mktemp -d)
 printf '[project]\nname = "demo"\nversion = "0.0.1"\n' > "$P7/pyproject.toml"
 seed_ctx "$P7" '{"framework": "python", "version": "15.0.0", "rules": []}'
 out=$( cd "$P7" && bash "$INSTALL" python --force < /dev/null 2>&1 ); rc=$?
-assert_lock "(7) python healthy" "$rc" "$out" "$P7/.getff/rules-lock.python.json" '"15.0.0"'
+[ "$rc" -eq 0 ] && ok "(7) python healthy: install completed (rc=0)" \
+  || bad "(7) python healthy: install exit $rc — lane aborted; tail: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+assert_lock "(7) python healthy" "$P7/.getff/rules-lock.python.json" '"15.0.0"'
 rm -rf "$P7"
 
 echo ""
