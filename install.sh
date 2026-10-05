@@ -676,7 +676,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:917 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:913-914 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1178,7 +1178,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:666-668), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:681-683), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2247-2250).
   #
