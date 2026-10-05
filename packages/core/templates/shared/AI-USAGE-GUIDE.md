@@ -205,7 +205,10 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 3. **Before you commit** — `bash scripts/audit-ai-docs.sh` (drift + code-vs-docs probes) and, when
    you touched layout or added a package, `bash scripts/check-rule-globs.sh` and
    `bash scripts/check-lintstaged-resolves.sh`. The pre-commit hook runs lint-staged on its own.
-4. **On push** — `.husky/pre-push` fires automatically. It runs **getff's own rule checks**:
+4. **On push** — the git pre-push hook fires automatically where your install ships one:
+   `.husky/pre-push` on the npm stacks, `.getff/hooks/pre-push` on python; the cargo and go
+   lanes install no pre-push hook yet — the script in step 3 is their local gate. Where it
+   runs, it runs **getff's own rule checks**:
    rule-glob liveness (an active rule whose globs match no file fails), lint-staged binary
    resolution, generated-rule firing, command/script check liveness, link-check on changed
    Markdown, and un-pinned tool installs in workflows. It does **not** run your typecheck or
@@ -217,7 +220,8 @@ The steady-state loop once First Steps is done. Every command below is shipped b
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
    account exhausts its private-repo Actions-minutes pool, every first-party check fails in ~2 s
    with zero steps. `bash scripts/ci-available-probe.sh` (shipped on npm-lane installs only —
-   python/go/cargo installs ship no `scripts/` by construction) classifies that state as
+   python delivers a different `scripts/` set, and go/cargo deliver only the docs gate there)
+   classifies that state as
    `CI UNAVAILABLE` instead of misreporting RED; `bash scripts/pre-merge-local.sh` runs every
    detected lane's gates on the merge result locally before you push (opt-in; weaker evidence
    than CI — its verdict says so and lists what it does NOT cover).

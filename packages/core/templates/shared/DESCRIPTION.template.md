@@ -62,12 +62,12 @@
 Before every commit / PR, run the gate this installer ships (unconditional — needs no extra install):
 
 - `./scripts/audit-ai-docs.sh` — drift + code-vs-docs probes.
-- the pre-push hook (`.husky/pre-push`) fires on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links), not your typecheck or tests.
+- the git pre-push hook fires on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links), not your typecheck or tests. Where it installs depends on the lane: `.husky/pre-push` on the npm stacks, `.getff/hooks/pre-push` on the python lane; the cargo and go lanes install no pre-push hook yet — the script above is their local gate.
 - CI gates the PR (`ci-success` required check) — the last-resort authority, independent of local tooling.
 
 For the lifecycle past install — First Steps per install depth, the daily cycle, and what degrades when a capability is absent — see `.ai-factory/AI-USAGE-GUIDE.md`.
 
-Don't bypass the pre-push hook / `./scripts/audit-ai-docs.sh` with `--no-verify`. If a rule is genuinely incompatible — discuss it, don't silently skip.
+Don't bypass the pre-push hook with `--no-verify` where your install ships one, and don't skip `./scripts/audit-ai-docs.sh`. If a rule is genuinely incompatible — discuss it, don't silently skip.
 
 ## NDA / security
 
