@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1733). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1739). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1733), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1739), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -729,6 +729,13 @@ _py_write_rules_lock() {
     echo "  [dry-run] would write .getff/rules-lock.python.json (delivered rule ids + sourceFingerprint)"
     return 0
   fi
+
+  # Dir present but holds NO *.yml (consumer emptied it; copy_safe skips an existing dst, so a plain
+  # re-run never re-populates) → same skip as no-dir: otherwise the ids assignment's unexpanded glob
+  # makes grep exit 2 and, under install.sh's set -euo pipefail, kills the whole lane message-lessly
+  # (before the firing self-check, agent surface and record_lane_checks; tests/install-sh/
+  # python-rules-lock.test.sh arm (16)).
+  compgen -G "$rules_dir/*.yml" >/dev/null || { echo "  ⊝ rules-lock: no .getff/astgrep-rules present — skipping"; return 0; }
 
   # Delivered ast-grep rule ids (the `id: "…"` field, double-quoted per the renderer), sorted+unique.
   local ids
@@ -833,7 +840,13 @@ _py_write_rules_lock() {
   local _ctx="$_synth_dir/generation-context.json"
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding, same fix as lib.sh `_lane_write_toolchain_lock`): a manifest without a
+    # "version" key exits grep 1, and one whose grep output exceeds the 64KiB pipe buffer SIGPIPEs
+    # grep through `head -1` (141) — either status aborts the lane after file delivery but BEFORE
+    # this lock write, leaving the `[ -n ] || 'null'` fallback below dead code for exactly its
+    # intended case. Masking the status makes that fallback reachable; healthy value unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   {

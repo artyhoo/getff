@@ -729,7 +729,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
 #   install.sh:1499                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1803          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1816          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
@@ -738,9 +738,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1898                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1779          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1792          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -1719,7 +1719,13 @@ _lane_write_toolchain_lock() {
   # synthesised, the manifest carries its version and the lock reports it — no code change.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding): a manifest without a "version" key exits grep 1, and one whose grep output
+    # exceeds the 64KiB pipe buffer SIGPIPEs grep through `head -1` (141) — either status aborts
+    # the lane after file delivery but BEFORE this lock write, leaving the `[ -n ] || 'null'`
+    # fallback below dead code for exactly its intended case. Masking the status makes that
+    # fallback reachable; the healthy path's extracted value is unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   # §3a option B / §6 fork 2: derive the per-rule slice from the fragment dir
@@ -2158,7 +2164,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3015, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3024, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2886,7 +2892,10 @@ format_getff_writes() {
       git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
       # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
       # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
-      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # The probe canonicalizes like the mark (KEPT_ORIGINALS keys are _keep_original_canon spellings),
+      # so a symlinked project root — the writers' logical $PROJECT_ROOT against the wire's pwd -P —
+      # still matches (rework review 56ca7a86b7e4).
+      case " ${KEPT_ORIGINALS[*]-} " in *" $(_keep_original_canon "$PROJECT_ROOT/$rel") "*) ;; *) continue ;; esac
       # the newest record for this path is the state just before the latest install that wrote it
       for kept_f in "$kept/$rel".*; do
         case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
@@ -3551,15 +3560,35 @@ note_eslint_config_not_esm() {
 # KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
 # two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
 # first only: the second pass's copy would already carry the first pass's block, and be announced
-# as a second «original» (cold-review F9).
+# as a second «original» (cold-review F9). Keyed on the PHYSICAL path (_keep_original_canon): the
+# writers spell one file differently — session-settings marks install.sh's logical $PROJECT_ROOT,
+# the wire resolves pwd -P — and an exact compare then double-keeps settings.local.json when the
+# install runs from a symlinked project root (rework review 56ca7a86b7e4): the second original
+# holds the intermediate, and the undo command restores that instead of the person's file.
 KEPT_ORIGINALS=()
+
+# _keep_original_canon <path> — echo <path> in the one KEPT_ORIGINALS spelling: its real directory
+# (cd + pwd -P, what bridge_wire_project already resolves) + the final component, built from shell
+# expansions only — W7e runs the keep with a PATH that has neither dirname nor basename. A path
+# whose directory cannot be resolved echoes unchanged, so the key stays stable for it.
+_keep_original_canon() {
+  local d b
+  case "$1" in
+    */*) d="${1%/*}" b="${1##*/}" ;;
+    *) d=. b="$1" ;;
+  esac
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { echo "$1"; return 0; }
+  echo "$d/$b"
+}
 
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
-# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS) — the compare is
+# on the canonical spelling, so the writers' differing path spellings cannot double-keep.
 keep_original_snapshot() {
-  local f="$1" snap k
+  local f k snap
+  f=$(_keep_original_canon "$1")
   for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
@@ -3567,10 +3596,11 @@ keep_original_snapshot() {
 }
 
 # keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
-# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
-# own shell: settle runs inside $(…), where a global it set would be lost.
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. The key is canonical
+# (_keep_original_canon), one spelling for every writer. Call it in the install's own shell: settle
+# runs inside $(…), where a global it set would be lost.
 keep_original_mark() {
-  KEPT_ORIGINALS+=("$1")
+  KEPT_ORIGINALS+=("$(_keep_original_canon "$1")")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -3581,11 +3611,18 @@ keep_original_mark() {
 # original goes back in place, a warning names the file on stderr — and it returns 1: the caller
 # reports getff's block as not wired (cold-review F10: the snapshot used to be deleted silently).
 keep_original_settle() {
-  local f="$1" snap="$2" sum8 dest rel
+  local f snap sum8 dest rel root
+  f=$(_keep_original_canon "$1")
+  snap="$2"
   [ -n "$snap" ] && [ -f "$snap" ] || return 0
   if cmp -s "$snap" "$f"; then rm -f "$snap"; return 0; fi
   sum8=$(_hash256 "$snap") || sum8=original
-  rel="${f#"${PROJECT_ROOT:-.}"/}"
+  # The rel strip compares one spelling on both sides: a caller's file under a symlinked project
+  # root (the wire's pwd -P against install.sh's logical $PROJECT_ROOT) strips to the same
+  # relative path as the agreeing case, so the original lands at .ai-factory/before-getff/<rel>
+  # and not nested under a spelled-out absolute path.
+  root=$(_keep_original_canon "${PROJECT_ROOT:-.}")
+  rel="${f#"$root"/}"
   dest="${PROJECT_ROOT:-.}/.ai-factory/before-getff/$rel.${sum8:0:8}"
   if mkdir -p "$(dirname "$dest")" 2>/dev/null && mv "$snap" "$dest" 2>/dev/null; then
     echo "$dest"
