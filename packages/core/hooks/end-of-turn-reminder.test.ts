@@ -43,7 +43,7 @@ import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
 
 // Every case below spawns `bash .claude/hooks/end-of-turn-reminder.sh`: 106 spawn call
 // sites over 117 cases, and the D13 `fixture 9` arm replays the whole 19-case golden
@@ -3421,7 +3421,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   });
 
   it('fixture 21f (D40): the index awk uses no interval expression (old mawk ignores `{n,}`)', () => {
-    const src = readFileSync(resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh'), 'utf8');
+    const src = readFileSync(resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh'), 'utf8');
     // The awk PROGRAM only (its comments above may name the forbidden form).
     const start = src.indexOf("! awk '", src.indexOf('# D40 — the handoff is a THIN INDEX'));
     const end = src.indexOf(`' "$gate_handoff_file"`, start);
@@ -3692,7 +3692,7 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
   });
 
   it('story/SKILL.md teaches the same thing as the story spec', () => {
-    const skill = readFileSync(resolve(REPO_ROOT, '.claude/skills/story/SKILL.md'), 'utf8');
+    const skill = readFileSync(resolve(REPO_ROOT, '.agents/procedures/story/SKILL.md'), 'utf8');
     expect(skill).not.toMatch(/jargon (explained )?on the spot/i);
     expect(skill).toMatch(/short sentences/);
     expect(skill).toMatch(/one idea\s+each/);
@@ -3907,7 +3907,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     mkdirSync(join(box, 'lang'), { recursive: true });
     const hookCopy = join(box, 'end-of-turn-reminder.sh');
     writeFileSync(hookCopy, readFileSync(HOOK, 'utf8'), 'utf8');
-    const pack = readFileSync(resolve(REPO_ROOT, '.claude/hooks/lang/en.sh'), 'utf8').replace(strip, '');
+    const pack = readFileSync(resolve(REPO_ROOT, '.agents/hooks/lang/en.sh'), 'utf8').replace(strip, '');
     expect(pack).not.toMatch(gone);
     writeFileSync(join(box, 'lang', 'en.sh'), pack, 'utf8');
     const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { hook: hookCopy });

@@ -18,15 +18,15 @@
       },
       "description": "Generate a draft .ai-factory/DESCRIPTION.md and .ai-factory/ARCHITECTURE.md for a consumer repo. Reads package.json(s) and directory layout, detects the tech stack, and writes a filled draft with a DRAFT review banner. Use whenever DESCRIPTION.md or ARCHITECTURE.md still contains <PLACEHOLDER> fields — the getff installer creates `.ai-factory/` itself, so no external tool is a prerequisite. Invoke as `/aif-init` in your AI session.",
       "source": {
-        "path": "agents/aif-init.md",
+        "path": ".agents/roles/aif-init.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Write",
         "referenced-by": [
-          ".claude/rules/source-before-shape.md",
-          "agents/aif-init.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/roles/aif-init.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/source-before-shape.md"
         ]
       },
       "example": null
@@ -45,15 +45,15 @@
       },
       "description": "Audits a proposed or just-authored new capability (a SKILL.md, an agent, or a packages/core module) for overlap with an existing own-stack or upstream capability, and checks that its Prior-art trailer's verdict matches what the body actually does. Flags reinvention before handoff. Reports; does not fix.",
       "source": {
-        "path": "agents/capability-reuse-auditor.md",
+        "path": ".agents/roles/capability-reuse-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep",
         "referenced-by": [
-          ".claude/rules/source-before-shape.md",
-          "agents/capability-reuse-auditor.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/roles/capability-reuse-auditor.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/source-before-shape.md"
         ]
       },
       "example": null
@@ -72,14 +72,14 @@
       },
       "description": "Cold conformance audit of docs-site claims against shipped reality. Given ONLY the doc surface(s) to audit (never the authoring narrative), enumerates every factual claim the docs make about the repo/state, verifies each against the live source with command+output or file:line evidence, and reports VERIFIED/GAP/UNVERIFIABLE per claim plus a machine-consumed GO/REVISE/STOP verdict. Reporting-only; never invoked from CI.",
       "source": {
-        "path": "agents/claims-conformance-auditor.md",
+        "path": ".agents/roles/claims-conformance-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          "agents/claims-conformance-auditor.md",
-          "agents/docs-form-auditor.md"
+          ".agents/roles/claims-conformance-auditor.md",
+          ".agents/roles/docs-form-auditor.md"
         ]
       },
       "example": null
@@ -98,20 +98,20 @@
       },
       "description": "Reviews PR description §1.7 Forward-check and Backward-check sections for substantive evidence — file:line citations, sweep completeness, exemption quality. Reports; does not fix.",
       "source": {
-        "path": "agents/compliance-verifier.md",
+        "path": ".agents/roles/compliance-verifier.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep",
         "referenced-by": [
-          ".claude/rules/attention-is-not-a-mechanism.md",
-          ".claude/rules/dual-implementation-discipline.md",
-          ".claude/rules/no-paid-llm-in-ci.md",
-          ".claude/rules/phase-research-coverage.md",
-          ".claude/rules/reviewer-discipline.md",
-          ".claude/skills/night-mode/SKILL.md",
-          "agents/compliance-verifier.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/procedures/night-mode/SKILL.md",
+          ".agents/roles/compliance-verifier.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/attention-is-not-a-mechanism.md",
+          ".agents/rules/dual-implementation-discipline.md",
+          ".agents/rules/no-paid-llm-in-ci.md",
+          ".agents/rules/phase-research-coverage.md",
+          ".agents/rules/reviewer-discipline.md"
         ]
       },
       "example": null
@@ -130,14 +130,14 @@
       },
       "description": "Cold semantic-grouping judgment for a DocPlan. Given ONLY the DocPlan (its sections + excluded[]) and the ConventionNodes it references — NEVER the diff, the PR body, or the rendered AGENTS.md region — judges whether each section's title coheres with its member nodes, flags mis-grouped nodes, checks exclusion reasons are substantive, and assesses section granularity. Reports CLEAN/GAP per section + an overall verdict. PR-blind by dispatch contract; reporting-only; never invoked from CI.",
       "source": {
-        "path": "agents/docplan-auditor.md",
+        "path": ".agents/roles/docplan-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep",
         "referenced-by": [
-          ".claude/rules/attention-is-not-a-mechanism.md",
-          "agents/docplan-auditor.md"
+          ".agents/roles/docplan-auditor.md",
+          ".agents/rules/attention-is-not-a-mechanism.md"
         ]
       },
       "example": null
@@ -156,13 +156,13 @@
       },
       "description": "Cold form audit of getff.ai docs pages against the reader-comfort card (C1-C13). Given ONLY page paths, their kinds, and the card path (never the writer's dialogue), enumerates the page population, runs scripts/docs-check.mjs for the deterministic numbers, fills the card per page with file:line evidence, diffs its verdict against the Docs-card trailer in each commit, and reports SYSTEMIC-vs-LOCAL patterns plus a GO/REVISE/STOP verdict. Reporting-only; never invoked from CI; never judges facts. Triggers: gold-page review, family checkpoint, final site check, docs refresh touching >=5 pages.",
       "source": {
-        "path": "agents/docs-form-auditor.md",
+        "path": ".agents/roles/docs-form-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          "agents/docs-form-auditor.md"
+          ".agents/roles/docs-form-auditor.md"
         ]
       },
       "example": null
@@ -181,21 +181,21 @@
       },
       "description": "Cold WHAT-conformance acceptance audit at a stage-PR boundary. Given ONLY the kickoff/spec (or a scoped section of it) and the 3-dot diff — NEVER the chat, the design dialogue, or the implementation log — judges whether the diff is what the kickoff asked for, reporting missing/extra/diverged drift with file:line and a machine-consumed FIDELITY verdict consumed by the pr-body-fidelity CI gate. Design altitude only, never code quality. Dialogue-blind by dispatch contract; reporting-only; never invoked from CI.",
       "source": {
-        "path": "agents/fidelity-auditor.md",
+        "path": ".agents/roles/fidelity-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          ".claude/rules/cold-seat-economy.md",
-          ".claude/rules/doc-authority-hierarchy.md",
-          ".claude/rules/git-conflict-merge-forward.md",
-          ".claude/skills/dispatcher/SKILL.md",
-          ".claude/skills/harvest/SKILL.md",
-          ".claude/skills/night-mode/SKILL.md",
-          ".claude/skills/reviewer/SKILL.md",
-          "agents/dispatch-input-checker.md",
-          "agents/fidelity-auditor.md"
+          ".agents/procedures/dispatcher/SKILL.md",
+          ".agents/procedures/harvest/SKILL.md",
+          ".agents/procedures/night-mode/SKILL.md",
+          ".agents/procedures/reviewer/SKILL.md",
+          ".agents/roles/dispatch-input-checker.md",
+          ".agents/roles/fidelity-auditor.md",
+          ".agents/rules/cold-seat-economy.md",
+          ".agents/rules/doc-authority-hierarchy.md",
+          ".agents/rules/git-conflict-merge-forward.md"
         ]
       },
       "example": null
@@ -214,16 +214,17 @@
       },
       "description": ">-",
       "source": {
-        "path": "agents/living-docs-auditor.md",
+        "path": ".agents/roles/living-docs-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Bash",
         "referenced-by": [
-          ".claude/rules/dual-implementation-discipline.md",
-          ".claude/rules/no-paid-llm-in-ci.md",
-          "agents/living-docs-auditor.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/procedures/getff/SKILL.md",
+          ".agents/roles/living-docs-auditor.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/dual-implementation-discipline.md",
+          ".agents/rules/no-paid-llm-in-ci.md"
         ]
       },
       "example": null
@@ -242,15 +243,15 @@
       },
       "description": "Audits user-scope agent memory for durable conventions that live only in memory and were never codified into the repo. Flags stage-0 entries; reports candidates with a codify-or-leave verdict. Reports; does not fix.",
       "source": {
-        "path": "agents/memory-codification-auditor.md",
+        "path": ".agents/roles/memory-codification-auditor.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep",
         "referenced-by": [
-          ".claude/rules/memory-codification.md",
-          "agents/memory-codification-auditor.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/roles/memory-codification-auditor.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/memory-codification.md"
         ]
       },
       "example": null
@@ -269,19 +270,20 @@
       },
       "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix. Uses read-only Bash for diff inspection (git diff/log/show, ls) — no mutations, no worktrees, no pushes (GH #1516).",
       "source": {
-        "path": "agents/review-sidecar.md",
+        "path": ".agents/roles/review-sidecar.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          ".claude/rules/ai-laziness-traps.md",
-          ".claude/rules/no-paid-llm-in-ci.md",
-          ".claude/rules/reviewer-discipline.md",
-          ".claude/skills/reviewer/SKILL.md",
-          "agents/compliance-verifier.md",
-          "agents/review-sidecar.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/procedures/getff/SKILL.md",
+          ".agents/procedures/reviewer/SKILL.md",
+          ".agents/roles/compliance-verifier.md",
+          ".agents/roles/review-sidecar.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/ai-laziness-traps.md",
+          ".agents/rules/no-paid-llm-in-ci.md",
+          ".agents/rules/reviewer-discipline.md"
         ]
       },
       "example": null
@@ -301,18 +303,18 @@
       },
       "description": ">-",
       "source": {
-        "path": "agents/rule-researcher.md",
+        "path": ".agents/roles/rule-researcher.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
         "referenced-by": [
-          ".claude/rules/research-source-trust.md",
-          ".claude/skills/rule-research/SKILL.md",
-          ".claude/skills/rule-tests/SKILL.md",
-          "agents/rule-researcher.md",
-          "agents/rule-test-author.md",
-          "agents/shipped-agent-liveness-prober.md"
+          ".agents/procedures/rule-research/SKILL.md",
+          ".agents/procedures/rule-tests/SKILL.md",
+          ".agents/roles/rule-researcher.md",
+          ".agents/roles/rule-test-author.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
+          ".agents/rules/research-source-trust.md"
         ]
       },
       "example": null
@@ -332,15 +334,15 @@
       },
       "description": ">-",
       "source": {
-        "path": "agents/rule-test-author.md",
+        "path": ".agents/roles/rule-test-author.md",
         "line": 3
       },
       "extras": {
         "tools": "Read, Write, Bash, Grep, Glob",
         "referenced-by": [
-          ".claude/skills/rule-tests/SKILL.md",
-          "agents/rule-researcher.md",
-          "agents/rule-test-author.md"
+          ".agents/procedures/rule-tests/SKILL.md",
+          ".agents/roles/rule-researcher.md",
+          ".agents/roles/rule-test-author.md"
         ]
       },
       "example": null

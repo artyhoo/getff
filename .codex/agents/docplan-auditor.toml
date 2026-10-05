@@ -1,0 +1,4 @@
+name = "docplan-auditor"
+description = "Cold semantic-grouping judgment for a DocPlan. Given ONLY the DocPlan (its sections + excluded[]) and the ConventionNodes it references — NEVER the diff, the PR body, or the rendered AGENTS.md region — judges whether each section's title coheres with its member nodes, flags mis-grouped nodes, checks exclusion reasons are substantive, and assesses section granularity. Reports CLEAN/GAP per section + an overall verdict. PR-blind by dispatch contract; reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/docplan-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

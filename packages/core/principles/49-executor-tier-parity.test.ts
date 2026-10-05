@@ -3,7 +3,7 @@
  *
  * > **Authoritative for:** the parity between the tier vocabulary of
  * > `packages/core/templates/shared/tier-home.md` §2 (the tier-criteria SSOT) and the
- * > «Overnight model posture» of `.claude/skills/night-mode/SKILL.md` (the tier→model
+ * > «Overnight model posture» of `.agents/procedures/night-mode/SKILL.md` (the tier→model
  * > instantiation home): the implementer and fix roles sit on the tier tier-home calls the
  * > **executor tier**, and the per-task review seat sits on a separate tier above it.
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists. Which concrete
@@ -41,7 +41,7 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const TIER_HOME = 'packages/core/templates/shared/tier-home.md';
-const NIGHT_MODE = '.claude/skills/night-mode/SKILL.md';
+const NIGHT_MODE = '.agents/procedures/night-mode/SKILL.md';
 const EXECUTOR = 'executor tier';
 
 const EXECUTOR_WORK = /executor|implement|\bfix/i;

@@ -9,6 +9,14 @@
 
 ---
 
+
+The framework authors portable procedures in `.agents/procedures/`, role prompts in
+`.agents/roles/`, rules in `.agents/rules/`, and checks in `.agents/hooks/`.
+The `.claude` entries and root `skills/` and `agents/` paths are compatibility
+surfaces; edit the canonical owner. `tool-bootstrapping` is the contributor
+procedure; `tool-bootstrapping-consumer` owns the separately authored consumer
+workflow delivered under the native `tool-bootstrapping` name.
+
 ## Step 0 — Get the framework
 
 ```bash

@@ -164,3 +164,16 @@ tests/agnosticism/conformance-record.tsv
 !.claude/orchestrator-prompts/lane-config-insertion/kickoff-l*.md
 # The host-run probe record the stage kickoffs cite (dotted sidecar, SIDECAR_DOTTED_RE).
 !.claude/orchestrator-prompts/lane-config-insertion/kickoff.probes.md
+
+# Canonical contributor adapters travel with Git. Private runtime state stays ignored.
+!/.codex/
+/.codex/*
+!/.codex/config.toml
+!/.codex/contributor-inventory.json
+!/.codex/agents/
+/.codex/agents/*
+!/.codex/agents/*.toml
+!/.zcode/
+/.zcode/*
+!/.zcode/config.json
+!/.zcode/skills

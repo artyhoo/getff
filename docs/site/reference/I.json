@@ -36,7 +36,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/compliance-verifier.md"
+        "twin-of": ".agents/roles/compliance-verifier.md"
       },
       "example": null
     },
@@ -53,7 +53,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/docs-form-auditor.md"
+        "twin-of": ".agents/roles/docs-form-auditor.md"
       },
       "example": null
     },
@@ -70,7 +70,7 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": "skills/getff/SKILL.md"
+        "twin-of": ".agents/procedures/getff/SKILL.md"
       },
       "example": null
     },
@@ -125,7 +125,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/living-docs-auditor.md"
+        "twin-of": ".agents/roles/living-docs-auditor.md"
       },
       "example": null
     },
@@ -142,7 +142,7 @@
       },
       "extras": {
         "component": "agent",
-        "twin-of": "agents/review-sidecar.md"
+        "twin-of": ".agents/roles/review-sidecar.md"
       },
       "example": null
     },
@@ -216,7 +216,7 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": "skills/tool-bootstrapping/SKILL.md"
+        "twin-of": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md"
       },
       "example": null
     },

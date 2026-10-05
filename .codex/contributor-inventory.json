@@ -1,0 +1,847 @@
+{
+  "skills": [
+    {
+      "name": "ai-doc",
+      "source": ".agents/procedures/ai-doc",
+      "explicit": false
+    },
+    {
+      "name": "aif-doctor",
+      "source": ".agents/procedures/aif-doctor",
+      "explicit": false
+    },
+    {
+      "name": "arch",
+      "source": ".agents/procedures/arch",
+      "explicit": true
+    },
+    {
+      "name": "claude-glm-executor-handoff",
+      "source": ".agents/procedures/claude-glm-executor-handoff",
+      "explicit": false
+    },
+    {
+      "name": "dispatcher",
+      "source": ".agents/procedures/dispatcher",
+      "explicit": true
+    },
+    {
+      "name": "docs-author",
+      "source": ".agents/procedures/docs-author",
+      "explicit": false
+    },
+    {
+      "name": "getff",
+      "source": ".agents/procedures/getff",
+      "explicit": false
+    },
+    {
+      "name": "harvest",
+      "source": ".agents/procedures/harvest",
+      "explicit": true
+    },
+    {
+      "name": "installing-enforcement",
+      "source": ".agents/procedures/installing-enforcement",
+      "explicit": false
+    },
+    {
+      "name": "night-mode",
+      "source": ".agents/procedures/night-mode",
+      "explicit": false
+    },
+    {
+      "name": "orchestrator",
+      "source": ".agents/procedures/orchestrator",
+      "explicit": false
+    },
+    {
+      "name": "pipeline",
+      "source": ".agents/procedures/pipeline",
+      "explicit": true
+    },
+    {
+      "name": "reviewer",
+      "source": ".agents/procedures/reviewer",
+      "explicit": false
+    },
+    {
+      "name": "rule-research",
+      "source": ".agents/procedures/rule-research",
+      "explicit": false
+    },
+    {
+      "name": "rule-tests",
+      "source": ".agents/procedures/rule-tests",
+      "explicit": false
+    },
+    {
+      "name": "self-reflection",
+      "source": ".agents/procedures/self-reflection",
+      "explicit": false
+    },
+    {
+      "name": "story",
+      "source": ".agents/procedures/story",
+      "explicit": false
+    },
+    {
+      "name": "template-audit",
+      "source": ".agents/procedures/template-audit",
+      "explicit": false
+    },
+    {
+      "name": "tool-bootstrapping",
+      "source": ".agents/procedures/tool-bootstrapping",
+      "explicit": false
+    },
+    {
+      "name": "using-getff",
+      "source": ".agents/procedures/using-getff",
+      "explicit": false
+    },
+    {
+      "name": "adapter-jig-reviewer",
+      "source": ".agents/roles/adapter-jig-reviewer.md",
+      "explicit": true
+    },
+    {
+      "name": "aif-init",
+      "source": ".agents/roles/aif-init.md",
+      "explicit": true
+    },
+    {
+      "name": "backward-sweep-auditor",
+      "source": ".agents/roles/backward-sweep-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "capability-reuse-auditor",
+      "source": ".agents/roles/capability-reuse-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "claims-conformance-auditor",
+      "source": ".agents/roles/claims-conformance-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "compliance-verifier",
+      "source": ".agents/roles/compliance-verifier.md",
+      "explicit": true
+    },
+    {
+      "name": "dispatch-input-checker",
+      "source": ".agents/roles/dispatch-input-checker.md",
+      "explicit": true
+    },
+    {
+      "name": "docplan-auditor",
+      "source": ".agents/roles/docplan-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "docs-form-auditor",
+      "source": ".agents/roles/docs-form-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "dual-channel-drift-auditor",
+      "source": ".agents/roles/dual-channel-drift-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "fidelity-auditor",
+      "source": ".agents/roles/fidelity-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "getff-cold-run-prober",
+      "source": ".agents/roles/getff-cold-run-prober.md",
+      "explicit": true
+    },
+    {
+      "name": "living-docs-auditor",
+      "source": ".agents/roles/living-docs-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "manual-rule-liveness-prober",
+      "source": ".agents/roles/manual-rule-liveness-prober.md",
+      "explicit": true
+    },
+    {
+      "name": "memory-codification-auditor",
+      "source": ".agents/roles/memory-codification-auditor.md",
+      "explicit": true
+    },
+    {
+      "name": "orchestrator-worker-discipline",
+      "source": ".agents/roles/orchestrator-worker-discipline.md",
+      "explicit": true
+    },
+    {
+      "name": "review-sidecar",
+      "source": ".agents/roles/review-sidecar.md",
+      "explicit": true
+    },
+    {
+      "name": "reviewer-discipline",
+      "source": ".agents/roles/reviewer-discipline.md",
+      "explicit": true
+    },
+    {
+      "name": "rule-researcher",
+      "source": ".agents/roles/rule-researcher.md",
+      "explicit": true
+    },
+    {
+      "name": "rule-test-author",
+      "source": ".agents/roles/rule-test-author.md",
+      "explicit": true
+    },
+    {
+      "name": "shipped-agent-liveness-prober",
+      "source": ".agents/roles/shipped-agent-liveness-prober.md",
+      "explicit": true
+    }
+  ],
+  "generated": [
+    {
+      "path": "codex-contributor-plugin/hooks/hooks.json",
+      "kind": "json",
+      "fingerprint": "bc2ce112897130deb00640c08d9ba2cf3cd031ef51cbdb82bcd0a8f4d5443c19"
+    },
+    {
+      "path": "codex-contributor-plugin/.codex-plugin/plugin.json",
+      "kind": "json",
+      "fingerprint": "b3ba0a4c81f59dfabb18bcf951e30cda84f0c6661957a50abbeadeff67fde522"
+    },
+    {
+      "path": "codex-contributor-plugin/.claude-plugin/marketplace.json",
+      "kind": "json",
+      "fingerprint": "a6ce0210638499d0eae375b9cd8c57661477e4c98f301d3615f17d3f5b9807ed"
+    },
+    {
+      "path": ".codex/config.toml",
+      "kind": "text",
+      "fingerprint": "291e70683f340f0dc8c57daa2aeea7cf8b126dbf4e0fbfec5437dde8f697e24e"
+    },
+    {
+      "path": ".agents/skills/ai-doc/SKILL.md",
+      "kind": "text",
+      "fingerprint": "b64b8cd7a4931cf482e7413ad0f7bdf9a524ea11c8930f37cfb17155be979f99"
+    },
+    {
+      "path": ".agents/skills/ai-doc/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/ai-doc/anthropic-and-aif-residue.md",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/ai-doc/anthropic-and-aif-residue.md"
+    },
+    {
+      "path": ".agents/skills/aif-doctor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "8f386adf0d37ef7d829ff570bacd7850ed964c0101dcab4311091ae2c4961a01"
+    },
+    {
+      "path": ".agents/skills/aif-doctor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/aif-doctor/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/aif-doctor/helpers"
+    },
+    {
+      "path": ".agents/skills/arch/SKILL.md",
+      "kind": "text",
+      "fingerprint": "6647063a286c5471b334b2b6b9b78e7ecee7622e72758716228086441ff623c3"
+    },
+    {
+      "path": ".agents/skills/arch/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/arch/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/arch/references"
+    },
+    {
+      "path": ".agents/skills/claude-glm-executor-handoff/SKILL.md",
+      "kind": "text",
+      "fingerprint": "d3b612f260628c07f69a1fa23279cafe37ae598922f4ed70ac1297ac9b855085"
+    },
+    {
+      "path": ".agents/skills/claude-glm-executor-handoff/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/dispatcher/SKILL.md",
+      "kind": "text",
+      "fingerprint": "de64cde44e823ca7f1e6c5a9348d43232133c406c2d20d8406476c6c12934115"
+    },
+    {
+      "path": ".agents/skills/dispatcher/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/dispatcher/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/dispatcher/helpers"
+    },
+    {
+      "path": ".agents/skills/docs-author/SKILL.md",
+      "kind": "text",
+      "fingerprint": "c59442c094eaecf6eb1c7e430490f0caa2002c1e78280de7758edfcff9a7c057"
+    },
+    {
+      "path": ".agents/skills/docs-author/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/docs-author/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/docs-author/references"
+    },
+    {
+      "path": ".agents/skills/getff/SKILL.md",
+      "kind": "text",
+      "fingerprint": "e4b01bd696126ac88db3a81194145086a02a37d894227e9bfb6f83ad6cff212a"
+    },
+    {
+      "path": ".agents/skills/getff/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/getff/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/getff/references"
+    },
+    {
+      "path": ".agents/skills/harvest/SKILL.md",
+      "kind": "text",
+      "fingerprint": "1b8cc1c978bc5ee0394d80c1bb3aaa09ae27395dc6d048bac09e1784175f188f"
+    },
+    {
+      "path": ".agents/skills/harvest/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/installing-enforcement/SKILL.md",
+      "kind": "text",
+      "fingerprint": "497dbf6a0dbdade309ccd9dc94ef1825e6b660ed30b0e3795ba16d99a79a6ede"
+    },
+    {
+      "path": ".agents/skills/installing-enforcement/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/night-mode/SKILL.md",
+      "kind": "text",
+      "fingerprint": "7d0141e95429f76ca7b942f975cfd004f070e0a163afe4a0873c73b249542fc0"
+    },
+    {
+      "path": ".agents/skills/night-mode/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/orchestrator/SKILL.md",
+      "kind": "text",
+      "fingerprint": "f55ffa157b850c131a7f7be8a96156f0f434b7333b0ff9cd8aa958a4928b1b24"
+    },
+    {
+      "path": ".agents/skills/orchestrator/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/orchestrator/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/orchestrator/helpers"
+    },
+    {
+      "path": ".agents/skills/orchestrator/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/orchestrator/references"
+    },
+    {
+      "path": ".agents/skills/pipeline/SKILL.md",
+      "kind": "text",
+      "fingerprint": "baa5be8810174feb0b6d59eb7a3c474ddda254a273030241314ca143b09b8b2c"
+    },
+    {
+      "path": ".agents/skills/pipeline/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/pipeline/evals",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/pipeline/evals"
+    },
+    {
+      "path": ".agents/skills/pipeline/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/pipeline/helpers"
+    },
+    {
+      "path": ".agents/skills/pipeline/lang",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/pipeline/lang"
+    },
+    {
+      "path": ".agents/skills/pipeline/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/pipeline/references"
+    },
+    {
+      "path": ".agents/skills/pipeline/templates",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/pipeline/templates"
+    },
+    {
+      "path": ".agents/skills/reviewer/SKILL.md",
+      "kind": "text",
+      "fingerprint": "ca9c847abec81fff89284ee86ed126d3f9d723540645aa7fa076c8e0b38d4c38"
+    },
+    {
+      "path": ".agents/skills/reviewer/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/rule-research/SKILL.md",
+      "kind": "text",
+      "fingerprint": "e48cde22699cedb86a0dc758b11936ce9d9e02aabf8028023cc28a6fe9d32694"
+    },
+    {
+      "path": ".agents/skills/rule-research/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/rule-tests/SKILL.md",
+      "kind": "text",
+      "fingerprint": "7964e0016eec41ce1930a2f16d82cc3b53673e4e62af171287a3bf84b118015f"
+    },
+    {
+      "path": ".agents/skills/rule-tests/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/self-reflection/SKILL.md",
+      "kind": "text",
+      "fingerprint": "c14a2f9aa967037fc9a3fca695ebb0477b87b31e457a9c1a3243e617877e90c9"
+    },
+    {
+      "path": ".agents/skills/self-reflection/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/self-reflection/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/self-reflection/references"
+    },
+    {
+      "path": ".agents/skills/story/SKILL.md",
+      "kind": "text",
+      "fingerprint": "8d907402f858493eb34176aefbddde6bd3932bdf7a3d9b5ebd98348855658c6e"
+    },
+    {
+      "path": ".agents/skills/story/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/story/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/story/helpers"
+    },
+    {
+      "path": ".agents/skills/template-audit/SKILL.md",
+      "kind": "text",
+      "fingerprint": "d0beab411ec0414c0ddb25e3e60c046cf66e5dd18863cd2f14f9f53cb162c065"
+    },
+    {
+      "path": ".agents/skills/template-audit/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/tool-bootstrapping/SKILL.md",
+      "kind": "text",
+      "fingerprint": "061a02929ec0f1a6e8c636862fa783afb41c341dfcd91dced77a000897936954"
+    },
+    {
+      "path": ".agents/skills/tool-bootstrapping/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/tool-bootstrapping/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/tool-bootstrapping/references"
+    },
+    {
+      "path": ".agents/skills/using-getff/SKILL.md",
+      "kind": "text",
+      "fingerprint": "99449717871a3382523605e2df6fdf4edcf6aa220f2626220df85df6da444b08"
+    },
+    {
+      "path": ".agents/skills/using-getff/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".codex/agents/adapter-jig-reviewer.toml",
+      "kind": "text",
+      "fingerprint": "c5f96aabc81e018dce7f753b9f0508ccb23bc0ed4ab156195d1100eeb43cc399"
+    },
+    {
+      "path": ".agents/skills/adapter-jig-reviewer/SKILL.md",
+      "kind": "text",
+      "fingerprint": "79cf4518714bede02882940e8e9f59a63da6d55e79793ff6b5f6ac8ef204080f"
+    },
+    {
+      "path": ".agents/skills/adapter-jig-reviewer/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/aif-init.toml",
+      "kind": "text",
+      "fingerprint": "e0be8b78aaa818c5ae969283533dac71b081f6fb4adcb35afaf2815f0f8a62f1"
+    },
+    {
+      "path": ".agents/skills/aif-init/SKILL.md",
+      "kind": "text",
+      "fingerprint": "21dee81bb3edb3526f95a66f7154b1d9ea7fcb0b6cc85268e41c12b1a9bfb483"
+    },
+    {
+      "path": ".agents/skills/aif-init/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/backward-sweep-auditor.toml",
+      "kind": "text",
+      "fingerprint": "a68ef525ec5612786c981a209fd7ef02268690c8c48d951c9908284de935ea6d"
+    },
+    {
+      "path": ".agents/skills/backward-sweep-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "2be18ff373145d32dc107221c05fb745387924fc915e832d2f4e6fa7805ac96d"
+    },
+    {
+      "path": ".agents/skills/backward-sweep-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/capability-reuse-auditor.toml",
+      "kind": "text",
+      "fingerprint": "b862c0b44c4b7dfbd0b9082ae2944a40729807c963e3c215b9ee2fef61cd29a3"
+    },
+    {
+      "path": ".agents/skills/capability-reuse-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "2bba5da191e6bacdfd71613767718d99e1044628d43af11e982f755f92957ba3"
+    },
+    {
+      "path": ".agents/skills/capability-reuse-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/claims-conformance-auditor.toml",
+      "kind": "text",
+      "fingerprint": "968b966c3354456fe8145502ef9024bfd115b8a0cea486898cfaaebed00f7b15"
+    },
+    {
+      "path": ".agents/skills/claims-conformance-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "0257aafdf978ec5e650eec6c6b72df33acfa89aea0678dcca20ce4ca6895adb4"
+    },
+    {
+      "path": ".agents/skills/claims-conformance-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/compliance-verifier.toml",
+      "kind": "text",
+      "fingerprint": "1bf933725a9f789eb48478016b230cba1e32007dfde9ac3be35300712821ca9c"
+    },
+    {
+      "path": ".agents/skills/compliance-verifier/SKILL.md",
+      "kind": "text",
+      "fingerprint": "9ac56dc5b2c9cf0200e73c8ad83c45889728252418ae56dfff9bdc3529eaed95"
+    },
+    {
+      "path": ".agents/skills/compliance-verifier/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/dispatch-input-checker.toml",
+      "kind": "text",
+      "fingerprint": "fe347a0da1754bbf0f1d6430f899fa319ded3a464dec232e1767dd9e9a93e19d"
+    },
+    {
+      "path": ".agents/skills/dispatch-input-checker/SKILL.md",
+      "kind": "text",
+      "fingerprint": "ef70a984399be102c4131d4a575c7cc93f0397f6d2d336d95c6a999380e5c475"
+    },
+    {
+      "path": ".agents/skills/dispatch-input-checker/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/docplan-auditor.toml",
+      "kind": "text",
+      "fingerprint": "7134a8f8390525111b83f91833ebfca7766cbd1bc4fa409d042941b56167378a"
+    },
+    {
+      "path": ".agents/skills/docplan-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "c59485afc8eff941acef46ad2f432434af91cd5dcefaabd26ee778af899a5bcd"
+    },
+    {
+      "path": ".agents/skills/docplan-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/docs-form-auditor.toml",
+      "kind": "text",
+      "fingerprint": "3612c1817c59ae2aad24eb4af750986582877bc090fec61516a3ef242bc206a0"
+    },
+    {
+      "path": ".agents/skills/docs-form-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "3d2c6f3aa068f030904809ed50cb83791980add2f995a2ca43690670e7085a5c"
+    },
+    {
+      "path": ".agents/skills/docs-form-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/dual-channel-drift-auditor.toml",
+      "kind": "text",
+      "fingerprint": "7b69a1efb5072b02a9763f312a8cabaee7e8af030f02e49d537930047e0fa4f1"
+    },
+    {
+      "path": ".agents/skills/dual-channel-drift-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "abc685826bfcaec3abb9e9dd23d42ad13a78b7763edb3768290c035642a2e1e7"
+    },
+    {
+      "path": ".agents/skills/dual-channel-drift-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/fidelity-auditor.toml",
+      "kind": "text",
+      "fingerprint": "9b506fd5e8c8c15fdb81116cea4d26dcb43c38477534ae8cfb180c190688ea97"
+    },
+    {
+      "path": ".agents/skills/fidelity-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "1b98e2bbdff532fa958ca2d6b11c80c0638ff173e0aa1fdcf7861917ba91be60"
+    },
+    {
+      "path": ".agents/skills/fidelity-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/getff-cold-run-prober.toml",
+      "kind": "text",
+      "fingerprint": "a86a50bd2f07331978e56273442492e7ea31fe9b9ccfc32bfc1698ed0b6afef1"
+    },
+    {
+      "path": ".agents/skills/getff-cold-run-prober/SKILL.md",
+      "kind": "text",
+      "fingerprint": "ba0b9dd6818bcb90b1512b3907504f145059f51ca7fdb2f171c413075b3bb5ad"
+    },
+    {
+      "path": ".agents/skills/getff-cold-run-prober/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/living-docs-auditor.toml",
+      "kind": "text",
+      "fingerprint": "f8836e93370bc52ec365fa403f1728451cd42133760ab468a4f145a28de71f41"
+    },
+    {
+      "path": ".agents/skills/living-docs-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "a4a234f46c6c1d14f06f7f873b38b89398328f934a63f983e4777dce1d29ffc2"
+    },
+    {
+      "path": ".agents/skills/living-docs-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/manual-rule-liveness-prober.toml",
+      "kind": "text",
+      "fingerprint": "3309bca4c3001ae42ee14cf84ffc04dcc81e7708b425fc3be618a583cc149982"
+    },
+    {
+      "path": ".agents/skills/manual-rule-liveness-prober/SKILL.md",
+      "kind": "text",
+      "fingerprint": "1aa5a14daca02238810a4ad514a8279b3cae1049c5c99278228ec02028650a6a"
+    },
+    {
+      "path": ".agents/skills/manual-rule-liveness-prober/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/memory-codification-auditor.toml",
+      "kind": "text",
+      "fingerprint": "74ff198a92ddfb2a195a38667a6fc06f0402b3e4262608f2a2e889176ed019a3"
+    },
+    {
+      "path": ".agents/skills/memory-codification-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "7a9d95263e88cba718e9d2ccda534e52522ee63820006aaf6ae88d5f14c501e4"
+    },
+    {
+      "path": ".agents/skills/memory-codification-auditor/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/orchestrator-worker-discipline.toml",
+      "kind": "text",
+      "fingerprint": "22524a8310a18fba2fb2615e8003ae47bfb607d540c9d917c7ca7a1e9cebc1c9"
+    },
+    {
+      "path": ".agents/skills/orchestrator-worker-discipline/SKILL.md",
+      "kind": "text",
+      "fingerprint": "9e60ad1d0b4024002ff25287ff50cc92b8bd7ac30f8ef17675fbc7ba8a837707"
+    },
+    {
+      "path": ".agents/skills/orchestrator-worker-discipline/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/review-sidecar.toml",
+      "kind": "text",
+      "fingerprint": "d4bfad6d7f16a2bd2125226381c0ff8481f6d921a0cde526c554b62c9906b188"
+    },
+    {
+      "path": ".agents/skills/review-sidecar/SKILL.md",
+      "kind": "text",
+      "fingerprint": "3a50939de496200062e15a3b24a5919624dee9ffccfad13ead17146a47f162b2"
+    },
+    {
+      "path": ".agents/skills/review-sidecar/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/reviewer-discipline.toml",
+      "kind": "text",
+      "fingerprint": "4a6f93127d69977a20e1bf2440499420496f6f613daec71bc9be3ef33adc491b"
+    },
+    {
+      "path": ".agents/skills/reviewer-discipline/SKILL.md",
+      "kind": "text",
+      "fingerprint": "550e4c3c4843bb5225a624b76c0c18e71ebe2e8d3818ba75047c0ac42db92cdb"
+    },
+    {
+      "path": ".agents/skills/reviewer-discipline/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/rule-researcher.toml",
+      "kind": "text",
+      "fingerprint": "bd08f3b13a5b5268265c1e4cbdcd335c82c54d739775ad33f7740131293a3770"
+    },
+    {
+      "path": ".agents/skills/rule-researcher/SKILL.md",
+      "kind": "text",
+      "fingerprint": "8104ac5609fc6cb17a0850f782a37ffc4fc5a1e0f8499a6c0e1a25c5c43df833"
+    },
+    {
+      "path": ".agents/skills/rule-researcher/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/rule-test-author.toml",
+      "kind": "text",
+      "fingerprint": "d1f523eff63ce51ccbbf3f2a909fa4083a40efa9cef917063cef8b9d60ac47af"
+    },
+    {
+      "path": ".agents/skills/rule-test-author/SKILL.md",
+      "kind": "text",
+      "fingerprint": "581da1c473d406dcf6ef6f91e76cac8e80fdf24668819eea2c6109d46b33b6b8"
+    },
+    {
+      "path": ".agents/skills/rule-test-author/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/shipped-agent-liveness-prober.toml",
+      "kind": "text",
+      "fingerprint": "708c4281a04a40640366ab108bce4580f82ac34e65f1180b0222233bb2ccf1c9"
+    },
+    {
+      "path": ".agents/skills/shipped-agent-liveness-prober/SKILL.md",
+      "kind": "text",
+      "fingerprint": "51e5d4e80b7a87970fa7da62fcb93db88d65596c327518623d18b127ce8ba2e8"
+    },
+    {
+      "path": ".agents/skills/shipped-agent-liveness-prober/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    }
+  ],
+  "hookAdapter": "scripts/codex-hook-adapter.mjs",
+  "hooks": {
+    "UserPromptSubmit": 1,
+    "PreToolUse": 3,
+    "PostToolUse": 9,
+    "Stop": 1,
+    "SubagentStart": 1,
+    "SubagentStop": 1,
+    "SessionStart": 4,
+    "PreCompact": 1
+  },
+  "degradations": [
+    {
+      "event": "PostToolUseFailure",
+      "reason": "Codex 0.160.0 has no native PostToolUseFailure event; failed-write dispatch-loss warning has no registered equivalent."
+    },
+    {
+      "mechanism": "bounded-input-policy",
+      "reason": "Literal cat/head/tail reads and canonical deterministic deny rules only. Native Bash without effective cwd cannot resolve relative reads. Arbitrary interpreters, compound shell, write_stdin and unverified MCP contracts require executor policy; no permission profile is activated."
+    }
+  ]
+}

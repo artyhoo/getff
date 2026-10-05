@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-subagent-digest.sh');
-const SOURCE_DIGEST = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-subagent-digest.sh');
+const SOURCE_DIGEST = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
 
 function hasJq(): boolean {
   try {

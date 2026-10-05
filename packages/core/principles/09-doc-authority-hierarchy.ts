@@ -37,25 +37,26 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'CONTEXT.md',
 
   // Hot operational
+  '.agents/session-bootstrap.md',
   '.claude/session-bootstrap.md',
-  '.claude/rules/doc-authority-hierarchy.md',
-  '.claude/rules/dual-implementation-discipline.md',
-  '.claude/rules/no-paid-llm-in-ci.md',
-  '.claude/rules/parallel-subwave-isolation.md',
-  '.claude/rules/phase-research-coverage.md',
-  '.claude/rules/reviewer-discipline.md',
-  '.claude/rules/ai-laziness-traps.md',
-  '.claude/rules/build-first-reuse-default.md',
-  '.claude/rules/memory-codification.md',
-  '.claude/rules/rule-enforcement-channel-selection.md',
-  '.claude/rules/companion-install-principle.md',
-  '.claude/rules/language-discipline.md',
-  '.claude/rules/ci-tool-pinning.md',
-  '.claude/rules/egress-no-api-bypass.md',
-  '.claude/rules/zcode-parity-doctrine.md',
-  '.claude/rules/skill-description-quality.md',
-  '.claude/rules/research-source-trust.md',
-  '.claude/rules/source-before-shape.md',
+  '.agents/rules/doc-authority-hierarchy.md',
+  '.agents/rules/dual-implementation-discipline.md',
+  '.agents/rules/no-paid-llm-in-ci.md',
+  '.agents/rules/parallel-subwave-isolation.md',
+  '.agents/rules/phase-research-coverage.md',
+  '.agents/rules/reviewer-discipline.md',
+  '.agents/rules/ai-laziness-traps.md',
+  '.agents/rules/build-first-reuse-default.md',
+  '.agents/rules/memory-codification.md',
+  '.agents/rules/rule-enforcement-channel-selection.md',
+  '.agents/rules/companion-install-principle.md',
+  '.agents/rules/language-discipline.md',
+  '.agents/rules/ci-tool-pinning.md',
+  '.agents/rules/egress-no-api-bypass.md',
+  '.agents/rules/zcode-parity-doctrine.md',
+  '.agents/rules/skill-description-quality.md',
+  '.agents/rules/research-source-trust.md',
+  '.agents/rules/source-before-shape.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',
@@ -82,27 +83,27 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'docs/meta-factory/research-patches/README.md',
 
   // skills/ — primary doc + cold references
-  'skills/getff/SKILL.md',
-  'skills/getff/references/ai-traps.md',
-  'skills/getff/references/checks-map.md',
-  'skills/getff/references/doc-organization.md',
-  'skills/getff/references/overview.md',
-  'skills/getff/references/self-testing-docs.md',
-  'skills/tool-bootstrapping/SKILL.md',
-  'skills/tool-bootstrapping/references/decision-format.md',
+  '.agents/procedures/getff/SKILL.md',
+  '.agents/procedures/getff/references/ai-traps.md',
+  '.agents/procedures/getff/references/checks-map.md',
+  '.agents/procedures/getff/references/doc-organization.md',
+  '.agents/procedures/getff/references/overview.md',
+  '.agents/procedures/getff/references/self-testing-docs.md',
+  '.agents/procedures/tool-bootstrapping-consumer/SKILL.md',
+  '.agents/procedures/tool-bootstrapping-consumer/references/decision-format.md',
 
   // .claude/skills/ — project-internal skill primary + cold references (Wave 5.1 + DN-M1)
-  '.claude/skills/ai-doc/SKILL.md',
-  '.claude/skills/aif-doctor/SKILL.md',
-  '.claude/skills/dispatcher/SKILL.md',
-  '.claude/skills/harvest/SKILL.md',
-  '.claude/skills/pipeline/SKILL.md',
-  '.claude/skills/rule-research/SKILL.md',
-  '.claude/skills/self-reflection/SKILL.md',
-  '.claude/skills/story/SKILL.md',
-  '.claude/skills/template-audit/SKILL.md',
-  '.claude/skills/tool-bootstrapping/SKILL.md',
-  '.claude/skills/tool-bootstrapping/references/decision-format.md',
+  '.agents/procedures/ai-doc/SKILL.md',
+  '.agents/procedures/aif-doctor/SKILL.md',
+  '.agents/procedures/dispatcher/SKILL.md',
+  '.agents/procedures/harvest/SKILL.md',
+  '.agents/procedures/pipeline/SKILL.md',
+  '.agents/procedures/rule-research/SKILL.md',
+  '.agents/procedures/self-reflection/SKILL.md',
+  '.agents/procedures/story/SKILL.md',
+  '.agents/procedures/template-audit/SKILL.md',
+  '.agents/procedures/tool-bootstrapping/SKILL.md',
+  '.agents/procedures/tool-bootstrapping/references/decision-format.md',
 
   // Framework-shipped templates copied to consumer .ai-factory/ and project root
   'packages/core/templates/shared/AGENTS.md.template',
@@ -137,15 +138,16 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   // Sub-agents copied to consumer .claude/agents/ via install.sh glob.
   // best-practices-sidecar removed (C-1 KEEP-AIF, 2026-05-20); docs-auditor renamed
   // → living-docs-auditor to de-collide with AIF's same-named agent.
-  'agents/review-sidecar.md',
-  'agents/living-docs-auditor.md',
-  'agents/compliance-verifier.md',
-  'agents/memory-codification-auditor.md',
-  'agents/orchestrator-worker-discipline.md',
-  'agents/aif-init.md',
-  'agents/rule-researcher.md',
-  'agents/capability-reuse-auditor.md',
-  'agents/rule-test-author.md',
+  '.agents/roles/review-sidecar.md',
+  '.agents/roles/living-docs-auditor.md',
+  '.agents/roles/compliance-verifier.md',
+  '.agents/roles/memory-codification-auditor.md',
+  '.agents/roles/orchestrator-worker-discipline.md',
+  '.agents/roles/aif-init.md',
+  '.agents/roles/rule-researcher.md',
+  '.agents/roles/capability-reuse-auditor.md',
+  '.agents/roles/rule-test-author.md',
+
 ];
 
 /**
@@ -179,10 +181,11 @@ export function isExempt(relPath: string): boolean {
  * lands, no static-list edit required — mirroring the skill mechanism.
  */
 export const REQUIRED_PATH_PATTERNS: readonly RegExp[] = [
-  /^(?:\.claude\/)?skills\/[^/]+\/SKILL\.md$/,
-  /^(?:\.claude\/)?skills\/[^/]+\/references\/[^/]+\.md$/,
-  /^\.claude\/rules\/[^/]+\.md$/,
-  /^agents\/[^/]+\.md$/,
+  /^(?:(?:\.claude|\.agents)\/)?skills\/[^/]+\/SKILL\.md$/,
+  /^\.agents\/procedures\/[^/]+\/(?:SKILL\.md|references\/[^/]+\.md)$/,
+  /^(?:(?:\.claude|\.agents)\/)?skills\/[^/]+\/references\/[^/]+\.md$/,
+  /^(?:\.claude|\.agents)\/rules\/[^/]+\.md$/,
+  /^(?:\.agents\/roles|agents)\/[^/]+\.md$/,
 ];
 
 export function matchesRequiredPattern(relPath: string): boolean {
@@ -190,14 +193,14 @@ export function matchesRequiredPattern(relPath: string): boolean {
 }
 
 /** Skill roots swept by the dynamic enumeration (mirrors principle 15). */
-const SKILL_DOC_ROOTS: readonly string[] = ['.claude/skills', 'skills'];
+const SKILL_DOC_ROOTS: readonly string[] = ['.agents/procedures', '.agents/skills', '.claude/skills', 'skills'];
 
 /**
  * Flat doc roots swept by the dynamic enumeration (M7, 2026-07-03): every
  * `*.md` directly under these dirs requires an Authoritative-for header per
  * rule §2 "Required for". Flat (no `references/` sub-shape) — one glob per root.
  */
-const FLAT_DOC_ROOTS: readonly string[] = ['.claude/rules', 'agents'];
+const FLAT_DOC_ROOTS: readonly string[] = ['.agents/rules', '.agents/roles', '.claude/rules', 'agents'];
 
 /**
  * Tracked files under `roots`, or null when git is unavailable.
@@ -242,7 +245,7 @@ export function enumerateSkillPrimaryDocs(
       const refsAbs = `${absRoot}/${entry.name}/references`;
       if (existsSync(refsAbs)) {
         for (const ref of readdirSync(refsAbs, { withFileTypes: true })) {
-          if (ref.isFile() && ref.name.endsWith('.md')) {
+          if ((ref.isFile() || ref.isSymbolicLink()) && ref.name.endsWith('.md')) {
             candidates.push(`${root}/${entry.name}/references/${ref.name}`);
           }
         }
@@ -276,7 +279,7 @@ export function enumerateFlatRequiredDocs(
     if (!existsSync(absRoot)) continue;
     for (const entry of readdirSync(absRoot, { withFileTypes: true })) {
       // Flat: only `*.md` files directly under the root (no recursion).
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      if ((!entry.isFile() && !entry.isSymbolicLink()) || !entry.name.endsWith('.md')) continue;
       const rel = `${root}/${entry.name}`;
       // Git-aware skip: audit only the tracked surface when git is available.
       if (tracked && !tracked.has(rel)) continue;

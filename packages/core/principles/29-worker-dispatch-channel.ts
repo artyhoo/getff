@@ -11,7 +11,7 @@
  *
  * @dual-pair: channel-discipline-worker-dispatch
  *
- * Rule enforced (.claude/skills/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`;
+ * Rule enforced (.agents/procedures/pipeline/SKILL.md §5 `#umbrella-execution-launch-without-operator`;
  * class boundary owned by .claude/rules/parallel-subwave-isolation.md §D6 tenets + protections):
  * a kickoff must not PRESCRIBE auto-launch of a stage's EXECUTION. Imperative write-worker
  * dispatch prescriptions fire; reading/review-task dispatch passes (tenet 1); a session
@@ -47,7 +47,7 @@
  * but the trailing `isolation: worktree` alternative is NOT a signal of the
  * Agent-tool channel — worktree isolation is the LEGITIMATE execution environment
  * of both Mode A inline sessions and Mode B worktree Workers (see
- * .claude/skills/pipeline/SKILL.md §5 dispatch tree). On the live tree it was the
+ * .agents/procedures/pipeline/SKILL.md §5 dispatch tree). On the live tree it was the
  * SOLE cause of 8 false positives on legitimate kickoffs (Mode A inline / Worker's
  * own worktree), e.g. `Mode A inline Opus Worker ... isolation: "worktree"`.
  * The actual discriminator is the Agent-tool DISPATCH channel — which the §1

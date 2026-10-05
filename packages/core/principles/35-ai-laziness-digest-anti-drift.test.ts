@@ -26,8 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const TRAPS_PATH = resolve(REPO_ROOT, '.claude/rules/ai-laziness-traps.md');
-const DIGEST_PATH = resolve(REPO_ROOT, '.claude/rules/ai-laziness-digest.md');
+const TRAPS_PATH = resolve(REPO_ROOT, '.agents/rules/ai-laziness-traps.md');
+const DIGEST_PATH = resolve(REPO_ROOT, '.agents/rules/ai-laziness-digest.md');
 
 /** Minimum length of a contiguous verbatim quote (post-normalisation) for a digest
  *  counter line to count as a non-paraphrase of the catalogue. 60 chars is well above

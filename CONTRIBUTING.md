@@ -106,7 +106,7 @@ make self-audit          # run both
 ## Bash mutation testing (on-demand, local)
 
 TypeScript hooks are mutation-tested by Stryker (`npx stryker run`, a `devDep`,
-run by hand — not in CI). Bash hooks (`.claude/hooks/*.sh`) are mutation-tested
+run by hand — not in CI). Bash hooks (`.agents/hooks/*.sh`) are mutation-tested
 by a thin wrapper over [universalmutator](https://github.com/agroce/universalmutator)
 — same delivery model: **run locally on demand, not in CI** (mutation is slow and
 CI minutes are metered; README doctrine is «CI = last resort»).
@@ -126,7 +126,7 @@ discipline that replaces a CI gate (no automated reminder; it is a convention):
 ```bash
 # <hook>  <its paired-negative test command>  [min-kill-% floor, default 60]
 packages/core/audit-self/run-bash-mutation.sh \
-  .claude/hooks/deps-hash-check.sh \
+  .agents/hooks/deps-hash-check.sh \
   "npx vitest run hooks/deps-hash-check.test.ts" \
   60
 ```
@@ -151,7 +151,7 @@ Notes:
   that spawns its hook must spawn `$BASHMUT_HOOK` (falling back to the tracked
   path when unset), or every mutant survives and the gate fails loudly.
   `packages/core/audit-self/hooks-tree-guard.ts` (vitest globalSetup) is the
-  suite-level tripwire that fails a run which leaks into `.claude/hooks/`.
+  suite-level tripwire that fails a run which leaks into `.agents/hooks/`.
 
 ## Build-vs-reuse + `Prior-art:` trailer convention (Phase 8.8)
 

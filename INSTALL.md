@@ -5,8 +5,10 @@
 > - Tool bootstrapping (MCP/skill seeding at install time): see [INSTALL-FOR-AI.md — Tool bootstrapping](INSTALL-FOR-AI.md#tool-bootstrapping--mcp-and-skill-recommendations-at-install-time).
 
 Three ways to install. Pick one.
-
 ---
+
+The canonical `.agents` procedures, roles, rules and checks feed the native bindings
+and installer payload. See [the contributor guide](CONTRIBUTING.md).
 
 ## Step 0 — Get the framework
 
@@ -16,7 +18,6 @@ cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
-
 ---
 
 ## Windows
@@ -91,7 +92,6 @@ git rm --cached -r . && git reset --hard
 - **Not yet measured:** a full, non-dry `./setup -y <stack>` run to completion on Windows, and
   any run on a machine with no WSL at all (there `bash` does not resolve, so the symptom differs
   while the breakage is the same). If you hit either, please open an issue.
-
 ---
 
 ## Path A: AIF extension (recommended once schema lands)
@@ -110,7 +110,6 @@ ai-factory extension list
 ```
 
 If AIF doesn't recognize the manifest format yet, fall back to Path B.
-
 ---
 
 ## Path B: install.sh (guaranteed to work today)
