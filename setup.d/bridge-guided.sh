@@ -175,11 +175,65 @@ bridge_wire_project() {
     printf '  ⊝ runtime-bridge already points at aif-handoff project %s at %s (.claude/settings.local.json env)\n' "$cur" "$url"
     return 0
   fi
-  # A new wiring, or the same project at a moved aif-handoff URL.
+  # A new wiring, or the same project at a moved aif-handoff URL. This file belongs to the
+  # person: getff's env keys land only over a kept original (Q4.7, the session-settings
+  # pattern) — snapshot before the write, settle after, and a keep that cannot happen
+  # (snapshot failed, or the original could not be kept aside) leaves the file as it was and
+  # is a NOT-wired line. A file this run already kept (session settings wrote it first) is not
+  # snapshotted twice — keep_original_snapshot echoes nothing for it (KEPT_ORIGINALS).
+  local PROJECT_ROOT="$dir" snap="" kept="" lib existed=""
+  [ -f "$settings" ] && existed=1
+  if ! declare -F keep_original_snapshot >/dev/null 2>&1; then
+    lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/lib.sh"
+    if [ -f "$lib" ]; then
+      # In this shell, not a subshell: settle's verdict and the mark must reach the caller.
+      # ./setup's scope knows companion_not_wired but no note_not_wired; lib.sh defines the
+      # latter, and engine's companion_not_wired prefers it — the NOT-wired lines would land
+      # in a list nothing prints here. Drop it again: the engine's array is that scope's
+      # print channel (companion_not_wired_summary).
+      local had_companion=""
+      command -v companion_not_wired >/dev/null 2>&1 && had_companion=1
+      # shellcheck source=setup.d/lib.sh
+      INSTALL_SH_LIB_ONLY=1 . "$lib"
+      unset INSTALL_SH_LIB_ONLY
+      [ -n "$had_companion" ] && unset -f note_not_wired
+    else
+      _bridge_not_wired "dispatch hook not pointed at a project: aif-handoff project $ids matches this path, but keeping your original of .claude/settings.local.json needs setup.d/lib.sh next to bridge-guided.sh (keep_original_*), and this getff does not ship it, so nothing was written"
+      return 0
+    fi
+  fi
+  if [ -f "$settings" ]; then
+    if ! snap="$(keep_original_snapshot "$settings")"; then
+      _bridge_not_wired "dispatch hook not pointed at a project: aif-handoff project $ids matches this path, but your original of .claude/settings.local.json could not be copied aside, so nothing was written"
+      return 0
+    fi
+  fi
   if _bridge_write_env "$settings" "$url" "$ids"; then
-    printf '  ✓ runtime-bridge wired: .claude/settings.local.json env → aif-handoff project %s at %s\n' "$ids" "$url"
+    if [ -n "$snap" ]; then
+      if kept="$(keep_original_settle "$settings" "$snap")"; then
+        if [ -n "$kept" ]; then
+          printf '  ✓ runtime-bridge wired: .claude/settings.local.json env → aif-handoff project %s at %s (your original kept at %s)\n' "$ids" "$url" "${kept#"$PROJECT_ROOT"/}"
+          if declare -F keep_original_mark >/dev/null 2>&1; then keep_original_mark "$settings"; fi
+        else
+          printf '  ✓ runtime-bridge wired: .claude/settings.local.json env → aif-handoff project %s at %s\n' "$ids" "$url"
+        fi
+      else
+        _bridge_not_wired "dispatch hook not pointed at a project: aif-handoff project $ids matches this path, but your original of .claude/settings.local.json could not be kept, so getff's change was undone"
+        return 0
+      fi
+    elif [ -n "$existed" ]; then
+      # This run already kept the file (session settings wrote it first): no second original.
+      printf '  ✓ runtime-bridge wired: .claude/settings.local.json env → aif-handoff project %s at %s (your original is kept once for this run)\n' "$ids" "$url"
+    else
+      # getff created the file: the .absent record tells the undo command to remove it.
+      mkdir -p "$PROJECT_ROOT/.ai-factory/before-getff/.claude" 2>/dev/null \
+        && : > "$PROJECT_ROOT/.ai-factory/before-getff/.claude/settings.local.json.absent" 2>/dev/null
+      printf '  ✓ runtime-bridge wired: .claude/settings.local.json created with env → aif-handoff project %s at %s\n' "$ids" "$url"
+      if declare -F keep_original_mark >/dev/null 2>&1; then keep_original_mark "$settings"; fi
+    fi
     _bridge_ignore_local "$dir"
   else
+    [ -n "$snap" ] && rm -f "$snap"
     _bridge_not_wired "dispatch hook not pointed at a project: aif-handoff project $ids matches this path, but $settings could not be written (not a JSON object, or not writable)"
   fi
 }
