@@ -343,7 +343,7 @@ fi
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
   # 45-python.sh agent-surface docs (45-python.sh:1798-1833). The ARCHITECTURE.md token is the
-  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1805/:1837 — two consumer-owned
+  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1805/:1838 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python
   45-python.sh|$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md
