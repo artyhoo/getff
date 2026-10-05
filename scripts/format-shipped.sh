@@ -125,6 +125,29 @@ fi
 FLAG="--check"
 [ "$MODE" = "--write" ] && FLAG="--write"
 
+# Post-canonical-.agents-migration some shipped paths are symlinks into .agents/
+# (skills/tool-bootstrapping/templates/tool-decisions.md.template was measured
+# refusing prettier as a symlink). Prettier cannot follow them — format the
+# canonical target instead.
+resolve_symlinks() {
+  [ "$#" -eq 0 ] && return 0
+  local out=() f d t
+  for f in "$@"; do
+    if [ -L "$f" ]; then
+      d=$(dirname "$f")
+      t=$(readlink "$f")
+      case "$t" in
+        /*) f="$t" ;;
+        *) f="$(cd "$d" && cd "$(dirname "$t")" && pwd)/$(basename "$t")" ;;
+      esac
+    fi
+    out+=("$f")
+  done
+  printf '%s\n' "${out[@]}"
+}
+if [ "${#FILES[@]}" -gt 0 ]; then FILES=($(resolve_symlinks "${FILES[@]}")); fi
+if [ "${#TEMPLATES[@]}" -gt 0 ]; then TEMPLATES=($(resolve_symlinks "${TEMPLATES[@]}")); fi
+
 rc=0
 [ "${#FILES[@]}" -gt 0 ]     && { npx --yes prettier@3.8.3 "$FLAG" "${FILES[@]}"     || rc=$?; }
 [ "${#TEMPLATES[@]}" -gt 0 ] && { npx --yes prettier@3.8.3 "$FLAG" --parser markdown "${TEMPLATES[@]}" || rc=$?; }

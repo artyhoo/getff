@@ -1510,7 +1510,9 @@ const CARRIER_NAME = CARRIER.slice('rules-as-tests/'.length);
 
 /** base-core.md's table → rows; a status outside the closed set is an error, never a row. */
 export function readBaseCore(root) {
-  const tableRel = existsSync(join(root, CANONICAL_BASE_CORE)) ? CANONICAL_BASE_CORE : BASE_CORE;
+  const tableRel = existsSync(join(root, CANONICAL_BASE_CORE))
+    ? CANONICAL_BASE_CORE
+    : BASE_CORE;
   const p = join(root, tableRel);
   if (!existsSync(p)) return null;
   const lines = readFileSync(p, 'utf8').split('\n');
