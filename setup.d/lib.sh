@@ -2158,7 +2158,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3015, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3018, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2886,7 +2886,10 @@ format_getff_writes() {
       git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
       # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
       # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
-      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # The probe canonicalizes like the mark (KEPT_ORIGINALS keys are _keep_original_canon spellings),
+      # so a symlinked project root — the writers' logical $PROJECT_ROOT against the wire's pwd -P —
+      # still matches (rework review 56ca7a86b7e4).
+      case " ${KEPT_ORIGINALS[*]-} " in *" $(_keep_original_canon "$PROJECT_ROOT/$rel") "*) ;; *) continue ;; esac
       # the newest record for this path is the state just before the latest install that wrote it
       for kept_f in "$kept/$rel".*; do
         case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
@@ -3551,15 +3554,35 @@ note_eslint_config_not_esm() {
 # KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
 # two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
 # first only: the second pass's copy would already carry the first pass's block, and be announced
-# as a second «original» (cold-review F9).
+# as a second «original» (cold-review F9). Keyed on the PHYSICAL path (_keep_original_canon): the
+# writers spell one file differently — session-settings marks install.sh's logical $PROJECT_ROOT,
+# the wire resolves pwd -P — and an exact compare then double-keeps settings.local.json when the
+# install runs from a symlinked project root (rework review 56ca7a86b7e4): the second original
+# holds the intermediate, and the undo command restores that instead of the person's file.
 KEPT_ORIGINALS=()
+
+# _keep_original_canon <path> — echo <path> in the one KEPT_ORIGINALS spelling: its real directory
+# (cd + pwd -P, what bridge_wire_project already resolves) + the final component, built from shell
+# expansions only — W7e runs the keep with a PATH that has neither dirname nor basename. A path
+# whose directory cannot be resolved echoes unchanged, so the key stays stable for it.
+_keep_original_canon() {
+  local d b
+  case "$1" in
+    */*) d="${1%/*}" b="${1##*/}" ;;
+    *) d=. b="$1" ;;
+  esac
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { echo "$1"; return 0; }
+  echo "$d/$b"
+}
 
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
-# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS) — the compare is
+# on the canonical spelling, so the writers' differing path spellings cannot double-keep.
 keep_original_snapshot() {
-  local f="$1" snap k
+  local f k snap
+  f=$(_keep_original_canon "$1")
   for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
@@ -3567,10 +3590,11 @@ keep_original_snapshot() {
 }
 
 # keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
-# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
-# own shell: settle runs inside $(…), where a global it set would be lost.
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. The key is canonical
+# (_keep_original_canon), one spelling for every writer. Call it in the install's own shell: settle
+# runs inside $(…), where a global it set would be lost.
 keep_original_mark() {
-  KEPT_ORIGINALS+=("$1")
+  KEPT_ORIGINALS+=("$(_keep_original_canon "$1")")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -3581,11 +3605,18 @@ keep_original_mark() {
 # original goes back in place, a warning names the file on stderr — and it returns 1: the caller
 # reports getff's block as not wired (cold-review F10: the snapshot used to be deleted silently).
 keep_original_settle() {
-  local f="$1" snap="$2" sum8 dest rel
+  local f snap sum8 dest rel root
+  f=$(_keep_original_canon "$1")
+  snap="$2"
   [ -n "$snap" ] && [ -f "$snap" ] || return 0
   if cmp -s "$snap" "$f"; then rm -f "$snap"; return 0; fi
   sum8=$(_hash256 "$snap") || sum8=original
-  rel="${f#"${PROJECT_ROOT:-.}"/}"
+  # The rel strip compares one spelling on both sides: a caller's file under a symlinked project
+  # root (the wire's pwd -P against install.sh's logical $PROJECT_ROOT) strips to the same
+  # relative path as the agreeing case, so the original lands at .ai-factory/before-getff/<rel>
+  # and not nested under a spelled-out absolute path.
+  root=$(_keep_original_canon "${PROJECT_ROOT:-.}")
+  rel="${f#"$root"/}"
   dest="${PROJECT_ROOT:-.}/.ai-factory/before-getff/$rel.${sum8:0:8}"
   if mkdir -p "$(dirname "$dest")" 2>/dev/null && mv "$snap" "$dest" 2>/dev/null; then
     echo "$dest"
