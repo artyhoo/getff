@@ -291,8 +291,8 @@ echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
 # The install-log MARKER filename and the lane-exclusive fallback artefact live in lib.sh
 # getff_lane_installed (the SSOT this walk consults), NOT here — one list, not two.
 # Lane ORDER is the DETECTION PRECEDENCE, made explicit: python → cargo → go. Later lanes are
-# consulted only when every earlier lane is not installed (--refresh marker routing) or declined
-# (fresh-install offers — and an actively-DECLINED offer unmasks the lanes after it: _lane_detect
+# consulted after earlier lanes; bare refresh collects all installed markers, while fresh
+# offers retain precedence (fresh-install offers — and an actively-DECLINED offer unmasks the lanes after it: _lane_detect
 # returns 2 and the walker drops that lane's detect file from the remaining lanes' exclusion sets;
 # the full rule + the ledger instance it fixes are documented at _lane_detect below). An explicit
 # `install.sh <lane>` positional always wins over every auto-detect arm (TOOLCHAIN is set in arg
@@ -354,7 +354,11 @@ do_toolchain_lane() {
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert the delivered config fires RED)"
   fi
   # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
-  record_lane_checks "$lane"
+  # Bare multi-layer refresh preserves the project's already armed checks.
+  if [ -z "${_REFRESH_LANES_PRESENT:-}" ] \
+     || ! grep -qxF '<!-- aif:project-checks:begin -->' "$PROJECT_ROOT/.ai-factory/tool-decisions.md" 2>/dev/null; then
+    record_lane_checks "$lane"
+  fi
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
   refresh_baseline_flush
   # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
@@ -404,7 +408,11 @@ do_python_lane() {
   # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
   _py_deliver_agent_surface
   # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
-  record_lane_checks python
+  # Bare multi-layer refresh preserves the project's already armed checks.
+  if [ -z "${_REFRESH_LANES_PRESENT:-}" ] \
+     || ! grep -qxF '<!-- aif:project-checks:begin -->' "$PROJECT_ROOT/.ai-factory/tool-decisions.md" 2>/dev/null; then
+    record_lane_checks python
+  fi
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
   refresh_baseline_flush
@@ -434,15 +442,9 @@ do_go_lane() {
 # For each lane in LANE_TABLE order (= the documented precedence python → cargo → go):
 #   (a) explicit `install.sh <lane>` positional → TOOLCHAIN already "<lane>" (always wins; the
 #       walk is gated on -z "$TOOLCHAIN").
-#   (b) --refresh of a PRIOR <lane> install (marker: the lane's install log, or its lane-exclusive
-#       getff-owned artefact — evaluated by lib.sh getff_lane_installed, the same helper
-#       report_getff_orphans uses to decide which OTHER lanes' live configs it must not call
-#       orphans on a polyglot consumer) — ONLY when no explicit npm STACK arg was given
-#       (STACK_EXPLICIT). Review fix (S2 round 1): an explicit `install.sh ts-server --refresh` on
-#       a repo that carries BOTH package.json and a stale <lane> marker must refresh the npm stack,
-#       not silently reroute to the <lane>-only refresh and exit 0 — that used to skip the npm
-#       refresh entirely with no error. An explicit stack/toolchain arg now always takes precedence
-#       over the marker auto-detect.
+#   (b) bare --refresh collects EVERY installed lane, then refreshes each in isolation and
+#       the installed npm/generic payload once. Explicit stack/toolchain arguments stay scoped
+#       (S2 round 1). Presence is captured before any lane writes shared agent/doc files.
 #   (c) fresh auto-detect: <detect file> present + NO package.json + NONE of the exclusion set →
 #       OFFER. Interactive prompt defaults No; the non-interactive (-y/--full) and --dry-run paths
 #       DECLINE (npm lane) — the explicit `<lane>` positional is the non-interactive opt-in
@@ -475,10 +477,11 @@ do_go_lane() {
 # actively declined (the walker unmasks the later lanes).
 _lane_detect() {
   local lane="$1" display="$2" detect="$3" excludes="$4" exf prompt
-  # (b) --refresh marker routing.
+  # (b) Collect all prior installs; no first-marker exit on a polyglot refresh.
   if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && getff_lane_installed "$lane"; then
-    TOOLCHAIN="$lane"
-    return 0
+    _REFRESH_LANES+=("$lane")
+    _REFRESH_LANES_PRESENT=1
+    return 1
   fi
   # (c) fresh auto-detect OFFER. Skipped under --refresh: an offer on a refresh pass would
   # re-prompt a consumer who already declined; marker arm (b) above is the refresh router.
@@ -534,6 +537,16 @@ _lane_detect() {
   return 2
 }
 
+_REFRESH_LANES=()
+_REFRESH_LANES_PRESENT=""
+# These payloads are installed by the npm/generic layer, never by a toolchain lane.
+# A package.json or RULES.md alone proves no prior npm install (Python also ships RULES.md).
+_REFRESH_FRAMEWORK=""
+for _rf in scripts/audit-ai-docs.sh packages/core/hooks/pre-push.bundle.mjs eslint-rules-local/index.mjs \
+  .ai-factory/ARCHITECTURE.ts-server.md .ai-factory/ARCHITECTURE.react-next.md \
+  .ai-factory/ARCHITECTURE.react-spa.md .ai-factory/ARCHITECTURE.react-native.md; do
+  [ ! -f "$PROJECT_ROOT/$_rf" ] || _REFRESH_FRAMEWORK=1
+done
 if [ -z "$TOOLCHAIN" ]; then
   # _lane_detect is called in a CONDITION (not as a statement): its "not this lane" return-1 and
   # its "offered + declined" return-2 are both non-zero and must not trip install.sh's
@@ -686,6 +699,23 @@ fi
 export PROFILE
 echo "[profile] $PROFILE"
 
+# Bare refresh runs prior lanes only. A subshell keeps exported toolchain contracts,
+# log sinks and lane-local globals from leaking into later lanes or the npm refresh.
+# Calls stay plain: set -e must propagate a failed delivery rather than continue green.
+if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && [ -z "$TOOLCHAIN" ] \
+   && [ -n "$_REFRESH_LANES_PRESENT" ]; then
+  for _refresh_lane in "${_REFRESH_LANES[@]}"; do
+    (
+      case "$_refresh_lane" in
+        python) do_python_lane ;;
+        cargo) do_cargo_lane ;;
+        go) do_go_lane ;;
+      esac
+    )
+  done
+  [ -n "$_REFRESH_FRAMEWORK" ] || exit 0
+fi
+
 if [ "$TOOLCHAIN" = "python" ]; then
   do_python_lane
   exit 0
@@ -733,10 +763,11 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   elif [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-spa.md" ] || \
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
-  elif [ ! -f "$PROJECT_ROOT/.ai-factory/RULES.md" ] && \
-       [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ]; then
-    # Every npm stack places RULES.md and ARCHITECTURE.ts-server.md (30-templates); a generic
-    # install places neither (P2 G1). Defaulting it to ts-server would deliver ESLint files.
+  elif [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ] \
+    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ] \
+    && [ ! -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ]; then
+    # The npm-specific passport proves ts-server; RULES.md alone may belong to Python.
+    # A generic install places no npm passport and must not acquire ESLint on refresh.
     STACK="generic"
   else
     STACK="ts-server"
