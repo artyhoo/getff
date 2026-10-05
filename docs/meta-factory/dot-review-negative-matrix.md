@@ -1,8 +1,8 @@
 # Dot gate — negative matrix coverage receipt (S4, offline)
 
-> **Date:** 2026-10-05, regenerated after the R1–R11 repair. Status: offline rows covered by paired-negative suites in this branch; live rows BLOCKED pending the operator authorizations in [handoff §5](dot-review-handoff.md).
-> **Authoritative for:** which [spec §10](../superpowers/specs/2026-10-05-dot-staging-review-gate-design.md) acceptance rows have a local executable proof, and which wait for live validation.
-> **NOT authoritative for:** live GitHub/Dot behavior — a local green suite does not prove native merge admission ([S0 patch](research-patches/2026-10-05-dot-gate-s0-platform-evidence.md) §9).
+> **Date:** 2026-10-05, regenerated after the R1–R11 repair. Status: offline rows covered by paired-negative suites in this branch; live rows BLOCKED pending the operator authorizations in handoff §5 (`dot-review-handoff.md` — ships with the docs PR).
+> **Authoritative for:** which spec §10 acceptance rows (design spec `2026-10-05-dot-staging-review-gate-design.md` — ships with the docs PR) have a local executable proof, and which wait for live validation.
+> **NOT authoritative for:** live GitHub/Dot behavior — a local green suite does not prove native merge admission (S0 patch `research-patches/2026-10-05-dot-gate-s0-platform-evidence.md` §9 — ships with the docs PR).
 > **T3 form:** every row names its test + arm. Suites: `bash scripts/dot-review-gate/<name>.test.sh` — 11 suites, 197 arms, all GREEN in one sweep on 2026-10-05 (post-repair; per-finding record: [repair record](dot-review-gate-repair-record.md)).
 
 ## Offline rows (proved locally)
