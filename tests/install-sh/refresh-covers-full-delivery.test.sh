@@ -337,7 +337,7 @@ fi
 # hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1803-1805
 # classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
 # classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
-# EXCLUDED list». The sibling-doc ownership comment in 45-python.sh:1820 keeps the remaining docs consumer-editable.
+# EXCLUDED list». The sibling-doc ownership comment at 45-python.sh:1820 keeps the remaining docs consumer-editable.
 # Rows are `<layer-basename>|<source token>`. Source-keyed (unlike the npm EXCLUDED above, which keys
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
