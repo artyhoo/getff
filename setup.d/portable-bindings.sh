@@ -79,9 +79,16 @@ _portable_alias() {
   relative="$(_portable_relative "$canonical" "$native")"
   mkdir -p "$(dirname "$native")"
   # At this point the file is proven byte-identical to the delivered common source.
+  # No refresh_baseline_stage here: for a REBIND the native path is a symlink to the
+  # canonical file, so the cmp above passes for the trivial reason (same inode through the
+  # link) even when the canonical bytes are a consumer edit — staging would relabel the
+  # consumer's edit as the framework baseline and the next refresh would destroy it
+  # silently (refresh-baseline-survives-early-exit arm 4, measured 2026-10-06). The
+  # delivery that wrote the real file already staged the entry; a native path with no
+  # entry stays unbaselined, which is the conservative direction (preserves, never
+  # overwrites silently).
   rm -f "$native"
   ln -s "$relative" "$native"
-  refresh_baseline_stage "$native"
 }
 
 _portable_discovery() {
