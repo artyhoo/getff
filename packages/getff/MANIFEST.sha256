@@ -215,7 +215,7 @@ bbf1ee37b73dbf68ad95ce9c4eb9b8e0a25374e37fa7f9909a1381444dcde7ea  .agents/rules/
 089f089cb3a10b6681aaffc3e88a8e2bf54549b5b6c3db2810b40b2f6bf7b066  .agents/rules/attention-is-not-a-mechanism.md
 ceffb151f45816474fa5540bb6f411055c8a826525886b7382f11238045a344a  .agents/rules/autonomous-loop-continuity.md
 56fdc573ec340330fbbcb11d672a94d60f0a72f2e42b68197b4721152c5faa2e  .agents/rules/build-first-reuse-default.md
-bab93b78154322549be37414aab72c8fc0e4b648a53aa43839acc7849b9c14b0  .agents/rules/ci-tool-pinning.md
+cb5ed9c6b41ca38603d988094c0b31fe1924b51c5dd53fe4694b563b1b60f600  .agents/rules/ci-tool-pinning.md
 20d67f366ce30b176bc96e3fd7e2e5e591023a1d839fbcb10dbe2c66fad1d0f6  .agents/rules/cold-seat-economy.md
 fddd3c7b8ffae41e8fd9af60e3325c305583317a0ce26ca063d7ad37d54253f7  .agents/rules/companion-install-principle.md
 7d58a6121d8084687d6051bca1ab071ebf4a1d8446c4b876667002eceedcd07c  .agents/rules/coordinator-seat-delegation.md
@@ -224,7 +224,7 @@ a679d9ef5336912ef70424d6eba297e6735ecbd643adc9ae8b704256bffb9f0c  .agents/rules/
 45aec80bd3c23cb852b7094d13b16f89ee1a1f1b7b1ba6dd2987ad7fe80e2f99  .agents/rules/dual-implementation-discipline.md
 c8f9c8fcc94065f170205d5bd6dec656ce5704a4119c47314a48b86c3e120338  .agents/rules/effort-worthiness.md
 044ba5b64e44055f31e6e96346010368853143430fa8bf31a24a60540ce09e03  .agents/rules/egress-no-api-bypass.md
-4181fbe6034d1ad5c9eb7f03d340b21c494c83bd9fb4ffec7d61c57d473d2afe  .agents/rules/evidence-regeneration.md
+221d47f094094e3875df654eec77f41ed01fe7679caed1d2666d76e756a22a6e  .agents/rules/evidence-regeneration.md
 1a8e1223308b9fe1c12fd02bfdc214c2ead82401fd34fd66604ef8fd5d17346b  .agents/rules/git-conflict-merge-forward.md
 3ab50fa943f06cf479665858f2127503c73c36fbb0dede1ab61b92c66934cdc2  .agents/rules/kickoff-staging-placement.md
 40fa22bf2e9505bc16f07fcf0f4eb600c4d92ee512f4e040ce59d01470442022  .agents/rules/language-discipline.md
@@ -950,10 +950,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 1425319ff3163e5e6b0488437f3b67a0482ab775bd36c65eb4a48bea9154032f  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 94a5d167d4c475b51a9fad67b23d8e9a2650079a9ef9c405ee613fdd25f2df05  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-40a7c60b51a1af9feab9ef98ebd9b0d9bb5c75b98f2507442fb61c9651336cf0  packages/core/principles/36-ci-needs-completeness.test.ts
+b2b7de7d56fb6788b0dab8ec92ce0425cd0dc7b0ecf04bcc53c4cc57b9f0fe95  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 06e46533e411203e2235cfaa9d8f66286e434a439e3a7c5461656fdd219785ba  packages/core/principles/37-required-context-completeness.test.ts
-3d3680bbb83d29542eb3f93f38c5bb54522f1a0f340e9ce6506e52d05ea79445  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+fb85f4417b3aa9c9d31b1973445e19e260c777bebf2b2a6dc139c2113ff2a91a  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 51942c41b1035bd8ec5dd29b7e6d30d790123a3fbdfe3349d27ae42a7d85e544  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
