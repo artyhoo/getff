@@ -5,6 +5,25 @@
   "generator": "scripts/render-reference.mjs",
   "members": [
     {
+      "name": "apply-husky-patch.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "apply a prepared patch to a .husky/** hook through the sanctioned channel.",
+      "source": {
+        "path": "scripts/apply-husky-patch.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".agents/hooks/apply-husky-patch-gate.sh:20 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "build-getff-dist.sh",
       "kind": "script",
       "shipsTo": {
@@ -800,7 +819,6 @@
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
     "apply-getff-manifest-staged-precommit.sh",
-    "apply-husky-patch.sh",
     "apply-seal-primary-wiring.sh",
     "check-getff-manifest-staged.sh",
     "check-merge-pushed.sh",
