@@ -21,8 +21,18 @@
 #     destination does not exist in this repo) → conservative stale, flag.
 #   E POSITIVE (exit 0) — consumer-split: the delivery source is a sibling
 #     variant directory (procedure_source's owner mapping), so the recorded
-#     consumer path and its repo twin both moved on while the payload copy
-#     (packages/getff/…) still carries the exact bytes → skip.
+#     consumer path and its repo twin both moved on while the tracked payload
+#     copy (a MANIFEST.sha256 row whose assembled file still carries the exact
+#     bytes) vouches for it → skip.
+#   F NEGATIVE (exit 1) — unrelated retained bytes: the pre-image bytes sit
+#     under packages/getff at a path NO MANIFEST row records → not a delivery
+#     witness → flag. (2026-10-06 review F2 repro.)
+#   G NEGATIVE (exit 1) — stale witness: a payload file still carries the
+#     pre-image bytes but its MANIFEST row was regenerated to the new hash —
+#     row and bytes disagree, so the row vouches for nothing → flag.
+#   H NEGATIVE (exit 1) — untracked witness: pre-image bytes at a
+#     delivery-shaped path that no MANIFEST row records (assembly residue) →
+#     flag even though a manifest exists.
 #
 # The hook resolves REPO_ROOT from its own file location, so the fixture gets a
 # full copy of packages/core/hooks and runs ITS copy — baselineDir then lands in
@@ -184,6 +194,9 @@ cp "$TE/.agents/procedures/foo-consumer/SKILL.md" "$TE/packages/getff/.agents/pr
 printf 'repo canonical already re-ported at base\n' > "$TE/.agents/procedures/foo/SKILL.md"
 cp "$TE/.agents/procedures/foo-consumer/SKILL.md" "$TE/skills/foo/SKILL.md"
 HE=$(sha < "$TE/.agents/procedures/foo-consumer/SKILL.md")
+# The tracked delivery witness: the assembled payload's manifest row, committed
+# with the seed. Rows are repo-root-relative (the same form arm A consumes).
+printf '%s  %s\n' "$HE" "packages/getff/.agents/procedures/foo-consumer/SKILL.md" > "$TE/packages/getff/MANIFEST.sha256"
 C0E=$(commit_all "$TE" "seed consumer-split delivery")
 printf -- '---\nname: foo\ndescription: compat entry\n---\n\nRead the canonical file.\n' > "$TE/skills/foo/SKILL.md"
 C1E=$(commit_all "$TE" "top-level path becomes compat entry")
@@ -195,6 +208,75 @@ else
   record fail "E — consumer-split flagged (rc=$RC_E, output below)"; printf '%s\n' "$OUT_E"
 fi
 
-rm -rf "$TA" "$TB" "$TC" "$TD" "$TE"
+# ── Case F: unrelated retained bytes in the payload tree → still flag ──
+TF=$(build_case)
+mkdir -p "$TF/src"
+printf 'template source v1\n' > "$TF/src/templ.md"
+HF=$(sha < "$TF/src/templ.md")
+C0F=$(commit_all "$TF" "seed template source")
+printf 'template source v2 — edited\n' > "$TF/src/templ.md"
+C1F=$(commit_all "$TF" "edit template source")
+fingerprint "$TF" "${HF}|consumer-gone/dest.md"
+# Report repro (2026-10-06 review F2): pre-image bytes parked under the payload
+# tree at a path no MANIFEST row records, created AFTER the commits.
+mkdir -p "$TF/packages/getff/unrelated"
+printf 'template source v1\n' > "$TF/packages/getff/unrelated/example.md"
+OUT_F=$(run_arm "$TF" "$C1F" "$C0F"); RC_F=$?
+if [ "$RC_F" -ne 0 ] && printf '%s' "$OUT_F" | grep -q 'src/templ\.md'; then
+  record pass "F — unrelated retained payload bytes do not exempt → exit 1"
+else
+  record fail "F — unrelated payload bytes exempted the stale row (rc=$RC_F, output below)"; printf '%s\n' "$OUT_F"
+fi
+
+# ── Case G: stale witness (manifest row regenerated, file not) → still flag ──
+TG=$(build_case)
+mkdir -p "$TG/src" "$TG/packages/getff/delivery"
+printf 'template source v1\n' > "$TG/src/templ.md"
+cp "$TG/src/templ.md" "$TG/packages/getff/delivery/templ.md"
+printf 'payload filler\n' > "$TG/packages/getff/filler.txt"
+HGF=$(sha < "$TG/packages/getff/filler.txt")
+HG1=$(sha < "$TG/src/templ.md")
+printf '%s  %s\n' "$HG1" "packages/getff/delivery/templ.md" > "$TG/packages/getff/MANIFEST.sha256"
+printf '%s  %s\n' "$HGF" "packages/getff/filler.txt" >> "$TG/packages/getff/MANIFEST.sha256"
+C0G=$(commit_all "$TG" "seed template source + consistent manifest")
+HG2=$(printf 'template source v2 — edited\n' | sha)
+printf 'template source v2 — edited\n' > "$TG/src/templ.md"
+# Manifest regenerated to the NEW hash while the stale payload file still
+# carries the pre-image bytes — row and bytes disagree (assembly skipped the
+# file). The committed state itself carries the disagreement.
+printf '%s  %s\n' "$HG2" "packages/getff/delivery/templ.md" > "$TG/packages/getff/MANIFEST.sha256"
+printf '%s  %s\n' "$HGF" "packages/getff/filler.txt" >> "$TG/packages/getff/MANIFEST.sha256"
+C1G=$(commit_all "$TG" "edit source, regen manifest row, payload file left stale")
+fingerprint "$TG" "${HG1}|consumer-gone/dest.md"
+OUT_G=$(run_arm "$TG" "$C1G" "$C0G"); RC_G=$?
+if [ "$RC_G" -ne 0 ] && printf '%s' "$OUT_G" | grep -q 'src/templ\.md'; then
+  record pass "G — stale witness (row/bytes disagree) does not exempt → exit 1"
+else
+  record fail "G — stale witness exempted the row (rc=$RC_G, output below)"; printf '%s\n' "$OUT_G"
+fi
+
+# ── Case H: untracked witness (bytes at an unmanifested delivery-shaped path) → flag ──
+TH=$(build_case)
+mkdir -p "$TH/src" "$TH/packages/getff/.agents/procedures/tool-bootstrapping-consumer"
+printf 'template source v1\n' > "$TH/src/templ.md"
+printf 'payload filler\n' > "$TH/packages/getff/filler.txt"
+HHF=$(sha < "$TH/packages/getff/filler.txt")
+HH=$(sha < "$TH/src/templ.md")
+printf '%s  %s\n' "$HHF" "packages/getff/filler.txt" > "$TH/packages/getff/MANIFEST.sha256"
+C0H=$(commit_all "$TH" "seed template source + unrelated manifest row")
+printf 'template source v2 — edited\n' > "$TH/src/templ.md"
+C1H=$(commit_all "$TH" "edit template source")
+fingerprint "$TH" "${HH}|consumer-gone/dest.md"
+# Assembly residue: pre-image bytes at the sibling-variant path the real
+# consumer-split delivery uses, present on disk but recorded by NO manifest row.
+printf 'template source v1\n' > "$TH/packages/getff/.agents/procedures/tool-bootstrapping-consumer/SKILL.md"
+OUT_H=$(run_arm "$TH" "$C1H" "$C0H"); RC_H=$?
+if [ "$RC_H" -ne 0 ] && printf '%s' "$OUT_H" | grep -q 'src/templ\.md'; then
+  record pass "H — untracked witness (no manifest row) does not exempt → exit 1"
+else
+  record fail "H — untracked witness exempted the row (rc=$RC_H, output below)"; printf '%s\n' "$OUT_H"
+fi
+
+rm -rf "$TA" "$TB" "$TC" "$TD" "$TE" "$TF" "$TG" "$TH"
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

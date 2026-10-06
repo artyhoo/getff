@@ -1862,44 +1862,42 @@ function payloadDriftSection(ctx: SectionCtx): void {
     // directory (procedure_source's owner step: tool-bootstrapping installs from
     // .agents/procedures/tool-bootstrapping-consumer/), so the bytes a row
     // describes may live in-repo at a path OTHER than the recorded consumer
-    // destination. When the recorded homes all miss, fall back to a hash index
-    // of the delivery payload tree — the same tree a consumer install copies
-    // from. Scoped to the payload (not the whole repo) so a random duplicate
-    // elsewhere can never mask a genuinely stale row. Built lazily: only a
-    // foreign-row candidate that failed the homes probe pays the walk.
-    let payloadHashes: Set<string> | undefined;
+    // destination. The freshness exemption is tied to the TRACKED delivery
+    // witness, not arbitrary retained bytes: a MANIFEST.sha256 row must record
+    // the hash AND the assembled file at that row's path must still carry it.
+    // A row alone (stale manifest) or bytes alone (unrelated/untracked leftover
+    // under packages/getff) witness nothing — hashing the whole payload tree
+    // let exactly those leftovers suppress a genuine stale verdict (2026-10-06
+    // review F2, prepush-baseline-staleness cases F/G/H). Built lazily: only a
+    // foreign-row candidate that failed the homes probe pays the parse.
+    let manifestByHash: Map<string, string[]> | undefined;
     const payloadCarries = (hash: string): boolean => {
-      if (!payloadHashes) {
-        payloadHashes = new Set();
-        const hashWalk = (dir: string): void => {
-          let names: string[];
-          try {
-            names = readdirSync(dir);
-          } catch {
-            return; // no payload tree in this checkout
-          }
-          for (const name of names) {
-            const abs = `${dir}/${name}`;
-            let st;
-            try {
-              st = statSync(abs);
-            } catch {
-              continue;
-            }
-            if (st.isDirectory()) {
-              hashWalk(abs);
-            } else if (st.isFile()) {
-              try {
-                payloadHashes!.add(sha256Bytes(readFileSync(abs)));
-              } catch {
-                // unreadable — cannot witness the hash either way
-              }
-            }
-          }
-        };
-        hashWalk(resolve(REPO_ROOT, 'packages/getff'));
+      if (!manifestByHash) {
+        manifestByHash = new Map();
+        let lines: string[];
+        try {
+          lines = readFileSync(manifestPath, 'utf8').split('\n');
+        } catch {
+          lines = []; // no assembled-manifest witness in this checkout
+        }
+        for (const line of lines) {
+          const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
+          if (!m?.[1] || !m[2]) continue;
+          const recorded = manifestByHash.get(m[1]);
+          const abs = resolve(REPO_ROOT, m[2]);
+          if (recorded) recorded.push(abs);
+          else manifestByHash.set(m[1], [abs]);
+        }
       }
-      return payloadHashes.has(hash);
+      const rows = manifestByHash.get(hash);
+      if (!rows) return false;
+      return rows.some((abs) => {
+        try {
+          return sha256Bytes(readFileSync(abs)) === hash;
+        } catch {
+          return false; // absent/unreadable — a row alone is not a witness
+        }
+      });
     };
     const stale: string[] = [];
     for (const { status, path } of changes) {

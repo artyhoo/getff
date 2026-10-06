@@ -2257,38 +2257,34 @@ function payloadDriftSection(ctx) {
         return void 0;
       }
     };
-    let payloadHashes;
+    let manifestByHash;
     const payloadCarries = (hash) => {
-      if (!payloadHashes) {
-        payloadHashes = /* @__PURE__ */ new Set();
-        const hashWalk = (dir) => {
-          let names;
-          try {
-            names = readdirSync(dir);
-          } catch {
-            return;
-          }
-          for (const name of names) {
-            const abs = `${dir}/${name}`;
-            let st;
-            try {
-              st = statSync(abs);
-            } catch {
-              continue;
-            }
-            if (st.isDirectory()) {
-              hashWalk(abs);
-            } else if (st.isFile()) {
-              try {
-                payloadHashes.add(sha256Bytes(readFileSync3(abs)));
-              } catch {
-              }
-            }
-          }
-        };
-        hashWalk(resolve2(REPO_ROOT, "packages/getff"));
+      if (!manifestByHash) {
+        manifestByHash = /* @__PURE__ */ new Map();
+        let lines;
+        try {
+          lines = readFileSync3(manifestPath, "utf8").split("\n");
+        } catch {
+          lines = [];
+        }
+        for (const line of lines) {
+          const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
+          if (!m?.[1] || !m[2]) continue;
+          const recorded = manifestByHash.get(m[1]);
+          const abs = resolve2(REPO_ROOT, m[2]);
+          if (recorded) recorded.push(abs);
+          else manifestByHash.set(m[1], [abs]);
+        }
       }
-      return payloadHashes.has(hash);
+      const rows = manifestByHash.get(hash);
+      if (!rows) return false;
+      return rows.some((abs) => {
+        try {
+          return sha256Bytes(readFileSync3(abs)) === hash;
+        } catch {
+          return false;
+        }
+      });
     };
     const stale = [];
     for (const { status, path } of changes) {
