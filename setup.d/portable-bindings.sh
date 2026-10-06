@@ -73,28 +73,41 @@ _portable_alias() {
     echo "  · $native kept (consumer-owned external or custom compatibility link)"
     return 0
   fi
-  if [ -e "$native" ] || [ -L "$native" ]; then
+  if [ -n "${REFRESH:-}" ] || [ "${GETFF_TOOLCHAIN_REFRESH:-}" = 1 ]; then
+    # Refresh propagation: the canonical twin just moved to the upstream bytes, so the
+    # install-mode byte-equality shortcut cannot decide — the native's OWN baseline
+    # does (delivered bytes → refresh; consumer edit → preserved copy), exactly like
+    # any other delivered file. Equal bytes = the canonical did not move for this file
+    # → the writer's baseline stands, skip silently.
+    if [ -e "$native" ] && [ ! -L "$native" ] && cmp -s "$canonical" "$native"; then
+      return 0
+    fi
+    [ -L "$native" ] && rm -f "$native"   # a previous getff version's managed alias link
+    refresh_safe "$canonical" "$native"
+    return 0
+  fi
+  if [ -e "$native" ] && [ ! -L "$native" ]; then
     if ! cmp -s "$canonical" "$native"; then
       echo "  · $native kept (custom native entry; canonical source available at $canonical)"
       return 0
     fi
+    # A real native file already byte-equal to the canonical twin: the delivery that
+    # wrote it earlier this run staged its baseline. Return WITHOUT copy_safe — its
+    # exists-guard would record the path in SKIPPED, and ignore_shipped_configs would
+    # then treat a framework-fresh delivery as consumer-owned and leave it format-
+    # checked (the brownfield #531 class: a stricter consumer .prettierrc flags the
+    # framework-formatted bytes).
+    return 0
   fi
-  # At this point the file is proven byte-identical to the delivered common source.
   # Deliver it as a MATERIALIZED real file, never a symlink: the consumer contract is
   # real bytes (Windows cannot create symlinks without privilege — the PR #2025 sweep;
   # the consumer-matrix prettier arm refuses explicit symlink paths), and only a copy
-  # refreshes through the baseline-guarded path a delivery gets. The canonical twin was
-  # staged by the delivery that wrote it; this twin gets its OWN entry, so a consumer
-  # edit at the native path later diverges against ITS OWN baseline and is preserved,
-  # never silently overwritten. A remaining managed link (a previous getff version's
-  # alias) is materialized in place the same way.
-  [ -L "$native" ] && rm -f "$native"
+  # refreshes through the baseline-guarded path a delivery gets. This twin gets its OWN
+  # baseline entry, so a consumer edit at the native path later diverges against ITS
+  # OWN baseline and is preserved, never silently overwritten.
+  [ -L "$native" ] && rm -f "$native"   # a previous getff version's managed alias link
   mkdir -p "$(dirname "$native")"
-  if [ -n "${REFRESH:-}" ] || [ "${GETFF_TOOLCHAIN_REFRESH:-}" = 1 ]; then
-    refresh_safe "$canonical" "$native"
-  else
-    copy_safe "$canonical" "$native"
-  fi
+  copy_safe "$canonical" "$native"
 }
 
 _portable_discovery() {
