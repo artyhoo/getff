@@ -111,4 +111,25 @@ mkdir -p "$consumer"
 ) > "$WORK/no-hooks.log" 2>&1
 grep -q 'Codex hooks not wired: no supported registered consumer checks' "$WORK/no-hooks.log"
 ! grep -q 'Codex hook definitions delivered;' "$WORK/no-hooks.log"
-echo 'PASS canonical binding payload, profiles, helpers, customized upgrade, repeat install, refresh ownership and dry-run'
+
+# Dry-run is deterministic: the same command twice must diff equal (L1 acceptance (a),
+# framework-self-detect CI). The portable .md transform and the session-bootstrap seed
+# both materialized through random mktemp scratch files whose names copy_safe's dry-run
+# echo printed — two runs never matched (caught live by the self-application CI).
+consumer_dry="$WORK/consumer-dry"
+mkdir -p "$consumer_dry"
+run_dry() (
+  PKG_ROOT="$REPO_ROOT" PROJECT_ROOT="$consumer_dry" PROFILE=core FORCE='' DRY_RUN='--dry-run' REFRESH='' WITH_AIF_SUITE=''
+  UPSTREAM_BLOB_URL='https://github.com/artyhoo/getff/blob/main'
+  SKIPPED=(); SHIPPED_DOCS=(); REFRESH_BASELINE_STAGED=()
+  source "$REPO_ROOT/setup.d/lib.sh"
+  source "$REPO_ROOT/setup.d/10-skills.sh"
+  source "$REPO_ROOT/setup.d/20-agents.sh"
+  install_portable_bindings
+  refresh_baseline_flush
+) > "$1" 2>&1
+run_dry "$WORK/dry1.log"
+run_dry "$WORK/dry2.log"
+diff -q "$WORK/dry1.log" "$WORK/dry2.log"
+! grep -qE 'getff-(portable|bootstrap)\.[A-Za-z0-9]' "$WORK/dry1.log"
+echo 'PASS canonical binding payload, profiles, helpers, customized upgrade, repeat install, refresh ownership and dry-run determinism'

@@ -21,6 +21,14 @@ _portable_copy() {
     echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
     return 0
   fi
+  # Dry-run must preview the REAL source path: the .md transform below runs the
+  # source through a random mktemp scratch file, and copy_safe's dry-run echo
+  # would print that random path — two runs would never diff equal (L1
+  # acceptance (a), framework-self-detect CI).
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
   if [ "${src##*.}" = md ]; then
     temp="$(mktemp "${TMPDIR:-/tmp}/getff-portable.XXXXXX")"
     cp -pL "$src" "$temp"
@@ -195,10 +203,17 @@ install_portable_bindings() {
     fi
     # Materialize starter bytes: a repeated install can read our native alias,
     # and copying that link into its own canonical target would destroy the seed.
-    bootstrap_temp="$(mktemp "${TMPDIR:-/tmp}/getff-bootstrap.XXXXXX")"
-    cp -pL "$src" "$bootstrap_temp"
-    copy_safe "$bootstrap_temp" "$PROJECT_ROOT/.agents/session-bootstrap.md"
-    rm -f "$bootstrap_temp"
+    # Dry-run previews the REAL source path: the materialization temp below is a
+    # random mktemp name, and copy_safe's dry-run echo would print it — two runs
+    # would never diff equal (L1 acceptance (a), framework-self-detect CI).
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      copy_safe "$src" "$PROJECT_ROOT/.agents/session-bootstrap.md"
+    else
+      bootstrap_temp="$(mktemp "${TMPDIR:-/tmp}/getff-bootstrap.XXXXXX")"
+      cp -pL "$src" "$bootstrap_temp"
+      copy_safe "$bootstrap_temp" "$PROJECT_ROOT/.agents/session-bootstrap.md"
+      rm -f "$bootstrap_temp"
+    fi
     _portable_alias "$PROJECT_ROOT/.agents/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   fi
 }
