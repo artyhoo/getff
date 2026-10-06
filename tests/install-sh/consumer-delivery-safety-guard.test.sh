@@ -198,13 +198,20 @@ else
   bad "arm 4 precondition: manifest absent after the force run — staging broken"
 fi
 rm -rf "$TC/$CONFLICTS_REL"
+# The diverged surface is the BIND path .claude/skills/getff/SKILL.md — a symlink to the
+# in-consumer canonical .agents/procedures/getff/SKILL.md (agents-canonical delivery shape:
+# _portable_alias binds the native entries; edits write through the link). The divergence
+# therefore surfaces at the CANONICAL regular file — that is the path whose would-flag/warn
+# this arm must name; the guard's find -type f walk over the bind tree sees no regular files
+# by design (measured 2026-10-06: dry-run would-flags + real refresh warns the canonical path,
+# the diverged bytes land preserved under refresh-conflicts/ either way).
 echo "ARM4 SKILL EDIT" >> "$SKILL"
 MAN_BEFORE=$(mktemp); cp "$TC/$MANIFEST_REL" "$MAN_BEFORE"
 OUT4=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
-  ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill"
+if grep -qF "procedures/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
+  ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill (canonical path)"
 else
-  bad "arm 4: no would-flag for .claude/skills/getff/SKILL.md under --refresh --dry-run (MAJOR 2 regression)"
+  bad "arm 4: no would-flag for the diverged plain skill (canonical .agents/procedures/getff/SKILL.md) under --refresh --dry-run (MAJOR 2 regression)"
 fi
 grep -qF "ARM4 SKILL EDIT" "$SKILL" \
   && ok "arm 4: dry-run did NOT overwrite the diverged skill file" \
@@ -218,7 +225,7 @@ cmp -s "$TC/$MANIFEST_REL" "$MAN_BEFORE" \
 # neg (LOAD-BEARING): the real refresh right after DOES warn + preserve — the would-flag
 # predicted a real divergence (preview faithful).
 OUT4B=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
+if grep -qF "procedures/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
   ok "arm 4 neg: the real refresh warns for exactly the file the dry-run would-flagged"
 else
   bad "arm 4 neg: real refresh did not warn for the dry-run-flagged file"

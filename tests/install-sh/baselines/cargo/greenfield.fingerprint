@@ -1,5 +1,5 @@
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
-ee14c0e6871c59c01e4a3987b4cf6cf6c1b96e8b488d5b5d0566a65c0bd3bd99  .ai-factory/refresh-baseline.json
+1772b15e5563bd85b929b2c74162c36b0e1a633938fdd351dd1f4ccc7264bc3d  .ai-factory/refresh-baseline.json
 35b7f3afd8ea3401b80cdee07e480dca971f58c0584a3b2026f5c2a78bc10f52  .ai-factory/tool-decisions.md
 link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 7e27a0fd3965f6d5a001b70bdfce6ea41e7fa17a2ac6bdeff9de5e3844ae72c1  .getff/Cargo.lints.toml
