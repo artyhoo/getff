@@ -143,9 +143,26 @@ assert_refused() { # assert_refused <label> <want-grep> <env-prefix...> -- <args
 }
 
 printf 'drift' > "$TMP/expected.wrong"
-assert_refused "N1 drift vs expected file refuses, target unchanged" "drift" \
-  GIT_SAFETY_COORD_DIR="$TMP" GIT_SAFETY_OVERRIDE="$CANON" -- \
-  --repo "$ORIG_A" --patch "$TMP/p.patch" --expected "$TMP/expected.wrong"
+# N1 needs a target in PRE-patch state: after P4 the repoA hook is already patched, and GNU
+# patch (CI Linux) then refuses the re-apply as "previously applied" while BSD patch would
+# silently double-apply — a per-implementation fork. A fresh repo pins the arm to the drift
+# message itself on both implementations.
+ORIG_D="$TMP/repoD"
+git init -q "$ORIG_D"
+git -C "$ORIG_D" config user.email t@t
+git -C "$ORIG_D" config user.name t
+git -C "$ORIG_D" remote add origin git@github.com:artyhoo/getff.git
+mkdir -p "$ORIG_D/.husky"
+printf '#!/bin/sh\nset -eu\necho "orig"\n' > "$ORIG_D/.husky/pre-commit"
+run GIT_SAFETY_COORD_DIR="$TMP" GIT_SAFETY_OVERRIDE="$CANON" bash "$APPLY" --repo "$ORIG_D" --patch "$TMP/p.patch" --expected "$TMP/expected.wrong"
+if [ "$rc" -ne 0 ] && grep -q "drift:" <<<"$out" \
+   && [ "$(cat "$ORIG_D/.husky/pre-commit")" = '#!/bin/sh
+set -eu
+echo "orig"' ]; then
+  ok "N1 drift vs expected file refuses, target unchanged"
+else
+  bad "N1 drift — want rc≠0 + «drift:», got rc=$rc: $(tr '\n' '|' <<<"$out")"
+fi
 assert_refused "N2 target outside .husky/ refuses" "under .husky" \
   GIT_SAFETY_COORD_DIR="$TMP" -- \
   --repo "$ORIG_A" --patch "$TMP/p.patch" --expected "$TMP/expected.full" --target scripts/other.sh
