@@ -195,6 +195,8 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     if (!cols.includes(column)) db.exec(ddl);
   };
   ensureColumn('finding_receipts', 'actor', 'ALTER TABLE finding_receipts ADD COLUMN actor TEXT');
+  ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
+  ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
   const now = () => new Date().toISOString();
 
   // node:sqlite has no better-sqlite3-style .transaction() helper — run the explicit
@@ -429,9 +431,18 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // Occurrences are recorded per accepted report; a replay of the SAME report
     // records nothing new (dedup on finding_key + source_report_id). A later report
     // sighting the same key opens a NEW occurrence — lineage is append-only.
+    // Occurrences recorded through a real report chain carry the report's PR scope
+    // (repository_id + pr_node_id from the issuing generation); scopeless rows keep
+    // the legacy per-key behavior. When an active claim exists on an OLDER occurrence
+    // of the key, the assignment rebinds to the NEWEST one (DR-R2): recurrence while
+    // a fixer is active must not admit a second owner nor orphan the active one.
     recordFindings(reportId, findings) {
       return tx(() => {
         let inserted = 0;
+        const rep = db.prepare('SELECT claim_id FROM reports WHERE id = ?').get(reportId);
+        const ch = rep ? db.prepare('SELECT generation_id FROM challenges WHERE claim_id = ?').get(rep.claim_id) : undefined;
+        const gen = ch ? db.prepare('SELECT repository_id, pr_node_id FROM generations WHERE id = ?').get(ch.generation_id) : undefined;
+        const scope = gen ? { repository_id: gen.repository_id, pr_node_id: gen.pr_node_id ?? null } : { repository_id: null, pr_node_id: null };
         for (const f of findings ?? []) {
           if (!f?.key) throw code('E_LIMITS', 'recordFindings requires finding.key');
           const dup = db.prepare(
@@ -439,10 +450,23 @@ export function openLedger(dbPath, { faultAfter } = {}) {
           ).get(f.key, reportId);
           if (dup) continue;
           const ts = now();
+          const id = randomUUID();
           db.prepare(
-            'INSERT INTO finding_occurrences (id, finding_key, source_report_id, requirement, category, severity, blocking, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ).run(randomUUID(), f.key, reportId, f.requirement ?? null, f.category ?? null, f.severity ?? null, f.blocking ? 1 : 0, 'OPEN', ts, ts);
+            'INSERT INTO finding_occurrences (id, finding_key, source_report_id, requirement, category, severity, blocking, repository_id, pr_node_id, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run(id, f.key, reportId, f.requirement ?? null, f.category ?? null, f.severity ?? null, f.blocking ? 1 : 0, scope.repository_id, scope.pr_node_id, 'OPEN', ts, ts);
           inserted += 1;
+          if (scope.repository_id !== null) {
+            const activeClaim = db.prepare(
+              `SELECT c.* FROM finding_claims c
+               JOIN finding_occurrences o ON o.id = c.occurrence_id
+               WHERE o.finding_key = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(f.key);
+            if (activeClaim && activeClaim.occurrence_id !== id) {
+              db.prepare('UPDATE finding_claims SET occurrence_id = ? WHERE assignment_id = ?').run(id, activeClaim.assignment_id);
+              db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run(activeClaim.state, ts, id);
+            }
+          }
         }
         return { inserted };
       });
@@ -464,10 +488,14 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(id);
     },
 
-    // One active corrective owner per finding (packet §6): the latest occurrence of
-    // the key is claimed; an active (unexpired) claim refuses a second owner, and an
-    // EXPIRED one still holds the slot until an explicit revoke — lease expiry alone
-    // does not prove the old worker stopped (E_CESSATION_UNKNOWN).
+    // One active corrective owner per repository/PR (DR-R2): for scoped occurrences
+    // the fence spans EVERY finding and occurrence of the same PR — a claim on any
+    // of them refuses a second owner, and an EXPIRED one still holds the whole scope
+    // until an explicit revoke (lease expiry alone does not prove the old worker
+    // stopped, E_CESSATION_UNKNOWN). Recurrence of an actively-claimed key rebinds
+    // the existing assignment to the newest occurrence (recordFindings), so the
+    // owner continues without a second claim. Scopeless (fixture) rows keep the
+    // legacy per-occurrence fence.
     claimFinding({ findingKey, owner, leaseMinutes, nowMs = Date.now() } = {}) {
       if (!owner || !Number.isInteger(leaseMinutes) || leaseMinutes <= 0) {
         throw code('E_LIMITS', 'claimFinding requires owner and a positive leaseMinutes');
@@ -478,14 +506,23 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         ).get(findingKey);
         if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
         if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', `finding "${findingKey}" is resolved at its latest occurrence`);
-        const active = db.prepare(
-          `SELECT c.* FROM finding_claims c
-           WHERE c.occurrence_id = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
-           ORDER BY c.claimed_at DESC LIMIT 1`,
-        ).get(tail.id);
+        const scoped = tail.repository_id !== null && tail.repository_id !== undefined;
+        const active = scoped
+          ? db.prepare(
+              `SELECT c.*, o.finding_key AS claimed_key FROM finding_claims c
+               JOIN finding_occurrences o ON o.id = c.occurrence_id
+               WHERE c.state IN ('ASSIGNED','ACKNOWLEDGED')
+                 AND o.repository_id IS ? AND o.pr_node_id IS ?
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(tail.repository_id, tail.pr_node_id)
+          : db.prepare(
+              `SELECT c.* FROM finding_claims c
+               WHERE c.occurrence_id = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(tail.id);
         if (active) {
           if (Date.parse(active.lease_expires_at) > nowMs) {
-            throw code('E_ALREADY_CLAIMED', `finding "${findingKey}" is claimed by ${active.owner} until ${active.lease_expires_at}`);
+            throw code('E_ALREADY_CLAIMED', `${scoped ? `PR is` : `finding "${findingKey}" is`} claimed by ${active.owner} (finding "${active.claimed_key ?? findingKey}") until ${active.lease_expires_at}`);
           }
           throw code('E_CESSATION_UNKNOWN', `the expired claim of ${active.owner} was not revoked — cessation is not established, replacement held`);
         }

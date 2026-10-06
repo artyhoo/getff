@@ -10,6 +10,10 @@
 #     RESOLVED history does not absorb it;
 #   - one active claim per finding; an expired lease does NOT free the slot by itself:
 #     replacement requires an explicit revoke (cessation is not proven by the clock);
+#   - DR-R2: corrective ownership is atomic per repository/PR across findings and
+#     occurrences — recurrence while a fixer is active rebinds the assignment to the
+#     newest occurrence instead of letting a second owner in; a different finding of
+#     the same PR is fenced too; another PR is not; the fence survives a restart;
 #   - acknowledgement, fix responses and closures verify the fencing token;
 #   - closure needs CURRENT, RELEVANT, INDEPENDENT evidence (DR-R1): the latest fix
 #     binds the evidence set — a successful mechanical check ON the fix revision after
@@ -28,6 +32,7 @@ SCRIPT="$TMP/run-finding-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
 const [ledgerPath, tmp] = process.argv.slice(2);
 const { openLedger } = await import(ledgerPath);
+const { createHash } = await import('node:crypto');
 
 const log = (...a) => console.log(...a);
 const fail = (m) => { console.log('FAIL ' + m); process.exitCode = 1; };
@@ -188,6 +193,62 @@ try {
   if (ledger.getOccurrence(tailOf('artyhoo/getff#F4'))?.state !== 'RESOLVED') fail('REJECTED_WITH_EVIDENCE closure did not resolve');
   else log('ok rejected-with-evidence-resolves');
 
+  // ── DR-R2: atomic repository/PR ownership across findings/occurrences ─────────
+  // Real report chains (claim → submit → recordFindings) so occurrences carry the
+  // PR scope the fence operates on.
+  const TUPLE = (prNode, head) => ({
+    repository_id: 77, pr_node_id: prNode,
+    base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: head,
+    merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40),
+    policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0',
+  });
+  const seedReport = (prNode, head, keys) => {
+    const claimed = ledger.claimGeneration({ tuple: TUPLE(prNode, head), reviewerId: 7, maxAttemptsPerTuple: 5, leaseMinutes: 30, nowMs: clock });
+    const payload = JSON.stringify({ verdict: 'REVISE', head, findings: keys.map((key) => ({ id: key })) });
+    const rec = ledger.submitReport({
+      claimId: claimed.claim.claim_id, reviewerId: 7,
+      digest: createHash('sha256').update(payload).digest('hex'),
+      payload, verdict: 'REVISE', kind: 'admission', leaseMinutes: 30, nowMs: clock,
+    });
+    ledger.recordFindings(rec.report_id, keys.map((key) => FINDING({ key })));
+    return rec.report_id;
+  };
+
+  seedReport('PRK', 'h'.repeat(40), ['artyhoo/getff#F5']);
+  const claimA = ledger.claimFinding({ findingKey: 'artyhoo/getff#F5', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+
+  // recurrence while A is active: B cannot claim the new occurrence
+  seedReport('PRK', 'i'.repeat(40), ['artyhoo/getff#F5']);
+  expectCode(() => ledger.claimFinding({ findingKey: 'artyhoo/getff#F5', owner: 'exec-b', leaseMinutes: 30, nowMs: clock }), 'E_ALREADY_CLAIMED', 'recurrence-claim-refused');
+  // A's assignment followed the tail: a fix response lands on the NEWEST occurrence
+  const tailF5 = ledger.lineage('artyhoo/getff#F5').at(-1).id;
+  const fixRes = ledger.recordFixResponse({ assignmentId: claimA.assignment_id, fencingToken: claimA.fencing_token, fixRevision: 'fix-k1', digest: 'fd:k1', payload: '{}' });
+  if (fixRes.occurrence_id !== tailF5) fail(`rebind: fix landed on ${fixRes.occurrence_id?.slice(0, 6)}, tail is ${tailF5?.slice(0, 6)}`);
+  else log('ok claim-follows-recurrence-tail');
+
+  // a different finding of the SAME PR is fenced by the same ownership
+  seedReport('PRK', 'j'.repeat(40), ['artyhoo/getff#F6']);
+  expectCode(() => ledger.claimFinding({ findingKey: 'artyhoo/getff#F6', owner: 'exec-b', leaseMinutes: 30, nowMs: clock }), 'E_ALREADY_CLAIMED', 'pr-scope-single-owner');
+
+  // an expired claim holds replacement across the WHOLE scope until an explicit revoke
+  tick(31);
+  expectCode(() => ledger.claimFinding({ findingKey: 'artyhoo/getff#F6', owner: 'exec-b', leaseMinutes: 30, nowMs: clock }), 'E_CESSATION_UNKNOWN', 'cessation-scope-wide');
+  ledger.revokeClaim({ assignmentId: claimA.assignment_id, reason: 'coordinator reconciled cessation: no push landed', nowMs: clock });
+  const claimF6 = ledger.claimFinding({ findingKey: 'artyhoo/getff#F6', owner: 'exec-b', leaseMinutes: 30, nowMs: clock });
+  if (!claimF6.assignment_id) fail('revoke did not free the scope');
+  else log('ok revoke-frees-whole-scope');
+
+  // a DIFFERENT PR is not fenced by PR_1's ownership
+  seedReport('PRL', 'k'.repeat(40), ['artyhoo/getff#F7']);
+  const claimF7 = ledger.claimFinding({ findingKey: 'artyhoo/getff#F7', owner: 'exec-b', leaseMinutes: 30, nowMs: clock });
+  if (!claimF7.assignment_id) fail('cross-PR claim was fenced');
+  else log('ok cross-pr-not-fenced');
+
+  // the fence survives a restart: a second connection sees the committed claim
+  const ledgerLive = openLedger(`${tmp}/findings.sqlite`);
+  expectCode(() => ledgerLive.claimFinding({ findingKey: 'artyhoo/getff#F5', owner: 'exec-c', leaseMinutes: 30, nowMs: clock }), 'E_ALREADY_CLAIMED', 'fence-survives-reopen');
+  ledgerLive.close?.();
+
   // RED: recurrence — the same key on a LATER report opens a NEW occurrence and the
   // lineage keeps both (a RESOLVED past never absorbs a new sighting)
   ledger.recordFindings('rep-3', [FINDING({ key: 'artyhoo/getff#F1' })]);
@@ -235,6 +296,9 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   disposition-allowlist already-fixed-requires-evidence \
   already-fixed-with-evidence-resolves rejected-requires-evidence \
   rejected-with-evidence-resolves \
+  recurrence-claim-refused claim-follows-recurrence-tail \
+  pr-scope-single-owner cessation-scope-wide revoke-frees-whole-scope \
+  cross-pr-not-fenced fence-survives-reopen \
   recurrence-reopens-lineage retry-first retry-reservation-bounded \
   reservation-survives-reopen supersede-keeps-finding-history || exit 1
 echo "finding-lifecycle.test.sh: all green"
