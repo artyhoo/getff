@@ -132,12 +132,69 @@ export async function createGateService({
       throw e;
     }
     const results = [];
+    const mapFindings = (report) => (Array.isArray(report?.findings) ? report.findings : []).map((f) => ({
+      key: f?.finding_id,
+      requirement: f?.requirement ?? null,
+      category: f?.category ?? null,
+      severity: f?.severity ?? null,
+      blocking: f?.blocking === true,
+    })).filter((f) => typeof f.key === 'string');
     for (const event of ledger.outboxClaimBatch(limit, { nowMs: now() })) {
       if (event.event_type !== 'report.submitted') {
-        // generation.claimed / github.event rows have no publication side effect yet;
-        // mark them drained so the queue only ever holds pending work
+        if (event.event_type === 'generation.claimed') {
+          // bookkeeping whose action happened inside the claiming transaction
+          ledger.outboxMarkPublished(event.id);
+          results.push({ event: event.event_type, action: 'drained' });
+        } else {
+          // increment 5: unknown events stay pending — never consumed without their
+          // required action (a future consumer claims them by type)
+          results.push({ event: event.event_type, action: 'unhandled', reason: 'no consumer registered for this event type' });
+        }
+        continue;
+      }
+      const payload = JSON.parse(event.payload);
+      const row = ledger.getReport(payload.report_id);
+      let record;
+      try { record = row ? JSON.parse(row.payload) : undefined; } catch { record = undefined; }
+      const recordType = record?.record_type ?? record?.kind;
+      if (payload.superseded === true) {
+        // DR-R3 + increment 5: archived history is not publishable work, but a
+        // superseded REVIEW's findings still enter the lifecycle — the history the
+        // queue revalidates before any remediation launch
+        if (recordType === 'review_report') {
+          try { ledger.recordFindings(payload.report_id, mapFindings(record)); } catch { /* lineage already recorded from a replay */ }
+        }
         ledger.outboxMarkPublished(event.id);
-        results.push({ event: event.event_type, action: 'drained' });
+        results.push({ event: event.event_type, action: 'archived' });
+        continue;
+      }
+      if (recordType === 'fix_response' || recordType === 'closure_receipt') {
+        // lifecycle consumption of coordinator-side records — never an admission
+        // check, never gated on publication pause (the ledger is authoritative)
+        try {
+          if (recordType === 'fix_response') {
+            ledger.applyFixResponseRecord({
+              assignmentId: record.assignment_id,
+              claimedBy: record.claimed_by,
+              fixRevision: record.fix_revision,
+              findingKeys: record.finding_ids,
+              mechanicalReceipts: record.mechanical_receipts,
+              digest: payload.digest,
+              payloadRef: JSON.stringify({ record_digest: payload.digest }),
+            });
+          } else {
+            ledger.applyClosureReceipt({
+              findingKeys: record.finding_ids,
+              verifiedBy: record.verified_by,
+              disposition: record.disposition,
+              revision: record.verification_revision,
+            });
+          }
+          ledger.outboxMarkPublished(event.id);
+          results.push({ event: event.event_type, action: recordType === 'fix_response' ? 'fix-recorded' : 'closure-recorded' });
+        } catch (e) {
+          results.push({ event: event.event_type, action: 'kept-pending', code: e.code ?? 'E_LIFECYCLE', reason: e.message });
+        }
         continue;
       }
       if (expired()) {
@@ -148,13 +205,9 @@ export async function createGateService({
         results.push({ event: event.event_type, action: 'skipped-paused' });
         continue;
       }
-      const payload = JSON.parse(event.payload);
-      if (payload.superseded === true) {
-        // DR-R3: archived history is bookkeeping, not publishable work — the record
-        // is kept, its admission is false, and no check is ever written from it
-        ledger.outboxMarkPublished(event.id);
-        results.push({ event: event.event_type, action: 'archived' });
-        continue;
+      if (record?.protocol_version === 'dot-pr-review/2.0.0' && recordType === 'review_report') {
+        // increment 5: the drain is the real consumer of an accepted review's findings
+        try { ledger.recordFindings(payload.report_id, mapFindings(record)); } catch { /* lineage already recorded from a replay */ }
       }
       let outcome;
       try {

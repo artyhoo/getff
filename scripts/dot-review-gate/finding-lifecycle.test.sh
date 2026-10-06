@@ -276,6 +276,41 @@ try {
   if (ledger2.lineage('artyhoo/getff#F1').length !== 2) fail('supersede lost findings');
   else log('ok supersede-keeps-finding-history');
   ledger2.close?.();
+
+  // ── increment 5: protocol record consumers (fix_response / closure_receipt) ───
+  // A fix_response record binds by assignment + claimed owner: it arrives through
+  // the coordinator's authenticated channel, not the reviewer intake, so the
+  // owner match (not a live fencing token) is the binding — a REVOKED assignment
+  // refuses exactly like a stale token.
+  const ledger3 = openLedger(`${tmp}/findings.sqlite`);
+  ledger3.recordFindings('rep-fixrec', [FINDING({ key: 'artyhoo/getff#F8' })]);
+  const claimF8 = ledger3.claimFinding({ findingKey: 'artyhoo/getff#F8', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+  ledger3.applyFixResponseRecord({
+    assignmentId: claimF8.assignment_id, claimedBy: 'exec-a', fixRevision: 'fix-8',
+    findingKeys: ['artyhoo/getff#F8'],
+    mechanicalReceipts: [{ context: 'dot-gate suites', reference: 'run 1/job/x', conclusion: 'success' }],
+    digest: 'fixrec-8', payload: '{"finding_ids":["artyhoo/getff#F8"]}', nowMs: clock,
+  });
+  if (ledger3.getOccurrence(claimF8.occurrence_id)?.state !== 'VERIFYING') fail('fix record did not move VERIFYING');
+  else log('ok fix-response-record-moves-verifying');
+  // the mapped mechanical receipt IS closure evidence — full chain resolves
+  ledger3.recordReceipt({ occurrenceId: claimF8.occurrence_id, kind: 'change_review', revision: 'fix-8', digest: 'cr-8', payload: '{}', actor: 'reviewer-z', nowMs: clock });
+  ledger3.recordReceipt({ occurrenceId: claimF8.occurrence_id, kind: 'dot_closure', revision: 'fix-8', digest: 'dc-8', payload: '{}', actor: 'dot', nowMs: clock });
+  ledger3.applyClosureReceipt({ findingKeys: ['artyhoo/getff#F8'], verifiedBy: 'dot/primary', disposition: 'RESOLVED', revision: 'fix-8', nowMs: clock });
+  if (ledger3.getOccurrence(claimF8.occurrence_id)?.state !== 'RESOLVED') fail('closure record did not resolve');
+  else log('ok closure-receipt-resolves');
+
+  // refusals: revoked assignment, wrong owner, key mismatch, unproven closure
+  ledger3.recordFindings('rep-fixrec', [FINDING({ key: 'artyhoo/getff#F9' })]);
+  const claimF9 = ledger3.claimFinding({ findingKey: 'artyhoo/getff#F9', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+  ledger3.revokeClaim({ assignmentId: claimF9.assignment_id, reason: 'reassigned', nowMs: clock });
+  expectCode(() => ledger3.applyFixResponseRecord({ assignmentId: claimF9.assignment_id, claimedBy: 'exec-a', fixRevision: 'x', findingKeys: ['artyhoo/getff#F9'], digest: 'd', payload: '{}' }), 'E_FENCING', 'fix-record-revoked-assignment-refused');
+  ledger3.recordFindings('rep-fixrec', [FINDING({ key: 'artyhoo/getff#F10' })]);
+  const claimF10 = ledger3.claimFinding({ findingKey: 'artyhoo/getff#F10', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+  expectCode(() => ledger3.applyFixResponseRecord({ assignmentId: claimF10.assignment_id, claimedBy: 'exec-b', fixRevision: 'x', findingKeys: ['artyhoo/getff#F10'], digest: 'd', payload: '{}' }), 'E_IDENTITY', 'fix-record-wrong-owner-refused');
+  expectCode(() => ledger3.applyFixResponseRecord({ assignmentId: claimF10.assignment_id, claimedBy: 'exec-a', fixRevision: 'x', findingKeys: ['artyhoo/getff#OTHER'], digest: 'd', payload: '{}' }), 'E_LIMITS', 'fix-record-key-mismatch-refused');
+  expectCode(() => ledger3.applyClosureReceipt({ findingKeys: ['artyhoo/getff#F10'], verifiedBy: 'dot/primary', disposition: 'RESOLVED', revision: 'x', nowMs: clock }), 'E_NOT_RESOLVABLE', 'closure-record-unproven-refused');
+  ledger3.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
 }
@@ -300,5 +335,8 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   pr-scope-single-owner cessation-scope-wide revoke-frees-whole-scope \
   cross-pr-not-fenced fence-survives-reopen \
   recurrence-reopens-lineage retry-first retry-reservation-bounded \
-  reservation-survives-reopen supersede-keeps-finding-history || exit 1
+  reservation-survives-reopen supersede-keeps-finding-history \
+  fix-response-record-moves-verifying closure-receipt-resolves \
+  fix-record-revoked-assignment-refused fix-record-wrong-owner-refused \
+  fix-record-key-mismatch-refused closure-record-unproven-refused || exit 1
 echo "finding-lifecycle.test.sh: all green"

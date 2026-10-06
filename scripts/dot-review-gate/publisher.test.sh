@@ -50,8 +50,8 @@ const keyPem = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const app = { appId: 12345, installationId: 42, privateKeyPem: keyPem, apiBase: '', repo: 'artyhoo/getff', prNumber: 2042 };
 
 // stub transport: installation tokens, check-run writes, live PR/merge-ref reads
-function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], existingExternalIds = [] } = {}) {
-  const calls = { tokenRequests: 0, checkRuns: [] };
+function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], existingExternalIds = [], readBackOverride } = {}) {
+  const calls = { tokenRequests: 0, checkRuns: [], readBacks: 0 };
   return {
     calls,
     async fetchJson(url, opts = {}) {
@@ -59,10 +59,19 @@ function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], ex
         calls.tokenRequests++;
         return { token: 'it-1', expires_at: '2026-10-05T13:00:00Z' };
       }
+      if (/^\/repos\/artyhoo\/getff\/check-runs\/\d+$/.test(url)) {
+        calls.readBacks++;
+        const id = Number(url.split('/').pop());
+        if (readBackOverride) return { ...readBackOverride, id };
+        const rec = calls.checkRuns.find((c) => c.id === id);
+        if (!rec) throw Object.assign(new Error('check-run vanished before read-back'), { status: 404 });
+        return rec;
+      }
       if (url === '/repos/artyhoo/getff/check-runs' && opts.method === 'POST') {
         const body = JSON.parse(opts.body);
-        calls.checkRuns.push(body);
-        return { id: 555 + calls.checkRuns.length, ...body, app: { id: policy.dot_check.expected_app_id } };
+        const rec = { id: 555 + calls.checkRuns.length + 1, ...body, app: { id: policy.dot_check.expected_app_id } };
+        calls.checkRuns.push(rec);
+        return rec;
       }
       if (url.startsWith(`/repos/artyhoo/getff/commits/`) && url.includes('/check-runs')) {
         // Bearer-authenticated call = the createCheck crash-recovery search; the
@@ -350,6 +359,20 @@ try {
     if (tFail.calls.checkRuns.length === 0) log('ok discovery-failure-refuses');
     else fail(`discovery failure still wrote ${tFail.calls.checkRuns.length} checks`);
   }
+
+  // ── increment 5: a write is not "published" until it reads back ───────────────
+  const tRead = makeTransport({ ...readyV2 });
+  const pubRead = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tRead.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (tRead.calls.readBacks !== 1 || pubRead.check?.conclusion !== 'success') fail(`read-back reads=${tRead.calls.readBacks} conclusion=${pubRead.check?.conclusion}`);
+  else log('ok publication-read-back-verified');
+  const tBad = makeTransport({ ...readyV2, readBackOverride: { conclusion: 'neutral', head_sha: 'z'.repeat(40), external_id: 'x' } });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tBad.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('an unverified write was claimed as published');
+  } catch (e) {
+    if (e.code === 'E_PUBLISH_UNVERIFIED' && tBad.calls.checkRuns.length === 1) log('ok read-back-mismatch-refused');
+    else fail(`read-back mismatch ${e.code ?? e.message} posts=${tBad.calls.checkRuns.length}`);
+  }
   v2Ledger.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -372,5 +395,5 @@ assert_suite_arms "publisher.test.sh" "$status" "$out" \
   revise-publishes-failure crash-recovery-idempotent \
   v2-schema-less-publication-refused v2-publisher-publishes-with-pin \
   failure-never-reuses-success go-never-reuses-failure v2-crash-retry-idempotent \
-  discovery-failure-refuses || exit 1
+  discovery-failure-refuses publication-read-back-verified read-back-mismatch-refused || exit 1
 echo "publisher.test.sh: all green"

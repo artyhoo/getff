@@ -304,6 +304,73 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     return db.prepare('SELECT * FROM outbox WHERE id = ?').get(info.lastInsertRowid);
   };
 
+  // closure gate shared by recordClosure and applyClosureReceipt (increment 5) —
+  // runs INSIDE a caller's transaction; see recordClosure for the evidence contract
+  const closureTx = ({ findingKey, disposition, verifier, revision }) => {
+    if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
+      throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
+    }
+    const tail = db.prepare(
+      'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+    ).get(findingKey);
+    if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
+    if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', 'latest occurrence is already resolved');
+    const receipts = db.prepare(
+      'SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid',
+    ).all(tail.id);
+    const fixIdx = receipts.findLastIndex((r) => r.kind === 'fix_response');
+    const lastFix = fixIdx >= 0 ? receipts[fixIdx] : undefined;
+    const afterFix = fixIdx >= 0 ? receipts.slice(fixIdx + 1) : [];
+    const checkConclusion = (r) => {
+      try { return JSON.parse(r.payload)?.conclusion; } catch { return undefined; }
+    };
+    if (disposition === 'VERIFIED') {
+      if (!lastFix) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a recorded fix response');
+      const fixOwner = lastFix.actor ?? null;
+      const fixRev = lastFix.revision ?? null;
+      if (!fixRev) throw code('E_NOT_RESOLVABLE', 'the latest fix response lacks a revision — evidence cannot be bound to it');
+      if (revision !== undefined && revision !== null && revision !== fixRev) {
+        throw code('E_NOT_RESOLVABLE', `closure revision "${revision}" does not match the latest fix revision "${fixRev}"`);
+      }
+      if (verifier && fixOwner && verifier === fixOwner) {
+        throw code('E_NOT_RESOLVABLE', 'the fix owner cannot verify their own closure');
+      }
+      const latestCheck = afterFix.filter((r) => r.kind === 'check_receipt').at(-1);
+      if (!latestCheck) {
+        throw code('E_NOT_RESOLVABLE', 'VERIFIED requires a mechanical check receipt recorded after the latest fix — silence is not success');
+      }
+      if (latestCheck.revision !== fixRev) {
+        throw code('E_NOT_RESOLVABLE', `the latest check ran on "${latestCheck.revision}", not the fix revision "${fixRev}"`);
+      }
+      const conclusion = checkConclusion(latestCheck);
+      if (conclusion !== 'success') {
+        throw code('E_NOT_RESOLVABLE', `the latest check after the fix is "${conclusion ?? 'opaque'}" — VERIFIED requires success`);
+      }
+      const independent = afterFix.some((r) =>
+        r.kind === 'change_review' && r.actor && r.actor !== fixOwner && r.revision === fixRev);
+      if (!independent) {
+        throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an independent change review of the fix revision recorded after the fix (self-reviews and pre-fix reviews do not count)');
+      }
+      const dotClosed = afterFix.some((r) => r.kind === 'dot_closure' && r.revision === fixRev);
+      if (!dotClosed) {
+        throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an applicable dot_closure receipt on the fix revision recorded after the fix');
+      }
+    } else if (disposition === 'ALREADY_FIXED') {
+      const shown = receipts.some((r) => r.kind === 'check_receipt' && checkConclusion(r) === 'success');
+      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful mechanical check receipt');
+    } else {
+      // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions
+      const evidenced = receipts.some((r) =>
+        ['change_review', 'dot_closure', 'check_receipt', 'fix_response'].includes(r.kind));
+      if (!evidenced) throw code('E_NOT_RESOLVABLE', `${disposition} requires at least one evidence receipt on the occurrence`);
+    }
+    const id = randomUUID();
+    db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), verifier ?? null, now());
+    db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
+    return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
+  };
+
   const ledger = {
     dbPath,
 
@@ -607,6 +674,53 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       });
     },
 
+    // ── increment 5: V2 protocol record consumers ────────────────────────────────
+    // A fix_response record binds by assignment + claimed owner: it arrives through
+    // the coordinator's authenticated channel, not the reviewer intake, so the owner
+    // match (not a live fencing token) is the binding — a REVOKED assignment refuses
+    // exactly like a stale token (E_FENCING), and a claimed_by that is not the
+    // assignment's owner is an identity violation (E_IDENTITY). The record's
+    // mechanical receipts map to check receipts ON the fix revision, so closure
+    // evidence accrues through the same gate as every other receipt.
+    applyFixResponseRecord({ assignmentId, claimedBy, fixRevision, findingKeys, mechanicalReceipts, digest, payloadRef, nowMs = Date.now() } = {}) {
+      void nowMs;
+      return tx(() => {
+        const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+        if (!c) throw code('E_NOT_FOUND', `unknown assignment ${assignmentId}`);
+        if (c.state === 'REVOKED') throw code('E_FENCING', `assignment ${assignmentId} was revoked — late fix evidence refused`);
+        if (claimedBy !== c.owner) throw code('E_IDENTITY', `fix record claims "${claimedBy}", assignment belongs to "${c.owner}"`);
+        if (!fixRevision) throw code('E_LIMITS', 'fix_response record requires fix_revision');
+        const occ = db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(c.occurrence_id);
+        if (!occ) throw code('E_NOT_FOUND', 'assigned occurrence vanished');
+        const keys = Array.isArray(findingKeys) ? findingKeys : [];
+        if (!keys.includes(occ.finding_key)) {
+          throw code('E_LIMITS', `fix record names [${keys.join(', ')}] but the assignment covers "${occ.finding_key}"`);
+        }
+        const ts = now();
+        const insert = db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        insert.run(randomUUID(), occ.id, 'fix_response', fixRevision, digest ?? payloadDigest(String(payloadRef ?? '')), payloadRef ?? '{}', claimedBy ?? c.owner, ts);
+        for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
+          insert.run(randomUUID(), occ.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference }), claimedBy ?? c.owner, ts);
+        }
+        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, occ.id);
+        return { occurrence_id: occ.id, state: 'VERIFYING' };
+      });
+    },
+
+    // A closure_receipt record: the protocol's RESOLVED maps to the ledger's VERIFIED
+    // and the SAME evidence gate applies (closureTx) — an unproven closure refuses and
+    // the consuming event stays pending with its reason, never consumed unactioned.
+    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision } = {}) {
+      return tx(() => {
+        const mapped = disposition === 'RESOLVED' ? 'VERIFIED' : disposition;
+        const keys = Array.isArray(findingKeys) ? findingKeys : [];
+        for (const key of keys) {
+          closureTx({ findingKey: key, disposition: mapped, verifier: verifiedBy, revision });
+        }
+        return { resolved: keys };
+      });
+    },
+
     recordReceipt({ occurrenceId, kind, revision, digest, payload, actor, nowMs = Date.now() } = {}) {
       return tx(() => {
         if (!RECEIPT_KINDS.includes(kind)) throw code('E_DISPOSITION', `receipt kind "${kind}" is not in the allowlist`);
@@ -628,70 +742,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // closure receipt after the fix. ALREADY_FIXED requires a successful check receipt;
     // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE require at least one evidence receipt.
     recordClosure({ findingKey, disposition, verifier, revision, nowMs = Date.now() } = {}) {
-      return tx(() => {
-        if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
-          throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
-        }
-        const tail = db.prepare(
-          'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
-        ).get(findingKey);
-        if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
-        if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', 'latest occurrence is already resolved');
-        const receipts = db.prepare(
-          'SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid',
-        ).all(tail.id);
-        const fixIdx = receipts.findLastIndex((r) => r.kind === 'fix_response');
-        const lastFix = fixIdx >= 0 ? receipts[fixIdx] : undefined;
-        const afterFix = fixIdx >= 0 ? receipts.slice(fixIdx + 1) : [];
-        const checkConclusion = (r) => {
-          try { return JSON.parse(r.payload)?.conclusion; } catch { return undefined; }
-        };
-        if (disposition === 'VERIFIED') {
-          if (!lastFix) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a recorded fix response');
-          const fixOwner = lastFix.actor ?? null;
-          const fixRev = lastFix.revision ?? null;
-          if (!fixRev) throw code('E_NOT_RESOLVABLE', 'the latest fix response lacks a revision — evidence cannot be bound to it');
-          if (revision !== undefined && revision !== null && revision !== fixRev) {
-            throw code('E_NOT_RESOLVABLE', `closure revision "${revision}" does not match the latest fix revision "${fixRev}"`);
-          }
-          if (verifier && fixOwner && verifier === fixOwner) {
-            throw code('E_NOT_RESOLVABLE', 'the fix owner cannot verify their own closure');
-          }
-          const latestCheck = afterFix.filter((r) => r.kind === 'check_receipt').at(-1);
-          if (!latestCheck) {
-            throw code('E_NOT_RESOLVABLE', 'VERIFIED requires a mechanical check receipt recorded after the latest fix — silence is not success');
-          }
-          if (latestCheck.revision !== fixRev) {
-            throw code('E_NOT_RESOLVABLE', `the latest check ran on "${latestCheck.revision}", not the fix revision "${fixRev}"`);
-          }
-          const conclusion = checkConclusion(latestCheck);
-          if (conclusion !== 'success') {
-            throw code('E_NOT_RESOLVABLE', `the latest check after the fix is "${conclusion ?? 'opaque'}" — VERIFIED requires success`);
-          }
-          const independent = afterFix.some((r) =>
-            r.kind === 'change_review' && r.actor && r.actor !== fixOwner && r.revision === fixRev);
-          if (!independent) {
-            throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an independent change review of the fix revision recorded after the fix (self-reviews and pre-fix reviews do not count)');
-          }
-          const dotClosed = afterFix.some((r) => r.kind === 'dot_closure' && r.revision === fixRev);
-          if (!dotClosed) {
-            throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an applicable dot_closure receipt on the fix revision recorded after the fix');
-          }
-        } else if (disposition === 'ALREADY_FIXED') {
-          const shown = receipts.some((r) => r.kind === 'check_receipt' && checkConclusion(r) === 'success');
-          if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful mechanical check receipt');
-        } else {
-          // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions
-          const evidenced = receipts.some((r) =>
-            ['change_review', 'dot_closure', 'check_receipt', 'fix_response'].includes(r.kind));
-          if (!evidenced) throw code('E_NOT_RESOLVABLE', `${disposition} requires at least one evidence receipt on the occurrence`);
-        }
-        const id = randomUUID();
-        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), verifier ?? null, now());
-        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
-        return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
-      });
+      return tx(() => closureTx({ findingKey, disposition, verifier, revision }));
     },
 
     // Bounded retry reservations (packet §9): a persisted per-key counter; exceeding

@@ -23,7 +23,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 SCRIPT="$TMP/run-service-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, createHash } from 'node:crypto';
 const [servicePath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture } = await import(fixPath);
 const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
@@ -82,10 +82,17 @@ function makePublisherTransport({ existingExternalIds = [] } = {}) {
   const t = { checkRuns: [] };
   t.fetchJson = async (url, opts = {}) => {
     if (url === '/app/installations/42/access_tokens') return { token: 'it-1' };
+    if (/^\/repos\/artyhoo\/getff\/check-runs\/\d+$/.test(url)) {
+      const id = Number(url.split('/').pop());
+      const rec = t.checkRuns.find((c) => c.id === id);
+      if (!rec) throw Object.assign(new Error('check-run vanished before read-back'), { status: 404 });
+      return rec;
+    }
     if (url === '/repos/artyhoo/getff/check-runs' && opts.method === 'POST') {
       const body = JSON.parse(opts.body);
-      t.checkRuns.push(body);
-      return { id: 500 + t.checkRuns.length, ...body, app: { id: 999999999 } };
+      const rec = { id: 500 + t.checkRuns.length + 1, ...body, app: { id: 999999999 } };
+      t.checkRuns.push(rec);
+      return rec;
     }
     if (url.startsWith('/repos/artyhoo/getff/commits/') && url.includes('/check-runs')) {
       if (opts.headers?.authorization) {
@@ -494,6 +501,107 @@ try {
   else log('ok v2-go-authorizes-single-success');
   await svcV2.close();
 
+  // ── increment 5: the drain is the REAL consumer of accepted V2 records ───────
+  const v2Finding = (id, over = {}) => ({
+    finding_id: id, occurrence_id: `O-${id}`, title: `defect ${id}`,
+    requirement: 'the gate refuses unstaged paths', category: 'correctness', severity: 'critical',
+    blocking: true, failure_scenario: 'an unstaged path bypasses the gate',
+    locations: ['scripts/dot-review-gate/validate-report.mjs'], affected_consumers: ['core'],
+    evidence: [{ level: 'SOURCE_TRACED', reference: 'validate-report.mjs:1', note: null }],
+    expected_correction: 'refuse the path', verification_expectation: 'paired negative fails first',
+    ...over,
+  });
+  const svcF = await newService({ schemaBytesV2: V2_SCHEMA_BYTES, policyText: V2_POLICY_TEXT });
+  const baseF = `http://127.0.0.1:${svcF.port}`;
+  const cookieF = await login(baseF);
+  const claimF = await call(baseF, cookieF, '/claim', {});
+  if (claimF.status !== 200) fail(`f claim ${claimF.status}`);
+  const findingReport = v2Live({
+    verdict: { outcome: 'REVISE', rationale: 'one blocking defect', blockers: [] },
+    assessments: { ...canonicalV2.assessments, prior_review_sufficiency: 'INSUFFICIENT' },
+    findings: [v2Finding('F-900')],
+  }, claimF.json.claim_id);
+  const subF = await call(baseF, cookieF, '/submit', { claim_id: claimF.json.claim_id, generation: claimF.json.generation, report: findingReport });
+  if (subF.status !== 200) fail(`findings submit ${subF.status} ${JSON.stringify(subF.json).slice(0, 160)}`);
+  const dF = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const openF = svcF.ledger.listOpenFindings().filter((o) => o.finding_key === 'F-900');
+  if (openF.length !== 1 || openF[0].blocking !== 1) fail(`findings consumer open=${JSON.stringify(openF)} drain=${JSON.stringify(dF)}`);
+  else log('ok v2-findings-enter-lifecycle');
+
+  // superseded records still contribute their findings — the history the queue
+  // revalidates before any remediation launch
+  state = v2State();
+  const claimF2 = await call(baseF, cookieF, '/claim', {});
+  const lateReport = v2Live({
+    verdict: { outcome: 'REVISE', rationale: 'late sighting', blockers: [] },
+    assessments: { ...canonicalV2.assessments, prior_review_sufficiency: 'INSUFFICIENT' },
+    findings: [v2Finding('F-901')],
+  }, claimF2.json.claim_id);
+  state = { ...v2State(), head_sha: sha('e') };
+  const lateF = await call(baseF, cookieF, '/submit', { claim_id: claimF2.json.claim_id, generation: claimF2.json.generation, report: lateReport });
+  if (lateF.status !== 200 || lateF.json?.superseded !== true) fail(`late v2 submit ${lateF.status} ${JSON.stringify(lateF.json).slice(0, 140)}`);
+  await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const lateOpen = svcF.ledger.listOpenFindings().filter((o) => o.finding_key === 'F-901');
+  if (lateOpen.length !== 1) fail(`superseded findings lost: ${JSON.stringify(lateOpen)}`);
+  else log('ok superseded-findings-recorded-as-history');
+
+  // a stored V2 fix_response record is consumed into the lifecycle — no admission
+  // check is written from it
+  const assignmentF900 = svcF.ledger.claimFinding({ findingKey: 'F-900', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 600_000 }).assignment_id;
+  const loadExampleJson = async (name) => { const m = await import(v2fixPath); return JSON.parse(m.loadExample(name)); };
+  const fixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
+  fixRecord.assignment_id = assignmentF900;
+  fixRecord.finding_ids = ['F-900'];
+  fixRecord.fix_revision = 'fix-900';
+  fixRecord.claimed_by = 'exec-a';
+  const coordTuple = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2PolicyDigestOf, protocol_version: 'dot-pr-review/2.0.0' });
+  const fixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('f'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const fixPayload = JSON.stringify(fixRecord);
+  svcF.ledger.submitReport({
+    claimId: fixGen.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(fixPayload).digest('hex'),
+    payload: fixPayload, verdict: 'fix_response', kind: 'fix_response', leaseMinutes: 30,
+    liveTupleDigest: fixGen.generation.tuple_digest,
+  });
+  const tFix = makePublisherTransport();
+  const dFix = await svcF.drainOutbox({ publisherTransport: tFix.fetchJson });
+  const fixEntry = dFix.find((r) => r.action === 'fix-recorded');
+  const fixOcc = svcF.ledger.listOpenFindings().find((o) => o.finding_key === 'F-900');
+  if (!fixEntry || fixOcc?.state !== 'VERIFYING' || tFix.checkRuns.length !== 0) {
+    fail(`fix record consumption entry=${JSON.stringify(fixEntry)} occ=${fixOcc?.state} runs=${tFix.checkRuns.length}`);
+  } else log('ok v2-fix-response-consumed');
+
+  // a V2 closure_receipt record resolves ONLY with the evidence DR-R1 demands;
+  // unproven closures stay pending with their reason
+  const closureRecord = JSON.parse(JSON.stringify(await loadExampleJson('closure-receipt.json')));
+  closureRecord.finding_ids = ['F-900'];
+  closureRecord.verification_revision = 'fix-900';
+  closureRecord.disposition = 'RESOLVED';
+  closureRecord.verified_by = 'dot/primary';
+  svcF.ledger.recordReceipt({ occurrenceId: fixOcc.id, kind: 'change_review', revision: 'fix-900', digest: 'cr-900', payload: '{}', actor: 'reviewer-z' });
+  svcF.ledger.recordReceipt({ occurrenceId: fixOcc.id, kind: 'dot_closure', revision: 'fix-900', digest: 'dc-900', payload: '{}', actor: 'dot' });
+  const cloGen = svcF.ledger.claimGeneration({ tuple: coordTuple('6'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const cloPayload = JSON.stringify(closureRecord);
+  svcF.ledger.submitReport({
+    claimId: cloGen.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(cloPayload).digest('hex'),
+    payload: cloPayload, verdict: 'closure_receipt', kind: 'closure_receipt', leaseMinutes: 30,
+    liveTupleDigest: cloGen.generation.tuple_digest,
+  });
+  const tClo = makePublisherTransport();
+  const dClo = await svcF.drainOutbox({ publisherTransport: tClo.fetchJson });
+  if (!dClo.some((r) => r.action === 'closure-recorded') || tClo.checkRuns.length !== 0) fail(`closure consumption ${JSON.stringify(dClo)} runs=${tClo.checkRuns.length}`);
+  else log('ok v2-closure-receipt-consumed');
+
+  // unknown events stay pending — never consumed without their required action
+  svcF.ledger.outboxEnqueue('github.event', { event: 'push' }, 'gh:test-1');
+  svcF.ledger.outboxEnqueue('mystery.event', {}, 'mystery:1');
+  const dUn = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  if (dUn.filter((r) => r.action === 'unhandled').length < 2 || svcF.ledger.counts().outbox_pending < 2) {
+    fail(`unhandled routing ${JSON.stringify(dUn)} pending=${svcF.ledger.counts().outbox_pending}`);
+  } else log('ok unknown-events-stay-pending');
+  await svcF.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -521,5 +629,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   memory-ledger-refused memory-allowed-for-fixtures \
   v2-era-startup-requires-pin \
   v2-stitched-envelope-rejected v2-schema-required-field-enforced v2-revise-accepted-persisted \
-  v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success || exit 1
+  v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success \
+  v2-findings-enter-lifecycle superseded-findings-recorded-as-history \
+  v2-fix-response-consumed v2-closure-receipt-consumed unknown-events-stay-pending || exit 1
 echo "service.test.sh: all green"

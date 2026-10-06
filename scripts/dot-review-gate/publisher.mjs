@@ -216,7 +216,18 @@ async function createCheck({ app, policy, transport, sha, conclusion, externalId
     },
     body,
   });
-  return { check: created, reused: false };
+  // increment 5: a write is not "published" until it reads back with the intended
+  // effect — the remote id and content must confirm what was claimed (protocol:
+  // never claim a check was published from the POST response alone)
+  const readBack = await transport(`${app.apiBase}/repos/${app.repo}/check-runs/${created.id}`, {
+    headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' },
+  });
+  if (!readBack || readBack.id !== created.id || readBack.head_sha !== sha || readBack.conclusion !== conclusion) {
+    const e = new Error(`[publisher] E_PUBLISH_UNVERIFIED: check-run ${created?.id} did not read back with the intended effect (sha=${sha}, conclusion=${conclusion})`);
+    e.code = 'E_PUBLISH_UNVERIFIED';
+    throw e;
+  }
+  return { check: readBack, reused: false };
 }
 
 // DR-R5: publication identity derives from the AUTHENTICATED stored record and its
