@@ -1,9 +1,9 @@
 # Dot review gate — repair record for review findings R1–R11
 
-> **Status:** repair complete, 2026-10-05. 11 suites, 197 arms, all green under the repaired harness.
-> **Authoritative for:** the mechanism-only repair of review findings R1–R11 (review: `docs/superpowers/plans/2026-10-05-dot-staging-review-gate-review.md`) — per finding: the reproduction, the regression evidence, the change made, the verification, the remaining limitation.
+> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below). 17 suites, 350 arms, all green in one sweep on 2026-10-06.
+> **Authoritative for:** the mechanism-only repair of review findings R1–R11 (review: `docs/superpowers/plans/2026-10-05-dot-staging-review-gate-review.md`) — per finding: the reproduction, the regression evidence, the change made, the verification, the remaining limitation. The round-2 section extends the same format to the follow-up packet's verified defects.
 > **NOT authoritative for:** the packet documents (protocol, schema, handoff, design spec, kickoff — owned by the documentation session); live validation (S0/S4) and staging enforcement (S5) remain operator-gated; nothing here is evidence that any live proof ran.
-> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 11/11 suites exit 0 in one sweep; arm counts: strict-json 25, validate-report 42, load-policy 15, readiness 20, ledger 26, intake 18, publisher 10, reporter 8, armer 12, service 11, harness 10.
+> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 17/17 suites exit 0 in one sweep; arm counts: harness 10, strict-json 25, load-policy 15, readiness 20, validate-report 58, ledger 30, intake 19, publisher 18, reporter 8, armer 12, service 34, finding-lifecycle 42, cc-adapter 12, queue 11, budgets 15, registration 12, gatectl 9.
 
 ## R1 — publication trusted a detached boolean
 
@@ -121,3 +121,90 @@
 
 - The reviewer's demanded ordering (harness first, then regressions, then boundaries, then composition) was followed; every regression above was watched RED against the pre-fix module before the fix (per-finding RED receipts in the session ledger `.superpowers/sdd/2026-10-05-dot-staging-review-gate-junior-prompt/progress.md`).
 - Modules are no longer "prototype" in the composition sense: a credential-free end-to-end service exists and is pinned by tests. Live validation (S0), negative live matrix (S4 rows marked BLOCKED) and staging enforcement (S5) remain open and operator-gated; nothing here claims them.
+
+## Round 2 (packet 2026-10-06) — verified defects DR-R1–DR-R5, V2 extras, increments 5–9, validate-only CLI
+
+Scope: the continuation packet's five verified defects, two V2 extras, increments 5–9 and the validate-only item. Same discipline: every fix RED-first (quoted failure), paired-negative arms name the single property under test (T22 isolation), full sweep green per stage. Commits: `dbd17c8abca` (DR-R1), `a68cc47acf2` (DR-R2), `2d93f60a711` (DR-R3), `f74339c90cd` (DR-R4), `0d8f89e9ff6` (DR-R5), `b129ff17def` (V2 extras), `a515e932329` (inc 5), `3df17e447a5` (inc 6), `2fd90c475b0` (inc 7), `a6b27d420c4` (inc 8), `e41356473be` (inc 9), `0a7663e7eb0` (gatectl).
+
+### DR-R1 — closure evidence could be stale, self-authored or irrelevant
+
+- **Defect:** closure to VERIFIED accepted evidence unrelated to the fix revision (pre-fix successes, the fix owner reviewing their own work, missing dot_closure receipt).
+- **Change:** `ledger.mjs` `closureTx` (shared by `recordClosure` and the inc-5 `applyClosureReceipt`) now binds the evidence set to the LATEST fix_response: a successful check receipt ON the fix revision AFTER the fix; an independent change review (actor ≠ fix owner, after the fix, on the fix revision); a dot_closure receipt. ALREADY_FIXED requires a successful check; NOT_APPLICABLE / REJECTED_WITH_EVIDENCE require evidence receipts; a second fix invalidates the earlier evidence set.
+- **Regression:** finding-lifecycle +12 arms (`verified-requires-*`, `stale-review-before-fix-refused`, `self-review-refused`, `second-fix-invalidates-evidence`, `already-fixed-*`, `rejected-*`); isolation per T22 — every arm carries change_review + dot_closure so only the property under test differs.
+- **Verification:** finding-lifecycle 42/42.
+- **Remaining limitation:** check/actor identity binds ledger receipts; that receipts correspond to real GitHub objects is live-matrix material.
+
+### DR-R2 — corrective ownership was per-occurrence, so recurrence escaped the fence
+
+- **Defect:** a claim fenced one occurrence; a recurrence of the same finding opened a second claim for the same PR (two concurrent fixers), and cessation on expiry released only one slot.
+- **Change:** occurrences carry `repository_id` + `pr_node_id` derived from the issuing generation; `claimFinding` fences scope-wide (any live claim in the scope refuses `E_ALREADY_CLAIMED`); recurrence rebinds the active claim to the newest occurrence; scopeless fixture rows keep the per-occurrence fence.
+- **Regression:** finding-lifecycle +7 arms (`pr-scope-single-owner`, `cessation-scope-wide`, `revoke-frees-whole-scope`, `cross-pr-not-fenced`, `fence-survives-reopen`, `claim-follows-recurrence-tail`, `recurrence-claim-refused`).
+- **Verification:** finding-lifecycle 42/42; the DR-R2 cessation arm initially passed for the wrong reason (the claimant's own expired lease) — fixed by the scope-wide fence, after which the arm cascade disappeared.
+- **Remaining limitation:** none offline.
+
+### DR-R3 — rejection from admission destroyed correctly-issued late reports
+
+- **Defect:** a report submitted after the tuple moved hit the admission path's refuse and was lost — no history, no replay, no receipt.
+- **Change:** `ledger.submitReport` validates against the ISSUED generation tuple: a moved tuple stores the report as superseded history (`superseded_at`, `admission: false`, envelope bytes + digest + `received_via` provenance) and returns a receipt; replay returns the existing receipt; the lease is checked only when the tuple is current.
+- **Regression:** intake `submit-tuple-drift-archived-as-history` + `envelope-bytes-and-provenance-stored`; service `late-report-persisted-as-history`, `replay-after-movement-existing-receipt`, `archived-record-never-publishes`, `forged-still-rejected-after-movement`; ledger replay arms.
+- **Verification:** intake 19/19, service 34/34, ledger 30/30.
+- **Remaining limitation:** none offline.
+
+### DR-R4 — V2 documents validated without the pinned schema bytes
+
+- **Defect:** a schema-less V2 document could reach validation; service startup accepted a V2-era policy without the pin; publication did not require the bytes.
+- **Change:** `validate-report.mjs` refuses schema-less V2 validation (`E_SCHEMA`); `service.mjs` startup requires `schemaBytesV2` for V2-era policy (`E_CONFIG`); `publisher.mjs` threads the bytes through load/publish (`E_CONFIG` on absence); CLI `--schema-v2`.
+- **Regression:** validate-report `v2-missing-schema-bytes-refused`, `v2-cli-without-schema-refused`, `v2-cli-with-schema-accepts`; service `v2-era-startup-requires-pin`; publisher `v2-schema-less-publication-refused`, `v2-publisher-publishes-with-pin`.
+- **Verification:** validate-report 58/58, service 34/34, publisher 18/18.
+- **Remaining limitation:** the pin's byte-identity against the canonical schema is enforced by the `v2-schema-pin-integrity` arm at the merge-forward.
+
+### DR-R5 — publication identity and drain concurrency
+
+- **Defect:** the external check-run id was derived from report top-level fields (conclusion change reused the id, colliding histories); discovery failures were swallowed as "not found"; concurrent drains could double-hand outbox items; wording claimed exactly-once.
+- **Change:** identity is intent-bound: `sha256(payloadDigest:generation:policySha:mergeSha:conclusion)` — a conclusion change gets a fresh id by construction; check-run reuse requires the SAME conclusion; discovery tolerates only 404; POST read-back verified (`E_PUBLISH_UNVERIFIED`); `outboxClaimBatch` is a claim-lease RESERVATION (disjoint batches, restart-persistent); docs say at-least-once.
+- **Regression:** publisher `failure-never-reuses-success`, `go-never-reuses-failure`, `v2-crash-retry-idempotent`, `discovery-failure-refuses`, `publication-read-back-verified`, `read-back-mismatch-refused`; service concurrent-drain arms; ledger `concurrent-drain-reserved`, `stale-lease-recovered`.
+- **Verification:** publisher 18/18, service 34/34.
+- **Remaining limitation:** read-back against the real Checks API is live-matrix material.
+
+### V2 extras (packet) — HISTORICAL never authorizes; envelope bytes stored
+
+- **Change:** the V2 authorizing predicate requires `review_identity.mode === 'OPEN_PR'` (HISTORICAL with a qualifying verdict still refuses — `E_KIND_RECAST`-family marker); intake stores the original bounded (≤1 MiB) envelope bytes with digest + `received_via`.
+- **Regression:** validate-report `v2-historical-qualifying-not-authorizing`; intake `envelope-bytes-and-provenance-stored`.
+- **Remaining limitation:** none offline.
+
+### Increment 5 — V2 records reach the lifecycle through real consumers
+
+- **Change:** `service.mjs` drain routes by `record_type`: review_report findings → `recordFindings` (published AND superseded); fix_response/closure_receipt → ledger apply methods binding by assignment+owner (`E_FENCING` revoked / `E_IDENTITY` wrong owner / `E_LIMITS` key mismatch; closure maps RESOLVED→VERIFIED through the shared `closureTx` gate); unknown events stay pending `unhandled`.
+- **Regression:** service +5 arms (`v2-findings-enter-lifecycle`, `superseded-findings-recorded-as-history`, `v2-fix-response-consumed`, `v2-closure-receipt-consumed`, `unknown-events-stay-pending`); finding-lifecycle +6 consumer arms.
+- **Remaining limitation:** publication read-back closure (`E_PUBLISH_UNVERIFIED`) is publisher-level, not a lifecycle transition.
+
+### Increment 6 — CC adapter over the destination's real coordination channel
+
+- **Probed destination (2026-10-06):** `~/.claude-coordination/<project>/` with `_handoff-<sessionId>.md` `Read when:` convention (161 live files), osascript notify (merge-lock-watcher convention), session UUIDs.
+- **Change:** `cc-adapter.mjs` — INTENT row in the ledger BEFORE delivery; atomic `_dot-gate-msg-<id>.md` write; ACK via `_dot-gate-ack-<id>.md`; idempotent recovery; replacement held while the previous claim is live or expired-unrevoked (`E_CESSATION_UNKNOWN`); notify failure non-fatal.
+- **Regression:** cc-adapter.test.sh (new 13th CI line, 12 arms).
+- **Remaining limitation:** a real cross-session wake (the file actually pulling a session back) is live-enrollment material.
+
+### Increment 7 — persistent work queue in the protocol's priority order
+
+- **Change:** `queue.mjs` — buildQueue in protocol §3 order (verify oldest first → qualifying open non-draft PRs by ready-then-number → unreviewed merged newest first; blocked items visible with reason); durable `work_claims` reservations (disjoint batches, restart-persistent, lapsed leases recover); `gateHistorical` revalidates a finding before any fix launch (already-fixed → ALREADY_FIXED, no launch).
+- **Regression:** queue.test.sh (14th CI line, 11 arms).
+- **Remaining limitation:** qualification of "qualifying PR" against live GitHub state is adapter input, live-gated.
+
+### Increment 8 — finite dispatch budgets with pre-inference reservations
+
+- **Change:** `budgets.mjs` — REQUIRED_LIMITS missing disables unattended dispatch (`E_LIMITS_MISSING`); reservations persist BEFORE model invocation (`launch:<window>` / `fix:<occurrence>` / `prchurn:<pr>` in retry_reservations); window rolls; bursts coalesce; quota pause distinct from the operator pause; `shouldLaunchCronTurn` refuses an empty turn.
+- **Regression:** budgets.test.sh (15th CI line, 15 arms; `reservation-precedes-invocation` — the launch spy never fires past the bound).
+- **Remaining limitation:** the limits themselves are operator-configured; no defaults are invented.
+
+### Increment 9 — durable managed-PR registration, merge default off
+
+- **Change:** `registration.mjs` + `pr_registrations` table — armed-state reconciliation completes BEFORE registration issues (armed → disarm; unknown → `E_ARMED_UNKNOWN`, no row: `getRegistration() === undefined` is the admission hold); registration unique per PR, restart-persistent; merge DEFAULT OFF — enable/release require an explicit recorded operator transition; `executorGuard` refuses executor merge/arm (`E_SELF_MERGE`).
+- **Regression:** registration.test.sh (16th CI line, 12 arms).
+- **Remaining limitation:** the native probe/disarm against real GitHub is a live acceptance requirement (packet's own wording).
+
+### Validate-only control surface (packet item)
+
+- **Change:** `gatectl.mjs` — `validate` (policy fail-closed, schema-pin verified against ACTUAL bytes `E_SCHEMA_PIN`, ledger open+migrate, queue build, dispatch-budget status; ZERO transport calls, ZERO model launches — spy-counted in the summary), `pause`/`read`/`recover` offline, `start` refuses without `--allow-live` (`E_VALIDATE_ONLY`) and reports live start `E_LIVE_UNENROLLED`.
+- **Regression:** gatectl.test.sh (17th CI line, 9 arms).
+- **Remaining limitation:** everything here is offline/ASSISTED — a real unattended Dot launch/export is unproved (packet wording: record ASSISTED until proved live).
