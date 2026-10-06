@@ -208,6 +208,9 @@ function isTerminal(state) {
 // itself (lease expiry is not cessation) — replacement requires an explicit revoke.
 const FINDING_OPEN_STATES = ['OPEN', 'ASSIGNED', 'ACKNOWLEDGED', 'VERIFYING', 'DECISION_REQUIRED'];
 const RECEIPT_KINDS = ['fix_response', 'check_receipt', 'change_review', 'dot_closure', 'closure', 'revoke'];
+// SP-6: verdicts that AFFIRM a fix on a change_review receipt — an absent verdict
+// is the legacy/minted shape, anything else (REVISE, opaque strings) holds closure
+const AFFIRMATIVE_REVIEW_VERDICTS = ['GO', 'RESOLVED', 'APPROVED', 'SATISFIED'];
 const CLOSURE_DISPOSITIONS = ['VERIFIED', 'ALREADY_FIXED', 'NOT_APPLICABLE', 'REJECTED_WITH_EVIDENCE'];
 
 function code(name, message) {
@@ -402,23 +405,51 @@ export function openLedger(dbPath, { faultAfter } = {}) {
           throw code('E_NOT_RESOLVABLE', `the latest "${ctx}" check after the fix is "${conclusion ?? 'opaque'}" — VERIFIED requires success`);
         }
       }
-      const independent = afterFix.some((r) =>
+      // SP-6: existence is not affirmation — the LATEST independent change review
+      // and the LATEST Dot closure receipt on the fix revision must each be
+      // affirmative (a newer negative invalidates an older positive), and the Dot
+      // receipt carries no unresolved blockers.
+      const independentReviews = afterFix.filter((r) =>
         r.kind === 'change_review' && r.actor && r.actor !== fixOwner && r.revision === fixRev);
-      if (!independent) {
+      const latestReview = independentReviews.at(-1);
+      if (!latestReview) {
         throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an independent change review of the fix revision recorded after the fix (self-reviews and pre-fix reviews do not count)');
       }
-      const dotClosed = afterFix.some((r) => r.kind === 'dot_closure' && r.revision === fixRev);
-      if (!dotClosed) {
+      let reviewVerdict;
+      try { reviewVerdict = JSON.parse(latestReview.payload)?.verdict; } catch { reviewVerdict = undefined; }
+      if (reviewVerdict !== undefined && !AFFIRMATIVE_REVIEW_VERDICTS.includes(reviewVerdict)) {
+        throw code('E_NOT_RESOLVABLE', `the current independent change review is "${reviewVerdict}" — VERIFIED requires an affirmative verdict (${AFFIRMATIVE_REVIEW_VERDICTS.join('/')})`);
+      }
+      const dotReceiptsOnFix = afterFix.filter((r) => r.kind === 'dot_closure' && r.revision === fixRev);
+      const latestDot = dotReceiptsOnFix.at(-1);
+      if (!latestDot) {
         throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an applicable dot_closure receipt on the fix revision recorded after the fix');
       }
+      let dotPayload = {};
+      try { dotPayload = JSON.parse(latestDot.payload) ?? {}; } catch { dotPayload = {}; }
+      if (dotPayload.disposition !== undefined && dotPayload.disposition !== 'VERIFIED') {
+        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt is "${dotPayload.disposition}" — VERIFIED requires the current applicable affirmative resolution`);
+      }
+      if (Array.isArray(dotPayload.blockers) && dotPayload.blockers.length > 0) {
+        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt carries unresolved blockers (${dotPayload.blockers.length}) — VERIFIED requires none`);
+      }
     } else if (disposition === 'ALREADY_FIXED') {
-      const shown = receipts.some((r) => r.kind === 'check_receipt' && checkConclusion(r) === 'success');
-      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful mechanical check receipt');
+      // SP-6: the verification basis is an IDENTIFIED check on a revision — an
+      // anonymous success asserts nothing
+      const shown = receipts.some((r) => {
+        if (r.kind !== 'check_receipt' || checkConclusion(r) !== 'success' || !r.revision) return false;
+        let ctx;
+        try { ctx = JSON.parse(r.payload)?.context; } catch { ctx = undefined; }
+        return typeof ctx === 'string' && ctx.length > 0;
+      });
+      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful check receipt that identifies its check context and revision — an anonymous success is not evidence');
     } else {
-      // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions
+      // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions.
+      // SP-6: the evidence must carry a principal; an anonymous receipt asserts
+      // nothing about the world.
       const evidenced = receipts.some((r) =>
-        ['change_review', 'dot_closure', 'check_receipt', 'fix_response'].includes(r.kind));
-      if (!evidenced) throw code('E_NOT_RESOLVABLE', `${disposition} requires at least one evidence receipt on the occurrence`);
+        ['change_review', 'dot_closure', 'check_receipt', 'fix_response'].includes(r.kind) && r.actor);
+      if (!evidenced) throw code('E_NOT_RESOLVABLE', `${disposition} requires at least one evidence receipt carrying a principal on the occurrence`);
     }
     const id = randomUUID();
     db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')

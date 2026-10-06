@@ -398,6 +398,84 @@ try {
   seedSp7('artyhoo/getff#S7G', 'fix-s7g', [['ci/tests', 'success'], ['ci/lint', 'success']]);
   expectCode(() => ledger3.recordClosure({ findingKey: 'artyhoo/getff#S7G', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-s7g', nowMs: clock }), 'E_CONFIG', 'sp7-missing-requiredcontexts-config-refused');
 
+  // ── SP-6: closure requires an affirmative CURRENT resolution ──────────────────
+  // The independence and Dot-closure checks tested receipt EXISTENCE: a REVISE
+  // verdict on the current independent change review, or a
+  // DECISION_REQUIRED/NOT_APPLICABLE disposition on the current Dot closure
+  // receipt, still resolved VERIFIED. The LATEST qualifying receipt of each kind
+  // must be affirmative (a newer negative invalidates an older positive), carry
+  // no unresolved blockers, and the weaker dispositions bind to their actual
+  // verification basis.
+  const seedSp6 = (key, fixRev, crPayload, dcPayload) => {
+    ledger3.recordFindings('rep-sp6', [FINDING({ key })]);
+    const c = ledger3.claimFinding({ findingKey: key, owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+    ledger3.applyFixResponseRecord({
+      assignmentId: c.assignment_id, claimedBy: 'exec-a', fixRevision: fixRev,
+      findingKeys: [key], mechanicalReceipts: [{ context: 'ci', conclusion: 'success', reference: 'r' }],
+      digest: `sp6:${key}`, payload: '{}', nowMs: clock,
+    });
+    const occ = ledger3.lineage(key).at(-1).id;
+    ledger3.recordReceipt({ occurrenceId: occ, kind: 'change_review', revision: fixRev, digest: `cr:${key}`, payload: JSON.stringify(crPayload), actor: 'reviewer-z', nowMs: clock });
+    ledger3.recordReceipt({ occurrenceId: occ, kind: 'dot_closure', revision: fixRev, digest: `dc:${key}`, payload: JSON.stringify(dcPayload), actor: 'dot', nowMs: clock });
+    return occ;
+  };
+  const closeSp6 = (key, rev) => ledger3.recordClosure({ findingKey: key, disposition: 'VERIFIED', verifier: 'dot', revision: rev, requiredContexts: ['ci'], nowMs: clock });
+
+  // the probe's counterexample, half one: the current independent change review
+  // says REVISE — existence is not affirmation
+  seedSp6('artyhoo/getff#S6A', 'fix-s6a', { verdict: 'REVISE' }, {});
+  expectCode(() => closeSp6('artyhoo/getff#S6A', 'fix-s6a'), 'E_NOT_RESOLVABLE', 'sp6-revise-change-review-holds-closure');
+
+  // half two: the current Dot closure receipt says DECISION_REQUIRED/REVISE
+  seedSp6('artyhoo/getff#S6B', 'fix-s6b', {}, { disposition: 'DECISION_REQUIRED', verdict: 'REVISE' });
+  expectCode(() => closeSp6('artyhoo/getff#S6B', 'fix-s6b'), 'E_NOT_RESOLVABLE', 'sp6-decision-required-dot-closure-holds');
+
+  // an opaque verdict is not an affirmative one
+  seedSp6('artyhoo/getff#S6C', 'fix-s6c', { verdict: 'SOME-OPAQUE-STATE' }, {});
+  expectCode(() => closeSp6('artyhoo/getff#S6C', 'fix-s6c'), 'E_NOT_RESOLVABLE', 'sp6-opaque-verdict-holds-closure');
+
+  // a not-applicable Dot receipt does not close the finding
+  seedSp6('artyhoo/getff#S6D', 'fix-s6d', {}, { disposition: 'NOT_APPLICABLE' });
+  expectCode(() => closeSp6('artyhoo/getff#S6D', 'fix-s6d'), 'E_NOT_RESOLVABLE', 'sp6-not-applicable-dot-closure-holds');
+
+  // unresolved blockers on the current Dot receipt hold the closure
+  seedSp6('artyhoo/getff#S6E', 'fix-s6e', {}, { disposition: 'VERIFIED', blockers: ['waiting on upstream fix'] });
+  expectCode(() => closeSp6('artyhoo/getff#S6E', 'fix-s6e'), 'E_NOT_RESOLVABLE', 'sp6-unresolved-blockers-hold');
+
+  // a newer negative invalidates an older positive (same independent principal)
+  seedSp6('artyhoo/getff#S6F', 'fix-s6f', { verdict: 'GO' }, {});
+  const occF = ledger3.lineage('artyhoo/getff#S6F').at(-1).id;
+  ledger3.recordReceipt({ occurrenceId: occF, kind: 'change_review', revision: 'fix-s6f', digest: 'cr:s6f-late', payload: '{"verdict":"REVISE"}', actor: 'reviewer-z', nowMs: clock });
+  expectCode(() => closeSp6('artyhoo/getff#S6F', 'fix-s6f'), 'E_NOT_RESOLVABLE', 'sp6-newer-negative-invalidates-older-positive');
+
+  // GO control: an affirmative current change review + affirmative current Dot
+  // receipt close normally
+  seedSp6('artyhoo/getff#S6G', 'fix-s6g', { verdict: 'GO' }, { disposition: 'VERIFIED' });
+  closeSp6('artyhoo/getff#S6G', 'fix-s6g');
+  if (ledger3.getOccurrence(ledger3.lineage('artyhoo/getff#S6G').at(-1).id)?.state !== 'RESOLVED') fail('sp6-go-control did not resolve');
+  else log('ok sp6-affirmative-controls-resolve');
+
+  // REJECTED_WITH_EVIDENCE binds to a PRINCIPAL: an anonymous review asserts nothing
+  ledger3.recordFindings('rep-sp6', [FINDING({ key: 'artyhoo/getff#S6I' })]);
+  const clI = ledger3.claimFinding({ findingKey: 'artyhoo/getff#S6I', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+  ledger3.recordReceipt({ occurrenceId: clI.occurrence_id, kind: 'change_review', revision: 'fix-s6i', digest: 'cr:s6i-anon', payload: '{"basis":"duplicate"}', nowMs: clock });
+  expectCode(() => ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6I', disposition: 'REJECTED_WITH_EVIDENCE', verifier: 'dot', revision: 'fix-s6i', nowMs: clock }), 'E_NOT_RESOLVABLE', 'sp6-rejected-requires-principal');
+  ledger3.recordReceipt({ occurrenceId: clI.occurrence_id, kind: 'change_review', revision: 'fix-s6i', digest: 'cr:s6i-signed', payload: '{"basis":"duplicate"}', actor: 'reviewer-z', nowMs: clock });
+  ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6I', disposition: 'REJECTED_WITH_EVIDENCE', verifier: 'dot', revision: 'fix-s6i', nowMs: clock });
+  if (ledger3.getOccurrence(clI.occurrence_id)?.state !== 'RESOLVED') fail('sp6-rejected control did not resolve');
+  else log('ok sp6-rejected-signed-review-resolves');
+
+  // ALREADY_FIXED binds to its actual verification basis: an IDENTIFIED check on a
+  // revision — an anonymous success is not evidence
+  ledger3.recordFindings('rep-sp6', [FINDING({ key: 'artyhoo/getff#S6H' })]);
+  const clH = ledger3.claimFinding({ findingKey: 'artyhoo/getff#S6H', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+  ledger3.recordReceipt({ occurrenceId: clH.occurrence_id, kind: 'check_receipt', revision: 'base-abc', digest: 'c:s6h-anon', payload: '{"conclusion":"success"}', nowMs: clock });
+  expectCode(() => ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6H', disposition: 'ALREADY_FIXED', verifier: 'dot', revision: 'fix-s6h', nowMs: clock }), 'E_NOT_RESOLVABLE', 'sp6-already-fixed-binds-check-identity');
+  ledger3.recordReceipt({ occurrenceId: clH.occurrence_id, kind: 'check_receipt', revision: 'base-abc', digest: 'c:s6h-id', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
+  ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6H', disposition: 'ALREADY_FIXED', verifier: 'dot', revision: 'fix-s6h', nowMs: clock });
+  if (ledger3.getOccurrence(clH.occurrence_id)?.state !== 'RESOLVED') fail('sp6-already-fixed control did not resolve');
+  else log('ok sp6-already-fixed-identified-check-resolves');
+
   ledger3.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -430,5 +508,11 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   sp7-mixed-order-a-refuses-failing-required-check sp7-mixed-order-b-refuses \
   sp7-all-required-success-resolves sp7-missing-required-context-refuses \
   sp7-same-context-supersession-resolves sp7-stale-revision-refuses \
-  sp7-missing-requiredcontexts-config-refused || exit 1
+  sp7-missing-requiredcontexts-config-refused \
+  sp6-revise-change-review-holds-closure sp6-decision-required-dot-closure-holds \
+  sp6-opaque-verdict-holds-closure sp6-not-applicable-dot-closure-holds \
+  sp6-unresolved-blockers-hold sp6-newer-negative-invalidates-older-positive \
+  sp6-affirmative-controls-resolve sp6-already-fixed-binds-check-identity \
+  sp6-already-fixed-identified-check-resolves sp6-rejected-requires-principal \
+  sp6-rejected-signed-review-resolves || exit 1
 echo "finding-lifecycle.test.sh: all green"
