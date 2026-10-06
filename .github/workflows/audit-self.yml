@@ -2806,6 +2806,9 @@ jobs:
       # Dot gate S4 offline matrix (see the job's own header for the end-of-file
       # placement rationale). Wired by construction — principle 36 catches the omission.
       - dot-review-gate-suites
+      # Sanctioned .husky patch channel (CLAUDE.md harness gates). Wired by construction —
+      # principle 36 catches the omission.
+      - sanctioned-husky-patch-channel
       # The install-area path scope. Its decision is re-checked below (PATH_SCOPE_INSTALL):
       # a failed/cancelled path-scope job reports '' here and fails the gate even though the
       # jobs gated on it then show only as `skipped`.
