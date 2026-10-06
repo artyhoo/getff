@@ -1,6 +1,6 @@
 ---
 name: claude-glm-executor-handoff
-description: Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly).
+description: "Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly)."
 ---
 
 > Generated native entry from `.agents/procedures/claude-glm-executor-handoff/SKILL.md`; shared procedure is authored once.

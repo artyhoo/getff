@@ -1,8 +1,8 @@
 ---
 name: dispatcher
-description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invocation channel: explicit /dispatcher only — disable-model-invocation:true is a channel flag and not a permission (§0). NOT for planning — priority and launch-table are /pipeline.
+description: "Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invocation channel: explicit /dispatcher only — disable-model-invocation:true is a channel flag and not a permission (§0). NOT for planning — priority and launch-table are /pipeline."
 arguments: [umbrella]
-argument-hint: "[umbrella-name]"
+argument-hint: '[umbrella-name]'
 disable-model-invocation: true
 model: opus
 allowed-tools:

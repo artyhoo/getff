@@ -1,6 +1,6 @@
 ---
 name: aif-doctor
-description: Use when the aif-handoff runtime is misbehaving — a task is stuck or crash-looping, new tasks stay backlog at capacity, the claude runtime is broken. Triggers: aif-doctor, aif health, task stuck, задача висит, runtime broken, рантайм сломан, aif не отвечает, capacity skipping, native binary not installed, why won't my task start. Invokable when the dispatcher is NOT running. NOT for running the dispatch loop (/dispatcher) or planning (/pipeline).
+description: "Use when the aif-handoff runtime is misbehaving — a task is stuck or crash-looping, new tasks stay backlog at capacity, the claude runtime is broken. Triggers: aif-doctor, aif health, task stuck, задача висит, runtime broken, рантайм сломан, aif не отвечает, capacity skipping, native binary not installed, why won't my task start. Invokable when the dispatcher is NOT running. NOT for running the dispatch loop (/dispatcher) or planning (/pipeline)."
 arguments: []
 disable-model-invocation: false
 model: opus
@@ -12,8 +12,8 @@ allowed-tools:
   - Bash(ls *)
   - Bash(cat *)
   - Bash(grep *)
-  - Bash(date *)   # GH #1581: age-threshold arithmetic for the -t --tail log windows (§3.7/§3.8)
-  - Bash(awk *)    # GH #1581: age cut on docker logs -t timestamps (§3.7/§3.8)
+  - Bash(date *) # GH #1581: age-threshold arithmetic for the -t --tail log windows (§3.7/§3.8)
+  - Bash(awk *) # GH #1581: age cut on docker logs -t timestamps (§3.7/§3.8)
   - Read
 ---
 

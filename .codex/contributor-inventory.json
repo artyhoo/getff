@@ -245,7 +245,7 @@
     {
       "path": ".agents/skills/aif-doctor/SKILL.md",
       "kind": "text",
-      "fingerprint": "8f386adf0d37ef7d829ff570bacd7850ed964c0101dcab4311091ae2c4961a01"
+      "fingerprint": "1090a46872d910b0f95c3d74c92a1263cd25a815d95086ce0955536af8191229"
     },
     {
       "path": ".agents/skills/aif-doctor/agents/openai.yaml",
@@ -258,9 +258,14 @@
       "fingerprint": "../../procedures/aif-doctor/helpers"
     },
     {
+      "path": ".agents/skills/aif-doctor/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/aif-doctor/references"
+    },
+    {
       "path": ".agents/skills/arch/SKILL.md",
       "kind": "text",
-      "fingerprint": "6647063a286c5471b334b2b6b9b78e7ecee7622e72758716228086441ff623c3"
+      "fingerprint": "ba309fbd70f465065e9360d0c4a33fef2c3b71472732c0c18ee2f595f6db0c3d"
     },
     {
       "path": ".agents/skills/arch/agents/openai.yaml",
@@ -275,7 +280,7 @@
     {
       "path": ".agents/skills/claude-glm-executor-handoff/SKILL.md",
       "kind": "text",
-      "fingerprint": "d3b612f260628c07f69a1fa23279cafe37ae598922f4ed70ac1297ac9b855085"
+      "fingerprint": "af5c8679962af6e4d8229193d7c58fd2f86ff6bafea82ee12f3b1e7bf7182525"
     },
     {
       "path": ".agents/skills/claude-glm-executor-handoff/agents/openai.yaml",
@@ -285,7 +290,7 @@
     {
       "path": ".agents/skills/dispatcher/SKILL.md",
       "kind": "text",
-      "fingerprint": "de64cde44e823ca7f1e6c5a9348d43232133c406c2d20d8406476c6c12934115"
+      "fingerprint": "9c737d0707ea4f0b45edb75156afcecbe388125f9eb824037aee617ea37fe223"
     },
     {
       "path": ".agents/skills/dispatcher/agents/openai.yaml",
@@ -296,6 +301,11 @@
       "path": ".agents/skills/dispatcher/helpers",
       "kind": "symlink",
       "fingerprint": "../../procedures/dispatcher/helpers"
+    },
+    {
+      "path": ".agents/skills/dispatcher/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/dispatcher/references"
     },
     {
       "path": ".agents/skills/docs-author/SKILL.md",
@@ -330,7 +340,7 @@
     {
       "path": ".agents/skills/harvest/SKILL.md",
       "kind": "text",
-      "fingerprint": "1b8cc1c978bc5ee0394d80c1bb3aaa09ae27395dc6d048bac09e1784175f188f"
+      "fingerprint": "f9a7764a0a89b7e875e689fef0f0978fbdb1526507390fec91a723951078fb50"
     },
     {
       "path": ".agents/skills/harvest/agents/openai.yaml",
@@ -358,6 +368,11 @@
       "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
     },
     {
+      "path": ".agents/skills/night-mode/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/night-mode/references"
+    },
+    {
       "path": ".agents/skills/orchestrator/SKILL.md",
       "kind": "text",
       "fingerprint": "f55ffa157b850c131a7f7be8a96156f0f434b7333b0ff9cd8aa958a4928b1b24"
@@ -380,7 +395,7 @@
     {
       "path": ".agents/skills/pipeline/SKILL.md",
       "kind": "text",
-      "fingerprint": "baa5be8810174feb0b6d59eb7a3c474ddda254a273030241314ca143b09b8b2c"
+      "fingerprint": "1739df060f6214302235ba2a717d462ac61f2e1f361a71dfbf6fbf0b7f4946a8"
     },
     {
       "path": ".agents/skills/pipeline/agents/openai.yaml",
@@ -485,7 +500,7 @@
     {
       "path": ".agents/skills/tool-bootstrapping/SKILL.md",
       "kind": "text",
-      "fingerprint": "061a02929ec0f1a6e8c636862fa783afb41c341dfcd91dced77a000897936954"
+      "fingerprint": "9e125d7b582196e7855129124813a162e33611f76df4cf94ea85e05b8c3411a1"
     },
     {
       "path": ".agents/skills/tool-bootstrapping/agents/openai.yaml",
