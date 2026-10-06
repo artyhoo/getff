@@ -247,13 +247,35 @@ expect_ok "$rc2" recover-repeat-idempotent "$out2"
 echo "$out2" | grep -q '"recovered_deliveries": *0' || { echo "FAIL repeat-redelivered"; status=1; }
 echo "$out2" | grep -q '"local_message_writes": *0' || { echo "FAIL repeat-wrote-again"; status=1; }
 
-# mid-recovery state change: the FIRST action delivers, the SECOND structurally holds
+# Real mid-recovery transition: both registrations start ACTIVE. A destination
+# filesystem fault-injection releases the SECOND only after the FIRST file lands.
 S7H="$TMP/s7h"; mkdir -p "$S7H"
 seed_intent "$S7H/l.sqlite" "$S7H" "PR_s7h1" "$RECOVER_REPO"
 seed_registration "$S7H/l.sqlite" "PR_s7h1" 2082 ACTIVE
 seed_intent "$S7H/l.sqlite" "$S7H" "PR_s7h2" "$RECOVER_REPO"
-out="$(run_cli recover --ledger "$S7H/l.sqlite" --coordination-dir "$S7H" --policy "$POLICY")"; rc=$?
+seed_registration "$S7H/l.sqlite" "PR_s7h2" 2083 ACTIVE
+cat > "$S7H/release-after-delivery.mjs" <<'NODE'
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+import { pathToFileURL } from 'node:url';
+const { openLedger } = await import(pathToFileURL(process.env.DOT_TEST_LEDGER_MODULE));
+const originalRename = fs.renameSync;
+let flipped = false;
+fs.renameSync = function (from, to) {
+  originalRename(from, to);
+  if (!flipped && String(to).includes('_dot-gate-msg-')) {
+    flipped = true;
+    const l = openLedger(process.env.DOT_TEST_RECOVERY_DB);
+    l.updateRegistration('PR_s7h2', {state: 'RELEASED', operatorTransition: 'release after first real message write'});
+    l.close();
+    fs.writeFileSync(process.env.DOT_TEST_FLIP_MARKER, 'first message landed; second registration released');
+  }
+};
+syncBuiltinESMExports();
+NODE
+out="$(NODE_OPTIONS="--import=$S7H/release-after-delivery.mjs" DOT_TEST_LEDGER_MODULE="$DIR/ledger.mjs" DOT_TEST_RECOVERY_DB="$S7H/l.sqlite" DOT_TEST_FLIP_MARKER="$S7H/flipped" run_cli recover --ledger "$S7H/l.sqlite" --coordination-dir "$S7H" --policy "$POLICY")"; rc=$?
 expect_ok "$rc" recover-mid-recovery-partial "$out"
+[ -f "$S7H/flipped" ] && [ "$(count_msgs "$S7H")" -eq 1 ] && echo "ok recover-state-changed-after-first-write" || { echo "FAIL mid-recovery-flip-not-observed"; status=1; }
 echo "$out" | grep -q '"recovered_deliveries": *1' || { echo "FAIL mid-recovery-count"; status=1; }
 echo "$out" | grep -q 'E_UNREGISTERED' || { echo "FAIL mid-recovery-second-not-held"; status=1; }
 intents_left "$S7H/l.sqlite" 1 && echo "ok recover-mid-recovery-holds-next-action" || { echo "FAIL mid-recovery-second-marked-delivered"; status=1; }

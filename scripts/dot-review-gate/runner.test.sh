@@ -43,6 +43,10 @@ const { createCcAdapter } = await import(adapterPath);
 const { makePolicyFixture } = await import(fixPath);
 const { mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs');
 const { createHash } = await import('node:crypto');
+const { pathToFileURL } = await import('node:url');
+const { policyDigest } = await import(new URL('./load-policy.mjs', pathToFileURL(runnerPath)));
+const canonicalReview = () => JSON.parse(readFileSync(new URL('../../docs/meta-factory/dot-review-v2-examples/historical.json', pathToFileURL(runnerPath)), 'utf8'));
+
 
 const log = (...a) => console.log(...a);
 const fail = (m) => { console.log('FAIL ' + m); process.exitCode = 1; };
@@ -52,7 +56,7 @@ const REPO = 1231007068;
 // priority defects; every bound under test here is enforced by its own rule, not
 // by an exhausted window.
 const LIMITS = { max_launches_per_window: 10, window_minutes: 60, max_fix_rounds_per_occurrence: 2, max_work_per_pr: 4, coalesce_minutes: 10, max_active_claims: 1, max_attempts_per_tuple: 8, claim_lease_minutes: 120 };
-const policy = makePolicyFixture({ limits: LIMITS });
+const policy = makePolicyFixture({ limits: LIMITS, protocol_version: 'dot-pr-review/2.0.0' });
 const ledger = openLedger(`${tmp}/runner.sqlite`);
 const budgets = createBudgets({ ledger, limits: LIMITS });
 const coordDir = `${tmp}/coord`;
@@ -104,6 +108,16 @@ function group(name) {
   mkdirSync(dir, { recursive: true });
   const a = createCcAdapter({ ledger: l, coordinationDir: dir, notify: async () => {} });
   return { l, b: createBudgets({ ledger: l, limits: LIMITS }), a, dir };
+}
+
+function seedAccepted(l, node, head, mode = 'OPEN_PR', basis = 'HEAD_TO_BASE') {
+  const record = canonicalReview();
+  const tuple = { repository_id: REPO, pr_node_id: node, base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: head.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: policyDigest(policy), protocol_version: policy.protocol_version };
+  const g = l.claimGeneration({tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30});
+  Object.assign(record.review_identity, {assignment_id: g.claim.claim_id, mode, comparison_basis: basis, pull_request: {number: 2042, node_id: node}, revisions: {...record.review_identity.revisions, head_sha: tuple.head_sha, base_sha: tuple.base_sha, merge_base_sha: tuple.merge_base_sha, tested_merge_sha: tuple.tested_merge_sha}, policy: {version: policy.policy_version, sha256: tuple.policy_sha256, epoch: 1}});
+  const payload = JSON.stringify(record);
+  const receipt = l.submitReport({claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'REVISE', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest});
+  return {g, receipt};
 }
 
 function seedScoped(l, key, node = 'PR_verify', head = 'f') {
@@ -175,11 +189,7 @@ try {
   // repository, this protocol) resolves it; PR-node memory alone never does.
   // Resolves r2's review here so the budget arm below isolates the BUDGET rule
   // from the review-count rule
-  { // seed: the reviewer's accepted report for the exact OPEN_PR identity r2 dispatched
-    const g = ledger.claimGeneration({ tuple: { repository_id: REPO, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' }, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
-    const payload = JSON.stringify({ probe: 'r2 review accepted' });
-    ledger.submitReport({ claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'GO', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest });
-  }
+  seedAccepted(ledger, 'PR_kwDOM9YQhs6AbCdEfGh', 'c');
 
   // ── R3-5: operational stops at every consequential boundary ──────────────────
   // a stranded INTENT exists (crashed write) — recovery must NOT re-deliver it
@@ -304,14 +314,25 @@ try {
 
   // an accepted report RESOLVES the active review — the bound frees for the next
   // candidate (the resolution signal is the journal, not a timer)
-  const seedTuple = { repository_id: REPO, pr_node_id: prA.node_id, base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'd'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'e'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' };
-  const gen = L2.l.claimGeneration({ tuple: seedTuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
-  const seedPayload = JSON.stringify({ probe: 'review landed' });
-  L2.l.submitReport({ claimId: gen.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(seedPayload).digest('hex'), payload: seedPayload, verdict: 'GO', kind: 'admission', leaseMinutes: 30, liveTupleDigest: gen.generation.tuple_digest });
+  seedAccepted(L2.l, prA.node_id, 'd');
   const prC2 = { ...prC, head_sha: 'e'.repeat(40) };
   const rResolved = await runCycle({ ledger: L2.l, policy, budgets: L2.b, adapter: L2.a, discover: async () => ({ openPrs: [prC2], mergedPrs: [] }), resolveTarget });
   if (rResolved.dispatched.filter((d) => d.kind === 'review-request').length !== 1) fail(`resolution ${JSON.stringify({ d: rResolved.dispatched, h: rResolved.held })}`);
   else log('ok r36-accepted-report-resolves-active-review');
+
+  // Wrong accepted mode/basis cannot free an outstanding OPEN_PR request.
+  for (const [label, mode, basis] of [['mode', 'HISTORICAL', 'HISTORICAL_PINNED'], ['basis', 'OPEN_PR', 'HEAD_TO_MERGE_CANDIDATE']]) {
+    const L = group(`identity-${label}`);
+    const p = {...prA, node_id: `PR_wrong_${label}`};
+    register(L.l, p.node_id, p.number);
+    const launched = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: async () => ({openPrs: [p]}), resolveTarget});
+    const action = launched.dispatched.find(d => d.kind === 'review-request');
+    seedAccepted(L.l, p.node_id, 'c', mode, basis);
+    const checked = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget});
+    if (!action || L.l.coordGet(action.actionId)?.state !== 'DELIVERED' || checked.activeReviews !== 1) fail(`wrong ${label} resolved outstanding request`);
+    else log(`ok wrong-accepted-${label}-keeps-review-active`);
+    L.l.close();
+  }
 
   // open-vs-historical priority: a qualifying open PR and an unreviewed merged PR
   // together — the OPEN review launches; the historical one is HELD (spec §7)
@@ -449,6 +470,9 @@ try {
   await holdArm('raw-boolean-adapter', { revalidateFinding: async () => true }, 'E_HISTORICAL_UNBOUND');
   await holdArm('null-result-adapter', { revalidateFinding: async () => null }, 'E_HISTORICAL_UNBOUND');
   await holdArm('stale-evidence-adapter', { revalidateFinding: async () => ({ present: true, checked: { staging_sha: '9'.repeat(40), checked_at: CHECKED.checked_at } }) }, 'E_HISTORICAL_STALE');
+  await holdArm('missing-time', { revalidateFinding: async () => ({present: true, checked: {staging_sha: STAGING}}) }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('invalid-time', { revalidateFinding: async () => ({present: true, checked: {...CHECKED, checked_at: 'not-a-time'}}) }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('short-sha', { currentStagingSha: 's', revalidateFinding: async () => ({present: true, checked: {...CHECKED, staging_sha: 's'}}) }, 'E_HISTORICAL_UNBOUND');
   await holdArm('no-staging-input', { revalidateFinding: async () => ({ present: true, checked: CHECKED }) , currentStagingSha: undefined }, 'E_HISTORICAL_STAGING');
   // replay: a second identical cycle creates NO duplicate assignment — the durable
   // reservation + issued claim hold the line
@@ -461,6 +485,32 @@ try {
       || two.dispatched.filter((d) => d.kind === 'fix-assignment').length !== 0) {
       fail(`replay ${JSON.stringify({ a: one.dispatched.length, b: two.dispatched.length })}`);
     } else log('ok r31-replay-bounded-no-duplicate-assignment');
+  }
+
+  // A canonical HISTORICAL source is historical even while generation is SUBMITTED.
+  // Include records first observed during drain, after this cycle's queue snapshot.
+  for (const timing of ['preexisting', 'drained']) {
+    const L = group(`canonical-history-${timing}`);
+    const node = `PR_canonical_${timing}`;
+    const key = `HIST-${timing}`;
+    register(L.l, node, 4001);
+    const {g, receipt} = seedAccepted(L.l, node, 'c', 'HISTORICAL', 'HISTORICAL_PINNED');
+    if (L.l.getGeneration(g.generation.id)?.state !== 'SUBMITTED') fail('canonical historical seed is not SUBMITTED');
+    const recordFinding = () => L.l.recordFindings(receipt.report_id, [{key, requirement: 'historical fix', category: 'correctness', severity: 'major', blocking: true}]);
+    if (timing === 'preexisting') recordFinding();
+    let reservations = 0;
+    const countBudget = {...L.b, reserveLaunch: args => {reservations++; return L.b.reserveLaunch(args);}};
+    const result = await runCycle({ledger: L.l, policy, budgets: countBudget, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, drain: timing === 'drained' ? async () => {recordFinding(); return [{}];} : undefined});
+    const occurrence = L.l.lineage(key).at(-1);
+    const queuedHistory = buildQueue({ledger: L.l, policy}).some(i => i.kind === 'historical' && i.key === key);
+    if (result.dispatched.length || result.routed.length || reservations || coordCount(L.l) || occurrence?.state !== 'OPEN' || !queuedHistory) fail(`canonical-${timing} bypassed history gate ${JSON.stringify({result, reservations, state: occurrence?.state, queuedHistory})}`);
+    else log(`ok canonical-historical-${timing}-holds-before-assignment`);
+    const control = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, now: () => Date.now() + 31 * 60_000, revalidateFinding: async () => ({present: true, checked: CHECKED})});
+    const dispatch = control.dispatched.find(d => d.kind === 'fix-assignment');
+    const packet = dispatch ? JSON.parse(L.l.coordGet(dispatch.actionId).payload_text) : {};
+    if (!dispatch || control.dispatched.length !== 1 || packet.historical_basis !== 'HISTORICAL_REVALIDATED' || packet.revalidation?.checked_staging_sha !== STAGING) fail(`canonical-${timing} bound control ${JSON.stringify(control)}`);
+    else log(`ok canonical-historical-${timing}-bound-control`);
+    L.l.close();
   }
 
   // ── coordinator routing: open unclaimed findings become ONE assignment ───────
@@ -512,6 +562,7 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r36-active-review-from-previous-cycle-blocks \
   r36-head-movement-supersedes-and-requeues \
   r36-accepted-report-resolves-active-review \
+  wrong-accepted-mode-keeps-review-active wrong-accepted-basis-keeps-review-active \
   r36-open-review-precedes-merged-history \
   r36-newest-merged-selected-as-historical-review \
   r36-verify-priority-dispatches-under-review-bound released-runner-intent-never-redelivered active-scoped-intent-recovers unregistered-finding-never-assigned \
@@ -520,6 +571,9 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r31-unverified-adapter-holds r31-throwing-adapter-holds \
   r31-raw-boolean-adapter-holds r31-null-result-adapter-holds \
   r31-stale-evidence-adapter-holds r31-no-staging-input-holds \
+  r31-missing-time-holds r31-invalid-time-holds r31-short-sha-holds \
+  canonical-historical-preexisting-holds-before-assignment canonical-historical-preexisting-bound-control \
+  canonical-historical-drained-holds-before-assignment canonical-historical-drained-bound-control \
   r31-replay-bounded-no-duplicate-assignment \
   r36-open-finding-routes-one-trusted-assignment \
   r36-routing-replay-creates-no-duplicate-owner || exit 1

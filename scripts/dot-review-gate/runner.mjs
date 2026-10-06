@@ -32,6 +32,7 @@
 // return value in THIS cycle — the runner reports no counts it did not observe.
 
 import { buildQueue, reserveNext, gateHistorical, reviewIdentity } from './queue.mjs';
+import { policyDigest } from './load-policy.mjs';
 
 function code(name, message) {
   const e = new Error(message);
@@ -73,9 +74,7 @@ function reviewPacket({ item, policy }) {
     comparison_basis: item.kind === 'merged' ? 'HISTORICAL_PINNED' : 'HEAD_TO_BASE',
     protocol_version: policy.protocol_version ?? null,
     policy_version: policy.policy_version ?? null,
-    // D2065-S06: reviewer-provenance policy digest travels WITH the identity the
-    // packet asks to be reviewed — null when the trusted policy pins none (UNPINNED)
-    policy_sha256: policy.policy_sha256 ?? null,
+    policy_sha256: policyDigest(policy),
     work: { item_key: `${item.kind}:${item.key}`, kind: item.kind },
   };
   if (item.kind === 'merged') {
@@ -147,12 +146,14 @@ function reconcileReviews({ ledger, policy, currentItems, nowMs }) {
     const identity = reviewIdentity({
       repository_id: payload.repository_id,
       pr_node_id: prNodeId,
-      mode: payload.mode === 'HISTORICAL' ? 'HISTORICAL' : 'OPEN_PR',
+      mode: payload.mode,
+      comparison_basis: payload.comparison_basis,
       head_sha: payload.revisions?.head_sha,
       merge_sha: payload.revisions?.merge_sha,
       base_sha: payload.revisions?.base_sha,
       protocol_version: payload.protocol_version,
-      policy_sha256: payload.policy_sha256 ?? policy?.policy_sha256 ?? null,
+      policy_version: payload.policy_version,
+      policy_sha256: payload.policy_sha256,
     });
     if (prNodeId && ledger.prHasReview(identity)) {
       ledger.coordMark(a.id, 'DONE', 'an accepted review of the exact reviewed identity landed — the review resolved');
@@ -339,11 +340,9 @@ export async function runCycle({
   if (typeof resolveTarget === 'function' && !preGate) {
     for (const o of ledger.listOpenFindings()) {
       if (!o.repository_id || ['ASSIGNED', 'ACKNOWLEDGED', 'VERIFYING'].includes(o.state)) continue;
-      // a historical finding (its report landed on a superseded/terminal generation)
-      // is remediated ONLY through the queue's revalidation arm — routing it here
-      // would bypass the ALREADY_FIXED gate
-      const gen = ledger.generationForOccurrence(o.id);
-      if (gen && (gen.state === 'SUPERSEDED' || ['AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE'].includes(gen.state))) continue;
+      // Includes canonical HISTORICAL records first observed in drain above.
+      // They remain queued for revalidation, never secondary-route around it.
+      if (ledger.isHistoricalOccurrence(o.id)) continue;
       try {
         const registration = ledger.getRegistration(o.pr_node_id);
         const hold = operationalHold({ ledger, policy, budgets, registration, requireRegistration: true, nowMs: now() });

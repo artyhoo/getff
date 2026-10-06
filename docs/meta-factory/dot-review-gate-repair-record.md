@@ -449,55 +449,59 @@ smallest coherent repairs; the three touched suites green; then the full
 queue 13→14, service 47→49). Full sweep green in one pass on 2026-10-06.
 
 
-## 2026-10-07 — D2065 boundary corrections (S07/S06/S05), branch `codex/dot-system-boundary-fixes`
+## 2026-10-07 — D2065 boundary corrections (S07/S06/S05)
 
-Post-#2065 MAJOR findings repaired at source (request r2, bridge work key
-`dot-boundary-preparation`; evidence card: `.claude/dot-boundary-repair-card.md`):
+The bounded GLM repair produced commit `d2ec76018f9`. Reusing the existing root
+dependencies with `NODE_PATH` resolved its AJV provisioning limitation: all 19
+Dot suites passed. Independent Spec and Standards cold reviews nevertheless
+returned REVISE. The following senior corrections address their demonstrated
+counterexamples; a green suite count alone did not establish completeness.
 
-- **D2065-S07 (CLI recovery bypassed the operational gate):** `gatectl.mjs`
-  `runRecover` now composes the runner's own `operationalHold` (newly exported
-  from `runner.mjs` — no second policy engine). No `--policy` ⇒ inspect-only
-  (`mode:"inspect"`, pending digest status, `recoveryHeld E_NO_TRUSTED_CONFIG`,
-  zero writes/DELIVERED). With `--policy`: load refusal (incl. E_EXPIRY) is
-  fail-closed exit 1; pause/quota hold up front; PER-ACTION current ACTIVE
-  registration + repository scope before any re-delivery (mid-recovery state
-  change structurally holds the next action — the adapter's per-action held
-  list). Output reports `mode`, `recovered_deliveries`, per-action `held` codes
-  and `local_message_writes` counted from the coordination dir — real local
-  effects, never inferred from transport/model spies. Stored payload/digest and
-  the retry identity untouched (`cc-adapter.mjs` UNCHANGED).
-- **D2065-S06 (PR-reviewed ≠ this-revision-reviewed):** one canonical
-  projection `queue.mjs reviewIdentity()` (field mapping documented at the
-  helper: OPEN_PR → head/base; HISTORICAL → tested_merge/base; protocol both
-  sides; caller policy_sha256 null = UNPINNED, no constraint; current_staging
-  EXCLUDED by design). `ledger.prHasReview(identity)` qualifies non-receipt,
-  non-superseded records and matches the projection against the generation's
-  OWN tuple_json (repository+node narrowed in SQL); the legacy `reviewed-pr:*`
-  marker is no longer consulted (deprecated shim, returns `{legacy:true}`).
-  `buildQueue` merged filter and `reconcileReviews` both go through the same
-  projection — H1 acceptance never covers H2, unrelated revisions never free
-  the one-active-review slot, staging movement alone never re-opens reviewed
-  history.
-- **D2065-S05 (historical remediation fail-open):** `queue.mjs gateHistorical`
-  restructured to a bound-evidence contract — missing adapter, throw, raw
-  boolean/null, malformed, unbound, stale (evidence staging ≠ cycle staging)
-  and missing cycle staging all return hold codes (E_HISTORICAL_UNVERIFIED /
-  _HOLD / _UNBOUND / _STALE / _STAGING). The runner's historical arm no longer
-  skips when the adapter is absent; holds land before claim/budget/delivery;
-  only bound `present:false` gets the durable ALREADY_FIXED outbox event (now
-  with its staging evidence); `fixPacket` stamps HISTORICAL_REVALIDATED and a
-  `revalidation` receipt ONLY from a passed bound gate.
+- **S07 — recovery authorization:** `runRecover` composes the runner's
+  `operationalHold`. Without `--policy`, it inspects pending intents and writes
+  nothing. With policy, pause/expiry/quota and per-action ACTIVE registration /
+  repository scope hold before delivery. Original payload/digest and persisted
+  retry bounds remain. The strengthened actual-CLI test starts BOTH actions
+  ACTIVE, then uses destination filesystem fault injection to release the second
+  registration AFTER the first message lands. Exactly one delivery occurs and
+  the second stays INTENT. A disposable mutant caching registrations before
+  recovery fails this test; the prior mixed-registration seed did not prove a
+  mid-recovery change.
+- **S06 — accepted review identity:** `prHasReview` positively selects only
+  accepted, non-superseded `review_report` records and parses their actual
+  canonical V2 payload. Mode, comparison basis, repository/PR, reviewed
+  revision/base, protocol, policy version and computed manifest digest must
+  match. Relevant revisions/protocol/digest also agree with the issued tuple.
+  `closure_receipt`, fix receipts and opaque/legacy payloads cannot complete
+  work. Unknown legacy equivalence requires explicit import; it is not inferred.
+  Queue filtering and outstanding-request reconciliation share `reviewIdentity`.
+  Historical applicability staging is excluded from completion identity: moving
+  staging alone does not reopen review of unchanged pinned history.
+- **S05 — historical remediation:** queue and secondary routing share source
+  classification, including canonical HISTORICAL reports whose generation is
+  still SUBMITTED. Findings first observed during drain remain for the next
+  queued revalidation instead of bypassing the gate. Missing/throwing adapters,
+  boolean/null/malformed receipts, invalid full staging revisions, missing or
+  invalid UTC timestamps, mismatched staging and absent cycle staging hold
+  before assignment/budget/message delivery. Bound `present:false` records an
+  ALREADY_FIXED observation; bound `present:true` permits one correction with
+  its revalidation receipt. Held work may retry after its existing work lease;
+  the tests advance the clock for that control rather than fabricating closure.
 
-RED→GREEN receipts (cwd = this worktree, Node v24.3.0): the three suites were
-run RED against pristine d428 sources after editing ONLY the tests
-(`/tmp/dotred-{queue,runner,gatectl}.log`, exit 1 each with the named FAIL
-assertions — e.g. runner `unverified-adapter hold … "d":1` = delivery without
-an adapter; gatectl inspect arms all red = policy-less recovery delivering),
-then GREEN after the source fixes (`queue.test.sh` / `runner.test.sh` /
-`gatectl.test.sh` → exit 0, all green). Full sweep 2026-10-07: 13/19 suites
-green; the 6 red (armer, connected-lifecycle, intake, publisher, service,
-validate-report) fail on `Cannot find module 'ajv/dist/2020'` — a node_modules
-provisioning gap of this worktree, identical against pristine HEAD sources
-(verified by a `git archive HEAD` extraction sweep), unrelated to and out of
-scope for this pass. No fixture callsites outside the three suites needed
-changes (connected-lifecycle is ajv-blocked before reaching the runner).
+Senior RED controls on `d2ec` reproduced closure-as-review, OPEN_PR covering
+HISTORICAL, mismatched comparison basis, opaque payload coverage, changed policy
+coverage, malformed evidence launching, and both preexisting/newly drained
+canonical historical findings bypassing revalidation. Fixtures now carry real
+canonical record structure. The connected HTTP lifecycle's initial report now
+uses the same HEAD_TO_BASE comparison requested by its dispatch; a different
+basis must not resolve that request.
+
+Verification evidence lives in
+`/private/tmp/getff-dot-boundary-senior-verification/`: per-suite logs and a
+summary. The recovery cache mutant is in
+`/private/tmp/getff-dot-recovery-cached-authority-mutant/`, outside tracked code.
+Bare `npm test` in this dependency-free worktree cannot start Vitest
+(`vitest: command not found`, exit127); this is not a full workspace PASS.
+No dependency installation, paid model call, GitHub publication or live
+unattended acceptance is implied by these offline checks. Independent recheck of
+this senior correction remains pending until its immutable revision is recorded.

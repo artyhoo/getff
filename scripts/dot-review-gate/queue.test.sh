@@ -21,6 +21,11 @@ const [queuePath, ledgerPath, tmp] = process.argv.slice(2);
 const { buildQueue, reserveNext, gateHistorical } = await import(queuePath);
 const { openLedger } = await import(ledgerPath);
 const { createHash } = await import('node:crypto');
+const { readFileSync } = await import('node:fs');
+const { pathToFileURL } = await import('node:url');
+const { policyDigest } = await import(new URL('./load-policy.mjs', pathToFileURL(queuePath)));
+const example = (name) => JSON.parse(readFileSync(new URL(`../../docs/meta-factory/dot-review-v2-examples/${name}.json`, pathToFileURL(queuePath)), 'utf8'));
+
 
 const log = (...a) => console.log(...a);
 const fail = (m) => { console.log('FAIL ' + m); process.exitCode = 1; };
@@ -90,12 +95,17 @@ try {
   } else log('ok short-revision-blocks-visible');
 
   // ── D2065-S06: completion is EXACT review identity, never PR-node memory ────
-  const QPOLICY = { protocol_version: 'dot-staging-review/1.0', repository_id: 1231007068 };
-  const acceptReview = (l, over = {}) => {
-    const tuple = { repository_id: 1231007068, pr_node_id: 'PR_12', base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'h'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0', ...over };
+  const QPOLICY = { protocol_version: 'dot-pr-review/2.0.0', policy_version: 'queue-policy-1', repository_id: 1231007068 };
+  const acceptReview = (l, { mode = 'HISTORICAL', basis = 'HISTORICAL_PINNED', kind = 'review_report', opaque = false, reportedPolicyVersion = QPOLICY.policy_version, ...over } = {}) => {
+    const tuple = { repository_id: 1231007068, pr_node_id: 'PR_12', base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: policyDigest(QPOLICY), protocol_version: QPOLICY.protocol_version, ...over };
     const g = l.claimGeneration({ tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
-    const payload = JSON.stringify({ probe: `review-${JSON.stringify(over)}` });
-    return l.submitReport({ claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'GO', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest });
+    const record = example(kind === 'closure_receipt' ? 'closure-receipt' : kind === 'fix_response' ? 'fix-response' : 'historical');
+    if (record.record_type === 'review_report') {
+      Object.assign(record.review_identity, { assignment_id: g.claim.claim_id, mode, comparison_basis: basis, repository: {id: tuple.repository_id, full_name: 'artyhoo/getff'}, pull_request: {number: 12, node_id: tuple.pr_node_id}, revisions: {...record.review_identity.revisions, head_sha: tuple.head_sha, base_sha: tuple.base_sha, merge_base_sha: tuple.merge_base_sha, tested_merge_sha: tuple.tested_merge_sha}, policy: {version: reportedPolicyVersion, sha256: tuple.policy_sha256, epoch: 1} });
+      record.protocol_version = tuple.protocol_version;
+    }
+    const payload = JSON.stringify(opaque ? {probe: 'unmapped legacy record'} : record);
+    return l.submitReport({ claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'REVISE', kind, leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest });
   };
   // the EXACT accepted review of PR 12's merge (d…/b…) completes only PR 12
   acceptReview(ledger);
@@ -117,15 +127,31 @@ try {
   acceptReview(ledger, { pr_node_id: 'PR_17', repository_id: 999 });
   if (!buildQueue({ ledger, policy: QPOLICY, openPrs: [], mergedPrs: [pr(17)], isQualifying: qualifying }).some((i) => i.kind === 'merged' && i.pr.number === 17)) fail('foreign repository covered the work');
   else log('ok foreign-repository-stays-distinct');
-  // a fix_response record alone NEVER satisfies review completion (the exact
-  // tuple exists and carries a record — but a fix receipt, not a review)
-  { // same tuple, but the stored record is a fix receipt, not a review
-    const g2 = ledger.claimGeneration({ tuple: { repository_id: 1231007068, pr_node_id: 'PR_18', base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'h'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' }, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
-    const fp = JSON.stringify({ probe: 'fix-only' });
-    ledger.submitReport({ claimId: g2.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(fp).digest('hex'), payload: fp, verdict: 'GO', kind: 'fix_response', leaseMinutes: 30, liveTupleDigest: g2.generation.tuple_digest });
+  for (const [number, kind] of [[18, 'fix_response'], [19, 'closure_receipt']]) {
+    acceptReview(ledger, { pr_node_id: `PR_${number}`, kind });
+    if (!buildQueue({ ledger, policy: QPOLICY, mergedPrs: [pr(number)] }).some(i => i.kind === 'merged')) fail(`${kind} satisfied completion`);
+    else log(`ok ${kind.replaceAll('_', '-')}-never-satisfies-completion`);
   }
-  if (!buildQueue({ ledger, policy: QPOLICY, openPrs: [], mergedPrs: [pr(18)], isQualifying: qualifying }).some((i) => i.kind === 'merged' && i.pr.number === 18)) fail('fix_response satisfied completion');
-  else log('ok fix-record-never-satisfies-completion');
+  for (const [number, over, label] of [
+    [25, { mode: 'OPEN_PR', basis: 'HEAD_TO_BASE' }, 'open-report-never-covers-history'],
+    [26, { basis: 'HEAD_TO_MERGE_CANDIDATE' }, 'comparison-basis-stays-distinct'],
+    [27, { opaque: true }, 'opaque-payload-never-covers-history'],
+    [29, { reportedPolicyVersion: 'wrong-version' }, 'reported-policy-version-must-match'],
+  ]) {
+    acceptReview(ledger, { pr_node_id: `PR_${number}`, ...over });
+    if (!buildQueue({ ledger, policy: QPOLICY, mergedPrs: [pr(number)] }).some(i => i.kind === 'merged')) fail(label);
+    else log(`ok ${label}`);
+  }
+  acceptReview(ledger, { pr_node_id: 'PR_28' });
+  const policyChanged = { ...QPOLICY, policy_version: 'queue-policy-2' };
+  if (!buildQueue({ ledger, policy: policyChanged, mergedPrs: [pr(28)] }).some(i => i.kind === 'merged')) fail('changed policy version covered the work');
+  else log('ok changed-policy-version-stays-distinct');
+  const policyConfigChanged = { ...QPOLICY, extra_bound_requirement: true };
+  if (!buildQueue({ ledger, policy: policyConfigChanged, mergedPrs: [pr(28)] }).some(i => i.kind === 'merged')) fail('changed policy digest covered the work');
+  else log('ok changed-policy-digest-stays-distinct');
+  // Applicability staging can advance without invalidating review of pinned history.
+  if (buildQueue({ ledger, policy: QPOLICY, mergedPrs: [pr(28, {current_staging_sha: '9'.repeat(40)})] }).some(i => i.kind === 'merged')) fail('staging movement reopened unchanged reviewed history');
+  else log('ok staging-movement-preserves-history-review');
   // the LEGACY reviewed-pr marker has no exact evidence: the merged PR stays
   // queued (explicit UNKNOWN, never a silent cover)
   ledger.noteReviewedPr?.('PR_13');
@@ -182,6 +208,15 @@ try {
   const unboundGate = await gateHistorical({ item: { key: 'Q-H1' }, revalidateFinding: async () => ({ present: true }), currentStagingSha: STAGING });
   if (unboundGate.launch !== false || unboundGate.code !== 'E_HISTORICAL_UNBOUND') fail(`unbound ${JSON.stringify(unboundGate)}`);
   else log('ok unbound-evidence-holds');
+  for (const [label, evidence, staging] of [
+    ['missing-time', {present: true, checked: {staging_sha: STAGING}}, STAGING],
+    ['invalid-time', {present: true, checked: {...CHECKED, checked_at: 'not-a-time'}}, STAGING],
+    ['short-sha', {present: true, checked: {...CHECKED, staging_sha: 's'}}, 's'],
+  ]) {
+    const g = await gateHistorical({item: {key: label}, revalidateFinding: async () => evidence, currentStagingSha: staging});
+    if (g.launch || !g.hold) fail(`malformed ${label} launched ${JSON.stringify(g)}`);
+    else log(`ok malformed-${label}-holds`);
+  }
   ledger2.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -197,10 +232,13 @@ assert_suite_arms "queue.test.sh" "$status" "$out" \
   short-revision-blocks-visible \
   exact-reviewed-identity-not-requeued h1-accept-does-not-cover-h2 \
   changed-basis-stays-distinct changed-protocol-stays-distinct \
-  foreign-repository-stays-distinct fix-record-never-satisfies-completion \
+  foreign-repository-stays-distinct fix-response-never-satisfies-completion closure-receipt-never-satisfies-completion \
   legacy-marker-alone-stays-queued reservation-no-double-hand \
   reservation-survives-restart lapsed-lease-recovers new-arrival-no-skip-no-duplicate \
   verified-absent-already-fixed-durable bound-present-launches-with-evidence \
   raw-boolean-is-not-evidence-holds stale-staging-evidence-holds \
-  unbound-evidence-holds || exit 1
+  unbound-evidence-holds open-report-never-covers-history comparison-basis-stays-distinct \
+  opaque-payload-never-covers-history reported-policy-version-must-match changed-policy-version-stays-distinct \
+  changed-policy-digest-stays-distinct staging-movement-preserves-history-review \
+  malformed-missing-time-holds malformed-invalid-time-holds malformed-short-sha-holds || exit 1
 echo "queue.test.sh: all green"

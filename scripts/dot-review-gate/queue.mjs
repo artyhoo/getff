@@ -27,32 +27,23 @@
 // isQualifying(pr) → boolean: the deployment wires policy readiness here; a PR that
 // fails it stays in the plan as kind 'blocked' (visible with its blocker reason).
 //
-// D2065-S06: ONE canonical projection of ACCEPTED-review identity. Field mapping
-// (packet ↔ tuple), used by BOTH the merged filter here and the runner's
-// reconcileReviews — the whole tuple_digest is NOT the equivalence contract:
-//   repository_id      ← repository_id / policy.repository_id
-//   pr_node_id         ← pr.node_id
-//   mode               ← 'OPEN_PR' | 'HISTORICAL' (from the item kind)
-//   OPEN_PR shas       ← head_sha / base_sha      (comparison HEAD_TO_BASE)
-//   HISTORICAL shas    ← merge_sha→tested_merge_sha / base_sha
-//                        (comparison HISTORICAL_PINNED)
-//   protocol_version   ← policy.protocol_version (both sides carry it)
-//   policy_sha256      ← policy.policy_sha256 ?? null — UNPINNED on the caller
-//                        side (the trusted policy file carries no policy_sha256
-//                        field; the tuple's value is reviewer provenance), so the
-//                        ledger predicate treats it as a no-constraint when null
-// current_staging_sha is EXCLUDED by design: staging moves, the reviewed history
-// identity does not — applicability revalidation is a separate, explicit gate
-// (gateHistorical), not a silent component of completion identity.
-export function reviewIdentity({ repository_id: repositoryId, pr_node_id: prNodeId, mode = 'OPEN_PR', head_sha: headSha, merge_sha: mergeSha, base_sha: baseSha, protocol_version: protocolVersion, policy_sha256: policySha256 } = {}) {
+// Completion matches an accepted canonical review, including its actual mode and
+// comparison basis. A policy is pinned by BOTH version and computed manifest
+// digest (the trusted manifest need not carry a self-referential digest field).
+// Moving staging changes finding applicability, not review of pinned history.
+import { policyDigest } from './load-policy.mjs';
+
+export function reviewIdentity({ repository_id: repositoryId, pr_node_id: prNodeId, mode = 'OPEN_PR', comparison_basis: basis, head_sha: headSha, merge_sha: mergeSha, base_sha: baseSha, protocol_version: protocolVersion, policy_version: policyVersion, policy_sha256: policySha256 } = {}) {
   return {
     repository_id: repositoryId ?? null,
     pr_node_id: prNodeId ?? null,
     mode,
+    comparison_basis: basis ?? (mode === 'HISTORICAL' ? 'HISTORICAL_PINNED' : 'HEAD_TO_BASE'),
     head_sha: mode === 'HISTORICAL' ? null : (headSha ?? null),
     merge_sha: mode === 'HISTORICAL' ? (mergeSha ?? null) : null,
     base_sha: baseSha ?? null,
     protocol_version: protocolVersion ?? null,
+    policy_version: policyVersion ?? null,
     policy_sha256: policySha256 ?? null,
   };
 }
@@ -116,7 +107,8 @@ export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQua
       merge_sha: p.merge_sha,
       base_sha: p.base_sha,
       protocol_version: protocol,
-      policy_sha256: policy?.policy_sha256 ?? null,
+      policy_version: policy?.policy_version ?? null,
+      policy_sha256: policy ? policyDigest(policy) : null,
     })))
     .sort((a, b) => {
       const ma = String(a.merged_at ?? '');
@@ -202,13 +194,18 @@ export async function gateHistorical({ item, revalidateFinding, currentStagingSh
     };
   }
   const checked = evidence && typeof evidence === 'object' ? evidence.checked : null;
-  if (typeof evidence.present !== 'boolean' || !checked || typeof checked.staging_sha !== 'string') {
+  const shaOk = (s) => typeof s === 'string' && /^[0-9a-f]{40,64}$/.test(s);
+  const timeOk = typeof checked?.checked_at === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(checked.checked_at)
+    && Number.isFinite(Date.parse(checked.checked_at))
+    && new Date(checked.checked_at).toISOString() === checked.checked_at.replace(/(?:\.(\d{1,3}))?Z$/, (_, fraction) => `.${(fraction ?? '').padEnd(3, '0')}Z`);
+  if (typeof evidence.present !== 'boolean' || !checked || !shaOk(checked.staging_sha) || !timeOk) {
     return {
       launch: false, hold: true, code: 'E_HISTORICAL_UNBOUND',
-      reason: `finding ${item?.key}: malformed revalidation evidence (${JSON.stringify(evidence).slice(0, 120)}) — no {present, checked:{staging_sha}} binding`,
+      reason: `finding ${item?.key}: malformed revalidation evidence (${JSON.stringify(evidence).slice(0, 120)}) — no valid {present, checked:{staging_sha,checked_at}} binding`,
     };
   }
-  if (typeof currentStagingSha !== 'string' || currentStagingSha.length === 0) {
+  if (!shaOk(currentStagingSha)) {
     return {
       launch: false, hold: true, code: 'E_HISTORICAL_STAGING',
       reason: `finding ${item?.key}: the cycle carries no current staging revision — revalidation evidence cannot be bound`,
