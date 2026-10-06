@@ -321,13 +321,19 @@ export function normalizeInput(input) {
 export function transcriptMessages(input, { evidence = false } = {}) {
   const records = [];
   const diagnostics = [];
-  let source, lineNumber = 0, cycle = 0, activeTurn;
+  let source,
+    lineNumber = 0,
+    cycle = 0,
+    activeTurn;
   const identities = new Map();
   const calls = new Set();
   const starts = new Map();
   let lastText;
   const pushNative = (record, completion) => {
-    if (!evidence) { records.push(record); return; }
+    if (!evidence) {
+      records.push(record);
+      return;
+    }
     const payload = source.payload ?? source;
     const block = record.message.content[0];
     const messageId = payload.id ?? source.id;
@@ -339,46 +345,82 @@ export function transcriptMessages(input, { evidence = false } = {}) {
       diagnostics.push(`unmatched turn identity at line ${lineNumber}`);
     if (block.type === 'text') {
       const text = block.text;
-      const identity = typeof messageId === 'string' ? `${record.type}:${messageId}` : null;
+      const identity =
+        typeof messageId === 'string' ? `${record.type}:${messageId}` : null;
       const conflict = (previous, compareIds) =>
-        previous.text !== text || previous.cycle !== cycle ||
-        (typeof previous.turn_id === 'string' && typeof turnId === 'string' && previous.turn_id !== turnId) ||
-        (typeof activeTurn === 'string' && typeof turnId === 'string' && activeTurn !== turnId) ||
-        (compareIds && typeof previous.message_id === 'string' && typeof messageId === 'string' && previous.message_id !== messageId);
+        previous.text !== text ||
+        previous.cycle !== cycle ||
+        (typeof previous.turn_id === 'string' &&
+          typeof turnId === 'string' &&
+          previous.turn_id !== turnId) ||
+        (typeof activeTurn === 'string' &&
+          typeof turnId === 'string' &&
+          activeTurn !== turnId) ||
+        (compareIds &&
+          typeof previous.message_id === 'string' &&
+          typeof messageId === 'string' &&
+          previous.message_id !== messageId);
       if (identity && identities.has(identity)) {
         if (conflict(identities.get(identity), false))
-          diagnostics.push(`conflicting message identity at line ${lineNumber}`);
-        else if (human && activeTurn == null && typeof turnId === 'string') activeTurn = turnId;
+          diagnostics.push(
+            `conflicting message identity at line ${lineNumber}`,
+          );
+        else if (human && activeTurn == null && typeof turnId === 'string')
+          activeTurn = turnId;
         return;
       }
-      if (lastText?.role === record.type && lastText.text === text && lastText.kind !== kind && lastText.position === records.length) {
+      if (
+        lastText?.role === record.type &&
+        lastText.text === text &&
+        lastText.kind !== kind &&
+        lastText.position === records.length
+      ) {
         // Text equality cannot override contradictory explicit IDs or turns.
         if (conflict(lastText, true))
-          diagnostics.push(`conflicting adjacent message identity at line ${lineNumber}`);
+          diagnostics.push(
+            `conflicting adjacent message identity at line ${lineNumber}`,
+          );
         else {
-          if (human && activeTurn == null && typeof turnId === 'string') activeTurn = turnId;
-          if (identity) identities.set(identity, { ...lastText, message_id: messageId, turn_id: turnId ?? activeTurn });
+          if (human && activeTurn == null && typeof turnId === 'string')
+            activeTurn = turnId;
+          if (identity)
+            identities.set(identity, {
+              ...lastText,
+              message_id: messageId,
+              turn_id: turnId ?? activeTurn,
+            });
         }
         return;
       }
       // Without identities only adjacent cross-representation twins are safe;
       // a delayed human twin could also be a genuinely new turn.
-      if (!identity && lastText?.role === record.type && lastText.text === text && lastText.kind !== kind)
+      if (
+        !identity &&
+        lastText?.role === record.type &&
+        lastText.text === text &&
+        lastText.kind !== kind
+      )
         diagnostics.push(`ambiguous duplicate message at line ${lineNumber}`);
       if (human) {
         cycle += 1;
         activeTurn = turnId;
       }
       lastText = {
-        role: record.type, text, kind, cycle,
-        message_id: messageId, turn_id: turnId ?? activeTurn,
+        role: record.type,
+        text,
+        kind,
+        cycle,
+        message_id: messageId,
+        turn_id: turnId ?? activeTurn,
         position: records.length + 1,
       };
       if (identity) identities.set(identity, lastText);
     }
     record.codex_evidence = {
       ...(typeof turnId === 'string' ? { turn_id: turnId } : {}),
-      source: kind, line: lineNumber, cycle,
+      source: kind,
+      line: lineNumber,
+      cycle,
       ...(typeof messageId === 'string' ? { message_id: messageId } : {}),
       ...(completion ?? {}),
     };
@@ -391,10 +433,21 @@ export function transcriptMessages(input, { evidence = false } = {}) {
     }
     if (!cycle || (typeof turnId === 'string' && turnId !== activeTurn))
       diagnostics.push(`unmatched start turn at line ${lineNumber}`);
-    const observed = { cycle, turn_id: turnId ?? activeTurn, line: lineNumber, source: startSource };
+    const observed = {
+      cycle,
+      turn_id: turnId ?? activeTurn,
+      line: lineNumber,
+      source: startSource,
+    };
     const previous = starts.get(id);
-    if (calls.has(id) || (previous && (previous.cycle !== cycle ||
-      (typeof previous.turn_id === 'string' && typeof observed.turn_id === 'string' && previous.turn_id !== observed.turn_id)))) {
+    if (
+      calls.has(id) ||
+      (previous &&
+        (previous.cycle !== cycle ||
+          (typeof previous.turn_id === 'string' &&
+            typeof observed.turn_id === 'string' &&
+            previous.turn_id !== observed.turn_id)))
+    ) {
       diagnostics.push(`conflicting start identity at line ${lineNumber}`);
       return;
     }
@@ -416,20 +469,32 @@ export function transcriptMessages(input, { evidence = false } = {}) {
         continue;
       }
       if (!r || typeof r !== 'object') {
-        if (evidence) diagnostics.push(`unsupported record at line ${lineNumber}`);
+        if (evidence)
+          diagnostics.push(`unsupported record at line ${lineNumber}`);
         continue;
       }
       source = r;
       if (r.message?.content && ['user', 'assistant'].includes(r.type)) {
-        if (evidence) diagnostics.push(`unsupported legacy record in Codex input at line ${lineNumber}`);
+        if (evidence)
+          diagnostics.push(
+            `unsupported legacy record in Codex input at line ${lineNumber}`,
+          );
         records.push(r);
         continue;
       }
       const p = r.payload ?? r;
       // Validate both recognized placements before either join selects a turn.
-      if (evidence && r.type === 'event_msg' && ['item_started', 'item_completed'].includes(p.type) &&
-        typeof p.turn_id === 'string' && typeof p.item?.turn_id === 'string' && p.turn_id !== p.item.turn_id)
-        diagnostics.push(`conflicting effect turn identity at line ${lineNumber}`);
+      if (
+        evidence &&
+        r.type === 'event_msg' &&
+        ['item_started', 'item_completed'].includes(p.type) &&
+        typeof p.turn_id === 'string' &&
+        typeof p.item?.turn_id === 'string' &&
+        p.turn_id !== p.item.turn_id
+      )
+        diagnostics.push(
+          `conflicting effect turn identity at line ${lineNumber}`,
+        );
       // Observed native code-mode rollout emits nested effects as completed items.
       // Do not infer nested calls by parsing the code-mode JavaScript string.
       if (r.type === 'event_msg' && p.type === 'item_completed') {
@@ -454,48 +519,88 @@ export function transcriptMessages(input, { evidence = false } = {}) {
         if (name && typeof item.id === 'string') {
           const started = evidence ? starts.get(item.id) : undefined;
           const turnId = p.turn_id ?? item.turn_id;
-          if (started && (started.cycle !== cycle ||
-            (typeof started.turn_id === 'string' && typeof turnId === 'string' && started.turn_id !== turnId)))
-            diagnostics.push(`completion conflicts with observed start at line ${lineNumber}`);
-          if (evidence && calls.has(item.id)) diagnostics.push(`replayed call identity at line ${lineNumber}`);
+          if (
+            started &&
+            (started.cycle !== cycle ||
+              (typeof started.turn_id === 'string' &&
+                typeof turnId === 'string' &&
+                started.turn_id !== turnId))
+          )
+            diagnostics.push(
+              `completion conflicts with observed start at line ${lineNumber}`,
+            );
+          if (evidence && calls.has(item.id))
+            diagnostics.push(`replayed call identity at line ${lineNumber}`);
           calls.add(item.id);
-          if (evidence && !['completed', 'failed', 'in_progress', 'pending', 'cancelled', 'interrupted'].includes(item.status))
-            diagnostics.push(`unsupported completion status at line ${lineNumber}`);
+          if (
+            evidence &&
+            ![
+              'completed',
+              'failed',
+              'in_progress',
+              'pending',
+              'cancelled',
+              'interrupted',
+            ].includes(item.status)
+          )
+            diagnostics.push(
+              `unsupported completion status at line ${lineNumber}`,
+            );
           const completion = {
-            ...(started ? {
-              start_cycle: started.cycle, start_line: started.line, start_source: started.source,
-              ...(typeof started.turn_id === 'string' ? { start_turn_id: started.turn_id } : {}),
-            } : {}),
-            call_id: item.id, status: item.status ?? null,
+            ...(started
+              ? {
+                  start_cycle: started.cycle,
+                  start_line: started.line,
+                  start_source: started.source,
+                  ...(typeof started.turn_id === 'string'
+                    ? { start_turn_id: started.turn_id }
+                    : {}),
+                }
+              : {}),
+            call_id: item.id,
+            status: item.status ?? null,
             exit_code: item.exit_code ?? null,
-            success: item.status === 'completed' &&
-              (item.type === 'CommandExecution' ? item.exit_code === 0 :
-                item.result != null && !item.error && item.result.isError !== true),
+            success:
+              item.status === 'completed' &&
+              (item.type === 'CommandExecution'
+                ? item.exit_code === 0
+                : item.result != null &&
+                  !item.error &&
+                  item.result.isError !== true),
           };
-          pushNative({
-            type: 'assistant',
-            message: {
-              role: 'assistant',
-              content: [{ type: 'tool_use', id: item.id, name, input: args }],
+          pushNative(
+            {
+              type: 'assistant',
+              message: {
+                role: 'assistant',
+                content: [{ type: 'tool_use', id: item.id, name, input: args }],
+              },
             },
-          }, completion);
-          pushNative({
-            type: 'user',
-            message: {
-              role: 'user',
-              content: [
-                {
-                  type: 'tool_result',
-                  tool_use_id: item.id,
-                  is_error: item.status === 'failed',
-                  content:
-                    item.aggregated_output ??
-                    JSON.stringify(item.result ?? item.error ?? null),
-                },
-              ],
+            completion,
+          );
+          pushNative(
+            {
+              type: 'user',
+              message: {
+                role: 'user',
+                content: [
+                  {
+                    type: 'tool_result',
+                    tool_use_id: item.id,
+                    is_error: item.status === 'failed',
+                    content:
+                      item.aggregated_output ??
+                      JSON.stringify(item.result ?? item.error ?? null),
+                  },
+                ],
+              },
             },
-          }, completion);
-        } else if (evidence) diagnostics.push(`unsupported completed effect at line ${lineNumber}`);
+            completion,
+          );
+        } else if (evidence)
+          diagnostics.push(
+            `unsupported completed effect at line ${lineNumber}`,
+          );
       } else if (r.type === 'event_msg' && p.type === 'token_count') {
         const usage = p.info?.last_token_usage;
         // Native input includes cached reads. Source checks sum the three CC
@@ -525,12 +630,25 @@ export function transcriptMessages(input, { evidence = false } = {}) {
             };
           }
         }
-      } else if (evidence && r.type === 'event_msg' && p.type === 'item_started') {
+      } else if (
+        evidence &&
+        r.type === 'event_msg' &&
+        p.type === 'item_started'
+      ) {
         const item = p.item ?? {};
         if (['CommandExecution', 'McpToolCall'].includes(item.type))
-          rememberStart(item.id, p.turn_id ?? item.turn_id, 'event_msg:item_started');
-        else diagnostics.push(`unsupported started effect at line ${lineNumber}`);
-      } else if (evidence && r.type === 'response_item' && p.type === 'function_call') {
+          rememberStart(
+            item.id,
+            p.turn_id ?? item.turn_id,
+            'event_msg:item_started',
+          );
+        else
+          diagnostics.push(`unsupported started effect at line ${lineNumber}`);
+      } else if (
+        evidence &&
+        r.type === 'response_item' &&
+        p.type === 'function_call'
+      ) {
         rememberStart(p.call_id, p.turn_id, 'response_item:function_call');
       }
       if (
@@ -544,7 +662,8 @@ export function transcriptMessages(input, { evidence = false } = {}) {
             type: p.role,
             message: { role: p.role, content: [{ type: 'text', text }] },
           });
-        else if (evidence) diagnostics.push(`malformed native message at line ${lineNumber}`);
+        else if (evidence)
+          diagnostics.push(`malformed native message at line ${lineNumber}`);
       } else if (
         r.type === 'event_msg' &&
         ['agent_message', 'user_message'].includes(p.type)
@@ -555,12 +674,31 @@ export function transcriptMessages(input, { evidence = false } = {}) {
             type: role,
             message: { role, content: [{ type: 'text', text: p.message }] },
           });
-        else if (evidence) diagnostics.push(`malformed native message at line ${lineNumber}`);
-      } else if (evidence && !(
-        (r.type === 'event_msg' && ['item_completed', 'token_count', 'task_started', 'task_complete', 'turn_aborted', 'context_compacted', 'item_started'].includes(p.type)) ||
-        (r.type === 'response_item' && ['function_call', 'function_call_output', 'reasoning'].includes(p.type)) ||
-        ['session_meta', 'turn_context', 'compacted'].includes(r.type)
-      )) diagnostics.push(`unsupported record ${r.type}:${p.type ?? '?'} at line ${lineNumber}`);
+        else if (evidence)
+          diagnostics.push(`malformed native message at line ${lineNumber}`);
+      } else if (
+        evidence &&
+        !(
+          (r.type === 'event_msg' &&
+            [
+              'item_completed',
+              'token_count',
+              'task_started',
+              'task_complete',
+              'turn_aborted',
+              'context_compacted',
+              'item_started',
+            ].includes(p.type)) ||
+          (r.type === 'response_item' &&
+            ['function_call', 'function_call_output', 'reasoning'].includes(
+              p.type,
+            )) ||
+          ['session_meta', 'turn_context', 'compacted'].includes(r.type)
+        )
+      )
+        diagnostics.push(
+          `unsupported record ${r.type}:${p.type ?? '?'} at line ${lineNumber}`,
+        );
     }
   } else if (evidence) diagnostics.push('missing transcript');
   if (typeof input.prompt === 'string')
@@ -596,14 +734,22 @@ export function runHook(root, script, input) {
   const path =
     script === 'link-coordination'
       ? join(root, 'scripts', `${script}.sh`)
-      : join(root, existsSync(join(root, '.agents/hooks')) ? '.agents/hooks' : '.claude/hooks', `${script}.sh`);
+      : join(
+          root,
+          existsSync(join(root, '.agents/hooks'))
+            ? '.agents/hooks'
+            : '.claude/hooks',
+          `${script}.sh`,
+        );
   if (!existsSync(path))
     return { status: 2, stdout: '', stderr: `Codex hook missing: ${path}` };
   const consumerLanguage = join(root, '.agents/hooks/lib/hook-language.sh');
-  const languageResolver = existsSync(consumerLanguage) ? consumerLanguage : resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../plugin/hooks/lib/hook-language.sh',
-  );
+  const languageResolver = existsSync(consumerLanguage)
+    ? consumerLanguage
+    : resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '../plugin/hooks/lib/hook-language.sh',
+      );
   const result = spawnSync(
     'bash',
     [
@@ -826,8 +972,11 @@ if (isMainEntry(import.meta.url)) {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
     const physicalCwd = realpathSync(input.cwd ?? '.');
     const consumerRelative = relative(root, physicalCwd);
-    const withinConsumer = existsSync(join(root, '.codex/hooks.json')) &&
-      consumerRelative !== '..' && !consumerRelative.startsWith('../') && !isAbsolute(consumerRelative);
+    const withinConsumer =
+      existsSync(join(root, '.codex/hooks.json')) &&
+      consumerRelative !== '..' &&
+      !consumerRelative.startsWith('../') &&
+      !isAbsolute(consumerRelative);
     if (physicalCwd !== root && !withinConsumer) {
       const gitRoot = spawnSync(
         'git',
