@@ -6,7 +6,7 @@
 # itself carries GIT_SAFETY_OVERRIDE="<literal, >=20 chars, no $>". Measured 2026-10-06
 # (citation-drift repair): three independent layers blocked an agent — settings deny, tripwire
 # revert, auto-mode classifier refusing the override invocation. This script is the
-# «санкционированный скрипт мейнтейнера» the tripwire's block message names, made agent-runnable:
+# maintainer-sanctioned-script escape the tripwire's block message names, made agent-runnable:
 # agents PREPARE (patch + byte-exact expected file, suite-tested together), the operator approves
 # the channel ONCE (the gate hook + allow rule committed to project .claude/settings.json), and
 # every application is (a) check-applied before any write, (b) byte-compared against the tested
