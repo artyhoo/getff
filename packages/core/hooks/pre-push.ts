@@ -1847,7 +1847,24 @@ function payloadDriftSection(ctx: SectionCtx): void {
         maxBuffer: 64 * 1024 * 1024,
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) stale.push(`  ${path}`);
+      if (recorded.has(sha256Bytes(show.stdout))) {
+        // The pre-image hash is recorded — but the baseline is only stale if the
+        // bytes the installer READS actually changed. A source re-home into the
+        // canonical tree (agents-canonical: the .claude path became a symlink to
+        // the identical .agents file) preserves those bytes: readFileSync follows
+        // the link, so when the resolved current bytes equal the pre-image the
+        // install output is unchanged and re-capture would rewrite the same
+        // fingerprint — flagging it here is a dead-end false positive (measured
+        // 2026-10-06: the whole migrated hook/skills surface flagged with
+        // byte-identical delivery).
+        const abs = resolve(REPO_ROOT, path);
+        try {
+          if (sha256Bytes(readFileSync(abs)) === sha256Bytes(show.stdout)) continue;
+        } catch {
+          // unreadable in the worktree — keep the stale verdict from the pre-image
+        }
+        stale.push(`  ${path}`);
+      }
     }
     if (stale.length)
       die(
@@ -2494,7 +2511,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:388 / install.sh --refresh (conditional starter)
+  '.agents/session-bootstrap.md', // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
 ];
 
 /**
@@ -2513,6 +2530,12 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
  */
 export const SHIPPED_MD_PREFIXES: readonly string[] = [
   '.ai-factory/skill-context/',
+  // agents-canonical canonical namespaces (2026-10-05 migration): the common tree the
+  // installer delivers and binds native entries against. Everything under them is
+  // framework-authored; a consumer's own content lives outside .agents/.
+  '.agents/procedures/',
+  '.agents/roles/',
+  '.agents/skills/',
 ];
 
 /**

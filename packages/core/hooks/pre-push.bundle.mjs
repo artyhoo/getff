@@ -2253,7 +2253,14 @@ function payloadDriftSection(ctx) {
         maxBuffer: 64 * 1024 * 1024
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) stale.push(`  ${path}`);
+      if (recorded.has(sha256Bytes(show.stdout))) {
+        const abs = resolve2(REPO_ROOT, path);
+        try {
+          if (sha256Bytes(readFileSync3(abs)) === sha256Bytes(show.stdout)) continue;
+        } catch {
+        }
+        stale.push(`  ${path}`);
+      }
     }
     if (stale.length)
       die(
@@ -2574,11 +2581,17 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/rules/integration-rules.md",
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
-  ".claude/session-bootstrap.md"
-  // 10-skills.sh:388 / install.sh --refresh (conditional starter)
+  ".agents/session-bootstrap.md"
+  // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
 ];
 var SHIPPED_MD_PREFIXES = [
-  ".ai-factory/skill-context/"
+  ".ai-factory/skill-context/",
+  // agents-canonical canonical namespaces (2026-10-05 migration): the common tree the
+  // installer delivers and binds native entries against. Everything under them is
+  // framework-authored; a consumer's own content lives outside .agents/.
+  ".agents/procedures/",
+  ".agents/roles/",
+  ".agents/skills/"
 ];
 var SHIPPED_SKILL_SLUGS = [
   "ai-doc",
