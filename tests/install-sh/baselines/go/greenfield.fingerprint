@@ -34,7 +34,7 @@ d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills
 44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48  .ai-factory/AI-USAGE-GUIDE.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
-a49b6f9452a470381a1101f7784797bc1cae057a7f04c545dc536aff3736a956  .ai-factory/refresh-baseline.json
+918f77ab63cb5e6a8bf7d3af3b7d43b819b15ef66d1187fb670d5bba9f28088d  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -51,10 +51,10 @@ link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 5af67bdb972cb779cdda97b2897bae024970061da6ae9f58cf440e9a6a18a78a  .claude/skills/getff/references/base-core.md
 4701765a6f9fd24b747df402bead3d76b6c8c90c12526bf0dc59acd7e0366c6a  .claude/skills/getff/references/checks-map.md
 071f2f63035697f6fd7ba1ac4e1cf45f53fa0f7227f3430e1de6184624cf6225  .claude/skills/getff/references/doc-organization.md
-link  .claude/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
+3c0c8fff6ac1462996c109a89fe7d0e56533b41d3f3730396a8f768aff83945f  .claude/skills/getff/references/framework-context.md
 ee21923ab780e85c595d6b0b4192ea3ac9c8532b7b1ba104b64b4cf9cedad633  .claude/skills/getff/references/overview.md
 424bea7f80b8694d3d53cb4fd79bfa84b0921b8523a2da00b10d82274b8660b1  .claude/skills/getff/references/self-testing-docs.md
-link  .claude/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
+b1fb80faa2a87532ecadc604a986a354bffcad5a4a2fc3f967d98b7d56b1ccf5  .claude/skills/getff/references/template-catalog.md
 link  .claude/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
 link  .claude/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
 f958ff1e17e5e28c73c649b1d87ebdd4a49f0804c4be9b8e1447f387c53b1815  .claude/skills/tool-bootstrapping/SKILL.md
@@ -83,5 +83,5 @@ link  .zcode/skills/tool-bootstrapping/templates/tool-decisions.md.template -> .
 f5e4b395baa096190372cd843864ba82060ae2cb1708c6096082d100b260c146  AGENTS.md
 b48dac7483918ed4b1034f73d2c28e67fc10f561041f29512784e673c4b4bcc5  go.mod
 2f1c7bca91c245f6dfcfbb6a73bb00b68728834c3789522de115230f3be64ad9  scripts/audit-ai-docs.sh
-b121cd8123fcbeea983787d13a1f8ea44a85a826d5d16df04fecc971069e5f93  scripts/codex-hook-adapter.mjs
+2e98f98156c60bdf2b7fd3d627829470925cc096fc084200e052d0aead2808a5  scripts/codex-hook-adapter.mjs
 03581a7d76131f9ad0a98317a7182a1bed7ad7aaa8c41b22cc538bba6a3b8d54  scripts/lib/is-main-entry.mjs
