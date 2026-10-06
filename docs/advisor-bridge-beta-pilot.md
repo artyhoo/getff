@@ -1,6 +1,6 @@
 # Advisor bridge beta — local pilot operation card
 
-> **Status:** implementation reworked per senior Stage B re-review (findings R1–R7 on top of the accepted S1–S7/C1–C3 corrections); pilot NOT enrolled or run. Stage C waits for the senior's explicit pilot-run instruction tied to this card.
+> **Status:** implementation reworked across three senior review rounds (S1–S7/C1–C3 and R1–R7 previously reworked; R8–R10 closed in this pass — no submission has yet received senior ACCEPTED); pilot NOT enrolled or run. Stage C waits for the senior's explicit pilot-run instruction tied to this card.
 > **Authoritative for:** operating the local advisor bridge tracer on this host — enrollment inputs, launch card, limits, evidence recorded so far.
 > **NOT authoritative for:** the behavior contract — [2026-10-06-advisor-reverse-bridge-tracer-design.md](superpowers/specs/2026-10-06-advisor-reverse-bridge-tracer-design.md); advisor rights and transport — [2026-10-06-advisor-codex-transport.md](superpowers/specs/2026-10-06-advisor-codex-transport.md).
 
@@ -38,7 +38,7 @@ The `glm-5.3` label echoed in `modelUsage` proves the client-reported label only
 
 ## 4. Launch card (exact argument arrays)
 
-Executor launch (fresh pass), cwd = the enrolled executor worktree. The initial pass prompt MUST equal the prepared request body. A rework pass MUST be `--resume` of the proven-ended session with the NEXT instruction revision's body as the prompt — the REWORK verdict requires the senior to publish a newer request revision first, and the attempt/report bind to that revision:
+Executor launch (fresh pass), cwd = the enrolled executor worktree. The initial pass prompt MUST equal the prepared request body. Initial execution is a work-item lifecycle decision, not a per-revision one: after any completed pass, publishing another request revision alone never mints a replacement session — continuation requires the senior report/REWORK progression. A rework pass MUST be `--resume` of the proven-ended session with the NEXT instruction revision's body as the prompt; a REWORK verdict authorizes exactly ONE successor instruction revision (the first revision published after the verdict) — it never blanket-authorizes later revisions, and a second rework needs a fresh verdict on its predecessor's report. Acceptance (an ACCEPTED verdict on any revision) is terminal for the enrolled work item; OPERATOR_REQUIRED authorizes no execution. An identical completed invocation replays its original receipt — including at the three-pass cap — with no reservation, counter change or child; the cap, OFF and the admission window still forbid every actual new launch:
 
 ```text
 claude --session-id <minted-uuid> --model glm-5.3 --permission-prompts none --output-format json -p "<prepared request body>"
@@ -72,7 +72,7 @@ node scripts/advisor-bridge-beta/cli.mjs --mailbox <anchor>/.claude/advisor-brid
 
 Enrollment OBSERVES the physical git common directory of both the mailbox anchor and the executor worktree (via `.git` pointer and `commondir` file) and rejects a declared binding that does not match — nonexistent or foreign repositories fail at enroll.
 
-Loop commands: `request` (prepared revision) → `own` → `run` (initial: prompt = request body) → `ask --work-key KEY` (consult checkpoint; `status` shows `consult-pending`; no new pass while an ask is open) → `consult-run` → `consult-import` → `report-import` (structured envelope, below) → `decide` (senior only). REWORK verdict → the senior publishes the NEXT instruction revision → `run --resume` with that revision's body as the prompt (an attempt is bound to its instruction revision; an identical rework retry replays its receipt, it does not launch again). ACCEPTED ends the work item; no further passes.
+Loop commands: `request` (prepared revision) → `own` → `run` (initial: prompt = request body; after a completed pass this route only replays the identical invocation or HOLDs — a newer revision alone admits nothing) → `ask --work-key KEY` (consult checkpoint; `status` shows `consult-pending`; no new pass while an ask is open) → `consult-run` → `consult-import` → `report-import` (structured envelope, below) → `decide` (senior only; `ACCEPTED` | `REWORK` | `OPERATOR_REQUIRED`). REWORK verdict → the senior publishes the verdict's successor instruction revision → `run --resume` with that revision's body as the prompt (an attempt is bound to its instruction revision; an identical rework retry replays its receipt, it does not launch again; a skipped or later revision is refused). ACCEPTED ends the work item terminally, on every later revision; OPERATOR_REQUIRED authorizes nothing. A lost receipt is recoverable by the identical retry at any point — including the third pass at the cap — without a launch or counter change.
 
 Report envelope (`report-import`): `--request-digest` must equal the current request digest; `--actor` must be the owner token; `--owner-ack` required. PARTIAL/DONE require `--artifact PATH=SHA256` and `--evidence "CMD=>EXIT"` entries; DONE additionally requires `--pass-id` of a completed pass bound to THIS work item and the CURRENT instruction revision (an older revision's pass never certifies a newer instruction, even with an identical request body/digest) and the consult chain (`--consult-decision` bound to the same workKey + revision + digest + `--application-ack`). BLOCKED requires `--blocker` and may legitimately precede any owned pass. Identical retries (timestamps reconstructed) return the existing receipt.
 
@@ -82,7 +82,7 @@ Limits (enforced durably): one work item, one CC process at a time, ≤3 CC pass
 
 ## 6. Deterministic coverage (all asserted on files/child effects)
 
-`node --test tests/advisor-bridge-beta/protocol.test.mjs` — 41 tests, green ×3 consecutive runs.
+`node --test tests/advisor-bridge-beta/protocol.test.mjs` — 49 tests, green ×3 consecutive runs.
 
 | Required case | Test |
 |---|---|
@@ -106,6 +106,9 @@ Limits (enforced durably): one work item, one CC process at a time, ≤3 CC pass
 | REWORK → next instruction revision → same-session resume; old-report acceptance rejected (R3/S4) | «R3: REWORK advances to the next instruction revision…» |
 | an instruction admits only its owned attempt; sequential + concurrent rework duplicates (R4/S4) | «R4: an instruction admits only its owned attempt…» |
 | DONE binds pass and decision to the exact current instruction revision, not just digest (R5) | «R5: DONE binds the pass and the decision…» |
+| a completed pass blocks any fresh executor on a newer revision; report-pending blocks every route (R8) | «R8: revision publication alone never admits a replacement executor», «R8: a report awaiting the senior decision…» |
+| a REWORK authorizes only its successor revision; ACCEPTED terminal across revisions; OPERATOR_REQUIRED authorizes nothing; legitimate second rework reaches the cap (R9) | «R9: complete r2 then request r3…», «R9: a pending r2 report plus r3…», «R9: ACCEPTED is terminal…», «R9: OPERATOR_REQUIRED…», «R9: a fresh REWORK r2 authorizes exactly r3…» |
+| identical retry replays its original receipt at the pass cap; the cap and OFF still forbid actual new launches (R10) | «R10: an identical retry at the pass cap replays its original receipt» |
 | model evidence: missing/mismatched reported model blocks advancement (S5) | «S5: a mismatched client-reported model…» |
 | physical git identity observed at enroll; foreign/nonexistent/anchorless bindings fail (S6) | «S6: enrollment observes physical git identity…», «enroll creates pilot config…» |
 | traversal / symlink escape fail | «path validation…» |

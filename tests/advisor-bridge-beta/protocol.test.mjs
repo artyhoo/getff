@@ -483,6 +483,178 @@ test('R4: an instruction admits only its owned attempt; rework duplicates replay
   assert.equal(readChildLog(t.log).length, 2, 'no additional child launch');
 });
 
+// ---------- R8/R9/R10: one work-item lifecycle across revisions ----------
+
+// Drive the legitimate two-rework chain to the three-pass cap. Every pass
+// follows the authorized progression: completed pass → report → senior
+// verdict → next instruction revision → same-session resume.
+function driveToCap(e, t, request) {
+  cli(e.mailbox, runArgs(), { env: t.env });
+  const first = latestAttemptFile(e.mailbox);
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  const second = latestAttemptFile(e.mailbox);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-2', '--verdict', 'REWORK', '--criteria', 'third pass', '--actor', SENIOR]);
+  const r3Body = 'rework instruction r3: third verification pass';
+  const r3 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r3Body, ['--resume']), { env: t.env });
+  const third = latestAttemptFile(e.mailbox);
+  return { first, second, third, r2, r3, r2Body, r3Body };
+}
+
+test('R8: revision publication alone never admits a replacement executor', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 1);
+  // r2 published with NO report and NO senior verdict on r1
+  const r2Body = 'rework instruction r2: second verification with evidence';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  assert.notEqual(r2.requestDigest, request.requestDigest);
+  // an ordinary (non-resume) run on r2 must not mint a replacement session
+  const r = cli(e.mailbox, runArgs(r2Body), { expectCode: 3, env: t.env });
+  assert.match(r.err, /completed pass|no new job/i);
+  assert.equal(attemptFiles(e.mailbox).length, 1, 'no second attempt record');
+  assert.equal(readChildLog(t.log).length, 1, 'one child total; no replacement session');
+  // and the resume route is equally closed without a REWORK verdict
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.equal(readChildLog(t.log).length, 1);
+});
+
+test('R8: a report awaiting the senior decision blocks every route on a newer revision', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  const r2Body = 'rework instruction r2: second verification with evidence';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]);
+  cli(e.mailbox, runArgs(r2Body), { expectCode: 3, env: t.env });
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.equal(attemptFiles(e.mailbox).length, 1);
+  assert.equal(readChildLog(t.log).length, 1, 'no additional child while the report awaits its decision');
+});
+
+test('R9: complete r2 then request r3 without a fresh REWORK admits no third child', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 2);
+  // r3 published with NO report and NO fresh verdict on r2: REWORK(r1) is spent
+  const r3Body = 'rework instruction r3: third verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  const rA = cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rA.err, /successor|authorizes/i);
+  cli(e.mailbox, runArgs(r3Body), { expectCode: 3, env: t.env });
+  assert.equal(attemptFiles(e.mailbox).length, 2);
+  assert.equal(readChildLog(t.log).length, 2, 'the historical REWORK never authorizes a later revision');
+});
+
+test('R9: a pending r2 report plus r3 cannot spend the historical REWORK', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 2);
+  // r2 report pending; r3 published; REWORK(r1) is spent either way
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
+  const r3Body = 'rework instruction r3: third verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  const rA = cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rA.err, /successor|authorizes/i);
+  cli(e.mailbox, runArgs(r3Body), { expectCode: 3, env: t.env });
+  assert.equal(attemptFiles(e.mailbox).length, 2);
+  assert.equal(readChildLog(t.log).length, 2, 'no third child from the historical REWORK');
+});
+
+test('R9: ACCEPTED is terminal across revisions; no revival, no new launch', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 2);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-2', '--verdict', 'ACCEPTED', '--actor', SENIOR]);
+  const r3Body = 'rework instruction r3: third verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  cli(e.mailbox, runArgs(r3Body), { expectCode: 3, env: t.env });
+  assert.equal(attemptFiles(e.mailbox).length, 2);
+  assert.equal(readChildLog(t.log).length, 2, 'accepted work remains terminal across later revisions');
+});
+
+test('R9: OPERATOR_REQUIRED authorizes nothing; an earlier REWORK stays spent', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 2);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-2', '--verdict', 'OPERATOR_REQUIRED', '--criteria', 'operator decides the fork', '--actor', SENIOR]);
+  const r3Body = 'rework instruction r3: third verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  const rA = cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rA.err, /successor|authorizes/i);
+  cli(e.mailbox, runArgs(r3Body), { expectCode: 3, env: t.env });
+  assert.equal(attemptFiles(e.mailbox).length, 2);
+  assert.equal(readChildLog(t.log).length, 2, 'no execution justified by an earlier REWORK');
+});
+
+test('R9: a fresh REWORK r2 authorizes exactly r3 — the legitimate second rework reaches the cap', () => {
+  const { e, t, request } = setup();
+  const { first, second, third } = driveToCap(e, t, request);
+  assert.equal(second.resumeFrom, first.sessionId, 'same proven-ended session');
+  assert.equal(second.requestRevision, 2);
+  assert.equal(third.resumeFrom, second.sessionId, 'the second rework resumes the same session');
+  assert.equal(third.sessionId, first.sessionId, 'one executor through all three passes');
+  assert.equal(third.requestRevision, 3, 'each rework attempt binds its own instruction revision');
+  assert.equal(third.status, 'completed');
+  assert.equal(readChildLog(t.log).length, 3);
+  const s = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(s.counters.ccPasses, 3, 'the cap is reached by the legitimate progression');
+});
+
+test('R10: an identical retry at the pass cap replays its original receipt', () => {
+  const { e, t, request } = setup();
+  const { third, r3, r3Body } = driveToCap(e, t, request);
+  const before = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(before.counters.ccPasses, 3);
+  // the lost receipt of the FINAL permitted pass is recoverable
+  const retry = JSON.parse(cli(e.mailbox, runArgs(r3Body, ['--resume']), { env: t.env }).out);
+  assert.equal(retry.replay, true, 'identical retry at the cap must replay, not reject');
+  assert.equal(retry.attemptId, third.attemptId);
+  assert.equal(attemptFiles(e.mailbox).length, 3, 'no new attempt record');
+  assert.equal(readChildLog(t.log).length, 3, 'no fourth launch');
+  const after = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(after.counters.ccPasses, 3, 'replay does not change counters');
+  // a DISTINCT instruction at the cap is still refused — the cap is intact
+  cli(e.mailbox, reportArgs({ reportId: 'rep-3', revision: '3', status: 'PARTIAL', digest: r3.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-3', '--verdict', 'REWORK', '--criteria', 'yet another pass', '--actor', SENIOR]);
+  const r4Body = 'rework instruction r4: fourth verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '4', '--body', r4Body, '--actor', SENIOR]);
+  const rCap = cli(e.mailbox, runArgs(r4Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rCap.err, /pass limit/i);
+  assert.equal(readChildLog(t.log).length, 3, 'the cap still forbids a fourth launch');
+  // OFF still forbids execution: receipt recovery is not permission to resume
+  cli(e.mailbox, ['off', '--actor', 'senior']);
+  cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.equal(readChildLog(t.log).length, 3, 'OFF still gates after the cap');
+});
+
 test('R5: DONE binds the pass and the decision to the exact current instruction revision', () => {
   const { e, t, request } = setup();
   cli(e.mailbox, runArgs(), { env: t.env });
@@ -490,16 +662,24 @@ test('R5: DONE binds the pass and the decision to the exact current instruction 
   cli(e.mailbox, askArgs('same-body-ask', 'Judge.'));
   cli(e.mailbox, ['consult-run', '--ask-id', 'same-body-ask'], { env: t.env });
   const dec1 = JSON.parse(cli(e.mailbox, ['consult-import', '--ask-id', 'same-body-ask'], { env: t.env }).out);
-  // r2 with an IDENTICAL body: identical digest, different revision
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'verify once more', '--actor', SENIOR]);
+  // r2 with an IDENTICAL body: identical digest, different revision. The only
+  // authorized fresh pass on r2 is the rework resume — revision publication
+  // alone mints nothing (R8), and the pending rework instruction directs the
+  // initial route to --resume instead of minting or replaying a pass.
   const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', REQUEST_BODY, '--actor', SENIOR]).out);
   assert.equal(r2.requestDigest, request.requestDigest, 'precondition: identical body and digest');
+  const staleRun = cli(e.mailbox, runArgs(REQUEST_BODY), { expectCode: 3, env: t.env });
+  assert.match(staleRun.err, /rework instructed|no new job/i, 'revision publication alone mints nothing');
   const r = cli(e.mailbox, reportArgs({ reportId: 'rep-stale', revision: '2', status: 'DONE', digest: r2.requestDigest,
     extra: DONE_EXTRA(attempt1.attemptId, dec1.decisionId) }), { expectCode: 4 });
   assert.match(r.err, /revision/i);
-  // a fresh pass and a fresh consult on r2 do back a DONE on r2
-  cli(e.mailbox, runArgs(), { env: t.env });
+  // the authorized rework pass and a fresh consult on r2 do back a DONE on r2
+  cli(e.mailbox, runArgs(REQUEST_BODY, ['--resume']), { env: t.env });
   const attempt2 = latestAttemptFile(e.mailbox);
   assert.equal(attempt2.requestRevision, 2);
+  assert.equal(attempt2.resumeFrom, attempt1.sessionId, 'same proven-ended session');
   cli(e.mailbox, askArgs('fresh-ask', 'Judge again.'));
   cli(e.mailbox, ['consult-run', '--ask-id', 'fresh-ask'], { env: t.env });
   const dec2 = JSON.parse(cli(e.mailbox, ['consult-import', '--ask-id', 'fresh-ask'], { env: t.env }).out);

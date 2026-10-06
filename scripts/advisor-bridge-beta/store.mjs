@@ -452,9 +452,9 @@ export function checkAdmission(root, kind = 'mutation') {
     throw new HoldError('pilot admission window expired', { windowOpenUntil: new Date(until).toISOString() });
   }
   const counters = readCounters(root);
-  if ((kind === 'cc-pass' || kind === 'cc-resume') && counters.ccPasses >= pilot.limits.maxCcPasses) {
-    throw new HoldError('CC pass limit reached', { used: counters.ccPasses, max: pilot.limits.maxCcPasses });
-  }
+  // The CC pass cap gates RESERVATION, not admission queries: a proven
+  // identical retry must be able to replay its receipt (R10) before any
+  // counter limit is consulted. The cap therefore lives in reserveCcPass.
   if (kind === 'advisor-call' && counters.advisorCalls >= pilot.limits.maxAdvisorCalls) {
     throw new HoldError('advisor call limit reached', { used: counters.advisorCalls, max: pilot.limits.maxAdvisorCalls });
   }
@@ -596,6 +596,15 @@ export function latestCompletedAttempt(root) {
 }
 
 export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom = null, deadlineMs, argv, prompt, pilotId = null, requestRevision = null }) {
+  // The pass cap gates actual reservations only. Receipt replay resolves
+  // earlier (in the admission gate) and never reaches this allocation point,
+  // so a lost receipt stays recoverable at the cap (R10) while every new
+  // launch — initial, rework, or fourth pass — remains bounded.
+  const pilot = readPilot(root);
+  const counters = readCounters(root);
+  if (counters.ccPasses >= pilot.limits.maxCcPasses) {
+    throw new HoldError('CC pass limit reached', { used: counters.ccPasses, max: pilot.limits.maxCcPasses });
+  }
   const attemptId = randomUUID().slice(0, 8);
   const attempt = {
     schemaVersion: 1,
@@ -733,13 +742,27 @@ function listVerdictRecords(root, workKey) {
   return out;
 }
 
-// The launch boundary preserves ONE executor through initial/rework passes:
+function listRequestRevisions(root, workKey) {
+  const dir = mailboxPath(root, 'requests');
+  if (!existsSync(dir)) return [];
+  const prefix = `${workKey}.r`;
+  return readdirSync(dir)
+    .filter((n) => n.startsWith(prefix) && n.endsWith('.json'))
+    .map((n) => Number(n.slice(prefix.length, -'.json'.length)))
+    .filter((n) => Number.isInteger(n) && n >= 1)
+    .sort((a, b) => a - b);
+}
+
+// The launch boundary preserves ONE executor across the WHOLE work item:
 // initial admission requires the current prepared request and a matching
-// bounded prompt; an identical completed launch replays its receipt; REWORK
-// binds a NEW instruction revision and resumes the same proven-ended session
-// with that instruction's body; an instruction admits only its owned attempt
-// (a retry after completion replays, an in-flight attempt HOLDs); a pending
-// consult is an explicit checkpoint; acceptance ends the work item.
+// bounded prompt, and happens exactly once per work item — publishing a
+// newer request revision alone never mints a replacement session (R8); an
+// identical completed launch replays its receipt; a senior REWORK verdict
+// authorizes exactly ONE successor instruction revision (the first revision
+// published after the verdict), resumed on the same proven-ended session —
+// it never blanket-authorizes later revisions (R9); a pending consult is an
+// explicit checkpoint; acceptance is terminal for the enrolled work item
+// across all revisions.
 export function gateRunAdmission(root, { workKey, prompt, resume }) {
   const current = currentRequest(root, workKey);
   if (!current) {
@@ -753,25 +776,35 @@ export function gateRunAdmission(root, { workKey, prompt, resume }) {
       askId: openAsk.askId,
     });
   }
-  const reportsR = listReports(root, workKey, revision);
-  const verdictsR = reportsR.map((r) => readVerdict(root, r.reportId)).filter(Boolean);
-  if (verdictsR.some((v) => v.verdict === 'ACCEPTED')) {
-    throw new HoldError('work item accepted; no further passes are admitted', { workKey });
+  const accepted = listVerdictRecords(root, workKey).find((v) => v.verdict === 'ACCEPTED');
+  if (accepted) {
+    throw new HoldError('work item accepted; the accepted work item is terminal and admits no further passes on any revision', {
+      workKey, acceptedRevision: accepted.requestRevision ?? null,
+    });
   }
+  const reportsR = listReports(root, workKey, revision);
   const reworks = listVerdictRecords(root, workKey).filter((v) => v.verdict === 'REWORK')
-    .sort((a, b) => String(b.decidedAt ?? '').localeCompare(String(a.decidedAt ?? '')));
+    .sort((a, b) => (b.requestRevision - a.requestRevision)
+      || String(b.decidedAt ?? '').localeCompare(String(a.decidedAt ?? '')));
   const latestRework = reworks[0] ?? null;
-  const attemptsR = listAttempts(root).filter((a) => a.workKey === workKey && a.requestRevision === revision);
-  const completedR = attemptsR.filter((a) => a.status === 'completed');
+  const attemptsAll = listAttempts(root).filter((a) => a.workKey === workKey);
+  const completedAny = attemptsAll.filter((a) => a.status === 'completed');
+  const completedR = completedAny.filter((a) => a.requestRevision === revision);
   const promptText = String(prompt).trim();
   const bodyText = String(current.body).trim();
   if (resume) {
     if (!latestRework) {
       throw new HoldError('rework pass requires a senior REWORK instruction recorded for this work item', { workKey });
     }
-    if (revision <= latestRework.requestRevision) {
+    const successor = listRequestRevisions(root, workKey).find((r) => r > latestRework.requestRevision);
+    if (successor === undefined) {
       throw new HoldError('rework requires the next instruction revision: publish a request revision newer than the REWORK verdict', {
         workKey, verdictRevision: latestRework.requestRevision, currentRevision: revision,
+      });
+    }
+    if (revision !== successor) {
+      throw new HoldError(`the REWORK verdict on r${latestRework.requestRevision} authorizes only its successor instruction revision r${successor}, not r${revision}`, {
+        workKey, verdictRevision: latestRework.requestRevision, authorizedRevision: successor, currentRevision: revision,
       });
     }
     if (promptText !== bodyText) {
@@ -783,7 +816,8 @@ export function gateRunAdmission(root, { workKey, prompt, resume }) {
     if (done.length > 0) return { replay: done[done.length - 1] };
     return {};
   }
-  const unactionedRework = latestRework && revision > latestRework.requestRevision
+  const unactionedRework = latestRework
+    && listRequestRevisions(root, workKey).find((r) => r > latestRework.requestRevision) === revision
     && completedR.length === 0 && reportsR.length === 0;
   if (unactionedRework) {
     throw new HoldError('rework instructed: resume the same proven-ended session with --resume', {
@@ -793,12 +827,15 @@ export function gateRunAdmission(root, { workKey, prompt, resume }) {
   if (reportsR.length > 0) {
     throw new HoldError('report awaits the senior decision; no new job is admitted', { workKey });
   }
-  if (completedR.length > 0) {
-    const last = completedR[completedR.length - 1];
-    if (last.resumeFrom == null && String(last.prompt ?? '').trim() === promptText) {
-      return { replay: last };
+  // Initial execution is a work-item lifecycle decision, not a per-revision
+  // one: after any completed pass, a published revision alone admits nothing
+  // and no replacement session is minted (R8).
+  if (completedAny.length > 0) {
+    const initial = completedAny.find((a) => a.resumeFrom == null);
+    if (initial && String(initial.prompt ?? '').trim() === promptText) {
+      return { replay: initial };
     }
-    throw new HoldError('awaiting report for the completed pass; no new job is admitted', { workKey });
+    throw new HoldError('the work item already has a completed pass; no new job is admitted — a new request revision alone replaces nothing, continuation requires the senior report/REWORK progression and --resume', { workKey });
   }
   if (promptText !== bodyText) {
     throw new RejectError('initial pass prompt must match the prepared request body', {
