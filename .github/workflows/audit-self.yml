@@ -633,6 +633,12 @@ jobs:
         run: bash tests/hooks/prepush-merge-forward-range.test.sh
       - name: Run baseline-staleness verdict paired-negative (re-home/compat-entry skips, genuine/orphaned flags, 2026-10-06)
         run: bash tests/hooks/prepush-baseline-staleness.test.sh
+      # Wired 2026-10-06 (acceptance F4, PR #2066 review): the canonical source/native/Codex
+      # Node suites shipped with no automatic caller — the F1 duplicate-body drift sat red in
+      # the suite while every wired gate stayed green. The pre-push `canonical-source` section
+      # is the early channel; this step is the recorded CI backstop for hook-skipping pushes.
+      - name: Run canonical agents source contract suites (.agents owners, compatibility loaders, Codex contributor)
+        run: npm --prefix packages/core run test:canonical
       - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT) + unpushed-merge refusal paired-negative
         run: bash tests/hooks/prepush-cross-checkout-range.test.sh && bash tests/hooks/merge-unpushed-refusal.test.sh # + unpushed-merge refusal (.husky/pre-merge-commit + pre-commit MERGE_HEAD arm, 2026-09-30), same line so no citation shifts
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)

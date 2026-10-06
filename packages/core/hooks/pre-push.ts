@@ -2264,6 +2264,35 @@ function runCoreSuite(script: string): CheckResult {
   return r;
 }
 
+// ── 5b-bis. Canonical agents source contract (maintainer, agents-canonical R8) ──
+// The .agents canonical architecture keeps ONE authored owner per
+// procedure/role/skill and ships compatibility entries that must load the owner
+// in full. scripts/canonical-agents-map.json is the migration SSOT; the three
+// Node suites under scripts/ are its executable contract (source joins, native
+// entries, Codex contributor surface). They shipped with NO automatic caller —
+// acceptance finding F4 (review report 2026-10-06): the F1 duplicate-body drift
+// sat red in the suite while every wired gate stayed green. Wired here (the
+// earliest reachable automatic channel on a maintainer push) and as an
+// audit-self.yml step (the recorded CI backstop for hook-skipping pushes).
+//
+// Absent map (a consumer checkout, or a shallow copy) → skip, never fail: the
+// existsSync guard askFileSchemaSection/bash32Section use. owner=maintainer
+// already scopes the section to the framework repo; the guard additionally
+// covers framework layouts that predate the migration.
+function canonicalSourceSection(): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/canonical-agents-map.json')))
+    return;
+  const r = runCoreSuite('test:canonical');
+  if (r.notFound) {
+    die(
+      '❌ npm/npx not found. Install Node.js to enable canonical source tests.',
+    );
+  }
+  if (r.exitCode !== 0)
+    die('❌ canonical source-contract tests failed — fix before push', r);
+  emit(r);
+}
+
 function principlesMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
     const r = runCoreSuite('test:principles');
@@ -3014,6 +3043,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'docs-refresh',
     owner: 'maintainer',
     run: (c) => docsRefreshSection(c),
+  },
+  {
+    id: 'canonical-source',
+    owner: 'maintainer',
+    run: () => canonicalSourceSection(),
   },
   {
     id: 'principles-meta',

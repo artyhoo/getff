@@ -2459,6 +2459,19 @@ function runCoreSuite(script) {
   }
   return r;
 }
+function canonicalSourceSection() {
+  if (!existsSync4(resolve2(REPO_ROOT, "scripts/canonical-agents-map.json")))
+    return;
+  const r = runCoreSuite("test:canonical");
+  if (r.notFound) {
+    die(
+      "\u274C npm/npx not found. Install Node.js to enable canonical source tests."
+    );
+  }
+  if (r.exitCode !== 0)
+    die("\u274C canonical source-contract tests failed \u2014 fix before push", r);
+  emit(r);
+}
 function principlesMetaSection() {
   if (existsSync4(resolve2(CORE, "package.json"))) {
     const r = runCoreSuite("test:principles");
@@ -2886,6 +2899,11 @@ var SECTIONS = [
     id: "docs-refresh",
     owner: "maintainer",
     run: (c) => docsRefreshSection(c)
+  },
+  {
+    id: "canonical-source",
+    owner: "maintainer",
+    run: () => canonicalSourceSection()
   },
   {
     id: "principles-meta",
