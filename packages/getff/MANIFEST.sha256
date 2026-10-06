@@ -901,7 +901,7 @@ bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/
 d4dd9a3752ec27904583a7291490d8659421d1994a6de26878ddf1df89dad850  packages/core/install/tool-decisions-blocks-named.test.ts
 30d2ea12323e227988dc3e1e5b11bf1249c2778f35cae33df0730ead72cb9054  packages/core/install/wire-eslint-r2.test.ts
 a8054df97c5f37902e5fded2bb56b426ff2efa5eaf8776d4f6cd094c1cab5e9a  packages/core/install/wire-eslint-r2.ts
-9fed0a069041e5262e2ded7fd15890c12d87eafffaf037fdf1b05a6059ca7ee4  packages/core/install/wire-live-snippet.test.ts
+d0f88a60e596cc97e37d14fed8bbffbd92b7247656c94f88a09626fe107831de  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
 90f3aed2bf8876cb2eacfa7d445bd98bcd5fcf61048a0693b283534b309c7bbc  packages/core/installer/expected-self-install.json
