@@ -2857,7 +2857,7 @@ jobs:
 
   # Appended at the end of the file on purpose: `path:line` citations point into this
   # workflow, and a job added above them would shift every one (the bash32 job below set
-  # this precedent). Dot staging review gate (S4 offline negative matrix): the 14
+  # this precedent). Dot staging review gate (S4 offline negative matrix): the 15
   # paired-negative suites, one named line each so principle 41's comment-stripped
   # registry sees them. Hermetic — local node + loopback sockets + a tmp coordination
   # dir only, no network, no LLM calls. node:sqlite needs node >= 22.13 (unflagged);
@@ -2897,3 +2897,4 @@ jobs:
           bash scripts/dot-review-gate/finding-lifecycle.test.sh
           bash scripts/dot-review-gate/cc-adapter.test.sh
           bash scripts/dot-review-gate/queue.test.sh
+          bash scripts/dot-review-gate/budgets.test.sh

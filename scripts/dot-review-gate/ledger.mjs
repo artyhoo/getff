@@ -976,6 +976,45 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return row?.value === 'true';
     },
 
+    // Quota pause (increment 8): stops new MODEL work (launch dispatch); distinct
+    // from the operator pause, which also stops claims and publications.
+    setQuotaPaused(paused, reason) {
+      tx(() => {
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run('quota-paused', paused ? 'true' : 'false', now());
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run('quota-reason', reason ?? '', now());
+      });
+    },
+
+    isQuotaPaused() {
+      return db.prepare('SELECT value FROM control WHERE key = ?').get('quota-paused')?.value === 'true';
+    },
+
+    quotaReason() {
+      const row = db.prepare('SELECT value FROM control WHERE key = ?').get('quota-reason');
+      return row?.value || null;
+    },
+
+    // Burst coalescing (increment 8): returns true when the event key was already
+    // seen inside its window — the caller skips the duplicate.
+    coalesceMark(eventKey, nowMs, windowMs) {
+      return tx(() => {
+        const key = `coalesce:${eventKey}`;
+        const row = db.prepare('SELECT value, updated_at FROM control WHERE key = ?').get(key);
+        if (row) {
+          const at = Date.parse(row.updated_at);
+          if (Number.isFinite(at) && nowMs - at < windowMs) return true;
+        }
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run(key, String(nowMs), new Date(nowMs).toISOString());
+        return false;
+      });
+    },
+
     counts() {
       const one = (sql) => db.prepare(sql).get().n;
       return {
