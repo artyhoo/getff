@@ -385,8 +385,8 @@
       "extras": {
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:236 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:243 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:251 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:258 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
