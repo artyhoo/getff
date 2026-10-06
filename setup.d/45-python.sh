@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1674 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1677-1679 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -67,7 +67,7 @@
 # this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
 # which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
 # after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
-# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:325), so
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:338), so
 # re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
 if ! declare -F _lane_log >/dev/null 2>&1; then
   # shellcheck source=setup.d/lib.sh
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:728-730, long before do_refresh at install.sh:1654).
+# (do_python_lane exits at install.sh:729-730, long before do_refresh at install.sh:1658).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:841-842 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1392, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1400, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1710). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1718). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1710), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1718), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.

@@ -40,7 +40,7 @@
           "packages/core/hooks/pre-push.ts:1769 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:300 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:301 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -386,8 +386,8 @@
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
           "setup.d/eslint-wire.sh:408 (command-position)",
-          "setup.d/portable-bindings.sh:251 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:258 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:263 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:270 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -458,7 +458,7 @@
           ".husky/pre-commit:254 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:329 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:330 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -781,7 +781,7 @@
           "install.sh:1235 (quoted-path-token)",
           "install.sh:1236 (quoted-path-token)",
           "install.sh:1237 (quoted-path-token)",
-          "scripts/run-local-ci-sweep.sh:1190 (command-substitution, closure)"
+          "scripts/run-local-ci-sweep.sh:1201 (command-substitution, closure)"
         ]
       },
       "example": null

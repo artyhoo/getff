@@ -16,7 +16,7 @@ _portable_owned_path() {
 }
 
 _portable_copy() {
-  local src="$1" dst="$2" temp=""
+  local src="$1" dst="$2" temp="" display_src="$1"
   if _portable_owned_path "$dst"; then
     echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
     return 0
@@ -35,10 +35,13 @@ _portable_copy() {
     transform_internal_refs "$temp"
     src="$temp"
   fi
+  # display_src names the REAL source in dry-run previews (copy_safe 4th arg) — a random
+  # mktemp path in the print would make two consecutive --dry-run outputs differ
+  # (Detector v1 L1 idempotency). The guards still compare the transformed temp bytes.
   if [ -n "${REFRESH:-}" ] || [ "${GETFF_TOOLCHAIN_REFRESH:-}" = 1 ]; then
-    refresh_safe "$src" "$dst"
+    refresh_safe "$src" "$dst" "" "$display_src"
   else
-    copy_safe "$src" "$dst"
+    copy_safe "$src" "$dst" "" "$display_src"
   fi
   [ -z "$temp" ] || rm -f "$temp"
 }
@@ -63,7 +66,7 @@ _portable_relative() {
 # Replace only equal bytes, never a customized legacy discovery entry. The common
 # payload stays usable when a consumer elects to retain their native customization.
 _portable_alias() {
-  local canonical="$1" native="$2" relative
+  local canonical="$1" native="$2"
   if [ "$DRY_RUN" = --dry-run ]; then
     echo "  [dry-run] would bind: $native → $canonical (matching entries only)"
     return 0
@@ -78,25 +81,41 @@ _portable_alias() {
     echo "  · $native kept (consumer-owned external or custom compatibility link)"
     return 0
   fi
-  if [ -e "$native" ] || [ -L "$native" ]; then
+  if [ -n "${REFRESH:-}" ] || [ "${GETFF_TOOLCHAIN_REFRESH:-}" = 1 ]; then
+    # Refresh propagation: the canonical twin just moved to the upstream bytes, so the
+    # install-mode byte-equality shortcut cannot decide — the native's OWN baseline
+    # does (delivered bytes → refresh; consumer edit → preserved copy), exactly like
+    # any other delivered file. Equal bytes = the canonical did not move for this file
+    # → the writer's baseline stands, skip silently.
+    if [ -e "$native" ] && [ ! -L "$native" ] && cmp -s "$canonical" "$native"; then
+      return 0
+    fi
+    [ -L "$native" ] && rm -f "$native"   # a previous getff version's managed alias link
+    refresh_safe "$canonical" "$native"
+    return 0
+  fi
+  if [ -e "$native" ] && [ ! -L "$native" ]; then
     if ! cmp -s "$canonical" "$native"; then
       echo "  · $native kept (custom native entry; canonical source available at $canonical)"
       return 0
     fi
+    # A real native file already byte-equal to the canonical twin: the delivery that
+    # wrote it earlier this run staged its baseline. Return WITHOUT copy_safe — its
+    # exists-guard would record the path in SKIPPED, and ignore_shipped_configs would
+    # then treat a framework-fresh delivery as consumer-owned and leave it format-
+    # checked (the brownfield #531 class: a stricter consumer .prettierrc flags the
+    # framework-formatted bytes).
+    return 0
   fi
-  relative="$(_portable_relative "$canonical" "$native")"
+  # Deliver it as a MATERIALIZED real file, never a symlink: the consumer contract is
+  # real bytes (Windows cannot create symlinks without privilege — the PR #2025 sweep;
+  # the consumer-matrix prettier arm refuses explicit symlink paths), and only a copy
+  # refreshes through the baseline-guarded path a delivery gets. This twin gets its OWN
+  # baseline entry, so a consumer edit at the native path later diverges against ITS
+  # OWN baseline and is preserved, never silently overwritten.
+  [ -L "$native" ] && rm -f "$native"   # a previous getff version's managed alias link
   mkdir -p "$(dirname "$native")"
-  # At this point the file is proven byte-identical to the delivered common source.
-  # No refresh_baseline_stage here: for a REBIND the native path is a symlink to the
-  # canonical file, so the cmp above passes for the trivial reason (same inode through the
-  # link) even when the canonical bytes are a consumer edit — staging would relabel the
-  # consumer's edit as the framework baseline and the next refresh would destroy it
-  # silently (refresh-baseline-survives-early-exit arm 4, measured 2026-10-06). The
-  # delivery that wrote the real file already staged the entry; a native path with no
-  # entry stays unbaselined, which is the conservative direction (preserves, never
-  # overwrites silently).
-  rm -f "$native"
-  ln -s "$relative" "$native"
+  copy_safe "$canonical" "$native"
 }
 
 _portable_discovery() {
@@ -203,17 +222,10 @@ install_portable_bindings() {
     fi
     # Materialize starter bytes: a repeated install can read our native alias,
     # and copying that link into its own canonical target would destroy the seed.
-    # Dry-run previews the REAL source path: the materialization temp below is a
-    # random mktemp name, and copy_safe's dry-run echo would print it — two runs
-    # would never diff equal (L1 acceptance (a), framework-self-detect CI).
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      copy_safe "$src" "$PROJECT_ROOT/.agents/session-bootstrap.md"
-    else
-      bootstrap_temp="$(mktemp "${TMPDIR:-/tmp}/getff-bootstrap.XXXXXX")"
-      cp -pL "$src" "$bootstrap_temp"
-      copy_safe "$bootstrap_temp" "$PROJECT_ROOT/.agents/session-bootstrap.md"
-      rm -f "$bootstrap_temp"
-    fi
+    bootstrap_temp="$(mktemp "${TMPDIR:-/tmp}/getff-bootstrap.XXXXXX")"
+    cp -pL "$src" "$bootstrap_temp"
+    copy_safe "$bootstrap_temp" "$PROJECT_ROOT/.agents/session-bootstrap.md" "" "$src"
+    rm -f "$bootstrap_temp"
     _portable_alias "$PROJECT_ROOT/.agents/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   fi
 }

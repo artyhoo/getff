@@ -101,7 +101,7 @@ mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 # $(procedure_source getff))).
 # Wipe + recopy + rewrite repo-internal relative refs in the DELIVERED markdown (2026-08-17).
 # This bare `cp -r` used to be the only shipped-markdown path in setup.d/ that skipped
-# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:215), so
+# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:228), so
 # vendor/README.md's two `](../../../…)` refs shipped verbatim. They resolve in-repo —
 # packages/runtime-bridge/vendor/ sits three levels below the repo root, the same depth as
 # .claude/vendor/runtime-bridge/ below a consumer root — which is exactly why the breakage is

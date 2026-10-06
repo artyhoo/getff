@@ -34,8 +34,13 @@ deliver core
 [ "$(cat "$consumer/.claude/hooks/inject-output-language.sh")" = 'consumer customized hook' ]
 [ "$(cat "$consumer/.agents/session-bootstrap.md")" = 'consumer project anchor' ]
 [ -f "$consumer/.agents/procedures/getff/SKILL.md" ]
-[ -L "$consumer/.claude/skills/ai-doc/SKILL.md" ]
-[ -L "$consumer/.zcode/skills/ai-doc/SKILL.md" ]
+# Native discovery entries are MATERIALIZED real files (the consumer contract — Windows
+# cannot create symlinks without privilege, and the consumer-matrix prettier arm refuses
+# explicit symlink paths), byte-equal to the canonical owners they mirror.
+[ -f "$consumer/.claude/skills/ai-doc/SKILL.md" ]
+cmp "$consumer/.claude/skills/ai-doc/SKILL.md" "$consumer/.agents/procedures/ai-doc/SKILL.md"
+[ -f "$consumer/.zcode/skills/ai-doc/SKILL.md" ]
+cmp "$consumer/.zcode/skills/ai-doc/SKILL.md" "$consumer/.agents/procedures/ai-doc/SKILL.md"
 [ -f "$consumer/.agents/roles/review-sidecar.md" ]
 [ -f "$consumer/.agents/skills/review-sidecar/SKILL.md" ]
 grep -q "allow_implicit_invocation: false" "$consumer/.agents/skills/review-sidecar/agents/openai.yaml"
@@ -78,8 +83,12 @@ grep -q "allow_implicit_invocation: false" "$consumer/.agents/skills/pipeline/ag
 [ ! -e "$consumer/.agents/procedures/aif-doctor" ]
 deliver factory
 [ -x "$consumer/.agents/procedures/aif-doctor/helpers/heal.sh" ]
-[ -L "$consumer/.claude/skills/aif-doctor/helpers/heal.sh" ]
-[ -L "$consumer/.zcode/skills/aif-doctor/helpers/heal.sh" ]
+[ -x "$consumer/.claude/skills/aif-doctor/helpers/heal.sh" ]
+[ -x "$consumer/.zcode/skills/aif-doctor/helpers/heal.sh" ]
+# The consumer delivery is link-free end to end: every native, canonical and discovery
+# entry is a real file (the `grep .`-not-`-q` idiom — an early-exit grep SIGPIPEs find
+# into rc=141, which `if` reads as false, hollow-passing the arm).
+if find "$consumer" -type l | grep .; then echo 'FAIL consumer delivery ships a symlink'; exit 1; fi
 # Native aliases and their helper closure resolve wholly within the delivered tree.
 node - "$consumer" <<'NODE'
 const fs=require('fs'), p=require('path'), root=fs.realpathSync(process.argv[2]);

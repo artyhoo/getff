@@ -145,8 +145,16 @@ resolve_symlinks() {
   done
   printf '%s\n' "${out[@]}"
 }
-if [ "${#FILES[@]}" -gt 0 ]; then FILES=($(resolve_symlinks "${FILES[@]}")); fi
-if [ "${#TEMPLATES[@]}" -gt 0 ]; then TEMPLATES=($(resolve_symlinks "${TEMPLATES[@]}")); fi
+if [ "${#FILES[@]}" -gt 0 ]; then
+  RESOLVED=()
+  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${FILES[@]}")
+  FILES=("${RESOLVED[@]}")
+fi
+if [ "${#TEMPLATES[@]}" -gt 0 ]; then
+  RESOLVED=()
+  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${TEMPLATES[@]}")
+  TEMPLATES=("${RESOLVED[@]}")
+fi
 
 rc=0
 [ "${#FILES[@]}" -gt 0 ]     && { npx --yes prettier@3.8.3 "$FLAG" "${FILES[@]}"     || rc=$?; }

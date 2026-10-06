@@ -71,6 +71,10 @@ packages/core/hooks/**
 packages/core/eslint-rules/**
 scripts/audit-r4.ts
 scripts/prove-rules.mjs
+# The Codex native-hook adapter (delivered by install_codex_consumer_bindings,
+# setup.d/portable-bindings.sh). Same #531 class: framework-formatted bytes a consumer
+# never authors — a brownfield .prettierrc with printWidth 100 reflows it.
+scripts/codex-hook-adapter.mjs
 # The factory-profile runtime-bridge vendor drop (setup.d/55-runtime-bridge-vendor.sh copies
 # packages/runtime-bridge/vendor/ here wholesale). Same #531 class as the siblings above: a
 # consumer never authors `.claude/vendor/`, and the drop ships formatted to THIS framework's

@@ -34,17 +34,17 @@ d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills
 44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48  .ai-factory/AI-USAGE-GUIDE.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.md
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
-57f69beeb7bf70931b73353855677dd9b5103272d96dabfb47e2715f7bbfec20  .ai-factory/refresh-baseline.json
+7835ab4ae5d3716d4483f1ee31f93b02d0d8a5111cf166d3b1c1afd8dd064c8a  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
 4661781837d65dbc23ccb1bbd1848b87425c2daa0c02bab0817386f5df056c6c  .ai-factory/tool-decisions.md
 907f05e4f1599c46954b17607ada796824757720178e72b65ac2d9cc5195a1d7  .claude/agents/rule-researcher.md
 085e2e1a6f76c7227131cdac60e4c0749f9271642fc0a7e57f8032cffe736a0c  .claude/agents/rule-test-author.md
-link  .claude/hooks/deps-hash-check.sh -> ../../.agents/hooks/deps-hash-check.sh
-link  .claude/hooks/inject-matching-rule.sh -> ../../.agents/hooks/inject-matching-rule.sh
-link  .claude/hooks/lib/hook-live.sh -> ../../../.agents/hooks/lib/hook-live.sh
-link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
+cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
+7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .claude/hooks/inject-matching-rule.sh
+b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
+5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
 9d81addcaa2678d4d565f17318a72d4712c5fee2a84e91b9dbe439e909119b19  .claude/settings.json
 8a5df277df2e008562692ed217ae59c21ebb48cbe4792e2f1cc17dd1913aa891  .claude/skills/getff/SKILL.md
 1ead838276294a19090b9a19d726ccf2681961e91d14e485457142f2336123f7  .claude/skills/getff/references/ai-traps.md
@@ -55,31 +55,31 @@ link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 ee21923ab780e85c595d6b0b4192ea3ac9c8532b7b1ba104b64b4cf9cedad633  .claude/skills/getff/references/overview.md
 424bea7f80b8694d3d53cb4fd79bfa84b0921b8523a2da00b10d82274b8660b1  .claude/skills/getff/references/self-testing-docs.md
 b1fb80faa2a87532ecadc604a986a354bffcad5a4a2fc3f967d98b7d56b1ccf5  .claude/skills/getff/references/template-catalog.md
-link  .claude/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
-link  .claude/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
+655473880d675c47beab8437d7bc8450ca083eec92e5a00877f77613e6c0b131  .claude/skills/rule-research/SKILL.md
+0867f01e478763f36658368c6ee2c665f7cbdadf652c29bdeb9a430cef7c29d7  .claude/skills/rule-tests/SKILL.md
 f958ff1e17e5e28c73c649b1d87ebdd4a49f0804c4be9b8e1447f387c53b1815  .claude/skills/tool-bootstrapping/SKILL.md
 523e1c2da9f7c2b31481f9472556a131e1d53536dda70ee972bfadcfe07a348f  .claude/skills/tool-bootstrapping/references/decision-format.md
-link  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
+f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 528117f3503d583d388284393a1edba20ef04850b1317a4af45d2883cbae1179  .codex/hooks.json
 8b5ed10ffd8638a50bbbad25201352dec7667a01037108df5aff3c14dddd1cb6  .github/workflows/getff-go.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  .golangci.yml
 04a8c48d0583c1d1a59c80643c664281298b7cb3b274fe0b89ad9f602aac2585  .mcp.json
-link  .zcode/agents/rule-researcher.md -> ../../.agents/roles/rule-researcher.md
-link  .zcode/agents/rule-test-author.md -> ../../.agents/roles/rule-test-author.md
-link  .zcode/skills/getff/SKILL.md -> ../../../.agents/procedures/getff/SKILL.md
-link  .zcode/skills/getff/references/ai-traps.md -> ../../../../.agents/procedures/getff/references/ai-traps.md
-link  .zcode/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
-link  .zcode/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
-link  .zcode/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
-link  .zcode/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
-link  .zcode/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
-link  .zcode/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
-link  .zcode/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
-link  .zcode/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
-link  .zcode/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
-link  .zcode/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
-link  .zcode/skills/tool-bootstrapping/references/decision-format.md -> ../../../../.agents/procedures/tool-bootstrapping/references/decision-format.md
-link  .zcode/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
+05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .zcode/agents/rule-researcher.md
+c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .zcode/agents/rule-test-author.md
+b0729cba1ab29c34474212877c6a59cfe9a405cf28c31c6f567cfc2d81f534ac  .zcode/skills/getff/SKILL.md
+99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .zcode/skills/getff/references/ai-traps.md
+b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .zcode/skills/getff/references/base-core.md
+0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .zcode/skills/getff/references/checks-map.md
+94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .zcode/skills/getff/references/doc-organization.md
+7321fe2e29112a6995c66d63812c5b920ca67657750e295feb1ed002795f74d4  .zcode/skills/getff/references/framework-context.md
+aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .zcode/skills/getff/references/overview.md
+7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .zcode/skills/getff/references/self-testing-docs.md
+157778ef3277d32a1d1a6e24ebfbe8bde9c3301fb654f08d65cec0aa7c7d5431  .zcode/skills/getff/references/template-catalog.md
+655473880d675c47beab8437d7bc8450ca083eec92e5a00877f77613e6c0b131  .zcode/skills/rule-research/SKILL.md
+0867f01e478763f36658368c6ee2c665f7cbdadf652c29bdeb9a430cef7c29d7  .zcode/skills/rule-tests/SKILL.md
+b148168130597b3f7468d887861edc1993f66a6a3b236f065df8ae8e128e4b3d  .zcode/skills/tool-bootstrapping/SKILL.md
+1914179163d2c12fc67733cb2f84236272ac80225f667f0f7c66374e587e9437  .zcode/skills/tool-bootstrapping/references/decision-format.md
+f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .zcode/skills/tool-bootstrapping/templates/tool-decisions.md.template
 f5e4b395baa096190372cd843864ba82060ae2cb1708c6096082d100b260c146  AGENTS.md
 b48dac7483918ed4b1034f73d2c28e67fc10f561041f29512784e673c4b4bcc5  go.mod
 2f1c7bca91c245f6dfcfbb6a73bb00b68728834c3789522de115230f3be64ad9  scripts/audit-ai-docs.sh
