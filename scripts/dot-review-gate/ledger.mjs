@@ -773,26 +773,57 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       ).all();
     },
 
-    // Reviewed-PR memory (increment 7): a merged PR with a recorded review is not
-    // re-queued. The binding goes through the report's generation tuple.
+    // Reviewed-PR memory (increment 7) — DEPRECATED (D2065-S06): the bare
+    // `reviewed-pr:<node>` marker carries NO exact identity evidence (no revision,
+    // basis, protocol, repository, record kind) and must never satisfy completion.
+    // Kept only as a legacy write shim; the completion predicate below ignores it.
     noteReviewedPr(prNodeId) {
       return tx(() => {
         db.prepare(
           'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING',
         ).run(`reviewed-pr:${prNodeId ?? 'null'}`, now(), now());
-        return { prNodeId, noted: true };
+        return { prNodeId, noted: true, legacy: true };
       });
     },
 
-    prHasReview(prNodeId) {
-      if (db.prepare('SELECT 1 AS x FROM control WHERE key = ?').get(`reviewed-pr:${prNodeId ?? 'null'}`)) return true;
-      return db.prepare(
-        `SELECT 1 AS x
+    // D2065-S06: an accepted review completes EXACTLY the identity it reviewed —
+    // repository, PR node, mode-mapped revision (OPEN_PR → head/base;
+    // HISTORICAL → the reviewed merge (tested_merge_sha)/base), protocol; the
+    // caller's policy_sha256 participates only when the caller side pins one
+    // (the trusted policy file has no policy_sha256 field — null = UNPINNED, no
+    // constraint); current_staging_sha NEVER participates (staging moves, the
+    // reviewed history identity does not). Only review-bearing records qualify:
+    // RECEIPT_KINDS (fix receipts, closures…) and superseded reports never
+    // complete a review. An identity lacking its required shas is not queryable —
+    // returns false (never "unknown = covered").
+    prHasReview(identity) {
+      if (!identity || typeof identity !== 'object') return false;
+      const mode = identity.mode === 'HISTORICAL' ? 'HISTORICAL' : 'OPEN_PR';
+      const revValue = mode === 'HISTORICAL' ? identity.merge_sha : identity.head_sha;
+      const { repository_id: repo, pr_node_id: node, base_sha: base, protocol_version: protocol, policy_sha256: policySha } = identity;
+      if (!node || repo == null || !base || !revValue) return false;
+      const receiptSlots = RECEIPT_KINDS.map(() => '?').join(',');
+      // SQL narrows to the PR's non-receipt, non-superseded records; the exact
+      // revision/basis/protocol/policy match is projected from tuple_json (the
+      // tuple's own fields — the canonical identity carrier), so the predicate
+      // reads the SAME tuple the reviewer signed
+      const rows = db.prepare(
+        `SELECT g.tuple_json AS tuple_json
          FROM reports r
          JOIN challenges c ON c.claim_id = r.claim_id
          JOIN generations g ON g.id = c.generation_id
-         WHERE g.pr_node_id IS ? LIMIT 1`,
-      ).get(prNodeId ?? null) !== undefined;
+         WHERE g.repository_id IS ? AND g.pr_node_id IS ?
+           AND r.kind NOT IN (${receiptSlots})
+           AND r.superseded_at IS NULL`,
+      ).all(repo, node, ...RECEIPT_KINDS);
+      return rows.some((row) => {
+        let t = {};
+        try { t = row.tuple_json ? JSON.parse(row.tuple_json) : {}; } catch { t = {}; }
+        const reviewedRev = mode === 'HISTORICAL' ? (t.tested_merge_sha ?? null) : (t.head_sha ?? null);
+        return t.base_sha === base && reviewedRev === revValue
+          && (protocol == null || (t.protocol_version ?? null) === protocol)
+          && (policySha == null || (t.policy_sha256 ?? null) === policySha);
+      });
     },
 
     // Durable work reservations (increment 7): one active reservation per item key;

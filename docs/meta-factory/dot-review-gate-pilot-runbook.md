@@ -93,14 +93,24 @@ ledger.close();
 ```
 
 ```bash
-# 2. read state / recover stranded deliveries (both offline, spy-counted)
+# 2. read state / recover stranded deliveries (both offline, spy-counted).
+# Recovery is authority-gated (D2065-S07): without --policy it is INSPECT-ONLY
+# (mode:"inspect", pending digest status, recoveryHeld E_NO_TRUSTED_CONFIG,
+# ZERO writes/DELIVERED); with --policy the runner's own gate runs up front
+# (E_PAUSED / E_EXPIRY / E_UNATTENDED_DISABLED) and PER ACTION before any
+# re-delivery (current ACTIVE registration + repository scope → E_UNREGISTERED;
+# a mid-recovery state change holds the next action). Output reports real local
+# effects: mode, recovered_deliveries, per-action held codes, local_message_writes
+# — never inferred from transport/model spies. Stored payload/digest/retry
+# identity stay immutable.
 node scripts/dot-review-gate/gatectl.mjs read --ledger <pilot.sqlite>
 node scripts/dot-review-gate/gatectl.mjs recover --ledger <pilot.sqlite> \
-  --coordination-dir <coordination-dir>
+  --coordination-dir <coordination-dir> [--policy <trusted-policy.json>]
 ```
 
 - The `report` printed by step 1 is the only honest ledger of a pass: `queued` (work visible), `dispatched` (with windowId), `held` (NAMED codes: E_UNREGISTERED, E_NO_TARGET, E_REVIEW_ACTIVE, E_BUDGET, E_PAUSED, E_AUTH_EXPIRED, E_UNATTENDED_DISABLED, …), `acked`, `recovered`, `drained`, `historical` (ALREADY_FIXED dispositions — each with a durable outbox event), `routed` (issued assignment ids), `activeReviews`. Empty destination → zeros it observed, nothing invented.
 - The operational gate re-checks at every consequential boundary: a pause/expiry/release landing BETWEEN the budget reservation and the delivery is an auditable NON-LAUNCHED outcome (the hold names it, the reservation row stands). Recovery is gated by the same check.
+- Review completion is EXACT identity (D2065-S06): an accepted review completes only the (repository, PR node, mode-mapped reviewed revision/base, protocol) it actually reviewed — H1 acceptance never covers a later H2 merge, fix/closure records never complete a review, and the legacy reviewed-pr marker is not evidence. Historical remediation defaults to HOLD (D2065-S05): without a bound current-staging revalidation (`{present, checked:{staging_sha, checked_at}}` matching the cycle's staging) nothing claims, reserves, or dispatches, and `HISTORICAL_REVALIDATED` appears in a packet only when that check passed.
 - Arming is NEVER part of a cycle. Even on a green admission, arming composes the durable journal + the ACTIVE registration + the operator enablement at the boundary (SP-4); without the recorded transition it refuses E_MERGE_DISABLED.
 - Publication composes the same boundaries: open blocking lineage holds a GO publication (E_OPEN_BLOCKING); a failure publication is never held.
 

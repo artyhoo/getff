@@ -170,10 +170,16 @@ try {
   if (!disabled || r5.dispatched.length !== 0) fail(`unattended off ${JSON.stringify(r5.held)} d=${r5.dispatched.length}`);
   else log('ok missing-limits-disable-handout');
 
-  // the review bound frees only through its journal signals — an accepted report
-  // (or its control memory) resolves it; the suite resolves r2's review here so
-  // the budget arm below isolates the BUDGET rule from the review-count rule
-  ledger.noteReviewedPr('PR_kwDOM9YQhs6AbCdEfGh');
+  // the review bound frees only through its journal signals — D2065-S06: an
+  // ACCEPTED review report on the EXACT reviewed identity (head c…/base b…, this
+  // repository, this protocol) resolves it; PR-node memory alone never does.
+  // Resolves r2's review here so the budget arm below isolates the BUDGET rule
+  // from the review-count rule
+  { // seed: the reviewer's accepted report for the exact OPEN_PR identity r2 dispatched
+    const g = ledger.claimGeneration({ tuple: { repository_id: REPO, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'c'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' }, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
+    const payload = JSON.stringify({ probe: 'r2 review accepted' });
+    ledger.submitReport({ claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'GO', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest });
+  }
 
   // ── R3-5: operational stops at every consequential boundary ──────────────────
   // a stranded INTENT exists (crashed write) — recovery must NOT re-deliver it
@@ -384,14 +390,20 @@ try {
   seedHistorical(L6.l, 'artyhoo/getff#H1');
   const pendingBefore = L6.l.counts().outbox_pending;
   const actionsBefore = coordCount(L6.l);
+  // D2065-S05: revalidation evidence is BOUND to the cycle's current staging —
+  // present:false without a bound staging reference is NOT already-fixed proof
+  const STAGING = '5'.repeat(40);
+  const CHECKED = { staging_sha: STAGING, checked_at: '2026-10-06T12:00:00Z' };
   const rFixed = await runCycle({
     ledger: L6.l, policy, budgets: L6.b, adapter: L6.a,
     discover: DISCOVER_EMPTY,
-    revalidateFinding: async (item) => item.key !== 'artyhoo/getff#H1',
+    revalidateFinding: async (item) => ({ present: item.key === 'artyhoo/getff#H1' ? false : true, checked: CHECKED }),
+    currentStagingSha: STAGING,
     resolveTarget,
   });
   const durableFixed = L6.l.counts().outbox_pending - pendingBefore;
-  if (rFixed.historical.find((h) => h.disposition === 'ALREADY_FIXED') && rFixed.dispatched.length === 0
+  const fixedEntry = rFixed.historical.find((h) => h.disposition === 'ALREADY_FIXED');
+  if (fixedEntry && fixedEntry.evidence?.staging_sha === STAGING && rFixed.dispatched.length === 0
     && coordCount(L6.l) === actionsBefore && durableFixed === 1) {
     log('ok r31-already-fixed-zero-launch-durable-evidence');
   } else {
@@ -399,20 +411,57 @@ try {
   }
 
   // the still-present CONTROL historical finding DOES dispatch ONE correction
-  // assignment, and the packet carries the issued assignment identity
+  // assignment, and the packet carries the issued assignment identity + the
+  // revalidation evidence it launched on (D2065-S05)
   seedHistorical(L6.l, 'artyhoo/getff#H2');
   const rPresent = await runCycle({
     ledger: L6.l, policy, budgets: L6.b, adapter: L6.a,
     discover: DISCOVER_EMPTY,
-    revalidateFinding: async (item) => item.key === 'artyhoo/getff#H2',
+    revalidateFinding: async (item) => ({ present: item.key === 'artyhoo/getff#H2', checked: CHECKED }),
+    currentStagingSha: STAGING,
     resolveTarget,
   });
   const presentDispatch = rPresent.dispatched.find((d) => d.kind === 'fix-assignment');
   const presentPacket = presentDispatch ? JSON.parse(L6.l.coordGet(presentDispatch.actionId)?.payload_text ?? '{}') : {};
   if (!presentDispatch || !presentPacket.assignment_id || presentPacket.finding_key !== 'artyhoo/getff#H2'
-    || !/HISTORICAL_REVALIDATED/.test(JSON.stringify(presentPacket))) {
+    || presentPacket.historical_basis !== 'HISTORICAL_REVALIDATED'
+    || presentPacket.revalidation?.checked_staging_sha !== STAGING || !presentPacket.revalidation?.checked_at) {
     fail(`still-present control ${JSON.stringify({ d: rPresent.dispatched, packet: presentPacket })}`);
   } else log('ok r31-still-present-historical-dispatches-one-assignment');
+
+  // ── D2065-S05 negative matrix: every UNTRUSTED revalidation shape holds — ────
+  // zero assignment, zero routing, zero coordination writes, occurrence stays
+  // OPEN; the historical arm can no longer be skipped by omitting the adapter
+  const holdArm = async (name, opts, expectCode) => {
+    const L = group(`l6b-${name}`);
+    register(L.l, 'PR_kwDOM9YQhs6AbCdEfGhS', 3910);
+    seedHistorical(L.l, `artyhoo/getff#${name}`);
+    const before = coordCount(L.l);
+    const r = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, ...opts });
+    const occ = L.l.lineage(`artyhoo/getff#${name}`).at(-1);
+    if (!r.held.find((h) => h.code === expectCode && h.key === `artyhoo/getff#${name}`) || r.dispatched.length !== 0
+      || r.routed.length !== 0 || coordCount(L.l) !== before || occ?.state === 'ASSIGNED') {
+      fail(`${name} hold ${expectCode}: ${JSON.stringify({ held: r.held, d: r.dispatched.length, routed: r.routed.length, delta: coordCount(L.l) - before, state: occ?.state })}`);
+    } else log(`ok r31-${name}-holds`);
+  };
+  await holdArm('unverified-adapter', {}, 'E_HISTORICAL_UNVERIFIED'); // adapter ABSENT: hold, never skip
+  await holdArm('throwing-adapter', { revalidateFinding: async () => { throw new Error('revalidation backend unreachable'); } }, 'E_HISTORICAL_HOLD');
+  await holdArm('raw-boolean-adapter', { revalidateFinding: async () => true }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('null-result-adapter', { revalidateFinding: async () => null }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('stale-evidence-adapter', { revalidateFinding: async () => ({ present: true, checked: { staging_sha: '9'.repeat(40), checked_at: CHECKED.checked_at } }) }, 'E_HISTORICAL_STALE');
+  await holdArm('no-staging-input', { revalidateFinding: async () => ({ present: true, checked: CHECKED }) , currentStagingSha: undefined }, 'E_HISTORICAL_STAGING');
+  // replay: a second identical cycle creates NO duplicate assignment — the durable
+  // reservation + issued claim hold the line
+  { const L = group('l6c');
+    register(L.l, 'PR_kwDOM9YQhs6AbCdEfGhS', 3910);
+    seedHistorical(L.l, 'artyhoo/getff#H-REPLAY');
+    const one = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, revalidateFinding: async () => ({ present: true, checked: CHECKED }) });
+    const two = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, revalidateFinding: async () => ({ present: true, checked: CHECKED }) });
+    if (one.dispatched.filter((d) => d.kind === 'fix-assignment').length !== 1
+      || two.dispatched.filter((d) => d.kind === 'fix-assignment').length !== 0) {
+      fail(`replay ${JSON.stringify({ a: one.dispatched.length, b: two.dispatched.length })}`);
+    } else log('ok r31-replay-bounded-no-duplicate-assignment');
+  }
 
   // ── coordinator routing: open unclaimed findings become ONE assignment ───────
   const L7 = group('l7');
@@ -468,6 +517,10 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r36-verify-priority-dispatches-under-review-bound released-runner-intent-never-redelivered active-scoped-intent-recovers unregistered-finding-never-assigned \
   r31-already-fixed-zero-launch-durable-evidence \
   r31-still-present-historical-dispatches-one-assignment \
+  r31-unverified-adapter-holds r31-throwing-adapter-holds \
+  r31-raw-boolean-adapter-holds r31-null-result-adapter-holds \
+  r31-stale-evidence-adapter-holds r31-no-staging-input-holds \
+  r31-replay-bounded-no-duplicate-assignment \
   r36-open-finding-routes-one-trusted-assignment \
   r36-routing-replay-creates-no-duplicate-owner || exit 1
 echo "runner.test.sh: all green"
