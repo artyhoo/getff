@@ -137,8 +137,11 @@ export async function createGateService({
           fixRevision: record.fix_revision,
           findingKeys: record.finding_ids,
           mechanicalReceipts: record.mechanical_receipts,
+          // SP-2: the record's own independent change review becomes a real receipt
+          changeReviewReceipt: record.change_review_receipt ?? undefined,
           digest: payload.digest,
-          payloadRef: JSON.stringify({ record_digest: payload.digest }),
+          // unresolved scope survives consumption inside the receipt payload
+          payloadRef: JSON.stringify({ record_digest: payload.digest, changed_scope: record.changed_scope ?? [], unresolved_items: record.unresolved_items ?? [] }),
         });
         return { action: 'fix-recorded' };
       }
@@ -147,6 +150,10 @@ export async function createGateService({
         verifiedBy: record.verified_by,
         disposition: record.disposition,
         revision: record.verification_revision,
+        // SP-2: the record's own evidence mints the dot_closure receipt
+        evidence: record.evidence,
+        comparisonBasis: record.comparison_basis,
+        rationale: record.rationale,
       });
       return { action: 'closure-recorded' };
     } catch (e) {

@@ -673,6 +673,12 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(id);
     },
 
+    // Read-only receipt history for an occurrence — the evidence pool the closure
+    // gate evaluates; consumers and tests read it, nothing writes through it.
+    receiptsFor(occurrenceId) {
+      return db.prepare('SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid').all(occurrenceId);
+    },
+
     // One active corrective owner per repository/PR (DR-R2): for scoped occurrences
     // the fence spans EVERY finding and occurrence of the same PR — a claim on any
     // of them refuses a second owner, and an EXPIRED one still holds the whole scope
@@ -790,7 +796,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // assignment's owner is an identity violation (E_IDENTITY). The record's
     // mechanical receipts map to check receipts ON the fix revision, so closure
     // evidence accrues through the same gate as every other receipt.
-    applyFixResponseRecord({ assignmentId, claimedBy, fixRevision, findingKeys, mechanicalReceipts, digest, payloadRef, nowMs = Date.now() } = {}) {
+    applyFixResponseRecord({ assignmentId, claimedBy, fixRevision, findingKeys, mechanicalReceipts, changeReviewReceipt, digest, payloadRef, nowMs = Date.now() } = {}) {
       void nowMs;
       return tx(() => {
         const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
@@ -810,6 +816,13 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
           insert.run(randomUUID(), occ.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference }), claimedBy ?? c.owner, ts);
         }
+        // SP-2: the record's own independent change review is real evidence — the
+        // consumer records it as a change_review receipt (actor = the review's
+        // reviewer, revision = the reviewed revision); a null field records nothing.
+        const cr = changeReviewReceipt;
+        if (cr && typeof cr === 'object') {
+          insert.run(randomUUID(), occ.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [] }), cr.reviewer ?? null, ts);
+        }
         db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, occ.id);
         return { occurrence_id: occ.id, state: 'VERIFYING' };
       });
@@ -818,11 +831,21 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // A closure_receipt record: the protocol's RESOLVED maps to the ledger's VERIFIED
     // and the SAME evidence gate applies (closureTx) — an unproven closure refuses and
     // the consuming event stays pending with its reason, never consumed unactioned.
-    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision } = {}) {
+    // The record IS the Dot-side closure: the consumer mints the dot_closure receipt
+    // from it (carrying its evidence, comparison basis and rationale) and the gate —
+    // not the drain, not a caller — decides the RESOLVED transition.
+    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision, evidence, comparisonBasis, rationale } = {}) {
       return tx(() => {
         const mapped = disposition === 'RESOLVED' ? 'VERIFIED' : disposition;
         const keys = Array.isArray(findingKeys) ? findingKeys : [];
         for (const key of keys) {
+          const tail = db.prepare(
+            'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+          ).get(key);
+          if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${key}"`);
+          const minted = { disposition: mapped, comparison_basis: comparisonBasis ?? null, rationale: rationale ?? null, evidence: Array.isArray(evidence) ? evidence : [] };
+          db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(randomUUID(), tail.id, 'dot_closure', revision ?? null, payloadDigest(JSON.stringify(minted)), JSON.stringify(minted), verifiedBy ?? null, now());
           closureTx({ findingKey: key, disposition: mapped, verifier: verifiedBy, revision });
         }
         return { resolved: keys };

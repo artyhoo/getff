@@ -546,23 +546,40 @@ try {
   else log('ok superseded-findings-recorded-as-history');
 
   // a stored V2 fix_response record is consumed into the lifecycle — no admission
-  // check is written from it
+  // check is written from it. SP-2: the record carries its OWN independent change
+  // review; the CONSUMER records it as a real change_review receipt — nothing is
+  // injected between the submit and the lifecycle state.
   const assignmentF900 = svcF.ledger.claimFinding({ findingKey: 'F-900', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 600_000 }).assignment_id;
   const loadExampleJson = async (name) => { const m = await import(v2fixPath); return JSON.parse(m.loadExample(name)); };
-  const fixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
-  fixRecord.assignment_id = assignmentF900;
-  fixRecord.finding_ids = ['F-900'];
-  fixRecord.fix_revision = 'fix-900';
-  fixRecord.claimed_by = 'exec-a';
-  const coordTuple = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2PolicyDigestOf, protocol_version: 'dot-pr-review/2.0.0' });
-  const fixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('f'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
-  const fixPayload = JSON.stringify(fixRecord);
-  svcF.ledger.submitReport({
-    claimId: fixGen.claim.claim_id, reviewerId: 555001,
-    digest: createHash('sha256').update(fixPayload).digest('hex'),
-    payload: fixPayload, verdict: 'fix_response', kind: 'fix_response', leaseMinutes: 30,
-    liveTupleDigest: fixGen.generation.tuple_digest,
+  const changeReviewReceipt = (reviewer, revision) => ({
+    artifact_reference: `diff/${revision}`, artifact_sha256: 'a'.repeat(64),
+    reviewer, independence: 'second reviewer, not the fix owner',
+    limits: 'offline fixture review of the bounded fix diff', reviewed_revision: revision,
+    reviewed_scope: ['scripts/dot-review-gate/intake.mjs'],
+    finding_ids: ['F-900'], resolutions: [],
   });
+  const coordTuple = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2PolicyDigestOf, protocol_version: 'dot-pr-review/2.0.0' });
+  const submitLifecycleRecord = async (record, tupleHead) => {
+    const gen = svcF.ledger.claimGeneration({ tuple: coordTuple(tupleHead), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+    const payloadText = JSON.stringify(record);
+    return svcF.ledger.submitReport({
+      claimId: gen.claim.claim_id, reviewerId: 555001,
+      digest: createHash('sha256').update(payloadText).digest('hex'),
+      payload: payloadText, verdict: record.record_type, kind: record.record_type, leaseMinutes: 30,
+      liveTupleDigest: gen.generation.tuple_digest,
+    });
+  };
+  const makeFixRecord = async (revision) => {
+    const fixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
+    fixRecord.assignment_id = assignmentF900;
+    fixRecord.finding_ids = ['F-900'];
+    fixRecord.fix_revision = revision;
+    fixRecord.claimed_by = 'exec-a';
+    fixRecord.change_review_receipt = changeReviewReceipt('reviewer-z', revision);
+    return fixRecord;
+  };
+  const fixRecord = await makeFixRecord('fix-900');
+  await submitLifecycleRecord(fixRecord, 'f');
   const tFix = makePublisherTransport();
   const dFix = await svcF.drainOutbox({ publisherTransport: tFix.fetchJson });
   const fixEntry = dFix.find((r) => r.action === 'fix-recorded');
@@ -571,40 +588,50 @@ try {
     fail(`fix record consumption entry=${JSON.stringify(fixEntry)} occ=${fixOcc?.state} runs=${tFix.checkRuns.length}`);
   } else log('ok v2-fix-response-consumed');
 
-  // a V2 closure_receipt record resolves ONLY with the evidence DR-R1 demands;
-  // unproven closures stay pending with their reason
-  const closureRecord = JSON.parse(JSON.stringify(await loadExampleJson('closure-receipt.json')));
-  closureRecord.finding_ids = ['F-900'];
-  closureRecord.verification_revision = 'fix-900';
-  closureRecord.disposition = 'RESOLVED';
-  closureRecord.verified_by = 'dot/primary';
-  svcF.ledger.recordReceipt({ occurrenceId: fixOcc.id, kind: 'change_review', revision: 'fix-900', digest: 'cr-900', payload: '{}', actor: 'reviewer-z' });
-  svcF.ledger.recordReceipt({ occurrenceId: fixOcc.id, kind: 'dot_closure', revision: 'fix-900', digest: 'dc-900', payload: '{}', actor: 'dot' });
-  const cloGen = svcF.ledger.claimGeneration({ tuple: coordTuple('6'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
-  const cloPayload = JSON.stringify(closureRecord);
-  svcF.ledger.submitReport({
-    claimId: cloGen.claim.claim_id, reviewerId: 555001,
-    digest: createHash('sha256').update(cloPayload).digest('hex'),
-    payload: cloPayload, verdict: 'closure_receipt', kind: 'closure_receipt', leaseMinutes: 30,
-    liveTupleDigest: cloGen.generation.tuple_digest,
-  });
-  const tClo = makePublisherTransport();
-  const dClo = await svcF.drainOutbox({ publisherTransport: tClo.fetchJson });
-  if (!dClo.some((r) => r.action === 'closure-recorded') || tClo.checkRuns.length !== 0) fail(`closure consumption ${JSON.stringify(dClo)} runs=${tClo.checkRuns.length}`);
-  else log('ok v2-closure-receipt-consumed');
+  // SP-2 RED: the consumer must mint the independent change_review receipt FROM the
+  // record (actor = the review's reviewer, on the fix revision) — today the field is
+  // dropped and no such receipt exists.
+  const occReceipts = () => svcF.ledger.receiptsFor(fixOcc.id);
+  const crRow = occReceipts().filter((r) => r.kind === 'change_review').at(-1);
+  if (!crRow || crRow.actor !== 'reviewer-z' || crRow.revision !== 'fix-900') fail(`independent review receipt actor=${crRow?.actor} rev=${crRow?.revision}`);
+  else log('ok fix-record-carries-independent-review');
+
+  // SP-2: a closure record is the Dot-side closure ITSELF — the consumer mints the
+  // dot_closure receipt from the record (with evidence/comparison_basis/rationale)
+  // and the SHARED closure gate decides. A closure naming a revision that is not the
+  // latest fix stays pending with that reason.
+  const makeClosureRecord = async (over = {}) => {
+    const closureRecord = JSON.parse(JSON.stringify(await loadExampleJson('closure-receipt.json')));
+    closureRecord.finding_ids = ['F-900'];
+    closureRecord.disposition = 'RESOLVED';
+    return { ...closureRecord, ...over };
+  };
+  const earlyClo = await makeClosureRecord({ verification_revision: 'fix-wrong', verified_by: 'dot/primary' });
+  await submitLifecycleRecord(earlyClo, '6');
+  const tEarly = makePublisherTransport();
+  const dEarly = await svcF.drainOutbox({ publisherTransport: tEarly.fetchJson });
+  const earlyEntry = dEarly.find((r) => r.action === 'kept-pending');
+  if (!earlyEntry || earlyEntry.code !== 'E_NOT_RESOLVABLE' || !/revision/.test(earlyEntry.reason ?? '')) fail(`unproven closure ${JSON.stringify(dEarly)}`);
+  else log('ok unproven-closure-stays-pending');
+
+  // the fix owner's own closure assertion cannot close the finding — the gate's
+  // independence check refuses it (the record still mints its dot_closure receipt;
+  // the STATE transition is what the gate owns)
+  const selfClo = await makeClosureRecord({ verification_revision: 'fix-900', verified_by: 'exec-a' });
+  await submitLifecycleRecord(selfClo, '7');
+  const dSelf = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const selfEntry = dSelf.find((r) => r.action === 'kept-pending');
+  if (!selfEntry || !/own closure/.test(selfEntry.reason ?? '')) fail(`self closure ${JSON.stringify(dSelf)}`);
+  else log('ok executor-self-closure-refused');
 
   // cold-review fix 1: a fix_response submitted after the tuple MOVED still reaches
   // the lifecycle — DR-R3 archival is not effect-dropping; the closure gate (not the
   // drain) is what refuses unproven evidence. The assigned occurrence is the one the
   // active claim (single corrective owner per scope) already holds.
   const claimedOccId = svcF.ledger.lineage('F-900')[0].id;
-  const lateFixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
-  lateFixRecord.assignment_id = assignmentF900;
-  lateFixRecord.finding_ids = ['F-900'];
-  lateFixRecord.fix_revision = 'fix-900-late';
-  lateFixRecord.claimed_by = 'exec-a';
-  const lateFixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('g'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const lateFixRecord = await makeFixRecord('fix-900-late');
   const movedDigest = 'f'.repeat(64);
+  const lateFixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('g'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
   const lateFixPayload = JSON.stringify(lateFixRecord);
   const lateFixSub = svcF.ledger.submitReport({
     claimId: lateFixGen.claim.claim_id, reviewerId: 555001,
@@ -620,6 +647,30 @@ try {
   if (!lateFixEntry || claimedAfter?.state !== 'VERIFYING') {
     fail(`superseded fix record dropped: entry=${JSON.stringify(dLateFix.map((r) => [r.event, r.action]))} occ=${claimedAfter?.state}`);
   } else log('ok superseded-fix-record-still-consumed');
+
+  // SP-2 GREEN chain: submit → archive → consumer → VERIFYING (above) → the closure
+  // record's OWN evidence mints the dot_closure receipt → RESOLVED. No recordReceipt
+  // call happens anywhere between the submits and this resolution.
+  const greenClo = await makeClosureRecord({ verification_revision: 'fix-900-late', verified_by: 'dot/primary' });
+  await submitLifecycleRecord(greenClo, '8');
+  const tClo = makePublisherTransport();
+  const dClo = await svcF.drainOutbox({ publisherTransport: tClo.fetchJson });
+  const resolvedOcc = svcF.ledger.getOccurrence(claimedOccId);
+  const receiptsAfter = svcF.ledger.receiptsFor(claimedOccId);
+  const mintedClosure = receiptsAfter.filter((r) => r.kind === 'dot_closure').at(-1);
+  const closureRows = receiptsAfter.filter((r) => r.kind === 'closure');
+  if (!dClo.some((r) => r.action === 'closure-recorded') || resolvedOcc?.state !== 'RESOLVED' || tClo.checkRuns.length !== 0) {
+    fail(`closure chain ${JSON.stringify(dClo)} occ=${resolvedOcc?.state} runs=${tClo.checkRuns.length}`);
+  } else if (!mintedClosure || mintedClosure.actor !== 'dot/primary' || mintedClosure.revision !== 'fix-900-late') {
+    fail(`minted dot_closure actor=${mintedClosure?.actor} rev=${mintedClosure?.revision}`);
+  } else {
+    const mintedPayload = JSON.parse(mintedClosure.payload);
+    if (!Array.isArray(mintedPayload.evidence) || mintedPayload.evidence.length === 0 || !mintedPayload.comparison_basis || !mintedPayload.rationale) {
+      fail(`minted closure dropped the record's own evidence: ${JSON.stringify(mintedPayload).slice(0, 160)}`);
+    } else if (closureRows.at(-1)?.actor !== 'dot/primary') {
+      fail(`resolving closure verifier=${closureRows.at(-1)?.actor}`);
+    } else log('ok v2-closure-record-resolves-lineage');
+  }
 
   // unknown events stay pending — never consumed without their required action
   svcF.ledger.outboxEnqueue('github.event', { event: 'push' }, 'gh:test-1');
@@ -659,5 +710,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   v2-stitched-envelope-rejected v2-schema-required-field-enforced v2-revise-accepted-persisted \
   v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success \
   v2-findings-enter-lifecycle superseded-findings-recorded-as-history \
-  v2-fix-response-consumed superseded-fix-record-still-consumed v2-closure-receipt-consumed unknown-events-stay-pending || exit 1
+  v2-fix-response-consumed fix-record-carries-independent-review \
+  unproven-closure-stays-pending executor-self-closure-refused \
+  superseded-fix-record-still-consumed v2-closure-record-resolves-lineage unknown-events-stay-pending || exit 1
 echo "service.test.sh: all green"
