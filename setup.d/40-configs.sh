@@ -13,10 +13,54 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# Ship a rule as PRE-COMPILED artifacts (Variant A / fix #752): copy the committed
+# `.mjs` (runtime, ESM-by-extension — loads on every Node, no TS loader) + `.d.ts`
+# (types) + `.ts` (authoring source, kept for reference). The consumer needs NO `tsc`
+# at install — compilation happened at framework build (scripts/build-shipped-eslint-rules.sh).
+# Defined here (above the generic branch) because BOTH delivery sites use it: the generic
+# W2 carve-out below ships the core plugin set, and §5b' below ships it + preset rules.
+_copy_rule() {  # $1 = source .ts path
+  local src="$1" stem bn
+  stem="${src%.ts}"; bn="$(basename "$stem")"
+  copy_safe "$src" "$PROJECT_ROOT/eslint-rules-local/$bn.ts"
+  [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
+  [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
+}
+
 # P2 G1: stack «generic» gets the stack-free scripts only (the docs audit above and the CI-state
-# probe); every script below it and every config in this layer is ESLint/TypeScript/npm-bound.
+# probe); every config in this layer is ESLint/TypeScript/npm-bound. One-button W2 (2026-10-06)
+# carve-out: a generic install can be a NAMED no-preset stack (svelte-kit, astro, …) on a drivable
+# linter — layer 80 generates rules for it, and the generation's proof (prove-rules.mjs --prove)
+# and mutation check (run-generated-rule-mutation.sh) run through the project's own lint command.
+# Those two scripts — and the eslint-rules-local/ plugin dir the generated carrier's wrapper block
+# imports (#829 self-registration: `./eslint-rules-local/index.mjs`; §5b' delivers it on every
+# PRESET stack, and without it place_lint_rules' lint probe died ERR_MODULE_NOT_FOUND and rolled
+# the whole wiring back — measured live 2026-10-06 on a sv-create W2 fixture) — ship on the SAME
+# drivability gate layer 80 uses (project_linter eslint|oxlint + a non-empty project_lint_command),
+# so the layers cannot disagree about who gets the tooling. The plugin dir is getff machinery the
+# wrapper needs, not a lint config of the project's own — Fork-1 = B keeps holding.
+# P2 G1 semantics otherwise unchanged: no getff configs, no ESLint packages, no hooks, no CI.
 if [ "$STACK" = "generic" ]; then
   copy_safe "$PKG_ROOT/packages/core/audit-self/ci-available-probe.sh" "$PROJECT_ROOT/scripts/ci-available-probe.sh"
+  _g40_linter=$(project_linter "$PROJECT_ROOT")
+  if { [ "$_g40_linter" = "eslint" ] || [ "$_g40_linter" = "oxlint" ]; } \
+     && [ -n "$(project_lint_command "$PROJECT_ROOT")" ]; then
+    copy_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
+    copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
+    chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+    # Core plugin set — the same files §5b' ships every stack (rule files THEN barrel, O9).
+    # generate_eslint_barrel's #882 prune keeps exactly this core set for STACK=generic.
+    mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
+    for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
+      case "$f" in
+        *.test.ts) continue ;;
+        *.d.ts) continue ;;
+        */index.ts) continue ;;
+      esac
+      _copy_rule "$f"
+    done
+    generate_eslint_barrel
+  fi
   note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
   return 0 2>/dev/null || true
 fi
@@ -338,19 +382,10 @@ fc3_deliver_tests_setup() {
 # O9: copy rule files THEN generate barrel (intra-layer order).
 echo "▶ Custom ESLint rules → eslint-rules-local/"
 mkdir_safe "$PROJECT_ROOT/eslint-rules-local"
-# Ship a rule as PRE-COMPILED artifacts (Variant A / fix #752): copy the committed
-# `.mjs` (runtime, ESM-by-extension — loads on every Node, no TS loader) + `.d.ts`
-# (types) + `.ts` (authoring source, kept for reference). The consumer needs NO `tsc`
-# at install — compilation happened at framework build (scripts/build-shipped-eslint-rules.sh).
-# This replaces #745's compile-at-install, which silently broke when the consumer lacked
-# `tsc` (wrong search paths + typescript not in dev-deps) → "green lies" (#752).
-_copy_rule() {  # $1 = source .ts path
-  local src="$1" stem bn
-  stem="${src%.ts}"; bn="$(basename "$stem")"
-  copy_safe "$src" "$PROJECT_ROOT/eslint-rules-local/$bn.ts"
-  [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
-  [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
-}
+# Rule files ship as PRE-COMPILED artifacts (Variant A / fix #752 — the `_copy_rule`
+# helper above, hoisted out of this block so the generic W2 carve-out shares it): the
+# consumer needs NO `tsc` at install. This replaces #745's compile-at-install, which
+# silently broke when the consumer lacked tsc → "green lies" (#752).
 # Generic rules (core, every stack): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span,
 # restricted-syntax-audit-exempt, require-error-boundary (moved from the react-spa preset — one plugin for
 # every stack; a project switches a rule on in its own lint config)

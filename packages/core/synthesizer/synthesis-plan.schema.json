@@ -131,6 +131,7 @@
       "properties": {
         "url": { "type": "string" },
         "allowlistKey": { "type": "string" },
+        "packageName": { "type": "string" },
         "fetchedAt": { "type": "string" },
         "tier": { "type": "integer", "enum": [0, 1, 2] }
       }

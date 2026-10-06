@@ -120,6 +120,28 @@ build_prefix_variant() { # <dest>
   return 0
 }
 
+# Pre-fix variant for the NON-GIT layout axis (arm (e)): neuter the scripts/-layout branch of
+# the fallback so it always takes the historical `../../..` climb — the pre-W2 behavior a
+# non-git consumer shipped with. Same no-op guard contract as build_prefix_variant above.
+build_nogit_prefix_variant() { # <dest>
+  # NOTE: the replacement is the COMMAND `false`, not the expression `[ false ]` —
+  # `[ false ]` is a non-empty-string test and evaluates TRUE, silently turning the
+  # variant into a copy of the fixed runner (measured: e1p witnessed the consumer
+  # root instead of the defect).
+  sed 's|^  if \[ "\$(basename "\$SCRIPT_DIR")" = "scripts" \]; then$|  if false; then|' "$RUNNER" > "$1" || return 1
+  if grep -q 'basename "$SCRIPT_DIR"' "$RUNNER"; then
+    if cmp -s "$RUNNER" "$1"; then
+      bad "non-git pre-fix variant construction: sed was a NO-OP — the scripts/-branch wording drifted; update the transform, do not delete this arm"
+      return 1
+    fi
+  else
+    # Non-vacuity harness mode: the runner under test ($1 override) predates the layout-aware
+    # fallback — e1's fixed-root assertion carries the expected RED.
+    echo "  note: runner under test has no scripts/-layout branch — e1 will go RED by design"
+  fi
+  return 0
+}
+
 # Each control arm builds its OWN bare remote: the framework-layout controls
 # (b)/(c) must not share the worktree-under-hook experiment's (a) fixture
 # precondition (a failure in (a)'s fixture setup would otherwise mask as a
@@ -295,26 +317,43 @@ EOF
   }
   local ONE='{"r1":{"check":{"type":"declarative","selector":"Identifier"},"negative-test":{"input":["const a = 1;"]}}}'
   local TOOLS="$D/node_modules/.cache/getff/generator-tools"
+  # The provisioning arms below drive the NM_SRC==empty → npm-install path, which the runner's
+  # third NM_SRC candidate — the absolute /app/node_modules (aif container image) — satisfies
+  # instead, so no provisioning is ever attempted and every npm assertion fails vacuously.
+  # Same environmental mask arm (a) documents at a3p; on CI (no /app) the arms run fully.
+  local APP_MASK=0
+  [ -f /app/node_modules/eslint/package.json ] && [ -f /app/node_modules/typescript-eslint/package.json ] && APP_MASK=1
 
   d_fixture "$D" '{}'; : > "$SCRATCH/d0.npm"; d_run "$D" d0
   assert_rc "d0 a manifest with no rule, rc=0" 0 "$SCRATCH/d0.rc"
   [ ! -s "$SCRATCH/d0.npm" ] && ok "d0 nothing to test installs nothing" || bad "d0 npm ran with nothing to test: $(cat "$SCRATCH/d0.npm")"
 
-  d_fixture "$D" "$ONE"; : > "$SCRATCH/d1.npm"; d_run "$D" d1
-  grep -q "^npm install --prefix $TOOLS .*eslint@^9 typescript-eslint typescript" "$SCRATCH/d1.npm" \
-    && ok "d1 npm installs eslint@^9 typescript-eslint typescript into node_modules/.cache/getff/generator-tools" \
-    || bad "d1 wrong or no npm install (got: $(cat "$SCRATCH/d1.npm"))"
-  assert_contains "d1 the run says what it installs and where" "$SCRATCH/d1.out" "is not in $TOOLS — installing it there"
-  assert_contains "d1 the rule is then tested" "$SCRATCH/d1.out" "=== generated rule mutation: 1 rule(s)"
-  : > "$SCRATCH/d2.npm"; d_run "$D" d2
-  [ ! -s "$SCRATCH/d2.npm" ] && ok "d2 the second run reuses the toolchain (no npm)" || bad "d2 npm ran again: $(cat "$SCRATCH/d2.npm")"
+  if [ "$APP_MASK" = 1 ]; then
+    echo "  skip: d1 toolchain provisioning — /app fallback satisfies NM_SRC (see a3p); uncounted acknowledgement, not coverage"
+    echo "  skip: d2 reuse — vacuous under the /app mask (nothing was ever installed to reuse)"
+  else
+    d_fixture "$D" "$ONE"; : > "$SCRATCH/d1.npm"; d_run "$D" d1
+    grep -q "^npm install --prefix $TOOLS .*eslint@^9 typescript-eslint typescript" "$SCRATCH/d1.npm" \
+      && ok "d1 npm installs eslint@^9 typescript-eslint typescript into node_modules/.cache/getff/generator-tools" \
+      || bad "d1 wrong or no npm install (got: $(cat "$SCRATCH/d1.npm"))"
+    assert_contains "d1 the run says what it installs and where" "$SCRATCH/d1.out" "is not in $TOOLS — installing it there"
+    assert_contains "d1 the rule is then tested" "$SCRATCH/d1.out" "=== generated rule mutation: 1 rule(s)"
+    : > "$SCRATCH/d2.npm"; d_run "$D" d2
+    [ ! -s "$SCRATCH/d2.npm" ] && ok "d2 the second run reuses the toolchain (no npm)" || bad "d2 npm ran again: $(cat "$SCRATCH/d2.npm")"
+  fi
 
   # d3: an npm install killed part-way leaves package.json files but no completion marker → reinstall
-  d_fixture "$D" "$ONE"; mkdir -p "$TOOLS/node_modules/eslint" "$TOOLS/node_modules/typescript-eslint"
-  echo '{}' > "$TOOLS/node_modules/eslint/package.json"; echo '{}' > "$TOOLS/node_modules/typescript-eslint/package.json"
-  : > "$SCRATCH/d3.npm"; d_run "$D" d3
-  grep -q "^npm install --prefix $TOOLS " "$SCRATCH/d3.npm" && ok "d3 a half-installed toolchain (no completion marker) is installed again" \
-    || bad "d3 a half-installed toolchain was accepted (npm log: $(cat "$SCRATCH/d3.npm"))"
+  if [ "$APP_MASK" = 1 ]; then
+    echo "  skip: d3 half-installed toolchain reinstall — /app fallback satisfies NM_SRC (see a3p)"
+    d_fixture "$D" "$ONE"; mkdir -p "$TOOLS/node_modules/eslint" "$TOOLS/node_modules/typescript-eslint"
+    echo '{}' > "$TOOLS/node_modules/eslint/package.json"; echo '{}' > "$TOOLS/node_modules/typescript-eslint/package.json"
+  else
+    d_fixture "$D" "$ONE"; mkdir -p "$TOOLS/node_modules/eslint" "$TOOLS/node_modules/typescript-eslint"
+    echo '{}' > "$TOOLS/node_modules/eslint/package.json"; echo '{}' > "$TOOLS/node_modules/typescript-eslint/package.json"
+    : > "$SCRATCH/d3.npm"; d_run "$D" d3
+    grep -q "^npm install --prefix $TOOLS " "$SCRATCH/d3.npm" && ok "d3 a half-installed toolchain (no completion marker) is installed again" \
+      || bad "d3 a half-installed toolchain was accepted (npm log: $(cat "$SCRATCH/d3.npm"))"
+  fi
 
   # d5: the project has its own eslint + typescript-eslint → nothing is installed
   d_fixture "$D" "$ONE"
@@ -324,17 +363,66 @@ EOF
 
   # d6: offline after `npm ci` wiped the cache — the REAL npm against a dead registry must give up fast.
   # Unbounded it took 211 s inside the push (P6 run 2, measured); the bound is 90 s with margin for PC load.
-  d_fixture "$D" "$ONE"
-  local t0 t1; t0=$(date +%s)
-  ( cd "$D" && env -u GIT_DIR -u GIT_WORK_TREE npm_config_registry=http://127.0.0.1:9/ \
-      npm_config_cache="$SCRATCH/d6-npm-cache" bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/d6.out" 2>&1 ); echo $? > "$SCRATCH/d6.rc"
-  t1=$(date +%s)
-  assert_rc "d6 offline, rc=2 (cannot run)" 2 "$SCRATCH/d6.rc"
-  [ $((t1 - t0)) -lt 90 ] && ok "d6 offline gives up in $((t1 - t0)) s (< 90 s)" || bad "d6 offline took $((t1 - t0)) s (≥ 90 s)"
+  if [ "$APP_MASK" = 1 ]; then
+    echo "  skip: d6 offline give-up bound — /app fallback satisfies NM_SRC, npm is never reached (see a3p)"
+  else
+    d_fixture "$D" "$ONE"
+    local t0 t1; t0=$(date +%s)
+    ( cd "$D" && env -u GIT_DIR -u GIT_WORK_TREE npm_config_registry=http://127.0.0.1:9/ \
+        npm_config_cache="$SCRATCH/d6-npm-cache" bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/d6.out" 2>&1 ); echo $? > "$SCRATCH/d6.rc"
+    t1=$(date +%s)
+    assert_rc "d6 offline, rc=2 (cannot run)" 2 "$SCRATCH/d6.rc"
+    [ $((t1 - t0)) -lt 90 ] && ok "d6 offline gives up in $((t1 - t0)) s (< 90 s)" || bad "d6 offline took $((t1 - t0)) s (≥ 90 s)"
+  fi
 
-  d_fixture "$D" "$ONE"; : > "$SCRATCH/d4.npm"; d_run "$D" d4 1
-  assert_rc "d4 npm fails, rc=2 (cannot run, never a pass)" 2 "$SCRATCH/d4.rc"
-  assert_contains "d4 the die line names the toolchain" "$SCRATCH/d4.out" "could not install getff's rule-generator toolchain"
+  if [ "$APP_MASK" = 1 ]; then
+    echo "  skip: d4 npm-failure die — /app fallback satisfies NM_SRC, npm is never reached (see a3p)"
+  else
+    d_fixture "$D" "$ONE"; : > "$SCRATCH/d4.npm"; d_run "$D" d4 1
+    assert_rc "d4 npm fails, rc=2 (cannot run, never a pass)" 2 "$SCRATCH/d4.rc"
+    assert_contains "d4 the die line names the toolchain" "$SCRATCH/d4.out" "could not install getff's rule-generator toolchain"
+  fi
+}
+
+# ─── Arm (e): non-git consumer — the one-button W2 generic-lane shape ────────
+# Measured live 2026-10-06 (sv-create fixture provisioned without .git; real consumers land
+# here too — an unpacked zip, a Docker layer, sv create with git absent): rev-parse fails and
+# the historical `../../..` fallback is the FRAMEWORK source depth (packages/core/synthesizer/),
+# three levels above the delivered copy's scripts/ — the runner looked for the manifest ABOVE
+# the consumer root and always died exit 2 on a manifest that existed. The fallback must be
+# layout-aware; this arm witnesses both directions (fixed + pre-fix variant) like arm (a).
+arm_e() {
+  echo "arm (e): non-git consumer (no .git anywhere above the project)"
+  local NG="$SCRATCH/nogit" UP3
+  rm -rf "$NG"; mkdir -p "$NG/scripts" "$NG/.ai-factory/synthesizer-output" "$NG/node_modules/.bin"
+  cp "$RUNNER" "$NG/scripts/run-generated-rule-mutation.sh"
+  build_nogit_prefix_variant "$NG/scripts/run-generated-rule-mutation.prefix.sh" || return
+  printf '#!/bin/sh\nexit 0\n' > "$NG/node_modules/.bin/tsx"
+  printf '#!/bin/sh\nexit 0\n' > "$NG/node_modules/.bin/eslint"
+  chmod +x "$NG/node_modules/.bin/tsx" "$NG/node_modules/.bin/eslint"
+  UP3="$(cd "$NG/scripts/../../.." && pwd)"   # the pre-fix (wrong) resolved root
+
+  # e1 — manifest absent, fixed runner: the die names the CONSUMER root (direct root
+  # observation; no /app mask is possible — the message prints the resolved path itself).
+  ( cd "$NG" && env -u GIT_DIR -u GIT_WORK_TREE bash scripts/run-generated-rule-mutation.sh \
+      > "$SCRATCH/e1.out" 2> "$SCRATCH/e1.err" ); echo $? > "$SCRATCH/e1.rc"
+  assert_rc "e1 non-git manifest-absent rc=2" 2 "$SCRATCH/e1.rc"
+  assert_contains "e1 die names the consumer root" "$SCRATCH/e1.err" "manifest not found: $NG/.ai-factory/"
+
+  # e1p — same shape, pre-fix variant: the die names the framework-depth climb (the defect
+  # witnessed), and never the consumer root.
+  ( cd "$NG" && env -u GIT_DIR -u GIT_WORK_TREE bash scripts/run-generated-rule-mutation.prefix.sh \
+      > "$SCRATCH/e1p.out" 2> "$SCRATCH/e1p.err" ); echo $? > "$SCRATCH/e1p.rc"
+  assert_rc "e1p pre-fix non-git rc=2" 2 "$SCRATCH/e1p.rc"
+  assert_contains "e1p pre-fix die names the wrong root (defect witnessed)" "$SCRATCH/e1p.err" "manifest not found: $UP3/.ai-factory/"
+  assert_not_contains "e1p pre-fix root is NOT the consumer root" "$SCRATCH/e1p.err" "manifest not found: $NG/.ai-factory/"
+
+  # e2 — manifest present + tsx stub: rc=0 reachable only under the consumer-root resolution.
+  printf '{}\n' > "$NG/.ai-factory/synthesizer-output/rules-manifest-additions.json"
+  ( cd "$NG" && env -u GIT_DIR -u GIT_WORK_TREE bash scripts/run-generated-rule-mutation.sh \
+      > "$SCRATCH/e2.out" 2> "$SCRATCH/e2.err" ); echo $? > "$SCRATCH/e2.rc"
+  assert_rc "e2 provisioned non-git run rc=0" 0 "$SCRATCH/e2.rc"
+  assert_contains "e2 prints the nothing-to-test verdict" "$SCRATCH/e2.out" "No declarative rules with negative-test inputs in manifest"
 }
 
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
@@ -342,6 +430,7 @@ arm_a
 arm_b
 arm_c
 arm_d
+arm_e
 
 echo
 echo "run-generated-rule-mutation.test.sh: PASS=$PASS FAIL=$FAIL"

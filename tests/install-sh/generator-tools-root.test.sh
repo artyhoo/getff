@@ -89,7 +89,10 @@ run_step() {  # $1 = npm exit code, $2 = what the project has (""|has-eslint|ful
   P=$(mktemp -d "$W/step.XXXX")
   mkdir -p "$P/pkg/packages/core/install" "$P/proj/.ai-factory/rules-research" "$P/bin"
   : > "$P/pkg/packages/core/install/rule-bootstrap-cli.bundle.mjs"
-  echo '{}' > "$P/proj/package.json"
+  # W2: the layer is gated on a drivable lint command (project_linter ∈ {eslint, oxlint} + a
+  # non-empty scripts.lint), so the fixture's project must carry one for the arms to reach the
+  # toolchain logic this test is about. The literal is asserted byte-for-byte by arm (M).
+  printf '%s' '{"name":"proj","scripts":{"lint":"eslint ."}}' > "$P/proj/package.json"
   echo '{}' > "$P/proj/.ai-factory/rules-research/react-spa.research.json"
   echo '{}' > "$P/proj/.ai-factory/rules-research/react-spa.selection.json"
   case "$has" in
@@ -175,7 +178,7 @@ case "$_dir" in "$W"/step.*/proj/node_modules/.cache/getff/generator-tools) ok "
 _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg7"; run_step 1 has-eslint)
 _dir=$(sed -n 's/.*stub npm: install --prefix \([^ ]*\) .*/\1/p' <<<"$_out" | head -1)
 [ -n "$_dir" ] && [ ! -f "$_dir/.complete" ] && ok "(M) a failed install leaves no completion marker" || bad "(M) marker after a failed npm (dir: $_dir)"
-[ "$(cat "${_dir%/node_modules/.cache/getff/generator-tools}/package.json" 2>/dev/null)" = '{}' ] && ok "(M) the project's package.json is unchanged" || bad "(M) package.json changed"
+[ "$(cat "${_dir%/node_modules/.cache/getff/generator-tools}/package.json" 2>/dev/null)" = '{"name":"proj","scripts":{"lint":"eslint ."}}' ] && ok "(M) the project's package.json is unchanged" || bad "(M) package.json changed"
 
 # (N) P6 run 4 N11: the record (.ai-factory/tool-decisions.md) is committed, and its generator-tool rows
 # carried this machine's absolute path to the toolchain. A toolchain inside the project is recorded

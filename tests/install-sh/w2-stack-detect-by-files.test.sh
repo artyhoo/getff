@@ -174,6 +174,67 @@ grep -q "no rules-research artefacts" <<<"$out" \
   && ok "name-key: astro install IGNORES generic.* artefacts (honest degrade)" \
   || bad "name-key generic-ignore: $(echo "$out" | tr '\n' '|' | head -c 200)"
 
+# ── DELIVERY arms (40-configs generic carve-out: the proof tooling ships on the same
+#    drivability gate layer 80 uses, and never ships to an undrivable project) ──
+echo ""; echo "▶ W2 delivery — 40-configs generic carve-out (prove-rules + mutation script)"
+
+_run40() { # <project-root> [VAR=value ...] — source 40-configs in dispatcher scope, print NOT_WIRED
+  local _pr="$1"; shift
+  (
+    export PKG_ROOT="$REPO_ROOT" PROJECT_ROOT="$_pr" STACK="generic" DRY_RUN="" FORCE=""
+    export "$@"
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/setup.d/lib.sh" 2>/dev/null || true
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/setup.d/40-configs.sh" >/dev/null 2>&1
+    printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}
+  )
+}
+
+# drivable generic (eslint + scripts.lint): both lane scripts + the plugin dir the
+# generated carrier's wrapper imports (#829) ship
+D1=$(mktemp -d); _mkpkg "$D1" '{"name":"d1","scripts":{"lint":"eslint ."}}'; touch "$D1/eslint.config.mjs"
+_run40 "$D1" STACK_NAME=svelte-kit
+if [ -f "$D1/scripts/prove-rules.mjs" ] && [ -f "$D1/scripts/run-generated-rule-mutation.sh" ]; then
+  ok "deliver-in: drivable generic (eslint + scripts.lint) gets prove-rules.mjs + run-generated-rule-mutation.sh"
+else
+  bad "deliver-in: drivable generic missing lane scripts (prove=$([ -f "$D1/scripts/prove-rules.mjs" ] && echo y || echo n) mut=$([ -f "$D1/scripts/run-generated-rule-mutation.sh" ] && echo y || echo n))"
+fi
+if [ -f "$D1/eslint-rules-local/index.mjs" ] && grep -q "restricted-syntax-audit-exempt" "$D1/eslint-rules-local/index.mjs" \
+   && [ -f "$D1/eslint-rules-local/restricted-syntax-audit-exempt.mjs" ]; then
+  ok "deliver-in: the eslint-rules-local plugin dir + barrel ship (the wrapper's #829 import resolves)"
+else
+  bad "deliver-in: plugin dir incomplete (barrel=$([ -f "$D1/eslint-rules-local/index.mjs" ] && echo y || echo n))"
+fi
+
+# no lint command (layer-80 G3 shape): the gate that never runs gets no tooling
+D2=$(mktemp -d); _mkpkg "$D2" '{"name":"d2","dependencies":{"astro":"^5.0.0"}}'; touch "$D2/astro.config.mjs" "$D2/eslint.config.mjs"
+_run40 "$D2" STACK_NAME=astro
+[ ! -f "$D2/scripts/prove-rules.mjs" ] && [ ! -f "$D2/scripts/run-generated-rule-mutation.sh" ] && [ ! -e "$D2/eslint-rules-local" ] \
+  && ok "deliver-nolint: no scripts.lint → no lane scripts, no plugin dir" \
+  || bad "deliver-nolint: tooling shipped to an undrivable project"
+
+# biome (layer-80 G4 shape): not a drivable lane for ESLint-format rules — no tooling
+D3=$(mktemp -d); _mkpkg "$D3" '{"name":"d3","scripts":{"lint":"biome check ."}}'; touch "$D3/biome.json"
+_run40 "$D3" STACK_NAME=generic
+[ ! -f "$D3/scripts/prove-rules.mjs" ] && [ ! -e "$D3/eslint-rules-local" ] \
+  && ok "deliver-biome: biome project gets no lane scripts, no plugin dir" \
+  || bad "deliver-biome: tooling shipped to a biome project"
+
+# no linter at all (layer-80 G5 shape): no tooling
+D4=$(mktemp -d); _mkpkg "$D4" '{"name":"d4","version":"0.0.0"}'
+_run40 "$D4" STACK_NAME=generic
+[ ! -f "$D4/scripts/prove-rules.mjs" ] && [ ! -e "$D4/eslint-rules-local" ] \
+  && ok "deliver-none: no-linter project gets no lane scripts, no plugin dir" \
+  || bad "deliver-none: tooling shipped to a no-linter project"
+
+# the P2 G1 generic note still fires (fork-1: getff places none of ITS configs)
+out=$(_run40 "$D1" STACK_NAME=svelte-kit)
+grep -qF "not placed: stack «generic» has no getff preset" <<<"$out" \
+  && ok "deliver-note: P2 G1 generic configs note unchanged" \
+  || bad "deliver-note: P2 G1 note missing"
+unset -f _run40 2>/dev/null || true
+
 # ── E2E arms (real install.sh --dry-run on the fixture dirs) ─────────────────
 echo ""; echo "▶ W2 e2e — install.sh --dry-run dispatcher flow"
 

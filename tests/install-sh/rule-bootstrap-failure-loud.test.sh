@@ -23,19 +23,31 @@
 #       the generator's read-only --check-plan (no new record file); paired negative: no research
 #       file → no research line
 #   (G) a plan the gate rejects whole records one research-rejected line with the reason, nothing else
-#   (H) P5 A5: stack «generic» keeps its NOT wired line and records every research entry as
-#       research-only with the generic reason; paired negative: no research file → no research line
+#   (H) P5 A5 (W2 shape): the layer is linter-gated, not stack-gated, so «generic» alone no longer
+#       not-wires anything — a DRIVABLE generic runs the generator (that lane is owned by
+#       tests/install-sh/w2-stack-detect-by-files.test.sh). The P5 A5 surface survives as the
+#       NOT-DRIVABLE generic (no ESLint/oxlint signal): it keeps its NOT wired line and records
+#       every research entry research-only with the gate's reason; paired negative: no research
+#       file → no research line
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
-run_layer() {  # $1 = generator exit, $2 = optional stderr line, $3 = stack; prints the layer's output
-  local rc="$1" msg="${2:-}" stack="${3:-ts-server}" W
+run_layer() {  # $1 = generator exit, $2 = optional stderr line, $3 = stack, $4 = shape (drivable|nolint)
+  local rc="$1" msg="${2:-}" stack="${3:-ts-server}" shape="${4:-drivable}" W
   W=$(mktemp -d)
   mkdir -p "$W/pkg/packages/core/install" "$W/proj/.ai-factory/rules-research" "$W/bin"
   : > "$W/pkg/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+  # W2: the layer enters generation only through a drivable lint command (package.json +
+  # scripts.lint naming eslint). Default shape «drivable» carries one; «nolint» (arm H) writes a
+  # package.json with no lint script and no linter config — the gated-out shape.
+  if [ "$shape" = "nolint" ]; then
+    printf '{"name":"proj","private":true}' > "$W/proj/package.json"
+  else
+    printf '{"name":"proj","scripts":{"lint":"eslint ."}}' > "$W/proj/package.json"
+  fi
   if [ -z "${NO_RESEARCH:-}" ]; then
     echo '{}' > "$W/proj/.ai-factory/rules-research/$stack.research.json"
     echo '{}' > "$W/proj/.ai-factory/rules-research/$stack.selection.json"
@@ -117,13 +129,13 @@ grep -qx "RESEARCH_EXTRA: research-rejected: $_why" <<<"$_out" \
   && ok "(G) a rejected plan is recorded with its reason" || bad "(G) no research-rejected line (got: $_out)"
 grep -q 'RESEARCH_EXTRA_COUNT=1' <<<"$_out" && ok "(G) and nothing else" || bad "(G) expected 1 research line (got: $_out)"
 
-_out=$(CHECK_JSON='{"kept":["go-errors-wrapped"],"dropped":[],"researchOnly":["go-errors-wrapped"]}' run_layer 0 '' generic)
-grep -q "NOT_WIRED: generated rules — not run: the rule generator writes ESLint rules, and stack «generic» has no ESLint getff placed" <<<"$_out" \
-  && ok "(H) generic keeps its NOT wired line" || bad "(H) generic NOT wired line missing (got: $_out)"
-grep -qx "RESEARCH_EXTRA: research-only: go-errors-wrapped — stack generic: no rule generator lane for this project's toolchain" <<<"$_out" \
-  && ok "(H) each generic research entry is recorded with the generic reason" || bad "(H) no generic research-only line (got: $_out)"
-grep -q 'stub generator: node' <<<"$_out" && bad "(H) the generator ran on generic" || ok "(H) the generator does not run on generic"
-_out=$(NO_RESEARCH=1 run_layer 0 '' generic)
+_out=$(CHECK_JSON='{"kept":[],"dropped":[],"researchOnly":["go-errors-wrapped"]}' run_layer 0 '' generic nolint)
+grep -q "NOT_WIRED: generated rules — not run: no ESLint or oxlint in this project (no lint script naming one, no config file for one), so there is nothing here to run generated rules" <<<"$_out" \
+  && ok "(H) a not-drivable generic keeps its NOT wired line" || bad "(H) generic NOT wired line missing (got: $_out)"
+grep -qx "RESEARCH_EXTRA: research-only: go-errors-wrapped — no ESLint or oxlint in the project" <<<"$_out" \
+  && ok "(H) each research entry is recorded research-only with the gate's reason" || bad "(H) no research-only line (got: $_out)"
+grep -q 'stub generator: node' <<<"$_out" && bad "(H) the generator ran on a not-drivable project" || ok "(H) the generator does not run"
+_out=$(NO_RESEARCH=1 run_layer 0 '' generic nolint)
 grep -q 'RESEARCH_EXTRA_COUNT=0' <<<"$_out" && ok "(H) generic without a research file records no research line (paired negative)" || bad "(H) research lines without a file (got: $_out)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
