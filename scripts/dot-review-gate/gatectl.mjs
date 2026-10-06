@@ -208,6 +208,15 @@ async function main() {
       if (args['allow-live'] !== true) {
         throw fail('E_VALIDATE_ONLY', 'this build is validate-only — live start requires explicit --allow-live and completed enrollment');
       }
+      // the packet: distinguish MISSING ENROLLMENT from a RUNNER THAT DOES NOT
+      // EXIST — a named runner path absent on disk is a different refusal than an
+      // unenrolled destination
+      if (typeof args.runner === 'string' && args.runner.length > 0) {
+        const { existsSync } = await import('node:fs');
+        if (!existsSync(args.runner)) {
+          throw fail('E_NO_RUNNER', `the named runner does not exist on disk: ${args.runner}`);
+        }
+      }
       throw fail('E_LIVE_UNENROLLED', 'live start is a live acceptance step: destination enrollment (monitor registration, native merge enforcement) is not part of the offline build');
     } else {
       throw fail('E_USAGE', 'usage: gatectl <validate|pause|read|recover|start> [options]');

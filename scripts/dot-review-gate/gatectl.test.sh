@@ -95,6 +95,13 @@ out="$(run_cli start --policy "$POLICY" --ledger "$TMP/s.sqlite")"; rc=$?
 expect_fail "$rc" start-refuses-without-allow-live
 echo "$out" | grep -q 'E_VALIDATE_ONLY' || { echo "FAIL start-missing-E_VALIDATE_ONLY"; status=1; }
 
+# the packet: distinguish missing enrollment from a runner that does not exist —
+# a named runner path that is absent on disk is E_NO_RUNNER, not a generic
+# unenrolled refusal
+out="$(run_cli start --allow-live --runner "$TMP/does-not-exist.mjs" --policy "$POLICY" --ledger "$TMP/nr.sqlite")"; rc=$?
+expect_fail "$rc" start-runner-missing-is-not-unenrolled
+echo "$out" | grep -q 'E_NO_RUNNER' || { echo "FAIL start-no-runner-code"; status=1; }
+
 # pause then read: offline, state visible
 out="$(run_cli pause --ledger "$LEDGER")"; rc=$?
 expect_ok "$rc" pause-offline "$out"

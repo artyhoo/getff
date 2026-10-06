@@ -232,6 +232,17 @@ try {
   await arm({ reportText: admission(), transport: tS4e.fetchJson, ledger: sp4Released })
     .then(() => fail('armed on a released registration'))
     .catch((e) => { if (e.code === 'E_UNREGISTERED' && tS4e.graphqlBodies.length === 0) log('ok released-registration-holds-arm'); else fail(`released ${e.code}`); });
+
+  // ADDENDUM confirmation: the ACTIVE V2 path flows canonical records + pinned
+  // bytes through intake/publisher (SP-3 arms). The armer's V1 admission shape is
+  // the RETAINED historical compatibility — a V2 review_report at this consumer
+  // refuses, and V2-era merge authority flows through the registration receipt
+  // (SP-4) rather than this V1 admission check.
+  const t13 = makeTransport();
+  const v2Text = JSON.stringify({ protocol_version: 'dot-pr-review/2.0.0', record_type: 'review_report', verdict: { outcome: 'GO' } });
+  await arm({ reportText: v2Text, transport: t13.fetchJson, ledger: sp4Green })
+    .then(() => fail('V2 record armed through the V1 admission shape'))
+    .catch((e) => { if (e.code === 'E_NOT_AUTHORIZED' && t13.graphqlBodies.length === 0) log('ok v2-record-refused-historical-compat'); else fail(`v2 compat ${e.code}`); });
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
 }
@@ -252,5 +263,5 @@ assert_suite_arms "armer.test.sh" "$status" "$out" \
   client-allowlist-owner-repo graphql-body-pinned repo-format-validated \
   arming-without-journal-refused open-blocking-lineage-holds-arm \
   unknown-registration-holds-arm merge-disabled-holds-arm \
-  released-registration-holds-arm || exit 1
+  released-registration-holds-arm v2-record-refused-historical-compat || exit 1
 echo "armer.test.sh: all green"
