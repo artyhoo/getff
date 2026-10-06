@@ -42,6 +42,13 @@ export async function createGateService({
     e.code = 'E_CONFIG';
     throw e;
   }
+  // DR-R4: a V2-era deployment runs on the pinned V2 bytes — absent bytes must
+  // refuse startup, never degrade DotPRReviewV2 documents into schema-less checks
+  if (policy.protocol_version === 'dot-pr-review/2.0.0' && (!schemaBytesV2 || schemaBytesV2.length === 0)) {
+    const e = new Error('[service] schemaBytesV2 (the pinned dot-pr-review/2.0.0 schema) is required for a V2-era policy');
+    e.code = 'E_CONFIG';
+    throw e;
+  }
   if (!oauth || !webhookSecret || typeof readState !== 'function') {
     const e = new Error('[service] oauth, webhookSecret and readState adapters are required');
     e.code = 'E_CONFIG';
@@ -167,7 +174,7 @@ export async function createGateService({
 
   async function publishChecked({ publisherTransport, reportId }) {
     const run = {
-      ledger, reportId, schemaBytes, policy,
+      ledger, reportId, schemaBytes, schemaBytesV2, policy,
       app: { ...publisherApp, apiBase: publisherApp.apiBase ?? '', repo: policy.repository_full_name, prNumber: undefined },
       transport: publisherTransport,
       resolveRunIdentity,

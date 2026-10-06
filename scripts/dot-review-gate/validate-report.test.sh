@@ -255,6 +255,29 @@ console.log(r.ok ? 'PASS' : r.errors.map((e) => e.code).join(','));
 " 2>&1 | tail -1)
 if [[ "$proto_out" != *PROTO_KEY* ]]; then echo "FAIL[proto-key-raw] got: $proto_out"; fails=$((fails+1)); else echo "ok[proto-key-raw]"; fi
 
+# ── DR-R4: fail closed on missing schema bytes ────────────────────────────────
+# a V2 document with NO pinned V2 bytes is refused — the old validator skipped AJV
+# when schemaBytesV2 was absent and accepted schema-less documents as valid
+v2noschema_out=$(node --input-type=module -e "
+import { makeV2Review } from '$V2FIX';
+import { validateReport } from '$MOD';
+const r = validateReport(JSON.stringify(makeV2Review()), { now: '$NOW' });
+console.log((r.ok ? 'PASS' : 'FAIL') + '|' + r.errors.map((e) => e.code).join(','));
+" 2>&1 | tail -1)
+if [[ "$v2noschema_out" != "FAIL|E_SCHEMA"* ]]; then echo "FAIL[v2-missing-schema-bytes-refused] got: $v2noschema_out"; fails=$((fails+1)); else echo "ok[v2-missing-schema-bytes-refused]"; fi
+
+# the CLI fails closed on a V2 document without --schema-v2, and accepts it with it
+V2SCHEMA="$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result-v2.schema.json"
+V2EXAMPLE="$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/examples/positive-go.json"
+cli_no=$(node "$MOD" "$V2EXAMPLE" --schema "$SCHEMA" --now "$NOW" 2>&1); cli_no_status=$?
+if [[ $cli_no_status -eq 0 || "$cli_no" != *E_SCHEMA* ]]; then
+  echo "FAIL[v2-cli-without-schema-refused] exit=$cli_no_status out=$(echo "$cli_no" | tail -1)"; fails=$((fails+1))
+else echo "ok[v2-cli-without-schema-refused]"; fi
+cli_yes=$(node "$MOD" "$V2EXAMPLE" --schema "$SCHEMA" --schema-v2 "$V2SCHEMA" --now "$NOW" 2>&1); cli_yes_status=$?
+if [[ $cli_yes_status -ne 0 || "$cli_yes" != *'"ok":true'* ]]; then
+  echo "FAIL[v2-cli-with-schema-accepts] exit=$cli_yes_status out=$(echo "$cli_yes" | tail -1)"; fails=$((fails+1))
+else echo "ok[v2-cli-with-schema-accepts]"; fi
+
 echo "----"
 if [[ $fails -gt 0 ]]; then echo "FAILURES: $fails"; exit 1; fi
 echo "validate-report.test.sh: all green"

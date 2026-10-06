@@ -399,6 +399,18 @@ try {
   const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
   const V2_POLICY_TEXT = JSON.stringify(V2_POLICY);
   const v2PolicyDigestOf = policyDigestOf(V2_POLICY);
+  // DR-R4: a V2-era deployment without the pinned V2 bytes refuses to START —
+  // absent bytes must never degrade into schema-less validation
+  try {
+    await createGateService({
+      ledgerPath: `${tmp}/v2-nopin.sqlite`, policyText: V2_POLICY_TEXT, schemaBytes,
+      oauth, webhookSecret: 's', readState, publisherApp, now: () => clock,
+    });
+    fail('V2-era service started without schemaBytesV2');
+  } catch (e) {
+    if (e.code === 'E_CONFIG') log('ok v2-era-startup-requires-pin');
+    else fail(`v2 startup guard ${e.code ?? e.message}`);
+  }
   const v2Live = (over = {}, assignmentId) => makeV2Review({
     review_identity: {
       ...canonicalV2.review_identity,
@@ -426,6 +438,13 @@ try {
   const stitchedRes = await call(baseV2, cookieV2, '/submit', stitched);
   if (stitchedRes.status !== 422 || stitchedRes.json?.code !== 'E_ENVELOPE') fail(`v2 stitched ${stitchedRes.status} ${JSON.stringify(stitchedRes.json).slice(0, 120)}`);
   else log('ok v2-stitched-envelope-rejected');
+  // DR-R4 composed control: a V2 record missing a schema-required field is refused
+  // THROUGH the intake with the pin in place (the packet's probe, end-to-end)
+  const probe = v2Live({}, claimV2.json.claim_id);
+  delete probe.change_review_receipt;
+  const probeRes = await call(baseV2, cookieV2, '/submit', v2Env(probe));
+  if (probeRes.status !== 422 || !JSON.stringify(probeRes.json?.errors ?? []).includes('E_SCHEMA')) fail(`v2 probe ${probeRes.status} ${JSON.stringify(probeRes.json).slice(0, 140)}`);
+  else log('ok v2-schema-required-field-enforced');
   const v2ReviseRec = v2Live({
     verdict: { outcome: 'REVISE', rationale: 'prior review insufficient for the material delta', blockers: [] },
     assessments: { ...canonicalV2.assessments, prior_review_sufficiency: 'INSUFFICIENT' },
@@ -480,6 +499,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   late-report-persisted-as-history archived-record-never-publishes \
   forged-still-rejected-after-movement \
   memory-ledger-refused memory-allowed-for-fixtures \
-  v2-stitched-envelope-rejected v2-revise-accepted-persisted \
+  v2-era-startup-requires-pin \
+  v2-stitched-envelope-rejected v2-schema-required-field-enforced v2-revise-accepted-persisted \
   v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success || exit 1
 echo "service.test.sh: all green"

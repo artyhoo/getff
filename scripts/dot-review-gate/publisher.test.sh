@@ -20,8 +20,9 @@ trap 'rm -rf "$TMP"' EXIT
 SCRIPT="$TMP/run-publisher-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
 import { generateKeyPairSync } from 'node:crypto';
-const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, tmp] = process.argv.slice(2);
+const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
+const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
 const { openLedger, tupleDigest } = await import(ledgerPath);
 const { createPublisherJwt, installationAccessToken, publishAdmission, publishFailure } = await import(publisherPath);
 const { validateReport } = await import(validatorPath);
@@ -250,6 +251,51 @@ try {
   });
   if (r9.check.id !== 777 || t9.calls.checkRuns.length !== 0) fail(`recovery created a second check: ${JSON.stringify(r9).slice(0, 100)}`);
   else log('ok crash-recovery-idempotent');
+
+  // ── DR-R4: publication fails closed without the pinned V2 bytes ──────────────
+  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+  const v2Digest = policyDigestOf(V2_POLICY);
+  const canonicalV2 = makeV2Review();
+  const v2Tuple = { ...TUPLE, policy_sha256: v2Digest, protocol_version: 'dot-pr-review/2.0.0' };
+  const v2Ledger = openLedger(`${tmp}/pub-v2.sqlite`);
+  const v2Report = makeV2Review({
+    review_identity: {
+      ...canonicalV2.review_identity,
+      repository: { id: 1231007068, full_name: 'artyhoo/getff' },
+      pull_request: { number: 2042, node_id: 'PR_kwDOM9YQhs6AbCdEfGh' },
+      mode: 'OPEN_PR',
+      comparison_basis: 'HEAD_TO_MERGE_CANDIDATE',
+      revisions: { head_sha: H, base_sha: sha('b'), merge_base_sha: sha('a'), tested_merge_sha: M },
+      policy: { version: '2026-10-05.1', sha256: v2Digest, epoch: 1 },
+    },
+  });
+  // the trusted inventory matches the record's own scope; the assignment id pins at claim
+  const v2Claim = v2Ledger.claimGeneration({ tuple: v2Tuple, reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 120, changedFiles: v2Report.scope.changed_paths.map((c) => c.path), nowMs: Date.parse(NOW) });
+  v2Report.review_identity.assignment_id = v2Claim.claim.claim_id;
+  const v2Payload = JSON.stringify(v2Report);
+  const v2Rec = v2Ledger.submitReport({
+    claimId: v2Claim.claim.claim_id, reviewerId: 555001,
+    digest: (await import('node:crypto')).createHash('sha256').update(v2Payload).digest('hex'),
+    payload: v2Payload, verdict: JSON.stringify(v2Report.verdict), kind: v2Report.record_type,
+    leaseMinutes: 120, nowMs: Date.parse(NOW),
+    liveTupleDigest: tupleDigest(v2Tuple), assertedGenerationSeq: v2Claim.generation.seq,
+  });
+  const readyV2 = { mergeChecks: [mechanical()], headChecks: HEAD_NAMES.map((n) => headCheck(n)) };
+  // RED: no V2 bytes → the publisher must refuse, never validate schema-less
+  const tv2No = makeTransport({ ...readyV2 });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, policy: V2_POLICY, app, transport: tv2No.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('schema-less V2 publication accepted');
+  } catch (e) {
+    if (e.code === 'E_VALIDATION' && tv2No.calls.checkRuns.length === 0) log('ok v2-schema-less-publication-refused');
+    else fail(`v2 schema-less ${e.code ?? e.message} runs=${tv2No.calls.checkRuns.length}`);
+  }
+  // GREEN control: the same record with the PIN publishes exactly one success on M
+  const tv2Yes = makeTransport({ ...readyV2 });
+  const pubV2 = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tv2Yes.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (!pubV2.check || pubV2.check.head_sha !== M || pubV2.check.conclusion !== 'success') fail(`v2 publish ${JSON.stringify(pubV2.check ?? pubV2).slice(0, 120)}`);
+  else log('ok v2-publisher-publishes-with-pin');
+  v2Ledger.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
 }
@@ -263,9 +309,11 @@ out="$(node "$SCRIPT" \
   "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" \
   "$DIR/validate-report.mjs" \
   "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" \
+  "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/make-v2.mjs" \
   "$TMP" 2>&1)"; status=$?
 assert_suite_arms "publisher.test.sh" "$status" "$out" \
   jwt-shape publish-on-current-M crashed-review-refused no-record-refused stale-M-refused \
   red-mechanics-refused spoofed-workflow-refused no-inventory-refused \
-  revise-publishes-failure crash-recovery-idempotent || exit 1
+  revise-publishes-failure crash-recovery-idempotent \
+  v2-schema-less-publication-refused v2-publisher-publishes-with-pin || exit 1
 echo "publisher.test.sh: all green"

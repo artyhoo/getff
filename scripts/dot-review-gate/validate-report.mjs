@@ -150,7 +150,15 @@ function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInv
   const errors = [];
   const nonAuthorizing = [];
 
-  if (schemaBytesV2) {
+  // DR-R4: fail closed — a DotPRReviewV2 document is never validated schema-less.
+  // Absent (or wrong-length) V2 bytes are a configuration error, and silently
+  // skipping AJV used to accept documents the pinned contract rejects.
+  if (!schemaBytesV2 || schemaBytesV2.length === 0) {
+    errors.push({ code: 'E_SCHEMA', message: 'a dot-pr-review/2.0.0 document requires the pinned V2 schema bytes — refusing schema-less validation' });
+    return { ok: false, authorizing: false, report, errors, nonAuthorizing };
+  }
+
+  {
     try {
       const validate = loadV2Schema(schemaBytesV2);
       if (!validate(report)) {
@@ -438,19 +446,21 @@ export function cli(argv) {
     return i >= 0 ? args[i + 1] : undefined;
   };
   const schemaPath = opt('--schema');
+  const schemaV2Path = opt('--schema-v2');
   const policyPath = opt('--policy');
   const now = opt('--now');
   if (!file || !schemaPath) {
-    console.error('usage: node validate-report.mjs <report.json> --schema <schema.json> [--policy <policy.json>] [--now <ISO>]');
+    console.error('usage: node validate-report.mjs <report.json> --schema <schema.json> [--schema-v2 <v2-schema.json>] [--policy <policy.json>] [--now <ISO>]');
     return 2;
   }
   const { readFileSync } = require('node:fs');
   const text = readFileSync(file, 'utf8');
   const schemaBytes = readFileSync(schemaPath);
+  const schemaBytesV2 = schemaV2Path ? readFileSync(schemaV2Path) : undefined;
   const policy = policyPath ? JSON.parse(readFileSync(policyPath, 'utf8')) : undefined;
-  const result = validateReport(text, { schemaBytes, policy, now });
+  const result = validateReport(text, { schemaBytes, schemaBytesV2, policy, now });
   if (result.ok) {
-    console.log(JSON.stringify({ ok: true, authorizing: result.authorizing, kind: result.report?.kind, verdict: result.report?.verdict, completion: result.report?.completion }));
+    console.log(JSON.stringify({ ok: true, authorizing: result.authorizing, kind: result.report?.kind ?? result.report?.record_type, verdict: result.report?.verdict, completion: result.report?.completion }));
     return 0;
   }
   console.log(JSON.stringify({ ok: false, errors: result.errors }, null, 2));

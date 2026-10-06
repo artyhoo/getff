@@ -58,7 +58,7 @@ export async function installationAccessToken(app, transport) {
 // Shared evidence assembly for both publications: the ledger record, its re-digest,
 // re-validation against the live tuple + trusted inventory, and the mechanical
 // recheck. `allowVerdicts` widens the accepted verdict set for failure publication.
-async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now }) {
+async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now }) {
   const row = ledger.getReport(reportId);
   if (!row) return refuse('E_NO_RECORD', `report ${reportId} is not in the ledger`);
   const digest = createHash('sha256').update(row.payload).digest('hex');
@@ -96,7 +96,7 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     protocol_version: policy.protocol_version ?? PROTOCOL_VERSION,
   };
 
-  const validation = validateReport(row.payload, { schemaBytes, policy, now, currentState, trustedInventory });
+  const validation = validateReport(row.payload, { schemaBytes, schemaBytesV2, policy, now, currentState, trustedInventory });
   // validation.ok is now the pure acceptable-document predicate (follow-up packet
   // increment 2): non-authorizing status rides in validation.nonAuthorizing, so every
   // error here is fatal for publication.
@@ -145,8 +145,8 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
 }
 
 // Publish the admission success check for the CURRENT M.
-export async function publishAdmission({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
-  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
+export async function publishAdmission({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
+  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
   const { report, authorizing, nonAuthorizing, currentM } = result;
   if (!authorizing) {
     // the validator's marker message is protocol-shaped (V2 verdicts are objects —
@@ -158,8 +158,8 @@ export async function publishAdmission({ ledger, reportId, schemaBytes, policy, 
 
 // A named failure check on M for a valid non-authorizing report (REVISE/STOP/INCOMPLETE,
 // execution failure). Invalid reports publish NOTHING — absence, not neutrality, blocks.
-export async function publishFailure({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, reason, externalId } = {}) {
-  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
+export async function publishFailure({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, reason, externalId } = {}) {
+  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
   const { report, currentM } = result;
   return createCheck({
     app, policy, transport, sha: currentM, conclusion: 'failure', externalId, report,
