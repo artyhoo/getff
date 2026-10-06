@@ -1,9 +1,9 @@
 # Dot review gate — repair record for review findings R1–R11
 
-> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below). 17 suites, 350 arms, all green in one sweep on 2026-10-06.
+> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below) plus the cold-review fix pass (§Round 2 → Cold-review fix pass). 17 suites, 353 arms, all green in one sweep on 2026-10-06.
 > **Authoritative for:** the mechanism-only repair of review findings R1–R11 (review: `docs/superpowers/plans/2026-10-05-dot-staging-review-gate-review.md`) — per finding: the reproduction, the regression evidence, the change made, the verification, the remaining limitation. The round-2 section extends the same format to the follow-up packet's verified defects.
 > **NOT authoritative for:** the packet documents (protocol, schema, handoff, design spec, kickoff — owned by the documentation session); live validation (S0/S4) and staging enforcement (S5) remain operator-gated; nothing here is evidence that any live proof ran.
-> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 17/17 suites exit 0 in one sweep; arm counts: harness 10, strict-json 25, load-policy 15, readiness 20, validate-report 58, ledger 30, intake 19, publisher 18, reporter 8, armer 12, service 34, finding-lifecycle 42, cc-adapter 12, queue 11, budgets 15, registration 12, gatectl 9.
+> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 17/17 suites exit 0 in one sweep; arm counts: harness 10, strict-json 25, load-policy 15, readiness 20, validate-report 58, ledger 30, intake 19, publisher 18, reporter 8, armer 12, service 35, finding-lifecycle 42, cc-adapter 12, queue 11, budgets 16, registration 15, gatectl 9.
 
 ## R1 — publication trusted a detached boolean
 
@@ -208,3 +208,18 @@ Scope: the continuation packet's five verified defects, two V2 extras, increment
 - **Change:** `gatectl.mjs` — `validate` (policy fail-closed, schema-pin verified against ACTUAL bytes `E_SCHEMA_PIN`, ledger open+migrate, queue build, dispatch-budget status; ZERO transport calls, ZERO model launches — spy-counted in the summary), `pause`/`read`/`recover` offline, `start` refuses without `--allow-live` (`E_VALIDATE_ONLY`) and reports live start `E_LIVE_UNENROLLED`.
 - **Regression:** gatectl.test.sh (17th CI line, 9 arms).
 - **Remaining limitation:** everything here is offline/ASSISTED — a real unattended Dot launch/export is unproved (packet wording: record ASSISTED until proved live).
+
+### Cold-review fix pass (packet increment 12, 2026-10-06) — `020e7a2de92`
+
+An independent cold reviewer (separate read-only session, brief = the defect/increment claims only, no diff narrative) ran the 17 suites read-only and returned 10× FIXED-VERIFIED, inc 9 PARTIAL, gatectl verified-with-gap, 2 Important + 5 Minor findings, 5 test-gaps. Graded by effect; Critical/Important → one fix pass (RED-first each); minors graded and dispositioned:
+
+- **Fixed — Important (drain effect-dropping):** a superseded fix_response/closure_receipt was archived with its lifecycle effect silently dropped (`service.mjs` superseded branch fired before the record consumers). One consumer (`consumeLifecycleRecord`) now serves both paths; the closure gate, not the drain, refuses unproven evidence. RED: `superseded-fix-record-still-consumed` (`entry=[["report.submitted","archived"]] tail=OPEN` → GREEN `fix-recorded`, occurrence VERIFYING).
+- **Fixed — Important (merge gate unread):** `merge_enabled` was written by the operator transition but read by nothing — merge default OFF was a stored bit. `executorGuard` gates merge/arm twice: the executor NEVER (`E_SELF_MERGE`, identity checked first — the permanent property), and even the registered coordinator is held until the transition (`E_MERGE_DISABLED`). RED: the two coordinator-while-disabled arms; GREEN: 4 new arms (`coordinator-merge-refused-while-disabled`, `coordinator-arm-refused-while-disabled`, `coordinator-may-merge-after-transition`, plus the retained `coordinator-may-arm`).
+- **Fixed — Minor (comment overclaim):** the cron-guard comment claimed signals it does not read; corrected (under-launches, never over-launches).
+- **Fixed — test-gap:** `window-bound-survives-restart` (the window bound itself across reopen; previously only the churn counter was restart-tested).
+- **Fixed — live-caught:** principle 47's arm flagged `gatectl.mjs`'s naive `import.meta.url` vs `argv[1]` compare during the battery; replaced with the sanctioned `isMainEntry`.
+- **Deferred — Minor (V2 pin absent):** the policy carries only the V1 `schema_sha256`; V2 bytes are presence-checked and digested but never pinned against policy. The V2 policy field belongs to the trusted-policy surface (docs lane owns the template); the in-repo V2 bytes are pinned by `v2-schema-pin-integrity` at the merge-forward. Cost if wrong: tampered out-of-repo V2 bytes validate records until the merge-forward pin check.
+- **Deferred — Minor (window budget on refused launch):** the launch-window counter is consumed before churn reservations refuse — conservative direction (under-dispatch only).
+- **Deferred — Minor (actor assertions):** DR-R1 independence rests on caller-asserted `actor` in finding_receipts — weaker than submitReport's challenge binding; the trust root is ledger write access (same class as the round-1 receipts limitation).
+- **Deferred — Minor (stale ASSIGNED occurrence):** after a rebind the old occurrence keeps ASSIGNED; inflates open-findings counts (cron guard under-signals idle).
+- **Noted (test topology):** `concurrent-drains-single-check` uses stub transports without shared check-run state — a shared transport would be stricter; flagged, not rebuilt.
