@@ -13,7 +13,7 @@
 
 # /aif-doctor — aif operational-health triage
 
-**Origin:** BUILD verdict 2026-06-03. The `/dispatcher` loop works, but the _operating environment_ repeatedly breaks (runtime crash-loop, capacity saturation, flaky proxy) and nothing captured how to triage it in seconds instead of re-deriving every session. SSOT #112. Kickoff: [`.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md`](../../../orchestrator-prompts/aif-doctor-skill/kickoff.md).
+**Origin:** BUILD verdict 2026-06-03. The `/dispatcher` loop works, but the _operating environment_ repeatedly breaks (runtime crash-loop, capacity saturation, flaky proxy) and nothing captured how to triage it in seconds instead of re-deriving every session. SSOT #112. Kickoff: [`.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md`](../../../../.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md).
 
 **Substrate:** existing helpers + upstream read-only endpoints. Zero new scripts or npm deps; passive probes add no LLM/API-billed calls ([no-paid-llm-in-ci.md §1](../../../rules/no-paid-llm-in-ci.md)). The passive sweep uses `curl`, `docker exec` and log inspection without inference. An explicitly authorized active dispatch smoke may briefly start an executor and consume tokens; it is outside that sweep.
 
