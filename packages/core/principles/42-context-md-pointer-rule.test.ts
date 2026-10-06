@@ -21,14 +21,14 @@
  * Three independent legs, all verified on this tree at authoring time (2026-08-18):
  *   1. NO fragment checking anywhere. Neither lychee arm passes `--include-fragments`:
  *      pre-push runs `lychee --offline --no-progress <changed *.md>`
- *      (packages/core/hooks/pre-push.ts:2771), CI runs `--no-progress --config
+ *      (packages/core/hooks/pre-push.ts:2817), CI runs `--no-progress --config
  *      lychee.toml <globs>` (.github/workflows/link-checker.yml:55-61). Anchors are
  *      unchecked today — the half this test exists for.
  *   2. The CI arm's file scope excludes a repo-root CONTEXT.md outright: its globs are
  *      README.md, INSTALL*.md, the docs/ recursive markdown glob, plugin/README.md
  *      (.github/workflows/link-checker.yml:57-60).
- *   3. The pre-push arm is DIFF-scoped (pre-push.ts:2709-2711) and degrades to a skip
- *      when lychee is not installed (pre-push.ts:2695-2700). The defect class this test
+ *   3. The pre-push arm is DIFF-scoped (pre-push.ts:2755-2757) and degrades to a skip
+ *      when lychee is not installed (pre-push.ts:2741-2746). The defect class this test
  *      catches is exactly the one a diff-scoped gate structurally cannot see: an anchor
  *      RENAMED IN AN OWNER DOC silently breaks a CONTEXT.md pointer while CONTEXT.md
  *      itself is unchanged in that push.
