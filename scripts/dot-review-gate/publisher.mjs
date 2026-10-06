@@ -141,28 +141,32 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBy
     e.blocking = readiness.blocking;
     throw e;
   }
-  return { row, report, authorizing: validation.authorizing === true, nonAuthorizing: validation.nonAuthorizing, currentM, pr };
+  return { row, report, generation, authorizing: validation.authorizing === true, nonAuthorizing: validation.nonAuthorizing, currentM, pr };
 }
 
 // Publish the admission success check for the CURRENT M.
 export async function publishAdmission({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
   const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
-  const { report, authorizing, nonAuthorizing, currentM } = result;
+  const { row, report, generation, authorizing, nonAuthorizing, currentM } = result;
   if (!authorizing) {
     // the validator's marker message is protocol-shaped (V2 verdicts are objects —
     // never template them here)
     return refuse('E_NOT_AUTHORIZING', nonAuthorizing?.[0]?.message ?? `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
   }
-  return createCheck({ app, policy, transport, sha: currentM, conclusion: 'success', externalId, report });
+  return createCheck({
+    app, policy, transport, sha: currentM, conclusion: 'success', externalId, report,
+    identity: { payloadDigest: row.payload_digest, generation: generation?.seq, policySha: policyDigest(policy), mergeSha: currentM, conclusion: 'success' },
+  });
 }
 
 // A named failure check on M for a valid non-authorizing report (REVISE/STOP/INCOMPLETE,
 // execution failure). Invalid reports publish NOTHING — absence, not neutrality, blocks.
 export async function publishFailure({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, reason, externalId } = {}) {
   const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
-  const { report, currentM } = result;
+  const { row, report, generation, currentM } = result;
   return createCheck({
     app, policy, transport, sha: currentM, conclusion: 'failure', externalId, report,
+    identity: { payloadDigest: row.payload_digest, generation: generation?.seq, policySha: policyDigest(policy), mergeSha: currentM, conclusion: 'failure' },
     summaryOverride: reason ?? `verdict ${report.verdict}/${report.completion}`,
   });
 }
@@ -170,20 +174,25 @@ export async function publishFailure({ ledger, reportId, schemaBytes, schemaByte
 async function listCheckRuns({ app, transport, sha }) {
   const res = await transport(`${app.apiBase}/repos/${app.repo}/commits/${sha}/check-runs?per_page=100`, {
     headers: { accept: 'application/vnd.github+json' },
-  }).catch(() => ({ check_runs: [] }));
+  }).catch((e) => {
+    if (e.status === 404) return { check_runs: [] }; // the ref is gone — no evidence exists there
+    throw e; // DR-R5: a failed discovery is NOT an empty discovery
+  });
   return res.check_runs ?? [];
 }
 
-async function createCheck({ app, policy, transport, sha, conclusion, externalId, report, summaryOverride }) {
+async function createCheck({ app, policy, transport, sha, conclusion, externalId, report, summaryOverride, identity }) {
   const token = await installationAccessToken(app, transport);
-  const ext = externalId ?? stableExternalId(report);
-  // crash recovery: an accepted check with this external_id already exists → reuse it
+  const ext = externalId ?? stableExternalId(identity);
+  // crash recovery: an accepted check with this id already exists → reuse it — but
+  // only the SAME conclusion: an obsolete success must never stand in for a fresh
+  // failure result, nor the reverse (DR-R5)
   const search = await transport(
     `${app.apiBase}/repos/${app.repo}/commits/${sha}/check-runs?per_page=100`,
     { headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' } },
-  ).catch(() => ({ check_runs: [] }));
+  );
   for (const run of search.check_runs ?? []) {
-    if (run.external_id === ext && run.app?.id === policy.dot_check.expected_app_id) {
+    if (run.external_id === ext && run.app?.id === policy.dot_check.expected_app_id && run.conclusion === conclusion) {
       return { check: run, reused: true };
     }
   }
@@ -210,9 +219,14 @@ async function createCheck({ app, policy, transport, sha, conclusion, externalId
   return { check: created, reused: false };
 }
 
-function stableExternalId(report) {
+// DR-R5: publication identity derives from the AUTHENTICATED stored record and its
+// publication context — the re-digested payload, the ledger generation, the policy
+// era, the tested merge, and the publication INTENT. The old hash over V1 top-level
+// fields left every V2 record with the same id (all four fields undefined), and the
+// id said nothing about which conclusion the publication was writing.
+function stableExternalId({ payloadDigest, generation, policySha, mergeSha, conclusion }) {
   const h = createHash('sha256')
-    .update(`${report.repository?.id}:${report.pull_request?.node_id}:${report.generation}:${report.review_id}`)
+    .update(`${payloadDigest}:${generation ?? ''}:${policySha ?? ''}:${mergeSha}:${conclusion}`)
     .digest('hex');
   return `dot-review:${h.slice(0, 32)}`;
 }

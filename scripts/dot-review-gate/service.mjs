@@ -120,9 +120,11 @@ export async function createGateService({
     now,
   });
 
-  // durable outbox consumer: at-least-once delivery, exactly-once effects by
-  // external_id + outbox dedup. Red mechanics / expiry / pause SKIP publication and
-  // keep the event pending — nothing is dropped, nothing is published unreviewed.
+  // durable outbox consumer: at-least-once delivery with claim-lease reservations
+  // (DR-R5) so concurrent drains cannot double-process a batch; effects deduplicate
+  // by intent-bound external_id — a best-effort boundary, not a proved exactly-once
+  // guarantee. Red mechanics / expiry / pause SKIP publication and keep the event
+  // pending — nothing is dropped, nothing is published unreviewed.
   async function drainOutbox({ publisherTransport, limit = 10 } = {}) {
     if (typeof publisherTransport !== 'function') {
       const e = new Error('[service] drainOutbox requires the publisher transport');
@@ -130,7 +132,7 @@ export async function createGateService({
       throw e;
     }
     const results = [];
-    for (const event of ledger.outboxClaimBatch(limit)) {
+    for (const event of ledger.outboxClaimBatch(limit, { nowMs: now() })) {
       if (event.event_type !== 'report.submitted') {
         // generation.claimed / github.event rows have no publication side effect yet;
         // mark them drained so the queue only ever holds pending work

@@ -197,6 +197,22 @@ try {
     if (ledger.outboxClaimBatch(100).some((r) => r.dedup_key === 'dedup-1')) fail('published row re-claimed');
     log('ok outbox-dedup-and-claim');
 
+    // ── DR-R5: a claimed batch is RESERVED against concurrent drains ───────────
+    const resLedger = L.openLedger(`${tmp}/reserve.sqlite`);
+    const RES_NOW = Date.parse('2026-10-06T12:00:00Z');
+    resLedger.outboxEnqueue('report.submitted', { report_id: 'r1' }, 'res:1');
+    resLedger.outboxEnqueue('report.submitted', { report_id: 'r2' }, 'res:2');
+    const resFirst = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW, claimLeaseMs: 60_000 });
+    if (resFirst.length !== 2) fail(`reservation first claim ${resFirst.length}`);
+    else log('ok reservation-first-claim');
+    const resSecond = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW + 30_000, claimLeaseMs: 60_000 });
+    if (resSecond.length !== 0) fail(`a concurrent drain re-claimed ${resSecond.length} reserved rows`);
+    else log('ok concurrent-drain-reserved');
+    const resThird = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW + 120_000, claimLeaseMs: 60_000 });
+    if (resThird.length !== 2) fail(`a lapsed claim lease was not recoverable: ${resThird.length}`);
+    else log('ok stale-lease-recovered');
+    resLedger.close?.();
+
     const backupPath = `${tmp}/backup-${Date.now()}.sqlite`;
     ledger.backup(backupPath);
     ledger.outboxEnqueue('post.backup', {}, 'dedup-2'); // mutate after backup
@@ -226,5 +242,6 @@ assert_suite_arms "ledger.test.sh" "$status" "$out" \
   tuple-M-changes-generation tuple-policy-changes-generation tuple-protocol-changes-generation \
   supersede-on-tuple-change challenge-verifies-stored-tuple attempts-exhausted unknown-claim \
   lease-aware-active-claims submission-outbox-atomic-on-fault restart-drains-single-publication \
-  outbox-dedup-and-claim backup-restore-roundtrip missing-backup-rejected || exit 1
+  outbox-dedup-and-claim reservation-first-claim concurrent-drain-reserved \
+  stale-lease-recovered backup-restore-roundtrip missing-backup-rejected || exit 1
 echo "ledger.test.sh: all green"

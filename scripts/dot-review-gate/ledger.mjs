@@ -198,6 +198,8 @@ export function openLedger(dbPath, { faultAfter } = {}) {
   ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
   ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
   ensureColumn('reports', 'superseded_at', 'ALTER TABLE reports ADD COLUMN superseded_at TEXT');
+  ensureColumn('outbox', 'claimed_at', 'ALTER TABLE outbox ADD COLUMN claimed_at TEXT');
+  ensureColumn('outbox', 'attempts', 'ALTER TABLE outbox ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   const now = () => new Date().toISOString();
 
   // node:sqlite has no better-sqlite3-style .transaction() helper — run the explicit
@@ -707,10 +709,21 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return tx(() => outboxEnqueueTx(eventType, payload, dedupKey));
     },
 
-    outboxClaimBatch(limit) {
-      return db.prepare(
-        'SELECT * FROM outbox WHERE published_at IS NULL ORDER BY id LIMIT ?',
-      ).all(limit);
+    // DR-R5: claiming a batch is a RESERVATION — rows come back marked with a claim
+    // lease so a concurrent drain sees an empty batch instead of double-processing.
+    // A lease that lapsed (a dead drain) is recoverable after claimLeaseMs.
+    outboxClaimBatch(limit, { nowMs = Date.now(), claimLeaseMs = 5 * 60 * 1000 } = {}) {
+      return tx(() => {
+        const cutoff = new Date(nowMs - claimLeaseMs).toISOString();
+        const rows = db.prepare(
+          `SELECT * FROM outbox WHERE published_at IS NULL AND (claimed_at IS NULL OR claimed_at < ?) ORDER BY id LIMIT ?`,
+        ).all(cutoff, limit);
+        const stamp = new Date(nowMs).toISOString();
+        for (const r of rows) {
+          db.prepare('UPDATE outbox SET claimed_at = ?, attempts = attempts + 1 WHERE id = ?').run(stamp, r.id);
+        }
+        return rows;
+      });
     },
 
     outboxMarkPublished(id) {

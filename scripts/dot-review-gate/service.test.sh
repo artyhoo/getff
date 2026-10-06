@@ -282,6 +282,26 @@ try {
   else log('ok restart-drains-single-publication');
   await svcB.close();
 
+  // DR-R5: two CONCURRENT drains cannot double-process the same event — the batch
+  // claim is a reservation, so the loser of the race sees an empty batch
+  state = REPO_STATE();
+  const svcC = await newService();
+  const baseC = `http://127.0.0.1:${svcC.port}`;
+  const cookieC = await login(baseC);
+  const claimC = await call(baseC, cookieC, '/claim', {});
+  if (claimC.status !== 200) fail(`concurrent claim ${claimC.status}`);
+  await call(baseC, cookieC, '/submit', envelopeFor(claimC));
+  const tCa = makePublisherTransport();
+  const tCb = makePublisherTransport();
+  await Promise.all([
+    svcC.drainOutbox({ publisherTransport: tCa.fetchJson }),
+    svcC.drainOutbox({ publisherTransport: tCb.fetchJson }),
+  ]);
+  const concurrentChecks = tCa.checkRuns.length + tCb.checkRuns.length;
+  if (concurrentChecks !== 1) fail(`concurrent drains wrote ${concurrentChecks} checks (a=${tCa.checkRuns.length} b=${tCb.checkRuns.length})`);
+  else log('ok concurrent-drains-single-check');
+  await svcC.close();
+
   // ── acceptance vs admission (follow-up packet, increment 2): a VALID non-authorizing
   // review (REVISE/INCOMPLETE) is ACCEPTED into the ledger with a receipt and routes to
   // ONE named failure check on M — never a 422, never a success check, never a merge.
@@ -493,7 +513,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   startup-unresolved-policy-refused e2e-publish-once re-drain-no-second-check \
   red-mechanics-stop-claims state-outage-stops-claims lease-frees-claim-slot \
   expiry-stops-claims expiry-stops-publication pause-stops-claims-and-publication \
-  unpause-resumes restart-drains-single-publication \
+  unpause-resumes restart-drains-single-publication concurrent-drains-single-check \
   accept-revise-persisted replay-idempotent forged-envelope-rejected \
   replay-after-movement-existing-receipt revise-publishes-named-failure \
   late-report-persisted-as-history archived-record-never-publishes \

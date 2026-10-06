@@ -19,7 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 SCRIPT="$TMP/run-publisher-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, createHash } from 'node:crypto';
 const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
 const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
@@ -70,7 +70,7 @@ function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], ex
         // per SHA (merge-bound evidence lives on M, head-bound on H).
         if (opts.headers?.authorization) {
           const found = existingExternalIds.length > 0 && calls.checkRuns.length === 0
-            ? [{ id: 777, external_id: existingExternalIds[0], app: { id: policy.dot_check.expected_app_id } }]
+            ? [{ id: 777, external_id: existingExternalIds[0], app: { id: policy.dot_check.expected_app_id }, conclusion: 'success' }]
             : [];
           return { total_count: found.length, check_runs: found };
         }
@@ -295,6 +295,61 @@ try {
   const pubV2 = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tv2Yes.fetchJson, resolveRunIdentity: resolver, now: NOW });
   if (!pubV2.check || pubV2.check.head_sha !== M || pubV2.check.conclusion !== 'success') fail(`v2 publish ${JSON.stringify(pubV2.check ?? pubV2).slice(0, 120)}`);
   else log('ok v2-publisher-publishes-with-pin');
+
+  // ── DR-R5: publication identity binds the authenticated record AND the intent ──
+  const extOf = (pub) => pub.check?.external_id;
+  // a second V2 record on the SAME M flips the verdict to REVISE — its failure
+  // publication must create its OWN check, never preserve the obsolete success
+  const v2RevClaim = v2Ledger.claimGeneration({ tuple: v2Tuple, reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 120, changedFiles: v2Report.scope.changed_paths.map((c) => c.path), nowMs: Date.parse(NOW) });
+  const v2RevReport = makeV2Review({
+    review_identity: { ...v2Report.review_identity, assignment_id: v2RevClaim.claim.claim_id },
+    verdict: { outcome: 'REVISE', rationale: 'correction demanded', blockers: [] },
+    assessments: { ...canonicalV2.assessments, system_coverage: 'PARTIAL' },
+  });
+  const v2RevPayload = JSON.stringify(v2RevReport);
+  const v2RevRec = v2Ledger.submitReport({
+    claimId: v2RevClaim.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(v2RevPayload).digest('hex'),
+    payload: v2RevPayload, verdict: JSON.stringify(v2RevReport.verdict), kind: v2RevReport.record_type,
+    leaseMinutes: 120, nowMs: Date.parse(NOW),
+    liveTupleDigest: tupleDigest(v2Tuple), assertedGenerationSeq: v2RevClaim.generation.seq,
+  });
+  const tvRev = makeTransport({ ...readyV2 });
+  const pubRev = await publishFailure({ ledger: v2Ledger, reportId: v2RevRec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvRev.fetchJson, resolveRunIdentity: resolver, now: NOW, reason: 'review verdict is not GO/COMPLETE' });
+  if (pubRev.check?.conclusion !== 'failure' || tvRev.calls.checkRuns.length !== 1 || extOf(pubRev) === extOf(pubV2)) {
+    fail(`failure publication preserved an obsolete success: conclusion=${pubRev.check?.conclusion} posts=${tvRev.calls.checkRuns.length} extCollide=${extOf(pubRev) === extOf(pubV2)}`);
+  } else log('ok failure-never-reuses-success');
+
+  // the mirror: a GO publication after a failure must not reuse the failure run
+  const tvGo = makeTransport({ ...readyV2 });
+  const pubGo = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvGo.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (pubGo.check?.conclusion !== 'success' || tvGo.calls.checkRuns.length !== 1 || extOf(pubGo) === extOf(pubRev)) {
+    fail(`success publication reused a failure run: conclusion=${pubGo.check?.conclusion} posts=${tvGo.calls.checkRuns.length} extCollide=${extOf(pubGo) === extOf(pubRev)}`);
+  } else log('ok go-never-reuses-failure');
+
+  // same-record crash retry: the identical intent-bound id reuses, never re-creates
+  const tvRetry = makeTransport({ ...readyV2, existingExternalIds: [extOf(pubGo)] });
+  const pubRetry = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvRetry.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (pubRetry.reused !== true || pubRetry.check?.id !== 777 || tvRetry.calls.checkRuns.length !== 0) {
+    fail(`crash retry re-created: reused=${pubRetry.reused} posts=${tvRetry.calls.checkRuns.length}`);
+  } else log('ok v2-crash-retry-idempotent');
+
+  // a failed discovery is NOT an empty discovery — the publication refuses instead
+  // of blindly creating a duplicate check
+  const tFail = makeTransport({ ...readyV2 });
+  const brokenFetch = async (url, opts) => {
+    if (opts?.headers?.authorization && String(url).includes('/commits/')) {
+      throw Object.assign(new Error('discovery down'), { status: 502 });
+    }
+    return tFail.fetchJson(url, opts);
+  };
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: brokenFetch, resolveRunIdentity: resolver, now: NOW });
+    fail('a failed discovery published blindly');
+  } catch (e) {
+    if (tFail.calls.checkRuns.length === 0) log('ok discovery-failure-refuses');
+    else fail(`discovery failure still wrote ${tFail.calls.checkRuns.length} checks`);
+  }
   v2Ledger.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -315,5 +370,7 @@ assert_suite_arms "publisher.test.sh" "$status" "$out" \
   jwt-shape publish-on-current-M crashed-review-refused no-record-refused stale-M-refused \
   red-mechanics-refused spoofed-workflow-refused no-inventory-refused \
   revise-publishes-failure crash-recovery-idempotent \
-  v2-schema-less-publication-refused v2-publisher-publishes-with-pin || exit 1
+  v2-schema-less-publication-refused v2-publisher-publishes-with-pin \
+  failure-never-reuses-success go-never-reuses-failure v2-crash-retry-idempotent \
+  discovery-failure-refuses || exit 1
 echo "publisher.test.sh: all green"
