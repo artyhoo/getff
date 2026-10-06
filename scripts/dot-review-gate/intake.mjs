@@ -30,10 +30,7 @@ const STATUS_BY_CODE = {
   E_NOT_FOUND: 404,
   E_REVIEWER: 403,
   E_CONFLICT: 409,
-  E_SUPERSEDED: 410,
-  E_GENERATION_GONE: 410,
   E_LEASE_EXPIRED: 410,
-  E_TUPLE_MISMATCH: 409,
   E_GENERATION: 409,
   E_ALREADY_CLAIMED: 429,
   E_EXHAUSTED: 429,
@@ -200,16 +197,24 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       }
       // R4: the trusted changed-file inventory is pinned to the generation at claim
       // time; validation compares the report against IT, not against the report's
-      // own coverage claims.
+      // own coverage claims. DR-R3: the report authenticates against its ISSUED
+      // assignment — the generation's stored tuple — never the live tuple; a report
+      // delayed past a tuple move is archived as history by the ledger, not
+      // rejected here. An unknown claim carries no issued tuple and reaches the
+      // ledger, which refuses it.
       const challengeRow = ledger.getChallenge(envelope.claim_id);
       const genRow = challengeRow ? ledger.getGeneration(challengeRow.generation_id) : undefined;
       let trustedInventory;
       if (genRow?.changed_files_json) {
         try { trustedInventory = { changed_files: JSON.parse(genRow.changed_files_json) }; } catch { trustedInventory = undefined; }
       }
+      let issuedTuple;
+      if (genRow?.tuple_json) {
+        try { issuedTuple = JSON.parse(genRow.tuple_json); } catch { issuedTuple = undefined; }
+      }
       const canonicalText = JSON.stringify(envelope.report);
       // the validator may be async (the composed service loads it lazily) — await
-      const verdict = await validator(canonicalText, { currentState: state, trustedInventory });
+      const verdict = await validator(canonicalText, { currentState: issuedTuple, trustedInventory });
       if (!verdict.ok) {
         return send(res, 422, { error: 'report rejected by validator', errors: verdict.errors.slice(0, 20) });
       }
@@ -229,7 +234,7 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           kind: isV2 ? envelope.report.record_type : envelope.report.kind,
           leaseMinutes: policy.limits.claim_lease_minutes,
           nowMs: now(),
-          expectedTupleDigest: tupleDigest(state),
+          liveTupleDigest: tupleDigest(state),
           assertedGenerationSeq: envelope.generation,
         });
       } catch (e) {
@@ -237,7 +242,13 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
         if (status) return send(res, status, { error: e.message, code: e.code });
         throw e;
       }
-      return send(res, 200, { report_id: receipt.report_id, digest, replayed: receipt.replayed });
+      return send(res, 200, {
+        report_id: receipt.report_id,
+        digest,
+        replayed: receipt.replayed,
+        admitted: receipt.admitted !== false,
+        superseded: receipt.superseded === true,
+      });
     }
 
     if (req.method === 'POST' && path === '/webhook') {

@@ -182,18 +182,20 @@ try {
   if (foreign.status !== 403 || foreign.json?.code !== 'E_REVIEWER') fail(`foreign reviewer ${foreign.status} ${foreign.text.slice(0, 100)}`);
   else log('ok submit-wrong-reviewer-refused');
 
-  // RED (R2): tuple moved (a new claim supersedes the old generation) → 410.
-  // claim2 stays UNCONSUMED so the supersede path — not the conflict path — fires.
+  // DR-R3: a report issued on gen2 (head 'e') submitted AFTER gen3 superseded the
+  // generation → preserved as SUPERSEDED HISTORY (admission false), not refused.
+  // The envelope is frozen on the ISSUED tuple, then the state moves on.
   REPO_STATE.head_sha = sha('e');
   const claim2 = await call('/claim', { method: 'POST', body: {} });
   if (claim2.status !== 200) fail(`claim2 ${claim2.status}`);
+  const envIssued2 = envelopeFor(claim2.json);
   REPO_STATE.head_sha = sha('f');
   const claim3 = await call('/claim', { method: 'POST', body: {} });
   if (claim3.status !== 200) fail(`claim3 ${claim3.status}`);
   cookie = sessionA;
-  const staleGen = await call('/submit', { method: 'POST', body: envelopeFor(claim2.json) });
-  if (staleGen.status !== 410 || staleGen.json?.code !== 'E_SUPERSEDED') fail(`superseded submit ${staleGen.status} ${staleGen.text.slice(0, 100)}`);
-  else log('ok submit-superseded-refused');
+  const staleGen = await call('/submit', { method: 'POST', body: envIssued2 });
+  if (staleGen.status !== 200 || staleGen.json?.superseded !== true || staleGen.json?.admitted !== false) fail(`superseded submit ${staleGen.status} ${staleGen.text.slice(0, 140)}`);
+  else log('ok submit-superseded-archived-as-history');
 
   // RED (R2): envelope asserts a generation that is not the challenged one → 409
   const wrongGen = envelopeFor(claim3.json, { envelopeGeneration: 999999, reportGeneration: 999999 });
@@ -210,13 +212,14 @@ try {
   if (reclaimed.status !== 200) fail(`expired claim still holds the slot: ${reclaimed.status}`);
   else log('ok claim-lease-frees-slot');
 
-  // RED (R2): live tuple drift without a new claim → validator sees the drift → 422.
-  // The envelope is frozen against the pre-drift tuple, then the state moves.
+  // DR-R3: live tuple drift without a new claim → the report authenticates against
+  // its ISSUED tuple and the ledger archives it as superseded history — the finding
+  // record survives the push that made it stale.
   const driftEnvelope = envelopeFor(reclaimed.json);
   REPO_STATE.tested_merge_sha = sha('9');
   const drifted = await call('/submit', { method: 'POST', body: driftEnvelope });
-  if (drifted.status !== 422 || !JSON.stringify(drifted.json?.errors ?? '').includes('E_TUPLE')) fail(`tuple drift ${drifted.status} ${drifted.text.slice(0, 120)}`);
-  else log('ok submit-tuple-drift-refused');
+  if (drifted.status !== 200 || drifted.json?.superseded !== true || drifted.json?.admitted !== false) fail(`tuple drift ${drifted.status} ${drifted.text.slice(0, 140)}`);
+  else log('ok submit-tuple-drift-archived-as-history');
 
   // RED (R2): report's inner claim_id disagrees with the envelope → 422
   REPO_STATE.tested_merge_sha = sha('d');
@@ -271,8 +274,8 @@ out="$(node "$SCRIPT" \
 assert_suite_arms "intake.test.sh" "$status" "$out" \
   oauth-empty-scope oauth-callback-session claim-issued submit-requires-session \
   envelope-principal-binds-ledger replay-same-receipt conflict-rejected \
-  submit-wrong-reviewer-refused submit-superseded-refused submit-generation-mismatch-refused \
-  submit-lease-expired-refused claim-lease-frees-slot submit-tuple-drift-refused \
+  submit-wrong-reviewer-refused submit-superseded-archived-as-history submit-generation-mismatch-refused \
+  submit-lease-expired-refused claim-lease-frees-slot submit-tuple-drift-archived-as-history \
   submit-inner-mismatch-refused submit-dup-verdict-raw-rejected \
   webhook-bad-signature webhook-hmac-and-dedup oversized-rejected || exit 1
 echo "intake.test.sh: all green"

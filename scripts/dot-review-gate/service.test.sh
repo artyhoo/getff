@@ -10,6 +10,10 @@
 #     publications, pause stops both and keeps events pending, a state outage stops
 #     claims (503);
 #   - a lease past its deadline frees the claim slot;
+#   - DR-R3: a correctly issued report submitted after the tuple moved is preserved
+#     as superseded history (admission false), its drain archives it without a check
+#     write, replay after the movement returns the existing receipt, and forged
+#     envelopes stay rejected;
 #   - the happy path: claim → submit → drain publishes EXACTLY ONE success check on M,
 #     and a crash-restart (fresh service on the same ledger) re-drains nothing.
 set -uo pipefail
@@ -309,12 +313,16 @@ try {
   if (forgedRes.status !== 422 || forgedRes.json?.code !== 'E_ENVELOPE') fail(`forged ${forgedRes.status} ${JSON.stringify(forgedRes.json).slice(0, 120)}`);
   else log('ok forged-envelope-rejected');
 
-  // RED: head moves after the claim → the old report no longer matches the live tuple
-  // → 422 E_TUPLE; an issued review delayed by a push can never authorize the new head
+  // DR-R3: replay AFTER the tuple moved returns the EXISTING receipt — rejection
+  // from admission is not rejection from storage
   state = { ...REPO_STATE(), head_sha: sha('e') };
-  const staleRes = await call(baseR, cookieR, '/submit', envRevise);
-  if (staleRes.status !== 422 || !JSON.stringify(staleRes.json?.errors ?? '').includes('E_TUPLE')) fail(`stale tuple ${staleRes.status} ${JSON.stringify(staleRes.json).slice(0, 120)}`);
-  else log('ok stale-tuple-submit-refused');
+  const replayAfterMove = await call(baseR, cookieR, '/submit', envRevise);
+  if (
+    replayAfterMove.status !== 200 ||
+    replayAfterMove.json?.report_id !== submittedRev.json?.report_id ||
+    replayAfterMove.json?.replayed !== true
+  ) fail(`replay after movement ${replayAfterMove.status} ${JSON.stringify(replayAfterMove.json).slice(0, 140)}`);
+  else log('ok replay-after-movement-existing-receipt');
 
   // RED: the drain routes the accepted REVISE record to ONE failure check on M —
   // zero success checks anywhere (a REVISE can never merge)
@@ -326,6 +334,38 @@ try {
     fail(`revise routing success=${successCount} failureOnM=${failureOnM} drain=${JSON.stringify(dRev)} checks=${JSON.stringify(tRev.checkRuns.map((c) => [c.conclusion, c.head_sha]))}`);
   } else log('ok revise-publishes-named-failure');
   await svcR.close();
+
+  // ── DR-R3: archival — a correctly issued report submitted after the tuple moved is
+  // preserved as SUPERSEDED HISTORY (admission false), never lost; its drain archives
+  // it without a check write; forged envelopes stay rejected after the movement.
+  state = REPO_STATE();
+  const svcH = await newService();
+  const baseH = `http://127.0.0.1:${svcH.port}`;
+  const cookieH = await login(baseH);
+  const claimH = await call(baseH, cookieH, '/claim', {});
+  if (claimH.status !== 200) fail(`h1 claim ${claimH.status} ${JSON.stringify(claimH.json).slice(0, 120)}`);
+  const envH = envelopeFor(claimH, { verdict: 'REVISE', completion: 'INCOMPLETE', execution: { failure: true, failure_reason: 'review delayed by a push' } });
+  // the tuple moves (H2 lands) BEFORE the H1 report is submitted
+  state = { ...REPO_STATE(), head_sha: sha('e') };
+  const h1Late = await call(baseH, cookieH, '/submit', envH);
+  if (h1Late.status !== 200 || !h1Late.json?.report_id || h1Late.json?.superseded !== true || h1Late.json?.admitted !== false) {
+    fail(`h1 late ${h1Late.status} ${JSON.stringify(h1Late.json).slice(0, 160)}`);
+  } else log('ok late-report-persisted-as-history');
+
+  // the archived record never publishes: the drain archives it without a check write
+  const tH = makePublisherTransport();
+  const dH = await svcH.drainOutbox({ publisherTransport: tH.fetchJson });
+  if (tH.checkRuns.length !== 0 || !dH.some((r) => r.action === 'archived')) {
+    fail(`h1 archive drain runs=${tH.checkRuns.length} ${JSON.stringify(dH)}`);
+  } else log('ok archived-record-never-publishes');
+
+  // forged (stitched) envelopes stay rejected after the movement
+  const forgedH = JSON.parse(JSON.stringify(envH));
+  forgedH.report.claim_id = '00000000-0000-0000-0000-000000000000';
+  const forgedHRes = await call(baseH, cookieH, '/submit', forgedH);
+  if (forgedHRes.status !== 422 || forgedHRes.json?.code !== 'E_ENVELOPE') fail(`h1 forged ${forgedHRes.status} ${JSON.stringify(forgedHRes.json).slice(0, 120)}`);
+  else log('ok forged-still-rejected-after-movement');
+  await svcH.close();
 
   // ── persistence guard (packet increment 4): in-memory storage is fixture-only —
   // a service without a persistent ledger path refuses to start; the fixture escape
@@ -436,7 +476,9 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   expiry-stops-claims expiry-stops-publication pause-stops-claims-and-publication \
   unpause-resumes restart-drains-single-publication \
   accept-revise-persisted replay-idempotent forged-envelope-rejected \
-  stale-tuple-submit-refused revise-publishes-named-failure \
+  replay-after-movement-existing-receipt revise-publishes-named-failure \
+  late-report-persisted-as-history archived-record-never-publishes \
+  forged-still-rejected-after-movement \
   memory-ledger-refused memory-allowed-for-fixtures \
   v2-stitched-envelope-rejected v2-revise-accepted-persisted \
   v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success || exit 1

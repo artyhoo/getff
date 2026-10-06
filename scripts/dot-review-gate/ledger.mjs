@@ -197,6 +197,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
   ensureColumn('finding_receipts', 'actor', 'ALTER TABLE finding_receipts ADD COLUMN actor TEXT');
   ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
   ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
+  ensureColumn('reports', 'superseded_at', 'ALTER TABLE reports ADD COLUMN superseded_at TEXT');
   const now = () => new Date().toISOString();
 
   // node:sqlite has no better-sqlite3-style .transaction() helper — run the explicit
@@ -359,10 +360,19 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // binding check inside the transaction, and the outbox event in the same tx.
     // assertedGenerationSeq is the INTEGER generation handle the envelope carries
     // (the report schema types generation as a number); it must match the challenge.
+    //
+    // DR-R3: a correctly issued report submitted after the tuple moved (a newer head
+    // landed, the generation was superseded, or the source reached a terminal state)
+    // is preserved as SUPERSEDED HISTORY — superseded_at set, admission false —
+    // instead of being refused. Rejection from admission is not rejection from
+    // storage. The lease refusal still guards claims on a CURRENT tuple (a fresh
+    // review is cheap there); a moved tuple's findings are worth keeping, so the
+    // lease does not destroy them. `liveTupleDigest` is the digest of the CURRENT
+    // repository tuple at submit time; replay always returns the existing receipt.
     submitReport({
       claimId, reviewerId, digest, payload, verdict, kind,
       leaseMinutes, nowMs = Date.now(),
-      expectedTupleDigest, assertedGenerationSeq, outboxDedupKey,
+      liveTupleDigest, assertedGenerationSeq, outboxDedupKey,
     } = {}) {
       if (!Number.isInteger(leaseMinutes)) {
         throw code('E_LIMITS', 'submitReport requires leaseMinutes');
@@ -376,24 +386,18 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         }
         if (ch.consumed_at) {
           if (ch.payload_digest === digest) {
-            const existing = db.prepare('SELECT id FROM reports WHERE payload_digest = ?').get(digest);
-            return { report_id: existing.id, replayed: true };
+            const existing = db.prepare('SELECT id, superseded_at FROM reports WHERE payload_digest = ?').get(digest);
+            return { report_id: existing.id, replayed: true, superseded: existing.superseded_at != null, admitted: existing.superseded_at == null };
           }
           throw code('E_CONFLICT', 'challenge already consumed with a different payload');
         }
         const gen = db.prepare('SELECT * FROM generations WHERE id = ?').get(ch.generation_id);
-        if (gen.state === 'SUPERSEDED') {
-          throw code('E_SUPERSEDED', 'generation was superseded — the tuple moved during review');
-        }
-        if (isTerminal(gen.state)) {
-          throw code('E_GENERATION_GONE', `generation is ${gen.state} — no new submissions`);
-        }
+        const tupleMoved =
+          gen.state === 'SUPERSEDED' || isTerminal(gen.state) ||
+          (liveTupleDigest !== undefined && liveTupleDigest !== ch.tuple_digest);
         const issuedMs = Date.parse(ch.issued_at);
-        if (Number.isFinite(issuedMs) && nowMs > issuedMs + leaseMinutes * 60 * 1000) {
+        if (!tupleMoved && Number.isFinite(issuedMs) && nowMs > issuedMs + leaseMinutes * 60 * 1000) {
           throw code('E_LEASE_EXPIRED', `claim lease of ${leaseMinutes}min expired`);
-        }
-        if (expectedTupleDigest !== undefined && expectedTupleDigest !== ch.tuple_digest) {
-          throw code('E_TUPLE_MISMATCH', 'current tuple does not match the challenged tuple');
         }
         if (assertedGenerationSeq !== undefined) {
           const asserted = db.prepare('SELECT id FROM generations WHERE seq = ?').get(assertedGenerationSeq);
@@ -401,21 +405,22 @@ export function openLedger(dbPath, { faultAfter } = {}) {
             throw code('E_GENERATION', 'asserted generation does not match the challenged generation');
           }
         }
-        const byDigest = db.prepare('SELECT id FROM reports WHERE payload_digest = ?').get(digest);
-        if (byDigest) return { report_id: byDigest.id, replayed: true };
+        const byDigest = db.prepare('SELECT id, superseded_at FROM reports WHERE payload_digest = ?').get(digest);
+        if (byDigest) return { report_id: byDigest.id, replayed: true, superseded: byDigest.superseded_at != null, admitted: byDigest.superseded_at == null };
+        const superseded = tupleMoved;
         const id = randomUUID();
         db.prepare(
-          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, now());
+          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, superseded_at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, superseded ? now() : null, now());
         mark('report-insert');
         db.prepare('UPDATE challenges SET consumed_at = ?, payload_digest = ? WHERE claim_id = ?')
           .run(now(), digest, claimId);
-        if (gen.state === 'CLAIMED' || gen.state === 'REVIEWING') {
+        if (!superseded && (gen.state === 'CLAIMED' || gen.state === 'REVIEWING')) {
           db.prepare('UPDATE generations SET state = ?, updated_at = ? WHERE id = ?').run('SUBMITTED', now(), gen.id);
         }
-        outboxEnqueueTx('report.submitted', { report_id: id, digest }, outboxDedupKey ?? `report:${digest}`);
+        outboxEnqueueTx('report.submitted', { report_id: id, digest, superseded }, outboxDedupKey ?? `report:${digest}`);
         mark('outbox-enqueue');
-        return { report_id: id, replayed: false };
+        return { report_id: id, replayed: false, superseded, admitted: !superseded };
       });
     },
 

@@ -66,7 +66,6 @@ try {
     // ── R2: consumption binds reviewer, generation, lease, tuple ───────────────
     await refused('wrong-reviewer-refused', g1.claim.claim_id, { reviewerId: 999999 }, 'E_REVIEWER');
     await refused('generation-binding-refused', g1.claim.claim_id, { assertedGenerationSeq: 999999 }, 'E_GENERATION');
-    await refused('tuple-drift-at-consume-refused', g1.claim.claim_id, { expectedTupleDigest: L.tupleDigest(FULL) + 'x' }, 'E_TUPLE_MISMATCH');
     await refused('lease-expired-refused', g1.claim.claim_id, { nowMs: attempt.nowMs + 121 * 60 * 1000 }, 'E_LEASE_EXPIRED');
 
     const stored = submit(ledger, g1.claim.claim_id);
@@ -76,6 +75,17 @@ try {
     try { submit(ledger, g1.claim.claim_id, { digest: 'deadbeef', payload: '{}', verdict: 'STOP' }); fail('conflicting payload accepted'); }
     catch (e) { if (e.code !== 'E_CONFLICT') fail(`conflict wrong code ${e.code}`); else log('ok conflict-rejected'); }
     await refused('replay-by-other-reviewer-refused', g1.claim.claim_id, { reviewerId: 999999 }, 'E_REVIEWER');
+
+    // ── DR-R3: tuple drift at consume time ARCHIVES the report as history ──────
+    // (separate PR so the g1 generation stays untouched for the terminal arms)
+    const g2 = ledger.claimGeneration({ tuple: { ...FULL, pr_node_id: 'PR_OTHER' }, reviewerId: 555001, ...attempt });
+    const driftPayload = JSON.stringify({ ...makeAdmission(), summary: 'issued on PR_OTHER, arrived late' });
+    const drifted = submit(ledger, g2.claim.claim_id, { digest: L.payloadDigest(driftPayload), payload: driftPayload, liveTupleDigest: L.tupleDigest(FULL) + 'x' });
+    if (drifted.replayed || drifted.superseded !== true || drifted.admitted !== false) fail(`drift submit ${JSON.stringify(drifted)}`);
+    else log('ok tuple-drift-archives-as-history');
+    const driftedRow = ledger.getReport(drifted.report_id);
+    if (!driftedRow.superseded_at) fail('drift record carries no superseded_at');
+    else log('ok drift-record-marked-superseded');
 
     // ── terminal generation: no new consumption, no fresh challenge ────────────
     ledger.transitionGeneration(g1.generation.id, 'VALIDATING');
@@ -208,8 +218,9 @@ source "$DIR/suite-harness.sh"
 out="$(node "$SCRIPT" "$MOD" "$FIX" "$TMP" 2>&1)"; status=$?
 assert_suite_arms "ledger.test.sh" "$status" "$out" \
   generation-claimed \
-  wrong-reviewer-refused generation-binding-refused tuple-drift-at-consume-refused \
+  wrong-reviewer-refused generation-binding-refused \
   lease-expired-refused replay-same-receipt conflict-rejected replay-by-other-reviewer-refused \
+  tuple-drift-archives-as-history drift-record-marked-superseded \
   terminal-consume-refused challenge-rejected-on-terminal terminal-reopen-new-epoch \
   tuple-base-ref-changes-generation tuple-merge-base-changes-generation \
   tuple-M-changes-generation tuple-policy-changes-generation tuple-protocol-changes-generation \

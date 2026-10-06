@@ -140,6 +140,13 @@ export async function createGateService({
         continue;
       }
       const payload = JSON.parse(event.payload);
+      if (payload.superseded === true) {
+        // DR-R3: archived history is bookkeeping, not publishable work — the record
+        // is kept, its admission is false, and no check is ever written from it
+        ledger.outboxMarkPublished(event.id);
+        results.push({ event: event.event_type, action: 'archived' });
+        continue;
+      }
       let outcome;
       try {
         outcome = await publishChecked({ publisherTransport, reportId: payload.report_id });

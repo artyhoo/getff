@@ -137,7 +137,7 @@ async function storeReport(ledger, { reportOverrides = {}, changedFiles } = {}) 
     digest: (await import('node:crypto')).createHash('sha256').update(payload).digest('hex'),
     payload, verdict: report.verdict, kind: report.kind,
     leaseMinutes: 120, nowMs: Date.parse(NOW),
-    expectedTupleDigest: tupleDigest(TUPLE), assertedGenerationSeq: claim.generation.seq,
+    liveTupleDigest: tupleDigest(TUPLE), assertedGenerationSeq: claim.generation.seq,
   });
   return { receipt, report, payload };
 }
