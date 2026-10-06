@@ -59,16 +59,20 @@ const GH = {
 const secret = 'webhook-hmac-secret';
 
 const ledger = openLedger(`${tmp}/intake-ledger.sqlite`);
+// SP-3: the intake's validator wires the V2 schema bytes, so the policy must pin
+// THEM — an unpinned policy refuses every V2 document at the validator now.
+const v2SchemaBytes = readFileSync(v2SchemaPath);
 const policy = makePolicyFixture({
   reviewer_principal_ids: [555001, 555002],
   limits: { max_active_claims: 2, max_attempts_per_tuple: 5, claim_lease_minutes: 120 },
+  schema_v2_sha256: createHash('sha256').update(v2SchemaBytes).digest('hex'),
 });
 const server = await startIntake({
   ledger,
   policy,
   oauth: GH,
   webhookSecret: secret,
-  validator: (text, extra) => validateReport(text, { schemaBytes, schemaBytesV2: readFileSync(v2SchemaPath), policy, now: new Date(clock).toISOString(), currentState: extra?.currentState, trustedInventory: extra?.trustedInventory }),
+  validator: (text, extra) => validateReport(text, { schemaBytes, schemaBytesV2: v2SchemaBytes, policy, now: new Date(clock).toISOString(), currentState: extra?.currentState, trustedInventory: extra?.trustedInventory }),
   now: () => clock,
 });
 const base = `http://127.0.0.1:${server.port}`;

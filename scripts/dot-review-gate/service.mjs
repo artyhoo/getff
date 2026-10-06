@@ -15,6 +15,7 @@
 // new claims and publications — the native dot-review/pause ruleset remains the
 // boundary that also stops already-armed PRs.
 
+import { createHash } from 'node:crypto';
 import { loadPolicy } from './load-policy.mjs';
 import { evaluateReadiness } from './readiness.mjs';
 import { startIntake } from './intake.mjs';
@@ -44,10 +45,21 @@ export async function createGateService({
   }
   // DR-R4: a V2-era deployment runs on the pinned V2 bytes — absent bytes must
   // refuse startup, never degrade DotPRReviewV2 documents into schema-less checks
-  if (policy.protocol_version === 'dot-pr-review/2.0.0' && (!schemaBytesV2 || schemaBytesV2.length === 0)) {
-    const e = new Error('[service] schemaBytesV2 (the pinned dot-pr-review/2.0.0 schema) is required for a V2-era policy');
-    e.code = 'E_CONFIG';
-    throw e;
+  if (policy.protocol_version === 'dot-pr-review/2.0.0') {
+    if (!schemaBytesV2 || schemaBytesV2.length === 0) {
+      const e = new Error('[service] schemaBytesV2 (the pinned dot-pr-review/2.0.0 schema) is required for a V2-era policy');
+      e.code = 'E_CONFIG';
+      throw e;
+    }
+    // SP-3: presence is not a pin — the packet's probe started a service whose
+    // operational V2 schema was permissive {"type":"object"} bytes. Startup must
+    // verify the bytes digest to the policy's schema_v2_sha256.
+    const v2Sha = createHash('sha256').update(schemaBytesV2).digest('hex');
+    if (policy.schema_v2_sha256 !== v2Sha) {
+      const e = new Error(`[service] schemaBytesV2 digest ${v2Sha} does not match the policy pin schema_v2_sha256 ${policy.schema_v2_sha256 ?? '(absent)'}`);
+      e.code = 'E_CONFIG';
+      throw e;
+    }
   }
   if (!oauth || !webhookSecret || typeof readState !== 'function') {
     const e = new Error('[service] oauth, webhookSecret and readState adapters are required');

@@ -65,6 +65,31 @@ out="$(run_cli validate --policy "$MISMATCH" --schema "$SCHEMA" --ledger "$TMP/m
 expect_fail "$rc" validate-schema-pin-mismatch-fails-closed
 echo "$out" | grep -q 'E_SCHEMA_PIN' || { echo "FAIL pin-mismatch-no-code"; status=1; }
 
+# ── SP-3: --schema-v2 is PINNED, not just parsed — a V2-era policy carries
+# schema_v2_sha256, the provided V2 bytes must digest to it, permissive bytes
+# refuse, and a V2-era policy without any V2 bytes refuses outright.
+V2SCHEMA="$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result-v2.schema.json"
+PERMISSIVE_V2="$TMP/v2-permissive.json"; printf '{"type":"object"}\n' > "$PERMISSIVE_V2"
+V2PIN_POLICY="$TMP/v2pin-policy.json"
+node -e '
+const fs = require("fs");
+import(process.argv[1]).then(({ makePolicyFixture }) => {
+  const { createHash } = require("node:crypto");
+  const d1 = createHash("sha256").update(fs.readFileSync(process.argv[2])).digest("hex");
+  const d2 = createHash("sha256").update(fs.readFileSync(process.argv[3])).digest("hex");
+  fs.writeFileSync(process.argv[4], JSON.stringify(makePolicyFixture({ schema_sha256: d1, schema_v2_sha256: d2, protocol_version: "dot-pr-review/2.0.0" })));
+});
+' "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" "$SCHEMA" "$V2SCHEMA" "$V2PIN_POLICY"
+out="$(run_cli validate --policy "$V2PIN_POLICY" --schema "$SCHEMA" --schema-v2 "$PERMISSIVE_V2" --ledger "$TMP/v2m.sqlite")"; rc=$?
+expect_fail "$rc" validate-v2-pin-mismatch-fails-closed
+echo "$out" | grep -q 'E_SCHEMA_PIN' || { echo "FAIL v2-pin-mismatch-no-code"; status=1; }
+out="$(run_cli validate --policy "$V2PIN_POLICY" --schema "$SCHEMA" --ledger "$TMP/v2n.sqlite")"; rc=$?
+expect_fail "$rc" validate-v2-era-without-v2-bytes-refused
+echo "$out" | grep -q 'E_SCHEMA_PIN' || { echo "FAIL v2-era-missing-bytes-no-code"; status=1; }
+out="$(run_cli validate --policy "$V2PIN_POLICY" --schema "$SCHEMA" --schema-v2 "$V2SCHEMA" --ledger "$TMP/v2g.sqlite")"; rc=$?
+expect_ok "$rc" validate-v2-pin-canonical-passes "$out"
+echo "$out" | grep -q '"schema_v2_sha256"' || { echo "FAIL v2-pin-digest-not-reported"; status=1; }
+
 # start refuses without --allow-live (default posture is validate-only)
 out="$(run_cli start --policy "$POLICY" --ledger "$TMP/s.sqlite")"; rc=$?
 expect_fail "$rc" start-refuses-without-allow-live

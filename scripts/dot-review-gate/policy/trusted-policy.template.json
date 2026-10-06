@@ -4,6 +4,7 @@
   "repository_id": 1231007068,
   "repository_full_name": "artyhoo/getff",
   "schema_sha256": "UNRESOLVED",
+  "schema_v2_sha256": "UNRESOLVED",
   "reviewer_principal_ids": [],
   "mechanical_contexts": [
     { "context": "ci-success", "expected_app_id": 15368, "bound_to": "merge" },

@@ -227,6 +227,32 @@ run_v2_arm v2-insufficient-prior-not-authorizing valid "JSON.stringify(loadExamp
 run_v2_arm v2-historical-not-authorizing valid "JSON.stringify(loadExample('historical.json'))" nostate
 run_v2_arm v2-blocking-not-authorizing valid "JSON.stringify(makeV2Review({ findings: [...JSON.parse(loadExample('historical.json')).findings.map((f) => ({ ...f, finding_id: 'F-x', occurrence_id: 'O-x' }))] }))"
 
+# ── SP-3: the policy pins the V2 schema bytes ACTUALLY used ───────────────────
+# The packet's probe: canonical V2 as the pinned primary plus permissive
+# {"type":"object"} operational bytes validated ok — because nothing pinned the
+# operational schema. A V2-era policy must carry schema_v2_sha256 and the bytes
+# validated against must digest to exactly it: mismatched and permissive bytes
+# refuse; the pinless V2-era policy refuses; the canonical bytes pass.
+v2pin_out=$(node --input-type=module -e "
+import { makePolicyFixture } from '$FIX';
+import { makeV2Review, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+import { createHash } from 'node:crypto';
+const canonical = makeV2Review();
+const pin = createHash('sha256').update(V2_SCHEMA_BYTES).digest('hex');
+const pinnedPolicy = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: pin });
+const permissive = Buffer.from(JSON.stringify({ type: 'object' }));
+const r1 = validateReport(JSON.stringify(canonical), { schemaBytesV2: permissive, policy: pinnedPolicy, now: '$NOW' });
+if (!(r1.ok === false && (r1.errors ?? []).some((e) => e.code === 'E_SCHEMA_PIN_V2'))) { console.log('PERMISSIVE-ACCEPTED ' + JSON.stringify((r1.errors ?? []).slice(0, 2))); process.exit(0); }
+const unpinned = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+const r2 = validateReport(JSON.stringify(canonical), { schemaBytesV2: V2_SCHEMA_BYTES, policy: unpinned, now: '$NOW' });
+if (!(r2.ok === false && (r2.errors ?? []).some((e) => e.code === 'E_SCHEMA_PIN_V2'))) { console.log('UNPINNED-ACCEPTED'); process.exit(0); }
+const r3 = validateReport(JSON.stringify(canonical), { schemaBytesV2: V2_SCHEMA_BYTES, policy: pinnedPolicy, now: '$NOW' });
+if (r3.ok !== true) { console.log('PINNED-CANONICAL-REFUSED ' + JSON.stringify((r3.errors ?? []).slice(0, 2))); process.exit(0); }
+console.log('V2-PIN-OK');
+")
+if [[ "$v2pin_out" != "V2-PIN-OK" ]]; then echo "FAIL[v2-policy-schema-pin] got: $v2pin_out"; fails=$((fails+1)); else echo "ok[v2-policy-schema-pin]"; fi
+
 # a HISTORICAL-mode record that would otherwise qualify (GO ∧ COMPLETE ∧ SUFFICIENT ∧
 # no blocking) is NOT authorizing: a merged source never becomes merge-eligible
 v2hist_out=$(node --input-type=module -e "

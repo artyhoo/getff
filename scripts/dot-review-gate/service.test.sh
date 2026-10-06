@@ -26,7 +26,7 @@ cat > "$SCRIPT" <<'NODE'
 import { generateKeyPairSync, createHash } from 'node:crypto';
 const [servicePath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture } = await import(fixPath);
-const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
+const { makeV2Review, V2_SCHEMA_BYTES, V2_SCHEMA_SHA256 } = await import(v2fixPath);
 const { createGateService } = await import(servicePath);
 const { readFileSync } = await import('node:fs');
 const schemaBytes = readFileSync(schemaPath);
@@ -423,7 +423,7 @@ try {
   // the V2 era has its OWN policy epoch — the record's policy pin must be the digest
   // of the policy this service actually runs, and the publisher re-derives its tuple
   // state from that same policy (protocol dot-pr-review/2.0.0)
-  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256 });
   const V2_POLICY_TEXT = JSON.stringify(V2_POLICY);
   const v2PolicyDigestOf = policyDigestOf(V2_POLICY);
   // DR-R4: a V2-era deployment without the pinned V2 bytes refuses to START —
@@ -437,6 +437,20 @@ try {
   } catch (e) {
     if (e.code === 'E_CONFIG') log('ok v2-era-startup-requires-pin');
     else fail(`v2 startup guard ${e.code ?? e.message}`);
+  }
+  // SP-3: PRESENCE is not a pin — the packet's probe started a service whose
+  // operational V2 schema was permissive {"type":"object"} bytes. Startup must
+  // verify the bytes digest to the policy's schema_v2_sha256 pin.
+  try {
+    await createGateService({
+      ledgerPath: `${tmp}/v2-wrongbytes.sqlite`, policyText: V2_POLICY_TEXT, schemaBytes,
+      schemaBytesV2: Buffer.from(JSON.stringify({ type: 'object' })),
+      oauth, webhookSecret: 's', readState, publisherApp, now: () => clock,
+    });
+    fail('V2-era service started with unpinned (permissive) V2 bytes');
+  } catch (e) {
+    if (e.code === 'E_CONFIG') log('ok v2-era-startup-wrong-bytes-refused');
+    else fail(`v2 wrong-bytes guard ${e.code ?? e.message}`);
   }
   const v2Live = (over = {}, assignmentId) => makeV2Review({
     review_identity: {
@@ -706,7 +720,7 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   late-report-persisted-as-history archived-record-never-publishes \
   forged-still-rejected-after-movement \
   memory-ledger-refused memory-allowed-for-fixtures \
-  v2-era-startup-requires-pin \
+  v2-era-startup-requires-pin v2-era-startup-wrong-bytes-refused \
   v2-stitched-envelope-rejected v2-schema-required-field-enforced v2-revise-accepted-persisted \
   v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success \
   v2-findings-enter-lifecycle superseded-findings-recorded-as-history \

@@ -145,7 +145,7 @@ function loadV2Schema(schemaBytes) {
   return validate;
 }
 
-function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInventory } = {}) {
+function validateV2Report(report, { schemaBytesV2, policy, now, currentState, trustedInventory } = {}) {
   void now;
   const errors = [];
   const nonAuthorizing = [];
@@ -156,6 +156,22 @@ function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInv
   if (!schemaBytesV2 || schemaBytesV2.length === 0) {
     errors.push({ code: 'E_SCHEMA', message: 'a dot-pr-review/2.0.0 document requires the pinned V2 schema bytes — refusing schema-less validation' });
     return { ok: false, authorizing: false, report, errors, nonAuthorizing };
+  }
+
+  // SP-3: the operational pin. Presence (DR-R4) is not a pin — the packet's probe
+  // validated documents against permissive {"type":"object"} bytes while the policy
+  // pointed at the canonical schema. Whatever bytes flow through here must digest
+  // to the policy's schema_v2_sha256, and a policy that can carry a V2 document
+  // without the pin is a configuration error, not a weaker check.
+  if (policy) {
+    const pinSha = sha256Hex(schemaBytesV2);
+    if (policy.schema_v2_sha256 !== pinSha) {
+      const why = policy.schema_v2_sha256 === undefined
+        ? 'the policy does not pin schema_v2_sha256 — a dot-pr-review/2.0.0 document cannot be validated without an operational schema pin'
+        : `policy pins schema_v2_sha256 ${policy.schema_v2_sha256} but the provided V2 schema bytes digest to ${pinSha}`;
+      errors.push({ code: 'E_SCHEMA_PIN_V2', message: why });
+      return { ok: false, authorizing: false, report, errors, nonAuthorizing };
+    }
   }
 
   {

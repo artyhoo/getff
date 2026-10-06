@@ -71,6 +71,17 @@ export async function runValidate({ policyText, schemaBytes, schemaV2Bytes, ledg
     }
     schemaV2Sha = createHash('sha256').update(schemaV2Bytes).digest('hex');
   }
+  // SP-3: --schema-v2 is PINNED, not just parsed. Wiring V2 bytes without a policy
+  // pin — or a V2-era policy without the bytes — lets a permissive schema carry the
+  // whole V2 admission path.
+  if (schemaV2Sha != null && policy.schema_v2_sha256 !== schemaV2Sha) {
+    throw fail('E_SCHEMA_PIN', policy.schema_v2_sha256 === undefined
+      ? `V2 schema bytes were provided but the policy does not pin schema_v2_sha256 (provided bytes digest to ${schemaV2Sha})`
+      : `policy pins schema_v2_sha256 ${policy.schema_v2_sha256} but the provided V2 schema bytes digest to ${schemaV2Sha}`);
+  }
+  if (policy.protocol_version === 'dot-pr-review/2.0.0' && schemaV2Sha == null) {
+    throw fail('E_SCHEMA_PIN', 'the policy is in the dot-pr-review/2.0.0 era — the pinned V2 schema bytes (--schema-v2) are required');
+  }
 
   const ledger = openLedger(ledgerPath);
   try {

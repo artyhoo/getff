@@ -22,7 +22,7 @@ cat > "$SCRIPT" <<'NODE'
 import { generateKeyPairSync, createHash } from 'node:crypto';
 const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
-const { makeV2Review, V2_SCHEMA_BYTES } = await import(v2fixPath);
+const { makeV2Review, V2_SCHEMA_BYTES, V2_SCHEMA_SHA256 } = await import(v2fixPath);
 const { openLedger, tupleDigest } = await import(ledgerPath);
 const { createPublisherJwt, installationAccessToken, publishAdmission, publishFailure } = await import(publisherPath);
 const { validateReport } = await import(validatorPath);
@@ -262,7 +262,7 @@ try {
   else log('ok crash-recovery-idempotent');
 
   // ── DR-R4: publication fails closed without the pinned V2 bytes ──────────────
-  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256 });
   const v2Digest = policyDigestOf(V2_POLICY);
   const canonicalV2 = makeV2Review();
   const v2Tuple = { ...TUPLE, policy_sha256: v2Digest, protocol_version: 'dot-pr-review/2.0.0' };
@@ -304,6 +304,16 @@ try {
   const pubV2 = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tv2Yes.fetchJson, resolveRunIdentity: resolver, now: NOW });
   if (!pubV2.check || pubV2.check.head_sha !== M || pubV2.check.conclusion !== 'success') fail(`v2 publish ${JSON.stringify(pubV2.check ?? pubV2).slice(0, 120)}`);
   else log('ok v2-publisher-publishes-with-pin');
+  // SP-3: publication refuses V2 bytes that do NOT digest to the policy's pin —
+  // permissive {"type":"object"} bytes would validate any document and publish it.
+  const tv2Wrong = makeTransport({ ...readyV2 });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: Buffer.from(JSON.stringify({ type: 'object' })), policy: V2_POLICY, app, transport: tv2Wrong.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('publication accepted unpinned (permissive) V2 bytes');
+  } catch (e) {
+    if (e.code === 'E_VALIDATION' && tv2Wrong.calls.checkRuns.length === 0) log('ok v2-publication-wrong-bytes-refused');
+    else fail(`v2 wrong-bytes publication ${e.code ?? e.message} runs=${tv2Wrong.calls.checkRuns.length}`);
+  }
 
   // ── DR-R5: publication identity binds the authenticated record AND the intent ──
   const extOf = (pub) => pub.check?.external_id;
@@ -393,7 +403,7 @@ assert_suite_arms "publisher.test.sh" "$status" "$out" \
   jwt-shape publish-on-current-M crashed-review-refused no-record-refused stale-M-refused \
   red-mechanics-refused spoofed-workflow-refused no-inventory-refused \
   revise-publishes-failure crash-recovery-idempotent \
-  v2-schema-less-publication-refused v2-publisher-publishes-with-pin \
+  v2-schema-less-publication-refused v2-publisher-publishes-with-pin v2-publication-wrong-bytes-refused \
   failure-never-reuses-success go-never-reuses-failure v2-crash-retry-idempotent \
   discovery-failure-refuses publication-read-back-verified read-back-mismatch-refused || exit 1
 echo "publisher.test.sh: all green"
