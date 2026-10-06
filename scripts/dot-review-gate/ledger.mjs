@@ -123,6 +123,18 @@ CREATE TABLE IF NOT EXISTS retry_reservations (
   max INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS coord_actions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  target TEXT NOT NULL,
+  payload_digest TEXT NOT NULL,
+  state TEXT NOT NULL,
+  intent_at TEXT NOT NULL,
+  delivered_at TEXT,
+  acked_at TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
 `;
 
 const IN_FLIGHT_STATES = ['DISCOVERED', 'WAITING_MECHANICAL', 'ELIGIBLE', 'CLAIMED', 'REVIEWING', 'SUBMITTED', 'VALIDATING'];
@@ -760,6 +772,57 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         db.prepare('UPDATE retry_reservations SET count = count + 1, max = ?, updated_at = ? WHERE key = ?').run(max, now(), key);
         return { count: row.count + 1 };
       });
+    },
+
+    // ── CC coordination actions (increment 6) ───────────────────────────────────
+    // The durable intent row for an outbound coordination message — written BEFORE
+    // the adapter delivers anything, into the same authoritative journal.
+    coordIntent({ id, kind, target, payloadDigest } = {}) {
+      return tx(() => {
+        const ts = now();
+        db.prepare(
+          'INSERT INTO coord_actions (id, kind, target, payload_digest, state, intent_at, attempts) VALUES (?, ?, ?, ?, ?, ?, 1)',
+        ).run(id, kind, target, payloadDigest, 'INTENT', ts);
+        return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+      });
+    },
+
+    coordMark(id, state, lastError) {
+      return tx(() => {
+        const col = state === 'DELIVERED' ? 'delivered_at' : state === 'ACKED' ? 'acked_at' : null;
+        if (col) {
+          db.prepare(`UPDATE coord_actions SET state = ?, ${col} = ?, attempts = attempts + 1, last_error = ? WHERE id = ?`)
+            .run(state, now(), lastError ?? null, id);
+        } else {
+          db.prepare('UPDATE coord_actions SET state = ?, attempts = attempts + 1, last_error = ? WHERE id = ?')
+            .run(state, lastError ?? null, id);
+        }
+        return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+      });
+    },
+
+    coordGet(id) {
+      return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+    },
+
+    coordList(state) {
+      return db.prepare('SELECT * FROM coord_actions WHERE state = ? ORDER BY intent_at').all(state);
+    },
+
+    // Cessation proof for a REPLACEMENT dispatch (increment 6): the previous
+    // owner's stop must be explicitly recorded — a live claim, or an expired one
+    // without a revoke, holds the replacement (E_CESSATION_UNKNOWN).
+    assertCessation(assignmentId, { nowMs = Date.now(), leaseMinutes } = {}) {
+      if (!Number.isInteger(leaseMinutes)) {
+        throw code('E_LIMITS', 'assertCessation requires leaseMinutes');
+      }
+      const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+      if (!c) throw code('E_NOT_FOUND', `unknown assignment ${assignmentId}`);
+      if (c.state === 'REVOKED') return { ceased: true, how: 'revoked' };
+      if (Date.parse(c.lease_expires_at) > nowMs) {
+        throw code('E_CESSATION_UNKNOWN', 'the claim is still live — cessation is not established, replacement held');
+      }
+      throw code('E_CESSATION_UNKNOWN', 'the claim expired without an explicit revoke — cessation is not established, replacement held');
     },
 
     close() {
