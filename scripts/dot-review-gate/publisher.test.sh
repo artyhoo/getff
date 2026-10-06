@@ -19,9 +19,10 @@ trap 'rm -rf "$TMP"' EXIT
 
 SCRIPT="$TMP/run-publisher-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
-import { generateKeyPairSync } from 'node:crypto';
-const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, tmp] = process.argv.slice(2);
+import { generateKeyPairSync, createHash } from 'node:crypto';
+const [publisherPath, ledgerPath, fixPath, validatorPath, schemaPath, v2fixPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
+const { makeV2Review, V2_SCHEMA_BYTES, V2_SCHEMA_SHA256 } = await import(v2fixPath);
 const { openLedger, tupleDigest } = await import(ledgerPath);
 const { createPublisherJwt, installationAccessToken, publishAdmission, publishFailure } = await import(publisherPath);
 const { validateReport } = await import(validatorPath);
@@ -49,8 +50,8 @@ const keyPem = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const app = { appId: 12345, installationId: 42, privateKeyPem: keyPem, apiBase: '', repo: 'artyhoo/getff', prNumber: 2042 };
 
 // stub transport: installation tokens, check-run writes, live PR/merge-ref reads
-function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], existingExternalIds = [] } = {}) {
-  const calls = { tokenRequests: 0, checkRuns: [] };
+function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], existingExternalIds = [], readBackOverride } = {}) {
+  const calls = { tokenRequests: 0, checkRuns: [], readBacks: 0 };
   return {
     calls,
     async fetchJson(url, opts = {}) {
@@ -58,10 +59,19 @@ function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], ex
         calls.tokenRequests++;
         return { token: 'it-1', expires_at: '2026-10-05T13:00:00Z' };
       }
+      if (/^\/repos\/artyhoo\/getff\/check-runs\/\d+$/.test(url)) {
+        calls.readBacks++;
+        const id = Number(url.split('/').pop());
+        if (readBackOverride) return { ...readBackOverride, id };
+        const rec = calls.checkRuns.find((c) => c.id === id);
+        if (!rec) throw Object.assign(new Error('check-run vanished before read-back'), { status: 404 });
+        return rec;
+      }
       if (url === '/repos/artyhoo/getff/check-runs' && opts.method === 'POST') {
         const body = JSON.parse(opts.body);
-        calls.checkRuns.push(body);
-        return { id: 555 + calls.checkRuns.length, ...body, app: { id: policy.dot_check.expected_app_id } };
+        const rec = { id: 555 + calls.checkRuns.length + 1, ...body, app: { id: policy.dot_check.expected_app_id } };
+        calls.checkRuns.push(rec);
+        return rec;
       }
       if (url.startsWith(`/repos/artyhoo/getff/commits/`) && url.includes('/check-runs')) {
         // Bearer-authenticated call = the createCheck crash-recovery search; the
@@ -69,7 +79,7 @@ function makeTransport({ currentMerge = M, headChecks = [], mergeChecks = [], ex
         // per SHA (merge-bound evidence lives on M, head-bound on H).
         if (opts.headers?.authorization) {
           const found = existingExternalIds.length > 0 && calls.checkRuns.length === 0
-            ? [{ id: 777, external_id: existingExternalIds[0], app: { id: policy.dot_check.expected_app_id } }]
+            ? [{ id: 777, external_id: existingExternalIds[0], app: { id: policy.dot_check.expected_app_id }, conclusion: 'success' }]
             : [];
           return { total_count: found.length, check_runs: found };
         }
@@ -137,7 +147,7 @@ async function storeReport(ledger, { reportOverrides = {}, changedFiles } = {}) 
     digest: (await import('node:crypto')).createHash('sha256').update(payload).digest('hex'),
     payload, verdict: report.verdict, kind: report.kind,
     leaseMinutes: 120, nowMs: Date.parse(NOW),
-    expectedTupleDigest: tupleDigest(TUPLE), assertedGenerationSeq: claim.generation.seq,
+    liveTupleDigest: tupleDigest(TUPLE), assertedGenerationSeq: claim.generation.seq,
   });
   return { receipt, report, payload };
 }
@@ -170,6 +180,25 @@ try {
   });
   if (!pub.check || pub.check.head_sha !== M) fail(`publish target ${pub.check?.head_sha}, want M`);
   else log('ok publish-on-current-M');
+
+  // SP-4: a later GO does not erase the journal's open blocking findings — success
+  // is not published over an unresolved lineage (RED: today the green dot publishes
+  // and the earlier defect vanishes from the eligibility surface).
+  const sp4Ledger = openLedger(`${tmp}/pub-ledger-sp4.sqlite`);
+  const sp4First = await storeReport(sp4Ledger, { changedFiles: CHANGED });
+  sp4Ledger.recordFindings(sp4First.receipt.report_id, [
+    { key: 'artyhoo/getff#F-PUB', requirement: 'the gate refuses unstaged paths', category: 'correctness', severity: 'critical', blocking: true },
+  ]);
+  const sp4Go = await storeReport(sp4Ledger, { changedFiles: CHANGED });
+  const tSP4 = makeTransport({ mergeChecks: [mechanical()], headChecks: HEAD_NAMES.map((n) => headCheck(n)) });
+  await publishAdmission({
+    ledger: sp4Ledger, reportId: sp4Go.receipt.report_id, schemaBytes, policy, app,
+    transport: tSP4.fetchJson, resolveRunIdentity: resolver, now: NOW,
+  }).then(() => fail('later GO published over an open blocking finding'))
+    .catch((e) => {
+      if (e.code === 'E_OPEN_BLOCKING' && /F-PUB/.test(e.message) && tSP4.calls.checkRuns.length === 0) log('ok open-blocking-lineage-holds-publication');
+      else fail(`open blocking lineage ${e.code} ${e.message.slice(0, 120)}`);
+    });
 
   // RED (R1): the stored record says the review FAILED with no CI evidence — even a
   // freshly computed validation object for tampered bytes must not authorize, because
@@ -250,6 +279,130 @@ try {
   });
   if (r9.check.id !== 777 || t9.calls.checkRuns.length !== 0) fail(`recovery created a second check: ${JSON.stringify(r9).slice(0, 100)}`);
   else log('ok crash-recovery-idempotent');
+
+  // ── DR-R4: publication fails closed without the pinned V2 bytes ──────────────
+  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256 });
+  const v2Digest = policyDigestOf(V2_POLICY);
+  const canonicalV2 = makeV2Review();
+  const v2Tuple = { ...TUPLE, policy_sha256: v2Digest, protocol_version: 'dot-pr-review/2.0.0' };
+  const v2Ledger = openLedger(`${tmp}/pub-v2.sqlite`);
+  const v2Report = makeV2Review({
+    review_identity: {
+      ...canonicalV2.review_identity,
+      repository: { id: 1231007068, full_name: 'artyhoo/getff' },
+      pull_request: { number: 2042, node_id: 'PR_kwDOM9YQhs6AbCdEfGh' },
+      mode: 'OPEN_PR',
+      comparison_basis: 'HEAD_TO_MERGE_CANDIDATE',
+      revisions: { head_sha: H, base_sha: sha('b'), merge_base_sha: sha('a'), tested_merge_sha: M },
+      policy: { version: '2026-10-05.1', sha256: v2Digest, epoch: 1 },
+    },
+  });
+  // the trusted inventory matches the record's own scope; the assignment id pins at claim
+  const v2Claim = v2Ledger.claimGeneration({ tuple: v2Tuple, reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 120, changedFiles: v2Report.scope.changed_paths.map((c) => c.path), nowMs: Date.parse(NOW) });
+  v2Report.review_identity.assignment_id = v2Claim.claim.claim_id;
+  const v2Payload = JSON.stringify(v2Report);
+  const v2Rec = v2Ledger.submitReport({
+    claimId: v2Claim.claim.claim_id, reviewerId: 555001,
+    digest: (await import('node:crypto')).createHash('sha256').update(v2Payload).digest('hex'),
+    payload: v2Payload, verdict: JSON.stringify(v2Report.verdict), kind: v2Report.record_type,
+    leaseMinutes: 120, nowMs: Date.parse(NOW),
+    liveTupleDigest: tupleDigest(v2Tuple), assertedGenerationSeq: v2Claim.generation.seq,
+  });
+  const readyV2 = { mergeChecks: [mechanical()], headChecks: HEAD_NAMES.map((n) => headCheck(n)) };
+  // RED: no V2 bytes → the publisher must refuse, never validate schema-less
+  const tv2No = makeTransport({ ...readyV2 });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, policy: V2_POLICY, app, transport: tv2No.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('schema-less V2 publication accepted');
+  } catch (e) {
+    if (e.code === 'E_VALIDATION' && tv2No.calls.checkRuns.length === 0) log('ok v2-schema-less-publication-refused');
+    else fail(`v2 schema-less ${e.code ?? e.message} runs=${tv2No.calls.checkRuns.length}`);
+  }
+  // GREEN control: the same record with the PIN publishes exactly one success on M
+  const tv2Yes = makeTransport({ ...readyV2 });
+  const pubV2 = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tv2Yes.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (!pubV2.check || pubV2.check.head_sha !== M || pubV2.check.conclusion !== 'success') fail(`v2 publish ${JSON.stringify(pubV2.check ?? pubV2).slice(0, 120)}`);
+  else log('ok v2-publisher-publishes-with-pin');
+  // SP-3: publication refuses V2 bytes that do NOT digest to the policy's pin —
+  // permissive {"type":"object"} bytes would validate any document and publish it.
+  const tv2Wrong = makeTransport({ ...readyV2 });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: Buffer.from(JSON.stringify({ type: 'object' })), policy: V2_POLICY, app, transport: tv2Wrong.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('publication accepted unpinned (permissive) V2 bytes');
+  } catch (e) {
+    if (e.code === 'E_VALIDATION' && tv2Wrong.calls.checkRuns.length === 0) log('ok v2-publication-wrong-bytes-refused');
+    else fail(`v2 wrong-bytes publication ${e.code ?? e.message} runs=${tv2Wrong.calls.checkRuns.length}`);
+  }
+
+  // ── DR-R5: publication identity binds the authenticated record AND the intent ──
+  const extOf = (pub) => pub.check?.external_id;
+  // a second V2 record on the SAME M flips the verdict to REVISE — its failure
+  // publication must create its OWN check, never preserve the obsolete success
+  const v2RevClaim = v2Ledger.claimGeneration({ tuple: v2Tuple, reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 120, changedFiles: v2Report.scope.changed_paths.map((c) => c.path), nowMs: Date.parse(NOW) });
+  const v2RevReport = makeV2Review({
+    review_identity: { ...v2Report.review_identity, assignment_id: v2RevClaim.claim.claim_id },
+    verdict: { outcome: 'REVISE', rationale: 'correction demanded', blockers: [] },
+    assessments: { ...canonicalV2.assessments, system_coverage: 'PARTIAL' },
+  });
+  const v2RevPayload = JSON.stringify(v2RevReport);
+  const v2RevRec = v2Ledger.submitReport({
+    claimId: v2RevClaim.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(v2RevPayload).digest('hex'),
+    payload: v2RevPayload, verdict: JSON.stringify(v2RevReport.verdict), kind: v2RevReport.record_type,
+    leaseMinutes: 120, nowMs: Date.parse(NOW),
+    liveTupleDigest: tupleDigest(v2Tuple), assertedGenerationSeq: v2RevClaim.generation.seq,
+  });
+  const tvRev = makeTransport({ ...readyV2 });
+  const pubRev = await publishFailure({ ledger: v2Ledger, reportId: v2RevRec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvRev.fetchJson, resolveRunIdentity: resolver, now: NOW, reason: 'review verdict is not GO/COMPLETE' });
+  if (pubRev.check?.conclusion !== 'failure' || tvRev.calls.checkRuns.length !== 1 || extOf(pubRev) === extOf(pubV2)) {
+    fail(`failure publication preserved an obsolete success: conclusion=${pubRev.check?.conclusion} posts=${tvRev.calls.checkRuns.length} extCollide=${extOf(pubRev) === extOf(pubV2)}`);
+  } else log('ok failure-never-reuses-success');
+
+  // the mirror: a GO publication after a failure must not reuse the failure run
+  const tvGo = makeTransport({ ...readyV2 });
+  const pubGo = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvGo.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (pubGo.check?.conclusion !== 'success' || tvGo.calls.checkRuns.length !== 1 || extOf(pubGo) === extOf(pubRev)) {
+    fail(`success publication reused a failure run: conclusion=${pubGo.check?.conclusion} posts=${tvGo.calls.checkRuns.length} extCollide=${extOf(pubGo) === extOf(pubRev)}`);
+  } else log('ok go-never-reuses-failure');
+
+  // same-record crash retry: the identical intent-bound id reuses, never re-creates
+  const tvRetry = makeTransport({ ...readyV2, existingExternalIds: [extOf(pubGo)] });
+  const pubRetry = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tvRetry.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (pubRetry.reused !== true || pubRetry.check?.id !== 777 || tvRetry.calls.checkRuns.length !== 0) {
+    fail(`crash retry re-created: reused=${pubRetry.reused} posts=${tvRetry.calls.checkRuns.length}`);
+  } else log('ok v2-crash-retry-idempotent');
+
+  // a failed discovery is NOT an empty discovery — the publication refuses instead
+  // of blindly creating a duplicate check
+  const tFail = makeTransport({ ...readyV2 });
+  const brokenFetch = async (url, opts) => {
+    if (opts?.headers?.authorization && String(url).includes('/commits/')) {
+      throw Object.assign(new Error('discovery down'), { status: 502 });
+    }
+    return tFail.fetchJson(url, opts);
+  };
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: brokenFetch, resolveRunIdentity: resolver, now: NOW });
+    fail('a failed discovery published blindly');
+  } catch (e) {
+    if (tFail.calls.checkRuns.length === 0) log('ok discovery-failure-refuses');
+    else fail(`discovery failure still wrote ${tFail.calls.checkRuns.length} checks`);
+  }
+
+  // ── increment 5: a write is not "published" until it reads back ───────────────
+  const tRead = makeTransport({ ...readyV2 });
+  const pubRead = await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tRead.fetchJson, resolveRunIdentity: resolver, now: NOW });
+  if (tRead.calls.readBacks !== 1 || pubRead.check?.conclusion !== 'success') fail(`read-back reads=${tRead.calls.readBacks} conclusion=${pubRead.check?.conclusion}`);
+  else log('ok publication-read-back-verified');
+  const tBad = makeTransport({ ...readyV2, readBackOverride: { conclusion: 'neutral', head_sha: 'z'.repeat(40), external_id: 'x' } });
+  try {
+    await publishAdmission({ ledger: v2Ledger, reportId: v2Rec.report_id, schemaBytes, schemaBytesV2: V2_SCHEMA_BYTES, policy: V2_POLICY, app, transport: tBad.fetchJson, resolveRunIdentity: resolver, now: NOW });
+    fail('an unverified write was claimed as published');
+  } catch (e) {
+    if (e.code === 'E_PUBLISH_UNVERIFIED' && tBad.calls.checkRuns.length === 1) log('ok read-back-mismatch-refused');
+    else fail(`read-back mismatch ${e.code ?? e.message} posts=${tBad.calls.checkRuns.length}`);
+  }
+  v2Ledger.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
 }
@@ -263,9 +416,14 @@ out="$(node "$SCRIPT" \
   "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" \
   "$DIR/validate-report.mjs" \
   "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" \
+  "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/make-v2.mjs" \
   "$TMP" 2>&1)"; status=$?
 assert_suite_arms "publisher.test.sh" "$status" "$out" \
   jwt-shape publish-on-current-M crashed-review-refused no-record-refused stale-M-refused \
   red-mechanics-refused spoofed-workflow-refused no-inventory-refused \
-  revise-publishes-failure crash-recovery-idempotent || exit 1
+  revise-publishes-failure crash-recovery-idempotent \
+  v2-schema-less-publication-refused v2-publisher-publishes-with-pin v2-publication-wrong-bytes-refused \
+  failure-never-reuses-success go-never-reuses-failure v2-crash-retry-idempotent \
+  discovery-failure-refuses publication-read-back-verified read-back-mismatch-refused \
+  open-blocking-lineage-holds-publication || exit 1
 echo "publisher.test.sh: all green"

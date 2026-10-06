@@ -79,6 +79,24 @@ export function loadPolicy(text) {
     reject('E_PRINCIPAL', 'reviewer_principal_ids must be non-empty numeric IDs');
   }
 
+  // R3-1: the trusted principal registry (optional field, but when present it must
+  // be well-formed — a malformed registry silently narrows the identity boundary).
+  // Executors and independent verifiers are disjoint in BOTH ids and labels: one
+  // principal cannot be its own independent closer.
+  if (p.principals !== undefined) {
+    const roleList = (list) => Array.isArray(list) && list.every((e) =>
+      e && Number.isInteger(e.principal_id) && e.principal_id > 0 &&
+      typeof e.label === 'string' && e.label.length > 0);
+    if (!roleList(p.principals.executors) || !roleList(p.principals.verifiers)) {
+      reject('E_PRINCIPALS', 'principals.executors / principals.verifiers must be lists of {principal_id, label}');
+    } else {
+      const ids = [...p.principals.executors.map((x) => x.principal_id), ...p.principals.verifiers.map((x) => x.principal_id)];
+      const labels = [...p.principals.executors.map((x) => x.label), ...p.principals.verifiers.map((x) => x.label)];
+      if (new Set(ids).size !== ids.length) reject('E_PRINCIPALS', 'a principal id cannot hold two roles');
+      if (new Set(labels).size !== labels.length) reject('E_PRINCIPALS', 'a principal label cannot hold two roles');
+    }
+  }
+
   const lim = p.limits ?? {};
   if (!(Number.isInteger(lim.max_active_claims) && lim.max_active_claims >= 1) ||
       !(Number.isInteger(lim.max_attempts_per_tuple) && lim.max_attempts_per_tuple >= 1) ||
