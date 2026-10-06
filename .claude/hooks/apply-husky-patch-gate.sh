@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# @cc-only-rationale: the gate emits CC's PreToolUse hookSpecificOutput.permissionDecision JSON ("allow"); zcode's PreToolUse consumes "deny" only (render-harness-config.mjs emitter note), so on zcode the gate degrades to a silent no-decision and the invocation follows the normal permission flow — a portable twin cannot carry the approval
 # apply-husky-patch-gate.sh — PreToolUse permission gate for the sanctioned .husky patch channel.
 #
 # Installed once by the operator in project .claude/settings.json hooks.PreToolUse (matcher
