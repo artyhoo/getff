@@ -224,14 +224,20 @@ function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInv
     }
   }
 
+  // Only an OPEN_PR review can authorize a merge: a HISTORICAL record describes an
+  // already-merged source and never becomes merge-eligible; a FOLLOW_UP routes
+  // corrective work. The record itself stays a valid, acceptable document.
+  const mode = report?.review_identity?.mode;
   const authorizing =
     report?.record_type === 'review_report' &&
+    mode === 'OPEN_PR' &&
     report?.verdict?.outcome === 'GO' &&
     report?.assessments?.system_coverage === 'COMPLETE' &&
     report?.assessments?.prior_review_sufficiency === 'SUFFICIENT' &&
     !(report?.findings ?? []).some((f) => f?.blocking === true);
   if (!authorizing && report?.record_type === 'review_report') {
     const why = [
+      mode !== 'OPEN_PR' && `mode ${mode ?? 'absent'} — only an OPEN_PR review authorizes a merge`,
       report?.verdict?.outcome !== 'GO' && `verdict ${report?.verdict?.outcome}`,
       report?.assessments?.system_coverage !== 'COMPLETE' && `coverage ${report?.assessments?.system_coverage}`,
       report?.assessments?.prior_review_sufficiency !== 'SUFFICIENT' && `prior review ${report?.assessments?.prior_review_sufficiency}`,

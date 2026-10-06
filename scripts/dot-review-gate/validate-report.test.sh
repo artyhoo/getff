@@ -227,6 +227,22 @@ run_v2_arm v2-insufficient-prior-not-authorizing valid "JSON.stringify(loadExamp
 run_v2_arm v2-historical-not-authorizing valid "JSON.stringify(loadExample('historical.json'))" nostate
 run_v2_arm v2-blocking-not-authorizing valid "JSON.stringify(makeV2Review({ findings: [...JSON.parse(loadExample('historical.json')).findings.map((f) => ({ ...f, finding_id: 'F-x', occurrence_id: 'O-x' }))] }))"
 
+# a HISTORICAL-mode record that would otherwise qualify (GO ∧ COMPLETE ∧ SUFFICIENT ∧
+# no blocking) is NOT authorizing: a merged source never becomes merge-eligible
+v2hist_out=$(node --input-type=module -e "
+import { makeV2Review, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+const base = makeV2Review();
+const r = validateReport(JSON.stringify(makeV2Review({
+  review_identity: { ...base.review_identity, mode: 'HISTORICAL', comparison_basis: 'HISTORICAL_PINNED', revisions: { ...base.review_identity.revisions, current_staging_sha: 'a'.repeat(40) } },
+})), { schemaBytesV2: V2_SCHEMA_BYTES, now: '$NOW' });
+const codes = r.errors.concat(r.nonAuthorizing ?? []).map((e) => e.code + ':' + (e.message ?? '')).join('|');
+console.log((r.ok ? 'PASS' : 'FAIL') + '|' + (r.authorizing ? 'AUTH' : 'NONAUTH') + '|' + codes);
+" 2>&1 | tail -1)
+if [[ "$v2hist_out" != "PASS|NONAUTH"*HISTORICAL* ]]; then
+  echo "FAIL[v2-historical-qualifying-not-authorizing] got: $v2hist_out"; fails=$((fails+1))
+else echo "ok[v2-historical-qualifying-not-authorizing]"; fi
+
 # trusted comparisons: live-tuple drift and inventory both directions (V2 identity
 # fields under review_identity — the report is never its own witness)
 run_v2_arm v2-tuple-drift invalid "JSON.stringify(makeV2Review({ review_identity: { ...makeV2Review().review_identity, revisions: { ...makeV2Review().review_identity.revisions, head_sha: 'f'.repeat(40) } } }))"

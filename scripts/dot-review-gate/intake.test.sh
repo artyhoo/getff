@@ -15,7 +15,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 SCRIPT="$TMP/run-intake-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, createHash, randomUUID } from 'node:crypto';
 const [intakePath, ledgerPath, fixPath, validatorPath, schemaPath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
 const { openLedger, tupleDigest } = await import(ledgerPath);
@@ -159,6 +159,13 @@ try {
     const row = ledger.getReport(submit.json.report_id);
     if (row.reviewer_id !== 555001) fail(`ledger bound wrong principal: ${row.reviewer_id}`);
     else log('ok envelope-principal-binds-ledger');
+    // the ORIGINAL bounded envelope bytes + authenticated provenance are stored
+    // alongside the canonical record (round-2 packet)
+    const raw1 = JSON.stringify(report1);
+    const envDigest = createHash('sha256').update(raw1).digest('hex');
+    if (row.envelope_bytes !== raw1 || row.envelope_digest !== envDigest || row.received_via !== 'browser-intake') {
+      fail(`provenance bytes=${row.envelope_bytes === raw1} digest=${row.envelope_digest === envDigest} via=${row.received_via}`);
+    } else log('ok envelope-bytes-and-provenance-stored');
   }
 
   // GREEN: replay identical bytes → same receipt
@@ -273,7 +280,7 @@ out="$(node "$SCRIPT" \
   "$TMP" 2>&1)"; status=$?
 assert_suite_arms "intake.test.sh" "$status" "$out" \
   oauth-empty-scope oauth-callback-session claim-issued submit-requires-session \
-  envelope-principal-binds-ledger replay-same-receipt conflict-rejected \
+  envelope-principal-binds-ledger envelope-bytes-and-provenance-stored replay-same-receipt conflict-rejected \
   submit-wrong-reviewer-refused submit-superseded-archived-as-history submit-generation-mismatch-refused \
   submit-lease-expired-refused claim-lease-frees-slot submit-tuple-drift-archived-as-history \
   submit-inner-mismatch-refused submit-dup-verdict-raw-rejected \

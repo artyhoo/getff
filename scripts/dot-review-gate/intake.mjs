@@ -236,6 +236,11 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           nowMs: now(),
           liveTupleDigest: tupleDigest(state),
           assertedGenerationSeq: envelope.generation,
+          // authenticated provenance: the ORIGINAL bounded envelope bytes, their
+          // digest and the channel, stored beside the canonical record
+          envelopeBytes: body,
+          envelopeDigest: createHash('sha256').update(body).digest('hex'),
+          receivedVia: 'browser-intake',
         });
       } catch (e) {
         const status = STATUS_BY_CODE[e.code];

@@ -198,6 +198,9 @@ export function openLedger(dbPath, { faultAfter } = {}) {
   ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
   ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
   ensureColumn('reports', 'superseded_at', 'ALTER TABLE reports ADD COLUMN superseded_at TEXT');
+  ensureColumn('reports', 'envelope_digest', 'ALTER TABLE reports ADD COLUMN envelope_digest TEXT');
+  ensureColumn('reports', 'envelope_bytes', 'ALTER TABLE reports ADD COLUMN envelope_bytes TEXT');
+  ensureColumn('reports', 'received_via', 'ALTER TABLE reports ADD COLUMN received_via TEXT');
   ensureColumn('outbox', 'claimed_at', 'ALTER TABLE outbox ADD COLUMN claimed_at TEXT');
   ensureColumn('outbox', 'attempts', 'ALTER TABLE outbox ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   const now = () => new Date().toISOString();
@@ -375,9 +378,16 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       claimId, reviewerId, digest, payload, verdict, kind,
       leaseMinutes, nowMs = Date.now(),
       liveTupleDigest, assertedGenerationSeq, outboxDedupKey,
+      envelopeBytes, envelopeDigest, receivedVia,
     } = {}) {
       if (!Number.isInteger(leaseMinutes)) {
         throw code('E_LIMITS', 'submitReport requires leaseMinutes');
+      }
+      // the stored provenance bytes are BOUNDED — the same 1 MiB the intake enforces
+      // on the request body; a caller handing more is refused at the persistence
+      // boundary, not silently truncated
+      if (envelopeBytes !== undefined && envelopeBytes.length > 1024 * 1024) {
+        throw code('E_LIMITS', `envelope bytes exceed the 1 MiB store bound (${envelopeBytes.length})`);
       }
       return tx(() => {
         const ch = db.prepare('SELECT * FROM challenges WHERE claim_id = ?').get(claimId);
@@ -412,8 +422,8 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         const superseded = tupleMoved;
         const id = randomUUID();
         db.prepare(
-          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, superseded_at, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, superseded ? now() : null, now());
+          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, superseded_at, envelope_digest, envelope_bytes, received_via, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, superseded ? now() : null, envelopeDigest ?? null, envelopeBytes ?? null, receivedVia ?? null, now());
         mark('report-insert');
         db.prepare('UPDATE challenges SET consumed_at = ?, payload_digest = ? WHERE claim_id = ?')
           .run(now(), digest, claimId);
