@@ -1556,7 +1556,10 @@ do_refresh() {
   if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
      || [ -f "$PROJECT_ROOT/.claude/hooks/precompact-residue.sh" ]; then
     for _hg in precompact-residue inject-handoff-on-compact; do
+      # shellcheck disable=SC2031  # false positive: lib.sh assigns GETFF_HOOK_SOURCE at top level
+      # (never in a subshell); shellcheck 0.9.0 and 0.11.0 both mis-attribute this loop's reads.
       [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" ] || continue
+      # shellcheck disable=SC2031  # same false positive as above
       refresh_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
       if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.claude/hooks/$_hg.sh" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true; fi
     done
