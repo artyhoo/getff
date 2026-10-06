@@ -135,6 +135,15 @@ CREATE TABLE IF NOT EXISTS coord_actions (
   attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT
 );
+CREATE TABLE IF NOT EXISTS work_claims (
+  id TEXT PRIMARY KEY,
+  item_key TEXT UNIQUE NOT NULL,
+  kind TEXT,
+  reserved_at TEXT NOT NULL,
+  lease_expires_at TEXT NOT NULL,
+  state TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 const IN_FLIGHT_STATES = ['DISCOVERED', 'WAITING_MECHANICAL', 'ELIGIBLE', 'CLAIMED', 'REVIEWING', 'SUBMITTED', 'VALIDATING'];
@@ -572,6 +581,75 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return db.prepare(
         `SELECT * FROM finding_occurrences WHERE state IN (${FINDING_OPEN_STATES.map(() => '?').join(',')}) ORDER BY rowid`,
       ).all(...FINDING_OPEN_STATES);
+    },
+
+    // Historical findings (increment 7): actionable occurrences whose source report
+    // was recorded against a superseded or terminal generation — the queue's
+    // revalidate-before-remediation population.
+    listHistoricalFindings() {
+      return db.prepare(
+        `SELECT o.* FROM finding_occurrences o
+         JOIN reports r ON r.id = o.source_report_id
+         JOIN challenges c ON c.claim_id = r.claim_id
+         JOIN generations g ON g.id = c.generation_id
+         WHERE o.state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')
+           AND (g.state = 'SUPERSEDED' OR g.state IN ('AUTHORIZED','MERGED','CLOSED','INCOMPLETE'))
+         ORDER BY o.created_at, o.rowid`,
+      ).all();
+    },
+
+    // Reviewed-PR memory (increment 7): a merged PR with a recorded review is not
+    // re-queued. The binding goes through the report's generation tuple.
+    noteReviewedPr(prNodeId) {
+      return tx(() => {
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING',
+        ).run(`reviewed-pr:${prNodeId ?? 'null'}`, now(), now());
+        return { prNodeId, noted: true };
+      });
+    },
+
+    prHasReview(prNodeId) {
+      if (db.prepare('SELECT 1 AS x FROM control WHERE key = ?').get(`reviewed-pr:${prNodeId ?? 'null'}`)) return true;
+      return db.prepare(
+        `SELECT 1 AS x
+         FROM reports r
+         JOIN challenges c ON c.claim_id = r.claim_id
+         JOIN generations g ON g.id = c.generation_id
+         WHERE g.pr_node_id IS ? LIMIT 1`,
+      ).get(prNodeId ?? null) !== undefined;
+    },
+
+    // Durable work reservations (increment 7): one active reservation per item key;
+    // a lapsed lease returns the item to the pool with an incremented attempt count.
+    reserveWork({ itemKey, kind, leaseMinutes, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        if (!itemKey || !Number.isInteger(leaseMinutes) || leaseMinutes <= 0) {
+          throw code('E_LIMITS', 'reserveWork requires itemKey and a positive leaseMinutes');
+        }
+        const row = db.prepare('SELECT * FROM work_claims WHERE item_key = ?').get(itemKey);
+        if (row && row.state === 'RESERVED' && Date.parse(row.lease_expires_at) > nowMs) {
+          throw code('E_ALREADY_CLAIMED', `work item "${itemKey}" is reserved until ${row.lease_expires_at}`);
+        }
+        const ts = now();
+        const expires = new Date(nowMs + leaseMinutes * 60 * 1000).toISOString();
+        if (row) {
+          db.prepare('UPDATE work_claims SET reserved_at = ?, lease_expires_at = ?, state = ?, attempts = attempts + 1 WHERE item_key = ?')
+            .run(ts, expires, 'RESERVED', itemKey);
+          return { id: row.id, item_key: itemKey, lease_expires_at: expires };
+        }
+        const id = randomUUID();
+        db.prepare('INSERT INTO work_claims (id, item_key, kind, reserved_at, lease_expires_at, state, attempts) VALUES (?, ?, ?, ?, ?, ?, 1)')
+          .run(id, itemKey, kind ?? null, ts, expires, 'RESERVED');
+        return { id, item_key: itemKey, lease_expires_at: expires };
+      });
+    },
+
+    completeWork(itemKey) {
+      return tx(() => {
+        db.prepare("UPDATE work_claims SET state = 'DONE' WHERE item_key = ?").run(itemKey);
+        return { item_key: itemKey, state: 'DONE' };
+      });
     },
 
     lineage(findingKey) {
