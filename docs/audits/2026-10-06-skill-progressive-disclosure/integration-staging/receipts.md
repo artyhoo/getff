@@ -1,10 +1,23 @@
 # Integration-staging verification receipts
 
 Run by the integrating session on the integration tree (this directory's parent report's
-"Integration addendum" describes the transposition). Every command below ran in the isolated
-integration worktree on the committed final state (round 2); exit codes are literal. Heavy
-gates were pinned to run locally (`PC_LOCAL=1`) because the session worktree has no PC mirror;
-the pin reason quotes the gate's own `[pc] ... NOT RUN` line, per the operator-global rule.
+"Integration addendum" describes the transposition). Capture SHA: the round-2 cold audit
+audited the settled pre-rewrite head `e779216e4ec`; the branch was then rewritten
+cherry-pick-only onto the §1.7-trailer-bearing base plus one addendum link fix — the
+resulting tree is byte-identical to the audited one (`git diff e779216e4ec..<PR head>`
+shows only the addendum link line and this file), and the round-3 delta audit re-verified
+the battery at the final head before merge. The authoritative freshness statement is the
+PR body's `## Fidelity verdict` Audited-SHA. Every command below ran in the isolated
+integration worktree on committed state; exit codes are literal. Heavy gates were pinned
+to run locally (`PC_LOCAL=1`) because the session worktree has no PC mirror; the pin
+reason quotes the gate's own `[pc] ... NOT RUN` line, per the operator-global rule.
+
+Provenance excursion (W-6 note): the table rows below were first captured at `c18b10637ee`;
+the head then moved four times within the round (principle-50 Inputs-ref restore + plugin
+0.3.33→0.3.34, two manifest reassemblies, the cited-line byte-stability fix — the last one
+turned the row-3 citation gate red for ~14 minutes before `2d88ff776f0` fixed it). The
+final column states were re-verified green at the audited head by the round-2 audit and
+again at the final head by the round-3 delta audit.
 
 Candidate-world receipt directories BESIDE this one (`baseline-authorized/`, `candidate/`,
 `final/`, `verified/`, and the top-level `consumer-*.txt`, `extra-principles.txt`,
