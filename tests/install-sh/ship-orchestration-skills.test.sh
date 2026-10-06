@@ -85,7 +85,7 @@ grep -rq --include='*.md' 'github.com/.*/blob/' "$T/.claude/skills/night-mode" \
 # ── neg (load-bearing): a never-shipped skill name is genuinely absent ────────
 
 # Thin cards route to cold resources; assert delivery of every source reference, not only SKILL.md.
-for s in pipeline dispatcher aif-doctor arch orchestrator night-mode; do
+for s in pipeline dispatcher aif-doctor arch orchestrator night-mode harvest claude-glm-executor-handoff; do
   missing=0
   while IFS= read -r source_ref; do
     rel="${source_ref#"$REPO_ROOT/.claude/skills/$s/"}"

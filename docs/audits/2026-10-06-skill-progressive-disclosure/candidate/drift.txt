@@ -1,0 +1,21 @@
+=== Skill drift check: broken internal refs ===
+BROKEN-REF: .claude/skills/claude-glm-executor-handoff/SKILL.md → references/model-facts.md
+BROKEN-REF: .claude/skills/claude-glm-executor-handoff/SKILL.md → references/acceptance-gaps.md
+BROKEN-REF: .claude/skills/self-reflection/SKILL.md → references/retro-prompts.md
+BROKEN-REF: .claude/skills/self-reflection/SKILL.md → references/origin-and-enforcement.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/egress.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/egress.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/fidelity.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/publication-and-closure.md
+BROKEN-REF: .claude/skills/harvest/SKILL.md → references/history.md
+FAIL: 9 broken ref(s) found.
+
+=== Skill drift check: frontmatter completeness ===
+OK: all skill/agent files have name: and description: frontmatter.
+
+=== Skill drift check: invocation-channel contract ===
+OK: every disable-model-invocation carrier states the invocation-channel contract.
+
+check-skill-drift: FAIL (1 error category/categories)
+
+=== Skill drift check: trigger-overlap inventory (WARN only) ===
