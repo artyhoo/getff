@@ -40,7 +40,7 @@ const { openLedger } = await import(ledgerPath);
 const { createBudgets } = await import(budgetsPath);
 const { buildQueue } = await import(queuePath);
 const { createCcAdapter } = await import(adapterPath);
-const { makePolicyFixture } = await import(fixPath);
+const { makePolicyFixture, makeHistorical } = await import(fixPath);
 const { mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs');
 const { createHash } = await import('node:crypto');
 const { pathToFileURL } = await import('node:url');
@@ -118,6 +118,18 @@ function seedAccepted(l, node, head, mode = 'OPEN_PR', basis = 'HEAD_TO_BASE') {
   const payload = JSON.stringify(record);
   const receipt = l.submitReport({claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'REVISE', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest});
   return {g, receipt};
+}
+
+function seedLegacyHistorical(l, node) {
+  const legacyPolicy = makePolicyFixture({limits: LIMITS});
+  const record = makeHistorical({pull_request: {number: 4002, node_id: node}, policy: {sha256: policyDigest(legacyPolicy)}});
+  const tuple = {repository_id: REPO, pr_node_id: node, ...record.revision, policy_sha256: record.policy.sha256, protocol_version: record.protocol_version};
+  const g = l.claimGeneration({tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30});
+  record.claim_id = g.claim.claim_id;
+  record.generation = g.generation.seq;
+  const payload = JSON.stringify(record);
+  const receipt = l.submitReport({claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: record.verdict, kind: record.kind, leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest});
+  return {g, receipt, payload, tuple, legacyPolicy};
 }
 
 function seedScoped(l, key, node = 'PR_verify', head = 'f') {
@@ -489,12 +501,19 @@ try {
 
   // A canonical HISTORICAL source is historical even while generation is SUBMITTED.
   // Include records first observed during drain, after this cycle's queue snapshot.
-  for (const timing of ['preexisting', 'drained']) {
-    const L = group(`canonical-history-${timing}`);
-    const node = `PR_canonical_${timing}`;
-    const key = `HIST-${timing}`;
+  for (const protocol of ['v1', 'v2']) for (const timing of ['preexisting', 'drained']) {
+    const L = group(`canonical-history-${protocol}-${timing}`);
+    const node = `PR_canonical_${protocol}_${timing}`;
+    const key = `HIST-${protocol}-${timing}`;
     register(L.l, node, 4001);
-    const {g, receipt} = seedAccepted(L.l, node, 'c', 'HISTORICAL', 'HISTORICAL_PINNED');
+    const seeded = protocol === 'v1' ? seedLegacyHistorical(L.l, node) : seedAccepted(L.l, node, 'c', 'HISTORICAL', 'HISTORICAL_PINNED');
+    const {g, receipt} = seeded;
+    if (protocol === 'v1') {
+      const {validateReport} = await import(new URL('./validate-report.mjs', pathToFileURL(runnerPath)));
+      const schemaBytes = readFileSync(new URL('../../docs/meta-factory/dot-review-result.schema.json', pathToFileURL(runnerPath)));
+      const valid = validateReport(seeded.payload, {schemaBytes, policy: seeded.legacyPolicy, currentState: seeded.tuple});
+      if (!valid.ok) fail(`V1 historical fixture rejected ${JSON.stringify(valid.errors)}`);
+    }
     if (L.l.getGeneration(g.generation.id)?.state !== 'SUBMITTED') fail('canonical historical seed is not SUBMITTED');
     const recordFinding = () => L.l.recordFindings(receipt.report_id, [{key, requirement: 'historical fix', category: 'correctness', severity: 'major', blocking: true}]);
     if (timing === 'preexisting') recordFinding();
@@ -504,12 +523,12 @@ try {
     const occurrence = L.l.lineage(key).at(-1);
     const queuedHistory = buildQueue({ledger: L.l, policy}).some(i => i.kind === 'historical' && i.key === key);
     if (result.dispatched.length || result.routed.length || reservations || coordCount(L.l) || occurrence?.state !== 'OPEN' || !queuedHistory) fail(`canonical-${timing} bypassed history gate ${JSON.stringify({result, reservations, state: occurrence?.state, queuedHistory})}`);
-    else log(`ok canonical-historical-${timing}-holds-before-assignment`);
+    else log(`ok canonical-${protocol}-historical-${timing}-holds-before-assignment`);
     const control = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, now: () => Date.now() + 31 * 60_000, revalidateFinding: async () => ({present: true, checked: CHECKED})});
     const dispatch = control.dispatched.find(d => d.kind === 'fix-assignment');
     const packet = dispatch ? JSON.parse(L.l.coordGet(dispatch.actionId).payload_text) : {};
     if (!dispatch || control.dispatched.length !== 1 || packet.historical_basis !== 'HISTORICAL_REVALIDATED' || packet.revalidation?.checked_staging_sha !== STAGING) fail(`canonical-${timing} bound control ${JSON.stringify(control)}`);
-    else log(`ok canonical-historical-${timing}-bound-control`);
+    else log(`ok canonical-${protocol}-historical-${timing}-bound-control`);
     L.l.close();
   }
 
@@ -572,8 +591,10 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r31-raw-boolean-adapter-holds r31-null-result-adapter-holds \
   r31-stale-evidence-adapter-holds r31-no-staging-input-holds \
   r31-missing-time-holds r31-invalid-time-holds r31-short-sha-holds \
-  canonical-historical-preexisting-holds-before-assignment canonical-historical-preexisting-bound-control \
-  canonical-historical-drained-holds-before-assignment canonical-historical-drained-bound-control \
+  canonical-v1-historical-preexisting-holds-before-assignment canonical-v1-historical-preexisting-bound-control \
+  canonical-v1-historical-drained-holds-before-assignment canonical-v1-historical-drained-bound-control \
+  canonical-v2-historical-preexisting-holds-before-assignment canonical-v2-historical-preexisting-bound-control \
+  canonical-v2-historical-drained-holds-before-assignment canonical-v2-historical-drained-bound-control \
   r31-replay-bounded-no-duplicate-assignment \
   r36-open-finding-routes-one-trusted-assignment \
   r36-routing-replay-creates-no-duplicate-owner || exit 1

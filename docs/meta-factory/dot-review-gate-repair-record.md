@@ -478,8 +478,8 @@ counterexamples; a green suite count alone did not establish completeness.
   Historical applicability staging is excluded from completion identity: moving
   staging alone does not reopen review of unchanged pinned history.
 - **S05 — historical remediation:** queue and secondary routing share source
-  classification, including canonical HISTORICAL reports whose generation is
-  still SUBMITTED. Findings first observed during drain remain for the next
+  classification, including canonical V2 HISTORICAL and supported V1 `kind:historical`
+  reports whose generation is still SUBMITTED. Findings first observed during drain remain for the next
   queued revalidation instead of bypassing the gate. Missing/throwing adapters,
   boolean/null/malformed receipts, invalid full staging revisions, missing or
   invalid UTC timestamps, mismatched staging and absent cycle staging hold
@@ -504,4 +504,10 @@ Bare `npm test` in this dependency-free worktree cannot start Vitest
 (`vitest: command not found`, exit127); this is not a full workspace PASS.
 No dependency installation, paid model call, GitHub publication or live
 unattended acceptance is implied by these offline checks. Independent recheck of
-this senior correction remains pending until its immutable revision is recorded.
+commit4459eb02d1613484fac8c0c4667ff37bf495c138 returned SPEC CLEAN and
+STANDARDS REVISE: supported V1 historical reports still bypassed the shared
+classifier. The next narrow correction recognizes their explicit V1 historical
+kind. New preexisting/drain controls use `makeHistorical()` AND validate each
+fixture with the actual V1 schema/validator; both reproduced RED before the
+classifier change. The same bound-positive controls cover V1 and V2 separately.
+Independent recheck of the successor remains pending.

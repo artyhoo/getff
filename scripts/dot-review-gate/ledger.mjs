@@ -34,7 +34,8 @@ function historicalSource(row) {
   if (['SUPERSEDED', 'AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE'].includes(row.generation_state)) return true;
   try {
     const record = JSON.parse(row.payload);
-    return record?.record_type === 'review_report' && record?.review_identity?.mode === 'HISTORICAL';
+    return (record?.record_type === 'review_report' && record?.review_identity?.mode === 'HISTORICAL')
+      || (record?.protocol_version === 'dot-staging-review/1.0' && record?.kind === 'historical');
   } catch { return false; }
 }
 
