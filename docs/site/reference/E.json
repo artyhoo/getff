@@ -586,16 +586,6 @@
         },
         {
           "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".storybook/main.ts"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": ".storybook/main.ts"
-        },
-        {
-          "stack": "react-next",
           "lane": "greenfield",
           "path": ".storybook/main.ts"
         }
@@ -623,16 +613,6 @@
         {
           "stack": "react-next",
           "lane": "brownfield",
-          "path": ".storybook/preview.ts"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".storybook/preview.ts"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
           "path": ".storybook/preview.ts"
         },
         {
