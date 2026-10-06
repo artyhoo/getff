@@ -1,5 +1,5 @@
 346653a9c2e653bc14ce0bba656c7721a7126d8dcc9737feea167f98d0ed2b40  .claude/hooks/adopt-orchestrator-prompts.sh
-8fedd551e8be5b19d7b46db6c3931d2dc707bfc35ad4ab576fe9ddc274075658  .claude/hooks/apply-husky-patch-gate.sh
+e00352a38fa3f7893fbed736bfcb332a5e39ebb8cfe1648320780b4a2cd3f180  .claude/hooks/apply-husky-patch-gate.sh
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
 093d93f169d881090f3e714d1382fa817f44ef6928f2a51fbd96f1c916142f94  .claude/hooks/check-doc-authority.sh
