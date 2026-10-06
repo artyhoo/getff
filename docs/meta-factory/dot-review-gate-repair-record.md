@@ -1,9 +1,9 @@
 # Dot review gate — repair record for review findings R1–R11
 
-> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below) plus the cold-review fix pass (§Round 2 → Cold-review fix pass); round-3 repair packet executed 2026-10-06 (SP-1–SP-7 + ST-1 + Dot D2065-S03 + packet lifecycle cases + the bounded-runtime runner — §Round 3 below) plus the round-3 cold-review fix pass (§Round 3 → Round-3 cold-review fix pass); round-4 acceptance-review repairs executed 2026-10-06 (R3-1–R3-6 + ST-R3-1–ST-R3-3 — §Round 4 below). 19 suites, 483 arms, all green in one sweep on 2026-10-06.
+> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below) plus the cold-review fix pass (§Round 2 → Cold-review fix pass); round-3 repair packet executed 2026-10-06 (SP-1–SP-7 + ST-1 + Dot D2065-S03 + packet lifecycle cases + the bounded-runtime runner — §Round 3 below) plus the round-3 cold-review fix pass (§Round 3 → Round-3 cold-review fix pass); round-4 acceptance-review repairs executed 2026-10-06 (R3-1–R3-6 + ST-R3-1–ST-R3-3 — §Round 4 below) plus the round-4 cold-review fix pass (§Round 4 → Round-4 fix pass). 19 suites, 488 arms, all green in one sweep on 2026-10-06.
 > **Authoritative for:** the mechanism-only repair of review findings R1–R11 (review: `docs/superpowers/plans/2026-10-05-dot-staging-review-gate-review.md`) — per finding: the reproduction, the regression evidence, the change made, the verification, the remaining limitation. The round-2 section extends the same format to the follow-up packet's verified defects.
 > **NOT authoritative for:** the packet documents (protocol, schema, handoff, design spec, kickoff — owned by the documentation session); live validation (S0/S4) and staging enforcement (S5) remain operator-gated; nothing here is evidence that any live proof ran.
-> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 19/19 suites exit 0 in one sweep; arm counts (round 4): harness 15, strict-json 25, load-policy 15, readiness 20, validate-report 59, gatectl 16, ledger 30, intake 33, publisher 20, reporter 8, armer 19, service 47, finding-lifecycle 76, cc-adapter 17, queue 13, budgets 16, registration 15, runner 25, connected-lifecycle 14.
+> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 19/19 suites exit 0 in one sweep; arm counts (round 4 + cold-review fix pass): harness 15, strict-json 25, load-policy 15, readiness 20, validate-report 59, gatectl 16, ledger 30, intake 35, publisher 20, reporter 8, armer 19, service 49, finding-lifecycle 76, cc-adapter 17, queue 14, budgets 16, registration 15, runner 25, connected-lifecycle 14.
 
 ## R1 — publication trusted a detached boolean
 
@@ -377,4 +377,74 @@ Scope: the round-3 acceptance review's six MAJOR findings (R3-1..R3-6) and three
 - **Mutation (ST-R3-1):** as above — guard removed in a disposable copy → focused arm RED with the launch that must not happen.
 - **Observation (pre-existing, bounded):** a duplicate-payload `/submit` replays by digest and leaves the fresh challenge unconsumed; the unconsumed challenge counts against `max_active_claims` until its lease expires (bounded, self-healing — noted in the round-3 suite; now also observable through the connected suite's lease clocks). No change made: the lease IS the documented freeing mechanism.
 - **Suite counts this round:** the round-4 additions grew the sweep from 421 arms / 18 suites to 483 arms / 19 suites by the established counting convention (assert-list totals for the 14 harness suites: armer 19, budgets 16, cc-adapter 17, connected-lifecycle 14, finding-lifecycle 76, harness 15, intake 33, ledger 30, publisher 20, queue 13, registration 15, reporter 8, runner 25, service 47 = 348; observed ok lines for the 5 counter-style suites: gatectl 16, load-policy 15, readiness 20, strict-json 25, validate-report 59 = 135); the new 19th CI line is `connected-lifecycle.test.sh`. Full sweep green in one pass on 2026-10-06 (every suite exit 0).
+
+### Round-4 cold review (independent, claims-only brief) — receipt
+
+An independent read-only reviewer received ONLY the round-4 behavioral claims
+(never the diff or the PR narrative), re-ran all 19 suites fresh, attempted its
+own falsifications per claim, and returned: **9/9 claims NOT-REFUTED**
+(R3-1..R3-6, ST-R3-1..ST-R3-3) with **1 Important + 3 Minor findings**:
+
+- **Important — the independent-review leg was affirmable by the fixer.** The
+  `review_report` channel had no role gate: the executor could submit a canonical
+  GO review_report through the same HTTP intake; the reviewer's live-HTTP probe
+  showed the drain minting HIS verdict as the independent change_review receipt,
+  after which a kept-pending closure RESOLVED (the string-inequality independence
+  check passes for the fixer's own principal id); second-order — `publishChecked`
+  would then publish the executor's GO as Dot's own check.
+- **Minor — degenerate revision keys:** a PRESENT-but-under-12-char sha
+  truncated to `norev` in the work key (an unkeyed launch cannot be superseded
+  or bounded).
+- **Minor — merged-PR base identity:** a merged PR carrying a merge_sha but no
+  base_sha queued on a half-key (`merged:<repo>:<n>@<sha>:norev:…`).
+- **Minor — redelivery duplicated verdict receipts:** `recordReviewOutcome` ran
+  on every delivery of an unpublished outbox event (at-least-once) with no
+  dedup — one publication failure would double the closure gate's verdict
+  evidence.
+
+### Round-4 fix pass (RED first, one pass, 2026-10-06)
+
+Five regression arms were written first and observed RED against the pre-fix
+modules (the working tree still at the round-4 head for those files); then the
+smallest coherent repairs; the three touched suites green; then the full
+19-suite sweep green in one pass.
+
+- **`intake.test.sh` `r4-review-report-executor-refused` /
+  `r4-review-report-verifier-refused`** — RED: a canonical GO from the executor
+  (666001) / verifier (777001) session got `422 E_ENVELOPE` (the binding check —
+  no role gate existed). GREEN after the intake role gate: a review-shaped
+  record from a principal outside `reviewer_principal_ids` refuses `403 E_ROLE`
+  before any record-specific binding. Positive control: the reworked
+  `v2-review-report-identity-kept` arm — the stitched GO is now submitted from
+  the REVIEWER session and still reaches the same binding check (`422
+  E_ENVELOPE`), proving the gate admits the reviewer channel; the connected
+  suite's `authenticated-follow-up-go-mints-verdict-receipt` is the end-to-end
+  reviewer-GO control.
+- **`service.test.sh` `r32-review-outcome-reviewer-only`** — RED: a
+  direct-ledger GO report row with `reviewer_id` 666001 minted a verdict
+  receipt (`FAIL executor GO minted a verdict receipt`). GREEN after the
+  `recordReviewOutcome` backstop: report rows outside `reviewer_principal_ids`
+  mint nothing — the intake refuses the same shape at the boundary, so this is
+  defense in depth for direct-ledger paths.
+- **`service.test.sh` `r32-review-outcome-redelivery-no-duplicate`** — RED:
+  the two held GOs redelivered after the claim lease and the receipt count went
+  `2 -> 4`. GREEN after the dedup: an `authenticated-review-report`-sourced
+  receipt for the same occurrence+revision is never re-minted. The marker
+  scoping is load-bearing: the first dedup draft (kind+revision) collided with
+  the fix record's own independent-review receipt at the same revision and
+  broke `r32-authenticated-review-outcome-recorded` plus the green chain —
+  caught by the suite on the first post-fix run and narrowed to this path's
+  source marker.
+- **`queue.test.sh` `short-revision-blocks-visible`** — RED: present-but-short
+  shas queued on degenerate keys (`…@norev:…`, `…:norev:…`). GREEN after the
+  `shaOk` gate: open items require a ≥12-char head AND base; merged items a
+  ≥12-char merge AND base (closing the merged base_sha Minor); short items
+  block visibly with the revision/merge identity reason.
+- **Fixture note:** `intake.test.sh` `max_active_claims` 8 → 16 — refused
+  submissions leave their challenges leased (a refusal does not consume), so
+  the three new review-refusal claims would have starved the later claims at
+  the old cap. Headroom, not semantics.
+
+**Suite counts after the fix pass:** 488 arms / 19 suites (intake 33→35,
+queue 13→14, service 47→49). Full sweep green in one pass on 2026-10-06.
 

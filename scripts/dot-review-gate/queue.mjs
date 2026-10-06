@@ -30,9 +30,13 @@ export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQua
   if (!ledger) throw Object.assign(new Error('buildQueue requires the ledger'), { code: 'E_LIMITS' });
   const protocol = policy?.protocol_version ?? 'unknown';
   const repoOf = (p) => p.repository_id ?? policy?.repository_id ?? 'unknown';
+  // R4 (cold review): a work identity shorter than 12 chars per sha degrades to
+  // 'norev' — an unkeyed launch cannot be superseded or bounded, so the item must
+  // block visibly instead of queueing on a degenerate key
+  const shaOk = (s) => typeof s === 'string' && s.length >= 12;
   // the revision part of a work key: first 12 hex of each sha is collision-safe
   // for a work identity (the full shas ride in the packet and the generation)
-  const revKey = (...shas) => shas.map((s) => (typeof s === 'string' && s.length >= 12 ? s.slice(0, 12) : 'norev')).join(':');
+  const revKey = (...shas) => shas.map((s) => (shaOk(s) ? s.slice(0, 12) : 'norev')).join(':');
   const items = [];
 
   // 1. pending verification — oldest first (created_at, then insertion order)
@@ -54,7 +58,7 @@ export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQua
     const ok = isQualifying ? isQualifying(p) : true;
     if (p.draft === true) {
       items.push({ kind: 'blocked', key: `pr:${p.number}`, pr: p, reason: 'draft' });
-    } else if (!p.head_sha || !p.base_sha) {
+    } else if (!shaOk(p.head_sha) || !shaOk(p.base_sha)) {
       items.push({ kind: 'blocked', key: `pr:${p.number}`, pr: p, reason: 'revision identity unavailable (head/base sha missing) — an unkeyed launch cannot be bounded or superseded' });
     } else if (ok) {
       items.push({
@@ -79,7 +83,7 @@ export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQua
       return (b.number ?? 0) - (a.number ?? 0);
     });
   for (const p of merged) {
-    if (!p.merge_sha) {
+    if (!shaOk(p.merge_sha) || !shaOk(p.base_sha)) {
       items.push({ kind: 'blocked', key: `merged:${p.number}`, pr: p, reason: 'merge identity unavailable (merge sha missing) — an unkeyed launch cannot be bounded or superseded' });
       continue;
     }

@@ -200,7 +200,19 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       // every record-specific binding resolves against it.
       const challengeRow = ledger.getChallenge(envelope.claim_id);
       const genRow = challengeRow ? ledger.getGeneration(challengeRow.generation_id) : undefined;
-      if (envelope.report.protocol_version === 'dot-pr-review/2.0.0') {
+      // R4 (cold review): the review_report channel is REVIEWER-ONLY. The
+      // independent-review leg of closure is affirmable only by an enrolled
+      // reviewer — before this gate the fixer could submit a canonical GO
+      // review_report through the same intake and the consumer would mint HIS
+      // verdict as the independent change review. The role is re-derived from
+      // the AUTHENTICATED principal at the boundary; the payload carries no role.
+      const isV2Record = envelope.report.protocol_version === 'dot-pr-review/2.0.0';
+      const looksLikeReview = (isV2Record && envelope.report.record_type === 'review_report')
+        || (!isV2Record && envelope.report.claim_id === envelope.claim_id && envelope.report.generation === envelope.generation);
+      if (looksLikeReview && !(policy.reviewer_principal_ids ?? []).includes(auth.principalId)) {
+        return send(res, 403, { error: `review reports are the reviewer channel — principal ${auth.principalId} is not an enrolled reviewer`, code: 'E_ROLE' });
+      }
+      if (isV2Record) {
         const recordType = envelope.report.record_type;
         if (recordType === 'fix_response') {
           const r = envelope.report;

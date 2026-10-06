@@ -208,6 +208,11 @@ export async function createGateService({
   function recordReviewOutcome(reportRow, record) {
     const cr = record?.change_review_receipt;
     if (!cr || typeof cr !== 'object' || !Array.isArray(cr.finding_ids) || cr.finding_ids.length === 0) return 0;
+    // R4 (cold review): the authenticated outcome is the REVIEWER channel. The
+    // intake refuses non-reviewer review reports at the boundary; this backstop
+    // covers direct-ledger paths — a report row whose reviewer_id is not an
+    // enrolled reviewer mints NO verdict-bearing change_review receipt.
+    if (!(policy.reviewer_principal_ids ?? []).includes(reportRow?.reviewer_id)) return 0;
     const actor = registryLabel(null, reportRow?.reviewer_id);
     const outcome = {
       verdict: record?.verdict?.outcome ?? null,
@@ -221,6 +226,14 @@ export async function createGateService({
     for (const key of cr.finding_ids) {
       const tail = ledger.lineage(key).at(-1);
       if (!tail) continue;
+      // R4 (cold review): the event stays pending until publication succeeds and
+      // REDELIVERS at-least-once — an AUTHENTICATED verdict receipt for the same
+      // revision is not recorded twice (a duplicate would shadow the closure
+      // gate's latest-read). The marker scopes the dedup to THIS path's own
+      // receipts; a fix record's executor-attached independent review (same
+      // revision, different source) must not suppress the reviewer's outcome.
+      const already = ledger.receiptsFor(tail.id).some((r) => r.kind === 'change_review' && r.revision === revision && /authenticated-review-report/.test(r.payload ?? ''));
+      if (already) continue;
       ledger.recordReceipt({ occurrenceId: tail.id, kind: 'change_review', revision, payload: JSON.stringify(outcome), actor });
       recorded += 1;
     }

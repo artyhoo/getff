@@ -70,7 +70,7 @@ const policy = makePolicyFixture({
   reviewer_principal_ids: [555001, 555002],
   // R3-1 arms consume many same-tuple challenges and refused submissions leave
   // their challenges unconsumed (that is the point — they count as active claims)
-  limits: { max_active_claims: 8, max_attempts_per_tuple: 40, claim_lease_minutes: 120 },
+  limits: { max_active_claims: 16, max_attempts_per_tuple: 40, claim_lease_minutes: 120 },
   schema_v2_sha256: createHash('sha256').update(v2SchemaBytes).digest('hex'),
 });
 const server = await startIntake({
@@ -366,9 +366,35 @@ try {
 
   // the KEPT property: a review_report still binds through review_identity — a
   // stitched canonical GO whose assignment_id names another claim refuses unchanged.
-  const stitchedGo = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, { ...goCanon, review_identity: { ...goCanon.review_identity, assignment_id: 'stitched-foreign-claim' } }) });
+  // R4: the submitting session is the REVIEWER principal — the binding check is
+  // reached from the only role the review channel admits.
+  cookie = savedAll;
+  const claimGo = await call('/claim', { method: 'POST', body: {} });
+  if (claimGo.status !== 200) fail(`claimGo ${claimGo.status} ${claimGo.text.slice(0, 120)}`);
+  const stitchedGo = await call('/submit', { method: 'POST', body: v2Envelope(claimGo, { ...goCanon, review_identity: { ...goCanon.review_identity, assignment_id: 'stitched-foreign-claim' } }) });
   if (stitchedGo.status !== 422 || stitchedGo.json?.code !== 'E_ENVELOPE') fail(`stitched review_report ${stitchedGo.status} ${stitchedGo.text.slice(0, 160)}`);
   else log('ok v2-review-report-identity-kept');
+
+  // ── R4 (cold review Important): the review_report channel is REVIEWER-only ──
+  // Before the role gate, the fixer could submit a canonical GO review_report
+  // through the same intake and the consumer would mint HIS verdict as the
+  // independent change review — the closure's independence leg affirmable by the
+  // party under review. The role is re-derived from the AUTHENTICATED principal
+  // at the boundary; the payload itself carries no role.
+  cookie = sessionExec;
+  const claimGoEx = await call('/claim', { method: 'POST', body: {} });
+  if (claimGoEx.status !== 200) fail(`claimGoEx ${claimGoEx.status} ${claimGoEx.text.slice(0, 120)}`);
+  const execGo = await call('/submit', { method: 'POST', body: v2Envelope(claimGoEx, goCanon) });
+  if (execGo.status !== 403 || execGo.json?.code !== 'E_ROLE') fail(`executor GO review ${execGo.status} ${execGo.text.slice(0, 160)}`);
+  else log('ok r4-review-report-executor-refused');
+
+  // the enrolled verifier principal is likewise not the independent-review channel
+  cookie = sessionVer;
+  const claimGoVer = await call('/claim', { method: 'POST', body: {} });
+  if (claimGoVer.status !== 200) fail(`claimGoVer ${claimGoVer.status} ${claimGoVer.text.slice(0, 120)}`);
+  const verGo = await call('/submit', { method: 'POST', body: v2Envelope(claimGoVer, goCanon) });
+  if (verGo.status !== 403 || verGo.json?.code !== 'E_ROLE') fail(`verifier GO review ${verGo.status} ${verGo.text.slice(0, 160)}`);
+  else log('ok r4-review-report-verifier-refused');
 
   // ── R3-1: record-specific identity and PR scope at the REAL HTTP intake ──────
   // The acceptance-review counterexample: an authenticated principal holding a
@@ -478,6 +504,7 @@ assert_suite_arms "intake.test.sh" "$status" "$out" \
   v2-fix-wrong-actor-refused v2-fix-unknown-assignment-refused v2-fix-revoked-assignment-refused \
   v2-closure-receipt-traverses-intake v2-closure-unknown-finding-refused \
   v2-review-report-identity-kept \
+  r4-review-report-executor-refused r4-review-report-verifier-refused \
   r31-foreign-assignment-scope-refused r31-mixed-finding-ids-refused \
   r31-arbitrary-verified-by-refused r31-executor-cannot-independent-close \
   r31-obsolete-generation-refused || exit 1

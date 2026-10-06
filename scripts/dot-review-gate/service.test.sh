@@ -110,6 +110,12 @@ function makePublisherTransport({ existingExternalIds = [] } = {}) {
       };
     }
     if (url === '/repos/artyhoo/getff/git/ref/pull/2042/merge') return { object: { sha: M } };
+    // R4 arms: the canonical follow-up names PR 2056 — routed to a finding-less
+    // node so publication eligibility never masks the receipt property under test
+    if (url === '/repos/artyhoo/getff/git/ref/pull/2056/merge') return { object: { sha: M } };
+    if (url === '/repos/artyhoo/getff/pulls/2056') {
+      return { state: 'open', draft: false, mergeable_state: 'clean', node_id: 'PR_kwDOR2046Clean', head: { sha: H }, base: { ref: 'staging', sha: sha('b') } };
+    }
     if (url === '/repos/artyhoo/getff/pulls/2042') {
       return { state: 'open', draft: false, mergeable_state: 'clean', node_id: 'PR_kwDOM9YQhs6AbCdEfGh', head: { sha: H }, base: { ref: 'staging', sha: sha('b') } };
     }
@@ -597,8 +603,8 @@ try {
   // under 666001 (registry label 'cc-executor/mechanism-lane'), the independent
   // verifier's closure records under 777001 ('dot/astra-primary'), reviewer
   // submissions under 555001. The consumer binds actors from the registry.
-  const submitLifecycleRecord = async (record, tupleHead, reviewerId = 666001) => {
-    const gen = svcF.ledger.claimGeneration({ tuple: coordTuple(tupleHead), reviewerId, maxAttemptsPerTuple: 40, leaseMinutes: 30 });
+  const submitLifecycleRecord = async (record, tupleHead, reviewerId = 666001, claimOver = {}) => {
+    const gen = svcF.ledger.claimGeneration({ tuple: coordTuple(tupleHead), reviewerId, maxAttemptsPerTuple: 40, leaseMinutes: 30, ...claimOver });
     const payloadText = JSON.stringify(record);
     return svcF.ledger.submitReport({
       claimId: gen.claim.claim_id, reviewerId,
@@ -926,6 +932,54 @@ try {
   } else if (!(sp4Entry && sp4Entry.code === 'E_OPEN_BLOCKING' && /F-901/.test(sp4Entry.reason ?? ''))) {
     fail(`sp4 wrong refusal ${JSON.stringify(dSP4)}`);
   } else log('ok sp4-open-blocking-lineage-holds-publication');
+
+  // ── R4 (cold review): the authenticated outcome is the REVIEWER channel ──────
+  // The intake refuses non-reviewer review reports at the boundary; this backstop
+  // covers the DIRECT-LEDGER path — a report row whose reviewer_id is not an
+  // enrolled reviewer mints NO verdict-bearing change_review receipt, whoever
+  // claims its generation. F-901 (open) is the receipt target. Runs LAST: its
+  // drains re-claim every pending event, and the released claim leases must not
+  // reorder any earlier arm's expectations.
+  const receiptsAuthCount = () => svcF.ledger.receiptsFor(svcF.ledger.lineage('F-901').at(-1).id).filter((r) => r.kind === 'change_review' && /authenticated-review-report/.test(r.payload)).length;
+  const goNamingF901 = (rationale, shaHex) => v2Live({
+    verdict: { outcome: 'GO', rationale, blockers: [] },
+    findings: [],
+    change_review_receipt: {
+      artifact_reference: 'review-artifacts/pre-pr-2056.json',
+      artifact_sha256: shaHex,
+      reviewer: 'change-reviewer/cc-implementation-session',
+      independence: 'Reviewer session has no merge authority and did not author the change.',
+      limits: ['Session-local evidence; no installed-consumer run.'],
+      reviewed_revision: sha('c'),
+      comparison_basis: 'head-vs-merge-candidate follow-up receipt',
+      reviewed_scope: ['scripts/dot-review-gate/intake.mjs'],
+      finding_ids: ['F-901'],
+      resolutions: [],
+    },
+  }, 'assign-r4');
+  const rogueBefore = receiptsAuthCount();
+  await submitLifecycleRecord(goNamingF901('self-affirmation attempt by the fix owner', 'a'.repeat(64)), 'j', 666001, { changedFiles: ['packages/core/principles/44-x.test.ts'] });
+  const dRogue = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson, limit: 200 });
+  if (receiptsAuthCount() !== rogueBefore) fail(`executor GO minted a verdict receipt: ${JSON.stringify(dRogue.map((r) => r.action))}`);
+  else log('ok r32-review-outcome-reviewer-only');
+
+  // a GO held from publication stays pending and REDELIVERS on the next drain
+  // (at-least-once over the open-blocking hold) — the verdict receipt is minted
+  // ONCE, never once per delivery
+  await submitLifecycleRecord(goNamingF901('legitimate reviewer follow-up, redelivery-bounded', 'b'.repeat(64)), 'k', 555001, { changedFiles: ['packages/core/principles/44-x.test.ts'] });
+  const dHold = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson, limit: 200 });
+  const heldAgain = (d) => d.filter((r) => r.action === 'kept-pending' && r.code === 'E_OPEN_BLOCKING' && /F-901/.test(r.reason ?? ''));
+  if (heldAgain(dHold).length < 1) fail(`hold precondition: the GO did not stay pending ${JSON.stringify(dHold.map((r) => [r.action, r.code]))}`);
+  else if (receiptsAuthCount() < 1) fail('reviewer GO minted no receipt at all — backstop over-refuses');
+  else {
+    const countHold = receiptsAuthCount();
+    clock += 6 * 60 * 1000; // past the drain's 5-min claim lease — the held GOs redeliver
+    const dAgain = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson, limit: 200 });
+    if (heldAgain(dAgain).length < 2) fail(`redelivery did not re-deliver the held GOs ${JSON.stringify(dAgain.map((r) => [r.action, r.code, String(r.reason).slice(0, 120)]))}`);
+    else if (receiptsAuthCount() !== countHold) fail(`redelivery duplicated receipts ${countHold} -> ${receiptsAuthCount()}`);
+    else log('ok r32-review-outcome-redelivery-no-duplicate');
+  }
+
   await svcF.close();
 
   await svc.close();
@@ -963,7 +1017,8 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   unproven-closure-stays-pending executor-self-closure-refused \
   superseded-fix-record-still-consumed \
   r32-webhook-check-receipt-trusted r32-executor-review-cannot-affirm-closure \
-  r32-authenticated-review-outcome-recorded v2-closure-record-resolves-lineage \
+  r32-authenticated-review-outcome-recorded r32-review-outcome-reviewer-only \
+  r32-review-outcome-redelivery-no-duplicate v2-closure-record-resolves-lineage \
   unknown-events-stay-pending \
   sp7-consumer-mixed-contexts-refuses sp7-consumer-all-required-success-resolves \
   r31-consumer-payload-cannot-grant-executor r31-consumer-payload-cannot-grant-verifier \

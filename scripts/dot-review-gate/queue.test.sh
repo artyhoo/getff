@@ -77,6 +77,17 @@ try {
     fail(`unkeyed blocked ${JSON.stringify(noRev)}`);
   } else log('ok missing-revision-blocks-visible');
 
+  // R4 (cold review): a PRESENT-but-too-short sha is the same unkeyed launch —
+  // a key truncated to 'norev' cannot be superseded or bounded, so the item
+  // blocks visibly instead of queueing on a degenerate identity
+  const shortRev = buildQueue({ ledger, openPrs: [pr(23, { head_sha: 'abc123def89' })], mergedPrs: [pr(24, { base_sha: 'fed321cba45' })], isQualifying: qualifying });
+  const shortOpen = shortRev.find((i) => i.pr?.number === 23);
+  const shortMerged = shortRev.find((i) => i.pr?.number === 24);
+  if (shortOpen?.kind !== 'blocked' || !/revision identity unavailable/.test(shortOpen.reason ?? '')
+    || shortMerged?.kind !== 'blocked' || !/merge identity unavailable/.test(shortMerged.reason ?? '')) {
+    fail(`short-sha blocked ${JSON.stringify(shortRev)}`);
+  } else log('ok short-revision-blocks-visible');
+
   // a merged PR with a recorded review is not re-queued
   ledger.noteReviewedPr?.('PR_12');
   const plan2 = buildQueue({ ledger, openPrs: [], mergedPrs: MERGED, isQualifying: qualifying });
@@ -133,6 +144,7 @@ out="$(node "$SCRIPT" "$DIR/queue.mjs" "$DIR/ledger.mjs" "$TMP" 2>&1)"; status=$
 assert_suite_arms "queue.test.sh" "$status" "$out" \
   verification-oldest-first open-qualifying-ready-then-number blocked-stay-visible \
   merged-newest-first revision-keyed-work-identity missing-revision-blocks-visible \
+  short-revision-blocks-visible \
   reviewed-merged-not-requeued reservation-no-double-hand \
   reservation-survives-restart lapsed-lease-recovers new-arrival-no-skip-no-duplicate \
   already-fixed-no-fix-launch still-present-finds-remediation || exit 1
