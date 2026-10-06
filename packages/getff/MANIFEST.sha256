@@ -1,4 +1,5 @@
 346653a9c2e653bc14ce0bba656c7721a7126d8dcc9737feea167f98d0ed2b40  .claude/hooks/adopt-orchestrator-prompts.sh
+8fedd551e8be5b19d7b46db6c3931d2dc707bfc35ad4ab576fe9ddc274075658  .claude/hooks/apply-husky-patch-gate.sh
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
 093d93f169d881090f3e714d1382fa817f44ef6928f2a51fbd96f1c916142f94  .claude/hooks/check-doc-authority.sh
@@ -1226,7 +1227,7 @@ e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine
 c2701759d42e85f0e7310038046baa037fe3b3913737d11f558fb714d4b56a91  setup.d/lib.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
-d346c61f63892f0a6bff6187a2d5f8fe5a70ac42f59df50aee8fc1cfe7ffefb8  setup.d/ships.manifest
+c2b161ffacfd20bc14990e13b69324a1c94c935b4b6499ae8822e1c01272c979  setup.d/ships.manifest
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 e3f3c85f8ff525ee9d3f40f32840f08bd896285dc55e17dc0ec60eada677cd32  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md
