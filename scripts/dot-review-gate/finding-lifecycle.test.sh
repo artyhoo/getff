@@ -476,6 +476,84 @@ try {
   if (ledger3.getOccurrence(clH.occurrence_id)?.state !== 'RESOLVED') fail('sp6-already-fixed control did not resolve');
   else log('ok sp6-already-fixed-identified-check-resolves');
 
+  const ledgerX = openLedger(`${tmp}/findings-extra.sqlite`);
+  const TUPLEX = (prNode, head) => ({
+    repository_id: 88, pr_node_id: prNode,
+    base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: head,
+    merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40),
+    policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0',
+  });
+  const seedReportX = (prNode, head, keys) => {
+    const claimed = ledgerX.claimGeneration({ tuple: TUPLEX(prNode, head), reviewerId: 9, maxAttemptsPerTuple: 5, leaseMinutes: 30, nowMs: clock });
+    const payload = JSON.stringify({ verdict: 'REVISE', head, findings: keys.map((key) => ({ id: key })) });
+    const rec = ledgerX.submitReport({
+      claimId: claimed.claim.claim_id, reviewerId: 9,
+      digest: createHash('sha256').update(payload).digest('hex'),
+      payload, verdict: 'REVISE', kind: 'admission', leaseMinutes: 30, nowMs: clock,
+    });
+    ledgerX.recordFindings(rec.report_id, keys.map((key) => FINDING({ key })));
+    return rec.report_id;
+  };
+  // ── packet-mandated lifecycle cases ──────────────────────────────────────────
+  // (1) ONE coherent fix covers SEVERAL findings of the same PR: the single
+  // owner's fix_response names both keys; the receipts land on every named
+  // occurrence and each moves VERIFYING on the same fix revision.
+  seedReportX('PRX', 'k'.repeat(40), ['artyhoo/getff#M1', 'artyhoo/getff#M2']);
+  const claimM = ledgerX.claimFinding({ findingKey: 'artyhoo/getff#M1', owner: 'exec-m', leaseMinutes: 30, nowMs: clock });
+  let coherentApplied = false;
+  try {
+    ledgerX.applyFixResponseRecord({
+      assignmentId: claimM.assignment_id, claimedBy: 'exec-m', fixRevision: 'fix-coherent',
+      findingKeys: ['artyhoo/getff#M1', 'artyhoo/getff#M2'],
+      mechanicalReceipts: [{ context: 'ci', conclusion: 'success', reference: 'r' }],
+      changeReviewReceipt: { artifact_reference: 'diff/coherent', artifact_sha256: 'a'.repeat(64), reviewer: 'reviewer-z', independence: 'independent', resolutions: [] },
+      digest: 'fd:coherent', payload: '{"finding_ids":["artyhoo/getff#M1","artyhoo/getff#M2"]}', nowMs: clock,
+    });
+    coherentApplied = true;
+  } catch (e) {
+    fail(`coherent-fix-covers-several-findings: refused ${e.code} ${e.message}`);
+  }
+  const m2Tail = ledgerX.lineage('artyhoo/getff#M2').at(-1).id;
+  const m2Receipts = coherentApplied ? ledgerX.receiptsFor(m2Tail).map((r) => r.kind) : [];
+  const m2Covered = coherentApplied && ledgerX.getOccurrence(m2Tail)?.state === 'VERIFYING' && m2Receipts.includes('fix_response') && m2Receipts.includes('check_receipt') && m2Receipts.includes('change_review');
+  if (m2Covered) {
+    log('ok coherent-fix-covers-several-findings');
+  } else if (coherentApplied) {
+    fail(`coherent fix did not cover M2: state=${ledgerX.getOccurrence(m2Tail)?.state} receipts=${JSON.stringify(m2Receipts)}`);
+  }
+
+  // (2) a FINAL closure releases the scope: resolution IS the cessation proof —
+  // the next finding of the same PR claims without a revoke dance
+  const m1Tail = ledgerX.lineage('artyhoo/getff#M1').at(-1).id;
+  ledgerX.recordReceipt({ occurrenceId: m1Tail, kind: 'dot_closure', revision: 'fix-coherent', digest: 'dc:m1', payload: '{"disposition":"VERIFIED"}', actor: 'dot', nowMs: clock });
+  ledgerX.recordClosure({ findingKey: 'artyhoo/getff#M1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-coherent', requiredContexts: ['ci'], nowMs: clock });
+  if (m2Covered) {
+    ledgerX.recordReceipt({ occurrenceId: m2Tail, kind: 'dot_closure', revision: 'fix-coherent', digest: 'dc:m2', payload: '{"disposition":"VERIFIED"}', actor: 'dot', nowMs: clock });
+    ledgerX.recordClosure({ findingKey: 'artyhoo/getff#M2', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-coherent', requiredContexts: ['ci'], nowMs: clock });
+  }
+  seedReportX('PRX', 'l'.repeat(40), ['artyhoo/getff#M3']);
+  let m3Claimed = false;
+  try {
+    const claimM3 = ledgerX.claimFinding({ findingKey: 'artyhoo/getff#M3', owner: 'exec-n', leaseMinutes: 30, nowMs: clock });
+    m3Claimed = Boolean(claimM3.assignment_id);
+  } catch (e) {
+    fail(`final-closure-releases-scope: refused ${e.code} ${e.message}`);
+  }
+  if (m3Claimed) log('ok final-closure-releases-scope');
+
+  // (3) scoped recurrence DURING VERIFYING rebinds the live assignment to the
+  // newest occurrence — the owner continues on the tail without a second claim
+  seedReportX('PRY', 'm'.repeat(40), ['artyhoo/getff#R1']);
+  const claimR = ledgerX.claimFinding({ findingKey: 'artyhoo/getff#R1', owner: 'exec-r', leaseMinutes: 30, nowMs: clock });
+  ledgerX.recordFixResponse({ assignmentId: claimR.assignment_id, fencingToken: claimR.fencing_token, fixRevision: 'fix-r1', digest: 'fd:r1', payload: '{}' });
+  seedReportX('PRY', 'n'.repeat(40), ['artyhoo/getff#R1']);
+  const rTail = ledgerX.lineage('artyhoo/getff#R1').at(-1).id;
+  const fixR2 = ledgerX.recordFixResponse({ assignmentId: claimR.assignment_id, fencingToken: claimR.fencing_token, fixRevision: 'fix-r2', digest: 'fd:r2', payload: '{}' });
+  if (ledgerX.lineage('artyhoo/getff#R1').length < 2 || fixR2.occurrence_id !== rTail || ledgerX.getOccurrence(rTail)?.state !== 'VERIFYING') {
+    fail(`scoped recurrence lost the tail: fix on ${fixR2.occurrence_id?.slice(0, 6)}, tail ${rTail?.slice(0, 6)}`);
+  } else log('ok scoped-recurrence-during-verifying-rebinds');
+
+  ledgerX.close?.();
   ledger3.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -514,5 +592,7 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   sp6-unresolved-blockers-hold sp6-newer-negative-invalidates-older-positive \
   sp6-affirmative-controls-resolve sp6-already-fixed-binds-check-identity \
   sp6-already-fixed-identified-check-resolves sp6-rejected-requires-principal \
-  sp6-rejected-signed-review-resolves || exit 1
+  sp6-rejected-signed-review-resolves \
+  coherent-fix-covers-several-findings final-closure-releases-scope \
+  scoped-recurrence-during-verifying-rebinds || exit 1
 echo "finding-lifecycle.test.sh: all green"

@@ -455,6 +455,21 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), verifier ?? null, now());
     db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
+    // packet case: a FINAL closure is itself the cessation proof — the scope's
+    // active claims release with the resolution, so follow-up work of the same
+    // PR claims fresh without a revoke dance
+    if (tail.repository_id !== null && tail.repository_id !== undefined) {
+      db.prepare(
+        `UPDATE finding_claims SET state = 'REVOKED'
+         WHERE state IN ('ASSIGNED','ACKNOWLEDGED')
+           AND occurrence_id IN (SELECT id FROM finding_occurrences WHERE repository_id IS ? AND pr_node_id IS ?)`,
+      ).run(tail.repository_id, tail.pr_node_id);
+    } else {
+      db.prepare(
+        `UPDATE finding_claims SET state = 'REVOKED'
+         WHERE state IN ('ASSIGNED','ACKNOWLEDGED') AND occurrence_id = ?`,
+      ).run(tail.id);
+    }
     return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
   };
 
@@ -875,21 +890,39 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         if (!keys.includes(occ.finding_key)) {
           throw code('E_LIMITS', `fix record names [${keys.join(', ')}] but the assignment covers "${occ.finding_key}"`);
         }
+        // packet case: ONE coherent fix can cover SEVERAL findings of the same PR
+        // scope (the DR-R2 fence guarantees a single owner) — the receipts land on
+        // EVERY named occurrence, each moves VERIFYING on the same fix revision;
+        // anything outside the assignment's scope refuses.
+        const targets = [occ];
+        for (const key of keys) {
+          if (key === occ.finding_key) continue;
+          const extra = db.prepare(
+            'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+          ).get(key);
+          if (!extra) throw code('E_NOT_FOUND', `fix record names unknown finding "${key}"`);
+          if (extra.repository_id !== occ.repository_id || extra.pr_node_id !== occ.pr_node_id) {
+            throw code('E_LIMITS', `fix record names "${key}" outside the assignment's PR scope`);
+          }
+          if (!targets.some((t) => t.id === extra.id)) targets.push(extra);
+        }
         const ts = now();
         const insert = db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        insert.run(randomUUID(), occ.id, 'fix_response', fixRevision, digest ?? payloadDigest(String(payloadRef ?? '')), payloadRef ?? '{}', claimedBy ?? c.owner, ts);
-        for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
-          insert.run(randomUUID(), occ.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference }), claimedBy ?? c.owner, ts);
+        for (const target of targets) {
+          insert.run(randomUUID(), target.id, 'fix_response', fixRevision, digest ?? payloadDigest(String(payloadRef ?? '')), payloadRef ?? '{}', claimedBy ?? c.owner, ts);
+          for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
+            insert.run(randomUUID(), target.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference }), claimedBy ?? c.owner, ts);
+          }
+          // SP-2: the record's own independent change review is real evidence — the
+          // consumer records it as a change_review receipt (actor = the review's
+          // reviewer, revision = the reviewed revision); a null field records nothing.
+          const cr = changeReviewReceipt;
+          if (cr && typeof cr === 'object') {
+            insert.run(randomUUID(), target.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [] }), cr.reviewer ?? null, ts);
+          }
+          db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, target.id);
         }
-        // SP-2: the record's own independent change review is real evidence — the
-        // consumer records it as a change_review receipt (actor = the review's
-        // reviewer, revision = the reviewed revision); a null field records nothing.
-        const cr = changeReviewReceipt;
-        if (cr && typeof cr === 'object') {
-          insert.run(randomUUID(), occ.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [] }), cr.reviewer ?? null, ts);
-        }
-        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, occ.id);
-        return { occurrence_id: occ.id, state: 'VERIFYING' };
+        return { occurrence_id: occ.id, state: 'VERIFYING', applied: targets.map((t) => t.finding_key) };
       });
     },
 
