@@ -100,7 +100,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     setup.d/30-templates.sh:17 (note: `.ai-factory/`, not `.claude/`). A skill file
 #     carrying ](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) resolves to
 #     `<consumer>/.claude/orchestrator-prompts/...` post-install — a path that does not
-#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:30.
+#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:30. cite:historical pre-extraction line at the recorded delivery incident
 # scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
 # per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
 # shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.
@@ -740,7 +740,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:701          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1669          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1813          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -990,14 +990,14 @@ copy_safe() {
 #                               The existing begin marker line is kept VERBATIM (forward-compat
 #                               attributes an older/newer writer put on it survive) — same rule
 #                               as fence.ts injectRegion.
-#   (c) dst is a FENCE-LESS copy of an older version of our own template → adopt it exactly
-#                               once by REPLACING the whole file with the fenced form. This is
-#                               every consumer installed before this stage; a fence-writer that
-#                               only knew case (a) would append and silently DOUBLE their file.
+#   (c) dst is a byte-identical FENCE-LESS copy of the current template → adopt it exactly
+#                               once by wrapping it in the fenced form. An older or edited copy
+#                               is consumer-owned: case (a) retains its complete active body and
+#                               appends the current framework section without deleting content.
 #
 # Case (c) detection is deliberately conservative — a false-positive adopt would destroy a
-# consumer's own file. TWO independent sentinels must BOTH be present, and both were verified
-# present in all 20 historical revisions of AGENTS.md.template (git log --follow, 2026-08-08):
+# consumer's own file. TWO independent sentinels must BOTH be present, and the entire file
+# must be byte-identical to the source. Sentinels alone establish ancestry, never ownership:
 #   1. the template's H1 line, and 2. the `.ai-factory/RULES.md` convention reference.
 # Sentinels are caller-supplied (args 5/6) so the helper stays generic; with no sentinels
 # passed, case (c) never fires and an unrecognised file takes the safe (a) path.
@@ -1101,11 +1101,11 @@ merge_fenced() {
     elif [ "${MERGE_FENCED_SHIPPED_BODY:-0}" != 1 ] && ! cmp -s "$tmp" "$dst"; then
       # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
       # keep the previous bytes before they are gone (a no-op re-run never reaches here).
-      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
+      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed" || _splice_ok=0
     fi
     if [ "$_splice_ok" = "0" ] || ! mv "$tmp" "$dst"; then
       rm -f "$tmp" 2>/dev/null || true
-      echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
+      echo "  ⚠ $dst: fenced splice failed (preparation, preservation or write error) — left unchanged, section=$section" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1113,18 +1113,18 @@ merge_fenced() {
     return 0
   fi
 
-  # ── (c) fence-less copy of an older version of our own template → adopt once ─
+  # ── (c) byte-identical fence-less copy of the current template → adopt once ─
   if [ -n "$sentinel_1" ] && [ -n "$sentinel_2" ] \
-    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst"; then
+    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst" && cmp -s "$src" "$dst"; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would adopt (wrap in fence): $dst"
       return 0
     fi
-    # critical-review S2-3: the sentinels prove the file STARTED as our template, not that it
-    # still is one — a consumer who extended it would lose every addition. Keep their bytes first.
-    if ! cmp -s "$src" "$dst"; then
-      _merge_fenced_keep_copy "$dst" "pre-fence copy differs from the current template"
-    fi
+    # Equality establishes that no consumer bytes would be removed by this wrapping.
+    # Sentinel-matching older templates and locally edited copies take the append path.
+    # This includes in-place placeholder fills: their ownership is not ours to infer.
+    # Keep the entire divergent body active; a parked backup is not active preservation.
+    # The equality probe above also applies to dry-run's advertised adoption decision.
     { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
     return 0
@@ -1145,7 +1145,7 @@ merge_fenced() {
 # replaces part of it with bytes the consumer may have written (critical-review S2-3). Same
 # location and naming as the refresh guard (_preserve_diverged_copy); merge_fenced sits outside
 # the baseline manifest, so it cannot tell a consumer edit from an older template and keeps a
-# copy whenever the replaced bytes differ. Fail-open: a failed copy changes only the message.
+# copy whenever the replaced bytes differ. Failure refuses replacement and records a skip.
 _merge_fenced_keep_copy() {
   local dst="$1" why="$2" conflicts sum8 kept
   conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
@@ -1156,8 +1156,8 @@ _merge_fenced_keep_copy() {
       return 0
     fi
   fi
-  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; replacing anyway"
-  return 0
+  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; REFUSING to replace" >&2
+  return 1
 }
 
 # install_agents_md <src> <dst>
@@ -1719,7 +1719,13 @@ _lane_write_toolchain_lock() {
   # synthesised, the manifest carries its version and the lock reports it — no code change.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding): a manifest without a "version" key exits grep 1, and one whose grep output
+    # exceeds the 64KiB pipe buffer SIGPIPEs grep through `head -1` (141) — either status aborts
+    # the lane after file delivery but BEFORE this lock write, leaving the `[ -n ] || 'null'`
+    # fallback below dead code for exactly its intended case. Masking the status makes that
+    # fallback reachable; the healthy path's extracted value is unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   # §3a option B / §6 fork 2: derive the per-rule slice from the fragment dir
@@ -1864,6 +1870,246 @@ rewrite_arch_sot_header() {
   if [ "$DRY_RUN" != "--dry-run" ] && { [ "$existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
     _rewrite_arch_sot_header_inplace "$dst"
   fi
+}
+
+# ─── Toolchain-lane agent surface (HO-3, one-button w2 docs hand-over) ───────────────────────
+# The cargo/go lanes exit before the npm setup.d layer loop, so the curated agent surface the
+# python lane delivers (setup.d/45-python.sh _py_deliver_agent_surface) was stranded on them: no
+# passport, no rule-research skills/agents, no hooks — HO-3. The shared body lives here so the
+# two thin lanes stay thin (S-2 doctrine); python keeps its own body until its delegation is a
+# separate verified step (its flow interleaves python-only steps — rules-lock, local hook rung —
+# and its fingerprints are the most-tested bytes in the tree).
+# Refresh parity boundary copied from do_refresh's contract (install.sh do_refresh): refreshed =
+# skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md, the gate script; copy_safe =
+# DESCRIPTION*, integration-rules.md, tool-decisions.md. Every refreshed path keeps the Layer-3
+# `<dst>.override.md` escape hatch (INSTALL-FOR-AI.md §Three-layer).
+# Requires globals: PKG_ROOT, PROJECT_ROOT, FORCE, DRY_RUN, SKIPPED, PROFILE, WITH_AIF_SUITE,
+# SHIPPED_DOCS (install.sh), UPSTREAM_BLOB_URL (lib.sh).
+
+# _lane_plain_skill_deliver <slug> — a skill shipping from the REPO-ROOT skills/ payload (getff,
+# tool-bootstrapping). No lib.sh copy helper reads that root (copy_skill_with_transform reads
+# $PKG_ROOT/.claude/skills/), so this mirrors do_refresh's own arm for this root: same override
+# check, wipe/copy/transform from _copy_tree_with_transform so the two cannot drift (ledger S-7).
+_lane_plain_skill_deliver() {
+  local slug="$1"
+  local src="$PKG_ROOT/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  local override="${dst}.override.md"
+  [ -d "$src" ] || return 0
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    if [ -e "$override" ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (.override.md — consumer-owned)"
+      else
+        echo "  ⊝ .claude/skills/$slug (.override.md — consumer-owned, keeping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: $src → $dst"
+      return 0
+    fi
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      SKIPPED+=("$dst")
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (exists)"
+      else
+        echo "  ⊝ .claude/skills/$slug (exists — skipping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      # W1-A review MAJOR 2 (cold-review 2026-10-05): the dry-run arm never reaches
+      # _copy_tree_with_transform's guard, so a diverged copy under --force showed only
+      # "would copy". Preview the guard when the dst exists (= the --force overwrite
+      # case; a greenfield copy overwrites nothing) — setup.d/10-skills.sh:22-24 pattern.
+      # Read-only under --dry-run. Transform parity: the delivered tree's .md are
+      # post-processed by _copy_tree_with_transform.
+      if [ -e "$dst" ]; then
+        _pre_overwrite_guard "$src" "$dst" transform
+      fi
+      echo "  [dry-run] would copy: $src → $dst"
+      return 0
+    fi
+  fi
+  _copy_tree_with_transform "$src" "$dst"
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  else
+    echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  fi
+}
+
+# _lane_agent_copy_or_refresh <src> <dst> — a single markdown artefact that needs the internal-ref
+# transform after it is written (the curated sub-agents). The transform must run ONLY on a file
+# this pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept
+# by an `.override.md`, would rewrite bytes we do not own (20-agents.sh:41-46 contract). Explicit
+# `if`s everywhere — a trailing `A && B` under install.sh's `set -euo pipefail` returns 1 and
+# aborts the lane (the A2-3 defect class).
+_lane_agent_copy_or_refresh() {
+  local src="$1" dst="$2"
+  local _writes=1
+  [ -f "$src" ] || return 0
+  if [ -e "${dst%.md}.override.md" ]; then
+    _writes=0
+  fi
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_safe "$src" "$dst"
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      _writes=0
+    fi
+    # md-refs parity (W1-A round 2): the transform below post-processes the freshly-written copy,
+    # so the divergence guard must compare against the TRANSFORMED bytes.
+    copy_safe "$src" "$dst" md-refs
+  fi
+  if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$dst" ]; then
+    transform_internal_refs "$dst"
+  fi
+}
+
+# _lane_deliver_agent_surface <lane> — the curated agent surface for a thin toolchain lane:
+# skills (getff, tool-bootstrapping, rule-research, rule-tests), agents (rule-researcher,
+# rule-test-author), hooks (deps-hash-check, inject-matching-rule + lib/hook-live.sh), .mcp.json,
+# AGENTS.md, the .ai-factory/ subtree incl. the materialized passport (.ai-factory/DESCRIPTION.md,
+# the HO-5 region template), the docs-gate script the passport's Workflow section names, and the
+# session-settings offer. Parts this lane does not deliver yet are named «not yet delivering the
+# design» through note_not_wired (HO-3), never dropped silently.
+_lane_deliver_agent_surface() {
+  local lane="$1"
+  echo "▶ Agent surface (skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/) — HO-3"
+
+  # ── Skills (4-skill curated subset) ──────────────────────────────────────────
+  # getff + tool-bootstrapping ship from repo-root skills/ (their SKILL.md up-dir refs dangle on a
+  # consumer tree without the transform pass); rule-research + rule-tests from .claude/skills/.
+  mkdir_safe "$PROJECT_ROOT/.claude/skills"
+  local _lane_skill
+  for _lane_skill in getff tool-bootstrapping; do
+    _lane_plain_skill_deliver "$_lane_skill"
+  done
+  for _lane_skill in rule-research rule-tests; do
+    if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+      refresh_skill_with_transform "$_lane_skill"
+    else
+      copy_skill_with_transform "$_lane_skill"
+    fi
+  done
+
+  # ── Agents (2-agent curated subset) ──────────────────────────────────────────
+  # The rule-research pair the one-beat research loop needs; the other agents are npm-lane
+  # concerns (setup.d/20-agents.sh).
+  mkdir_safe "$PROJECT_ROOT/.claude/agents"
+  local _lane_agent
+  for _lane_agent in rule-researcher rule-test-author; do
+    _lane_agent_copy_or_refresh "$PKG_ROOT/agents/${_lane_agent}.md" \
+                                "$PROJECT_ROOT/.claude/agents/${_lane_agent}.md"
+  done
+
+  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (register_imr_hooks) ──
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks"
+  local _lane_settings="$PROJECT_ROOT/.claude/settings.json"
+  local _lane_dhc_src="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
+  local _lane_dhc_dst="$PROJECT_ROOT/.claude/hooks/deps-hash-check.sh"
+  if [ -f "$_lane_dhc_src" ]; then
+    _lane_copy_or_refresh "$_lane_dhc_src" "$_lane_dhc_dst"
+    chmod_safe +x "$_lane_dhc_dst" 2>/dev/null || true
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would: register deps-hash-check as UserPromptSubmit hook in .claude/settings.json"
+    else
+      register_cc_hook "$_lane_settings" "UserPromptSubmit" 'bash .claude/hooks/deps-hash-check.sh' "deps-hash-check"
+    fi
+  fi
+  local _lane_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  local _lane_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
+  if [ -f "$_lane_imr_src" ]; then
+    _lane_copy_or_refresh "$_lane_imr_src" "$_lane_imr_dst"
+    chmod_safe +x "$_lane_imr_dst" 2>/dev/null || true
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
+    else
+      register_imr_hooks "$_lane_settings"
+    fi
+  fi
+  # lib/hook-live.sh — the liveness lib inject-matching-rule's prelude sources; without it the
+  # plugin copy runs too and the rule is injected twice (spec 2026-09-28 D12).
+  local _lane_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
+  if [ -f "$_lane_hl_src" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    _lane_copy_or_refresh "$_lane_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+  fi
+
+  # ── .mcp.json (context7 + deepwiki) — the only delivery channel on this lane (no 05-mcp.sh) ──
+  add_getff_mcp_servers "$PROJECT_ROOT/.mcp.json"
+
+  # ── AGENTS.md — same co-owned fenced-section wrapper as the npm lane (30-templates.sh) ──
+  install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+
+  # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
+  # The passport template + the materialized passport carry the ONE marked goal region (HO-5):
+  # no stack-specific content lives in either any more, so the SAME bytes serve every lane.
+  mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
+  mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
+  if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
+    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
+  else
+    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+  fi
+  # AI Usage Guide — refresh-aware: the ONE .ai-factory/ content doc do_refresh also refreshes.
+  _lane_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
+  # Materialize the AGENTS.md-referenced SoT — the passport itself. copy_safe (no-clobber):
+  # consumer-editable content doc from first landing.
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+  # ARCHITECTURE / RULES — not yet delivering the design on this lane (HO-3): the lane ships its
+  # linter configs (clippy/deny, golangci) but no architecture starter and no RULES.md renderer,
+  # so both names are recorded, not dropped. The ARCHITECTURE arm probes so a future
+  # templates/<lane>/ARCHITECTURE.md starts delivering without an edit here.
+  local _lane_arch_src="$PKG_ROOT/packages/core/templates/$lane/ARCHITECTURE.md"
+  if [ -f "$_lane_arch_src" ]; then
+    copy_safe "$_lane_arch_src" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.$lane.md"
+    local _lane_arch_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+    local _lane_arch_existed=0
+    if [ -e "$_lane_arch_dst" ]; then _lane_arch_existed=1; fi
+    copy_safe "$_lane_arch_src" "$_lane_arch_dst" arch-header
+    rewrite_arch_sot_header "$_lane_arch_dst" "$_lane_arch_existed"
+  else
+    note_not_wired ".ai-factory/ARCHITECTURE.md — not yet delivering the design: the $lane lane ships no architecture starter yet (the agent drafts one from your code)"
+  fi
+  note_not_wired ".ai-factory/RULES.md — not yet delivering the design: the $lane lane delivers its linter config but no rendered rule list yet"
+
+  # skill-context overrides (replicates 20-agents.sh:66-79 + the python lane's profile gate).
+  local _lane_doc _lane_sc
+  for _lane_doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
+    case "$_lane_doc" in
+      packages/core/templates/shared/skill-context/*/SKILL.md)
+        _lane_sc="${_lane_doc#packages/core/templates/shared/skill-context/}"; _lane_sc="${_lane_sc%/SKILL.md}"
+        # Same suite-gate as 20-agents.sh:73-75 — aif-orchestrator-discipline pairs with the gated
+        # orchestrator-worker-discipline agent (not in this curated subset, so this skips too).
+        if [ "$_lane_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+          && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc/SKILL.md" ]; then continue; fi
+        mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc"
+        install_skill_context "$PKG_ROOT/$_lane_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc/SKILL.md" ;;
+    esac
+  done
+
+  # ── The docs gate the passport's Workflow section names (HO-4) ───────────────
+  # Unconditional, needs no extra install — a passport referencing a script the lane did not
+  # deliver would be a dangling first impression (the python lane's pre-existing gap, PR-noted).
+  mkdir_safe "$PROJECT_ROOT/scripts"
+  _lane_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+
+  # ── Session settings (only on the pre-launch «yes») — same helper as 12-session-settings.sh ──
+  # The layer loop never runs on this lane, so this is the only delivery channel here.
+  # shellcheck source=/dev/null
+  . "$PKG_ROOT/setup.d/session-settings.sh"
+  apply_session_settings "$PROJECT_ROOT"
+
+  echo "  ✓ Agent surface delivery complete"
 }
 
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
@@ -2951,7 +3197,10 @@ format_getff_writes() {
       git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
       # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
       # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
-      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
+      # The probe canonicalizes like the mark (KEPT_ORIGINALS keys are _keep_original_canon spellings),
+      # so a symlinked project root — the writers' logical $PROJECT_ROOT against the wire's pwd -P —
+      # still matches (rework review 56ca7a86b7e4).
+      case " ${KEPT_ORIGINALS[*]-} " in *" $(_keep_original_canon "$PROJECT_ROOT/$rel") "*) ;; *) continue ;; esac
       # the newest record for this path is the state just before the latest install that wrote it
       for kept_f in "$kept/$rel".*; do
         case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
@@ -3616,15 +3865,35 @@ note_eslint_config_not_esm() {
 # KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
 # two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
 # first only: the second pass's copy would already carry the first pass's block, and be announced
-# as a second «original» (cold-review F9).
+# as a second «original» (cold-review F9). Keyed on the PHYSICAL path (_keep_original_canon): the
+# writers spell one file differently — session-settings marks install.sh's logical $PROJECT_ROOT,
+# the wire resolves pwd -P — and an exact compare then double-keeps settings.local.json when the
+# install runs from a symlinked project root (rework review 56ca7a86b7e4): the second original
+# holds the intermediate, and the undo command restores that instead of the person's file.
 KEPT_ORIGINALS=()
+
+# _keep_original_canon <path> — echo <path> in the one KEPT_ORIGINALS spelling: its real directory
+# (cd + pwd -P, what bridge_wire_project already resolves) + the final component, built from shell
+# expansions only — W7e runs the keep with a PATH that has neither dirname nor basename. A path
+# whose directory cannot be resolved echoes unchanged, so the key stays stable for it.
+_keep_original_canon() {
+  local d b
+  case "$1" in
+    */*) d="${1%/*}" b="${1##*/}" ;;
+    *) d=. b="$1" ;;
+  esac
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { echo "$1"; return 0; }
+  echo "$d/$b"
+}
 
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
-# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS) — the compare is
+# on the canonical spelling, so the writers' differing path spellings cannot double-keep.
 keep_original_snapshot() {
-  local f="$1" snap k
+  local f k snap
+  f=$(_keep_original_canon "$1")
   for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
@@ -3632,10 +3901,11 @@ keep_original_snapshot() {
 }
 
 # keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
-# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
-# own shell: settle runs inside $(…), where a global it set would be lost.
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. The key is canonical
+# (_keep_original_canon), one spelling for every writer. Call it in the install's own shell: settle
+# runs inside $(…), where a global it set would be lost.
 keep_original_mark() {
-  KEPT_ORIGINALS+=("$1")
+  KEPT_ORIGINALS+=("$(_keep_original_canon "$1")")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -3646,11 +3916,18 @@ keep_original_mark() {
 # original goes back in place, a warning names the file on stderr — and it returns 1: the caller
 # reports getff's block as not wired (cold-review F10: the snapshot used to be deleted silently).
 keep_original_settle() {
-  local f="$1" snap="$2" sum8 dest rel
+  local f snap sum8 dest rel root
+  f=$(_keep_original_canon "$1")
+  snap="$2"
   [ -n "$snap" ] && [ -f "$snap" ] || return 0
   if cmp -s "$snap" "$f"; then rm -f "$snap"; return 0; fi
   sum8=$(_hash256 "$snap") || sum8=original
-  rel="${f#"${PROJECT_ROOT:-.}"/}"
+  # The rel strip compares one spelling on both sides: a caller's file under a symlinked project
+  # root (the wire's pwd -P against install.sh's logical $PROJECT_ROOT) strips to the same
+  # relative path as the agreeing case, so the original lands at .ai-factory/before-getff/<rel>
+  # and not nested under a spelled-out absolute path.
+  root=$(_keep_original_canon "${PROJECT_ROOT:-.}")
+  rel="${f#"$root"/}"
   dest="${PROJECT_ROOT:-.}/.ai-factory/before-getff/$rel.${sum8:0:8}"
   if mkdir -p "$(dirname "$dest")" 2>/dev/null && mv "$snap" "$dest" 2>/dev/null; then
     echo "$dest"
@@ -3805,7 +4082,15 @@ record_project_checks() {
   else
     { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo; echo; echo "$b"; printf '%s\n' "$body"; echo "$e"; } > "$tmp"
   fi
-  cat "$tmp" > "$file"; rm -f "$tmp"
+  # The WRITE's status is the function's — a failed final cat (read-only .ai-factory/, a 444
+  # record file, ENOSPC mid-write) must reach every caller's not-wired arm, not be swallowed by
+  # rm's 0. Callers branch on this status to decide between «recorded» and the loud
+  # note_not_wired degradation (99-finalize.sh arm pass, record_lane_checks, the python lane's
+  # _py_record_project_checks, whose runner ships only behind a written record).
+  local rc=0
+  cat "$tmp" > "$file" || rc=1
+  rm -f "$tmp"
+  return "$rc"
 }
 
 # record_add_unlisted <file> <reason> <command…> — each command the record lists under neither

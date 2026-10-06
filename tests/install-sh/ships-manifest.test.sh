@@ -5,8 +5,9 @@
 # Arm A (scripts/check-ships-manifest.mjs) proves every item is marked; this arm proves the
 # marks. Three real installs, exactly as tests/install-sh/snapshot.sh runs them
 # (`install.sh react-spa --profile <p> --force </dev/null`, no --full), then per row:
-#   skill / agent / hook with installer core|env|factory → present at that depth and above,
-#       absent below (a hook is «present» when .claude/settings.json registers it);
+#   skill / agent / hook / script with installer core|env|factory → present at that depth and
+#       above, absent below (a hook is «present» when .claude/settings.json registers it; a
+#       script when scripts/<name>.sh|.ts is on disk);
 #   installer=no → absent at every depth (rule files, settings keys and MCP servers included);
 #   setting `hooks` → the key exists at core;
 #   installer=ask → absent from the three plain installs, present in a FOURTH install run with the
@@ -66,6 +67,7 @@ present() {
       done
       return 1 ;;
     mcp)   [ -f "$d/.mcp.json" ] && jq -e --arg n "$name" '.mcpServers[$n] != null' "$d/.mcp.json" >/dev/null 2>&1 ;;
+    script) [ -f "$d/scripts/$name.sh" ] || [ -f "$d/scripts/$name.ts" ] ;;
   esac
 }
 

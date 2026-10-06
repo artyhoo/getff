@@ -105,7 +105,7 @@ function parseArgs(argv: string[]): Args {
 // eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
 // («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
 // diagnostics/registry.ts:193), and install() needs Node at install time, which the python lane
-// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1556).
+// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1700).
 // (Until D8/#1169 this sentence said the lane FORBIDS `.ai-factory/`; it has shipped the agent
 // surface there ever since — tests/install-sh/python-entry-lane.test.sh:51.) The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
@@ -286,7 +286,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
   // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
   // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
-  // (lib.sh:1733, shared lock writer), so a python lane fragment in the subdir is invisible to
+  // (lib.sh:1739, shared lock writer), so a python lane fragment in the subdir is invisible to
   // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //

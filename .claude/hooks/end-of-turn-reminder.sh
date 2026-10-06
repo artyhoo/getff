@@ -163,8 +163,11 @@ hands_line=""
 chip_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
+  _project_id="${RUNTIME_BRIDGE_AIF_PROJECT_ID:-}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
-  if [ -z "$_tasks" ]; then
+  if [ -z "${_project_id//[[:space:]]/}" ]; then
+    autonomy_line="[autonomy] The in-flight probe lacks local project identity (RUNTIME_BRIDGE_AIF_PROJECT_ID). Degraded check, not an all-clear: decide for yourself whether this project's dispatched work is still running before you stop."
+  elif [ -z "$_tasks" ]; then
     autonomy_line="[autonomy] The in-flight probe FAILED (${_aif_url}/tasks unreachable or empty). This is a degraded check, not an all-clear: decide for yourself whether dispatched work is still running before you stop."
   else
     # Shape guard BEFORE counting. Well-formed JSON of the wrong SHAPE (e.g. the payload
@@ -176,23 +179,20 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
       *) _shape_ok=0 ;;
     esac
     if [ "$_shape_ok" != "1" ]; then
-      autonomy_line="[autonomy] The in-flight probe returned a NON-ARRAY payload from ${_aif_url}/tasks — the task list shape changed, so the count cannot be trusted. Degraded check, not an all-clear: verify yourself before stopping."
+      autonomy_line="[autonomy] The in-flight probe returned a NON-ARRAY payload from ${_aif_url}/tasks — the task list shape changed, so the count cannot be trusted. Degraded check, not an all-clear: decide for yourself whether this project has work before stopping."
     else
-      # Count every task that is not TERMINAL, rather than enumerating live statuses. The
-      # enumerating form shipped as a strict subset of the real vocabulary
-      # (packages/runtime-bridge/src/types.ts) and was silent on `backlog` and `plan_ready` —
-      # `backlog` being the sharp miss: at coordinator cap, dispatched tasks queue there, so
-      # the arm went quiet with work about to run. Excluding terminal statuses also means a
-      # status added upstream later counts as in-flight by default (fail-closed), and a task
-      # with no status field at all counts too.
-      # Two numbers, one pass: how many elements are NOT task objects (a shape signal), and
-      # how many live tasks there are. An array of non-objects is still an array, so the
-      # bracket check above lets it through while `select(type == "object")` quietly drops
-      # every element — count 0, indistinguishable from a genuinely empty queue.
-      _probe="$(printf '%s' "$_tasks" | jq -r '
-        ([ .[]? | select(type != "object") ] | length) as $bad
+      # Count this project's non-TERMINAL tasks; validate identities before filtering.
+      # Excluding terminal statuses preserves backlog/plan_ready and future live statuses
+      # (packages/runtime-bridge/src/types.ts); a missing status still counts as in-flight.
+      # Paused work cannot advance, and valid foreign-project tasks do not belong to this turn.
+      # Two numbers, one pass: malformed elements/identities and this project's live tasks.
+      # Validate before filtering: a missing identity must never become a silent zero.
+      _probe="$(printf '%s' "$_tasks" | jq -sr --arg project "$_project_id" '
+        if length != 1 or (.[0] | type) != "array" then error("expected one task array") else .[0] end
+        | ([ .[]? | select(if type != "object" then true else
+              ([.id, .projectId] | all(type == "string" and test("\\S")) | not) end) ] | length) as $bad
         | ([ .[]? | select(type == "object")
-                  | select((.paused // false) | not)
+                  | select(.projectId == $project) | select((.paused // false) | not)
                   | select((.status // "") as $s | ["done","verified"] | index($s) | not) ] | length) as $live
         | "\($bad) \($live)"' 2>/dev/null || echo "PARSE_FAIL")"
       _bad="${_probe%% *}"
@@ -204,12 +204,12 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
       fi
       case "$_inflight" in
         SHAPE_FAIL)
-          autonomy_line="[autonomy] The in-flight probe returned an array containing ${_bad} non-task element(s) from ${_aif_url}/tasks — the payload shape changed, so the count cannot be trusted. Degraded check, not an all-clear: verify yourself before stopping." ;;
+          autonomy_line="[autonomy] The in-flight probe returned an array containing ${_bad} non-task element(s) (invalid object or task/project identity) from ${_aif_url}/tasks — the payload shape changed, so the count cannot be trusted. Degraded check, not an all-clear: decide for yourself whether this project has work before stopping." ;;
         '' | *[!0-9]*)
           # Covers PARSE_FAIL and the subtler case the old `-gt 0` test swallowed silently:
           # a multi-document body makes jq emit one count PER document, so `_inflight` is
           # "1\n1" — `[ … -gt 0 ]` then errors, `2>/dev/null` hides it, and the arm is mute.
-          autonomy_line="[autonomy] The in-flight probe returned a non-integer count from ${_aif_url}/tasks. Degraded check, not an all-clear — verify yourself before stopping." ;;
+          autonomy_line="[autonomy] The in-flight probe returned a non-integer count from ${_aif_url}/tasks. Degraded check, not an all-clear — decide for yourself whether this project has work before stopping." ;;
         0) : ;;
         *)
           autonomy_line="[autonomy] ${_inflight} aif task(s) still in flight. Do NOT end the turn on a report — that is finding F10. Continue in the same turn: verify the worker's FIRST COMMIT rather than waiting for status=done, harvest anything already accepted, or do the next item you own. Stop only if blocked on the operator." ;;

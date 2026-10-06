@@ -302,9 +302,11 @@ and more of their own:
   `getff-ruff.toml` when you already had your own `ruff.toml`; an appended
   `getff-python-pre-push` entry in your `.pre-commit-config.yaml`;
   `.getff-python-install.log`; the `context7` entry in `.mcp.json` (always on this lane,
-  not only with `--full`); and the lane hooks under `.getff/hooks/` (that lane's
-  `core.hooksPath` value in the reset above). The `.claude/` and `.ai-factory/` removals
-  still apply to this lane.
+  not only with `--full`); `scripts/run-armed.sh` (the reader for the lane's
+  `aif:project-checks` record — remove it only with the record, never alone); and the lane
+  hooks under `.getff/hooks/` (that lane's `core.hooksPath` value in the reset above). The
+  `.claude/` and `.ai-factory/` removals still apply to this lane (the record itself lives
+  in `.ai-factory/tool-decisions.md`).
 - **cargo** — `.github/workflows/getff-cargo.yml`; `clippy.toml` and `deny.toml` when getff
   wrote them fresh, or `getff-clippy.toml` / `getff-deny.toml` when you already had your own;
   `.getff/Cargo.lints.toml` (inside the `.getff/` removal); `.getff-cargo-install.log`.

@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1733). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1739). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1733), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1739), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -840,7 +840,13 @@ _py_write_rules_lock() {
   local _ctx="$_synth_dir/generation-context.json"
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
-    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+    # The trailing `|| true` is load-bearing under install.sh's `set -euo pipefail` (ultra-review
+    # #1597 finding, same fix as lib.sh `_lane_write_toolchain_lock`): a manifest without a
+    # "version" key exits grep 1, and one whose grep output exceeds the 64KiB pipe buffer SIGPIPEs
+    # grep through `head -1` (141) — either status aborts the lane after file delivery but BEFORE
+    # this lock write, leaving the `[ -n ] || 'null'` fallback below dead code for exactly its
+    # intended case. Masking the status makes that fallback reachable; healthy value unchanged.
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//' || true)
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
   {
@@ -892,6 +898,144 @@ deliver_python_toolchain() {
   fi
 
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
+}
+
+# _py_record_project_checks — the python lane's project-checks record (P2, one-button chain).
+# The lane exits before 99-finalize, so this replaces the EMPTY record the lane used to write
+# here (record_lane_checks python): each check the delivered pre-push hook would run is probed
+# ONCE on the tree as the install leaves it — exit 0 → `armed`; red → `not-armed` with the
+# reason; the tool or the bans config absent → a structural «not wired:» reason the runner never
+# re-probes (run-armed.sh). What was green before the install stays green (operator log entry 28,
+# fork 1 = A): a brownfield tree pushes, and the runner's probe arms a check the day it turns
+# green — no human step. NO baseline of old findings is built here (entry 32: the trigger build
+# owns it). Reuses the npm primitives — record_project_checks (lib.sh) for the write, the
+# DELIVERED scripts/run-armed.sh (the byte-identical audit-self original, 40-configs.sh shape)
+# for every read — never a python copy of either (dual-implementation-discipline.md §8). Runs
+# with no node on PATH (§8-1): bash/awk/mktemp only. Independent of GETFF_SKIP_HOOKS: the record
+# is written even when the rung is declined, because the delivered CI workflow reads the same
+# record. The two ruff runs are TWO checks (T-OBW2P-A): arming them as one line would let a green
+# bans run arm a red discovered-config run.
+_py_check_not_armed_why() {
+  # <command> <rc> <log> → why a red check is not armed; the npm arm pass's _pc_reason shape
+  # (99-finalize.sh): count-bearing when the tool's summary parses, «exits <rc> at install»
+  # when it does not — a reason, never bare (T3).
+  local n
+  case "$1" in
+    "ast-grep scan")
+      # ast-grep's own summary line (verified against the pinned 0.44.x output:
+      # `Error: 1 error(s) found in code.`); the `┌─ file:line:col` location
+      # lines are the second resort — they sit mid-line, not at line start.
+      n=$(sed -n 's/^Error: \([0-9][0-9]*\) error(s) found in code\./\1/p' "$3" | tail -1)
+      [ -n "$n" ] && { echo "$n ast-grep finding(s) at install"; return 0; }
+      n=$(grep -cE '─ .*[^ :]+:[0-9]+:[0-9]+' "$3" 2>/dev/null || true)
+      [ "${n:-0}" -gt 0 ] && { echo "$n ast-grep finding(s) at install"; return 0; } ;;
+    "ruff check ."*)
+      n=$(sed -n 's/^Found \([0-9][0-9]*\) error.*/\1/p' "$3" | tail -1)
+      [ -n "$n" ] && { echo "$n ruff finding(s) at install"; return 0; } ;;
+  esac
+  echo "exits $2 at install"
+}
+
+_py_record_project_checks() {
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would deliver scripts/run-armed.sh — the record's reader (the pre-push hook and the CI workflow run every check through it)"
+    echo "  [dry-run] would probe each getff python check once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
+    return 0
+  fi
+
+  echo "▶ arming getff's python checks: each runs once on your code; only a green one blocks"
+  local _py_armed=() _py_not=() _c _tool _cfg _rc _why
+  local _log _cache
+  _log=$(mktemp) || _log=""
+  # ruff's cache: the probe is the tree's first write-shaped touch — keep it out of the consumer
+  # tree the way the firing self-check keeps its files in an OS temp dir (the STOP line arm (1)
+  # of python-entry-lane.test.sh asserts). RUFF_CACHE_DIR moves it aside; the RECORDED command
+  # stays the byte-exact string the hook and CI run.
+  _cache=$(mktemp -d) || _cache=""
+  while IFS=$'\t' read -r _c _tool _cfg; do
+    [ -n "$_c" ] || continue
+    _uvx_proved=""
+    # Tool discovery mirrors the HOOK's own view (pre-push.sh: command -v ast-grep / ruff), so a
+    # check armed here is one the hook can actually run at push time — the self-check's uvx/sg
+    # routes prove the rules but cannot arm a command the hook cannot execute.
+    if [ -n "$_cfg" ] && [ ! -f "$PROJECT_ROOT/$_cfg" ]; then
+      _why="not wired: $_cfg is missing"
+    elif ! command -v "$_tool" >/dev/null 2>&1; then
+      _why="not wired: $_tool is not on PATH"
+      # Q4.7 (install-no-manual-step Y5): a tool the lane's own uvx route just proved (the firing
+      # self-check fetched and ran it) is wired — through uvx — for every gate but the hook's
+      # direct execution, which is exactly what the record line below mirrors. Such a tool must
+      # not carry a NOT-wired line: only a tool with no PATH binary AND no working uvx fetch does.
+      _uvx_proved=""
+      if command -v uvx >/dev/null 2>&1; then
+        _uv_ver=""
+        case "$_tool" in
+          ast-grep) _uv_ver=$(uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null || true) ;;
+          ruff)     _uv_ver=$(uvx ruff@0.15.21 --version 2>/dev/null || true) ;;
+        esac
+        case "$_tool" in
+          ast-grep) if grep -qi 'ast-grep' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+          ruff)     if grep -qi 'ruff' <<<"${_uv_ver:-}"; then _uvx_proved=1; fi ;;
+        esac
+      fi
+    else
+      _rc=0
+      # ${_log:-/dev/null}, not ${_log:?}: an empty log (mktemp failed — TMPDIR exhausted) must
+      # degrade THIS probe's reason to «exits <rc> at install», not abort the whole lane mid-arm
+      # (set -u turns :? into an install death — the check would end up neither armed nor recorded).
+      if [ -n "$_cache" ]; then
+        ( cd "$PROJECT_ROOT" && RUFF_CACHE_DIR="$_cache" bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
+      else
+        ( cd "$PROJECT_ROOT" && bash -c "$_c" ) > "${_log:-/dev/null}" 2>&1 || _rc=$?
+      fi
+      if [ "$_rc" -eq 0 ]; then
+        _py_armed+=("$_c")
+        echo "  ✓ armed: $_c"
+        continue
+      fi
+      _why=$(_py_check_not_armed_why "$_c" "$_rc" "${_log:-/dev/null}")
+    fi
+    _py_not+=("$_c # $_why")
+    if [ -n "${_uvx_proved:-}" ]; then
+      echo "  · not armed: $_c — $_why (uvx route live: the CI gate runs it; the hook runs only PATH-resolved checks)"
+      continue
+    fi
+    echo "  · not armed: $_c — $_why"
+    # Q4.7 (NOT-wired summary): every line names what was left undone and why — a check that
+    # does not block is wired only in part, so the lane's summary says so; the record line above
+    # is the machine-readable half.
+    note_not_wired "pre-push check \`$_c\` — not armed: $_why"
+  done <<'EOF'
+ast-grep scan	ast-grep
+ruff check .	ruff
+ruff check . --config .getff/ruff-bans.toml --no-cache	ruff	.getff/ruff-bans.toml
+EOF
+  [ -z "$_log" ] || rm -f "$_log"
+  [ -z "$_cache" ] || rm -rf "$_cache"
+
+  local _body="### How this project checks itself (recorded by install.sh)
+stack: python
+armed:"
+  for _c in ${_py_armed[@]+"${_py_armed[@]}"}; do _body="$_body
+- $_c"; done
+  _body="$_body
+not-armed:"
+  for _c in ${_py_not[@]+"${_py_not[@]}"}; do _body="$_body
+- $_c"; done
+  if record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "$_body"; then
+    # The runner ships only behind a written record (the record's readers need it, but a reader
+    # without a record is the worse half): a consumer whose .ai-factory/ is read-only, or a disk
+    # mid-ENOSPC, keeps the hook's loud direct fallback — noisy but functional — instead of a hook
+    # that die-louds «no readable record» on every push with nothing to restore to. Framework-
+    # owned → _py_copy_or_refresh (--refresh overwrites; .override.md honoured).
+    _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+    chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+    echo ""
+    echo "How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):"
+    printf '%s\n' "$_body" | sed -n '2,$p' | sed 's/^/    /'
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, and scripts/run-armed.sh not delivered with it (the pre-push hook keeps its direct, record-less fallback; fix the write failure, then install.sh python --refresh delivers both)"
+  fi
 }
 
 # _py_deliver_local_hook_rung — D-S2b (getff-any-stack-trace-s2b): close the python lane's empty

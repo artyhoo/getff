@@ -37,7 +37,7 @@ retitled in one render alone fails the check rather than quietly forking.
 
 ## §2 First Steps
 
-Three sequences, one per install depth. Run the one matching the depth you installed. If you do
+The three depth sequences below are for npm framework layers. Python/cargo/Go installations use §2.4 instead, at every profile. A profile flag alone does not deliver npm skills or scripts on a toolchain lane. If you do
 not know: `env` is the default, `core` is the rules-only depth below it and puts neither
 `.ai-factory/tier-home.md` nor `.claude/skills/arch/` on disk, and `factory` additionally puts
 `.claude/skills/dispatcher/` there.
@@ -52,13 +52,13 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    resolves to `env` depth, not `core` (`install.sh:648`).
    Non-npm projects take a separate toolchain lane, each an explicit positional argument:
    `./setup python`, `./setup cargo`, `./setup go` (or `bash install.sh <lane>`). Those lanes
-   early-exit before the npm `package.json` precondition, so they need no `package.json` at all.
+   need no `package.json`; continue with §2.4 rather than the npm steps below.
 
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls AGENTS.md .ai-factory/ scripts/`. You should see
    `AGENTS.md`, `.ai-factory/{DESCRIPTION.md,ARCHITECTURE.md,RULES.md}` and
-   `scripts/audit-ai-docs.sh`. A missing file means the install did not finish.
+   `scripts/audit-ai-docs.sh`. On an npm stack layer, a missing required payload means the install did not finish. On a toolchain lane, use §2.4's payload list.
 
 <!-- step: fill-passport -->
 
@@ -87,9 +87,7 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`,
    `**/controllers/**`, `**/app/api/**`, `**/actions/**`) and run `npm run lint` — RED from
    `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire
-   only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run
-   `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var("X")`, run
-   `cargo clippy`; go — add `os.Getenv("X")`, run `golangci-lint run`.
+   only under `AIF_STRICT_RUNTIME=1`). Toolchain lanes use the selected native configuration and proof steps in §2.4.
 
 <!-- step: run-the-gate -->
 
@@ -110,10 +108,7 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 1. **Install at env depth** — `bash <getff>/install.sh <stack> --profile env`. Already on core?
    Re-run that same command: the deeper payload is added and every core artefact stays
-   byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach
-   for `--refresh` to upgrade — it re-delivers fixes to what you already have and does not
-   reliably deepen an install: on a `core` project `--refresh --profile env` exits 0 while
-   `tier-home.md` and `.claude/skills/arch/` stay absent.
+   byte-identical except `.prettierignore`, whose managed block gains the new paths. An explicit `--refresh --profile env` also opts into deeper delivery; bare `--refresh` preserves existing depth.
 
 <!-- step: verify-payload -->
 
@@ -191,12 +186,75 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    the finished branch back with `/harvest`. If a task stalls or the runtime misbehaves,
    `/aif-doctor` is the diagnostic entry point.
 
+### §2.4 Toolchain lanes — native verification at every profile
+
+`python`, `cargo` and `go` are separate installed layers. They do not deliver the npm audit/glob/fences scripts, Husky bundle, or npm env/factory skill roster. A successful lane install is complete without those files. A `generic` stack-free layer likewise has no ESLint gates; run its delivered docs audit.
+
+Run the lane's block from your project root with its tools installed. Missing tools are **not proven**, never a passing firing check. Check the install log's planted-violation RED and clean-control GREEN results; then introduce one violation in your own source, observe the native gate fail, remove it, and re-run clean. These blocks use the delivered config, including collision-reference files, rather than claiming that a parked config already governs your project.
+
+#### Python
+
+Verify the context and native payload, fill placeholders in `.ai-factory/DESCRIPTION.md`, then run:
+
+```bash
+set -e
+test -f AGENTS.md
+test -f .ai-factory/DESCRIPTION.md
+test -f .ai-factory/ARCHITECTURE.md
+test -f .ai-factory/RULES.md
+test -d .getff/astgrep-rules
+test -f .getff/ruff-bans.toml
+for getff_rule in .getff/astgrep-rules/*.yml; do
+  test -f "$getff_rule"
+  ast-grep scan --rule "$getff_rule" .
+done
+ruff check .
+ruff check . --config .getff/ruff-bans.toml --no-cache
+```
+
+The explicit rule loop also checks delivered bans when a kept consumer `sgconfig.yml` could not be augmented. Bare `ast-grep scan` proves getff enforcement only after those rule directories are wired into that config.
+
+Plant `eval("1 + 1")` to exercise the ast-grep ban, or `from datetime import datetime` followed by `datetime.utcnow()` for Ruff's TID251 ban. Python delivers `scripts/check-zcode-mirror.sh`, four skills (`getff`, `tool-bootstrapping`, `rule-research`, `rule-tests`) and two agents (`rule-researcher`, `rule-test-author`). Continue into `/rule-research`, or read `.claude/agents/rule-researcher.md`. Its hook is `.getff/hooks/pre-push` when activation was allowed; read the install log for kept/disabled/degraded hooks. No `ai-doc`, `template-audit`, audit sidecars or tier-home are promised by this lane.
+
+#### Cargo
+
+Cargo installs configuration, the `.getff/Cargo.lints.toml` severity projection when applicable, a workflow and a rules lock; it installs no AGENTS/passport/skill surface. Select the delivered getff bans in an isolated config directory so a kept consumer `clippy.toml` is not overwritten:
+
+```bash
+set -e
+test -f .github/workflows/getff-cargo.yml
+clippy_config_dir=$(mktemp -d)
+trap 'rm -rf "$clippy_config_dir"' EXIT
+if [ -f getff-clippy.toml ]; then
+  cp getff-clippy.toml "$clippy_config_dir/clippy.toml"
+else
+  cp clippy.toml "$clippy_config_dir/clippy.toml"
+fi
+CLIPPY_CONF_DIR="$clippy_config_dir" cargo clippy --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros
+```
+
+Plant `std::env::var("X")` in your Rust source and verify a nonzero exit naming the disallowed-methods rule, then remove it. A `getff-clippy.toml` reference alone does not configure ordinary Clippy; keep selecting or integrate these bans before treating your ordinary gate as enforcement.
+
+#### Go
+
+Go installs configuration, a workflow and a rules lock; it installs no AGENTS/passport/skill surface. Prefer the collision reference when present:
+
+```bash
+set -e
+test -f .github/workflows/getff-go.yml
+getff_go_config=.golangci.yml
+[ ! -f getff-golangci.yml ] || getff_go_config=getff-golangci.yml
+test -f "$getff_go_config"
+golangci-lint run --enable forbidigo --config "$getff_go_config" ./...
+```
+
+Plant `os.Getenv("X")` in Go source and verify forbidigo fails, then remove it. For cargo/Go, research new bans through the native configuration workflow; do not invoke absent rule-research agents. Existing project tests remain yours to run and wire into CI.
+
 ---
 
 ## §3 Daily cycle
 
-The steady-state loop once First Steps is done. Every command below is shipped by the installer at
-**every** depth — nothing here needs a companion tool.
+On toolchain-only installs, use §2.4's native checks before edits, commits and PRs, and your own tests. Read the installed context when present (Python); cargo/Go have no framework context doc. The loop below describes npm stack layers at every npm depth, and only their delivered gates.
 
 1. **Before you edit** — read `AGENTS.md`, then the `.ai-factory/` doc it points at for your task
    (`RULES.md` for what is enforced, `ARCHITECTURE.md` for layer direction).
@@ -217,7 +275,7 @@ The steady-state loop once First Steps is done. Every command below is shipped b
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
    account exhausts its private-repo Actions-minutes pool, every first-party check fails in ~2 s
    with zero steps. `bash scripts/ci-available-probe.sh` (shipped on npm-lane installs only —
-   python/go/cargo installs ship no `scripts/` by construction) classifies that state as
+   toolchain lanes ship no npm audit scripts; Python ships its ZCode mirror check) classifies that state as
    `CI UNAVAILABLE` instead of misreporting RED; `bash scripts/pre-merge-local.sh` runs every
    detected lane's gates on the merge result locally before you push (opt-in; weaker evidence
    than CI — its verdict says so and lists what it does NOT cover).
@@ -228,7 +286,7 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 rule is named there. If a rule seems wrong for this project, change it there with a rationale in
 the PR — never silence it with an inline suppression you cannot explain.
 
-### §3.1 Monorepo, brownfield-CI and per-package-config caveats
+### §3.1 Npm monorepo, brownfield-CI and per-package-config caveats
 
 `AGENTS.md` points here for these. They are the cases where a gate is installed but does **not**
 govern what you think it governs — a silently-inert check is worse than an absent one.
@@ -261,11 +319,11 @@ every package present at install time). Re-run the check after any `npm`/`pnpm i
 ## §4 Degradations — what still works when a capability is absent
 
 **This guide does not restate the matrix.** The authoritative criteria and the per-capability
-degradation rows live in **`.ai-factory/tier-home.md` §3** — one file, one owner. Read it there.
+degradation rows live in **`.ai-factory/tier-home.md` §3** when that npm contour is installed. Read it only when the file exists; native-only Python profiles do not deliver it.
 
 Two things worth knowing before you open it:
 
-- The doc installs at `env` and `factory` depth only. On a `core` install it is **absent by
+- The doc installs at npm `env` and `factory` depth only. On npm `core`, and on Python at every profile, it is **absent by
   design**, because tier routing presupposes the multi-model contour that `core` does not ship.
 - Its §3 rows are authored against current evidence and each names the probe class that will
   validate it later; the doc says so itself. Read the rows as evidenced claims, not as

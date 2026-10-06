@@ -538,7 +538,7 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (setup.d/lib.sh:1697,1733 — the shared lock writer). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1697,1739 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json

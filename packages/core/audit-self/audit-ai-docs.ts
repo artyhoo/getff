@@ -20,6 +20,7 @@
  *   D3  Goal-phrase parity       → probeD3() — includes() check on prose text; a pointer doc (GOAL_POINTER_DOCS) may link the goal instead (authoring repo only; consumer installs skip — see isAuthoringRepo)
  *   D4  Tool-decisions staleness → probeD4() — mtime comparison
  *   D5  Inverse-completeness     → probeD5() — includes() grep over git's view of the repo (tracked + untracked-not-ignored) + exemption list (authoring repo only; consumer installs skip — see isAuthoringRepo)
+ *   D6  Passport goal region     → probeD6() — the consumer's own marked region (fences + sub-block headings; all modes; HO-4)
  *
  * skip_unless R4 — active probe (probeR4 function below); all others delegated or manual.
  *
@@ -533,6 +534,68 @@ function walkFiles(cwd: string): string[] {
   return results;
 }
 
+// ─── D6: Passport goal region ────────────────────────────────────────────────
+/**
+ * D6 probe: .ai-factory/DESCRIPTION.md carries the getff-owned marked goal
+ * region (HO-4 shell-twin re-source, one-button w2 docs hand-over). The region
+ * is the passport's goal source of truth (HO-5): ONE outer fence with five
+ * marked sub-blocks. This probe checks THE CONSUMER'S REGION — never getff's
+ * own goal phrase (that parity stays D3/D5, authoring-only).
+ *
+ * Verdicts (mirrors probe_D6 in audit-ai-docs.sh):
+ *   PASS  both fences + all five sub-block headings present (fresh installs
+ *         pass with unfilled placeholders — the scaffolding is what is gated).
+ *   FAIL  the shipped sibling template still carries the region but the
+ *         passport lost a fence or a sub-block heading.
+ *   WARN  no passport at all, or a pre-region passport whose shipped template
+ *         is also region-less (brownfield — adoption is a re-run, not a red).
+ *
+ * SSOT: merge_fenced fence grammar (setup.d/lib.sh) — the same marker lines the
+ * docs engine (stage B) will merge on refresh.
+ */
+export const PASSPORT_REGION_BEGIN  = '<!-- getff:begin section=passport -->';
+export const PASSPORT_REGION_END    = '<!-- getff:end section=passport -->';
+export const PASSPORT_REGION_SUBBLOCKS = [
+  '### Goal scope',
+  '### Goal core',
+  '### Invariants',
+  '### Never',
+  '### Non-goals',
+] as const;
+
+export function probeD6(cwd: string): { result: ProbeLevel; message: string; details: string[] } {
+  const RULE = 'D6 (drift): .ai-factory/DESCRIPTION.md carries the getff-owned passport region';
+  const passportPath = join(cwd, '.ai-factory/DESCRIPTION.md');
+  if (!existsSync(passportPath)) {
+    return { result: 'warn', message: `${RULE} (no passport — nothing to check; install.sh materializes it)`, details: [] };
+  }
+  const passport = readFileSync(passportPath, 'utf8');
+  const missing: string[] = [];
+  if (!passport.includes(PASSPORT_REGION_BEGIN)) missing.push('  begin marker missing');
+  if (!passport.includes(PASSPORT_REGION_END)) missing.push('  end marker missing');
+  for (const heading of PASSPORT_REGION_SUBBLOCKS) {
+    if (!passport.includes(heading)) missing.push(`  sub-block '${heading}' missing`);
+  }
+  if (missing.length === 0) {
+    return { result: 'pass', message: RULE, details: [] };
+  }
+  const templatePath = join(cwd, '.ai-factory/DESCRIPTION.template.md');
+  const templateHasRegion = existsSync(templatePath)
+    && readFileSync(templatePath, 'utf8').includes(PASSPORT_REGION_BEGIN);
+  if (templateHasRegion) {
+    return {
+      result: 'fail',
+      message: `${RULE} — the passport lost its marked goal region while the shipped template still carries it`,
+      details: missing,
+    };
+  }
+  return {
+    result: 'warn',
+    message: `${RULE} — pre-region passport (installed before the marked region existed); re-run install.sh to adopt it`,
+    details: [],
+  };
+}
+
 // ─── Audit result types ───────────────────────────────────────────────────────
 
 export type ProbeLevel = 'pass' | 'fail' | 'warn';
@@ -669,6 +732,12 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
         });
       }
     }
+  }
+
+  // ── D6 ──────────────────────────────────────────────────────────────────────
+  if (!shouldSkip('D6')) {
+    const d6 = probeD6(cwd);
+    results.push({ probe: 'D6', level: d6.result, message: d6.message, details: d6.details });
   }
 
   const passCount = results.filter((r) => r.level === 'pass').length;

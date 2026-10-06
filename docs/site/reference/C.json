@@ -109,7 +109,6 @@
           ".claude/rules/no-paid-llm-in-ci.md",
           ".claude/rules/phase-research-coverage.md",
           ".claude/rules/reviewer-discipline.md",
-          ".claude/skills/night-mode/SKILL.md",
           "agents/compliance-verifier.md",
           "agents/shipped-agent-liveness-prober.md"
         ]
@@ -190,9 +189,7 @@
           ".claude/rules/cold-seat-economy.md",
           ".claude/rules/doc-authority-hierarchy.md",
           ".claude/rules/git-conflict-merge-forward.md",
-          ".claude/skills/dispatcher/SKILL.md",
           ".claude/skills/harvest/SKILL.md",
-          ".claude/skills/night-mode/SKILL.md",
           ".claude/skills/reviewer/SKILL.md",
           "agents/dispatch-input-checker.md",
           "agents/fidelity-auditor.md"
@@ -292,6 +289,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -323,6 +322,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
