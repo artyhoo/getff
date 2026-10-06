@@ -227,6 +227,48 @@ run_v2_arm v2-insufficient-prior-not-authorizing valid "JSON.stringify(loadExamp
 run_v2_arm v2-historical-not-authorizing valid "JSON.stringify(loadExample('historical.json'))" nostate
 run_v2_arm v2-blocking-not-authorizing valid "JSON.stringify(makeV2Review({ findings: [...JSON.parse(loadExample('historical.json')).findings.map((f) => ({ ...f, finding_id: 'F-x', occurrence_id: 'O-x' }))] }))"
 
+# ── SP-3: the policy pins the V2 schema bytes ACTUALLY used ───────────────────
+# The packet's probe: canonical V2 as the pinned primary plus permissive
+# {"type":"object"} operational bytes validated ok — because nothing pinned the
+# operational schema. A V2-era policy must carry schema_v2_sha256 and the bytes
+# validated against must digest to exactly it: mismatched and permissive bytes
+# refuse; the pinless V2-era policy refuses; the canonical bytes pass.
+v2pin_out=$(node --input-type=module -e "
+import { makePolicyFixture } from '$FIX';
+import { makeV2Review, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+import { createHash } from 'node:crypto';
+const canonical = makeV2Review();
+const pin = createHash('sha256').update(V2_SCHEMA_BYTES).digest('hex');
+const pinnedPolicy = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: pin });
+const permissive = Buffer.from(JSON.stringify({ type: 'object' }));
+const r1 = validateReport(JSON.stringify(canonical), { schemaBytesV2: permissive, policy: pinnedPolicy, now: '$NOW' });
+if (!(r1.ok === false && (r1.errors ?? []).some((e) => e.code === 'E_SCHEMA_PIN_V2'))) { console.log('PERMISSIVE-ACCEPTED ' + JSON.stringify((r1.errors ?? []).slice(0, 2))); process.exit(0); }
+const unpinned = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0' });
+const r2 = validateReport(JSON.stringify(canonical), { schemaBytesV2: V2_SCHEMA_BYTES, policy: unpinned, now: '$NOW' });
+if (!(r2.ok === false && (r2.errors ?? []).some((e) => e.code === 'E_SCHEMA_PIN_V2'))) { console.log('UNPINNED-ACCEPTED'); process.exit(0); }
+const r3 = validateReport(JSON.stringify(canonical), { schemaBytesV2: V2_SCHEMA_BYTES, policy: pinnedPolicy, now: '$NOW' });
+if (r3.ok !== true) { console.log('PINNED-CANONICAL-REFUSED ' + JSON.stringify((r3.errors ?? []).slice(0, 2))); process.exit(0); }
+console.log('V2-PIN-OK');
+")
+if [[ "$v2pin_out" != "V2-PIN-OK" ]]; then echo "FAIL[v2-policy-schema-pin] got: $v2pin_out"; fails=$((fails+1)); else echo "ok[v2-policy-schema-pin]"; fi
+
+# a HISTORICAL-mode record that would otherwise qualify (GO ∧ COMPLETE ∧ SUFFICIENT ∧
+# no blocking) is NOT authorizing: a merged source never becomes merge-eligible
+v2hist_out=$(node --input-type=module -e "
+import { makeV2Review, V2_SCHEMA_BYTES } from '$V2FIX';
+import { validateReport } from '$MOD';
+const base = makeV2Review();
+const r = validateReport(JSON.stringify(makeV2Review({
+  review_identity: { ...base.review_identity, mode: 'HISTORICAL', comparison_basis: 'HISTORICAL_PINNED', revisions: { ...base.review_identity.revisions, current_staging_sha: 'a'.repeat(40) } },
+})), { schemaBytesV2: V2_SCHEMA_BYTES, now: '$NOW' });
+const codes = r.errors.concat(r.nonAuthorizing ?? []).map((e) => e.code + ':' + (e.message ?? '')).join('|');
+console.log((r.ok ? 'PASS' : 'FAIL') + '|' + (r.authorizing ? 'AUTH' : 'NONAUTH') + '|' + codes);
+" 2>&1 | tail -1)
+if [[ "$v2hist_out" != "PASS|NONAUTH"*HISTORICAL* ]]; then
+  echo "FAIL[v2-historical-qualifying-not-authorizing] got: $v2hist_out"; fails=$((fails+1))
+else echo "ok[v2-historical-qualifying-not-authorizing]"; fi
+
 # trusted comparisons: live-tuple drift and inventory both directions (V2 identity
 # fields under review_identity — the report is never its own witness)
 run_v2_arm v2-tuple-drift invalid "JSON.stringify(makeV2Review({ review_identity: { ...makeV2Review().review_identity, revisions: { ...makeV2Review().review_identity.revisions, head_sha: 'f'.repeat(40) } } }))"
@@ -254,6 +296,29 @@ const r = validateReport(raw, { schemaBytes, now: '$NOW' });
 console.log(r.ok ? 'PASS' : r.errors.map((e) => e.code).join(','));
 " 2>&1 | tail -1)
 if [[ "$proto_out" != *PROTO_KEY* ]]; then echo "FAIL[proto-key-raw] got: $proto_out"; fails=$((fails+1)); else echo "ok[proto-key-raw]"; fi
+
+# ── DR-R4: fail closed on missing schema bytes ────────────────────────────────
+# a V2 document with NO pinned V2 bytes is refused — the old validator skipped AJV
+# when schemaBytesV2 was absent and accepted schema-less documents as valid
+v2noschema_out=$(node --input-type=module -e "
+import { makeV2Review } from '$V2FIX';
+import { validateReport } from '$MOD';
+const r = validateReport(JSON.stringify(makeV2Review()), { now: '$NOW' });
+console.log((r.ok ? 'PASS' : 'FAIL') + '|' + r.errors.map((e) => e.code).join(','));
+" 2>&1 | tail -1)
+if [[ "$v2noschema_out" != "FAIL|E_SCHEMA"* ]]; then echo "FAIL[v2-missing-schema-bytes-refused] got: $v2noschema_out"; fails=$((fails+1)); else echo "ok[v2-missing-schema-bytes-refused]"; fi
+
+# the CLI fails closed on a V2 document without --schema-v2, and accepts it with it
+V2SCHEMA="$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result-v2.schema.json"
+V2EXAMPLE="$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/examples/positive-go.json"
+cli_no=$(node "$MOD" "$V2EXAMPLE" --schema "$SCHEMA" --now "$NOW" 2>&1); cli_no_status=$?
+if [[ $cli_no_status -eq 0 || "$cli_no" != *E_SCHEMA* ]]; then
+  echo "FAIL[v2-cli-without-schema-refused] exit=$cli_no_status out=$(echo "$cli_no" | tail -1)"; fails=$((fails+1))
+else echo "ok[v2-cli-without-schema-refused]"; fi
+cli_yes=$(node "$MOD" "$V2EXAMPLE" --schema "$SCHEMA" --schema-v2 "$V2SCHEMA" --now "$NOW" 2>&1); cli_yes_status=$?
+if [[ $cli_yes_status -ne 0 || "$cli_yes" != *'"ok":true'* ]]; then
+  echo "FAIL[v2-cli-with-schema-accepts] exit=$cli_yes_status out=$(echo "$cli_yes" | tail -1)"; fails=$((fails+1))
+else echo "ok[v2-cli-with-schema-accepts]"; fi
 
 echo "----"
 if [[ $fails -gt 0 ]]; then echo "FAILURES: $fails"; exit 1; fi

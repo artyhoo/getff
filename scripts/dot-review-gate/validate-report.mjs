@@ -145,12 +145,36 @@ function loadV2Schema(schemaBytes) {
   return validate;
 }
 
-function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInventory } = {}) {
+function validateV2Report(report, { schemaBytesV2, policy, now, currentState, trustedInventory } = {}) {
   void now;
   const errors = [];
   const nonAuthorizing = [];
 
-  if (schemaBytesV2) {
+  // DR-R4: fail closed — a DotPRReviewV2 document is never validated schema-less.
+  // Absent (or wrong-length) V2 bytes are a configuration error, and silently
+  // skipping AJV used to accept documents the pinned contract rejects.
+  if (!schemaBytesV2 || schemaBytesV2.length === 0) {
+    errors.push({ code: 'E_SCHEMA', message: 'a dot-pr-review/2.0.0 document requires the pinned V2 schema bytes — refusing schema-less validation' });
+    return { ok: false, authorizing: false, report, errors, nonAuthorizing };
+  }
+
+  // SP-3: the operational pin. Presence (DR-R4) is not a pin — the packet's probe
+  // validated documents against permissive {"type":"object"} bytes while the policy
+  // pointed at the canonical schema. Whatever bytes flow through here must digest
+  // to the policy's schema_v2_sha256, and a policy that can carry a V2 document
+  // without the pin is a configuration error, not a weaker check.
+  if (policy) {
+    const pinSha = sha256Hex(schemaBytesV2);
+    if (policy.schema_v2_sha256 !== pinSha) {
+      const why = policy.schema_v2_sha256 === undefined
+        ? 'the policy does not pin schema_v2_sha256 — a dot-pr-review/2.0.0 document cannot be validated without an operational schema pin'
+        : `policy pins schema_v2_sha256 ${policy.schema_v2_sha256} but the provided V2 schema bytes digest to ${pinSha}`;
+      errors.push({ code: 'E_SCHEMA_PIN_V2', message: why });
+      return { ok: false, authorizing: false, report, errors, nonAuthorizing };
+    }
+  }
+
+  {
     try {
       const validate = loadV2Schema(schemaBytesV2);
       if (!validate(report)) {
@@ -216,14 +240,20 @@ function validateV2Report(report, { schemaBytesV2, now, currentState, trustedInv
     }
   }
 
+  // Only an OPEN_PR review can authorize a merge: a HISTORICAL record describes an
+  // already-merged source and never becomes merge-eligible; a FOLLOW_UP routes
+  // corrective work. The record itself stays a valid, acceptable document.
+  const mode = report?.review_identity?.mode;
   const authorizing =
     report?.record_type === 'review_report' &&
+    mode === 'OPEN_PR' &&
     report?.verdict?.outcome === 'GO' &&
     report?.assessments?.system_coverage === 'COMPLETE' &&
     report?.assessments?.prior_review_sufficiency === 'SUFFICIENT' &&
     !(report?.findings ?? []).some((f) => f?.blocking === true);
   if (!authorizing && report?.record_type === 'review_report') {
     const why = [
+      mode !== 'OPEN_PR' && `mode ${mode ?? 'absent'} — only an OPEN_PR review authorizes a merge`,
       report?.verdict?.outcome !== 'GO' && `verdict ${report?.verdict?.outcome}`,
       report?.assessments?.system_coverage !== 'COMPLETE' && `coverage ${report?.assessments?.system_coverage}`,
       report?.assessments?.prior_review_sufficiency !== 'SUFFICIENT' && `prior review ${report?.assessments?.prior_review_sufficiency}`,
@@ -438,19 +468,21 @@ export function cli(argv) {
     return i >= 0 ? args[i + 1] : undefined;
   };
   const schemaPath = opt('--schema');
+  const schemaV2Path = opt('--schema-v2');
   const policyPath = opt('--policy');
   const now = opt('--now');
   if (!file || !schemaPath) {
-    console.error('usage: node validate-report.mjs <report.json> --schema <schema.json> [--policy <policy.json>] [--now <ISO>]');
+    console.error('usage: node validate-report.mjs <report.json> --schema <schema.json> [--schema-v2 <v2-schema.json>] [--policy <policy.json>] [--now <ISO>]');
     return 2;
   }
   const { readFileSync } = require('node:fs');
   const text = readFileSync(file, 'utf8');
   const schemaBytes = readFileSync(schemaPath);
+  const schemaBytesV2 = schemaV2Path ? readFileSync(schemaV2Path) : undefined;
   const policy = policyPath ? JSON.parse(readFileSync(policyPath, 'utf8')) : undefined;
-  const result = validateReport(text, { schemaBytes, policy, now });
+  const result = validateReport(text, { schemaBytes, schemaBytesV2, policy, now });
   if (result.ok) {
-    console.log(JSON.stringify({ ok: true, authorizing: result.authorizing, kind: result.report?.kind, verdict: result.report?.verdict, completion: result.report?.completion }));
+    console.log(JSON.stringify({ ok: true, authorizing: result.authorizing, kind: result.report?.kind ?? result.report?.record_type, verdict: result.report?.verdict, completion: result.report?.completion }));
     return 0;
   }
   console.log(JSON.stringify({ ok: false, errors: result.errors }, null, 2));

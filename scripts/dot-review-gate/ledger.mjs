@@ -27,6 +27,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { copyFileSync } from 'node:fs';
+import { evaluateReadiness } from './readiness.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS generations (
@@ -123,6 +124,38 @@ CREATE TABLE IF NOT EXISTS retry_reservations (
   max INTEGER NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS coord_actions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  target TEXT NOT NULL,
+  payload_digest TEXT NOT NULL,
+  state TEXT NOT NULL,
+  intent_at TEXT NOT NULL,
+  delivered_at TEXT,
+  acked_at TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS work_claims (
+  id TEXT PRIMARY KEY,
+  item_key TEXT UNIQUE NOT NULL,
+  kind TEXT,
+  reserved_at TEXT NOT NULL,
+  lease_expires_at TEXT NOT NULL,
+  state TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS pr_registrations (
+  pr_node_id TEXT PRIMARY KEY,
+  pr_number INTEGER NOT NULL,
+  coordinator TEXT NOT NULL,
+  merge_enabled INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL,
+  registered_at TEXT NOT NULL,
+  reconciled_at TEXT NOT NULL,
+  released_at TEXT,
+  operator_transitions TEXT
+);
 `;
 
 const IN_FLIGHT_STATES = ['DISCOVERED', 'WAITING_MECHANICAL', 'ELIGIBLE', 'CLAIMED', 'REVIEWING', 'SUBMITTED', 'VALIDATING'];
@@ -151,6 +184,29 @@ export function payloadDigest(text) {
 
 // R3: the whole tuple is load-bearing — every field participates in the digest.
 // Explicit nulls keep JSON canonicalization stable for absent optional fields.
+// Resolve the entire attached-review scope before any receipt is written.
+// Authentication grants a role; the challenged generation grants PR authority.
+export function resolveReviewTargets(ledger, generation, record) {
+  const receipt = record?.change_review_receipt;
+  if (!receipt || !Array.isArray(receipt.finding_ids) || receipt.finding_ids.length === 0) return [];
+  const reject = (reason) => { throw code('E_REVIEW_SCOPE', reason); };
+  const identity = record.review_identity;
+  let tuple;
+  try { tuple = JSON.parse(generation?.tuple_json); } catch { reject('review generation has no trusted tuple'); }
+  if (!generation || generation.state === 'SUPERSEDED'
+    || identity?.repository?.id !== generation.repository_id
+    || identity?.pull_request?.node_id !== generation.pr_node_id
+    || receipt.reviewed_revision !== tuple.head_sha) reject('attached review does not match its challenged PR/revision');
+  return receipt.finding_ids.map((key) => {
+    const occurrence = ledger.lineage(key).at(-1);
+    if (!occurrence || occurrence.repository_id !== generation.repository_id
+      || occurrence.pr_node_id !== generation.pr_node_id || occurrence.state !== 'VERIFYING') reject(`finding ${key} is outside the current verification scope`);
+    const fix = ledger.receiptsFor(occurrence.id).filter(r => r.kind === 'fix_response').at(-1);
+    if (!fix || fix.revision !== receipt.reviewed_revision) reject(`finding ${key} has no applicable fix on the reviewed revision`);
+    return occurrence;
+  });
+}
+
 export function tupleDigest(t) {
   const canon = JSON.stringify({
     repository_id: t.repository_id,
@@ -176,6 +232,9 @@ function isTerminal(state) {
 // itself (lease expiry is not cessation) — replacement requires an explicit revoke.
 const FINDING_OPEN_STATES = ['OPEN', 'ASSIGNED', 'ACKNOWLEDGED', 'VERIFYING', 'DECISION_REQUIRED'];
 const RECEIPT_KINDS = ['fix_response', 'check_receipt', 'change_review', 'dot_closure', 'closure', 'revoke'];
+// SP-6: verdicts that AFFIRM a fix on a change_review receipt — an absent verdict
+// is the legacy/minted shape, anything else (REVISE, opaque strings) holds closure
+const AFFIRMATIVE_REVIEW_VERDICTS = ['GO', 'RESOLVED', 'APPROVED', 'SATISFIED'];
 const CLOSURE_DISPOSITIONS = ['VERIFIED', 'ALREADY_FIXED', 'NOT_APPLICABLE', 'REJECTED_WITH_EVIDENCE'];
 
 function code(name, message) {
@@ -188,6 +247,24 @@ export function openLedger(dbPath, { faultAfter } = {}) {
   const db = new DatabaseSync(dbPath);
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  // additive migrations for ledgers created by earlier revisions of this module
+  // (fresh databases already carry every column via SCHEMA)
+  const ensureColumn = (table, column, ddl) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!cols.includes(column)) db.exec(ddl);
+  };
+  ensureColumn('finding_receipts', 'actor', 'ALTER TABLE finding_receipts ADD COLUMN actor TEXT');
+  ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
+  ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
+  ensureColumn('reports', 'superseded_at', 'ALTER TABLE reports ADD COLUMN superseded_at TEXT');
+  // SP-5/ST-1: the ORIGINAL bounded payload text of a coordination action — the
+  // digest alone could not survive a crash-before-write restart
+  ensureColumn('coord_actions', 'payload_text', 'ALTER TABLE coord_actions ADD COLUMN payload_text TEXT');
+  ensureColumn('reports', 'envelope_digest', 'ALTER TABLE reports ADD COLUMN envelope_digest TEXT');
+  ensureColumn('reports', 'envelope_bytes', 'ALTER TABLE reports ADD COLUMN envelope_bytes TEXT');
+  ensureColumn('reports', 'received_via', 'ALTER TABLE reports ADD COLUMN received_via TEXT');
+  ensureColumn('outbox', 'claimed_at', 'ALTER TABLE outbox ADD COLUMN claimed_at TEXT');
+  ensureColumn('outbox', 'attempts', 'ALTER TABLE outbox ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   const now = () => new Date().toISOString();
 
   // node:sqlite has no better-sqlite3-style .transaction() helper — run the explicit
@@ -289,6 +366,180 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     return db.prepare('SELECT * FROM outbox WHERE id = ?').get(info.lastInsertRowid);
   };
 
+  // closure gate shared by recordClosure and applyClosureReceipt (increment 5) —
+  // runs INSIDE a caller's transaction; see recordClosure for the evidence contract
+  const closureTx = ({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis }) => {
+    if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
+      throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
+    }
+    const tail = db.prepare(
+      'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+    ).get(findingKey);
+    if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
+    if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', 'latest occurrence is already resolved');
+    const receipts = db.prepare(
+      'SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid',
+    ).all(tail.id);
+    const fixIdx = receipts.findLastIndex((r) => r.kind === 'fix_response');
+    const lastFix = fixIdx >= 0 ? receipts[fixIdx] : undefined;
+    const afterFix = fixIdx >= 0 ? receipts.slice(fixIdx + 1) : [];
+    const checkConclusion = (r) => {
+      try { return JSON.parse(r.payload)?.conclusion; } catch { return undefined; }
+    };
+    if (disposition === 'VERIFIED') {
+      if (!lastFix) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a recorded fix response');
+      const fixOwner = lastFix.actor ?? null;
+      const fixRev = lastFix.revision ?? null;
+      if (!fixRev) throw code('E_NOT_RESOLVABLE', 'the latest fix response lacks a revision — evidence cannot be bound to it');
+      if (revision !== undefined && revision !== null && revision !== fixRev) {
+        throw code('E_NOT_RESOLVABLE', `closure revision "${revision}" does not match the latest fix revision "${fixRev}"`);
+      }
+      if (verifier && fixOwner && verifier === fixOwner) {
+        throw code('E_NOT_RESOLVABLE', 'the fix owner cannot verify their own closure');
+      }
+      // R3-2: the fix's own unresolved scope is a hold — a fix response that names
+      // unresolved items (e.g. "F-001 remains unfixed") cannot be closed over them,
+      // no matter what later receipts assert.
+      let fixPayload = {};
+      try { fixPayload = JSON.parse(lastFix.payload ?? '{}') ?? {}; } catch { fixPayload = {}; }
+      if (Array.isArray(fixPayload.unresolved_items) && fixPayload.unresolved_items.length > 0) {
+        throw code('E_NOT_RESOLVABLE', `the latest fix response declares ${fixPayload.unresolved_items.length} unresolved item(s) — unresolved scope holds closure`);
+      }
+      // SP-7 (Dot D2065-S03): mechanical evidence aggregates BY CHECK IDENTITY.
+      // Taking the last check receipt across all contexts let a passing lint run
+      // recorded after a failing tests run close the finding. The trusted
+      // required-check set is evaluated per identity: the latest result of EACH
+      // required context must be a success on the fix revision — missing, failed
+      // or stale holds; only a newer run of the SAME check supersedes its own
+      // earlier failure.
+      if (!Array.isArray(requiredContexts) || requiredContexts.length === 0) {
+        throw code('E_CONFIG', 'VERIFIED closure requires the trusted required-check context set (requiredContexts) — without it a passing unrelated check can mask a failing required one');
+      }
+      if (requiredChecks) {
+        if (!checkBasis || checkBasis.head_sha !== fixRev) throw code('E_NOT_RESOLVABLE', 'current check basis is not the fix revision');
+        const liveReady = evaluateReadiness({ mechanical_contexts: requiredChecks }, checkBasis);
+        if (!liveReady.ready) throw code('E_NOT_RESOLVABLE', `current required checks do not qualify: ${liveReady.blocking.map(b => `${b.context ?? 'basis'}:${b.code}`).join(', ')}`);
+        const checks = afterFix.filter(r => r.kind === 'check_receipt').flatMap(r => {
+          let p; try { p = JSON.parse(r.payload); } catch { return []; }
+          if (p.source !== 'github-webhook' || p.basis_digest !== tupleDigest(checkBasis)) return [];
+          return [{ ...p, sha: r.revision }];
+        });
+        const ready = evaluateReadiness({ mechanical_contexts: requiredChecks }, { ...checkBasis, checks });
+        if (!ready.ready) throw code('E_NOT_RESOLVABLE', `required mechanical identities are not current: ${ready.blocking.map(b => `${b.context ?? 'basis'}:${b.code}`).join(', ')}`);
+      }
+      const latestByContext = new Map();
+      for (const r of afterFix) {
+        if (r.kind !== 'check_receipt') continue;
+        let p;
+        try { p = JSON.parse(r.payload) ?? {}; } catch { p = {}; }
+        // R3-2/§11: only TRUSTED check receipts — recorded through the HMAC-verified
+        // GitHub webhook boundary (source: 'github-webhook') — can satisfy a required
+        // context. An executor-asserted success (mechanical_receipts on a fix record)
+        // is an assertion, not check evidence; it stays visible on the occurrence but
+        // never qualifies a required check.
+        if (p.source !== 'github-webhook') continue;
+        const identity = typeof p.context === 'string' ? p.context : null;
+        // afterFix is rowid-ordered — last write per identity IS the latest run
+        latestByContext.set(identity, r);
+      }
+      for (const ctx of requiredChecks ? [] : requiredContexts) {
+        const latest = latestByContext.get(ctx);
+        if (!latest) {
+          throw code('E_NOT_RESOLVABLE', `VERIFIED requires a "${ctx}" check receipt recorded after the latest fix — a required check with no result is not success`);
+        }
+        if (latest.revision !== fixRev) {
+          throw code('E_NOT_RESOLVABLE', `the latest "${ctx}" check ran on "${latest.revision}", not the fix revision "${fixRev}"`);
+        }
+        const conclusion = checkConclusion(latest);
+        if (conclusion !== 'success') {
+          throw code('E_NOT_RESOLVABLE', `the latest "${ctx}" check after the fix is "${conclusion ?? 'opaque'}" — VERIFIED requires success`);
+        }
+      }
+      // SP-6 + R3-2: existence is not affirmation — the LATEST independent change
+      // review and the LATEST Dot closure receipt on the fix revision must each be
+      // affirmative (a newer negative invalidates an older positive), and the Dot
+      // receipt carries no unresolved blockers. The canonical change_review receipt
+      // has NO verdict field, so an absent outcome is NOT an approval: only an
+      // authenticated reviewer submission (the intake's review_report, whose
+      // verdict.outcome the trusted consumer records) can carry a structured
+      // outcome; executor-supplied receipts record verdict null and hold.
+      const independentReviews = afterFix.filter((r) =>
+        r.kind === 'change_review' && r.actor && r.actor !== fixOwner && r.revision === fixRev);
+      const latestReview = independentReviews.at(-1);
+      if (!latestReview) {
+        throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an independent change review of the fix revision recorded after the fix (self-reviews and pre-fix reviews do not count)');
+      }
+      let reviewVerdict;
+      try { reviewVerdict = JSON.parse(latestReview.payload)?.verdict; } catch { reviewVerdict = undefined; }
+      if (reviewVerdict == null || !AFFIRMATIVE_REVIEW_VERDICTS.includes(reviewVerdict)) {
+        throw code('E_NOT_RESOLVABLE', reviewVerdict == null
+          ? 'the current independent change review carries no authenticated outcome — VERIFIED requires an explicit affirmative verdict (executor-supplied review text is evidence content, not authority)'
+          : `the current independent change review is "${reviewVerdict}" — VERIFIED requires an affirmative verdict (${AFFIRMATIVE_REVIEW_VERDICTS.join('/')})`);
+      }
+      const dotReceiptsOnFix = afterFix.filter((r) => r.kind === 'dot_closure' && r.revision === fixRev);
+      const latestDot = dotReceiptsOnFix.at(-1);
+      if (!latestDot) {
+        throw code('E_NOT_RESOLVABLE', 'VERIFIED requires an applicable dot_closure receipt on the fix revision recorded after the fix');
+      }
+      let dotPayload = {};
+      try { dotPayload = JSON.parse(latestDot.payload) ?? {}; } catch { dotPayload = {}; }
+      // R3-2: an opaque receipt without a disposition is unknown evidence — unknown
+      // holds (fail closed), it does not pass.
+      if (dotPayload.disposition !== 'VERIFIED') {
+        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt is "${dotPayload.disposition ?? 'opaque (no disposition)'}" — VERIFIED requires the current applicable affirmative resolution`);
+      }
+      if (Array.isArray(dotPayload.blockers) && dotPayload.blockers.length > 0) {
+        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt carries unresolved blockers (${dotPayload.blockers.length}) — VERIFIED requires none`);
+      }
+    } else if (disposition === 'ALREADY_FIXED') {
+      // SP-6 + R3-2/§11: the verification basis is an IDENTIFIED TRUSTED check on a
+      // revision — an anonymous or executor-asserted success asserts nothing
+      const shown = receipts.some((r) => {
+        if (r.kind !== 'check_receipt' || checkConclusion(r) !== 'success' || !r.revision) return false;
+        let p;
+        try { p = JSON.parse(r.payload) ?? {}; } catch { return false; }
+        if (p.source !== 'github-webhook') return false;
+        return typeof p.context === 'string' && p.context.length > 0;
+      });
+      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful TRUSTED check receipt that identifies its check context and revision — an anonymous or executor-asserted success is not evidence');
+    } else {
+      // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions.
+      // SP-6: the evidence must carry a principal; an anonymous receipt asserts
+      // nothing about the world.
+      const evidenced = receipts.some((r) =>
+        ['change_review', 'dot_closure', 'check_receipt', 'fix_response'].includes(r.kind) && r.actor);
+      if (!evidenced) throw code('E_NOT_RESOLVABLE', `${disposition} requires at least one evidence receipt carrying a principal on the occurrence`);
+    }
+    const id = randomUUID();
+    db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), verifier ?? null, now());
+    db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
+    // R3-3: closing ONE finding is not proof the worker stopped — the PR's ownership
+    // releases only when no other occurrence of the scope remains actionable (the
+    // FINAL closure is the documented cessation condition). A partial closure keeps
+    // the fence: a second executor cannot take the remaining work.
+    if (tail.repository_id !== null && tail.repository_id !== undefined) {
+      const remaining = db.prepare(
+        `SELECT 1 AS x FROM finding_occurrences
+         WHERE repository_id IS ? AND pr_node_id IS ? AND id != ?
+           AND state NOT IN ('RESOLVED','SUPERSEDED') LIMIT 1`,
+      ).get(tail.repository_id, tail.pr_node_id, tail.id);
+      if (!remaining) {
+        db.prepare(
+          `UPDATE finding_claims SET state = 'REVOKED'
+           WHERE state IN ('ASSIGNED','ACKNOWLEDGED')
+             AND occurrence_id IN (SELECT id FROM finding_occurrences WHERE repository_id IS ? AND pr_node_id IS ?)`,
+        ).run(tail.repository_id, tail.pr_node_id);
+      }
+    } else {
+      db.prepare(
+        `UPDATE finding_claims SET state = 'REVOKED'
+         WHERE state IN ('ASSIGNED','ACKNOWLEDGED') AND occurrence_id = ?`,
+      ).run(tail.id);
+    }
+    return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
+  };
+
   const ledger = {
     dbPath,
 
@@ -350,13 +601,29 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // binding check inside the transaction, and the outbox event in the same tx.
     // assertedGenerationSeq is the INTEGER generation handle the envelope carries
     // (the report schema types generation as a number); it must match the challenge.
+    //
+    // DR-R3: a correctly issued report submitted after the tuple moved (a newer head
+    // landed, the generation was superseded, or the source reached a terminal state)
+    // is preserved as SUPERSEDED HISTORY — superseded_at set, admission false —
+    // instead of being refused. Rejection from admission is not rejection from
+    // storage. The lease refusal still guards claims on a CURRENT tuple (a fresh
+    // review is cheap there); a moved tuple's findings are worth keeping, so the
+    // lease does not destroy them. `liveTupleDigest` is the digest of the CURRENT
+    // repository tuple at submit time; replay always returns the existing receipt.
     submitReport({
       claimId, reviewerId, digest, payload, verdict, kind,
       leaseMinutes, nowMs = Date.now(),
-      expectedTupleDigest, assertedGenerationSeq, outboxDedupKey,
+      liveTupleDigest, assertedGenerationSeq, outboxDedupKey,
+      envelopeBytes, envelopeDigest, receivedVia,
     } = {}) {
       if (!Number.isInteger(leaseMinutes)) {
         throw code('E_LIMITS', 'submitReport requires leaseMinutes');
+      }
+      // the stored provenance bytes are BOUNDED — the same 1 MiB the intake enforces
+      // on the request body; a caller handing more is refused at the persistence
+      // boundary, not silently truncated
+      if (envelopeBytes !== undefined && envelopeBytes.length > 1024 * 1024) {
+        throw code('E_LIMITS', `envelope bytes exceed the 1 MiB store bound (${envelopeBytes.length})`);
       }
       return tx(() => {
         const ch = db.prepare('SELECT * FROM challenges WHERE claim_id = ?').get(claimId);
@@ -367,24 +634,18 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         }
         if (ch.consumed_at) {
           if (ch.payload_digest === digest) {
-            const existing = db.prepare('SELECT id FROM reports WHERE payload_digest = ?').get(digest);
-            return { report_id: existing.id, replayed: true };
+            const existing = db.prepare('SELECT id, superseded_at FROM reports WHERE payload_digest = ?').get(digest);
+            return { report_id: existing.id, replayed: true, superseded: existing.superseded_at != null, admitted: existing.superseded_at == null };
           }
           throw code('E_CONFLICT', 'challenge already consumed with a different payload');
         }
         const gen = db.prepare('SELECT * FROM generations WHERE id = ?').get(ch.generation_id);
-        if (gen.state === 'SUPERSEDED') {
-          throw code('E_SUPERSEDED', 'generation was superseded — the tuple moved during review');
-        }
-        if (isTerminal(gen.state)) {
-          throw code('E_GENERATION_GONE', `generation is ${gen.state} — no new submissions`);
-        }
+        const tupleMoved =
+          gen.state === 'SUPERSEDED' || isTerminal(gen.state) ||
+          (liveTupleDigest !== undefined && liveTupleDigest !== ch.tuple_digest);
         const issuedMs = Date.parse(ch.issued_at);
-        if (Number.isFinite(issuedMs) && nowMs > issuedMs + leaseMinutes * 60 * 1000) {
+        if (!tupleMoved && Number.isFinite(issuedMs) && nowMs > issuedMs + leaseMinutes * 60 * 1000) {
           throw code('E_LEASE_EXPIRED', `claim lease of ${leaseMinutes}min expired`);
-        }
-        if (expectedTupleDigest !== undefined && expectedTupleDigest !== ch.tuple_digest) {
-          throw code('E_TUPLE_MISMATCH', 'current tuple does not match the challenged tuple');
         }
         if (assertedGenerationSeq !== undefined) {
           const asserted = db.prepare('SELECT id FROM generations WHERE seq = ?').get(assertedGenerationSeq);
@@ -392,22 +653,27 @@ export function openLedger(dbPath, { faultAfter } = {}) {
             throw code('E_GENERATION', 'asserted generation does not match the challenged generation');
           }
         }
-        const byDigest = db.prepare('SELECT id FROM reports WHERE payload_digest = ?').get(digest);
-        if (byDigest) return { report_id: byDigest.id, replayed: true };
+        const byDigest = db.prepare('SELECT id, superseded_at FROM reports WHERE payload_digest = ?').get(digest);
+        if (byDigest) return { report_id: byDigest.id, replayed: true, superseded: byDigest.superseded_at != null, admitted: byDigest.superseded_at == null };
+        const superseded = tupleMoved;
         const id = randomUUID();
         db.prepare(
-          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, now());
+          'INSERT INTO reports (id, claim_id, payload_digest, payload, reviewer_id, verdict, kind, superseded_at, envelope_digest, envelope_bytes, received_via, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(id, claimId, digest, payload, reviewerId, verdict, kind, superseded ? now() : null, envelopeDigest ?? null, envelopeBytes ?? null, receivedVia ?? null, now());
         mark('report-insert');
         db.prepare('UPDATE challenges SET consumed_at = ?, payload_digest = ? WHERE claim_id = ?')
           .run(now(), digest, claimId);
-        if (gen.state === 'CLAIMED' || gen.state === 'REVIEWING') {
+        if (!superseded && (gen.state === 'CLAIMED' || gen.state === 'REVIEWING')) {
           db.prepare('UPDATE generations SET state = ?, updated_at = ? WHERE id = ?').run('SUBMITTED', now(), gen.id);
         }
-        outboxEnqueueTx('report.submitted', { report_id: id, digest }, outboxDedupKey ?? `report:${digest}`);
+        outboxEnqueueTx('report.submitted', { report_id: id, digest, superseded }, outboxDedupKey ?? `report:${digest}`);
         mark('outbox-enqueue');
-        return { report_id: id, replayed: false };
+        return { report_id: id, replayed: false, superseded, admitted: !superseded };
       });
+    },
+
+    getReportByDigest(digest) {
+      return db.prepare('SELECT * FROM reports WHERE payload_digest = ?').get(digest);
     },
 
     getReport(id) {
@@ -422,9 +688,18 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // Occurrences are recorded per accepted report; a replay of the SAME report
     // records nothing new (dedup on finding_key + source_report_id). A later report
     // sighting the same key opens a NEW occurrence — lineage is append-only.
+    // Occurrences recorded through a real report chain carry the report's PR scope
+    // (repository_id + pr_node_id from the issuing generation); scopeless rows keep
+    // the legacy per-key behavior. When an active claim exists on an OLDER occurrence
+    // of the key, the assignment rebinds to the NEWEST one (DR-R2): recurrence while
+    // a fixer is active must not admit a second owner nor orphan the active one.
     recordFindings(reportId, findings) {
       return tx(() => {
         let inserted = 0;
+        const rep = db.prepare('SELECT claim_id FROM reports WHERE id = ?').get(reportId);
+        const ch = rep ? db.prepare('SELECT generation_id FROM challenges WHERE claim_id = ?').get(rep.claim_id) : undefined;
+        const gen = ch ? db.prepare('SELECT repository_id, pr_node_id FROM generations WHERE id = ?').get(ch.generation_id) : undefined;
+        const scope = gen ? { repository_id: gen.repository_id, pr_node_id: gen.pr_node_id ?? null } : { repository_id: null, pr_node_id: null };
         for (const f of findings ?? []) {
           if (!f?.key) throw code('E_LIMITS', 'recordFindings requires finding.key');
           const dup = db.prepare(
@@ -432,10 +707,33 @@ export function openLedger(dbPath, { faultAfter } = {}) {
           ).get(f.key, reportId);
           if (dup) continue;
           const ts = now();
+          const id = randomUUID();
           db.prepare(
-            'INSERT INTO finding_occurrences (id, finding_key, source_report_id, requirement, category, severity, blocking, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ).run(randomUUID(), f.key, reportId, f.requirement ?? null, f.category ?? null, f.severity ?? null, f.blocking ? 1 : 0, 'OPEN', ts, ts);
+            'INSERT INTO finding_occurrences (id, finding_key, source_report_id, requirement, category, severity, blocking, repository_id, pr_node_id, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run(id, f.key, reportId, f.requirement ?? null, f.category ?? null, f.severity ?? null, f.blocking ? 1 : 0, scope.repository_id, scope.pr_node_id, 'OPEN', ts, ts);
           inserted += 1;
+          if (scope.repository_id !== null) {
+            const activeClaim = db.prepare(
+              `SELECT c.* FROM finding_claims c
+               JOIN finding_occurrences o ON o.id = c.occurrence_id
+               WHERE o.finding_key = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(f.key);
+            if (activeClaim && activeClaim.occurrence_id !== id) {
+              db.prepare('UPDATE finding_claims SET occurrence_id = ? WHERE assignment_id = ?').run(id, activeClaim.assignment_id);
+              db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run(activeClaim.state, ts, id);
+            }
+          }
+          // R3-4: the new occurrence SUPERSEDES every prior OPEN occurrence of the
+          // key — history is preserved (rows and their receipts stay), but a
+          // superseded occurrence must not become an orphan blocking record, and
+          // recurrence must not silently resolve the still-open newest instance.
+          for (const prev of db.prepare(
+            `SELECT id FROM finding_occurrences WHERE finding_key = ? AND id != ?
+              AND state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')`,
+          ).all(f.key, id)) {
+            db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('SUPERSEDED', ts, prev.id);
+          }
         }
         return { inserted };
       });
@@ -445,6 +743,103 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return db.prepare(
         `SELECT * FROM finding_occurrences WHERE state IN (${FINDING_OPEN_STATES.map(() => '?').join(',')}) ORDER BY rowid`,
       ).all(...FINDING_OPEN_STATES);
+    },
+
+    // SP-4: the PR-scoped open blocking lineage — the journal a publication or
+    // arming boundary composes against. A later GO does not erase these rows.
+    // R3-4: a SUPERSEDED occurrence is history, not an orphan hold — only the
+    // current applicable occurrence of each key blocks.
+    openBlockingFindings(repositoryId, prNodeId) {
+      return db.prepare(
+        `SELECT finding_key, state FROM finding_occurrences
+         WHERE repository_id = ? AND pr_node_id = ? AND blocking = 1
+           AND state NOT IN ('RESOLVED','SUPERSEDED')
+         ORDER BY rowid`,
+      ).all(repositoryId, prNodeId);
+    },
+
+    // Historical findings (increment 7): actionable occurrences whose source report
+    // was recorded against a superseded or terminal generation — the queue's
+    // revalidate-before-remediation population.
+    listHistoricalFindings() {
+      return db.prepare(
+        `SELECT o.* FROM finding_occurrences o
+         JOIN reports r ON r.id = o.source_report_id
+         JOIN challenges c ON c.claim_id = r.claim_id
+         JOIN generations g ON g.id = c.generation_id
+         WHERE o.state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')
+           AND (g.state = 'SUPERSEDED' OR g.state IN ('AUTHORIZED','MERGED','CLOSED','INCOMPLETE'))
+         ORDER BY o.created_at, o.rowid`,
+      ).all();
+    },
+
+    // Reviewed-PR memory (increment 7): a merged PR with a recorded review is not
+    // re-queued. The binding goes through the report's generation tuple.
+    noteReviewedPr(prNodeId) {
+      return tx(() => {
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING',
+        ).run(`reviewed-pr:${prNodeId ?? 'null'}`, now(), now());
+        return { prNodeId, noted: true };
+      });
+    },
+
+    prHasReview(prNodeId) {
+      if (db.prepare('SELECT 1 AS x FROM control WHERE key = ?').get(`reviewed-pr:${prNodeId ?? 'null'}`)) return true;
+      return db.prepare(
+        `SELECT 1 AS x
+         FROM reports r
+         JOIN challenges c ON c.claim_id = r.claim_id
+         JOIN generations g ON g.id = c.generation_id
+         WHERE g.pr_node_id IS ? LIMIT 1`,
+      ).get(prNodeId ?? null) !== undefined;
+    },
+
+    // Durable work reservations (increment 7): one active reservation per item key;
+    // a lapsed lease returns the item to the pool with an incremented attempt count.
+    reserveWork({ itemKey, kind, leaseMinutes, nowMs = Date.now() } = {}) {
+      return tx(() => {
+        if (!itemKey || !Number.isInteger(leaseMinutes) || leaseMinutes <= 0) {
+          throw code('E_LIMITS', 'reserveWork requires itemKey and a positive leaseMinutes');
+        }
+        const row = db.prepare('SELECT * FROM work_claims WHERE item_key = ?').get(itemKey);
+        if (row && row.state === 'RESERVED' && Date.parse(row.lease_expires_at) > nowMs) {
+          throw code('E_ALREADY_CLAIMED', `work item "${itemKey}" is reserved until ${row.lease_expires_at}`);
+        }
+        const ts = now();
+        const expires = new Date(nowMs + leaseMinutes * 60 * 1000).toISOString();
+        if (row) {
+          db.prepare('UPDATE work_claims SET reserved_at = ?, lease_expires_at = ?, state = ?, attempts = attempts + 1 WHERE item_key = ?')
+            .run(ts, expires, 'RESERVED', itemKey);
+          return { id: row.id, item_key: itemKey, lease_expires_at: expires };
+        }
+        const id = randomUUID();
+        db.prepare('INSERT INTO work_claims (id, item_key, kind, reserved_at, lease_expires_at, state, attempts) VALUES (?, ?, ?, ?, ?, ?, 1)')
+          .run(id, itemKey, kind ?? null, ts, expires, 'RESERVED');
+        return { id, item_key: itemKey, lease_expires_at: expires };
+      });
+    },
+
+    completeWork(itemKey) {
+      return tx(() => {
+        db.prepare("UPDATE work_claims SET state = 'DONE' WHERE item_key = ?").run(itemKey);
+        return { item_key: itemKey, state: 'DONE' };
+      });
+    },
+
+    // Read-only work-claim lookup — the runner's outstanding-work reconciliation
+    // reads lease state to time out lapsed reviews; nothing writes through it.
+    getWorkClaim(itemKey) {
+      return db.prepare('SELECT * FROM work_claims WHERE item_key = ?').get(itemKey);
+    },
+
+    // The generation a finding occurrence was recorded from — the revision basis
+    // a correction packet carries (R3-6). Scopeless occurrences return undefined.
+    generationForOccurrence(occurrenceId) {
+      const o = db.prepare('SELECT source_report_id FROM finding_occurrences WHERE id = ?').get(occurrenceId);
+      const rep = o ? db.prepare('SELECT claim_id FROM reports WHERE id = ?').get(o.source_report_id) : undefined;
+      const ch = rep ? db.prepare('SELECT generation_id FROM challenges WHERE claim_id = ?').get(rep.claim_id) : undefined;
+      return ch ? db.prepare('SELECT * FROM generations WHERE id = ?').get(ch.generation_id) : undefined;
     },
 
     lineage(findingKey) {
@@ -457,10 +852,36 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(id);
     },
 
-    // One active corrective owner per finding (packet §6): the latest occurrence of
-    // the key is claimed; an active (unexpired) claim refuses a second owner, and an
-    // EXPIRED one still holds the slot until an explicit revoke — lease expiry alone
-    // does not prove the old worker stopped (E_CESSATION_UNKNOWN).
+    // Read-only receipt history for an occurrence — the evidence pool the closure
+    // gate evaluates; consumers and tests read it, nothing writes through it.
+    receiptsFor(occurrenceId) {
+      return db.prepare('SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid').all(occurrenceId);
+    },
+
+    // R3-2/§11: the trusted check-receipt binding — the occurrences of a repository
+    // whose LATEST fix response sits on exactly this revision. A check_run webhook
+    // lands its receipt here: context identity + the fix revision it actually ran on.
+    occurrencesAtFixRevision(repositoryId, headSha) {
+      return db.prepare(
+        `SELECT o.id AS occurrence_id, o.finding_key FROM finding_occurrences o
+         JOIN finding_receipts fr ON fr.id = (
+           SELECT id FROM finding_receipts
+           WHERE occurrence_id = o.id AND kind = 'fix_response'
+           ORDER BY rowid DESC LIMIT 1
+         )
+         WHERE o.repository_id = ? AND fr.revision = ?
+           AND o.state NOT IN ('RESOLVED','SUPERSEDED')`,
+      ).all(repositoryId, headSha);
+    },
+
+    // One active corrective owner per repository/PR (DR-R2): for scoped occurrences
+    // the fence spans EVERY finding and occurrence of the same PR — a claim on any
+    // of them refuses a second owner, and an EXPIRED one still holds the whole scope
+    // until an explicit revoke (lease expiry alone does not prove the old worker
+    // stopped, E_CESSATION_UNKNOWN). Recurrence of an actively-claimed key rebinds
+    // the existing assignment to the newest occurrence (recordFindings), so the
+    // owner continues without a second claim. Scopeless (fixture) rows keep the
+    // legacy per-occurrence fence.
     claimFinding({ findingKey, owner, leaseMinutes, nowMs = Date.now() } = {}) {
       if (!owner || !Number.isInteger(leaseMinutes) || leaseMinutes <= 0) {
         throw code('E_LIMITS', 'claimFinding requires owner and a positive leaseMinutes');
@@ -471,14 +892,23 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         ).get(findingKey);
         if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
         if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', `finding "${findingKey}" is resolved at its latest occurrence`);
-        const active = db.prepare(
-          `SELECT c.* FROM finding_claims c
-           WHERE c.occurrence_id = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
-           ORDER BY c.claimed_at DESC LIMIT 1`,
-        ).get(tail.id);
+        const scoped = tail.repository_id !== null && tail.repository_id !== undefined;
+        const active = scoped
+          ? db.prepare(
+              `SELECT c.*, o.finding_key AS claimed_key FROM finding_claims c
+               JOIN finding_occurrences o ON o.id = c.occurrence_id
+               WHERE c.state IN ('ASSIGNED','ACKNOWLEDGED')
+                 AND o.repository_id IS ? AND o.pr_node_id IS ?
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(tail.repository_id, tail.pr_node_id)
+          : db.prepare(
+              `SELECT c.* FROM finding_claims c
+               WHERE c.occurrence_id = ? AND c.state IN ('ASSIGNED','ACKNOWLEDGED')
+               ORDER BY c.claimed_at DESC LIMIT 1`,
+            ).get(tail.id);
         if (active) {
           if (Date.parse(active.lease_expires_at) > nowMs) {
-            throw code('E_ALREADY_CLAIMED', `finding "${findingKey}" is claimed by ${active.owner} until ${active.lease_expires_at}`);
+            throw code('E_ALREADY_CLAIMED', `${scoped ? `PR is` : `finding "${findingKey}" is`} claimed by ${active.owner} (finding "${active.claimed_key ?? findingKey}") until ${active.lease_expires_at}`);
           }
           throw code('E_CESSATION_UNKNOWN', `the expired claim of ${active.owner} was not revoked — cessation is not established, replacement held`);
         }
@@ -505,6 +935,13 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return c;
     },
 
+    // Read-only assignment lookup for the intake boundary (SP-1): the record-specific
+    // binding checks the lifeline a submitted fix_response answers — existence, state
+    // and owner — without ever presenting a fencing token (the intake is not a worker).
+    getAssignment(assignmentId) {
+      return db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+    },
+
     acknowledgeFinding({ assignmentId, fencingToken, workLocation, nowMs = Date.now() } = {}) {
       return tx(() => {
         const c = this.requireClaim(assignmentId, fencingToken);
@@ -524,8 +961,8 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return tx(() => {
         const c = this.requireClaim(assignmentId, fencingToken);
         if (!digest) throw code('E_LIMITS', 'recordFixResponse requires a payload digest');
-        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(randomUUID(), c.occurrence_id, 'fix_response', fixRevision ?? null, digest, payload ?? '{}', now());
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(randomUUID(), c.occurrence_id, 'fix_response', fixRevision ?? null, digest, payload ?? '{}', c.owner, now());
         db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', now(), c.occurrence_id);
         return { occurrence_id: c.occurrence_id, state: 'VERIFYING' };
       });
@@ -546,58 +983,118 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       });
     },
 
-    recordReceipt({ occurrenceId, kind, revision, digest, payload, nowMs = Date.now() } = {}) {
+    // ── increment 5: V2 protocol record consumers ────────────────────────────────
+    // A fix_response record binds by assignment + claimed owner: it arrives through
+    // the coordinator's authenticated channel, not the reviewer intake, so the owner
+    // match (not a live fencing token) is the binding — a REVOKED assignment refuses
+    // exactly like a stale token (E_FENCING), and a claimed_by that is not the
+    // assignment's owner is an identity violation (E_IDENTITY). The record's
+    // mechanical receipts map to check receipts ON the fix revision, so closure
+    // evidence accrues through the same gate as every other receipt.
+    applyFixResponseRecord({ assignmentId, claimedBy, fixRevision, findingKeys, mechanicalReceipts, changeReviewReceipt, digest, payloadRef, nowMs = Date.now() } = {}) {
+      void nowMs;
+      return tx(() => {
+        const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+        if (!c) throw code('E_NOT_FOUND', `unknown assignment ${assignmentId}`);
+        if (c.state === 'REVOKED') throw code('E_FENCING', `assignment ${assignmentId} was revoked — late fix evidence refused`);
+        if (claimedBy !== c.owner) throw code('E_IDENTITY', `fix record claims "${claimedBy}", assignment belongs to "${c.owner}"`);
+        if (!fixRevision) throw code('E_LIMITS', 'fix_response record requires fix_revision');
+        const occ = db.prepare('SELECT * FROM finding_occurrences WHERE id = ?').get(c.occurrence_id);
+        if (!occ) throw code('E_NOT_FOUND', 'assigned occurrence vanished');
+        const keys = Array.isArray(findingKeys) ? findingKeys : [];
+        if (!keys.includes(occ.finding_key)) {
+          throw code('E_LIMITS', `fix record names [${keys.join(', ')}] but the assignment covers "${occ.finding_key}"`);
+        }
+        // packet case: ONE coherent fix can cover SEVERAL findings of the same PR
+        // scope (the DR-R2 fence guarantees a single owner) — the receipts land on
+        // EVERY named occurrence, each moves VERIFYING on the same fix revision;
+        // anything outside the assignment's scope refuses.
+        const targets = [occ];
+        for (const key of keys) {
+          if (key === occ.finding_key) continue;
+          const extra = db.prepare(
+            'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+          ).get(key);
+          if (!extra) throw code('E_NOT_FOUND', `fix record names unknown finding "${key}"`);
+          if (extra.repository_id !== occ.repository_id || extra.pr_node_id !== occ.pr_node_id) {
+            throw code('E_LIMITS', `fix record names "${key}" outside the assignment's PR scope`);
+          }
+          if (!targets.some((t) => t.id === extra.id)) targets.push(extra);
+        }
+        const ts = now();
+        const insert = db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        for (const target of targets) {
+          insert.run(randomUUID(), target.id, 'fix_response', fixRevision, digest ?? payloadDigest(String(payloadRef ?? '')), payloadRef ?? '{}', claimedBy ?? c.owner, ts);
+          for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
+            // R3-2/§11: executor-supplied check results are ASSERTIONS — recorded
+            // with source 'executor-asserted' so the closure gate (which qualifies
+            // required contexts from TRUSTED webhook receipts only) never counts
+            // them as mechanical evidence.
+            insert.run(randomUUID(), target.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference, source: 'executor-asserted' }), claimedBy ?? c.owner, ts);
+          }
+          // SP-2: the record's own independent change review is real evidence — the
+          // consumer records it as a change_review receipt (actor = the review's
+          // reviewer, revision = the reviewed revision); a null field records nothing.
+          // R3-2: the canonical change_review receipt carries NO verdict field, so
+          // this executor-supplied receipt records verdict null — structurally
+          // unable to affirm closure (only an authenticated reviewer submission
+          // carries a structured outcome).
+          const cr = changeReviewReceipt;
+          if (cr && typeof cr === 'object') {
+            insert.run(randomUUID(), target.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [], verdict: null, source: 'executor-asserted' }), cr.reviewer ?? null, ts);
+          }
+          db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, target.id);
+        }
+        return { occurrence_id: occ.id, state: 'VERIFYING', applied: targets.map((t) => t.finding_key) };
+      });
+    },
+
+    // A closure_receipt record: the protocol's RESOLVED maps to the ledger's VERIFIED
+    // and the SAME evidence gate applies (closureTx) — an unproven closure refuses and
+    // the consuming event stays pending with its reason, never consumed unactioned.
+    // The record IS the Dot-side closure: the consumer mints the dot_closure receipt
+    // from it (carrying its evidence, comparison basis and rationale) and the gate —
+    // not the drain, not a caller — decides the RESOLVED transition.
+    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision, evidence, comparisonBasis, rationale, requiredContexts, requiredChecks, checkBasis } = {}) {
+      return tx(() => {
+        const mapped = disposition === 'RESOLVED' ? 'VERIFIED' : disposition;
+        const keys = Array.isArray(findingKeys) ? findingKeys : [];
+        for (const key of keys) {
+          const tail = db.prepare(
+            'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
+          ).get(key);
+          if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${key}"`);
+          const minted = { disposition: mapped, comparison_basis: comparisonBasis ?? null, rationale: rationale ?? null, evidence: Array.isArray(evidence) ? evidence : [] };
+          db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(randomUUID(), tail.id, 'dot_closure', revision ?? null, payloadDigest(JSON.stringify(minted)), JSON.stringify(minted), verifiedBy ?? null, now());
+          closureTx({ findingKey: key, disposition: mapped, verifier: verifiedBy, revision, requiredContexts, requiredChecks, checkBasis });
+        }
+        return { resolved: keys };
+      });
+    },
+
+    recordReceipt({ occurrenceId, kind, revision, digest, payload, actor, nowMs = Date.now() } = {}) {
       return tx(() => {
         if (!RECEIPT_KINDS.includes(kind)) throw code('E_DISPOSITION', `receipt kind "${kind}" is not in the allowlist`);
         const occ = db.prepare('SELECT id FROM finding_occurrences WHERE id = ?').get(occurrenceId);
         if (!occ) throw code('E_NOT_FOUND', `unknown occurrence ${occurrenceId}`);
         const id = randomUUID();
-        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(id, occurrenceId, kind, revision ?? null, digest ?? payloadDigest(String(payload ?? '')), payload ?? '{}', now());
+        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(id, occurrenceId, kind, revision ?? null, digest ?? payloadDigest(String(payload ?? '')), payload ?? '{}', actor ?? null, now());
         return { receipt_id: id };
       });
     },
 
-    // Closure is mechanical, not asserted: VERIFIED needs the fix receipt, no
-    // check failure recorded AFTER that fix, and one independent verification
-    // receipt (change_review or dot_closure). The packet's other dispositions are
-    // reviewer-evidence assertions and are recorded with their verifier.
-    recordClosure({ findingKey, disposition, verifier, revision, nowMs = Date.now() } = {}) {
-      return tx(() => {
-        if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
-          throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
-        }
-        const tail = db.prepare(
-          'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid DESC LIMIT 1',
-        ).get(findingKey);
-        if (!tail) throw code('E_NOT_FOUND', `no occurrence of finding "${findingKey}"`);
-        if (tail.state === 'RESOLVED') throw code('E_ALREADY_RESOLVED', 'latest occurrence is already resolved');
-        const receipts = db.prepare(
-          'SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid',
-        ).all(tail.id);
-        if (disposition === 'VERIFIED') {
-          const fixIdx = receipts.findIndex((r) => r.kind === 'fix_response');
-          if (fixIdx < 0) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a recorded fix response');
-          // the LATEST check receipt after the fix is the current word: a failure there
-          // keeps the finding open; a newer passing check supersedes an older failure
-          const checksAfterFix = receipts.slice(fixIdx + 1).filter((r) => r.kind === 'check_receipt');
-          const latestCheck = checksAfterFix.at(-1);
-          if (latestCheck) {
-            let conclusion;
-            try { conclusion = JSON.parse(latestCheck.payload)?.conclusion; } catch { /* opaque payload */ }
-            if (conclusion === 'failure') {
-              throw code('E_NOT_RESOLVABLE', 'a check failure recorded after the fix keeps the finding open');
-            }
-          }
-          const verified = receipts.some((r) => r.kind === 'change_review' || r.kind === 'dot_closure');
-          if (!verified) throw code('E_NOT_RESOLVABLE', 'VERIFIED closure requires a change_review or dot_closure receipt');
-        }
-        const id = randomUUID();
-        db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), now());
-        db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
-        return { occurrence_id: tail.id, state: 'RESOLVED', disposition };
-      });
+    // Closure is mechanical, not asserted (DR-R1): the LATEST fix_response binds the
+    // evidence set — everything must be recorded AFTER it and ON its revision. VERIFIED
+    // requires: a SUCCESSFUL mechanical check receipt after the fix (absent/pending/
+    // cancelled are not success; the latest check is the current word), an INDEPENDENT
+    // change review (actor present, actor != fix owner, after the fix, on the fix
+    // revision — self-reviews and pre-fix reviews do not count), and an applicable Dot
+    // closure receipt after the fix. ALREADY_FIXED requires a successful check receipt;
+    // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE require at least one evidence receipt.
+    recordClosure({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis, nowMs = Date.now() } = {}) {
+      return tx(() => closureTx({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis }));
     },
 
     // Bounded retry reservations (packet §9): a persisted per-key counter; exceeding
@@ -617,6 +1114,97 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       });
     },
 
+    // ── CC coordination actions (increment 6) ───────────────────────────────────
+    // The durable intent row for an outbound coordination message — written BEFORE
+    // the adapter delivers anything, into the same authoritative journal.
+    // SP-5/ST-1: the row also carries the ORIGINAL bounded payload text (≤64 KiB),
+    // so recovery re-renders the real instructions instead of a stub.
+    coordIntent({ id, kind, target, payloadDigest, payloadText } = {}) {
+      return tx(() => {
+        if (payloadText !== undefined && payloadText.length > 65536) {
+          throw code('E_LIMITS', 'coord payload_text exceeds the 64 KiB bound — store a retrievable reference instead');
+        }
+        const ts = now();
+        db.prepare(
+          'INSERT INTO coord_actions (id, kind, target, payload_digest, payload_text, state, intent_at, attempts) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+        ).run(id, kind, target, payloadDigest, payloadText ?? null, 'INTENT', ts);
+        return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+      });
+    },
+
+    coordMark(id, state, lastError) {
+      return tx(() => {
+        const col = state === 'DELIVERED' ? 'delivered_at' : state === 'ACKED' ? 'acked_at' : null;
+        if (col) {
+          db.prepare(`UPDATE coord_actions SET state = ?, ${col} = ?, attempts = attempts + 1, last_error = ? WHERE id = ?`)
+            .run(state, now(), lastError ?? null, id);
+        } else {
+          db.prepare('UPDATE coord_actions SET state = ?, attempts = attempts + 1, last_error = ? WHERE id = ?')
+            .run(state, lastError ?? null, id);
+        }
+        return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+      });
+    },
+
+    coordGet(id) {
+      return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
+    },
+
+    coordList(state) {
+      return db.prepare('SELECT * FROM coord_actions WHERE state = ? ORDER BY intent_at').all(state);
+    },
+
+    // ── Managed-PR registrations (increment 9) ─────────────────────────────────
+    // Durable coordinator registration receipts. One row per PR (PK pr_node_id);
+    // merge is DEFAULT OFF and every enabling/disabling/releasing change records the
+    // operator transition that authorized it.
+    getRegistration(prNodeId) {
+      const row = db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      if (!row) return undefined;
+      return { ...row, merge_enabled: row.merge_enabled === 1 };
+    },
+
+    insertRegistration({ prNodeId, prNumber, coordinator, reconciledAt } = {}) {
+      return tx(() => {
+        const existing = db.prepare('SELECT pr_node_id FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+        if (existing) throw code('E_ALREADY_REGISTERED', `PR ${prNodeId} already carries a registration receipt`);
+        db.prepare(
+          'INSERT INTO pr_registrations (pr_node_id, pr_number, coordinator, merge_enabled, state, registered_at, reconciled_at) VALUES (?, ?, ?, 0, ?, ?, ?)',
+        ).run(prNodeId, prNumber, coordinator, 'ACTIVE', now(), reconciledAt);
+        return db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      });
+    },
+
+    updateRegistration(prNodeId, { state, mergeEnabled, operatorTransition } = {}) {
+      return tx(() => {
+        const row = db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+        if (!row) throw code('E_NOT_FOUND', `no registration for ${prNodeId}`);
+        const transitions = JSON.parse(row.operator_transitions ?? '[]');
+        if (operatorTransition != null) transitions.push({ at: now(), transition: operatorTransition });
+        const merge = mergeEnabled === undefined ? row.merge_enabled : mergeEnabled ? 1 : 0;
+        db.prepare(
+          'UPDATE pr_registrations SET state = ?, merge_enabled = ?, released_at = ?, operator_transitions = ? WHERE pr_node_id = ?',
+        ).run(state ?? row.state, merge, state === 'RELEASED' ? now() : row.released_at, JSON.stringify(transitions), prNodeId);
+        return db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      });
+    },
+
+    // Cessation proof for a REPLACEMENT dispatch (increment 6): the previous
+    // owner's stop must be explicitly recorded — a live claim, or an expired one
+    // without a revoke, holds the replacement (E_CESSATION_UNKNOWN).
+    assertCessation(assignmentId, { nowMs = Date.now(), leaseMinutes } = {}) {
+      if (!Number.isInteger(leaseMinutes)) {
+        throw code('E_LIMITS', 'assertCessation requires leaseMinutes');
+      }
+      const c = db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+      if (!c) throw code('E_NOT_FOUND', `unknown assignment ${assignmentId}`);
+      if (c.state === 'REVOKED') return { ceased: true, how: 'revoked' };
+      if (Date.parse(c.lease_expires_at) > nowMs) {
+        throw code('E_CESSATION_UNKNOWN', 'the claim is still live — cessation is not established, replacement held');
+      }
+      throw code('E_CESSATION_UNKNOWN', 'the claim expired without an explicit revoke — cessation is not established, replacement held');
+    },
+
     close() {
       db.close();
     },
@@ -625,10 +1213,21 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return tx(() => outboxEnqueueTx(eventType, payload, dedupKey));
     },
 
-    outboxClaimBatch(limit) {
-      return db.prepare(
-        'SELECT * FROM outbox WHERE published_at IS NULL ORDER BY id LIMIT ?',
-      ).all(limit);
+    // DR-R5: claiming a batch is a RESERVATION — rows come back marked with a claim
+    // lease so a concurrent drain sees an empty batch instead of double-processing.
+    // A lease that lapsed (a dead drain) is recoverable after claimLeaseMs.
+    outboxClaimBatch(limit, { nowMs = Date.now(), claimLeaseMs = 5 * 60 * 1000 } = {}) {
+      return tx(() => {
+        const cutoff = new Date(nowMs - claimLeaseMs).toISOString();
+        const rows = db.prepare(
+          `SELECT * FROM outbox WHERE published_at IS NULL AND (claimed_at IS NULL OR claimed_at < ?) ORDER BY id LIMIT ?`,
+        ).all(cutoff, limit);
+        const stamp = new Date(nowMs).toISOString();
+        for (const r of rows) {
+          db.prepare('UPDATE outbox SET claimed_at = ?, attempts = attempts + 1 WHERE id = ?').run(stamp, r.id);
+        }
+        return rows;
+      });
     },
 
     outboxMarkPublished(id) {
@@ -677,6 +1276,45 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     isPaused() {
       const row = db.prepare('SELECT value FROM control WHERE key = ?').get('paused');
       return row?.value === 'true';
+    },
+
+    // Quota pause (increment 8): stops new MODEL work (launch dispatch); distinct
+    // from the operator pause, which also stops claims and publications.
+    setQuotaPaused(paused, reason) {
+      tx(() => {
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run('quota-paused', paused ? 'true' : 'false', now());
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run('quota-reason', reason ?? '', now());
+      });
+    },
+
+    isQuotaPaused() {
+      return db.prepare('SELECT value FROM control WHERE key = ?').get('quota-paused')?.value === 'true';
+    },
+
+    quotaReason() {
+      const row = db.prepare('SELECT value FROM control WHERE key = ?').get('quota-reason');
+      return row?.value || null;
+    },
+
+    // Burst coalescing (increment 8): returns true when the event key was already
+    // seen inside its window — the caller skips the duplicate.
+    coalesceMark(eventKey, nowMs, windowMs) {
+      return tx(() => {
+        const key = `coalesce:${eventKey}`;
+        const row = db.prepare('SELECT value, updated_at FROM control WHERE key = ?').get(key);
+        if (row) {
+          const at = Date.parse(row.updated_at);
+          if (Number.isFinite(at) && nowMs - at < windowMs) return true;
+        }
+        db.prepare(
+          'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        ).run(key, String(nowMs), new Date(nowMs).toISOString());
+        return false;
+      });
     },
 
     counts() {

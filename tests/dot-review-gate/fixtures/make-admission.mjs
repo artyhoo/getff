@@ -213,6 +213,13 @@ export function makePolicyFixture(overrides = {}) {
     dot_check: { context: 'dot-review/v1', expected_app_id: 999999999 },
     principle_inventory: PRINCIPLE_INVENTORY,
     specification_inventory: ['S1-gate-schema'],
+    // R3-1: the trusted principal registry — the schema types claimed_by/verified_by
+    // as "enrolled-principal identifiers issued by the trusted registry"; the
+    // registry is WHERE that issuance lives. Labels match the canonical V2 examples.
+    principals: {
+      executors: [{ principal_id: 666001, label: 'cc-executor/mechanism-lane' }],
+      verifiers: [{ principal_id: 777001, label: 'dot/astra-primary' }],
+    },
     limits: { max_active_claims: 1, max_attempts_per_tuple: 2, claim_lease_minutes: 120 },
     authorization_expiry: '2026-12-31T23:59:59Z',
     ...overrides,
