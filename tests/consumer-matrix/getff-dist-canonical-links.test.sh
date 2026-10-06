@@ -6,11 +6,12 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/getff-dist-canonical.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 fixture="$WORK/source"
 mkdir -p "$fixture/scripts" "$fixture/packages/getff" "$fixture/.agents/procedures/example/helpers" \
-  "$fixture/.claude/skills/example" "$fixture/setup.d" "$fixture/agents" "$fixture/skills" "$fixture/templates" "$fixture/packages/core"
+  "$fixture/.claude/skills/example" "$fixture/setup.d" "$fixture/agents" "$fixture/skills" "$fixture/templates" "$fixture/packages/core" \
+  "$fixture/plugin/hooks/lib"
 cp "$REPO_ROOT/scripts/build-getff-dist.sh" "$fixture/scripts/build-getff-dist.sh"
 cp "$REPO_ROOT/packages/getff/package.json" "$fixture/packages/getff/package.json"
 cp "$REPO_ROOT/packages/getff/.gitignore" "$fixture/packages/getff/.gitignore"
-for file in install.sh setup .prettierrc.json setup.d/test agents/test skills/test templates/test packages/core/test scripts/create-worktree.sh; do
+for file in install.sh setup .prettierrc.json setup.d/test agents/test skills/test templates/test packages/core/test scripts/create-worktree.sh plugin/hooks/lib/hook-language.sh; do
   printf 'tracked fixture payload\n' > "$fixture/$file"
 done
 printf '%s\n' '---' 'name: example' 'description: Example procedure' '---' 'Run helpers/probe.sh.' > "$fixture/.agents/procedures/example/SKILL.md"
