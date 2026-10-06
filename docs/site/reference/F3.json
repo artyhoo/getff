@@ -780,7 +780,7 @@
           "install.sh:1235 (quoted-path-token)",
           "install.sh:1236 (quoted-path-token)",
           "install.sh:1237 (quoted-path-token)",
-          "scripts/run-local-ci-sweep.sh:1189 (command-substitution, closure)"
+          "scripts/run-local-ci-sweep.sh:1190 (command-substitution, closure)"
         ]
       },
       "example": null
