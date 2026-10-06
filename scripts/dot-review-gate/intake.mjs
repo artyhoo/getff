@@ -178,12 +178,40 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       ) {
         return send(res, 400, { error: 'claim_id (string), generation (integer) and report (object) required' });
       }
-      // envelope ↔ record identity: the inner record must assert the same claim it is
-      // submitted under — a mismatch means the bytes were stitched (review R2). V1
-      // reports carry claim_id/generation at the top level; a V2 record binds through
-      // review_identity.assignment_id (the protocol pins the field spelling).
+      // envelope ↔ record identity, per record kind: the inner record must assert the
+      // lifeline it answers — a mismatch means the bytes were stitched (review R2).
+      // V1 reports carry claim_id/generation at the top level. A V2 review_report
+      // binds through review_identity.assignment_id (the protocol pins the spelling);
+      // canonical correction/closure records have NO review_identity — a fix_response
+      // binds the assignment it answers (its owner must match claimed_by; a revoked
+      // assignment refuses) and a closure_receipt binds the findings it closes.
       if (envelope.report.protocol_version === 'dot-pr-review/2.0.0') {
-        if (envelope.report.review_identity?.assignment_id !== envelope.claim_id) {
+        const recordType = envelope.report.record_type;
+        if (recordType === 'fix_response') {
+          const r = envelope.report;
+          if (typeof r.assignment_id !== 'string' || r.assignment_id === '') {
+            return send(res, 422, { error: 'fix_response requires an assignment_id', code: 'E_ENVELOPE' });
+          }
+          const assignment = ledger.getAssignment(r.assignment_id);
+          if (!assignment) {
+            return send(res, 422, { error: `fix_response references unknown assignment ${r.assignment_id}`, code: 'E_ENVELOPE' });
+          }
+          if (assignment.state === 'REVOKED') {
+            return send(res, 422, { error: `fix_response references revoked assignment ${r.assignment_id} — late fix evidence refused`, code: 'E_ENVELOPE' });
+          }
+          if (r.claimed_by !== assignment.owner) {
+            return send(res, 422, { error: `fix_response claimed_by "${r.claimed_by}" does not match the assignment owner "${assignment.owner}"`, code: 'E_ENVELOPE' });
+          }
+        } else if (recordType === 'closure_receipt') {
+          const ids = Array.isArray(envelope.report.finding_ids) ? envelope.report.finding_ids : [];
+          if (ids.length === 0 || !ids.every((k) => typeof k === 'string' && k !== '')) {
+            return send(res, 422, { error: 'closure_receipt requires non-empty string finding_ids', code: 'E_ENVELOPE' });
+          }
+          const unknown = ids.filter((key) => ledger.lineage(key).length === 0);
+          if (unknown.length > 0) {
+            return send(res, 422, { error: `closure_receipt references unknown findings: ${unknown.join(', ')}`, code: 'E_ENVELOPE' });
+          }
+        } else if (envelope.report.review_identity?.assignment_id !== envelope.claim_id) {
           return send(res, 422, { error: 'review_identity.assignment_id does not match the envelope claim', code: 'E_ENVELOPE' });
         }
       } else if (envelope.report.claim_id !== envelope.claim_id || envelope.report.generation !== envelope.generation) {
@@ -229,8 +257,9 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           digest,
           payload: canonicalText,
           // the ledger stores TEXT columns: a V2 verdict is an object (serialize it)
-          // and its record kind lives in record_type
-          verdict: isV2 ? JSON.stringify(envelope.report.verdict) : envelope.report.verdict,
+          // and its record kind lives in record_type; correction/closure records
+          // carry no verdict — their serialized verdict is JSON null
+          verdict: isV2 ? JSON.stringify(envelope.report.verdict ?? null) : envelope.report.verdict,
           kind: isV2 ? envelope.report.record_type : envelope.report.kind,
           leaseMinutes: policy.limits.claim_lease_minutes,
           nowMs: now(),

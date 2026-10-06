@@ -16,7 +16,7 @@ trap 'rm -rf "$TMP"' EXIT
 SCRIPT="$TMP/run-intake-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
 import { createHmac, createHash, randomUUID } from 'node:crypto';
-const [intakePath, ledgerPath, fixPath, validatorPath, schemaPath, tmp] = process.argv.slice(2);
+const [intakePath, ledgerPath, fixPath, validatorPath, schemaPath, v2SchemaPath, fixExamplePath, closureExamplePath, goExamplePath, tmp] = process.argv.slice(2);
 const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
 const { openLedger, tupleDigest } = await import(ledgerPath);
 const { startIntake } = await import(intakePath);
@@ -68,7 +68,7 @@ const server = await startIntake({
   policy,
   oauth: GH,
   webhookSecret: secret,
-  validator: (text, extra) => validateReport(text, { schemaBytes, policy, now: new Date(clock).toISOString(), currentState: extra?.currentState, trustedInventory: extra?.trustedInventory }),
+  validator: (text, extra) => validateReport(text, { schemaBytes, schemaBytesV2: readFileSync(v2SchemaPath), policy, now: new Date(clock).toISOString(), currentState: extra?.currentState, trustedInventory: extra?.trustedInventory }),
   now: () => clock,
 });
 const base = `http://127.0.0.1:${server.port}`;
@@ -262,6 +262,80 @@ try {
   const bigRes = await call('/submit', { method: 'POST', raw: big, headers: { 'content-type': 'application/json' } });
   if (bigRes.status !== 413) fail(`oversized ${bigRes.status}`);
   else log('ok oversized-rejected');
+
+  // ── SP-1: canonical V2 correction/closure traverse the REAL submission path ──
+  // fix_response/closure_receipt are schema-valid WITHOUT review_identity; an intake
+  // that required it from every V2 record refused every real record (HTTP 422). The
+  // binding is the record's own lifeline: a fix_response binds the assignment it
+  // answers (claimed_by must be that assignment's owner; a revoked assignment
+  // refuses), a closure_receipt binds the findings it closes (unknown keys refuse);
+  // review_report keeps the review_identity binding unchanged.
+  const fixCanon = JSON.parse(readFileSync(fixExamplePath, 'utf8'));
+  const closureCanon = JSON.parse(readFileSync(closureExamplePath, 'utf8'));
+  const goCanon = JSON.parse(readFileSync(goExamplePath, 'utf8'));
+  ledger.recordFindings(submit.json.report_id, [
+    { key: 'F-001', requirement: 'SP-1 intake binding fixture', category: 'correctness', severity: 'major', blocking: true },
+  ]);
+  const sp1Owner = fixCanon.claimed_by;
+  const assignA = ledger.claimFinding({ findingKey: 'F-001', owner: sp1Owner, leaseMinutes: 120 });
+  const claimFix = await call('/claim', { method: 'POST', body: {} });
+  if (claimFix.status !== 200) fail(`claimFix ${claimFix.status} ${claimFix.text.slice(0, 120)}`);
+  const claimClo = await call('/claim', { method: 'POST', body: {} });
+  if (claimClo.status !== 200) fail(`claimClo ${claimClo.status} ${claimClo.text.slice(0, 120)}`);
+  const v2Envelope = (claim, report) => ({ claim_id: claim.json.claim_id, generation: claim.json.generation, report });
+
+  // RED: canonical fix_response was 422 E_ENVELOPE (no review_identity) — it must be
+  // accepted through intake with its assignment binding intact, ledger row bound to
+  // the AUTHENTICATED session principal (identity separation kept).
+  const fixOk = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
+  if (fixOk.status !== 200 || fixOk.json?.replayed) fail(`fix-response submit ${fixOk.status} ${fixOk.text.slice(0, 160)}`);
+  else {
+    const row = ledger.getReport(fixOk.json.report_id);
+    if (row?.kind !== 'fix_response' || row.reviewer_id !== 555001) fail(`fix row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
+    else if (JSON.parse(row.payload).assignment_id !== assignA.assignment_id) fail('fix payload lost the assignment binding');
+    else log('ok v2-fix-response-traverses-intake');
+  }
+
+  // replay of the identical fix bytes returns the same receipt
+  const fixReplay = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
+  if (fixReplay.json?.report_id !== fixOk.json.report_id || fixReplay.json?.replayed !== true) fail(`fix replay ${fixReplay.status} ${fixReplay.text.slice(0, 140)}`);
+  else log('ok v2-fix-response-replay-same-receipt');
+
+  // RED: schema-valid fix bytes from an actor that does not own the assignment refuse
+  // at the boundary with the BINDING reason (not the old review_identity message).
+  const wrongActor = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id, claimed_by: 'cc-executor/not-the-owner' }) });
+  if (wrongActor.status !== 422 || wrongActor.json?.code !== 'E_ENVELOPE' || !/owner/.test(wrongActor.json?.error ?? '')) fail(`wrong actor ${wrongActor.status} ${wrongActor.text.slice(0, 160)}`);
+  else log('ok v2-fix-wrong-actor-refused');
+
+  const unknownAssign = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: 'assign-unknown' }) });
+  if (unknownAssign.status !== 422 || !/unknown assignment/.test(unknownAssign.json?.error ?? '')) fail(`unknown assignment ${unknownAssign.status} ${unknownAssign.text.slice(0, 160)}`);
+  else log('ok v2-fix-unknown-assignment-refused');
+
+  // the SAME assignment, explicitly revoked — the refusal follows the state change
+  ledger.revokeClaim({ assignmentId: assignA.assignment_id, reason: 'SP-1 revoked-assignment negative' });
+  const revokedAssign = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
+  if (revokedAssign.status !== 422 || !/revoked/.test(revokedAssign.json?.error ?? '')) fail(`revoked assignment ${revokedAssign.status} ${revokedAssign.text.slice(0, 160)}`);
+  else log('ok v2-fix-revoked-assignment-refused');
+
+  // RED: canonical closure_receipt was 422 E_ENVELOPE the same way.
+  const closureOk = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, closureCanon) });
+  if (closureOk.status !== 200 || closureOk.json?.replayed) fail(`closure submit ${closureOk.status} ${closureOk.text.slice(0, 160)}`);
+  else {
+    const row = ledger.getReport(closureOk.json.report_id);
+    if (row?.kind !== 'closure_receipt' || row.reviewer_id !== 555001) fail(`closure row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
+    else log('ok v2-closure-receipt-traverses-intake');
+  }
+
+  // a closure naming a finding the ledger never saw refuses at the boundary
+  const unknownFinding = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, { ...closureCanon, finding_ids: ['F-UNKNOWN-1'] }) });
+  if (unknownFinding.status !== 422 || !/unknown finding/.test(unknownFinding.json?.error ?? '')) fail(`unknown finding ${unknownFinding.status} ${unknownFinding.text.slice(0, 160)}`);
+  else log('ok v2-closure-unknown-finding-refused');
+
+  // the KEPT property: a review_report still binds through review_identity — a
+  // stitched canonical GO whose assignment_id names another claim refuses unchanged.
+  const stitchedGo = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, { ...goCanon, review_identity: { ...goCanon.review_identity, assignment_id: 'stitched-foreign-claim' } }) });
+  if (stitchedGo.status !== 422 || stitchedGo.json?.code !== 'E_ENVELOPE') fail(`stitched review_report ${stitchedGo.status} ${stitchedGo.text.slice(0, 160)}`);
+  else log('ok v2-review-report-identity-kept');
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n')[0]}`);
 } finally {
@@ -277,6 +351,10 @@ out="$(node "$SCRIPT" \
   "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" \
   "$DIR/validate-report.mjs" \
   "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" \
+  "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/v2/schema.json" \
+  "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-v2-examples/fix-response.json" \
+  "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-v2-examples/closure-receipt.json" \
+  "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-v2-examples/positive-go.json" \
   "$TMP" 2>&1)"; status=$?
 assert_suite_arms "intake.test.sh" "$status" "$out" \
   oauth-empty-scope oauth-callback-session claim-issued submit-requires-session \
@@ -284,5 +362,9 @@ assert_suite_arms "intake.test.sh" "$status" "$out" \
   submit-wrong-reviewer-refused submit-superseded-archived-as-history submit-generation-mismatch-refused \
   submit-lease-expired-refused claim-lease-frees-slot submit-tuple-drift-archived-as-history \
   submit-inner-mismatch-refused submit-dup-verdict-raw-rejected \
-  webhook-bad-signature webhook-hmac-and-dedup oversized-rejected || exit 1
+  webhook-bad-signature webhook-hmac-and-dedup oversized-rejected \
+  v2-fix-response-traverses-intake v2-fix-response-replay-same-receipt \
+  v2-fix-wrong-actor-refused v2-fix-unknown-assignment-refused v2-fix-revoked-assignment-refused \
+  v2-closure-receipt-traverses-intake v2-closure-unknown-finding-refused \
+  v2-review-report-identity-kept || exit 1
 echo "intake.test.sh: all green"

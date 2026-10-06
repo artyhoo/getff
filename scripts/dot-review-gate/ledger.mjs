@@ -734,6 +734,13 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       return c;
     },
 
+    // Read-only assignment lookup for the intake boundary (SP-1): the record-specific
+    // binding checks the lifeline a submitted fix_response answers — existence, state
+    // and owner — without ever presenting a fencing token (the intake is not a worker).
+    getAssignment(assignmentId) {
+      return db.prepare('SELECT * FROM finding_claims WHERE assignment_id = ?').get(assignmentId);
+    },
+
     acknowledgeFinding({ assignmentId, fencingToken, workLocation, nowMs = Date.now() } = {}) {
       return tx(() => {
         const c = this.requireClaim(assignmentId, fencingToken);
