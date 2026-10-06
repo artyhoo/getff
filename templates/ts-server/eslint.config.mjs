@@ -64,6 +64,7 @@ export default defineConfig(
       'packages/core/**',
       'scripts/audit-r4.ts',
       'scripts/prove-rules.mjs',
+      'scripts/codex-hook-adapter.mjs',
       'eslint.config.mjs',
       'vitest.config.ts',
       '.dependency-cruiser.mjs',
