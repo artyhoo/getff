@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-ships-manifest — fails when a getff skill, hook, rule, agent, setting or MCP server is unmarked.
+ * check-ships-manifest — fails when a getff skill, hook, rule, agent, setting, MCP server or docs-gate script is unmarked.
  * Arm A of the ships manifest (one-button point 13): every such item carries ONE row in
  * setup.d/ships.manifest that says whether it ships (and through which channel) or is internal, and why.
  *
@@ -32,7 +32,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { readTierSets } from './lib/skill-tiers.mjs';
 
-const KINDS = ['skill', 'hook', 'rule', 'agent', 'setting', 'mcp'];
+const KINDS = ['skill', 'hook', 'rule', 'agent', 'setting', 'mcp', 'script'];
 const VERDICTS = ['ships', 'internal'];
 const INSTALLERS = ['core', 'env', 'factory', 'full', 'ask', 'no'];
 const PLUGIN = ['yes', 'no'];
@@ -101,6 +101,11 @@ function population(root) {
     else if ((m = /^\.claude\/rules\/([^/]+)\.md$/.exec(f))) pop.rule.add(m[1]);
     else if ((m = /^agents\/([^/]+)\.md$/.exec(f))) pop.agent.add(m[1]);
     else if ((m = /^plugin\/agents\/([^/]+)\.md$/.exec(f))) (pop.agent.add(m[1]), plugin.agent.add(m[1]));
+    // script = the docs-gate pair the installer delivers into the consumer's scripts/
+    // (one-button w2 HO-4): the shell gate + the R4 probe it invokes. Population per the
+    // kind's bullet in setup.d/ships.manifest — widen both together when another gate needs marking.
+    else if (f === 'packages/core/audit-self/audit-ai-docs.sh') pop.script.add('audit-ai-docs');
+    else if (f === 'packages/core/probes/audit-r4.ts') pop.script.add('audit-r4');
   }
   for (const h of plugin.hook) pop.hook.add(h);
   if (files.includes('.claude/settings.json'))
