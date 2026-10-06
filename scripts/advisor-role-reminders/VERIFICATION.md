@@ -20,10 +20,11 @@ Commands below ran in the implementation worktree unless a package cwd is stated
 | `bash -n scripts/advisor-role-reminders/hook.sh` | Exit 0 |
 | `npm --prefix packages/core test -- hooks/advisor-role-reminders.test.ts hooks/inject-matching-rule.test.ts hooks/hook-emit-prelude.test.ts hooks/harness-config-drift.test.ts` | Exit 0; 4 files, 98 tests |
 | `npm --prefix packages/core run test:principles` | Exit 0; 57 files, 658 passed, 1 skipped |
-| `make self-audit` | Exit 2; pre-push backend gate failed on cargo toolchain evidence mismatch; pre-commit completed; no bypass |
-| `npm run typecheck` | Exit 2; missing `oxlint/plugins-dev` in existing `eslint-rules/plugin-dual-engine.test.ts:18` |
-| `npm test` (first full run) | Exit 1; core: 7 failed files, 11 failed tests, 5108 passed, 56 skipped; other workspaces: 43 and 504 passed, 1 skipped |
-| `npm test` (final full run) | Exit 1; core: 7 failed files, 21 failed tests, 5098 passed, 56 skipped; other workspaces: 43 and 504 passed, 1 skipped |
+| `make self-audit` | Exit 2 in the first session (cargo toolchain evidence mismatch). Revalidated: Exit 0 after `bash scripts/build-getff-dist.sh` added the one new shipped file to `packages/getff/MANIFEST.sha256`; no bypass |
+| `npm run typecheck` | Exit 2 in the first session (missing `oxlint/plugins-dev`). Revalidated: Exit 0 after reinstalling dependencies from lockfiles |
+| `npm test` (first-session full runs) | Exit 1 in the first session; failures retained below as historical record |
+| `npm test` (revalidated, default parallelism) | Exit 1; core: the two load-sensitive files named in the Revalidation section; other workspaces: 43 and 504 passed, 1 skipped |
+| `vitest run --root packages/core --no-file-parallelism` (revalidated) | Exit 0 — 329 files, 5194 passed, 9 skipped; no test skipped, no timeout widened |
 
 The first nine tests failed before production files existed. Cold review then found
 compaction while disarmed and unrelated-prompt activation defects. Regression tests
@@ -31,17 +32,38 @@ reproduced those failures before repair; all 13 now pass. A cold re-review ran t
 suite on `/private/tmp` copies and independently confirmed compact/clear rehydration,
 unrelated-prompt silence, bound-prompt delivery and duplicate suppression.
 
-The full suite failures were in unchanged files. This is an observed scope fact, not a
-claim that every failure has been reproduced on a pristine baseline:
+## Revalidation — 2026-10-06 (finish session, same worktree)
 
-- `audit-self/prove-rules.test.ts`: missing oxlint executable (failed suite setup).
-- `eslint-rules/plugin-dual-engine.test.ts`: missing `oxlint/plugins-dev` (failed suite import).
-- `install/delivered-scripts-lint-ignored.test.ts`: two invalid-JSON errors from unavailable oxlint output.
-- `hooks/getff-work.test.ts`: five afterEach hook timeouts; one case also failed the expected delivery-symlink diagnostic.
-- `hooks/glossary-counters.test.ts`: first run sequential ten-prompt control timed out at 5 seconds; final run passed.
-- `hooks/husky-self-delegate.test.ts`: final run had 11 hook/commit timeout failures at 5 seconds; first run passed.
-- `backends/cargo/capability-matrix.test.ts`: evidence claims rustc 1.96.1; resolving toolchain is 1.98.1.
-- `skills/dispatcher/probe-inflight.test.ts`: remote-context and hanging-context stub calls were absent.
+The first session's three validation blockers were environment-shaped and were repaired
+without touching the reminder implementation:
+
+- Dependencies were reinstalled from lockfiles in this worktree (`npm ci` at the root,
+  then `npm ci --prefix packages/core`; both exit 0). `node_modules` on both levels are
+  real directories, not symlinks into another checkout. The missing `oxlint/plugins-dev`
+  resolved: installed `oxlint@1.86.0` ships `dist/plugins-dev.js`, and `npm run typecheck`
+  is now Exit 0.
+- Rust: `rustup toolchain list` shows `1.96.1-aarch64-apple-darwin (active)` and
+  `rustc --version` resolves 1.96.1 with `RUSTUP_TOOLCHAIN=1.96.1` exported for all
+  cargo/tsc-adjacent commands. The 1.98.1 mismatch was the first session's shell state.
+- `make self-audit` failed once on a real gate of this change: the new
+  `packages/core/hooks/advisor-role-reminders.test.ts` was shipped but absent from
+  `packages/getff/MANIFEST.sha256`. Rebuilt per the gate's own recipe
+  (`bash scripts/build-getff-dist.sh`); the manifest diff is exactly one added line.
+  Self-audit is now Exit 0.
+- Full-suite reruns after the repairs flake under default file parallelism in exactly one
+  family, in files this diff does not touch: `hooks/husky-self-delegate.test.ts` (its 5 s
+  default timeouts) and `skills/dispatcher/probe-inflight.test.ts` (f)/(g) (empty stub log
+  when the probe process is killed under contention). The mechanism class is measured in
+  the probe test's own header: the first exec of a freshly created executable costs
+  ~0.65–1.6 s in the macOS kernel scan, per path, inflating under file parallelism.
+  Classification evidence: every input those suites read (`.husky/*` hook files,
+  `probe-inflight.sh`, `execution.md`) is md5-identical to the pristine staging checkout;
+  the same two-file pair passes 95/95 there and `probe-inflight.test.ts` alone passes
+  67/67 in this worktree; the pristine staging checkout under default parallelism is
+  fully green (327 files, 5186 passed, 16 skipped); and a sequential rerun here
+  (`vitest run --root packages/core --no-file-parallelism` — no test skipped, no timeout
+  widened) is fully green: 329 files, 5194 passed, 9 skipped.
+  `tests/hooks/prior-art-trailer-hook.test.sh` is Exit 0.
 
 Exact final native argv/cwd are retained in `evidence/cc-native-commands.json`; the preparation call closed stdin. The initial capture appended probe-script stdin, not a canonical bridge payload; that failure and the bounded prompt-time retry remain disclosed.
 
@@ -50,8 +72,13 @@ Full logs remain at `/private/tmp/advisor-reminders-npm-test.log`,
 `/private/tmp/advisor-reminders-focused-final.log` and
 `/private/tmp/advisor-reminders-typecheck.log` and
 `/private/tmp/advisor-reminders-self-audit.log`; principle output is
-`/private/tmp/advisor-reminders-principles.log`. No dependency install through the primary
-checkout's node_modules symlinks was attempted. Unrelated modules were not repaired.
+`/private/tmp/advisor-reminders-principles.log`. Revalidation logs:
+`/private/tmp/rr-npm-test.log` (full suite), `/private/tmp/rr-self-audit2.log`,
+`/private/tmp/rr-husky.log`, `/private/tmp/rr-anchor.log`,
+`/private/tmp/rr-priorart.log`, `/private/tmp/rr-core-test.log` (core-workspace rerun)
+and the `/private/tmp/advisor-rr-npmci-*.log` install logs. No dependency install through
+the primary checkout's node_modules symlinks was attempted. Unrelated modules were not
+repaired.
 
 ## Live delivery cells
 

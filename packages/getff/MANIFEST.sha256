@@ -477,6 +477,7 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  packages/core/
 85e9f90e61f81275031d3dde3edbaebbf9d121100d94bf9c318f2e0dcbb2674c  packages/core/hooks/__fixtures__/gate-unarmed-goldens.json
 6d25d5e01ae669a8789e24005d94548f28bf62902558a2ba31dc391e36abab85  packages/core/hooks/_zcode-emit.test.ts
 ee8cf900baaf7785c999f04bc871366ba240b5059d0c30b8ea57913e12030a62  packages/core/hooks/adopt-orchestrator-prompts.test.ts
+12305e5f96ff040e05177887e098f0baa6d5a0ac861b6a3f4a1aefd647406c95  packages/core/hooks/advisor-role-reminders.test.ts
 250f68c90b916cf275652d4356eaa8cda34b9b417eab84834cad39d11b04400e  packages/core/hooks/apply-doc-fixes.test.ts
 089730b66a1ae8792b29271f72d61cca51a055e5ad3bb4c93f6b8412c101ea21  packages/core/hooks/ask-question-reminder.test.ts
 7b1e979a15d808fffd4bf9ed751663cfa1452bc615a8f09504264e082090b603  packages/core/hooks/check-doc-authority-header.test.ts
