@@ -1,7 +1,7 @@
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .agents/hooks/ask-question-reminder.sh
 5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .agents/hooks/check-doc-authority-header.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
-5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .agents/hooks/end-of-turn-reminder.sh
+01b538995c463881f31fbea004fb80dc7a3f7d99bec634bc2182dfa3d4525068  .agents/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
 7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
@@ -190,7 +190,7 @@ a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DE
 a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-8e18cba8a421d7257365941e973557d742599474736b54060f532905d05c3425  .ai-factory/refresh-baseline.json
+2fc6d0ad4476697eb62e6bb74884f722633e1da0cfcc1029a234bf10550821c1  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md

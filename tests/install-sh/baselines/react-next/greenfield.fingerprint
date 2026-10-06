@@ -1,7 +1,7 @@
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .agents/hooks/ask-question-reminder.sh
 5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .agents/hooks/check-doc-authority-header.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
-5b61fc1ea0b0cb44a72ac628bee2eeb5daba69b86681d109ac2d9d0d9998179e  .agents/hooks/end-of-turn-reminder.sh
+01b538995c463881f31fbea004fb80dc7a3f7d99bec634bc2182dfa3d4525068  .agents/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
 7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
@@ -10,6 +10,7 @@ ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .agents/hooks/
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .agents/hooks/lang/check-parity.sh
 db4b9215972f881e86998c832c28861fdd09446e3682a1630527137bb3d43a55  .agents/hooks/lang/en.sh
 2d6116e62e8fceccaebc39bef91f743f04bb952948e793c7b8447fceff85f46a  .agents/hooks/lang/ru.sh
+2fad642ed211c7abad08be5caa7870fc1213db6e17f6405bb412592e67d28e97  .agents/hooks/lib/hook-language.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
 4df7392c5a977ad476d3cdb970b50ec91e92a6d82e260800dbfc5caae3344573  .agents/hooks/precompact-residue.sh
@@ -190,7 +191,7 @@ a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DE
 a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-3d03d1cb3eb13a32fb29680c452feed7b04a360561f67c4d5217c58484113b83  .ai-factory/refresh-baseline.json
+ac63dfbc1c099c4b7726f576e9e89c260dd15b6f6d106e4ac75cb4a78a402abe  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -335,6 +336,7 @@ link  .claude/skills/template-audit/SKILL.md -> ../../../.agents/procedures/temp
 link  .claude/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
 link  .claude/skills/tool-bootstrapping/references/decision-format.md -> ../../../../.agents/procedures/tool-bootstrapping/references/decision-format.md
 link  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template -> ../../../../.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
+5d007ae5b8574a444a8487b5a98774acf5934859d62d746cbddf2446bfab38d6  .codex/hooks.json
 e6cd6caa96d4325ffa2d10e62b320fe62ed4724f6d41ba74ee9ba7c66210d56d  .dependency-cruiser.mjs
 f5f9350da061c8d395ddda1788dbc04029a1dd92061a64bbb362b6c4650b505a  .github/workflows/ci.yml
 d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workflows/workflow-integrity.yml
@@ -507,6 +509,7 @@ e8970b5d628b7e805316450b8674a7e649c8988a40406abef3bafd3c5f804e5f  scripts/check-
 f9bd865af4cc488cfed16193631f19c7102034f65cf7dc7f61a9922dd8ff4cc2  scripts/check-shields-up.sh
 8a9302524aa42db678ca9d631ee02b55294c3a69e72131ee5163c0d3e5c27cff  scripts/check-zcode-mirror.sh
 d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  scripts/ci-available-probe.sh
+b121cd8123fcbeea983787d13a1f8ea44a85a826d5d16df04fecc971069e5f93  scripts/codex-hook-adapter.mjs
 e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create-worktree.sh
 6d6a346a97d9aa202fc34da57256ceffa1186dee8fc062bf6ab3e860b6839ac0  scripts/detect-r2-boundary.sh
 d056de0d33a9356439182541b9d3f55c0596502533392eb97173d5ca3cf4b49e  scripts/fences-fire-fixtures/no-direct-time-randomness.bad.txt
@@ -528,6 +531,7 @@ ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  scripts/fences
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  scripts/fences-fire-fixtures/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  scripts/fences-fire-fixtures/require-use-server-directive.manifest.json
 6e93bd43540cd691c6513e2692b779bf3f7b2ee36b9e956ef3a33c8b3cd97fcb  scripts/getff-work.sh
+03581a7d76131f9ad0a98317a7182a1bed7ad7aaa8c41b22cc538bba6a3b8d54  scripts/lib/is-main-entry.mjs
 0e2eb8ab4ace1c0f8dee3c0e7e144ae73b902377fc5fdef614d59f2c744cad73  scripts/link-coordination.sh
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  scripts/pre-merge-local.sh
 d159796d5f6dbe79701ac512a725a5dfc01baa02f91bcf46e22b5eb68369edc0  scripts/prove-rules.mjs

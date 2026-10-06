@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1770-1810 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1777-1817 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1398,6 +1398,42 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       // carry the block now, and the removed chronicle bullet must stay absent.
       expect(payload.reason).toContain('Зачем всё это было');
       expect(payload.reason, 'D-G removed the «по актам» chronicle').not.toMatch(/по актам/i);
+    });
+
+    it('explicit completed story without a PR signal keeps its final answer', () => {
+      const story = '## 🎬 Что изменилось за сессию\n\n' + longMarkdownText();
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('/story'), assistantText(story)]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'explicit-story' });
+      expect(result.status).toBe(0);
+      expect(result.stdout, 'a completed explicit story must not be replaced by a dry recap').toBe('');
+    });
+
+    it('an inline or quoted story marker does not suppress the ordinary recap', () => {
+      for (const prefix of ['Example: ', '> ']) {
+        const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(prefix + '## 🎬 Что изменилось за сессию\n' + longMarkdownText())]);
+        const result = runHook({ transcript_path: tr, stop_hook_active: false });
+        expect(JSON.parse(result.stdout).reason).toContain('## 🟢 Простыми словами');
+      }
+    });
+
+    it('a fenced story example does not count as a completed story', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('```markdown\n## 🎬 Что изменилось за сессию\n```\n' + longMarkdownText())]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(JSON.parse(result.stdout).reason).toContain('## 🟢 Простыми словами');
+    });
+
+    it('a story mention cannot exempt an incomplete recap from its armed section gate', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'explicit-story-gate-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('## 🟢 In plain words\nExample: ## 🎬 What changed this session')]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-gate-mention' }, { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir });
+      expect(JSON.parse(result.stdout).reason).toContain('From you:');
+    });
+
+    it('a completed English story keeps its final answer with the section gate armed', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('/story'), assistantText('## 🎬 What changed this session\n' + longMarkdownText())]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false }, { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' });
+      expect(result.stdout).toBe('');
     });
 
     it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', () => {

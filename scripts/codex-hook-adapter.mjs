@@ -599,7 +599,8 @@ export function runHook(root, script, input) {
       : join(root, existsSync(join(root, '.agents/hooks')) ? '.agents/hooks' : '.claude/hooks', `${script}.sh`);
   if (!existsSync(path))
     return { status: 2, stdout: '', stderr: `Codex hook missing: ${path}` };
-  const languageResolver = resolve(
+  const consumerLanguage = join(root, '.agents/hooks/lib/hook-language.sh');
+  const languageResolver = existsSync(consumerLanguage) ? consumerLanguage : resolve(
     dirname(fileURLToPath(import.meta.url)),
     '../plugin/hooks/lib/hook-language.sh',
   );
@@ -823,7 +824,11 @@ if (isMainEntry(import.meta.url)) {
   try {
     const input = JSON.parse(readFileSync(0, 'utf8'));
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-    if (resolve(input.cwd ?? '.') !== root) {
+    const physicalCwd = realpathSync(input.cwd ?? '.');
+    const consumerRelative = relative(root, physicalCwd);
+    const withinConsumer = existsSync(join(root, '.codex/hooks.json')) &&
+      consumerRelative !== '..' && !consumerRelative.startsWith('../') && !isAbsolute(consumerRelative);
+    if (physicalCwd !== root && !withinConsumer) {
       const gitRoot = spawnSync(
         'git',
         ['-C', input.cwd ?? '.', 'rev-parse', '--show-toplevel'],
@@ -831,6 +836,7 @@ if (isMainEntry(import.meta.url)) {
       );
       if (gitRoot.stdout?.trim() !== root) process.exit(0);
     }
+    input.cwd = physicalCwd;
     const script = process.argv[2];
     if (!/^[a-z][a-z0-9-]*$/.test(script ?? ''))
       throw new Error('expected canonical hook basename');

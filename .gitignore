@@ -168,6 +168,7 @@ tests/agnosticism/conformance-record.tsv
 # Canonical contributor adapters travel with Git. Private runtime state stays ignored.
 !/.codex/
 /.codex/*
+!/.codex/hooks.json
 !/.codex/config.toml
 !/.codex/contributor-inventory.json
 !/.codex/agents/

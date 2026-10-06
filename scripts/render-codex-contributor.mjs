@@ -5,54 +5,12 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
+import { emitCodexHooks } from './lib/codex-hooks.mjs';
 
 export function emitCodex(model, root) {
-  const hooks = {};
-  const degradations = [];
-  for (const [event, entries] of Object.entries(model.hooks ?? {})) {
-    if (event === 'PostToolUseFailure') {
-      degradations.push({
-        event,
-        reason:
-          'Codex 0.160.0 has no native PostToolUseFailure event; failed-write dispatch-loss warning has no registered equivalent.',
-      });
-      continue;
-    }
-    const mapped = [];
-    for (const e of entries) {
-      const name = e.command.match(
-        /\/(?:\.claude\/hooks|scripts)\/([A-Za-z0-9_-]+)\.sh/,
-      )?.[1];
-      if (!name) throw new Error(`Codex: unmapped command ${e.command}`);
-      // ZCode-only rewrite; native SubagentStart delivers the canonical digest.
-      if (name === 'inject-subagent-context') continue;
-      let matcher = e.matcher
-        ?.split('|')
-        .filter((t) => t !== 'MultiEdit')
-        .join('|');
-      // Keep the underlying native tools registered; never parse outer code-mode JS.
-      if (name === 'seal-primary-checkout' && event === 'PreToolUse')
-        matcher = '*';
-      if (
-        name === 'inject-matching-rule' &&
-        ['PreToolUse', 'PostToolUse'].includes(event)
-      )
-        matcher = [
-          ...new Set([...(matcher?.split('|') ?? []), 'Bash', 'exec_command']),
-        ].join('|');
-      mapped.push({
-        ...(matcher ? { matcher } : {}),
-        hooks: [
-          {
-            type: 'command',
-            command: `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ] && [ -f "$root/scripts/codex-hook-adapter.mjs" ]; then node "$root/scripts/codex-hook-adapter.mjs" ${name}; fi`,
-            timeout: name === 'link-coordination' ? 360 : 45,
-          },
-        ],
-      });
-    }
-    if (mapped.length) hooks[event] = mapped;
-  }
+  const { hooks, degradations } = emitCodexHooks(model.hooks, name =>
+    `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ] && [ -f "$root/scripts/codex-hook-adapter.mjs" ]; then node "$root/scripts/codex-hook-adapter.mjs" ${name}; fi`,
+  );
   degradations.push({
     mechanism: 'bounded-input-policy',
     reason:

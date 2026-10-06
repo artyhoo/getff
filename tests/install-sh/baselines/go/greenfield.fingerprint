@@ -1,7 +1,11 @@
+2fad642ed211c7abad08be5caa7870fc1213db6e17f6405bb412592e67d28e97  .agents/hooks/lib/hook-language.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
-842da5b5691681fd301d4903de8b7f1ce533dcdf131df343b3ca2fd13985c8ba  .ai-factory/refresh-baseline.json
+5e1b6c6fbf4035f6c5e800c9ecb45b650c42af9a634c1f6a9c485260d6453679  .ai-factory/refresh-baseline.json
 33396de229a2068858f546636e0bb4d0b3312fb737df9fdee0ec8c454b2bec0c  .ai-factory/tool-decisions.md
 link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
+78922a784ee78e9e50587e93628cd3b9d4dfbe49087adc4514e6781cea38cbb9  .codex/hooks.json
 8b5ed10ffd8638a50bbbad25201352dec7667a01037108df5aff3c14dddd1cb6  .github/workflows/getff-go.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  .golangci.yml
 b48dac7483918ed4b1034f73d2c28e67fc10f561041f29512784e673c4b4bcc5  go.mod
+b121cd8123fcbeea983787d13a1f8ea44a85a826d5d16df04fecc971069e5f93  scripts/codex-hook-adapter.mjs
+03581a7d76131f9ad0a98317a7182a1bed7ad7aaa8c41b22cc538bba6a3b8d54  scripts/lib/is-main-entry.mjs
