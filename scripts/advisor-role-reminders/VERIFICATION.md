@@ -24,7 +24,7 @@ Commands below ran in the implementation worktree unless a package cwd is stated
 | `npm run typecheck` | Exit 2 in the first session (missing `oxlint/plugins-dev`). Revalidated: Exit 0 after reinstalling dependencies from lockfiles |
 | `npm test` (first-session full runs) | Exit 1 in the first session; failures retained below as historical record |
 | `npm test` (revalidated, default parallelism) | Exit 1; core: the two load-sensitive files named in the Revalidation section; other workspaces: 43 and 504 passed, 1 skipped |
-| `vitest run --root packages/core --no-file-parallelism` (revalidated) | Exit 0 — 329 files, 5194 passed, 9 skipped; no test skipped, no timeout widened |
+| `vitest run --root packages/core --no-file-parallelism` (revalidated) | Exit 0 — 329 files, 5194 passed, 9 skipped (pre-existing skips); no test newly skipped, no timeout widened |
 
 The first nine tests failed before production files existed. Cold review then found
 compaction while disarmed and unrelated-prompt activation defects. Regression tests
@@ -61,8 +61,8 @@ without touching the reminder implementation:
   the same two-file pair passes 95/95 there and `probe-inflight.test.ts` alone passes
   67/67 in this worktree; the pristine staging checkout under default parallelism is
   fully green (327 files, 5186 passed, 16 skipped); and a sequential rerun here
-  (`vitest run --root packages/core --no-file-parallelism` — no test skipped, no timeout
-  widened) is fully green: 329 files, 5194 passed, 9 skipped.
+  (`vitest run --root packages/core --no-file-parallelism` — no test newly skipped, no
+  timeout widened) is fully green: 329 files, 5194 passed, 9 skipped.
   `tests/hooks/prior-art-trailer-hook.test.sh` is Exit 0.
 
 Exact final native argv/cwd are retained in `evidence/cc-native-commands.json`; the preparation call closed stdin. The initial capture appended probe-script stdin, not a canonical bridge payload; that failure and the bounded prompt-time retry remain disclosed.
@@ -145,6 +145,8 @@ made once-only from their currently consumed schema.
 - `scripts/advisor-role-reminders/evidence/*.json`: sanitized native receipts, argv and discovery metadata.
 - `tests/advisor-role-reminders/test_reminders.py`: deterministic boundary tests.
 
-Local cold-review annotation is `.claude/reviews/latest.md`. No push, PR, merge, publish,
+Local cold-review annotation is `.claude/reviews/latest.md` — intentionally untracked
+local-only scratch, preserved outside the commit per the acceptance packet; a fresh
+review of the final SHA is recorded in the PR description instead. No push, PR, merge, publish,
 global config/trust write or pilot activation occurred. Final commit identity is the
 session's REPORT; this file stays independent of its own commit hash.
