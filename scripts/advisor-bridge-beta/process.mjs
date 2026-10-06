@@ -46,7 +46,11 @@ export function assertProfileEnv(env, pilot) {
   }
 }
 
-export function parseChildResult(stdout, expectedSessionId) {
+// Runtime evidence check: the requested model pin (route evidence, recorded in
+// the attempt argv) stays separate from the client-reported model identity
+// (modelUsage keys). A missing or mismatched reported model is an unproven
+// capture and blocks advancement — even with a matching session id and exit 0.
+export function parseChildResult(stdout, expectedSessionId, expectedModel = EXECUTOR_MODEL) {
   let parsed = null;
   try {
     parsed = JSON.parse(stdout);
@@ -59,11 +63,18 @@ export function parseChildResult(stdout, expectedSessionId) {
   if (parsed.session_id !== expectedSessionId) {
     return { trusted: false, reason: 'session-identity-mismatch', observed: parsed.session_id ?? null };
   }
+  const model = typeof parsed.modelUsage === 'object' && parsed.modelUsage ? Object.keys(parsed.modelUsage) : [];
+  if (model.length === 0) {
+    return { trusted: false, reason: 'model-evidence-missing', observed: [], expected: expectedModel };
+  }
+  if (!model.includes(expectedModel)) {
+    return { trusted: false, reason: 'model-mismatch', observed: model, expected: expectedModel };
+  }
   return {
     trusted: true,
     result: parsed.result ?? null,
     isError: parsed.is_error === true,
-    model: typeof parsed.modelUsage === 'object' && parsed.modelUsage ? Object.keys(parsed.modelUsage) : [],
+    model,
   };
 }
 
@@ -86,7 +97,23 @@ export function readAdvisorLocator(coordinationDir, { testMode }) {
   return { seed, pin };
 }
 
-export function buildAdvisorArgs({ seed, modelPin, coordinationDir, askPath, candidatePath, question }) {
+// Structured output schema for the advisor fork: the capture must carry the
+// advisor role, the exact ask id and the exact bound input digest.
+export function advisorOutputSchema({ askId, inputDigest }) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: ['role', 'askId', 'inputDigest', 'answer'],
+    properties: {
+      role: { type: 'string', const: 'advisor' },
+      askId: { type: 'string', const: askId },
+      inputDigest: { type: 'string', const: inputDigest },
+      answer: { type: 'string' },
+    },
+  };
+}
+
+export function buildAdvisorArgs({ seed, modelPin, coordinationDir, askPath, candidatePath, schemaPath, askId, inputDigest, question }) {
   return [
     '--ask-for-approval', 'never',
     'exec',
@@ -95,8 +122,9 @@ export function buildAdvisorArgs({ seed, modelPin, coordinationDir, askPath, can
     '--skip-git-repo-check',
     'fork', seed,
     '--model', modelPin,
+    '--output-schema', schemaPath,
     '-o', candidatePath,
-    `advisor role: judge the bounded ask at ${askPath}; decide; output the decision. Do not modify any files — the adapter imports your captured output. Ask: ${question}`,
+    `advisor role: judge the bounded ask at ${askPath}. Respond ONLY with JSON {"role":"advisor","askId":"${askId}","inputDigest":"${inputDigest}","answer":"<decision>"} matching the output schema. Do not modify any files — the adapter imports your captured output. Ask: ${question}`,
   ];
 }
 
@@ -105,20 +133,7 @@ export function redactArgv(argv, secret) {
   return argv.map((a) => (a === secret ? '<redacted:live-advisor-md>' : a));
 }
 
-export function parseAdvisorCandidate(candidateText) {
-  let parsed;
-  try {
-    parsed = JSON.parse(candidateText);
-  } catch {
-    return { trusted: false, reason: 'candidate-not-json' };
-  }
-  if (typeof parsed !== 'object' || parsed === null || typeof parsed.answer !== 'string' || parsed.answer.trim().length === 0) {
-    return { trusted: false, reason: 'candidate-has-no-answer' };
-  }
-  return { trusted: true, answer: parsed.answer };
-}
-
-export function runChildToCompletion({ argv, cwd, env, deadlineMs, stdoutPath = null }) {
+export function runChildToCompletion({ argv, cwd, env, deadlineMs, stdoutPath = null, onSpawn = null }) {
   return new Promise((resolve) => {
     let child;
     try {
@@ -128,6 +143,13 @@ export function runChildToCompletion({ argv, cwd, env, deadlineMs, stdoutPath = 
       return;
     }
     const pid = child.pid;
+    // Persist the live process identity as soon as it exists, so OFF
+    // termination and reconciliation can bind to the exact running process.
+    if (typeof onSpawn === 'function') {
+      try {
+        onSpawn(pid);
+      } catch { /* best-effort persistence */ }
+    }
     let timedOut = false;
     let stdout = '';
     let stderrTail = '';

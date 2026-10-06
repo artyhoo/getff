@@ -8,7 +8,8 @@ import {
 } from 'node:fs';
 
 import { createHash, randomUUID } from 'node:crypto';
-import { basename, join, join as pathJoin, resolve, sep } from 'node:path';
+import { join, join as pathJoin, resolve, sep } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 export class HoldError extends Error {
   constructor(reason, details = {}) {
@@ -94,10 +95,85 @@ function createImmutable(target, text) {
   }
 }
 
+// Content identity ignoring volatile timestamp fields: a legitimate retry
+// reconstructs `importedAt`/`createdAt`/`decidedAt` and must still be recognized
+// as the same artifact (identical replay returns the existing receipt).
+function sameExceptVolatile(storedText, incomingText, volatileKeys) {
+  try {
+    const a = JSON.parse(storedText);
+    const b = JSON.parse(incomingText);
+    for (const k of volatileKeys) {
+      delete a[k];
+      delete b[k];
+    }
+    return isDeepStrictEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 export function readPilot(root) {
   const p = mailboxPath(root, 'pilot.json');
   if (!existsSync(p)) return null;
   return readJson(p);
+}
+
+// ---------- observed physical git identity ----------
+
+function hasGitObjects(dir) {
+  return existsSync(join(dir, 'objects')) && existsSync(join(dir, 'refs'));
+}
+
+function commonDirVerified(dir) {
+  return existsSync(dir) && hasGitObjects(dir) ? realpathSync(dir) : null;
+}
+
+// git writes a `commondir` file inside a linked worktree's gitdir; a main
+// `.git` directory carries objects/refs directly.
+function commonDirFromGitdir(gitdir) {
+  const commondirPath = join(gitdir, 'commondir');
+  if (existsSync(commondirPath)) {
+    let raw = '';
+    try {
+      raw = readFileSync(commondirPath, 'utf8').trim();
+    } catch {
+      return null;
+    }
+    if (raw.length === 0) return null;
+    return commonDirVerified(resolve(gitdir, raw));
+  }
+  return commonDirVerified(gitdir);
+}
+
+// Derive the physical git common directory for a working directory by
+// observing its `.git` (directory, or file with a `gitdir:` pointer).
+function gitCommonDirOf(workingDir) {
+  const dotGit = join(workingDir, '.git');
+  let st;
+  try {
+    st = lstatSync(dotGit);
+  } catch {
+    return null;
+  }
+  if (st.isDirectory()) return commonDirVerified(dotGit);
+  if (st.isFile()) {
+    const m = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m);
+    if (!m) return null;
+    return commonDirFromGitdir(resolve(workingDir, m[1].trim()));
+  }
+  return null;
+}
+
+// Walk up from the mailbox anchor until an observed git repository is found.
+function anchorCommonDir(mailboxRoot) {
+  let dir = resolve(mailboxRoot);
+  for (;;) {
+    const found = gitCommonDirOf(dir);
+    if (found) return found;
+    const parent = resolve(dir, '..');
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 // ---------- path safety ----------
@@ -166,6 +242,7 @@ export async function withOpLock(root, fn) {
 }
 
 // Reconciliation is explicit: an operator/senior action, never automatic.
+// A lock whose holder process is still alive is NEVER removed by this path.
 export function reconcileOpLock(root, { actor, rationale }) {
   if (typeof rationale !== 'string' || rationale.length < 20) {
     throw new RejectError('reconcile requires a rationale of at least 20 characters');
@@ -173,6 +250,24 @@ export function reconcileOpLock(root, { actor, rationale }) {
   const lockPath = mailboxPath(root, LOCK);
   if (!existsSync(lockPath)) return { removed: false };
   const stale = readFileSync(lockPath, 'utf8');
+  let holderPid = NaN;
+  try {
+    holderPid = Number(String(JSON.parse(stale).holder).match(/^pid-(\d+)$/)?.[1] ?? NaN);
+  } catch {
+    holderPid = NaN;
+  }
+  if (Number.isInteger(holderPid) && holderPid > 0) {
+    let alive = false;
+    try {
+      process.kill(holderPid, 0);
+      alive = true;
+    } catch {
+      alive = false;
+    }
+    if (alive) {
+      throw new HoldError('operation lock holder process is alive; refusing to reconcile a live holder', { holderPid });
+    }
+  }
   unlinkSync(lockPath);
   journalAppend(root, {
     eventId: `lock-reconcile-${sha256(stale + rationale).slice(0, 16)}`,
@@ -190,6 +285,9 @@ function nextSeq(root) {
   return readdirSync(dir).length + 1;
 }
 
+// An identical semantic replay (same type, actor, payload, causation) returns
+// the existing receipt. ANY changed content under the same event ID is a
+// conflict and is rejected — silent success under changed bytes is forbidden.
 export function journalAppend(root, { eventId, type, actor, payload, causationId = null }) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(eventId)) {
     throw new RejectError('invalid eventId', { eventId });
@@ -199,10 +297,16 @@ export function journalAppend(root, { eventId, type, actor, payload, causationId
   for (const name of readdirSync(dir)) {
     const existing = readJson(join(dir, name));
     if (existing.eventId === eventId) {
+      const same = existing.type === type
+        && existing.actor === actor
+        && isDeepStrictEqual(existing.payload ?? null, payload ?? null)
+        && isDeepStrictEqual(existing.causationId ?? null, causationId ?? null);
+      if (!same) {
+        throw new RejectError('event ID conflict: changed content under an existing event ID', {
+          eventId, existingSeq: existing.seq,
+        });
+      }
       return { seq: existing.seq, eventId, replay: true };
-    }
-    if (existing.eventId !== eventId && existing.digestCollisionGuard && existing.digestCollisionGuard === payload?.digestCollisionGuard) {
-      throw new RejectError('event ID conflict', { eventId });
     }
   }
   const seq = nextSeq(root);
@@ -230,6 +334,16 @@ export function journalFind(root, eventId) {
   return null;
 }
 
+function findDecisionJournal(root, askId) {
+  const dir = mailboxPath(root, 'events');
+  if (!existsSync(dir)) return null;
+  for (const name of readdirSync(dir).sort()) {
+    const rec = readJson(join(dir, name));
+    if (rec.type === 'decision-captured' && rec.payload?.askId === askId) return rec;
+  }
+  return null;
+}
+
 // ---------- enrollment / admission ----------
 
 export function enroll(root, cfg) {
@@ -239,14 +353,48 @@ export function enroll(root, cfg) {
       throw new RejectError(`enroll requires ${key}`);
     }
   }
+  const coordinationAbs = resolve(cfg.coordinationDir);
+  let coordinationOk = false;
+  try {
+    coordinationOk = lstatSync(coordinationAbs).isDirectory();
+  } catch {
+    coordinationOk = false;
+  }
+  if (!coordinationOk) {
+    throw new RejectError('coordination dir does not exist or is not a directory', { coordinationDir: coordinationAbs });
+  }
+  // Repository binding is OBSERVED, never asserted: derive the physical git
+  // common directory for both the mailbox anchor and the executor worktree and
+  // compare with the declared binding.
+  const anchorObserved = anchorCommonDir(root);
+  if (!anchorObserved) {
+    throw new RejectError('mailbox anchor is not inside an observed git repository', { mailbox: resolve(root) });
+  }
+  const executorAbs = resolve(cfg.executorWorktree);
+  const executorObserved = gitCommonDirOf(executorAbs);
+  if (!executorObserved) {
+    throw new RejectError('executor worktree has no observable git repository', { executorWorktree: executorAbs });
+  }
+  let declared;
+  try {
+    declared = realpathSync(resolve(cfg.repoCommonDir));
+  } catch {
+    throw new RejectError('declared repo common dir does not exist', { repoCommonDir: cfg.repoCommonDir });
+  }
+  if (declared !== anchorObserved || declared !== executorObserved) {
+    throw new RejectError('foreign repository binding: declared common dir does not match the observed anchor/executor', {
+      declared, anchorObserved, executorObserved,
+    });
+  }
   ensureDirs(root);
   const pilot = {
     schemaVersion: 1,
     pilotId: cfg.pilotId,
     seniorSessionId: cfg.seniorSessionId,
-    executorWorktree: resolve(cfg.executorWorktree),
-    coordinationDir: resolve(cfg.coordinationDir),
-    repoCommonDir: resolve(cfg.repoCommonDir),
+    executorWorktree: executorAbs,
+    coordinationDir: coordinationAbs,
+    repoCommonDir: declared,
+    observedBinding: { anchor: anchorObserved, executor: executorObserved },
     advisorSeedSource: 'live ADVISOR.md at runtime; never stored here',
     testMode: cfg.testMode === true,
     childBin: cfg.testMode === true ? resolve(cfg.childBin ?? '') : null,
@@ -290,7 +438,7 @@ export function readOff(root) {
 }
 
 // Admission check. MUST run inside the operation lock (serialized with OFF).
-// kind: 'mutation' | 'cc-pass' | 'advisor-call'
+// kind: 'mutation' | 'cc-pass' | 'cc-resume' | 'advisor-call'
 export function checkAdmission(root, kind = 'mutation') {
   const pilot = readPilot(root);
   if (!pilot) throw new HoldError('pilot not enrolled');
@@ -436,7 +584,7 @@ export function writeAttempt(root, attempt) {
   return attempt;
 }
 
-const UNRECONCILED = new Set(['reserved', 'unknown', 'deadline-unknown']);
+const UNRECONCILED = new Set(['reserved', 'unknown', 'deadline-unknown', 'interrupted']);
 
 export function readAttempt(root, attemptId) {
   return listAttempts(root).find((a) => a.attemptId === attemptId) ?? null;
@@ -447,7 +595,7 @@ export function latestCompletedAttempt(root) {
   return done.length > 0 ? done[done.length - 1] : null;
 }
 
-export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom = null, deadlineMs, argv }) {
+export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom = null, deadlineMs, argv, prompt }) {
   const attemptId = randomUUID().slice(0, 8);
   const attempt = {
     schemaVersion: 1,
@@ -460,6 +608,7 @@ export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom
     resumeFrom,
     deadlineMs,
     argv,
+    prompt,
     stdoutPath: mailboxPath(root, 'attempts-stdout', `${attemptId}.json`),
     pid: null,
     reservedAt: new Date().toISOString(),
@@ -469,9 +618,17 @@ export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom
     eventId: `ccpass-reserved-${attemptId}`,
     type: 'cc-pass-reserved',
     actor: 'cc-owner',
-    payload: { workKey, passNumber, sessionId, resumeFrom, deadlineMs, argv },
+    payload: { workKey, passNumber, sessionId, resumeFrom, deadlineMs, prompt },
   });
   return attempt;
+}
+
+// Persist the live process identity while the child is running (not only at
+// completion) — OFF termination and reconciliation bind to this recorded pid.
+export function recordAttemptPid(root, attemptId, pid) {
+  const attempt = readAttempt(root, attemptId);
+  if (!attempt) throw new RejectError('attempt not found', { attemptId });
+  return writeAttempt(root, { ...attempt, pid });
 }
 
 export function completeCcPass(root, { attemptId, patch, outcome }) {
@@ -506,38 +663,179 @@ export function recordCcPassLaunched(root) {
   return counters;
 }
 
-export function reconcileAttempt(root, { attemptId, mark, rationale, actor }) {
+// Reconciliation is evidence-gated: a rationale records the decision, but
+// recorded identity, cessation and capture evidence govern what may be marked.
+// `completed` additionally requires trusted captured stdout with the expected
+// session identity and model evidence. An unproven/running attempt can never
+// be marked safe to advance on a rationale string alone.
+export function reconcileAttempt(root, { attemptId, mark, rationale, actor, evidence }) {
   if (typeof rationale !== 'string' || rationale.length < 20) {
     throw new RejectError('reconcile requires a rationale of at least 20 characters');
   }
-  if (!['completed', 'unknown'].includes(mark)) {
-    throw new RejectError('mark must be "completed" or "unknown"', { mark });
+  if (!['abandoned', 'completed'].includes(mark)) {
+    throw new RejectError('mark must be "abandoned" or "completed"', { mark });
   }
   const attempt = readAttempt(root, attemptId);
   if (!attempt) throw new RejectError('attempt not found', { attemptId });
   if (!UNRECONCILED.has(attempt.status)) {
     return { ...attempt, replay: true };
   }
+  const ev = (evidence && typeof evidence === 'object') ? evidence : {};
+  const cessationProven = ev.cessationProven === true;
+  const spawnNeverObserved = ev.spawnNeverObserved === true && attempt.pid == null;
+  if (!cessationProven && !spawnNeverObserved) {
+    throw new RejectError('reconcile requires proven cessation of the recorded process identity (a rationale alone is not proof)', {
+      attemptId, pid: attempt.pid ?? null,
+    });
+  }
+  if (mark === 'completed') {
+    const captureProven = ev.stdoutCaptured === true && ev.captureTrusted === true && ev.modelMatched === true;
+    if (!captureProven) {
+      throw new RejectError('cannot mark completed: recorded identity/capture/model evidence is insufficient', {
+        attemptId, evidence: ev,
+      });
+    }
+  }
   const merged = {
     ...attempt,
     status: mark,
     reconciledAt: new Date().toISOString(),
     reconcileRationale: rationale,
+    reconcileEvidence: ev,
   };
   writeAttempt(root, merged);
   journalAppend(root, {
     eventId: `ccpass-reconciled-${attemptId}`,
     type: 'cc-pass-reconciled',
     actor,
-    payload: { attemptId, mark, rationale },
+    payload: { attemptId, mark, rationale, evidence: ev },
     causationId: `ccpass-reserved-${attemptId}`,
   });
   return merged;
 }
 
-// ---------- reports ----------
+// ---------- run admission gate (task progression) ----------
 
-export function importReport(root, { workKey, revision, reportId, reportStatus, body, actor, destRel = null }) {
+// The launch boundary preserves ONE executor through initial/rework passes:
+// initial admission requires the current prepared request and a matching
+// bounded prompt; an identical completed launch replays its receipt; rework
+// requires the current senior instruction and resumes; a pending consult is an
+// explicit checkpoint; a completed pass waits for its report; acceptance ends
+// the work item. No unbounded new job is admitted at any point.
+export function gateRunAdmission(root, { workKey, prompt, resume }) {
+  const current = currentRequest(root, workKey);
+  if (!current) {
+    throw new RejectError('run requires a current prepared request; none was submitted', { workKey });
+  }
+  const openAsk = listAsks(root).find((a) => a.status === 'open'
+    && a.workKey === workKey && a.requestDigest === current.requestDigest);
+  if (openAsk) {
+    throw new HoldError('consult checkpoint pending: the open ask must be resolved before any new pass', {
+      askId: openAsk.askId,
+    });
+  }
+  const reports = listReports(root, workKey, current.requestRevision);
+  const verdicts = reports.map((r) => readVerdict(root, r.reportId)).filter(Boolean);
+  if (verdicts.some((v) => v.verdict === 'ACCEPTED')) {
+    throw new HoldError('work item accepted; no further passes are admitted', { workKey });
+  }
+  const rework = verdicts.filter((v) => v.verdict === 'REWORK')
+    .sort((a, b) => String(b.decidedAt ?? '').localeCompare(String(a.decidedAt ?? '')))[0] ?? null;
+  const promptText = String(prompt).trim();
+  if (resume) {
+    if (!rework) {
+      throw new HoldError('rework pass requires a senior REWORK instruction recorded on the current revision', {
+        workKey, requestRevision: current.requestRevision,
+      });
+    }
+    if (promptText !== String(rework.criteria ?? '').trim()) {
+      throw new RejectError('rework prompt must match the senior rework instruction (criteria)', {
+        workKey, requestRevision: current.requestRevision,
+      });
+    }
+    return {};
+  }
+  const attempts = listAttempts(root);
+  const completed = attempts.filter((a) => a.status === 'completed');
+  if (attempts.length === 0 || completed.length === 0) {
+    if (promptText !== String(current.body).trim()) {
+      throw new RejectError('initial pass prompt must match the prepared request body', {
+        workKey, requestRevision: current.requestRevision,
+      });
+    }
+    return {};
+  }
+  if (rework) {
+    throw new HoldError('rework instructed: resume the same proven-ended session with --resume', {
+      workKey, requestRevision: current.requestRevision,
+    });
+  }
+  if (reports.length > 0) {
+    throw new HoldError('report awaits the senior decision; no new job is admitted', { workKey });
+  }
+  const last = completed[completed.length - 1];
+  if (promptText === String(last.prompt ?? '').trim()) {
+    return { replay: last };
+  }
+  throw new HoldError('awaiting report for the completed pass; no new job is admitted', { workKey });
+}
+
+// ---------- advisor capture validation ----------
+
+// The captured advisor candidate must satisfy the identity contract supplied
+// in the fork argv: advisor role, the exact ask id, and the exact bound input
+// digest. Anything else keeps the ask OPEN.
+export function validateAdvisorCandidate(candidateText, { askId, inputDigest }) {
+  let parsed;
+  try {
+    parsed = JSON.parse(candidateText);
+  } catch {
+    return { trusted: false, reason: 'candidate-not-json' };
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    return { trusted: false, reason: 'candidate-not-object' };
+  }
+  if (parsed.role !== 'advisor') {
+    return { trusted: false, reason: 'candidate-role-mismatch', observed: parsed.role ?? null };
+  }
+  if (parsed.askId !== askId) {
+    return { trusted: false, reason: 'candidate-ask-binding-mismatch', observed: parsed.askId ?? null };
+  }
+  if (parsed.inputDigest !== inputDigest) {
+    return { trusted: false, reason: 'candidate-input-digest-mismatch', observed: parsed.inputDigest ?? null };
+  }
+  if (typeof parsed.answer !== 'string' || parsed.answer.trim().length === 0) {
+    return { trusted: false, reason: 'candidate-has-no-answer' };
+  }
+  return { trusted: true, answer: parsed.answer };
+}
+
+// ---------- reports: structured delivery envelope ----------
+
+function validateConsultAck(root, { consultDecisionId, applicationAck }, current) {
+  if (applicationAck !== true) {
+    throw new RejectError('report requires an explicit consultation application ACK', { consultDecisionId: consultDecisionId ?? null });
+  }
+  if (typeof consultDecisionId !== 'string' || consultDecisionId.length === 0) {
+    throw new RejectError('report requires the consulted decision id');
+  }
+  const decPath = mailboxPath(root, 'decisions', `${consultDecisionId}.json`);
+  if (!existsSync(decPath)) {
+    throw new RejectError('consulted decision not found', { consultDecisionId });
+  }
+  const dec = readJson(decPath);
+  if (dec.kind !== 'decision') {
+    throw new RejectError('consulted decision id does not name a decision record', { consultDecisionId });
+  }
+  if (dec.requestDigest !== current.requestDigest) {
+    throw new RejectError('consulted decision is bound to a superseded request revision', {
+      consultDecisionId, decisionRevision: dec.requestRevision ?? null, currentRevision: current.requestRevision,
+    });
+  }
+}
+
+export function importReport(root, fields) {
+  const { workKey, revision, reportId, reportStatus, body } = fields;
   checkWorkKey(workKey);
   if (!Number.isInteger(revision) || revision < 1) throw new RejectError('invalid revision');
   if (!['DONE', 'PARTIAL', 'BLOCKED'].includes(reportStatus)) {
@@ -545,14 +843,54 @@ export function importReport(root, { workKey, revision, reportId, reportStatus, 
   }
   if (typeof body !== 'string' || body.trim().length === 0) throw new RejectError('empty report body');
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(reportId)) throw new RejectError('invalid reportId', { reportId });
-  const dest = destRel
-    ? safeArtifactPath(root, destRel)
+  const dest = fields.destRel
+    ? safeArtifactPath(root, fields.destRel)
     : safeArtifactPath(root, `reports/${workKey}.r${revision}.${reportId}.json`);
+  const ownership = readOwnership(root);
+  if (!ownership || ownership.workKey !== workKey) {
+    throw new RejectError('report requires an owned work item', { workKey, owned: ownership?.workKey ?? null });
+  }
+  if (fields.actor !== ownership.ownerToken) {
+    throw new RejectError('report actor is not the work owner', { actor: fields.actor ?? null });
+  }
   const current = currentRequest(root, workKey);
-  if (current && current.requestRevision !== revision) {
+  if (!current || current.requestRevision !== revision) {
     throw new RejectError('stale revision: reports bind the current request revision only', {
-      workKey, revision, currentRevision: current.requestRevision,
+      workKey, revision, currentRevision: current?.requestRevision ?? null,
     });
+  }
+  if (fields.requestDigest !== current.requestDigest) {
+    throw new RejectError('report request digest mismatch: the report must bind the exact request content', {
+      workKey, revision,
+    });
+  }
+  if (fields.ownerAck !== true) {
+    throw new RejectError('report requires the explicit owner acknowledgement (ownerAck)');
+  }
+  const validArtifacts = Array.isArray(fields.artifacts) && fields.artifacts.length > 0
+    && fields.artifacts.every((a) => a && typeof a.path === 'string' && typeof a.sha256 === 'string' && /^[0-9a-f]{64}$/.test(a.sha256));
+  const validEvidence = Array.isArray(fields.evidence) && fields.evidence.length > 0
+    && fields.evidence.every((ev) => ev && typeof ev.command === 'string' && Number.isFinite(ev.exit));
+  const completed = listAttempts(root).filter((a) => a.status === 'completed');
+  if (reportStatus === 'DONE') {
+    // A DONE report certifies execution; a legitimate prelaunch BLOCKED report
+    // may describe an absent pass, but DONE cannot exist without an owned pass.
+    if (completed.length === 0) {
+      throw new RejectError('DONE certifies execution; no owned completed pass exists', { workKey });
+    }
+    if (typeof fields.passId !== 'string' || !completed.some((a) => a.attemptId === fields.passId)) {
+      throw new RejectError('DONE must bind the completed owned pass id', { passId: fields.passId ?? null });
+    }
+    if (!validArtifacts) throw new RejectError('DONE requires artifacts with sha256 digests');
+    if (!validEvidence) throw new RejectError('DONE requires evidence entries (command + exit)');
+    validateConsultAck(root, { consultDecisionId: fields.consultDecisionId, applicationAck: fields.applicationAck }, current);
+  } else if (reportStatus === 'PARTIAL') {
+    if (!validArtifacts) throw new RejectError('PARTIAL requires artifacts with sha256 digests');
+    if (!validEvidence) throw new RejectError('PARTIAL requires evidence entries (command + exit)');
+  } else if (reportStatus === 'BLOCKED') {
+    if (typeof fields.blocker !== 'string' || fields.blocker.trim().length === 0) {
+      throw new RejectError('BLOCKED requires a blocker description');
+    }
   }
   const artifact = {
     schemaVersion: 1,
@@ -564,18 +902,36 @@ export function importReport(root, { workKey, revision, reportId, reportStatus, 
     reportStatus,
     body,
     bodyDigest: sha256(body),
-    actor: actor ?? 'cc-owner',
+    envelope: {
+      requestDigest: fields.requestDigest,
+      ownerAck: true,
+      artifacts: reportStatus === 'BLOCKED' ? (fields.artifacts ?? []) : fields.artifacts,
+      evidence: reportStatus === 'BLOCKED' ? (fields.evidence ?? []) : fields.evidence,
+      consultDecisionId: fields.consultDecisionId ?? null,
+      applicationAck: fields.applicationAck === true,
+      passId: fields.passId ?? null,
+      blocker: fields.blocker ?? null,
+    },
+    actor: fields.actor,
     importedAt: new Date().toISOString(),
   };
-  const { replay } = createImmutable(dest, canonicalJson(artifact));
+  // Identical retry (timestamps reconstructed) returns the existing receipt.
+  if (existsSync(dest)) {
+    const storedText = readFileSync(dest, 'utf8');
+    if (sameExceptVolatile(storedText, canonicalJson(artifact), ['importedAt'])) {
+      return { ...JSON.parse(storedText), dest, replay: true };
+    }
+    throw new RejectError('immutable artifact conflict', { target: dest });
+  }
+  createImmutable(dest, canonicalJson(artifact));
   journalAppend(root, {
     eventId: `report-${workKey}-r${revision}-${reportId}`,
     type: 'report-imported',
     actor: artifact.actor,
-    payload: { workKey, requestRevision: revision, reportId, reportStatus, replay },
+    payload: { workKey, requestRevision: revision, reportId, reportStatus, replay: false },
     causationId: `req-${workKey}-r${revision}`,
   });
-  return { ...artifact, dest, replay };
+  return { ...artifact, dest, replay: false };
 }
 
 // ---------- asks, forks, decisions ----------
@@ -585,9 +941,17 @@ function checkAskId(askId) {
   return askId;
 }
 
-export function submitAsk(root, { askId, question, actor }) {
+// An ask is immutably bound to the current prepared request (workKey +
+// revision + request digest) and to the exact question digest. Changing the
+// request invalidates prior decisions: a stale ask can never advance.
+export function submitAsk(root, { askId, question, actor, workKey }) {
   checkAskId(askId);
   if (typeof question !== 'string' || question.trim().length === 0) throw new RejectError('empty ask question');
+  checkWorkKey(workKey);
+  const current = currentRequest(root, workKey);
+  if (!current) {
+    throw new RejectError('ask requires a current prepared request to bind to', { workKey });
+  }
   const questionDigest = sha256(question);
   const meta = {
     schemaVersion: 1,
@@ -596,18 +960,33 @@ export function submitAsk(root, { askId, question, actor }) {
     askId,
     question,
     questionDigest,
+    workKey,
+    requestRevision: current.requestRevision,
+    requestDigest: current.requestDigest,
+    inputDigest: questionDigest,
     status: 'open',
     actor: actor ?? 'cc-owner',
     createdAt: new Date().toISOString(),
   };
-  const { replay } = createImmutable(mailboxPath(root, 'asks', `${askId}.json`), canonicalJson(meta));
-  if (replay) return { ...readJson(mailboxPath(root, 'asks', `${askId}.json`)), replay: true };
+  const p = mailboxPath(root, 'asks', `${askId}.json`);
+  if (existsSync(p)) {
+    const stored = readJson(p);
+    if (stored.questionDigest === questionDigest && stored.workKey === workKey
+      && stored.requestDigest === current.requestDigest) {
+      return { ...stored, replay: true };
+    }
+    throw new RejectError('ask conflict under the same askId', { askId });
+  }
+  createImmutable(p, canonicalJson(meta));
   createImmutable(mailboxPath(root, 'asks', `${askId}.md`), `# Ask: ${askId}\n\n${question}\n`);
   journalAppend(root, {
     eventId: `ask-${askId}`,
     type: 'ask-published',
     actor: meta.actor,
-    payload: { askId, questionDigest },
+    payload: {
+      askId, questionDigest, workKey,
+      requestRevision: current.requestRevision, requestDigest: current.requestDigest,
+    },
   });
   return { ...meta, replay: false };
 }
@@ -615,6 +994,14 @@ export function submitAsk(root, { askId, question, actor }) {
 export function readAsk(root, askId) {
   const p = mailboxPath(root, 'asks', `${askId}.json`);
   return existsSync(p) ? readJson(p) : null;
+}
+
+function listAsks(root) {
+  const dir = mailboxPath(root, 'asks');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((n) => n.endsWith('.json'))
+    .map((n) => readJson(join(dir, n)));
 }
 
 export function deriveDecisionEventId(askId, answer) {
@@ -668,44 +1055,93 @@ export function recordForkCapture(root, askId, patch) {
   return merged;
 }
 
-// Journal-before-Answer: the decision event lands first; the Answer section and
-// the receipt follow. A crash between steps replays idempotently — never a
-// second fork.
+function extractAnswer(md) {
+  const marker = '\n## Answer\n\n';
+  const i = md.indexOf(marker);
+  if (i < 0) return null;
+  return md.slice(i + marker.length).replace(/\n+$/, '');
+}
+
+// Journal-before-Answer: the decision event (carrying the FULL bound answer)
+// lands first; the decision record, the Answer section and the receipt follow.
+// Recovery replays the JOURNALED answer — the mutable outbox candidate is only
+// read when no journal event exists, and only after the reserved fork receipt
+// and the candidate's identity contract are validated. A stale ask (bound to a
+// superseded request revision) can never advance.
 export function importDecision(root, { askId, actor = 'bridge' }) {
   checkAskId(askId);
   const ask = readAsk(root, askId);
   if (!ask) throw new RejectError('ask not found', { askId });
   if (ask.status === 'answered') {
+    const decPath = mailboxPath(root, 'decisions', `${ask.decisionId}.json`);
+    if (!existsSync(decPath)) {
+      throw new RejectError('committed decision record missing', { askId });
+    }
+    const dec = readJson(decPath);
+    if (dec.answerDigest !== ask.answerDigest) {
+      throw new RejectError('committed decision is inconsistent with the ask record', { askId });
+    }
+    const md = readFileSync(mailboxPath(root, 'asks', `${askId}.md`), 'utf8');
+    const answerText = extractAnswer(md);
+    if (answerText === null || sha256(answerText) !== ask.answerDigest) {
+      throw new RejectError('committed Answer section does not match the committed decision', { askId });
+    }
     return { decisionId: ask.decisionId, answerDigest: ask.answerDigest, replay: true };
   }
-  const candidatePath = mailboxPath(root, 'outbox', `${askId}.candidate.json`);
-  if (!existsSync(candidatePath)) {
-    throw new HoldError('advisor capture missing; ask stays OPEN', { askId, candidatePath });
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(readFileSync(candidatePath, 'utf8'));
-  } catch {
-    throw new HoldError('advisor capture is not valid JSON; ask stays OPEN', { askId });
-  }
-  const answer = typeof parsed === 'object' && parsed !== null ? parsed.answer : undefined;
-  if (typeof answer !== 'string' || answer.trim().length === 0) {
-    throw new HoldError('advisor capture has no answer; ask stays OPEN', { askId });
-  }
-  const answerDigest = sha256(answer);
-  const eventId = deriveDecisionEventId(askId, answer);
-  // 1. durable journal event FIRST
-  const existing = journalFind(root, eventId);
-  if (!existing) {
-    journalAppend(root, {
-      eventId,
-      type: 'decision-captured',
-      actor,
-      payload: { askId, answerDigest },
-      causationId: readForkRecord(root, askId)?.forkId ? `fork-${readForkRecord(root, askId).forkId}` : null,
+  const current = ask.workKey ? currentRequest(root, ask.workKey) : null;
+  if (ask.workKey && (!current || current.requestDigest !== ask.requestDigest)) {
+    throw new HoldError('ask is bound to a superseded request revision; the prior decision is invalidated — consult again on the current revision', {
+      askId,
+      boundRevision: ask.requestRevision ?? null,
+      currentRevision: current?.requestRevision ?? null,
     });
   }
-  // 2. decisions record (crash window: created here if absent)
+  const existingJournal = findDecisionJournal(root, askId);
+  let answer;
+  let answerDigest;
+  let causationId = null;
+  let forkId = null;
+  if (existingJournal) {
+    answer = existingJournal.payload?.answer;
+    answerDigest = existingJournal.payload?.answerDigest;
+    if (typeof answer !== 'string' || sha256(answer) !== answerDigest) {
+      throw new RejectError('journaled answer digest mismatch', { askId });
+    }
+    causationId = existingJournal.causationId ?? null;
+    forkId = existingJournal.payload?.forkId ?? null;
+  } else {
+    const fork = readForkRecord(root, askId);
+    if (!fork) {
+      throw new HoldError('no reserved advisor fork for this ask; an unreserved capture is refused', { askId });
+    }
+    const candidatePath = mailboxPath(root, 'outbox', `${askId}.candidate.json`);
+    if (!existsSync(candidatePath)) {
+      throw new HoldError('advisor capture missing; ask stays OPEN', { askId, candidatePath });
+    }
+    let candidateText;
+    try {
+      candidateText = readFileSync(candidatePath, 'utf8');
+    } catch {
+      throw new HoldError('advisor capture is unreadable; ask stays OPEN', { askId });
+    }
+    const parsed = validateAdvisorCandidate(candidateText, { askId, inputDigest: ask.inputDigest });
+    if (!parsed.trusted) {
+      throw new HoldError(`advisor capture rejected (${parsed.reason}); ask stays OPEN`, { askId, reason: parsed.reason });
+    }
+    answer = parsed.answer;
+    answerDigest = sha256(answer);
+    forkId = fork.forkId;
+    causationId = `fork-${fork.forkId}`;
+    journalAppend(root, {
+      eventId: deriveDecisionEventId(askId, answer),
+      type: 'decision-captured',
+      actor,
+      payload: { askId, answerDigest, answer, requestDigest: ask.requestDigest, forkId },
+      causationId,
+    });
+  }
+  const eventId = deriveDecisionEventId(askId, answer);
+  // decision record (deterministic content — crash-safe to recreate)
   const decPath = mailboxPath(root, 'decisions', `${eventId}.json`);
   if (!existsSync(decPath)) {
     createImmutable(decPath, canonicalJson({
@@ -715,15 +1151,19 @@ export function importDecision(root, { askId, actor = 'bridge' }) {
       askId,
       answerDigest,
       answer,
+      workKey: ask.workKey,
+      requestRevision: ask.requestRevision,
+      requestDigest: ask.requestDigest,
+      forkId,
     }));
   }
-  // 3. Answer into the ask file (idempotent)
+  // Answer into the ask file (idempotent)
   const mdPath = mailboxPath(root, 'asks', `${askId}.md`);
   const md = readFileSync(mdPath, 'utf8');
   if (!md.includes('\n## Answer\n')) {
     publishAtomic(mdPath, `${md}\n## Answer\n\n${answer}\n`);
   }
-  // 4. ask state flips to answered
+  // ask state flips to answered
   publishAtomic(mailboxPath(root, 'asks', `${askId}.json`), canonicalJson({
     ...ask,
     status: 'answered',
@@ -731,7 +1171,7 @@ export function importDecision(root, { askId, actor = 'bridge' }) {
     decisionId: eventId,
     answeredAt: new Date().toISOString(),
   }));
-  return { decisionId: eventId, answerDigest, replay: Boolean(existing) };
+  return { decisionId: eventId, answerDigest, replay: Boolean(existingJournal) };
 }
 
 // ---------- verdicts ----------
@@ -765,6 +1205,10 @@ export function currentWorkKey(root) {
 export function recordVerdict(root, { reportId, verdict, criteria = null, actor }) {
   const pilot = readPilot(root);
   if (!pilot) throw new HoldError('pilot not enrolled');
+  const off = readOff(root);
+  if (off) {
+    throw new HoldError('OFF committed; acceptance and dependent transitions are blocked', { offAt: off.offAt });
+  }
   if (actor !== pilot.seniorSessionId) {
     throw new RejectError('decide is the senior acceptance session alone', { actor });
   }
@@ -787,12 +1231,21 @@ export function recordVerdict(root, { reportId, verdict, criteria = null, actor 
     reportId,
     reportDigest: report.bodyDigest,
     verdict,
-    criteria,
+    criteria: criteria ?? null,
     workKey: report.workKey,
     requestRevision: report.requestRevision,
     decidedAt: new Date().toISOString(),
   };
-  createImmutable(mailboxPath(root, 'decisions', `verdict-${reportId}.json`), canonicalJson(record));
+  const vPath = mailboxPath(root, 'decisions', `verdict-${reportId}.json`);
+  if (existsSync(vPath)) {
+    const stored = readJson(vPath);
+    if (stored.reportDigest === record.reportDigest && stored.verdict === verdict
+      && isDeepStrictEqual(stored.criteria ?? null, criteria ?? null)) {
+      return { ...stored, replay: true };
+    }
+    throw new RejectError('verdict conflict under the same report', { reportId });
+  }
+  createImmutable(vPath, canonicalJson(record));
   journalAppend(root, {
     eventId: `verdict-${reportId}-${verdict}`,
     type: 'senior-verdict',
@@ -800,7 +1253,7 @@ export function recordVerdict(root, { reportId, verdict, criteria = null, actor 
     payload: { reportId, reportDigest: record.reportDigest, verdict, requestRevision: record.requestRevision },
     causationId: `report-${report.workKey}-r${record.requestRevision}-${reportId}`,
   });
-  return record;
+  return { ...record, replay: false };
 }
 
 export function readVerdict(root, reportId) {
@@ -841,8 +1294,11 @@ export function status(root) {
     const current = currentRequest(root, workKey);
     const reports = current ? listReports(root, workKey, current.requestRevision) : [];
     const accepted = reports.some((r) => readVerdict(root, r.reportId)?.verdict === 'ACCEPTED');
+    const consultPending = Boolean(current) && listAsks(root).some((a) => a.status === 'open'
+      && a.workKey === workKey && a.requestDigest === current.requestDigest);
     if (accepted) taskState = 'accepted';
     else if (reports.length > 0) taskState = 'reported';
+    else if (consultPending) taskState = 'consult-pending';
     else if (attempts.some((a) => a.status === 'completed')) taskState = 'awaiting-report';
     else taskState = 'prepared';
   }
