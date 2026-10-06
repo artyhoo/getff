@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
 import { join, resolve, dirname, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,10 @@ import {
   probeD3,
   probeD4,
   probeD5,
+  probeD6,
+  PASSPORT_REGION_BEGIN,
+  PASSPORT_REGION_END,
+  PASSPORT_REGION_SUBBLOCKS,
   isAuthoringRepo,
   runAudit,
   main,
@@ -2674,7 +2678,7 @@ describe('consumer mode — D3/D5 skip outside the authoring repo', () => {
 // CLAUDE.md and D5 on four tracked files plus every gitignored checkout it walked
 // into. Each describe below is a paired positive/negative for one fix, and every
 // arm runs BOTH implementations on the same fixture: the canonical .ts and the .sh
-// twin install.sh ships to consumers (install.sh:1293), so neither can drift alone.
+// twin install.sh ships to consumers (install.sh:1297), so neither can drift alone.
 
 const CORE_SH = join(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh');
 // Stryker-sandbox guard, as in the R4/R17 bash tests: the twin is absent there.
@@ -2948,5 +2952,105 @@ describe('D5 — the four tracked findings on getff, each resolved at its cause'
     if (!both.sh) return;
     expect(both.sh.code).toBe(1);
     expect(both.sh.out).toContain('docs/site/reference/D/new-capture.md: contains canonical phrase');
+  });
+});
+
+// ─── D6: passport goal region ─────────────────────────────────────────────────
+/** The full region body a fresh install ships (unfilled placeholders are legal). */
+function regionBody(): string {
+  return [
+    '# Fixture project',
+    '',
+    PASSPORT_REGION_BEGIN,
+    '',
+    '### Goal scope',
+    '',
+    '<what this is>',
+    '',
+    '### Goal core',
+    '',
+    '<one sentence>',
+    '',
+    '### Invariants',
+    '',
+    '<invariants>',
+    '',
+    '### Never',
+    '',
+    '<never>',
+    '',
+    '### Non-goals',
+    '',
+    '<non-goals>',
+    '',
+    PASSPORT_REGION_END,
+    '',
+  ].join('\n');
+}
+
+describe('probeD6() — passport goal region (ts + sh parity)', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('PASS: passport carries both fences + all five sub-blocks (unfilled placeholders legal)', () => {
+    writeFile(dir, '.ai-factory/DESCRIPTION.md', regionBody());
+    writeFile(dir, '.ai-factory/DESCRIPTION.template.md', regionBody());
+    const result = probeD6(dir);
+    expect(result.result).toBe('pass');
+    // sh parity
+    if (SH_PRESENT) {
+      const sh = runSh(dir, 'D6');
+      expect(sh.code).toBe(0);
+      expect(sh.out).toContain('PASS');
+    }
+  });
+
+  it('PASS: the actual shipped template (real bytes) passes as the passport', () => {
+    const template = readFileSync(resolve(REPO_ROOT, 'packages/core/templates/shared/DESCRIPTION.template.md'), 'utf8');
+    writeFile(dir, '.ai-factory/DESCRIPTION.md', template);
+    writeFile(dir, '.ai-factory/DESCRIPTION.template.md', template);
+    expect(probeD6(dir).result).toBe('pass');
+  });
+
+  it('FAIL: template still carries the region but the passport lost a sub-block (emptied region)', () => {
+    writeFile(dir, '.ai-factory/DESCRIPTION.template.md', regionBody());
+    // Strip the Non-goals sub-block heading from the passport — the "region emptied" shape.
+    writeFile(dir, '.ai-factory/DESCRIPTION.md', regionBody().replace('### Non-goals\n', ''));
+    const result = probeD6(dir);
+    expect(result.result).toBe('fail');
+    expect(result.details.join('\n')).toContain("'### Non-goals' missing");
+    if (SH_PRESENT) {
+      const sh = runSh(dir, 'D6');
+      expect(sh.code).toBe(1);
+      expect(sh.out).toContain("'### Non-goals' missing");
+    }
+  });
+
+  it('FAIL: template carries the region but the passport lost the end fence', () => {
+    writeFile(dir, '.ai-factory/DESCRIPTION.template.md', regionBody());
+    writeFile(dir, '.ai-factory/DESCRIPTION.md', regionBody().replace(`${PASSPORT_REGION_END}\n`, ''));
+    const result = probeD6(dir);
+    expect(result.result).toBe('fail');
+    expect(result.details.join('\n')).toContain('end marker missing');
+  });
+
+  it('WARN: pre-region passport — neither passport nor template carries the region (brownfield)', () => {
+    const legacy = '# Legacy project\n\n## Stack\n\n- old template\n';
+    writeFile(dir, '.ai-factory/DESCRIPTION.md', legacy);
+    writeFile(dir, '.ai-factory/DESCRIPTION.template.md', legacy);
+    const result = probeD6(dir);
+    expect(result.result).toBe('warn');
+    expect(result.message).toContain('pre-region passport');
+    // WARN must NOT red the gate
+    if (SH_PRESENT) {
+      expect(runSh(dir, 'D6').code).toBe(0);
+    }
+  });
+
+  it('WARN: no passport at all (non-getff tree)', () => {
+    const result = probeD6(dir);
+    expect(result.result).toBe('warn');
+    expect(result.message).toContain('no passport');
   });
 });

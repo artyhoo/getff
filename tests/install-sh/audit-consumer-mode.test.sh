@@ -65,4 +65,67 @@ out=$(cd "$TMP" && bash packages/core/audit-self/audit-ai-docs.sh --only=D5 2>&1
 grep -q 'docs/orphan.md' <<<"$out" && ok "D5 names the orphan file" || bad "D5 orphan detail missing"
 rm -rf "$TMP"
 
+# ── 5. D6: the passport goal region (one-button w2 HO-4) ──
+# The gate checks the CONSUMER's own marked region (getff:begin/end section=passport + the five
+# sub-block headings), never getff's canonical phrase. A3 of the kickoff: a filled region exits 0;
+# the region emptied while the shipped template still carries it exits ≠ 0. A pre-region passport
+# (installed before the marked region existed — the template lacks it too) only WARNs: migration
+# must not red-gate every pre-HO-5 consumer.
+PASSPORT_BEGIN='<!-- getff:begin section=passport -->'
+PASSPORT_END='<!-- getff:end section=passport -->'
+_region_fixture() { # _region_fixture DESCRIPTION_CONTENT TEMPLATE_CONTENT
+  TMP=$(mktemp -d)
+  mkdir -p "$TMP/scripts" "$TMP/.ai-factory"
+  cp "$SCRIPT" "$TMP/scripts/audit-ai-docs.sh"
+  printf '# Proj\n' > "$TMP/README.md"
+  printf '%s' "$1" > "$TMP/.ai-factory/DESCRIPTION.md"
+  printf '%s' "$2" > "$TMP/.ai-factory/DESCRIPTION.template.md"
+}
+_filled_region="$PASSPORT_BEGIN
+### Goal scope
+What this is.
+### Goal core
+One sentence.
+### Invariants
+- Stable API.
+### Never
+- No new deps.
+### Non-goals
+- No offline mode.
+$PASSPORT_END
+"
+_bare_region="$PASSPORT_BEGIN
+$PASSPORT_END
+"
+
+# 5a: filled region → exit 0, D6 PASS
+_region_fixture "$_filled_region" "$_bare_region"
+out=$(cd "$TMP" && bash scripts/audit-ai-docs.sh 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "consumer + filled passport region → exit 0" || bad "consumer + filled passport region → exit $rc (expected 0)"
+grep -q '^PASS: D6' <<<"$out" && ok "D6 PASS line present" || bad "D6 PASS line missing"
+rm -rf "$TMP"
+
+# 5b: region emptied while the shipped template still carries it → exit 1 (A3's ≠0 arm)
+_region_fixture '# Proj
+
+## Stack
+- Runtime: node
+' "$_bare_region"
+out=$(cd "$TMP" && bash scripts/audit-ai-docs.sh 2>&1); rc=$?
+[ "$rc" -eq 1 ] && ok "consumer + emptied passport region → exit 1" || bad "consumer + emptied passport region → exit $rc (expected 1)"
+grep -q 'D6.*lost its marked goal region' <<<"$out" && ok "D6 failure names the lost region" || bad "D6 lost-region message missing"
+rm -rf "$TMP"
+
+# 5c: pre-region passport (the shipped template lacks the region too) → WARN, exit 0
+_region_fixture '# Proj
+
+## Stack
+- Runtime: node
+' 'pre-region template
+'
+out=$(cd "$TMP" && bash scripts/audit-ai-docs.sh 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "consumer + pre-region passport → exit 0 (WARN only)" || bad "consumer + pre-region passport → exit $rc (expected 0)"
+grep -q 'D6.*pre-region passport' <<<"$out" && ok "pre-region WARN message present" || bad "pre-region WARN message missing"
+rm -rf "$TMP"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

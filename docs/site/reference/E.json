@@ -586,6 +586,16 @@
         },
         {
           "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".storybook/main.ts"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".storybook/main.ts"
+        },
+        {
+          "stack": "react-next",
           "lane": "greenfield",
           "path": ".storybook/main.ts"
         }
@@ -613,6 +623,16 @@
         {
           "stack": "react-next",
           "lane": "brownfield",
+          "path": ".storybook/preview.ts"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".storybook/preview.ts"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
           "path": ".storybook/preview.ts"
         },
         {
@@ -800,6 +820,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -813,6 +835,26 @@
         "line": 95
       },
       "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
         {
           "stack": "python",
           "lane": "brownfield-ruff",
@@ -964,6 +1006,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -977,6 +1021,46 @@
         "line": 107
       },
       "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
         {
           "stack": "python",
           "lane": "brownfield-ruff",
@@ -1311,6 +1395,8 @@
       "shipsTo": {
         "tier": "framework",
         "stacks": [
+          "cargo",
+          "go",
           "python",
           "react-native",
           "react-next",
@@ -1324,6 +1410,26 @@
         "line": 127
       },
       "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
         {
           "stack": "python",
           "lane": "brownfield-ruff",

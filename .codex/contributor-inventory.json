@@ -288,6 +288,11 @@
       "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
     },
     {
+      "path": ".agents/skills/claude-glm-executor-handoff/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/claude-glm-executor-handoff/references"
+    },
+    {
       "path": ".agents/skills/dispatcher/SKILL.md",
       "kind": "text",
       "fingerprint": "9c737d0707ea4f0b45edb75156afcecbe388125f9eb824037aee617ea37fe223"
@@ -346,6 +351,11 @@
       "path": ".agents/skills/harvest/agents/openai.yaml",
       "kind": "text",
       "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/harvest/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/harvest/references"
     },
     {
       "path": ".agents/skills/installing-enforcement/SKILL.md",

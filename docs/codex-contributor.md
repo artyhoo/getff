@@ -55,7 +55,16 @@ These are source integration checks, not native activation evidence.
 
 ## Scope of evidence
 
-Adapter tests are source-script integration proofs, not trusted native hook executions. Native `skills/list`, `hooks/list` and `config/read` establish discovery/registration/configuration only. The implementation record states trust status, live checks and outstanding lifecycle/factory/eval work. Consumer installers, npm payloads and consumer plugin parity are phase two; this file does not certify them.
+Adapter tests are source-script integration proofs, not trusted native hook executions. Native `skills/list`, `hooks/list` and `config/read` establish discovery/registration/configuration only. The implementation record states trust status, live checks and outstanding lifecycle/factory/eval work. Consumer installers now deliver project-local `.codex/hooks.json`, the same native adapter,
+its entry-point dependency and shared language resolver. Definitions are derived only from
+registered, delivered framework checks; they do not require the contributor harness model.
+Customized native definitions or dependencies stay in place and produce a not-wired notice.
+Missing Node or invalid consumer settings also produce an explicit not-wired notice.
+Project hooks require normal project and exact-definition trust via Codex `/hooks`; installation
+never grants trust or changes model/permission policy. Consumer adapter/installer tests establish
+payload closure and clean/adverse behavior, including nested installations, not trusted native
+activation. Consumer plugin parity and remaining native acceptance remain outside this document's
+certification.
 
 ## Bounded input policy
 

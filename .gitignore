@@ -168,6 +168,7 @@ tests/agnosticism/conformance-record.tsv
 # Canonical contributor adapters travel with Git. Private runtime state stays ignored.
 !/.codex/
 /.codex/*
+!/.codex/hooks.json
 !/.codex/config.toml
 !/.codex/contributor-inventory.json
 !/.codex/agents/
@@ -177,3 +178,8 @@ tests/agnosticism/conformance-record.tsv
 /.zcode/*
 !/.zcode/config.json
 !/.zcode/skills
+
+# Advisor bridge beta pilot runtime state (mailbox, attempts, journal).
+/.claude/advisor-bridge-beta/
+# Controller-owned project-local enrollment and reminder ledger; never consumer data.
+/.advisor-role-reminders/

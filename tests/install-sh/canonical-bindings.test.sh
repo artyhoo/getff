@@ -50,14 +50,32 @@ grep -q "allow_implicit_invocation: false" "$consumer/.agents/skills/review-side
 [ ! -e "$consumer/.agents/procedures/aif-doctor" ]
 grep -q '../../procedures/ai-doc/SKILL.md' "$consumer/.agents/skills/ai-doc/SKILL.md"
 
+# Native delivery must close over its adapter dependencies and protect user config.
+[ -f "$consumer/.codex/hooks.json" ]
+[ -f "$consumer/scripts/codex-hook-adapter.mjs" ]
+[ -f "$consumer/scripts/lib/is-main-entry.mjs" ]
+[ -f "$consumer/.agents/hooks/lib/hook-language.sh" ]
+node - "$consumer" <<'NODE'
+const fs = require('fs'), path = require('path'), root = process.argv[2];
+const hooks = JSON.parse(fs.readFileSync(path.join(root, '.codex/hooks.json'))).hooks;
+const handlers = Object.values(hooks).flat().flatMap(entry => entry.hooks);
+if (!handlers.length) throw Error('consumer native hook registration is empty');
+if (handlers.some(h => h.command.includes('.ai-factory/harness-model.json'))) throw Error('consumer hooks require contributor-only assets');
+NODE
+printf '{"hooks":{},"consumerOwned":true}\n' > "$consumer/.codex/hooks.json"
+
 deliver core
 [ "$(cat "$consumer/.claude/skills/getff/SKILL.md")" = 'consumer customized skill' ]
 [ -f "$consumer/.claude/skills/getff/own.txt" ]
+grep -q consumerOwned "$consumer/.codex/hooks.json"
+grep -q 'Codex hooks not wired: consumer-owned' "$WORK/run.log"
 # Explicit legacy ownership remains honored by refresh as well as canonical links.
 touch "$consumer/.claude/skills/getff.override.md"
 deliver core '' '' --refresh
 [ "$(cat "$consumer/.claude/skills/getff/SKILL.md")" = 'consumer customized skill' ]
 [ -f "$consumer/.claude/skills/getff/own.txt" ]
+grep -q consumerOwned "$consumer/.codex/hooks.json"
+grep -q 'Codex hooks not wired: consumer-owned' "$WORK/run.log"
 
 deliver env
 [ -f "$consumer/.agents/procedures/arch/SKILL.md" ]
@@ -91,4 +109,36 @@ NODE
 before="$(fingerprint)"
 deliver factory --force --dry-run
 [ "$(fingerprint)" = "$before" ]
-echo 'PASS canonical binding payload, profiles, helpers, customized upgrade, repeat install, refresh ownership and dry-run'
+# Lanes with no delivered hook population must not suggest trust as sufficient.
+consumer="$WORK/no-hooks"
+mkdir -p "$consumer"
+(
+  PKG_ROOT="$REPO_ROOT" PROJECT_ROOT="$consumer" DRY_RUN="" FORCE="" REFRESH=""
+  REFRESH_BASELINE_STAGED=(); SKIPPED=()
+  source "$REPO_ROOT/setup.d/lib.sh"
+  install_codex_consumer_bindings
+) > "$WORK/no-hooks.log" 2>&1
+grep -q 'Codex hooks not wired: no supported registered consumer checks' "$WORK/no-hooks.log"
+! grep -q 'Codex hook definitions delivered;' "$WORK/no-hooks.log"
+
+# Dry-run is deterministic: the same command twice must diff equal (L1 acceptance (a),
+# framework-self-detect CI). The portable .md transform and the session-bootstrap seed
+# both materialized through random mktemp scratch files whose names copy_safe's dry-run
+# echo printed — two runs never matched (caught live by the self-application CI).
+consumer_dry="$WORK/consumer-dry"
+mkdir -p "$consumer_dry"
+run_dry() (
+  PKG_ROOT="$REPO_ROOT" PROJECT_ROOT="$consumer_dry" PROFILE=core FORCE='' DRY_RUN='--dry-run' REFRESH='' WITH_AIF_SUITE=''
+  UPSTREAM_BLOB_URL='https://github.com/artyhoo/getff/blob/main'
+  SKIPPED=(); SHIPPED_DOCS=(); REFRESH_BASELINE_STAGED=()
+  source "$REPO_ROOT/setup.d/lib.sh"
+  source "$REPO_ROOT/setup.d/10-skills.sh"
+  source "$REPO_ROOT/setup.d/20-agents.sh"
+  install_portable_bindings
+  refresh_baseline_flush
+) > "$1" 2>&1
+run_dry "$WORK/dry1.log"
+run_dry "$WORK/dry2.log"
+diff -q "$WORK/dry1.log" "$WORK/dry2.log"
+! grep -qE 'getff-(portable|bootstrap)\.[A-Za-z0-9]' "$WORK/dry1.log"
+echo 'PASS canonical binding payload, profiles, helpers, customized upgrade, repeat install, refresh ownership and dry-run determinism'

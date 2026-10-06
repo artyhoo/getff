@@ -21,6 +21,14 @@ _portable_copy() {
     echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
     return 0
   fi
+  # Dry-run must preview the REAL source path: the .md transform below runs the
+  # source through a random mktemp scratch file, and copy_safe's dry-run echo
+  # would print that random path — two runs would never diff equal (L1
+  # acceptance (a), framework-self-detect CI).
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    copy_safe "$src" "$dst"
+    return 0
+  fi
   if [ "${src##*.}" = md ]; then
     temp="$(mktemp "${TMPDIR:-/tmp}/getff-portable.XXXXXX")"
     cp -pL "$src" "$temp"
@@ -204,6 +212,7 @@ install_portable_bindings() {
       fi
     done < <(find -L "$PROJECT_ROOT/.claude/$group" -type f -print0)
   done
+  install_codex_consumer_bindings
   # The consumer's own empty starter template, never the contributor goal digest.
   if [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ]; then
     src="$PKG_ROOT/.claude/templates/session-bootstrap.md"
@@ -219,4 +228,51 @@ install_portable_bindings() {
     rm -f "$bootstrap_temp"
     _portable_alias "$PROJECT_ROOT/.agents/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   fi
+}
+
+# Native runtime files cannot be replaced with preserved-conflict copies: an operator's
+# hooks/config must remain active. Refresh only a proven, unchanged framework delivery.
+_codex_consumer_copy() {
+  local src="$1" dst="$2"
+  if [ -f "$dst" ] && ! cmp -s "$src" "$dst"; then
+    if refresh_baseline_diverged "$dst" "$src" || [ -z "${REFRESH_BASELINE_ENTRY:-}" ]; then
+      echo "  ⊝ $dst (consumer-owned native binding, keeping)"
+      return 0
+    fi
+  fi
+  _portable_copy "$src" "$dst"
+}
+
+# Definitions are delivered without changing global config, project trust or model policy.
+install_codex_consumer_bindings() {
+  local temp
+  if [ "$DRY_RUN" = --dry-run ]; then
+    echo '  [dry-run] would deliver .codex/hooks.json and its shared adapter (operator trust required)'
+    return 0
+  fi
+  if ! command -v node >/dev/null 2>&1; then
+    echo '  · Codex hooks not wired: node is not on PATH'
+    return 0
+  fi
+  temp="$(mktemp "${TMPDIR:-/tmp}/getff-codex-hooks.XXXXXX")"
+  if ! node "$PKG_ROOT/setup.d/codex-bindings.mjs" "$PROJECT_ROOT" > "$temp"; then
+    rm -f "$temp"
+    echo '  · Codex hooks not wired: native definition generation failed; other delivery continues' >&2
+    return 0
+  fi
+  _codex_consumer_copy "$PKG_ROOT/scripts/codex-hook-adapter.mjs" "$PROJECT_ROOT/scripts/codex-hook-adapter.mjs"
+  _codex_consumer_copy "$PKG_ROOT/scripts/lib/is-main-entry.mjs" "$PROJECT_ROOT/scripts/lib/is-main-entry.mjs"
+  _codex_consumer_copy "$PKG_ROOT/plugin/hooks/lib/hook-language.sh" "$PROJECT_ROOT/.agents/hooks/lib/hook-language.sh"
+  _codex_consumer_copy "$temp" "$PROJECT_ROOT/.codex/hooks.json"
+  if ! node -e 'const fs = require("node:fs"); const { hooks } = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.exit(Object.keys(hooks).length ? 0 : 1);' "$temp"; then
+    echo '  · Codex hooks not wired: no supported registered consumer checks in this profile'
+  elif cmp -s "$temp" "$PROJECT_ROOT/.codex/hooks.json" \
+    && cmp -s "$PKG_ROOT/scripts/codex-hook-adapter.mjs" "$PROJECT_ROOT/scripts/codex-hook-adapter.mjs" \
+    && cmp -s "$PKG_ROOT/scripts/lib/is-main-entry.mjs" "$PROJECT_ROOT/scripts/lib/is-main-entry.mjs" \
+    && cmp -s "$PKG_ROOT/plugin/hooks/lib/hook-language.sh" "$PROJECT_ROOT/.agents/hooks/lib/hook-language.sh"; then
+    echo '  · Codex hook definitions delivered; review and trust the project hooks in Codex before relying on enforcement'
+  else
+    echo '  · Codex hooks not wired: consumer-owned definitions or dependencies were kept; reconcile them before activation'
+  fi
+  rm -f "$temp"
 }

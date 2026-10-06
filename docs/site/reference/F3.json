@@ -5,6 +5,25 @@
   "generator": "scripts/render-reference.mjs",
   "members": [
     {
+      "name": "apply-husky-patch.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "apply a prepared patch to a .husky/** hook through the sanctioned channel.",
+      "source": {
+        "path": "scripts/apply-husky-patch.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".agents/hooks/apply-husky-patch-gate.sh:20 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "build-getff-dist.sh",
       "kind": "script",
       "shipsTo": {
@@ -122,7 +141,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2330 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1510 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1512 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -141,7 +160,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2686 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2688 (workflow-run:invocation-verb)",
           ".husky/pre-commit:241 (quoted-path-token)"
         ]
       },
@@ -162,7 +181,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2363 (spawn-argument)",
-          "install.sh:1224 (quoted-path-token)"
+          "install.sh:1228 (quoted-path-token)"
         ]
       },
       "example": null
@@ -182,7 +201,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2391 (spawn-argument)",
-          ".github/workflows/audit-self.yml:2866 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2875 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -220,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2622 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2624 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -239,7 +258,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2671 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2673 (workflow-run:invocation-verb)",
           ".husky/pre-commit:181 (quoted-path-token)"
         ]
       },
@@ -272,14 +291,14 @@
         "tier": "framework",
         "absent": "no-lane"
       },
-      "description": "fails when a getff skill, hook, rule, agent, setting or MCP server is unmarked.",
+      "description": "fails when a getff skill, hook, rule, agent, setting, MCP server or docs-gate script is unmarked.",
       "source": {
         "path": "scripts/check-ships-manifest.mjs",
         "line": 3
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2719 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2722 (workflow-run:invocation-verb)",
           ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
@@ -338,7 +357,37 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2842 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2851 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "codex-hook-adapter.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "cargo",
+          "go",
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "adapt native Codex inputs to canonical contributor hook contracts.",
+      "source": {
+        "path": "scripts/codex-hook-adapter.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:263 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:270 (quoted-path-token)",
+          "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
       "example": null
@@ -363,8 +412,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1256 (quoted-path-token)",
-          "install.sh:1258 (for-in-list)",
+          "install.sh:1260 (quoted-path-token)",
+          "install.sh:1262 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -385,8 +434,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1416 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1421 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1418 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1423 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -471,7 +520,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1258 (for-in-list)",
+          "install.sh:1262 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -519,7 +568,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1258 (for-in-list)",
+          "install.sh:1262 (for-in-list)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -704,7 +753,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1444 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1446 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -726,11 +775,11 @@
           "setup.d/10-skills.sh:179 (quoted-path-token)",
           "setup.d/10-skills.sh:180 (quoted-path-token)",
           "setup.d/10-skills.sh:181 (quoted-path-token)",
-          "install.sh:1229 (quoted-path-token)",
-          "install.sh:1230 (quoted-path-token)",
-          "install.sh:1231 (quoted-path-token)",
-          "install.sh:1232 (quoted-path-token)",
           "install.sh:1233 (quoted-path-token)",
+          "install.sh:1234 (quoted-path-token)",
+          "install.sh:1235 (quoted-path-token)",
+          "install.sh:1236 (quoted-path-token)",
+          "install.sh:1237 (quoted-path-token)",
           "scripts/run-local-ci-sweep.sh:1201 (command-substitution, closure)"
         ]
       },
@@ -756,7 +805,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1258 (for-in-list)",
+          "install.sh:1262 (for-in-list)",
           ".agents/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
@@ -777,7 +826,6 @@
     "cited-spec-addenda.sh",
     "close-merged-sweep.sh",
     "codex-contributor-doctor.mjs",
-    "codex-hook-adapter.mjs",
     "exclude-path-scoped-rules.sh",
     "fire-routine.sh",
     "getff-glm-onebutton.sh",

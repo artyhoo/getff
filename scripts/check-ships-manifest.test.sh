@@ -5,7 +5,8 @@
 # Every arm builds a throw-away git repo holding one item per kind, writes a manifest that
 # marks all of them, applies ONE mutation, and runs the checker with --root.
 #   C0      a complete, consistent manifest passes (rc 0) — the fixture itself is clean
-#   U1-U6   an unmarked item of each kind fails, naming it (skill, hook, rule, agent, setting, mcp)
+#   U1-U7   an unmarked item of each kind fails, naming it (skill, hook, rule, agent, setting, mcp,
+#           script)
 #   S1      a row naming an item that no longer exists fails (stale row)
 #   F1-F4   malformed rows fail: wrong field count, unknown kind / verdict / installer
 #   D1      a duplicated row fails
@@ -36,7 +37,8 @@ TAB=$'\t'
 make_repo() {
   local d="$1"
   mkdir -p "$d/setup.d" "$d/.claude/skills/core-sk" "$d/.claude/skills/env-sk" "$d/skills/root-sk" \
-    "$d/.claude/hooks" "$d/.claude/rules" "$d/agents" "$d/plugin/skills/core-sk" "$d/plugin/agents" "$d/plugin/hooks"
+    "$d/.claude/hooks" "$d/.claude/rules" "$d/agents" "$d/plugin/skills/core-sk" "$d/plugin/agents" "$d/plugin/hooks" \
+    "$d/packages/core/audit-self" "$d/packages/core/probes"
   git -C "$d" init -q
   printf 'GETFF_SKILLS_CORE="core-sk"\nGETFF_SKILLS_ENV="env-sk"\nGETFF_SKILLS_FACTORY="none-sk"\n' > "$d/setup.d/lib.sh"
   printf -- '---\nname: x\n---\n' | tee "$d/.claude/skills/core-sk/SKILL.md" "$d/.claude/skills/env-sk/SKILL.md" \
@@ -44,6 +46,8 @@ make_repo() {
   printf '#!/bin/sh\n' | tee "$d/.claude/hooks/h-ship.sh" "$d/.claude/hooks/h-int.sh" >/dev/null
   printf '# r\n' > "$d/.claude/rules/r1.md"
   printf '# a\n' | tee "$d/agents/ag1.md" "$d/plugin/agents/ag1.md" >/dev/null
+  printf '#!/bin/sh\n' > "$d/packages/core/audit-self/audit-ai-docs.sh"
+  printf '// probe\n' > "$d/packages/core/probes/audit-r4.ts"
   printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\\" h-ship"}]}]}}\n' \
     > "$d/plugin/hooks/hooks.json"
   printf '{"hooks":{},"autoCompactWindow":400000,"env":{"K1":"1"},"permissions":{"deny":["a","b"]}}\n' > "$d/.claude/settings.json"
@@ -63,6 +67,8 @@ setting${TAB}autoCompactWindow${TAB}ships${TAB}ask${TAB}no${TAB}changes when ses
 setting${TAB}permissions.deny${TAB}ships${TAB}ask${TAB}no${TAB}a subset of getff's own denies, offered first
 setting${TAB}env.K1${TAB}internal${TAB}no${TAB}no${TAB}internal, because it names a getff-only knob for tests
 mcp${TAB}m1${TAB}ships${TAB}full${TAB}no${TAB}written only under --full, the default run skips it
+script${TAB}audit-ai-docs${TAB}ships${TAB}core${TAB}no${TAB}the consumer docs gate, delivered into the project's scripts/
+script${TAB}audit-r4${TAB}ships${TAB}core${TAB}no${TAB}the R4 probe the docs gate invokes via npx tsx
 EOF
   git -C "$d" add -A >/dev/null
 }
@@ -105,6 +111,7 @@ arm "U3 new rule"    fail 'printf x > .claude/rules/zz.md' 'rule zz'
 arm "U4 new agent"   fail 'printf x > agents/zz.md' 'agent zz'
 arm "U5 new setting" fail 'printf '"'"'{"hooks":{},"autoCompactWindow":1,"env":{"K1":"1","K2":"2"}}\n'"'"' > .claude/settings.json' 'setting env.K2'
 arm "U6 new mcp"     fail 'printf '"'"'{"mcpServers":{"m1":{},"m2":{}}}\n'"'"' > .mcp.json' 'mcp m2'
+arm "U7 script row removed" fail 'sed -i "/^script${TAB}audit-ai-docs/d" setup.d/ships.manifest' 'script audit-ai-docs'
 
 echo "── stale, malformed and duplicate rows fail"
 arm "S1 stale row"        fail 'git rm -qf .claude/rules/r1.md' 'rule r1'
