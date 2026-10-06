@@ -125,6 +125,35 @@ export async function createGateService({
   // by intent-bound external_id — a best-effort boundary, not a proved exactly-once
   // guarantee. Red mechanics / expiry / pause SKIP publication and keep the event
   // pending — nothing is dropped, nothing is published unreviewed.
+  // Lifecycle consumption of coordinator-side records (increment 5, cold-review fix
+  // 1): one consumer used by BOTH the live path and the superseded-archival path —
+  // a refusal keeps the event pending with its reason, never consumed unactioned.
+  function consumeLifecycleRecord(recordType, record, payload) {
+    try {
+      if (recordType === 'fix_response') {
+        ledger.applyFixResponseRecord({
+          assignmentId: record.assignment_id,
+          claimedBy: record.claimed_by,
+          fixRevision: record.fix_revision,
+          findingKeys: record.finding_ids,
+          mechanicalReceipts: record.mechanical_receipts,
+          digest: payload.digest,
+          payloadRef: JSON.stringify({ record_digest: payload.digest }),
+        });
+        return { action: 'fix-recorded' };
+      }
+      ledger.applyClosureReceipt({
+        findingKeys: record.finding_ids,
+        verifiedBy: record.verified_by,
+        disposition: record.disposition,
+        revision: record.verification_revision,
+      });
+      return { action: 'closure-recorded' };
+    } catch (e) {
+      return { action: 'kept-pending', code: e.code ?? 'E_LIFECYCLE', reason: e.message };
+    }
+  }
+
   async function drainOutbox({ publisherTransport, limit = 10 } = {}) {
     if (typeof publisherTransport !== 'function') {
       const e = new Error('[service] drainOutbox requires the publisher transport');
@@ -158,11 +187,22 @@ export async function createGateService({
       try { record = row ? JSON.parse(row.payload) : undefined; } catch { record = undefined; }
       const recordType = record?.record_type ?? record?.kind;
       if (payload.superseded === true) {
-        // DR-R3 + increment 5: archived history is not publishable work, but a
-        // superseded REVIEW's findings still enter the lifecycle — the history the
-        // queue revalidates before any remediation launch
+        // DR-R3 + increment 5 + cold-review fix 1: archived history is not
+        // publishable work, but archival is NOT effect-dropping — a superseded
+        // review's findings still enter the lifecycle, and superseded
+        // fix/closure records still reach their consumers (the closure gate,
+        // not the drain, is what refuses unproven evidence)
         if (recordType === 'review_report') {
           try { ledger.recordFindings(payload.report_id, mapFindings(record)); } catch { /* lineage already recorded from a replay */ }
+          ledger.outboxMarkPublished(event.id);
+          results.push({ event: event.event_type, action: 'archived' });
+          continue;
+        }
+        if (recordType === 'fix_response' || recordType === 'closure_receipt') {
+          const consumed = consumeLifecycleRecord(recordType, record, payload);
+          results.push({ event: event.event_type, ...consumed });
+          if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
+          continue;
         }
         ledger.outboxMarkPublished(event.id);
         results.push({ event: event.event_type, action: 'archived' });
@@ -171,30 +211,9 @@ export async function createGateService({
       if (recordType === 'fix_response' || recordType === 'closure_receipt') {
         // lifecycle consumption of coordinator-side records — never an admission
         // check, never gated on publication pause (the ledger is authoritative)
-        try {
-          if (recordType === 'fix_response') {
-            ledger.applyFixResponseRecord({
-              assignmentId: record.assignment_id,
-              claimedBy: record.claimed_by,
-              fixRevision: record.fix_revision,
-              findingKeys: record.finding_ids,
-              mechanicalReceipts: record.mechanical_receipts,
-              digest: payload.digest,
-              payloadRef: JSON.stringify({ record_digest: payload.digest }),
-            });
-          } else {
-            ledger.applyClosureReceipt({
-              findingKeys: record.finding_ids,
-              verifiedBy: record.verified_by,
-              disposition: record.disposition,
-              revision: record.verification_revision,
-            });
-          }
-          ledger.outboxMarkPublished(event.id);
-          results.push({ event: event.event_type, action: recordType === 'fix_response' ? 'fix-recorded' : 'closure-recorded' });
-        } catch (e) {
-          results.push({ event: event.event_type, action: 'kept-pending', code: e.code ?? 'E_LIFECYCLE', reason: e.message });
-        }
+        const consumed = consumeLifecycleRecord(recordType, record, payload);
+        results.push({ event: event.event_type, ...consumed });
+        if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
         continue;
       }
       if (expired()) {

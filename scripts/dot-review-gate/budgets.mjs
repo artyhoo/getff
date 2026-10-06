@@ -69,8 +69,10 @@ export function createBudgets({ ledger, limits, now = () => Date.now() } = {}) {
   };
 }
 
-// The cron-turn guard: pending work exists (outbox drains, open findings, or
-// reservations awaiting completion) — an idle turn launches no model call.
+// The cron-turn guard: pending work exists (unpublished outbox events or open
+// findings) — an idle turn launches no model call. It deliberately reads only
+// these two signals: an idle guard UNDER-launches (a missed turn is retried by
+// the next cron tick) and never over-launches.
 export function shouldLaunchCronTurn({ ledger } = {}) {
   if (!ledger) throw code('E_LIMITS', 'shouldLaunchCronTurn requires the ledger');
   const counts = ledger.counts();

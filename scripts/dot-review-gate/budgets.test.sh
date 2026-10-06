@@ -74,6 +74,18 @@ try {
   const b3 = createBudgets({ ledger: l3, limits: CHURN_LIMITS, now: () => NOW });
   expectCode(() => b3.reserveLaunch({ occurrenceKey: 'O-y2', prKey: 'pr:8' }), 'E_BUDGET', 'counters-survive-restart');
 
+  // cold-review fix 4: the WINDOW bound itself survives a restart — an exhausted
+  // launch window stays exhausted after reopen at the same instant
+  const l5 = openLedger(`${tmp}/b5w.sqlite`);
+  const b6 = createBudgets({ ledger: l5, limits: LIMITS, now: () => NOW });
+  b6.reserveLaunch({ occurrenceKey: 'O-w1', prKey: 'pr:77' });
+  b6.reserveLaunch({ occurrenceKey: 'O-w2', prKey: 'pr:77' });
+  l5.close?.();
+  const l6 = openLedger(`${tmp}/b5w.sqlite`);
+  const b7 = createBudgets({ ledger: l6, limits: LIMITS, now: () => NOW });
+  expectCode(() => b7.reserveLaunch({ occurrenceKey: 'O-w3', prKey: 'pr:77' }), 'E_BUDGET', 'window-bound-survives-restart');
+  l6.close?.();
+
   // the window rolls: a fresh window gets a fresh launch budget
   const b4 = createBudgets({ ledger: l3, limits: CHURN_LIMITS, now: () => NOW + 11 * 60 * 1000 });
   b4.reserveLaunch({ occurrenceKey: 'O-w', prKey: 'pr:7' });
@@ -125,7 +137,7 @@ assert_suite_arms "budgets.test.sh" "$status" "$out" \
   missing-limits-disable-unattended reserve-refused-without-limits \
   complete-limits-allow-dispatch window-launch-budget-exhausted \
   reservation-precedes-invocation per-occurrence-churn-bounded \
-  per-pr-churn-bounded counters-survive-restart window-rolls \
+  per-pr-churn-bounded counters-survive-restart window-bound-survives-restart window-rolls \
   coalesce-collapses-burst coalesce-window-expires \
   quota-pause-blocks-dispatch quota-pause-and-resume \
   empty-cron-turn-no-inference pending-work-launches || exit 1

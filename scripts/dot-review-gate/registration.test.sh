@@ -61,7 +61,18 @@ try {
   // the executor never merges or arms a managed PR
   await expectCode(() => Promise.resolve(executorGuard({ registration: reg, principal: 'exec-a', action: 'merge' })), 'E_SELF_MERGE', 'executor-merge-refused');
   await expectCode(() => Promise.resolve(executorGuard({ registration: reg, principal: 'exec-a', action: 'arm' })), 'E_SELF_MERGE', 'executor-arm-refused');
-  executorGuard({ registration: reg, principal: 'cc-coordinator/session-a', action: 'arm' });
+
+  // cold-review fix 2: merge default OFF is a GATE, not a stored bit — while the
+  // operator transition is absent, NOBODY merges or arms, the coordinator included
+  await expectCode(() => Promise.resolve(executorGuard({ registration: reg, principal: 'cc-coordinator/session-a', action: 'merge' })), 'E_MERGE_DISABLED', 'coordinator-merge-refused-while-disabled');
+  await expectCode(() => Promise.resolve(executorGuard({ registration: reg, principal: 'cc-coordinator/session-a', action: 'arm' })), 'E_MERGE_DISABLED', 'coordinator-arm-refused-while-disabled');
+
+  // after the operator transition the merge path is the coordinator's alone
+  // (reads the CURRENT durable row — the earlier `reg` snapshot predates the transition)
+  const enabledRow = ledger.getRegistration(PR.prNodeId);
+  executorGuard({ registration: enabledRow, principal: 'cc-coordinator/session-a', action: 'merge' });
+  log('ok coordinator-may-merge-after-transition');
+  executorGuard({ registration: enabledRow, principal: 'cc-coordinator/session-a', action: 'arm' });
   log('ok coordinator-may-arm');
 
   // registration is unique per PR and durable across restart
@@ -101,7 +112,9 @@ out="$(node "$SCRIPT" "$DIR/registration.mjs" "$DIR/ledger.mjs" "$TMP" 2>&1)"; s
 assert_suite_arms "registration.test.sh" "$status" "$out" \
   armed-state-reconciled-before-registration merge-enable-requires-operator-transition \
   operator-transition-enables-merge executor-merge-refused executor-arm-refused \
-  coordinator-may-arm one-registration-per-pr registration-durable-across-restart \
+  coordinator-merge-refused-while-disabled coordinator-arm-refused-while-disabled \
+  coordinator-may-merge-after-transition coordinator-may-arm \
+  one-registration-per-pr registration-durable-across-restart \
   unknown-armed-state-holds-registration hold-writes-no-row \
   release-requires-operator-transition release-with-transition || exit 1
 echo "registration.test.sh: all green"

@@ -593,6 +593,34 @@ try {
   if (!dClo.some((r) => r.action === 'closure-recorded') || tClo.checkRuns.length !== 0) fail(`closure consumption ${JSON.stringify(dClo)} runs=${tClo.checkRuns.length}`);
   else log('ok v2-closure-receipt-consumed');
 
+  // cold-review fix 1: a fix_response submitted after the tuple MOVED still reaches
+  // the lifecycle — DR-R3 archival is not effect-dropping; the closure gate (not the
+  // drain) is what refuses unproven evidence. The assigned occurrence is the one the
+  // active claim (single corrective owner per scope) already holds.
+  const claimedOccId = svcF.ledger.lineage('F-900')[0].id;
+  const lateFixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
+  lateFixRecord.assignment_id = assignmentF900;
+  lateFixRecord.finding_ids = ['F-900'];
+  lateFixRecord.fix_revision = 'fix-900-late';
+  lateFixRecord.claimed_by = 'exec-a';
+  const lateFixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('g'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const movedDigest = 'f'.repeat(64);
+  const lateFixPayload = JSON.stringify(lateFixRecord);
+  const lateFixSub = svcF.ledger.submitReport({
+    claimId: lateFixGen.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(lateFixPayload).digest('hex'),
+    payload: lateFixPayload, verdict: 'fix_response', kind: 'fix_response', leaseMinutes: 30,
+    liveTupleDigest: movedDigest,
+  });
+  if (lateFixSub.superseded !== true) fail(`late fix submit expected superseded: ${JSON.stringify(lateFixSub)}`);
+  const tLateFix = makePublisherTransport();
+  const dLateFix = await svcF.drainOutbox({ publisherTransport: tLateFix.fetchJson });
+  const lateFixEntry = dLateFix.find((r) => r.action === 'fix-recorded');
+  const claimedAfter = svcF.ledger.getOccurrence(claimedOccId);
+  if (!lateFixEntry || claimedAfter?.state !== 'VERIFYING') {
+    fail(`superseded fix record dropped: entry=${JSON.stringify(dLateFix.map((r) => [r.event, r.action]))} occ=${claimedAfter?.state}`);
+  } else log('ok superseded-fix-record-still-consumed');
+
   // unknown events stay pending — never consumed without their required action
   svcF.ledger.outboxEnqueue('github.event', { event: 'push' }, 'gh:test-1');
   svcF.ledger.outboxEnqueue('mystery.event', {}, 'mystery:1');
@@ -631,5 +659,5 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   v2-stitched-envelope-rejected v2-schema-required-field-enforced v2-revise-accepted-persisted \
   v2-revise-publishes-named-failure v2-go-accepted v2-go-authorizes-single-success \
   v2-findings-enter-lifecycle superseded-findings-recorded-as-history \
-  v2-fix-response-consumed v2-closure-receipt-consumed unknown-events-stay-pending || exit 1
+  v2-fix-response-consumed superseded-fix-record-still-consumed v2-closure-receipt-consumed unknown-events-stay-pending || exit 1
 echo "service.test.sh: all green"

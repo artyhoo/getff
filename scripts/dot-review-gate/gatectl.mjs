@@ -25,12 +25,12 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { loadPolicy, policyDigest } from './load-policy.mjs';
 import { openLedger } from './ledger.mjs';
 import { buildQueue } from './queue.mjs';
 import { createBudgets } from './budgets.mjs';
 import { createCcAdapter } from './cc-adapter.mjs';
+import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 function fail(codeName, message) {
   const e = new Error(message);
@@ -204,6 +204,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainEntry(import.meta.url)) {
   await main();
 }

@@ -60,14 +60,19 @@ export function setMergeEnabled({ ledger, prNodeId, enabled, operatorTransition 
   return normalize(ledger.updateRegistration(prNodeId, { state: 'ACTIVE', mergeEnabled: enabled, operatorTransition }));
 }
 
-// The managed executor never merges or arms a registered PR — merge and auto-merge
-// authority belongs to the registered coordinator alone.
+// The merge path is gated TWICE (cold-review fix 2 — merge default OFF is a gate,
+// not a stored bit): the executor NEVER merges or arms a managed PR (identity is
+// the permanent property, checked first), and even the registered coordinator is
+// held while the operator transition is absent (merge_enabled — the temporal gate).
 export function executorGuard({ registration, principal, action } = {}) {
   if (!registration || registration.state !== 'ACTIVE') {
     throw code('E_NOT_MANAGED', 'no ACTIVE registration receipt for this PR');
   }
   if ((action === 'merge' || action === 'arm') && principal !== registration.coordinator) {
     throw code('E_SELF_MERGE', `${principal} may not ${action} a managed PR — authority belongs to ${registration.coordinator}`);
+  }
+  if ((action === 'merge' || action === 'arm') && registration.merge_enabled !== true) {
+    throw code('E_MERGE_DISABLED', 'merge is DEFAULT OFF for this managed PR — enabling requires an explicit recorded operator transition');
   }
   return { allowed: true, principal, action };
 }
