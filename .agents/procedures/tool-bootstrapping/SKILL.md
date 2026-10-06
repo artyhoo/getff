@@ -1,6 +1,6 @@
 ---
 name: tool-bootstrapping
-description: Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.
+description: 'Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.'
 ---
 
 <!-- @harness-posture: portable — prose + npx skills CLI; the deps-hash UserPromptSubmit hook is companion infrastructure, not this skill's runtime dependency -->
@@ -8,7 +8,7 @@ description: Use when analysing project stack for MCP or skill recommendations. 
 # Tool Bootstrapping — project-aware MCP/skill proposal discipline
 
 > **Authoritative for:** §13.25 tool-bootstrapping discipline (6 rules) for THIS project — with internal cross-links to repo state, SSOT entries #31-#37, and shipped twin.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Shipped consumer-facing version — see [skills/tool-bootstrapping/SKILL.md](../../../.agents/procedures/tool-bootstrapping-consumer/SKILL.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Shipped consumer-facing version — see [skills/tool-bootstrapping/SKILL.md](../../../skills/tool-bootstrapping/SKILL.md).
 
 ## Why this skill exists
 
@@ -51,7 +51,7 @@ Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `c
 ## §4 Cross-references
 
 - Research patch: [docs/meta-factory/research-patches/2026-05-10-§13.25-tool-bootstrapping-research.md](../../../docs/meta-factory/research-patches/2026-05-10-§13.25-tool-bootstrapping-research.md) — §3 (prior art), §4 (persistence), §7 (recursive bootstrap), §10 (SSOT proposals)
-- Shipped twin: [skills/tool-bootstrapping/SKILL.md](../../../.agents/procedures/tool-bootstrapping-consumer/SKILL.md)
+- Shipped twin: [skills/tool-bootstrapping/SKILL.md](../../../skills/tool-bootstrapping/SKILL.md)
 - Decision format schema: [references/decision-format.md](references/decision-format.md)
 - SSOT entries #31 (AIF `/aif` ADOPT), #32 (AIF skills.sh ADOPT VOCABULARY), #33 (Continue.dev DEFER), #37 (Windsurf Cascade DEFER): [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md)
 - Sub-waves: 5.2 (`setup.sh` context7 bootstrap, D3=b), 5.3 (AGENTS.md bullet + UserPromptSubmit hook D7=a + audit probe D4=d)

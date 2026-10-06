@@ -224,14 +224,16 @@
       "shipsTo": {
         "tier": "plugin"
       },
-      "description": "Use when starting any conversation in a repo that has the getff plugin installed — establishes how to find and use the getff skills, the instruction-priority ladder (the project's own CLAUDE.md/AGENTS.md win), and the \"invoke the relevant skill before responding\" discipline. Trigger on session start, before any first reply, and whenever code quality, linting, CI, pre-commit/pre-push hooks, architecture rules, mutation/contract testing, or \"stop the AI breaking my conventions\" comes up.",
+      "description": "Use when choosing getff plugin skills for a code-quality enforcement task — linting, CI, hooks, architecture rules, mutation/contract tests or preventing AI convention drift. Explains skill access, invocation scope and the consumer instruction envelope; unrelated conversation does not require getff activation.",
       "source": {
         "path": "plugin/skills/using-getff/SKILL.md",
         "line": 3
       },
       "extras": {
         "component": "skill",
-        "twin-of": ".agents/procedures/using-getff/SKILL.md"
+        "twin-of": {
+          "absent": "not-byte-copied"
+        }
       },
       "example": null
     }

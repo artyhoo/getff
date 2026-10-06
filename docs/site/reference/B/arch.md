@@ -5,8 +5,14 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/arch/SKILL.md
-  - .claude/skills/arch/references/grilling.md
+  - .claude/skills/arch/references/ADR-FORMAT.md
+  - .claude/skills/arch/references/CONTEXT-FORMAT.md
+  - .claude/skills/arch/references/design-review.md
   - .claude/skills/arch/references/domain-modeling.md
+  - .claude/skills/arch/references/exit-and-escalation.md
+  - .claude/skills/arch/references/grilling.md
+  - .claude/skills/arch/references/ideation.md
+  - .claude/skills/arch/references/research-contour.md
   - CONTEXT.md
   - setup
   - setup.d/10-skills.sh
@@ -110,23 +116,25 @@ how to get it.
 
 ## Evidence
 
-- In `.claude/skills/arch/SKILL.md`: the description is line 3, the manual-only flag is
-  line 6, and the fallbacks are line 22. The design part is lines 42 to 55, the research
-  pass is lines 56 to 88, the two reviews are lines 89 to 111, and the three exits are
-  lines 123 to 127.
+Skill evidence refreshed on 2026-10-06 to follow conditional procedure owners;
+helper/install examples are unchanged. No live runtime certification is claimed.
+
+- The strict-YAML description, manual-only flag and conditional read table are in
+  `.claude/skills/arch/SKILL.md`.
+- `.claude/skills/arch/references/ideation.md` owns design, question pacing and domain
+  modeling; `research-contour.md` in the same folder owns the optional research pass.
+- `.claude/skills/arch/references/design-review.md` owns the two cold reviews and the
+  two-REVISE convergence cap. `exit-and-escalation.md` owns the three exits.
 - The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 168 of
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
 - The superpowers plugin is an optional companion: the `superpowers` row of `setup.d/companions.manifest`.
-- The question-pacing plugin is named on line 70 of `.claude/skills/arch/SKILL.md`,
-  together with the copy that stands in for it. The copy is
-  `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,
-  and lines 16 to 27 say why the plugin is not offered.
-- The word-meaning moves, the four rules `/arch` lays over them and the two upstream parts it
-  leaves out are all on line 74 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
-  lines 22 to 29 and its two format files beside it.
+- The question-pacing and domain-modeling fallbacks are named in
+  `.claude/skills/arch/references/ideation.md`. Their pinned copies are
+  `.claude/skills/arch/references/grilling.md` and `domain-modeling.md` in that folder;
+  each carries its upstream provenance, with the glossary/decision formats beside it.
 - The copies ship with the skill: they are listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 19 to 22.
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, under the arch skill paths.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.

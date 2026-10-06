@@ -43,7 +43,7 @@
 #       — S2 2026-07-25 round-1 rework: .claude/orchestrator-prompts/ is NEVER delivered
 #       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
 #       orchestrator-prompts" at setup.d/30-templates.sh:17 — note: .ai-factory/, not
-#       .claude/). One leak surfaced in .agents/procedures/aif-doctor/SKILL.md:30.
+#       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:30. cite:historical pre-extraction line at the recorded delivery incident
 #   4h. transforms ](../.claude/skills/foo/SKILL.md) → ](${URL}/.claude/skills/foo/SKILL.md)
 #       — 2026-07-25 handoff item 5: agents/*.md at repo root reach skills via
 #       ../.claude/skills/...; shipped to <consumer>/.claude/agents/ that ref resolves to

@@ -104,7 +104,7 @@ worker and tells you to re-check each fact against that model first.
 
 ## Evidence
 
-- The description is line 3 of `.claude/skills/claude-glm-executor-handoff/SKILL.md`.
+- The strict-YAML description is read from line 3 of `.claude/skills/claude-glm-executor-handoff/SKILL.md`.
   The posture marker is line 6. The "does not apply" list is lines 23 to 29.
 - The model facts and their sources are the table under line 31 of that file. The
   re-check warning for glm-5.3 is line 33. The six blocks are lines 55 to 63.

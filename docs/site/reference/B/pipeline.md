@@ -5,6 +5,27 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/pipeline/SKILL.md
+  - .claude/skills/pipeline/references/anti-rationalization.md
+  - .claude/skills/pipeline/references/artifacts.md
+  - .claude/skills/pipeline/references/bundle-composition.md
+  - .claude/skills/pipeline/references/claim-machinery.md
+  - .claude/skills/pipeline/references/dispatch.md
+  - .claude/skills/pipeline/references/dogfood.md
+  - .claude/skills/pipeline/references/failures.md
+  - .claude/skills/pipeline/references/frontier.md
+  - .claude/skills/pipeline/references/invocation.md
+  - .claude/skills/pipeline/references/launch.md
+  - .claude/skills/pipeline/references/master-backlog-delta.md
+  - .claude/skills/pipeline/references/mode-overrides.md
+  - .claude/skills/pipeline/references/output-format.md
+  - .claude/skills/pipeline/references/placeholders.md
+  - .claude/skills/pipeline/references/plain-language-tail.md
+  - .claude/skills/pipeline/references/plan-cache.md
+  - .claude/skills/pipeline/references/planning.md
+  - .claude/skills/pipeline/references/red-flags.md
+  - .claude/skills/pipeline/references/scope.md
+  - .claude/skills/pipeline/references/stage-gates.md
+  - .claude/skills/pipeline/references/status.md
   - .claude/skills/pipeline/helpers/list-presets.sh
   - .claude/skills/pipeline/helpers/lib/common.sh
   - setup.d/10-skills.sh
@@ -96,16 +117,16 @@ ignore the data it is shown and go on.
 
 ## Evidence
 
-- The description comes from line 3 of `.claude/skills/pipeline/SKILL.md`. Line 6 sets
-  `disable-model-invocation: true`, which is why the card says `slash-only`. The posture
-  marker is line 20.
-- The five forms of the command are routed on line 44. The preset list is lines 60 to
-  76. The status summary and what it prints without the runtime are lines 246 to 266.
-- The plan comparison is lines 106 to 115, and line 114 says the real state wins. The
-  four weighted questions are lines 142 to 145. The tie rule is line 159.
-- The merged check is line 408, with its `base:staging` search. The halt message is
-  lines 413 to 422. The two "Does NOT" limits are lines 486 and 487. Line 22 admits that
-  an agent can ignore injected data.
+Skill evidence refreshed on 2026-10-06 to follow conditional procedure owners;
+helper/install examples are unchanged. No live runtime certification is claimed.
+
+- The strict-YAML description, manual-only flag and conditional routes are in
+  `.claude/skills/pipeline/SKILL.md`.
+- `.claude/skills/pipeline/references/invocation.md` owns invocation forms and preset
+  routing. `status.md` in the same folder owns the read-only status and unreachable-bridge output.
+- `.claude/skills/pipeline/references/planning.md` owns plan currency, weighted priority
+  and the tie rule. `dispatch.md` owns the base:staging merged gate and halt message.
+- `.claude/skills/pipeline/references/scope.md` records the out-of-scope limits.
 - `.claude/skills/pipeline/helpers/list-presets.sh` only reads the preset files. Lines
   25 to 28 show it needs `jq`.
 - The folder for briefs is resolved on lines 101 to 108 of

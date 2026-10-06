@@ -38,6 +38,9 @@ const EXEMPT_SKILLS: readonly string[] = [
   '.agents/procedures/tool-bootstrapping/SKILL.md',
   '.agents/procedures/getff/SKILL.md',
   '.agents/procedures/tool-bootstrapping-consumer/SKILL.md',
+  '.claude/skills/self-reflection/SKILL.md',
+  '.claude/skills/tool-bootstrapping/SKILL.md',
+  'skills/tool-bootstrapping/SKILL.md',
 ];
 
 /**

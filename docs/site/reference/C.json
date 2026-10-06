@@ -104,7 +104,6 @@
       "extras": {
         "tools": "Read, Glob, Grep",
         "referenced-by": [
-          ".agents/procedures/night-mode/SKILL.md",
           ".agents/roles/compliance-verifier.md",
           ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/attention-is-not-a-mechanism.md",
@@ -187,9 +186,7 @@
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          ".agents/procedures/dispatcher/SKILL.md",
           ".agents/procedures/harvest/SKILL.md",
-          ".agents/procedures/night-mode/SKILL.md",
           ".agents/procedures/reviewer/SKILL.md",
           ".agents/roles/dispatch-input-checker.md",
           ".agents/roles/fidelity-auditor.md",

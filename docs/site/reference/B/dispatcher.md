@@ -7,6 +7,11 @@ sources:
   - setup
   - setup.d/companions.manifest
   - .claude/skills/dispatcher/SKILL.md
+  - .claude/skills/dispatcher/references/execution.md
+  - .claude/skills/dispatcher/references/harvest.md
+  - .claude/skills/dispatcher/references/invocation.md
+  - .claude/skills/dispatcher/references/parks.md
+  - .claude/skills/dispatcher/references/scope-and-provenance.md
   - .claude/skills/dispatcher/helpers/probe-inflight.sh
   - install.sh
   - setup.d/10-skills.sh
@@ -102,20 +107,18 @@ guard script and your own [gates](../../terms.md#gate).
 
 ## Evidence
 
-- The description comes from line 3 of `.claude/skills/dispatcher/SKILL.md`. Line 6
-  sets `disable-model-invocation: true`, which is why the card says `slash-only`. The
-  posture marker is line 19. Line 24 is where the skill calls itself prose-only.
-- Line 45 says the skill executes and does not plan. The four command-line tools are
-  rows 55 to 58 of the table on lines 53 to 60. The last two rows are companion skills.
-- The loop is lines 68 to 355: guard on 68, send on 128, watch on 159, answer on 171,
-  collect on 173, review on 296, the merge check on 304, advance on 312.
-- The six places are the table on lines 78 to 85. Lines 102 and 103 give the
-  `PROBE-INCOMPLETE` rule: "Never treat as FRESH".
+Skill evidence refreshed on 2026-10-06 to follow conditional procedure owners;
+helper/install examples are unchanged. No live runtime certification is claimed.
+
+- The strict-YAML description and manual-only flag are in `.claude/skills/dispatcher/SKILL.md`.
+  The card routes each action to its procedure before execution.
+- `.claude/skills/dispatcher/references/invocation.md` owns invocation and the prose-only
+  classification; `execution.md` owns the substrate table and the guard/send/watch/
+  collect/review/advance loop, including six in-flight signals and PROBE-INCOMPLETE.
+- `.claude/skills/dispatcher/references/parks.md` owns question types, companion fallback,
+  and technical answers; `scope-and-provenance.md` owns the out-of-scope limits and origin.
 - `.claude/skills/dispatcher/helpers/probe-inflight.sh` prints that verdict on lines 74
   to 78, before it touches git, Docker, or the network.
-- The two kinds of question are lines 404 and 417. Line 456 says what happens without
-  the companion skill. The hand-over to `aif-doctor` is line 34. The "Does NOT" limits
-  are lines 476 and 477. The "6–10 manual steps" sentence is line 492.
 - The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
   copies that list on lines 170 to 174 of `setup.d/10-skills.sh`. Line 17 of
   `install.sh` names the flag.

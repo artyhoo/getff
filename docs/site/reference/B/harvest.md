@@ -107,7 +107,7 @@ CI-only, and the skill says so: whole-tree Markdown checks are not in the local 
 
 ## Evidence
 
-- The description is line 3 of `.claude/skills/harvest/SKILL.md`. Line 6 of the same
+- The strict-YAML description is read from line 3 of `.claude/skills/harvest/SKILL.md`. Line 6 of the same
   file is `disable-model-invocation: true`, which the card shows as `slash-only`. The
   posture marker is line 19.
 - The four parts are the sections that start at lines 42, 68, 72, and 85 of that file.

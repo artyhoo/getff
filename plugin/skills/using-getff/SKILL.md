@@ -26,7 +26,7 @@ The plugin never overrides the consumer's repo. It supplies discipline; the cons
 
 **Invoke the relevant skill BEFORE you respond or act — even before clarifying questions.** If there is even a ~1% chance a skill applies to what you are about to do, invoke it to check. If it turns out not to fit, you do not have to use it. Knowing the concept is not the same as using the skill — invoke it; skills evolve.
 
-Access skills with the **Skill tool** on Claude Code or your harness's native skill mechanism. When that mechanism discovers a thin entry, load its complete canonical procedure before acting.
+Use the **Skill tool** when available and permitted, or the harness's actual skill-reading mechanism (including reading SKILL.md directly). When that mechanism discovers a thin entry, load its complete canonical procedure before acting. Preserve each skill's invocation flags: reading an explicit-only procedure does not authorize self-initiation; already authorized work may follow its documented steps.
 
 ## Skills in this plugin
 

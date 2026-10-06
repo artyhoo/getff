@@ -29,7 +29,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const SKILL = resolve(REPO_ROOT, '.agents/procedures/pipeline/SKILL.md');
+const SKILL = resolve(REPO_ROOT, '.agents/procedures/pipeline/references/planning.md');
+const CARD = resolve(REPO_ROOT, '.agents/procedures/pipeline/SKILL.md');
 
 const ALIASES = ['DIRECT', 'BUNDLE', 'SOLO', 'PAIR', 'DECOMPOSE', 'RESEARCH'] as const;
 const DISPATCHES = [
@@ -68,7 +69,11 @@ function extractSection25(content: string): string {
 }
 
 describe('Principle 19 — meta-orchestrator §2.5 ALIAS-mapping ↔ §5-routing-tree consistency', () => {
-  it('SKILL.md exists', () => {
+  it('planning procedure is reachable before currency/classification work', () => {
+    expect(readFileSync(CARD, 'utf8')).toContain('[planning](references/planning.md) before checking');
+  });
+
+  it('planning procedure exists', () => {
     expect(existsSync(SKILL), `SKILL.md not found at: ${SKILL}`).toBe(true);
   });
 

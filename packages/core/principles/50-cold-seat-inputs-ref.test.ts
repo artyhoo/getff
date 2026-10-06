@@ -42,6 +42,8 @@ const DECLARED_EXTRAS = [
   '.agents/procedures/arch/SKILL.md',
   '.agents/procedures/dispatcher/SKILL.md',
   '.agents/procedures/harvest/SKILL.md',
+  '.agents/procedures/arch/references/design-review.md',
+  '.agents/procedures/dispatcher/references/execution.md',
 ];
 
 function walkMarkdown(dir: string): string[] {
@@ -93,6 +95,11 @@ function carriesInputsRef(text: string): boolean {
 }
 
 describe('principle 50 — cold-seat dispatch templates carry Inputs-ref', () => {
+  it('moved cold contracts are required before review/dispatch', () => {
+    const read = (p: string) => readFileSync(join(REPO_ROOT, p), 'utf8');
+    expect(read('.claude/skills/arch/SKILL.md')).toContain('Before design review, read [design review](references/design-review.md)');
+    expect(read('.claude/skills/dispatcher/SKILL.md')).toContain('[execution](references/execution.md)');
+  });
   it('the population is non-vacuous: the two orchestrator templates are discovered by predicate', () => {
     const pop = coldSeatTemplates();
     expect(pop).toContain('.agents/procedures/orchestrator/references/reviewer-template.md');
