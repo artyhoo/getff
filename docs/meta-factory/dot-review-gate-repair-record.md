@@ -448,3 +448,66 @@ smallest coherent repairs; the three touched suites green; then the full
 **Suite counts after the fix pass:** 488 arms / 19 suites (intake 33→35,
 queue 13→14, service 47→49). Full sweep green in one pass on 2026-10-06.
 
+
+## 2026-10-07 — D2065 boundary corrections (S07/S06/S05)
+
+The bounded GLM repair produced commit `d2ec76018f9`. Reusing the existing root
+dependencies with `NODE_PATH` resolved its AJV provisioning limitation: all 19
+Dot suites passed. Independent Spec and Standards cold reviews nevertheless
+returned REVISE. The following senior corrections address their demonstrated
+counterexamples; a green suite count alone did not establish completeness.
+
+- **S07 — recovery authorization:** `runRecover` composes the runner's
+  `operationalHold`. Without `--policy`, it inspects pending intents and writes
+  nothing. With policy, pause/expiry/quota and per-action ACTIVE registration /
+  repository scope hold before delivery. Original payload/digest and persisted
+  retry bounds remain. The strengthened actual-CLI test starts BOTH actions
+  ACTIVE, then uses destination filesystem fault injection to release the second
+  registration AFTER the first message lands. Exactly one delivery occurs and
+  the second stays INTENT. A disposable mutant caching registrations before
+  recovery fails this test; the prior mixed-registration seed did not prove a
+  mid-recovery change.
+- **S06 — accepted review identity:** `prHasReview` positively selects only
+  accepted, non-superseded `review_report` records and parses their actual
+  canonical V2 payload. Mode, comparison basis, repository/PR, reviewed
+  revision/base, protocol, policy version and computed manifest digest must
+  match. Relevant revisions/protocol/digest also agree with the issued tuple.
+  `closure_receipt`, fix receipts and opaque/legacy payloads cannot complete
+  work. Unknown legacy equivalence requires explicit import; it is not inferred.
+  Queue filtering and outstanding-request reconciliation share `reviewIdentity`.
+  Historical applicability staging is excluded from completion identity: moving
+  staging alone does not reopen review of unchanged pinned history.
+- **S05 — historical remediation:** queue and secondary routing share source
+  classification, including canonical V2 HISTORICAL and supported V1 `kind:historical`
+  reports whose generation is still SUBMITTED. Findings first observed during drain remain for the next
+  queued revalidation instead of bypassing the gate. Missing/throwing adapters,
+  boolean/null/malformed receipts, invalid full staging revisions, missing or
+  invalid UTC timestamps, mismatched staging and absent cycle staging hold
+  before assignment/budget/message delivery. Bound `present:false` records an
+  ALREADY_FIXED observation; bound `present:true` permits one correction with
+  its revalidation receipt. Held work may retry after its existing work lease;
+  the tests advance the clock for that control rather than fabricating closure.
+
+Senior RED controls on `d2ec` reproduced closure-as-review, OPEN_PR covering
+HISTORICAL, mismatched comparison basis, opaque payload coverage, changed policy
+coverage, malformed evidence launching, and both preexisting/newly drained
+canonical historical findings bypassing revalidation. Fixtures now carry real
+canonical record structure. The connected HTTP lifecycle's initial report now
+uses the same HEAD_TO_BASE comparison requested by its dispatch; a different
+basis must not resolve that request.
+
+Verification evidence lives in
+`/private/tmp/getff-dot-boundary-senior-verification/`: per-suite logs and a
+summary. The recovery cache mutant is in
+`/private/tmp/getff-dot-recovery-cached-authority-mutant/`, outside tracked code.
+Bare `npm test` in this dependency-free worktree cannot start Vitest
+(`vitest: command not found`, exit127); this is not a full workspace PASS.
+No dependency installation, paid model call, GitHub publication or live
+unattended acceptance is implied by these offline checks. Independent recheck of
+commit4459eb02d1613484fac8c0c4667ff37bf495c138 returned SPEC CLEAN and
+STANDARDS REVISE: supported V1 historical reports still bypassed the shared
+classifier. The next narrow correction recognizes their explicit V1 historical
+kind. New preexisting/drain controls use `makeHistorical()` AND validate each
+fixture with the actual V1 schema/validator; both reproduced RED before the
+classifier change. The same bound-positive controls cover V1 and V2 separately.
+Independent recheck of the successor remains pending.

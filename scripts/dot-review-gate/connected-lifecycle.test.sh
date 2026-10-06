@@ -228,7 +228,7 @@ try {
   const c1 = await cycle();
   const review = c1.dispatched.find((d) => d.kind === 'review-request');
   const reviewPacket = review ? JSON.parse(ledger.coordGet(review.actionId)?.payload_text ?? '{}') : {};
-  if (!review || reviewPacket.mode !== 'OPEN_PR' || reviewPacket.revisions?.head_sha !== HEAD_REVIEW || !reviewPacket.work?.item_key) {
+  if (!review || reviewPacket.mode !== 'OPEN_PR' || reviewPacket.comparison_basis !== 'HEAD_TO_BASE' || reviewPacket.revisions?.head_sha !== HEAD_REVIEW || !reviewPacket.work?.item_key) {
     fail(`review dispatch ${JSON.stringify(c1.dispatched)} ${JSON.stringify(c1.held)}`);
   } else log('ok review-dispatched-with-trusted-packet');
 
@@ -242,7 +242,7 @@ try {
   const REVIEW_ID = '00000000-0000-4000-8000-00000000c002';
   const cookieReviewer = await login(base, 555001);
   const reviseRecord = v2Review({
-    review_identity: { review_id: REVIEW_ID },
+    review_identity: { review_id: REVIEW_ID, comparison_basis: 'HEAD_TO_BASE' },
     verdict: { outcome: 'REVISE', rationale: 'one blocking defect', blockers: [] },
     findings: [{
       finding_id: F, occurrence_id: `O-${F}`, title: 'defect',
