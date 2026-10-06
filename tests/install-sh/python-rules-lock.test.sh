@@ -162,7 +162,7 @@ else
 fi
 
 # ── (9) REGRESSION (W3 rework, MAJOR): --force re-delivery must NOT leave a STALE lock ─────────────
-# copy_safe (lib.sh:928) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
+# copy_safe (lib.sh:941) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
 # job is to record the DELIVERED set (ruleIds/ruffBans/sourceFingerprint) — must therefore be regenerated
 # on --force too, not only on --refresh. Before the fix _py_write_rules_lock regenerated ONLY on
 # GETFF_TOOLCHAIN_REFRESH=1, so `install.sh python --force` over a prior install whose template CHANGED
@@ -360,7 +360,7 @@ else
     P13=$(py_fixture)
     # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
-    # there; setup.d/lib.sh:1712-1713, the lock writer both lanes share). The prior arm pointed at
+    # there; setup.d/lib.sh:1733-1734, the lock writer both lanes share). The prior arm pointed at
     # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
     # tree and both branches took the `else`, emitting `ok`. THAT wrong path was the whole
     # defect; the seeds below are not what makes the lanes run.
@@ -538,11 +538,11 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (setup.d/lib.sh:1710,1741 — the shared lock writer). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1731,1741 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
-    # (setup.d/lib.sh:1712-1713, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
+    # (setup.d/lib.sh:1733-1734, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
     # lock lives there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
     # on every tree and both branches took the `else`, emitting `ok`. With Cargo.toml + go.mod
     # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition
@@ -694,7 +694,7 @@ fi
 rm -rf "$P15"
 
 # ── (16) dir present but EMPTY (consumer deleted every *.yml) → the plain re-run completes ─────────
-# copy_safe (lib.sh:928) skips an EXISTING dst on a plain re-run, so a consumer who emptied
+# copy_safe (lib.sh:941) skips an EXISTING dst on a plain re-run, so a consumer who emptied
 # .getff/astgrep-rules/ is never re-populated. The top-of-function guard only checked the DIR
 # ([ -d ]), and the ids assignment ran `grep … "$rules_dir"/*.yml` as a command-substitution
 # ASSIGNMENT under install.sh's set -euo pipefail: with no *.yml the glob stays literal, grep exits

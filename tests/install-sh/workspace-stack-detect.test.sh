@@ -5,7 +5,7 @@
 #
 #   _workspace_pkg_dirs [root]        — enumerate workspace package dirs (those WITH a package.json)
 #                                       under the 5-dir convention (apps packages services libs
-#                                       modules — same set as setup.d/lib.sh:3095), node-free, no
+#                                       modules — same set as setup.d/lib.sh:3118), node-free, no
 #                                       yq/pnpm/turbo dependency. Echoes one relative dir per line.
 #   _detect_stacks_per_workspace [root] — walk each workspace dir × _detect_stack_from_pkg <dir> →
 #                                       echo `dir<TAB>stack` per workspace (mirrors the 15-companions

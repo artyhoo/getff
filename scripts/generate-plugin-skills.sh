@@ -10,7 +10,7 @@
 #   byte-copy             — verbatim tree copy (frontmatter stays byte-verbatim; NO header
 #                          is ever injected: SKILL.md frontmatter must open on line 1).
 #   transform             — copy + `transform_internal_refs` (the 15 sed arms mirrored from
-#                          setup.d/lib.sh:170-191, rewriting repo-internal links to blob URLs).
+#                          setup.d/lib.sh:175-196, rewriting repo-internal links to blob URLs).
 #   transform+textstrip   — transform + a 16th, link-TEXT-scoped arm stripping the `../`
 #                          ladder from link TEXT (the shape today's plugin/skills/getff
 #                          hand-copy carries; Stage 0 probe B proved byte-identity — see
@@ -59,7 +59,7 @@
 #      tiers (g)/(h)) guards payload drift and link form population-wide.
 #
 # Transform parity obligation: the arm block below is a DELIBERATE mirror of
-# setup.d/lib.sh:180-194 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
+# setup.d/lib.sh:192-206 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
 # «No installer changes» blocks sourcing or extracting lib.sh). The two arm sets are held
 # equal by tests/plugin/skills-generation.test.sh, which extracts both blocks and diffs them;
 # edit them only in pairs. UPSTREAM_BLOB_URL default must match setup.d/lib.sh:49.
@@ -112,14 +112,14 @@ population_dir() {
 # frozen by this generator (byte-copy from skills/), so plugin-side rot via the fork is no
 # longer representable. Never silently delete the hand-fork (kickoff Stage 1 item 5).
 
-# ── Transform (parity-guarded mirror of setup.d/lib.sh:170-191 + the 16th arm) ──────
+# ── Transform (parity-guarded mirror of setup.d/lib.sh:175-196 + the 16th arm) ──────
 # BEGIN TRANSFORM ARMS (parity-extracted by tests/plugin/skills-generation.test.sh; edit in
 # pairs with setup.d/lib.sh transform_internal_refs)
 transform_one_file() {
   local f="$1"
   [ -f "$f" ] || return 0
   # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
-  # as the mirrored setup.d/lib.sh:179 (bare `-i` is GNU-only). Portable so the script behaves
+  # as the mirrored setup.d/lib.sh:191 (bare `-i` is GNU-only). Portable so the script behaves
   # identically wherever it runs — the pre-commit arm on a developer machine and CI (see
   # «Enforcement channels» in the header).
   sed -E -i.bak \
