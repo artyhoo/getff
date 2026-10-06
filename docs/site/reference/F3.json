@@ -385,6 +385,7 @@
       "extras": {
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
+          "setup.d/eslint-wire.sh:408 (command-position)",
           "setup.d/portable-bindings.sh:251 (quoted-path-token)",
           "setup.d/portable-bindings.sh:258 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
