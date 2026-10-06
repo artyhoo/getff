@@ -233,6 +233,16 @@ try {
     .then(() => fail('armed on a released registration'))
     .catch((e) => { if (e.code === 'E_UNREGISTERED' && tS4e.graphqlBodies.length === 0) log('ok released-registration-holds-arm'); else fail(`released ${e.code}`); });
 
+  // cold-review fix: the state check is an ALLOWLIST — an unknown state string
+  // must hold the arm, never pass it (fail-open was the defect)
+  const sp4Unknown = freshLedger('unknown-state');
+  sp4Unknown.insertRegistration({ prNodeId: NODE_ID, prNumber: 2042, coordinator: 'coordinator/test', reconciledAt: '2026-10-06T12:00:00Z' });
+  sp4Unknown.updateRegistration(NODE_ID, { state: 'SUSPENDED-FUTURE', operatorTransition: 'unknown future state' });
+  const tS4f = makeTransport();
+  await arm({ reportText: admission(), transport: tS4f.fetchJson, ledger: sp4Unknown })
+    .then(() => fail('armed on an unknown registration state'))
+    .catch((e) => { if (e.code === 'E_UNREGISTERED' && tS4f.graphqlBodies.length === 0) log('ok unknown-registration-state-holds-arm'); else fail(`unknown state ${e.code}`); });
+
   // ADDENDUM confirmation: the ACTIVE V2 path flows canonical records + pinned
   // bytes through intake/publisher (SP-3 arms). The armer's V1 admission shape is
   // the RETAINED historical compatibility — a V2 review_report at this consumer
@@ -263,5 +273,5 @@ assert_suite_arms "armer.test.sh" "$status" "$out" \
   client-allowlist-owner-repo graphql-body-pinned repo-format-validated \
   arming-without-journal-refused open-blocking-lineage-holds-arm \
   unknown-registration-holds-arm merge-disabled-holds-arm \
-  released-registration-holds-arm v2-record-refused-historical-compat || exit 1
+  released-registration-holds-arm unknown-registration-state-holds-arm v2-record-refused-historical-compat || exit 1
 echo "armer.test.sh: all green"

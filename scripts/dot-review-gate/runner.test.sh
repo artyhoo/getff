@@ -69,10 +69,11 @@ try {
     fail(`empty destination fabricated work: ${JSON.stringify({ q: r0.queued.length, d: r0.dispatched.length, rec: r0.recovered })}`);
   } else log('ok cycle-empty-destination-observed-zeros');
 
-  // an UNREGISTERED PR holds at the runtime boundary — queued and visible, no dispatch
+  // an UNREGISTERED PR holds at the runtime boundary — the work stays QUEUED and
+  // visible (not dropped), and nothing dispatches
   const r1 = await runCycle({ ledger, policy, budgets, adapter, discover: DISCOVER_ONE });
   const unreg = r1.held.find((h) => h.code === 'E_UNREGISTERED');
-  if (!unreg || r1.dispatched.length !== 0) fail(`unregistered hold ${JSON.stringify(r1.held)} d=${r1.dispatched.length}`);
+  if (!unreg || r1.dispatched.length !== 0 || r1.queued.length < 1) fail(`unregistered hold ${JSON.stringify(r1.held)} d=${r1.dispatched.length} q=${r1.queued.length}`);
   else log('ok unregistered-pr-holds-at-runtime');
 
   // registered + healthy limits → the FIRST dispatch lands, and the persisted
@@ -101,6 +102,12 @@ try {
   const r4 = await runCycle({ ledger, policy, budgets, adapter, discover: DISCOVER_EMPTY });
   if (!r4.acked.includes(r2.dispatched[0].actionId)) fail(`ack ${JSON.stringify(r4.acked)}`);
   else log('ok ack-observed-by-next-cycle');
+
+  // cold-review arm: the receipt-intake step composes THROUGH the cycle — the
+  // injected drain's results are counted, not swallowed
+  const rDrain = await runCycle({ ledger, policy, budgets, adapter, discover: DISCOVER_EMPTY, drain: async () => [{}, {}] });
+  if (rDrain.drained !== 2) fail(`drain step ${rDrain.drained}`);
+  else log('ok drain-step-observed');
 
   // missing limits disable the hand-out entirely — nothing dispatches, the hold is named
   const noLimits = createBudgets({ ledger, limits: {} });
@@ -155,6 +162,6 @@ out="$(node "$SCRIPT" \
 assert_suite_arms "runner.test.sh" "$status" "$out" \
   cycle-empty-destination-observed-zeros unregistered-pr-holds-at-runtime \
   registered-pr-dispatches-with-reservation exhausted-window-bound-holds-second-pr \
-  ack-observed-by-next-cycle missing-limits-disable-handout \
+  ack-observed-by-next-cycle drain-step-observed missing-limits-disable-handout \
   historical-already-fixed-launches-nothing recovery-composes-through-cycle || exit 1
 echo "runner.test.sh: all green"

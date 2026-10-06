@@ -134,8 +134,12 @@ const readState = async () => {
   return state;
 };
 
+// cold-review fix: every created service is tracked and closed in the outer
+// finally — a mid-suite throw must FAIL the suite, not leak the intake server
+// (the round-2/3 hang class) and leave the node child running forever
+const live = [];
 async function newService(over = {}) {
-  return createGateService({
+  const svc = await createGateService({
     ledgerPath: over.ledgerPath ?? `${tmp}/service-${Math.random().toString(36).slice(2)}.sqlite`,
     policyText: over.policyText ?? POLICY_TEXT,
     schemaBytes,
@@ -147,6 +151,11 @@ async function newService(over = {}) {
     publisherApp,
     now: over.now ?? (() => clock),
   });
+  live.push(svc);
+  const origClose = svc.close.bind(svc);
+  let closed = false;
+  svc.close = async () => { if (closed) return; closed = true; await origClose(); };
+  return svc;
 }
 
 const login = async (base) => {
@@ -804,6 +813,8 @@ try {
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
+} finally {
+  for (const s of live) await s.close();
 }
 NODE
 

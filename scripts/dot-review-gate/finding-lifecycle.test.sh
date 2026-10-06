@@ -476,6 +476,17 @@ try {
   if (ledger3.getOccurrence(clH.occurrence_id)?.state !== 'RESOLVED') fail('sp6-already-fixed control did not resolve');
   else log('ok sp6-already-fixed-identified-check-resolves');
 
+  // cold-review arm: NOT_APPLICABLE is an evidenced disposition too — an
+  // anonymous change review is no principal, a signed one resolves
+  ledger3.recordFindings('rep-sp6', [FINDING({ key: 'artyhoo/getff#S6N' })]);
+  const clN = ledger3.claimFinding({ findingKey: 'artyhoo/getff#S6N', owner: 'exec-n', leaseMinutes: 30, nowMs: clock });
+  ledger3.recordReceipt({ occurrenceId: clN.occurrence_id, kind: 'change_review', revision: 'fix-s6n', digest: 'cr:s6n-anon', payload: '{"basis":"dup"}', nowMs: clock });
+  expectCode(() => ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6N', disposition: 'NOT_APPLICABLE', verifier: 'dot', revision: 'fix-s6n', nowMs: clock }), 'E_NOT_RESOLVABLE', 'sp6-not-applicable-closure-requires-principal');
+  ledger3.recordReceipt({ occurrenceId: clN.occurrence_id, kind: 'change_review', revision: 'fix-s6n', digest: 'cr:s6n-signed', payload: '{"basis":"duplicate"}', actor: 'reviewer-z', nowMs: clock });
+  ledger3.recordClosure({ findingKey: 'artyhoo/getff#S6N', disposition: 'NOT_APPLICABLE', verifier: 'dot', revision: 'fix-s6n', nowMs: clock });
+  if (ledger3.getOccurrence(clN.occurrence_id)?.state !== 'RESOLVED') fail('sp6-not-applicable control did not resolve');
+  else log('ok sp6-not-applicable-signed-review-resolves');
+
   const ledgerX = openLedger(`${tmp}/findings-extra.sqlite`);
   const TUPLEX = (prNode, head) => ({
     repository_id: 88, pr_node_id: prNode,
@@ -593,6 +604,7 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   sp6-affirmative-controls-resolve sp6-already-fixed-binds-check-identity \
   sp6-already-fixed-identified-check-resolves sp6-rejected-requires-principal \
   sp6-rejected-signed-review-resolves \
+  sp6-not-applicable-closure-requires-principal sp6-not-applicable-signed-review-resolves \
   coherent-fix-covers-several-findings final-closure-releases-scope \
   scoped-recurrence-during-verifying-rebinds || exit 1
 echo "finding-lifecycle.test.sh: all green"

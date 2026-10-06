@@ -102,6 +102,12 @@ out="$(run_cli start --allow-live --runner "$TMP/does-not-exist.mjs" --policy "$
 expect_fail "$rc" start-runner-missing-is-not-unenrolled
 echo "$out" | grep -q 'E_NO_RUNNER' || { echo "FAIL start-no-runner-code"; status=1; }
 
+# cold-review arm: even WITH --allow-live, live start stays unenrolled — the
+# E_LIVE_UNENROLLED fallback is load-bearing (validate-only posture), pin it
+out="$(run_cli start --allow-live --policy "$POLICY" --ledger "$TMP/lv.sqlite")"; rc=$?
+expect_fail "$rc" start-allow-live-still-unenrolled
+echo "$out" | grep -q 'E_LIVE_UNENROLLED' || { echo "FAIL allow-live-no-code"; status=1; }
+
 # pause then read: offline, state visible
 out="$(run_cli pause --ledger "$LEDGER")"; rc=$?
 expect_ok "$rc" pause-offline "$out"

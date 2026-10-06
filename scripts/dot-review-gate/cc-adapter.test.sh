@@ -107,6 +107,25 @@ try {
   if (sp5bRow.state !== 'INTENT' || !/budget/.test(sp5bRow.last_error ?? '')) fail(`sp5 retry bound ${sp5bRow.state}/${sp5bRow.last_error}`);
   else log('ok recovery-retry-budget-holds');
 
+  // cold-review fix: the digest HOLD needs its own executable arm — tamper the
+  // stored original WITHOUT touching the digest; recovery must hold the row
+  // (a corrupt stored payload is never delivered as instructions)
+  const dgBroken = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-digest/nope`, notify: async () => {} });
+  await dgBroken.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-digest', payload: { instruction: 'the original words' } }).catch(() => {});
+  const dgId = ledger.coordList('INTENT').filter((a) => a.target === 'sess-digest').at(-1).id;
+  {
+    const { DatabaseSync } = await import('node:sqlite');
+    const raw = new DatabaseSync(`${tmp}/cc.sqlite`);
+    raw.prepare("UPDATE coord_actions SET payload_text = '{\"instruction\":\"TAMPERED\"}' WHERE id = ?").run(dgId);
+    raw.close();
+  }
+  adapter.recoverPending();
+  const dgRow = ledger.coordGet(dgId);
+  const dgDelivered = existsSync(`${coordDir}/_dot-gate-msg-${dgId}.md`);
+  if (dgRow.state !== 'INTENT' || !/digest/.test(dgRow.last_error ?? '')) fail(`digest hold ${dgRow.state}/${dgRow.last_error}`);
+  else if (dgDelivered) fail('corrupt payload was delivered as instructions');
+  else log('ok recovery-digest-mismatch-holds');
+
   // a lost DELIVERED mark (crash after write, before mark) heals WITHOUT losing
   // the message content
   const sp5d = await adapter.dispatchAction({ kind: 'review-request', targetSession: 'sess-sp5d', payload: { instruction: 'payload survives a lost mark' } });
@@ -162,6 +181,6 @@ assert_suite_arms "cc-adapter.test.sh" "$status" "$out" \
   ack-file-flips-state replacement-held-while-claim-live \
   replacement-held-while-expired-unrevoked cessation-unknown-assignment-refused \
   revoked-predecessor-allows-replacement notify-failure-nonfatal \
-  recovery-restores-original-payload recovery-retry-budget-holds \
+  recovery-restores-original-payload recovery-retry-budget-holds recovery-digest-mismatch-holds \
   crash-after-write-preserves-content wrong-ack-content-not-acked || exit 1
 echo "cc-adapter.test.sh: all green"

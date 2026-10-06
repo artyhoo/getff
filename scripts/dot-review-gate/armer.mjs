@@ -145,7 +145,8 @@ export async function armAutoMerge({ repo, prNumber, reportText, schemaBytes, po
     throw e;
   }
   const registration = ledger.getRegistration(pr.node_id);
-  if (!registration || registration.state === 'RELEASED') {
+  // allowlist: an UNKNOWN future state string must hold the arm, not pass it
+  if (!registration || registration.state !== 'ACTIVE') {
     const e = new Error('[armer] no ACTIVE registration receipt for this PR — merge is default-off until the coordinator registers and the operator enables merge');
     e.code = 'E_UNREGISTERED';
     throw e;

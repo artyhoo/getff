@@ -63,6 +63,8 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
 
     if (req.method === 'GET' && path === '/oauth/start') {
       const state = randomBytes(24).toString('hex');
+      // expired states issued but never consumed are swept here — the Map stays bounded
+      for (const [k, ts] of states) if (Date.now() - ts > STATE_TTL_MS) states.delete(k);
       states.set(state, Date.now());
       const redirect = authorizeUrl ?? 'https://github.com/login/oauth/authorize';
       const target = new URL(redirect);
@@ -86,12 +88,13 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
         res.writeHead(400, JSON_HEADERS).end(JSON.stringify({ error: 'bad oauth state' }));
         return;
       }
-      states.delete(state);
       const issued = states.get(state);
       if (issued && Date.now() - issued > STATE_TTL_MS) {
+        states.delete(state);
         res.writeHead(400, JSON_HEADERS).end(JSON.stringify({ error: 'oauth state expired' }));
         return;
       }
+      states.delete(state);
       const token = await oauth.exchangeCode(code); // transport must reject nonempty scopes
       if (token.scope !== undefined && token.scope !== '') {
         res.writeHead(403, JSON_HEADERS).end(JSON.stringify({ error: 'nonempty oauth scopes rejected' }));
