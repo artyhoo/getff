@@ -4,8 +4,8 @@
 #
 # Covers:
 #   (1) real tree: generator exits 0 and is a byte-level no-op (regen writes nothing)
-#   (2) transform parity (F2(c) gate): the generator's first 15 arms == setup.d/lib.sh's
-#       transform_internal_refs arms; the 21st textstrip arm is the documented generator-only
+#   (2) transform parity (F2(c) gate): the generator's first 21 arms == setup.d/lib.sh's
+#       transform_internal_refs arms; the 22nd textstrip arm is the documented generator-only
 #       divergence (lib.sh must NOT grow one without this test going RED)
 #   (3) sandbox: created entry / in-sync no-op / tampered payload → exit 3, untouched /
 #       stale payload after a committed source edit → re-synced
@@ -49,20 +49,20 @@ lib_arms=$(arms_of "$REPO_ROOT/setup.d/lib.sh" '/^transform_internal_refs()/,/^}
 gen_arms=$(arms_of "$GEN" '/# BEGIN TRANSFORM ARMS/,/# END TRANSFORM ARMS/p')
 lib_n=$(printf '%s\n' "$lib_arms" | grep -c .)
 gen_n=$(printf '%s\n' "$gen_arms" | grep -c .)
-if [ "$lib_n" -eq 20 ]; then
-  ok "lib.sh transform exposes 20 arms"
+if [ "$lib_n" -eq 21 ]; then
+  ok "lib.sh transform exposes 21 arms"
 else
-  bad "lib.sh transform arm count changed: $lib_n (expected 20) — update the parity gate AND the generator"
+  bad "lib.sh transform arm count changed: $lib_n (expected 21) — update the parity gate AND the generator"
 fi
-if [ "$(printf '%s\n' "$gen_arms" | head -20)" = "$(printf '%s\n' "$lib_arms")" ]; then
-  ok "transform parity: generator arms 1-20 identical to setup.d/lib.sh"
+if [ "$(printf '%s\n' "$gen_arms" | head -21)" = "$(printf '%s\n' "$lib_arms")" ]; then
+  ok "transform parity: generator arms 1-21 identical to setup.d/lib.sh"
 else
   bad "transform parity FAILED — arm sets diverged (edit both in pairs: setup.d/lib.sh + generator header block)"
 fi
-if [ "$gen_n" -eq 21 ] && printf '%s\n' "$gen_arms" | sed -n '21p' | grep -qF '(\.\./)+'; then
-  ok "21st textstrip arm present, generator-only as documented"
+if [ "$gen_n" -eq 22 ] && printf '%s\n' "$gen_arms" | sed -n '22p' | grep -qF '(\.\./)+'; then
+  ok "22nd textstrip arm present, generator-only as documented"
 else
-  bad "21st textstrip arm missing or lib.sh grew an arm ($gen_n generator arms vs $lib_n lib arms)"
+  bad "22nd textstrip arm missing or lib.sh grew an arm ($gen_n generator arms vs $lib_n lib arms)"
 fi
 
 # ── sandbox helper ────────────────────────────────────────────────────────────
