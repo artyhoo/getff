@@ -583,7 +583,7 @@ try {
   // check is written from it. SP-2: the record carries its OWN independent change
   // review; the CONSUMER records it as a real change_review receipt — nothing is
   // injected between the submit and the lifecycle state.
-  const assignmentF900 = svcF.ledger.claimFinding({ findingKey: 'F-900', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 600_000 }).assignment_id;
+  const assignmentF900 = svcF.ledger.claimFinding({ findingKey: 'F-900', owner: 'cc-executor/mechanism-lane', leaseMinutes: 30, nowMs: clock + 600_000 }).assignment_id;
   const loadExampleJson = async (name) => { const m = await import(v2fixPath); return JSON.parse(m.loadExample(name)); };
   const changeReviewReceipt = (reviewer, revision) => ({
     artifact_reference: `diff/${revision}`, artifact_sha256: 'a'.repeat(64),
@@ -593,11 +593,15 @@ try {
     finding_ids: ['F-900'], resolutions: [],
   });
   const coordTuple = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2PolicyDigestOf, protocol_version: 'dot-pr-review/2.0.0' });
-  const submitLifecycleRecord = async (record, tupleHead) => {
-    const gen = svcF.ledger.claimGeneration({ tuple: coordTuple(tupleHead), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  // R3-1: records are submitted under their ROLE principal — the executor records
+  // under 666001 (registry label 'cc-executor/mechanism-lane'), the independent
+  // verifier's closure records under 777001 ('dot/astra-primary'), reviewer
+  // submissions under 555001. The consumer binds actors from the registry.
+  const submitLifecycleRecord = async (record, tupleHead, reviewerId = 666001) => {
+    const gen = svcF.ledger.claimGeneration({ tuple: coordTuple(tupleHead), reviewerId, maxAttemptsPerTuple: 40, leaseMinutes: 30 });
     const payloadText = JSON.stringify(record);
     return svcF.ledger.submitReport({
-      claimId: gen.claim.claim_id, reviewerId: 555001,
+      claimId: gen.claim.claim_id, reviewerId,
       digest: createHash('sha256').update(payloadText).digest('hex'),
       payload: payloadText, verdict: record.record_type, kind: record.record_type, leaseMinutes: 30,
       liveTupleDigest: gen.generation.tuple_digest,
@@ -608,7 +612,7 @@ try {
     fixRecord.assignment_id = assignmentF900;
     fixRecord.finding_ids = ['F-900'];
     fixRecord.fix_revision = revision;
-    fixRecord.claimed_by = 'exec-a';
+    fixRecord.claimed_by = 'cc-executor/mechanism-lane';
     fixRecord.change_review_receipt = changeReviewReceipt('reviewer-z', revision);
     return fixRecord;
   };
@@ -640,22 +644,24 @@ try {
     closureRecord.disposition = 'RESOLVED';
     return { ...closureRecord, ...over };
   };
-  const earlyClo = await makeClosureRecord({ verification_revision: 'fix-wrong', verified_by: 'dot/primary' });
-  await submitLifecycleRecord(earlyClo, '6');
+  const earlyClo = await makeClosureRecord({ verification_revision: 'fix-wrong', verified_by: 'dot/astra-primary' });
+  await submitLifecycleRecord(earlyClo, '6', 777001);
   const tEarly = makePublisherTransport();
   const dEarly = await svcF.drainOutbox({ publisherTransport: tEarly.fetchJson });
   const earlyEntry = dEarly.find((r) => r.action === 'kept-pending');
   if (!earlyEntry || earlyEntry.code !== 'E_NOT_RESOLVABLE' || !/revision/.test(earlyEntry.reason ?? '')) fail(`unproven closure ${JSON.stringify(dEarly)}`);
   else log('ok unproven-closure-stays-pending');
 
-  // the fix owner's own closure assertion cannot close the finding — the gate's
-  // independence check refuses it (the record still mints its dot_closure receipt;
-  // the STATE transition is what the gate owns)
-  const selfClo = await makeClosureRecord({ verification_revision: 'fix-900', verified_by: 'exec-a' });
-  await submitLifecycleRecord(selfClo, '7');
+  // the executor's own closure attempt cannot close the finding. R3-1: through
+  // the REAL consumer path the refusal is the IDENTITY one — the executor
+  // principal submitting a closure claims a verified_by the verifier registry
+  // does not carry for them (the intake refuses the same shape with E_ROLE; the
+  // gate's own independence check remains the defense-in-depth backstop)
+  const selfClo = await makeClosureRecord({ verification_revision: 'fix-900', verified_by: 'dot/astra-primary' });
+  await submitLifecycleRecord(selfClo, '7', 666001);
   const dSelf = await svcF.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
   const selfEntry = dSelf.find((r) => r.action === 'kept-pending');
-  if (!selfEntry || !/own closure/.test(selfEntry.reason ?? '')) fail(`self closure ${JSON.stringify(dSelf)}`);
+  if (!selfEntry || selfEntry.code !== 'E_IDENTITY' || !/cannot grant identity/.test(selfEntry.reason ?? '')) fail(`self closure ${JSON.stringify(dSelf)}`);
   else log('ok executor-self-closure-refused');
 
   // cold-review fix 1: a fix_response submitted after the tuple MOVED still reaches
@@ -665,10 +671,10 @@ try {
   const claimedOccId = svcF.ledger.lineage('F-900')[0].id;
   const lateFixRecord = await makeFixRecord('fix-900-late');
   const movedDigest = 'f'.repeat(64);
-  const lateFixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('g'), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const lateFixGen = svcF.ledger.claimGeneration({ tuple: coordTuple('g'), reviewerId: 666001, maxAttemptsPerTuple: 40, leaseMinutes: 30 });
   const lateFixPayload = JSON.stringify(lateFixRecord);
   const lateFixSub = svcF.ledger.submitReport({
-    claimId: lateFixGen.claim.claim_id, reviewerId: 555001,
+    claimId: lateFixGen.claim.claim_id, reviewerId: 666001,
     digest: createHash('sha256').update(lateFixPayload).digest('hex'),
     payload: lateFixPayload, verdict: 'fix_response', kind: 'fix_response', leaseMinutes: 30,
     liveTupleDigest: movedDigest,
@@ -682,11 +688,56 @@ try {
     fail(`superseded fix record dropped: entry=${JSON.stringify(dLateFix.map((r) => [r.event, r.action]))} occ=${claimedAfter?.state}`);
   } else log('ok superseded-fix-record-still-consumed');
 
-  // SP-2 GREEN chain: submit → archive → consumer → VERIFYING (above) → the closure
-  // record's OWN evidence mints the dot_closure receipt → RESOLVED. No recordReceipt
-  // call happens anywhere between the submits and this resolution.
-  const greenClo = await makeClosureRecord({ verification_revision: 'fix-900-late', verified_by: 'dot/primary' });
-  await submitLifecycleRecord(greenClo, '8');
+  // ── R3-2: the closure chain through the REAL trusted boundaries ───────────────
+  // (1) TRUSTED mechanical evidence: the HMAC-verified check_run webhook event
+  // (the intake verifies the signature before such an event is ever enqueued)
+  // lands a source:'github-webhook' receipt on the fix revision.
+  svcF.ledger.outboxEnqueue('github.event', {
+    event: 'check_run',
+    payload: { repository: { id: 1231007068 }, delivery_id: 'dl-f900', check_run: { name: 'dot-gate suites', conclusion: 'success', head_sha: 'fix-900-late', id: 9001, html_url: 'fixture/run/9001' } },
+  }, 'delivery:check-f900');
+  const tWebhook = makePublisherTransport();
+  const dWebhook = await svcF.drainOutbox({ publisherTransport: tWebhook.fetchJson });
+  const webhookRow = svcF.ledger.receiptsFor(claimedOccId).filter((r) => r.kind === 'check_receipt').at(-1);
+  if (!dWebhook.some((r) => r.action === 'check-run-recorded') || webhookRow?.revision !== 'fix-900-late' || !/github-webhook/.test(webhookRow?.payload ?? '')) {
+    fail(`trusted check receipt ${JSON.stringify(dWebhook)} row=${JSON.stringify(webhookRow?.payload)}`);
+  } else log('ok r32-webhook-check-receipt-trusted');
+
+  // (2) the executor-supplied change_review (canonical shape, NO verdict) cannot
+  // affirm — even with the trusted check green, closure holds on the missing
+  // AUTHENTICATED outcome.
+  const midClo = await makeClosureRecord({ verification_revision: 'fix-900-late', verified_by: 'dot/astra-primary' });
+  await submitLifecycleRecord(midClo, 'a', 777001);
+  const tMid = makePublisherTransport();
+  const dMid = await svcF.drainOutbox({ publisherTransport: tMid.fetchJson });
+  const midEntry = dMid.find((r) => r.action === 'kept-pending');
+  if (!midEntry || midEntry.code !== 'E_NOT_RESOLVABLE' || !/authenticated outcome/.test(midEntry.reason ?? '')) {
+    fail(`executor review cannot affirm ${JSON.stringify(dMid)}`);
+  } else log('ok r32-executor-review-cannot-affirm-closure');
+
+  // (3) the AUTHENTICATED reviewer submission is the structured outcome: a
+  // canonical FOLLOW_UP review_report (verdict.outcome GO, receipt naming F-900 on
+  // the fix revision) — the consumer mints the verdict-bearing change_review
+  // receipt bound to the artifact digest and the reviewed revision.
+  const followUpGo = {
+    ...JSON.parse(JSON.stringify(await loadExampleJson('follow-up.json'))),
+    verdict: { outcome: 'GO', rationale: 'targeted follow-up confirms F-900 corrected at this revision', blockers: [] },
+    findings: [],
+    change_review_receipt: { ...changeReviewReceipt('reviewer-z', 'fix-900-late'), finding_ids: ['F-900'] },
+  };
+  await submitLifecycleRecord(followUpGo, '9', 555001);
+  const tFollow = makePublisherTransport();
+  const dFollow = await svcF.drainOutbox({ publisherTransport: tFollow.fetchJson });
+  const goReceipt = svcF.ledger.receiptsFor(claimedOccId).filter((r) => r.kind === 'change_review' && /authenticated-review-report/.test(r.payload)).at(-1);
+  if (!dFollow.length || !goReceipt || JSON.parse(goReceipt.payload).verdict !== 'GO' || goReceipt.revision !== 'fix-900-late') {
+    fail(`authenticated outcome receipt ${JSON.stringify(dFollow.map((r) => r.action))} row=${JSON.stringify(goReceipt?.payload)}`);
+  } else log('ok r32-authenticated-review-outcome-recorded');
+
+  // SP-2 GREEN chain complete: fix → trusted webhook check → authenticated GO →
+  // the closure record's OWN evidence mints the dot_closure receipt → RESOLVED.
+  // No recordReceipt call happens anywhere between the submits and this resolution.
+  const greenClo = await makeClosureRecord({ verification_revision: 'fix-900-late', verified_by: 'dot/astra-primary', rationale: 'closure recorded after the authenticated follow-up GO (distinct bytes: a duplicate payload would replay, never re-consume)' });
+  await submitLifecycleRecord(greenClo, '8', 777001);
   const tClo = makePublisherTransport();
   const dClo = await svcF.drainOutbox({ publisherTransport: tClo.fetchJson });
   const resolvedOcc = svcF.ledger.getOccurrence(claimedOccId);
@@ -695,13 +746,13 @@ try {
   const closureRows = receiptsAfter.filter((r) => r.kind === 'closure');
   if (!dClo.some((r) => r.action === 'closure-recorded') || resolvedOcc?.state !== 'RESOLVED' || tClo.checkRuns.length !== 0) {
     fail(`closure chain ${JSON.stringify(dClo)} occ=${resolvedOcc?.state} runs=${tClo.checkRuns.length}`);
-  } else if (!mintedClosure || mintedClosure.actor !== 'dot/primary' || mintedClosure.revision !== 'fix-900-late') {
+  } else if (!mintedClosure || mintedClosure.actor !== 'dot/astra-primary' || mintedClosure.revision !== 'fix-900-late') {
     fail(`minted dot_closure actor=${mintedClosure?.actor} rev=${mintedClosure?.revision}`);
   } else {
     const mintedPayload = JSON.parse(mintedClosure.payload);
     if (!Array.isArray(mintedPayload.evidence) || mintedPayload.evidence.length === 0 || !mintedPayload.comparison_basis || !mintedPayload.rationale) {
       fail(`minted closure dropped the record's own evidence: ${JSON.stringify(mintedPayload).slice(0, 160)}`);
-    } else if (closureRows.at(-1)?.actor !== 'dot/primary') {
+    } else if (closureRows.at(-1)?.actor !== 'dot/astra-primary') {
       fail(`resolving closure verifier=${closureRows.at(-1)?.actor}`);
     } else log('ok v2-closure-record-resolves-lineage');
   }
@@ -730,11 +781,11 @@ try {
   const v2Policy2DigestOf = policyDigestOf(V2_POLICY_2CTX);
   const svcG = await newService({ schemaBytesV2: V2_SCHEMA_BYTES, policyText: JSON.stringify(V2_POLICY_2CTX) });
   const coordTupleG = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2Policy2DigestOf, protocol_version: 'dot-pr-review/2.0.0' });
-  const submitRecordG = async (record, headChar) => {
-    const gen = svcG.ledger.claimGeneration({ tuple: coordTupleG(headChar), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+  const submitRecordG = async (record, headChar, reviewerId = 666001) => {
+    const gen = svcG.ledger.claimGeneration({ tuple: coordTupleG(headChar), reviewerId, maxAttemptsPerTuple: 40, leaseMinutes: 30 });
     const payloadText = JSON.stringify(record);
     return svcG.ledger.submitReport({
-      claimId: gen.claim.claim_id, reviewerId: 555001,
+      claimId: gen.claim.claim_id, reviewerId,
       digest: createHash('sha256').update(payloadText).digest('hex'),
       payload: payloadText, verdict: record.record_type, kind: record.record_type, leaseMinutes: 30,
       liveTupleDigest: gen.generation.tuple_digest,
@@ -745,7 +796,7 @@ try {
     fixRecord.assignment_id = assignmentId;
     fixRecord.finding_ids = [findingKey];
     fixRecord.fix_revision = revision;
-    fixRecord.claimed_by = 'exec-a';
+    fixRecord.claimed_by = 'cc-executor/mechanism-lane';
     fixRecord.mechanical_receipts = receipts;
     fixRecord.change_review_receipt = { ...changeReviewReceipt('reviewer-z', revision), finding_ids: [findingKey] };
     return fixRecord;
@@ -755,20 +806,45 @@ try {
     closureRecord.finding_ids = [findingKey];
     closureRecord.disposition = 'RESOLVED';
     closureRecord.verification_revision = revision;
-    closureRecord.verified_by = 'dot/primary';
+    closureRecord.verified_by = 'dot/astra-primary';
     return closureRecord;
   };
-  svcG.ledger.recordFindings('rep-sp7', [v2Finding('F-S7A', { key: 'F-S7A' })]);
-  const assignG = svcG.ledger.claimFinding({ findingKey: 'F-S7A', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
+  // R3-2/§11: TRUSTED check evidence arrives as a (post-HMAC) check_run event
+  const trustedCheckG = (context, conclusion, headSha) => {
+    svcG.ledger.outboxEnqueue('github.event', {
+      event: 'check_run',
+      payload: { repository: { id: 1231007068 }, check_run: { name: context, conclusion, head_sha: headSha, id: 1 } },
+    }, `delivery:g-${context}-${conclusion}-${headSha}`);
+  };
+  // the SP-7 findings are seeded through REAL report chains so the occurrences
+  // carry the PR scope the trusted webhook binding resolves against
+  const seedScopedG = (key, tupleHead) => {
+    const gen = svcG.ledger.claimGeneration({ tuple: coordTupleG(tupleHead), reviewerId: 555001, maxAttemptsPerTuple: 40, leaseMinutes: 30 });
+    const payloadText = JSON.stringify({ probe: key });
+    const rec = svcG.ledger.submitReport({
+      claimId: gen.claim.claim_id, reviewerId: 555001,
+      digest: createHash('sha256').update(payloadText).digest('hex'),
+      payload: payloadText, verdict: 'REVISE', kind: 'admission', leaseMinutes: 30,
+      liveTupleDigest: gen.generation.tuple_digest,
+    });
+    svcG.ledger.recordFindings(rec.report_id, [v2Finding(key, { key })]);
+  };
+  seedScopedG('F-S7A', 'p');
+  const assignG = svcG.ledger.claimFinding({ findingKey: 'F-S7A', owner: 'cc-executor/mechanism-lane', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
 
   // the counterexample: one record carries tests FAILURE then lint SUCCESS — the
-  // consumer must hold the closure and name the failing required context
+  // consumer must hold the closure and name the failing required context. The
+  // qualifying evidence is the TRUSTED webhook pair on the fix revision (the
+  // record's own assertions stay visible but never qualify).
   await submitRecordG(await fixRecordG(assignG, 'F-S7A', 'fix-g1', [
     { context: 'ci/tests', conclusion: 'failure', reference: 'run 1/job/tests' },
     { context: 'ci/lint', conclusion: 'success', reference: 'run 1/job/lint' },
   ]), 'h');
   await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
-  await submitRecordG(await closureRecordG('F-S7A', 'fix-g1'), 'i');
+  trustedCheckG('ci/tests', 'failure', 'fix-g1');
+  trustedCheckG('ci/lint', 'success', 'fix-g1');
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  await submitRecordG(await closureRecordG('F-S7A', 'fix-g1'), 'i', 777001);
   const dG1 = await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
   const g1Entry = dG1.find((r) => r.action === 'kept-pending');
   if (dG1.some((r) => r.action === 'closure-recorded')) {
@@ -777,18 +853,60 @@ try {
     fail(`sp7-consumer-mixed-contexts wrong refusal ${JSON.stringify(dG1)}`);
   } else log('ok sp7-consumer-mixed-contexts-refuses');
 
-  // control: all required contexts green in ONE record resolve through the consumer
-  svcG.ledger.recordFindings('rep-sp7', [v2Finding('F-S7B', { key: 'F-S7B' })]);
-  const assignG2 = svcG.ledger.claimFinding({ findingKey: 'F-S7B', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
+  // control: all required contexts green (TRUSTED receipts) + the AUTHENTICATED
+  // follow-up GO resolve through the consumer. F-S7A's occurrence stays open (its
+  // trusted tests receipt is RED) — the coordinator releases the PR scope by an
+  // explicit revoke before the control block claims F-S7B.
+  svcG.ledger.revokeClaim({ assignmentId: assignG, reason: 'SP-7 control block: coordinator reconciled F-S7A and releases the scope' });
+  seedScopedG('F-S7B', 'q');
+  const assignG2 = svcG.ledger.claimFinding({ findingKey: 'F-S7B', owner: 'cc-executor/mechanism-lane', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
   await submitRecordG(await fixRecordG(assignG2, 'F-S7B', 'fix-g2', [
     { context: 'ci/tests', conclusion: 'success', reference: 'run 2/job/tests' },
     { context: 'ci/lint', conclusion: 'success', reference: 'run 2/job/lint' },
   ]), 'j');
   await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
-  await submitRecordG(await closureRecordG('F-S7B', 'fix-g2'), 'k');
+  trustedCheckG('ci/tests', 'success', 'fix-g2');
+  trustedCheckG('ci/lint', 'success', 'fix-g2');
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const followUpG2 = {
+    ...JSON.parse(JSON.stringify(await loadExampleJson('follow-up.json'))),
+    verdict: { outcome: 'GO', rationale: 'targeted follow-up confirms F-S7B corrected at this revision', blockers: [] },
+    findings: [],
+    change_review_receipt: { ...changeReviewReceipt('reviewer-z', 'fix-g2'), finding_ids: ['F-S7B'] },
+  };
+  await submitRecordG(followUpG2, 'n', 555001);
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  await submitRecordG(await closureRecordG('F-S7B', 'fix-g2'), 'k', 777001);
   await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
   if (svcG.ledger.listOpenFindings().some((o) => o.finding_key === 'F-S7B')) fail('sp7-consumer-all-success: full evidence did not resolve');
   else log('ok sp7-consumer-all-required-success-resolves');
+
+  // ── R3-1 at the consumer: the payload cannot grant identity ───────────────────
+  // A fix record naming a claimed_by that is NOT the authenticated executor's
+  // registry label stays pending with E_IDENTITY — even though the assignment
+  // owner matches the claim verbatim.
+  svcG.ledger.recordFindings('rep-r31', [v2Finding('F-ID1', { key: 'F-ID1' })]);
+  const assignId1 = svcG.ledger.claimFinding({ findingKey: 'F-ID1', owner: 'cc-executor/mechanism-lane', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
+  const impersonatorFix = await fixRecordG(assignId1, 'F-ID1', 'fix-id1', []);
+  impersonatorFix.claimed_by = 'cc-executor/impersonator';
+  await submitRecordG(impersonatorFix, 'l');
+  const dId1 = await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const id1Entry = dId1.find((r) => r.action === 'kept-pending');
+  if (!id1Entry || id1Entry.code !== 'E_IDENTITY' || !/impersonator/.test(id1Entry.reason ?? '')) {
+    fail(`consumer executor identity ${JSON.stringify(dId1)}`);
+  } else log('ok r31-consumer-payload-cannot-grant-executor');
+
+  // a closure naming a verified_by the authenticated verifier principal does not
+  // carry refuses the same way
+  svcG.ledger.recordFindings('rep-r31', [v2Finding('F-ID2', { key: 'F-ID2' })]);
+  const impersonatorClosure = await closureRecordG('F-ID2', 'fix-nowhere');
+  impersonatorClosure.verified_by = 'dot/impersonator';
+  await submitRecordG(impersonatorClosure, 'm', 777001);
+  const dId2 = await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const id2Entry = dId2.find((r) => r.action === 'kept-pending');
+  if (!id2Entry || id2Entry.code !== 'E_IDENTITY' || !/impersonator/.test(id2Entry.reason ?? '')) {
+    fail(`consumer verifier identity ${JSON.stringify(dId2)}`);
+  } else log('ok r31-consumer-payload-cannot-grant-verifier');
   await svcG.close();
 
   // ── SP-4: a later GO does not erase the journal's open blocking findings ──────
@@ -843,7 +961,11 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   v2-findings-enter-lifecycle superseded-findings-recorded-as-history \
   v2-fix-response-consumed fix-record-carries-independent-review \
   unproven-closure-stays-pending executor-self-closure-refused \
-  superseded-fix-record-still-consumed v2-closure-record-resolves-lineage unknown-events-stay-pending \
+  superseded-fix-record-still-consumed \
+  r32-webhook-check-receipt-trusted r32-executor-review-cannot-affirm-closure \
+  r32-authenticated-review-outcome-recorded v2-closure-record-resolves-lineage \
+  unknown-events-stay-pending \
   sp7-consumer-mixed-contexts-refuses sp7-consumer-all-required-success-resolves \
+  r31-consumer-payload-cannot-grant-executor r31-consumer-payload-cannot-grant-verifier \
   sp4-open-blocking-lineage-holds-publication || exit 1
 echo "service.test.sh: all green"

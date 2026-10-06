@@ -26,7 +26,10 @@ const fail = (m) => { console.log('FAIL ' + m); process.exitCode = 1; };
 
 const ledger = openLedger(`${tmp}/queue.sqlite`);
 const NOW = Date.parse('2026-10-06T12:00:00Z');
-const pr = (number, over = {}) => ({ number, node_id: `PR_${number}`, draft: false, ready_at: `2026-10-0${number}T00:00:00Z`, merged_at: `2026-10-0${number}T00:00:00Z`, ...over });
+// R3-6: every PR carries its revision identity (repository_id + head/base/merge
+// shas) — the work key is revision-keyed, an item without one is blocked, not
+// dispatched
+const pr = (number, over = {}) => ({ number, node_id: `PR_${number}`, draft: false, repository_id: 1231007068, head_sha: 'c'.repeat(40), base_sha: 'b'.repeat(40), merge_sha: 'd'.repeat(40), ready_at: `2026-10-0${number}T00:00:00Z`, merged_at: `2026-10-0${number}T00:00:00Z`, ...over });
 const qualifying = (p) => p.draft !== true && !p.red;
 const OPEN = [pr(3, { ready_at: '2026-10-03T00:00:00Z' }), pr(1, { ready_at: '2026-10-05T00:00:00Z' }), pr(2, { ready_at: '2026-10-05T00:00:00Z' }), pr(4, { red: true }), pr(5, { draft: true })];
 const MERGED = [pr(11), pr(13), pr(12)];
@@ -56,6 +59,23 @@ try {
   const mergedItems = plan.filter((i) => i.kind === 'merged').map((i) => i.pr.number);
   if (JSON.stringify(mergedItems) !== '[13,12,11]') fail(`merged order ${JSON.stringify(mergedItems)}`);
   else log('ok merged-newest-first');
+
+  // R3-6: the work key is REVISION-keyed — a new head of the same PR is a NEW work
+  // item, never a silent reuse of the old reservation or identity
+  const headA = buildQueue({ ledger, openPrs: [pr(20, { head_sha: 'c'.repeat(40) })], mergedPrs: [], isQualifying: qualifying }).find((i) => i.kind === 'review');
+  const headB = buildQueue({ ledger, openPrs: [pr(20, { head_sha: '9'.repeat(40) })], mergedPrs: [], isQualifying: qualifying }).find((i) => i.kind === 'review');
+  if (!headA || !headB || headA.key === headB.key) fail(`revision key ${JSON.stringify([headA?.key, headB?.key])}`);
+  else log('ok revision-keyed-work-identity');
+
+  // R3-6: an item WITHOUT revision identity is blocked (visible, not dispatchable):
+  // an unkeyed launch cannot be superseded or bounded
+  const noRev = buildQueue({ ledger, openPrs: [pr(21, { head_sha: undefined })], mergedPrs: [pr(22, { merge_sha: undefined })], isQualifying: qualifying });
+  const noRevOpen = noRev.find((i) => i.pr?.number === 21);
+  const noRevMerged = noRev.find((i) => i.pr?.number === 22);
+  if (noRevOpen?.kind !== 'blocked' || !/revision identity unavailable/.test(noRevOpen.reason ?? '')
+    || noRevMerged?.kind !== 'blocked' || !/merge identity unavailable/.test(noRevMerged.reason ?? '')) {
+    fail(`unkeyed blocked ${JSON.stringify(noRev)}`);
+  } else log('ok missing-revision-blocks-visible');
 
   // a merged PR with a recorded review is not re-queued
   ledger.noteReviewedPr?.('PR_12');
@@ -112,7 +132,8 @@ source "$DIR/suite-harness.sh"
 out="$(node "$SCRIPT" "$DIR/queue.mjs" "$DIR/ledger.mjs" "$TMP" 2>&1)"; status=$?
 assert_suite_arms "queue.test.sh" "$status" "$out" \
   verification-oldest-first open-qualifying-ready-then-number blocked-stay-visible \
-  merged-newest-first reviewed-merged-not-requeued reservation-no-double-hand \
+  merged-newest-first revision-keyed-work-identity missing-revision-blocks-visible \
+  reviewed-merged-not-requeued reservation-no-double-hand \
   reservation-survives-restart lapsed-lease-recovers new-arrival-no-skip-no-duplicate \
   already-fixed-no-fix-launch still-present-finds-remediation || exit 1
 echo "queue.test.sh: all green"

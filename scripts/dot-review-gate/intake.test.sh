@@ -47,11 +47,15 @@ const GH = {
   async exchangeCode(code) {
     if (code === 'good-code') return { access_token: 'tok-1', scope: '' };
     if (code === 'good-code-2') return { access_token: 'tok-2', scope: '' };
+    if (code === 'good-code-exec') return { access_token: 'tok-exec', scope: '' };
+    if (code === 'good-code-ver') return { access_token: 'tok-ver', scope: '' };
     throw new Error('bad_code');
   },
   async fetchUser(accessToken) {
     if (accessToken === 'tok-1') return { id: 555001, login: 'dot-reviewer' };
     if (accessToken === 'tok-2') return { id: 555002, login: 'dot-reviewer-2' };
+    if (accessToken === 'tok-exec') return { id: 666001, login: 'cc-executor' };
+    if (accessToken === 'tok-ver') return { id: 777001, login: 'dot-verifier' };
     throw new Error('bad_token');
   },
   currentState: async () => ({ ...REPO_STATE }),
@@ -64,7 +68,9 @@ const ledger = openLedger(`${tmp}/intake-ledger.sqlite`);
 const v2SchemaBytes = readFileSync(v2SchemaPath);
 const policy = makePolicyFixture({
   reviewer_principal_ids: [555001, 555002],
-  limits: { max_active_claims: 2, max_attempts_per_tuple: 5, claim_lease_minutes: 120 },
+  // R3-1 arms consume many same-tuple challenges and refused submissions leave
+  // their challenges unconsumed (that is the point — they count as active claims)
+  limits: { max_active_claims: 8, max_attempts_per_tuple: 40, claim_lease_minutes: 120 },
   schema_v2_sha256: createHash('sha256').update(v2SchemaBytes).digest('hex'),
 });
 const server = await startIntake({
@@ -282,20 +288,31 @@ try {
   ]);
   const sp1Owner = fixCanon.claimed_by;
   const assignA = ledger.claimFinding({ findingKey: 'F-001', owner: sp1Owner, leaseMinutes: 120 });
+  // R3-1: sessions for the enrolled executor (666001) and independent verifier
+  // (777001) principals — a challenge is bound to ITS claimer, so the correction
+  // records are claimed AND submitted under the same role session.
+  const sessionExec = await login('good-code-exec');
+  const sessionVer = await login('good-code-ver');
+  const savedAll = cookie;
+  cookie = sessionExec;
   const claimFix = await call('/claim', { method: 'POST', body: {} });
   if (claimFix.status !== 200) fail(`claimFix ${claimFix.status} ${claimFix.text.slice(0, 120)}`);
+  cookie = sessionVer;
   const claimClo = await call('/claim', { method: 'POST', body: {} });
   if (claimClo.status !== 200) fail(`claimClo ${claimClo.status} ${claimClo.text.slice(0, 120)}`);
+  cookie = sessionExec;
   const v2Envelope = (claim, report) => ({ claim_id: claim.json.claim_id, generation: claim.json.generation, report });
 
   // RED: canonical fix_response was 422 E_ENVELOPE (no review_identity) — it must be
   // accepted through intake with its assignment binding intact, ledger row bound to
-  // the AUTHENTICATED session principal (identity separation kept).
+  // the AUTHENTICATED session principal (identity separation kept). R3-1: the
+  // submitting session is the ENROLLED EXECUTOR principal (the registry binds
+  // 666001 ↔ 'cc-executor/mechanism-lane').
   const fixOk = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
   if (fixOk.status !== 200 || fixOk.json?.replayed) fail(`fix-response submit ${fixOk.status} ${fixOk.text.slice(0, 160)}`);
   else {
     const row = ledger.getReport(fixOk.json.report_id);
-    if (row?.kind !== 'fix_response' || row.reviewer_id !== 555001) fail(`fix row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
+    if (row?.kind !== 'fix_response' || row.reviewer_id !== 666001) fail(`fix row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
     else if (JSON.parse(row.payload).assignment_id !== assignA.assignment_id) fail('fix payload lost the assignment binding');
     else log('ok v2-fix-response-traverses-intake');
   }
@@ -304,6 +321,15 @@ try {
   const fixReplay = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
   if (fixReplay.json?.report_id !== fixOk.json.report_id || fixReplay.json?.replayed !== true) fail(`fix replay ${fixReplay.status} ${fixReplay.text.slice(0, 140)}`);
   else log('ok v2-fix-response-replay-same-receipt');
+
+  // R3-1: replay cannot acquire privileges — a DIFFERENT enrolled principal
+  // replaying the very same accepted bytes is refused: the executor binding is
+  // re-evaluated against the AUTHENTICATED session, never carried by the payload.
+  cookie = sessionB;
+  const replayForeignPrincipal = await call('/submit', { method: 'POST', body: v2Envelope(claimFix, { ...fixCanon, assignment_id: assignA.assignment_id }) });
+  cookie = sessionExec;
+  if (replayForeignPrincipal.status !== 403 || replayForeignPrincipal.json?.code !== 'E_NOT_ENROLLED') fail(`foreign-principal replay ${replayForeignPrincipal.status} ${replayForeignPrincipal.text.slice(0, 140)}`);
+  else log('ok v2-fix-replay-cannot-acquire-privileges');
 
   // RED: schema-valid fix bytes from an actor that does not own the assignment refuse
   // at the boundary with the BINDING reason (not the old review_identity message).
@@ -321,12 +347,15 @@ try {
   if (revokedAssign.status !== 422 || !/revoked/.test(revokedAssign.json?.error ?? '')) fail(`revoked assignment ${revokedAssign.status} ${revokedAssign.text.slice(0, 160)}`);
   else log('ok v2-fix-revoked-assignment-refused');
 
-  // RED: canonical closure_receipt was 422 E_ENVELOPE the same way.
+  // RED: canonical closure_receipt was 422 E_ENVELOPE the same way. R3-1: the
+  // submitting session is the ENROLLED INDEPENDENT VERIFIER (777001 ↔
+  // 'dot/astra-primary') — the executor principal cannot close.
+  cookie = sessionVer;
   const closureOk = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, closureCanon) });
   if (closureOk.status !== 200 || closureOk.json?.replayed) fail(`closure submit ${closureOk.status} ${closureOk.text.slice(0, 160)}`);
   else {
     const row = ledger.getReport(closureOk.json.report_id);
-    if (row?.kind !== 'closure_receipt' || row.reviewer_id !== 555001) fail(`closure row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
+    if (row?.kind !== 'closure_receipt' || row.reviewer_id !== 777001) fail(`closure row kind=${row?.kind} reviewer=${row?.reviewer_id}`);
     else log('ok v2-closure-receipt-traverses-intake');
   }
 
@@ -340,6 +369,83 @@ try {
   const stitchedGo = await call('/submit', { method: 'POST', body: v2Envelope(claimClo, { ...goCanon, review_identity: { ...goCanon.review_identity, assignment_id: 'stitched-foreign-claim' } }) });
   if (stitchedGo.status !== 422 || stitchedGo.json?.code !== 'E_ENVELOPE') fail(`stitched review_report ${stitchedGo.status} ${stitchedGo.text.slice(0, 160)}`);
   else log('ok v2-review-report-identity-kept');
+
+  // ── R3-1: record-specific identity and PR scope at the REAL HTTP intake ──────
+  // The acceptance-review counterexample: an authenticated principal holding a
+  // current-PR challenge submitted a canonical fix for a FOREIGN-PR assignment and
+  // a canonical closure for a foreign finding under an arbitrary verified_by —
+  // both came back HTTP 200 admitted:true. Each shape below now refuses.
+  const foreignTuple = {
+    repository_id: 1231007068, pr_node_id: 'PR_FOREIGN_R31',
+    base_ref: 'staging', base_sha: sha('b'), head_sha: sha('z'),
+    merge_base_sha: sha('a'), tested_merge_sha: sha('d'),
+    policy_sha256: policyDigestOf(makePolicyFixture()), protocol_version: 'dot-staging-review/1.0',
+  };
+  const foreignClaim = ledger.claimGeneration({ tuple: foreignTuple, reviewerId: 555001, maxAttemptsPerTuple: 40, leaseMinutes: 120 });
+  const foreignPayload = JSON.stringify({ probe: 'foreign scope' });
+  const foreignRec = ledger.submitReport({
+    claimId: foreignClaim.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(foreignPayload).digest('hex'),
+    payload: foreignPayload, verdict: 'REVISE', kind: 'admission', leaseMinutes: 120,
+  });
+  ledger.recordFindings(foreignRec.report_id, [
+    { key: 'F-FOREIGN-1', requirement: 'foreign PR fixture', category: 'correctness', severity: 'major', blocking: true },
+  ]);
+  const foreignAssign = ledger.claimFinding({ findingKey: 'F-FOREIGN-1', owner: 'cc-executor/mechanism-lane', leaseMinutes: 120 });
+
+  // current-PR challenge + foreign-PR assignment → 422 E_SCOPE
+  const claimFx2 = await call('/claim', { method: 'POST', body: {} });
+  if (claimFx2.status !== 200) fail(`claimFx2 ${claimFx2.status}`);
+  cookie = sessionExec;
+  const foreignFix = await call('/submit', { method: 'POST', body: v2Envelope(claimFx2, { ...fixCanon, assignment_id: foreignAssign.assignment_id }) });
+  if (foreignFix.status !== 422 || foreignFix.json?.code !== 'E_SCOPE') fail(`foreign assignment ${foreignFix.status} ${foreignFix.text.slice(0, 160)}`);
+  else log('ok r31-foreign-assignment-scope-refused');
+
+  // mixed local/foreign finding IDs → the WHOLE closure refuses
+  const claimClo2 = await call('/claim', { method: 'POST', body: {} });
+  cookie = sessionVer;
+  const mixedClosure = await call('/submit', { method: 'POST', body: v2Envelope(claimClo2, { ...closureCanon, finding_ids: ['F-001', 'F-FOREIGN-1'] }) });
+  if (mixedClosure.status !== 422 || mixedClosure.json?.code !== 'E_SCOPE') fail(`mixed ids ${mixedClosure.status} ${mixedClosure.text.slice(0, 160)}`);
+  else log('ok r31-mixed-finding-ids-refused');
+
+  // arbitrary verified_by under an enrolled verifier session → 403 E_NOT_ENROLLED
+  const claimClo3 = await call('/claim', { method: 'POST', body: {} });
+  const arbitraryVerifier = await call('/submit', { method: 'POST', body: v2Envelope(claimClo3, { ...closureCanon, verified_by: 'someone/else' }) });
+  if (arbitraryVerifier.status !== 403 || arbitraryVerifier.json?.code !== 'E_NOT_ENROLLED') fail(`arbitrary verified_by ${arbitraryVerifier.status} ${arbitraryVerifier.text.slice(0, 160)}`);
+  else log('ok r31-arbitrary-verified-by-refused');
+
+  // the executor principal acting as the independent closer → 403 E_ROLE
+  const claimClo4 = await call('/claim', { method: 'POST', body: {} });
+  cookie = sessionExec;
+  const executorCloses = await call('/submit', { method: 'POST', body: v2Envelope(claimClo4, closureCanon) });
+  if (executorCloses.status !== 403 || executorCloses.json?.code !== 'E_ROLE') fail(`executor closes ${executorCloses.status} ${executorCloses.text.slice(0, 160)}`);
+  else log('ok r31-executor-cannot-independent-close');
+
+  // obsolete generation: a challenge whose generation was superseded refuses the
+  // correction record (409 E_GENERATION) — stale fix evidence is not archived.
+  const curTuple = { ...foreignTuple, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', head_sha: sha('f') };
+  const curClaim = ledger.claimGeneration({ tuple: curTuple, reviewerId: 555001, maxAttemptsPerTuple: 40, leaseMinutes: 120 });
+  const curPayload = JSON.stringify({ probe: 'current scope' });
+  const curRec = ledger.submitReport({
+    claimId: curClaim.claim.claim_id, reviewerId: 555001,
+    digest: createHash('sha256').update(curPayload).digest('hex'),
+    payload: curPayload, verdict: 'REVISE', kind: 'admission', leaseMinutes: 120,
+  });
+  ledger.recordFindings(curRec.report_id, [
+    { key: 'F-002', requirement: 'obsolete-generation fixture', category: 'correctness', severity: 'major', blocking: true },
+  ]);
+  const assignObs = ledger.claimFinding({ findingKey: 'F-002', owner: 'cc-executor/mechanism-lane', leaseMinutes: 120 });
+  const claimObs = await call('/claim', { method: 'POST', body: {} });
+  if (claimObs.status !== 200) fail(`claimObs ${claimObs.status}`);
+  REPO_STATE.head_sha = sha('7');
+  const supersede = await call('/claim', { method: 'POST', body: {} });
+  if (supersede.status !== 200) fail(`supersede claim ${supersede.status}`);
+  REPO_STATE.head_sha = sha('c');
+  cookie = sessionExec;
+  const obsoleteFix = await call('/submit', { method: 'POST', body: v2Envelope(claimObs, { ...fixCanon, assignment_id: assignObs.assignment_id, finding_ids: ['F-002'] }) });
+  if (obsoleteFix.status !== 409 || obsoleteFix.json?.code !== 'E_GENERATION') fail(`obsolete generation ${obsoleteFix.status} ${obsoleteFix.text.slice(0, 160)}`);
+  else log('ok r31-obsolete-generation-refused');
+  cookie = savedAll;
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n')[0]}`);
 } finally {
@@ -368,7 +474,11 @@ assert_suite_arms "intake.test.sh" "$status" "$out" \
   submit-inner-mismatch-refused submit-dup-verdict-raw-rejected \
   webhook-bad-signature webhook-hmac-and-dedup oversized-rejected \
   v2-fix-response-traverses-intake v2-fix-response-replay-same-receipt \
+  v2-fix-replay-cannot-acquire-privileges \
   v2-fix-wrong-actor-refused v2-fix-unknown-assignment-refused v2-fix-revoked-assignment-refused \
   v2-closure-receipt-traverses-intake v2-closure-unknown-finding-refused \
-  v2-review-report-identity-kept || exit 1
+  v2-review-report-identity-kept \
+  r31-foreign-assignment-scope-refused r31-mixed-finding-ids-refused \
+  r31-arbitrary-verified-by-refused r31-executor-cannot-independent-close \
+  r31-obsolete-generation-refused || exit 1
 echo "intake.test.sh: all green"

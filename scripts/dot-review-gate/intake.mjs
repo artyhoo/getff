@@ -101,7 +101,15 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
         return;
       }
       const user = await oauth.fetchUser(token.access_token);
-      if (!Number.isInteger(user?.id) || !policy.reviewer_principal_ids.includes(user.id)) {
+      // R3-1: the enrolled population is the POLICY registry — reviewers plus the
+      // executor and independent-verifier principals (the same union requireSession
+      // enforces per request; role checks happen per record kind at submission).
+      const enrolledAtLogin = new Set([
+        ...policy.reviewer_principal_ids,
+        ...(policy.principals?.executors ?? []).map((x) => x.principal_id),
+        ...(policy.principals?.verifiers ?? []).map((x) => x.principal_id),
+      ]);
+      if (!Number.isInteger(user?.id) || !enrolledAtLogin.has(user.id)) {
         res.writeHead(403, JSON_HEADERS).end(JSON.stringify({ error: 'principal not enrolled' }));
         return;
       }
@@ -188,6 +196,10 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       // canonical correction/closure records have NO review_identity — a fix_response
       // binds the assignment it answers (its owner must match claimed_by; a revoked
       // assignment refuses) and a closure_receipt binds the findings it closes.
+      // R3-1: the challenged generation is trusted scope state — fetched FIRST so
+      // every record-specific binding resolves against it.
+      const challengeRow = ledger.getChallenge(envelope.claim_id);
+      const genRow = challengeRow ? ledger.getGeneration(challengeRow.generation_id) : undefined;
       if (envelope.report.protocol_version === 'dot-pr-review/2.0.0') {
         const recordType = envelope.report.record_type;
         if (recordType === 'fix_response') {
@@ -205,6 +217,25 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           if (r.claimed_by !== assignment.owner) {
             return send(res, 422, { error: `fix_response claimed_by "${r.claimed_by}" does not match the assignment owner "${assignment.owner}"`, code: 'E_ENVELOPE' });
           }
+          // R3-1: the payload cannot grant identity — the SUBMITTING principal must
+          // be the executor enrolled in the trusted registry under this assignment's
+          // owner label; an arbitrary claimed_by string that merely matches the
+          // assignment is not enough.
+          const executor = (policy.principals?.executors ?? []).find((x) => x.principal_id === auth.principalId);
+          if (!executor || executor.label !== assignment.owner) {
+            return send(res, 403, { error: `authenticated principal ${auth.principalId} is not the enrolled executor "${assignment.owner}" for assignment ${r.assignment_id}`, code: 'E_NOT_ENROLLED' });
+          }
+          // R3-1: record-specific scope — the assignment's occurrence must live in
+          // the CHALLENGED PR scope; a current-PR challenge cannot admit another
+          // PR's fix evidence. An already-resolved occurrence is an obsolete
+          // assignment and refuses too.
+          const occ = ledger.getOccurrence(assignment.occurrence_id);
+          if (genRow && occ && (occ.repository_id !== genRow.repository_id || (occ.pr_node_id ?? null) !== (genRow.pr_node_id ?? null))) {
+            return send(res, 422, { error: `assignment ${r.assignment_id} is outside the challenged PR scope`, code: 'E_SCOPE' });
+          }
+          if (occ && occ.state === 'RESOLVED') {
+            return send(res, 422, { error: `assignment ${r.assignment_id} covers a resolved finding — obsolete assignment refuses`, code: 'E_ALREADY_RESOLVED' });
+          }
         } else if (recordType === 'closure_receipt') {
           const ids = Array.isArray(envelope.report.finding_ids) ? envelope.report.finding_ids : [];
           if (ids.length === 0 || !ids.every((k) => typeof k === 'string' && k !== '')) {
@@ -214,8 +245,39 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
           if (unknown.length > 0) {
             return send(res, 422, { error: `closure_receipt references unknown findings: ${unknown.join(', ')}`, code: 'E_ENVELOPE' });
           }
+          // R3-1: every named finding must live in the CHALLENGED PR scope — mixed
+          // local/foreign IDs refuse the whole record (a foreign finding cannot be
+          // closed by riding along a local one).
+          const foreign = ids.filter((key) => {
+            const tail = ledger.lineage(key).at(-1);
+            return genRow && tail && (tail.repository_id !== genRow.repository_id || (tail.pr_node_id ?? null) !== (genRow.pr_node_id ?? null));
+          });
+          if (foreign.length > 0) {
+            return send(res, 422, { error: `closure_receipt names findings outside the challenged PR scope: ${foreign.join(', ')}`, code: 'E_SCOPE' });
+          }
+          // R3-1: the payload cannot grant the verifier identity — verified_by must
+          // be the label the trusted registry binds to the AUTHENTICATED principal,
+          // and an executor principal cannot act as the independent closer (checked
+          // FIRST: the role refusal is the load-bearing one for self-closure).
+          if ((policy.principals?.executors ?? []).some((x) => x.principal_id === auth.principalId)) {
+            return send(res, 403, { error: 'an executor principal cannot act as the independent closer — executor self-closure refused', code: 'E_ROLE' });
+          }
+          const verifier = (policy.principals?.verifiers ?? []).find((x) => x.principal_id === auth.principalId);
+          if (!verifier || verifier.label !== envelope.report.verified_by) {
+            return send(res, 403, { error: `authenticated principal ${auth.principalId} is not the enrolled independent verifier "${envelope.report.verified_by ?? '(absent)'}"`, code: 'E_NOT_ENROLLED' });
+          }
         } else if (envelope.report.review_identity?.assignment_id !== envelope.claim_id) {
           return send(res, 422, { error: 'review_identity.assignment_id does not match the envelope claim', code: 'E_ENVELOPE' });
+        }
+        // R3-1: a correction record binds to its ISSUED generation — a challenge
+        // whose generation was superseded (or reached a terminal state) is an
+        // obsolete basis: REFUSED, not archived (unlike review evidence, stale fix
+        // evidence has no historical value that outweighs the binding).
+        if ((recordType === 'fix_response' || recordType === 'closure_receipt') && genRow) {
+          const genState = genRow.state;
+          if (genState === 'SUPERSEDED' || ['AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE', 'BLOCKED'].includes(genState)) {
+            return send(res, 409, { error: `the challenged generation is ${genState} — correction records refuse an obsolete basis`, code: 'E_GENERATION' });
+          }
         }
       } else if (envelope.report.claim_id !== envelope.claim_id || envelope.report.generation !== envelope.generation) {
         return send(res, 422, { error: 'report claim/generation does not match the envelope', code: 'E_ENVELOPE' });
@@ -233,8 +295,6 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
       // delayed past a tuple move is archived as history by the ledger, not
       // rejected here. An unknown claim carries no issued tuple and reaches the
       // ledger, which refuses it.
-      const challengeRow = ledger.getChallenge(envelope.claim_id);
-      const genRow = challengeRow ? ledger.getGeneration(challengeRow.generation_id) : undefined;
       let trustedInventory;
       if (genRow?.changed_files_json) {
         try { trustedInventory = { changed_files: JSON.parse(genRow.changed_files_json) }; } catch { trustedInventory = undefined; }
@@ -314,7 +374,16 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
     if (!token) return null;
     const s = sessions.get(token);
     if (!s) return null;
-    if (!policy.reviewer_principal_ids.includes(s.principalId)) return null;
+    // R3-1: the enrolled population is the POLICY registry — reviewers (the Dot /
+    // change-review intake) plus the executor and independent-verifier principals.
+    // Role checks happen per record kind at submission; the session only proves
+    // enrollment.
+    const enrolled = new Set([
+      ...policy.reviewer_principal_ids,
+      ...(policy.principals?.executors ?? []).map((x) => x.principal_id),
+      ...(policy.principals?.verifiers ?? []).map((x) => x.principal_id),
+    ]);
+    if (!enrolled.has(s.principalId)) return null;
     return s;
   }
 

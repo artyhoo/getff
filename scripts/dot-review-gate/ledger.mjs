@@ -373,6 +373,14 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       if (verifier && fixOwner && verifier === fixOwner) {
         throw code('E_NOT_RESOLVABLE', 'the fix owner cannot verify their own closure');
       }
+      // R3-2: the fix's own unresolved scope is a hold — a fix response that names
+      // unresolved items (e.g. "F-001 remains unfixed") cannot be closed over them,
+      // no matter what later receipts assert.
+      let fixPayload = {};
+      try { fixPayload = JSON.parse(lastFix.payload ?? '{}') ?? {}; } catch { fixPayload = {}; }
+      if (Array.isArray(fixPayload.unresolved_items) && fixPayload.unresolved_items.length > 0) {
+        throw code('E_NOT_RESOLVABLE', `the latest fix response declares ${fixPayload.unresolved_items.length} unresolved item(s) — unresolved scope holds closure`);
+      }
       // SP-7 (Dot D2065-S03): mechanical evidence aggregates BY CHECK IDENTITY.
       // Taking the last check receipt across all contexts let a passing lint run
       // recorded after a failing tests run close the finding. The trusted
@@ -386,9 +394,15 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       const latestByContext = new Map();
       for (const r of afterFix) {
         if (r.kind !== 'check_receipt') continue;
-        let ctx;
-        try { ctx = JSON.parse(r.payload)?.context; } catch { /* opaque payload */ }
-        const identity = typeof ctx === 'string' ? ctx : null;
+        let p;
+        try { p = JSON.parse(r.payload) ?? {}; } catch { p = {}; }
+        // R3-2/§11: only TRUSTED check receipts — recorded through the HMAC-verified
+        // GitHub webhook boundary (source: 'github-webhook') — can satisfy a required
+        // context. An executor-asserted success (mechanical_receipts on a fix record)
+        // is an assertion, not check evidence; it stays visible on the occurrence but
+        // never qualifies a required check.
+        if (p.source !== 'github-webhook') continue;
+        const identity = typeof p.context === 'string' ? p.context : null;
         // afterFix is rowid-ordered — last write per identity IS the latest run
         latestByContext.set(identity, r);
       }
@@ -405,10 +419,14 @@ export function openLedger(dbPath, { faultAfter } = {}) {
           throw code('E_NOT_RESOLVABLE', `the latest "${ctx}" check after the fix is "${conclusion ?? 'opaque'}" — VERIFIED requires success`);
         }
       }
-      // SP-6: existence is not affirmation — the LATEST independent change review
-      // and the LATEST Dot closure receipt on the fix revision must each be
+      // SP-6 + R3-2: existence is not affirmation — the LATEST independent change
+      // review and the LATEST Dot closure receipt on the fix revision must each be
       // affirmative (a newer negative invalidates an older positive), and the Dot
-      // receipt carries no unresolved blockers.
+      // receipt carries no unresolved blockers. The canonical change_review receipt
+      // has NO verdict field, so an absent outcome is NOT an approval: only an
+      // authenticated reviewer submission (the intake's review_report, whose
+      // verdict.outcome the trusted consumer records) can carry a structured
+      // outcome; executor-supplied receipts record verdict null and hold.
       const independentReviews = afterFix.filter((r) =>
         r.kind === 'change_review' && r.actor && r.actor !== fixOwner && r.revision === fixRev);
       const latestReview = independentReviews.at(-1);
@@ -417,8 +435,10 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       }
       let reviewVerdict;
       try { reviewVerdict = JSON.parse(latestReview.payload)?.verdict; } catch { reviewVerdict = undefined; }
-      if (reviewVerdict !== undefined && !AFFIRMATIVE_REVIEW_VERDICTS.includes(reviewVerdict)) {
-        throw code('E_NOT_RESOLVABLE', `the current independent change review is "${reviewVerdict}" — VERIFIED requires an affirmative verdict (${AFFIRMATIVE_REVIEW_VERDICTS.join('/')})`);
+      if (reviewVerdict == null || !AFFIRMATIVE_REVIEW_VERDICTS.includes(reviewVerdict)) {
+        throw code('E_NOT_RESOLVABLE', reviewVerdict == null
+          ? 'the current independent change review carries no authenticated outcome — VERIFIED requires an explicit affirmative verdict (executor-supplied review text is evidence content, not authority)'
+          : `the current independent change review is "${reviewVerdict}" — VERIFIED requires an affirmative verdict (${AFFIRMATIVE_REVIEW_VERDICTS.join('/')})`);
       }
       const dotReceiptsOnFix = afterFix.filter((r) => r.kind === 'dot_closure' && r.revision === fixRev);
       const latestDot = dotReceiptsOnFix.at(-1);
@@ -427,22 +447,25 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       }
       let dotPayload = {};
       try { dotPayload = JSON.parse(latestDot.payload) ?? {}; } catch { dotPayload = {}; }
-      if (dotPayload.disposition !== undefined && dotPayload.disposition !== 'VERIFIED') {
-        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt is "${dotPayload.disposition}" — VERIFIED requires the current applicable affirmative resolution`);
+      // R3-2: an opaque receipt without a disposition is unknown evidence — unknown
+      // holds (fail closed), it does not pass.
+      if (dotPayload.disposition !== 'VERIFIED') {
+        throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt is "${dotPayload.disposition ?? 'opaque (no disposition)'}" — VERIFIED requires the current applicable affirmative resolution`);
       }
       if (Array.isArray(dotPayload.blockers) && dotPayload.blockers.length > 0) {
         throw code('E_NOT_RESOLVABLE', `the current dot_closure receipt carries unresolved blockers (${dotPayload.blockers.length}) — VERIFIED requires none`);
       }
     } else if (disposition === 'ALREADY_FIXED') {
-      // SP-6: the verification basis is an IDENTIFIED check on a revision — an
-      // anonymous success asserts nothing
+      // SP-6 + R3-2/§11: the verification basis is an IDENTIFIED TRUSTED check on a
+      // revision — an anonymous or executor-asserted success asserts nothing
       const shown = receipts.some((r) => {
         if (r.kind !== 'check_receipt' || checkConclusion(r) !== 'success' || !r.revision) return false;
-        let ctx;
-        try { ctx = JSON.parse(r.payload)?.context; } catch { ctx = undefined; }
-        return typeof ctx === 'string' && ctx.length > 0;
+        let p;
+        try { p = JSON.parse(r.payload) ?? {}; } catch { return false; }
+        if (p.source !== 'github-webhook') return false;
+        return typeof p.context === 'string' && p.context.length > 0;
       });
-      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful check receipt that identifies its check context and revision — an anonymous success is not evidence');
+      if (!shown) throw code('E_NOT_RESOLVABLE', 'ALREADY_FIXED requires a successful TRUSTED check receipt that identifies its check context and revision — an anonymous or executor-asserted success is not evidence');
     } else {
       // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE — reviewer-evidence assertions.
       // SP-6: the evidence must carry a principal; an anonymous receipt asserts
@@ -455,15 +478,23 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run(id, tail.id, 'closure', revision ?? null, payloadDigest(`${disposition}:${verifier ?? ''}`), JSON.stringify({ disposition, verifier: verifier ?? null }), verifier ?? null, now());
     db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('RESOLVED', now(), tail.id);
-    // packet case: a FINAL closure is itself the cessation proof — the scope's
-    // active claims release with the resolution, so follow-up work of the same
-    // PR claims fresh without a revoke dance
+    // R3-3: closing ONE finding is not proof the worker stopped — the PR's ownership
+    // releases only when no other occurrence of the scope remains actionable (the
+    // FINAL closure is the documented cessation condition). A partial closure keeps
+    // the fence: a second executor cannot take the remaining work.
     if (tail.repository_id !== null && tail.repository_id !== undefined) {
-      db.prepare(
-        `UPDATE finding_claims SET state = 'REVOKED'
-         WHERE state IN ('ASSIGNED','ACKNOWLEDGED')
-           AND occurrence_id IN (SELECT id FROM finding_occurrences WHERE repository_id IS ? AND pr_node_id IS ?)`,
-      ).run(tail.repository_id, tail.pr_node_id);
+      const remaining = db.prepare(
+        `SELECT 1 AS x FROM finding_occurrences
+         WHERE repository_id IS ? AND pr_node_id IS ? AND id != ?
+           AND state NOT IN ('RESOLVED','SUPERSEDED') LIMIT 1`,
+      ).get(tail.repository_id, tail.pr_node_id, tail.id);
+      if (!remaining) {
+        db.prepare(
+          `UPDATE finding_claims SET state = 'REVOKED'
+           WHERE state IN ('ASSIGNED','ACKNOWLEDGED')
+             AND occurrence_id IN (SELECT id FROM finding_occurrences WHERE repository_id IS ? AND pr_node_id IS ?)`,
+        ).run(tail.repository_id, tail.pr_node_id);
+      }
     } else {
       db.prepare(
         `UPDATE finding_claims SET state = 'REVOKED'
@@ -653,6 +684,16 @@ export function openLedger(dbPath, { faultAfter } = {}) {
               db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run(activeClaim.state, ts, id);
             }
           }
+          // R3-4: the new occurrence SUPERSEDES every prior OPEN occurrence of the
+          // key — history is preserved (rows and their receipts stay), but a
+          // superseded occurrence must not become an orphan blocking record, and
+          // recurrence must not silently resolve the still-open newest instance.
+          for (const prev of db.prepare(
+            `SELECT id FROM finding_occurrences WHERE finding_key = ? AND id != ?
+              AND state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')`,
+          ).all(f.key, id)) {
+            db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('SUPERSEDED', ts, prev.id);
+          }
         }
         return { inserted };
       });
@@ -666,10 +707,13 @@ export function openLedger(dbPath, { faultAfter } = {}) {
 
     // SP-4: the PR-scoped open blocking lineage — the journal a publication or
     // arming boundary composes against. A later GO does not erase these rows.
+    // R3-4: a SUPERSEDED occurrence is history, not an orphan hold — only the
+    // current applicable occurrence of each key blocks.
     openBlockingFindings(repositoryId, prNodeId) {
       return db.prepare(
         `SELECT finding_key, state FROM finding_occurrences
-         WHERE repository_id = ? AND pr_node_id = ? AND blocking = 1 AND state != 'RESOLVED'
+         WHERE repository_id = ? AND pr_node_id = ? AND blocking = 1
+           AND state NOT IN ('RESOLVED','SUPERSEDED')
          ORDER BY rowid`,
       ).all(repositoryId, prNodeId);
     },
@@ -743,6 +787,21 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       });
     },
 
+    // Read-only work-claim lookup — the runner's outstanding-work reconciliation
+    // reads lease state to time out lapsed reviews; nothing writes through it.
+    getWorkClaim(itemKey) {
+      return db.prepare('SELECT * FROM work_claims WHERE item_key = ?').get(itemKey);
+    },
+
+    // The generation a finding occurrence was recorded from — the revision basis
+    // a correction packet carries (R3-6). Scopeless occurrences return undefined.
+    generationForOccurrence(occurrenceId) {
+      const o = db.prepare('SELECT source_report_id FROM finding_occurrences WHERE id = ?').get(occurrenceId);
+      const rep = o ? db.prepare('SELECT claim_id FROM reports WHERE id = ?').get(o.source_report_id) : undefined;
+      const ch = rep ? db.prepare('SELECT generation_id FROM challenges WHERE claim_id = ?').get(rep.claim_id) : undefined;
+      return ch ? db.prepare('SELECT * FROM generations WHERE id = ?').get(ch.generation_id) : undefined;
+    },
+
     lineage(findingKey) {
       return db.prepare(
         'SELECT * FROM finding_occurrences WHERE finding_key = ? ORDER BY rowid',
@@ -757,6 +816,22 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // gate evaluates; consumers and tests read it, nothing writes through it.
     receiptsFor(occurrenceId) {
       return db.prepare('SELECT * FROM finding_receipts WHERE occurrence_id = ? ORDER BY rowid').all(occurrenceId);
+    },
+
+    // R3-2/§11: the trusted check-receipt binding — the occurrences of a repository
+    // whose LATEST fix response sits on exactly this revision. A check_run webhook
+    // lands its receipt here: context identity + the fix revision it actually ran on.
+    occurrencesAtFixRevision(repositoryId, headSha) {
+      return db.prepare(
+        `SELECT o.id AS occurrence_id, o.finding_key FROM finding_occurrences o
+         JOIN finding_receipts fr ON fr.id = (
+           SELECT id FROM finding_receipts
+           WHERE occurrence_id = o.id AND kind = 'fix_response'
+           ORDER BY rowid DESC LIMIT 1
+         )
+         WHERE o.repository_id = ? AND fr.revision = ?
+           AND o.state NOT IN ('RESOLVED','SUPERSEDED')`,
+      ).all(repositoryId, headSha);
     },
 
     // One active corrective owner per repository/PR (DR-R2): for scoped occurrences
@@ -911,14 +986,22 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         for (const target of targets) {
           insert.run(randomUUID(), target.id, 'fix_response', fixRevision, digest ?? payloadDigest(String(payloadRef ?? '')), payloadRef ?? '{}', claimedBy ?? c.owner, ts);
           for (const m of Array.isArray(mechanicalReceipts) ? mechanicalReceipts : []) {
-            insert.run(randomUUID(), target.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference }), claimedBy ?? c.owner, ts);
+            // R3-2/§11: executor-supplied check results are ASSERTIONS — recorded
+            // with source 'executor-asserted' so the closure gate (which qualifies
+            // required contexts from TRUSTED webhook receipts only) never counts
+            // them as mechanical evidence.
+            insert.run(randomUUID(), target.id, 'check_receipt', fixRevision, payloadDigest(JSON.stringify(m ?? {})), JSON.stringify({ conclusion: m?.conclusion, context: m?.context, reference: m?.reference, source: 'executor-asserted' }), claimedBy ?? c.owner, ts);
           }
           // SP-2: the record's own independent change review is real evidence — the
           // consumer records it as a change_review receipt (actor = the review's
           // reviewer, revision = the reviewed revision); a null field records nothing.
+          // R3-2: the canonical change_review receipt carries NO verdict field, so
+          // this executor-supplied receipt records verdict null — structurally
+          // unable to affirm closure (only an authenticated reviewer submission
+          // carries a structured outcome).
           const cr = changeReviewReceipt;
           if (cr && typeof cr === 'object') {
-            insert.run(randomUUID(), target.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [] }), cr.reviewer ?? null, ts);
+            insert.run(randomUUID(), target.id, 'change_review', cr.reviewed_revision ?? fixRevision, payloadDigest(JSON.stringify(cr)), JSON.stringify({ artifact_reference: cr.artifact_reference ?? null, artifact_sha256: cr.artifact_sha256 ?? null, independence: cr.independence ?? null, resolutions: cr.resolutions ?? [], verdict: null, source: 'executor-asserted' }), cr.reviewer ?? null, ts);
           }
           db.prepare('UPDATE finding_occurrences SET state = ?, updated_at = ? WHERE id = ?').run('VERIFYING', ts, target.id);
         }

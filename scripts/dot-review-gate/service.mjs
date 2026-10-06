@@ -137,15 +137,33 @@ export async function createGateService({
   // by intent-bound external_id — a best-effort boundary, not a proved exactly-once
   // guarantee. Red mechanics / expiry / pause SKIP publication and keep the event
   // pending — nothing is dropped, nothing is published unreviewed.
+  // R3-1: the registry resolves what an AUTHENTICATED principal may be called in
+  // the journal — enrolled roles carry their label, everyone else the opaque
+  // principal form. The payload's own actor strings never grant identity.
+  const registryLabel = (role, principalId) => {
+    if (!Number.isInteger(principalId)) return null;
+    if (role) {
+      const entry = (policy.principals?.[role] ?? []).find((x) => x.principal_id === principalId);
+      if (entry) return entry.label;
+    }
+    return `principal:${principalId}`;
+  };
+
   // Lifecycle consumption of coordinator-side records (increment 5, cold-review fix
   // 1): one consumer used by BOTH the live path and the superseded-archival path —
   // a refusal keeps the event pending with its reason, never consumed unactioned.
-  function consumeLifecycleRecord(recordType, record, payload) {
+  // R3-1: the record's actor is the REGISTRY label of the AUTHENTICATED submitter
+  // (reports.reviewer_id) — a claimed_by/verified_by that disagrees refuses.
+  function consumeLifecycleRecord(recordType, record, payload, reportRow) {
     try {
       if (recordType === 'fix_response') {
+        const owner = registryLabel('executors', reportRow?.reviewer_id);
+        if (record.claimed_by !== owner) {
+          return { action: 'kept-pending', code: 'E_IDENTITY', reason: `fix record claims "${record.claimed_by}" but the authenticated principal resolves to "${owner ?? 'unknown'}" — the payload cannot grant identity` };
+        }
         ledger.applyFixResponseRecord({
           assignmentId: record.assignment_id,
-          claimedBy: record.claimed_by,
+          claimedBy: owner,
           fixRevision: record.fix_revision,
           findingKeys: record.finding_ids,
           mechanicalReceipts: record.mechanical_receipts,
@@ -157,9 +175,13 @@ export async function createGateService({
         });
         return { action: 'fix-recorded' };
       }
+      const verifier = registryLabel('verifiers', reportRow?.reviewer_id);
+      if (record.verified_by !== verifier) {
+        return { action: 'kept-pending', code: 'E_IDENTITY', reason: `closure record claims "${record.verified_by}" but the authenticated principal resolves to "${verifier ?? 'unknown'}" — the payload cannot grant identity` };
+      }
       ledger.applyClosureReceipt({
         findingKeys: record.finding_ids,
-        verifiedBy: record.verified_by,
+        verifiedBy: verifier,
         disposition: record.disposition,
         revision: record.verification_revision,
         // SP-2: the record's own evidence mints the dot_closure receipt
@@ -174,6 +196,69 @@ export async function createGateService({
     } catch (e) {
       return { action: 'kept-pending', code: e.code ?? 'E_LIFECYCLE', reason: e.message };
     }
+  }
+
+  // R3-2: an AUTHENTICATED review submission is the structured outcome an
+  // independent closure evaluates. The change_review receipt is minted FROM the
+  // accepted review_report: its own verdict.outcome (a canonical schema field —
+  // no invented field is read), bound to the receipt artifact digest, the
+  // reviewed revision and the named findings. The canonical change_review receipt
+  // inside an EXECUTOR fix record carries no outcome and never will — this path
+  // is the only writer of verdict-bearing review evidence.
+  function recordReviewOutcome(reportRow, record) {
+    const cr = record?.change_review_receipt;
+    if (!cr || typeof cr !== 'object' || !Array.isArray(cr.finding_ids) || cr.finding_ids.length === 0) return 0;
+    const actor = registryLabel(null, reportRow?.reviewer_id);
+    const outcome = {
+      verdict: record?.verdict?.outcome ?? null,
+      artifact_reference: cr.artifact_reference ?? null,
+      artifact_sha256: cr.artifact_sha256 ?? null,
+      resolutions: cr.resolutions ?? [],
+      source: 'authenticated-review-report',
+    };
+    const revision = cr.reviewed_revision ?? record?.review_identity?.revisions?.head_sha ?? null;
+    let recorded = 0;
+    for (const key of cr.finding_ids) {
+      const tail = ledger.lineage(key).at(-1);
+      if (!tail) continue;
+      ledger.recordReceipt({ occurrenceId: tail.id, kind: 'change_review', revision, payload: JSON.stringify(outcome), actor });
+      recorded += 1;
+    }
+    return recorded;
+  }
+
+  // R3-2/§11: TRUSTED mechanical evidence arrives through the HMAC-verified GitHub
+  // webhook boundary (the intake verifies the signature before this event is ever
+  // enqueued). A check_run binds to the occurrences whose LATEST fix response is on
+  // exactly that head sha — context identity + revision, never an executor
+  // assertion. The receipt payload carries source 'github-webhook': the closure
+  // gate qualifies required contexts from TRUSTED receipts only.
+  function recordTrustedCheckReceipt(environment) {
+    const checkRun = environment?.payload?.check_run;
+    const repositoryId = environment?.payload?.repository?.id;
+    const context = checkRun?.name;
+    const headSha = checkRun?.head_sha;
+    const conclusion = checkRun?.conclusion;
+    if (!Number.isInteger(repositoryId) || typeof context !== 'string' || context.length === 0 || typeof headSha !== 'string' || conclusion == null) return 0;
+    const targets = ledger.occurrencesAtFixRevision(repositoryId, headSha);
+    let recorded = 0;
+    for (const t of targets) {
+      ledger.recordReceipt({
+        occurrenceId: t.occurrence_id,
+        kind: 'check_receipt',
+        revision: headSha,
+        payload: JSON.stringify({
+          context, conclusion,
+          reference: checkRun.html_url ?? checkRun.details_url ?? String(checkRun.id ?? 'check-run'),
+          head_sha: headSha,
+          delivery_id: environment?.delivery_id ?? null,
+          source: 'github-webhook',
+        }),
+        actor: 'github/webhook',
+      });
+      recorded += 1;
+    }
+    return recorded;
   }
 
   async function drainOutbox({ publisherTransport, limit = 10 } = {}) {
@@ -191,6 +276,21 @@ export async function createGateService({
       blocking: f?.blocking === true,
     })).filter((f) => typeof f.key === 'string');
     for (const event of ledger.outboxClaimBatch(limit, { nowMs: now() })) {
+      if (event.event_type === 'github.event') {
+        // R3-2/§11: HMAC-verified check_run events are the TRUSTED mechanical
+        // evidence boundary — consumed into check receipts bound to the fix
+        // revision. Every other GitHub event keeps its pending, unhandled row.
+        let envelope;
+        try { envelope = JSON.parse(event.payload); } catch { envelope = undefined; }
+        if (envelope?.event === 'check_run') {
+          const recorded = recordTrustedCheckReceipt(envelope);
+          ledger.outboxMarkPublished(event.id);
+          results.push({ event: event.event_type, action: 'check-run-recorded', receipts: recorded });
+          continue;
+        }
+        results.push({ event: event.event_type, action: 'unhandled', reason: 'no consumer registered for this event type' });
+        continue;
+      }
       if (event.event_type !== 'report.submitted') {
         if (event.event_type === 'generation.claimed') {
           // bookkeeping whose action happened inside the claiming transaction
@@ -221,7 +321,7 @@ export async function createGateService({
           continue;
         }
         if (recordType === 'fix_response' || recordType === 'closure_receipt') {
-          const consumed = consumeLifecycleRecord(recordType, record, payload);
+          const consumed = consumeLifecycleRecord(recordType, record, payload, row);
           results.push({ event: event.event_type, ...consumed });
           if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
           continue;
@@ -233,7 +333,7 @@ export async function createGateService({
       if (recordType === 'fix_response' || recordType === 'closure_receipt') {
         // lifecycle consumption of coordinator-side records — never an admission
         // check, never gated on publication pause (the ledger is authoritative)
-        const consumed = consumeLifecycleRecord(recordType, record, payload);
+        const consumed = consumeLifecycleRecord(recordType, record, payload, row);
         results.push({ event: event.event_type, ...consumed });
         if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
         continue;
@@ -249,6 +349,10 @@ export async function createGateService({
       if (record?.protocol_version === 'dot-pr-review/2.0.0' && recordType === 'review_report') {
         // increment 5: the drain is the real consumer of an accepted review's findings
         try { ledger.recordFindings(payload.report_id, mapFindings(record)); } catch { /* lineage already recorded from a replay */ }
+        // R3-2: an accepted review is the AUTHENTICATED outcome path — its verdict
+        // becomes verdict-bearing change_review evidence on the findings its own
+        // receipt names (a superseded review never mints current outcomes)
+        recordReviewOutcome(row, record);
       }
       let outcome;
       try {
