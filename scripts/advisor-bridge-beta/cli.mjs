@@ -124,34 +124,44 @@ const commands = {
     need(args, 'actor');
     return store.withOpLock(mailbox, async () => {
       const existing = store.readOff(mailbox);
-      if (existing) return { ...existing, replay: true, terminated: [], unproven: [] };
+      if (existing) return { ...existing, replay: true, terminated: [], unproven: [], uncertain: [] };
       const result = store.offPilot(mailbox, { actor: args.actor });
-      // OFF requests termination of the exactly identified owned process;
-      // cessation is verified; an unprovable kill is reported, never assumed.
+      // OFF requests termination of EVERY exactly identified controlled owned
+      // child (executor passes AND advisor forks), verifies cessation, and
+      // explicitly reports unprovable kills and pid-less uncertain
+      // reservations. It runs under the same operation lock as the serialized
+      // spawn boundary, so no controlled child can start after OFF commits.
       const terminated = [];
       const unproven = [];
-      for (const a of store.listAttempts(mailbox)) {
-        if (a.status !== 'reserved' || typeof a.pid !== 'number') continue;
+      const uncertain = [];
+      const stopAlive = async (pid) => {
         let alive = false;
         try {
-          process.kill(a.pid, 0);
+          process.kill(pid, 0);
           alive = true;
         } catch {
           alive = false;
         }
-        if (!alive) continue;
-        try { process.kill(a.pid, 'SIGTERM'); } catch { /* already gone */ }
+        if (!alive) return false;
+        try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
         const deadline = Date.now() + 5000;
-        let gone = false;
         while (Date.now() < deadline) {
           try {
-            process.kill(a.pid, 0);
+            process.kill(pid, 0);
           } catch {
-            gone = true;
-            break;
+            return true;
           }
           await new Promise((r) => setTimeout(r, 100));
         }
+        return false;
+      };
+      for (const a of store.listAttempts(mailbox)) {
+        if (a.status !== 'reserved') continue;
+        if (typeof a.pid !== 'number') {
+          uncertain.push({ kind: 'cc-attempt', id: a.attemptId, reason: 'no recorded pid' });
+          continue;
+        }
+        const gone = await stopAlive(a.pid);
         if (gone) {
           store.completeCcPass(mailbox, {
             attemptId: a.attemptId,
@@ -162,18 +172,37 @@ const commands = {
             },
             outcome: 'interrupted',
           });
-          terminated.push({ attemptId: a.attemptId, pid: a.pid });
+          terminated.push({ kind: 'cc-attempt', id: a.attemptId, pid: a.pid });
         } else {
-          unproven.push({ attemptId: a.attemptId, pid: a.pid });
+          unproven.push({ kind: 'cc-attempt', id: a.attemptId, pid: a.pid });
+        }
+      }
+      for (const f of store.listForkRecords(mailbox)) {
+        if (f.status !== 'reserved') continue;
+        if (typeof f.pid !== 'number') {
+          uncertain.push({ kind: 'advisor-fork', id: f.askId, reason: 'no recorded pid' });
+          continue;
+        }
+        const gone = await stopAlive(f.pid);
+        if (gone) {
+          store.recordForkCapture(mailbox, f.askId, {
+            terminationRequested: true,
+            verifiedEnded: true,
+            status: 'interrupted',
+            captureReason: 'OFF committed; advisor fork interrupted before capture',
+          });
+          terminated.push({ kind: 'advisor-fork', id: f.askId, pid: f.pid });
+        } else {
+          unproven.push({ kind: 'advisor-fork', id: f.askId, pid: f.pid });
         }
       }
       store.journalAppend(mailbox, {
         eventId: `off-${result.offAt.replace(/[^a-zA-Z0-9._-]/g, '')}`,
         type: 'pilot-off',
         actor: args.actor,
-        payload: { offAt: result.offAt, terminated, unproven },
+        payload: { offAt: result.offAt, terminated, unproven, uncertain },
       });
-      return { ...result, terminated, unproven };
+      return { ...result, terminated, unproven, uncertain };
     });
   },
 
@@ -209,7 +238,7 @@ const commands = {
       }
       const evidence = {
         cessationProven,
-        spawnNeverObserved: attempt.pid == null,
+        neverStartedRecorded: attempt.spawnOutcome === 'spawn-failed' || attempt.spawnOutcome === 'off-before-spawn',
         stdoutCaptured,
         captureTrusted: capture.trusted === true,
         captureReason: capture.reason ?? null,
@@ -279,14 +308,31 @@ const commands = {
       });
       const { fork, pilot, seed, ask } = reserved;
       const childEnv = { ...process.env, AB_FAKE_ASK_ID: ask.askId, AB_FAKE_INPUT_DIGEST: ask.inputDigest };
-      const outcome = await bridge.runChildToCompletion({
-        argv: fork.argvRedacted.includes('<redacted:live-advisor-md>')
-          ? fork.argvRedacted.map((a) => (a === '<redacted:live-advisor-md>' ? seed : a))
-          : fork.argvRedacted,
-        cwd: pilot.coordinationDir,
-        env: childEnv,
-        deadlineMs: fork.deadlineMs,
+      // The advisor fork is a controlled owned child too: its spawn shares the
+      // OFF-serialized lock, and its live pid is persisted at spawn time.
+      const handle = await store.withOpLock(mailbox, () => {
+        if (store.readOff(mailbox)) {
+          store.recordForkCapture(mailbox, ask.askId, {
+            status: 'interrupted',
+            captureReason: 'OFF committed before spawn; fork not started',
+          });
+          return null;
+        }
+        const h = bridge.spawnChild({
+          argv: fork.argvRedacted.includes('<redacted:live-advisor-md>')
+            ? fork.argvRedacted.map((a) => (a === '<redacted:live-advisor-md>' ? seed : a))
+            : fork.argvRedacted,
+          cwd: pilot.coordinationDir,
+          env: childEnv,
+          onSpawn: (pid) => store.recordForkPid(mailbox, ask.askId, pid),
+        });
+        h.armDeadline(fork.deadlineMs);
+        return h;
       });
+      if (!handle) {
+        throw new HoldError('OFF committed before spawn; advisor fork interrupted, no launch', { askId: ask.askId });
+      }
+      const outcome = await handle.wait();
       return store.withOpLock(mailbox, () => {
         const patch = {
           pid: outcome.pid,
@@ -378,23 +424,46 @@ const commands = {
         const argv = [base.bin, ...base.prefix, ...bridge.buildExecutorArgs({ sessionId, prompt: args.prompt, resumeFrom })];
         const attempt = store.reserveCcPass(mailbox, {
           workKey: args['work-key'], passNumber, sessionId, resumeFrom, deadlineMs, argv, prompt: args.prompt,
+          pilotId: pilot.pilotId,
+          requestRevision: store.currentRequest(mailbox, args['work-key'])?.requestRevision ?? null,
         });
         store.recordCcPassLaunched(mailbox);
-        return { attempt, pilot };
+        return { attempt, pilot, deadlineMs };
       });
 
       if (reserved.replay) {
         return { ...reserved.replay, replay: true };
       }
-      const { attempt, pilot } = reserved;
-      const outcome = await bridge.runChildToCompletion({
-        argv: attempt.argv,
-        cwd: pilot.executorWorktree,
-        env: process.env,
-        deadlineMs: attempt.deadlineMs,
-        stdoutPath: attempt.stdoutPath,
-        onSpawn: (pid) => store.recordAttemptPid(mailbox, attempt.attemptId, pid),
+      const { attempt, pilot, deadlineMs } = reserved;
+      // The spawn happens INSIDE the operation lock: the OFF check and the
+      // launch share the same serialization OFF itself uses, so a committed
+      // OFF can never be followed by this child starting. This is the
+      // serialized launch boundary, not a second racy OFF read.
+      const handle = await store.withOpLock(mailbox, () => {
+        if (store.readOff(mailbox)) {
+          store.completeCcPass(mailbox, {
+            attemptId: attempt.attemptId,
+            patch: {
+              captureReason: 'OFF committed before spawn; pass not started',
+              spawnOutcome: 'off-before-spawn',
+            },
+            outcome: 'interrupted',
+          });
+          return null;
+        }
+        const h = bridge.spawnChild({
+          argv: attempt.argv,
+          cwd: pilot.executorWorktree,
+          env: process.env,
+          onSpawn: (pid) => store.recordAttemptPid(mailbox, attempt.attemptId, pid),
+        });
+        h.armDeadline(deadlineMs);
+        return h;
       });
+      if (!handle) {
+        throw new HoldError('OFF committed before spawn; pass interrupted, no launch', { attemptId: attempt.attemptId });
+      }
+      const outcome = await handle.wait({ stdoutPath: attempt.stdoutPath });
 
       return store.withOpLock(mailbox, () => {
         const capture = bridge.parseChildResult(outcome.stdout, attempt.sessionId);
@@ -406,6 +475,9 @@ const commands = {
           verifiedEnded: outcome.verifiedEnded,
           cessation: { pid: outcome.pid, verifiedEnded: outcome.verifiedEnded },
         };
+        if (outcome.spawnError && !outcome.pid) {
+          patch.spawnOutcome = 'spawn-failed';
+        }
         let status;
         if (outcome.spawnError) {
           status = 'unknown';

@@ -85,11 +85,16 @@ function enrollArgs(env, extra = []) {
 
 const FAKE_CHILD = `import { appendFileSync, writeFileSync } from 'node:fs';
 const args = process.argv.slice(2);
+const mode = process.env.AB_FAKE_MODE ?? 'ok';
 appendFileSync(process.env.AB_CHILD_LOG, JSON.stringify(args) + '\\n');
 const o = args.indexOf('-o');
 if (o >= 0) {
-  const mode = process.env.AB_FAKE_MODE ?? '';
   if (mode === 'advisor-nooutput') { process.exit(0); }
+  if (mode === 'advisor-sleep') {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.AB_FAKE_SLEEP_MS ?? '8000'));
+    writeFileSync(args[o + 1], JSON.stringify({ role: 'advisor', askId: process.env.AB_FAKE_ASK_ID ?? 'unknown', inputDigest: process.env.AB_FAKE_INPUT_DIGEST ?? 'unknown', answer: process.env.AB_FAKE_ANSWER ?? 'JUDGED: late' }));
+    process.exit(0);
+  }
   if (mode === 'advisor-wrongdigest') {
     writeFileSync(args[o + 1], JSON.stringify({ role: 'advisor', askId: process.env.AB_FAKE_ASK_ID, inputDigest: '0'.repeat(64), answer: 'wrong binding' }));
     process.exit(0);
@@ -106,7 +111,6 @@ if (o >= 0) {
   }));
   process.exit(0);
 }
-const mode = process.env.AB_FAKE_MODE ?? 'ok';
 if (mode === 'sleep') {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.AB_FAKE_SLEEP_MS ?? '5000'));
   process.exit(9);
@@ -417,30 +421,194 @@ test('S4: an identical completed launch replay returns its receipt without a new
   assert.equal(readChildLog(t.log).length, 1);
 });
 
-test('S4: rework requires the senior instruction and resumes the same proven-ended session', () => {
+test('R3: REWORK advances to the next instruction revision; resume executes it on the same session', () => {
   const { e, t, request } = setup();
   cli(e.mailbox, runArgs(), { env: t.env });
   const first = latestAttemptFile(e.mailbox);
-  const criteria = 'add a dated second verification and compare evidence';
+  assert.equal(first.requestRevision, 1, 'the attempt binds its instruction revision');
   cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
-  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', criteria, '--actor', SENIOR]);
-  // non-resume run after a rework instruction is refused
-  const rInitial = cli(e.mailbox, runArgs(), { expectCode: 3, env: t.env });
-  assert.match(rInitial.err, /resume|rework/i);
-  // resume with a prompt that does not match the senior instruction is rejected
-  cli(e.mailbox, runArgs('some other rework text', ['--resume']), { expectCode: 4, env: t.env });
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add a dated second verification', '--actor', SENIOR]);
+  // resume before the next instruction revision is published is refused
+  const rEarly = cli(e.mailbox, runArgs(REQUEST_BODY, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rEarly.err, /instruction revision/i);
   assert.equal(readChildLog(t.log).length, 1);
-  // resume with the instruction text resumes the same session
-  cli(e.mailbox, runArgs(criteria, ['--resume']), { env: t.env });
+  const r2Body = 'rework instruction r2: add the dated second verification and compare evidence';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  // resume with the OLD criteria text is not the new instruction: rejected
+  cli(e.mailbox, runArgs('add a dated second verification', ['--resume']), { expectCode: 4, env: t.env });
+  assert.equal(readChildLog(t.log).length, 1);
+  // resume with the NEW instruction body executes it on the same session
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
   const second = latestAttemptFile(e.mailbox);
   assert.equal(second.status, 'completed');
   assert.equal(second.resumeFrom, first.sessionId);
   assert.equal(second.sessionId, first.sessionId, 'exact-ID resume binds the same session');
+  assert.equal(second.requestRevision, 2, 'the rework attempt binds the new instruction revision');
   const launched = readChildLog(t.log);
   assert.equal(launched.length, 2);
-  assert.deepEqual(launched[1].slice(6, 10), ['--resume', first.sessionId, '-p', criteria]);
+  assert.deepEqual(launched[1].slice(6, 10), ['--resume', first.sessionId, '-p', r2Body]);
+  // the old r1 report cannot be accepted after r2
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'ACCEPTED', '--actor', SENIOR], { expectCode: 4 });
+  // the r2 report binds r2
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
   const s = JSON.parse(cli(e.mailbox, ['status']).out);
-  assert.equal(s.counters.ccPasses, 2);
+  assert.equal(s.taskState, 'reported');
+});
+
+test('R4: an instruction admits only its owned attempt; rework duplicates replay or HOLD', async () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'fix it', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: fix it with evidence';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  const reworkAttempt = latestAttemptFile(e.mailbox);
+  assert.equal(readChildLog(t.log).length, 2);
+  // sequential identical duplicate returns the existing receipt without a launch
+  const dup = JSON.parse(cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env }).out);
+  assert.equal(dup.replay, true, 'an identical rework retry must replay its receipt');
+  assert.equal(dup.attemptId, reworkAttempt.attemptId);
+  assert.equal(attemptFiles(e.mailbox).length, 2, 'no second attempt record');
+  assert.equal(readChildLog(t.log).length, 2, 'no second child launch');
+  const s = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(s.counters.ccPasses, 2, 'replay does not increment counters');
+  // concurrent duplicates cause at most one launch
+  const [a, b] = await Promise.all([
+    cliAsync(e.mailbox, runArgs(r2Body, ['--resume']), t.env),
+    cliAsync(e.mailbox, runArgs(r2Body, ['--resume']), { ...process.env, AB_CHILD_LOG: t.log }),
+  ]);
+  const codes = [a.code, b.code].sort();
+  assert.ok(codes[0] === 0 && (codes[1] === 0 || codes[1] === 3), `got ${a.code}/${b.code}`);
+  assert.equal(readChildLog(t.log).length, 2, 'no additional child launch');
+});
+
+test('R5: DONE binds the pass and the decision to the exact current instruction revision', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  const attempt1 = latestAttemptFile(e.mailbox);
+  cli(e.mailbox, askArgs('same-body-ask', 'Judge.'));
+  cli(e.mailbox, ['consult-run', '--ask-id', 'same-body-ask'], { env: t.env });
+  const dec1 = JSON.parse(cli(e.mailbox, ['consult-import', '--ask-id', 'same-body-ask'], { env: t.env }).out);
+  // r2 with an IDENTICAL body: identical digest, different revision
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', REQUEST_BODY, '--actor', SENIOR]).out);
+  assert.equal(r2.requestDigest, request.requestDigest, 'precondition: identical body and digest');
+  const r = cli(e.mailbox, reportArgs({ reportId: 'rep-stale', revision: '2', status: 'DONE', digest: r2.requestDigest,
+    extra: DONE_EXTRA(attempt1.attemptId, dec1.decisionId) }), { expectCode: 4 });
+  assert.match(r.err, /revision/i);
+  // a fresh pass and a fresh consult on r2 do back a DONE on r2
+  cli(e.mailbox, runArgs(), { env: t.env });
+  const attempt2 = latestAttemptFile(e.mailbox);
+  assert.equal(attempt2.requestRevision, 2);
+  cli(e.mailbox, askArgs('fresh-ask', 'Judge again.'));
+  cli(e.mailbox, ['consult-run', '--ask-id', 'fresh-ask'], { env: t.env });
+  const dec2 = JSON.parse(cli(e.mailbox, ['consult-import', '--ask-id', 'fresh-ask'], { env: t.env }).out);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-fresh', revision: '2', status: 'DONE', digest: r2.requestDigest,
+    extra: DONE_EXTRA(attempt2.attemptId, dec2.decisionId) }));
+  const s = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(s.taskState, 'reported');
+});
+
+test('R1: OFF reports uncertain reservations and terminates a live advisor fork', async () => {
+  const { e, t } = setup();
+  // an uncertain reservation: reserved attempt with no recorded pid
+  mkdirSync(join(e.mailbox, 'attempts'), { recursive: true });
+  writeFileSync(join(e.mailbox, 'attempts', 'pass01-ghost.json'), JSON.stringify({
+    schemaVersion: 1, attemptId: 'ghost', passNumber: 1, status: 'reserved',
+    workKey: WORK_KEY, sessionId: '33333333-3333-3333-3333-333333333333', requestRevision: 1, pid: null,
+  }));
+  // a live advisor fork
+  t.env.AB_FAKE_MODE = 'advisor-sleep';
+  t.env.AB_FAKE_SLEEP_MS = '15000';
+  cli(e.mailbox, askArgs('off-ask', 'Judge.'));
+  const pending = cliAsync(e.mailbox, ['consult-run', '--ask-id', 'off-ask'], t.env);
+  const forkGotPid = await waitFor(() => {
+    const p = join(e.mailbox, 'outbox', 'off-ask.fork.json');
+    if (!existsSync(p)) return false;
+    return JSON.parse(readFileSync(p, 'utf8')).pid != null;
+  }, 8000);
+  assert.ok(forkGotPid, 'advisor fork must record its live pid while running');
+  const off = JSON.parse(cli(e.mailbox, ['off', '--actor', 'senior']).out);
+  assert.equal(off.terminated.length, 1, 'OFF terminates the exactly identified advisor fork');
+  assert.equal(off.terminated[0].kind, 'advisor-fork');
+  assert.equal(off.uncertain.length, 1, 'OFF reports the uncertain reservation');
+  assert.equal(off.uncertain[0].id, 'ghost');
+  const done = await pending;
+  assert.equal(done.code, 3, 'the interrupted fork HOLDs, it does not complete');
+  const fork = JSON.parse(readFileSync(join(e.mailbox, 'outbox', 'off-ask.fork.json'), 'utf8'));
+  assert.equal(fork.status, 'interrupted');
+  assert.equal(readChildLog(t.log).length, 1, 'no second advisor child');
+  // the interrupted fork cannot become a decision through import
+  cli(e.mailbox, ['consult-import', '--ask-id', 'off-ask'], { expectCode: 3, env: t.env });
+  // and the ghost reservation cannot be abandoned without affirmative evidence
+  cli(e.mailbox, ['reconcile-attempt', '--attempt-id', 'ghost', '--mark', 'abandoned',
+    '--rationale', 'the ghost attempt was probably never started anyway', '--actor', 'operator'], { expectCode: 4 });
+});
+
+test('R2: a pid-less reservation is never proof of no spawn; affirmative records resolve it', () => {
+  const { e, t } = setup();
+  mkdirSync(join(e.mailbox, 'attempts'), { recursive: true });
+  const ghost = () => JSON.stringify({
+    schemaVersion: 1, attemptId: 'nopid', passNumber: 1, status: 'reserved',
+    workKey: WORK_KEY, sessionId: '44444444-4444-4444-4444-444444444444', requestRevision: 1, pid: null,
+  });
+  writeFileSync(join(e.mailbox, 'attempts', 'pass01-nopid.json'), ghost());
+  // launcher died before the PID callback: no affirmative evidence → no abandonment
+  const r1 = cli(e.mailbox, ['reconcile-attempt', '--attempt-id', 'nopid', '--mark', 'abandoned',
+    '--rationale', 'the launcher died so nothing can be running', '--actor', 'operator'], { expectCode: 4 });
+  assert.match(r1.err, /affirmative|evidence|pid/i);
+  // and no silent fresh executor while the boundary is unresolved
+  cli(e.mailbox, runArgs(), { expectCode: 3, env: t.env });
+  assert.equal(readChildLog(t.log).length, 0);
+  // an affirmative serialized record (spawn never happened) does resolve it
+  writeFileSync(join(e.mailbox, 'attempts', 'pass01-nopid.json'), `${ghost().slice(0, -1)}, "spawnOutcome": "spawn-failed"}`);
+  const rec = JSON.parse(cli(e.mailbox, ['reconcile-attempt', '--attempt-id', 'nopid', '--mark', 'abandoned',
+    '--rationale', 'recorded spawn failure proves the process never started', '--actor', 'operator']).out);
+  assert.equal(rec.status, 'abandoned');
+  cli(e.mailbox, runArgs(), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 1);
+});
+
+test('R6: conflicting partial Answer bytes reject before any receipt; evidence is preserved', async () => {
+  const { e, t } = setup();
+  cli(e.mailbox, askArgs('partial-ask', 'judge'));
+  const store = await import(join(REPO, 'scripts', 'advisor-bridge-beta', 'store.mjs'));
+  const answerA = 'decision A';
+  store.journalAppend(e.mailbox, {
+    eventId: store.deriveDecisionEventId('partial-ask', answerA),
+    type: 'decision-captured',
+    actor: 'bridge',
+    payload: { askId: 'partial-ask', answerDigest: store.sha256(answerA), answer: answerA, requestDigest: sha(REQUEST_BODY) },
+  });
+  // partial state: an Answer section already present with DIFFERENT bytes
+  const mdPath = join(e.mailbox, 'asks', 'partial-ask.md');
+  const md = readFileSync(mdPath, 'utf8');
+  writeFileSync(mdPath, `${md}\n## Answer\n\nconflicting B\n`);
+  const r = cli(e.mailbox, ['consult-import', '--ask-id', 'partial-ask'], { expectCode: 3, env: t.env });
+  assert.match(r.err, /conflict/i);
+  const ask = JSON.parse(readFileSync(join(e.mailbox, 'asks', 'partial-ask.json'), 'utf8'));
+  assert.equal(ask.status, 'open', 'no receipt, ask not advanced');
+  assert.match(readFileSync(mdPath, 'utf8'), /conflicting B/, 'evidence preserved, not overwritten');
+  // consistent partial progress recovers idempotently once the conflict is cleared
+  writeFileSync(mdPath, md);
+  cli(e.mailbox, ['consult-import', '--ask-id', 'partial-ask'], { env: t.env });
+  assert.match(readFileSync(mdPath, 'utf8'), /decision A/);
+});
+
+test('R7: import respects a recorded invalid fork capture', () => {
+  const { e, t } = setup();
+  t.env.AB_FAKE_MODE = 'advisor-nooutput';
+  cli(e.mailbox, askArgs('bad-capture-ask', 'judge'));
+  cli(e.mailbox, ['consult-run', '--ask-id', 'bad-capture-ask'], { expectCode: 3, env: t.env });
+  const fork = JSON.parse(readFileSync(join(e.mailbox, 'outbox', 'bad-capture-ask.fork.json'), 'utf8'));
+  assert.equal(fork.status, 'capture-invalid');
+  // a syntactically valid bound candidate appears afterwards
+  writeFileSync(join(e.mailbox, 'outbox', 'bad-capture-ask.candidate.json'),
+    JSON.stringify({ role: 'advisor', askId: 'bad-capture-ask', inputDigest: sha('judge'), answer: 'late candidate' }));
+  const r = cli(e.mailbox, ['consult-import', '--ask-id', 'bad-capture-ask'], { expectCode: 3, env: t.env });
+  assert.match(r.err, /capture|invalid/i);
+  const ask = JSON.parse(readFileSync(join(e.mailbox, 'asks', 'bad-capture-ask.json'), 'utf8'));
+  assert.equal(ask.status, 'open');
 });
 
 test('S4: an open ask is an explicit consult-pending checkpoint; no unbound new job while it waits', () => {
@@ -515,8 +683,10 @@ test('S1: OFF during an owned pass terminates the exact recorded pid, records in
   const attempt = latestAttemptFile(e.mailbox);
   const off = JSON.parse(cli(e.mailbox, ['off', '--actor', 'senior']).out);
   assert.equal(off.terminated.length, 1, 'OFF must terminate the exactly identified owned process');
-  assert.equal(off.terminated[0].attemptId, attempt.attemptId);
+  assert.equal(off.terminated[0].kind, 'cc-attempt');
+  assert.equal(off.terminated[0].id, attempt.attemptId);
   assert.equal(off.unproven.length, 0);
+  assert.equal(off.uncertain.length, 0);
   const done = await pending;
   assert.equal(done.code, 3, 'the interrupted pass must HOLD, not complete');
   const interrupted = latestAttemptFile(e.mailbox);

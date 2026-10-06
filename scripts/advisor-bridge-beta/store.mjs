@@ -595,7 +595,7 @@ export function latestCompletedAttempt(root) {
   return done.length > 0 ? done[done.length - 1] : null;
 }
 
-export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom = null, deadlineMs, argv, prompt }) {
+export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom = null, deadlineMs, argv, prompt, pilotId = null, requestRevision = null }) {
   const attemptId = randomUUID().slice(0, 8);
   const attempt = {
     schemaVersion: 1,
@@ -603,6 +603,8 @@ export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom
     attemptId,
     passNumber,
     workKey,
+    pilotId,
+    requestRevision,
     status: 'reserved',
     sessionId,
     resumeFrom,
@@ -618,7 +620,7 @@ export function reserveCcPass(root, { workKey, passNumber, sessionId, resumeFrom
     eventId: `ccpass-reserved-${attemptId}`,
     type: 'cc-pass-reserved',
     actor: 'cc-owner',
-    payload: { workKey, passNumber, sessionId, resumeFrom, deadlineMs, prompt },
+    payload: { workKey, requestRevision, passNumber, sessionId, resumeFrom, deadlineMs, prompt },
   });
   return attempt;
 }
@@ -682,10 +684,13 @@ export function reconcileAttempt(root, { attemptId, mark, rationale, actor, evid
   }
   const ev = (evidence && typeof evidence === 'object') ? evidence : {};
   const cessationProven = ev.cessationProven === true;
-  const spawnNeverObserved = ev.spawnNeverObserved === true && attempt.pid == null;
-  if (!cessationProven && !spawnNeverObserved) {
-    throw new RejectError('reconcile requires proven cessation of the recorded process identity (a rationale alone is not proof)', {
-      attemptId, pid: attempt.pid ?? null,
+  // Absence of a recorded pid is NOT evidence that no process started: only an
+  // affirmative serialized record (spawn failure, or OFF before the serialized
+  // spawn) may resolve a pid-less reservation.
+  const neverStartedRecorded = ev.neverStartedRecorded === true;
+  if (!cessationProven && !neverStartedRecorded) {
+    throw new RejectError('reconcile requires affirmative evidence: proven cessation of a recorded pid, or a recorded never-started outcome (missing pid alone is not proof)', {
+      attemptId, pid: attempt.pid ?? null, spawnOutcome: attempt.spawnOutcome ?? null,
     });
   }
   if (mark === 'completed') {
@@ -716,17 +721,31 @@ export function reconcileAttempt(root, { attemptId, mark, rationale, actor, evid
 
 // ---------- run admission gate (task progression) ----------
 
+function listVerdictRecords(root, workKey) {
+  const dir = mailboxPath(root, 'decisions');
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const n of readdirSync(dir)) {
+    if (!n.startsWith('verdict-')) continue;
+    const v = readJson(join(dir, n));
+    if (v.kind === 'verdict' && (!workKey || v.workKey === workKey)) out.push(v);
+  }
+  return out;
+}
+
 // The launch boundary preserves ONE executor through initial/rework passes:
 // initial admission requires the current prepared request and a matching
-// bounded prompt; an identical completed launch replays its receipt; rework
-// requires the current senior instruction and resumes; a pending consult is an
-// explicit checkpoint; a completed pass waits for its report; acceptance ends
-// the work item. No unbounded new job is admitted at any point.
+// bounded prompt; an identical completed launch replays its receipt; REWORK
+// binds a NEW instruction revision and resumes the same proven-ended session
+// with that instruction's body; an instruction admits only its owned attempt
+// (a retry after completion replays, an in-flight attempt HOLDs); a pending
+// consult is an explicit checkpoint; acceptance ends the work item.
 export function gateRunAdmission(root, { workKey, prompt, resume }) {
   const current = currentRequest(root, workKey);
   if (!current) {
     throw new RejectError('run requires a current prepared request; none was submitted', { workKey });
   }
+  const revision = current.requestRevision;
   const openAsk = listAsks(root).find((a) => a.status === 'open'
     && a.workKey === workKey && a.requestDigest === current.requestDigest);
   if (openAsk) {
@@ -734,50 +753,59 @@ export function gateRunAdmission(root, { workKey, prompt, resume }) {
       askId: openAsk.askId,
     });
   }
-  const reports = listReports(root, workKey, current.requestRevision);
-  const verdicts = reports.map((r) => readVerdict(root, r.reportId)).filter(Boolean);
-  if (verdicts.some((v) => v.verdict === 'ACCEPTED')) {
+  const reportsR = listReports(root, workKey, revision);
+  const verdictsR = reportsR.map((r) => readVerdict(root, r.reportId)).filter(Boolean);
+  if (verdictsR.some((v) => v.verdict === 'ACCEPTED')) {
     throw new HoldError('work item accepted; no further passes are admitted', { workKey });
   }
-  const rework = verdicts.filter((v) => v.verdict === 'REWORK')
-    .sort((a, b) => String(b.decidedAt ?? '').localeCompare(String(a.decidedAt ?? '')))[0] ?? null;
+  const reworks = listVerdictRecords(root, workKey).filter((v) => v.verdict === 'REWORK')
+    .sort((a, b) => String(b.decidedAt ?? '').localeCompare(String(a.decidedAt ?? '')));
+  const latestRework = reworks[0] ?? null;
+  const attemptsR = listAttempts(root).filter((a) => a.workKey === workKey && a.requestRevision === revision);
+  const completedR = attemptsR.filter((a) => a.status === 'completed');
   const promptText = String(prompt).trim();
+  const bodyText = String(current.body).trim();
   if (resume) {
-    if (!rework) {
-      throw new HoldError('rework pass requires a senior REWORK instruction recorded on the current revision', {
-        workKey, requestRevision: current.requestRevision,
+    if (!latestRework) {
+      throw new HoldError('rework pass requires a senior REWORK instruction recorded for this work item', { workKey });
+    }
+    if (revision <= latestRework.requestRevision) {
+      throw new HoldError('rework requires the next instruction revision: publish a request revision newer than the REWORK verdict', {
+        workKey, verdictRevision: latestRework.requestRevision, currentRevision: revision,
       });
     }
-    if (promptText !== String(rework.criteria ?? '').trim()) {
-      throw new RejectError('rework prompt must match the senior rework instruction (criteria)', {
-        workKey, requestRevision: current.requestRevision,
+    if (promptText !== bodyText) {
+      throw new RejectError('rework prompt must match the new instruction revision body', {
+        workKey, requestRevision: revision,
       });
     }
+    const done = completedR.filter((a) => a.resumeFrom != null && String(a.prompt ?? '').trim() === promptText);
+    if (done.length > 0) return { replay: done[done.length - 1] };
     return {};
   }
-  const attempts = listAttempts(root);
-  const completed = attempts.filter((a) => a.status === 'completed');
-  if (attempts.length === 0 || completed.length === 0) {
-    if (promptText !== String(current.body).trim()) {
-      throw new RejectError('initial pass prompt must match the prepared request body', {
-        workKey, requestRevision: current.requestRevision,
-      });
-    }
-    return {};
-  }
-  if (rework) {
+  const unactionedRework = latestRework && revision > latestRework.requestRevision
+    && completedR.length === 0 && reportsR.length === 0;
+  if (unactionedRework) {
     throw new HoldError('rework instructed: resume the same proven-ended session with --resume', {
-      workKey, requestRevision: current.requestRevision,
+      workKey, requestRevision: revision,
     });
   }
-  if (reports.length > 0) {
+  if (reportsR.length > 0) {
     throw new HoldError('report awaits the senior decision; no new job is admitted', { workKey });
   }
-  const last = completed[completed.length - 1];
-  if (promptText === String(last.prompt ?? '').trim()) {
-    return { replay: last };
+  if (completedR.length > 0) {
+    const last = completedR[completedR.length - 1];
+    if (last.resumeFrom == null && String(last.prompt ?? '').trim() === promptText) {
+      return { replay: last };
+    }
+    throw new HoldError('awaiting report for the completed pass; no new job is admitted', { workKey });
   }
-  throw new HoldError('awaiting report for the completed pass; no new job is admitted', { workKey });
+  if (promptText !== bodyText) {
+    throw new RejectError('initial pass prompt must match the prepared request body', {
+      workKey, requestRevision: revision,
+    });
+  }
+  return {};
 }
 
 // ---------- advisor capture validation ----------
@@ -827,9 +855,22 @@ function validateConsultAck(root, { consultDecisionId, applicationAck }, current
   if (dec.kind !== 'decision') {
     throw new RejectError('consulted decision id does not name a decision record', { consultDecisionId });
   }
-  if (dec.requestDigest !== current.requestDigest) {
-    throw new RejectError('consulted decision is bound to a superseded request revision', {
+  // Exact binding: work item, instruction revision NUMBER and content digest.
+  // Repeated request content (identical digest, different revision) does not
+  // make an earlier consultation current.
+  if (dec.workKey !== current.workKey) {
+    throw new RejectError('consulted decision belongs to a different work item', {
+      consultDecisionId, decisionWorkKey: dec.workKey ?? null, currentWorkKey: current.workKey,
+    });
+  }
+  if (dec.requestRevision !== current.requestRevision) {
+    throw new RejectError('consulted decision is bound to a different instruction revision', {
       consultDecisionId, decisionRevision: dec.requestRevision ?? null, currentRevision: current.requestRevision,
+    });
+  }
+  if (dec.requestDigest !== current.requestDigest) {
+    throw new RejectError('consulted decision digest does not match the current request content', {
+      consultDecisionId, currentRevision: current.requestRevision,
     });
   }
 }
@@ -871,15 +912,23 @@ export function importReport(root, fields) {
     && fields.artifacts.every((a) => a && typeof a.path === 'string' && typeof a.sha256 === 'string' && /^[0-9a-f]{64}$/.test(a.sha256));
   const validEvidence = Array.isArray(fields.evidence) && fields.evidence.length > 0
     && fields.evidence.every((ev) => ev && typeof ev.command === 'string' && Number.isFinite(ev.exit));
-  const completed = listAttempts(root).filter((a) => a.status === 'completed');
   if (reportStatus === 'DONE') {
     // A DONE report certifies execution; a legitimate prelaunch BLOCKED report
-    // may describe an absent pass, but DONE cannot exist without an owned pass.
-    if (completed.length === 0) {
-      throw new RejectError('DONE certifies execution; no owned completed pass exists', { workKey });
+    // may describe an absent pass, but DONE cannot exist without an owned pass,
+    // and the bound pass must be THIS work item's execution of the CURRENT
+    // instruction revision (an older revision's pass never certifies a newer
+    // instruction, even when the request bodies — and digests — repeat).
+    const pilot = readPilot(root);
+    const passAttempt = fields.passId ? readAttempt(root, fields.passId) : null;
+    if (!passAttempt || passAttempt.status !== 'completed') {
+      throw new RejectError('DONE must bind a completed owned pass', { passId: fields.passId ?? null });
     }
-    if (typeof fields.passId !== 'string' || !completed.some((a) => a.attemptId === fields.passId)) {
-      throw new RejectError('DONE must bind the completed owned pass id', { passId: fields.passId ?? null });
+    if (passAttempt.workKey !== workKey
+      || (passAttempt.pilotId != null && passAttempt.pilotId !== pilot?.pilotId)
+      || passAttempt.requestRevision !== revision) {
+      throw new RejectError('bound pass is not the current instruction revision execution', {
+        passId: fields.passId, passRevision: passAttempt.requestRevision ?? null, currentRevision: revision,
+      });
     }
     if (!validArtifacts) throw new RejectError('DONE requires artifacts with sha256 digests');
     if (!validEvidence) throw new RejectError('DONE requires evidence entries (command + exit)');
@@ -1055,6 +1104,25 @@ export function recordForkCapture(root, askId, patch) {
   return merged;
 }
 
+// Persist the live advisor-fork process identity while the fork runs, so OFF
+// termination binds to the exact process (the advisor route is a controlled
+// owned child too).
+export function recordForkPid(root, askId, pid) {
+  const fork = readForkRecord(root, askId);
+  if (!fork) throw new RejectError('fork record not found', { askId });
+  const merged = { ...fork, pid };
+  publishAtomic(mailboxPath(root, 'outbox', `${askId}.fork.json`), canonicalJson(merged));
+  return merged;
+}
+
+export function listForkRecords(root) {
+  const dir = mailboxPath(root, 'outbox');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((n) => n.endsWith('.fork.json'))
+    .map((n) => readJson(join(dir, n)));
+}
+
 function extractAnswer(md) {
   const marker = '\n## Answer\n\n';
   const i = md.indexOf(marker);
@@ -1066,8 +1134,11 @@ function extractAnswer(md) {
 // lands first; the decision record, the Answer section and the receipt follow.
 // Recovery replays the JOURNALED answer — the mutable outbox candidate is only
 // read when no journal event exists, and only after the reserved fork receipt
-// and the candidate's identity contract are validated. A stale ask (bound to a
-// superseded request revision) can never advance.
+// with a TRUSTED capture status and the candidate's identity contract are
+// validated. Before any state commit or receipt, existing decision-record and
+// Answer bytes are verified against the resolved decision: conflicting partial
+// progress rejects/HOLDs with evidence preserved, never overwritten. A stale
+// ask (bound to a superseded request revision) can never advance.
 export function importDecision(root, { askId, actor = 'bridge' }) {
   checkAskId(askId);
   const ask = readAsk(root, askId);
@@ -1114,6 +1185,14 @@ export function importDecision(root, { askId, actor = 'bridge' }) {
     if (!fork) {
       throw new HoldError('no reserved advisor fork for this ask; an unreserved capture is refused', { askId });
     }
+    // The recorded lifecycle receipt governs: a failed, timed-out, interrupted
+    // or not-yet-completed capture stays OPEN/HOLD until evidence-gated
+    // reconciliation. Candidate bytes alone never override it.
+    if (fork.status !== 'captured') {
+      throw new HoldError(`advisor fork receipt is '${fork.status}'${fork.captureReason ? ` (${fork.captureReason})` : ''}; an invalid or uncertain capture cannot become a decision through import`, {
+        askId, forkStatus: fork.status, forkId: fork.forkId,
+      });
+    }
     const candidatePath = mailboxPath(root, 'outbox', `${askId}.candidate.json`);
     if (!existsSync(candidatePath)) {
       throw new HoldError('advisor capture missing; ask stays OPEN', { askId, candidatePath });
@@ -1132,17 +1211,36 @@ export function importDecision(root, { askId, actor = 'bridge' }) {
     answerDigest = sha256(answer);
     forkId = fork.forkId;
     causationId = `fork-${fork.forkId}`;
+  }
+  const eventId = deriveDecisionEventId(askId, answer);
+  // Pre-commit consistency: any existing decision record and any existing
+  // Answer bytes must match the resolved decision BEFORE the ask state moves
+  // or a receipt is issued. Conflicting partial progress is preserved.
+  const decPath = mailboxPath(root, 'decisions', `${eventId}.json`);
+  if (existsSync(decPath)) {
+    const existingDec = readJson(decPath);
+    if (existingDec.answerDigest !== answerDigest) {
+      throw new RejectError('existing decision record conflicts with the resolved answer', { askId, decisionId: eventId });
+    }
+  }
+  const mdPath = mailboxPath(root, 'asks', `${askId}.md`);
+  const md = readFileSync(mdPath, 'utf8');
+  const existingAnswer = extractAnswer(md);
+  if (existingAnswer !== null && sha256(existingAnswer) !== answerDigest) {
+    throw new HoldError('conflicting Answer bytes already present; evidence preserved — resolve manually before import', {
+      askId, existingAnswerDigest: sha256(existingAnswer), resolvedAnswerDigest: answerDigest,
+    });
+  }
+  if (!existingJournal) {
     journalAppend(root, {
-      eventId: deriveDecisionEventId(askId, answer),
+      eventId,
       type: 'decision-captured',
       actor,
       payload: { askId, answerDigest, answer, requestDigest: ask.requestDigest, forkId },
       causationId,
     });
   }
-  const eventId = deriveDecisionEventId(askId, answer);
   // decision record (deterministic content — crash-safe to recreate)
-  const decPath = mailboxPath(root, 'decisions', `${eventId}.json`);
   if (!existsSync(decPath)) {
     createImmutable(decPath, canonicalJson({
       schemaVersion: 1,
@@ -1158,8 +1256,6 @@ export function importDecision(root, { askId, actor = 'bridge' }) {
     }));
   }
   // Answer into the ask file (idempotent)
-  const mdPath = mailboxPath(root, 'asks', `${askId}.md`);
-  const md = readFileSync(mdPath, 'utf8');
   if (!md.includes('\n## Answer\n')) {
     publishAtomic(mdPath, `${md}\n## Answer\n\n${answer}\n`);
   }

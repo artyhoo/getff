@@ -133,54 +133,69 @@ export function redactArgv(argv, secret) {
   return argv.map((a) => (a === secret ? '<redacted:live-advisor-md>' : a));
 }
 
-export function runChildToCompletion({ argv, cwd, env, deadlineMs, stdoutPath = null, onSpawn = null }) {
-  return new Promise((resolve) => {
-    let child;
+// Spawn half of the bounded child lifecycle. The caller performs the spawn
+// INSIDE the operation lock, so OFF serialization covers the launch boundary
+// for both executor and advisor children; completion is awaited outside the
+// lock. onSpawn persists the live process identity as soon as it exists.
+export function spawnChild({ argv, cwd, env, onSpawn = null }) {
+  let child;
+  try {
+    child = spawn(argv[0], argv.slice(1), { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    return {
+      pid: null,
+      armDeadline() { /* nothing to bound */ },
+      async wait() {
+        return { pid: null, exitCode: null, signal: null, timedOut: false, spawnError: String(e), stdout: '', verifiedEnded: true };
+      },
+    };
+  }
+  const pid = child.pid;
+  if (typeof onSpawn === 'function') {
     try {
-      child = spawn(argv[0], argv.slice(1), { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    } catch (e) {
-      resolve({ pid: null, exitCode: null, signal: null, timedOut: false, spawnError: String(e), stdout: '', verifiedEnded: true });
-      return;
-    }
-    const pid = child.pid;
-    // Persist the live process identity as soon as it exists, so OFF
-    // termination and reconciliation can bind to the exact running process.
-    if (typeof onSpawn === 'function') {
-      try {
-        onSpawn(pid);
-      } catch { /* best-effort persistence */ }
-    }
-    let timedOut = false;
-    let stdout = '';
-    let stderrTail = '';
-    const killTimer = setTimeout(() => {
-      timedOut = true;
-      try { child.kill('SIGTERM'); } catch { /* already gone */ }
-      setTimeout(() => {
-        try { child.kill('SIGKILL'); } catch { /* already gone */ }
-      }, 5000).unref();
-    }, deadlineMs);
-    child.stdout.on('data', (d) => { stdout += d; });
-    child.stderr.on('data', (d) => {
-      stderrTail = (stderrTail + d).slice(-2000);
-    });
-    child.on('error', (e) => {
-      clearTimeout(killTimer);
-      resolve({ pid, exitCode: null, signal: null, timedOut: false, spawnError: String(e?.message ?? e), stdout, stderrTail, verifiedEnded: true });
-    });
-    child.on('close', (exitCode, signal) => {
-      clearTimeout(killTimer);
-      if (stdoutPath && stdout.length > 0) {
-        try { writeFileSync(stdoutPath, stdout); } catch { /* best-effort capture */ }
-      }
-      let verifiedEnded = true;
-      try {
-        process.kill(pid, 0);
-        verifiedEnded = false;
-      } catch {
-        verifiedEnded = true;
-      }
-      resolve({ pid, exitCode, signal, timedOut, stdout, stderrTail, verifiedEnded });
-    });
+      onSpawn(pid);
+    } catch { /* best-effort persistence */ }
+  }
+  let timedOut = false;
+  let stdout = '';
+  let stderrTail = '';
+  let deadlineTimer = null;
+  child.stdout.on('data', (d) => { stdout += d; });
+  child.stderr.on('data', (d) => {
+    stderrTail = (stderrTail + d).slice(-2000);
   });
+  return {
+    pid,
+    armDeadline(deadlineMs) {
+      deadlineTimer = setTimeout(() => {
+        timedOut = true;
+        try { child.kill('SIGTERM'); } catch { /* already gone */ }
+        setTimeout(() => {
+          try { child.kill('SIGKILL'); } catch { /* already gone */ }
+        }, 5000).unref();
+      }, deadlineMs);
+    },
+    wait({ stdoutPath = null } = {}) {
+      return new Promise((resolve) => {
+        child.on('error', (e) => {
+          clearTimeout(deadlineTimer);
+          resolve({ pid, exitCode: null, signal: null, timedOut, spawnError: String(e?.message ?? e), stdout, stderrTail, verifiedEnded: true });
+        });
+        child.on('close', (exitCode, signal) => {
+          clearTimeout(deadlineTimer);
+          if (stdoutPath && stdout.length > 0) {
+            try { writeFileSync(stdoutPath, stdout); } catch { /* best-effort capture */ }
+          }
+          let verifiedEnded = true;
+          try {
+            process.kill(pid, 0);
+            verifiedEnded = false;
+          } catch {
+            verifiedEnded = true;
+          }
+          resolve({ pid, exitCode, signal, timedOut, stdout, stderrTail, verifiedEnded });
+        });
+      });
+    },
+  };
 }
