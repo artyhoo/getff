@@ -1,7 +1,7 @@
 # Dot staging review gate — launch preflight and implementation kickoff
 
-> **Status:** final documentation handoff; autonomous launch BLOCKED; not dispatched. Setup and implementation receipts remain pending.
-> **Canonical operating prompt:** [DotStagingReviewV1](../../meta-factory/dot-review-protocol.md), `dot-staging-review/1.0`.
+> **Status:** final documentation handoff; autonomous launch BLOCKED; not dispatched. Setup and implementation receipts remain pending. **Amended 2026-10-06:** the review contract this kickoff cited is superseded in part by [2026-10-06-dot-pr-coordination-design.md](../specs/2026-10-06-dot-pr-coordination-design.md) / [DotPRReviewV2](../../meta-factory/dot-review-protocol.md) `dot-pr-review/2.0.0` — the eleven-dimension exhaustive scope, the COMPLETE+GO verdict model and the full-baseline prerequisite no longer apply (V2 axes: seven role-owned dimensions, coverage/sufficiency/verdict separated, acceptance separated from admission, bounded historical work). Stage mechanics, prerequisites and live-proof recipes below stay binding.
+> **Canonical operating prompt:** [DotPRReviewV2](../../meta-factory/dot-review-protocol.md), `dot-pr-review/2.0.0` ([V1 historical](../../meta-factory/dot-review-protocol.md) superseded in the declaring docs).
 > **Setup manifest:** [durable handoff](../../meta-factory/dot-review-handoff.md#setup-manifest).
 > **Authoritative for:** future execution order, scopes, prerequisites and verification receipts for this operator-only integration.
 > **NOT authoritative for:** project goal — [README](../../../README.md#why-this-exists); platform capability; live settings; current authorization to implement or dispatch.
