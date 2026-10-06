@@ -137,7 +137,7 @@ while IFS= read -r sha; do
     echo "✅ ${sha}  §1.7: present"
   else
     discipline="$(git diff-tree --no-commit-id --name-only -r "${sha}" 2>/dev/null \
-      | grep -E '^(\.claude/rules/[^/]+\.md|packages/core/principles/[^/]+\.test\.ts|\.claude/skills/[^/]+/SKILL\.md)$' \
+      | grep -E '^((\.claude|\.agents)/rules/[^/]+\.md|packages/core/principles/[^/]+\.test\.ts|(\.claude/skills|\.agents/procedures)/[^/]+/SKILL\.md)$' \
       || true)"
     if [ -n "${discipline}" ]; then
       echo "❌ ${sha}  §1.7 trailer MISSING — ${subject}"

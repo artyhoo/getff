@@ -21,14 +21,14 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
   # diverged copy under --force showed only "would copy". Preview the guard when the dst exists
   # (= the --force overwrite case; a greenfield copy overwrites nothing). Transform parity: the
   # delivered tree's .md are post-processed. Writes nothing under --dry-run.
-  [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && _pre_overwrite_guard "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff" transform
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
+  [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && _pre_overwrite_guard "$(procedure_source getff)" "$PROJECT_ROOT/.claude/skills/getff" transform
+  echo "  [dry-run] would copy: $(procedure_source getff) → $PROJECT_ROOT/.claude/skills/getff"
 else
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
   # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
   # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
   # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
-  _copy_tree_with_transform "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
+  _copy_tree_with_transform "$(procedure_source getff)" "$PROJECT_ROOT/.claude/skills/getff"
   echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
@@ -40,12 +40,12 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   # Same MAJOR 2 preview as the getff arm above (reached only when dst is absent or --force).
-  [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && _pre_overwrite_guard "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" transform
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && _pre_overwrite_guard "$(procedure_source tool-bootstrapping)" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" transform
+  echo "  [dry-run] would copy: $(procedure_source tool-bootstrapping) → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
   # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
-  _copy_tree_with_transform "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  _copy_tree_with_transform "$(procedure_source tool-bootstrapping)" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location
@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:636-637), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:638-639), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
@@ -241,7 +241,7 @@ fi
 # end-of-turn nudge silently did not exist. Ship the hook + its lang pack, and register it as a
 # Stop hook (non-destructive, idempotent — reuses register_cc_hook / lib.sh). Consumer-safe: the
 # hook has no framework-internal dependency and self-guards on jq.
-EOT_SRC="$PKG_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+EOT_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/end-of-turn-reminder.sh"
 EOT_DST="$PROJECT_ROOT/.claude/hooks/end-of-turn-reminder.sh"
 if [ -f "$EOT_SRC" ]; then
   copy_safe "$EOT_SRC" "$EOT_DST"
@@ -249,15 +249,15 @@ if [ -f "$EOT_SRC" ]; then
   # Lang pack: en (canonical, zero-setup default) + ru (via AIF_HOOK_LANG) + parity check.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks/lang"
   for _lp in en.sh ru.sh check-parity.sh; do
-    [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && copy_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
+    [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lang/$_lp" ] && copy_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
   done
   # D29: the Stop hook sources lib/residue-dir.sh (the handoff-currency gate's residue
   # cascade) — delivered BY NAME like the lang packs above; without it the hook runs its
   # inline fallback. The guarded source in the hook keeps a lib-less install working; this
   # copy is what makes the shared lib the operative path in a fresh consumer install.
-  if [ -f "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" ]; then
+  if [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/residue-dir.sh" ]; then
     mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-    copy_safe "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
+    copy_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
   fi
   chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -290,7 +290,7 @@ fi
 # §1c end-of-turn block above — the two hooks always ship together from the same source dir, so §1c
 # always runs first when §1d does. Keep them co-delivered; do not ship ask-question-reminder without
 # §1c's lang pack.
-AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
+AQR_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/ask-question-reminder.sh"
 AQR_DST="$PROJECT_ROOT/.claude/hooks/ask-question-reminder.sh"
 if [ -f "$AQR_SRC" ]; then
   copy_safe "$AQR_SRC" "$AQR_DST"
@@ -315,7 +315,7 @@ fi
 # settings.json): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm),
 # PreToolUse "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset).
 # register_imr_hooks lives in setup.d/lib.sh — install.sh --refresh calls the same function.
-IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+IMR_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-matching-rule.sh"
 IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
 if [ -f "$IMR_SRC" ]; then
   copy_safe "$IMR_SRC" "$IMR_DST"
@@ -335,7 +335,7 @@ fi
 # Registered on SessionStart (startup|resume|clear|compact) — once per context, not per prompt
 # (2026-09-29; an install from before that date had it on UserPromptSubmit, which is removed here so a
 # re-install moves it instead of doubling it). Non-destructive/idempotent.
-OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
+OLH_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-output-language.sh"
 OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
 if [ -f "$OLH_SRC" ]; then
   copy_safe "$OLH_SRC" "$OLH_DST"
@@ -358,7 +358,7 @@ fi
 # `<!-- doc-authority: exempt <reason 20+> -->` line. Consumer-safe: pure bash + jq, no
 # framework-internal dependency; degrades to exit 0 when jq is absent. Registered with the "Edit|Write|MultiEdit"
 # matcher (parity with the framework's own check-doc-authority.sh registration).
-DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
+DAH_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/check-doc-authority-header.sh"
 DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
 if [ -f "$DAH_SRC" ]; then
   copy_safe "$DAH_SRC" "$DAH_DST"
@@ -379,7 +379,7 @@ fi
 # (SubagentStart). We also ship a starter template
 # (copy_safe → .claude/session-bootstrap.md, non-destructive) that ships EMPTY, so nothing is injected
 # until the consumer fills it (zero-setup, zero token cost by default).
-PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
+PDG_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-project-digest.sh"
 PDG_DST="$PROJECT_ROOT/.claude/hooks/inject-project-digest.sh"
 if [ -f "$PDG_SRC" ]; then
   copy_safe "$PDG_SRC" "$PDG_DST"
@@ -400,7 +400,7 @@ fi
 # leave conventions only in unreliable memory — the project's own thesis). Fires on a Write to any
 # */memory/* path. Its companion agents/memory-codification-auditor.md is ALREADY shipped, so this
 # closes a half-shipped gap. Consumer-safe: message is generic (no framework-internal doc ref), jq-guarded.
-MCF_SRC="$PKG_ROOT/.claude/hooks/inject-memory-codification.sh"
+MCF_SRC="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-memory-codification.sh"
 MCF_DST="$PROJECT_ROOT/.claude/hooks/inject-memory-codification.sh"
 if [ -f "$MCF_SRC" ]; then
   copy_safe "$MCF_SRC" "$MCF_DST"
@@ -418,9 +418,9 @@ fi
 # claiming that mark. Delivered once, BY NAME, like lib/residue-dir.sh in §1c. Without it the hooks
 # run unchanged, but their source-hash closure no longer matches the plugin's manifest, so both
 # copies run (a duplicate, never a lost hook).
-if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+if [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/hook-live.sh" ]; then
   mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-  copy_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+  copy_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
 fi
 
 # ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
@@ -447,8 +447,8 @@ fi
 # clone's own list (the project's .gitignore is left alone).
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   for _hg in precompact-residue inject-handoff-on-compact; do
-    [ -f "$PKG_ROOT/.claude/hooks/$_hg.sh" ] || continue
-    copy_safe "$PKG_ROOT/.claude/hooks/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
+    [ -f "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" ] || continue
+    copy_safe "${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
     chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true
   done
   if [ "$DRY_RUN" = "--dry-run" ]; then

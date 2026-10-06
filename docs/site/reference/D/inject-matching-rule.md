@@ -173,10 +173,10 @@ hands the agent advice and always exits 0.
   `{hookSpecificOutput:{hookEventName:$ev,additionalContext:$ctx}}`, with the event taken
   from the payload; the header (line 32 on) records that plain stdout is ignored for
   PostToolUse.
-- The twin is hand-written, not generated: `.claude/hooks/inject-matching-rule.sh:81`
-  says `@plugin-transform: manual`, and `plugin/hooks/inject-matching-rule` opens as
-  «Plugin-relocated card loader» (its line 2), resolving the project via
-  `CLAUDE_PROJECT_DIR` (line 66) because `$0` points into the plugin payload.
+- The twin is generated, never hand-written: `.claude/hooks/inject-matching-rule.sh:81`
+  marks the canonical source `@plugin-transform: identity`; line 2 of `plugin/hooks/inject-matching-rule`
+  is the generator's AUTO-GENERATED header naming `.agents/hooks/inject-matching-rule.sh`, and the
+  twin resolves the project via `CLAUDE_PROJECT_DIR` (line 83) because `$0` points into the plugin payload.
 - Ship status: the paragraph at line 61 records the GH #934 delivery claim corrected by
   GH #1520: «the HOOK ships and is registered in consumer projects … The `.claude/rules/`
   CORPUS it reads does NOT ship».

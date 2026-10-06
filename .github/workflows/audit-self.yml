@@ -631,6 +631,8 @@ jobs:
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
       - name: Run merge-forward range paired-negative (trunk-reachable commits exempt, 2026-08-07)
         run: bash tests/hooks/prepush-merge-forward-range.test.sh
+      - name: Run baseline-staleness verdict paired-negative (re-home/compat-entry skips, genuine/orphaned flags, 2026-10-06)
+        run: bash tests/hooks/prepush-baseline-staleness.test.sh
       - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT) + unpushed-merge refusal paired-negative
         run: bash tests/hooks/prepush-cross-checkout-range.test.sh && bash tests/hooks/merge-unpushed-refusal.test.sh # + unpushed-merge refusal (.husky/pre-merge-commit + pre-commit MERGE_HEAD arm, 2026-09-30), same line so no citation shifts
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
@@ -746,6 +748,12 @@ jobs:
         run: bash tests/install-sh/merge-fenced-splice-failure.test.sh
       - name: Run install-sh stale-tmp / unconditional-success test (ledger #1597 A1-9)
         run: bash tests/install-sh/stale-tmp-unconditional-success.test.sh
+      - name: Run canonical consumer payload and upgrade tests
+        run: bash tests/install-sh/canonical-bindings.test.sh
+      - name: Run native compatibility link containment tests
+        run: bash tests/install-sh/canonical-link-containment.test.sh
+      - name: Run canonical package link and index tests
+        run: bash tests/consumer-matrix/getff-dist-canonical-links.test.sh
       - name: Run install-sh hook-event-move test (per-prompt injections moved to SessionStart)
         run: bash tests/install-sh/hook-event-move.test.sh
       - name: Run install-sh inject-matching-rule registration test (trigger build slice 1 — three arms, legacy widening)
@@ -1821,7 +1829,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/lib.sh:3022-3031, merge_canonical_scripts) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:3093-3102, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`

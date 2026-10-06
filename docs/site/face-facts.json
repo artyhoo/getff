@@ -339,7 +339,7 @@
       "B": {
         "familyName": "skills",
         "path": "docs/site/reference/B.json",
-        "members": 18
+        "members": 21
       },
       "C": {
         "familyName": "agents",
@@ -397,12 +397,12 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 313
+      "count": 314
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 284
+      "count": 285
     },
     "specs": {
       "source": "docs/superpowers/specs/",

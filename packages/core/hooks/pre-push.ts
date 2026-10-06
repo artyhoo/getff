@@ -439,7 +439,7 @@ function priorArtSection(rb: ResolvedBase): void {
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
         'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
         'A positive line must also name a resolvable referent — an SSOT row\n' +
-        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' + // cite:historical example data, not a live pointer
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:394), or an\n' +
         'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
@@ -1696,15 +1696,22 @@ function shippedRuleDriftSection(ctx: SectionCtx): void {
 // `--check` restricted to this push's diff, and it is the only part of `--check`
 // this push can have broken.
 //
-// Arm B — baseline staleness by PRE-IMAGE hash membership. The installer copies
-// most payload files verbatim, so the bytes a fingerprint recorded are the bytes
-// the repo held at the base commit. If sha256 of `<base>:<path>` still appears in
-// any fingerprint, that fingerprint records content this push replaced. Membership
-// is by hash, not by path, precisely because source path and consumer destination
-// differ (`templates/…` → `.ai-factory/…`). Files the installer TRANSFORMS never
-// match and are silently out of arm B's reach — the CI snapshot cell stays their
-// gate, which is a deterministic channel, not attention
-// (.claude/rules/attention-is-not-a-mechanism.md §1).
+// Arm B — baseline staleness by PRE-IMAGE hash, with a path-aware stale
+// verdict. The installer copies most payload files verbatim, so the bytes a
+// fingerprint recorded are the bytes the repo held at the base commit. A push
+// demands re-capture only where it replaced bytes the baselines still describe:
+// the changed path's OWN row records the pre-image and its resolved bytes moved
+// on, or NO recorded home still carries the pre-image. Membership stays by hash
+// — source path and consumer destination differ (`templates/…` →
+// `.ai-factory/…`) — but flat membership alone flagged two dead-end classes on
+// the agents-canonical branch (measured 2026-10-06): byte-identical re-homes
+// (61 paths — the old path became a link to the identical canonical file) and
+// compatibility entries left at re-homed paths (10 more — frontmatter + pointer
+// stub while the canonical row keeps the old bytes). In both, every recorded
+// home still carries the recorded bytes, so re-capture rewrites the same
+// fingerprint and the flag could never clear. Files the installer TRANSFORMS
+// still never match and remain the CI snapshot cell's gate — a deterministic
+// channel, not attention (.claude/rules/attention-is-not-a-mechanism.md §1).
 //
 // Fingerprints are read at HEAD: a push that also re-captures them has already
 // removed the old hash, so re-blessing needs no escape token.
@@ -1822,7 +1829,7 @@ function payloadDriftSection(ctx: SectionCtx): void {
   // ── arm B ──
   let fingerprints = 0;
   if (hasBaselines) {
-    const recorded = new Set<string>();
+    const recordedHomes = new Map<string, string[]>();
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
         const abs = `${dir}/${name}`;
@@ -1833,13 +1840,67 @@ function payloadDriftSection(ctx: SectionCtx): void {
         if (!name.endsWith('.fingerprint')) continue;
         fingerprints += 1;
         for (const line of readFileSync(abs, 'utf8').split('\n')) {
-          const m = /^([0-9a-f]{64})\s/.exec(line.trim());
-          if (m?.[1]) recorded.add(m[1]);
+          const m = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
+          if (m?.[1] && m[2]) {
+            const homes = recordedHomes.get(m[1]);
+            if (homes) homes.push(m[2]);
+            else recordedHomes.set(m[1], [m[2]]);
+          }
         }
       }
     };
     walk(baselineDir);
 
+    const hashAt = (p: string): string | undefined => {
+      try {
+        return sha256Bytes(readFileSync(resolve(REPO_ROOT, p)));
+      } catch {
+        return undefined; // absent/unreadable in the worktree
+      }
+    };
+    // The installer's source mapping can deliver a slug from a sibling variant
+    // directory (procedure_source's owner step: tool-bootstrapping installs from
+    // .agents/procedures/tool-bootstrapping-consumer/), so the bytes a row
+    // describes may live in-repo at a path OTHER than the recorded consumer
+    // destination. When the recorded homes all miss, fall back to a hash index
+    // of the delivery payload tree — the same tree a consumer install copies
+    // from. Scoped to the payload (not the whole repo) so a random duplicate
+    // elsewhere can never mask a genuinely stale row. Built lazily: only a
+    // foreign-row candidate that failed the homes probe pays the walk.
+    let payloadHashes: Set<string> | undefined;
+    const payloadCarries = (hash: string): boolean => {
+      if (!payloadHashes) {
+        payloadHashes = new Set();
+        const hashWalk = (dir: string): void => {
+          let names: string[];
+          try {
+            names = readdirSync(dir);
+          } catch {
+            return; // no payload tree in this checkout
+          }
+          for (const name of names) {
+            const abs = `${dir}/${name}`;
+            let st;
+            try {
+              st = statSync(abs);
+            } catch {
+              continue;
+            }
+            if (st.isDirectory()) {
+              hashWalk(abs);
+            } else if (st.isFile()) {
+              try {
+                payloadHashes!.add(sha256Bytes(readFileSync(abs)));
+              } catch {
+                // unreadable — cannot witness the hash either way
+              }
+            }
+          }
+        };
+        hashWalk(resolve(REPO_ROOT, 'packages/getff'));
+      }
+      return payloadHashes.has(hash);
+    };
     const stale: string[] = [];
     for (const { status, path } of changes) {
       if (status === 'A') continue; // no pre-image to have been installed
@@ -1847,7 +1908,24 @@ function payloadDriftSection(ctx: SectionCtx): void {
         maxBuffer: 64 * 1024 * 1024,
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) stale.push(`  ${path}`);
+      const preHash = sha256Bytes(show.stdout);
+      const homes = recordedHomes.get(preHash);
+      if (!homes) continue;
+      // Stale only where re-capture would REWRITE a row. Own row records the
+      // pre-image: stale iff this path's resolved bytes moved on. Hash lives
+      // only under OTHER rows (re-home / compatibility-entry / consumer-split
+      // class): stale iff no recorded home AND no delivery-payload file still
+      // carries the bytes — conservative for the transformed-delivery class,
+      // whose output exists only at install time.
+      if (homes.includes(path)) {
+        if (hashAt(path) === preHash) continue; // row still accurate
+      } else if (
+        homes.some((p) => hashAt(p) === preHash) ||
+        payloadCarries(preHash)
+      ) {
+        continue; // the bytes live on in the delivery — install output unchanged
+      }
+      stale.push(`  ${path}`);
     }
     if (stale.length)
       die(
@@ -2471,7 +2549,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:286-288).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:321-323).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
@@ -2494,7 +2572,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:388 / install.sh --refresh (conditional starter)
+  '.agents/session-bootstrap.md', // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
 ];
 
 /**
@@ -2513,6 +2591,12 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
  */
 export const SHIPPED_MD_PREFIXES: readonly string[] = [
   '.ai-factory/skill-context/',
+  // agents-canonical canonical namespaces (2026-10-05 migration): the common tree the
+  // installer delivers and binds native entries against. Everything under them is
+  // framework-authored; a consumer's own content lives outside .agents/.
+  '.agents/procedures/',
+  '.agents/roles/',
+  '.agents/skills/',
 ];
 
 /**
@@ -2558,7 +2642,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:833-891) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:868-926) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2605,7 +2689,7 @@ export function isFrameworkShippedMarkdown(
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
 // (24-plugin-manifest-integrity.test.ts) compares bytes, and
-// scripts/generate-plugin-twins.sh:204-206 states the agent arm is a bare `cp`:
+// scripts/generate-plugin-twins.sh:237-239 states the agent arm is a bare `cp`:
 // "No header, no marker, no transform".
 //
 // The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
@@ -2620,7 +2704,7 @@ export function isFrameworkShippedMarkdown(
 // same section; (b) a twin can never legitimately carry content its source does not —
 // principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
 // that matches neither the source nor that source at HEAD
-// (generate-plugin-twins.sh:227-248). So the twin's link text is always some source's
+// (generate-plugin-twins.sh:260-281). So the twin's link text is always some source's
 // link text, checked at the source path.
 //
 // (c) — added 2026-09-06 (#1597 ledger L-3), because (a)+(b) covered only the link's
@@ -2649,7 +2733,7 @@ export function isFrameworkShippedMarkdown(
 //
 // Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
 // (below), so lychee would resolve them at both depths — but `transform_internal_refs`
-// (setup.d/lib.sh:149-165) only matches `](../…)`, so a root-relative ref would ship
+// (setup.d/lib.sh:179-195) only matches `](../…)`, so a root-relative ref would ship
 // VERBATIM into consumer projects and dangle there. It fixes the gate and keeps the
 // defect.
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';

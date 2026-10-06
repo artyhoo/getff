@@ -35,7 +35,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/delta-diff.sh',
+  '.agents/procedures/pipeline/helpers/delta-diff.sh',
 );
 
 const sandboxes: string[] = [];

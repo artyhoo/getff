@@ -143,15 +143,50 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth
 # fixture covers every shipped *.md, so the next unshipped-target ref fails the gate.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
+# Resolve only a file compatibility link whose final target belongs to the
+# canonical common tree. Native consumer links to arbitrary locations stay owned
+# by the consumer; neither a Markdown transform nor a refresh writes through them.
+_canonical_link_target() {
+  local file="$1" allow_package="${2:-}" target hops=0 base project package
+  while [ -L "$file" ]; do
+    hops=$((hops + 1)); [ "$hops" -le 32 ] || return 1
+    target="$(readlink "$file")" || return 1
+    case "$target" in /*) file="$target" ;; *) file="$(dirname "$file")/$target" ;; esac
+  done
+  base="$(cd "$(dirname "$file")" 2>/dev/null && pwd -P)" || return 1
+  file="$base/$(basename "$file")"
+  project=""; package=""
+  if [ -d "${PROJECT_ROOT:-}/.agents" ]; then
+    project="$(cd "$PROJECT_ROOT" && pwd -P)/.agents"
+    case "$file" in "$project"/*) printf '%s\n' "$file"; return 0 ;; esac
+  fi
+  if [ -n "$allow_package" ] && [ -d "${PKG_ROOT:-}/.agents" ]; then
+    package="$(cd "$PKG_ROOT" && pwd -P)/.agents"
+    case "$file" in "$package"/*) printf '%s\n' "$file"; return 0 ;; esac
+  fi
+  return 1
+}
+
 transform_internal_refs() {
-  local f="$1"
+  local f="$1" resolved
   [ -f "$f" ] || return 0
+  # BSD sed -i refuses symbolic links. Follow only our in-root common aliases;
+  # an unrelated consumer link must never become an unintended write target.
+  if [ -L "$f" ]; then
+    if resolved="$(_canonical_link_target "$f" allow-package)"; then f="$resolved";
+    else echo "  ⊝ $f (external or custom compatibility link — target left unchanged)"; return 0; fi
+  fi
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/rules/#](${UPSTREAM_BLOB_URL}/.agents/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+\.agents/roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+\.agents/hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
@@ -727,7 +762,7 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1530                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1532                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1837          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
@@ -738,9 +773,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1898                appended marker blocks       → suppress-no-entry (proved)
-#   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1813          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1942                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1813          tool-decisions copy_safe       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -893,6 +928,11 @@ refresh_baseline_flush() {
 copy_safe() {
   local src="$1"
   local dst="$2"
+  if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
+    SKIPPED+=("$dst")
+    echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
+    return 0
+  fi
   # W1-A review MAJOR 1 (parity): optional 3rd arg declaring the SHAPE OF THE DELIVERED BYTES
   # for deliveries whose caller POST-PROCESSES the dst after copy_safe returns — the no-entry
   # arm of the force guard compares against the delivered bytes, and the raw src is NOT those
@@ -1195,6 +1235,10 @@ install_agents_md() {
 refresh_safe() {
   local src="$1"
   local dst="$2"
+  if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
+    echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
+    return 0
+  fi
   local exclusive="${3:-}"
   local override="${dst%.md}.override.md"
   if [ ! -e "$src" ]; then
@@ -2050,9 +2094,10 @@ ignore_shipped_configs() {
   # custom agent/skill must stay format-checked. The fresh-vs-SKIPPED guard below (now
   # dir-prefix-aware) keeps consumer-owned same-name copies checked too.
   local _src _slug
-  for _src in "$PKG_ROOT"/agents/*.md; do
+  for _src in "$(role_source_root)"/*.md; do
     [ -f "$_src" ] || continue
     candidates+=(".claude/agents/$(basename "$_src")")
+    candidates+=(".agents/roles/$(basename "$_src")" ".agents/skills/$(basename "$_src" .md)/SKILL.md")
   done
   for _src in "$PKG_ROOT"/.claude/skills/*/ "$PKG_ROOT"/skills/*/; do
     [ -d "$_src" ] || continue
@@ -2061,10 +2106,17 @@ ignore_shipped_configs() {
     while IFS= read -r _abs; do
       [ -n "$_abs" ] || continue
       candidates+=("${_abs#"$PROJECT_ROOT"/}")
+      candidates+=(".agents/procedures/$_slug/${_abs#"$PROJECT_ROOT/.claude/skills/$_slug"/}")
     done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null | LC_ALL=C sort)
     # LC_ALL=C sort: find's output order is filesystem-dependent (macOS APFS vs Linux ext4
     # return different orders) — unsorted entries made the generated .prettierignore hash
     # differ between the local snapshot capture and CI's byte-identical compare.
+  done
+  # Common delivered Markdown undergoes the same link transform as its native
+  # entries. Keep generated/vendor files outside the consumer formatter while
+  # retaining the existing per-path SKIPPED guard for consumer customizations.
+  for _slug in getff tool-bootstrapping $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY; do
+    candidates+=(".agents/skills/$_slug/SKILL.md")
   done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
@@ -2164,7 +2216,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3024, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3095, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2361,6 +2413,25 @@ rewrite_vitest_source_roots() {
   return 0
 }
 
+# Canonical procedure sources. The consumer bootstrapping procedure deliberately
+# retains its public native name while differing from contributor bootstrapping.
+procedure_source() {
+  local slug="$1" owner="$1"
+  [ "$slug" != "tool-bootstrapping" ] || owner="tool-bootstrapping-consumer"
+  if [ -d "$PKG_ROOT/.agents/procedures/$owner" ]; then
+    printf '%s\n' "$PKG_ROOT/.agents/procedures/$owner"
+  elif [ "$slug" = "getff" ] || [ "$slug" = "tool-bootstrapping" ]; then
+    printf '%s\n' "$PKG_ROOT/skills/$slug"
+  else
+    printf '%s\n' "$PKG_ROOT/.claude/skills/$slug"
+  fi
+}
+
+role_source_root() {
+  if [ -d "$PKG_ROOT/.agents/roles" ]; then printf '%s\n' "$PKG_ROOT/.agents/roles";
+  else printf '%s\n' "$PKG_ROOT/agents"; fi
+}
+
 # copy_skill_with_transform <skill-slug>
 # Copies .claude/skills/<slug>/ to the consumer and rewrites repo-internal markdown
 # cross-refs to GitHub blob URLs (transform_internal_refs). Used for pipeline + its
@@ -2369,7 +2440,7 @@ rewrite_vitest_source_roots() {
 # Honors --force (skip-if-exists default) and --dry-run, matching copy_safe semantics.
 copy_skill_with_transform() {
   local slug="$1"
-  local src="$PKG_ROOT/.claude/skills/$slug"
+  local src; src="$(procedure_source "$slug")"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
     SKIPPED+=("$dst")
@@ -2403,7 +2474,7 @@ copy_skill_with_transform() {
 # .claude/skills/pipeline.override.md signals consumer-owned pipeline skill).
 refresh_skill_with_transform() {
   local slug="$1"
-  local src="$PKG_ROOT/.claude/skills/$slug"
+  local src; src="$(procedure_source "$slug")"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   local override="${dst}.override.md"
   [ -d "$src" ] || return 0
@@ -4837,3 +4908,8 @@ getff_dep_names() {
 if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
   return 0 2>/dev/null || true
 fi
+
+GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.claude/hooks"
+[ ! -d "${PKG_ROOT:-.}/.agents/hooks" ] || GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.agents/hooks"
+
+source "${BASH_SOURCE[0]%/*}/portable-bindings.sh"

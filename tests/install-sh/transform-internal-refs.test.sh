@@ -2,7 +2,7 @@
 # Behaviour test for install.sh:transform_internal_refs() (sed-rewrites repo-internal
 # markdown links to GitHub blob URLs at install time).
 #
-# Single source of truth: setup.d/lib.sh:146-167, via install.sh — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
+# Single source of truth: setup.d/lib.sh:170-191, via install.sh — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
 # so the function definition is available without running the install pipeline.
 #
 # Sub-tests covering the transform classes + idempotency:

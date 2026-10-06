@@ -35,7 +35,7 @@ echo ""
 
 # ── Extract the REAL compute_fingerprint (anchored function block; refuses an empty extraction) ────
 FN_SRC=$(sed -n '/^compute_fingerprint()/,/^}/p' "$SNAPSHOT")
-if [ -z "$FN_SRC" ] || ! grep -q 'find "\$dir" -type f' <<<"$FN_SRC"; then
+if [ -z "$FN_SRC" ] || ! grep -q 'find "\$dir"' <<<"$FN_SRC" || ! grep -q -- '-type l' <<<"$FN_SRC"; then
   bad "could not extract compute_fingerprint from snapshot.sh (anchor moved?) — fix the extraction, do not skip"
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
 fi
@@ -109,6 +109,40 @@ FP_BROAD_2=$(compute_fingerprint_broadened "$P")
 [ "$BASE_FP_BROAD" = "$FP_BROAD_2" ] \
   && ok "(3) glob-wide '*/.getff/*' exclusion swallows delivered-rule drift entirely (fingerprints equal across mutations) — exactly the drift-mask C3 forbids" \
   || bad "(3) broadened exclusion did NOT swallow the mutation — discriminator fixture is broken"
+
+# ── Native compatibility link identity (canonical storage migration) ──────────────────────────
+# Fingerprint the link itself, including broken/external links, without reading
+# target bytes. Equal-content target swaps must still move native delivery state.
+L=$(mktemp -d)
+mkdir -p "$L/.agents/procedures" "$L/.claude/skills/demo"
+printf 'identical common body\n' > "$L/.agents/procedures/one.md"
+cp "$L/.agents/procedures/one.md" "$L/.agents/procedures/two.md"
+LINK_BASE=$(compute_fingerprint "$L")
+ln -s '../../../.agents/procedures/one.md' "$L/.claude/skills/demo/SKILL.md"
+LINK_FIRST=$(compute_fingerprint "$L")
+[ "$LINK_BASE" != "$LINK_FIRST" ] \
+  && ok "(5) adding a native compatibility link MOVES the fingerprint" \
+  || bad "(5) native link addition was invisible to the fingerprint"
+rm "$L/.claude/skills/demo/SKILL.md"
+ln -s '../../../.agents/procedures/two.md' "$L/.claude/skills/demo/SKILL.md"
+LINK_SECOND=$(compute_fingerprint "$L")
+[ "$LINK_FIRST" != "$LINK_SECOND" ] \
+  && ok "(5) equal-byte target swap MOVES the fingerprint (link identity is covered)" \
+  || bad "(5) equal-byte native target swap was swallowed"
+# Targets outside the consumer remain opaque. Only their link identity is recorded.
+EXTERNAL=$(mktemp)
+printf 'external version one\n' > "$EXTERNAL"
+ln -s "$EXTERNAL" "$L/external.md"
+EXTERNAL_FIRST=$(compute_fingerprint "$L")
+printf 'external version two\n' > "$EXTERNAL"
+[ "$(compute_fingerprint "$L")" = "$EXTERNAL_FIRST" ] \
+  && ok "(6) external target bytes are NOT read or fingerprinted" \
+  || bad "(6) fingerprint followed a native link outside the consumer"
+ln -s 'absent-source.md' "$L/broken.md"
+[ "$(compute_fingerprint "$L")" != "$EXTERNAL_FIRST" ] \
+  && ok "(6) broken link identity is recorded (missing targets are not skipped)" \
+  || bad "(6) broken native entry was invisible"
+rm -rf "$L"; rm -f "$EXTERNAL"
 
 # ── (4) sentinel: real exclusions are literal filenames; the sole glob is '*.tmp' and it is inert ──
 # The honest narrow finding (recon C3): '-not -name *.tmp' (snapshot.sh) is the single glob-wide

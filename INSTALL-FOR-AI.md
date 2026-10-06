@@ -9,6 +9,14 @@
 
 ---
 
+
+The framework authors portable procedures in `.agents/procedures/`, role prompts in
+`.agents/roles/`, rules in `.agents/rules/`, and checks in `.agents/hooks/`.
+The `.claude` entries and root `skills/` and `agents/` paths are compatibility
+surfaces; edit the canonical owner. `tool-bootstrapping` is the contributor
+procedure; `tool-bootstrapping-consumer` owns the separately authored consumer
+workflow delivered under the native `tool-bootstrapping` name.
+
 ## Step 0 — Get the framework
 
 ```bash
@@ -74,7 +82,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
    - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
-   - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
+   - `.claude/skills/` — 9 dirs at the default `env` depth: the 4-dir core set — ai-doc, rule-research, rule-tests, template-audit — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
 <!-- getff:end section=install-roster -->
      (Roster caveats, hand-maintained outside the generated section: best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all; `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below)
    - .ai-factory/tier-home.md — the tier-routing criteria (env+ only; absent at `--profile core`)

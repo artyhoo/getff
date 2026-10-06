@@ -1,7 +1,7 @@
 /**
  * Principle 18 — meta-orchestrator output-format structural check
  *
- * Source: .claude/skills/pipeline/SKILL.md §10 + references/output-format.md
+ * Source: .agents/procedures/pipeline/SKILL.md §10 + references/output-format.md
  *         docs/meta-factory/research-patches/2026-05-24-meta-orchestrator-refactor-f3-scope.md §1.5 Item 8
  *
  * Invariant: the /pipeline slash-command emits a 3-layer inline session
@@ -11,15 +11,15 @@
  * SKILL.md would exceed 500-line gate).
  *
  * **2026-05-25 update (Item 12 closure):** consumer mirror at `skills/pipeline/`
- * was deleted; install.sh now ships from authoring `.claude/skills/pipeline/`
+ * was deleted; install.sh now ships from authoring `.agents/procedures/pipeline/`
  * directly (single source of truth per `.claude/rules/dual-implementation-discipline.md §7`).
  * The two mirror SURFACES entries were removed because the files no longer exist —
  * keeping them would assert against a structure that the project intentionally
  * abandoned. The remaining authoring surfaces still enforce the structural invariant.
  *
  * Mechanical check: for each of the 2 surface files
- *   - .claude/skills/pipeline/SKILL.md §10
- *   - .claude/skills/pipeline/references/output-format.md
+ *   - .agents/procedures/pipeline/SKILL.md §10
+ *   - .agents/procedures/pipeline/references/output-format.md
  * assert the 6 required substrings appear:
  *   (1) '## Dependency graph'
  *   (2) '↓'                       — inter-stage edge symbol
@@ -52,7 +52,7 @@
  * these families asserts a payload at all (see «What it does NOT assert» above) — what they
  * assert is that the emitter's INSTRUCTION TEXT survives a rewrite. So the predicate is
  * severity-of-loss × exposure-to-drift, and it lands differently on the two:
- *   `.claude/skills/night-mode/SKILL.md` — ASSERTED. Its emission-side invariants exist in no
+ *   `.agents/procedures/night-mode/SKILL.md` — ASSERTED. Its emission-side invariants exist in no
  *     other family, it is the one emitter that fires UNATTENDED (nobody is watching at 03:00,
  *     so a dropped restriction surfaces at 08:00 or never), and it is live: 13 commits since
  *     2026-06-01, three of them after the chip clause landed 2026-08-09 in #1346.
@@ -174,16 +174,16 @@ interface Surface {
 
 // Consumer-mirror surfaces removed 2026-05-25 (Item 12 closure): install.sh now
 // generates the consumer copy at install time from these authoring files via
-// transform_internal_refs() — see setup.d/lib.sh:146-167 + tests/install-sh/transform-internal-refs.test.sh.
+// transform_internal_refs() — see setup.d/lib.sh:170-191 + tests/install-sh/transform-internal-refs.test.sh.
 const SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10',
-    path: '.claude/skills/pipeline/SKILL.md',
+    path: '.agents/procedures/pipeline/SKILL.md',
     scope: 'section-10',
   },
   {
     label: 'authoring references/output-format.md',
-    path: '.claude/skills/pipeline/references/output-format.md',
+    path: '.agents/procedures/pipeline/references/output-format.md',
     scope: 'whole-file',
   },
 ];
@@ -237,17 +237,17 @@ function checkSurface(
 const CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10 (chip emission clause)',
-    path: '.claude/skills/pipeline/SKILL.md',
+    path: '.agents/procedures/pipeline/SKILL.md',
     scope: 'section-10',
   },
   {
     label: 'authoring references/output-format.md §9 (chip contract)',
-    path: '.claude/skills/pipeline/references/output-format.md',
+    path: '.agents/procedures/pipeline/references/output-format.md',
     scope: 'whole-file',
   },
   {
     label: 'authoring arch/SKILL.md §3 (exit-chip emission clause)',
-    path: '.claude/skills/arch/SKILL.md',
+    path: '.agents/procedures/arch/SKILL.md',
     scope: 'whole-file',
   },
 ];
@@ -257,7 +257,7 @@ const CHIP_SURFACES: readonly Surface[] = [
 const PARK_CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring dispatcher/SKILL.md §3 (park-chip contract + decision-session protocol)',
-    path: '.claude/skills/dispatcher/SKILL.md',
+    path: '.agents/procedures/dispatcher/SKILL.md',
     scope: 'whole-file',
   },
 ];
@@ -269,7 +269,7 @@ const PARK_CHIP_SURFACES: readonly Surface[] = [
 const NIGHT_CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring night-mode/SKILL.md (night-end chip, terminal-retirement clause)',
-    path: '.claude/skills/night-mode/SKILL.md',
+    path: '.agents/procedures/night-mode/SKILL.md',
     scope: 'whole-file',
   },
 ];
@@ -480,7 +480,7 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
   });
 
   it('RU lang pack carries the Russian emitted tokens (operator contract)', () => {
-    const ru = readFileSync(resolve(REPO_ROOT, '.claude/skills/pipeline/lang/ru.sh'), 'utf8');
+    const ru = readFileSync(resolve(REPO_ROOT, '.agents/procedures/pipeline/lang/ru.sh'), 'utf8');
     expect(ru).toContain('Paste в новый CC tab');
     expect(ru).toContain('Можно параллельно с');
     expect(ru).toContain('## 🟢 Простыми словами');

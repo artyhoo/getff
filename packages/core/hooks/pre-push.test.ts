@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   SECTIONS,
@@ -259,7 +259,7 @@ describe('isFrameworkShippedMarkdown — shipped, not "everything under .claude/
  * because the SHIPPED_SKILL_SLUGS gate above learned the lesson the hard way — #1624
  * replaced 10-skills.sh's `cp -r` with _copy_tree_with_transform and a verb-shaped regex
  * went stale within hours. A path-shape scan of setup.d would also have to distinguish
- * DELIVERIES from mere READS of the same path (install.sh:758-776 probes
+ * DELIVERIES from mere READS of the same path (install.sh:760-778 probes
  * `.ai-factory/RULES.react-next.md` to detect the stack; eslint-wire.sh:66 reads
  * tool-decisions.md), and getting that wrong in the read direction would manufacture a
  * row for a consumer-authored path — the over-reach half of this very finding.
@@ -281,6 +281,19 @@ describe('shipped-markdown classifier — drift gate against the install fingerp
           resolve(root, stack.name, fp),
           'utf8',
         ).split('\n')) {
+          // "link  <native path> -> <canonical target>" — the agents-canonical bind
+          // shape records the LINK identity; the *.md content a consumer lychee walk
+          // reads through it lives at the canonical target, so classify the target
+          // (targets are stored link-relative — resolve against the link's directory).
+          const link = /^link\s{2,}(\S+) -> (\S+)$/.exec(line.trim());
+          if (link) {
+            if (/\.(md|markdown)$/.test(link[2])) {
+              out.add(
+                posix.normalize(posix.join(posix.dirname(link[1]), link[2])),
+              );
+            }
+            continue;
+          }
           // "<sha256>  <consumer-relative path>"
           const path = line.split(/\s{2,}/)[1]?.trim();
           if (path && /\.(md|markdown)$/.test(path)) out.add(path);

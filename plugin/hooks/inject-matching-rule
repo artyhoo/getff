@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
-# Plugin-relocated card loader — injects the summaries of the CONSUMER's .claude/rules/*.md and
-# of the plugin's cards/ that match an edit, a read or a Bash command. Arms: PostToolUse
-# (Edit|Write|MultiEdit, Read), PreToolUse (Bash), SessionStart (compact). Invoked via
-# run-hook.cmd from plugin/hooks/hooks.json.
+# AUTO-GENERATED from .agents/hooks/inject-matching-rule.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# inject-matching-rule.sh — card loader hook — injects the rule and card summaries that match an edit, a read or a Bash command
+# Arms: PostToolUse (Edit|Write|MultiEdit, Read), PreToolUse (Bash), SessionStart (compact).
 # @dual-pair: rule-path-scoping
-# spec: .claude/hooks/inject-matching-rule.sh   ← in-repo dogfood source (SSOT)
-#       docs/superpowers/plans/plugin-hook-triage.md §3 (path-class audit)
-#
-# RELOCATION (T-PLUG-A): this hook lives in the plugin payload (${CLAUDE_PLUGIN_ROOT}/hooks/)
-# but every path it touches is PROJECT-data — the consumer's rules and the edited file.
-# The in-repo source resolves the repo via `$(dirname "$0")/../..` (true only when the hook
-# is copied INTO the consumer repo by install.sh). As a plugin hook, $0 is in the plugin dir,
-# so we resolve the project via $CLAUDE_PROJECT_DIR (set by Claude Code), with the original
-# self-resolution kept as the fallback so one file serves both channels.
+#   Two channels deliver path-scoped rules at the same scope: CC-native `paths:` frontmatter
+#   (read-time, whole-rule) and this hook (edit-time, `inject:` summary). This hook is itself
+#   CC-only (PostToolUse); the portable contract is the `globs:` HTML-comment marker it reads —
+#   a non-CC harness can consume the same marker with its own injector. (Was @cc-only-rationale
+#   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
+# spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
+# @plugin-yield-deps: lib/hook-live.sh
+#   Only lib/hook-live.sh (the D12 liveness prelude): dirname "$0" below only re-derives REPO_ROOT
+#   (this repo's project root) and the card directory beside the hook — every other read is a
+#   $REPO_ROOT/-prefixed project path.
 #
 # Mechanism: a CARD is a markdown file — a project rule in $RULES_DIR, or a base-core card in
-# $CARDS_DIR — ${CLAUDE_PLUGIN_ROOT}/cards on the plugin channel (trigger build, slice 1, S-2).
-# Its triggers: the `paths:` frontmatter and the `<!-- globs: ... -->` marker (a union, S-3),
-# `on: read`, and `events:` (extended regexes over a Bash command, S-5). One script serves
-# every arm; the arm is read from the payload (`hook_event_name` + `tool_name`), because the
-# plugin command form `run-hook.cmd <name>` carries no argument
-# (scripts/render-harness-config.mjs emitPlugin):
+# $CARDS_DIR beside the hook (trigger build, slice 1, S-2). Its triggers: the `paths:`
+# frontmatter and the `<!-- globs: ... -->` marker (a union, S-3), `on: read`, and `events:`
+# (extended regexes over a Bash command, S-5). One script serves every arm; the arm is read
+# from the payload (`hook_event_name` + `tool_name`), because the plugin command form
+# `run-hook.cmd <name>` carries no argument (scripts/render-harness-config.mjs emitPlugin):
 #   PostToolUse Edit|Write|MultiEdit — cards whose globs match the edited path;
 #   PostToolUse Read                  — the same, restricted to cards declaring `on: read`;
 #   PreToolUse Bash                   — cards whose `events:` regex matches tool_input.command;
@@ -42,8 +41,8 @@
 # `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
 # empty alternative makes the group optional (`*.ts{,x}`; macOS regcomp rejects `(|x)`). Every
 # other regex metacharacter is literal, `|` included (picomatch reads a bare `|` as
-# alternation). A glob with no `/` matches at any depth (`*.sh` matches `setup.d/lib.sh` — the
-# pre-slice-1 behaviour, kept; native Claude Code agrees, live probe 2026-09-29). Not
+# alternation). A glob with no `/` matches at any depth, exact names too (`package.json` matches
+# `sub/package.json`; before slice 1 only `*.ext` did); native Claude Code agrees, probes 2026-09-29. Not
 # supported: `[...]` classes (literal) and nested braces.
 #
 # Frontmatter (a YAML subset): `key: value`, `key: [a, b]`, or a `- item` block list under
@@ -53,22 +52,48 @@
 # `events:` values are POSIX extended regexes run by bash `=~` — portable ones only: macOS
 # has no `\b`, `\s`, `\d`, and rejects an empty alternative such as `(|x)`.
 #
-# Honest no-op (kickoff S6 §1/§2): when the CONSUMER has NO rules corpus (RULES_DIR missing
+# Honest no-op (kickoff S6 §1/§2): when the consumer has NO rules corpus (RULES_DIR missing
 # OR contains zero .md files), the hook reports ONCE per session loudly, then stays quiet
 # for the rest of the session. Never a permanent silent no-op; never per-invocation spam.
 # Precedent for the once-per-session shape: this hook's own once-cache below +
 # deps-hash-check.sh — same ${TMPDIR:-/tmp}/cc-…-${SESSION} convention. A card directory
 # with cards counts as a corpus.
 #
-# Plugin twin of .claude/hooks/inject-matching-rule.sh — plugin/hooks/run-hook.cmd reads this
-# line to keep the plugin copy silent where the project runs its own copy.
+# SHIP status (GH #934, claim corrected by GH #1520): the HOOK ships and is registered in
+# consumer projects (first install: setup.d/10-skills.sh §1e below; brownfield refresh:
+# install.sh --refresh, the `refresh_safe "$_IMR_SRC" "$_IMR_DST"` arm in install.sh). The `.claude/rules/`
+# CORPUS it reads does NOT ship — it is consumer-owned project data: delivery ships zero
+# rules/ lines, and setup.d/lib.sh:89-90 (transform_internal_refs) records exactly that
+# non-delivery when rewriting relative rules/ links; the plugin twin
+# (plugin/hooks/inject-matching-rule) has always carried this corrected model. The former
+# SHIP-status claim that the rules corpus reaches consumers was inherited unverified from
+# #934's draft classification table via PR #1004 — never measured against the install
+# manifest — and is retracted (2026-09-15, #1520 option B). Without a consumer-authored
+# corpus this hook is a facility awaiting input: it reports ONCE per session (above) and
+# otherwise no-ops by design. Consumer-safe: the only runtime path is the consumer's own $RULES_DIR
+# (no framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
 set -uo pipefail
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-matching-rule || true; fi
+
+# @plugin-transform: identity — canonical implementation includes native output and path adaptation.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}}"
 # RULES_DIR_OVERRIDE: test seam (kickoff S6 §2 planner decision 2 — option (a) env-var over
 # option (b) sandbox copy). Only the test sets it; runtime consumers see the resolved default.
-RULES_DIR="${RULES_DIR_OVERRIDE:-$REPO_ROOT/.claude/rules}"
+_rules_default="$REPO_ROOT/.agents/rules"
+[[ -d "$_rules_default" ]] || _rules_default="$REPO_ROOT/.claude/rules"
+RULES_DIR="${RULES_DIR_OVERRIDE:-$_rules_default}"
 # CARDS_DIR_OVERRIDE: the same test seam for the base-core card directory (S-2).
-CARDS_DIR="${CARDS_DIR_OVERRIDE:-${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/cards}"
+_cards_default="$(cd "$(dirname "$0")" && pwd)/getff-cards"
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  _cards_default="$CLAUDE_PLUGIN_ROOT/cards"
+elif [ ! -d "$_cards_default" ] && [ -d "$(dirname "$0")/../cards" ]; then
+  _cards_default="$(cd "$(dirname "$0")/../cards" && pwd)"
+fi
+CARDS_DIR="${CARDS_DIR_OVERRIDE:-$_cards_default}"
 CARD_LIMIT=1000   # bytes of card body (S-8)
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
@@ -342,7 +367,7 @@ while IFS= read -r card; do
   if [[ -n "$C_DEPTH" ]]; then
     pointer=" (see $(printf '%s' "$C_DEPTH" | sed '/^$/d' | paste -sd ',' - | sed 's/,/, /g'))"
   elif [[ "$entry" == rule-* ]]; then
-    pointer=" (see .claude/rules/${slug}.md)"
+    pointer=" (see ${RULES_DIR#"$REPO_ROOT/"}/${slug}.md)"
   fi
   INJECTED="${INJECTED}📎 ${LABEL} — ${summary}${pointer}"$'\n'
 done <<< "$CANDIDATES"

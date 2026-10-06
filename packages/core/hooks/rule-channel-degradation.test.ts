@@ -74,7 +74,7 @@ function sandbox(): string {
   // to the real tree's. computeMatrix()'s file lookup tries `git ls-files` first and
   // falls back to plain readdirSync when git is unavailable (no .git dir in this
   // tmpdir) — so a verbatim file copy, without `git init`, is sufficient here.
-  const rulesDir = join(REPO_ROOT, '.claude/rules');
+  const rulesDir = join(REPO_ROOT, '.agents/rules');
   for (const f of readdirSync(rulesDir)) {
     if (f.endsWith('.md')) copyFileSync(join(rulesDir, f), join(dir, '.claude/rules', f));
   }

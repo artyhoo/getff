@@ -57,6 +57,13 @@ export const DOWNSTREAM_DOCS: readonly string[] = [
   // enrolled and D3 checks the phrase directly.
   'docs/site/reference/D/inject-session-bootstrap.md',
   'docs/site/reference/D/inject-subagent-digest.md',
+  // Canonical-migration owners (agents-canonical-completion): the authored files now
+  // live under .agents/ and the .claude/ paths above are symlinks to them. D5 walks
+  // the tree and flags the real owner bytes, so each canonical owner is enrolled
+  // beside its legacy symlink path.
+  '.agents/session-bootstrap.md',
+  '.agents/hooks/inject-session-bootstrap.sh',
+  '.agents/procedures/orchestrator/references/worker-template.md',
 ];
 
 /**

@@ -386,7 +386,7 @@ gate_table() {
   #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1229) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1231) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
@@ -443,6 +443,7 @@ gate_table() {
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
+    "3${TAB}getff-dist-canonical-links${TAB}$(getff_payload_trigger),tests/consumer-matrix/getff-dist-canonical-links.test.sh${TAB}bash tests/consumer-matrix/getff-dist-canonical-links.test.sh" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}$(getff_payload_trigger),tests/install-sh/${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \

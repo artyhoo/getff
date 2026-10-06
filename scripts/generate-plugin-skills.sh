@@ -10,7 +10,7 @@
 #   byte-copy             — verbatim tree copy (frontmatter stays byte-verbatim; NO header
 #                          is ever injected: SKILL.md frontmatter must open on line 1).
 #   transform             — copy + `transform_internal_refs` (the 15 sed arms mirrored from
-#                          setup.d/lib.sh:146-167, rewriting repo-internal links to blob URLs).
+#                          setup.d/lib.sh:170-191, rewriting repo-internal links to blob URLs).
 #   transform+textstrip   — transform + a 16th, link-TEXT-scoped arm stripping the `../`
 #                          ladder from link TEXT (the shape today's plugin/skills/getff
 #                          hand-copy carries; Stage 0 probe B proved byte-identity — see
@@ -59,7 +59,7 @@
 #      tiers (g)/(h)) guards payload drift and link form population-wide.
 #
 # Transform parity obligation: the arm block below is a DELIBERATE mirror of
-# setup.d/lib.sh:150-164 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
+# setup.d/lib.sh:180-194 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
 # «No installer changes» blocks sourcing or extracting lib.sh). The two arm sets are held
 # equal by tests/plugin/skills-generation.test.sh, which extracts both blocks and diffs them;
 # edit them only in pairs. UPSTREAM_BLOB_URL default must match setup.d/lib.sh:49.
@@ -85,16 +85,19 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # (plugin/README.md + spec 2026-06-22:111 + decisions ledger — supersession notes landed with
 # this change; operator GO 2026-09-11, kickoff §0/§7).
 ENTRY_TABLE=(
-  "getff|skills|transform+textstrip"
-  "tool-bootstrapping|skills|byte-copy"
-  "ai-doc|claude-skills|transform"
-  "rule-research|claude-skills|transform"
-  "rule-tests|claude-skills|transform"
-  "template-audit|claude-skills|transform"
+  "getff|procedures|transform+textstrip"
+  "tool-bootstrapping|consumer-procedures|transform"
+  "ai-doc|procedures|transform"
+  "rule-research|procedures|transform"
+  "rule-tests|procedures|transform"
+  "template-audit|procedures|transform"
+  "using-getff|procedures|transform"
+  "installing-enforcement|procedures|transform"
 )
 
 population_dir() {
   case "$1" in
+    procedures|consumer-procedures) printf '%s/.agents/procedures' "$REPO_ROOT" ;;
     skills)        printf '%s/skills' "$REPO_ROOT" ;;
     claude-skills) printf '%s/.claude/skills' "$REPO_ROOT" ;;
     *) return 1 ;;
@@ -109,14 +112,14 @@ population_dir() {
 # frozen by this generator (byte-copy from skills/), so plugin-side rot via the fork is no
 # longer representable. Never silently delete the hand-fork (kickoff Stage 1 item 5).
 
-# ── Transform (parity-guarded mirror of setup.d/lib.sh:146-167 + the 16th arm) ──────
+# ── Transform (parity-guarded mirror of setup.d/lib.sh:170-191 + the 16th arm) ──────
 # BEGIN TRANSFORM ARMS (parity-extracted by tests/plugin/skills-generation.test.sh; edit in
 # pairs with setup.d/lib.sh transform_internal_refs)
 transform_one_file() {
   local f="$1"
   [ -f "$f" ] || return 0
   # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
-  # as the mirrored setup.d/lib.sh:149 (bare `-i` is GNU-only). Portable so the script behaves
+  # as the mirrored setup.d/lib.sh:179 (bare `-i` is GNU-only). Portable so the script behaves
   # identically wherever it runs — the pre-commit arm on a developer machine and CI (see
   # «Enforcement channels» in the header).
   sed -E -i.bak \
@@ -125,6 +128,11 @@ transform_one_file() {
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/rules/#](${UPSTREAM_BLOB_URL}/.agents/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+\.agents/roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+\.agents/hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
@@ -188,6 +196,16 @@ marker_rationale() {
 guard_tree_clobber() {
   local src_dir="$1" dst_dir="$2" mode="$3" name="$4"
   local src_rel="${src_dir#"$REPO_ROOT"/}"
+  local previous_mode="$mode"
+  if ! git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null && [[ "$src_rel" == .agents/procedures/* ]]; then
+    local source_name="${src_rel##*/}"
+    case "$source_name" in
+      getff) src_rel="skills/getff" ;;
+      tool-bootstrapping-consumer) src_rel="skills/tool-bootstrapping"; previous_mode=byte-copy ;;
+      using-getff|installing-enforcement) src_rel="plugin/skills/$source_name"; previous_mode=byte-copy ;;
+      *) src_rel=".claude/skills/$source_name" ;;
+    esac
+  fi
   local have_head=0
   if git -C "$REPO_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 \
      && git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null; then
@@ -218,7 +236,7 @@ guard_tree_clobber() {
       local head_src_file
       head_src_file=$(mktemp)
       if git -C "$REPO_ROOT" show "HEAD:$src_rel/$rel" > "$head_src_file" 2>/dev/null \
-         && cmp -s <(render_one "$head_src_file" "$mode") "$dst_file"; then
+         && cmp -s <(render_one "$head_src_file" "$previous_mode") "$dst_file"; then
         rm -f "$head_src_file"
         continue  # stale payload — the normal case this generator exists to fix
       fi
@@ -265,7 +283,9 @@ for entry in "${ENTRY_TABLE[@]}"; do
     *) echo "[ERROR] generate-plugin-skills: $name — unknown derivation mode: $mode" >&2; exit 2 ;;
   esac
 
-  src_dir="$(population_dir "$pop")/$name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
+  source_name="$name"
+  [ "$pop" != "consumer-procedures" ] || source_name="tool-bootstrapping-consumer"
+  src_dir="$(population_dir "$pop")/$source_name" || { echo "[ERROR] unknown population: $pop" >&2; exit 1; }
   if [ ! -d "$src_dir" ]; then
     echo "[ERROR] generate-plugin-skills: $name — source population missing: $src_dir" >&2
     exit 1

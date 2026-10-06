@@ -153,7 +153,7 @@ set, the plugin's copy always runs.
   maintainer-only inject-session-bootstrap.sh — it emits ONLY the language signal (never
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
-  `.claude/hooks/inject-session-bootstrap.sh:120-128`.
+  `.claude/hooks/inject-session-bootstrap.sh:116-124`.
 - Registration: `plugin/hooks/hooks.json:188` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   SessionStart with the matcher `startup|resume|clear|compact`; an install registers the
@@ -161,13 +161,13 @@ set, the plugin's copy always runs.
   per-prompt registration an older install left behind. The framework's own settings file
   has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
-- The twin is hand-maintained: line 31 of the source reads `# @plugin-transform: manual`,
-  and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
-  .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
-  naming the extensionless filename and the inline zcode adapter as the two deltas.
+- The twin is generated, not hand-maintained: line 40 of the source reads
+  `# @plugin-transform: identity — canonical implementation includes native output and path adaptation`,
+  and line 2 of `plugin/hooks/inject-output-language` is the generator's
+  `# AUTO-GENERATED from .agents/hooks/inject-output-language.sh — do not edit` header.
 - Silent in two modes, not one: the plugin file's line 2 names its source
-  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
-  declares `# @plugin-yields-to: inject-session-bootstrap`. **Source mode**
+  (`# AUTO-GENERATED from .agents/hooks/inject-output-language.sh — do not edit …`), and
+  source line 19 declares `# @plugin-yields-to: inject-session-bootstrap`. **Source mode**
   (`plugin/hooks/run-hook.cmd:218`, `[ "$_yield_mode" = source ] && exit 0`): the project is
   the plugin's own source checkout — it ships `plugin/.claude-plugin/plugin.json` under the
   same plugin name as `plugin/hooks/inject-output-language`, and its `.claude/settings.json`

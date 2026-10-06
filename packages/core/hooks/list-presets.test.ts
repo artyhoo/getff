@@ -25,11 +25,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/list-presets.sh',
+  '.agents/procedures/pipeline/helpers/list-presets.sh',
 );
 const PRESETS_DIR = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/references/presets',
+  '.agents/procedures/pipeline/references/presets',
 );
 
 function runHelper(

@@ -1,5 +1,7 @@
-a01d8f31281bd0f085d652c2262f6c3d4ae5444001b2cd325250d3b850f189ab  .ai-factory/refresh-baseline.json
+5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
+3bf6caba0a7cb927cb39b97275d0d4b2f0964602ea2d0962c6c5f0d4d4b4ea1c  .ai-factory/refresh-baseline.json
 35b7f3afd8ea3401b80cdee07e480dca971f58c0584a3b2026f5c2a78bc10f52  .ai-factory/tool-decisions.md
+link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
 7e27a0fd3965f6d5a001b70bdfce6ea41e7fa17a2ac6bdeff9de5e3844ae72c1  .getff/Cargo.lints.toml
 93cb6f02bb1e74099e981d4048f3fadc18aaf359029f590eabef944bc4bad7a1  .github/workflows/getff-cargo.yml
 1a2616c39c99ce9dbb77856fbbb365368531f49274fcd7ea67263e5dd777a8da  Cargo.toml
