@@ -1,0 +1,20 @@
+{
+  "policy_version": "UNRESOLVED",
+  "protocol_version": "dot-staging-review/1.0",
+  "repository_id": 1231007068,
+  "repository_full_name": "artyhoo/getff",
+  "schema_sha256": "UNRESOLVED",
+  "reviewer_principal_ids": [],
+  "mechanical_contexts": [
+    { "context": "ci-success", "expected_app_id": 15368, "bound_to": "merge" },
+    { "context": "fidelity-verdict-in-pr-body", "expected_app_id": 15368, "bound_to": "head" },
+    { "context": "stale-revert-in-pr-diff", "expected_app_id": 15368, "bound_to": "head" },
+    { "context": "Template render probes — P1/P4/P6 (deterministic)", "expected_app_id": 15368, "bound_to": "head" },
+    { "context": "capability PR carries Prior-art line in PR body (squash-survival)", "expected_app_id": 15368, "bound_to": "head" },
+    { "context": "§1.7 forward+backward sections present in PR description", "expected_app_id": 15368, "bound_to": "head" }
+  ],
+  "dot_check": { "context": "dot-review/v1", "expected_app_id": 0 },
+  "principle_inventory": ["UNRESOLVED"],
+  "limits": { "max_active_claims": 1, "max_attempts_per_tuple": 2, "claim_lease_minutes": 120 },
+  "authorization_expiry": "UNRESOLVED"
+}
