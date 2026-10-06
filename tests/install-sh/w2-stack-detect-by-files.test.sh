@@ -287,4 +287,36 @@ grep -qE "detected stack: astro|Detected stack astro" <<<"$out" \
   || bad "e2e-refresh: name missing on refresh — $(grep -i 'stack' <<<"$out" | tr '\n' '|')"
 [ "$rc" -eq 0 ] && ok "e2e-refresh: exit 0" || bad "e2e-refresh: exit $rc"
 
+# --refresh on a COMPLETED W2 install (the 40-configs carve-out placed eslint-rules-local/): the
+# barrel is NOT a ts-server passport (a pre-W2 refresh read it as one and re-detected the
+# wrong-shape preset on a drivable generic install — fresh svelte-kit ≠ refresh ts-server). The
+# placed answer that IS still a passport: preset installs keep their preset on refresh.
+W2=$(mktemp -d)
+_mkpkg "$W2" '{"name":"sv","scripts":{"lint":"eslint .","check":"svelte-kit sync && svelte-check"},"dependencies":{"@sveltejs/kit":"^2.0.0"},"devDependencies":{"eslint":"^9.0.0","typescript":"^5.0.0"}}'
+touch "$W2/eslint.config.js"
+mkdir -p "$W2/eslint-rules-local"; printf 'export {};\n' > "$W2/eslint-rules-local/index.mjs"
+out=$(cd "$W2" && bash "$REPO_ROOT/install.sh" --refresh --dry-run 2>&1); rc=$?
+_refresh_line=$(grep -F "Refreshing rules-as-tests-aif framework artefacts" <<<"$out" || true)
+case "$_refresh_line" in
+  *"ts-server"*) bad "e2e-refresh-w2: barrel read as a ts-server passport — $_refresh_line" ;;
+  *"stack: generic"*) ok "e2e-refresh-w2: barrel is not a passport — refresh stays generic" ;;
+  *) bad "e2e-refresh-w2: refresh stack line missing — $(grep -i 'stack' <<<"$out" | tr '\n' '|')" ;;
+esac
+grep -qE "detected stack: svelte-kit|Detected stack svelte-kit" <<<"$out" \
+  && ok "e2e-refresh-w2: refresh names svelte-kit (fresh == refresh)" \
+  || bad "e2e-refresh-w2: name missing on refresh — $(grep -i 'stack' <<<"$out" | tr '\n' '|')"
+[ "$rc" -eq 0 ] && ok "e2e-refresh-w2: exit 0" || bad "e2e-refresh-w2: exit $rc"
+
+# the NEG twin: real preset passports STILL prove their preset on refresh (the fix must not have
+# over-corrected into reading every refresh as generic)
+TSW=$(mktemp -d)
+_mkpkg "$TSW" '{"name":"ts","devDependencies":{"typescript":"^5.0.0"}}'
+mkdir -p "$TSW/.ai-factory" "$TSW/packages/core/hooks" "$TSW/eslint-rules-local"
+touch "$TSW/.ai-factory/ARCHITECTURE.ts-server.md" "$TSW/packages/core/hooks/pre-push.bundle.mjs" "$TSW/eslint-rules-local/index.mjs"
+out=$(cd "$TSW" && bash "$REPO_ROOT/install.sh" --refresh --dry-run 2>&1); rc=$?
+grep -qF "(stack: ts-server)" <<<"$out" \
+  && ok "e2e-refresh-preset: placed ts-server passports keep the preset" \
+  || bad "e2e-refresh-preset: preset passports lost — $(grep -i 'Refreshing' <<<"$out")"
+[ "$rc" -eq 0 ] && ok "e2e-refresh-preset: exit 0" || bad "e2e-refresh-preset: exit $rc"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

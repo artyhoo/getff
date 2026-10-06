@@ -710,7 +710,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:998 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:1001 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -791,10 +791,13 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
   elif [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ] \
-    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ] \
-    && [ ! -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ]; then
-    # The npm-specific passport proves ts-server; RULES.md alone may belong to Python.
-    # A generic install places no npm passport and must not acquire ESLint on refresh.
+    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ]; then
+    # The preset passports prove a preset; RULES.md alone may belong to Python. The ESLint
+    # rules barrel is NOT a passport since W2: the 40-configs carve-out places
+    # eslint-rules-local/ on every drivable generic install (svelte-kit, astro), so reading
+    # it as a ts-server passport re-detected a completed W2 install as the wrong-shape
+    # preset. A generic install places neither preset passport and must not acquire one on
+    # refresh — the carve-out it already has is exactly what a fresh install would place.
     STACK="generic"
   else
     STACK="ts-server"
