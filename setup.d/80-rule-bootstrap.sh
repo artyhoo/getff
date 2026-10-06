@@ -11,7 +11,7 @@
 # Option-1 gate placement — a standalone setup.d step, mirroring 05-mcp.sh's FULL gate (the
 # placement fork the spike parked per kickoff §6; resolved to Option 1 at harvest time).
 #
-# Gated on FULL ("--full" carrier, install.sh:95+128) so the non-full / snapshot path no-ops
+# Gated on FULL ("--full" carrier, install.sh:107+128) so the non-full / snapshot path no-ops
 # → byte-identical guarantee preserved (the read-only research lines for the record, below, run on
 # every pass but only when a research file exists, which no snapshot fixture has). $0-in-CI (principle 17): the consume path is a pure
 # file-read (the live MCP research already happened in the human session); the CI self-install

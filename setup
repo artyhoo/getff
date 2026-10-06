@@ -38,7 +38,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
   if [ "$_awaiting_profile_value" -eq 1 ]; then
-    # Cold-QA MINOR fix parity with install.sh:150 (flag-after-`--profile` guard): a value
+    # Cold-QA MINOR fix parity with install.sh:162 (flag-after-`--profile` guard): a value
     # that starts with `-` is another flag, not the profile name. Mirror install.sh's own
     # fail-loud instead of silently consuming the flag as the value.
     if [ "${a#-}" != "${a:-}" ]; then
@@ -89,7 +89,7 @@ done
 # previewed while the companion and bridge steps ran for real (P6 run 2 N4). FULL stays as given,
 # so a `-y --dry-run` preview walks the -y path (05-mcp included).
 [ -n "$DRY" ] && MODE="dry-run"
-# Cold-QA MINOR fix parity with install.sh:150 (end-of-args guard): if --profile was the LAST
+# Cold-QA MINOR fix parity with install.sh:162 (end-of-args guard): if --profile was the LAST
 # token with no value following it, fail-loud rather than silently passing an empty value.
 if [ "$_awaiting_profile_value" -eq 1 ]; then
   echo "❌ --profile requires a value (core|env|factory)" >&2

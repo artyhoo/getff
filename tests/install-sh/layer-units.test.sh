@@ -35,7 +35,7 @@ _setup_dispatcher_scope() {
   SHIPPED_DOCS=()
   SKIPPED=()
   DEVDEPS=()
-  NOT_WIRED=()   # install.sh:190 — 99-finalize.sh reads ${#NOT_WIRED[@]} (critical-review wave 1)
+  NOT_WIRED=()   # install.sh:208 — 99-finalize.sh reads ${#NOT_WIRED[@]} (critical-review wave 1)
   export _r2_verdict=""
   export DEPS_INSTALLED=""
 }

@@ -74,7 +74,7 @@ describe('checkRemovalConsumers — gate', () => {
   });
 
   it('POSITIVE — row may name the file by basename only', () => {
-    const res = check(body('| tier-home.md | `install.sh:218` reads it | drop: breaks refresh |'), [del(TPL)]);
+    const res = check(body('| tier-home.md | `install.sh:236` reads it | drop: breaks refresh |'), [del(TPL)]);
     expect(res.ok).toBe(true);
   });
 

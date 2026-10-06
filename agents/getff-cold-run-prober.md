@@ -215,7 +215,7 @@ State the problem-class match explicitly (T16):
 
 ## §Self-application (T15)
 
-This prober IS recursive self-application. It is the framework's own shipped docs (the consumer-facing artefacts under `install.sh:103-142`'s copy loop) that are the system under test — not user code, not a rule, not a shipped sub-agent. The framework probes whether ITS OWN delivery surface (the docs it ships to consumers) suffices for the journey it claims to enable.
+This prober IS recursive self-application. It is the framework's own shipped docs (the consumer-facing artefacts under `install.sh:115-154`'s copy loop) that are the system under test — not user code, not a rule, not a shipped sub-agent. The framework probes whether ITS OWN delivery surface (the docs it ships to consumers) suffices for the journey it claims to enable.
 
 **Why this is the load-bearing recursive check for the getff-any-stack-trace umbrella:** every prior stage (S1 Tier-1 threading, S2 python lane agent surface, S2b git-hook rung, R1 lane × channel-rung parity, S3 one-beat continuation clause) extended the framework's INTERNAL capability. S4's W6 cell proves the chain closes deterministically under a scripted fixture. **This probe is the only artefact in the entire umbrella that asks: «does a fresh agent, with no framework knowledge, actually succeed with what we ship?»** That question is the recursive-self-application gap (T15); this probe closes it.
 
