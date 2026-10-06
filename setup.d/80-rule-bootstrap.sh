@@ -69,13 +69,16 @@ _rb_record_research() {
 # gated-out case is named with its reason (entry 26 point 4: promise only what was run):
 #   no package.json → no lint command exists to drive the generated rules with
 #   linter none     → no ESLint/oxlint in scripts.lint's first word or a linter config file
-#   linter biome    → Biome does not load ESLint-format rules (99-finalize's claim, re-verified
-#                     from Biome's own docs at W2 time — PR body quotes the docs; a Biome lane is
-#                     a parked fork, not this stage)
+#   linter biome    → getff's generator writes ESLint-format rules and has no GritQL output lane
+#                     for Biome (W2 §4c fork 2, operator decision 2026-10-06: the gap is getff's,
+#                     not Biome's — Biome CAN hold generated rules as GritQL plugins, re-verified
+#                     from Biome's own docs at W2 time, PR body quotes the docs; revisit when a
+#                     separately scoped GritQL backend is accepted or a compatible getff backend
+#                     is demonstrated — not via Biome's future JS/TS plugin API)
 #   no scripts.lint → a linter config alone is not drivable: the proof drives `npm run lint`.
-#                     Whether getff may ADD a lint command of its own to a lint-less project is a
-#                     PARKED operator fork (W2 §4c fork 1); until it is decided, the honest answer
-#                     is this NOT-wired line — never a new command written into package.json.
+#                     getff never adds a lint command of its own to a lint-less project (W2 §4c
+#                     fork 1, operator decision 2026-10-06 = B: the project's setup wins); this
+#                     NOT-wired line is the decided answer, never a new scripts.lint key.
 _rb_key="${STACK_NAME:-${STACK:-generic}}"
 [ "$_rb_key" = "unknown" ] && _rb_key="generic"
 _rb_linter="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
@@ -91,10 +94,10 @@ if [ ! -f "$PROJECT_ROOT/package.json" ]; then
   return 0 2>/dev/null || true
 fi
 if [ "$_rb_linter" = "biome" ]; then
-  printf '  [80-rule-bootstrap] generated rules — not run: this project lints with Biome, which does not load ESLint-format rules%s\n' "$_rb_note"
-  note_not_wired "generated rules — not run: this project lints with Biome, which does not load ESLint-format rules; Biome stays the project's only linter$_rb_note"
+  printf '  [80-rule-bootstrap] generated rules — not run: this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format)%s\n' "$_rb_note"
+  note_not_wired "generated rules — not run: this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format), so none run here; Biome stays the project's only linter$_rb_note"
   _rb_r="$PROJECT_ROOT/.ai-factory/rules-research/$_rb_key"
-  [ ! -f "$_rb_r.research.json" ] || _rb_record_research "$_rb_r.research.json" "" "linter biome: does not load ESLint-format rules"
+  [ ! -f "$_rb_r.research.json" ] || _rb_record_research "$_rb_r.research.json" "" "linter biome: getff has no GritQL output lane (generated rules are ESLint-format)"
   return 0 2>/dev/null || true
 fi
 if [ "$_rb_linter" = "none" ]; then

@@ -575,7 +575,9 @@ _pc_suppress() {
 
 # P2 G5 / K4: getff's lint rules in an oxlint project go in through oxlint's jsPlugins (getff's lint
 # plugin registered in the project's own oxlint config — the one-button chain's part P4), when this
-# getff has that registration; otherwise they are named NOT wired. Biome loads no ESLint-format rules.
+# getff has that registration; otherwise they are named NOT wired. Biome holds generated rules only
+# as GritQL plugins — a lane getff's generator does not emit (W2 fork 2, operator 2026-10-06: the gap
+# is getff's, not Biome's).
 if [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = oxlint ]; then
   if declare -F oxlint_register_jsplugin >/dev/null; then
     _ox_cfg="$PROJECT_ROOT/.oxlintrc.json"
@@ -587,7 +589,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = oxlint ]; then
     note_not_wired "getff lint plugin in oxlint — this getff cannot register its lint rules in an oxlint config yet, so they do not run here; oxlint stays the project's only linter"
   fi
 elif [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = biome ]; then
-  note_not_wired "getff's lint rules — this project lints with Biome, which does not load ESLint-format rules, so they do not run here; Biome stays the project's only linter"
+  note_not_wired "getff's lint rules — this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format), so they do not run here; Biome stays the project's only linter"
 fi
 
 # P5: getff's lint rules switched on in the project's OWN linter config — only after the project's lint exits 0

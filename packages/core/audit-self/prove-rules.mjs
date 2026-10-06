@@ -1825,7 +1825,7 @@ export function table(root, { lint = realLint } = {}) {
     recLinter === 'biome'
       ? {
           early:
-            'this project lints with Biome, which does not load ESLint-format rules',
+            'this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format)',
         }
       : runProof(root, { lint });
   const placed = new Map((proof.rules ?? []).map((r) => [r.id, r]));

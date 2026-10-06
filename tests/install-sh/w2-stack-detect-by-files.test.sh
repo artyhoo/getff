@@ -139,11 +139,12 @@ else
   bad "gate-nolint: $(echo "$out" | tr '\n' '|' | head -c 200)"
 fi
 
-# gated-OUT: biome
+# gated-OUT: biome — the reason locates the gap in getff (no GritQL output lane), NOT in Biome
+# (operator fork-2 decision 2026-10-06: Biome CAN hold generated rules as GritQL plugins)
 G4=$(mktemp -d); _mkpkg "$G4" '{"name":"g4","scripts":{"lint":"biome check ."}}'; touch "$G4/biome.json"
 out=$(_run80 "$G4" STACK_NAME=generic STACK=generic)
-grep -qF "lints with Biome, which does not load ESLint-format rules" <<<"$out" \
-  && ok "gate-biome: Biome reason fires" \
+grep -qF "has no GritQL output lane for Biome" <<<"$out" \
+  && ok "gate-biome: getff-side GritQL reason fires" \
   || bad "gate-biome: $(echo "$out" | tr '\n' '|' | head -c 200)"
 
 # gated-OUT: linter none (no script naming one, no config file)
