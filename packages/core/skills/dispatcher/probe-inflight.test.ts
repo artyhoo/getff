@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../..');
 const PROBE = resolve(REPO_ROOT, '.claude/skills/dispatcher/helpers/probe-inflight.sh');
-const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md');
+const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/references/execution.md');
 
 /**
  * Per-test timeout for the ONE arm that writes a fresh executable and then runs it.

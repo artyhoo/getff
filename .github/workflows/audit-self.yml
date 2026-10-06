@@ -1821,7 +1821,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/lib.sh:3022-3031, merge_canonical_scripts) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:3262-3271, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`
@@ -2672,8 +2672,9 @@ jobs:
         run: node scripts/check-arch-retell.mjs
 
   ships-manifest:
-    # One-button point 13: every skill, hook, rule, agent, setting and MCP server getff has is
-    # marked in setup.d/ships.manifest as shipping (and through which channel) or internal, and why.
+    # One-button point 13: every skill, hook, rule, agent, setting, MCP server and docs-gate
+    # script getff has is marked in setup.d/ships.manifest as shipping (and through which channel)
+    # or internal, and why.
     # Arm A (marking) also runs at pre-commit when a population path is staged; this job is its
     # backstop for `--no-verify` and aif-container commits. Arm B checks every row against a real
     # core/env/factory install; its N1 arm proves a false row turns it red. Placed after every
@@ -2701,7 +2702,7 @@ jobs:
         run: npm ci --silent
       - name: Run ships-manifest marking gate paired-negative (Arm A)
         run: bash scripts/check-ships-manifest.test.sh
-      - name: ships-manifest marking gate (every skill/hook/rule/agent/setting/mcp marked)
+      - name: ships-manifest marking gate (every skill/hook/rule/agent/setting/mcp/docs-gate script marked)
         run: node scripts/check-ships-manifest.mjs
       - name: Run install-sh ships-manifest real-install test (Arm B)
         run: bash tests/install-sh/ships-manifest.test.sh

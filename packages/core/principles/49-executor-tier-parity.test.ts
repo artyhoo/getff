@@ -41,7 +41,8 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const TIER_HOME = 'packages/core/templates/shared/tier-home.md';
-const NIGHT_MODE = '.claude/skills/night-mode/SKILL.md';
+const NIGHT_MODE = '.claude/skills/night-mode/references/substrate-and-models.md';
+const NIGHT_CARD = '.claude/skills/night-mode/SKILL.md';
 const EXECUTOR = 'executor tier';
 
 const EXECUTOR_WORK = /executor|implement|\bfix/i;
@@ -185,6 +186,7 @@ describe('principle 49 — executor-tier parity (tier-home ↔ night-mode)', () 
   it('live: tier-home and night-mode agree on the executor tier', () => {
     const read = (p: string) => readFileSync(resolve(REPO_ROOT, p), 'utf8');
 
+    expect(read(NIGHT_CARD)).toContain('[substrate and models](references/substrate-and-models.md) before choosing');
     expect(checkParity(read(TIER_HOME), read(NIGHT_MODE))).toEqual([]);
   });
 });

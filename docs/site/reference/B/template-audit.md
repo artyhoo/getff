@@ -108,6 +108,6 @@ the `python` [lane](../../terms.md#lane), which receives four skills and not thi
 - The `python` lane copies four skills by name, lines 1714 to 1720 of
   `setup.d/45-python.sh`, and this skill is missing from
   `tests/install-sh/baselines/python/greenfield.fingerprint`.
-- The card is built from `docs/site/reference/B.json`. Line 37 of
-  `packages/core/principles/15-skill-paired-negative.test.ts` exempts this skill from
-  the "with and without" sections.
+- The card is built from `docs/site/reference/B.json`.
+- `packages/core/principles/15-skill-paired-negative.test.ts` now requires this skill
+  to include meaningful "with and without" scenarios; its earlier exemption was removed.
