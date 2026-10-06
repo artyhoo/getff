@@ -655,6 +655,97 @@ test('R10: an identical retry at the pass cap replays its original receipt', () 
   assert.equal(readChildLog(t.log).length, 3, 'OFF still gates after the cap');
 });
 
+// ---------- R11: intervening stop state on the authorized successor ----------
+
+const BLOCKED_EXTRA = ['--owner-ack', '--blocker', 'the instructed check cannot run without a missing fixture'];
+
+test('R11: a prelaunch BLOCKED report on the authorized successor holds the resume', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  assert.equal(readChildLog(t.log).length, 1);
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  // a legitimate prelaunch BLOCKED report on r2 — filed before any owned pass on it
+  cli(e.mailbox, reportArgs({ reportId: 'rep-blocked', revision: '2', status: 'BLOCKED', digest: r2.requestDigest, extra: BLOCKED_EXTRA }));
+  const before = JSON.parse(cli(e.mailbox, ['status']).out);
+  const r = cli(e.mailbox, runArgs(r2Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(r.err, /awaiting the senior decision|unresolved report/i);
+  assert.equal(attemptFiles(e.mailbox).length, 1);
+  assert.equal(readChildLog(t.log).length, 1, 'no second child while the successor blocker awaits its verdict');
+  const after = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(after.counters.ccPasses, before.counters.ccPasses, 'no counter change behind a pending blocker');
+});
+
+test('R11: OPERATOR_REQUIRED on the authorized successor stops the resume an older REWORK cannot bypass', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-blocked', revision: '2', status: 'BLOCKED', digest: r2.requestDigest, extra: BLOCKED_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-blocked', '--verdict', 'OPERATOR_REQUIRED', '--criteria', 'operator decides the fork', '--actor', SENIOR]);
+  const before = JSON.parse(cli(e.mailbox, ['status']).out);
+  const r = cli(e.mailbox, runArgs(r2Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(r.err, /OPERATOR_REQUIRED|escalation|stops/i);
+  assert.equal(attemptFiles(e.mailbox).length, 1);
+  assert.equal(readChildLog(t.log).length, 1, 'a durable escalation admits no dependent execution');
+  const after = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(after.counters.ccPasses, before.counters.ccPasses);
+  // nor does the older REWORK reach a later revision past the escalation
+  const r3Body = 'rework instruction r3: third verification pass';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  const rA = cli(e.mailbox, runArgs(r3Body, ['--resume']), { expectCode: 3, env: t.env });
+  assert.match(rA.err, /successor|authorizes/i);
+  assert.equal(readChildLog(t.log).length, 1);
+});
+
+test('R11: a fresh senior REWORK on the BLOCKED report authorizes its successor without operator approval', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  const first = latestAttemptFile(e.mailbox);
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, reportArgs({ reportId: 'rep-blocked', revision: '2', status: 'BLOCKED', digest: r2.requestDigest, extra: BLOCKED_EXTRA }));
+  // the senior diagnoses the ordinary blocker autonomously and re-instructs
+  cli(e.mailbox, ['decide', '--report-id', 'rep-blocked', '--verdict', 'REWORK', '--criteria', 'skip the missing fixture; verify the rest', '--actor', SENIOR]);
+  const r3Body = 'rework instruction r3: verify without the missing fixture';
+  cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '3', '--body', r3Body, '--actor', SENIOR]);
+  cli(e.mailbox, runArgs(r3Body, ['--resume']), { env: t.env });
+  const second = latestAttemptFile(e.mailbox);
+  assert.equal(second.resumeFrom, first.sessionId, 'same proven-ended session');
+  assert.equal(second.requestRevision, 3, 'the attempt binds its own authorized instruction revision');
+  assert.equal(readChildLog(t.log).length, 2, 'exactly one authorized second child');
+  const s = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(s.counters.ccPasses, 2);
+});
+
+test('R11: a proven completed receipt replays read-only while its report awaits the senior', () => {
+  const { e, t, request } = setup();
+  cli(e.mailbox, runArgs(), { env: t.env });
+  cli(e.mailbox, reportArgs({ status: 'PARTIAL', digest: request.requestDigest, extra: PARTIAL_EXTRA }));
+  cli(e.mailbox, ['decide', '--report-id', 'rep-1', '--verdict', 'REWORK', '--criteria', 'add evidence', '--actor', SENIOR]);
+  const r2Body = 'rework instruction r2: add evidence with a dated check';
+  const r2 = JSON.parse(cli(e.mailbox, ['request', '--work-key', WORK_KEY, '--revision', '2', '--body', r2Body, '--actor', SENIOR]).out);
+  cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env });
+  const rework = latestAttemptFile(e.mailbox);
+  assert.equal(readChildLog(t.log).length, 2);
+  // the rework report is filed and PENDS; the identical retry stays read-only recovery
+  cli(e.mailbox, reportArgs({ reportId: 'rep-2', revision: '2', status: 'PARTIAL', digest: r2.requestDigest, extra: PARTIAL_EXTRA }));
+  const before = JSON.parse(cli(e.mailbox, ['status']).out);
+  const dup = JSON.parse(cli(e.mailbox, runArgs(r2Body, ['--resume']), { env: t.env }).out);
+  assert.equal(dup.replay, true, 'receipt retrieval is read-only recovery, not a new launch');
+  assert.equal(dup.attemptId, rework.attemptId);
+  assert.equal(attemptFiles(e.mailbox).length, 2);
+  assert.equal(readChildLog(t.log).length, 2);
+  const after = JSON.parse(cli(e.mailbox, ['status']).out);
+  assert.equal(after.counters.ccPasses, before.counters.ccPasses);
+});
+
 test('R5: DONE binds the pass and the decision to the exact current instruction revision', () => {
   const { e, t, request } = setup();
   cli(e.mailbox, runArgs(), { env: t.env });

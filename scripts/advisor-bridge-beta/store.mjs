@@ -760,9 +760,10 @@ function listRequestRevisions(root, workKey) {
 // identical completed launch replays its receipt; a senior REWORK verdict
 // authorizes exactly ONE successor instruction revision (the first revision
 // published after the verdict), resumed on the same proven-ended session —
-// it never blanket-authorizes later revisions (R9); a pending consult is an
-// explicit checkpoint; acceptance is terminal for the enrolled work item
-// across all revisions.
+// it never blanket-authorizes later revisions (R9) and never bypasses an
+// unresolved report or an OPERATOR_REQUIRED escalation on that successor
+// (R11); a pending consult is an explicit checkpoint; acceptance is terminal
+// for the enrolled work item across all revisions.
 export function gateRunAdmission(root, { workKey, prompt, resume }) {
   const current = currentRequest(root, workKey);
   if (!current) {
@@ -814,6 +815,24 @@ export function gateRunAdmission(root, { workKey, prompt, resume }) {
     }
     const done = completedR.filter((a) => a.resumeFrom != null && String(a.prompt ?? '').trim() === promptText);
     if (done.length > 0) return { replay: done[done.length - 1] };
+    // R11: an older REWORK never bypasses intervening stop state on its
+    // authorized successor — an unresolved report (including a legitimate
+    // prelaunch BLOCKED) awaits the senior decision, and an OPERATOR_REQUIRED
+    // escalation stops dependent work. The receipt replay above stays
+    // read-only recovery: it allocates nothing and changes no counter.
+    const pendingReport = reportsR.find((r) => readVerdict(root, r.reportId) == null);
+    if (pendingReport) {
+      throw new HoldError('the authorized successor revision has a report awaiting the senior decision; the older REWORK verdict does not bypass an unresolved report', {
+        workKey, requestRevision: revision, reportId: pendingReport.reportId,
+      });
+    }
+    const escalation = listVerdictRecords(root, workKey)
+      .find((v) => v.requestRevision === revision && v.verdict === 'OPERATOR_REQUIRED');
+    if (escalation) {
+      throw new HoldError(`the OPERATOR_REQUIRED escalation on r${revision} stops dependent work; an older REWORK verdict admits no resume past it`, {
+        workKey, requestRevision: revision, reportId: escalation.reportId,
+      });
+    }
     return {};
   }
   const unactionedRework = latestRework
