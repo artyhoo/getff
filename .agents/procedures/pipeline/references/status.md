@@ -11,8 +11,8 @@
 
 **Step 1 — invoke renderer:**
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/render-status.sh"
+```bash
+bash ".agents/procedures/pipeline/helpers/render-status.sh"
 ```
 
 **Section sources + degradation:**

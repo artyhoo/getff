@@ -39,8 +39,6 @@ const FENCE_OPEN = /^[ \t]*(`{3,}|~{3,})/;
 
 /** Dispatch contracts that carry no prompt skeleton (so no marker) but still send a cold seat. */
 const DECLARED_EXTRAS = [
-  '.agents/procedures/arch/SKILL.md',
-  '.agents/procedures/dispatcher/SKILL.md',
   '.agents/procedures/harvest/SKILL.md',
   '.agents/procedures/arch/references/design-review.md',
   '.agents/procedures/dispatcher/references/execution.md',

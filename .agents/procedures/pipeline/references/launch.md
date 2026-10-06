@@ -9,12 +9,12 @@
 
 **Step 1 — inject umbrella kickoff + dispatch state:**
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh" "${umbrella:-}"
+```bash
+bash ".agents/procedures/pipeline/helpers/launch-table-generator.sh" "${umbrella:-}"
 ```
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/dispatch-from-state.sh" "${umbrella:-}"
+```bash
+bash ".agents/procedures/pipeline/helpers/dispatch-from-state.sh" "${umbrella:-}"
 ```
 
 **Step 2 — classify each sub-wave (judgment on injected data):**
@@ -55,8 +55,8 @@ Launch table — <umbrella> (as of <git-HEAD-short>):
 
 **Step 1 — read template:**
 
-```!
-cat "${CLAUDE_SKILL_DIR}/templates/meta-kickoff.template.md"
+```bash
+cat ".agents/procedures/pipeline/templates/meta-kickoff.template.md"
 ```
 
 **Step 2 — instantiate template (Write tool):**
@@ -78,6 +78,6 @@ Target path: `<orch-home>/<umbrella>-meta-launch/kickoff.md`
 
 Target path: `<orch-home>/<umbrella>-meta-launch/state.md`
 
-Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 Inputs from plan-currency check output.
+Use `.agents/procedures/pipeline/templates/state.md.template` as the skeleton; fill §1 Inputs from plan-currency check output.
 
 ---

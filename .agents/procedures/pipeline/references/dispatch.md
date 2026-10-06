@@ -84,7 +84,7 @@ If Stage N PRs ARE merged → proceed to Stage N+1 dispatch.
 Claim BEFORE the review window and release/cancel on its verdict: every historical double-dispatch materialised INSIDE that window ([CLAUDE.md `Pre-dispatch in-flight probe`](../../../../CLAUDE.md)), so a marker written after it guards nothing. A claim is an ordinary aif task created `paused:true` — it is intended to stay at `backlog` without execution until release, and is what makes `probe-inflight.sh` report `CLAIMED` instead of `FRESH` (spec §5.3 / D-H5; premise P-5 — no second status vocabulary, `state.md` stays the journal).
 
 ```bash
-CLAIM=$(npx tsx packages/runtime-bridge/src/cli/claim.ts create "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/<slug>/kickoff.md" | jq -r .taskId)
+CLAIM=$(npx tsx packages/runtime-bridge/src/cli/claim.ts create "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)/<slug>/kickoff.md" | jq -r .taskId)
 ```
 
 **Capacity caveat:** the bridge creates a paused task, but does not implement the upstream capacity counter. A paused flag alone does not prove a free lane; paused `plan_ready`/`review` slot-holders are documented by doctor §3.2. Verify task status and the coordinator's logged active/limit before assuming available capacity.

@@ -15,7 +15,7 @@
 
 **Binding spec:** `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored, 14 sub-sections §7.1-§7.14).
 
-**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../../rules/no-paid-llm-in-ci.md)). **Path convention — `<orch-home>` (binds §1, §2.5, §4, §10):** every runtime path below is relative to `<orch-home>`, the **resolved** orchestration home — `.claude/orchestrator-prompts/` in this framework repo, `.ai-factory/orchestrator-prompts/` in a consumer install. Resolve it, never assume it: `"$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"` (the same `resolve_orch_home()` the helpers use, `helpers/lib/common.sh`; `MO_ORCH_HOME` overrides both). The framework literal is **never delivered to a consumer**, so hardcoding it makes reads silently empty and writes land in a second, unread directory (getff#1245); `packages/core/principles/39-skill-fence-orch-home.test.ts` gates the fences against that regression.
+**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../../rules/no-paid-llm-in-ci.md)). **Path convention — `<orch-home>` (binds §1, §2.5, §4, §10):** every runtime path below is relative to `<orch-home>`, the **resolved** orchestration home — `.claude/orchestrator-prompts/` in this framework repo, `.ai-factory/orchestrator-prompts/` in a consumer install. Resolve it, never assume it: `"$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)"` (the same `resolve_orch_home()` the helpers use, `helpers/lib/common.sh`; `MO_ORCH_HOME` overrides both). The framework literal is **never delivered to a consumer**, so hardcoding it makes reads silently empty and writes land in a second, unread directory (getff#1245); `packages/core/principles/39-skill-fence-orch-home.test.ts` gates the fences against that regression.
 
 ---
 
@@ -29,14 +29,14 @@
 
 **Arg routing (V1 binding per [research-patch §3](../../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); `list` → preset enumeration via [`helpers/list-presets.sh`](../helpers/list-presets.sh) (§0.1); `status` → read-only status render via [`helpers/render-status.sh`](../helpers/render-status.sh) (§2.6); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" --auto
+```bash
+bash ".agents/procedures/pipeline/helpers/integer-name-guard.sh" --auto
 ```
 
 **Mode-override flags (optional):** parse `--mode-bundle` / `--mode-pair` / `--mode-solo` / … + `--reason=<text>` from the umbrella arg up-front — `OVERRIDE_MODE` / `OVERRIDE_REASON` output feeds §2.5 Step 5 predicates (`bundle_opt_in` / `review_required`); exit 1 = no flag (normal — routing tree proceeds). Spec: [`references/mode-overrides.md`](mode-overrides.md). <!-- @dual-pair: meta-orchestrator-mode-overrides -->
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/dev/null || true
+```bash
+bash ".agents/procedures/pipeline/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/dev/null || true
 ```
 
 **Preset flag (optional, A4):** the parser above also recognises `--preset <name>` (flag) and `AIF_PIPELINE_PRESET=<name>` (env). Precedence: flag > env > default. When resolved, the preamble output carries `PRESET_MODE` / `PRESET_MARKER` / `PRESET_BUNDLE_OPT_IN` / `PRESET_REVIEW_REQUIRED` / `PRESET_PARALLEL_SAFE` lines. **Seam #3 — marker relay:** when `PRESET_MARKER=<value>` is non-empty (the economy preset), the generated meta-kickoff header MUST carry `<!-- bridge-profile: <value> -->`. The value MUST be the profile's full display name, unique under the resolver's case-insensitive substring match (see [CLAUDE.md «Marker value rule»](../../../../CLAUDE.md)). For null-marker presets (aif/night/sdd — `aif` dispatches on the project's per-mode default profiles) no marker line is emitted. **Seam #2 — routing short-circuit:** see §2.5 Step 5.
@@ -51,8 +51,8 @@ bash "${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/de
 
 **Step 1 — invoke enumerator:**
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/list-presets.sh"
+```bash
+bash ".agents/procedures/pipeline/helpers/list-presets.sh"
 ```
 
 **Output shape:** one line per preset, sorted alphabetically:

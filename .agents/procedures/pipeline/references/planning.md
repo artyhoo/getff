@@ -9,24 +9,24 @@
 
 **Step 1 — inject live state:**
 
-```!
-head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_handoff-*.md 2>/dev/null | head -3); do echo "--- Model handoff (D15/D28): the model-authored CURRENT-STATE file of a compacted session — the SessionStart injector's payload. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
+```bash
+head -200 "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done; for f in $(ls -t "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)"/_handoff-*.md 2>/dev/null | head -3); do echo "--- Model handoff (D15/D28): the model-authored CURRENT-STATE file of a compacted session — the SessionStart injector's payload. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
 ```
 
-```!
+```bash
 git status --short && echo "---" && git branch --show-current && echo "---" && git rev-list --count --left-right origin/staging...HEAD 2>/dev/null || echo "(no upstream)"
 ```
 
-```!
+```bash
 gh pr list --search "is:open" --json number,title,state,headRefName,baseRefName --limit 20 2>/dev/null || echo "gh unavailable"
 ```
 
-```!
-head -400 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-plan-path.sh" 2>/dev/null)" 2>/dev/null || echo "MISSING: plan (will be created on first run — see §1 Step 3)"
+```bash
+head -400 "$(bash ".agents/procedures/pipeline/helpers/print-plan-path.sh" 2>/dev/null)" 2>/dev/null || echo "MISSING: plan (will be created on first run — see §1 Step 3)"
 ```
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/plan-currency-check.sh" "${umbrella:-}" 2>/dev/null
+```bash
+bash ".agents/procedures/pipeline/helpers/plan-currency-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 **Step 2 — drift detection (judgment call on injected data):**
@@ -35,7 +35,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 
 1. For every wave marked «✅ merged» — verify a merged PR with that head branch exists in `gh pr list --state merged`. If not found → **DRIFT**.
 2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
-3. For every kickoff path referenced — verify `<orch-home>/<path>/kickoff.md` exists (the `plan-currency-check.sh` output provides this; to `ls` it yourself, resolve the home first — `ls "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/<path>/kickoff.md"`). Missing file → **STALE REF**. Never `ls` the framework literal: in a consumer install it names a directory that cannot exist, so every present kickoff reports STALE REF.
+3. For every kickoff path referenced — verify `<orch-home>/<path>/kickoff.md` exists (the `plan-currency-check.sh` output provides this; to `ls` it yourself, resolve the home first — `ls "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)/<path>/kickoff.md"`). Missing file → **STALE REF**. Never `ls` the framework literal: in a consumer install it names a directory that cannot exist, so every present kickoff reports STALE REF.
 4. For every research-patch cited — verify the cited file exists under the project's research/patches dir (framework: `docs/meta-factory/research-patches/`). If the project has no such dir, skip this check. Missing (where the dir exists) → **STALE REF**.
 5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
 6. **Cache reconciliation:** if cache (Step 1 first `!shell` block) «Last invocation» Git HEAD diverges from current `git rev-parse HEAD` AND `wave-sequencing-plan.md` was touched in the SHA diff → emit «CACHE STALE …»; cache stays supplementary, never load-bearing (T-mem-A counter — re-verify «PR merged» / «umbrella DONE» claims via `gh pr list`). Full rule + anti-patterns: [`references/plan-cache.md §2`](plan-cache.md).
@@ -55,8 +55,8 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 
 **Step 1 — inject candidate list** — _read-rule (completion barrier):_ parse a background helper's output ONLY after its `=== <helper>: END rc=<n> ===` trailer (appended by `run-helper.sh`) or its task-notification; a header-only / trailer-absent read = "still running", NOT "zero results" — never conflate one task's notification with another's. _(Origin: incident 2026-06-01, `priority-score.sh` read at header-only state → false "zero candidates".)_ This rule applies to every background-helper `!`-fence below. <!-- @dual-pair: bg-helper-completion-barrier -->
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" "${umbrella:-}" 2>/dev/null
+```bash
+bash ".agents/procedures/pipeline/helpers/run-helper.sh" ".agents/procedures/pipeline/helpers/priority-score.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 **Step 2 — score each candidate (multi-criteria, judgment):**
@@ -97,8 +97,8 @@ Priority ranking (as of <date> <git-HEAD-short>):
 
 **Step 1 — read prior delta state** (context-priming; deterministic diff in Step 8; reconciliation + T-mem-A counter — [`references/master-backlog-delta.md §2`](master-backlog-delta.md)): <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
-```!
-_MO_DELTA="$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_master-backlog-delta.json"
+```bash
+_MO_DELTA="$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)/_master-backlog-delta.json"
 if [[ -f "${_MO_DELTA}" ]]; then
   jq -r '.untracked_seen[]?.id' "${_MO_DELTA}" 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
 else
@@ -108,16 +108,16 @@ fi
 
 **Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches _merged_ dupes; inflight-check catches _live_ work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges). `MO_SKIP_CLOSED=1` is set on the dup-detect call so the no-arg overview `--all` scan skips the already-closed (done.md) umbrellas — otherwise the full-population glob over 250+ umbrellas overruns the 120s `!`-fence (in named mode the flag is a no-op; dup-detect stays closure-agnostic without it):
 
-```!
-MO_SKIP_CLOSED=1 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
+```bash
+MO_SKIP_CLOSED=1 bash ".agents/procedures/pipeline/helpers/run-helper.sh" ".agents/procedures/pipeline/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash ".agents/procedures/pipeline/helpers/run-helper.sh" ".agents/procedures/pipeline/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 `POTENTIAL_DUPE:`/`MISSING:` (dup-detect) → surface per [reviewer-discipline.md §2](../../../rules/reviewer-discipline.md). `INFLIGHT:` → **confirmation-needed before dispatch** (possible parallel-session collision); `CLEAR:` → proceed.
 
 **Step 3 — L4 classify each surviving candidate from Step 2:** <!-- @dual-pair: meta-orchestrator-classify-each-candidate -->
 
-```!
-bash "${CLAUDE_SKILL_DIR}/helpers/classify-each-candidate.sh" 2>/dev/null
+```bash
+bash ".agents/procedures/pipeline/helpers/classify-each-candidate.sh" 2>/dev/null
 ```
 
 Helper iterates `priority-score.sh` candidate set; per candidate routes to classify-work.sh (file-mode for `kickoff=exists`, string-mode for `kickoff=synthetic`, skip for `kickoff=missing`). DN-3 preserved — classify-work.sh UNCHANGED. Per-candidate stdout: `--- candidate: <name> ---` + TYPE/DISPATCH/LOC/SURFACES/RATIONALE. **stderr NOT suppressed** (J1 from Stage 5): if a candidate exits 3 with `MISSING-FILE:` that is **F8 for that candidate** — recorded inline, iteration continues; collect all F8s for the §10 report per [`references/failures.md`](failures.md). Steps 5–9 below require N classifications (`sibling_count`, multi-Stage rendering, multi-id delta-diff); single-shot would break them.
@@ -125,7 +125,7 @@ Helper iterates `priority-score.sh` candidate set; per candidate routes to class
 **Step 4 — L5 assign-skill (OPTIONAL advisory — NOT consumed by Step 5):** emits a human-facing skill/agent hint only; the Step 5 routing tree decides Mode from the 6 predicates, **not** from this output (verified dead-output 2026-06-03, DN-8 — simplify-not-delete). Skipping has zero effect on routing.
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
+bash ".agents/procedures/pipeline/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-line description from kickoff title>" 2>/dev/null
 ```
 
 Advisory output: `recommended_skill: <slug>` / `recommended_agent: <path>` / `recommended: none`.
@@ -166,5 +166,5 @@ elif TYPE == "I-phase-large":
 1:1 with Step 5 routing tree. Principle 19 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces mechanically. `Mode-A-bundle` sub-dispatch defined in bundle-autonomous umbrella.
 
 **Step 7 — emit ALIAS in §10 rendered output:** Stage heading: `### Stage N — <name> (<ALIAS> / <Mode>, ~<cost>)`. Dep-graph bullet: `├── <name>   (<ALIAS> / <Mode>, ~<cost>, <role>)`. Template update deferred to follow-up PR per `feedback_no_drive_by_prs`.
-**Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh "$(bash ${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh 2>/dev/null)/_master-backlog-delta.json" "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
+**Step 8 — delta diff:** invoke `bash .agents/procedures/pipeline/helpers/delta-diff.sh "$(bash .agents/procedures/pipeline/helpers/print-orch-home.sh 2>/dev/null)/_master-backlog-delta.json" "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
 **Step 9 — write-back to `_master-backlog-delta.json`:** `untracked_seen` ← current candidate set (overwrite-shape; `first_seen` = current ts). `closed_since_last` ← prior ids that no longer surface. Concrete `jq` shape in §10 step 5 — do NOT re-specify here.
