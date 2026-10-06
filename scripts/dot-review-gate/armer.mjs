@@ -49,7 +49,7 @@ export function createArmerClient({ repo, transport }) {
   };
 }
 
-export async function armAutoMerge({ repo, prNumber, reportText, schemaBytes, policy, trustedInventory, protections, transport, mergeMethod = 'squash' } = {}) {
+export async function armAutoMerge({ repo, prNumber, reportText, schemaBytes, policy, trustedInventory, protections, transport, ledger, mergeMethod = 'squash' } = {}) {
   const repoErr = repoShapeError(repo);
   if (repoErr) throw repoErr;
   const methodEnum = MERGE_METHODS[mergeMethod];
@@ -125,6 +125,34 @@ export async function armAutoMerge({ repo, prNumber, reportText, schemaBytes, po
   if (pr.head?.sha !== report.revision?.head_sha || pr.base?.sha !== report.revision?.base_sha) {
     const e = new Error(`[armer] live head/base moved since the review (head ${pr.head?.sha?.slice(0, 7)} vs reviewed ${report.revision?.head_sha?.slice(0, 7)})`);
     e.code = 'E_MISMATCH';
+    throw e;
+  }
+
+  // SP-4: eligibility composes at the ARMING boundary. The reviewed bytes are not
+  // the whole eligibility — the durable journal and the operator's registration
+  // receipt are witnesses here. Merge is DEFAULT-OFF: no registration receipt, a
+  // released one, or one without the recorded operator enablement holds the arm;
+  // so does any open blocking finding in the journal.
+  if (!ledger || typeof ledger.getRegistration !== 'function' || typeof ledger.openBlockingFindings !== 'function') {
+    const e = new Error('[armer] the durable ledger (open blocking lineage + registration receipts) is required — unknown state holds the arm');
+    e.code = 'E_CONFIG';
+    throw e;
+  }
+  const openBlocking = ledger.openBlockingFindings(policy.repository_id, pr.node_id);
+  if (openBlocking.length > 0) {
+    const e = new Error(`[armer] the journal holds open blocking findings for this PR (${openBlocking.map((f) => f.finding_key).join(', ')}) — arming held`);
+    e.code = 'E_OPEN_BLOCKING';
+    throw e;
+  }
+  const registration = ledger.getRegistration(pr.node_id);
+  if (!registration || registration.state === 'RELEASED') {
+    const e = new Error('[armer] no ACTIVE registration receipt for this PR — merge is default-off until the coordinator registers and the operator enables merge');
+    e.code = 'E_UNREGISTERED';
+    throw e;
+  }
+  if (registration.merge_enabled !== true) {
+    const e = new Error('[armer] the registration receipt carries merge_enabled=false — arming requires the recorded operator transition');
+    e.code = 'E_MERGE_DISABLED';
     throw e;
   }
   if (pr.auto_merge) {

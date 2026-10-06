@@ -615,6 +615,16 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       ).all(...FINDING_OPEN_STATES);
     },
 
+    // SP-4: the PR-scoped open blocking lineage — the journal a publication or
+    // arming boundary composes against. A later GO does not erase these rows.
+    openBlockingFindings(repositoryId, prNodeId) {
+      return db.prepare(
+        `SELECT finding_key, state FROM finding_occurrences
+         WHERE repository_id = ? AND pr_node_id = ? AND blocking = 1 AND state != 'RESOLVED'
+         ORDER BY rowid`,
+      ).all(repositoryId, prNodeId);
+    },
+
     // Historical findings (increment 7): actionable occurrences whose source report
     // was recorded against a superseded or terminal generation — the queue's
     // revalidate-before-remediation population.

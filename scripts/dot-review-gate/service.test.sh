@@ -432,6 +432,8 @@ try {
     mechanical_contexts: [
       { context: 'dot-gate suites', expected_app_id: 15368, bound_to: 'head', workflow_path: '.github/workflows/audit-self.yml' },
     ],
+    // the V2 arms claim the same live tuple repeatedly (report → revise → late → GO)
+    limits: { max_active_claims: 1, max_attempts_per_tuple: 8, claim_lease_minutes: 120 },
   });
   const V2_POLICY_TEXT = JSON.stringify(V2_POLICY);
   const v2PolicyDigestOf = policyDigestOf(V2_POLICY);
@@ -702,7 +704,6 @@ try {
   if (dUn.filter((r) => r.action === 'unhandled').length < 2 || svcF.ledger.counts().outbox_pending < 2) {
     fail(`unhandled routing ${JSON.stringify(dUn)} pending=${svcF.ledger.counts().outbox_pending}`);
   } else log('ok unknown-events-stay-pending');
-  await svcF.close();
 
   // ── SP-7 / Dot D2065-S03 through the REAL consumer ────────────────────────────
   // A fix record's mechanical_receipts become check receipts ON the fix revision;
@@ -781,6 +782,25 @@ try {
   else log('ok sp7-consumer-all-required-success-resolves');
   await svcG.close();
 
+  // ── SP-4: a later GO does not erase the journal's open blocking findings ──────
+  // svcF still holds F-901 OPEN (blocking) from the superseded report; an
+  // authorizing GO on the same PR must NOT publish the success check over it —
+  // the drain keeps the publication pending naming the finding.
+  state = v2State();
+  const claimSP4 = await call(baseF, cookieF, '/claim', {});
+  if (claimSP4.status !== 200) fail(`sp4 claim ${claimSP4.status} ${JSON.stringify(claimSP4.json).slice(0, 120)}`);
+  const goSP4 = await call(baseF, cookieF, '/submit', { claim_id: claimSP4.json.claim_id, generation: claimSP4.json.generation, report: v2Live({}, claimSP4.json.claim_id) });
+  if (goSP4.status !== 200) fail(`sp4 go submit ${goSP4.status} ${JSON.stringify(goSP4.json).slice(0, 140)}`);
+  const tSP4 = makePublisherTransport();
+  const dSP4 = await svcF.drainOutbox({ publisherTransport: tSP4.fetchJson });
+  const sp4Entry = dSP4.find((r) => r.action === 'kept-pending');
+  if (tSP4.checkRuns.some((c) => c.conclusion === 'success')) {
+    fail(`sp4 published success over open F-901: ${JSON.stringify(tSP4.checkRuns.map((c) => [c.conclusion, c.head_sha]))}`);
+  } else if (!(sp4Entry && sp4Entry.code === 'E_OPEN_BLOCKING' && /F-901/.test(sp4Entry.reason ?? ''))) {
+    fail(`sp4 wrong refusal ${JSON.stringify(dSP4)}`);
+  } else log('ok sp4-open-blocking-lineage-holds-publication');
+  await svcF.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -813,5 +833,6 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   v2-fix-response-consumed fix-record-carries-independent-review \
   unproven-closure-stays-pending executor-self-closure-refused \
   superseded-fix-record-still-consumed v2-closure-record-resolves-lineage unknown-events-stay-pending \
-  sp7-consumer-mixed-contexts-refuses sp7-consumer-all-required-success-resolves || exit 1
+  sp7-consumer-mixed-contexts-refuses sp7-consumer-all-required-success-resolves \
+  sp4-open-blocking-lineage-holds-publication || exit 1
 echo "service.test.sh: all green"

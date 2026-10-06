@@ -147,11 +147,18 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBy
 // Publish the admission success check for the CURRENT M.
 export async function publishAdmission({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
   const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
-  const { row, report, generation, authorizing, nonAuthorizing, currentM } = result;
+  const { row, report, generation, authorizing, nonAuthorizing, currentM, pr } = result;
   if (!authorizing) {
     // the validator's marker message is protocol-shaped (V2 verdicts are objects —
     // never template them here)
     return refuse('E_NOT_AUTHORIZING', nonAuthorizing?.[0]?.message ?? `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
+  }
+  // SP-4: the journal is the witness — a later GO does not erase open blocking
+  // findings for this PR. Success is not published over an unresolved lineage;
+  // the green dot would otherwise retire the defects from the eligibility surface.
+  const openBlocking = ledger.openBlockingFindings(policy.repository_id, pr.node_id);
+  if (openBlocking.length > 0) {
+    refuse('E_OPEN_BLOCKING', `the journal holds open blocking findings for this PR (${openBlocking.map((f) => f.finding_key).join(', ')}) — publish their resolution, not a green check over them`);
   }
   return createCheck({
     app, policy, transport, sha: currentM, conclusion: 'success', externalId, report,

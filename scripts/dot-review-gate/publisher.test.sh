@@ -181,6 +181,25 @@ try {
   if (!pub.check || pub.check.head_sha !== M) fail(`publish target ${pub.check?.head_sha}, want M`);
   else log('ok publish-on-current-M');
 
+  // SP-4: a later GO does not erase the journal's open blocking findings — success
+  // is not published over an unresolved lineage (RED: today the green dot publishes
+  // and the earlier defect vanishes from the eligibility surface).
+  const sp4Ledger = openLedger(`${tmp}/pub-ledger-sp4.sqlite`);
+  const sp4First = await storeReport(sp4Ledger, { changedFiles: CHANGED });
+  sp4Ledger.recordFindings(sp4First.receipt.report_id, [
+    { key: 'artyhoo/getff#F-PUB', requirement: 'the gate refuses unstaged paths', category: 'correctness', severity: 'critical', blocking: true },
+  ]);
+  const sp4Go = await storeReport(sp4Ledger, { changedFiles: CHANGED });
+  const tSP4 = makeTransport({ mergeChecks: [mechanical()], headChecks: HEAD_NAMES.map((n) => headCheck(n)) });
+  await publishAdmission({
+    ledger: sp4Ledger, reportId: sp4Go.receipt.report_id, schemaBytes, policy, app,
+    transport: tSP4.fetchJson, resolveRunIdentity: resolver, now: NOW,
+  }).then(() => fail('later GO published over an open blocking finding'))
+    .catch((e) => {
+      if (e.code === 'E_OPEN_BLOCKING' && /F-PUB/.test(e.message) && tSP4.calls.checkRuns.length === 0) log('ok open-blocking-lineage-holds-publication');
+      else fail(`open blocking lineage ${e.code} ${e.message.slice(0, 120)}`);
+    });
+
   // RED (R1): the stored record says the review FAILED with no CI evidence — even a
   // freshly computed validation object for tampered bytes must not authorize, because
   // publication re-validates the STORED bytes, not a caller's claim about them.
@@ -405,5 +424,6 @@ assert_suite_arms "publisher.test.sh" "$status" "$out" \
   revise-publishes-failure crash-recovery-idempotent \
   v2-schema-less-publication-refused v2-publisher-publishes-with-pin v2-publication-wrong-bytes-refused \
   failure-never-reuses-success go-never-reuses-failure v2-crash-retry-idempotent \
-  discovery-failure-refuses publication-read-back-verified read-back-mismatch-refused || exit 1
+  discovery-failure-refuses publication-read-back-verified read-back-mismatch-refused \
+  open-blocking-lineage-holds-publication || exit 1
 echo "publisher.test.sh: all green"

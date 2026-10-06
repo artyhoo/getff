@@ -19,10 +19,12 @@ trap 'rm -rf "$TMP"' EXIT
 
 SCRIPT="$TMP/run-armer-arms.mjs"
 cat > "$SCRIPT" <<'NODE'
-const [armerPath, fixPath, validatorPath, schemaPath] = process.argv.slice(2);
-const { makeAdmission, makePolicyFixture } = await import(fixPath);
+const [armerPath, fixPath, validatorPath, schemaPath, ledgerPath, tmpDir] = process.argv.slice(2);
+const { makeAdmission, makePolicyFixture, policyDigestOf } = await import(fixPath);
 const { createArmerClient, armAutoMerge } = await import(armerPath);
 const { readFileSync } = await import('node:fs');
+const { createHash } = await import('node:crypto');
+const { openLedger } = await import(ledgerPath);
 const schemaBytes = readFileSync(schemaPath);
 const policy = makePolicyFixture();
 const REPO = 'artyhoo/getff';
@@ -67,9 +69,15 @@ const INVENTORY = { changed_files: ['packages/core/principles/44-x.test.ts'] };
 const arm = (over = {}) => armAutoMerge({ repo: REPO, prNumber: 2042, schemaBytes, policy, trustedInventory: INVENTORY, protections: protections(), ...over });
 
 try {
+  // SP-4 fixture: the green-path ledger — an ACTIVE registration with the recorded
+  // operator enablement and a clean journal. Every arming below composes against it.
+  const sp4Green = openLedger(`${tmpDir}/armer-green.sqlite`);
+  sp4Green.insertRegistration({ prNodeId: NODE_ID, prNumber: 2042, coordinator: 'coordinator/test', reconciledAt: '2026-10-06T12:00:00Z' });
+  sp4Green.updateRegistration(NODE_ID, { mergeEnabled: true, operatorTransition: 'operator enabled merge for the pilot' });
+
   // GREEN: valid admission + healthy protections → ONE pinned GraphQL arm, SQUASH
   const t1 = makeTransport();
-  const r1 = await arm({ reportText: admission(), transport: t1.fetchJson });
+  const r1 = await arm({ reportText: admission(), transport: t1.fetchJson, ledger: sp4Green });
   if (!r1.armed) fail('arming failed');
   if (t1.calls.filter((c) => c.method === 'POST' && c.url === '/graphql').length !== 1) fail(`arm calls: ${JSON.stringify(t1.calls)}`);
   const body1 = t1.graphqlBodies[0];
@@ -79,7 +87,7 @@ try {
 
   // GREEN: replay (already armed) → no call at all
   const t2 = makeTransport({ autoMerge: { merge_method: 'squash' } });
-  const r2 = await arm({ reportText: admission(), transport: t2.fetchJson });
+  const r2 = await arm({ reportText: admission(), transport: t2.fetchJson, ledger: sp4Green });
   if (r2.armed !== false || t2.graphqlBodies.length !== 0) fail('re-arm on an armed PR');
   else log('ok rearm-idempotent');
 
@@ -159,6 +167,71 @@ try {
   await armAutoMerge({ repo: 'just-a-name', prNumber: 2042, reportText: admission(), schemaBytes, policy, protections: protections(), transport: t12.fetchJson })
     .then(() => fail('single-component repo armed'))
     .catch((e) => { if (e.code === 'E_REPO' && t12.calls.length === 0) log('ok repo-format-validated'); else fail(`repo format ${e.code}`); });
+
+  // ── SP-4: eligibility composes at the ARMING boundary ────────────────────────
+  // The reviewed bytes are not the whole eligibility: the durable journal (open
+  // blocking lineage) and the operator's registration receipt (merge is
+  // DEFAULT-OFF) are witnesses at the merge boundary. RED: today the armer writes
+  // the mutation in every one of these states.
+  const mkTuple = () => ({
+    repository_id: 1231007068, pr_node_id: NODE_ID, base_ref: 'staging',
+    base_sha: B, head_sha: H, merge_base_sha: 'a'.repeat(40),
+    tested_merge_sha: 'd'.repeat(40), policy_sha256: policyDigestOf(policy),
+    protocol_version: 'dot-staging-review/1.0',
+  });
+  const freshLedger = (name) => openLedger(`${tmpDir}/armer-${name}.sqlite`);
+  const seedBlockingFinding = (ledgerInstance) => {
+    const gen = ledgerInstance.claimGeneration({ tuple: mkTuple(), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 120 });
+    const payload = JSON.stringify({ probe: 'sp4' });
+    const rep = ledgerInstance.submitReport({
+      claimId: gen.claim.claim_id, reviewerId: 555001,
+      digest: createHash('sha256').update(payload).digest('hex'),
+      payload, verdict: 'GO', kind: 'admission', leaseMinutes: 120,
+      liveTupleDigest: gen.generation.tuple_digest,
+    });
+    ledgerInstance.recordFindings(rep.report_id, [{ key: 'artyhoo/getff#F-ARM', requirement: 'r', category: 'correctness', severity: 'critical', blocking: true }]);
+    return rep;
+  };
+
+  // no journal at all = unknown state = hold
+  const tS4a = makeTransport();
+  await arm({ reportText: admission(), transport: tS4a.fetchJson })
+    .then(() => fail('armed without the durable journal'))
+    .catch((e) => { if (e.code === 'E_CONFIG' && tS4a.graphqlBodies.length === 0) log('ok arming-without-journal-refused'); else fail(`no-journal ${e.code}`); });
+
+  // an open blocking finding on this PR holds the arm — arming cannot erase it
+  const sp4Blocking = freshLedger('blocking');
+  seedBlockingFinding(sp4Blocking);
+  sp4Blocking.insertRegistration({ prNodeId: NODE_ID, prNumber: 2042, coordinator: 'coordinator/test', reconciledAt: '2026-10-06T12:00:00Z' });
+  sp4Blocking.updateRegistration(NODE_ID, { mergeEnabled: true, operatorTransition: 'operator enabled merge for the pilot' });
+  const tS4b = makeTransport();
+  await arm({ reportText: admission(), transport: tS4b.fetchJson, ledger: sp4Blocking })
+    .then(() => fail('armed over an open blocking finding'))
+    .catch((e) => { if (e.code === 'E_OPEN_BLOCKING' && /F-ARM/.test(e.message) && tS4b.graphqlBodies.length === 0) log('ok open-blocking-lineage-holds-arm'); else fail(`open blocking ${e.code} ${e.message.slice(0, 100)}`); });
+
+  // no registration receipt → merge is default-off
+  const sp4Unreg = freshLedger('unreg');
+  const tS4c = makeTransport();
+  await arm({ reportText: admission(), transport: tS4c.fetchJson, ledger: sp4Unreg })
+    .then(() => fail('armed without a registration receipt'))
+    .catch((e) => { if (e.code === 'E_UNREGISTERED' && tS4c.graphqlBodies.length === 0) log('ok unknown-registration-holds-arm'); else fail(`unregistered ${e.code}`); });
+
+  // registered but the operator transition never enabled merge
+  const sp4Disabled = freshLedger('disabled');
+  sp4Disabled.insertRegistration({ prNodeId: NODE_ID, prNumber: 2042, coordinator: 'coordinator/test', reconciledAt: '2026-10-06T12:00:00Z' });
+  const tS4d = makeTransport();
+  await arm({ reportText: admission(), transport: tS4d.fetchJson, ledger: sp4Disabled })
+    .then(() => fail('armed with merge_enabled=false'))
+    .catch((e) => { if (e.code === 'E_MERGE_DISABLED' && tS4d.graphqlBodies.length === 0) log('ok merge-disabled-holds-arm'); else fail(`merge disabled ${e.code}`); });
+
+  // a released registration is no longer an authorization
+  const sp4Released = freshLedger('released');
+  sp4Released.insertRegistration({ prNodeId: NODE_ID, prNumber: 2042, coordinator: 'coordinator/test', reconciledAt: '2026-10-06T12:00:00Z' });
+  sp4Released.updateRegistration(NODE_ID, { state: 'RELEASED', operatorTransition: 'operator released the PR' });
+  const tS4e = makeTransport();
+  await arm({ reportText: admission(), transport: tS4e.fetchJson, ledger: sp4Released })
+    .then(() => fail('armed on a released registration'))
+    .catch((e) => { if (e.code === 'E_UNREGISTERED' && tS4e.graphqlBodies.length === 0) log('ok released-registration-holds-arm'); else fail(`released ${e.code}`); });
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
 }
@@ -170,9 +243,14 @@ out="$(node "$SCRIPT" \
   "$DIR/armer.mjs" \
   "$(cd "$DIR/../.." && pwd)/tests/dot-review-gate/fixtures/make-admission.mjs" \
   "$DIR/validate-report.mjs" \
-  "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" 2>&1)"; status=$?
+  "$(cd "$DIR/../.." && pwd)/docs/meta-factory/dot-review-result.schema.json" \
+  "$DIR/ledger.mjs" \
+  "$TMP" 2>&1)"; status=$?
 assert_suite_arms "armer.test.sh" "$status" "$out" \
   armed-once-pinned-mutation rearm-idempotent head-drift-refused revise-refused \
   invalid-refused pause-refused nonstrict-refused wrong-source-refused draft-refused \
-  client-allowlist-owner-repo graphql-body-pinned repo-format-validated || exit 1
+  client-allowlist-owner-repo graphql-body-pinned repo-format-validated \
+  arming-without-journal-refused open-blocking-lineage-holds-arm \
+  unknown-registration-holds-arm merge-disabled-holds-arm \
+  released-registration-holds-arm || exit 1
 echo "armer.test.sh: all green"
