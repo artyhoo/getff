@@ -637,8 +637,6 @@ jobs:
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
       - name: Run register-glossary-hook idempotence regression (cold-review M2, plain-words-recap-v2 S3)
         run: bash tests/hooks/register-glossary-hook.test.sh && bash tests/hooks/seal-primary-checkout.test.sh # + primary-checkout seal deny-gate paired tests (2026-10-01 incident), same line so no citation shifts
-      - name: Run sanctioned .husky patch channel paired test (apply-husky-patch writer + PreToolUse permission gate, scratch repos only)
-        run: bash scripts/apply-husky-patch.test.sh
       # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
       # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
       # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
@@ -2899,3 +2897,21 @@ jobs:
           bash scripts/dot-review-gate/armer.test.sh
           bash scripts/dot-review-gate/service.test.sh
           bash scripts/dot-review-gate/finding-lifecycle.test.sh
+
+  # Appended at the end on purpose — same precedent as the bash32 job above: path:line
+  # citations point into this workflow, and a job added above them would shift every one.
+  # Sanctioned .husky patch channel (CLAUDE.md harness gates): the writer script's paired
+  # test runs in scratch repos only — git init/config/remote against temp dirs, no
+  # network, no LLM calls, no tool installs (bash + git + python3 + shasum + patch).
+  sanctioned-husky-patch-channel:
+    name: Sanctioned .husky patch channel (apply-husky-patch paired test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run apply-husky-patch writer + PreToolUse permission gate paired test
+        run: bash scripts/apply-husky-patch.test.sh
