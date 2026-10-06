@@ -1,3 +1,4 @@
+import { resolveReviewTargets } from './ledger.mjs';
 // Authenticated browser intake for the Dot review gate — spec §3.1/§5.
 //
 // Boundary rules implemented here (everything else trusts the ledger):
@@ -316,13 +317,19 @@ export async function startIntake({ ledger, policy, oauth, webhookSecret, valida
         try { issuedTuple = JSON.parse(genRow.tuple_json); } catch { issuedTuple = undefined; }
       }
       const canonicalText = JSON.stringify(envelope.report);
+      const createHash = (await import('node:crypto')).createHash;
+      const digest = createHash('sha256').update(canonicalText).digest('hex');
+      const prior = ledger.getReportByDigest(digest);
+      const exactAcceptedReplay = prior?.claim_id === envelope.claim_id && prior?.reviewer_id === auth.principalId;
+      if (!exactAcceptedReplay && isV2Record && envelope.report.record_type === 'review_report') {
+        try { resolveReviewTargets(ledger, genRow, envelope.report); }
+        catch (e) { return send(res, 422, { error: e.message, code: e.code ?? 'E_REVIEW_SCOPE' }); }
+      }
       // the validator may be async (the composed service loads it lazily) — await
-      const verdict = await validator(canonicalText, { currentState: issuedTuple, trustedInventory });
+      const verdict = exactAcceptedReplay ? { ok: true } : await validator(canonicalText, { currentState: issuedTuple, trustedInventory });
       if (!verdict.ok) {
         return send(res, 422, { error: 'report rejected by validator', errors: verdict.errors.slice(0, 20) });
       }
-      const createHash = (await import('node:crypto')).createHash;
-      const digest = createHash('sha256').update(canonicalText).digest('hex');
       const isV2 = envelope.report.protocol_version === 'dot-pr-review/2.0.0';
       let receipt;
       try {

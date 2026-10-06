@@ -43,7 +43,7 @@ const OPEN_REVIEW_STATES = ['INTENT', 'DELIVERED', 'ACKED'];
 
 // R3-5: the operational authorization gate — every consequential launch/delivery
 // boundary composes THIS function, never a subset of it.
-function operationalHold({ ledger, policy, budgets, registration, nowMs }) {
+function operationalHold({ ledger, policy, budgets, registration, requireRegistration = false, nowMs }) {
   if (ledger.isPaused()) {
     return { code: 'E_PAUSED', reason: 'operator pause is active — no launch, delivery or recovery' };
   }
@@ -54,6 +54,7 @@ function operationalHold({ ledger, policy, budgets, registration, nowMs }) {
   if (!budgets.unattendedAllowed()) {
     return { code: 'E_UNATTENDED_DISABLED', reason: 'missing limits or quota pause — unattended dispatch disabled' };
   }
+  if (requireRegistration && !registration) return { code: 'E_UNREGISTERED', reason: 'no scoped ACTIVE registration — delivery default-off' };
   if (registration && registration.state !== 'ACTIVE') {
     return { code: 'E_UNREGISTERED', reason: `registration is ${registration.state}, not ACTIVE — an unknown future state holds too` };
   }
@@ -151,6 +152,15 @@ export async function runCycle({
     throw code('E_CONFIG', 'runCycle requires the discover adapter — with no destination enrollment the caller passes a stub that returns no PRs');
   }
 
+  // The stored packet is the action's durable PR scope, including recovery.
+  const authorizeAction = (action, payload) => {
+    const node = payload?.pr?.node_id ?? payload?.pr_node_id;
+    const repository = payload?.repository_id;
+    const hold = operationalHold({ ledger, policy, budgets, registration: node ? ledger.getRegistration(node) : undefined, requireRegistration: true, nowMs: now() });
+    if (hold) throw code(hold.code, hold.reason);
+    if (!node || repository !== policy.repository_id) throw code('E_UNREGISTERED', 'unknown or foreign action scope holds delivery');
+    void action;
+  };
   const report = {
     queued: [], dispatched: [], acked: [], held: [], recovered: 0, drained: 0, historical: [],
     routed: [], recoveryHeld: null, activeReviews: 0,
@@ -182,6 +192,12 @@ export async function runCycle({
         report.held.push({ key: item.key, code: 'E_REVIEW_ACTIVE', reason: `one active Dot review is the configured bound (${report.activeReviews} outstanding) — reconcile or resolve before replacement` });
         continue;
       }
+      const occurrenceScope = item.occurrence_id ? ledger.getOccurrence(item.occurrence_id) : undefined;
+      const scopedNode = item.pr?.node_id ?? occurrenceScope?.pr_node_id;
+      const scopedRepo = item.pr?.repository_id ?? occurrenceScope?.repository_id ?? policy.repository_id;
+      if (scopedRepo !== policy.repository_id) throw code('E_UNREGISTERED', 'foreign repository scope');
+      const scopeHold = operationalHold({ ledger, policy, budgets, registration: scopedNode ? ledger.getRegistration(scopedNode) : undefined, requireRegistration: true, nowMs: now() });
+      if (scopeHold) { report.held.push({ key: item.key, ...scopeHold }); continue; }
       if (item.pr) {
         // SP-4 at the runtime boundary: an ABSENT or non-ACTIVE registration holds
         // (admission default-off) — the work stays queued and visible
@@ -190,7 +206,7 @@ export async function runCycle({
           report.held.push({ key: item.key, code: 'E_UNREGISTERED', reason: 'no registration receipt — admission default-off' });
           continue;
         }
-        const regHold = operationalHold({ ledger, policy, budgets, registration, nowMs: now() });
+        const regHold = operationalHold({ ledger, policy, budgets, registration, requireRegistration: true, nowMs: now() });
         if (regHold) {
           report.held.push({ key: item.key, code: regHold.code, reason: regHold.reason });
           continue;
@@ -253,14 +269,15 @@ export async function runCycle({
       // reservation row stays, nothing dispatches, the hold names the reason)
       const postReservation = operationalHold({
         ledger, policy, budgets,
-        registration: item.pr ? ledger.getRegistration(item.pr.node_id) : undefined,
+        registration: ledger.getRegistration(scopedNode),
+        requireRegistration: true,
         nowMs: now(),
       });
       if (postReservation) {
         report.held.push({ key: item.key, code: postReservation.code, reason: `${postReservation.reason} (reservation ${budget.windowId} stands, non-launched)` });
         continue;
       }
-      const action = await adapter.dispatchAction({ kind: dispatchKind, targetSession: target.session, payload });
+      const action = await adapter.dispatchAction({ kind: dispatchKind, targetSession: target.session, payload, authorize: authorizeAction });
       report.dispatched.push({ key: item.key, kind: dispatchKind, actionId: action.actionId, windowId: budget.windowId, target: target.session });
       if (isReview) report.activeReviews += 1;
       if (dispatchKind === 'fix-assignment' && assignment) report.routed.push({ key: item.key, assignment_id: assignment.assignment_id });
@@ -293,7 +310,7 @@ export async function runCycle({
       if (gen && (gen.state === 'SUPERSEDED' || ['AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE'].includes(gen.state))) continue;
       try {
         const registration = ledger.getRegistration(o.pr_node_id);
-        const hold = operationalHold({ ledger, policy, budgets, registration, nowMs: now() });
+        const hold = operationalHold({ ledger, policy, budgets, registration, requireRegistration: true, nowMs: now() });
         if (hold) {
           report.held.push({ key: o.finding_key, code: hold.code, reason: `finding routing held: ${hold.reason}` });
           continue;
@@ -305,13 +322,13 @@ export async function runCycle({
         }
         const assignment = ledger.claimFinding({ findingKey: o.finding_key, owner: target.owner ?? target.session, leaseMinutes: workLeaseMinutes, nowMs: now() });
         const budget = budgets.reserveLaunch({ occurrenceKey: assignment.occurrence_id, prKey: o.pr_node_id ? `pr:${o.pr_node_id}` : undefined });
-        const postReservation = operationalHold({ ledger, policy, budgets, registration: ledger.getRegistration(o.pr_node_id), nowMs: now() });
+        const postReservation = operationalHold({ ledger, policy, budgets, registration: ledger.getRegistration(o.pr_node_id), requireRegistration: true, nowMs: now() });
         if (postReservation) {
           report.held.push({ key: o.finding_key, code: postReservation.code, reason: `${postReservation.reason} (reservation ${budget.windowId} stands, non-launched)` });
           continue;
         }
         const generation = ledger.generationForOccurrence(o.id);
-        const action = await adapter.dispatchAction({ kind: 'fix-assignment', targetSession: target.session, payload: fixPacket({ assignment, occurrence: o, generation }) });
+        const action = await adapter.dispatchAction({ kind: 'fix-assignment', targetSession: target.session, payload: fixPacket({ assignment, occurrence: o, generation }), authorize: authorizeAction });
         report.dispatched.push({ key: o.finding_key, kind: 'fix-assignment', actionId: action.actionId, windowId: budget.windowId, target: target.session });
         report.routed.push({ key: o.finding_key, assignment_id: assignment.assignment_id });
       } catch (e) {
@@ -327,7 +344,9 @@ export async function runCycle({
   if (recoveryHold) {
     report.recoveryHeld = recoveryHold;
   } else {
-    report.recovered = adapter.recoverPending().recovered.length;
+    const recovered = adapter.recoverPending({ authorize: authorizeAction });
+    report.recovered = recovered.recovered.length;
+    if (recovered.held?.length) report.recoveryHeld = { code: recovered.held[0].code, actions: recovered.held };
   }
 
   return report;

@@ -20,7 +20,7 @@ import { loadPolicy, mandatoryMechanical } from './load-policy.mjs';
 import { evaluateReadiness } from './readiness.mjs';
 import { startIntake } from './intake.mjs';
 import { publishAdmission, publishFailure } from './publisher.mjs';
-import { openLedger } from './ledger.mjs';
+import { openLedger, resolveReviewTargets, tupleDigest } from './ledger.mjs';
 
 export async function createGateService({
   ledgerPath,
@@ -154,7 +154,7 @@ export async function createGateService({
   // a refusal keeps the event pending with its reason, never consumed unactioned.
   // R3-1: the record's actor is the REGISTRY label of the AUTHENTICATED submitter
   // (reports.reviewer_id) — a claimed_by/verified_by that disagrees refuses.
-  function consumeLifecycleRecord(recordType, record, payload, reportRow) {
+  async function consumeLifecycleRecord(recordType, record, payload, reportRow) {
     try {
       if (recordType === 'fix_response') {
         const owner = registryLabel('executors', reportRow?.reviewer_id);
@@ -190,7 +190,9 @@ export async function createGateService({
         rationale: record.rationale,
         // SP-7: the policy's head-bound mechanical contexts are the trusted
         // required-check set the closure gate evaluates per check identity
-        requiredContexts: mandatoryMechanical(policy).filter((c) => c.bound_to === 'head').map((c) => c.context),
+        requiredContexts: mandatoryMechanical(policy).map((c) => c.context),
+        requiredChecks: mandatoryMechanical(policy),
+        checkBasis: await readState(),
       });
       return { action: 'closure-recorded' };
     } catch (e) {
@@ -205,7 +207,7 @@ export async function createGateService({
   // reviewed revision and the named findings. The canonical change_review receipt
   // inside an EXECUTOR fix record carries no outcome and never will — this path
   // is the only writer of verdict-bearing review evidence.
-  function recordReviewOutcome(reportRow, record) {
+  async function recordReviewOutcome(reportRow, record) {
     const cr = record?.change_review_receipt;
     if (!cr || typeof cr !== 'object' || !Array.isArray(cr.finding_ids) || cr.finding_ids.length === 0) return 0;
     // R4 (cold review): the authenticated outcome is the REVIEWER channel. The
@@ -213,6 +215,28 @@ export async function createGateService({
     // covers direct-ledger paths — a report row whose reviewer_id is not an
     // enrolled reviewer mints NO verdict-bearing change_review receipt.
     if (!(policy.reviewer_principal_ids ?? []).includes(reportRow?.reviewer_id)) return 0;
+    // Redelivery of already-consumed immutable evidence must survive closure.
+    // This grants no new outcome; publication still revalidates its live basis.
+    const consumed = cr.finding_ids.every(key => {
+      const occurrence = ledger.lineage(key).at(-1);
+      return occurrence && ledger.receiptsFor(occurrence.id).some(r => {
+        try { const p = JSON.parse(r.payload); return r.kind === 'change_review' && p.source === 'authenticated-review-report' && p.report_id === reportRow.id && p.report_digest === reportRow.payload_digest; }
+        catch { return false; }
+      });
+    });
+    if (consumed) return 0;
+    const challenge = ledger.getChallenge(reportRow.claim_id);
+    const generation = challenge ? ledger.getGeneration(challenge.generation_id) : undefined;
+    const digest = createHash('sha256').update(reportRow.payload).digest('hex');
+    if (digest !== reportRow.payload_digest) throw Object.assign(new Error('review payload digest changed'), { code: 'E_DIGEST' });
+    const live = await readState();
+    if (!generation || tupleDigest(live) !== generation.tuple_digest) throw Object.assign(new Error('review basis is no longer current'), { code: 'E_REVIEW_SCOPE' });
+    const targets = resolveReviewTargets(ledger, generation, record);
+    const valid = await validator(reportRow.payload, {
+      currentState: JSON.parse(generation.tuple_json),
+      trustedInventory: { changed_files: JSON.parse(generation.changed_files_json ?? '[]') },
+    });
+    if (!valid.ok) throw Object.assign(new Error('review fails its issued document contract'), { code: 'E_VALIDATION' });
     const actor = registryLabel(null, reportRow?.reviewer_id);
     const outcome = {
       verdict: record?.verdict?.outcome ?? null,
@@ -220,19 +244,18 @@ export async function createGateService({
       artifact_sha256: cr.artifact_sha256 ?? null,
       resolutions: cr.resolutions ?? [],
       source: 'authenticated-review-report',
+      report_id: reportRow.id,
+      report_digest: reportRow.payload_digest,
     };
     const revision = cr.reviewed_revision ?? record?.review_identity?.revisions?.head_sha ?? null;
     let recorded = 0;
-    for (const key of cr.finding_ids) {
-      const tail = ledger.lineage(key).at(-1);
-      if (!tail) continue;
-      // R4 (cold review): the event stays pending until publication succeeds and
-      // REDELIVERS at-least-once — an AUTHENTICATED verdict receipt for the same
-      // revision is not recorded twice (a duplicate would shadow the closure
-      // gate's latest-read). The marker scopes the dedup to THIS path's own
-      // receipts; a fix record's executor-attached independent review (same
-      // revision, different source) must not suppress the reviewer's outcome.
-      const already = ledger.receiptsFor(tail.id).some((r) => r.kind === 'change_review' && r.revision === revision && /authenticated-review-report/.test(r.payload ?? ''));
+    for (const tail of targets) {
+      // Immutable report identity distinguishes a new outcome from redelivery.
+      const already = ledger.receiptsFor(tail.id).some((r) => {
+        if (r.kind !== 'change_review') return false;
+        try { const p = JSON.parse(r.payload); return p.source === 'authenticated-review-report' && p.report_id === reportRow.id; }
+        catch { return false; }
+      });
       if (already) continue;
       ledger.recordReceipt({ occurrenceId: tail.id, kind: 'change_review', revision, payload: JSON.stringify(outcome), actor });
       recorded += 1;
@@ -246,14 +269,25 @@ export async function createGateService({
   // exactly that head sha — context identity + revision, never an executor
   // assertion. The receipt payload carries source 'github-webhook': the closure
   // gate qualifies required contexts from TRUSTED receipts only.
-  function recordTrustedCheckReceipt(environment) {
+  async function recordTrustedCheckReceipt(environment) {
     const checkRun = environment?.payload?.check_run;
     const repositoryId = environment?.payload?.repository?.id;
     const context = checkRun?.name;
     const headSha = checkRun?.head_sha;
     const conclusion = checkRun?.conclusion;
-    if (!Number.isInteger(repositoryId) || typeof context !== 'string' || context.length === 0 || typeof headSha !== 'string' || conclusion == null) return 0;
-    const targets = ledger.occurrencesAtFixRevision(repositoryId, headSha);
+    if (!Number.isInteger(repositoryId) || typeof context !== 'string' || context.length === 0 || typeof headSha !== 'string') return 0;
+    const required = mandatoryMechanical(policy).find(c => c.context === context);
+    if (!required || checkRun?.app?.id !== required.expected_app_id || typeof resolveRunIdentity !== 'function') return 0;
+    const identity = await resolveRunIdentity(checkRun);
+    if (identity?.workflow_path !== required.workflow_path
+      || (required.workflow_sha !== undefined && identity.workflow_sha !== required.workflow_sha)
+      || !Number.isInteger(identity?.run_id) || !Number.isInteger(identity?.run_attempt)
+      || !Number.isFinite(Date.parse(identity?.run_started_at ?? ''))) return 0;
+    const basis = await readState();
+    if (repositoryId !== basis.repository_id || headSha !== (required.bound_to === 'merge' ? basis.tested_merge_sha : basis.head_sha)) return 0;
+    const targets = ledger.occurrencesAtFixRevision(repositoryId, basis.head_sha)
+      .filter(t => ledger.getOccurrence(t.occurrence_id)?.pr_node_id === basis.pr_node_id);
+
     let recorded = 0;
     for (const t of targets) {
       ledger.recordReceipt({
@@ -262,6 +296,9 @@ export async function createGateService({
         revision: headSha,
         payload: JSON.stringify({
           context, conclusion,
+          app_id: checkRun.app.id,
+          ...identity,
+          basis_digest: tupleDigest(basis),
           reference: checkRun.html_url ?? checkRun.details_url ?? String(checkRun.id ?? 'check-run'),
           head_sha: headSha,
           delivery_id: environment?.delivery_id ?? null,
@@ -296,7 +333,7 @@ export async function createGateService({
         let envelope;
         try { envelope = JSON.parse(event.payload); } catch { envelope = undefined; }
         if (envelope?.event === 'check_run') {
-          const recorded = recordTrustedCheckReceipt(envelope);
+          const recorded = await recordTrustedCheckReceipt(envelope);
           ledger.outboxMarkPublished(event.id);
           results.push({ event: event.event_type, action: 'check-run-recorded', receipts: recorded });
           continue;
@@ -334,7 +371,7 @@ export async function createGateService({
           continue;
         }
         if (recordType === 'fix_response' || recordType === 'closure_receipt') {
-          const consumed = consumeLifecycleRecord(recordType, record, payload, row);
+          const consumed = await consumeLifecycleRecord(recordType, record, payload, row);
           results.push({ event: event.event_type, ...consumed });
           if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
           continue;
@@ -346,7 +383,7 @@ export async function createGateService({
       if (recordType === 'fix_response' || recordType === 'closure_receipt') {
         // lifecycle consumption of coordinator-side records — never an admission
         // check, never gated on publication pause (the ledger is authoritative)
-        const consumed = consumeLifecycleRecord(recordType, record, payload, row);
+        const consumed = await consumeLifecycleRecord(recordType, record, payload, row);
         results.push({ event: event.event_type, ...consumed });
         if (consumed.action !== 'kept-pending') ledger.outboxMarkPublished(event.id);
         continue;
@@ -365,7 +402,11 @@ export async function createGateService({
         // R3-2: an accepted review is the AUTHENTICATED outcome path — its verdict
         // becomes verdict-bearing change_review evidence on the findings its own
         // receipt names (a superseded review never mints current outcomes)
-        recordReviewOutcome(row, record);
+        try { await recordReviewOutcome(row, record); }
+        catch (e) {
+          results.push({ event: event.event_type, action: 'kept-pending', code: e.code ?? 'E_REVIEW_SCOPE', reason: e.message });
+          continue;
+        }
       }
       let outcome;
       try {

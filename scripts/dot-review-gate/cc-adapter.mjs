@@ -60,7 +60,7 @@ export function createCcAdapter({ ledger, coordinationDir, notify, maxRecoveryAt
 
   return {
     // intent → (fencing/cessation gate) → deliver → DELIVERED; notify best-effort
-    async dispatchAction({ kind, targetSession, payload, replacesAssignment, leaseMinutes } = {}) {
+    async dispatchAction({ kind, targetSession, payload, replacesAssignment, leaseMinutes, authorize } = {}) {
       if (!kind || !targetSession) {
         throw Object.assign(new Error('dispatchAction requires kind and targetSession'), { code: 'E_LIMITS' });
       }
@@ -79,6 +79,7 @@ export function createCcAdapter({ ledger, coordinationDir, notify, maxRecoveryAt
         payloadText,
       });
       try {
+        if (authorize) authorize(action, payload);
         if (!existsSync(msgPath(id))) {
           writeAtomic(msgPath(id), renderMessage(action, payload));
         }
@@ -103,20 +104,18 @@ export function createCcAdapter({ ledger, coordinationDir, notify, maxRecoveryAt
     // digest verification — a stub is never delivered in place of the real
     // instructions — and each recovery attempt draws from a persisted per-action
     // retry budget; an exhausted budget HOLDS the row instead of retrying forever.
-    recoverPending() {
+    recoverPending({ authorize } = {}) {
       const recovered = [];
+      const held = [];
       for (const a of ledger.coordList('INTENT')) {
         try {
+          if (typeof a.payload_text !== 'string' || a.payload_text.length === 0) throw Object.assign(new Error('recovery has no durable original action scope'), { code: 'E_SCOPE' });
+          const digest = createHash('sha256').update(a.payload_text).digest('hex');
+          if (digest !== a.payload_digest) throw Object.assign(new Error('recovered payload fails its digest — holding'), { code: 'E_DIGEST' });
+          const payload = JSON.parse(a.payload_text);
+          if (authorize) authorize(a, payload);
           ledger.reserveRetry(`coord-recover:${a.id}`, maxRecoveryAttempts);
           if (!existsSync(msgPath(a.id))) {
-            let payload = { recovered: true };
-            if (typeof a.payload_text === 'string' && a.payload_text.length > 0) {
-              const digest = createHash('sha256').update(a.payload_text).digest('hex');
-              if (digest !== a.payload_digest) {
-                throw Object.assign(new Error('recovered payload fails its digest — the stored original is corrupt; holding'), { code: 'E_DIGEST' });
-              }
-              payload = JSON.parse(a.payload_text);
-            }
             writeAtomic(msgPath(a.id), renderMessage(a, payload));
           }
           ledger.coordMark(a.id, 'DELIVERED');
@@ -126,9 +125,10 @@ export function createCcAdapter({ ledger, coordinationDir, notify, maxRecoveryAt
             ? `recovery retry budget exhausted (${maxRecoveryAttempts}) — holding; a fresh reservation is an operator reset`
             : e.message;
           ledger.coordMark(a.id, 'INTENT', why);
+          held.push({ actionId: a.id, code: e.code ?? 'E_DELIVERY', reason: why });
         }
       }
-      return { recovered };
+      return { recovered, held };
     },
 
     // ACK is its own transition: only the recipient's ack file flips the state

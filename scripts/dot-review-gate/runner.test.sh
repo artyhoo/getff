@@ -106,6 +106,14 @@ function group(name) {
   return { l, b: createBudgets({ ledger: l, limits: LIMITS }), a, dir };
 }
 
+function seedScoped(l, key, node = 'PR_verify', head = 'f') {
+  const tuple = { repository_id: REPO, pr_node_id: node, base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: head.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' };
+  const g = l.claimGeneration({ tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
+  const payload = JSON.stringify({ probe: key });
+  const r = l.submitReport({ claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'REVISE', kind: 'admission', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest });
+  l.recordFindings(r.report_id, [{ key, requirement: 'r', category: 'correctness', severity: 'major', blocking: true }]);
+}
+
 try {
   // RED: the runner module is what this suite pins — import failure IS the RED.
 
@@ -171,7 +179,7 @@ try {
   // a stranded INTENT exists (crashed write) — recovery must NOT re-deliver it
   // while paused; the row stays pending, the hold is named
   const broken = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-run/nope`, notify: async () => {} });
-  await broken.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-run', payload: { instruction: 'fix artyhoo/getff#F-77 at rev 7' } }).catch(() => {});
+  await broken.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-run', payload: { repository_id: REPO, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', instruction: 'fix artyhoo/getff#F-77 at rev 7' } }).catch(() => {});
   const strandedId = ledger.coordList('INTENT').filter((a) => a.target === 'sess-run').at(-1)?.id;
   ledger.setPaused(true);
   const beforePaused = coordCount(ledger);
@@ -226,7 +234,7 @@ try {
   // recovery composes THROUGH the cycle (the stranded intent from the paused arm
   // was already recovered — strand another one to keep the composition arm)
   const broken2 = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-run2/nope`, notify: async () => {} });
-  await broken2.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-run2', payload: { instruction: 'recover me again at rev 9' } }).catch(() => {});
+  await broken2.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-run2', payload: { repository_id: REPO, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', instruction: 'recover me again at rev 9' } }).catch(() => {});
   const stranded2 = ledger.coordList('INTENT').filter((a) => a.target === 'sess-run2').at(-1)?.id;
   const r7 = await runCycle({ ledger, policy, budgets, adapter, discover: DISCOVER_EMPTY, resolveTarget });
   const msg2 = existsSync(`${coordDir}/_dot-gate-msg-${stranded2}.md`) ? readFileSync(`${coordDir}/_dot-gate-msg-${stranded2}.md`, 'utf8') : '';
@@ -327,13 +335,38 @@ try {
   // pending verification has priority and is NOT a Dot review — it dispatches
   // while the one-review bound is consumed elsewhere
   const L5 = group('l5');
-  L5.l.recordFindings('rep-verify', [{ key: 'artyhoo/getff#V1', requirement: 'r', category: 'correctness', severity: 'major', blocking: true }]);
+  seedScoped(L5.l, 'artyhoo/getff#V1');
+  register(L5.l, 'PR_verify', 3901);
   const vClaim = L5.l.claimFinding({ findingKey: 'artyhoo/getff#V1', owner: 'cc-executor/mechanism-lane', leaseMinutes: 30 });
   L5.l.recordFixResponse({ assignmentId: vClaim.assignment_id, fencingToken: vClaim.fencing_token, fixRevision: 'fix-v1', digest: 'fd:v1', payload: '{}' });
-  const rVerify = await runCycle({ ledger: L5.l, policy, budgets: L5.b, adapter: L5.a, discover: async () => ({ openPrs: [], mergedPrs: [] }), resolveTarget });
+  const active = await L5.a.dispatchAction({ kind: 'review-request', targetSession: 'reviewer', payload: { pr: { node_id: 'PR_outstanding' } } });
+  if (L5.l.coordGet(active.actionId)?.state !== 'DELIVERED') fail('missing outstanding review precondition');
+  const rVerify = await runCycle({ ledger: L5.l, policy, budgets: L5.b, adapter: L5.a, discover: async () => ({ openPrs: [prAt('c')], mergedPrs: [] }), resolveTarget });
   const verifyDispatch = rVerify.dispatched.find((d) => d.kind === 'verify-request');
   if (!verifyDispatch) fail(`verify priority ${JSON.stringify({ d: rVerify.dispatched, h: rVerify.held })}`);
   else log('ok r36-verify-priority-dispatches-under-review-bound');
+
+  const LR = group('released-recovery');
+  const releasedPr = { number: 3900, repository_id: REPO, draft: false, head_sha: 'c'.repeat(40), base_sha: 'b'.repeat(40), node_id: 'PR_released_recovery' };
+  register(LR.l, releasedPr.node_id, 3900);
+  const releasedBroken = createCcAdapter({ ledger: LR.l, coordinationDir: `${tmp}/absent-directory` });
+  await runCycle({ ledger: LR.l, policy, budgets: LR.b, adapter: releasedBroken, discover: async () => ({ openPrs: [releasedPr] }), resolveTarget });
+  const intent = LR.l.coordList('INTENT')[0];
+  if (!intent) fail('recovery precondition: runner created no INTENT');
+  LR.l.updateRegistration(releasedPr.node_id, { state: 'RELEASED', operatorTransition: 'operator releases review' });
+  const recovered = await runCycle({ ledger: LR.l, policy, budgets: LR.b, adapter: LR.a, discover: async () => ({ openPrs: [] }), resolveTarget });
+  if (!intent || LR.l.coordGet(intent.id)?.state !== 'INTENT' || recovered.recovered !== 0 || existsSync(`${LR.dir}/_dot-gate-msg-${intent.id}.md`)) fail('released PR recovered a delivery');
+  else log('ok released-runner-intent-never-redelivered');
+  LR.l.updateRegistration(releasedPr.node_id, { state: 'ACTIVE', operatorTransition: 'operator enrolls again' });
+  const activeRecovery = await runCycle({ ledger: LR.l, policy, budgets: LR.b, adapter: LR.a, discover: async () => ({ openPrs: [] }), resolveTarget });
+  if (activeRecovery.recovered !== 1 || !existsSync(`${LR.dir}/_dot-gate-msg-${intent.id}.md`)) fail('ACTIVE recovery control did not deliver');
+  else log('ok active-scoped-intent-recovers');
+  const LU = group('unregistered-routing');
+  seedScoped(LU.l, 'F-no-registration', 'PR_unregistered');
+  const unregistered = await runCycle({ ledger: LU.l, policy, budgets: LU.b, adapter: LU.a, discover: async () => ({ openPrs: [] }), resolveTarget });
+  if (unregistered.dispatched.length || LU.l.lineage('F-no-registration').at(-1)?.state !== 'OPEN' || !unregistered.held.some(h => h.code === 'E_UNREGISTERED')) fail('unregistered finding assigned or dispatched');
+  else log('ok unregistered-finding-never-assigned');
+
 
   // ── ST-R3-1: ALREADY_FIXED proves cessation of work ───────────────────────────
   const L6 = group('l6');
@@ -347,6 +380,7 @@ try {
     // finding becomes HISTORICAL (the queue's revalidate-before-remediation pool)
     l.claimGeneration({ tuple: HIST_TUPLE('g'), reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
   };
+  register(L6.l, 'PR_kwDOM9YQhs6AbCdEfGhS', 3910);
   seedHistorical(L6.l, 'artyhoo/getff#H1');
   const pendingBefore = L6.l.counts().outbox_pending;
   const actionsBefore = coordCount(L6.l);
@@ -431,7 +465,7 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r36-accepted-report-resolves-active-review \
   r36-open-review-precedes-merged-history \
   r36-newest-merged-selected-as-historical-review \
-  r36-verify-priority-dispatches-under-review-bound \
+  r36-verify-priority-dispatches-under-review-bound released-runner-intent-never-redelivered active-scoped-intent-recovers unregistered-finding-never-assigned \
   r31-already-fixed-zero-launch-durable-evidence \
   r31-still-present-historical-dispatches-one-assignment \
   r36-open-finding-routes-one-trusted-assignment \

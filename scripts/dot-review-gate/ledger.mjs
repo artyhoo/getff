@@ -27,6 +27,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { copyFileSync } from 'node:fs';
+import { evaluateReadiness } from './readiness.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS generations (
@@ -183,6 +184,29 @@ export function payloadDigest(text) {
 
 // R3: the whole tuple is load-bearing — every field participates in the digest.
 // Explicit nulls keep JSON canonicalization stable for absent optional fields.
+// Resolve the entire attached-review scope before any receipt is written.
+// Authentication grants a role; the challenged generation grants PR authority.
+export function resolveReviewTargets(ledger, generation, record) {
+  const receipt = record?.change_review_receipt;
+  if (!receipt || !Array.isArray(receipt.finding_ids) || receipt.finding_ids.length === 0) return [];
+  const reject = (reason) => { throw code('E_REVIEW_SCOPE', reason); };
+  const identity = record.review_identity;
+  let tuple;
+  try { tuple = JSON.parse(generation?.tuple_json); } catch { reject('review generation has no trusted tuple'); }
+  if (!generation || generation.state === 'SUPERSEDED'
+    || identity?.repository?.id !== generation.repository_id
+    || identity?.pull_request?.node_id !== generation.pr_node_id
+    || receipt.reviewed_revision !== tuple.head_sha) reject('attached review does not match its challenged PR/revision');
+  return receipt.finding_ids.map((key) => {
+    const occurrence = ledger.lineage(key).at(-1);
+    if (!occurrence || occurrence.repository_id !== generation.repository_id
+      || occurrence.pr_node_id !== generation.pr_node_id || occurrence.state !== 'VERIFYING') reject(`finding ${key} is outside the current verification scope`);
+    const fix = ledger.receiptsFor(occurrence.id).filter(r => r.kind === 'fix_response').at(-1);
+    if (!fix || fix.revision !== receipt.reviewed_revision) reject(`finding ${key} has no applicable fix on the reviewed revision`);
+    return occurrence;
+  });
+}
+
 export function tupleDigest(t) {
   const canon = JSON.stringify({
     repository_id: t.repository_id,
@@ -344,7 +368,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
 
   // closure gate shared by recordClosure and applyClosureReceipt (increment 5) —
   // runs INSIDE a caller's transaction; see recordClosure for the evidence contract
-  const closureTx = ({ findingKey, disposition, verifier, revision, requiredContexts }) => {
+  const closureTx = ({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis }) => {
     if (!CLOSURE_DISPOSITIONS.includes(disposition)) {
       throw code('E_DISPOSITION', `closure disposition "${disposition}" is not in the allowlist`);
     }
@@ -391,6 +415,18 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       if (!Array.isArray(requiredContexts) || requiredContexts.length === 0) {
         throw code('E_CONFIG', 'VERIFIED closure requires the trusted required-check context set (requiredContexts) — without it a passing unrelated check can mask a failing required one');
       }
+      if (requiredChecks) {
+        if (!checkBasis || checkBasis.head_sha !== fixRev) throw code('E_NOT_RESOLVABLE', 'current check basis is not the fix revision');
+        const liveReady = evaluateReadiness({ mechanical_contexts: requiredChecks }, checkBasis);
+        if (!liveReady.ready) throw code('E_NOT_RESOLVABLE', `current required checks do not qualify: ${liveReady.blocking.map(b => `${b.context ?? 'basis'}:${b.code}`).join(', ')}`);
+        const checks = afterFix.filter(r => r.kind === 'check_receipt').flatMap(r => {
+          let p; try { p = JSON.parse(r.payload); } catch { return []; }
+          if (p.source !== 'github-webhook' || p.basis_digest !== tupleDigest(checkBasis)) return [];
+          return [{ ...p, sha: r.revision }];
+        });
+        const ready = evaluateReadiness({ mechanical_contexts: requiredChecks }, { ...checkBasis, checks });
+        if (!ready.ready) throw code('E_NOT_RESOLVABLE', `required mechanical identities are not current: ${ready.blocking.map(b => `${b.context ?? 'basis'}:${b.code}`).join(', ')}`);
+      }
       const latestByContext = new Map();
       for (const r of afterFix) {
         if (r.kind !== 'check_receipt') continue;
@@ -406,7 +442,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         // afterFix is rowid-ordered — last write per identity IS the latest run
         latestByContext.set(identity, r);
       }
-      for (const ctx of requiredContexts) {
+      for (const ctx of requiredChecks ? [] : requiredContexts) {
         const latest = latestByContext.get(ctx);
         if (!latest) {
           throw code('E_NOT_RESOLVABLE', `VERIFIED requires a "${ctx}" check receipt recorded after the latest fix — a required check with no result is not success`);
@@ -634,6 +670,10 @@ export function openLedger(dbPath, { faultAfter } = {}) {
         mark('outbox-enqueue');
         return { report_id: id, replayed: false, superseded, admitted: !superseded };
       });
+    },
+
+    getReportByDigest(digest) {
+      return db.prepare('SELECT * FROM reports WHERE payload_digest = ?').get(digest);
     },
 
     getReport(id) {
@@ -1015,7 +1055,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // The record IS the Dot-side closure: the consumer mints the dot_closure receipt
     // from it (carrying its evidence, comparison basis and rationale) and the gate —
     // not the drain, not a caller — decides the RESOLVED transition.
-    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision, evidence, comparisonBasis, rationale, requiredContexts } = {}) {
+    applyClosureReceipt({ findingKeys, verifiedBy, disposition, revision, evidence, comparisonBasis, rationale, requiredContexts, requiredChecks, checkBasis } = {}) {
       return tx(() => {
         const mapped = disposition === 'RESOLVED' ? 'VERIFIED' : disposition;
         const keys = Array.isArray(findingKeys) ? findingKeys : [];
@@ -1027,7 +1067,7 @@ export function openLedger(dbPath, { faultAfter } = {}) {
           const minted = { disposition: mapped, comparison_basis: comparisonBasis ?? null, rationale: rationale ?? null, evidence: Array.isArray(evidence) ? evidence : [] };
           db.prepare('INSERT INTO finding_receipts (id, occurrence_id, kind, revision, payload_digest, payload, actor, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
             .run(randomUUID(), tail.id, 'dot_closure', revision ?? null, payloadDigest(JSON.stringify(minted)), JSON.stringify(minted), verifiedBy ?? null, now());
-          closureTx({ findingKey: key, disposition: mapped, verifier: verifiedBy, revision, requiredContexts });
+          closureTx({ findingKey: key, disposition: mapped, verifier: verifiedBy, revision, requiredContexts, requiredChecks, checkBasis });
         }
         return { resolved: keys };
       });
@@ -1053,8 +1093,8 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // revision — self-reviews and pre-fix reviews do not count), and an applicable Dot
     // closure receipt after the fix. ALREADY_FIXED requires a successful check receipt;
     // NOT_APPLICABLE / REJECTED_WITH_EVIDENCE require at least one evidence receipt.
-    recordClosure({ findingKey, disposition, verifier, revision, requiredContexts, nowMs = Date.now() } = {}) {
-      return tx(() => closureTx({ findingKey, disposition, verifier, revision, requiredContexts }));
+    recordClosure({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis, nowMs = Date.now() } = {}) {
+      return tx(() => closureTx({ findingKey, disposition, verifier, revision, requiredContexts, requiredChecks, checkBasis }));
     },
 
     // Bounded retry reservations (packet §9): a persisted per-key counter; exceeding
