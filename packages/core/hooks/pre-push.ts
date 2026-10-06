@@ -2600,6 +2600,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
   '.agents/session-bootstrap.md', // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
+  '.claude/session-bootstrap.md', // the native bind-link destination of the row above
 ];
 
 /**
@@ -2624,6 +2625,11 @@ export const SHIPPED_MD_PREFIXES: readonly string[] = [
   '.agents/procedures/',
   '.agents/roles/',
   '.agents/skills/',
+  // Native compat mirrors (canonical-completion binding): the installer delivers
+  // .zcode/{agents,skills} as alias trees against the common .agents/ sources; a
+  // consumer's own zcode content lives in config files, not markdown.
+  '.zcode/agents/',
+  '.zcode/skills/',
 ];
 
 /**
