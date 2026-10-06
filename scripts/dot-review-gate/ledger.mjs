@@ -144,6 +144,17 @@ CREATE TABLE IF NOT EXISTS work_claims (
   state TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS pr_registrations (
+  pr_node_id TEXT PRIMARY KEY,
+  pr_number INTEGER NOT NULL,
+  coordinator TEXT NOT NULL,
+  merge_enabled INTEGER NOT NULL DEFAULT 0,
+  state TEXT NOT NULL,
+  registered_at TEXT NOT NULL,
+  reconciled_at TEXT NOT NULL,
+  released_at TEXT,
+  operator_transitions TEXT
+);
 `;
 
 const IN_FLIGHT_STATES = ['DISCOVERED', 'WAITING_MECHANICAL', 'ELIGIBLE', 'CLAIMED', 'REVIEWING', 'SUBMITTED', 'VALIDATING'];
@@ -885,6 +896,41 @@ export function openLedger(dbPath, { faultAfter } = {}) {
 
     coordList(state) {
       return db.prepare('SELECT * FROM coord_actions WHERE state = ? ORDER BY intent_at').all(state);
+    },
+
+    // ── Managed-PR registrations (increment 9) ─────────────────────────────────
+    // Durable coordinator registration receipts. One row per PR (PK pr_node_id);
+    // merge is DEFAULT OFF and every enabling/disabling/releasing change records the
+    // operator transition that authorized it.
+    getRegistration(prNodeId) {
+      const row = db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      if (!row) return undefined;
+      return { ...row, merge_enabled: row.merge_enabled === 1 };
+    },
+
+    insertRegistration({ prNodeId, prNumber, coordinator, reconciledAt } = {}) {
+      return tx(() => {
+        const existing = db.prepare('SELECT pr_node_id FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+        if (existing) throw code('E_ALREADY_REGISTERED', `PR ${prNodeId} already carries a registration receipt`);
+        db.prepare(
+          'INSERT INTO pr_registrations (pr_node_id, pr_number, coordinator, merge_enabled, state, registered_at, reconciled_at) VALUES (?, ?, ?, 0, ?, ?, ?)',
+        ).run(prNodeId, prNumber, coordinator, 'ACTIVE', now(), reconciledAt);
+        return db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      });
+    },
+
+    updateRegistration(prNodeId, { state, mergeEnabled, operatorTransition } = {}) {
+      return tx(() => {
+        const row = db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+        if (!row) throw code('E_NOT_FOUND', `no registration for ${prNodeId}`);
+        const transitions = JSON.parse(row.operator_transitions ?? '[]');
+        if (operatorTransition != null) transitions.push({ at: now(), transition: operatorTransition });
+        const merge = mergeEnabled === undefined ? row.merge_enabled : mergeEnabled ? 1 : 0;
+        db.prepare(
+          'UPDATE pr_registrations SET state = ?, merge_enabled = ?, released_at = ?, operator_transitions = ? WHERE pr_node_id = ?',
+        ).run(state ?? row.state, merge, state === 'RELEASED' ? now() : row.released_at, JSON.stringify(transitions), prNodeId);
+        return db.prepare('SELECT * FROM pr_registrations WHERE pr_node_id = ?').get(prNodeId);
+      });
     },
 
     // Cessation proof for a REPLACEMENT dispatch (increment 6): the previous
