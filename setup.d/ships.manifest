@@ -1,7 +1,7 @@
 # Ships manifest — what of getff's OWN items reaches a consumer, per channel (one-button point 13).
 # TAB-delimited, one row per item, same parser contract as companions.manifest (single TAB, no padding):
 #   kind<TAB>name<TAB>verdict<TAB>installer<TAB>plugin<TAB>reason
-# kind      skill | hook | rule | agent | setting | mcp
+# kind      skill | hook | rule | agent | setting | mcp | script
 #           population (scripts/check-ships-manifest.mjs enumerates it from git):
 #             skill   = dirs with SKILL.md under skills/, .claude/skills/, plugin/skills/
 #             hook    = .claude/hooks/*.sh + the names plugin/hooks/hooks.json registers
@@ -10,6 +10,11 @@
 #             setting = getff's .claude/settings.json keys (object values expanded one level:
 #                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
 #             mcp     = getff's .mcp.json mcpServers
+#             script  = the docs-gate scripts the installer delivers into the consumer's scripts/
+#                       (one-button w2 HO-4): packages/core/audit-self/audit-ai-docs.sh and its R4
+#                       probe packages/core/probes/audit-r4.ts. The other audit-self gates and the
+#                       per-stack audit-ai-docs.<stack>.sh variants are a different class — widen
+#                       the population (here + the checker) when they need marking.
 # verdict   ships | internal
 # installer core | env | factory | full | ask | no — the LOWEST install depth that delivers the item
 #           (core ⊂ env ⊂ factory; full = only under -y / --full; ask = a setting that changes how
@@ -75,6 +80,7 @@ hook	glossary-inject	internal	no	no	internal, because it reads CONTEXT.md, getff
 hook	adopt-orchestrator-prompts	internal	no	no	internal, because it adopts files into getff's own .claude/orchestrator-prompts store; registered nowhere
 hook	worktree-setup	internal	no	no	internal, because WorktreeCreate is not registered even in getff (CLAUDE.md), and its output names getff paths
 hook	seal-primary-checkout	internal	no	no	internal, because it is an operator-repo harness hook awaiting maintainer wiring (SSOT #300), not part of the plugin payload
+hook	apply-husky-patch-gate	internal	no	no	internal, because it is the operator-repo permission gate for the sanctioned .husky patch channel (CLAUDE.md harness gates); consumers have neither the channel nor the user-level git-safety tripwire it cooperates with
 rule	00-rule-index	internal	no	no	internal, because it is the generated index of getff's own rule set (scripts/render-rule-index.mjs)
 rule	ai-laziness-digest	internal	no	no	internal, because it is getff's always-on digest of ai-laziness-traps, which is what ships; principle 35 keeps the two in sync inside getff only
 rule	ai-laziness-traps	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL
@@ -137,3 +143,5 @@ setting	env.AIF_HANDOFF_GATE	ships	ask	no	arms the handoff gate, which blocks a 
 setting	claudeMdExcludes	internal	no	no	internal, because every entry is a path of one of getff's own rule files
 mcp	context7	ships	full	no	written to the project .mcp.json only under -y / --full (setup.d/05-mcp.sh); the python lane writes it on every run
 mcp	deepwiki	ships	full	no	written to the project .mcp.json under -y / --full only when not configured machine-wide; --global installs it at user scope instead
+script	audit-ai-docs	ships	core	no	the consumer docs gate (HO-4): checks the passport's marked region (D6); npm, cargo and go lanes deliver it — the python lane's own body does not yet
+script	audit-r4	ships	core	no	the R4 probe audit-ai-docs.sh invokes via `npx tsx scripts/audit-r4.ts`; non-generic npm stacks only — toolchain lanes carry the shell gate without it

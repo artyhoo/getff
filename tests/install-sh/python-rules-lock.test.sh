@@ -368,7 +368,7 @@ else
     # R2 correction (cold audit round 2, MINOR): an earlier draft of this comment claimed the
     # lanes «declined at manifest-detect» without a Cargo.toml/go.mod. There is no such gate —
     # the positional `cargo`/`go` arg sets TOOLCHAIN and routes to do_cargo_lane/do_go_lane
-    # (install.sh:173/:176 → :417/:426), which export GETFF_TOOLCHAIN and deliver unconditionally;
+    # (install.sh:173/:176 → :432/:441), which export GETFF_TOOLCHAIN and deliver unconditionally;
     # `_cargo_write_rules_lock` runs before the firing self-check, so the lock lands either way.
     # The seeds stay because a cargo lock emitted onto a tree with no Cargo.toml is an artefact
     # of the fixture rather than a realistic consumer — but they are a REALISM choice, not a
@@ -538,7 +538,7 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (setup.d/lib.sh:1697,1733 — the shared lock writer). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1697,1739 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
@@ -692,6 +692,35 @@ else
   bad "(15) nested *.yml CHANGED the fingerprint ($fp15a → $fp15b) — the rules-dir walk is still recursive (A2-12 RED)"
 fi
 rm -rf "$P15"
+
+# ── (16) dir present but EMPTY (consumer deleted every *.yml) → the plain re-run completes ─────────
+# copy_safe (lib.sh:893) skips an EXISTING dst on a plain re-run, so a consumer who emptied
+# .getff/astgrep-rules/ is never re-populated. The top-of-function guard only checked the DIR
+# ([ -d ]), and the ids assignment ran `grep … "$rules_dir"/*.yml` as a command-substitution
+# ASSIGNMENT under install.sh's set -euo pipefail: with no *.yml the glob stays literal, grep exits
+# 2, pipefail propagates and stderr is suppressed → the lane died message-lessly at the rules-lock
+# step (firing self-check, agent surface and record_lane_checks never ran; refresh_baseline_flush
+# only ran via the EXIT trap). The no-*.yml case must behave like the no-dir case: the same ⊝ skip
+# line, return 0.
+echo ""; echo "  ── (16) emptied rules dir: plain re-run completes with the rules-lock skip line ──"
+P16=$(py_fixture)
+rc_setup16=0
+( cd "$P16" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1 || rc_setup16=$?
+[ "$rc_setup16" -eq 0 ] \
+  && ok "(16) repro setup: fresh install delivered the starter rules (exit 0)" \
+  || bad "(16) repro setup FAILED: fresh install exited $rc_setup16 — the wiped-dir repro is meaningless"
+rm "$P16"/.getff/astgrep-rules/*.yml
+[ -d "$P16/.getff/astgrep-rules" ] && [ -z "$(ls "$P16/.getff/astgrep-rules" 2>/dev/null)" ] \
+  && ok "(16) repro precondition: rules dir present and emptied (copy_safe will not re-populate it)" \
+  || bad "(16) repro precondition FAILED: rules dir not present-and-empty after the wipe"
+out16=$( cd "$P16" && bash "$INSTALL" python < /dev/null 2>&1 ); rc16=$?
+[ "$rc16" -eq 0 ] \
+  && ok "(16) plain re-run over the emptied dir exits 0 (lane completes — was exit 2, message-less)" \
+  || bad "(16) plain re-run over the emptied dir exits $rc16 — the lane still dies message-lessly at the rules-lock step"
+grep -q 'rules-lock: no .getff/astgrep-rules present — skipping' <<<"$out16" \
+  && ok "(16) the no-dir ⊝ skip line prints for the empty-dir case" \
+  || bad "(16) no rules-lock skip line in the re-run output (died before the lock step, or wrong branch)"
+rm -rf "$P16"
 
 rm -rf "$P" "$P2"
 echo ""

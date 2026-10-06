@@ -35,7 +35,7 @@ for (const rel of paths) {
   for (const v of violations) {
     failed = true;
     process.stderr.write(
-      `❌ worker-dispatch-channel: ${rel}:${v.line} instructs Agent-tool dispatch of a write Worker\n` +
+      `❌ worker-dispatch-channel: ${rel}:${v.line} PRESCRIBES auto-launch of a stage's execution (imperative Agent-tool write-Worker dispatch)\n` +
         `   ${v.text}\n`,
     );
   }
@@ -43,11 +43,12 @@ for (const rel of paths) {
 
 if (failed) {
   process.stderr.write(
-    '   Rule `#worker-dispatch-via-subagent` (.claude/skills/pipeline/SKILL.md §5): a write-task Worker\n' +
-      '   must NOT be dispatched via the Agent tool from the meta-orchestrator session. Use a fresh\n' +
-      '   maintainer-opened CC session (paste the §10 1-liner) or dispatch.ts. The Agent tool is ONLY\n' +
-      '   for Phase -1 read-only reviewers + read-only research subagents.\n' +
-      '   If this line legitimately QUOTES/TEACHES the anti-pattern, append on the same line:\n' +
+    '   Rule `#umbrella-execution-launch-without-operator` (formerly `#worker-dispatch-via-subagent`)\n' +
+      '   (.claude/skills/pipeline/SKILL.md §5; class boundary: .claude/rules/parallel-subwave-isolation.md\n' +
+      '   §D6): a kickoff must not PRESCRIBE auto-launch of a stage\'s execution — the launch becomes the\n' +
+      '   exit launch card and the operator\'s channel choice. The Agent tool stays allowed for read-only\n' +
+      '   work (review, search, checks) in ANY session, and for writes in a normal session\'s own worktree.\n' +
+      '   If this line merely QUOTES/TEACHES the anti-pattern, append on the same line:\n' +
       '   <!-- channel-discipline: allow <reason> -->\n',
   );
   process.exit(1);

@@ -1,0 +1,20 @@
+{
+  "record_type": "closure_receipt",
+  "protocol_version": "dot-pr-review/2.0.0",
+  "finding_ids": [
+    "F-003"
+  ],
+  "verification_revision": "0000000000000000000000000000000000000005",
+  "comparison_basis": "staging 000000000000",
+  "verified_by": "dot/astra-primary",
+  "evidence": [
+    {
+      "level": "SOURCE_TRACED",
+      "reference": "packages/core/templates/shared/tier-home.md at 000000000000",
+      "note": null
+    }
+  ],
+  "disposition": "ALREADY_FIXED",
+  "rationale": "Historical finding already corrected on current staging by merged work; no new remediation task.",
+  "issued_at": "2026-10-06T12:00:00Z"
+}

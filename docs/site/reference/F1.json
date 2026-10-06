@@ -370,14 +370,14 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note.",
+      "description": "parallel-subwave-isolation rule — §1 git worktree requirement for parallel Sonnet sessions, §2 sequential-fallback escape hatch, §3 anti-patterns (`#shared-workdir-parallel`, `#branch-race-on-checkout`, `#mutating-reviewer-in-shared-tree`), §4 promotion / retirement triggers, §5 §1.7 self-reflexive note, §6 sub-agent dispatch tenets (the D6 allow/forbid pair + anti-expansive-reading protections).",
       "source": {
         "path": ".claude/rules/parallel-subwave-isolation.md",
         "line": 13
       },
       "extras": {
         "class": "C",
-        "fires": "dispatching parallel sub-wave / batch AI sessions.",
+        "fires": "dispatching parallel sub-wave / batch AI sessions; launching execution workers from a kickoff (subagent / aif dispatch / `claude -p`).",
         "channels": "paths:(1), edit-time inject"
       },
       "example": null

@@ -15,10 +15,17 @@ function isExempt(line: string): boolean {
   return line.includes('// audit:exempt');
 }
 
-function fileHasUseClient(lines: readonly string[]): boolean {
-  for (let i = 0; i < Math.min(3, lines.length); i++) {
-    const line = lines[i] ?? '';
-    if (/^\s*['"]use client['"]\s*;?\s*$/.test(line)) return true;
+// A directive prologue is the leading run of string-literal expression statements; comments
+// and whitespace are trivia and never enter the AST, so a directive after a license-header
+// comment block is honored here (SWEEP-4 §4.2) while one following real code is not.
+function directivePrologueHasUseClient(
+  body: readonly TSESTree.ProgramStatement[],
+): boolean {
+  for (const stmt of body) {
+    if (stmt.type !== 'ExpressionStatement') return false;
+    const expr = stmt.expression;
+    if (expr.type !== 'Literal' || typeof expr.value !== 'string') return false;
+    if (expr.value === 'use client') return true;
   }
   return false;
 }
@@ -41,7 +48,7 @@ export const noServerImportsInClient: TSESLint.RuleModule<MessageIds> = {
   create(context) {
     const sourceCode = context.sourceCode;
     const lines = sourceCode.lines;
-    const isClientFile = fileHasUseClient(lines);
+    const isClientFile = directivePrologueHasUseClient(sourceCode.ast.body);
     if (!isClientFile) return {};
 
     return {

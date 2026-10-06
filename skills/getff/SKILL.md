@@ -63,23 +63,7 @@ Read these references **as needed**, not all at once:
 
 ## Templates ready to copy
 
-Production-ready configs, shipped from the framework repo's `packages/core/templates/` (in an installed consumer project `install.sh` has already placed them — configs at project root, rules at `.ai-factory/RULES*.md`; paths below are the framework-repo sources):
-
-| File                                                                                                                    | Purpose                                                                         |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `templates/ts-server/eslint.config.mjs`                                                                                 | Server-side TS: typescript-eslint strict + Prettier + custom rules              |
-| `packages/preset-next-15-canonical/templates/eslint.config.react.mjs`                                                   | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next               |
-| `packages/core/templates/shared/tsconfig.json`                                                                          | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
-| `templates/ts-server/dependency-cruiser.mjs`                                                                            | Architectural rules: layering, no-cycles, no-cross-feature-imports              |
-| `templates/ts-server/stryker.config.json`                                                                               | Mutation testing with incremental mode, thresholds 60/70/85                     |
-| `templates/ts-server/vitest.config.ts` (or `packages/preset-next-15-canonical/templates/vitest.config.ts`)              | Test runner with per-module coverage thresholds                                 |
-| `packages/core/templates/shared/.lintstagedrc.json`                                                                     | Pre-commit: prettier + eslint --fix on staged only                              |
-| `packages/core/templates/shared/husky-pre-commit.sh`                                                                    | Pre-commit hook entry                                                           |
-| `packages/core/templates/shared/husky-pre-push.sh`                                                                      | Pre-push hook with upstream-fallback (works on new branches)                    |
-| `packages/core/templates/shared/.nvmrc`                                                                                 | Pinned Node version (CI depends on it)                                          |
-| `packages/preset-next-15-canonical/RULES.md`                                                                            | Drop-in for `.ai-factory/RULES.md` — rules R1–R11                               |
-| `packages/preset-next-15-canonical/RULES.react-next.md`                                                                 | Extension R12–R20 for React/Next.js stack                                       |
-| `templates/ts-server/github-actions-ci.yml` (or `packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml`) | Full CI workflow: lint, typecheck, arch, test, mutation incremental             |
+Before selecting or copying a config, read [the template catalog](references/template-catalog.md). Its paths are framework sources; in consumers resolve the actual delivered filenames. Apply the verification protocol below before publishing.
 
 ## Workflow when applying this skill
 
@@ -87,7 +71,7 @@ Production-ready configs, shipped from the framework repo's `packages/core/templ
 2. **Read the relevant reference file** (overview / ai-traps / checks-map) before writing detailed advice.
 3. **Reach for templates** when giving config recommendations — they are already correct (versions verified, paths consistent, edge cases handled).
 4. **Don't dump all 5 layers at once.** Match recommendation depth to the user's question. If they ask about pre-commit, don't lecture about chaos engineering.
-5. **For React/Next questions**, also load `templates/eslint.config.react.mjs` and apply Server/Client boundary rules from R12–R20.
+5. **For React/Next questions**, read `packages/preset-next-15-canonical/templates/eslint.config.react.mjs` in the framework checkout, or the consumer's delivered ESLint config (resolve its actual filename first); then apply Server/Client boundary rules from R12–R20.
 6. **For AI-generated code worries**, prioritize: meta-tests (Layer 2) + mutation testing (Layer 4) + AIF `review-sidecar` two-AI review pattern. These three together catch ~80% of AI-specific failures.
 
 ## Verification protocol — apply before publishing any config
@@ -102,42 +86,14 @@ A bug pattern this skill explicitly fights: dependency lists with stale versions
 
 If you skip this and produce buggy artifacts, you have failed the user — the entire skill is _about_ getting these details right.
 
-## Universal AI angle
+## Without this skill
 
-The strongest case for this entire framework: **AI agents write plausible-looking code that violates undocumented conventions**. Without this skill's framework, every AI-generated PR risks introducing:
+An agent copies a remembered lint config into a React consumer, guesses template paths and marks the setup complete without checking its delivered imports or firing tests. The config can look plausible while conventions still fail at no reachable channel.
 
-- `as any` / non-null assertions to bypass type errors
-- Tautological tests (`expect(x).toBeDefined()` for typed values, `expect(mock).toHaveBeenCalled()` without behavioral assertion)
-- Layer violations (controllers reaching into domain, domain importing infrastructure)
-- New top-level dependencies (`lodash`, `moment`, `axios`) when the project standardized on alternatives
-- `enum` declarations (deprecated in modern TS with `verbatimModuleSyntax`)
-- Direct `Date.now()` / `Math.random()` / network in production code
-- Missing `await` / floating promises
-- Always-passing tests with `try/catch: pass`
+## With this skill
 
-Every one of these is caught by a specific automated rule from this skill's templates. There is no "be careful" instruction in `CLAUDE.md` that survives AI-driven development at scale — only enforced rules survive.
+The agent selects the relevant enforcement layer, reads the real preset or delivered config and verifies paths, dependencies and meaningful firing tests before publishing. Missing consumer prerequisites remain explicit instead of becoming an invented passing setup.
 
-## Glossary of key terms
+## Context and vocabulary
 
-- **Fitness function** — an executable check that the system meets a non-functional requirement (Ford/Parsons/Kua, _Building Evolutionary Architectures_, 2017).
-- **Specification by Example** — concrete input/output pairs as the spec (Gojko Adzic, 2011).
-- **Living Documentation** — tests as the single source of truth (Cyrille Martraire, 2019).
-- **Mutation testing** — introducing artificial bugs to verify tests detect them.
-- **Two-AI review** — one model writes code/tests, a different model reviews them without context (Senko Rašić workflow).
-- **Consumer-driven contracts (CDC)** — consumer of a service writes the contract; provider verifies it (Pact, Ian Robinson, 2006).
-- **Error budget** — the allowed amount of unreliability over a window. SLO = 99.95% → budget = 0.05% over 28 days.
-- **Observability 2.0** — wide events with high cardinality replacing static dashboards (Charity Majors, Honeycomb).
-- **`can-i-deploy`** — Pact Broker query: "can this version be deployed without breaking deployed consumers?"
-- **`/aif-verify`** — a pre-PR command belonging to the EXTERNAL AI Factory tool, which this installer does not bundle. Listed here as vocabulary you may meet in the wild, not as a step in this project's gate; the shipped gate is `./scripts/audit-ai-docs.sh` + pre-push + CI.
-
-## Connecting to broader practice
-
-The framework integrates with:
-
-- **AI Factory (aif)** — a separate Claude Code workflow tool, **not bundled by this installer**. Where a consumer already runs it, its `rules-sidecar` reads our `.ai-factory/RULES.md` and our review content reaches its `review-sidecar` through the `aif-review` skill-context override — that integration seam is why the `.ai-factory/` file convention exists. Using the tool is never a prerequisite for anything this framework enforces.
-- **GitHub Actions / GitLab CI** — required `ci-success` job as the merge gate.
-- **OpenTelemetry** — instrumentation for shift-right SLOs and observability.
-- **OpenSLO + Pyrra/Sloth** — declarative SLOs as code, compiled to Prometheus rules.
-- **Pact Broker / Pactflow** — runtime knowledge of which versions are in production, used at build-time via `can-i-deploy`.
-
-Each integration is a separate decision; the framework doesn't require all of them, but it pays off most when 3+ are in place.
+For AI-failure examples, term definitions, or integration decisions, read [framework context and vocabulary](references/framework-context.md). AI Factory is external and never a prerequisite for this framework's gates; each integration remains a separate decision.

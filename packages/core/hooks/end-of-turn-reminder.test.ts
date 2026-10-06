@@ -54,7 +54,7 @@ const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
 // 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
 // suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
 // pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:581
-// and check-worker-dispatch-channel.test.ts:359 record the same 5000ms-under-parallel-load
+// and check-worker-dispatch-channel.test.ts:360 record the same 5000ms-under-parallel-load
 // failure, in the inline `timeout:` spelling of the same convention.
 const SLOW_SHELL_MS = 30_000;
 
@@ -135,8 +135,9 @@ function assistantBashToolUse(text: string, command: string) {
 function runHook(
   stdin: Record<string, unknown>,
   env?: Record<string, string>,
+  hookPath = HOOK,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HOOK], {
+  const r = spawnSync('bash', [hookPath], {
     input: JSON.stringify(stdin),
     encoding: 'utf8',
     // Default to the Russian pack: the assertions below check Russian payload
@@ -146,7 +147,7 @@ function runHook(
     // CLAUDE_CODE_ENTRYPOINT is inherited from the launching harness (claude-desktop, cli,
     // sdk-ts …) and the SDK-entrypoint guard reads it — pin an interactive value so a suite
     // run from an SDK-driven session cannot silence every block-expecting case.
-    env: { ...process.env, AIF_HOOK_LANG: 'ru', CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
+    env: { ...process.env, AIF_HOOK_LANG: 'ru', CLAUDE_CODE_ENTRYPOINT: 'cli', RUNTIME_BRIDGE_AIF_PROJECT_ID: 'fixture-own', ...env },
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -179,7 +180,7 @@ function withTasks<T>(body: string, fn: (url: string) => T): T {
 
 /** A minimal aif task object — only the fields the arm's filter reads. */
 function task(status: string): Record<string, unknown> {
-  return { id: `t-${status}`, title: `task ${status}`, status, paused: false };
+  return { projectId: 'fixture-own', id: `t-${status}`, title: `task ${status}`, status, paused: false };
 }
 
 /** Write a fresh orchestration-mode marker file; returns its path. */
@@ -1793,7 +1794,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
  * The probe is pointed at an unreachable port in every case here: the tests must not depend
  * on a live aif runtime, and the fail-CLOSED branch is itself part of the contract.
  */
-describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_MS }, () => {
+const runDefaultHook = runHook;
+describe.each([HOOK, resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder')])(
+  'F10 autonomy arm (%s)', { timeout: SLOW_SHELL_MS }, (hookPath) => {
+  const runHook = (stdin: Record<string, unknown>, env?: Record<string, string>) =>
+    runDefaultHook(stdin, env, hookPath);
   const DEAD_AIF = 'http://127.0.0.1:59997';
 
   it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
@@ -1839,6 +1844,84 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     expect(r.stdout, 'must never fabricate in-flight work').not.toMatch(/task\(s\) still in flight/);
     expect(r.stdout.trim(), 'an empty queue is a real all-clear, not a degraded probe').toBe('');
   });
+
+  it('foreign project tasks never force this project to continue', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(
+      JSON.stringify([{ ...task('implementing'), projectId: 'foreign' }]),
+      (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+    );
+    expect(r.stdout.trim()).toBe('');
+  });
+
+  it('counts only own unpaused nonterminal tasks in a mixed project array', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const tasks = [
+      task('implementing'),
+      { ...task('review'), projectId: 'foreign' },
+      { ...task('planning'), paused: true },
+      task('done'),
+      task('verified'),
+    ];
+    const r = withTasks(JSON.stringify(tasks), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(JSON.parse(r.stdout).reason).toMatch(
+      /1 aif task\(s\) still in flight/,
+    );
+  });
+
+  it.each(['', '   '])(
+    'missing or blank local project identity degrades even for empty arrays (%j)',
+    (projectId) => {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks('[]', (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false },
+          {
+            AIF_AUTONOMOUS: '1',
+            RUNTIME_BRIDGE_AIF_URL: url,
+            RUNTIME_BRIDGE_AIF_PROJECT_ID: projectId,
+          },
+        ),
+      );
+      const parsed = JSON.parse(r.stdout);
+      expect(parsed.decision).toBe('block');
+      expect(parsed.reason).toMatch(/project identity/);
+      expect(parsed.reason).toMatch(/decide for yourself/);
+    },
+  );
+
+  it.each([
+    { status: 'done', projectId: 'fixture-own' },
+    { id: 't', status: 'done' },
+    { id: 3, projectId: 'fixture-own', status: 'verified' },
+    { id: 't', projectId: 3, status: 'done' },
+    { id: 't', projectId: '   ', status: 'done' },
+    { id: '', projectId: 'foreign', status: 'done' },
+  ])(
+    'malformed task identity degrades before project/terminal filtering (%j)',
+    (entry) => {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks(JSON.stringify([entry]), (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+      );
+      const parsed = JSON.parse(r.stdout);
+      expect(parsed.decision).toBe('block');
+      expect(parsed.reason).toMatch(/non-task element/);
+      expect(parsed.reason).toMatch(/decide for yourself/);
+    },
+  );
 
   // ── In-flight contract ──────────────────────────────────────────────────────
   // Everything above this line points the probe at a DEAD port, so until these

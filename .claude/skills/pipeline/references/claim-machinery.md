@@ -23,7 +23,9 @@ Before this stage, `dispatch()` created and unpaused the aif task in one atomic 
 already running. The claim moves that marker to the FRONT of the window.
 
 A claim is deliberately **not a new status vocabulary** (premise P-5): it is an ordinary aif task
-created `paused:true`. It occupies no lane, runs no agent, and costs nothing. `state.md` remains
+created `paused:true`, intended to remain at `backlog` without agent execution until release.
+The bridge does not own the upstream capacity counter: do not infer a free lane from `paused` alone;
+verify status and the coordinator's logged active/limit (doctor §3.2 covers paused advanced-state slot-holders). `state.md` remains
 the journal and is never the claim medium — it is gitignored per-machine runtime.
 
 ## §2 The three verbs
