@@ -69,7 +69,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 
 ## §4 — Cold-review + fidelity + PR
 
-For unattended authorization, read [night-mode overnight policy](../night-mode/references/overnight-policy.md), including delta item 8 and its escalation set/Class-C limit, before dispatch/publication decisions. The invocation flag is a channel rule, not permission.
+For unattended authorization, read [night-mode overnight policy](../night-mode/references/overnight-policy.md), including delta item 8, its escalation set and its honest-classification posture, before dispatch/publication decisions. The invocation flag is a channel rule, not permission.
 
 1. Own cold-QA before handoff: invoke `superpowers:requesting-code-review` first on `git diff origin/staging...HEAD`; CI checks form, not design. Before cold review/fidelity dispatch (the cold `agents/fidelity-auditor.md`), read [cold review and fidelity](references/fidelity.md) for exact seat inputs, pinning, watch-list/delta handling and seat economy.
 2. Dispatch fidelity only on FINAL diff, after code-review fixes, with explicit seat `name` and `Inputs-ref` equal to current HEAD for every input. Inline scope+diff by default; fallback uses snapshot paths, never live worktree paths. `REVISE`/`STOP` ⇒ no PR; factory rework via dispatcher, in-session fix/re-audit. Cap 2 rounds ⇒ operator. `KICKOFF-AMBIGUOUS` ⇒ /arch office hours without burning a round. `GO` verdict needs Basis/Round/Audited-SHA=current HEAD/Evidence. Later SHA changes require a fresh narrow cold delta check (named resume only if watch-list cannot carry substance), never self-issued verdict/full re-audit by default.
