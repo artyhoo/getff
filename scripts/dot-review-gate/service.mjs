@@ -16,7 +16,7 @@
 // boundary that also stops already-armed PRs.
 
 import { createHash } from 'node:crypto';
-import { loadPolicy } from './load-policy.mjs';
+import { loadPolicy, mandatoryMechanical } from './load-policy.mjs';
 import { evaluateReadiness } from './readiness.mjs';
 import { startIntake } from './intake.mjs';
 import { publishAdmission, publishFailure } from './publisher.mjs';
@@ -166,6 +166,9 @@ export async function createGateService({
         evidence: record.evidence,
         comparisonBasis: record.comparison_basis,
         rationale: record.rationale,
+        // SP-7: the policy's head-bound mechanical contexts are the trusted
+        // required-check set the closure gate evaluates per check identity
+        requiredContexts: mandatoryMechanical(policy).filter((c) => c.bound_to === 'head').map((c) => c.context),
       });
       return { action: 'closure-recorded' };
     } catch (e) {

@@ -57,6 +57,7 @@ const WF = {
   'Template render probes — P1/P4/P6 (deterministic)': '.github/workflows/audit-self.yml',
   'capability PR carries Prior-art line in PR body (squash-survival)': '.github/workflows/audit-self.yml',
   '§1.7 forward+backward sections present in PR description': '.github/workflows/discipline-self-check.yml',
+  'dot-gate suites': '.github/workflows/audit-self.yml',
 };
 function CHECKS() {
   return Object.entries(WF).map(([context, workflow_path], i) => ({
@@ -423,7 +424,15 @@ try {
   // the V2 era has its OWN policy epoch — the record's policy pin must be the digest
   // of the policy this service actually runs, and the publisher re-derives its tuple
   // state from that same policy (protocol dot-pr-review/2.0.0)
-  const V2_POLICY = makePolicyFixture({ protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256 });
+  // SP-7: the V2-era policy's head-bound mechanical contexts are the trusted
+  // required-check set the closure consumer evaluates — here exactly the context
+  // the canonical fix-response record carries.
+  const V2_POLICY = makePolicyFixture({
+    protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256,
+    mechanical_contexts: [
+      { context: 'dot-gate suites', expected_app_id: 15368, bound_to: 'head', workflow_path: '.github/workflows/audit-self.yml' },
+    ],
+  });
   const V2_POLICY_TEXT = JSON.stringify(V2_POLICY);
   const v2PolicyDigestOf = policyDigestOf(V2_POLICY);
   // DR-R4: a V2-era deployment without the pinned V2 bytes refuses to START —
@@ -695,6 +704,83 @@ try {
   } else log('ok unknown-events-stay-pending');
   await svcF.close();
 
+  // ── SP-7 / Dot D2065-S03 through the REAL consumer ────────────────────────────
+  // A fix record's mechanical_receipts become check receipts ON the fix revision;
+  // the closure consumer must evaluate the policy's head-bound context set PER
+  // CHECK IDENTITY — a passing lint receipt recorded after a failing tests receipt
+  // (both inside ONE record) must NOT resolve the finding. Records only, no
+  // direct receipt injection.
+  const V2_POLICY_2CTX = makePolicyFixture({
+    protocol_version: 'dot-pr-review/2.0.0', schema_v2_sha256: V2_SCHEMA_SHA256,
+    mechanical_contexts: [
+      { context: 'ci/tests', expected_app_id: 15368, bound_to: 'head', workflow_path: '.github/workflows/audit-self.yml' },
+      { context: 'ci/lint', expected_app_id: 15368, bound_to: 'head', workflow_path: '.github/workflows/audit-self.yml' },
+    ],
+  });
+  const v2Policy2DigestOf = policyDigestOf(V2_POLICY_2CTX);
+  const svcG = await newService({ schemaBytesV2: V2_SCHEMA_BYTES, policyText: JSON.stringify(V2_POLICY_2CTX) });
+  const coordTupleG = (headChar) => ({ repository_id: 1231007068, pr_node_id: 'PR_kwDOM9YQhs6AbCdEfGh', base_ref: 'staging', base_sha: sha('b'), head_sha: sha(headChar), merge_base_sha: sha('a'), tested_merge_sha: sha('d'), policy_sha256: v2Policy2DigestOf, protocol_version: 'dot-pr-review/2.0.0' });
+  const submitRecordG = async (record, headChar) => {
+    const gen = svcG.ledger.claimGeneration({ tuple: coordTupleG(headChar), reviewerId: 555001, maxAttemptsPerTuple: 5, leaseMinutes: 30 });
+    const payloadText = JSON.stringify(record);
+    return svcG.ledger.submitReport({
+      claimId: gen.claim.claim_id, reviewerId: 555001,
+      digest: createHash('sha256').update(payloadText).digest('hex'),
+      payload: payloadText, verdict: record.record_type, kind: record.record_type, leaseMinutes: 30,
+      liveTupleDigest: gen.generation.tuple_digest,
+    });
+  };
+  const fixRecordG = async (assignmentId, findingKey, revision, receipts) => {
+    const fixRecord = JSON.parse(JSON.stringify(await loadExampleJson('fix-response.json')));
+    fixRecord.assignment_id = assignmentId;
+    fixRecord.finding_ids = [findingKey];
+    fixRecord.fix_revision = revision;
+    fixRecord.claimed_by = 'exec-a';
+    fixRecord.mechanical_receipts = receipts;
+    fixRecord.change_review_receipt = { ...changeReviewReceipt('reviewer-z', revision), finding_ids: [findingKey] };
+    return fixRecord;
+  };
+  const closureRecordG = async (findingKey, revision) => {
+    const closureRecord = JSON.parse(JSON.stringify(await loadExampleJson('closure-receipt.json')));
+    closureRecord.finding_ids = [findingKey];
+    closureRecord.disposition = 'RESOLVED';
+    closureRecord.verification_revision = revision;
+    closureRecord.verified_by = 'dot/primary';
+    return closureRecord;
+  };
+  svcG.ledger.recordFindings('rep-sp7', [v2Finding('F-S7A', { key: 'F-S7A' })]);
+  const assignG = svcG.ledger.claimFinding({ findingKey: 'F-S7A', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
+
+  // the counterexample: one record carries tests FAILURE then lint SUCCESS — the
+  // consumer must hold the closure and name the failing required context
+  await submitRecordG(await fixRecordG(assignG, 'F-S7A', 'fix-g1', [
+    { context: 'ci/tests', conclusion: 'failure', reference: 'run 1/job/tests' },
+    { context: 'ci/lint', conclusion: 'success', reference: 'run 1/job/lint' },
+  ]), 'h');
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  await submitRecordG(await closureRecordG('F-S7A', 'fix-g1'), 'i');
+  const dG1 = await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  const g1Entry = dG1.find((r) => r.action === 'kept-pending');
+  if (dG1.some((r) => r.action === 'closure-recorded')) {
+    fail(`sp7-consumer-mixed-contexts resolved on a passing unrelated check: ${JSON.stringify(dG1)}`);
+  } else if (!(g1Entry && g1Entry.code === 'E_NOT_RESOLVABLE' && /ci\/tests/.test(g1Entry.reason ?? ''))) {
+    fail(`sp7-consumer-mixed-contexts wrong refusal ${JSON.stringify(dG1)}`);
+  } else log('ok sp7-consumer-mixed-contexts-refuses');
+
+  // control: all required contexts green in ONE record resolve through the consumer
+  svcG.ledger.recordFindings('rep-sp7', [v2Finding('F-S7B', { key: 'F-S7B' })]);
+  const assignG2 = svcG.ledger.claimFinding({ findingKey: 'F-S7B', owner: 'exec-a', leaseMinutes: 30, nowMs: clock + 900_000 }).assignment_id;
+  await submitRecordG(await fixRecordG(assignG2, 'F-S7B', 'fix-g2', [
+    { context: 'ci/tests', conclusion: 'success', reference: 'run 2/job/tests' },
+    { context: 'ci/lint', conclusion: 'success', reference: 'run 2/job/lint' },
+  ]), 'j');
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  await submitRecordG(await closureRecordG('F-S7B', 'fix-g2'), 'k');
+  await svcG.drainOutbox({ publisherTransport: makePublisherTransport().fetchJson });
+  if (svcG.ledger.listOpenFindings().some((o) => o.finding_key === 'F-S7B')) fail('sp7-consumer-all-success: full evidence did not resolve');
+  else log('ok sp7-consumer-all-required-success-resolves');
+  await svcG.close();
+
   await svc.close();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -726,5 +812,6 @@ assert_suite_arms "service.test.sh" "$status" "$out" \
   v2-findings-enter-lifecycle superseded-findings-recorded-as-history \
   v2-fix-response-consumed fix-record-carries-independent-review \
   unproven-closure-stays-pending executor-self-closure-refused \
-  superseded-fix-record-still-consumed v2-closure-record-resolves-lineage unknown-events-stay-pending || exit 1
+  superseded-fix-record-still-consumed v2-closure-record-resolves-lineage unknown-events-stay-pending \
+  sp7-consumer-mixed-contexts-refuses sp7-consumer-all-required-success-resolves || exit 1
 echo "service.test.sh: all green"

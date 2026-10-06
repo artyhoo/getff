@@ -21,6 +21,11 @@
 #     fix, on the fix revision), and an applicable Dot closure receipt; a second fix
 #     invalidates prior evidence; ALREADY_FIXED/REJECTED_WITH_EVIDENCE carry evidence
 #     too; the disposition must be from the allowlist;
+#   - SP-7: mechanical evidence aggregates BY CHECK IDENTITY — the caller passes the
+#     trusted required-check set (requiredContexts) and the latest result of EACH
+#     required context must be a success on the fix revision; a passing unrelated
+#     check cannot mask a failing required one, and only a newer run of the SAME
+#     check supersedes its own earlier failure;
 #   - retry reservations are persisted counters; exceeding the bound refuses;
 #   - a superseded generation invalidates admission, never finding history.
 set -uo pipefail
@@ -91,18 +96,18 @@ try {
   else log('ok fix-response-moves-verifying');
 
   // RED: closure without any verification receipt is refused
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', nowMs: clock }), 'E_NOT_RESOLVABLE', 'closure-requires-receipts');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'closure-requires-receipts');
 
   // RED: a check receipt FAILING after the fix keeps the finding open
-  ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'check_receipt', revision: 'fix-1', digest: 'chk-1', payload: '{"conclusion":"failure"}', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', nowMs: clock }), 'E_NOT_RESOLVABLE', 'failing-check-keeps-open');
+  ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'check_receipt', revision: 'fix-1', digest: 'chk-1', payload: '{"context":"ci","conclusion":"failure"}', nowMs: clock });
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'failing-check-keeps-open');
 
   // GREEN: a newer passing check + an INDEPENDENT change review + the Dot closure
   // receipt, all on the fix revision, resolve
-  ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'check_receipt', revision: 'fix-1', digest: 'chk-2', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'check_receipt', revision: 'fix-1', digest: 'chk-2', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'change_review', revision: 'fix-1', digest: 'cr-1', payload: '{"scope":"fix-1"}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: claimB.occurrence_id, kind: 'dot_closure', revision: 'fix-1', digest: 'dc-1', payload: '{"applies":true}', actor: 'dot', nowMs: clock });
-  ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', nowMs: clock });
+  ledger.recordClosure({ findingKey: 'artyhoo/getff#F1', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-1', requiredContexts: ['ci'], nowMs: clock });
   if (ledger.getOccurrence(claimB.occurrence_id)?.state !== 'RESOLVED') fail('closure state');
   else log('ok closure-with-receipts-resolves');
 
@@ -120,58 +125,58 @@ try {
   seedFix('artyhoo/getff#DR1a', 'exec-a', 'fix-a');
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1a'), kind: 'change_review', revision: 'fix-a', digest: 'cr:a1', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1a'), kind: 'dot_closure', revision: 'fix-a', digest: 'dc:a1', payload: '{}', actor: 'dot', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1a', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-a', nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-successful-check');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1a', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-a', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-successful-check');
 
   // the success check must run ON the fix revision — another revision's green is not
   // evidence (all other evidence present)
   seedFix('artyhoo/getff#DR1b', 'exec-a', 'fix-b');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1b'), kind: 'check_receipt', revision: 'unrelated-sha', digest: 'c:b1', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1b'), kind: 'check_receipt', revision: 'unrelated-sha', digest: 'c:b1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1b'), kind: 'change_review', revision: 'fix-b', digest: 'cr:b1', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1b'), kind: 'dot_closure', revision: 'fix-b', digest: 'dc:b1', payload: '{}', actor: 'dot', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1b', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-b', nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-check-on-fix-revision');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1b', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-b', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-check-on-fix-revision');
 
   // the LATEST check is the current word: an older success under a newer
   // cancelled/pending run is not a passing state
   seedFix('artyhoo/getff#DR1c', 'exec-a', 'fix-c');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'check_receipt', revision: 'fix-c', digest: 'c:c1', payload: '{"conclusion":"success"}', nowMs: clock });
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'check_receipt', revision: 'fix-c', digest: 'c:c2', payload: '{"conclusion":"cancelled"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'check_receipt', revision: 'fix-c', digest: 'c:c1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'check_receipt', revision: 'fix-c', digest: 'c:c2', payload: '{"context":"ci","conclusion":"cancelled"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'change_review', revision: 'fix-c', digest: 'cr:c1', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1c'), kind: 'dot_closure', revision: 'fix-c', digest: 'dc:c1', payload: '{}', actor: 'dot', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1c', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-c', nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-current-success');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1c', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-c', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-current-success');
 
   // a change review recorded BEFORE the fix is stale evidence
   ledger.recordFindings('rep-fix', [FINDING({ key: 'artyhoo/getff#DR1d' })]);
   const clD = ledger.claimFinding({ findingKey: 'artyhoo/getff#DR1d', owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
   ledger.recordReceipt({ occurrenceId: clD.occurrence_id, kind: 'change_review', revision: 'pre-fix', digest: 'cr:d0', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordFixResponse({ assignmentId: clD.assignment_id, fencingToken: clD.fencing_token, fixRevision: 'fix-d', digest: 'fd:d', payload: '{}' });
-  ledger.recordReceipt({ occurrenceId: clD.occurrence_id, kind: 'check_receipt', revision: 'fix-d', digest: 'c:d1', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: clD.occurrence_id, kind: 'check_receipt', revision: 'fix-d', digest: 'c:d1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: clD.occurrence_id, kind: 'dot_closure', revision: 'fix-d', digest: 'dc:d', payload: '{}', actor: 'dot', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1d', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-d', nowMs: clock }), 'E_NOT_RESOLVABLE', 'stale-review-before-fix-refused');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1d', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-d', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'stale-review-before-fix-refused');
 
   // no self-verification: the reviewing actor must differ from the fix owner
   seedFix('artyhoo/getff#DR1e', 'exec-a', 'fix-e');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1e'), kind: 'check_receipt', revision: 'fix-e', digest: 'c:e1', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1e'), kind: 'check_receipt', revision: 'fix-e', digest: 'c:e1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1e'), kind: 'change_review', revision: 'fix-e', digest: 'cr:e1', payload: '{}', actor: 'exec-a', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1e'), kind: 'dot_closure', revision: 'fix-e', digest: 'dc:e1', payload: '{}', actor: 'dot', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1e', disposition: 'VERIFIED', verifier: 'exec-a', revision: 'fix-e', nowMs: clock }), 'E_NOT_RESOLVABLE', 'self-review-refused');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1e', disposition: 'VERIFIED', verifier: 'exec-a', revision: 'fix-e', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'self-review-refused');
 
   // VERIFIED requires an applicable Dot closure receipt
   seedFix('artyhoo/getff#DR1f', 'exec-a', 'fix-f');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1f'), kind: 'check_receipt', revision: 'fix-f', digest: 'c:f1', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1f'), kind: 'check_receipt', revision: 'fix-f', digest: 'c:f1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1f'), kind: 'change_review', revision: 'fix-f', digest: 'cr:f1', payload: '{}', actor: 'reviewer-z', nowMs: clock });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1f', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-f', nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-dot-closure');
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1f', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-f', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'verified-requires-dot-closure');
 
   // a SECOND fix invalidates the evidence gathered for the first one
   const gClaim = seedFix('artyhoo/getff#DR1g', 'exec-a', 'fix-g1');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'check_receipt', revision: 'fix-g1', digest: 'c:g1', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'check_receipt', revision: 'fix-g1', digest: 'c:g1', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'change_review', revision: 'fix-g1', digest: 'cr:g1', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'dot_closure', revision: 'fix-g1', digest: 'dc:g1', payload: '{}', actor: 'dot', nowMs: clock });
   ledger.recordFixResponse({ assignmentId: gClaim.assignment_id, fencingToken: gClaim.fencing_token, fixRevision: 'fix-g2', digest: 'fd:g2', payload: '{}' });
-  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1g', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-g2', nowMs: clock }), 'E_NOT_RESOLVABLE', 'second-fix-invalidates-evidence');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'check_receipt', revision: 'fix-g2', digest: 'c:g2', payload: '{"conclusion":"success"}', nowMs: clock });
+  expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1g', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-g2', requiredContexts: ['ci'], nowMs: clock }), 'E_NOT_RESOLVABLE', 'second-fix-invalidates-evidence');
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'check_receipt', revision: 'fix-g2', digest: 'c:g2', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'change_review', revision: 'fix-g2', digest: 'cr:g2', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#DR1g'), kind: 'dot_closure', revision: 'fix-g2', digest: 'dc:g2', payload: '{}', actor: 'dot', nowMs: clock });
-  ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1g', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-g2', nowMs: clock });
+  ledger.recordClosure({ findingKey: 'artyhoo/getff#DR1g', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-g2', requiredContexts: ['ci'], nowMs: clock });
   if (ledger.getOccurrence(tailOf('artyhoo/getff#DR1g'))?.state !== 'RESOLVED') fail('post-second-fix closure did not resolve');
   else log('ok evidence-after-second-fix-resolves');
 
@@ -181,7 +186,7 @@ try {
 
   // DR-R1: the evidence dispositions need evidence too
   expectCode(() => ledger.recordClosure({ findingKey: 'artyhoo/getff#F3', disposition: 'ALREADY_FIXED', verifier: 'dot', revision: 'fix-1', nowMs: clock }), 'E_NOT_RESOLVABLE', 'already-fixed-requires-evidence');
-  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#F3'), kind: 'check_receipt', revision: 'fix-1', digest: 'c:f3', payload: '{"conclusion":"success"}', nowMs: clock });
+  ledger.recordReceipt({ occurrenceId: tailOf('artyhoo/getff#F3'), kind: 'check_receipt', revision: 'fix-1', digest: 'c:f3', payload: '{"context":"ci","conclusion":"success"}', nowMs: clock });
   ledger.recordClosure({ findingKey: 'artyhoo/getff#F3', disposition: 'ALREADY_FIXED', verifier: 'dot', revision: 'fix-1', nowMs: clock });
   if (ledger.getOccurrence(tailOf('artyhoo/getff#F3'))?.state !== 'RESOLVED') fail('ALREADY_FIXED closure did not resolve');
   else log('ok already-fixed-with-evidence-resolves');
@@ -296,7 +301,7 @@ try {
   // the mapped mechanical receipt IS closure evidence — full chain resolves
   ledger3.recordReceipt({ occurrenceId: claimF8.occurrence_id, kind: 'change_review', revision: 'fix-8', digest: 'cr-8', payload: '{}', actor: 'reviewer-z', nowMs: clock });
   ledger3.recordReceipt({ occurrenceId: claimF8.occurrence_id, kind: 'dot_closure', revision: 'fix-8', digest: 'dc-8', payload: '{}', actor: 'dot', nowMs: clock });
-  ledger3.applyClosureReceipt({ findingKeys: ['artyhoo/getff#F8'], verifiedBy: 'dot/primary', disposition: 'RESOLVED', revision: 'fix-8', nowMs: clock });
+  ledger3.applyClosureReceipt({ findingKeys: ['artyhoo/getff#F8'], verifiedBy: 'dot/primary', disposition: 'RESOLVED', revision: 'fix-8', requiredContexts: ['dot-gate suites'], nowMs: clock });
   if (ledger3.getOccurrence(claimF8.occurrence_id)?.state !== 'RESOLVED') fail('closure record did not resolve');
   else log('ok closure-receipt-resolves');
 
@@ -310,6 +315,89 @@ try {
   expectCode(() => ledger3.applyFixResponseRecord({ assignmentId: claimF10.assignment_id, claimedBy: 'exec-b', fixRevision: 'x', findingKeys: ['artyhoo/getff#F10'], digest: 'd', payload: '{}' }), 'E_IDENTITY', 'fix-record-wrong-owner-refused');
   expectCode(() => ledger3.applyFixResponseRecord({ assignmentId: claimF10.assignment_id, claimedBy: 'exec-a', fixRevision: 'x', findingKeys: ['artyhoo/getff#OTHER'], digest: 'd', payload: '{}' }), 'E_LIMITS', 'fix-record-key-mismatch-refused');
   expectCode(() => ledger3.applyClosureReceipt({ findingKeys: ['artyhoo/getff#F10'], verifiedBy: 'dot/primary', disposition: 'RESOLVED', revision: 'x', nowMs: clock }), 'E_NOT_RESOLVABLE', 'closure-record-unproven-refused');
+  ledger3.revokeClaim({ assignmentId: claimF10.assignment_id, reason: 'SP-7 block needs the PR scope; F10 stays open as unproven history', nowMs: clock });
+
+  // ── SP-7 / Dot D2065-S03: mechanical evidence aggregates BY CHECK IDENTITY ────
+  // The closure gate selected the LAST check receipt across all contexts: a passing
+  // lint receipt recorded after a failing tests receipt on the same fix revision
+  // allowed RESOLVED/VERIFIED. Closure must evaluate the full trusted required-check
+  // set (requiredContexts), taking the latest result separately per stable check
+  // identity + fix revision; missing/failed/stale required evidence holds; only a
+  // newer run of the SAME check supersedes its own earlier failure.
+  const seedSp7 = (key, fixRev, checks, extraFixRev) => {
+    ledger3.recordFindings('rep-sp7', [FINDING({ key })]);
+    const c = ledger3.claimFinding({ findingKey: key, owner: 'exec-a', leaseMinutes: 30, nowMs: clock });
+    ledger3.applyFixResponseRecord({
+      assignmentId: c.assignment_id, claimedBy: 'exec-a', fixRevision: fixRev,
+      findingKeys: [key], mechanicalReceipts: [], digest: `sp7:${key}`, payload: '{}', nowMs: clock,
+    });
+    if (extraFixRev) {
+      ledger3.applyFixResponseRecord({
+        assignmentId: c.assignment_id, claimedBy: 'exec-a', fixRevision: extraFixRev,
+        findingKeys: [key], mechanicalReceipts: [], digest: `sp7b:${key}`, payload: '{}', nowMs: clock,
+      });
+    }
+    const occ = ledger3.lineage(key).at(-1).id;
+    const rev = extraFixRev ?? fixRev;
+    ledger3.recordReceipt({ occurrenceId: occ, kind: 'change_review', revision: rev, digest: `cr:${key}`, payload: '{}', actor: 'reviewer-z', nowMs: clock });
+    ledger3.recordReceipt({ occurrenceId: occ, kind: 'dot_closure', revision: rev, digest: `dc:${key}`, payload: '{}', actor: 'dot', nowMs: clock });
+    for (const [ctx, conclusion, onRev] of checks) {
+      ledger3.recordReceipt({ occurrenceId: occ, kind: 'check_receipt', revision: onRev ?? rev, digest: `c:${key}:${ctx}:${conclusion}`, payload: JSON.stringify({ context: ctx, conclusion }), nowMs: clock });
+    }
+    return occ;
+  };
+  const closeSp7 = (key, rev, requiredContexts) => ledger3.recordClosure({ findingKey: key, disposition: 'VERIFIED', verifier: 'dot', revision: rev, requiredContexts, nowMs: clock });
+  const resolvedSp7 = (key) => ledger3.getOccurrence(ledger3.lineage(key).at(-1).id)?.state === 'RESOLVED';
+
+  // the counterexample: tests FAIL then lint PASSES on the same fix revision — the
+  // latest-overall check is a success, so the gate resolved (RED). The refusal must
+  // name the failing REQUIRED check.
+  seedSp7('artyhoo/getff#S7A', 'fix-s7a', [['ci/tests', 'failure'], ['ci/lint', 'success']]);
+  try {
+    closeSp7('artyhoo/getff#S7A', 'fix-s7a', ['ci/tests', 'ci/lint']);
+    fail('sp7-mixed-order-a: expected refusal, closure resolved');
+  } catch (e) {
+    if (e.code === 'E_NOT_RESOLVABLE' && /ci\/tests/.test(e.message)) log('ok sp7-mixed-order-a-refuses-failing-required-check');
+    else fail(`sp7-mixed-order-a: expected E_NOT_RESOLVABLE naming ci/tests, got ${e.code} ${e.message}`);
+  }
+
+  // both orders hold: lint PASS first, then tests FAIL, refuses too
+  seedSp7('artyhoo/getff#S7B', 'fix-s7b', [['ci/lint', 'success'], ['ci/tests', 'failure']]);
+  expectCode(() => closeSp7('artyhoo/getff#S7B', 'fix-s7b', ['ci/tests', 'ci/lint']), 'E_NOT_RESOLVABLE', 'sp7-mixed-order-b-refuses');
+
+  // all required contexts green on the fix revision resolve (control)
+  seedSp7('artyhoo/getff#S7C', 'fix-s7c', [['ci/tests', 'success'], ['ci/lint', 'success']]);
+  closeSp7('artyhoo/getff#S7C', 'fix-s7c', ['ci/tests', 'ci/lint']);
+  if (resolvedSp7('artyhoo/getff#S7C')) log('ok sp7-all-required-success-resolves');
+  else fail('sp7-all-required-success: full evidence did not resolve');
+
+  // a required context with NO result is not success — lint alone cannot close
+  seedSp7('artyhoo/getff#S7D', 'fix-s7d', [['ci/lint', 'success']]);
+  try {
+    closeSp7('artyhoo/getff#S7D', 'fix-s7d', ['ci/tests', 'ci/lint']);
+    fail('sp7-missing-required: expected refusal, closure resolved');
+  } catch (e) {
+    if (e.code === 'E_NOT_RESOLVABLE' && /ci\/tests/.test(e.message)) log('ok sp7-missing-required-context-refuses');
+    else fail(`sp7-missing-required: expected E_NOT_RESOLVABLE naming ci/tests, got ${e.code} ${e.message}`);
+  }
+
+  // same-context supersession: a newer passing run of the SAME check supersedes its
+  // earlier failure; the unrelated context stays independent (green control)
+  seedSp7('artyhoo/getff#S7E', 'fix-s7e', [['ci/tests', 'failure'], ['ci/tests', 'success'], ['ci/lint', 'success']]);
+  closeSp7('artyhoo/getff#S7E', 'fix-s7e', ['ci/tests', 'ci/lint']);
+  if (resolvedSp7('artyhoo/getff#S7E')) log('ok sp7-same-context-supersession-resolves');
+  else fail('sp7-same-context-supersession: newer run of the same check did not supersede');
+
+  // stale revision: the required check's only result ran on a superseded fix
+  // revision — the closure refuses instead of treating it as the current word
+  seedSp7('artyhoo/getff#S7F', 'fix-s7f', [['ci/tests', 'success', 'fix-s7f']], 'fix-s7f2');
+  expectCode(() => closeSp7('artyhoo/getff#S7F', 'fix-s7f2', ['ci/tests', 'ci/lint']), 'E_NOT_RESOLVABLE', 'sp7-stale-revision-refuses');
+
+  // the trusted set is MANDATORY at the caller: a VERIFIED closure without it is a
+  // configuration error, not a weaker check
+  seedSp7('artyhoo/getff#S7G', 'fix-s7g', [['ci/tests', 'success'], ['ci/lint', 'success']]);
+  expectCode(() => ledger3.recordClosure({ findingKey: 'artyhoo/getff#S7G', disposition: 'VERIFIED', verifier: 'dot', revision: 'fix-s7g', nowMs: clock }), 'E_CONFIG', 'sp7-missing-requiredcontexts-config-refused');
+
   ledger3.close?.();
 } catch (e) {
   fail(`unexpected: ${e.stack?.split('\n').slice(0, 2).join(' | ')}`);
@@ -338,5 +426,9 @@ assert_suite_arms "finding-lifecycle.test.sh" "$status" "$out" \
   reservation-survives-reopen supersede-keeps-finding-history \
   fix-response-record-moves-verifying closure-receipt-resolves \
   fix-record-revoked-assignment-refused fix-record-wrong-owner-refused \
-  fix-record-key-mismatch-refused closure-record-unproven-refused || exit 1
+  fix-record-key-mismatch-refused closure-record-unproven-refused \
+  sp7-mixed-order-a-refuses-failing-required-check sp7-mixed-order-b-refuses \
+  sp7-all-required-success-resolves sp7-missing-required-context-refuses \
+  sp7-same-context-supersession-resolves sp7-stale-revision-refuses \
+  sp7-missing-requiredcontexts-config-refused || exit 1
 echo "finding-lifecycle.test.sh: all green"
