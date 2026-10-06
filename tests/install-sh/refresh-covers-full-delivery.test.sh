@@ -10,7 +10,7 @@
 # framework file delivered by --full but omitted from do_refresh can therefore never reach an
 # already-installed consumer non-destructively — the framework's own fixes false-RED (or, for
 # .husky/pre-push, HARD-CRASH per #636) forever on it. This gate is the mechanical form of the
-# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1657 prose promise
+# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1695 prose promise
 # ("Consumer-owned files … were not rewritten") — encoded as an executable assertion.
 #
 # SCOPE: copy_safe deliveries only (the skip-if-exists mechanism that causes the bug). Other
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1657 + setup.d/lib.sh:1988 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1695 + setup.d/lib.sh:2234 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
@@ -337,13 +337,13 @@ fi
 # hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1803-1805
 # classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
 # classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
-# EXCLUDED list» — and 45-python.sh:1677 extends the contract to the sibling docs («consumer-editable by contract»).
+# EXCLUDED list» — and 45-python.sh:1821 extends the contract to the sibling docs («consumer-editable by contract»).
 # Rows are `<layer-basename>|<source token>`. Source-keyed (unlike the npm EXCLUDED above, which keys
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
   # 45-python.sh agent-surface docs (45-python.sh:1798-1833). The ARCHITECTURE.md token is the
-  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1805/:1838 — two consumer-owned
+  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (45-python.sh:1805/:1837 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python
   45-python.sh|$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md

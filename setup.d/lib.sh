@@ -727,9 +727,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1547                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1585                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1693          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1837          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:635          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:661          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:682          patch_stryker_package_manager → stryker-pm
@@ -738,7 +738,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:650          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:670          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:701          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:2138                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1813          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
@@ -2463,7 +2463,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3080, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3329, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
