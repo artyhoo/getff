@@ -192,7 +192,7 @@ d0d25d05699117837ed2b95c3d2bfe2a58f5c25386786d3eb601c20490426366  .agents/roles/
 c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296  .agents/roles/aif-init.md
 803bab58bcbc869bc2359cdf285f9e68370332fbf039567bc06d568f139bf092  .agents/roles/backward-sweep-auditor.md
 7605ee4aefa31c20601230ece6ebf378961e4abd269db7bd7d8a4ee776dbe44b  .agents/roles/capability-reuse-auditor.md
-7209c4b2df4e2eed108d0231f1149aa10e2da8e992ec1982f1ddf1b582edb713  .agents/roles/claims-conformance-auditor.md
+1582ac0b6de800099104435a82c3a4f5afe8175ebaa9f0d6e445e5cc8e00004e  .agents/roles/claims-conformance-auditor.md
 502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622  .agents/roles/compliance-verifier.md
 6f24587e2468dd3b95073360f16f8c5a3d01c4318ad947462d0ad350b89304f1  .agents/roles/dispatch-input-checker.md
 f3a40e081ec332558dc257ac8a1de0ed21264732896a98310531bd3143933098  .agents/roles/docplan-auditor.md

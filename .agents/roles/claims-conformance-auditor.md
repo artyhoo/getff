@@ -84,7 +84,7 @@ history and provenance statements about the doc itself.
 ## Output format
 
 Overall verdict tokens GO/REVISE/STOP (grammar shared with
-[dispatch-input-checker.md](dispatch-input-checker.md) §Output grammar): any
+[dispatch-input-checker.md](https://github.com/artyhoo/getff/blob/main/.agents/roles/dispatch-input-checker.md) §Output grammar): any
 `GAP` → REVISE; population too small, surface unreadable, or claims not enumerable → STOP;
 complete population + zero GAP → GO.
 
