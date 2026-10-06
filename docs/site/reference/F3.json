@@ -5,6 +5,25 @@
   "generator": "scripts/render-reference.mjs",
   "members": [
     {
+      "name": "apply-husky-patch.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "apply a prepared patch to a .husky/** hook through the sanctioned channel.",
+      "source": {
+        "path": "scripts/apply-husky-patch.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".claude/hooks/apply-husky-patch-gate.sh:20 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "build-getff-dist.sh",
       "kind": "script",
       "shipsTo": {

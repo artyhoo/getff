@@ -58,6 +58,7 @@ types it.
 | Hook | Events | What it does | Delivery | Ships-to |
 |---|---|---|---|---|
 | `adopt-orchestrator-prompts` | not registered (unregistered) | PostToolUse: adopt a new orchestrator-prompt | @cc-only-rationale | not installed on any lane (no-lane) |
+| `apply-husky-patch-gate` | not registered (unregistered) | PreToolUse permission gate for the sanctioned .husky patch channel. | @cc-only-rationale | not installed on any lane (no-lane) |
 | `ask-question-reminder` | PreToolUse | PreToolUse:AskUserQuestion hook — pre-question fork-challenge nudge (consumer-safe session UX) | @dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md) + @cc-only-rationale + plugin | framework: react-native, react-next, react-spa, ts-server |
 | `check-doc-authority` | PostToolUse | PostToolUse gate — principle-09 doc-authority header quick-check (delegates to the 09 bin) | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
 | `check-doc-authority-header` | PostToolUse | PostToolUse gate — zero-dep consumer reimplementation of the doc-authority header check | @cc-only-rationale + plugin | framework: react-native, react-next, react-spa, ts-server |
