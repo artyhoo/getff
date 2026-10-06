@@ -165,5 +165,7 @@ tests/agnosticism/conformance-record.tsv
 # The host-run probe record the stage kickoffs cite (dotted sidecar, SIDECAR_DOTTED_RE).
 !.claude/orchestrator-prompts/lane-config-insertion/kickoff.probes.md
 
+# Advisor bridge beta pilot runtime state (mailbox, attempts, journal).
+/.claude/advisor-bridge-beta/
 # Controller-owned project-local enrollment and reminder ledger; never consumer data.
 /.advisor-role-reminders/
