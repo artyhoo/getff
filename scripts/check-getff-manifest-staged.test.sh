@@ -52,19 +52,20 @@ fresh_repo() {
   local r top
   r=$(mktemp -d "$TMP/r.XXXXXX")
   mkdir -p "$r/scripts" "$r/packages/getff" "$r/setup.d" "$r/agents" "$r/skills" "$r/templates" \
-    "$r/.claude/hooks" "$r/.agents/procedures" "$r/packages/core"
+    "$r/.claude/hooks" "$r/.agents/procedures" "$r/packages/core" "$r/plugin/hooks/lib"
   cp "$REPO_ROOT/scripts/build-getff-dist.sh" "$r/scripts/"
   cp "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/" 2>/dev/null || true
   echo '#!/bin/sh' > "$r/install.sh"; echo '#!/bin/sh' > "$r/setup"
   echo 'a=1' > "$r/setup.d/10-a.sh"; echo '# a' > "$r/agents/a.md"; echo '# s' > "$r/skills/s.md"; echo '# s2' > "$r/skills/s2.md"
   echo 't' > "$r/templates/t.txt"; echo 'h=1' > "$r/.claude/hooks/h.sh"; echo 'a=1' > "$r/.agents/procedures/a.md"; echo '{}' > "$r/.prettierrc.json"
   echo 'core' > "$r/packages/core/index.js"; echo 'ask=1' > "$r/scripts/check-ask-files.sh"
+  echo 'lang=1' > "$r/plugin/hooks/lib/hook-language.sh"
   echo 'notes' > "$r/README.md"
   printf '/*\n!/MANIFEST.sha256\n!/package.json\n!/.gitignore\n' > "$r/packages/getff/.gitignore"
   {
     printf '{ "name": "getff", "files": ['
     local first=1
-    for top in install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts; do
+    for top in install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts plugin; do
       [ "$first" -eq 1 ] || printf ', '; first=0; printf '"%s"' "$top"
     done
     printf '] }\n'
