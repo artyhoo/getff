@@ -234,7 +234,7 @@ a963db3c0dec354bdc43552062396defe1444dbeff9a933186eed235d92507a8  .agents/rules/
 ecddff30ffbdb21ec245f9da561f61dd6eefa33531c844abad47e2a87c396702  .agents/rules/phase-research-coverage.md
 603688c9a684a21b43d42d2804ed105705dc0f1d939ea415c53a39e295954d22  .agents/rules/recommendation-laziness-discipline.md
 6d21c1f0c2d46ebd90f43d823c2e5cb3603f1bdbacc7a3e46b1b419f451370f3  .agents/rules/research-source-trust.md
-77c54f774ddbafc22ac86c20162bbc12eeca3c7e2538c3b372997b0eb8c0cd15  .agents/rules/reviewer-discipline.md
+4c3a3d4023c6e20d451ffca8ed0988bb0a35ec787b41b3bf242765ee1490bdfd  .agents/rules/reviewer-discipline.md
 7df36e06d1d898cba50f1a655dba15e9034aa735a5883e4c0c13d59e12bb04ea  .agents/rules/rule-enforcement-channel-selection.md
 48367afbaa4ea0716ca25b423de22d2eab4b5debbc904f4358af82b086a2471f  .agents/rules/seat-lifecycle.md
 982d48425246d4ff15a465762e41d4a79a77c2d266804fbcd8c45d1ca331e556  .agents/rules/skill-description-quality.md
@@ -921,7 +921,7 @@ f2a0d492d6bcc78cfffed3a7ff8bb028ea10cc7a8a853f45be3d1476474b2d0f  packages/core/
 51bb959320f6adf2697f9f9c332dd664a7eaf4da914d4ad3c77a1fb618712303  packages/core/principles/13-phase-research-coverage-s17.test.ts
 ea660f8a6efcc2b73bff0b8fa0bbecb267de493b2cb19b863e3a72ac7c8497f4  packages/core/principles/14-skill-drift-detection.test.ts
 2bb1592af9c5ecc17e1cf433d66a0caf634f2ef83a6cdae8c84a1c98a88f223c  packages/core/principles/15-skill-paired-negative.design.md
-4678216e4f68b87e71c125798f5cb38974f96983e6196a8d19e99999f005b986  packages/core/principles/15-skill-paired-negative.test.ts
+110211ebf152b1d65fb1f2701806aa1d3572c95e4e195e4d39160d377930f7cf  packages/core/principles/15-skill-paired-negative.test.ts
 5e8964f0539bff502486157c8cf48e86f9cd0f56a6b8485e1af38b1a48dc62bd  packages/core/principles/16-hook-stub-completeness.test.ts
 8d2ecb4738103b6730e7a9e7109d1f36889200f4a914e802ced5803e1741d237  packages/core/principles/17-no-paid-llm-in-ci.test.ts
 e679702e8c1798d6c403694c39bed27f6cc5c0b58bcbde73b622c79951944c4c  packages/core/principles/18-meta-orchestrator-output-format.test.ts
