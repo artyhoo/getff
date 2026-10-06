@@ -1,7 +1,7 @@
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .agents/session-bootstrap.md
-842da5b5691681fd301d4903de8b7f1ce533dcdf131df343b3ca2fd13985c8ba  .ai-factory/refresh-baseline.json
+d4598faf2ab6c86913735e9047be38ba29d3e49f0d3e0996b58fb4cb7fc6599c  .ai-factory/refresh-baseline.json
 33396de229a2068858f546636e0bb4d0b3312fb737df9fdee0ec8c454b2bec0c  .ai-factory/tool-decisions.md
-link  .claude/session-bootstrap.md -> ../.agents/session-bootstrap.md
+5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
 8b5ed10ffd8638a50bbbad25201352dec7667a01037108df5aff3c14dddd1cb6  .github/workflows/getff-go.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  .golangci.yml
 b48dac7483918ed4b1034f73d2c28e67fc10f561041f29512784e673c4b4bcc5  go.mod

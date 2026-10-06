@@ -928,6 +928,11 @@ refresh_baseline_flush() {
 copy_safe() {
   local src="$1"
   local dst="$2"
+  # Optional 4th arg: what the dry-run preview NAMES as the source. Callers that stage
+  # through an ephemeral mktemp (transform scratch — _portable_copy) pass the real source
+  # so two consecutive --dry-run prints are byte-identical instead of leaking random
+  # temp paths (Detector v1 L1 idempotency). Guards below keep comparing the REAL bytes.
+  local display_src="${4:-$src}"
   if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
     SKIPPED+=("$dst")
     echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
@@ -974,7 +979,7 @@ copy_safe() {
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would copy: $src → $dst"
+    echo "  [dry-run] would copy: $display_src → $dst"
     return 0
   fi
 
@@ -1235,6 +1240,9 @@ install_agents_md() {
 refresh_safe() {
   local src="$1"
   local dst="$2"
+  # Optional 4th arg: dry-run display name for the source (see copy_safe — same
+  # ephemeral-staging-source caveat for _portable_copy's transform temp).
+  local display_src="${4:-$src}"
   if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
     echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
     return 0
@@ -1270,7 +1278,7 @@ refresh_safe() {
     _refresh_dir_payload "$src" "$dst" "$exclusive"
     return 0
   fi
-  _refresh_one_file "$src" "$dst"
+  _refresh_one_file "$src" "$dst" "$display_src"
 }
 
 # _refresh_one_file <src-file> <dst-file>
@@ -1280,7 +1288,7 @@ refresh_safe() {
 # refresh_safe, which the directory arm re-enters per file — so a Layer-3 escape works on a
 # single file INSIDE a directory payload exactly as it does on a file payload.
 _refresh_one_file() {
-  local src="$1" dst="$2"
+  local src="$1" dst="$2" display_src="${3:-$1}"
   # R1 divergence guard (read-only probe): fires identically under --dry-run so the preview
   # reports `would-flag` for exactly the files the real refresh would warn about. The override
   # skip in refresh_safe returns BEFORE this — the Layer-3 escape produces no conflict copy,
@@ -1294,7 +1302,7 @@ _refresh_one_file() {
     elif [ -f "$dst" ] && [ -z "$REFRESH_BASELINE_ENTRY" ] && ! cmp -s "$src" "$dst"; then
       _preserve_unbaselined_copy "$dst"
     fi
-    echo "  [dry-run] would refresh: $src → $dst"
+    echo "  [dry-run] would refresh: $display_src → $dst"
     return 0
   fi
   if refresh_baseline_diverged "$dst" "$src"; then
