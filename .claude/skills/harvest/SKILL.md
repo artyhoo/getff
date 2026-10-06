@@ -33,41 +33,26 @@ allowed-tools:
 > **Invocation-channel flag, not a permission.** `disable-model-invocation: true` keeps a skill out of auto-load and out of subagent preload, and stops the Skill tool from invoking it — an explicit `/<name>` from the operator is its only invocation channel, so an agent never self-initiates the procedure. It does **not** seal the file: an agent already asked to do this work may read the SKILL.md and execute its documented steps, and doing so is correct behaviour, not a workaround. On ZCode the flag is not runtime-enforced (absent from the runtime, survey #1699 §5): there the explicit-only channel discipline is prompt-level — this blockquote is the gate, so an agent on ZCode must still treat an explicit /<name> as the only self-initiation channel. <!-- canonical: invocation-channel-flag -->
 > Full contract (what the flag does, what it does not, and the two misreads that cost autonomy): [operational-conventions.md §4](../../../docs/meta-factory/operational-conventions.md#4-disable-model-invocation--an-invocation-channel-flag-not-a-permission).
 
-**Origin:** 2026-06-26. Harvesting a finished aif branch reliably reddens CI (PR #724 — 3 reds in a chain) or needs manual reconciliation; the steps lived only in user-scope memory. Spec: [docs/superpowers/specs/2026-06-26-harvest-skill-design.md](../../../docs/superpowers/specs/2026-06-26-harvest-skill-design.md).
+Input: `/harvest [<aif-taskId-or-branch>]` after aif acceptance. Output: reconciled committed in-scope work, local sweep receipts, cold/fidelity verdict, and an authorized staging PR with task closure after merge. Follow the four stages in order; do not infer permission beyond the operator's actual scope.
 
-> **⚡ aif environment rule:** on ANY aif environment symptom (container on wrong branch, push rejected, capacity full, missing tool, proxy/tunnel block), **first action = invoke [`/aif-doctor`](../aif-doctor/SKILL.md)** — do NOT `docker exec` fix-by-fix.
+> **⚡ aif environment rule:** on ANY aif environment symptom (container on wrong branch, push rejected, capacity full, missing tool, proxy/tunnel block), first action = invoke [/aif-doctor](../aif-doctor/SKILL.md); do NOT `docker exec` fix-by-fix.
 
----
+## §1 — Egress (push committed work, never the dirty tree) {#egress}
 
-## §1 — Egress (push the committed work, never the dirty tree) {#egress}
+Before any egress work, from the HOST run `curl -s -m5 localhost:3009/health`; require `"status":"ok"`. Failure ⇒ print the remediation in [the egress runbook](references/egress.md) and STOP before inspection/landing. Bring the service up via [runtime-bridge setup](../../../docs/runtime-bridge-setup.md), then re-probe.
 
-<!-- CTX Stage 1 skill-embed anchor: .claude/rules/egress-no-api-bypass.md carries a
-     "channel: skill-embed" token pointing here. This §1 already IS the run-moment
-     procedure implementing that rule's §1 channel preference (host-push default,
-     API break-glass) — see step 4/5 below. -->
+Before inspecting or landing a task, read [the egress runbook](references/egress.md) for exact commands and guards. Mandatory constraints:
 
-Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
-
-<!-- GH #1704 preflight: host-side /health check at SKILL START, not at push time.
-     Session-start bridge-health hook deliberately NOT added — the aif-doctor/SKILL.md §Class
-     promotion criterion ("≥2 «re-derived aif operational knowledge» incidents → consider a
-     session-start bridge-health hook") stands at 1/2 recorded incidents (2026-09-10 smoke =
-     incident 1; this skill-embed preflight is the D6 channel). A 2nd recorded incident
-     triggers the hook per that criterion — this comment records the count. -->
-
-0. **Bridge-health preflight — run BEFORE any egress work (GH #1704).** From the HOST (a plain session, not inside the container): `curl -s -m5 localhost:3009/health` — expected `{"status":"ok",…}`. On failure (timeout, connection refused, or anything but `"status":"ok"`), the aif channel is down: print the remediation below and **STOP — do not begin step 1**. A missing channel must surface here, at skill start — not at push time, after the wave's work is done. Remediation to print (wording from [docs/runtime-bridge-setup.md §Quick start](../../../docs/runtime-bridge-setup.md)): bring the service up — in your aif-handoff checkout with the docker daemon available, `docker compose up -d agent` (rebuild context: [/aif-doctor §3.1 Fix A](../aif-doctor/SKILL.md)); native CLI on `PATH` → start it; neither → follow the install pointer in that doc — then re-run this probe and continue.
-1. **Inspect first — in the TASK's worktree, never the base clone.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1). aif runs each task in its own worktree (`<root>-<branch-slug>-<taskId>`, also on the task's `worktreePath`); the base clone sits on `staging` with permanent `?? .claude/worktrees/` residue, so measuring it fabricates the step-2 `0-ahead + dirty` shape and strands the task on a bogus HOLD (2026-08-07 defect). `harvest.ts` now resolves the worktree itself (git's worktree list → `worktreePath` → `--work-dir`) and refuses to run the guards unless that checkout's HEAD **is** the task branch.
-2. **0-commits-ahead + dirty tree** is ambiguous (false-done / parked-partial vs genuine rework). `harvest.ts` returns `needsConfirm` and exits non-zero — inspect the park signals, pass `--confirm-rework` ONLY for a genuine complete rework (false-done guard, [2026-06-23 spec](../../../docs/superpowers/specs/2026-06-23-aif-harvest-false-done-guard-design.md)).
-   **≥1-commit-ahead + TRACKED files modified** is the D12 shape (aif review gate passed `done` with the deliverable partly uncommitted — 2×2026-07-25): `harvest.ts` HOLDs (`needsResidueConfirm`, exit 2). Preferred fix: a `request_changes` round so the worker commits its own work; `--confirm-dirty-residue` ships the commits and abandons the modifications (untracked-only dirt like `?? .claude/worktrees/` never holds).
-3. **Reconstruct branch-behind EDITED files.** The container forked at an old base; a full override of an EDITED tracked file reverts staging changes it never saw. For each MODIFIED (not new) path, diff against `origin/staging` and keep it `+N/−0` (pure addition) — exclude any file showing `−` lines (gotcha 3 / 7c).
-4. **Push channel — host-pull + host `git push` is the DEFAULT** (runs the real `.husky/pre-push` gate — the earliest reachable channel, per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)). The container is a **runtime, not a push env** (it cannot reach `github.com:443` — a network block, not auth — and lacks the pre-push toolchain), so do NOT push from inside it. Instead bring the committed branch to the **host** and push there: bundle the agent's commit out (`docker exec <agent> git -C <worktree> bundle create /tmp/<b>.bundle <branch>` → `docker cp` → host `git fetch /tmp/<b>.bundle <branch>`), check out the branch on the host, `git fetch origin && git rebase origin/staging` (the host carries the cost the API-land avoided — keep the branch rebased on live staging), then `git push origin <branch>` from the host. The host has working transport + the full toolchain (`gh`/`actionlint`/`zizmor`), so the literal pre-push hook runs. **NEVER `git push --no-verify`** (blocked by `git-safety.sh` and it would defeat the point).
-5. **Break-glass ONLY — Git Data API land** (`harvest-via-api.sh`), used **solely when the host transport is ALSO dead** (host `git ls-remote origin` fails too). It lands server-side (blobs→tree→commit→ref on the LIVE staging tree), so it **skips the pre-push hook by construction** — this is why it is the channel of last resort, not the default ([egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)). When taken, the §3 `run-local-ci-sweep.sh` sweep is the **mandatory** gate-substitute. Command: `bash .claude/skills/dispatcher/helpers/harvest-via-api.sh --repo <o/r> --base staging --branch <b> --message <m> --srcdir <explicit paths…>` — pass each path as a separate literal arg, never a `$VAR` that won't word-split (gotcha 5 / 9).
-6. **Clobber check (both channels, before landing).** When rebasing onto live staging (default) or building on the LIVE remote tree (break-glass), for every MODIFIED override path confirm `gh api .../compare/<fork-base>...staging --jq '.files[].filename'` ∩ your override-path list is **empty** (no shared file drifted past your fork), else rebuild that file = remote-base + your delta (gotcha 6 / 8).
-7. **Capability-commit trailer.** A harvested non-doc file **≥80 LOC under `packages/`** is a capability-commit — the commit message MUST carry a `Prior-art:` line naming a resolvable referent (an SSOT row `prior-art-evaluations.md#<ID>`, an artefact path, or an issue/PR reference); the PR-body §1.7 does NOT satisfy the real-commit backstop. Pure test material (`*.test.*` / `*.spec.*`, or files under `test(s)/`, `__tests__/`, `*fixtures/`) no longer trips the detector since the 2026-09-06 carve-out ([CLAUDE.md «What is a capability commit?»](../../../CLAUDE.md)), so a test-wrapper-of-existing-capability needs no trailer. One exception: a file directly in `packages/core/principles/` still counts, because a principle is the enforcement capability itself. Do NOT use `Prior-art: skipped — …` on a commit the detector does flag: the substance arm of `packages/core/hooks/checks/prior-art.ts` rejects the escape hatch on a capability commit by default (`PA_SUBSTANCE_WARN_ONLY` only downgrades it to a warning) — cite the SSOT row instead.
+- Inspect the TASK worktree, never the base clone; HEAD must be the task branch. Ship committed in-scope work only; never `git add -A`.
+- `0-ahead + dirty` ⇒ `needsConfirm`, inspect parks; `--confirm-rework` only for genuine complete rework. `≥1-ahead + tracked modifications` ⇒ `needsResidueConfirm`, exit 2/HOLD; prefer `request_changes` so the worker commits. `--confirm-dirty-residue` abandons modifications; untracked-only residue does not hold.
+- Reconstruct MODIFIED paths from live staging plus your delta; pure addition `+N/−0`, exclude deletion-bearing overrides. Check fork-base/live-staging intersection for every override; shared drift ⇒ rebuild before landing.
+- Default: bundle/pull committed branch to HOST and use host `git push` with the actual pre-push gate. Container is runtime, not push environment. NEVER `git push --no-verify`.
+- Git Data API is break-glass ONLY when host `git ls-remote origin` also fails; §3 sweep is then mandatory gate-substitute. Pass each override path as a literal argument, never an unsplit variable.
+- Capability commits need a resolvable `Prior-art:` trailer in the real commit; PR §1.7 cannot replace it and `skipped` cannot satisfy a flagged capability. Apply CLAUDE.md classification, including test carve-outs and the direct-principles exception.
 
 ## §2 — Cross-stage integration (parallel branches touching shared files)
 
-When two parallel aif branches edited the same file: blob-compare each side's fork-base vs the live remote base; resolve deterministically (live-base content + each side's pure-addition delta); **then run §3 — the sweep is the falsifier** (run it AFTER the merge, never before).
+When two parallel aif branches edited the same file: blob-compare each fork-base against live remote base; resolve as live-base content plus each pure-addition delta. Run §3 AFTER integration; the sweep is the falsifier.
 
 ## §3 — Sweep gate (before push)
 
@@ -84,67 +69,20 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 
 ## §4 — Cold-review + fidelity + PR
 
-**Unattended runs:** the standing authorization for dispatching the cold subagents in steps 1-2 and for opening/squash-merging the PR in step 3 without a confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md), with its escalation set and its honest Class-C classification. Not restated here (`#two-prompts-drift`).
+For unattended authorization, read [night-mode overnight policy](../night-mode/references/overnight-policy.md), including delta item 8 and its escalation set/Class-C limit, before dispatch/publication decisions. The invocation flag is a channel rule, not permission.
 
-1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
-2. **Fidelity verdict (design altitude — spec D2).** Dispatch
-   [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) as a cold read-only
-   subagent **with an explicit `name`** (keeps the resume exception of
-   [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) reachable; the follow-up default
-   is a fresh narrow seat): inputs = the
-   stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
-   round number — nothing else (no chat, no logs).
-   **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4): inline the kickoff scope sections + diff into the dispatch prompt (~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for file-reading — row 4 vs row 3). File-reading is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B owns the bottom-seat check station; not implemented here).
-   Either format, the seat prompt carries the ref every input was taken at; in the file-reading fallback the paths are snapshots from `scripts/snapshot-for-seat.sh`, never live worktree paths ([cold-seat-economy.md §7](../../rules/cold-seat-economy.md)):
+1. Own cold-QA before handoff: invoke `superpowers:requesting-code-review` first on `git diff origin/staging...HEAD`; CI checks form, not design. Before cold review/fidelity dispatch, read [cold review and fidelity](references/fidelity.md) for exact seat inputs, pinning, watch-list/delta handling and seat economy.
+2. Dispatch fidelity only on FINAL diff, after code-review fixes, with explicit seat `name` and `Inputs-ref` equal to current HEAD for every input. Inline scope+diff by default; fallback uses snapshot paths, never live worktree paths. `REVISE`/`STOP` ⇒ no PR; factory rework via dispatcher, in-session fix/re-audit. Cap 2 rounds ⇒ operator. `KICKOFF-AMBIGUOUS` ⇒ /arch office hours without burning a round. `GO` verdict needs Basis/Round/Audited-SHA=current HEAD/Evidence. Later SHA changes require a fresh narrow cold delta check (named resume only if watch-list cannot carry substance), never self-issued verdict/full re-audit by default.
+3. Before publication or closure, read [publication and task closure](references/publication-and-closure.md) for the exact commands (`tsx packages/runtime-bridge/src/cli/harvest.ts`), identity checks and optional auto-merge flow. PR requires §1.7 Forward/Backward file:line sections plus Provenance/Review findings/Fidelity verdict/Parked questions, terminal `aif-task: <taskId>`, base `staging`. Moving head off Audited-SHA reds fidelity; follow [merge-forward §9](../../rules/git-conflict-merge-forward.md) for re-establishment and candidate-head check.
+4. Before merge, confirm exact intended files and 0 unintended deletions.
+5. After merge, close via `harvest.ts <taskId> --close-merged`, never manually in UI; task ownership, merge/activity checks must pass. For auto-merge, scheduled close-merged sweep owns later closure; its installation/status details are in the publication reference.
 
-   ```text
-   Inputs-ref: <HEAD sha the diff and every file path in this prompt are taken at>
-   ```
-
-   `REVISE`/`STOP` → do NOT open the PR;
-   factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
-   in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
-   `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
-   `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
-   PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
-   <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
-
-   **Seat economy** ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): dispatch this
-   WHAT-audit only once the diff is FINAL (step 1's code-review first — its fixes invalidate a
-   parallel fidelity verdict), and at round 1 have the seat leave a compact **watch-list**
-   (why each criterion exists, where defects lived) in the PR body / task comment. If a later
-   commit moves the SHA but none of what the seat judges (deliverables / permitted files /
-   descopes — confirm via `git diff --name-only <audited>..HEAD` against the kickoff),
-   re-establish with a narrow cold delta check: a **fresh** cold agent handed only the
-   incremental diff + scope sections + that watch-list (resume the same auditor by name only
-   when the watch-list cannot carry the substance) — never a full re-audit, never a
-   self-issued verdict.
-   <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
-
-   **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
-   the seat has reached its natural end, the cached-prefix cost discipline applies —
-   - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
-     price on a narrow input is cheaper than re-billing the cached prefix at write price;
-   - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
-     next turn re-bills the whole prefix at write price;
-   - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
-     invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
-     of the config-change class — rev 4 moved P3d there; same handoff rule applies until
-     verified otherwise).
-
-3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. End the body with the line `aif-task: <taskId>` — the PR → task mapping step 5 reads back (`harvest.ts` appends it itself; a host-side bundle harvest writes it here). Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
-   **After the PR is open, any push that moves the head off `Audited-SHA` reds the gate** — most often a merge-forward commit taken to re-run acceptance against current staging. What to push instead (and the force-push one-way door that closes the cheap option): [git-conflict-merge-forward.md §9](../../rules/git-conflict-merge-forward.md). The body can be checked against a candidate head before pushing, with the gate's own `checkPrBodyFidelity` — command in that §9.
-4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
-5. **Close the aif task after the merge — never by hand in the UI.** Right after `gh pr merge` succeeds:
-   `tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged` (or `--close-merged --project <id>` to sweep every task of that project whose PR has merged). It re-checks the merge (`state: MERGED` + a merge commit, or a CLOSED PR the merge-train seat squashed into a train — proven against GitHub from its «Landed via merge train» comment, never trusted on the comment alone), that the PR is this task's (the `aif-task:` line or the task branch as head) and that it merged after the task's last agent activity, then fires the UI's Approve route (`approve_done`, `done → verified`, `commitOnApprove:false`); any failed check → no writes, already `verified` → no-op. Operator directive 2026-09-28: a task left open after its PR merged is a process defect.
-   **Auto-merge path:** a PR armed with `gh pr merge --auto` merges later, when no session is running, so nothing in-session can close its task. That path is covered by a scheduled sweep, not by you: `scripts/close-merged-sweep.sh` runs as the launchd user agent `dev.getff.aif-close-merged` (every 15 min and on wake; probes aif `/health` first and logs `SKIP aif-down` while `aif-tunnel` is off; runs `origin/staging`'s harvest.ts, not the clone's checked-out branch; ERROR/FAIL raise a macOS notification; log `~/Library/Logs/aif-close-merged.log`). Install once on the operator's Mac: `bash scripts/close-merged-sweep.sh install`; check it: `bash scripts/close-merged-sweep.sh status`.
-
----
+For incident provenance and the original before/after rationale, read [harvest history](references/history.md).
 
 ## Without this skill
 
-The operator hand-runs the harvest from memory: inspects the container, picks a push channel, hand-reconciles shared-file collisions, and runs _whichever_ gates come to mind before pushing. The recurring outcome (PR #724) is a push that reddens CI on a gate that was never re-run locally — and a round-trip per red. The 9 egress gotchas live only in user-scope memory, invisible to a fresh session or a different machine.
+A harvest ships stale overrides or uncommitted residue and discovers an omitted gate only in CI, forcing a repair round per failure.
 
 ## With this skill
 
-The four steps run in a fixed order that cannot be silently skipped: egress with the gotchas spelled out inline, deterministic cross-stage reconciliation, then **one command** (`run-local-ci-sweep.sh`) that runs the diff-scoped CI-equivalent gate set before push — the forgotten gate is no longer forgettable. The egress discipline is codified in the repo, not in one session's memory, so any harness (CC / Cursor / Codex) following this skill harvests the same way.
+Committed work passes task-worktree guards, live-base reconciliation, the local sweep and cold fidelity before publication; merged task closure is verified through the CLI.

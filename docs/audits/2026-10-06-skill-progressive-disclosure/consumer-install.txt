@@ -1,0 +1,478 @@
+▶ Verifying shipped artefacts carry Authoritative-for headers
+  ✓ all 30 shipped artefacts carry valid headers
+[profile] factory
+▶ Installing rules-as-tests-aif into /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps (stack: ts-server)
+▶ Skills → .claude/skills/
+  ✓ .claude/skills/getff/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/tool-bootstrapping/
+  ✓ .claude/skills/template-audit/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/ai-doc/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/rule-research/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/rule-tests/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch night-mode orchestrator pipeline reviewer
+  ✓ .claude/skills/arch/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/night-mode/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/orchestrator/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/pipeline/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/reviewer/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ▶ AIF operator suite (profile=factory OR --with-aif-suite): dispatcher aif-doctor harvest story claude-glm-executor-handoff
+  ✓ .claude/skills/dispatcher/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/aif-doctor/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/harvest/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/story/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/claude-glm-executor-handoff/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/run-local-ci-sweep.sh
+  ✓ aif-doctor heal helpers → .claude/skills/aif-doctor/helpers/ (executable)
+    ↳ opt-in: export RUNTIME_BRIDGE_PREFLIGHT='bash .claude/skills/aif-doctor/helpers/heal.sh' to auto-heal the aif base before each dispatch
+▶ Claude hooks → .claude/hooks/
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/deps-hash-check.sh
+  ✓ .claude/settings.json created with UserPromptSubmit hook
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/end-of-turn-reminder.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/lang/en.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/lang/ru.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/lang/check-parity.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/lib/residue-dir.sh
+  ✓ end-of-turn-reminder registered as a Stop hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/ask-question-reminder.sh
+  ✓ ask-question-reminder registered as a PreToolUse hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/inject-matching-rule.sh
+  ✓ inject-matching-rule registered as a PostToolUse hook in .claude/settings.json
+  ✓ inject-matching-rule registered as a PreToolUse hook in .claude/settings.json
+  ✓ inject-matching-rule registered as a SessionStart hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/inject-output-language.sh
+  ✓ inject-output-language registered as a SessionStart hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/check-doc-authority-header.sh
+  ✓ check-doc-authority-header registered as a PostToolUse hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/inject-project-digest.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/session-bootstrap.md
+  ✓ inject-project-digest registered as a SessionStart hook in .claude/settings.json
+  ✓ inject-project-digest registered as a SubagentStart hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/inject-memory-codification.sh
+  ✓ inject-memory-codification registered as a PostToolUse hook in .claude/settings.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/lib/hook-live.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/precompact-residue.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/inject-handoff-on-compact.sh
+  ✓ precompact-residue registered as a PreCompact hook in .claude/settings.json
+  ✓ inject-handoff-on-compact registered as a SessionStart hook in .claude/settings.json
+  ✓ the handoff group's per-session files are git-ignored through .git/info/exclude (the project .gitignore is unchanged)
+▶ Session settings → .claude/settings.local.json
+  · session settings not applied (not chosen in the pre-launch list): auto-compact window, agent teams, the handoff gate, getff's generic safety permissions
+  ▶ Stack-aware companion selection (detected: unknown)
+    ✓ superpowers [stacks=*] — relevant for unknown
+    ✓ runtime-bridge [stacks=*] — relevant for unknown
+    ✓ deepwiki [stacks=*] — relevant for unknown
+    ✓ ast-grep-cli [stacks=*] — relevant for unknown
+    ✓ ast-grep [stacks=*] — relevant for unknown
+    ✓ aif-handoff [stacks=*] — relevant for unknown
+  6 companion(s) selected for stack 'unknown'
+▶ Sub-agents → .claude/agents/
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/aif-init.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/capability-reuse-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/claims-conformance-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/compliance-verifier.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/docplan-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/docs-form-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/fidelity-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/living-docs-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/memory-codification-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/orchestrator-worker-discipline.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/review-sidecar.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/reviewer-discipline.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/rule-researcher.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/agents/rule-test-author.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/skill-context/aif-review/SKILL.md (fenced section=getff-skill-context)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/skill-context/aif-rules-check/SKILL.md (fenced section=getff-skill-context)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md (fenced section=getff-skill-context)
+▶ AI Factory templates → .ai-factory/
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/DESCRIPTION.template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/ARCHITECTURE.ts-server.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/RULES.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/rules/integration-rules.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/tool-decisions.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/AI-USAGE-GUIDE.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/DESCRIPTION.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/ARCHITECTURE.md
+  ✓ aif-handoff integration: skill-context files installed at .ai-factory/skill-context/ (auto)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/AGENTS.md (fenced section=getff-framework)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.ai-factory/tier-home.md
+  ✓ tier-home doc installed at .ai-factory/tier-home.md (profile: factory)
+  · vendor MCP servers for your dependencies not checked (not chosen in the pre-launch list)
+▶ Scripts → scripts/
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/audit-ai-docs.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/audit-r4.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-rule-globs.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-rule-enforced.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/detect-r2-boundary.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/r2-na-marker.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-arch-boundaries.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-lintstaged-resolves.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-fences-fire.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/fences-fire-fixtures
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-shields-up.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/run-armed.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/prove-rules.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-ci-pins.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-doc-links.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/check-zcode-mirror.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/run-generated-rule-mutation.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/run-rule-tests-firing.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/pre-merge-local.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/ci-available-probe.sh
+▶ Shared templates → project root
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.nvmrc
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.gitignore
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.lintstagedrc.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.prettierignore
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.prettierrc.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/tsconfig.json
+▶ Custom ESLint rules → eslint-rules-local/
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-direct-time-randomness.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-direct-time-randomness.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-direct-time-randomness.d.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-unsafe-zod-parse.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-unsafe-zod-parse.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/no-unsafe-zod-parse.d.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-error-boundary.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-error-boundary.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-error-boundary.d.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-otel-span.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-otel-span.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/require-otel-span.d.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/restricted-syntax-audit-exempt.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/restricted-syntax-audit-exempt.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint-rules-local/restricted-syntax-audit-exempt.d.ts
+  ✓ generated eslint-rules-local/index.mjs (5 rules)
+  · fences fixture [no-server-imports-in-client] not shipped — rule 'no-server-imports-in-client' not in this stack's barrel
+▶ Stack-specific templates (ts-server) → project root
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/eslint.config.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/vitest.config.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/tests/setup.ts
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.dependency-cruiser.mjs
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/stryker.config.json
+  ✓ stryker packageManager → npm
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.github/workflows/ci.yml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.github/workflows/workflow-integrity.yml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.husky/pre-commit
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.husky/pre-push
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/packages/core/hooks/pre-push.fallback.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/packages/core/hooks/pre-push.bundle.mjs
+▶ Activated git hooks → core.hooksPath=.husky
+▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/ (profile=factory)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.claude/hooks/runtime-bridge-dispatch.sh
+  ✓ .claude/vendor/runtime-bridge/ (vendored COPY per spec A7; P1-P5 parked)
+  ✓ .claude/hooks/runtime-bridge-dispatch.sh (PostToolUse dispatch hook)
+  ✓ runtime-bridge-dispatch registered as a PostToolUse hook in .claude/settings.json
+  ✓ runtime-bridge-dispatch registered as a PostToolUseFailure hook in .claude/settings.json
+▶ R2 auto-wire (reading the repo)
+  ✓ no HTTP boundary yet (no boundary folder, no zod) → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md; the first boundary file turns scripts/check-rule-globs.sh red
+▶ Merging canonical scripts → package.json (non-destructive)
+▶ Worktree scripts → scripts/ (profile=factory)
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/create-worktree.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/worktree-node-modules.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/link-coordination.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/scripts/getff-work.sh
+  ✓ scripts/create-worktree.sh (worktree entrypoint — REUSE per kickoff §4)
+  ✓ scripts/worktree-node-modules.sh (node_modules provisioning)
+  ✓ scripts/link-coordination.sh (workspace link coordination)
+  ✓ scripts/getff-work.sh (workspace one-command entry-point — spec A9)
+    ↳ entry points: `getff work <name>` (env+ profile) and `bash scripts/create-worktree.sh <name>`
+▶ Shared procedures, roles and checks → .agents/; native discovery bindings
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/overview.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/doc-organization.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/template-catalog.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/checks-map.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/self-testing-docs.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/framework-context.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/base-core.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/references/ai-traps.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/getff/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/getff/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/getff/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/tool-bootstrapping/references/decision-format.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/tool-bootstrapping/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/tool-bootstrapping/templates/tool-decisions.md.template
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/tool-bootstrapping/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/tool-bootstrapping/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/template-audit/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/template-audit/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/template-audit/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/ai-doc/anthropic-and-aif-residue.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/ai-doc/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/ai-doc/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/ai-doc/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/rule-research/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-research/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-research/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/rule-tests/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-tests/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-tests/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/exit-and-escalation.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/domain-modeling.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/research-contour.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/ideation.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/grilling.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/design-review.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/CONTEXT-FORMAT.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/references/ADR-FORMAT.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/arch/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/arch/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/arch/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/night-mode/references/substrate-and-models.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/night-mode/references/closure.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/night-mode/references/overnight-policy.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/night-mode/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/night-mode/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/night-mode/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/bootstrap-and-routing.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/worker-template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/glossary.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/quota-and-burn.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/rationale.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/queue-mode.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/delegation.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/discovery.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/reviewer-template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/intake-and-planning.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/phase-minus-1.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/ai-laziness-traps-orchestrator.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/chip-worker-template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/batch-prompt-template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/quota-policy.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/recovery-and-communication.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/references/acceptance.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/orchestrator/helpers/memory-sweep.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/orchestrator/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/orchestrator/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/evals/evals.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/evals/RESULTS.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/evals/files/scenario-2-named-state.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/evals/files/scenario-3-dnpark-state.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/output-format.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/claim-machinery.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/bundle-composition.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/mode-overrides.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/planning.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/launch.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/failures.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/scope.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/plan-cache.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/status.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/frontier.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/stage-gates.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/invocation.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/artifacts.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/red-flags.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/placeholders.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/plain-language-tail.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/anti-rationalization.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/presets/economy.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/presets/night.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/presets/aif.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/presets/sdd.json
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/master-backlog-delta.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/dispatch.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/references/dogfood.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/lang/en.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/lang/ru.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/lang/check-parity.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/templates/meta-kickoff.template.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/templates/state.md.template
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/priority-score.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/plan-currency-check.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/parse-override-flags.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/integer-name-guard.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/resolve-preset.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/delta-write-from-state.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/classify-each-candidate.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/frontier.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/render-status.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/inflight-check.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/update-cache.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/launch-table-generator.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/dup-detect.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/delta-diff.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/classify-work.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/assign-skill.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/dispatch-from-state.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/update-delta.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/print-orch-home.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/lib/common.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/emit-output-strings.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/bundle-curate.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/run-helper.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/print-plan-path.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/list-presets.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/pipeline/helpers/priority-score-synthetic.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/pipeline/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/pipeline/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/reviewer/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/reviewer/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/reviewer/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/references/harvest.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/references/invocation.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/references/execution.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/references/scope-and-provenance.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/references/parks.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/advance-frontier.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/notify-gate.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/harvest-via-api.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/tg-notify.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/probe-inflight.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/dispatcher/helpers/monitor-classify.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/dispatcher/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/dispatcher/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/references/mutation-tiers.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/references/failure-catalogue.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/references/inventory-and-triage.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/references/scope-and-evidence.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/helpers/refresh-aif-base.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/helpers/heal.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/aif-doctor/helpers/aif-agent-target.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/aif-doctor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/aif-doctor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/harvest/references/fidelity.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/harvest/references/history.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/harvest/references/egress.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/harvest/references/publication-and-closure.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/harvest/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/harvest/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/harvest/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/story/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/story/helpers/emit-story-prompt.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/story/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/story/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/claude-glm-executor-handoff/references/acceptance-gaps.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/claude-glm-executor-handoff/references/model-facts.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/procedures/claude-glm-executor-handoff/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/claude-glm-executor-handoff/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/claude-glm-executor-handoff/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/living-docs-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/living-docs-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/living-docs-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/claims-conformance-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/claims-conformance-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/claims-conformance-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/compliance-verifier.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/compliance-verifier/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/compliance-verifier/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/docplan-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/docplan-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/docplan-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/aif-init.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/aif-init/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/aif-init/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/reviewer-discipline.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/reviewer-discipline/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/reviewer-discipline/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/orchestrator-worker-discipline.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/orchestrator-worker-discipline/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/orchestrator-worker-discipline/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/rule-researcher.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-researcher/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-researcher/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/memory-codification-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/memory-codification-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/memory-codification-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/rule-test-author.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-test-author/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/rule-test-author/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/review-sidecar.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/review-sidecar/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/review-sidecar/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/fidelity-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/fidelity-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/fidelity-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/capability-reuse-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/capability-reuse-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/capability-reuse-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/roles/docs-form-auditor.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/docs-form-auditor/SKILL.md
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/skills/docs-form-auditor/agents/openai.yaml
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/check-doc-authority-header.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/precompact-residue.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/end-of-turn-reminder.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/ask-question-reminder.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/inject-matching-rule.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/deps-hash-check.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/inject-memory-codification.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/lang/en.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/lang/ru.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/lang/check-parity.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/inject-output-language.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/runtime-bridge-dispatch.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/lib/residue-dir.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/lib/hook-live.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/inject-project-digest.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/hooks/inject-handoff-on-compact.sh
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.agents/session-bootstrap.md
+▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs
+  [synth-wire] stack 'ts-server' has no synthesizer pattern set — preset baseline empty; live-research snippet (if any) still wires
+  [synth-wire] synthesizer emitted no rules for 'ts-server' — no-op
+
+ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules.
+   No .ai-factory/rules-research/ts-server.{research,selection}.json found, so the shipped
+   preset rules are your only stack fence this install. Live-researched rules come from the
+   rule-research protocol (agents/rule-researcher.md, the rule-research skill), which an install
+   does not run; a --full install delivers its output into eslint.config.mjs when it is there.
+  ✓ /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps/.prettierignore (ignored 260 freshly-shipped framework config(s); consumer-authored configs kept format-checked)
+▶ arming getff's checks: each runs once on your code; only a green one blocks
+  ✓ armed: bash scripts/check-ci-pins.sh
+  ✓ armed: bash scripts/check-doc-links.sh
+  · not armed: bash scripts/run-generated-rule-mutation.sh — no generated rules this pass
+
+How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):
+    stack: ts-server
+    linter: eslint
+    formatter: prettier (.prettierrc.json placed by getff)
+    armed:
+    - bash scripts/check-ci-pins.sh
+    - bash scripts/check-doc-links.sh
+    not-armed:
+    - npm run typecheck # not run at install: dependencies are not installed
+    - npm run lint # not run at install: dependencies are not installed
+    - npm run format:check # not run at install: dependencies are not installed
+    - npm run arch:check # not run at install: dependencies are not installed
+    - bash scripts/audit-ai-docs.sh # not run at install: dependencies are not installed
+    - bash scripts/check-rule-globs.sh # not run at install: dependencies are not installed
+    - bash scripts/check-rule-enforced.sh # not run at install: dependencies are not installed
+    - bash scripts/check-arch-boundaries.sh # not run at install: dependencies are not installed
+    - bash scripts/check-lintstaged-resolves.sh # not run at install: dependencies are not installed
+    - bash scripts/check-fences-fire.sh # not run at install: dependencies are not installed
+    - bash scripts/check-shields-up.sh # not run at install: dependencies are not installed
+    - npm test # not run at install: dependencies are not installed
+    - bash scripts/run-generated-rule-mutation.sh # no generated rules this pass
+
+⚠  2 framework piece(s) NOT wired, or wired only in part — each line says why:
+      - runtime-bridge — dispatch hook not pointed at a project: none of the 4 projects aif-handoff lists at http://localhost:3009 has /private/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/skill-pd-consumer-za3secps as its root (a docker aif-handoff lists container paths), and getff does not pick a project by name
+      - dependencies (23 dev + 1 runtime: eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils@^8.62.0 globals@^17.7.0 prettier@3.8.3 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20 typescript@^5.7.0 vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1 dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4 husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1 @types/node@^22.10.0 zod@^3.24.0) — not installed: the install adds packages only on --full or a yes at its prompt, and this run had neither (no terminal to ask on)
+
+
+✅ Installation complete — 2 item(s) NOT wired (listed above).
+
+Checked by the install:
+  ✓ git hooks active — core.hooksPath=.husky
+  ✓ scripts/audit-ai-docs.sh — 5 PASS, 0 FAIL, 1 WARN
+  · dependencies — not installed (NOT wired above)
+  · .ai-factory/DESCRIPTION.md, .ai-factory/ARCHITECTURE.md, AGENTS.md — placed from getff's templates; their project-specific parts
+    (domain, layers, conventions) are placeholders an install cannot know
+  · npm run validate — not run: it runs this project's own lint, typecheck and tests, whose result
+    is about the project's code, not about what the install placed
+
+For full guide: see INSTALL.md
+▶ aif-handoff guided install (profile=factory)
+  ✓ aif-handoff already running at http://localhost:3009
+  ✓ aif-handoff version 002f93e7 recorded in .ai-factory/tool-decisions.md (not pinned)
+  ✓ .ai-factory/refresh-baseline.json recorded (508 delivered files hashed)
+  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);
+    delivered workflow uses 'main' as the default branch — the install could not read the real one
+  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);
+    delivered workflow uses 'main' as the default branch — the install could not read the real one
+  ✓ added 22 script(s); 0 already present (kept: none)
+  ✓ added 3 hook devDep(s); 0 already present (kept)
+[aif-handoff-guided-install] diagnose: state=up at http://localhost:3009
+[aif-handoff-guided-install] state=up: no-op (detect-first — companion-install-principle.md §1)
