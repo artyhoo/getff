@@ -2,13 +2,15 @@ cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/
 7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
 2fad642ed211c7abad08be5caa7870fc1213db6e17f6405bb412592e67d28e97  .agents/hooks/lib/hook-language.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/lib/hook-live.sh
-e3f3c85f8ff525ee9d3f40f32840f08bd896285dc55e17dc0ec60eada677cd32  .agents/procedures/getff/SKILL.md
+b0729cba1ab29c34474212877c6a59cfe9a405cf28c31c6f567cfc2d81f534ac  .agents/procedures/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .agents/procedures/getff/references/ai-traps.md
-c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .agents/procedures/getff/references/base-core.md
+b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .agents/procedures/getff/references/base-core.md
 0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .agents/procedures/getff/references/checks-map.md
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .agents/procedures/getff/references/doc-organization.md
+7321fe2e29112a6995c66d63812c5b920ca67657750e295feb1ed002795f74d4  .agents/procedures/getff/references/framework-context.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .agents/procedures/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .agents/procedures/getff/references/self-testing-docs.md
+157778ef3277d32a1d1a6e24ebfbe8bde9c3301fb654f08d65cec0aa7c7d5431  .agents/procedures/getff/references/template-catalog.md
 655473880d675c47beab8437d7bc8450ca083eec92e5a00877f77613e6c0b131  .agents/procedures/rule-research/SKILL.md
 0867f01e478763f36658368c6ee2c665f7cbdadf652c29bdeb9a430cef7c29d7  .agents/procedures/rule-tests/SKILL.md
 b148168130597b3f7468d887861edc1993f66a6a3b236f065df8ae8e128e4b3d  .agents/procedures/tool-bootstrapping/SKILL.md
@@ -32,10 +34,10 @@ d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills
 44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48  .ai-factory/AI-USAGE-GUIDE.md
 5ae31e39e6a3bc220820ee850ec1884f0e5724a32de8a79e5f9f0fdf59be1052  .ai-factory/ARCHITECTURE.md
 fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  .ai-factory/ARCHITECTURE.python.md
-a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.md
-a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
+1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.md
+1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 49062080a90b66eaa853a548d45c5a505f3cfef86eaf1baa2d8d4bc27c9ee2fd  .ai-factory/RULES.md
-59bafcc6420b60e5ed489221a6f6682a7494894d20271fccee4f735267f71a54  .ai-factory/refresh-baseline.json
+7649982a96210f509bba9ba5f586b790cd4a4f3621d06135f5552f6b3f79ea73  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -52,8 +54,10 @@ link  .claude/skills/getff/references/ai-traps.md -> ../../../../.agents/procedu
 link  .claude/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
 link  .claude/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
 link  .claude/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .claude/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
 link  .claude/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
 link  .claude/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .claude/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
 link  .claude/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
 link  .claude/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
 link  .claude/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md
@@ -66,7 +70,7 @@ e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  .getff/astgrep
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  .getff/astgrep-rules/getff-no-os-system.yml
 9cd1d097450d9180f405f9f5ffd6514e92ccbaed98d58a752657722de300c9f3  .getff/hooks/pre-push
 f335376ad81b5988f2b072716938bb57c8bba1da96d998b62847900041658c6b  .getff/ruff-bans.toml
-ea780cfbc515ba0e82483d3c50bdeb13f28c088f875b2b30874999f07d2d873f  .github/workflows/getff-python.yml
+16dbcab5ea1c252fb92ada141ce16990840819a272b2ad36844fb20f2b6f4136  .github/workflows/getff-python.yml
 04a8c48d0583c1d1a59c80643c664281298b7cb3b274fe0b89ad9f602aac2585  .mcp.json
 link  .zcode/agents/rule-researcher.md -> ../../.agents/roles/rule-researcher.md
 link  .zcode/agents/rule-test-author.md -> ../../.agents/roles/rule-test-author.md
@@ -75,8 +79,10 @@ link  .zcode/skills/getff/references/ai-traps.md -> ../../../../.agents/procedur
 link  .zcode/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
 link  .zcode/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
 link  .zcode/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .zcode/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
 link  .zcode/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
 link  .zcode/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .zcode/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
 link  .zcode/skills/rule-research/SKILL.md -> ../../../.agents/procedures/rule-research/SKILL.md
 link  .zcode/skills/rule-tests/SKILL.md -> ../../../.agents/procedures/rule-tests/SKILL.md
 link  .zcode/skills/tool-bootstrapping/SKILL.md -> ../../../.agents/procedures/tool-bootstrapping/SKILL.md

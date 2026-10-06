@@ -39,8 +39,8 @@ MANIFEST="$PKG/MANIFEST.sha256"
 # requires the same root in packages/getff/package.json `files` (checked below) and in
 # packages/getff/.gitignore (or the copy would be committed).
 # scripts/: the SHIPPED SUBSET only — six files, five of which install.sh / setup.d read from PKG_ROOT
-# (install.sh:1230 + the worktree cluster install.sh:1255-1262 / setup.d/85-worktree-scripts.sh:50-55;
-# check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1224 only reports a stale consumer copy).
+# (install.sh:1234 + the worktree cluster install.sh:1260-1265 / setup.d/85-worktree-scripts.sh:50-55;
+# check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1228 only reports a stale consumer copy).
 # Not the whole tree: factory-only scripts (measure-*, render-*, *.test.sh, this assembler) would
 # couple every framework PR to the drift gate and ship operator tooling to consumers.
 PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/rules .agents/hooks .agents/session-bootstrap.md .agents/checks .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs plugin/hooks/lib/hook-language.sh"

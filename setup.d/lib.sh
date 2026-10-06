@@ -762,9 +762,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1532                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1536                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1837          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1838          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
@@ -773,9 +773,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1942                appended marker blocks       → suppress-no-entry (proved)
-#   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1813          tool-decisions copy_safe       → suppress-no-entry (proved)
+#   setup.d/lib.sh:2182                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/30-templates.sh:49         tool-decisions copy_safe             → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1813          tool-decisions copy_safe             → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -1916,6 +1916,246 @@ rewrite_arch_sot_header() {
   fi
 }
 
+# ─── Toolchain-lane agent surface (HO-3, one-button w2 docs hand-over) ───────────────────────
+# The cargo/go lanes exit before the npm setup.d layer loop, so the curated agent surface the
+# python lane delivers (setup.d/45-python.sh _py_deliver_agent_surface) was stranded on them: no
+# passport, no rule-research skills/agents, no hooks — HO-3. The shared body lives here so the
+# two thin lanes stay thin (S-2 doctrine); python keeps its own body until its delegation is a
+# separate verified step (its flow interleaves python-only steps — rules-lock, local hook rung —
+# and its fingerprints are the most-tested bytes in the tree).
+# Refresh parity boundary copied from do_refresh's contract (install.sh do_refresh): refreshed =
+# skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md, the gate script; copy_safe =
+# DESCRIPTION*, integration-rules.md, tool-decisions.md. Every refreshed path keeps the Layer-3
+# `<dst>.override.md` escape hatch (INSTALL-FOR-AI.md §Three-layer).
+# Requires globals: PKG_ROOT, PROJECT_ROOT, FORCE, DRY_RUN, SKIPPED, PROFILE, WITH_AIF_SUITE,
+# SHIPPED_DOCS (install.sh), UPSTREAM_BLOB_URL (lib.sh).
+
+# _lane_plain_skill_deliver <slug> — a skill shipping from the REPO-ROOT skills/ payload (getff,
+# tool-bootstrapping). No lib.sh copy helper reads that root (copy_skill_with_transform reads
+# $PKG_ROOT/.claude/skills/), so this mirrors do_refresh's own arm for this root: same override
+# check, wipe/copy/transform from _copy_tree_with_transform so the two cannot drift (ledger S-7).
+_lane_plain_skill_deliver() {
+  local slug="$1"
+  local src="$PKG_ROOT/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  local override="${dst}.override.md"
+  [ -d "$src" ] || return 0
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    if [ -e "$override" ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (.override.md — consumer-owned)"
+      else
+        echo "  ⊝ .claude/skills/$slug (.override.md — consumer-owned, keeping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: $src → $dst"
+      return 0
+    fi
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      SKIPPED+=("$dst")
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (exists)"
+      else
+        echo "  ⊝ .claude/skills/$slug (exists — skipping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      # W1-A review MAJOR 2 (cold-review 2026-10-05): the dry-run arm never reaches
+      # _copy_tree_with_transform's guard, so a diverged copy under --force showed only
+      # "would copy". Preview the guard when the dst exists (= the --force overwrite
+      # case; a greenfield copy overwrites nothing) — setup.d/10-skills.sh:22-24 pattern.
+      # Read-only under --dry-run. Transform parity: the delivered tree's .md are
+      # post-processed by _copy_tree_with_transform.
+      if [ -e "$dst" ]; then
+        _pre_overwrite_guard "$src" "$dst" transform
+      fi
+      echo "  [dry-run] would copy: $src → $dst"
+      return 0
+    fi
+  fi
+  _copy_tree_with_transform "$src" "$dst"
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  else
+    echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  fi
+}
+
+# _lane_agent_copy_or_refresh <src> <dst> — a single markdown artefact that needs the internal-ref
+# transform after it is written (the curated sub-agents). The transform must run ONLY on a file
+# this pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept
+# by an `.override.md`, would rewrite bytes we do not own (20-agents.sh:41-46 contract). Explicit
+# `if`s everywhere — a trailing `A && B` under install.sh's `set -euo pipefail` returns 1 and
+# aborts the lane (the A2-3 defect class).
+_lane_agent_copy_or_refresh() {
+  local src="$1" dst="$2"
+  local _writes=1
+  [ -f "$src" ] || return 0
+  if [ -e "${dst%.md}.override.md" ]; then
+    _writes=0
+  fi
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_safe "$src" "$dst"
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      _writes=0
+    fi
+    # md-refs parity (W1-A round 2): the transform below post-processes the freshly-written copy,
+    # so the divergence guard must compare against the TRANSFORMED bytes.
+    copy_safe "$src" "$dst" md-refs
+  fi
+  if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$dst" ]; then
+    transform_internal_refs "$dst"
+  fi
+}
+
+# _lane_deliver_agent_surface <lane> — the curated agent surface for a thin toolchain lane:
+# skills (getff, tool-bootstrapping, rule-research, rule-tests), agents (rule-researcher,
+# rule-test-author), hooks (deps-hash-check, inject-matching-rule + lib/hook-live.sh), .mcp.json,
+# AGENTS.md, the .ai-factory/ subtree incl. the materialized passport (.ai-factory/DESCRIPTION.md,
+# the HO-5 region template), the docs-gate script the passport's Workflow section names, and the
+# session-settings offer. Parts this lane does not deliver yet are named «not yet delivering the
+# design» through note_not_wired (HO-3), never dropped silently.
+_lane_deliver_agent_surface() {
+  local lane="$1"
+  echo "▶ Agent surface (skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/) — HO-3"
+
+  # ── Skills (4-skill curated subset) ──────────────────────────────────────────
+  # getff + tool-bootstrapping ship from repo-root skills/ (their SKILL.md up-dir refs dangle on a
+  # consumer tree without the transform pass); rule-research + rule-tests from .claude/skills/.
+  mkdir_safe "$PROJECT_ROOT/.claude/skills"
+  local _lane_skill
+  for _lane_skill in getff tool-bootstrapping; do
+    _lane_plain_skill_deliver "$_lane_skill"
+  done
+  for _lane_skill in rule-research rule-tests; do
+    if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+      refresh_skill_with_transform "$_lane_skill"
+    else
+      copy_skill_with_transform "$_lane_skill"
+    fi
+  done
+
+  # ── Agents (2-agent curated subset) ──────────────────────────────────────────
+  # The rule-research pair the one-beat research loop needs; the other agents are npm-lane
+  # concerns (setup.d/20-agents.sh).
+  mkdir_safe "$PROJECT_ROOT/.claude/agents"
+  local _lane_agent
+  for _lane_agent in rule-researcher rule-test-author; do
+    _lane_agent_copy_or_refresh "$PKG_ROOT/agents/${_lane_agent}.md" \
+                                "$PROJECT_ROOT/.claude/agents/${_lane_agent}.md"
+  done
+
+  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (register_imr_hooks) ──
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks"
+  local _lane_settings="$PROJECT_ROOT/.claude/settings.json"
+  local _lane_dhc_src="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
+  local _lane_dhc_dst="$PROJECT_ROOT/.claude/hooks/deps-hash-check.sh"
+  if [ -f "$_lane_dhc_src" ]; then
+    _lane_copy_or_refresh "$_lane_dhc_src" "$_lane_dhc_dst"
+    chmod_safe +x "$_lane_dhc_dst" 2>/dev/null || true
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would: register deps-hash-check as UserPromptSubmit hook in .claude/settings.json"
+    else
+      register_cc_hook "$_lane_settings" "UserPromptSubmit" 'bash .claude/hooks/deps-hash-check.sh' "deps-hash-check"
+    fi
+  fi
+  local _lane_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  local _lane_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
+  if [ -f "$_lane_imr_src" ]; then
+    _lane_copy_or_refresh "$_lane_imr_src" "$_lane_imr_dst"
+    chmod_safe +x "$_lane_imr_dst" 2>/dev/null || true
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
+    else
+      register_imr_hooks "$_lane_settings"
+    fi
+  fi
+  # lib/hook-live.sh — the liveness lib inject-matching-rule's prelude sources; without it the
+  # plugin copy runs too and the rule is injected twice (spec 2026-09-28 D12).
+  local _lane_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
+  if [ -f "$_lane_hl_src" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    _lane_copy_or_refresh "$_lane_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+  fi
+
+  # ── .mcp.json (context7 + deepwiki) — the only delivery channel on this lane (no 05-mcp.sh) ──
+  add_getff_mcp_servers "$PROJECT_ROOT/.mcp.json"
+
+  # ── AGENTS.md — same co-owned fenced-section wrapper as the npm lane (30-templates.sh) ──
+  install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+
+  # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
+  # The passport template + the materialized passport carry the ONE marked goal region (HO-5):
+  # no stack-specific content lives in either any more, so the SAME bytes serve every lane.
+  mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
+  mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
+  if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
+    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
+  else
+    copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+  fi
+  # AI Usage Guide — refresh-aware: the ONE .ai-factory/ content doc do_refresh also refreshes.
+  _lane_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
+  # Materialize the AGENTS.md-referenced SoT — the passport itself. copy_safe (no-clobber):
+  # consumer-editable content doc from first landing.
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+  # ARCHITECTURE / RULES — not yet delivering the design on this lane (HO-3): the lane ships its
+  # linter configs (clippy/deny, golangci) but no architecture starter and no RULES.md renderer,
+  # so both names are recorded, not dropped. The ARCHITECTURE arm probes so a future
+  # templates/<lane>/ARCHITECTURE.md starts delivering without an edit here.
+  local _lane_arch_src="$PKG_ROOT/packages/core/templates/$lane/ARCHITECTURE.md"
+  if [ -f "$_lane_arch_src" ]; then
+    copy_safe "$_lane_arch_src" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.$lane.md"
+    local _lane_arch_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+    local _lane_arch_existed=0
+    if [ -e "$_lane_arch_dst" ]; then _lane_arch_existed=1; fi
+    copy_safe "$_lane_arch_src" "$_lane_arch_dst" arch-header
+    rewrite_arch_sot_header "$_lane_arch_dst" "$_lane_arch_existed"
+  else
+    note_not_wired ".ai-factory/ARCHITECTURE.md — not yet delivering the design: the $lane lane ships no architecture starter yet (the agent drafts one from your code)"
+  fi
+  note_not_wired ".ai-factory/RULES.md — not yet delivering the design: the $lane lane delivers its linter config but no rendered rule list yet"
+
+  # skill-context overrides (replicates 20-agents.sh:66-79 + the python lane's profile gate).
+  local _lane_doc _lane_sc
+  for _lane_doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
+    case "$_lane_doc" in
+      packages/core/templates/shared/skill-context/*/SKILL.md)
+        _lane_sc="${_lane_doc#packages/core/templates/shared/skill-context/}"; _lane_sc="${_lane_sc%/SKILL.md}"
+        # Same suite-gate as 20-agents.sh:73-75 — aif-orchestrator-discipline pairs with the gated
+        # orchestrator-worker-discipline agent (not in this curated subset, so this skips too).
+        if [ "$_lane_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+          && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc/SKILL.md" ]; then continue; fi
+        mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc"
+        install_skill_context "$PKG_ROOT/$_lane_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_lane_sc/SKILL.md" ;;
+    esac
+  done
+
+  # ── The docs gate the passport's Workflow section names (HO-4) ───────────────
+  # Unconditional, needs no extra install — a passport referencing a script the lane did not
+  # deliver would be a dangling first impression (the python lane's pre-existing gap, PR-noted).
+  mkdir_safe "$PROJECT_ROOT/scripts"
+  _lane_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+
+  # ── Session settings (only on the pre-launch «yes») — same helper as 12-session-settings.sh ──
+  # The layer loop never runs on this lane, so this is the only delivery channel here.
+  # shellcheck source=/dev/null
+  . "$PKG_ROOT/setup.d/session-settings.sh"
+  apply_session_settings "$PROJECT_ROOT"
+
+  echo "  ✓ Agent surface delivery complete"
+}
+
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
 # BROWNFIELD consumer with a pre-existing .prettierignore never received the AIF exclusions →
 # generated .ai-factory/RULES.md (+ RULES.react-next.md, .claude/settings.json, the eslint-rules-
@@ -2216,7 +2456,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3095, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3335, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default

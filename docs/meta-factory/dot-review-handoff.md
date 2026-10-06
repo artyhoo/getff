@@ -1,8 +1,8 @@
 # Dot review gate — setup handoff and evidence
 
-> **Status:** setup packet, 2026-10-05. Nothing provisioned; every deployment field UNRESOLVED until an operator action fills it. Autonomous launch BLOCKED until §1 resolves.
-> **Authoritative for:** the setup manifest field list, the operator provisioning runbook, the S0 live-proof matrix, and the S5 promotion/pause/rollback recipes for this operator-only integration.
-> **NOT authoritative for:** design rationale — [spec](../superpowers/specs/2026-10-05-dot-staging-review-gate-design.md); Dot's operating instructions — [DotStagingReviewV1](dot-review-protocol.md); result shape — [schema](dot-review-result.schema.json); observed platform evidence — [S0 patch](research-patches/2026-10-05-dot-gate-s0-platform-evidence.md).
+> **Status:** setup packet, 2026-10-05; **amended 2026-10-06** for the V2 contract ([coordination spec](../superpowers/specs/2026-10-06-dot-pr-coordination-design.md), digest `88b0deb817c8afdca85f33c39706d8985a55f8a12f3dcbd36c3653444d25de1f`). Nothing provisioned; every deployment field UNRESOLVED until an operator action fills it. Autonomous launch BLOCKED until the manifest resolves.
+> **Authoritative for:** the setup manifest field list, the operator provisioning runbook, the V1→V2 migration rules (§1a), role-specific operating instructions (§1b), the S0 live-proof matrix, and the S5 promotion/pause/rollback recipes for this operator-only integration.
+> **NOT authoritative for:** design rationale — [2026-10-05 spec](../superpowers/specs/2026-10-05-dot-staging-review-gate-design.md) (contract parts superseded there) and [2026-10-06 spec](../superpowers/specs/2026-10-06-dot-pr-coordination-design.md); Dot's operating instructions — [DotPRReviewV2](dot-review-protocol.md) (V1 historical); result shape — [V2 schema](dot-review-result-v2.schema.json) ([V1 historical](dot-review-result.schema.json)); observed platform evidence — [S0 patch](research-patches/2026-10-05-dot-gate-s0-platform-evidence.md).
 > **Secrets rule:** this file never contains a token, key, password or secret value. Placeholders name the secret store entry; values live in the operator's external secret store.
 
 ## Setup manifest
@@ -11,8 +11,8 @@ A manifest is READY only when every field is resolved, its receipt recorded, and
 
 | Field | Meaning | Owner | Status |
 | --- | --- | --- | --- |
-| `protocol_version` | constant `dot-staging-review/1.0`; protocol release commit SHA + file SHA-256 | implementation → operator promote | UNRESOLVED |
-| `schema_sha256` | SHA-256 of the approved [schema](dot-review-result.schema.json) bytes the publisher consumes | implementation → operator promote | computed 2026-10-05: `98b10f4f1378495241b808265902e6555d2592af6f61454d11cc484d4ae323b0` — pin becomes binding only at operator promotion (S5) |
+| `protocol_version` | constant `dot-pr-review/2.0.0` ([DotPRReviewV2](dot-review-protocol.md)); protocol release commit SHA + file SHA-256. V1 `dot-staging-review/1.0` is historical/import-only (§1a) | implementation → operator promote | UNRESOLVED |
+| `schema_sha256` | SHA-256 of the approved [V2 schema](dot-review-result-v2.schema.json) bytes the publisher consumes. Computed at CONTRACT_READY (docs PR receipt); binding only at operator promotion (S5). V1 schema `98b10f4f1378495241b808265902e6555d2592af6f61454d11cc484d4ae323b0` stays valid for V1-import archaeology only | implementation → operator promote | UNRESOLVED (V2 bytes published; digest recorded in the CONTRACT_READY receipt) |
 | `policy_sha256` | SHA-256 of the trusted policy manifest (mechanical inventory, limits, expiry) | operator promote | UNRESOLVED |
 | `repository_id` / `repository_full_name` | `1231007068` / `artyhoo/getff`, re-verified live at launch | resolved (S0 §1) | READY |
 | `reviewer_principal` | enrolled GitHub user **numeric ID** allowed to submit (never the login string) | operator enrollment | UNRESOLVED |
@@ -28,6 +28,34 @@ A manifest is READY only when every field is resolved, its receipt recorded, and
 | `authorization_expiry` | explicit operator-selected UTC expiry of billing/allowance attestation | operator | UNRESOLVED |
 | `limits` | active claims = 1; attempts per tuple = 2; claim lease = 120 min (operator-tunable) | operator promote | PROPOSED |
 | `pause_decision` | explicit operator choice: accept immutable prior admissions, or provision+test native `dot-review/pause` route | operator | UNRESOLVED |
+
+## 1a. V1 → V2 migration rules (import, never reinterpretation)
+
+V1 (`dot-staging-review/1.0`, [schema](dot-review-result.schema.json)) records are historical artifacts. Rules, per the [2026-10-06 spec §5](../superpowers/specs/2026-10-06-dot-pr-coordination-design.md):
+
+- **Bytes and provenance preserved:** import keeps the original V1 bytes, digest, envelope identity and original protocol version string. A V1 record is never rewritten into V2 shape and never re-validated against the V2 schema.
+- **No coerced standing:** a V1 GO/completion never becomes V2 `GO` admission standing; V1 `INCOMPLETE` maps only through an explicit, recorded import decision — never silently to V2 `PARTIAL`. Schema incompatibilities surface as explicit import mappings, not reinterpretation.
+- **Separate meaning classes stay separate:** a schema-valid negative/partial V2 report is accepted history and corrective input — its acceptance is not admission. A once-valid report overtaken by head/base movement is archived **superseded** only after verifying its issued assignment; it cannot authorize the new revision. Historical applicability and live authorization are computed separately.
+- **Fix and closure records:** V2 `fix_response` and `closure_receipt` records (same schema, discriminated by `record_type`) attach to finding lineage; one active corrective owner per PR; independent closure comes from the reviewer of record, never from the fixer's own claim.
+- **Consumers:** #2056 validators/policy pins/fixtures adopt the same V2 schema version/digest in the same window as these declaring docs (supersession + compatibility + fixtures land together); validators must not accidentally interpret V2 as V1; old V1 reports stay readable.
+
+## 1b. Role-specific operating instructions (V2)
+
+| Role | Owns | Evidence at completion |
+| --- | --- | --- |
+| Executor | Implementation, local checks, obtaining the pre-PR change review, opening the PR, assigned corrections; **no independent merge/arming of a registered managed PR, even on green CI** ([CLAUDE.md exception](../../CLAUDE.md)) | Exact revisions, check receipts, review artifacts, finding-to-fix response (`fix_response` record) |
+| Change reviewer | Correctness of its declared change scope, test completeness/quality, false positives/negatives, tautology, maintainability | Scope/revision-bound review artifact; its immutable digest + reviewed revision enter Dot's packet; private detail is recorded as unknown, not assumed |
+| Dot/Astra | The seven system dimensions (protocol §4) + prior-review adequacy | V2 `review_report` via authenticated intake; negative reports are first-class accepted results |
+| Coordinator (Claude Code) | Durable queue and ownership, CI/review intake, delivery + acknowledgement, stalled-work recovery, re-review, dependency-aware merge ordering | Journal state transitions, action receipts, current eligibility calculation |
+| Deterministic helpers | Parsing, identity/freshness, persistence, polling, publication, dedup, budgets, mechanical admission predicates | Executable positive/negative checks at the earliest reachable channel |
+
+Operating semantics:
+
+- **Registration transfers authority:** opening a PR transfers monitoring responsibility (and merge/arming authority for that managed PR) to the coordinator after a durable registration receipt; a failed/missing receipt leaves the PR unregistered and is surfaced. Before registration the coordinator reconciles and disables any conflicting armed auto-merge; unknown armed state holds registration/admission. Release from management requires an explicit recorded operator transition — a stalled coordinator does not silently restore executor merge authority.
+- **Messaging reuse:** the coordinator uses the operator's existing Claude Code monitoring and inter-session message/wake mechanism; actual commands, session identifiers, persistence scope and restart behavior are recorded from that mechanism at enrollment. Persist action intent before messaging; delivery is not acknowledgement; duplicate messages return the same receipt; recovery queries pending intents against actual session/PR state. No invented session ID or transport; when a destination identity is unknown, the PR-description receipt is the exchange.
+- **Queue:** priority = pending correction verification → qualifying open staging PRs (oldest ready) → unreviewed merged staging PRs (newest merged first); historical review fills only when no open PR qualifies and yields at the next bounded checkpoint. Cursor pagination survives restart; new arrivals ahead of the cursor are reconciled; equal priority breaks by enqueue time deterministically.
+- **Ledger vs projections:** the durable ledger is the journal authority; GitHub comments/checks are projections for discovery/dedup, never a second authoritative state machine. Delivery is the complete bounded JSON (or immutable reference + digest when oversized) — truncation never substitutes for the machine report.
+- **Deployment labels:** `enrolled autonomous` requires a demonstrated unattended route with live receipts; if only manual report copying exists, the deployment is labeled `ASSISTED` — useful reports retained, autonomous scheduling/merge disabled, stated honestly rather than implied. Dot's callable submission/export and unattended launch routes are **unproven until a live receipt**; no endpoint, connector write or task ID is invented. Dot requires no local-PC access; a remote receiver never depends on a sleeping local machine.
 
 ## 2. Prerequisites scoreboard (kickoff §2)
 

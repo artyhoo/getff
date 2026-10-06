@@ -23,6 +23,7 @@
 #   D3 Goal-phrase parity        → probe_D3 (sub-wave 7.1.d; authoring repo only — consumer installs skip, see AUDIT_MODE)
 #   D4 Tool-decisions staleness  → probe_D4
 #   D5 Inverse enrollment        → probe_D5 (authoring repo only — consumer installs skip, see AUDIT_MODE)
+#   D6 Passport goal region      → probe_D6 (the consumer's own marked region — all modes; HO-4)
 #
 # Exit codes:
 #   0 — all probes PASS (WARN allowed)
@@ -418,6 +419,56 @@ if skip_unless D5; then : ; else
       echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh AND audit-ai-docs.ts,"
       echo "       OR gitignore it if it is build output,"
       echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED."
+    fi
+  fi
+fi
+
+# ────────────────────────────────────────────────────────────────────────
+# D6 — Passport goal region: .ai-factory/DESCRIPTION.md carries the getff-owned
+# marked region (HO-4 shell-twin re-source; one-button w2 docs hand-over, 2026-10).
+#
+# The region is the passport's goal source of truth (HO-5): ONE outer fence
+# (`<!-- getff:begin section=passport -->` … `<!-- getff:end section=passport -->`)
+# with five marked sub-blocks (Goal scope / Goal core / Invariants / Never /
+# Non-goals). This probe checks THE CONSUMER'S REGION — never getff's own goal
+# phrase (that parity stays D3/D5, authoring-only).
+#
+# Verdicts:
+#   PASS  both fences + all five sub-block headings present (fresh installs pass
+#         with unfilled placeholders — the scaffolding is what is gated).
+#   FAIL  the shipped sibling template (.ai-factory/DESCRIPTION.template.md)
+#         still carries the region but the passport lost a fence or a sub-block
+#         heading — the passport drifted away from the scaffolding its own
+#         installer ships.
+#   WARN  no passport at all (non-getff tree), or a pre-region passport whose
+#         shipped template is also region-less (brownfield install — adoption
+#         path is a re-run of install.sh, not a gate red).
+#
+# SSOT: merge_fenced fence grammar (setup.d/lib.sh) — the same marker lines the
+# engine (stage B) will merge on refresh. Mirrored in probeD6() (audit-ai-docs.ts).
+# ────────────────────────────────────────────────────────────────────────
+if skip_unless D6; then : ; else
+  RULE="D6 (drift): .ai-factory/DESCRIPTION.md carries the getff-owned passport region"
+  if [ ! -f .ai-factory/DESCRIPTION.md ]; then
+    warn "$RULE (no passport — nothing to check; install.sh materializes it)"
+  else
+    D6_MISSING=""
+    grep -qF '<!-- getff:begin section=passport -->' .ai-factory/DESCRIPTION.md \
+      || D6_MISSING="$D6_MISSING"$'\n'"  begin marker missing"
+    grep -qF '<!-- getff:end section=passport -->' .ai-factory/DESCRIPTION.md \
+      || D6_MISSING="$D6_MISSING"$'\n'"  end marker missing"
+    for _d6_h in '### Goal scope' '### Goal core' '### Invariants' '### Never' '### Non-goals'; do
+      grep -qF "$_d6_h" .ai-factory/DESCRIPTION.md \
+        || D6_MISSING="$D6_MISSING"$'\n'"  sub-block '$_d6_h' missing"
+    done
+    if [ -z "$D6_MISSING" ]; then
+      pass "$RULE"
+    elif [ -f .ai-factory/DESCRIPTION.template.md ] \
+      && grep -qF '<!-- getff:begin section=passport -->' .ai-factory/DESCRIPTION.template.md; then
+      fail "$RULE — the passport lost its marked goal region while the shipped template still carries it"
+      printf '%s\n' "$D6_MISSING" | sed 's/^/    /'
+    else
+      warn "$RULE — pre-region passport (installed before the marked region existed); re-run install.sh to adopt it"
     fi
   fi
 fi

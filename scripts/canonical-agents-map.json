@@ -1007,6 +1007,11 @@
       "entry": "loader"
     },
     {
+      "legacy": "skills/getff/references/framework-context.md",
+      "owner": ".agents/procedures/getff/references/framework-context.md",
+      "entry": "loader"
+    },
+    {
       "legacy": "skills/getff/references/overview.md",
       "owner": ".agents/procedures/getff/references/overview.md",
       "entry": "loader"
@@ -1014,6 +1019,11 @@
     {
       "legacy": "skills/getff/references/self-testing-docs.md",
       "owner": ".agents/procedures/getff/references/self-testing-docs.md",
+      "entry": "loader"
+    },
+    {
+      "legacy": "skills/getff/references/template-catalog.md",
+      "owner": ".agents/procedures/getff/references/template-catalog.md",
       "entry": "loader"
     },
     {

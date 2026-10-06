@@ -349,7 +349,7 @@
       "D": {
         "familyName": "hooks",
         "path": "docs/site/reference/D.json",
-        "members": 27
+        "members": 28
       },
       "E": {
         "familyName": "templates",
@@ -369,7 +369,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 36
+        "members": 37
       },
       "G": {
         "familyName": "packages",
@@ -407,7 +407,7 @@
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 100
+      "count": 102
     },
     "academicSources": {
       "source": [

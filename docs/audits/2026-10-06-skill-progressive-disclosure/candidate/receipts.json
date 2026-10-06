@@ -1,0 +1,78 @@
+{
+  "node": {
+    "command": [
+      "node",
+      "--test",
+      "scripts/canonical-agents-source.test.mjs",
+      "scripts/canonical-native.test.mjs",
+      "scripts/codex-contributor.test.mjs"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 1,
+    "log": "/tmp/skill-pd-receipts/candidate/node.log"
+  },
+  "drift": {
+    "command": [
+      "bash",
+      "scripts/check-skill-drift.sh"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 1,
+    "log": "/tmp/skill-pd-receipts/candidate/drift.log",
+    "archived_log": "docs/audits/2026-10-06-skill-progressive-disclosure/candidate/drift.txt"
+  },
+  "principles": {
+    "command": [
+      "/Users/art/code/rules-as-tests-aif/node_modules/.bin/vitest",
+      "run",
+      "principles/14-skill-drift-detection.test.ts",
+      "principles/15-skill-paired-negative.test.ts",
+      "principles/39-skill-fence-orch-home.test.ts",
+      "principles/48-skill-description-budget.test.ts"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif/packages/core",
+    "exit": 1,
+    "log": "/tmp/skill-pd-receipts/candidate/principles.log",
+    "archived_log": "docs/audits/2026-10-06-skill-progressive-disclosure/candidate/principles.txt"
+  },
+  "plugin": {
+    "command": [
+      "bash",
+      "tests/plugin/skills-generation.test.sh"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 0,
+    "log": "/tmp/skill-pd-receipts/candidate/plugin.log",
+    "archived_log": "docs/audits/2026-10-06-skill-progressive-disclosure/candidate/plugin.txt"
+  },
+  "delivery": {
+    "command": [
+      "bash",
+      "tests/install-sh/ship-orchestration-skills.test.sh"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 0,
+    "log": "/tmp/skill-pd-receipts/candidate/delivery.log"
+  },
+  "codex": {
+    "command": [
+      "node",
+      "scripts/render-codex-contributor.mjs",
+      "--check"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 0,
+    "log": "/tmp/skill-pd-receipts/candidate/codex.log"
+  },
+  "generated": {
+    "command": [
+      "bash",
+      "scripts/generate-plugin-skills.sh",
+      "--check"
+    ],
+    "cwd": "/Users/art/.codex/worktrees/skill-progressive-disclosure/rules-as-tests-aif",
+    "exit": 0,
+    "log": "/tmp/skill-pd-receipts/candidate/generated.log",
+    "archived_log": "docs/audits/2026-10-06-skill-progressive-disclosure/candidate/generated.txt"
+  }
+}

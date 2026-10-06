@@ -70,7 +70,9 @@
       },
       "extras": {
         "component": "skill",
-        "twin-of": ".agents/procedures/getff/SKILL.md"
+        "twin-of": {
+          "absent": "not-byte-copied"
+        }
       },
       "example": null
     },

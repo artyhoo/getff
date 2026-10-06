@@ -24,13 +24,15 @@ c48ffcb391ff7da2e7a4e0e47f814a301d2b1a94759bd17a8912c7871c9ce0f8  .agents/proced
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .agents/procedures/arch/references/grilling.md
 51a6cfc994329b2a6423301ac2ab501238b8469074e953e2ea7cbd32d2727538  .agents/procedures/arch/references/ideation.md
 71d4dc5a9823729d69456d122475aabe8139d619ef7cf7264bcab7316d6b4c67  .agents/procedures/arch/references/research-contour.md
-e3f3c85f8ff525ee9d3f40f32840f08bd896285dc55e17dc0ec60eada677cd32  .agents/procedures/getff/SKILL.md
+b0729cba1ab29c34474212877c6a59cfe9a405cf28c31c6f567cfc2d81f534ac  .agents/procedures/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .agents/procedures/getff/references/ai-traps.md
-c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .agents/procedures/getff/references/base-core.md
+b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .agents/procedures/getff/references/base-core.md
 0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .agents/procedures/getff/references/checks-map.md
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .agents/procedures/getff/references/doc-organization.md
+7321fe2e29112a6995c66d63812c5b920ca67657750e295feb1ed002795f74d4  .agents/procedures/getff/references/framework-context.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .agents/procedures/getff/references/overview.md
 7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .agents/procedures/getff/references/self-testing-docs.md
+157778ef3277d32a1d1a6e24ebfbe8bde9c3301fb654f08d65cec0aa7c7d5431  .agents/procedures/getff/references/template-catalog.md
 7184f241fa01493c3826389a1f8a6e702df4902d01f30f3aa35444f090830e30  .agents/procedures/night-mode/SKILL.md
 584caad1102633d5ccec30745b31bc6a14dfb1a2225a01ca5ee95a2093c4f197  .agents/procedures/night-mode/references/closure.md
 e456690f5cbf0fae8f3a11c787a2336a5d55ae4cb4d1204e7344d614a25a1444  .agents/procedures/night-mode/references/overnight-policy.md
@@ -185,10 +187,10 @@ d12db3e1891a170e777aaf7ac30e87fd4c7e0eca16e2d4d70662cfc78f5c04ef  .agents/skills
 44ad8d8f6f7348b44d0f1cb3fa4a4c73d81ffcdfc01f8b0d48dd1af91afb3b48  .ai-factory/AI-USAGE-GUIDE.md
 df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/ARCHITECTURE.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
-a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.md
-a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
+1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.md
+1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-5c3efef6abf782efe14acac829ed6a24e4f95c96a096fa4a4400d9e8cf659354  .ai-factory/refresh-baseline.json
+f273d5d3dafa2d13b6e84fa8eb424cf61817db27145447e378c10d647c5d8d08  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -240,8 +242,10 @@ link  .claude/skills/getff/references/ai-traps.md -> ../../../../.agents/procedu
 link  .claude/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
 link  .claude/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
 link  .claude/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .claude/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
 link  .claude/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
 link  .claude/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .claude/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
 link  .claude/skills/night-mode/SKILL.md -> ../../../.agents/procedures/night-mode/SKILL.md
 link  .claude/skills/night-mode/references/closure.md -> ../../../../.agents/procedures/night-mode/references/closure.md
 link  .claude/skills/night-mode/references/overnight-policy.md -> ../../../../.agents/procedures/night-mode/references/overnight-policy.md
@@ -338,11 +342,11 @@ e6cd6caa96d4325ffa2d10e62b320fe62ed4724f6d41ba74ee9ba7c66210d56d  .dependency-cr
 6938e0e88b38522d3f2d3b81be53048e7207cc795f21c76b7cc17de86dd40ec4  .github/workflows/ci.yml
 d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workflows/workflow-integrity.yml
 003a28ff8ef13cfabaaabb140bd758611c6560faa783b4a173fc39136bfa2887  .gitignore
-9d953b60d23601145b7ef1349675878803c1baea705e39d8e80be7f35382cd0e  .husky/pre-commit
+250726a71ffe7814337713e813564f98b29a238e7de0dddc9c91b3594dd7e8b8  .husky/pre-commit
 dafb464814540ab3fc9062918dd733be073fa237584e0ff278218d48b4a03467  .husky/pre-push
 6080c804ca7ad3beb2729037d9942bce7b17d67bbfed13b5c46d45bcc48436f6  .lintstagedrc.json
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
-00efd7f86ac27711fa2e8fd5d9efe97d5acc3230ab5cd64980ab8882fbb81b74  .prettierignore
+cf2009491f3a002d780a255157541598b92669aa6fe0fa992cf66fcc03a0df68  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
 link  .zcode/agents/aif-init.md -> ../../.agents/roles/aif-init.md
 link  .zcode/agents/capability-reuse-auditor.md -> ../../.agents/roles/capability-reuse-auditor.md
@@ -372,8 +376,10 @@ link  .zcode/skills/getff/references/ai-traps.md -> ../../../../.agents/procedur
 link  .zcode/skills/getff/references/base-core.md -> ../../../../.agents/procedures/getff/references/base-core.md
 link  .zcode/skills/getff/references/checks-map.md -> ../../../../.agents/procedures/getff/references/checks-map.md
 link  .zcode/skills/getff/references/doc-organization.md -> ../../../../.agents/procedures/getff/references/doc-organization.md
+link  .zcode/skills/getff/references/framework-context.md -> ../../../../.agents/procedures/getff/references/framework-context.md
 link  .zcode/skills/getff/references/overview.md -> ../../../../.agents/procedures/getff/references/overview.md
 link  .zcode/skills/getff/references/self-testing-docs.md -> ../../../../.agents/procedures/getff/references/self-testing-docs.md
+link  .zcode/skills/getff/references/template-catalog.md -> ../../../../.agents/procedures/getff/references/template-catalog.md
 link  .zcode/skills/night-mode/SKILL.md -> ../../../.agents/procedures/night-mode/SKILL.md
 link  .zcode/skills/night-mode/references/closure.md -> ../../../../.agents/procedures/night-mode/references/closure.md
 link  .zcode/skills/night-mode/references/overnight-policy.md -> ../../../../.agents/procedures/night-mode/references/overnight-policy.md
@@ -488,7 +494,7 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-l
 7720e54a67a6bd482a167708418e4606b4a865136b4e5e936d67230e19de75c9  package.json
 9fa33f562b028b114aeb6690afa2aa2c3b39bf8fdc83c6ad52a98222532b4289  packages/core/hooks/pre-push.bundle.mjs
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
-2746e922917be946544d8fb01e35e9d25d91a76f1053858b3e60b9bfea845790  scripts/audit-ai-docs.sh
+2f1c7bca91c245f6dfcfbb6a73bb00b68728834c3789522de115230f3be64ad9  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  scripts/check-arch-boundaries.sh
 a31c7ad0b16499c8f0b776037abac8796572d7d30f77fdad42b758826d05f9b0  scripts/check-ci-pins.sh
