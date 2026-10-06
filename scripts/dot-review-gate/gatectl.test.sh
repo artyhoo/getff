@@ -110,4 +110,24 @@ const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
 if (s.transport_calls !== 0 || s.model_calls !== 0) process.exit(1);
 ' "$TMP/spy2.json" && echo "ok recover-zero-transport-zero-model" || { echo "FAIL recover hit spies"; status=1; }
 
+# ── SP-5 / ST-1: recover reports the TRUE count (the wrapper object bug) and
+# restores the ORIGINAL bounded payload — not a {recovered:true} stub
+SP5LEDGER="$TMP/sp5.sqlite"
+SP5DIR="$TMP/sp5-coord"
+mkdir -p "$SP5DIR"
+node -e '
+import(process.argv[1]).then(async ({ createCcAdapter }) => {
+  import(process.argv[2]).then(async ({ openLedger }) => {
+    const adapter = createCcAdapter({ ledger: openLedger(process.argv[3]), coordinationDir: process.argv[4] + "/missing", notify: async () => {} });
+    await adapter.dispatchAction({ kind: "fix-assignment", targetSession: "sess-gatectl", payload: { instruction: "fix artyhoo/getff#F-9 at rev 9" } }).catch(() => {});
+    process.exit(0);
+  });
+});
+' "$DIR/cc-adapter.mjs" "$DIR/ledger.mjs" "$SP5LEDGER" "$SP5DIR"
+out="$(DOT_GATE_SPY_OUT="$TMP/spy3.json" run_cli recover --ledger "$SP5LEDGER" --coordination-dir "$SP5DIR")"; rc=$?
+expect_ok "$rc" recover-sp5 "$out"
+echo "$out" | grep -q '"recovered_deliveries": *1' || { echo "FAIL recover-count-wrapper"; status=1; }
+grep -q 'fix artyhoo/getff#F-9 at rev 9' "$SP5DIR"/_dot-gate-msg-*.md || { echo "FAIL recover-lost-payload"; status=1; }
+[ "$status" -eq 0 ] && echo "ok recover-restores-original-payload" || true
+
 [ "$status" -eq 0 ] && echo "gatectl.test.sh: all green" || { echo "gatectl.test.sh: FAILURES"; exit 1; }

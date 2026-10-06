@@ -119,7 +119,9 @@ export async function runRecover({ ledgerPath, coordinationDir, spy }) {
     return {
       ok: true,
       command: 'recover',
-      recovered_deliveries: recovered.length,
+      // SP-5: recoverPending returns the {recovered:[ids]} wrapper — reading .length
+      // on the wrapper reported undefined, not the true count
+      recovered_deliveries: recovered.recovered.length,
       counts: ledger.counts(),
       transport_calls: spy.transportCalls,
       model_calls: spy.modelCalls,

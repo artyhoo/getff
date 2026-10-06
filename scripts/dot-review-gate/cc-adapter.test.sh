@@ -80,6 +80,50 @@ try {
   if (healthy.state(sent.actionId).state !== 'ACKED') fail('ack file did not flip state');
   else log('ok ack-file-flips-state');
 
+  // ── SP-5 / ST-1: recovery restores the ORIGINAL bounded payload ───────────────
+  // The INTENT row stored only the payload digest: a crash before the file write
+  // followed by recovery rendered {recovered:true} — none of the original
+  // instructions survived the restart. Recovery must re-render the stored
+  // original content, digest-verified, under the same action id.
+  const sp5Broken = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-sp5/nope`, notify: async () => {} });
+  const sp5Payload = { instruction: 'fix artyhoo/getff#F-5 at rev abc', kind: 'fix-assignment' };
+  await sp5Broken.dispatchAction({ kind: 'fix-assignment', targetSession: 'sess-sp5', payload: sp5Payload }).catch(() => {});
+  const sp5Id = ledger.coordList('INTENT').at(-1).id;
+  const sp5Recovered = adapter.recoverPending().recovered ?? [];
+  if (!sp5Recovered.includes(sp5Id)) fail(`sp5 recovery missed the action ${sp5Id}`);
+  const sp5Msg = readFileSync(`${coordDir}/_dot-gate-msg-${sp5Id}.md`, 'utf8');
+  if (!sp5Msg.includes('fix artyhoo/getff#F-5 at rev abc')) fail(`sp5 recovery lost the original payload: ${sp5Msg.slice(0, 200)}`);
+  else log('ok recovery-restores-original-payload');
+
+  // bounded recovery: the retry budget is a persisted per-action reservation; an
+  // exhausted budget HOLDS the row (named error) instead of retrying forever
+  const sp5bBroken = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-sp5b/nope`, notify: async () => {} });
+  await sp5bBroken.dispatchAction({ kind: 'wake', targetSession: 'sess-sp5b', payload: { n: 1 } }).catch(() => {});
+  const sp5bId = ledger.coordList('INTENT').at(-1).id;
+  const sp5bRec = createCcAdapter({ ledger, coordinationDir: `${coordDir}/missing-sp5b/nope`, notify: async () => {}, maxRecoveryAttempts: 1 });
+  sp5bRec.recoverPending();
+  sp5bRec.recoverPending();
+  const sp5bRow = ledger.coordGet(sp5bId);
+  if (sp5bRow.state !== 'INTENT' || !/budget/.test(sp5bRow.last_error ?? '')) fail(`sp5 retry bound ${sp5bRow.state}/${sp5bRow.last_error}`);
+  else log('ok recovery-retry-budget-holds');
+
+  // a lost DELIVERED mark (crash after write, before mark) heals WITHOUT losing
+  // the message content
+  const sp5d = await adapter.dispatchAction({ kind: 'review-request', targetSession: 'sess-sp5d', payload: { instruction: 'payload survives a lost mark' } });
+  ledger.coordMark(sp5d.actionId, 'INTENT', 'simulated crash before the DELIVERED mark');
+  adapter.recoverPending();
+  const sp5dMsg = readFileSync(`${coordDir}/_dot-gate-msg-${sp5d.actionId}.md`, 'utf8');
+  if (!sp5dMsg.includes('payload survives a lost mark')) fail('sp5 mark-crash recovery lost content');
+  else log('ok crash-after-write-preserves-content');
+
+  // wrong ACK content is not an acknowledgement (control — the first line must
+  // carry THIS action id)
+  const sp5c = await adapter.dispatchAction({ kind: 'review-request', targetSession: 'sess-sp5c', payload: { p: 1 } });
+  writeFileSync(`${coordDir}/_dot-gate-ack-${sp5c.actionId}.md`, 'ACK something-else\n');
+  adapter.pollAcks();
+  if (adapter.state(sp5c.actionId).state !== 'DELIVERED') fail('sp5 wrong ack acked');
+  else log('ok wrong-ack-content-not-acked');
+
   // cessation/fencing: a replacement dispatch is held while the previous owner's
   // stop is unproven, and refused outright on a revoked assignment
   ledger.recordFindings('rep-cc', [{ key: 'artyhoo/getff#CC1', blocking: true }]);
@@ -117,5 +161,7 @@ assert_suite_arms "cc-adapter.test.sh" "$status" "$out" \
   restart-no-double-delivery message-follows-handoff-convention delivery-not-ack \
   ack-file-flips-state replacement-held-while-claim-live \
   replacement-held-while-expired-unrevoked cessation-unknown-assignment-refused \
-  revoked-predecessor-allows-replacement notify-failure-nonfatal || exit 1
+  revoked-predecessor-allows-replacement notify-failure-nonfatal \
+  recovery-restores-original-payload recovery-retry-budget-holds \
+  crash-after-write-preserves-content wrong-ack-content-not-acked || exit 1
 echo "cc-adapter.test.sh: all green"

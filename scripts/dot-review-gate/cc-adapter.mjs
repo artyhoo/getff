@@ -30,7 +30,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { writeFileSync, renameSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export function createCcAdapter({ ledger, coordinationDir, notify, now = () => Date.now() } = {}) {
+export function createCcAdapter({ ledger, coordinationDir, notify, maxRecoveryAttempts = 2, now = () => Date.now() } = {}) {
   if (!ledger || !coordinationDir) {
     throw Object.assign(new Error('createCcAdapter requires ledger and coordinationDir'), { code: 'E_CONFIG' });
   }
@@ -70,9 +70,13 @@ export function createCcAdapter({ ledger, coordinationDir, notify, now = () => D
         ledger.assertCessation(replacesAssignment, { nowMs: now(), leaseMinutes });
       }
       const id = randomUUID();
+      // SP-5/ST-1: the ORIGINAL bounded payload text is stored WITH the digest, so
+      // a crash-before-write restart can re-render the real instructions
+      const payloadText = JSON.stringify(payload ?? {});
       const action = ledger.coordIntent({
         id, kind, target: targetSession,
-        payloadDigest: createHash('sha256').update(JSON.stringify(payload ?? {})).digest('hex'),
+        payloadDigest: createHash('sha256').update(payloadText).digest('hex'),
+        payloadText,
       });
       try {
         if (!existsSync(msgPath(id))) {
@@ -94,18 +98,34 @@ export function createCcAdapter({ ledger, coordinationDir, notify, now = () => D
     },
 
     // crash/restart recovery: INTENT rows are re-delivered idempotently (the file
-    // name is the action id; an existing file from a crash-after-write heals the mark)
+    // name is the action id; an existing file from a crash-after-write heals the
+    // mark). SP-5/ST-1: the row's ORIGINAL payload text is re-rendered after a
+    // digest verification — a stub is never delivered in place of the real
+    // instructions — and each recovery attempt draws from a persisted per-action
+    // retry budget; an exhausted budget HOLDS the row instead of retrying forever.
     recoverPending() {
       const recovered = [];
       for (const a of ledger.coordList('INTENT')) {
         try {
+          ledger.reserveRetry(`coord-recover:${a.id}`, maxRecoveryAttempts);
           if (!existsSync(msgPath(a.id))) {
-            writeAtomic(msgPath(a.id), renderMessage(a, { recovered: true }));
+            let payload = { recovered: true };
+            if (typeof a.payload_text === 'string' && a.payload_text.length > 0) {
+              const digest = createHash('sha256').update(a.payload_text).digest('hex');
+              if (digest !== a.payload_digest) {
+                throw Object.assign(new Error('recovered payload fails its digest — the stored original is corrupt; holding'), { code: 'E_DIGEST' });
+              }
+              payload = JSON.parse(a.payload_text);
+            }
+            writeAtomic(msgPath(a.id), renderMessage(a, payload));
           }
           ledger.coordMark(a.id, 'DELIVERED');
           recovered.push(a.id);
         } catch (e) {
-          ledger.coordMark(a.id, 'INTENT', e.message);
+          const why = e.code === 'E_BUDGET'
+            ? `recovery retry budget exhausted (${maxRecoveryAttempts}) — holding; a fresh reservation is an operator reset`
+            : e.message;
+          ledger.coordMark(a.id, 'INTENT', why);
         }
       }
       return { recovered };

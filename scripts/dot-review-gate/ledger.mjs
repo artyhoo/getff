@@ -230,6 +230,9 @@ export function openLedger(dbPath, { faultAfter } = {}) {
   ensureColumn('finding_occurrences', 'repository_id', 'ALTER TABLE finding_occurrences ADD COLUMN repository_id INTEGER');
   ensureColumn('finding_occurrences', 'pr_node_id', 'ALTER TABLE finding_occurrences ADD COLUMN pr_node_id TEXT');
   ensureColumn('reports', 'superseded_at', 'ALTER TABLE reports ADD COLUMN superseded_at TEXT');
+  // SP-5/ST-1: the ORIGINAL bounded payload text of a coordination action — the
+  // digest alone could not survive a crash-before-write restart
+  ensureColumn('coord_actions', 'payload_text', 'ALTER TABLE coord_actions ADD COLUMN payload_text TEXT');
   ensureColumn('reports', 'envelope_digest', 'ALTER TABLE reports ADD COLUMN envelope_digest TEXT');
   ensureColumn('reports', 'envelope_bytes', 'ALTER TABLE reports ADD COLUMN envelope_bytes TEXT');
   ensureColumn('reports', 'received_via', 'ALTER TABLE reports ADD COLUMN received_via TEXT');
@@ -927,12 +930,17 @@ export function openLedger(dbPath, { faultAfter } = {}) {
     // ── CC coordination actions (increment 6) ───────────────────────────────────
     // The durable intent row for an outbound coordination message — written BEFORE
     // the adapter delivers anything, into the same authoritative journal.
-    coordIntent({ id, kind, target, payloadDigest } = {}) {
+    // SP-5/ST-1: the row also carries the ORIGINAL bounded payload text (≤64 KiB),
+    // so recovery re-renders the real instructions instead of a stub.
+    coordIntent({ id, kind, target, payloadDigest, payloadText } = {}) {
       return tx(() => {
+        if (payloadText !== undefined && payloadText.length > 65536) {
+          throw code('E_LIMITS', 'coord payload_text exceeds the 64 KiB bound — store a retrievable reference instead');
+        }
         const ts = now();
         db.prepare(
-          'INSERT INTO coord_actions (id, kind, target, payload_digest, state, intent_at, attempts) VALUES (?, ?, ?, ?, ?, ?, 1)',
-        ).run(id, kind, target, payloadDigest, 'INTENT', ts);
+          'INSERT INTO coord_actions (id, kind, target, payload_digest, payload_text, state, intent_at, attempts) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+        ).run(id, kind, target, payloadDigest, payloadText ?? null, 'INTENT', ts);
         return db.prepare('SELECT * FROM coord_actions WHERE id = ?').get(id);
       });
     },
