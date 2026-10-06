@@ -2229,7 +2229,7 @@ function payloadDriftSection(ctx) {
   }
   let fingerprints = 0;
   if (hasBaselines) {
-    const recorded = /* @__PURE__ */ new Set();
+    const recordedHomes = /* @__PURE__ */ new Map();
     const walk = (dir) => {
       for (const name of readdirSync(dir)) {
         const abs = `${dir}/${name}`;
@@ -2240,12 +2240,23 @@ function payloadDriftSection(ctx) {
         if (!name.endsWith(".fingerprint")) continue;
         fingerprints += 1;
         for (const line of readFileSync3(abs, "utf8").split("\n")) {
-          const m = /^([0-9a-f]{64})\s/.exec(line.trim());
-          if (m?.[1]) recorded.add(m[1]);
+          const m = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
+          if (m?.[1] && m[2]) {
+            const homes = recordedHomes.get(m[1]);
+            if (homes) homes.push(m[2]);
+            else recordedHomes.set(m[1], [m[2]]);
+          }
         }
       }
     };
     walk(baselineDir);
+    const hashAt = (p) => {
+      try {
+        return sha256Bytes(readFileSync3(resolve2(REPO_ROOT, p)));
+      } catch {
+        return void 0;
+      }
+    };
     const stale = [];
     for (const { status, path } of changes) {
       if (status === "A") continue;
@@ -2253,14 +2264,15 @@ function payloadDriftSection(ctx) {
         maxBuffer: 64 * 1024 * 1024
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) {
-        const abs = resolve2(REPO_ROOT, path);
-        try {
-          if (sha256Bytes(readFileSync3(abs)) === sha256Bytes(show.stdout)) continue;
-        } catch {
-        }
-        stale.push(`  ${path}`);
+      const preHash = sha256Bytes(show.stdout);
+      const homes = recordedHomes.get(preHash);
+      if (!homes) continue;
+      if (homes.includes(path)) {
+        if (hashAt(path) === preHash) continue;
+      } else if (homes.some((p) => hashAt(p) === preHash)) {
+        continue;
       }
+      stale.push(`  ${path}`);
     }
     if (stale.length)
       die(

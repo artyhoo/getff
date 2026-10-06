@@ -30,7 +30,7 @@
  *
  * The violation is mechanically detectable → gate, not injection (§3 step 1). Of the reachable
  * gate channels, a principle test is the earliest that actually fires: the principles suite runs
- * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2208) *and* in CI
+ * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2223) *and* in CI
  * (`principles-meta-tests`, audit-self.yml:317) — developer-time first, CI as backstop, per the
  * README "earliest reachable channel" invariant which makes CI the last resort.
  *

@@ -1696,15 +1696,22 @@ function shippedRuleDriftSection(ctx: SectionCtx): void {
 // `--check` restricted to this push's diff, and it is the only part of `--check`
 // this push can have broken.
 //
-// Arm B — baseline staleness by PRE-IMAGE hash membership. The installer copies
-// most payload files verbatim, so the bytes a fingerprint recorded are the bytes
-// the repo held at the base commit. If sha256 of `<base>:<path>` still appears in
-// any fingerprint, that fingerprint records content this push replaced. Membership
-// is by hash, not by path, precisely because source path and consumer destination
-// differ (`templates/…` → `.ai-factory/…`). Files the installer TRANSFORMS never
-// match and are silently out of arm B's reach — the CI snapshot cell stays their
-// gate, which is a deterministic channel, not attention
-// (.claude/rules/attention-is-not-a-mechanism.md §1).
+// Arm B — baseline staleness by PRE-IMAGE hash, with a path-aware stale
+// verdict. The installer copies most payload files verbatim, so the bytes a
+// fingerprint recorded are the bytes the repo held at the base commit. A push
+// demands re-capture only where it replaced bytes the baselines still describe:
+// the changed path's OWN row records the pre-image and its resolved bytes moved
+// on, or NO recorded home still carries the pre-image. Membership stays by hash
+// — source path and consumer destination differ (`templates/…` →
+// `.ai-factory/…`) — but flat membership alone flagged two dead-end classes on
+// the agents-canonical branch (measured 2026-10-06): byte-identical re-homes
+// (61 paths — the old path became a link to the identical canonical file) and
+// compatibility entries left at re-homed paths (10 more — frontmatter + pointer
+// stub while the canonical row keeps the old bytes). In both, every recorded
+// home still carries the recorded bytes, so re-capture rewrites the same
+// fingerprint and the flag could never clear. Files the installer TRANSFORMS
+// still never match and remain the CI snapshot cell's gate — a deterministic
+// channel, not attention (.claude/rules/attention-is-not-a-mechanism.md §1).
 //
 // Fingerprints are read at HEAD: a push that also re-captures them has already
 // removed the old hash, so re-blessing needs no escape token.
@@ -1822,7 +1829,7 @@ function payloadDriftSection(ctx: SectionCtx): void {
   // ── arm B ──
   let fingerprints = 0;
   if (hasBaselines) {
-    const recorded = new Set<string>();
+    const recordedHomes = new Map<string, string[]>();
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
         const abs = `${dir}/${name}`;
@@ -1833,13 +1840,24 @@ function payloadDriftSection(ctx: SectionCtx): void {
         if (!name.endsWith('.fingerprint')) continue;
         fingerprints += 1;
         for (const line of readFileSync(abs, 'utf8').split('\n')) {
-          const m = /^([0-9a-f]{64})\s/.exec(line.trim());
-          if (m?.[1]) recorded.add(m[1]);
+          const m = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
+          if (m?.[1] && m[2]) {
+            const homes = recordedHomes.get(m[1]);
+            if (homes) homes.push(m[2]);
+            else recordedHomes.set(m[1], [m[2]]);
+          }
         }
       }
     };
     walk(baselineDir);
 
+    const hashAt = (p: string): string | undefined => {
+      try {
+        return sha256Bytes(readFileSync(resolve(REPO_ROOT, p)));
+      } catch {
+        return undefined; // absent/unreadable in the worktree
+      }
+    };
     const stale: string[] = [];
     for (const { status, path } of changes) {
       if (status === 'A') continue; // no pre-image to have been installed
@@ -1847,24 +1865,21 @@ function payloadDriftSection(ctx: SectionCtx): void {
         maxBuffer: 64 * 1024 * 1024,
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) {
-        // The pre-image hash is recorded — but the baseline is only stale if the
-        // bytes the installer READS actually changed. A source re-home into the
-        // canonical tree (agents-canonical: the .claude path became a symlink to
-        // the identical .agents file) preserves those bytes: readFileSync follows
-        // the link, so when the resolved current bytes equal the pre-image the
-        // install output is unchanged and re-capture would rewrite the same
-        // fingerprint — flagging it here is a dead-end false positive (measured
-        // 2026-10-06: the whole migrated hook/skills surface flagged with
-        // byte-identical delivery).
-        const abs = resolve(REPO_ROOT, path);
-        try {
-          if (sha256Bytes(readFileSync(abs)) === sha256Bytes(show.stdout)) continue;
-        } catch {
-          // unreadable in the worktree — keep the stale verdict from the pre-image
-        }
-        stale.push(`  ${path}`);
+      const preHash = sha256Bytes(show.stdout);
+      const homes = recordedHomes.get(preHash);
+      if (!homes) continue;
+      // Stale only where re-capture would REWRITE a row. Own row records the
+      // pre-image: stale iff this path's resolved bytes moved on. Hash lives
+      // only under OTHER rows (re-home / compatibility-entry class): stale iff
+      // no recorded home still carries the bytes — conservative for the
+      // transformed-delivery class, where the destination path does not exist
+      // in this repo and the probe cannot confirm the bytes either way.
+      if (homes.includes(path)) {
+        if (hashAt(path) === preHash) continue; // row still accurate
+      } else if (homes.some((p) => hashAt(p) === preHash)) {
+        continue; // the bytes live on at their recorded home — delivery intact
       }
+      stale.push(`  ${path}`);
     }
     if (stale.length)
       die(
