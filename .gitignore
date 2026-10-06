@@ -167,3 +167,5 @@ tests/agnosticism/conformance-record.tsv
 
 # Advisor bridge beta pilot runtime state (mailbox, attempts, journal).
 /.claude/advisor-bridge-beta/
+# Controller-owned project-local enrollment and reminder ledger; never consumer data.
+/.advisor-role-reminders/
