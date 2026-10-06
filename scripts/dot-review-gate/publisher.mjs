@@ -58,7 +58,7 @@ export async function installationAccessToken(app, transport) {
 // Shared evidence assembly for both publications: the ledger record, its re-digest,
 // re-validation against the live tuple + trusted inventory, and the mechanical
 // recheck. `allowVerdicts` widens the accepted verdict set for failure publication.
-async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now }) {
+async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now }) {
   const row = ledger.getReport(reportId);
   if (!row) return refuse('E_NO_RECORD', `report ${reportId} is not in the ledger`);
   const digest = createHash('sha256').update(row.payload).digest('hex');
@@ -96,7 +96,7 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     protocol_version: policy.protocol_version ?? PROTOCOL_VERSION,
   };
 
-  const validation = validateReport(row.payload, { schemaBytes, policy, now, currentState, trustedInventory });
+  const validation = validateReport(row.payload, { schemaBytes, schemaBytesV2, policy, now, currentState, trustedInventory });
   // validation.ok is now the pure acceptable-document predicate (follow-up packet
   // increment 2): non-authorizing status rides in validation.nonAuthorizing, so every
   // error here is fatal for publication.
@@ -141,28 +141,39 @@ async function loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, 
     e.blocking = readiness.blocking;
     throw e;
   }
-  return { row, report, authorizing: validation.authorizing === true, nonAuthorizing: validation.nonAuthorizing, currentM, pr };
+  return { row, report, generation, authorizing: validation.authorizing === true, nonAuthorizing: validation.nonAuthorizing, currentM, pr };
 }
 
 // Publish the admission success check for the CURRENT M.
-export async function publishAdmission({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
-  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
-  const { report, authorizing, nonAuthorizing, currentM } = result;
+export async function publishAdmission({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, externalId } = {}) {
+  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
+  const { row, report, generation, authorizing, nonAuthorizing, currentM, pr } = result;
   if (!authorizing) {
     // the validator's marker message is protocol-shaped (V2 verdicts are objects —
     // never template them here)
     return refuse('E_NOT_AUTHORIZING', nonAuthorizing?.[0]?.message ?? `${report.kind}/${report.completion}/${report.verdict} is not an authorizing admission`);
   }
-  return createCheck({ app, policy, transport, sha: currentM, conclusion: 'success', externalId, report });
+  // SP-4: the journal is the witness — a later GO does not erase open blocking
+  // findings for this PR. Success is not published over an unresolved lineage;
+  // the green dot would otherwise retire the defects from the eligibility surface.
+  const openBlocking = ledger.openBlockingFindings(policy.repository_id, pr.node_id);
+  if (openBlocking.length > 0) {
+    refuse('E_OPEN_BLOCKING', `the journal holds open blocking findings for this PR (${openBlocking.map((f) => f.finding_key).join(', ')}) — publish their resolution, not a green check over them`);
+  }
+  return createCheck({
+    app, policy, transport, sha: currentM, conclusion: 'success', externalId, report,
+    identity: { payloadDigest: row.payload_digest, generation: generation?.seq, policySha: policyDigest(policy), mergeSha: currentM, conclusion: 'success' },
+  });
 }
 
 // A named failure check on M for a valid non-authorizing report (REVISE/STOP/INCOMPLETE,
 // execution failure). Invalid reports publish NOTHING — absence, not neutrality, blocks.
-export async function publishFailure({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now, reason, externalId } = {}) {
-  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, policy, app, transport, resolveRunIdentity, now });
-  const { report, currentM } = result;
+export async function publishFailure({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now, reason, externalId } = {}) {
+  const result = await loadAuthenticatedResult({ ledger, reportId, schemaBytes, schemaBytesV2, policy, app, transport, resolveRunIdentity, now });
+  const { row, report, generation, currentM } = result;
   return createCheck({
     app, policy, transport, sha: currentM, conclusion: 'failure', externalId, report,
+    identity: { payloadDigest: row.payload_digest, generation: generation?.seq, policySha: policyDigest(policy), mergeSha: currentM, conclusion: 'failure' },
     summaryOverride: reason ?? `verdict ${report.verdict}/${report.completion}`,
   });
 }
@@ -170,20 +181,25 @@ export async function publishFailure({ ledger, reportId, schemaBytes, policy, ap
 async function listCheckRuns({ app, transport, sha }) {
   const res = await transport(`${app.apiBase}/repos/${app.repo}/commits/${sha}/check-runs?per_page=100`, {
     headers: { accept: 'application/vnd.github+json' },
-  }).catch(() => ({ check_runs: [] }));
+  }).catch((e) => {
+    if (e.status === 404) return { check_runs: [] }; // the ref is gone — no evidence exists there
+    throw e; // DR-R5: a failed discovery is NOT an empty discovery
+  });
   return res.check_runs ?? [];
 }
 
-async function createCheck({ app, policy, transport, sha, conclusion, externalId, report, summaryOverride }) {
+async function createCheck({ app, policy, transport, sha, conclusion, externalId, report, summaryOverride, identity }) {
   const token = await installationAccessToken(app, transport);
-  const ext = externalId ?? stableExternalId(report);
-  // crash recovery: an accepted check with this external_id already exists → reuse it
+  const ext = externalId ?? stableExternalId(identity);
+  // crash recovery: an accepted check with this id already exists → reuse it — but
+  // only the SAME conclusion: an obsolete success must never stand in for a fresh
+  // failure result, nor the reverse (DR-R5)
   const search = await transport(
     `${app.apiBase}/repos/${app.repo}/commits/${sha}/check-runs?per_page=100`,
     { headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' } },
-  ).catch(() => ({ check_runs: [] }));
+  );
   for (const run of search.check_runs ?? []) {
-    if (run.external_id === ext && run.app?.id === policy.dot_check.expected_app_id) {
+    if (run.external_id === ext && run.app?.id === policy.dot_check.expected_app_id && run.conclusion === conclusion) {
       return { check: run, reused: true };
     }
   }
@@ -207,12 +223,28 @@ async function createCheck({ app, policy, transport, sha, conclusion, externalId
     },
     body,
   });
-  return { check: created, reused: false };
+  // increment 5: a write is not "published" until it reads back with the intended
+  // effect — the remote id and content must confirm what was claimed (protocol:
+  // never claim a check was published from the POST response alone)
+  const readBack = await transport(`${app.apiBase}/repos/${app.repo}/check-runs/${created.id}`, {
+    headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json' },
+  });
+  if (!readBack || readBack.id !== created.id || readBack.head_sha !== sha || readBack.conclusion !== conclusion) {
+    const e = new Error(`[publisher] E_PUBLISH_UNVERIFIED: check-run ${created?.id} did not read back with the intended effect (sha=${sha}, conclusion=${conclusion})`);
+    e.code = 'E_PUBLISH_UNVERIFIED';
+    throw e;
+  }
+  return { check: readBack, reused: false };
 }
 
-function stableExternalId(report) {
+// DR-R5: publication identity derives from the AUTHENTICATED stored record and its
+// publication context — the re-digested payload, the ledger generation, the policy
+// era, the tested merge, and the publication INTENT. The old hash over V1 top-level
+// fields left every V2 record with the same id (all four fields undefined), and the
+// id said nothing about which conclusion the publication was writing.
+function stableExternalId({ payloadDigest, generation, policySha, mergeSha, conclusion }) {
   const h = createHash('sha256')
-    .update(`${report.repository?.id}:${report.pull_request?.node_id}:${report.generation}:${report.review_id}`)
+    .update(`${payloadDigest}:${generation ?? ''}:${policySha ?? ''}:${mergeSha}:${conclusion}`)
     .digest('hex');
   return `dot-review:${h.slice(0, 32)}`;
 }

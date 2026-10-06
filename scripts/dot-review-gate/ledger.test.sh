@@ -66,7 +66,6 @@ try {
     // ── R2: consumption binds reviewer, generation, lease, tuple ───────────────
     await refused('wrong-reviewer-refused', g1.claim.claim_id, { reviewerId: 999999 }, 'E_REVIEWER');
     await refused('generation-binding-refused', g1.claim.claim_id, { assertedGenerationSeq: 999999 }, 'E_GENERATION');
-    await refused('tuple-drift-at-consume-refused', g1.claim.claim_id, { expectedTupleDigest: L.tupleDigest(FULL) + 'x' }, 'E_TUPLE_MISMATCH');
     await refused('lease-expired-refused', g1.claim.claim_id, { nowMs: attempt.nowMs + 121 * 60 * 1000 }, 'E_LEASE_EXPIRED');
 
     const stored = submit(ledger, g1.claim.claim_id);
@@ -76,6 +75,17 @@ try {
     try { submit(ledger, g1.claim.claim_id, { digest: 'deadbeef', payload: '{}', verdict: 'STOP' }); fail('conflicting payload accepted'); }
     catch (e) { if (e.code !== 'E_CONFLICT') fail(`conflict wrong code ${e.code}`); else log('ok conflict-rejected'); }
     await refused('replay-by-other-reviewer-refused', g1.claim.claim_id, { reviewerId: 999999 }, 'E_REVIEWER');
+
+    // ── DR-R3: tuple drift at consume time ARCHIVES the report as history ──────
+    // (separate PR so the g1 generation stays untouched for the terminal arms)
+    const g2 = ledger.claimGeneration({ tuple: { ...FULL, pr_node_id: 'PR_OTHER' }, reviewerId: 555001, ...attempt });
+    const driftPayload = JSON.stringify({ ...makeAdmission(), summary: 'issued on PR_OTHER, arrived late' });
+    const drifted = submit(ledger, g2.claim.claim_id, { digest: L.payloadDigest(driftPayload), payload: driftPayload, liveTupleDigest: L.tupleDigest(FULL) + 'x' });
+    if (drifted.replayed || drifted.superseded !== true || drifted.admitted !== false) fail(`drift submit ${JSON.stringify(drifted)}`);
+    else log('ok tuple-drift-archives-as-history');
+    const driftedRow = ledger.getReport(drifted.report_id);
+    if (!driftedRow.superseded_at) fail('drift record carries no superseded_at');
+    else log('ok drift-record-marked-superseded');
 
     // ── terminal generation: no new consumption, no fresh challenge ────────────
     ledger.transitionGeneration(g1.generation.id, 'VALIDATING');
@@ -187,6 +197,22 @@ try {
     if (ledger.outboxClaimBatch(100).some((r) => r.dedup_key === 'dedup-1')) fail('published row re-claimed');
     log('ok outbox-dedup-and-claim');
 
+    // ── DR-R5: a claimed batch is RESERVED against concurrent drains ───────────
+    const resLedger = L.openLedger(`${tmp}/reserve.sqlite`);
+    const RES_NOW = Date.parse('2026-10-06T12:00:00Z');
+    resLedger.outboxEnqueue('report.submitted', { report_id: 'r1' }, 'res:1');
+    resLedger.outboxEnqueue('report.submitted', { report_id: 'r2' }, 'res:2');
+    const resFirst = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW, claimLeaseMs: 60_000 });
+    if (resFirst.length !== 2) fail(`reservation first claim ${resFirst.length}`);
+    else log('ok reservation-first-claim');
+    const resSecond = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW + 30_000, claimLeaseMs: 60_000 });
+    if (resSecond.length !== 0) fail(`a concurrent drain re-claimed ${resSecond.length} reserved rows`);
+    else log('ok concurrent-drain-reserved');
+    const resThird = resLedger.outboxClaimBatch(10, { nowMs: RES_NOW + 120_000, claimLeaseMs: 60_000 });
+    if (resThird.length !== 2) fail(`a lapsed claim lease was not recoverable: ${resThird.length}`);
+    else log('ok stale-lease-recovered');
+    resLedger.close?.();
+
     const backupPath = `${tmp}/backup-${Date.now()}.sqlite`;
     ledger.backup(backupPath);
     ledger.outboxEnqueue('post.backup', {}, 'dedup-2'); // mutate after backup
@@ -208,12 +234,14 @@ source "$DIR/suite-harness.sh"
 out="$(node "$SCRIPT" "$MOD" "$FIX" "$TMP" 2>&1)"; status=$?
 assert_suite_arms "ledger.test.sh" "$status" "$out" \
   generation-claimed \
-  wrong-reviewer-refused generation-binding-refused tuple-drift-at-consume-refused \
+  wrong-reviewer-refused generation-binding-refused \
   lease-expired-refused replay-same-receipt conflict-rejected replay-by-other-reviewer-refused \
+  tuple-drift-archives-as-history drift-record-marked-superseded \
   terminal-consume-refused challenge-rejected-on-terminal terminal-reopen-new-epoch \
   tuple-base-ref-changes-generation tuple-merge-base-changes-generation \
   tuple-M-changes-generation tuple-policy-changes-generation tuple-protocol-changes-generation \
   supersede-on-tuple-change challenge-verifies-stored-tuple attempts-exhausted unknown-claim \
   lease-aware-active-claims submission-outbox-atomic-on-fault restart-drains-single-publication \
-  outbox-dedup-and-claim backup-restore-roundtrip missing-backup-rejected || exit 1
+  outbox-dedup-and-claim reservation-first-claim concurrent-drain-reserved \
+  stale-lease-recovered backup-restore-roundtrip missing-backup-rejected || exit 1
 echo "ledger.test.sh: all green"
