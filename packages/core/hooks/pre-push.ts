@@ -1858,6 +1858,49 @@ function payloadDriftSection(ctx: SectionCtx): void {
         return undefined; // absent/unreadable in the worktree
       }
     };
+    // The installer's source mapping can deliver a slug from a sibling variant
+    // directory (procedure_source's owner step: tool-bootstrapping installs from
+    // .agents/procedures/tool-bootstrapping-consumer/), so the bytes a row
+    // describes may live in-repo at a path OTHER than the recorded consumer
+    // destination. When the recorded homes all miss, fall back to a hash index
+    // of the delivery payload tree — the same tree a consumer install copies
+    // from. Scoped to the payload (not the whole repo) so a random duplicate
+    // elsewhere can never mask a genuinely stale row. Built lazily: only a
+    // foreign-row candidate that failed the homes probe pays the walk.
+    let payloadHashes: Set<string> | undefined;
+    const payloadCarries = (hash: string): boolean => {
+      if (!payloadHashes) {
+        payloadHashes = new Set();
+        const hashWalk = (dir: string): void => {
+          let names: string[];
+          try {
+            names = readdirSync(dir);
+          } catch {
+            return; // no payload tree in this checkout
+          }
+          for (const name of names) {
+            const abs = `${dir}/${name}`;
+            let st;
+            try {
+              st = statSync(abs);
+            } catch {
+              continue;
+            }
+            if (st.isDirectory()) {
+              hashWalk(abs);
+            } else if (st.isFile()) {
+              try {
+                payloadHashes!.add(sha256Bytes(readFileSync(abs)));
+              } catch {
+                // unreadable — cannot witness the hash either way
+              }
+            }
+          }
+        };
+        hashWalk(resolve(REPO_ROOT, 'packages/getff'));
+      }
+      return payloadHashes.has(hash);
+    };
     const stale: string[] = [];
     for (const { status, path } of changes) {
       if (status === 'A') continue; // no pre-image to have been installed
@@ -1870,14 +1913,17 @@ function payloadDriftSection(ctx: SectionCtx): void {
       if (!homes) continue;
       // Stale only where re-capture would REWRITE a row. Own row records the
       // pre-image: stale iff this path's resolved bytes moved on. Hash lives
-      // only under OTHER rows (re-home / compatibility-entry class): stale iff
-      // no recorded home still carries the bytes — conservative for the
-      // transformed-delivery class, where the destination path does not exist
-      // in this repo and the probe cannot confirm the bytes either way.
+      // only under OTHER rows (re-home / compatibility-entry / consumer-split
+      // class): stale iff no recorded home AND no delivery-payload file still
+      // carries the bytes — conservative for the transformed-delivery class,
+      // whose output exists only at install time.
       if (homes.includes(path)) {
         if (hashAt(path) === preHash) continue; // row still accurate
-      } else if (homes.some((p) => hashAt(p) === preHash)) {
-        continue; // the bytes live on at their recorded home — delivery intact
+      } else if (
+        homes.some((p) => hashAt(p) === preHash) ||
+        payloadCarries(preHash)
+      ) {
+        continue; // the bytes live on in the delivery — install output unchanged
       }
       stale.push(`  ${path}`);
     }

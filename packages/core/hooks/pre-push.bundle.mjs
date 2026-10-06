@@ -2257,6 +2257,39 @@ function payloadDriftSection(ctx) {
         return void 0;
       }
     };
+    let payloadHashes;
+    const payloadCarries = (hash) => {
+      if (!payloadHashes) {
+        payloadHashes = /* @__PURE__ */ new Set();
+        const hashWalk = (dir) => {
+          let names;
+          try {
+            names = readdirSync(dir);
+          } catch {
+            return;
+          }
+          for (const name of names) {
+            const abs = `${dir}/${name}`;
+            let st;
+            try {
+              st = statSync(abs);
+            } catch {
+              continue;
+            }
+            if (st.isDirectory()) {
+              hashWalk(abs);
+            } else if (st.isFile()) {
+              try {
+                payloadHashes.add(sha256Bytes(readFileSync3(abs)));
+              } catch {
+              }
+            }
+          }
+        };
+        hashWalk(resolve2(REPO_ROOT, "packages/getff"));
+      }
+      return payloadHashes.has(hash);
+    };
     const stale = [];
     for (const { status, path } of changes) {
       if (status === "A") continue;
@@ -2269,7 +2302,7 @@ function payloadDriftSection(ctx) {
       if (!homes) continue;
       if (homes.includes(path)) {
         if (hashAt(path) === preHash) continue;
-      } else if (homes.some((p) => hashAt(p) === preHash)) {
+      } else if (homes.some((p) => hashAt(p) === preHash) || payloadCarries(preHash)) {
         continue;
       }
       stale.push(`  ${path}`);

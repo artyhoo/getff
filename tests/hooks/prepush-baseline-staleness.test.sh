@@ -19,6 +19,10 @@
 #   D NEGATIVE (exit 1) — hash lives only under a foreign row and NO recorded
 #     home carries the bytes any more (the template-source class: the recorded
 #     destination does not exist in this repo) → conservative stale, flag.
+#   E POSITIVE (exit 0) — consumer-split: the delivery source is a sibling
+#     variant directory (procedure_source's owner mapping), so the recorded
+#     consumer path and its repo twin both moved on while the payload copy
+#     (packages/getff/…) still carries the exact bytes → skip.
 #
 # The hook resolves REPO_ROOT from its own file location, so the fixture gets a
 # full copy of packages/core/hooks and runs ITS copy — baselineDir then lands in
@@ -172,6 +176,25 @@ else
   record fail "D — orphaned hash NOT flagged (rc=$RC_D, output below)"; printf '%s\n' "$OUT_D"
 fi
 
-rm -rf "$TA" "$TB" "$TC" "$TD"
+# ── Case E: delivery source is a sibling variant in the payload → skip ──
+TE=$(build_case)
+mkdir -p "$TE/skills/foo" "$TE/.agents/procedures/foo" "$TE/.agents/procedures/foo-consumer" "$TE/packages/getff/.agents/procedures/foo-consumer"
+printf 'consumer-split body\n' > "$TE/.agents/procedures/foo-consumer/SKILL.md"
+cp "$TE/.agents/procedures/foo-consumer/SKILL.md" "$TE/packages/getff/.agents/procedures/foo-consumer/SKILL.md"
+printf 'repo canonical already re-ported at base\n' > "$TE/.agents/procedures/foo/SKILL.md"
+cp "$TE/.agents/procedures/foo-consumer/SKILL.md" "$TE/skills/foo/SKILL.md"
+HE=$(sha < "$TE/.agents/procedures/foo-consumer/SKILL.md")
+C0E=$(commit_all "$TE" "seed consumer-split delivery")
+printf -- '---\nname: foo\ndescription: compat entry\n---\n\nRead the canonical file.\n' > "$TE/skills/foo/SKILL.md"
+C1E=$(commit_all "$TE" "top-level path becomes compat entry")
+fingerprint "$TE" "${HE}|.agents/procedures/foo/SKILL.md"
+OUT_E=$(run_arm "$TE" "$C1E" "$C0E"); RC_E=$?
+if [ "$RC_E" -eq 0 ]; then
+  record pass "E — consumer-split: payload copy still carries the bytes → exit 0"
+else
+  record fail "E — consumer-split flagged (rc=$RC_E, output below)"; printf '%s\n' "$OUT_E"
+fi
+
+rm -rf "$TA" "$TB" "$TC" "$TD" "$TE"
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
