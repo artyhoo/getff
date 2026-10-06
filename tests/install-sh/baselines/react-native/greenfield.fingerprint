@@ -190,7 +190,7 @@ a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DE
 a9405352a5f0dc1dd3ab620199e81c76d7d319de9b888e457be46edb4c341244  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-0b84c875ac699b78bdfce4c3791f0260a6c2fbcf5f661b7fc9889a4f418d35ad  .ai-factory/refresh-baseline.json
+5d243849e6b057e7d49bc033ba8b223b26f4d02485810605199949ebbdd12136  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -487,7 +487,7 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-l
 fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797  eslint.config.mjs
 c335d2bab3855aa3a52c03a769a57f24b1cdd44fa819adf232d3bf64b78b0725  eslint.config.rn-common.mjs
 881d44cfc8d332820bbf368149e0337ef647b0aa7a5b7590711a8bb6d02ca126  package.json
-10437403f5e93a7b6cbc15b0595a7ab4f277f55ad4a861f900d9b921bf251e34  packages/core/hooks/pre-push.bundle.mjs
+9fa33f562b028b114aeb6690afa2aa2c3b39bf8fdc83c6ad52a98222532b4289  packages/core/hooks/pre-push.bundle.mjs
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
 2746e922917be946544d8fb01e35e9d25d91a76f1053858b3e60b9bfea845790  scripts/audit-ai-docs.sh
