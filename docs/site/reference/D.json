@@ -30,6 +30,31 @@
       "example": null
     },
     {
+      "name": "apply-husky-patch-gate",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PreToolUse permission gate for the sanctioned .husky patch channel.",
+      "source": {
+        "path": ".agents/hooks/apply-husky-patch-gate.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "ask-question-reminder",
       "kind": "hook",
       "shipsTo": {
