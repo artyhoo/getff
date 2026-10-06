@@ -2900,3 +2900,4 @@ jobs:
           bash scripts/dot-review-gate/budgets.test.sh
           bash scripts/dot-review-gate/registration.test.sh
           bash scripts/dot-review-gate/gatectl.test.sh
+          bash scripts/dot-review-gate/runner.test.sh

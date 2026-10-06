@@ -1,9 +1,9 @@
 # Dot review gate — repair record for review findings R1–R11
 
-> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below) plus the cold-review fix pass (§Round 2 → Cold-review fix pass). 17 suites, 353 arms, all green in one sweep on 2026-10-06.
+> **Status:** repair complete, 2026-10-05 (R1–R11); round-2 packet executed 2026-10-06 (DR-R1–DR-R5 + increments 5–9 + validate-only CLI — §Round 2 below) plus the cold-review fix pass (§Round 2 → Cold-review fix pass); round-3 repair packet executed 2026-10-06 (SP-1–SP-7 + ST-1 + Dot D2065-S03 + packet lifecycle cases + the bounded-runtime runner — §Round 3 below). 18 suites, 415 arms, all green in one sweep on 2026-10-06.
 > **Authoritative for:** the mechanism-only repair of review findings R1–R11 (review: `docs/superpowers/plans/2026-10-05-dot-staging-review-gate-review.md`) — per finding: the reproduction, the regression evidence, the change made, the verification, the remaining limitation. The round-2 section extends the same format to the follow-up packet's verified defects.
 > **NOT authoritative for:** the packet documents (protocol, schema, handoff, design spec, kickoff — owned by the documentation session); live validation (S0/S4) and staging enforcement (S5) remain operator-gated; nothing here is evidence that any live proof ran.
-> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 17/17 suites exit 0 in one sweep; arm counts: harness 10, strict-json 25, load-policy 15, readiness 20, validate-report 58, ledger 30, intake 19, publisher 18, reporter 8, armer 12, service 35, finding-lifecycle 42, cc-adapter 12, queue 11, budgets 16, registration 15, gatectl 9.
+> **Verification base:** `bash scripts/dot-review-gate/<suite>.test.sh` — 18/18 suites exit 0 in one sweep; arm counts: harness 10, strict-json 25, load-policy 15, readiness 20, validate-report 59, gatectl 15, ledger 29, intake 27, publisher 18, reporter 8, armer 18, service 42, finding-lifecycle 63, cc-adapter 16, queue 11, budgets 16, registration 15, runner 8.
 
 ## R1 — publication trusted a detached boolean
 
@@ -223,3 +223,77 @@ An independent cold reviewer (separate read-only session, brief = the defect/inc
 - **Deferred — Minor (actor assertions):** DR-R1 independence rests on caller-asserted `actor` in finding_receipts — weaker than submitReport's challenge binding; the trust root is ledger write access (same class as the round-1 receipts limitation).
 - **Deferred — Minor (stale ASSIGNED occurrence):** after a rebind the old occurrence keeps ASSIGNED; inflates open-findings counts (cron guard under-signals idle).
 - **Noted (test topology):** `concurrent-drains-single-check` uses stub transports without shared check-run state — a shared transport would be stricter; flagged, not rebuilt.
+
+## Round 3 (packet 2026-10-06) — SP-1–SP-7, ST-1, Dot D2065-S03, packet lifecycle cases, bounded-runtime runner
+
+Scope: the operator packet's repair items SP-1–SP-7, the ST-1 runtime wiring, the Dot-side aggregate-mechanical-evidence disposition (Dot D2065-S03 → SP-7) and the packet-mandated lifecycle cases. Same discipline: every fix RED-first (the RED observation is quoted in its commit message), paired-negative arms name the single property under test (T22), full 18-suite sweep green per stage. Merge stays OFF; the round's Dot record is ASSISTED/offline — Codex owns external capture/export, Claude Code owns receiving, routing and correction; nothing here claims live validation or production autonomy. Commits: `1517574599c` (SP-1), `f75135eb5d9` (SP-2), `8004dbc7ded` (SP-3), `494d7f2aa27` (SP-7 / D2065-S03), `fba0b396794` (SP-4), `8b964cdc142` (SP-5/ST-1), `72502c270de` (SP-6), `ad3132488e9` (packet cases), `16b93282e7d` (runner).
+
+### SP-1 — V2 fix/closure records entered intake without record-specific binding
+
+- **Defect:** any well-formed V2 `fix_response` / `closure_receipt` traversed intake regardless of whether the referenced assignment/finding existed, was revoked, or belonged to the submitting actor — binding was deferred entirely to the ledger consumers.
+- **Change:** `intake.mjs` dispatches per `record_type`: a fix_response must bind a LIVE assignment (exists, not REVOKED, actor = assignment owner); a closure_receipt's `finding_ids` must resolve; the review_report keeps its `review_identity` binding. `ledger.mjs` exposes the read-side lookups the checks need.
+- **Regression:** intake +8 arms: `v2-fix-response-traverses-intake`, `v2-fix-response-replay-same-receipt`, `v2-fix-wrong-actor-refused`, `v2-fix-unknown-assignment-refused`, `v2-fix-revoked-assignment-refused`, `v2-closure-receipt-traverses-intake`, `v2-closure-unknown-finding-refused`, `v2-review-report-identity-kept`.
+- **Remaining limitation:** none offline; assignment/finding identity against real GitHub objects is live-matrix material.
+
+### SP-2 — record consumers could substitute declared evidence for real receipts
+
+- **Defect:** the fix_response's independent change review and the closure_receipt's evidence were consumed as narrative — no REAL review/evidence receipts were minted, so a record could carry a fix to VERIFYING without any independent review existing, and a closure could be attempted on unproven evidence by the executor itself.
+- **Change:** `service.mjs` `consumeLifecycleRecord` records the fix record's independent change review and the closure record's evidence as genuine `finding_receipts` before the lifecycle transition; `ledger.mjs` authenticate/apply paths preserve the receipt chain — the closure gate (unchanged) then refuses what the receipts do not prove.
+- **Regression:** service +4 arms: `fix-record-carries-independent-review` (the review receipt exists and is independent), `unproven-closure-stays-pending` (a closure record without the required receipts leaves the occurrence open, the event stays pending), `executor-self-closure-refused`, `v2-closure-record-resolves-lineage` (a fully evidenced closure record resolves through the shared gate).
+- **Remaining limitation:** receipt actor identity binds ledger-side assertions (same trust root as the round-2 receipts limitation); live actor binding is enrollment material.
+
+### SP-3 — the operational V2 schema was presence-checked, not pinned
+
+- **Defect:** after DR-R4 the V2 bytes had to EXIST, but nothing bound their CONTENT: a V2-era policy could run against permissive schema bytes (`{"type":"object"}`) at validation, startup, gatectl and publication.
+- **Change:** the trusted-policy template gains `schema_v2_sha256`; `validate-report.mjs` computes sha256 over the provided V2 bytes and refuses a mismatch (E_SCHEMA_PIN_V2, distinguishing an absent pin from a wrong pin); `service.mjs` refuses a V2-era startup whose pin differs from the started bytes (E_CONFIG); `gatectl.mjs` refuses at validate time (E_SCHEMA_PIN, absent-pin and mismatch messages distinct) and a V2-era policy without bytes; `publisher.mjs` inherits the refusal through `validateReport`.
+- **Regression:** validate-report `v2-policy-schema-pin`; service `v2-era-startup-wrong-bytes-refused` (alongside the round-2 `v2-era-startup-requires-pin`); gatectl `validate-v2-pin-mismatch-fails-closed`, `validate-v2-era-without-v2-bytes-refused`, `validate-v2-pin-canonical-passes`; publisher `v2-publication-wrong-bytes-refused`. Policy template + intake fixture updated with the real V2 digest.
+- **Remaining limitation:** the pin's byte-identity against the canonical in-tree schema stays enforced by `v2-schema-pin-integrity` at the merge-forward (round-2 arm, unchanged).
+
+### SP-7 / Dot D2065-S03 — mechanical evidence aggregated across contexts, not by identity
+
+- **Defect:** closure evidence could be satisfied by ANY single successful check — a passing unrelated context masked a failing or missing required one, and there was no notion of "the latest result of each required context".
+- **Change:** `ledger.mjs` `closureTx` takes `requiredContexts` (the trusted set = policy `mandatoryMechanical` head-bound contexts, threaded from `service.mjs`) and evaluates the LATEST receipt per context on the fix revision (last-write-wins over the ordered evidence list): every required context must have a success ON the fix revision; a missing context refuses naming it; a stale fix revision refuses; supersession within one context is last-write-wins. A policy without required contexts configures an empty set and refuses (`sp7-missing-requiredcontexts-config-refused`).
+- **Regression:** finding-lifecycle +7 arms: `sp7-mixed-order-a-refuses-failing-required-check` (the RED: mixed-order evidence with a failing required check resolved before the fix), `sp7-mixed-order-b-refuses` (order-independence of the refusal), `sp7-all-required-success-resolves`, `sp7-missing-required-context-refuses`, `sp7-same-context-supersession-resolves`, `sp7-stale-revision-refuses`, `sp7-missing-requiredcontexts-config-refused`; service consumer composition: `sp7-consumer-mixed-contexts-refuses`, `sp7-consumer-all-required-success-resolves`. Fixture note: `SELECT *` does not return the implicit rowid — "latest" is last-write-wins over the insertion-ordered evidence list.
+- **Remaining limitation:** receipt contexts are ledger-side identities; their correspondence to real check-run contexts is the readiness/publisher live surface (S0/S4).
+
+### SP-4 — durable eligibility was absent at the publication and arming boundaries
+
+- **Defect:** a later GO could publish over an open blocking finding's lineage, and arming consulted only the reviewed bytes and protections — the durable journal and the registration receipt (merge DEFAULT-OFF) were witnesses at neither boundary.
+- **Change:** `ledger.mjs` `openBlockingFindings(repositoryId, prNodeId)`; `publisher.mjs` `publishAdmission` refuses on open blocking lineage (E_OPEN_BLOCKING, naming the keys — a failure publication is never held); `armer.mjs` `armAutoMerge` takes the ledger and composes: required-ledger present (absent = E_CONFIG hold), open blocking lineage (E_OPEN_BLOCKING), ACTIVE registration receipt (absent/released = E_UNREGISTERED), recorded operator enablement (E_MERGE_DISABLED) — all BEFORE the GraphQL mutation.
+- **Regression:** publisher `open-blocking-lineage-holds-publication`; service `sp4-open-blocking-lineage-holds-publication` (a later GO over open F-901 keeps the event pending); armer `arming-without-journal-refused`, `open-blocking-lineage-holds-arm` (`/F-ARM/` named), `unknown-registration-holds-arm`, `merge-disabled-holds-arm`, `released-registration-holds-arm`. Fixture sharp edge noted below.
+- **Remaining limitation:** the registration receipt's reconciliation against real armed state is the round-2 inc-9 live acceptance item (unchanged).
+
+### SP-5 / ST-1 — CC action recovery was idempotent but payload-blind
+
+- **Defect:** recovery re-delivered an INTENT without its original bounded payload (a `{recovered:true}`-class stub could stand in for real content), the recovered count reported the wrapper's `.length` (undefined), and re-delivery had no durable retry budget — a poison action could loop forever.
+- **Change:** `ledger.mjs` `coord_actions.payload_text` (added via `ensureColumn`, bounded at 64 KiB, E_LIMITS beyond) stored with a digest at dispatch time; `cc-adapter.mjs` recovery re-renders the ORIGINAL payload after digest verification (a mismatch holds, E_DIGEST — never re-delivers suspect content), under a PERSISTED per-action retry budget (`maxRecoveryAttempts`, `reserveRetry`; exhaustion = named hold, E_BUDGET); `gatectl.mjs` reports `recovered_deliveries: recovered.recovered.length` (the true count).
+- **Regression:** cc-adapter +4 arms: `recovery-restores-original-payload`, `recovery-retry-budget-holds`, `crash-after-write-preserves-content` (the payload_text is durable before delivery — a crash between write and delivery loses nothing), `wrong-ack-content-not-acked`; gatectl `recover-sp5` (`"recovered_deliveries": 1`) + `recover-restores-original-payload` (the recovered file carries the original instruction text).
+- **Remaining limitation:** a real cross-session wake is live-enrollment material (round-2 inc-6 limitation, unchanged).
+
+### SP-6 — closure accepted stale or non-affirmative resolutions
+
+- **Defect:** closure evaluated the review verdict but not its CURRENTNESS or AFFIRMATIVENESS: an older positive review survived a newer REVISE, opaque verdicts counted, an anonymous success could stand in for a decision, and REJECTED/NOT_APPLICABLE dispositions needed no evidenced principal.
+- **Change:** `ledger.mjs` — `AFFIRMATIVE_REVIEW_VERDICTS = ['GO','RESOLVED','APPROVED','SATISFIED']`; `closureTx` requires the LATEST independent change review's verdict to be affirmative and the LATEST dot_closure disposition to be `VERIFIED` with no unresolved blockers (absence = legacy/minted shape → hold); ALREADY_FIXED binds a concrete check identity (context + revision); REJECTED / NOT_APPLICABLE require an evidenced actor receipt.
+- **Regression:** finding-lifecycle +11 arms: `sp6-revise-change-review-holds-closure` (the RED: a newer REVISE over an older GO held closure before the fix), `sp6-decision-required-dot-closure-holds`, `sp6-opaque-verdict-holds-closure`, `sp6-not-applicable-dot-closure-holds`, `sp6-unresolved-blockers-hold`, `sp6-newer-negative-invalidates-older-positive`, `sp6-affirmative-controls-resolve` (control: the affirmative verdict resolves once current), `sp6-already-fixed-binds-check-identity`, `sp6-already-fixed-identified-check-resolves`, `sp6-rejected-requires-principal`, `sp6-rejected-signed-review-resolves`.
+- **Remaining limitation:** verdict semantics are ledger-side enumerations; real review verdicts arrive through the live intake surface.
+
+### Packet-mandated lifecycle cases — coherent fixes, scope release, recurrence rebind
+
+- **Change:** `ledger.mjs` `applyFixResponseRecord` accepts a `targets` array — ONE coherent fix response applies to EVERY named finding key within the assignment's PR scope (scope-checked: E_LIMITS/E_NOT_FOUND per key, `applied` returns the covered keys); `closureTx` releases the scope's claims (ASSIGNED/ACKNOWLEDGED → REVOKED, scoped and scopeless rows) on any successful resolution; a scoped recurrence during VERIFYING rebinds the active claim to the newest occurrence (DR-R2 composition, now pinned).
+- **Regression:** finding-lifecycle +3 arms: `coherent-fix-covers-several-findings`, `final-closure-releases-scope`, `scoped-recurrence-during-verifying-rebinds`.
+- **Remaining limitation:** none offline.
+
+### Bounded-runtime runner — the exports had no common operational consumer
+
+- **Gap (packet):** "connect the actual bounded runtime" — queue, budgets, registration, the CC adapter and the ledger each worked alone; no deterministic one-cycle consumer existed.
+- **Change:** `runner.mjs` `runCycle` — discovery → check qualification (`buildQueue`) → per-item registration/ownership (an unregistered PR holds, E_UNREGISTERED — work stays queued and visible) → historical revalidation (`gateHistorical` before any fix launch) → PERSISTED budget reservation (`budgets.reserveLaunch`) BEFORE the coordination dispatch → ACK observation → injected receipt intake (the SAME outbox consumer the service drains) → budget-bounded recovery. Everything destination-specific is dependency-injected (`discover`, `isQualifying`, `drain`, `revalidateFinding`); counters are observed, not fabricated; dispatch is a coordination message to a Claude Code session — never a model launch, never a merge. `gatectl start` distinguishes E_NO_RUNNER (named runner absent on disk) from E_LIVE_UNENROLLED.
+- **Regression:** `runner.test.sh` (new, 18th CI line, 8 arms): `cycle-empty-destination-observed-zeros`, `unregistered-pr-holds-at-runtime`, `registered-pr-dispatches-with-reservation`, `exhausted-window-bound-holds-second-pr` (the persisted per-window bound holds a FRESH registered PR in the same window), `ack-observed-by-next-cycle`, `missing-limits-disable-handout`, `historical-already-fixed-launches-nothing` (superseded generation + `revalidateFinding: → false` records ALREADY_FIXED, launches nothing), `recovery-composes-through-cycle` (a stranded INTENT re-delivered with its ORIGINAL payload by the cycle); gatectl `start-runner-missing-is-not-unenrolled`; armer `v2-record-refused-historical-compat` (the armer's V1 admission shape is RETAINED historical compatibility — a V2 record refuses it; active V2 merge authority flows through the SP-4 registration receipt).
+- **Remaining limitation:** everything is offline/ASSISTED — enrollment, live destination wiring and a real unattended run remain operator-gated; the runner composes the same injected seams the suites pin.
+
+### Process notes (round 3)
+
+- **TDD incident, self-caught:** `runner.mjs` was written before its test was watched RED — removed, `runner.test.sh` written, `ERR_MODULE_NOT_FOUND` observed RED, module restored. The Iron Law holds.
+- **Fixture sharp edge:** `insertRegistration` requires `reconciledAt` — a registration row without it fails at bind time with a bare SQLite parameter error rather than a named code. Every fixture now passes it; a named E_ code at the ledger boundary would be the cleaner contract (deferred — cosmetic).
+- **Hang diagnosis recipe (reused from round 2):** a suite that "hangs" is a leaked server or a crashed arm inside `out="$(node …)"` buffering; extract the heredoc and run node directly to stream.
+- **Suite counts this round:** the round-3 additions grew the sweep from 353 arms / 17 suites (round-2 receipt) to 415 arms / 18 suites; the new 18th CI line is `runner.test.sh` (8 arms); assert-list totals per suite are in the verification base above. Where a suite's logged `ok` line count exceeds its assert list, the assert list is the receipt (the harness enforces the exact set).
+
