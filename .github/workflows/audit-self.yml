@@ -1036,6 +1036,8 @@ jobs:
         run: bash tests/install-sh/check-zcode-mirror.test.sh
       - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
         run: bash tests/install-sh/gh-975-husky-reassert.test.sh
+      - name: "install-sh — pre-commit serializes lint-staged task groups (2026-10-05/06 oxlint File-is-empty CI flake; paired-negative)"
+        run: bash tests/install-sh/pre-commit-serial-tasks.test.sh
       - name: "install-sh — critical-review S4-3 consumer-owned core.hooksPath kept (not wired + manual command)"
         run: bash tests/install-sh/hookspath-consumer-owned.test.sh
       - name: "install-sh — gh-974 honest incomplete-deps banner (--full + failed dep-install → degraded banner + rc!=0, not silent ✅)"
