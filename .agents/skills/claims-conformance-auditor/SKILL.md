@@ -1,6 +1,6 @@
 ---
 name: claims-conformance-auditor
-description: Read the canonical claims-conformance-auditor procedure when explicitly asked to run that review or audit.
+description: "Cold conformance audit of docs-site claims against shipped reality. Given ONLY the doc surface(s) to audit (never the authoring narrative), enumerates every factual claim the docs make about the repo/state, verifies each against the live source with command+output or file:line evidence, and reports VERIFIED/GAP/UNVERIFIABLE per claim plus a machine-consumed GO/REVISE/STOP verdict. Reporting-only; never invoked from CI."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

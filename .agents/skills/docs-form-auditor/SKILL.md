@@ -1,6 +1,6 @@
 ---
 name: docs-form-auditor
-description: Read the canonical docs-form-auditor procedure when explicitly asked to run that review or audit.
+description: "\"Cold form audit of getff.ai docs pages against the reader-comfort card (C1-C13). Given ONLY page paths, their kinds, and the card path (never the writer's dialogue), enumerates the page population, runs scripts/docs-check.mjs for the deterministic numbers, fills the card per page with file:line evidence, diffs its verdict against the Docs-card trailer in each commit, and reports SYSTEMIC-vs-LOCAL patterns plus a GO/REVISE/STOP verdict. Reporting-only; never invoked from CI; never judges facts. Triggers: gold-page review, family checkpoint, final site check, docs refresh touching >=5 pages.\""
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

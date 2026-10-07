@@ -7,6 +7,25 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { emitCodexHooks } from './lib/codex-hooks.mjs';
 
+/** Reachability control (GH-4201345519): every resource a generated card promises through a
+ * symlink must resolve on the canonical side — a dangling link (any depth) fails the render
+ * BEFORE any write instead of shipping broken discovery. */
+function assertReachable(abs, rel) {
+  let entries;
+  try {
+    entries = readdirSync(abs, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!existsSync(join(abs, entry.name)))
+      throw new Error(
+        `Codex: canonical resource missing: ${rel}/${entry.name} — the generated card link would dangle`,
+      );
+    if (entry.isDirectory()) assertReachable(join(abs, entry.name), `${rel}/${entry.name}`);
+  }
+}
+
 export function emitCodex(model, root) {
   const { hooks, degradations } = emitCodexHooks(model.hooks, name =>
     `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ] && [ -f "$root/scripts/codex-hook-adapter.mjs" ]; then node "$root/scripts/codex-hook-adapter.mjs" ${name}; fi`,
@@ -87,7 +106,7 @@ export function emitCodex(model, root) {
     const explicit = /^disable-model-invocation:\s*true\s*$/m.test(original);
     const metadata = /^---\r?\n[\s\S]*?\r?\n---/.exec(original)?.[0];
     if (!metadata) throw new Error(`Codex: missing skill metadata in ${source}/SKILL.md`);
-    const value = `${metadata}\n\n> Generated native entry from \`${source}/SKILL.md\`; shared procedure is authored once.\n> **Authoritative for:** native Codex discovery and full-source loading for this entry.\n> **NOT authoritative for:** the shared procedure; read the linked canonical owner.\n\nRead [the complete canonical procedure](../../../${source}/SKILL.md) in full before proceeding. Read [Codex bindings](../../../docs/codex-contributor.md) and apply them to every step. Bind arguments from the operator invocation. Execute each mandatory shell block through the shell tool. Replace \`\$\{CLAUDE_SKILL_DIR\}\` with \`${source}\` when reading a legacy procedure. Model/tool frontmatter grants no authority on this host.\n`;
+    const value = `${metadata}\n\n> Generated native entry from \`${source}/SKILL.md\`; shared procedure is authored once.\n> **Authoritative for:** native Codex discovery and full-source loading for this entry.\n> **NOT authoritative for:** the shared procedure; read the linked canonical owner.\n\nRead [the complete canonical procedure](../../../${source}/SKILL.md) in full before proceeding. Read [Codex bindings](../../../docs/codex-contributor.md) and apply them to every step. Bind arguments from the operator invocation. Execute each mandatory shell block through the shell tool. Replace \`\$\{CLAUDE_SKILL_DIR\}\` with \`"$(git rev-parse --show-toplevel)/${source}"\` — root-anchored, so the path resolves from a nested cwd too (GH-4201345530). Model/tool frontmatter grants no authority on this host.\n`;
     ops.push({ kind: 'text', path: `.agents/skills/${name}/SKILL.md`, value });
     ops.push({
       kind: 'text', path: `.agents/skills/${name}/agents/openai.yaml`,
@@ -95,6 +114,11 @@ export function emitCodex(model, root) {
     });
     for (const child of readdirSync(join(root, source), { withFileTypes: true })) {
       if (child.name === 'SKILL.md' || child.name === 'agents') continue;
+      if (!existsSync(join(root, source, child.name)))
+        throw new Error(
+          `Codex: canonical resource missing: ${source}/${child.name} — the generated card symlink would dangle`,
+        );
+      assertReachable(join(root, source, child.name), `${source}/${child.name}`);
       ops.push({
         kind: 'symlink', path: `.agents/skills/${name}/${child.name}`,
         target: relative(join(root, '.agents/skills', name), join(root, source, child.name)),
@@ -124,10 +148,14 @@ export function emitCodex(model, root) {
         path: `.codex/agents/${name}.toml`,
         value: `name = ${JSON.stringify(name)}\ndescription = ${JSON.stringify(description)}\n${readOnly ? 'sandbox_mode = "read-only"\n' : ''}developer_instructions = ${JSON.stringify(instruction)}\n`,
       });
+      // Discovery metadata must distinguish the role's real task (GH-4201345521: a
+      // generic "review or audit" sentence hid writing/research roles like aif-init),
+      // so the card reuses the canonical description parsed above. JSON.stringify emits
+      // a valid YAML double-quoted scalar for these normalized (scalar/folded/literal) strings.
       ops.push({
         kind: 'text',
         path: `.agents/skills/${name}/SKILL.md`,
-        value: `---\nname: ${name}\ndescription: Read the canonical ${name} procedure when explicitly asked to run that review or audit.\n---\n\n> **Authoritative for:** native discovery and full-source loading for this role.\n> **NOT authoritative for:** the shared role procedure; read its canonical owner.\n\nRead [${rolesDir}/${entry}](../../../${rolesDir}/${entry}) in full. Follow its procedure and [Codex bindings](../../../docs/codex-contributor.md). For a cold seat, spawn without inherited conversation and pass only its required inputs. This skill does not authorize spawning a subagent.\n`,
+        value: `---\nname: ${name}\ndescription: ${JSON.stringify(description)}\n---\n\n> **Authoritative for:** native discovery and full-source loading for this role.\n> **NOT authoritative for:** the shared role procedure; read its canonical owner.\n\nRead [${rolesDir}/${entry}](../../../${rolesDir}/${entry}) in full. Follow its procedure and [Codex bindings](../../../docs/codex-contributor.md). For a cold seat, spawn without inherited conversation and pass only its required inputs. This skill does not authorize spawning a subagent.\n`,
       });
       ops.push({
         kind: 'text',

@@ -1,6 +1,6 @@
 ---
 name: shipped-agent-liveness-prober
-description: Read the canonical shipped-agent-liveness-prober procedure when explicitly asked to run that review or audit.
+description: "Probes each shipped sub-agent for behavioural liveness via with/without-tools fresh-subagent dispatch, capturing a RED→GREEN delta (tool-less fabricates → tool-using cites real evidence). Status DORMANT — operator-initiated only. Reporting-only; never invoked from CI."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

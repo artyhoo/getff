@@ -1,6 +1,6 @@
 ---
 name: capability-reuse-auditor
-description: Read the canonical capability-reuse-auditor procedure when explicitly asked to run that review or audit.
+description: "Audits a proposed or just-authored new capability (a SKILL.md, an agent, or a packages/core module) for overlap with an existing own-stack or upstream capability, and checks that its Prior-art trailer's verdict matches what the body actually does. Flags reinvention before handoff. Reports; does not fix."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

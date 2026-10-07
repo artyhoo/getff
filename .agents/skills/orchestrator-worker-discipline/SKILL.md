@@ -1,6 +1,6 @@
 ---
 name: orchestrator-worker-discipline
-description: Read the canonical orchestrator-worker-discipline procedure when explicitly asked to run that review or audit.
+description: "Discipline for aif-dispatched workers — REPORT schema (incl. advisor-consult sub-form on BLOCKER), park-vs-proceed, stage-gate check. Read when you are a worker dispatched via runtime-bridge/dispatch.ts."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

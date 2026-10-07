@@ -1,6 +1,6 @@
 ---
 name: docplan-auditor
-description: Read the canonical docplan-auditor procedure when explicitly asked to run that review or audit.
+description: "Cold semantic-grouping judgment for a DocPlan. Given ONLY the DocPlan (its sections + excluded[]) and the ConventionNodes it references — NEVER the diff, the PR body, or the rendered AGENTS.md region — judges whether each section's title coheres with its member nodes, flags mis-grouped nodes, checks exclusion reasons are substantive, and assesses section granularity. Reports CLEAN/GAP per section + an overall verdict. PR-blind by dispatch contract; reporting-only; never invoked from CI."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

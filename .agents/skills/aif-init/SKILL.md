@@ -1,6 +1,6 @@
 ---
 name: aif-init
-description: Read the canonical aif-init procedure when explicitly asked to run that review or audit.
+description: "Generate a draft .ai-factory/DESCRIPTION.md and .ai-factory/ARCHITECTURE.md for a consumer repo. Reads package.json(s) and directory layout, detects the tech stack, and writes a filled draft with a DRAFT review banner. Use whenever DESCRIPTION.md or ARCHITECTURE.md still contains <PLACEHOLDER> fields — the getff installer creates `.ai-factory/` itself, so no external tool is a prerequisite. Invoke as `/aif-init` in your AI session."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

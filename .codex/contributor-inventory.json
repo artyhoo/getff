@@ -230,7 +230,7 @@
     {
       "path": ".agents/skills/ai-doc/SKILL.md",
       "kind": "text",
-      "fingerprint": "b64b8cd7a4931cf482e7413ad0f7bdf9a524ea11c8930f37cfb17155be979f99"
+      "fingerprint": "c8b2b4bbb673bece5a27be320aeb790afa830765c9dd003b12a065bf69703998"
     },
     {
       "path": ".agents/skills/ai-doc/agents/openai.yaml",
@@ -245,7 +245,7 @@
     {
       "path": ".agents/skills/aif-doctor/SKILL.md",
       "kind": "text",
-      "fingerprint": "1090a46872d910b0f95c3d74c92a1263cd25a815d95086ce0955536af8191229"
+      "fingerprint": "4082f9cc07eb1b0077601857215ef5d0c884d82bc64f5e6361db8547f95a9b00"
     },
     {
       "path": ".agents/skills/aif-doctor/agents/openai.yaml",
@@ -265,7 +265,7 @@
     {
       "path": ".agents/skills/arch/SKILL.md",
       "kind": "text",
-      "fingerprint": "ba309fbd70f465065e9360d0c4a33fef2c3b71472732c0c18ee2f595f6db0c3d"
+      "fingerprint": "99fb3c7426bebda3c8f45a497322810a7b6a85d23b9234e3e691deca152473fe"
     },
     {
       "path": ".agents/skills/arch/agents/openai.yaml",
@@ -280,7 +280,7 @@
     {
       "path": ".agents/skills/claude-glm-executor-handoff/SKILL.md",
       "kind": "text",
-      "fingerprint": "af5c8679962af6e4d8229193d7c58fd2f86ff6bafea82ee12f3b1e7bf7182525"
+      "fingerprint": "ef42522d8291b1d73c28ffdb0b9d5bdb071ab1e17ece481b9bca288cf0d8fb29"
     },
     {
       "path": ".agents/skills/claude-glm-executor-handoff/agents/openai.yaml",
@@ -295,7 +295,7 @@
     {
       "path": ".agents/skills/dispatcher/SKILL.md",
       "kind": "text",
-      "fingerprint": "9c737d0707ea4f0b45edb75156afcecbe388125f9eb824037aee617ea37fe223"
+      "fingerprint": "2e683a80a59321a57ed31654d3a76b9936a271297de7822f42ef57a91e31cc0f"
     },
     {
       "path": ".agents/skills/dispatcher/agents/openai.yaml",
@@ -315,7 +315,7 @@
     {
       "path": ".agents/skills/docs-author/SKILL.md",
       "kind": "text",
-      "fingerprint": "c59442c094eaecf6eb1c7e430490f0caa2002c1e78280de7758edfcff9a7c057"
+      "fingerprint": "9255d640e946d4c345662cc90223b5c103b7544ec2d36c5905cab7f244fe482e"
     },
     {
       "path": ".agents/skills/docs-author/agents/openai.yaml",
@@ -330,7 +330,7 @@
     {
       "path": ".agents/skills/getff/SKILL.md",
       "kind": "text",
-      "fingerprint": "e4b01bd696126ac88db3a81194145086a02a37d894227e9bfb6f83ad6cff212a"
+      "fingerprint": "89879c2774c8bf6aeffa0185ac8481fba297fab9317c2965477da70d50c6b9c8"
     },
     {
       "path": ".agents/skills/getff/agents/openai.yaml",
@@ -345,7 +345,7 @@
     {
       "path": ".agents/skills/harvest/SKILL.md",
       "kind": "text",
-      "fingerprint": "f9a7764a0a89b7e875e689fef0f0978fbdb1526507390fec91a723951078fb50"
+      "fingerprint": "ca5bf71c51498aaeb9374acbae69462240684d5f3eb63af043261806b4ee2489"
     },
     {
       "path": ".agents/skills/harvest/agents/openai.yaml",
@@ -360,7 +360,7 @@
     {
       "path": ".agents/skills/installing-enforcement/SKILL.md",
       "kind": "text",
-      "fingerprint": "497dbf6a0dbdade309ccd9dc94ef1825e6b660ed30b0e3795ba16d99a79a6ede"
+      "fingerprint": "2fc6ea250d1dbf8cad845f77df2a82f5ad5c0242a7105fd9ab3999e615778a8c"
     },
     {
       "path": ".agents/skills/installing-enforcement/agents/openai.yaml",
@@ -370,7 +370,7 @@
     {
       "path": ".agents/skills/night-mode/SKILL.md",
       "kind": "text",
-      "fingerprint": "7d0141e95429f76ca7b942f975cfd004f070e0a163afe4a0873c73b249542fc0"
+      "fingerprint": "d889693e90cc9517c8c239c08197995d47bc7d49e248c20b27650acfb7769316"
     },
     {
       "path": ".agents/skills/night-mode/agents/openai.yaml",
@@ -385,7 +385,7 @@
     {
       "path": ".agents/skills/orchestrator/SKILL.md",
       "kind": "text",
-      "fingerprint": "f55ffa157b850c131a7f7be8a96156f0f434b7333b0ff9cd8aa958a4928b1b24"
+      "fingerprint": "1eba070da4c39b677e0ce99d4a8313b95976176fc3c3538fb48832ad263943fc"
     },
     {
       "path": ".agents/skills/orchestrator/agents/openai.yaml",
@@ -405,7 +405,7 @@
     {
       "path": ".agents/skills/pipeline/SKILL.md",
       "kind": "text",
-      "fingerprint": "1739df060f6214302235ba2a717d462ac61f2e1f361a71dfbf6fbf0b7f4946a8"
+      "fingerprint": "137eff7966409d6e304bb86dd400a5eedecd6bf0b05c64c89cdd69e5f494f1ac"
     },
     {
       "path": ".agents/skills/pipeline/agents/openai.yaml",
@@ -440,7 +440,7 @@
     {
       "path": ".agents/skills/reviewer/SKILL.md",
       "kind": "text",
-      "fingerprint": "ca9c847abec81fff89284ee86ed126d3f9d723540645aa7fa076c8e0b38d4c38"
+      "fingerprint": "cb29f8133a7ba9913da192fb190bf04d6443f86bdac0ecf7c8b24df8cfaced1e"
     },
     {
       "path": ".agents/skills/reviewer/agents/openai.yaml",
@@ -450,7 +450,7 @@
     {
       "path": ".agents/skills/rule-research/SKILL.md",
       "kind": "text",
-      "fingerprint": "e48cde22699cedb86a0dc758b11936ce9d9e02aabf8028023cc28a6fe9d32694"
+      "fingerprint": "d2779862f1f030065a0eaeb143b2244f59dcdfffee38435a48ddf6f7d8062143"
     },
     {
       "path": ".agents/skills/rule-research/agents/openai.yaml",
@@ -460,7 +460,7 @@
     {
       "path": ".agents/skills/rule-tests/SKILL.md",
       "kind": "text",
-      "fingerprint": "7964e0016eec41ce1930a2f16d82cc3b53673e4e62af171287a3bf84b118015f"
+      "fingerprint": "9cb143d9ea9f28967afaafaec1138d71678e640adbceeb440d1dce0e1400982e"
     },
     {
       "path": ".agents/skills/rule-tests/agents/openai.yaml",
@@ -470,7 +470,7 @@
     {
       "path": ".agents/skills/self-reflection/SKILL.md",
       "kind": "text",
-      "fingerprint": "c14a2f9aa967037fc9a3fca695ebb0477b87b31e457a9c1a3243e617877e90c9"
+      "fingerprint": "7768520288b2e43906b5854d4abfeee4ddc1b015a6034a249461d245be0c65d4"
     },
     {
       "path": ".agents/skills/self-reflection/agents/openai.yaml",
@@ -485,7 +485,7 @@
     {
       "path": ".agents/skills/story/SKILL.md",
       "kind": "text",
-      "fingerprint": "8d907402f858493eb34176aefbddde6bd3932bdf7a3d9b5ebd98348855658c6e"
+      "fingerprint": "c64e1110f5ccd7c52cb2a9453c55b60c3d8d177aea643a2bcd9bb008fea73b55"
     },
     {
       "path": ".agents/skills/story/agents/openai.yaml",
@@ -500,7 +500,7 @@
     {
       "path": ".agents/skills/template-audit/SKILL.md",
       "kind": "text",
-      "fingerprint": "d0beab411ec0414c0ddb25e3e60c046cf66e5dd18863cd2f14f9f53cb162c065"
+      "fingerprint": "34cfe2d2d3afd6c9c3076388c2d2d8064059138266009cef6698da962c3bd97c"
     },
     {
       "path": ".agents/skills/template-audit/agents/openai.yaml",
@@ -510,7 +510,7 @@
     {
       "path": ".agents/skills/tool-bootstrapping/SKILL.md",
       "kind": "text",
-      "fingerprint": "9e125d7b582196e7855129124813a162e33611f76df4cf94ea85e05b8c3411a1"
+      "fingerprint": "ebd1772b83b9efd188294dd1c73b7c10bdb6b8180219d2db6127bb01e80e44cc"
     },
     {
       "path": ".agents/skills/tool-bootstrapping/agents/openai.yaml",
@@ -525,7 +525,7 @@
     {
       "path": ".agents/skills/using-getff/SKILL.md",
       "kind": "text",
-      "fingerprint": "99449717871a3382523605e2df6fdf4edcf6aa220f2626220df85df6da444b08"
+      "fingerprint": "2f3c74f17775458e980fd41f0c499694b12bae1db4b4a319db5f64dc7fe2b93d"
     },
     {
       "path": ".agents/skills/using-getff/agents/openai.yaml",
@@ -540,7 +540,7 @@
     {
       "path": ".agents/skills/adapter-jig-reviewer/SKILL.md",
       "kind": "text",
-      "fingerprint": "79cf4518714bede02882940e8e9f59a63da6d55e79793ff6b5f6ac8ef204080f"
+      "fingerprint": "8700c8329e3e456f305c5fd872fc27d03230bf0b8d4d28026d9c5bf102ebc0e9"
     },
     {
       "path": ".agents/skills/adapter-jig-reviewer/agents/openai.yaml",
@@ -555,7 +555,7 @@
     {
       "path": ".agents/skills/aif-init/SKILL.md",
       "kind": "text",
-      "fingerprint": "21dee81bb3edb3526f95a66f7154b1d9ea7fcb0b6cc85268e41c12b1a9bfb483"
+      "fingerprint": "d84ca2c68c9e6a4e1fccd92e0c1537d4b2d8ed9d77bb49aa075475e12a454d9f"
     },
     {
       "path": ".agents/skills/aif-init/agents/openai.yaml",
@@ -570,7 +570,7 @@
     {
       "path": ".agents/skills/backward-sweep-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "2be18ff373145d32dc107221c05fb745387924fc915e832d2f4e6fa7805ac96d"
+      "fingerprint": "9f358fdf1e9dea595b3085b4acbbaa3e98a8985ae5d68c9c2f6dd8947bf9353f"
     },
     {
       "path": ".agents/skills/backward-sweep-auditor/agents/openai.yaml",
@@ -585,7 +585,7 @@
     {
       "path": ".agents/skills/capability-reuse-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "2bba5da191e6bacdfd71613767718d99e1044628d43af11e982f755f92957ba3"
+      "fingerprint": "3d925f9d437fc2fc90e588be9f3bbe95ae21f951cd32978bbad23848ba2ca50a"
     },
     {
       "path": ".agents/skills/capability-reuse-auditor/agents/openai.yaml",
@@ -600,7 +600,7 @@
     {
       "path": ".agents/skills/claims-conformance-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "0257aafdf978ec5e650eec6c6b72df33acfa89aea0678dcca20ce4ca6895adb4"
+      "fingerprint": "e4b1b19de3c2df1e9fbcf65bcf0271315d04bceb4ccdc1c962d50a6ea3c9c426"
     },
     {
       "path": ".agents/skills/claims-conformance-auditor/agents/openai.yaml",
@@ -615,7 +615,7 @@
     {
       "path": ".agents/skills/compliance-verifier/SKILL.md",
       "kind": "text",
-      "fingerprint": "9ac56dc5b2c9cf0200e73c8ad83c45889728252418ae56dfff9bdc3529eaed95"
+      "fingerprint": "f9ca05a2bd1bc2f8d379044b9a3374a75a4a8ec8b993d42cbbcbf4e2d016de70"
     },
     {
       "path": ".agents/skills/compliance-verifier/agents/openai.yaml",
@@ -630,7 +630,7 @@
     {
       "path": ".agents/skills/dispatch-input-checker/SKILL.md",
       "kind": "text",
-      "fingerprint": "ef70a984399be102c4131d4a575c7cc93f0397f6d2d336d95c6a999380e5c475"
+      "fingerprint": "15e6deb01967f5be76d8f579ba439ca12aa0a940bf29d82ea888db2440b49414"
     },
     {
       "path": ".agents/skills/dispatch-input-checker/agents/openai.yaml",
@@ -645,7 +645,7 @@
     {
       "path": ".agents/skills/docplan-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "c59485afc8eff941acef46ad2f432434af91cd5dcefaabd26ee778af899a5bcd"
+      "fingerprint": "e9d016bea929b2bc126eabd0c68d20efe2d851d3f81bdba7468e36d95a95b9df"
     },
     {
       "path": ".agents/skills/docplan-auditor/agents/openai.yaml",
@@ -660,7 +660,7 @@
     {
       "path": ".agents/skills/docs-form-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "3d2c6f3aa068f030904809ed50cb83791980add2f995a2ca43690670e7085a5c"
+      "fingerprint": "afc5dd932b6b358f7e493496e9c34a360350d6551639111c1b49ad3b6ed6ee22"
     },
     {
       "path": ".agents/skills/docs-form-auditor/agents/openai.yaml",
@@ -675,7 +675,7 @@
     {
       "path": ".agents/skills/dual-channel-drift-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "abc685826bfcaec3abb9e9dd23d42ad13a78b7763edb3768290c035642a2e1e7"
+      "fingerprint": "34376f0bacb0992ebd00b3e8c91036f404fa1796d56bf348dea0904487009c41"
     },
     {
       "path": ".agents/skills/dual-channel-drift-auditor/agents/openai.yaml",
@@ -690,7 +690,7 @@
     {
       "path": ".agents/skills/fidelity-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "1b98e2bbdff532fa958ca2d6b11c80c0638ff173e0aa1fdcf7861917ba91be60"
+      "fingerprint": "f6afbefad664637b6b284373604d328aa75342b8c56a35f5f117289cb2ba4faa"
     },
     {
       "path": ".agents/skills/fidelity-auditor/agents/openai.yaml",
@@ -705,7 +705,7 @@
     {
       "path": ".agents/skills/getff-cold-run-prober/SKILL.md",
       "kind": "text",
-      "fingerprint": "ba0b9dd6818bcb90b1512b3907504f145059f51ca7fdb2f171c413075b3bb5ad"
+      "fingerprint": "829fc74c695200f6f993e85debcdccc279f0035af89f01de25e028eb493559fa"
     },
     {
       "path": ".agents/skills/getff-cold-run-prober/agents/openai.yaml",
@@ -720,7 +720,7 @@
     {
       "path": ".agents/skills/living-docs-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "a4a234f46c6c1d14f06f7f873b38b89398328f934a63f983e4777dce1d29ffc2"
+      "fingerprint": "1f309c34fa21b3d63220ba8ea358a357fe2312409b2bdd78cb744e0c907a241f"
     },
     {
       "path": ".agents/skills/living-docs-auditor/agents/openai.yaml",
@@ -735,7 +735,7 @@
     {
       "path": ".agents/skills/manual-rule-liveness-prober/SKILL.md",
       "kind": "text",
-      "fingerprint": "1aa5a14daca02238810a4ad514a8279b3cae1049c5c99278228ec02028650a6a"
+      "fingerprint": "f489424f48b6473c0287dee768298614d5939ffeacbfbaf4f70fc5add7b88ff4"
     },
     {
       "path": ".agents/skills/manual-rule-liveness-prober/agents/openai.yaml",
@@ -750,7 +750,7 @@
     {
       "path": ".agents/skills/memory-codification-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "7a9d95263e88cba718e9d2ccda534e52522ee63820006aaf6ae88d5f14c501e4"
+      "fingerprint": "965dd32b07d5511abfef87bb2a08e154d7744aa0bce10ba0f8503c2c5089e71d"
     },
     {
       "path": ".agents/skills/memory-codification-auditor/agents/openai.yaml",
@@ -765,7 +765,7 @@
     {
       "path": ".agents/skills/orchestrator-worker-discipline/SKILL.md",
       "kind": "text",
-      "fingerprint": "9e60ad1d0b4024002ff25287ff50cc92b8bd7ac30f8ef17675fbc7ba8a837707"
+      "fingerprint": "cfd8c678a2e03e472066a23c2db34e4aa469f4e383e0c065965a8bbe9ca882c7"
     },
     {
       "path": ".agents/skills/orchestrator-worker-discipline/agents/openai.yaml",
@@ -780,7 +780,7 @@
     {
       "path": ".agents/skills/review-sidecar/SKILL.md",
       "kind": "text",
-      "fingerprint": "3a50939de496200062e15a3b24a5919624dee9ffccfad13ead17146a47f162b2"
+      "fingerprint": "e132f14156ab1ed4f9822f5518aba632f2aa91f357bc93da39eb80baac724aed"
     },
     {
       "path": ".agents/skills/review-sidecar/agents/openai.yaml",
@@ -795,7 +795,7 @@
     {
       "path": ".agents/skills/reviewer-discipline/SKILL.md",
       "kind": "text",
-      "fingerprint": "550e4c3c4843bb5225a624b76c0c18e71ebe2e8d3818ba75047c0ac42db92cdb"
+      "fingerprint": "46b124338d66141af28c201e67859b4ad1b569fd636b056a5520cf5b25320f6f"
     },
     {
       "path": ".agents/skills/reviewer-discipline/agents/openai.yaml",
@@ -810,7 +810,7 @@
     {
       "path": ".agents/skills/rule-researcher/SKILL.md",
       "kind": "text",
-      "fingerprint": "8104ac5609fc6cb17a0850f782a37ffc4fc5a1e0f8499a6c0e1a25c5c43df833"
+      "fingerprint": "74978d5dac4ce389b11e859092e9c92ea329beafc27466eec185df28c588618c"
     },
     {
       "path": ".agents/skills/rule-researcher/agents/openai.yaml",
@@ -825,7 +825,7 @@
     {
       "path": ".agents/skills/rule-test-author/SKILL.md",
       "kind": "text",
-      "fingerprint": "581da1c473d406dcf6ef6f91e76cac8e80fdf24668819eea2c6109d46b33b6b8"
+      "fingerprint": "abae2ef153a74df8306fa5fc15f58335ab6142a6969dca7d3dbaa69618f247fd"
     },
     {
       "path": ".agents/skills/rule-test-author/agents/openai.yaml",
@@ -840,7 +840,7 @@
     {
       "path": ".agents/skills/shipped-agent-liveness-prober/SKILL.md",
       "kind": "text",
-      "fingerprint": "51e5d4e80b7a87970fa7da62fcb93db88d65596c327518623d18b127ce8ba2e8"
+      "fingerprint": "c471af5e685b17dd4f060cb63caacd4edfdbd529af116cdffec92dd32b53d7cc"
     },
     {
       "path": ".agents/skills/shipped-agent-liveness-prober/agents/openai.yaml",

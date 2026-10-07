@@ -1,6 +1,6 @@
 ---
 name: rule-test-author
-description: Read the canonical rule-test-author procedure when explicitly asked to run that review or audit.
+description: "Writes or repairs the firing TEST MATERIAL for an EXISTING generated rule — the negative-test / bad-good samples the deterministic factory needs to prove a rule actually fires — then runs the lane's deterministic verification in single-rule isolation and quotes the tool verdict verbatim. Edits test material ONLY; never the emitted rule artifact (that is drift/hash-gated). Use when a consumer has a generated rule whose test material is missing, broken, or needs a bypass variant, and wants it verified without re-running the full research pass. NOT for creating new rules — that is /rule-research. Reports the edited material plus the quoted verdict; the LLM is allowed only here, behind the provenance gates the delivered material already carries."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

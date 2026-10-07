@@ -1,6 +1,6 @@
 ---
 name: dual-channel-drift-auditor
-description: Read the canonical dual-channel-drift-auditor procedure when explicitly asked to run that review or audit.
+description: "Cold pairwise audit of a declared @dual-pair anchor group. Given ONLY an anchor (never the PR diff or narrative), enumerates the group's members, measures their verbatim overlap and their divergence, and judges each group as INTENTIONAL-TWIN / SSOT-POINTER / COPY-RISK / DRIFT — the intentional-vs-accidental call no clone detector makes. Reporting-only; never invoked from CI."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

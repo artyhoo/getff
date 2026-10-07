@@ -1,6 +1,6 @@
 ---
 name: reviewer-discipline
-description: Read the canonical reviewer-discipline procedure when explicitly asked to run that review or audit.
+description: "Review-session protocol for reviewer/orchestrator role separation — when a finding needs a project-strategy call, surface it as DECISION-NEEDED with both options described, never pick a side. Reports; does not decide."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

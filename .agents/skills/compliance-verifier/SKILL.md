@@ -1,6 +1,6 @@
 ---
 name: compliance-verifier
-description: Read the canonical compliance-verifier procedure when explicitly asked to run that review or audit.
+description: "Reviews PR description §1.7 Forward-check and Backward-check sections for substantive evidence — file:line citations, sweep completeness, exemption quality. Reports; does not fix."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.

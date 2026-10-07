@@ -1,6 +1,6 @@
 ---
 name: memory-codification-auditor
-description: Read the canonical memory-codification-auditor procedure when explicitly asked to run that review or audit.
+description: "Audits user-scope agent memory for durable conventions that live only in memory and were never codified into the repo. Flags stage-0 entries; reports candidates with a codify-or-leave verdict. Reports; does not fix."
 ---
 
 > **Authoritative for:** native discovery and full-source loading for this role.
