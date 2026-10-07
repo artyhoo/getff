@@ -83,8 +83,31 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const CORE = resolve(REPO_ROOT, 'packages/core');
 
-const run = (cmd: string, args: readonly string[] = []): CheckResult =>
-  runCheck(cmd, args, { cwd: REPO_ROOT });
+/**
+ * Worktree-discovery vars git exports to THIS hook must not leak into the hook's
+ * children. Measured 2026-10-07 (#2081): under a real pre-push from a linked worktree a
+ * child inheriting GIT_DIR re-targets every fixture git call there — `git init --bare`
+ * in a suite RE-INITIALIZED the shared repo config with core.bare=true on every push,
+ * and the rule-index gate's probes misread the corrupted listings as a dead glob.
+ * Deliberately narrow: GIT_OBJECT_DIRECTORY / GIT_ALTERNATE_OBJECT_DIRECTORIES /
+ * GIT_QUARANTINE_PATH stay exported — arms reading the pushed (quarantined) objects need
+ * them, and the suites audit the working tree, losing nothing.
+ */
+const HOOK_LEAKED_DISCOVERY_VARS = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_COMMON_DIR',
+  'GIT_PREFIX',
+  'GIT_IMPLICIT_WORK_TREE',
+  'GIT_INTERNAL_SUPER_PREFIX',
+] as const;
+
+const run = (cmd: string, args: readonly string[] = []): CheckResult => {
+  const env = { ...process.env };
+  for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];
+  return runCheck(cmd, args, { cwd: REPO_ROOT, env });
+};
 
 /**
  * The empty-tree object SHA — a tree-ish that exists in every repo. Used as the

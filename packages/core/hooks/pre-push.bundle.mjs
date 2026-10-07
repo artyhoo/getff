@@ -1262,7 +1262,20 @@ function blobTrackedIn(baseTree, sourceTree, path) {
 var HERE2 = dirname2(fileURLToPath2(import.meta.url));
 var REPO_ROOT = resolve2(HERE2, "../../..");
 var CORE = resolve2(REPO_ROOT, "packages/core");
-var run = (cmd, args = []) => runCheck(cmd, args, { cwd: REPO_ROOT });
+var HOOK_LEAKED_DISCOVERY_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_COMMON_DIR",
+  "GIT_PREFIX",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INTERNAL_SUPER_PREFIX"
+];
+var run = (cmd, args = []) => {
+  const env = { ...process.env };
+  for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];
+  return runCheck(cmd, args, { cwd: REPO_ROOT, env });
+};
 var EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function readPushStdin() {
   if (process.stdin.isTTY) return "";
