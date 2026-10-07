@@ -67,7 +67,7 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:2313-2315 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
+# setup.d/lib.sh:2311-2313 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
 # the test cleanly with a message rather than crashing on the array expansion below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1650 + setup.d/lib.sh:2304 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1650 + setup.d/lib.sh:2302 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'

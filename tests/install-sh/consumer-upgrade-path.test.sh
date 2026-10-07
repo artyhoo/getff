@@ -305,7 +305,7 @@ rm -rf "$TC5" "$TC5_NEG"
 # do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
 # consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
 # CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
-# local/ ships framework-authored core rules (lib.sh:2304 "consumer never owns") as
+# local/ ships framework-authored core rules (lib.sh:2302 "consumer never owns") as
 # pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC6=$(make_consumer)

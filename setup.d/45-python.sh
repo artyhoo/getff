@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1405, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1403, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1724). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1721). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1724), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1721), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
