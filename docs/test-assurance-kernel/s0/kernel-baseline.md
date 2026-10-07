@@ -172,6 +172,10 @@ cold-vs-warm noted (first trial after other suite runs; no `--no-cache` flags).
   is recorded as such per spec §2; evidence regeneration is out of S0 scope.
   Consequence: the full chain is **not** usable as an exit-0 workload lane on
   this host at the frozen tree; the four lanes above are the exit-0 set.
+  Resolution for push traffic: prepending the locally installed rustup 1.96.1
+  toolchain to PATH makes the resolving rustc match the pinned CI toolchain the
+  evidence was generated against — the full pre-push chain then runs green
+  locally (receipt: the S0 branch push, pre-push section).
 - Repetitions observed: five separate npm/vitest invocations (canonical,
   principles, ir, backends, composition) each pay process startup + transform
   (principles: 18.24s wall vs 77.7s cpu across workers); principles suite is
@@ -195,7 +199,9 @@ Windows consumer cell; these are CI-side facts for S3, not local-substitutable.
 
 1. **Local rustc drift** — `test:backends` cargo capability-matrix freshness RED
    locally (evidence 1.96.1 vs host 1.98.1). Environment class, not a product
-   defect; blocks a green full-chain local run at the frozen tree.
+   defect; blocks a green full-chain local run at the frozen tree under the
+   default rustup stable. Resolved for push traffic by pinning PATH to the
+   locally installed 1.96.1 toolchain (the CI pin the evidence matches).
 2. **SDK env leak class** — `CLAUDE_CODE_ENTRYPOINT=sdk-cli` leaks from
    Claude-Code-hosted sessions into fixture subprocesses; all frozen argv carry
    the scrub (same class as base fix 7047304220).
