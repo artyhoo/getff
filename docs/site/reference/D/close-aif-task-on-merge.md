@@ -113,7 +113,7 @@ exit=0
   `merge` exits before any dependency check:
   `case "$INPUT" in` at `.claude/hooks/close-aif-task-on-merge.sh:57`, with the
   `*) exit 0 ;;` arm at line 59.
-- The REST arm distinguishes a merge from a status probe: line 167 requires the
+- The REST arm distinguishes a merge from a status probe: line 166 requires the
   `/pulls/<n>/merge` path and line 168 requires `--method PUT` —
   `grep -Eq '(-X|--method)[[:space:]=]*PUT([[:space:]]|$)' <<<"$seg" || continue`.
 - The unresolved-selector notice is lines 208 to 210; the not-yet-merged notice (state read
