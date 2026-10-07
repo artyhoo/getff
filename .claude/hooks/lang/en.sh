@@ -342,7 +342,7 @@ AIF_STORY_MARKER='## 🎬 What changed this session'
 # names the goal from context).
 aif_msg_eot_branch_story() {
   cat <<EOF
-The work is done (a PR was just pushed) — now tell the human what this whole session changed, primarily for them.
+A session recap is requested — tell the human what this whole session changed, primarily for them. Mention a push or publication only when the session evidence confirms it.
 You MUST begin the block with exactly the line "${AIF_STORY_MARKER}" — so the human spots it at a glance.
 
 Session goal (from the title / first instruction): "${anchor:-(name it yourself from context)}".

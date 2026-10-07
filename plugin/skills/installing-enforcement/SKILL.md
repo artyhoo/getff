@@ -34,13 +34,12 @@ that) or is just exploring.
 
 ## How to wire it
 
-Run **`/getff:install-enforcement`**. It:
+Run **`/getff:install-enforcement`**. When the host has no plugin-command runner, read [the complete command procedure](../../commands/install-enforcement.md) and execute its steps through the host tools. Bind `CLAUDE_PROJECT_DIR` to the target repository and `CLAUDE_PLUGIN_ROOT` to this plugin directory; invoke helpers through `bash`. It:
 
 1. detects/confirms the stack (`ts-server` | `react-next`),
 2. **previews** the changes (dry-run — writes nothing),
 3. asks for explicit `[y/N]` consent,
-4. on yes, fetches the project's **official `install.sh`** (Option C — pinned to the plugin
-   version, no bundled copy) and runs it against the current repo, wiring `.husky` + CI.
+4. on yes, fetches the project's **official `install.sh`** (Option C — `RAT_INSTALL_REF` selects the ref, default `main`; no bundled copy) and runs it against the current repo, wiring `.husky` + CI.
 
 The installer is idempotent and never overwrites existing files without `--force`. After wiring,
 remind the user to commit the new `.husky/` + workflow and install the dev-deps the hooks need.

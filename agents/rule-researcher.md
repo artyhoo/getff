@@ -35,7 +35,7 @@ You write exactly two files under the consumer repo (committed, team-shared, aud
 What you do not need to look up in getff's source:
 
 - **The project's linter does not change what you write.** The factory turns each candidate into an ESLint `no-restricted-syntax`-style selector rule; on an oxlint project getff places it in `.oxlintrc.json` through oxlint's `jsPlugins`, and on an ESLint project in its ESLint config. The generator brings its own ESLint toolchain when the project has none it can run with. In `.oxlintrc.json` a generated rule runs on every file the project lints; a `JSX…` selector is proven on `.tsx` samples.
-- **Give every selector at least one quoted attribute value** (`[name.name='img']`, `[typeAnnotation.type='TSAnyKeyword']`). On an ESLint project the install's self-verify mutates each selector 11 ways and needs ≥60% of the mutants to stop firing on the bad example (`scripts/check-generated-rule-mutation.sh`). A selector with no quoted value (`TSAsExpression > TSAnyKeyword`), or with only a regex value, counts as over-broad there: most mutations leave it unchanged, and the install reports self-verify FAILED.
+- **Give every selector at least one quoted attribute value** (`[name.name='img']`, `[typeAnnotation.type='TSAnyKeyword']`). On an ESLint project the install's self-verify mutates each selector 11 ways and needs ≥60% of the mutants to stop firing on the bad example (`packages/core/audit-self/check-generated-rule-mutation.sh` in the installer source, not a delivered consumer script). A selector with no quoted value (`TSAsExpression > TSAnyKeyword`), or with only a regex value, counts as over-broad there: most mutations leave it unchanged, and the install reports self-verify FAILED.
 - **Write `examples.bad` / `examples.good` as complete code that declares what it uses**, e.g. `export function put(el: HTMLElement, text: string): void { el.innerHTML = text; }`, not the fragment `el.innerHTML = text;`. The rule table's proof (`scripts/prove-rules.mjs --prove`) lints each example as a whole file with the project's own lint. A fragment's undeclared names or unused variables trip the project's other rules there (`no-unused-vars`, typed `no-unsafe-*`), the good example is rejected, and the rule reads `partial`.
 - **A complete, valid pair** to copy the shape from (a Next.js example: one rule with whole-file examples and one research-only entry): `packages/core/synthesizer/fixtures/react-next-complete-example.research.json` and `.selection.json` in the getff checkout. It shows the shape, not the answer for your stack: research the project in front of you. A test keeps it valid (`packages/core/research/researcher-doc-tier1.test.ts`).
 
@@ -140,7 +140,9 @@ Reuse the project's detector when available (AIF `/aif`, or read `package.json` 
 
 ### 1b. Read the base core's pending principles
 
-Before the stack docs, open `.claude/skills/getff/references/base-core.md` (installed with getff). Take every
+Before the stack docs, open `skills/getff/references/base-core.md` in the framework checkout,
+or `.claude/skills/getff/references/base-core.md` in an installed consumer. If neither exists,
+report the missing delivered base core and stop this phase; do not infer an empty pending set. Take every
 row of its table with column `status` = `` `not_wired` `` AND column `reason` = `generated-pending`: those
 principles fire only once THIS project's own rule for them is placed and proven. Research a per-project rule for
 each one the stack's canonical docs support, like any other practice below. Carry the link back in the entry's
