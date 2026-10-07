@@ -695,11 +695,15 @@ function checkOp(root, op) {
   }
   // Seed defaults once; this file belongs to the operator after creation.
   if (op.kind === 'seed-text')
-    return existsSync(abs) ? [] : [`${op.path}: missing (run --write)`];
-  if (op.kind === 'text')
-    return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
+    return existsSync(abs) || op.optional
       ? []
-      : [`${op.path}: missing or drift vs SSOT`];
+      : [`${op.path}: missing (run --write)`];
+  if (op.kind === 'text')
+    return !existsSync(abs) && op.optional
+      ? []
+      : existsSync(abs) && readFileSync(abs, 'utf8') === op.value
+        ? []
+        : [`${op.path}: missing or drift vs SSOT`];
   if (op.kind === 'json' || op.kind === 'merge-json') {
     if (!existsSync(abs))
       return op.optional ? [] : [`${op.path}: missing (run --write)`];

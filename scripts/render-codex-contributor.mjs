@@ -133,6 +133,8 @@ export function emitCodex(model, root) {
   ops.push({
     kind: 'seed-text',
     path: '.codex/config.toml',
+    // Gitignored operator artifact: absent-on-check is a loud skip, not drift.
+    optional: true,
     value: toml.join('\n') + '\n',
   });
   const sources = new Map();
@@ -199,6 +201,8 @@ export function emitCodex(model, root) {
       ops.push({
         kind: 'text',
         path: `.codex/agents/${name}.toml`,
+        // Gitignored operator artifacts: absent-on-check skips, present-but-drifted still fails.
+        optional: true,
         value: `name = ${JSON.stringify(name)}\ndescription = ${JSON.stringify(description)}\n${readOnly ? 'sandbox_mode = "read-only"\n' : ''}developer_instructions = ${JSON.stringify(instruction)}\n`,
       });
       ops.push({
@@ -252,6 +256,8 @@ export function emitCodex(model, root) {
   ops.push({
     kind: 'json',
     path: '.codex/contributor-inventory.json',
+    // Gitignored operator artifact: absent-on-check skips, present-but-drifted still fails.
+    optional: true,
     value: {
       skills: inventory,
       generated,
