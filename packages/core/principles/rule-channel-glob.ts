@@ -21,6 +21,27 @@
  */
 import { execFileSync } from 'node:child_process';
 
+/**
+ * Git probes here must auto-discover the repo like a bare shell would. A pre-push hook
+ * inherits an absolute GIT_DIR (the invoking worktree's); inherited, `git check-ignore` /
+ * `git ls-files` die with "fatal: this operation must be run in a work tree", which the
+ * catches below misread as "not ignored" / "no tracked match" — dead-glob false positives
+ * for EVERY push from a linked worktree (reproduced 2026-10-07, #2081). The var list comes
+ * from git itself so it cannot drift.
+ */
+function hookCleanEnv(root: string): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  const vars = execFileSync('git', ['rev-parse', '--local-env-vars'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  for (const key of vars.split('\n')) {
+    const name = key.trim();
+    if (name) delete env[name];
+  }
+  return env;
+}
+
 /** Extract the first `> **Key:** value` line's value (may span the rest of that single line). */
 export function extractHeaderField(source: string, key: string): string | null {
   const re = new RegExp(`^>\\s*\\*\\*${key}:\\*\\*\\s*(.+)$`, 'm');
@@ -148,7 +169,10 @@ export function isSubsetGlob(pattern: string): boolean {
 export function isDeliberatelyGitignoredExact(root: string, pattern: string): boolean {
   if (pattern.includes('*')) return false; // only applies to exact-path patterns
   try {
-    execFileSync('git', ['check-ignore', '-q', pattern], { cwd: root });
+    execFileSync('git', ['check-ignore', '-q', pattern], {
+      cwd: root,
+      env: hookCleanEnv(root),
+    });
     return true; // exit 0 = ignored
   } catch {
     return false; // exit 1 = not ignored, or git unavailable
@@ -159,7 +183,11 @@ export function isDeliberatelyGitignoredExact(root: string, pattern: string): bo
 export function globHasLiveMatch(root: string, pattern: string): boolean {
   let tracked: string[];
   try {
-    tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
+    tracked = execFileSync('git', ['ls-files'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: hookCleanEnv(root),
+    })
       .split('\n')
       .filter(Boolean);
   } catch {
