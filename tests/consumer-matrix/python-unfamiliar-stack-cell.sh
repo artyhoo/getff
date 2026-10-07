@@ -320,7 +320,7 @@ step "rule-bootstrap-cli --from-practice (Tier-1 resolves via vendored METADATA)
 # constrains the install path, not the runner per kickoff §6 anti-scope). Run via
 # `npx --no-install tsx` from the framework root so the framework's tsx + workspace
 # deps resolve. The installer's own generation step runs the prebuilt bundle on plain node
-# (setup.d/80-rule-bootstrap.sh:208) and skips when node is absent — as it is under this
+# (setup.d/80-rule-bootstrap.sh:259) and skips when node is absent — as it is under this
 # cell's Node-stripped install — so this cell drives the source directly.
 BOOTSTRAP_LOG="$WORK/bootstrap.log"
 ( cd "$FRAMEWORK_ROOT" && npx --no-install tsx "$FRAMEWORK_ROOT/packages/core/install/rule-bootstrap-cli.ts" \
