@@ -13,7 +13,7 @@
 > count, M7 the script no longer writes into the repo), and explicit disclosures for the rest
 > (§method, §coverage, §findings adjudications). Every census change was re-verified with
 > `gen-census.mjs --check` → 0 disagreements on three **host** installs.
-> Evidence logs: [`logs/`](logs/) — `entry-verification.md`, `population-enumeration.md`,
+> Evidence logs (directory consumed 2026-10-06 by the agents-canonical reconciliation; surviving artefacts in this dir: `census-v0.json`, `gen-census.mjs`, `host-verify-aged.sh`, reports v1–v3) — `entry-verification.md`, `population-enumeration.md`,
 > `install-{core,env,factory}.log` (+ `-r2.log` re-run), `consumer-dirs.txt` (+ `-r2.txt`),
 > `delivered-tree-measurement.md`, `works-checks.md`, `aged-stratum.md`,
 > `aged-stratum-join.md` (harvest round).
@@ -357,7 +357,7 @@ under `NOT-COMPARED` with its row count (`principle 47, script 85, discipline-ru
 hook-check 13, hook-check-test 12, lint-bundle 8, template 6, companion 6, ci-workflow 5,
 mcp-config 1`) rather than dropped, so the covered set cannot be mistaken for the whole census.
 A `shipped-since` or `consumer-authored` artefact in any NOT-COMPARED class is invisible here.
-Full run, reading and limits: [`logs/aged-stratum-join.md`](logs/aged-stratum-join.md). The
+Full run, reading and limits: `logs/aged-stratum-join.md` (consumed 2026-10-06 by the agents-canonical reconciliation — see the evidence-logs note above). The
 script's exit contract is unchanged (0 = measured, 3 = aged root absent, 4 = not an install);
 it no longer writes its JSON into the repository (cold review M7 — output defaults to
 `$TMPDIR`, overridable with `AGED_OUT`).

@@ -127,7 +127,7 @@ semantically, not just catching the write moment — is the job of
   audit of the whole memory store — a periodic sweep, not a per-write nudge».
 - jq guard: line 23 — `command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq`.
 - The plugin twin is generated, not hand-written: `plugin/hooks/inject-memory-codification`,
-  line 2 reads `# AUTO-GENERATED from .claude/hooks/inject-memory-codification.sh — do not
+  line 2 reads `# AUTO-GENERATED from .agents/hooks/inject-memory-codification.sh — do not
   edit`.
 - Paired test: `packages/core/hooks/inject-memory-codification.test.ts` — its header
   (lines 3-5) names the hook as «the write-time alt-channel for

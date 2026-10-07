@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/precompact-residue.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/precompact-residue.sh');
 
 function hasJq(): boolean {
   try {
@@ -571,7 +571,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     // derivation, which is duplicated by necessity (two independent scripts, no shared lib).
     // The session id here needs sanitising, so a mismatch between the two `tr -c` expressions
     // shows up as a missing observation rather than as a silently-passing happy path.
-    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const EOT_HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const sessionId = 'a33b/e2e:1';
@@ -746,7 +746,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
   it('END-TO-END: after an auto compaction the arm warns again on the SECOND climb', () => {
     // The whole point, exercised through both hooks: climb → warn → debounced → compact →
     // climb → warn again. Pre-fix the last step was silent for the rest of the session.
-    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const EOT_HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const sessionId = 'a33c-e2e';
@@ -888,7 +888,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     // Through both hooks: stop (records baseline) → compact (clears it) → stop (allows once,
     // records again). Without the clear, the second stop would block on a baseline recorded
     // against a window that no longer exists.
-    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const EOT_HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);

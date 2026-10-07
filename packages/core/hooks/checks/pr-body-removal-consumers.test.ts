@@ -26,7 +26,7 @@ const body = (section: string) =>
   `## Summary\n\nDrop a template.\n\n## Removal consumers\n\n${section}\n\n## Test plan\n\n- [x] tests\n`;
 
 const GOOD_ROW =
-  `| ${TPL} | \`setup.d/lib.sh:893\` presence check | drop: install skips the tier doc; slim: path kept |`;
+  `| ${TPL} | \`setup.d/lib.sh:941\` presence check | drop: install skips the tier doc; slim: path kept |`;
 
 const check = (b: string, entries: { status: string; path: string }[]) =>
   checkRemovalConsumers(b, entries, stripHtmlComments);

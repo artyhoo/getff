@@ -100,7 +100,8 @@ is a pointer only, and the `go` lane is out of scope. The skill text says to run
 - The description is line 3 of `.claude/skills/rule-research/SKILL.md`. Line 16 says the
   skill is a thin entry point to `agents/rule-researcher.md`. Line 22 is the fail-closed
   source check.
-- The six steps are lines 135 to 188 of `agents/rule-researcher.md`. The narrow rule shape
+- The six steps are lines 135 to 188 of `.agents/roles/rule-researcher.md` (the canonical
+  agent doc; root `agents/rule-researcher.md` is its compatibility stub). The narrow rule shape
   is line 117. The two output files are lines 30 and 31. The Rust and Go limits are
   lines 262 and 293.
 - The built-in allowed hosts start on line 20 of `packages/core/research/allowlist.ts`.

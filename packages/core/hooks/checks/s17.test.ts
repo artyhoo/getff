@@ -286,6 +286,9 @@ describe('isDisciplineIntroducing — per-path-type + allow-list mutation-killer
   const marker = () => '+## §1 new';
   it.each([
     ['.claude/rules/r.md', true],
+    ['.agents/rules/r.md', true],
+    ['.agents/procedures/foo/SKILL.md', true],
+    ['.agents/procedures/foo/other.md', false],
     ['packages/core/principles/16-x.test.ts', true],
     ['.claude/skills/foo/SKILL.md', true],
     ['packages/core/principles/16-x.ts', false], // not .test.ts

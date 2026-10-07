@@ -39,13 +39,13 @@ MANIFEST="$PKG/MANIFEST.sha256"
 # requires the same root in packages/getff/package.json `files` (checked below) and in
 # packages/getff/.gitignore (or the copy would be committed).
 # scripts/: the SHIPPED SUBSET only — six files, five of which install.sh / setup.d read from PKG_ROOT
-# (install.sh:1286 + the worktree cluster install.sh:1312-1317 / setup.d/85-worktree-scripts.sh:50-55;
-# check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1280 only reports a stale consumer copy).
+# (install.sh:1379 + the worktree cluster install.sh:1406-1411 / setup.d/85-worktree-scripts.sh:50-55;
+# check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1336 only reports a stale consumer copy).
 # Not the whole tree: factory-only scripts (measure-*, render-*, *.test.sh, this assembler) would
 # couple every framework PR to the drift gate and ship operator tooling to consumers.
-PAYLOAD="install.sh setup setup.d agents skills templates .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh"
+PAYLOAD="install.sh setup setup.d agents skills templates .agents/procedures .agents/roles .agents/rules .agents/hooks .agents/session-bootstrap.md .agents/checks .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs plugin/hooks/lib/hook-language.sh"
 # Their top-level roots as `files` must spell them.
-PAYLOAD_TOP="install.sh setup setup.d agents skills templates .claude .prettierrc.json packages scripts"
+PAYLOAD_TOP="install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts plugin"
 
 if command -v sha256sum >/dev/null 2>&1; then
   SHA="sha256sum"
@@ -57,16 +57,41 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 
 # assemble <dest>: wipe the payload roots under <dest>, then copy every tracked payload file.
 assemble() {
-  local dest="$1" top f
+  local dest="$1" top
   for top in $PAYLOAD_TOP; do
     rm -rf "${dest:?}/$top"
   done
-  # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
-  git -C "$ROOT" ls-files -z -- $PAYLOAD | while IFS= read -r -d '' f; do
-    [ -f "$ROOT/$f" ] || fail "tracked file missing from the working tree: $f (commit or restore it before assembling)"
-    mkdir -p "$dest/$(dirname "$f")"
-    cp -p "$ROOT/$f" "$dest/$f"
-  done
+  materialize "$ROOT" "$dest"
+
+}
+
+# npm drops symbolic links. Copy resolved bytes from tracked, payload-contained
+# targets, identically for the working tree and the index checkout. Fail closed on
+# links outside the payload instead of leaking a local source/helper dependency.
+materialize() {
+  node - "$ROOT" "$1" "$2" "$PAYLOAD" <<'NODE'
+const fs = require('fs'), path = require('path'), cp = require('child_process');
+const [root, source, destination, payload] = process.argv.slice(2);
+const result = cp.spawnSync('git', ['-C', root, 'ls-files', '-z', '--', ...payload.split(' ')], { encoding: 'utf8' });
+if (result.status !== 0) throw new Error(result.stderr || 'git ls-files failed');
+const files = result.stdout.split('\0').filter(Boolean), tracked = new Set(files);
+const sourceRoot = fs.realpathSync(source);
+for (const file of files) {
+  const input = path.join(source, file);
+  const resolved = fs.realpathSync(input);
+  const relative = path.relative(sourceRoot, resolved).split(path.sep).join('/');
+  if (relative.startsWith('../') || path.isAbsolute(relative) || !tracked.has(relative)) {
+    throw new Error(`payload link must resolve to a tracked payload file: ${file} -> ${resolved}`);
+  }
+  const stat = fs.statSync(resolved);
+  if (!stat.isFile()) throw new Error(`tracked payload file missing or not regular: ${file}`);
+  const output = path.join(destination, file);
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.copyFileSync(resolved, output);
+  fs.chmodSync(output, stat.mode);
+  fs.utimesSync(output, stat.atime, stat.mtime);
+}
+NODE
 }
 
 # manifest <dest>: `<sha256>  <path>` for every payload file under <dest>, byte-stable order.
@@ -142,15 +167,12 @@ case "$MODE" in
     trap 'rm -rf "$work"' EXIT
     git -C "$ROOT" show ":packages/getff/MANIFEST.sha256" > "$work/staged.manifest" 2>/dev/null \
       || fail "DRIFT: packages/getff/MANIFEST.sha256 is not in the index"
-    # A symlink would hash differently here (checkout-index writes the link, `find -type f` skips
-    # it) than in assemble() (`cp -p` follows it) — refuse rather than report false drift.
-    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
-    links="$(git -C "$ROOT" ls-files -s -- $PAYLOAD | awk '$1 == "120000" { sub(/^[^\t]*\t/, ""); print }')"
-    [ -z "$links" ] || fail "tracked symlink(s) in the payload — --check-index cannot hash them like assemble() does: $(tr '\n' ' ' <<<"$links")"
     mkdir "$work/tree"
     # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
     git -C "$ROOT" ls-files -z -- $PAYLOAD | git -C "$ROOT" checkout-index -z --stdin --prefix="$work/tree/"
-    manifest "$work/tree" > "$work/fresh.manifest"
+    mkdir "$work/materialized"
+    materialize "$work/tree" "$work/materialized"
+    manifest "$work/materialized" > "$work/fresh.manifest"
     if ! diff -q "$work/staged.manifest" "$work/fresh.manifest" >/dev/null 2>&1; then
       echo "DRIFT: the STAGED packages/getff/MANIFEST.sha256 differs from a fresh assembly of the STAGED payload:" >&2
       diff "$work/staged.manifest" "$work/fresh.manifest" | grep -E '^[<>]' | sed -E 's/^< ([0-9a-f]+)  /  staged     /; s/^> ([0-9a-f]+)  /  fresh      /' | head -40 >&2

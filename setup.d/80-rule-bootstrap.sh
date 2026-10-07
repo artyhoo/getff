@@ -137,7 +137,7 @@ fi
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Name-keyed research pair (W2): the install's detected/explicit NAME selects the artefacts
 # ($_rb_key — STACK_NAME where the install named the stack, ${STACK:-} fallback otherwise;
-# mirrors the D3 notice in 99-finalize.sh). Multi-stack delivery (#827 B1): react-native /
+# mirrors the D3 notice in 99-finalize.sh:32-33). Multi-stack delivery (#827 B1): react-native /
 # ts-server / react-spa each look up their own <stack>.{research,selection}.json, instead of the
 # former react-next-only hardcode that silently degraded every other stack; W2 adds the named
 # no-preset stacks (astro / svelte-kit / …) and generic to the same lookup.

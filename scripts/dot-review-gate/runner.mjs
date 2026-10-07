@@ -31,7 +31,8 @@
 // Counters are real: every reported number comes from a ledger read or an adapter
 // return value in THIS cycle — the runner reports no counts it did not observe.
 
-import { buildQueue, reserveNext, gateHistorical } from './queue.mjs';
+import { buildQueue, reserveNext, gateHistorical, reviewIdentity } from './queue.mjs';
+import { policyDigest } from './load-policy.mjs';
 
 function code(name, message) {
   const e = new Error(message);
@@ -42,8 +43,9 @@ function code(name, message) {
 const OPEN_REVIEW_STATES = ['INTENT', 'DELIVERED', 'ACKED'];
 
 // R3-5: the operational authorization gate — every consequential launch/delivery
-// boundary composes THIS function, never a subset of it.
-function operationalHold({ ledger, policy, budgets, registration, requireRegistration = false, nowMs }) {
+// boundary composes THIS function, never a subset of it. D2065-S07: exported so
+// the CLI's recovery composes the SAME gate instead of a parallel one.
+export function operationalHold({ ledger, policy, budgets, registration, requireRegistration = false, nowMs }) {
   if (ledger.isPaused()) {
     return { code: 'E_PAUSED', reason: 'operator pause is active — no launch, delivery or recovery' };
   }
@@ -72,6 +74,7 @@ function reviewPacket({ item, policy }) {
     comparison_basis: item.kind === 'merged' ? 'HISTORICAL_PINNED' : 'HEAD_TO_BASE',
     protocol_version: policy.protocol_version ?? null,
     policy_version: policy.policy_version ?? null,
+    policy_sha256: policyDigest(policy),
     work: { item_key: `${item.kind}:${item.key}`, kind: item.kind },
   };
   if (item.kind === 'merged') {
@@ -82,8 +85,11 @@ function reviewPacket({ item, policy }) {
 
 // Packet for a correction launch: the ISSUED assignment identity + the revision
 // basis the fix lands on (R3-6: a correction without a trusted assignment
-// identity is not dispatchable).
-function fixPacket({ assignment, occurrence, generation, item }) {
+// identity is not dispatchable). D2065-S05: HISTORICAL_REVALIDATED is stamped
+// ONLY when the revalidation gate PASSED with bound evidence (revalidation
+// carries the staging revision it was checked against); without it the basis is
+// null — an unverified historical item never claims revalidation.
+function fixPacket({ assignment, occurrence, generation, item, revalidation }) {
   let tuple = {};
   try { tuple = generation?.tuple_json ? JSON.parse(generation.tuple_json) : {}; } catch { tuple = {}; }
   return {
@@ -101,7 +107,10 @@ function fixPacket({ assignment, occurrence, generation, item }) {
     },
     policy_sha256: tuple.policy_sha256 ?? null,
     protocol_version: tuple.protocol_version ?? null,
-    historical_basis: item?.kind === 'historical' ? 'HISTORICAL_REVALIDATED' : null,
+    historical_basis: item?.kind === 'historical' && revalidation ? 'HISTORICAL_REVALIDATED' : null,
+    revalidation: item?.kind === 'historical' && revalidation
+      ? { checked_staging_sha: revalidation.staging_sha ?? null, checked_at: revalidation.checked_at ?? null }
+      : undefined,
     work: item ? { item_key: `${item.kind}:${item.key}`, kind: item.kind } : undefined,
   };
 }
@@ -110,9 +119,11 @@ function fixPacket({ assignment, occurrence, generation, item }) {
 // review across cycles and restarts. An outstanding review is superseded when a
 // newer revision of the same PR is queued, timed out when its work lease lapsed
 // (a lapse is not cessation: the CANCELLED mark IS the recorded reconciliation),
-// and resolved when a report for its PR was accepted. Returns the count still
-// active after reconciliation.
-function reconcileReviews({ ledger, currentItems, nowMs }) {
+// and resolved when an accepted review of its EXACT identity landed (D2065-S06:
+// the packet's own mode/revisions/protocol/repository projection — a report for
+// a DIFFERENT revision of the same PR never resolves it). Returns the count
+// still active after reconciliation.
+function reconcileReviews({ ledger, policy, currentItems, nowMs }) {
   const openActions = OPEN_REVIEW_STATES.flatMap((s) => ledger.coordList(s)).filter((a) => a.kind === 'review-request');
   for (const a of openActions) {
     let payload = {};
@@ -132,8 +143,20 @@ function reconcileReviews({ ledger, currentItems, nowMs }) {
         continue;
       }
     }
-    if (prNodeId && ledger.prHasReview(prNodeId)) {
-      ledger.coordMark(a.id, 'DONE', 'a report for this PR was accepted — the review resolved');
+    const identity = reviewIdentity({
+      repository_id: payload.repository_id,
+      pr_node_id: prNodeId,
+      mode: payload.mode,
+      comparison_basis: payload.comparison_basis,
+      head_sha: payload.revisions?.head_sha,
+      merge_sha: payload.revisions?.merge_sha,
+      base_sha: payload.revisions?.base_sha,
+      protocol_version: payload.protocol_version,
+      policy_version: payload.policy_version,
+      policy_sha256: payload.policy_sha256,
+    });
+    if (prNodeId && ledger.prHasReview(identity)) {
+      ledger.coordMark(a.id, 'DONE', 'an accepted review of the exact reviewed identity landed — the review resolved');
     }
   }
   return OPEN_REVIEW_STATES.reduce((n, s) => n + ledger.coordList(s).filter((x) => x.kind === 'review-request').length, 0);
@@ -142,6 +165,7 @@ function reconcileReviews({ ledger, currentItems, nowMs }) {
 export async function runCycle({
   ledger, policy, budgets, adapter,
   discover, isQualifying, drain, revalidateFinding, resolveTarget,
+  currentStagingSha,
   maxHandout = 3, workLeaseMinutes = 30,
   now = () => Date.now(),
 } = {}) {
@@ -172,7 +196,7 @@ export async function runCycle({
   report.queued = items.map((i) => ({ kind: i.kind, key: i.key, reason: i.reason ?? null }));
 
   // R3-6: one active Dot review across cycles/restarts — reconcile first
-  report.activeReviews = reconcileReviews({ ledger, currentItems: items, nowMs: now() });
+  report.activeReviews = reconcileReviews({ ledger, policy, currentItems: items, nowMs: now() });
   const maxActiveReviews = Number.isInteger(policy.limits?.max_active_dot_reviews) && policy.limits.max_active_dot_reviews > 0
     ? policy.limits.max_active_dot_reviews : 1;
 
@@ -186,6 +210,9 @@ export async function runCycle({
   for (const item of handable) {
     try {
       const isReview = item.kind === 'review' || item.kind === 'merged';
+      // D2065-S05: bound revalidation evidence for a historical item — threaded
+      // into fixPacket so HISTORICAL_REVALIDATED is stamped only on a passed gate
+      let revalidationEvidence = null;
       // review-kind work honors the one-active-review bound (verify/correction
       // work does not — it is not a Dot review launch)
       if (isReview && report.activeReviews >= maxActiveReviews) {
@@ -212,18 +239,28 @@ export async function runCycle({
           continue;
         }
       }
-      if (item.kind === 'historical' && typeof revalidateFinding === 'function') {
-        const gate = await gateHistorical({ item, revalidateFinding });
+      if (item.kind === 'historical') {
+        // D2065-S05: a MISSING adapter is a hold, never a skip — the historical
+        // arm cannot be fail-opened by omitting the probe; every untrusted
+        // evidence shape (throw, raw boolean, null, malformed, stale, unbound)
+        // holds too, before claim/budget/delivery
+        const gate = await gateHistorical({ item, revalidateFinding, currentStagingSha });
         if (!gate.launch) {
+          if (gate.hold) {
+            report.held.push({ key: item.key, code: gate.code, reason: gate.reason });
+            continue;
+          }
           // ST-R3-1: the no-launch disposition is DURABLE evidence — an outbox
           // event naming the finding, not a report field nobody reads
           ledger.outboxEnqueue('finding.already_fixed', {
             finding_key: item.key, occurrence_id: item.occurrence_id ?? null,
             disposition: 'ALREADY_FIXED', reason: gate.reason,
+            evidence: gate.evidence ?? null,
           }, `already-fixed:${item.key}:${item.occurrence_id ?? 'x'}`);
-          report.historical.push({ key: item.key, disposition: gate.disposition, reason: gate.reason });
+          report.historical.push({ key: item.key, disposition: gate.disposition, reason: gate.reason, evidence: gate.evidence ?? null });
           continue;
         }
+        revalidationEvidence = gate.evidence ?? null;
       }
       // target resolution is a trusted enrollment fact — a synthetic session
       // string is a fixture, never a launch (R3-6)
@@ -258,7 +295,7 @@ export async function runCycle({
         }
         assignment = ledger.claimFinding({ findingKey: occ.finding_key, owner: target.owner ?? target.session, leaseMinutes: workLeaseMinutes, nowMs: now() });
         const generation = ledger.generationForOccurrence(occ.id);
-        payload = fixPacket({ assignment, occurrence: occ, generation, item });
+        payload = fixPacket({ assignment, occurrence: occ, generation, item, revalidation: revalidationEvidence });
       }
       const budget = budgets.reserveLaunch({
         occurrenceKey: assignment?.occurrence_id ?? item.occurrence_id ?? undefined,
@@ -303,11 +340,9 @@ export async function runCycle({
   if (typeof resolveTarget === 'function' && !preGate) {
     for (const o of ledger.listOpenFindings()) {
       if (!o.repository_id || ['ASSIGNED', 'ACKNOWLEDGED', 'VERIFYING'].includes(o.state)) continue;
-      // a historical finding (its report landed on a superseded/terminal generation)
-      // is remediated ONLY through the queue's revalidation arm — routing it here
-      // would bypass the ALREADY_FIXED gate
-      const gen = ledger.generationForOccurrence(o.id);
-      if (gen && (gen.state === 'SUPERSEDED' || ['AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE'].includes(gen.state))) continue;
+      // Includes canonical HISTORICAL records first observed in drain above.
+      // They remain queued for revalidation, never secondary-route around it.
+      if (ledger.isHistoricalOccurrence(o.id)) continue;
       try {
         const registration = ledger.getRegistration(o.pr_node_id);
         const hold = operationalHold({ ledger, policy, budgets, registration, requireRegistration: true, nowMs: now() });

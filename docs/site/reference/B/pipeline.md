@@ -129,7 +129,7 @@ helper/install examples are unchanged. No live runtime certification is claimed.
 - `.claude/skills/pipeline/references/scope.md` records the out-of-scope limits.
 - `.claude/skills/pipeline/helpers/list-presets.sh` only reads the preset files. Lines
   25 to 28 show it needs `jq`.
-- The folder for briefs is resolved on lines 98 to 105 of
+- The folder for briefs is resolved on lines 101 to 108 of
   `.claude/skills/pipeline/helpers/lib/common.sh`, and created by line 17 of
   `setup.d/30-templates.sh`.
 - The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. Lines 92 to 95 of

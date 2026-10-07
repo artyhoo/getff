@@ -26,8 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const TRAPS_PATH = resolve(REPO_ROOT, '.claude/rules/ai-laziness-traps.md');
-const DIGEST_PATH = resolve(REPO_ROOT, '.claude/rules/ai-laziness-digest.md');
+const TRAPS_PATH = resolve(REPO_ROOT, '.agents/rules/ai-laziness-traps.md');
+const DIGEST_PATH = resolve(REPO_ROOT, '.agents/rules/ai-laziness-digest.md');
 
 /** Minimum length of a contiguous verbatim quote (post-normalisation) for a digest
  *  counter line to count as a non-paraphrase of the catalogue. 60 chars is well above
@@ -107,7 +107,7 @@ function checkTEntry(entry: TEntry, digestMap: Map<string, string>): string[] {
  *  character in the digest is under-counted (Cyrillic costs 2 bytes and 1 unit; an emoji
  *  costs 4 bytes and 2 units). The digest carries Cyrillic, so `.length` made the budget
  *  gate looser than it declared — 141 B looser as of 2026-08-07. Same idiom as
- *  `scripts/render-rule-index.mjs:199`. Found by the cold backward sweep behind arch-v2
+ *  `scripts/render-rule-index.mjs:211`. Found by the cold backward sweep behind arch-v2
  *  S-L (PR #1263 §6); the unit-binds-to-the-channel rule that names this class is
  *  `docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md` §1. */
 function digestBytes(src: string): number {

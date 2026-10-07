@@ -25,6 +25,13 @@ are amended in the same commit (230→232 rows, 219→221 members, 211→213 owe
 all eleven families at `c16c432edc1` produced 232 rows matching the amended §3 exactly; the two
 new rows are the complete delta.
 
+**Population-2 re-measure 2026-10-07 at `origin/staging` = `41cc5642f3a`:** all eleven
+JSON populations were regenerated into §3 with §1's slug algorithm. There are 236 members
+and 247 reference rows (+15 net rows from the previous snapshot). This includes the new
+F1 member `coordinator-seat-delegation`. §6 carries the same population delta; historical
+measurement notes above retain their original dates. The page scope is unchanged in kind;
+no consumer page is authored by this inventory refresh.
+
 ## §0 Why this file exists
 
 D49 ([`site-design.md:176`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md))
@@ -51,12 +58,12 @@ D49 forbids. Its rows are still greppable by slug from this file.
 
 ## §1 How each population was enumerated
 
-| Population | Enumerated from | Command / citation |
+| Population                  | Enumerated from                                                                                               | Command / citation                                                                                                                                                                                                      |
 |---|---|---|
 | 1 — D28 §4 | the page-set table, the census URL paragraph, the post-census stub list | [`face.md:88`–`:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md); census set re-read at D33 ([`site-design.md:157`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) |
-| 2 — D29 families | the eleven per-family JSONs the generator owns | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 221 members (re-measured 2026-09-25, see header); the rows in §3 are that read, ordered by D19's family order |
+| 2 — D29 families            | the eleven per-family JSONs the generator owns                                                                | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 236 members (re-measured 2026-10-07, see header); the rows in §3 are that read, ordered by D19's family order                                 |
 | 3 — Learn/Guides/Understand | the four sidebar tabs, `nav.json`, D19's task shape, D30's kind registry, and the R7/D37 successor obligation | per-row in §4; no row without a named source |
-| 5 — non-page URLs | the live site's own tree | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883` |
+| 5 — non-page URLs           | the live site's own tree                                                                                      | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883`                                                                                                                         |
 
 The population-2 rows are **generated**, not typed. An earlier draft of this paragraph described
 the rule in prose — «the member id with its extension dropped and `/` folded to `-`» — and the
@@ -68,11 +75,11 @@ now **the code**, not a description of it:
 ```js
 (m.slug || m.id || m.name)
   .replace(/([^./])\.[^./]+$/, '$1') // drop the LAST extension — and only when a real character
-                                     // precedes the dot, which is what leaves `.nvmrc` whole
-  .replace(/\//g, '-')               // fold path separators
+  // precedes the dot, which is what leaves `.nvmrc` whole
+  .replace(/\//g, '-') // fold path separators
   .toLowerCase()
-  .replace(/[^a-z0-9-]/g, '-')       // fold every remaining non-slug character, `.` included
-  .replace(/-+/g, '-')               // collapse runs (this is what absorbs a leading dot)
+  .replace(/[^a-z0-9-]/g, '-') // fold every remaining non-slug character, `.` included
+  .replace(/-+/g, '-') // collapse runs (this is what absorbs a leading dot)
   .replace(/^-|-$/g, '');
 ```
 
@@ -141,15 +148,15 @@ that are readable today. The three, with their live headings:
 
 ## §3 Population 2 — the D29 reference families
 
-Eleven families, 221 members, one `family-overview` each: **232 rows.** Family order is D19's
+Eleven families, 236 members, one `family-overview` each: **247 rows.** Family order is D19's
 ([`site-design.md:136`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) —
 STRUCTURED first (B → D → F1 → F2 → I), then the PARTIAL families (A, C, E, F3, G, H), which
 D19 gates behind their D14d source holes being fixed (S0a). Family B is the gold family: its
 overview and 18 sheets shipped in S0b, so they are `writer: gold`, not conveyor.
 
 The slug is the member id with its extension dropped and `/` folded to `-`; the mapping is
-injective across all 232 rows (checked — no collision; re-checked over the regenerated set at
-`c16c432edc1`, 2026-09-25).
+injective across all 247 rows (checked over the regenerated set at
+`41cc5642f3a`, 2026-10-07).
 
 | slug | kind | stage | writer | provenance |
 |---|---|---|---|---|
@@ -174,12 +181,14 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/B/tool-bootstrapping/` | `reference-sheet` | S0b | gold (Fable) | `B.json` member `tool-bootstrapping` |
 | `/docs/reference/D/` | `family-overview` | S1 RUN | conveyor (aif/GLM) | `D.json` `familyName: hooks` |
 | `/docs/reference/D/adopt-orchestrator-prompts/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `adopt-orchestrator-prompts` |
+| `/docs/reference/D/apply-husky-patch-gate/`                                    | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `apply-husky-patch-gate`                                         |
 | `/docs/reference/D/ask-question-reminder/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `ask-question-reminder` |
 | `/docs/reference/D/check-doc-authority/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-doc-authority` |
 | `/docs/reference/D/check-doc-authority-header/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-doc-authority-header` |
 | `/docs/reference/D/check-hook-marker/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-hook-marker` |
 | `/docs/reference/D/check-kickoff-traps/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-kickoff-traps` |
 | `/docs/reference/D/check-worker-dispatch-channel/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-worker-dispatch-channel` |
+| `/docs/reference/D/close-aif-task-on-merge/`                                   | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `close-aif-task-on-merge`                                        |
 | `/docs/reference/D/deps-hash-check/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `deps-hash-check` |
 | `/docs/reference/D/end-of-turn-reminder/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `end-of-turn-reminder` |
 | `/docs/reference/D/glossary-inject/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `glossary-inject` (added at `c16c432edc1`, 2026-09-25 re-measure) |
@@ -193,6 +202,7 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/D/inject-subagent-digest/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `inject-subagent-digest` |
 | `/docs/reference/D/precompact-residue/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `precompact-residue` |
 | `/docs/reference/D/runtime-bridge-dispatch/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `runtime-bridge-dispatch` |
+| `/docs/reference/D/seal-primary-checkout/`                                     | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `seal-primary-checkout`                                          |
 | `/docs/reference/D/session-start/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `session-start` |
 | `/docs/reference/D/validate-prompt/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `validate-prompt` |
 | `/docs/reference/D/warn-subagent-report/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `warn-subagent-report` |
@@ -207,6 +217,7 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/F1/ci-tool-pinning/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `ci-tool-pinning` |
 | `/docs/reference/F1/cold-seat-economy/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `cold-seat-economy` |
 | `/docs/reference/F1/companion-install-principle/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `companion-install-principle` |
+| `/docs/reference/F1/coordinator-seat-delegation/`                              | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `coordinator-seat-delegation`                                   |
 | `/docs/reference/F1/destination-environment-verification/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `destination-environment-verification` |
 | `/docs/reference/F1/doc-authority-hierarchy/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `doc-authority-hierarchy` |
 | `/docs/reference/F1/dual-implementation-discipline/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F1.json` member `dual-implementation-discipline` |
@@ -272,9 +283,11 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/A/` | `family-overview` | S1 RUN | conveyor (aif/GLM) | `A.json` `familyName: installer layers` |
 | `/docs/reference/A/05-mcp/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `05-mcp.sh` |
 | `/docs/reference/A/10-skills/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `10-skills.sh` |
+| `/docs/reference/A/12-session-settings/`                                       | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `12-session-settings.sh`                                         |
 | `/docs/reference/A/15-companions-stack/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `15-companions-stack.sh` |
 | `/docs/reference/A/20-agents/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `20-agents.sh` |
 | `/docs/reference/A/30-templates/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `30-templates.sh` |
+| `/docs/reference/A/35-stack-tools/`                                            | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `35-stack-tools.sh`                                              |
 | `/docs/reference/A/40-configs/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `40-configs.sh` |
 | `/docs/reference/A/45-python/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `45-python.sh` |
 | `/docs/reference/A/46-cargo/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `A.json` member `46-cargo.sh` |
@@ -329,7 +342,6 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/E/shared-description-template/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/DESCRIPTION.template.md` |
 | `/docs/reference/E/shared-first-steps-source/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/first-steps.source.json` |
 | `/docs/reference/E/shared-gitignore/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/gitignore` |
-| `/docs/reference/E/shared-hooks-package/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/hooks-package.json` |
 | `/docs/reference/E/shared-husky-pre-commit/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/husky-pre-commit.sh` |
 | `/docs/reference/E/shared-husky-pre-push/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/husky-pre-push.sh` |
 | `/docs/reference/E/shared-integration-rules/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/integration-rules.md` |
@@ -338,17 +350,25 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/E/shared-skill-context-aif-rules-check-skill/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/skill-context/aif-rules-check/SKILL.md` |
 | `/docs/reference/E/shared-tier-home/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/tier-home.md` |
 | `/docs/reference/E/shared-tsconfig/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/tsconfig.json` |
+| `/docs/reference/E/shared-tsconfig-react/`                                     | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `E.json` member `shared/tsconfig.react.json`                                     |
 | `/docs/reference/F3/` | `family-overview` | S1 RUN | conveyor (aif/GLM) | `F3.json` `familyName: scripts` |
+| `/docs/reference/F3/apply-husky-patch/`                                        | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `apply-husky-patch.sh`                                          |
 | `/docs/reference/F3/build-getff-dist/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `build-getff-dist.sh` |
+| `/docs/reference/F3/build-runtime-bundles/`                                    | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `build-runtime-bundles.mjs`                                     |
 | `/docs/reference/F3/build-shipped-eslint-rules/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `build-shipped-eslint-rules.sh` |
 | `/docs/reference/F3/build-synth-bundle/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `build-synth-bundle.sh` |
 | `/docs/reference/F3/census/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `census.mjs` |
 | `/docs/reference/F3/check-alwayson-budget/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-alwayson-budget.sh` |
+| `/docs/reference/F3/check-arch-retell/`                                        | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-arch-retell.mjs`                                         |
 | `/docs/reference/F3/check-ask-files/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-ask-files.sh` |
+| `/docs/reference/F3/check-bash32/`                                             | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-bash32.sh`                                               |
 | `/docs/reference/F3/check-bundle-dep-parity/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-bundle-dep-parity.sh` |
 | `/docs/reference/F3/check-docs-refresh/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-docs-refresh.mjs` (added at `c16c432edc1`, 2026-09-25 re-measure; shipped by #1827) |
 | `/docs/reference/F3/check-line-citations/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-line-citations.mjs` |
+| `/docs/reference/F3/check-pipefail-early-exit/`                                | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-pipefail-early-exit.mjs`                                 |
+| `/docs/reference/F3/check-ships-manifest/`                                     | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-ships-manifest.mjs`                                      |
 | `/docs/reference/F3/check-skill-drift/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-skill-drift.sh` |
+| `/docs/reference/F3/ci-path-scope/`                                            | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `ci-path-scope.sh`                                              |
 | `/docs/reference/F3/ci-success-gate/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `ci-success-gate.sh` |
 | `/docs/reference/F3/create-worktree/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `create-worktree.sh` |
 | `/docs/reference/F3/docs-check/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `docs-check.mjs` |
@@ -359,8 +379,10 @@ injective across all 232 rows (checked — no collision; re-checked over the reg
 | `/docs/reference/F3/host-verify/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `host-verify.sh` |
 | `/docs/reference/F3/link-coordination/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `link-coordination.sh` |
 | `/docs/reference/F3/measure-always-on/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `measure-always-on.sh` |
+| `/docs/reference/F3/plugin-source-hashes/`                                     | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `plugin-source-hashes.sh`                                       |
 | `/docs/reference/F3/render-face-facts/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-face-facts.mjs` |
 | `/docs/reference/F3/render-install-roster/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-install-roster.mjs` |
+| `/docs/reference/F3/render-invariants/`                                        | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-invariants.mjs`                                         |
 | `/docs/reference/F3/render-presets/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-presets.mjs` |
 | `/docs/reference/F3/render-reference/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-reference.mjs` |
 | `/docs/reference/F3/render-rule-index/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `render-rule-index.mjs` |
@@ -412,8 +434,8 @@ its own row; nothing is improvised. Four sources carry this population:
    tab-shaped pages and appear below as the successor that keeps the old URL from 404ing; the
    other two — `/docs/beta` and `/docs/reference` — are escalated, not invented.
 
-**Token rows.** Ten family guides and two Learn tutorials have a source for their *existence* but
-no source for their *title*. Their slug is a token `<…>`. The conveyor plan (P-R) replaces the
+**Token rows.** Ten family guides and two Learn tutorials have a source for their _existence_ but
+no source for their _title_. Their slug is a token `<…>`. The conveyor plan (P-R) replaces the
 token with the final slug **in the same commit that writes the page**. A page merged while its row
 still carries a token is D49 falsifier (a): fix the generation, not the page. Inventing ten titles
 here would be the improvisation falsifier (b) names.
@@ -486,28 +508,27 @@ a second enumeration path to see it — one command was not enough.
 
 The 195 `.md` route twins and the ~180 old `/docs/reference/*` draft URLs are **not** enumerated
 here: R7 owns them through the generated `old-urls.txt`, which is the enumerated live surface
-committed with its own command. This file owns the *page* population; `old-urls.txt` owns the
-*URL* population, and R7's coverage gate is what joins them.
+committed with its own command. This file owns the _page_ population; `old-urls.txt` owns the
+_URL_ population, and R7's coverage gate is what joins them.
 
 ## §6 Counts
 
 | Population | Rows | Written (S0b) | Owed by S1 RUN |
 |---|---|---|---|
 | 1 — D28 §4 + census + AI surface | 17 | 12 | 3 pages + 2 build projections |
-| 2 — D29 families | 232 | 19 | 213 |
+| 2 — D29 families                 | 247     | 19            | 228                           |
 | 3 — Learn / Guides / Understand | 19 | 3 | 16 |
-| **Total pages** | **268** | **34** | **232** |
+| **Total pages**                  | **283** | **34**        | **247**                       |
 | 5 — non-page URLs | 17 | — | landing build (R7) |
 
-**The conveyor's real size is 232 pages owed by S1 RUN, not «~105».** (Population 2 also happens
-to hold 232 rows. The two numbers are unrelated — the owed total is 3 + 213 + 16 — and the
-coincidence is worth naming so no one reads one as an explanation of the other.) D41's «~105 non-gold pages» and D25's
-«~125-page scope» were estimates taken before any population was enumerated; this is the first
-enumeration, and it more than doubles them. The whole delta is population 2: 221 members across
-eleven families, of which only family B's 18 are written. **This is a finding for the operator and
-for the conveyor plan (P-R), not a licence to trim the population** — D19's own falsifier («a task
->30 pages → review cannot sample at floor 5 per kind») prices it: at ~20 pages per family task,
-the ten remaining families are ten aif tasks, not one.
+**The inventory now enumerates 247 pages originally owed by S1 RUN** (3 + 228 + 16),
+not the early «~105» estimate. These are scope totals relative to the S0b baseline, NOT a
+remaining-work counter: family D's first 27-page batch has since merged (#1850).
+Population 2 has 247 rows (236 members + 11 overviews), of which B's 19 rows are gold.
+D19's task-size falsifier remains load-bearing. On 2026-10-07 the operator approved F1 as
+**two sequential 16-page batches** instead of one 32-page task; their inventories live in
+`kickoff-s1rf1a.md` and `kickoff-s1rf1b.md`. This is a scoped exception to D19's one-family /
+one-task shape, not a change to the other families or their source-hole gates.
 
 Cross-check: S0 closure note §1 records 34 pages shipped under `docs/site/` — 5 trial + 11 face +
 17 further sheets + the glossary. The «Written (S0b)» column above sums to 34, with the 5 trial

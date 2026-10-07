@@ -153,7 +153,7 @@ describe('vitest host-env hermeticity', () => {
 
   it('every env knob the shipped hooks read is classified — scrubbed or inherited on purpose', () => {
     const files = [
-      ...shellFiles(resolve(REPO_ROOT, '.claude/hooks')),
+      ...shellFiles(resolve(REPO_ROOT, '.agents/hooks')),
       ...shellFiles(resolve(REPO_ROOT, 'plugin/hooks')),
     ];
     expect(

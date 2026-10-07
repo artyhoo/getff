@@ -96,13 +96,16 @@ carries one of the seven; see §7 item 2.
 non-negotiable 7). It carries the one table across its three populations, plus a companion table
 for non-page URLs — a redirect stub has no `kind:` frontmatter, and forcing it into the page
 table would create exactly the open enum D49 forbids. Read it before generating any batch prompt.
-**Two findings it produced, which a Worker must not re-derive.** First, the conveyor's real size
-is **230 pages owed by S1 RUN, not «~105»** (§6 there: 3 + 211 + 16). Its population-2 table also
-holds 230 rows — an unrelated coincidence of arithmetic, named here so neither number is read as
-an explanation of the other. 219 family members sit across eleven families, of which only family
-B is written — its 18 sheets **plus its overview = 19 rows**, which is why 230 − 19 = 211 and not
-212 — so at D19's ~20-pages-per-task ceiling the remaining ten families are ten aif
-tasks. Second, **two live URLs have no successor page in any source** — `/docs/beta` and
+**Inventory re-measured 2026-10-07 at `41cc5642f3a`:** §3 now has 236 members plus
+11 overviews = 247 reference rows; §6 gives a 247-page conveyor baseline across populations.
+This is total scope, not remaining work: RUN D already merged in #1850 and later members may
+need reconciliation. The earlier 230-page / ten-task estimate was a 2026-09-21 snapshot.
+For F1 only, the operator approved two sequential 16-page tasks on 2026-10-07 (30 sheets,
+overview and guide); see `kickoff-s1rf1a.md` and `kickoff-s1rf1b.md`. F1b follows the actual
+F1a staging merge. Other families retain D19 and require a fresh scope/budget check before
+dispatch; E and F3 exceed 30 pages including their guide at this snapshot and remain blocked
+on an explicit task-shape decision in addition to their PARTIAL-family source gates.
+Second, **two live URLs have no successor page in any source** — `/docs/beta` and
 `/docs/reference` — and each is an open operator decision (stub target or `retired-urls.txt`),
 recorded rather than invented. The cold review of the inventory (2026-09-21) found
 `/docs/reference` missing from a first enumeration that used a single command; it is a folder
@@ -186,7 +189,13 @@ earlier text — «`.husky/pre-commit` is the only channel that FILLS the fences
 `79fa1b56b74` and is a `T-GA-A` casualty.
 
 Nothing changes about the arm itself; its **reason** changes, and the reason is what a Worker
-reasons from. Nothing fills the generated fences or derives `sources:` automatically **anywhere**
+reasons from. The intended source-derivation contract below is not implemented at `41cc5642f3a`:
+the main CLI writes manifests and existing overview tables, but neither sheet cards nor
+sheet `sources:`. F1 uses the existing exported `renderCardFence` with a transient adapter,
+compares the returned bytes explicitly, and records source dependencies from actual evidence.
+This is a measured implementation gap, not a claim that D-Q18 is implemented; generator
+changes remain outside the writing batch and unresolved requirements must be parked.
+Nothing fills the generated fences or derives `sources:` automatically **anywhere**
 (`qual.md:114` D-Q18 — `sources:` is DERIVED by the renderer's `--write`, never authored), and
 drift is caught only by `--check` at pre-push and in `audit-self.yml`. So the arm is needed on
 every seat, host or container, not because a container skips a hook:

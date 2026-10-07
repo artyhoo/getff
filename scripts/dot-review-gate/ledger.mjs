@@ -29,6 +29,16 @@ import { createHash, randomUUID } from 'node:crypto';
 import { copyFileSync } from 'node:fs';
 import { evaluateReadiness } from './readiness.mjs';
 
+function historicalSource(row) {
+  if (!row) return false;
+  if (['SUPERSEDED', 'AUTHORIZED', 'MERGED', 'CLOSED', 'INCOMPLETE'].includes(row.generation_state)) return true;
+  try {
+    const record = JSON.parse(row.payload);
+    return (record?.record_type === 'review_report' && record?.review_identity?.mode === 'HISTORICAL')
+      || (record?.protocol_version === 'dot-staging-review/1.0' && record?.kind === 'historical');
+  } catch { return false; }
+}
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS generations (
   id TEXT PRIMARY KEY,
@@ -758,41 +768,76 @@ export function openLedger(dbPath, { faultAfter } = {}) {
       ).all(repositoryId, prNodeId);
     },
 
-    // Historical findings (increment 7): actionable occurrences whose source report
-    // was recorded against a superseded or terminal generation — the queue's
-    // revalidate-before-remediation population.
-    listHistoricalFindings() {
-      return db.prepare(
-        `SELECT o.* FROM finding_occurrences o
+    // Historical report mode remains authoritative while its generation is
+    // SUBMITTED. Generation state alone misses freshly drained historical work.
+    // The queue and secondary routing share this same source classification.
+    isHistoricalOccurrence(occurrenceId) {
+      const row = db.prepare(
+        `SELECT r.payload, g.state AS generation_state
+         FROM finding_occurrences o
          JOIN reports r ON r.id = o.source_report_id
          JOIN challenges c ON c.claim_id = r.claim_id
          JOIN generations g ON g.id = c.generation_id
-         WHERE o.state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')
-           AND (g.state = 'SUPERSEDED' OR g.state IN ('AUTHORIZED','MERGED','CLOSED','INCOMPLETE'))
-         ORDER BY o.created_at, o.rowid`,
-      ).all();
+         WHERE o.id = ?`,
+      ).get(occurrenceId);
+      return historicalSource(row);
     },
 
-    // Reviewed-PR memory (increment 7): a merged PR with a recorded review is not
-    // re-queued. The binding goes through the report's generation tuple.
+    listHistoricalFindings() {
+      return db.prepare(
+        `SELECT o.id FROM finding_occurrences o
+         WHERE o.state IN ('OPEN','ASSIGNED','ACKNOWLEDGED','VERIFYING','DECISION_REQUIRED')
+         ORDER BY o.created_at, o.rowid`,
+      ).all().filter(o => this.isHistoricalOccurrence(o.id)).map(o => this.getOccurrence(o.id));
+    },
+
+    // Reviewed-PR memory (increment 7) — DEPRECATED (D2065-S06): the bare
+    // `reviewed-pr:<node>` marker carries NO exact identity evidence (no revision,
+    // basis, protocol, repository, record kind) and must never satisfy completion.
+    // Kept only as a legacy write shim; the completion predicate below ignores it.
     noteReviewedPr(prNodeId) {
       return tx(() => {
         db.prepare(
           'INSERT INTO control (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING',
         ).run(`reviewed-pr:${prNodeId ?? 'null'}`, now(), now());
-        return { prNodeId, noted: true };
+        return { prNodeId, noted: true, legacy: true };
       });
     },
 
-    prHasReview(prNodeId) {
-      if (db.prepare('SELECT 1 AS x FROM control WHERE key = ?').get(`reviewed-pr:${prNodeId ?? 'null'}`)) return true;
-      return db.prepare(
-        `SELECT 1 AS x
+    // Only accepted canonical review_report records prove completion. A tuple
+    // cannot prove review mode/basis or policy version; those come from the actual
+    // accepted payload. Unmapped legacy records conservatively do not cover work.
+    prHasReview(identity) {
+      if (!identity || !['OPEN_PR', 'HISTORICAL'].includes(identity.mode)) return false;
+      const {mode, comparison_basis: basis, repository_id: repo, pr_node_id: node,
+        base_sha: base, protocol_version: protocol, policy_version: policyVersion,
+        policy_sha256: policySha} = identity;
+      const revision = mode === 'HISTORICAL' ? identity.merge_sha : identity.head_sha;
+      if (!node || repo == null || !base || !revision || !basis || !protocol || !policyVersion || !policySha) return false;
+      const rows = db.prepare(
+        `SELECT r.payload, g.tuple_json
          FROM reports r
          JOIN challenges c ON c.claim_id = r.claim_id
          JOIN generations g ON g.id = c.generation_id
-         WHERE g.pr_node_id IS ? LIMIT 1`,
-      ).get(prNodeId ?? null) !== undefined;
+         WHERE g.repository_id IS ? AND g.pr_node_id IS ?
+           AND r.kind = 'review_report' AND r.superseded_at IS NULL`,
+      ).all(repo, node);
+      return rows.some(row => {
+        let record, tuple;
+        try { record = JSON.parse(row.payload); tuple = JSON.parse(row.tuple_json); } catch { return false; }
+        const accepted = record?.review_identity;
+        const revisions = accepted?.revisions;
+        const reviewedRevision = mode === 'HISTORICAL' ? revisions?.tested_merge_sha : revisions?.head_sha;
+        const tupleRevision = mode === 'HISTORICAL' ? tuple?.tested_merge_sha : tuple?.head_sha;
+        return record?.record_type === 'review_report'
+          && accepted?.mode === mode && accepted?.comparison_basis === basis
+          && accepted?.repository?.id === repo && accepted?.pull_request?.node_id === node
+          && revisions?.base_sha === base && reviewedRevision === revision
+          && record?.protocol_version === protocol && tuple?.protocol_version === protocol
+          && accepted?.policy?.version === policyVersion
+          && accepted?.policy?.sha256 === policySha && tuple?.policy_sha256 === policySha
+          && tuple?.base_sha === base && tupleRevision === revision;
+      });
     },
 
     // Durable work reservations (increment 7): one active reservation per item key;

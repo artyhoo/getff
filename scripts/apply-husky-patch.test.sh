@@ -9,9 +9,13 @@
 #   P4     --apply lands the tested bytes end-to-end (no prompts), cmp-verified on disk
 #   P5     the application appends one structured APPLY-HUSKY-PATCH line to the git-safety tamper.log
 #   P6     idempotence: re-applying is a no-op with a named reason, exit 0
-#   P7-P8  the gate APPROVES exactly the two canonical invocation shapes (dry-run; apply with the
-#          canonical GIT_SAFETY_OVERRIDE literal)
-#   P9-P10 the gate stays SILENT for a different override literal and for unrelated commands
+#   P7-P8, P11 the gate APPROVES the canonical invocation shapes (dry-run; apply with the
+#          canonical GIT_SAFETY_OVERRIDE literal; apply with the documented optional flags)
+#   P9-P10, P12-P14 the gate stays SILENT for a different override literal, unrelated
+#          commands, and hook-failure shapes (malformed/empty JSON, non-Bash tool)
+#   N11-N25 the gate requires the COMPLETE canonical single command (D2070-S01): compound
+#          suffixes (; && newline | $( ) ` >), extra/unknown modes and flags, smuggled
+#          variables and truncated flag lists get NO allow — normal permission flow
 #   N1-N10 the writer REFUSES, leaving the target byte-unchanged: expected-file drift, targets
 #          outside .husky/, the generated .husky/_ shim, --apply without / with a wrong override,
 #          a repo outside the rules-as-tests-aif family, missing patch, missing target, symlinked
@@ -127,6 +131,46 @@ if [ -z "$g" ]; then ok "P9 gate silent for a non-canonical override"; else bad 
 g="$(gate_call "ls -la")"
 if [ -z "$g" ]; then ok "P10 gate silent for unrelated commands"; else bad "P10 gate leaked a decision: $g"; fi
 
+# P11 gate approves the apply form with the documented optional flags
+g="$(gate_call "GIT_SAFETY_OVERRIDE='$CANON' bash \"\$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh\" --apply --patch /p --expected /e --target .husky/pre-commit --repo /r")"
+if grep -q '"permissionDecision": "allow"' <<<"$g"; then
+  ok "P11 gate approves the apply form with optional --target/--repo"
+else
+  bad "P11 gate apply + optional flags — got: ${g:-<empty>}"
+fi
+
+# P12-P14 hook failure / non-matching event shapes stay silent with rc 0 (normal flow)
+g="$(printf 'not json' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P12 gate silent on malformed JSON payload"; else bad "P12 leaked: $g"; fi
+g="$(printf '' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P13 gate silent on empty stdin"; else bad "P13 leaked: $g"; fi
+g="$(printf '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"/x"}}' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P14 gate silent for non-Bash tools"; else bad "P14 leaked: $g"; fi
+
+# N11-N25 gate negatives (D2070-S01): the approval must require the COMPLETE canonical
+# single command — every compound suffix, substitution, redirection, extra/unknown mode
+# or smuggled variable stays in the normal permission flow (empty stdout).
+gate_silent() { # gate_silent <label> <command>
+  local label="$1" c="$2" out=""
+  out="$(gate_call "$c")"
+  if [ -z "$out" ]; then ok "$label"; else bad "$label — gate approved: $out"; fi
+}
+gate_silent "N11 compound suffix '; printf EXTRA' gets no allow (D2070-S01 repro)" "$GATE_DRY; printf EXTRA"
+gate_silent "N12 && chain gets no allow" "$GATE_DRY && printf EXTRA"
+gate_silent "N13 newline-suffixed command gets no allow" "$(printf '%s\nprintf EXTRA' "$GATE_DRY")"
+gate_silent "N14 piped suffix gets no allow" "$GATE_DRY | cat"
+gate_silent "N15 command substitution gets no allow" "$GATE_DRY \$(printf EXTRA)"
+gate_silent "N16 backtick substitution gets no allow" "$GATE_DRY \`printf EXTRA\`"
+gate_silent "N17 redirection gets no allow" "$GATE_DRY > /tmp/apply-husky-patch-evil"
+gate_silent "N18 extra mode: --apply appended to the dry-run shape gets no allow" "$GATE_DRY --apply"
+gate_silent "N19 unknown flag gets no allow" "$GATE_DRY --evil x"
+gate_silent "N20 smuggled variable gets no allow" "$GATE_DRY --patch \"\$HOME/x\" --expected /e"
+gate_silent "N21 apply form without the override gets no allow" 'bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch /p --expected /e'
+gate_silent "N22 duplicate --patch gets no allow" "$GATE_DRY --patch /q"
+gate_silent "N23 subshell parens get no allow" "( $GATE_DRY )"
+gate_silent "N24 env prefix on the dry-run shape gets no allow" "GIT_SAFETY_OVERRIDE='$CANON' bash \"\$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh\" --dry-run --patch /p --expected /e"
+gate_silent "N25 truncated flag list gets no allow" 'bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --dry-run --patch /p'
+
 # negative arms: the target must stay byte-unchanged after every refusal
 assert_refused() { # assert_refused <label> <want-grep> <env-prefix...> -- <args...>
   local label="$1" want="$2"; shift 2
@@ -188,6 +232,44 @@ if [ "$rc" -ne 0 ] && grep -q "repo pin failed" <<<"$out"; then
   ok "N6 repo outside the family refuses (pin)"
 else
   bad "N6 repo pin — want refusal, rc=$rc: $(tr '\n' '|' <<<"$out")"
+fi
+
+# N26-N28 the family pin is EXACT (D2068-S01): a suffix repository, a wrong host and an
+# embedded path must fail the pin BEFORE any write; P1 (https) and N1 (ssh) are the
+# exact-origin positive controls, P16 the same-common-dir fallback control.
+mk_pin_repo() { # mk_pin_repo <dir> <origin-url>
+  git init -q "$1"
+  git -C "$1" config user.email t@t
+  git -C "$1" config user.name t
+  git -C "$1" remote add origin "$2"
+  mkdir -p "$1/.husky"
+  printf '#!/bin/sh\nset -eu\necho "orig"\n' > "$1/.husky/pre-commit"
+}
+pin_refusal() { # pin_refusal <label> <dir>
+  run GIT_SAFETY_COORD_DIR="$TMP" bash "$APPLY" --repo "$2" --patch "$TMP/p.patch" --expected "$TMP/expected.full"
+  if [ "$rc" -ne 0 ] && grep -q "repo pin failed" <<<"$out"; then ok "$1"
+  else bad "$1 — want pin refusal, rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
+}
+ORIG_E1="$TMP/repoE1"; mk_pin_repo "$ORIG_E1" "https://github.com/artyhoo/getff-experiment.git"
+pin_refusal "N26 suffix repository (artyhoo/getff-experiment) refuses" "$ORIG_E1"
+ORIG_E2="$TMP/repoE2"; mk_pin_repo "$ORIG_E2" "https://github.com.evil.example/artyhoo/getff.git"
+pin_refusal "N27 wrong host with the right path refuses" "$ORIG_E2"
+ORIG_E3="$TMP/repoE3"; mk_pin_repo "$ORIG_E3" "https://github.com/unrelated/artyhoo/getff.git"
+pin_refusal "N28 embedded path refuses" "$ORIG_E3"
+
+# P16 same-git-common-dir fallback: a local worktree of the authoring family (no origin
+# of its own) passes the pin and runs the dry-run end-to-end
+FAM_HOME="$TMP/home"; FAM="$FAM_HOME/code/rules-as-tests-aif"
+mk_pin_repo "$FAM" "https://github.com/artyhoo/getff.git"
+git -C "$FAM" add -A
+git -C "$FAM" commit -q -m init
+ORIG_F="$TMP/repoF"
+git -C "$FAM" worktree add -q "$ORIG_F" HEAD
+run HOME="$FAM_HOME" GIT_SAFETY_COORD_DIR="$TMP" bash "$APPLY" --repo "$ORIG_F" --patch "$TMP/p.patch" --expected "$TMP/expected.full"
+if [ "$rc" -eq 0 ] && grep -q "DRY-RUN OK" <<<"$out"; then
+  ok "P16 same-git-common-dir fallback passes the pin (family worktree, no origin)"
+else
+  bad "P16 common-dir fallback — rc=$rc: $(tr '\n' '|' <<<"$out")"
 fi
 
 assert_refused "N7 missing patch file refuses" "missing:" \

@@ -243,7 +243,7 @@ function renderToml(bannedModules: string[], bannedApi: BanApiEntry[]): string {
   // Header-only emission (parity with cargo/astgrep for the no-fast-path case) is reachable only
   // when BUILTIN_SELECTORS is empty — i.e. never today. The zero-custom-bans path now emits
   // `[lint] select = ["DTZ005"]`; verified dead-code-on-consumer-lane: snapshot.sh brownfield-ruff
-  // refuses headerless consumer ruff.toml + ships getff-ruff.toml (python-delivery.test.sh:264-307),
+  // refuses headerless consumer ruff.toml + ships getff-ruff.toml (python-delivery.test.sh:268-311),
   // and firing.test.ts:97-110 exercises both bans, so the zero-bans path is unreached by either
   // consumer surface — the §5 park trigger does NOT fire.
   const codes: string[] = [...BUILTIN_SELECTORS];
