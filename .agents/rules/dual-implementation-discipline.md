@@ -19,7 +19,7 @@ paths:
 > **Authoritative for:** dual-implementation discipline rule — §1 problem, §2 triggers + non-triggers, §3 audience triage, §4 detection mechanism, §5 drift check, §6 CC-bias mitigation, §7 single source of truth, §8 anti-patterns, §9 promotion / retirement, §10 see also.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Build-vs-reuse (upstream adoption vs build) — see [build-first-reuse-default.md](build-first-reuse-default.md). Search-coverage discipline — see [phase-research-coverage.md](phase-research-coverage.md).
 
-> **Origin:** 2026-05-16 strategic D-items dialogue, D2 verdict B+ «soft case-by-case + dual-implementation discipline» ([decisions.md §D2](../../.claude/orchestrator-prompts/d-items-strategic-dialogue/decisions.md)). Maintainer framing: «Claude Code лучший — используем его фичи когда есть». Design session 2026-05-17.
+> **Origin:** 2026-05-16 strategic D-items dialogue, D2 verdict B+ «soft case-by-case + dual-implementation discipline» (decisions.md §D2 — the d-items-strategic-dialogue record, since pruned in the .agents canonical landing). Maintainer framing: «Claude Code лучший — используем его фичи когда есть». Design session 2026-05-17.
 >
 > **Companion executable test:** [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) — Surface 8 of principle 21 (shipped 2026-07-02); enforces §5 (`@dual-pair` anchor resolves to a real counterpart) + §6 (every CC hook declares a delivery-channel marker), population-wide and off-CC. See §9.
 
