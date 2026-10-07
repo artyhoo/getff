@@ -8,7 +8,9 @@
 # directions are exercised below, including the prefix traps (`baselines-evil/x`,
 # `plugin/hooksfile`, `MANIFEST.sha256.bak`) that a looser glob would misclassify.
 # The git/gh round machinery is exercised for real by usage (dry-run against a live PR);
-# CI can only prove the seams hermetically.
+# CI can only prove the seams hermetically. The one exception is the --sweep seam: the
+# pre-merge canonical-link sweep needs a real git object database, so it gets a throwaway
+# local fixture repo below (still no network, no gh).
 #
 # CI: .github/workflows/audit-self.yml (next to scripts/ci-success-gate.test.sh).
 set -uo pipefail
@@ -138,6 +140,90 @@ expect_rc 2 "--max-rounds needs a number" "needs a number" --max-rounds abc 2012
 expect_rc 2 "--timeout needs a number" "needs a number" --timeout soon 2012
 expect_rc 2 "two PR arguments rejected" "exactly one PR" 2012 2005
 expect_rc 2 "option missing its value is a usage error" "needs a value" --repo
+
+# ── pre-merge canonical-link sweep (--sweep): the exit-5 «merge failed without an
+#    unmerged list» repro. Fresh worktrees run the post-checkout hook
+#    (link-coordination.sh), which materializes gitignored canonical coordination files
+#    as untracked symlinks; once the merge base TRACKS such a path (#2066 landed
+#    .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1{a,b}.md), the merge refuses
+#    to overwrite the untracked copies and aborts BEFORE recording any conflict, so
+#    `git diff --diff-filter=U` is empty and the round died with exit 5. The sweep must
+#    remove exactly the blocking intersection (tracked-in-base AND untracked-in-scratch,
+#    ignored files included) and nothing else. Fixture: throwaway local repo, no gh.
+SWEEP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/mfr-test-sweep-XXXXXX")
+R="$SWEEP_ROOT/repo"
+git init -q "$R"
+git -C "$R" config user.email sweep@test
+git -C "$R" config user.name sweep
+mkdir -p "$R/canon"
+printf 'work\n' >"$R/work.txt"
+git -C "$R" add work.txt
+git -C "$R" commit -qm "tip: predates the canonical file"
+git -C "$R" branch tip
+printf 'canonical\n' >"$R/canon/kickoff-a.md"
+git -C "$R" add canon/kickoff-a.md
+git -C "$R" commit -qm "base: tracks the canonical file"
+git -C "$R" branch base
+git -C "$R" worktree add --detach "$SWEEP_ROOT/scratch" tip >/dev/null 2>&1
+mkdir -p "$SWEEP_ROOT/scratch/canon"
+printf 'materialized\n' >"$SWEEP_ROOT/scratch/canon/kickoff-a.md"
+printf 'bystander\n' >"$SWEEP_ROOT/scratch/notes.txt"
+
+git -C "$SWEEP_ROOT/scratch" merge --no-ff --no-edit base >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  report 1 "fixture realism: the unswept merge is refused (untracked would be overwritten) — the exit-5 shape"
+else
+  report 0 "fixture realism: the unswept merge did NOT fail — the repro premise is gone"
+fi
+if git -C "$SWEEP_ROOT/scratch" merge --abort >/dev/null 2>&1; then :; fi
+
+# Local assertion helper with self-contained polarity: unlike the shipped expect_rc
+# above, a mismatch here is recorded as FAIL with its diagnostic, so a regression in
+# the sweep can never print PASS.
+expect_sweep() { # <want-rc> <desc> <required-grep-or-empty> <args...>
+  local want="$1" desc="$2" pattern="$3"
+  shift 3
+  local out rc
+  out=$(bash "$SUT" "$@" 2>&1)
+  rc=$?
+  if [ "$rc" -ne "$want" ]; then
+    report 0 "$desc" "wanted rc=$want got rc=$rc; output: $out"
+    return
+  fi
+  if [ -n "$pattern" ] && ! grep -q "$pattern" <<<"$out"; then
+    report 0 "$desc" "output lacks '$pattern'; output: $out"
+    return
+  fi
+  report 1 "$desc"
+}
+
+expect_sweep 0 "sweep removes the target-tracked materialization and logs the line" \
+  "removed untracked canonical-link materialization on a target-tracked path: canon/kickoff-a.md" \
+  --sweep "$SWEEP_ROOT/scratch" base
+if [ ! -e "$SWEEP_ROOT/scratch/canon/kickoff-a.md" ]; then
+  report 1 "sweep removed the blocking file"
+else
+  report 0 "sweep left the blocking file in place" "$SWEEP_ROOT/scratch/canon/kickoff-a.md"
+fi
+if [ -f "$SWEEP_ROOT/scratch/notes.txt" ]; then
+  report 1 "sweep kept the bystander untracked file (removal is narrow)"
+else
+  report 0 "sweep removed a file the merge did not need removed" "notes.txt"
+fi
+
+expect_sweep 0 "sweep is idempotent: second run removes 0" \
+  "canonical-link sweep: removed=0" \
+  --sweep "$SWEEP_ROOT/scratch" base
+
+if git -C "$SWEEP_ROOT/scratch" merge --no-ff --no-edit base >/dev/null 2>&1 &&
+  [ "$(cat "$SWEEP_ROOT/scratch/canon/kickoff-a.md" 2>/dev/null)" = "canonical" ]; then
+  report 1 "the swept merge proceeds and restores the canonical tracked content"
+else
+  report 0 "the swept merge did not proceed cleanly or content is wrong" "canon/kickoff-a.md"
+fi
+
+expect_sweep 2 "sweep without arguments is a usage error" "needs a scratch worktree directory" --sweep
+expect_sweep 2 "sweep with one argument is a usage error" "needs a target ref" --sweep "$SWEEP_ROOT/scratch"
 
 # ── the repo's own portability gate over the script under test ───────────────────
 if B32_OUT=$(bash "$HERE/check-bash32.sh" "$SUT" 2>&1); then
