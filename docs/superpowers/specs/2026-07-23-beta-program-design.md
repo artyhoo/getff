@@ -283,8 +283,10 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   decision (.ts bins: tsx dependency vs prebuild — decided in-stage), package README/
   LICENSE/metadata, release notes via the existing release-drafter. `npm publish` itself
   stays an operator act in phase 2. Binding input:
-  [s6-u10-handoff.md](../../../.claude/orchestrator-prompts/launch-preannounce-track/s6-u10-handoff.md)
-  (549-file over-ship, unpublish-is-not-rollback, publish-under-@getff-only).
+  [`npm-publish-getff-init/kickoff.md`](../../../.claude/orchestrator-prompts/npm-publish-getff-init/kickoff.md)
+  (carries the s6-u10 handoff content verbatim — 549-file over-ship, unpublish-is-not-rollback,
+  publish-under-@getff-only; the transient `launch-preannounce-track/s6-u10-handoff.md` was
+  consumed and deleted 2026-10-05).
 - **A7 — Foreign-project dispatch (beta form).** The `factory` profile vendors the
   runtime-bridge subset (CLI entrypoints + dispatch hook, env-parameterized) into the
   consumer repo — the layout the hook already assumes; dedup-log path becomes

@@ -54,6 +54,7 @@
   "scripts": {
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
+    "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs",
     "test:hooks": "vitest run hooks/",
     "test:ir": "vitest run ir/",
     "test:backends": "vitest run backends/",

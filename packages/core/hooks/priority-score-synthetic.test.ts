@@ -65,7 +65,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/priority-score.sh',
+  '.agents/procedures/pipeline/helpers/priority-score.sh',
 );
 
 // Each case spawns priority-score.sh against a real git fixture, so the default 5s

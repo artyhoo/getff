@@ -1,0 +1,4 @@
+name = "getff-cold-run-prober"
+description = "One-beat cold-run acceptance probe for the getff-any-stack-trace umbrella (spec §9.3). Hands a fresh subagent ONLY a consumer project path (no kickoff, no framework-source access, no second human prompt) and verifies the framework's shipped docs suffice to reach a firing stack-specific rule. Reporting-only; framework-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/getff-cold-run-prober.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

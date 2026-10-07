@@ -130,9 +130,10 @@ export AIF_HOOK_CHANNEL
 #     leaves an event only this copy would catch, e.g. a worktree on a branch from before the
 #     plugin widened a matcher or added an event. Needs hooks.json beside this file; a plugin
 #     registration that passes extra arguments never counts as covered.
-#   - The hook must be getff's: this file declares itself the plugin copy of
-#     `.claude/hooks/<name>.sh` (the generator's AUTO-GENERATED line or a manual twin's
-#     `Plugin twin of` line), and the project script carries getff's `# <name>.sh — ` header
+#   - The hook must be getff's: this file declares itself the plugin copy of the project's
+#     hook (the generator's AUTO-GENERATED line or a manual twin's `Plugin twin of` line,
+#     naming the canonical `.agents/hooks/<name>.sh` or the legacy `.claude/hooks/<name>.sh`
+#     compat path), and the project script carries getff's `# <name>.sh — ` header
 #     on line 2 plus a delivery marker. A plugin-only hook never silences this copy.
 # A hook whose output a project hook of another name already carries declares that on one line;
 # the same checks then run against the named hook:
@@ -168,7 +169,7 @@ if [ -n "$_yield_mode" ]; then
     ''|*[!A-Za-z0-9_-]*) : ;;
     *)
       if [ "$_yield_mode" = consumer ] || [ -f "$CLAUDE_PROJECT_DIR/plugin/hooks/$SCRIPT_NAME" ]; then
-        grep -qE "^# (AUTO-GENERATED from|Plugin twin of) \.claude/hooks/${SCRIPT_NAME}\.sh" \
+        grep -qE "^# (AUTO-GENERATED from|Plugin twin of) \.(agents|claude)/hooks/${SCRIPT_NAME}\.sh" \
           "${SCRIPT_DIR}/${SCRIPT_NAME}" 2>/dev/null && _yield_names="$SCRIPT_NAME"
         _yield_names="$_yield_names $(sed -n 's/^# @plugin-yields-to:[[:space:]]*//p' \
           "${SCRIPT_DIR}/${SCRIPT_NAME}" 2>/dev/null | head -n 1)"

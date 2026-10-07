@@ -139,7 +139,7 @@ function builtinProblems(text: string, builtins: string[], mirror: Record<string
 }
 
 describe("the built-ins' principle matches base-core.md (T-B1)", () => {
-  const BASE = readFileSync(join(REPO, 'skills/getff/references/base-core.md'), 'utf8');
+  const BASE = readFileSync(join(REPO, '.agents/procedures/getff/references/base-core.md'), 'utf8');
   let mod: { BUILTINS: string[]; BUILTIN_PRINCIPLE: Record<string, string> };
   beforeAll(async () => {
     mod = (await import(pathToFileURL(join(HERE, 'prove-rules.mjs')).href)) as typeof mod;

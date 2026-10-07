@@ -1,35 +1,41 @@
 #!/usr/bin/env bash
-# Plugin twin of .claude/hooks/inject-project-digest.sh.
+# AUTO-GENERATED from .agents/hooks/inject-project-digest.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# inject-project-digest.sh — SessionStart + SubagentStart hook — injects the project digest at both fire-points
 # @cc-only-rationale: CC-specific context-injection hook — its output is consumed by CC-native
-#   fire-points (SessionStart stdout auto-injection + SubagentStart additionalContext), with
-#   no portable counterpart. The plugin twin exists ONLY to serve the plugin distribution channel
-#   (ZCode-aware via inline _emit_ctx); the .claude/hooks/ original stays the SSOT and remains
-#   shipped to consumer CC projects that install via install.sh (.claude/hooks/depth-2 form).
-#   The two files are dual-channel (plugin + repo) but ONE logic — see dual-implementation-
-#   discipline.md §7. Drift between them is `#two-prompts-drift`.
+#   fire-points (SessionStart stdout auto-injection + SubagentStart additionalContext), with no
+#   portable counterpart. SHIPPED to consumer CC projects (GH #934 batch D): the PROJECT-AGNOSTIC
+#   adaptation of the maintainer-only inject-session-bootstrap.sh / inject-subagent-digest.sh pair
+#   (which hard-code the FRAMEWORK's own goal/invariants digest — wrong to inject into a consumer's
+#   project). This version injects the CONSUMER's OWN anchor: the digest block of THEIR
+#   .claude/session-bootstrap.md. Consumer-safe: reads only the consumer's own file, zero-setup
+#   default (empty/absent block → injects nothing), degrades without jq.
+# @plugin-yield-deps: lib/hook-live.sh
+#   Only lib/hook-live.sh (the D12 liveness prelude): dirname "$0" below only re-derives REPO_ROOT
+#   (this repo's project root) — the session-bootstrap.md it reads is a $REPO_ROOT/-prefixed
+#   project path, not a file beside itself.
 #
-# TWIN DIVERGENCE from .claude/hooks/inject-project-digest.sh:
-#   1. Extensionless filename (plugin/hooks/ convention — hook-paths.test.sh (a)).
-#   2. Inline `_is_zcode` + `_emit_ctx` adapter (the same pair plugin/hooks/lib/hook-emit.sh carries —
-#      Stage-2 harness-portable refactor). On ZCode, stdout must be strict-JSON
-#      {additionalContext:<text>} (plain is discarded + run marked failed); on CC, plain stdout
-#      is auto-injected unchanged. The .claude/hooks/ source does NOT carry this adapter because
-#      it only fires on CC.
-#   3. SubagentStart branch keeps its JSON hookSpecificOutput shape on BOTH harnesses (the
-#      additionalContext key is the CC contract; ZCode's stricter {additionalContext:<text>} is
-#      the SessionStart adaptation). CC's SubagentStart reader accepts either shape.
-#
-# Source-of-truth: .claude/hooks/inject-project-digest.sh (B1 latent fix merged via PR #1031 —
-# env-first REPO_ROOT resolution is present at the source AND mirrored here).
+# One hook, two events (registered on both — output format differs per the CC contract):
+#   • SessionStart      → plain stdout is auto-injected, once per context (startup|resume|clear|compact).
+#   • SubagentStart     → context must be JSON hookSpecificOutput.additionalContext (needs jq).
+# The shared digest source is the block between the markers in .claude/session-bootstrap.md, so the
+# main session AND every dispatched subagent get the same project anchor from ONE source of truth.
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-project-digest || true; fi
 
-# Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
-# sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s' "$2"; case "$2" in *$'\n') : ;; *) printf '\n' ;; esac; fi; }
+# Native output shape is an adapter; the instruction and digest remain shared.
+_emit_session_context() {
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$1" '{additionalContext:$c}'
+  else
+    printf '%s\n' "$1"
+  fi
+}
 
+# @plugin-transform: identity — canonical implementation includes native output and path adaptation.
 # B1 fix (zcode-parity-step1, plan-v3 §"B1"): subshell-aware env-first resolution.
 # `$(cd … && pwd)` is command substitution in a SUBSHELL — cwd change is discarded, only
 # the path string is captured. Pre-fix this read $0-relative (correct only when the hook is
@@ -37,9 +43,11 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
 # payload file ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/), the $0-relative path resolved to the
 # plugin payload dir, NOT the consumer root. Env-first matches the 7 already-fixed plugin
 # twins (check-doc-authority:18, validate-prompt:19, etc — verified Mode A) + deps-hash-check
-# cd-guard form.
+# cd-guard form. Source-level fix prepares for future plugin-channel shipping (declared
+# follow-up umbrella — the twin is NOT shipped in this umbrella).
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
+DIGEST_FILE="$REPO_ROOT/.agents/session-bootstrap.md"
+[ -f "$DIGEST_FILE" ] || DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 [ -f "$DIGEST_FILE" ] || exit 0   # no anchor authored — nothing to inject (zero-setup default)
 
 INPUT="$(cat 2>/dev/null || true)"
@@ -57,15 +65,11 @@ if command -v jq >/dev/null 2>&1; then
 fi
 
 if [ "$EVENT" = "SubagentStart" ]; then
-  # SubagentStart: plain stdout is a silent no-op on CC — must emit JSON hookSpecificOutput
-  # (jq required; if jq were absent EVENT would be "" and we would not reach here). ZCode has
-  # no SubagentStart event (0 occurrences in the host bundle — see inject-subagent-context:14),
-  # so this branch only fires on CC and emits the CC-native JSON shape directly (no _emit_ctx —
-  # _emit_ctx would double-wrap a JSON-string payload as {additionalContext:"<json>"}).
+  # SubagentStart: plain stdout is a silent no-op — must emit JSON additionalContext (jq required;
+  # if jq were absent EVENT would be "" and we would not reach here).
   jq -n --arg ctx "$BLOCK" '{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}'
 else
-  # SessionStart (or jq-absent fallback): plain stdout is auto-injected on CC; ZCode wraps
-  # via _emit_ctx into {additionalContext:<text>}.
-  _emit_ctx "SessionStart" "$BLOCK"
+  # SessionStart (or jq-absent fallback): plain stdout is auto-injected.
+  _emit_session_context "$BLOCK"
 fi
 exit 0

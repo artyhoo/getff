@@ -76,7 +76,7 @@ export const ABSENCE_REASONS = ['no-lane', 'no-operator-twin', 'not-byte-copied'
  */
 export const HEADER_TABLE = {
   A: { glob: 'setup.d/[0-9]*.sh', line: 2, pattern: '^# setup\\.d/<b> — .{10,}$' },
-  D: { glob: '.claude/hooks/*.sh (+ plugin-only hooks/<stem>)', line: 'first comment line after the shebang', pattern: '^# <b> — .{10,}$' },
+  D: { glob: '.agents/hooks/*.sh (+ native-only adapters; legacy .claude/hooks fallback)', line: 'first comment line after the shebang', pattern: '^# <b> — .{10,}$' },
   'F-sh': { glob: 'scripts/*.sh', line: 2, pattern: '^# <b> — .{10,}$' },
   'F-mjs': { glob: 'scripts/*.mjs', line: 3, pattern: '^ \\* <stem> — .{10,}$' },
   H: { glob: 'packages/runtime-bridge/src/cli/*.ts', line: 2, pattern: '^ \\* <b> — .{10,}$' },
@@ -90,7 +90,7 @@ export const HEADER_TABLE = {
  * the slugs differ (a stale pin is visible, never silent).
  */
 export const KIND_PINS = { sheet: 'reference-sheet', 'family-table': 'family-overview' };
-const KIND_REGISTRY = '.claude/skills/docs-author/references/page-kinds.md';
+const KIND_REGISTRY = '.agents/procedures/docs-author/references/page-kinds.md';
 
 /** Plumbing allowlists (§7 row 6 literal pins; a stale pin is visible via arms C/F). */
 const H_ALLOWLIST = ['aifHttp.ts', 'cliEntry.ts', 'openQuestion.ts'];
@@ -129,7 +129,9 @@ function memo(key, build) {
   return cache.get(key);
 }
 
-/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. */
+/** Fingerprint rows {stack, lane, hash, path} — input class 5, read by path and by hash. Link rows
+ * (canonical fingerprint format, `link  path -> target`) carry hash:null: the consumer path is
+ * PRESENT on the lane, but the bytes live at the canonical owner the target points at. */
 function fingerprints(root) {
   return memo(`fp:${root}`, () => {
     const dir = join(root, FINGERPRINT_DIR);
@@ -142,7 +144,12 @@ function fingerprints(root) {
         const lane = f.replace(/\.fingerprint$/, '');
         for (const line of readFileSync(join(stackDir, f), 'utf8').split('\n')) {
           const m = line.match(/^([0-9a-f]{64})  (.+)$/);
-          if (m) rows.push({ stack, lane, hash: m[1], path: m[2] });
+          if (m) {
+            rows.push({ stack, lane, hash: m[1], path: m[2] });
+            continue;
+          }
+          const l = line.match(/^link  (.+?) -> (.+)$/);
+          if (l) rows.push({ stack, lane, hash: null, path: l[1] });
         }
       }
     }
@@ -191,7 +198,7 @@ function wiredSet(root) {
  *  synthetic fixture roots behave. */
 function operatorSkillDirs(root) {
   return memo(`opskills:${root}`, () => {
-    const rel = '.claude/skills';
+    const rel = sourceRoot(root, '.agents/procedures', '.claude/skills');
     const abs = join(root, rel);
     if (!existsSync(abs)) return [];
     if (existsSync(join(root, '.git'))) {
@@ -200,7 +207,7 @@ function operatorSkillDirs(root) {
         const dirs = new Set();
         for (const line of out.split('\n')) {
           const parts = line.split('/');
-          if (parts[0] === '.claude' && parts[1] === 'skills' && parts[2]) dirs.add(parts[2]);
+          if (line.startsWith(`${rel}/`) && parts[2]) dirs.add(parts[2]);
         }
         return [...dirs].filter((d) => existsSync(join(abs, d, 'SKILL.md'))).sort();
       } catch (e) {
@@ -212,9 +219,18 @@ function operatorSkillDirs(root) {
 }
 
 function shippedSkillDirs(root) {
-  const abs = join(root, 'skills');
+  const abs = join(root, sourceRoot(root, '.agents/procedures', 'skills'));
   if (!existsSync(abs)) return [];
   return readdirSync(abs).filter((d) => existsSync(join(abs, d, 'SKILL.md'))).sort();
+}
+
+/** Authored owner first; minimal legacy fixture roots remain supported. */
+function sourceRoot(root, canonical, legacy) {
+  return existsSync(join(root, canonical)) ? canonical : legacy;
+}
+
+function sourceFile(root, canonical, legacy) {
+  return existsSync(join(root, canonical)) ? canonical : legacy;
 }
 
 function walkFiles(dir, pre = '') {
@@ -300,7 +316,7 @@ function buildB(root) {
     const opRel = `.claude/skills/${name}/SKILL.md`;
     const hasShip = existsSync(join(root, shipRel));
     const hasOp = existsSync(join(root, opRel));
-    const srcRel = hasShip ? shipRel : opRel;
+    const srcRel = sourceFile(root, `.agents/procedures/${name}/SKILL.md`, hasShip ? shipRel : opRel);
     const src = readFileSync(join(root, srcRel), 'utf8');
     const description = extractFrontmatterScalar(src, 'description');
     if (description === null || description.trim() === '') {
@@ -312,8 +328,7 @@ function buildB(root) {
     // operator twin's path lands in extras; a shipped skill with no operator twin carries the token.
     let operatorTwin;
     if (hasOp) operatorTwin = opRel;
-    else if (hasShip) operatorTwin = { absent: 'no-operator-twin' };
-    else operatorTwin = opRel; // operator-native member: the operator file is its own twin row
+    else operatorTwin = { absent: 'no-operator-twin' };
     const tier = tierSets.factory.includes(name) ? 'factory'
       : tierSets.env.includes(name) ? 'env'
       : tierSets.core.includes(name) || literals.includes(name) ? 'core'
@@ -341,22 +356,25 @@ function referencedBy(root, name) {
   const scan = (abs, rel) => {
     if (re.test(readFileSync(abs, 'utf8'))) out.push(rel);
   };
-  const skillsDir = join(root, '.claude/skills');
+  const skillRel = sourceRoot(root, '.agents/procedures', '.claude/skills');
+  const skillsDir = join(root, skillRel);
   if (existsSync(skillsDir)) {
-    for (const rel of walkFiles(skillsDir, '.claude/skills/')) {
+    for (const rel of walkFiles(skillsDir, `${skillRel}/`)) {
       if (rel.endsWith('SKILL.md')) scan(join(root, rel), rel);
     }
   }
-  const agentsDir = join(root, 'agents');
+  const roleRel = sourceRoot(root, '.agents/roles', 'agents');
+  const agentsDir = join(root, roleRel);
   if (existsSync(agentsDir)) {
     for (const f of readdirSync(agentsDir).filter((f) => f.endsWith('.md'))) {
-      scan(join(agentsDir, f), `agents/${f}`);
+      scan(join(agentsDir, f), `${roleRel}/${f}`);
     }
   }
-  const rulesDir = join(root, '.claude/rules');
+  const ruleRel = sourceRoot(root, '.agents/rules', '.claude/rules');
+  const rulesDir = join(root, ruleRel);
   if (existsSync(rulesDir)) {
     for (const f of readdirSync(rulesDir).filter((f) => f.endsWith('.md'))) {
-      scan(join(rulesDir, f), `.claude/rules/${f}`);
+      scan(join(rulesDir, f), `${ruleRel}/${f}`);
     }
   }
   return out.sort();
@@ -365,7 +383,7 @@ function referencedBy(root, name) {
 function buildC(root) {
   const names = shippedAgents(root).map((f) => f.replace(/\.md$/, '')).sort();
   return names.map((name) => {
-    const rel = `agents/${name}.md`;
+    const rel = sourceFile(root, `.agents/roles/${name}.md`, `agents/${name}.md`);
     const src = readFileSync(join(root, rel), 'utf8');
     const description = extractFrontmatterScalar(src, 'description');
     if (description === null || description.trim() === '') {
@@ -421,7 +439,8 @@ function hookRegistrations(root) {
 }
 
 function buildD(root) {
-  const hooksDir = join(root, '.claude/hooks');
+  const hookRel = sourceRoot(root, '.agents/hooks', '.claude/hooks');
+  const hooksDir = join(root, hookRel);
   const stems = existsSync(hooksDir)
     ? readdirSync(hooksDir).filter((f) => f.endsWith('.sh')).map((f) => f.replace(/\.sh$/, '')).sort()
     : [];
@@ -429,11 +448,11 @@ function buildD(root) {
   const pluginOnly = [...new Set(regs.filter((r) => !stems.includes(r.name)).map((r) => r.name))].sort()
     .filter((n) => !D_ALLOWLIST.includes(n));
   return [...stems, ...pluginOnly].sort().map((stem) => {
-    const fwRel = `.claude/hooks/${stem}.sh`;
+    const fwRel = `${hookRel}/${stem}.sh`;
     const pluginRel = `plugin/hooks/${stem}`;
     const hasFw = existsSync(join(root, fwRel));
     const hasPlugin = existsSync(join(root, pluginRel));
-    const srcRel = hasFw ? fwRel : pluginRel;
+    const srcRel = hasFw ? fwRel : sourceFile(root, `.agents/hooks/adapters/plugin/${stem}`, pluginRel);
     const src = readFileSync(join(root, srcRel), 'utf8');
     // strict header: FIRST comment line after the shebang, before any @-marker line
     const first = firstCommentLineAfterShebang(src);
@@ -539,13 +558,14 @@ function buildE(root) {
 }
 
 function buildF1(root) {
-  const rulesDir = join(root, '.claude/rules');
+  const ruleRel = sourceRoot(root, '.agents/rules', '.claude/rules');
+  const rulesDir = join(root, ruleRel);
   const names = existsSync(rulesDir)
     ? readdirSync(rulesDir).filter((f) => f.endsWith('.md') && f !== '00-rule-index.md').map((f) => f.replace(/\.md$/, '')).sort()
     : [];
   const indexRows = new Map(buildRows(root).rows.map((r) => [r.name, r]));
   return names.map((name) => {
-    const rel = `.claude/rules/${name}.md`;
+    const rel = `${ruleRel}/${name}.md`;
     const src = readFileSync(join(root, rel), 'utf8');
     const full = extractHeaderField(src, 'Authoritative for');
     if (full === null || full.trim() === '') {
@@ -650,7 +670,7 @@ function buildF3(root) {
     }
     if (s.testMaterial) continue; // test material: in the population as a gate, never a card
     if (!wired.has(s.name)) { unwired.push(s.name); continue; }
-    const rel = `scripts/${s.name}`;
+    const rel = sourceFile(root, `.agents/checks/${s.name}`, `scripts/${s.name}`);
     const src = readFileSync(join(root, rel), 'utf8');
     const lines = src.split('\n');
     let description = null;
@@ -780,7 +800,8 @@ function buildI(root) {
   const skillsDir = join(root, 'plugin/skills');
   if (existsSync(skillsDir)) {
     for (const d of readdirSync(skillsDir).filter((d) => existsSync(join(skillsDir, d, 'SKILL.md'))).sort()) {
-      push(`plugin/skills/${d}/SKILL.md`, 'skill', `skills/${d}/SKILL.md`);
+      const owner = d === 'tool-bootstrapping' ? 'tool-bootstrapping-consumer' : d;
+      push(`plugin/skills/${d}/SKILL.md`, 'skill', sourceFile(root, `.agents/procedures/${owner}/SKILL.md`, `skills/${d}/SKILL.md`));
     }
   }
   const commandsDir = join(root, 'plugin/commands');
@@ -789,7 +810,7 @@ function buildI(root) {
   }
   const agentsDir = join(root, 'plugin/agents');
   if (existsSync(agentsDir)) {
-    for (const f of readdirSync(agentsDir).filter((f) => f.endsWith('.md')).sort()) push(`plugin/agents/${f}`, 'agent', `agents/${f}`);
+    for (const f of readdirSync(agentsDir).filter((f) => f.endsWith('.md')).sort()) push(`plugin/agents/${f}`, 'agent', sourceFile(root, `.agents/roles/${f}`, `agents/${f}`));
   }
   return members.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -910,7 +931,8 @@ async function validateDoc(root, id, doc) {
 }
 
 async function assertKindPins(root) {
-  const registry = join(root, KIND_REGISTRY);
+  const registryRel = sourceFile(root, KIND_REGISTRY, '.claude/skills/docs-author/references/page-kinds.md');
+  const registry = join(root, registryRel);
   if (!existsSync(registry)) {
     log(`kind-pin assertion deferred — ${KIND_REGISTRY} (D30's page-kinds registry) does not exist yet (S0q); pins: ${JSON.stringify(KIND_PINS)}`);
     return;

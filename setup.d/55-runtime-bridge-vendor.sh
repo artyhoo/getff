@@ -36,7 +36,7 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:640-641).
+#                        install.sh:642-643).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
 #   - setup-runtime-bridge.sh wires the repository it ships in (it lives at
@@ -97,10 +97,11 @@ fi
 # Real install path.
 mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 # Wipe + recopy (vendor updates land via re-running ./setup --force; matches
-# the existing skills/* idempotent wipe-and-recopy pattern in 10-skills.sh:31).
+# the existing skills/* idempotent wipe-and-recopy pattern (10-skills.sh:31, now via
+# $(procedure_source getff))).
 # Wipe + recopy + rewrite repo-internal relative refs in the DELIVERED markdown (2026-08-17).
 # This bare `cp -r` used to be the only shipped-markdown path in setup.d/ that skipped
-# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:180), so
+# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:228), so
 # vendor/README.md's two `](../../../…)` refs shipped verbatim. They resolve in-repo —
 # packages/runtime-bridge/vendor/ sits three levels below the repo root, the same depth as
 # .claude/vendor/runtime-bridge/ below a consumer root — which is exactly why the breakage is

@@ -33,7 +33,7 @@ const SYNTH_FIXTURE_PATH = resolve(
 const HOOKS_DIR = resolve(HERE, '../hooks');
 const AUDIT_SELF_DIR = resolve(HERE, '../audit-self');
 const BASH_MUTATOR = resolve(HERE, '../audit-self/run-bash-mutation.sh');
-const HOOK_MARKER_SH = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+const HOOK_MARKER_SH = resolve(REPO_ROOT, '.agents/hooks/check-hook-marker.sh');
 
 interface RuleEntry {
   title: string;

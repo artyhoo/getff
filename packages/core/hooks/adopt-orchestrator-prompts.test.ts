@@ -44,7 +44,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/adopt-orchestrator-prompts.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/adopt-orchestrator-prompts.sh');
 const HELPER = resolve(REPO_ROOT, 'scripts/link-coordination.sh');
 
 function hasJq(): boolean {

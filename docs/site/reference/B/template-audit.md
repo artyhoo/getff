@@ -100,7 +100,7 @@ the `python` [lane](../../terms.md#lane), which receives four skills and not thi
 
 - In `.claude/skills/template-audit/SKILL.md`: the description is line 3, the step 1
   command is line 20, the questions are lines 29 to 34, and "not blocking" is line 36.
-- The `test:template-render` script is line 63 of `packages/core/package.json`. The test
+- The `test:template-render` script is line 64 of `packages/core/package.json`. The test
   is `packages/core/audit-self/template-render.audit.ts`. Lines 4 to 11 of that file say
   which checks run in CI and which three are left to this skill.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143

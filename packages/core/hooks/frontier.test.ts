@@ -61,7 +61,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/frontier.sh');
+const HELPER = resolve(REPO_ROOT, '.agents/procedures/pipeline/helpers/frontier.sh');
 
 const sandboxes: string[] = [];
 afterEach(() => {
