@@ -37,7 +37,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1792 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1795 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "scripts/run-local-ci-sweep.sh:301 (quoted-path-token, closure)"
@@ -59,7 +59,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1643 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1646 (spawn-argument)",
           ".github/workflows/audit-self.yml:614 (workflow-run:invocation-verb)"
         ]
       },
@@ -79,7 +79,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1689 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1692 (spawn-argument)",
           ".github/workflows/audit-self.yml:580 (workflow-run:invocation-verb)"
         ]
       },
@@ -99,7 +99,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1576 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1579 (spawn-argument)",
           ".github/workflows/audit-self.yml:585 (workflow-run:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
@@ -140,7 +140,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2353 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2356 (spawn-argument)",
           ".github/workflows/audit-self.yml:1512 (workflow-run:invocation-verb)"
         ]
       },
@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2386 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2389 (spawn-argument)",
           "install.sh:1228 (quoted-path-token)"
         ]
       },
@@ -200,7 +200,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2414 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2417 (spawn-argument)",
           ".github/workflows/audit-self.yml:2875 (workflow-run:invocation-verb)"
         ]
       },
@@ -318,7 +318,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1133 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1136 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)"
         ]
       },
@@ -634,7 +634,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2026 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2029 (spawn-argument)",
           ".github/workflows/audit-self.yml:308 (workflow-run:invocation-verb)"
         ]
       },
@@ -674,7 +674,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2919 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2922 (spawn-argument)",
           ".husky/pre-commit:361 (quoted-path-token)"
         ]
       },
@@ -713,7 +713,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2008 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2011 (spawn-argument)",
           ".github/workflows/audit-self.yml:304 (workflow-run:invocation-verb)"
         ]
       },
@@ -733,7 +733,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1991 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1994 (spawn-argument)",
           ".github/workflows/audit-self.yml:293 (workflow-run:invocation-verb)",
           "scripts/render-reference.mjs:51 (es-import, closure)"
         ]

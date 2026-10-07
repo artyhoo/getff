@@ -103,6 +103,9 @@ const HOOK_LEAKED_DISCOVERY_VARS = [
   'GIT_INTERNAL_SUPER_PREFIX',
 ] as const;
 
+// GIT_ENV_SCRUB — file-scope marker read by principle 46: this hook is not loaded
+// by vitest, and every child it spawns goes through run(), which hands out
+// process.env minus the table above.
 const run = (cmd: string, args: readonly string[] = []): CheckResult => {
   const env = { ...process.env };
   for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];

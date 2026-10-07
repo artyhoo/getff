@@ -831,7 +831,7 @@ d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/
 fa3d03eb03f7d368bdf04add5fb3361524eb454f80bb09552cab5adccf10c4d9  packages/core/hooks/pre-push.heavy-runner.test.ts
 746482b3c3fabc3ccc1e33064754408fc6912159c0a0218c9b8f06da41faeac2  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 c36c262a48d74a8d064acac04dcb6fe160f0df456b0f0c056ebfdf2268d25629  packages/core/hooks/pre-push.test.ts
-7d715b07b1e119290be9aec19a40e469540336df1706fd83792eb78ea318240c  packages/core/hooks/pre-push.ts
+e1d68edb438eb8d120429c4665d3aac6f872153b6e0c4e6d5b0ccf32e357b1b8  packages/core/hooks/pre-push.ts
 6245c832a1aa845859e72b2dcf8d566ebafb566b5d27f3cb677a8fb56c532169  packages/core/hooks/precompact-residue.test.ts
 b9a825679616c6e7a65e49ef7f5daa3a368021cc19e59a619ef79e06e59b52a7  packages/core/hooks/priority-score-branch-matcher.test.ts
 5b5bf489313dfbdb63bf3d3b2525e948c12de720f323c1079d57ef8b10e09f4b  packages/core/hooks/priority-score-reconstruct-stub.test.ts
