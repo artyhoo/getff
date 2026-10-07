@@ -257,13 +257,14 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
 // pass. Channel verified 2026-07-24 —
 // research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync, rmSync as _rmSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync, rmSync as _rmSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
-  it('jq missing → SubagentStop JSON additionalContext says DID NOT RUN (exit 0)', () => {
+  it('jq missing → SubagentStop JSON additionalContext says DID NOT RUN (exit 0)', (ctx) => {
     // T-3 (#1597 ledger): the mkdtemp dir was never removed — `ls -d $TMPDIR/nojq-* | wc -l`
     // reported 226 leaked dirs (5 symlinks each) on the reviewer's machine, one more per
     // vitest run on every developer box and self-hosted runner. `finally` so the cleanup
@@ -272,7 +273,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     try {
       for (const tool of ['sed', 'tr', 'cat', 'grep', 'head']) {
         const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-        if (real) _symlinkSync(real, _join(binDir, tool));
+        // tool binaries are files: junctions cannot express them → named win32 skip
+        if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
       }
       const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
       delete env.ZCODE_PROJECT_DIR;

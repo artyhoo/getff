@@ -59,6 +59,14 @@ function hasRsync(): boolean {
 }
 const RSYNC = hasRsync();
 
+// #1799 Windows portability: the SUT's own `ln -s` needs the SeCreateSymbolicLink
+// privilege on Windows (MSYS would silently COPY instead, changing what is asserted).
+// Every case whose fixture needs a CREATED symlink is named-skipped on win32; the two
+// link-free cases stay live ((e) strips the LINK step; --on-conflict=bogus exits before
+// any linking). Premise-drift note: this file has NO fs.symlinkSync fixture site — the
+// symlinks are produced by the bash SUT, so the shared junction helper does not apply.
+const WIN_SYMLINK = process.platform === 'win32';
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 interface RunResult {
@@ -197,7 +205,7 @@ describe('link-coordination.sh', () => {
 
   // ── (a) SYMLINK ────────────────────────────────────────────────────────────
 
-  it('(a) SYMLINK: state.md is a symlink pointing into $CANON after helper runs', () => {
+  it.skipIf(WIN_SYMLINK)('(a) SYMLINK: state.md is a symlink pointing into $CANON after helper runs', () => {
     // SSOT #116: kickoff.md became a tracked durable doc (helper skips */kickoff.md);
     // state.md is the per-umbrella gitignored regenerable runtime the helper manages.
     // Pre-populate $CANON with the umbrella + state
@@ -224,7 +232,7 @@ describe('link-coordination.sh', () => {
 
   // ── (b) GIT-CLEAN ─────────────────────────────────────────────────────────
 
-  it('(b) GIT-CLEAN: tracked README.md and done.md stay as real files after linking', () => {
+  it.skipIf(WIN_SYMLINK)('(b) GIT-CLEAN: tracked README.md and done.md stay as real files after linking', () => {
     // Pre-populate $CANON
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
     writeFileSync(
@@ -254,7 +262,7 @@ describe('link-coordination.sh', () => {
 
   // ── (c) CONFLICT ──────────────────────────────────────────────────────────
 
-  it('(c) CONFLICT: real file in both worktree and CANON → exit 1, content unchanged', () => {
+  it.skipIf(WIN_SYMLINK)('(c) CONFLICT: real file in both worktree and CANON → exit 1, content unchanged', () => {
     // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON with its version
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
@@ -287,7 +295,7 @@ describe('link-coordination.sh', () => {
 
   // ── (d) WRITE-BACK ────────────────────────────────────────────────────────
 
-  it('(d) WRITE-BACK: edit via symlink is visible in $CANON and a second linked worktree', () => {
+  it.skipIf(WIN_SYMLINK)('(d) WRITE-BACK: edit via symlink is visible in $CANON and a second linked worktree', () => {
     // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // Pre-populate $CANON
     mkdirSync(resolve(canon, 'my-umbrella'), { recursive: true });
@@ -369,7 +377,7 @@ describe('link-coordination.sh', () => {
 
   // ── (f) ADOPT-THEN-LINK: orphan real file in worktree gets moved to $CANON ──
 
-  it('(f) ADOPT: real gitignored file in worktree with no CANON equivalent is adopted (mv to CANON, then linked)', () => {
+  it.skipIf(WIN_SYMLINK)('(f) ADOPT: real gitignored file in worktree with no CANON equivalent is adopted (mv to CANON, then linked)', () => {
     // Managed-file fixture is state.md (SSOT #116: kickoff.md is tracked, skipped).
     // $CANON has NO my-umbrella yet
     const wt = setupWorktreeDir(primaryRepo, 'lnk-f');
@@ -396,7 +404,7 @@ describe('link-coordination.sh', () => {
 
   // ── (g) SEED ─────────────────────────────────────────────────────────────
 
-  describe.skipIf(!RSYNC)('(g) SEED (requires rsync)', () => {
+  describe.skipIf(!RSYNC || WIN_SYMLINK)('(g) SEED (requires rsync)', () => {
     it('SEED: when $CANON is empty and seed-source provided, seeds from primary checkout', () => {
       // $CANON is empty (already created in beforeEach)
       // primaryRepo has my-umbrella/kickoff.md as a real file
@@ -421,7 +429,7 @@ describe('link-coordination.sh', () => {
 
   // ── (h) ON-CONFLICT flag (Task A1) ─────────────────────────────────────────
 
-  it('on-conflict=canon: canonical wins, worktree file relinked', () => {
+  it.skipIf(WIN_SYMLINK)('on-conflict=canon: canonical wins, worktree file relinked', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
     writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-canon');
@@ -435,7 +443,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('on-conflict=worktree: worktree wins, adopted into CANON', () => {
+  it.skipIf(WIN_SYMLINK)('on-conflict=worktree: worktree wins, adopted into CANON', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
     writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-worktree');
@@ -449,7 +457,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('on-conflict=skip (default): exits 1, leaves both files intact', () => {
+  it.skipIf(WIN_SYMLINK)('on-conflict=skip (default): exits 1, leaves both files intact', () => {
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
     writeFileSync(resolve(canon, 'u1/state.md'), 'CANON');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-skip');
@@ -473,7 +481,7 @@ describe('link-coordination.sh', () => {
 
   // ── (i) ROOT-FILE loop (Task A2) ───────────────────────────────────────────
 
-  it('root-file loop: _plan-cache.md adopted into CANON root and symlinked back', () => {
+  it.skipIf(WIN_SYMLINK)('root-file loop: _plan-cache.md adopted into CANON root and symlinked back', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-cache');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wtPrompts, '_plan-cache.md'), 'CACHE-v1');
@@ -485,7 +493,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('root-file loop: _master-backlog-delta.json linked from CANON into a fresh worktree', () => {
+  it.skipIf(WIN_SYMLINK)('root-file loop: _master-backlog-delta.json linked from CANON into a fresh worktree', () => {
     writeFileSync(resolve(canon, '_master-backlog-delta.json'), '{"untracked_seen":[]}');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-delta');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
@@ -497,7 +505,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('root-file loop: root README.md stays a real file (tracked-skip)', () => {
+  it.skipIf(WIN_SYMLINK)('root-file loop: root README.md stays a real file (tracked-skip)', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-readme');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wtPrompts, 'README.md'), 'TRACKED');
@@ -513,7 +521,7 @@ describe('link-coordination.sh', () => {
   // in every other checkout (incident 2026-09-14, getff-ai-site — the CC worktree
   // session's handoff 404'd for the main-clone ZCode seat).
 
-  it('(k1) ADOPT+SHARE: worktree _handoff-*.md adopted into CANON root, then linked into a SECOND worktree that never had it', () => {
+  it.skipIf(WIN_SYMLINK)('(k1) ADOPT+SHARE: worktree _handoff-*.md adopted into CANON root, then linked into a SECOND worktree that never had it', () => {
     const wt1 = setupWorktreeDir(primaryRepo, 'lnk-ho-1');
     const wt1Prompts = resolve(wt1, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wt1Prompts, '_handoff-sess_abc123.md'), 'HANDOFF-v1\n');
@@ -538,7 +546,7 @@ describe('link-coordination.sh', () => {
     teardown(wt1, wt2);
   });
 
-  it('(k2) PAIRED-NEGATIVE CONFLICT: _handoff-*.md real in BOTH worktree and CANON → exit 1, neither clobbered', () => {
+  it.skipIf(WIN_SYMLINK)('(k2) PAIRED-NEGATIVE CONFLICT: _handoff-*.md real in BOTH worktree and CANON → exit 1, neither clobbered', () => {
     writeFileSync(resolve(canon, '_handoff-dupe.md'), 'CANON-version\n');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-conf');
     writeFileSync(
@@ -555,7 +563,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('(k3) TRACKED handoff (one-off .gitignore exception) stays a REAL file — never symlinked', () => {
+  it.skipIf(WIN_SYMLINK)('(k3) TRACKED handoff (one-off .gitignore exception) stays a REAL file — never symlinked', () => {
     // The #canon-symlink-swallows-commit class (kickoff-staging-placement.md §5.2):
     // a handoff tracked via a one-off exception must not be adopted. Uses a REAL
     // git worktree so the is_tracked() guard resolves against a real index.
@@ -597,7 +605,7 @@ describe('link-coordination.sh', () => {
     teardown(repo);
   });
 
-  it('(k4) PAIRED-NEGATIVE: with the CANON-side family glob stripped, a second worktree does NOT receive the handoff', () => {
+  it.skipIf(WIN_SYMLINK)('(k4) PAIRED-NEGATIVE: with the CANON-side family glob stripped, a second worktree does NOT receive the handoff', () => {
     // Prove the CANON-glob superset is load-bearing (the exact arm the pre-fix
     // script lacked): neuter the ROOT-FILE LINK glob build by regex; wt2 then
     // never sees a handoff that exists only in $CANON. Same neutering convention
@@ -632,7 +640,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('(k5) FAMILIES: every ROOT_SHARED_FAMILIES glob (handoff, residue, morning-report) adopts and cross-links', () => {
+  it.skipIf(WIN_SYMLINK)('(k5) FAMILIES: every ROOT_SHARED_FAMILIES glob (handoff, residue, morning-report) adopts and cross-links', () => {
     const families = [
       '_handoff-sess_k5.md',
       '_residue-k5.md',
@@ -681,7 +689,7 @@ describe('link-coordination.sh', () => {
     }
   }
 
-  it('(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)', () => {
+  it.skipIf(WIN_SYMLINK)('(m) GIT-SPAWN BUDGET: under 15 git processes for 60 canon files (per-file would be >= 60)', () => {
     seedCanon();
     const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
     const starts = gitStarts(helper, wt);
@@ -690,7 +698,7 @@ describe('link-coordination.sh', () => {
     teardown(wt);
   });
 
-  it('(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file', () => {
+  it.skipIf(WIN_SYMLINK)('(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file', () => {
     seedCanon();
     const src = readFileSync(HELPER, 'utf8');
     const perFile = src.replace(
@@ -762,7 +770,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     teardown(canon, repo);
   });
 
-  it('(j) PASS: one-off tracked stage-4.md stays a REAL file; gitignored state.md IS symlinked', () => {
+  it.skipIf(WIN_SYMLINK)('(j) PASS: one-off tracked stage-4.md stays a REAL file; gitignored state.md IS symlinked', () => {
     const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
     const state = resolve(worktree, '.claude/orchestrator-prompts/u1/state.md');
 

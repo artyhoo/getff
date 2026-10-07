@@ -55,9 +55,13 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import {
+  symlinkOrJunctionOrSkip,
+  failLoudSkipContext,
+  type Skippable,
+} from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -174,7 +178,10 @@ copyFileSync(
 // The hook resolves tsx at $REPO_ROOT/node_modules/.bin/tsx (line 13); symlink
 // the whole tree so the sandbox needs no install. Chains through the worktree
 // symlink when the checkout itself symlinks node_modules.
-symlinkSync(
+// Module scope (no vitest ctx): dir target → the helper's junction arm on win32;
+// the fail-loud ctx fires only if that invariant ever breaks.
+symlinkOrJunctionOrSkip(
+  failLoudSkipContext('check-doc-authority SANDBOX node_modules'),
   join(REPO_ROOT, 'node_modules'),
   join(SANDBOX, 'node_modules'),
   'dir',
@@ -470,7 +477,7 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
    * because the jq-free JSON escaper needs them — masking those too would test the
    * harness, not the hook.
    */
-  function runWithoutJq(extraEnv: Record<string, string> = {}): {
+  function runWithoutJq(ctx: Skippable, extraEnv: Record<string, string> = {}): {
     status: number;
     stdout: string;
     stderr: string;
@@ -478,7 +485,8 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
     const binDir = mkdtempSync(join(tmpdir(), 'nojq-'));
     for (const tool of ['sed', 'tr', 'cat']) {
       const real = spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) symlinkSync(real, join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) symlinkOrJunctionOrSkip(ctx, real, join(binDir, tool));
     }
     const fullEnv: Record<string, string> = { ...process.env, PATH: binDir } as Record<
       string,
@@ -496,8 +504,8 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
-  it('CC: jq missing → hookSpecificOutput.additionalContext states the check DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runWithoutJq();
+  it('CC: jq missing → hookSpecificOutput.additionalContext states the check DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runWithoutJq(ctx);
 
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
@@ -509,8 +517,8 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 
-  it('ZCode: jq missing → bare additionalContext (harness parity preserved)', () => {
-    const { status, stdout } = runWithoutJq({ ZCODE_PROJECT_DIR: '/tmp' });
+  it('ZCode: jq missing → bare additionalContext (harness parity preserved)', (ctx) => {
+    const { status, stdout } = runWithoutJq(ctx, { ZCODE_PROJECT_DIR: '/tmp' });
 
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
@@ -521,8 +529,8 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
     expect(parsed.hookSpecificOutput).toBeUndefined();
   });
 
-  it('the human/log channel is kept as well (stderr still carries the notice)', () => {
-    const { stderr } = runWithoutJq();
+  it('the human/log channel is kept as well (stderr still carries the notice)', (ctx) => {
+    const { stderr } = runWithoutJq(ctx);
 
     expect(stderr).toMatch(/jq unavailable/);
   });
@@ -573,7 +581,14 @@ describe.skipIf(!JQ || !TSX)(
       writeFileSync(join(root, 'README'), 'init\n');
       execSync('git add -A && git commit -qm init', { cwd: root });
       if (opts.nodeModules) {
-        symlinkSync(join(REPO_ROOT, 'node_modules'), join(root, 'node_modules'), 'dir');
+        // describe-scope helper (no per-test ctx plumbed): dir target → junction arm on
+        // win32; the fail-loud ctx fires only if that invariant ever breaks
+        symlinkOrJunctionOrSkip(
+          failLoudSkipContext('makeGitRepo node_modules'),
+          join(REPO_ROOT, 'node_modules'),
+          join(root, 'node_modules'),
+          'dir',
+        );
       }
       return root;
     }

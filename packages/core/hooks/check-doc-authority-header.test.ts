@@ -179,10 +179,12 @@ describe.skipIf(!JQ)(
 // check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
 // 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
+import type { Skippable } from './symlink-or-junction-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
   /**
@@ -195,6 +197,7 @@ describe('dependency-missing skip is announced on the model channel', () => {
    * order-dependent test. Caller controls the session via `tmpDir`/`sessionId`.
    */
   function runNoJq(
+    ctx: Skippable,
     filePath: string,
     opts: { tmpDir?: string; sessionId?: string } = {},
   ): { status: number; stdout: string; stderr: string } {
@@ -203,7 +206,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date']) {
       const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = {
       ...process.env,
@@ -223,8 +227,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
-  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq('/x/.claude/rules/some-rule.md');
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/.claude/rules/some-rule.md');
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -234,18 +238,18 @@ describe('dependency-missing skip is announced on the model channel', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 
-  it('the notice is once per session — a second in-scope edit is silent (GH #934 no per-turn spam)', () => {
+  it('the notice is once per session — a second in-scope edit is silent (GH #934 no per-turn spam)', (ctx) => {
     const session = _mkdtempSync(_join(_tmpdir(), 'dahsess-'));
-    const first = runNoJq('/x/.claude/rules/some-rule.md', { tmpDir: session });
+    const first = runNoJq(ctx, '/x/.claude/rules/some-rule.md', { tmpDir: session });
     expect(first.stdout).toMatch(/DID NOT RUN/);
 
-    const second = runNoJq('/x/.claude/rules/other-rule.md', { tmpDir: session });
+    const second = runNoJq(ctx, '/x/.claude/rules/other-rule.md', { tmpDir: session });
     expect(second.status).toBe(0);
     expect(second.stdout.trim()).toBe('');
   });
 
-  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
-    const { status, stdout } = runNoJq('/x/docs/guide.md');
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/docs/guide.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });

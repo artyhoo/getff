@@ -53,8 +53,8 @@ const HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
 // exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
 // 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
 // suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
-// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:575
-// and check-worker-dispatch-channel.test.ts:362 record the same 5000ms-under-parallel-load
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:581
+// and check-worker-dispatch-channel.test.ts:360 record the same 5000ms-under-parallel-load
 // failure, in the inline `timeout:` spelling of the same convention.
 const SLOW_SHELL_MS = 30_000;
 

@@ -42,9 +42,9 @@ import {
   readlinkSync,
   unlinkSync,
   rmSync,
-  symlinkSync,
   existsSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -222,7 +222,7 @@ describe('harness-config-drift — negatives (N1–N5)', () => {
 });
 
 describe('harness-config-drift — robustness (cold-QA #894)', () => {
-  it('D1: invoking via a symlinked script path still executes run() (no silent no-op)', () => {
+  it('D1: invoking via a symlinked script path still executes run() (no silent no-op)', (ctx) => {
     const s = sandbox();
     // A symlink to the generator, mimicking a git worktree behind a symlinked ancestor.
     // Node resolves `import.meta.url` through the symlink but not `process.argv[1]`, so a
@@ -230,7 +230,8 @@ describe('harness-config-drift — robustness (cold-QA #894)', () => {
     const linkDir = mkdtempSync(join(tmpdir(), 'harness-drift-link-'));
     sandboxes.push(linkDir);
     const linkedGen = join(linkDir, 'render-harness-config.mjs');
-    symlinkSync(GEN, linkedGen);
+    // file target (.mjs): junctions cannot express it → named win32 skip (POSIX unchanged)
+    symlinkOrJunctionOrSkip(ctx, GEN, linkedGen);
     const r = spawnSync('node', [linkedGen, '--write', '--root', s], {
       encoding: 'utf8',
     });
