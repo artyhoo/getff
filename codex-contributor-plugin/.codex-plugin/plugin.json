@@ -1,0 +1,6 @@
+{
+  "name": "getff-contributor",
+  "version": "0.1.0",
+  "description": "Session hooks for contributors to the getff framework. Requires this repository; no consumer installation.",
+  "hooks": "./hooks/hooks.json"
+}

@@ -26,6 +26,27 @@
 // mergedPrs entries: { number, node_id, merged_at, repository_id, merge_sha, base_sha }.
 // isQualifying(pr) → boolean: the deployment wires policy readiness here; a PR that
 // fails it stays in the plan as kind 'blocked' (visible with its blocker reason).
+//
+// Completion matches an accepted canonical review, including its actual mode and
+// comparison basis. A policy is pinned by BOTH version and computed manifest
+// digest (the trusted manifest need not carry a self-referential digest field).
+// Moving staging changes finding applicability, not review of pinned history.
+import { policyDigest } from './load-policy.mjs';
+
+export function reviewIdentity({ repository_id: repositoryId, pr_node_id: prNodeId, mode = 'OPEN_PR', comparison_basis: basis, head_sha: headSha, merge_sha: mergeSha, base_sha: baseSha, protocol_version: protocolVersion, policy_version: policyVersion, policy_sha256: policySha256 } = {}) {
+  return {
+    repository_id: repositoryId ?? null,
+    pr_node_id: prNodeId ?? null,
+    mode,
+    comparison_basis: basis ?? (mode === 'HISTORICAL' ? 'HISTORICAL_PINNED' : 'HEAD_TO_BASE'),
+    head_sha: mode === 'HISTORICAL' ? null : (headSha ?? null),
+    merge_sha: mode === 'HISTORICAL' ? (mergeSha ?? null) : null,
+    base_sha: baseSha ?? null,
+    protocol_version: protocolVersion ?? null,
+    policy_version: policyVersion ?? null,
+    policy_sha256: policySha256 ?? null,
+  };
+}
 export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQualifying } = {}) {
   if (!ledger) throw Object.assign(new Error('buildQueue requires the ledger'), { code: 'E_LIMITS' });
   const protocol = policy?.protocol_version ?? 'unknown';
@@ -73,9 +94,22 @@ export function buildQueue({ ledger, policy, openPrs = [], mergedPrs = [], isQua
   }
 
   // 3. unreviewed merged staging PRs — newest merged first; the work identity is
-  // the MERGE basis (a merged source is never reopened or re-reviewd on a new key)
+  // the MERGE basis (a merged source is never reopened or re-reviewd on a new key).
+  // D2065-S06: "reviewed" means an accepted review of THIS EXACT identity (repo,
+  // PR node, the reviewed merge/base, protocol) — never PR-node memory, so a
+  // re-merge (H2) after an earlier acceptance (H1) is still work, and a changed
+  // basis/protocol/repository never silently covers it
   const merged = [...mergedPrs]
-    .filter((p) => !ledger.prHasReview(p.node_id))
+    .filter((p) => !ledger.prHasReview(reviewIdentity({
+      repository_id: repoOf(p),
+      pr_node_id: p.node_id,
+      mode: 'HISTORICAL',
+      merge_sha: p.merge_sha,
+      base_sha: p.base_sha,
+      protocol_version: protocol,
+      policy_version: policy?.policy_version ?? null,
+      policy_sha256: policy ? policyDigest(policy) : null,
+    })))
     .sort((a, b) => {
       const ma = String(a.merged_at ?? '');
       const mb = String(b.merged_at ?? '');
@@ -125,13 +159,69 @@ export function reserveNext({ ledger, items, n, leaseMinutes, nowMs = Date.now()
 // Historical revalidation gate: an already-fixed defect must not launch a fix. The
 // revalidation probe is injected by the deployment (Dot checks current staging);
 // offline tests inject stubs.
-export async function gateHistorical({ item, revalidateFinding } = {}) {
+//
+// D2065-S05: evidence is BOUND or the item HOLDS — every shape below that is not a
+// verifiable bound positive/negative returns {launch:false, hold:true, code, reason}
+// instead of fail-opening:
+//   - {present:boolean, checked:{staging_sha, checked_at}} — the only accepted
+//     shapes; checked.staging_sha MUST equal the cycle's currentStagingSha (a
+//     probe pinned to a DIFFERENT staging is stale evidence, not proof);
+//   - a raw boolean / null / malformed object — unbound, never proof of anything;
+//   - present:false WITH a bound staging reference is the ONLY durable
+//     ALREADY_FIXED disposition;
+//   - a missing currentStagingSha on the cycle side holds too (E_HISTORICAL_STAGING)
+//     — without it, binding cannot be verified.
+export async function gateHistorical({ item, revalidateFinding, currentStagingSha } = {}) {
   if (typeof revalidateFinding !== 'function') {
-    throw Object.assign(new Error('gateHistorical requires revalidateFinding'), { code: 'E_LIMITS' });
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_UNVERIFIED',
+      reason: `finding ${item?.key}: no revalidateFinding adapter — historical remediation holds before claim/budget/delivery`,
+    };
   }
-  const stillPresent = await revalidateFinding(item);
-  if (!stillPresent) {
-    return { launch: false, disposition: 'ALREADY_FIXED', reason: `finding ${item?.key} no longer reproduces at current staging — record an ALREADY_FIXED closure (with its evidence), never a fix launch` };
+  let evidence;
+  try {
+    evidence = await revalidateFinding(item);
+  } catch (e) {
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_HOLD',
+      reason: `finding ${item?.key}: revalidation probe failed (${e.message ?? e}) — uncertainty holds, never launches`,
+    };
   }
-  return { launch: true };
+  if (evidence === null || evidence === undefined || typeof evidence === 'boolean') {
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_UNBOUND',
+      reason: `finding ${item?.key}: raw boolean/null revalidation result carries no staging binding — not evidence of present OR absent`,
+    };
+  }
+  const checked = evidence && typeof evidence === 'object' ? evidence.checked : null;
+  const shaOk = (s) => typeof s === 'string' && /^[0-9a-f]{40,64}$/.test(s);
+  const timeOk = typeof checked?.checked_at === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(checked.checked_at)
+    && Number.isFinite(Date.parse(checked.checked_at))
+    && new Date(checked.checked_at).toISOString() === checked.checked_at.replace(/(?:\.(\d{1,3}))?Z$/, (_, fraction) => `.${(fraction ?? '').padEnd(3, '0')}Z`);
+  if (typeof evidence.present !== 'boolean' || !checked || !shaOk(checked.staging_sha) || !timeOk) {
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_UNBOUND',
+      reason: `finding ${item?.key}: malformed revalidation evidence (${JSON.stringify(evidence).slice(0, 120)}) — no valid {present, checked:{staging_sha,checked_at}} binding`,
+    };
+  }
+  if (!shaOk(currentStagingSha)) {
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_STAGING',
+      reason: `finding ${item?.key}: the cycle carries no current staging revision — revalidation evidence cannot be bound`,
+    };
+  }
+  if (checked.staging_sha !== currentStagingSha) {
+    return {
+      launch: false, hold: true, code: 'E_HISTORICAL_STALE',
+      reason: `finding ${item?.key}: evidence was checked against staging ${checked.staging_sha.slice(0, 12)} but the cycle's staging is ${currentStagingSha.slice(0, 12)} — stale/mismatched staging holds`,
+    };
+  }
+  if (!evidence.present) {
+    return {
+      launch: false, disposition: 'ALREADY_FIXED', evidence: checked,
+      reason: `finding ${item?.key} no longer reproduces at the cycle's current staging (${currentStagingSha.slice(0, 12)}, verified ${checked.checked_at ?? 'unrecorded'}) — record an ALREADY_FIXED closure (with its evidence), never a fix launch`,
+    };
+  }
+  return { launch: true, evidence: checked };
 }

@@ -361,8 +361,10 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
     return [];
   }
   for (const name of actual) {
-    let src = resolve(repoRoot, 'skills', name);
-    let fromClaudeSkills = false;
+    const procedure = name === 'tool-bootstrapping' ? 'tool-bootstrapping-consumer' : name;
+    let src = resolve(repoRoot, '.agents/procedures', procedure);
+    let fromClaudeSkills = existsSync(src);
+    if (!existsSync(src)) src = resolve(repoRoot, 'skills', name);
     if (!existsSync(src)) {
       const alt = resolve(repoRoot, '.claude/skills', name);
       if (!existsSync(alt)) continue; // plugin-native skill — no framework source to match
@@ -466,7 +468,7 @@ export function sourceHashManifestViolations(root: string): string[] {
   const twinDir = join(root, 'plugin/hooks');
   const twins = existsSync(twinDir) ? readdirSync(twinDir) : [];
   for (const n of twins) {
-    const a = read(`.claude/hooks/${n}.sh`);
+    const a = read(`.agents/hooks/${n}.sh`) || read(`.claude/hooks/${n}.sh`);
     const b = read(`packages/core/hooks/${n}.sh`);
     if (a && b && a !== b)
       out.push(`packages/core/hooks/${n}.sh differs from .claude/hooks/${n}.sh — the installer delivers bytes the manifest does not describe`);
@@ -652,7 +654,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     const dir = resolve(PLUGIN, 'agents');
     const drift: string[] = [];
     for (const f of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
-      const src = resolve(REPO_ROOT, 'agents', f);
+      const src = resolve(REPO_ROOT, '.agents/roles', f);
       if (!existsSync(src) || readFileSync(src, 'utf8') !== readFileSync(resolve(dir, f), 'utf8')) drift.push(f);
     }
     expect(drift, `plugin/agents drifted from agents/ source: ${drift.join(', ')}`).toHaveLength(0);
@@ -661,7 +663,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
   // ── (e) drift guard — relocated inject-matching-rule keeps its source's logic ─
   it('(e) drift: plugin/hooks/inject-matching-rule core logic is byte-identical to its source', () => {
     const plugin = readFileSync(resolve(PLUGIN, 'hooks/inject-matching-rule'), 'utf8');
-    const source = readFileSync(resolve(REPO_ROOT, '.claude/hooks/inject-matching-rule.sh'), 'utf8');
+    const source = readFileSync(resolve(REPO_ROOT, '.agents/hooks/inject-matching-rule.sh'), 'utf8');
     // Same @dual-pair anchor (the §5 dual-implementation contract).
     expect(plugin).toMatch(/@dual-pair: rule-path-scoping/);
     expect(source).toMatch(/@dual-pair: rule-path-scoping/);
@@ -861,7 +863,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       // L2 arm — a link that DOES resolve at the agents/ source depth (19 agents) and dangles at
       // the twin's shipped depth (3). A `../`-substring check cannot see this class.
       writeFileSync(join(tmp, 'probe.md'), '[fidelity-auditor](fidelity-auditor.md)\n');
-      expect(existsSync(resolve(REPO_ROOT, 'agents/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
+      expect(existsSync(resolve(REPO_ROOT, '.agents/roles/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
       const l2 = checkPluginPayloadLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
       expect(l2.map((x) => x.code), `expected L2 for the source-depth-only link; got ${JSON.stringify(l2)}`).toEqual(['L2']);
     } finally {

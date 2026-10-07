@@ -48,7 +48,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const REAL_HOOK = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+const REAL_HOOK = resolve(REPO_ROOT, '.agents/hooks/check-hook-marker.sh');
 
 // run-bash-mutation.sh exports BASHMUT_HOOK = the shadow copy it swaps mutants
 // into. Honoring it is what lets the kill-rate gate exercise mutants without
@@ -88,7 +88,7 @@ writeFileSync(
 copyFileSync(SOURCE_HOOK, HOOK);
 mkdirSync(join(dirname(HOOK), 'lib'), { recursive: true });
 copyFileSync(
-  resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh'),
+  resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh'),
   join(dirname(HOOK), 'lib', 'hook-emit.sh'),
 );
 
@@ -595,7 +595,7 @@ describe.skipIf(!JQ)(
 describe.skipIf(!JQ)(
   'check-hook-marker.sh — Layer 2 population backstop (matcher ⊇ @file-content-gate/case-arm)',
   () => {
-    const realHooksDir = resolve(REPO_ROOT, '.claude/hooks');
+    const realHooksDir = resolve(REPO_ROOT, '.agents/hooks');
 
     function runRealHook(root: string, tool: string, absPath: string): number {
       const fullEnv: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
@@ -710,6 +710,23 @@ import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
 import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
 
+describe('canonical hook path routing', () => {
+  it.each(['.agents/hooks', '.claude/hooks'])('rejects a missing marker at %s', (dir) => {
+    const hookDir = join(SANDBOX, dir);
+    mkdirSync(hookDir, { recursive: true });
+    const path = join(hookDir, 'canonical-negative.sh');
+    writeFileSync(path, withHeader('canonical-negative.sh', 'Canonical path marker regression fixture', '#!/usr/bin/env bash\necho hi\n'));
+    expect(runHook('Edit', path).status).toBe(2);
+  });
+  it.each(['.agents/hooks', '.claude/hooks'])('accepts a declared hook at %s', (dir) => {
+    const hookDir = join(SANDBOX, dir);
+    mkdirSync(hookDir, { recursive: true });
+    const path = join(hookDir, 'canonical-positive.sh');
+    writeFileSync(path, withHeader('canonical-positive.sh', 'Canonical path marker regression fixture', '#!/usr/bin/env bash\n# @cc-only-rationale: fixture declares its native channel deliberately\necho hi\n'));
+    expect(runHook('Edit', path).status).toBe(0);
+  });
+});
+
 describe('dependency-missing skip is announced on the model channel', () => {
   function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string; stderr: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
@@ -752,7 +769,7 @@ describe('dependency-missing skip is announced on the model channel', () => {
 // Consumer scoping (#1597 review ledger A3-4) + order-independent matcher membership (A3-8).
 // ═══════════════════════════════════════════════════════════════════════════════
 describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)', () => {
-  const REAL_HOOK_PATH = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+  const REAL_HOOK_PATH = resolve(REPO_ROOT, '.agents/hooks/check-hook-marker.sh');
 
   /**
    * A tree shaped like a consumer install: the consumer's own hook, no .claude/rules/.

@@ -42,7 +42,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/dup-detect.sh',
+  '.agents/procedures/pipeline/helpers/dup-detect.sh',
 );
 
 // Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella

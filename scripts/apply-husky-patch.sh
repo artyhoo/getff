@@ -81,10 +81,17 @@ else
 fi
 
 # ── repo-family pin: the operator approved this channel for THIS project only ─
+# D2068-S01: a substring match accepted suffix repositories (artyhoo/getff-experiment),
+# foreign hosts and embedded paths (…/unrelated/artyhoo/getff). The pin is an EXACT
+# host+repo match on the canonical URL spellings (+ the same-git-common-dir fallback
+# for local worktrees of the authoring checkout).
 repo_pin_ok=""
 repo_url="$(git -C "$REPO_ROOT" config --get remote.origin.url 2>/dev/null || true)"
 case "$repo_url" in
-  *artyhoo/getff*) repo_pin_ok="remote" ;;
+  *.git) repo_url="${repo_url%.git}" ;;
+esac
+case "$repo_url" in
+  https://github.com/artyhoo/getff|git@github.com:artyhoo/getff|ssh://git@github.com/artyhoo/getff) repo_pin_ok="remote" ;;
 esac
 if [ -z "$repo_pin_ok" ]; then
   common_dir_of() {

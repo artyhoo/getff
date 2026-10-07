@@ -40,9 +40,13 @@ const { openLedger } = await import(ledgerPath);
 const { createBudgets } = await import(budgetsPath);
 const { buildQueue } = await import(queuePath);
 const { createCcAdapter } = await import(adapterPath);
-const { makePolicyFixture } = await import(fixPath);
+const { makePolicyFixture, makeHistorical } = await import(fixPath);
 const { mkdirSync, writeFileSync, existsSync, readFileSync } = await import('node:fs');
 const { createHash } = await import('node:crypto');
+const { pathToFileURL } = await import('node:url');
+const { policyDigest } = await import(new URL('./load-policy.mjs', pathToFileURL(runnerPath)));
+const canonicalReview = () => JSON.parse(readFileSync(new URL('../../docs/meta-factory/dot-review-v2-examples/historical.json', pathToFileURL(runnerPath)), 'utf8'));
+
 
 const log = (...a) => console.log(...a);
 const fail = (m) => { console.log('FAIL ' + m); process.exitCode = 1; };
@@ -52,7 +56,7 @@ const REPO = 1231007068;
 // priority defects; every bound under test here is enforced by its own rule, not
 // by an exhausted window.
 const LIMITS = { max_launches_per_window: 10, window_minutes: 60, max_fix_rounds_per_occurrence: 2, max_work_per_pr: 4, coalesce_minutes: 10, max_active_claims: 1, max_attempts_per_tuple: 8, claim_lease_minutes: 120 };
-const policy = makePolicyFixture({ limits: LIMITS });
+const policy = makePolicyFixture({ limits: LIMITS, protocol_version: 'dot-pr-review/2.0.0' });
 const ledger = openLedger(`${tmp}/runner.sqlite`);
 const budgets = createBudgets({ ledger, limits: LIMITS });
 const coordDir = `${tmp}/coord`;
@@ -104,6 +108,28 @@ function group(name) {
   mkdirSync(dir, { recursive: true });
   const a = createCcAdapter({ ledger: l, coordinationDir: dir, notify: async () => {} });
   return { l, b: createBudgets({ ledger: l, limits: LIMITS }), a, dir };
+}
+
+function seedAccepted(l, node, head, mode = 'OPEN_PR', basis = 'HEAD_TO_BASE') {
+  const record = canonicalReview();
+  const tuple = { repository_id: REPO, pr_node_id: node, base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: head.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'd'.repeat(40), policy_sha256: policyDigest(policy), protocol_version: policy.protocol_version };
+  const g = l.claimGeneration({tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30});
+  Object.assign(record.review_identity, {assignment_id: g.claim.claim_id, mode, comparison_basis: basis, pull_request: {number: 2042, node_id: node}, revisions: {...record.review_identity.revisions, head_sha: tuple.head_sha, base_sha: tuple.base_sha, merge_base_sha: tuple.merge_base_sha, tested_merge_sha: tuple.tested_merge_sha}, policy: {version: policy.policy_version, sha256: tuple.policy_sha256, epoch: 1}});
+  const payload = JSON.stringify(record);
+  const receipt = l.submitReport({claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: 'REVISE', kind: 'review_report', leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest});
+  return {g, receipt};
+}
+
+function seedLegacyHistorical(l, node) {
+  const legacyPolicy = makePolicyFixture({limits: LIMITS});
+  const record = makeHistorical({pull_request: {number: 4002, node_id: node}, policy: {sha256: policyDigest(legacyPolicy)}});
+  const tuple = {repository_id: REPO, pr_node_id: node, ...record.revision, policy_sha256: record.policy.sha256, protocol_version: record.protocol_version};
+  const g = l.claimGeneration({tuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30});
+  record.claim_id = g.claim.claim_id;
+  record.generation = g.generation.seq;
+  const payload = JSON.stringify(record);
+  const receipt = l.submitReport({claimId: g.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(payload).digest('hex'), payload, verdict: record.verdict, kind: record.kind, leaseMinutes: 30, liveTupleDigest: g.generation.tuple_digest});
+  return {g, receipt, payload, tuple, legacyPolicy};
 }
 
 function seedScoped(l, key, node = 'PR_verify', head = 'f') {
@@ -170,10 +196,12 @@ try {
   if (!disabled || r5.dispatched.length !== 0) fail(`unattended off ${JSON.stringify(r5.held)} d=${r5.dispatched.length}`);
   else log('ok missing-limits-disable-handout');
 
-  // the review bound frees only through its journal signals — an accepted report
-  // (or its control memory) resolves it; the suite resolves r2's review here so
-  // the budget arm below isolates the BUDGET rule from the review-count rule
-  ledger.noteReviewedPr('PR_kwDOM9YQhs6AbCdEfGh');
+  // the review bound frees only through its journal signals — D2065-S06: an
+  // ACCEPTED review report on the EXACT reviewed identity (head c…/base b…, this
+  // repository, this protocol) resolves it; PR-node memory alone never does.
+  // Resolves r2's review here so the budget arm below isolates the BUDGET rule
+  // from the review-count rule
+  seedAccepted(ledger, 'PR_kwDOM9YQhs6AbCdEfGh', 'c');
 
   // ── R3-5: operational stops at every consequential boundary ──────────────────
   // a stranded INTENT exists (crashed write) — recovery must NOT re-deliver it
@@ -298,14 +326,25 @@ try {
 
   // an accepted report RESOLVES the active review — the bound frees for the next
   // candidate (the resolution signal is the journal, not a timer)
-  const seedTuple = { repository_id: REPO, pr_node_id: prA.node_id, base_ref: 'staging', base_sha: 'b'.repeat(40), head_sha: 'd'.repeat(40), merge_base_sha: 'a'.repeat(40), tested_merge_sha: 'e'.repeat(40), policy_sha256: 'p'.repeat(64), protocol_version: 'dot-staging-review/1.0' };
-  const gen = L2.l.claimGeneration({ tuple: seedTuple, reviewerId: 555001, maxAttemptsPerTuple: 8, leaseMinutes: 30 });
-  const seedPayload = JSON.stringify({ probe: 'review landed' });
-  L2.l.submitReport({ claimId: gen.claim.claim_id, reviewerId: 555001, digest: createHash('sha256').update(seedPayload).digest('hex'), payload: seedPayload, verdict: 'GO', kind: 'admission', leaseMinutes: 30, liveTupleDigest: gen.generation.tuple_digest });
+  seedAccepted(L2.l, prA.node_id, 'd');
   const prC2 = { ...prC, head_sha: 'e'.repeat(40) };
   const rResolved = await runCycle({ ledger: L2.l, policy, budgets: L2.b, adapter: L2.a, discover: async () => ({ openPrs: [prC2], mergedPrs: [] }), resolveTarget });
   if (rResolved.dispatched.filter((d) => d.kind === 'review-request').length !== 1) fail(`resolution ${JSON.stringify({ d: rResolved.dispatched, h: rResolved.held })}`);
   else log('ok r36-accepted-report-resolves-active-review');
+
+  // Wrong accepted mode/basis cannot free an outstanding OPEN_PR request.
+  for (const [label, mode, basis] of [['mode', 'HISTORICAL', 'HISTORICAL_PINNED'], ['basis', 'OPEN_PR', 'HEAD_TO_MERGE_CANDIDATE']]) {
+    const L = group(`identity-${label}`);
+    const p = {...prA, node_id: `PR_wrong_${label}`};
+    register(L.l, p.node_id, p.number);
+    const launched = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: async () => ({openPrs: [p]}), resolveTarget});
+    const action = launched.dispatched.find(d => d.kind === 'review-request');
+    seedAccepted(L.l, p.node_id, 'c', mode, basis);
+    const checked = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget});
+    if (!action || L.l.coordGet(action.actionId)?.state !== 'DELIVERED' || checked.activeReviews !== 1) fail(`wrong ${label} resolved outstanding request`);
+    else log(`ok wrong-accepted-${label}-keeps-review-active`);
+    L.l.close();
+  }
 
   // open-vs-historical priority: a qualifying open PR and an unreviewed merged PR
   // together — the OPEN review launches; the historical one is HELD (spec §7)
@@ -384,14 +423,20 @@ try {
   seedHistorical(L6.l, 'artyhoo/getff#H1');
   const pendingBefore = L6.l.counts().outbox_pending;
   const actionsBefore = coordCount(L6.l);
+  // D2065-S05: revalidation evidence is BOUND to the cycle's current staging —
+  // present:false without a bound staging reference is NOT already-fixed proof
+  const STAGING = '5'.repeat(40);
+  const CHECKED = { staging_sha: STAGING, checked_at: '2026-10-06T12:00:00Z' };
   const rFixed = await runCycle({
     ledger: L6.l, policy, budgets: L6.b, adapter: L6.a,
     discover: DISCOVER_EMPTY,
-    revalidateFinding: async (item) => item.key !== 'artyhoo/getff#H1',
+    revalidateFinding: async (item) => ({ present: item.key === 'artyhoo/getff#H1' ? false : true, checked: CHECKED }),
+    currentStagingSha: STAGING,
     resolveTarget,
   });
   const durableFixed = L6.l.counts().outbox_pending - pendingBefore;
-  if (rFixed.historical.find((h) => h.disposition === 'ALREADY_FIXED') && rFixed.dispatched.length === 0
+  const fixedEntry = rFixed.historical.find((h) => h.disposition === 'ALREADY_FIXED');
+  if (fixedEntry && fixedEntry.evidence?.staging_sha === STAGING && rFixed.dispatched.length === 0
     && coordCount(L6.l) === actionsBefore && durableFixed === 1) {
     log('ok r31-already-fixed-zero-launch-durable-evidence');
   } else {
@@ -399,20 +444,93 @@ try {
   }
 
   // the still-present CONTROL historical finding DOES dispatch ONE correction
-  // assignment, and the packet carries the issued assignment identity
+  // assignment, and the packet carries the issued assignment identity + the
+  // revalidation evidence it launched on (D2065-S05)
   seedHistorical(L6.l, 'artyhoo/getff#H2');
   const rPresent = await runCycle({
     ledger: L6.l, policy, budgets: L6.b, adapter: L6.a,
     discover: DISCOVER_EMPTY,
-    revalidateFinding: async (item) => item.key === 'artyhoo/getff#H2',
+    revalidateFinding: async (item) => ({ present: item.key === 'artyhoo/getff#H2', checked: CHECKED }),
+    currentStagingSha: STAGING,
     resolveTarget,
   });
   const presentDispatch = rPresent.dispatched.find((d) => d.kind === 'fix-assignment');
   const presentPacket = presentDispatch ? JSON.parse(L6.l.coordGet(presentDispatch.actionId)?.payload_text ?? '{}') : {};
   if (!presentDispatch || !presentPacket.assignment_id || presentPacket.finding_key !== 'artyhoo/getff#H2'
-    || !/HISTORICAL_REVALIDATED/.test(JSON.stringify(presentPacket))) {
+    || presentPacket.historical_basis !== 'HISTORICAL_REVALIDATED'
+    || presentPacket.revalidation?.checked_staging_sha !== STAGING || !presentPacket.revalidation?.checked_at) {
     fail(`still-present control ${JSON.stringify({ d: rPresent.dispatched, packet: presentPacket })}`);
   } else log('ok r31-still-present-historical-dispatches-one-assignment');
+
+  // ── D2065-S05 negative matrix: every UNTRUSTED revalidation shape holds — ────
+  // zero assignment, zero routing, zero coordination writes, occurrence stays
+  // OPEN; the historical arm can no longer be skipped by omitting the adapter
+  const holdArm = async (name, opts, expectCode) => {
+    const L = group(`l6b-${name}`);
+    register(L.l, 'PR_kwDOM9YQhs6AbCdEfGhS', 3910);
+    seedHistorical(L.l, `artyhoo/getff#${name}`);
+    const before = coordCount(L.l);
+    const r = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, ...opts });
+    const occ = L.l.lineage(`artyhoo/getff#${name}`).at(-1);
+    if (!r.held.find((h) => h.code === expectCode && h.key === `artyhoo/getff#${name}`) || r.dispatched.length !== 0
+      || r.routed.length !== 0 || coordCount(L.l) !== before || occ?.state === 'ASSIGNED') {
+      fail(`${name} hold ${expectCode}: ${JSON.stringify({ held: r.held, d: r.dispatched.length, routed: r.routed.length, delta: coordCount(L.l) - before, state: occ?.state })}`);
+    } else log(`ok r31-${name}-holds`);
+  };
+  await holdArm('unverified-adapter', {}, 'E_HISTORICAL_UNVERIFIED'); // adapter ABSENT: hold, never skip
+  await holdArm('throwing-adapter', { revalidateFinding: async () => { throw new Error('revalidation backend unreachable'); } }, 'E_HISTORICAL_HOLD');
+  await holdArm('raw-boolean-adapter', { revalidateFinding: async () => true }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('null-result-adapter', { revalidateFinding: async () => null }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('stale-evidence-adapter', { revalidateFinding: async () => ({ present: true, checked: { staging_sha: '9'.repeat(40), checked_at: CHECKED.checked_at } }) }, 'E_HISTORICAL_STALE');
+  await holdArm('missing-time', { revalidateFinding: async () => ({present: true, checked: {staging_sha: STAGING}}) }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('invalid-time', { revalidateFinding: async () => ({present: true, checked: {...CHECKED, checked_at: 'not-a-time'}}) }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('short-sha', { currentStagingSha: 's', revalidateFinding: async () => ({present: true, checked: {...CHECKED, staging_sha: 's'}}) }, 'E_HISTORICAL_UNBOUND');
+  await holdArm('no-staging-input', { revalidateFinding: async () => ({ present: true, checked: CHECKED }) , currentStagingSha: undefined }, 'E_HISTORICAL_STAGING');
+  // replay: a second identical cycle creates NO duplicate assignment — the durable
+  // reservation + issued claim hold the line
+  { const L = group('l6c');
+    register(L.l, 'PR_kwDOM9YQhs6AbCdEfGhS', 3910);
+    seedHistorical(L.l, 'artyhoo/getff#H-REPLAY');
+    const one = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, revalidateFinding: async () => ({ present: true, checked: CHECKED }) });
+    const two = await runCycle({ ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, revalidateFinding: async () => ({ present: true, checked: CHECKED }) });
+    if (one.dispatched.filter((d) => d.kind === 'fix-assignment').length !== 1
+      || two.dispatched.filter((d) => d.kind === 'fix-assignment').length !== 0) {
+      fail(`replay ${JSON.stringify({ a: one.dispatched.length, b: two.dispatched.length })}`);
+    } else log('ok r31-replay-bounded-no-duplicate-assignment');
+  }
+
+  // A canonical HISTORICAL source is historical even while generation is SUBMITTED.
+  // Include records first observed during drain, after this cycle's queue snapshot.
+  for (const protocol of ['v1', 'v2']) for (const timing of ['preexisting', 'drained']) {
+    const L = group(`canonical-history-${protocol}-${timing}`);
+    const node = `PR_canonical_${protocol}_${timing}`;
+    const key = `HIST-${protocol}-${timing}`;
+    register(L.l, node, 4001);
+    const seeded = protocol === 'v1' ? seedLegacyHistorical(L.l, node) : seedAccepted(L.l, node, 'c', 'HISTORICAL', 'HISTORICAL_PINNED');
+    const {g, receipt} = seeded;
+    if (protocol === 'v1') {
+      const {validateReport} = await import(new URL('./validate-report.mjs', pathToFileURL(runnerPath)));
+      const schemaBytes = readFileSync(new URL('../../docs/meta-factory/dot-review-result.schema.json', pathToFileURL(runnerPath)));
+      const valid = validateReport(seeded.payload, {schemaBytes, policy: seeded.legacyPolicy, currentState: seeded.tuple});
+      if (!valid.ok) fail(`V1 historical fixture rejected ${JSON.stringify(valid.errors)}`);
+    }
+    if (L.l.getGeneration(g.generation.id)?.state !== 'SUBMITTED') fail('canonical historical seed is not SUBMITTED');
+    const recordFinding = () => L.l.recordFindings(receipt.report_id, [{key, requirement: 'historical fix', category: 'correctness', severity: 'major', blocking: true}]);
+    if (timing === 'preexisting') recordFinding();
+    let reservations = 0;
+    const countBudget = {...L.b, reserveLaunch: args => {reservations++; return L.b.reserveLaunch(args);}};
+    const result = await runCycle({ledger: L.l, policy, budgets: countBudget, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, drain: timing === 'drained' ? async () => {recordFinding(); return [{}];} : undefined});
+    const occurrence = L.l.lineage(key).at(-1);
+    const queuedHistory = buildQueue({ledger: L.l, policy}).some(i => i.kind === 'historical' && i.key === key);
+    if (result.dispatched.length || result.routed.length || reservations || coordCount(L.l) || occurrence?.state !== 'OPEN' || !queuedHistory) fail(`canonical-${timing} bypassed history gate ${JSON.stringify({result, reservations, state: occurrence?.state, queuedHistory})}`);
+    else log(`ok canonical-${protocol}-historical-${timing}-holds-before-assignment`);
+    const control = await runCycle({ledger: L.l, policy, budgets: L.b, adapter: L.a, discover: DISCOVER_EMPTY, resolveTarget, currentStagingSha: STAGING, now: () => Date.now() + 31 * 60_000, revalidateFinding: async () => ({present: true, checked: CHECKED})});
+    const dispatch = control.dispatched.find(d => d.kind === 'fix-assignment');
+    const packet = dispatch ? JSON.parse(L.l.coordGet(dispatch.actionId).payload_text) : {};
+    if (!dispatch || control.dispatched.length !== 1 || packet.historical_basis !== 'HISTORICAL_REVALIDATED' || packet.revalidation?.checked_staging_sha !== STAGING) fail(`canonical-${timing} bound control ${JSON.stringify(control)}`);
+    else log(`ok canonical-${protocol}-historical-${timing}-bound-control`);
+    L.l.close();
+  }
 
   // ── coordinator routing: open unclaimed findings become ONE assignment ───────
   const L7 = group('l7');
@@ -463,11 +581,21 @@ assert_suite_arms "runner.test.sh" "$status" "$out" \
   r36-active-review-from-previous-cycle-blocks \
   r36-head-movement-supersedes-and-requeues \
   r36-accepted-report-resolves-active-review \
+  wrong-accepted-mode-keeps-review-active wrong-accepted-basis-keeps-review-active \
   r36-open-review-precedes-merged-history \
   r36-newest-merged-selected-as-historical-review \
   r36-verify-priority-dispatches-under-review-bound released-runner-intent-never-redelivered active-scoped-intent-recovers unregistered-finding-never-assigned \
   r31-already-fixed-zero-launch-durable-evidence \
   r31-still-present-historical-dispatches-one-assignment \
+  r31-unverified-adapter-holds r31-throwing-adapter-holds \
+  r31-raw-boolean-adapter-holds r31-null-result-adapter-holds \
+  r31-stale-evidence-adapter-holds r31-no-staging-input-holds \
+  r31-missing-time-holds r31-invalid-time-holds r31-short-sha-holds \
+  canonical-v1-historical-preexisting-holds-before-assignment canonical-v1-historical-preexisting-bound-control \
+  canonical-v1-historical-drained-holds-before-assignment canonical-v1-historical-drained-bound-control \
+  canonical-v2-historical-preexisting-holds-before-assignment canonical-v2-historical-preexisting-bound-control \
+  canonical-v2-historical-drained-holds-before-assignment canonical-v2-historical-drained-bound-control \
+  r31-replay-bounded-no-duplicate-assignment \
   r36-open-finding-routes-one-trusted-assignment \
   r36-routing-replay-creates-no-duplicate-owner || exit 1
 echo "runner.test.sh: all green"

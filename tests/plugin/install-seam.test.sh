@@ -27,7 +27,10 @@ mk_consumer() {
 C1=$(mk_consumer)
 OUT=$(CLAUDE_PROJECT_DIR="$C1" RAT_INSTALL_SOURCE="$REPO_ROOT" bash "$SEAM" ts-server </dev/null 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "dry-run exits 0" || bad "dry-run exit=$rc"
-printf '%s' "$OUT" | grep -qiE 'dry-run|preview' && ok "dry-run prints a preview" || bad "dry-run printed no preview"
+# `grep -c`, not `grep -q`: under pipefail an early-exit grep SIGPIPEs the writer into
+# rc=141 and the `&&` reads the match as a failure — the canonical corpus pushed the
+# preview past the pipe buffer (the getff-dist-canonical-links grep-consumption idiom).
+printf '%s' "$OUT" | grep -ciE 'dry-run|preview' >/dev/null && ok "dry-run prints a preview" || bad "dry-run printed no preview"
 [ ! -e "$C1/.husky" ] && ok "dry-run wrote nothing (.husky absent)" || bad "dry-run created .husky (should be a no-write preview)"
 
 # (2) --apply: wires the hard layer ------------------------------------------

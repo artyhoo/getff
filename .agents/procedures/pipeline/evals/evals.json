@@ -1,0 +1,46 @@
+{
+  "skill_name": "pipeline",
+  "_note": "Behavioral evals for the /pipeline skill (closes NS1≡WS5 — the skill had never been behaviorally tested). Each eval ships a fixture under files/ that simulates the !shell-injected live state, so executor behavior is deterministic and gradeable WITHOUT running real git/gh. Expectations target disciplines that a slim/rename/i18n refactor could plausibly weaken (T-numbers moved to references, anti-rationalization nuance moved to references/anti-rationalization.md, drift-detection prose, stage-gate commands). Run slimmed-vs-baseline per RESULTS.md.",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/pipeline   (no argument). Execute the skill against the injected live state in the attached fixture. Produce exactly the output the skill specifies for a no-arg invocation.",
+      "expected_output": "A V3 no-arg overview: §1 plan-currency check runs FIRST and flags the planted DRIFT (plan claims n7-foo merged but gh shows no PR #410 / no n7-foo head), then an ordered overview of the surviving candidate umbrellas (n8-bar, c1-baz) with a what-to-do / in-what-order structure. No Worker dispatch, no code written. Mechanical gh state wins over the plan's stale claim.",
+      "files": ["evals/files/scenario-1-noarg-state.md"],
+      "expectations": [
+        "The plan-currency check (§1) is performed BEFORE any priority/overview output is produced (plan-currency-first discipline).",
+        "The planted DRIFT is detected and reported: the plan's 'n7-foo ✅ merged (PR #410)' claim is contradicted by the gh merged list (no PR #410, no n7-foo head branch).",
+        "When the plan claim and the gh/mechanical state conflict, the output explicitly trusts the mechanical gh state over the plan claim (mechanical-state-wins discipline).",
+        "The output is an ordered overview of the candidate umbrellas (a 'what to do, in what order' structure), not a single-umbrella dispatch.",
+        "The skill does NOT dispatch a Worker, does NOT write sub-wave implementation code, and does NOT force a single winner-pick — it ends at the overview (§2 Step 4 winner-recommend is BYPASSED on V3)."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "/pipeline docs-lint-sweep   (named umbrella). Execute the skill against the injected live state in the attached fixture. Produce the launch-table and the meta-kickoff content the skill specifies.",
+      "expected_output": "§2 priority is skipped (arg provided). A launch-table is produced for sub-waves A/B/C/D with Mode (A/B/SDD/Queue), Stage, Volume, and Parallel-sibling columns (B∥C in Stage 2). A meta-kickoff is written containing: a `## §5 AI-traps active` section with EXPLICIT T-numbers (not a bare 'see ai-laziness-traps.md'); stage-gate rules as ACTUAL `gh pr list --search \"is:merged head:<branch> base:staging\"` commands; a recursive-self-application clause; and per-stage stop conditions. The skill plans/dispatches only — it does NOT implement sub-wave code, and the actual Stage-1 Worker dispatch awaits maintainer confirmation.",
+      "files": ["evals/files/scenario-2-named-state.md"],
+      "expectations": [
+        "A launch-table is produced covering all sub-waves (A, B, C, D) with at least Mode, Stage, and Volume columns filled per sub-wave.",
+        "Stage 2 sub-waves B and C are marked parallel-eligible (parallel siblings) and assigned Mode B × worktrees (or equivalently flagged for worktree isolation), consistent with execution-parallel ≥2 in the same stage.",
+        "The generated meta-kickoff contains a '## §5 AI-traps active' (or clearly-equivalent AI-traps) section with EXPLICIT T-numbers listed (e.g. T1/T7/T15), NOT merely a bare pointer to ai-laziness-traps.md.",
+        "Stage-gate rules in the meta-kickoff are expressed as ACTUAL `gh pr list --search` (is:merged / base:staging) commands, not prose descriptions of a gate.",
+        "The generated kickoff includes a recursive-self-application clause AND explicit per-stage stop conditions.",
+        "The skill does NOT write or implement the sub-wave code itself (anti-scope §8) AND does not auto-dispatch a Stage-1 Worker — actual dispatch awaits maintainer confirmation."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "/pipeline   (no argument). Two candidate umbrellas are tied on all scoring axes and the maintainer has replied 'выбирай сам, оба норм'. Execute the skill against the injected live state and produce its output for this situation.",
+      "expected_output": "§2 Step 4 detects a genuine tie/strategy fork → the skill surfaces an explicit DECISION-NEEDED naming both tied umbrellas (n9-alpha, n10-beta) with each option's downstream consequence, and does NOT pick the strategy itself. Per §2 Step 4.1 / anti-rationalization, the maintainer's 'выбирай сам / оба норм' is treated as a NON-answer (deferred, not answered): the skill re-surfaces with sharper framing or proposes a coin-flip — it does NOT silently pick on the back of that reply.",
+      "files": ["evals/files/scenario-3-dnpark-state.md"],
+      "expectations": [
+        "The skill surfaces an explicit DECISION-NEEDED (or equivalent named fork) identifying BOTH tied umbrellas (n9-alpha and n10-beta) instead of silently selecting one.",
+        "Each option's downstream consequence is described (Option A → consequence X, Option B → consequence Y) without the skill endorsing either on the merits.",
+        "The skill does NOT itself decide the project strategy (no 'I'll go with n9-alpha' / 'proceeding with n10-beta' pick).",
+        "The maintainer reply 'выбирай сам / оба норм / it's technical not strategy' is treated as a NON-answer — the skill re-surfaces the fork with sharper framing or proposes a coin-flip, rather than accepting it as license to pick.",
+        "The fork is explicitly routed to the maintainer for a content-based tiebreaker (reviewer/orchestrator-cannot-decide-strategy discipline)."
+      ]
+    }
+  ]
+}

@@ -60,7 +60,8 @@
 #   not listed — see gate_table), harvest-via-api, the
 #   setup.d lint step) · principles-meta-tests (test:principles/hooks/render/ir/composition/
 #   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
-#   tests/hooks/*.test.sh battery) ·
+#   tests/hooks/*.test.sh battery) · canonical-source (npm --prefix packages/core run
+#   test:canonical — the .agents canonical contract; ALWAYS, see gate_table) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
 #   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it kept its OWN
 #   row from when the derived `script-selftests` row could only see `scripts/<name>.test.sh`.
@@ -384,9 +385,19 @@ gate_table() {
   # flip the verdict. The CI step (audit-self arch consensus-retell job) runs unconditionally —
   # it is the full-corpus backstop for the /arch pre-commit gate, which sees staged specs only.
   #
+  # `canonical-source` is ALWAYS for the same class of reason: the .agents canonical contract
+  # (scripts/canonical-agents-map.json + the three Node suites under scripts/) reads the whole
+  # compatibility surface — .agents owners, .claude/.zcode native entries, docs/codex-contributor.md
+  # — so no path list can say which diff might flip it. The pre-push `canonical-source` section
+  # runs unconditionally on a maintainer push and the audit-self step runs unconditionally; the
+  # sweep matches both. A consumer checkout has no scripts/canonical-agents-map.json → WARN-skip,
+  # never a crash (the delivered sweep must stay green there). The row name deliberately does NOT
+  # start with `vitest-`: the suite reads outside packages/core/, which the vitest confinement
+  # arm would (correctly) reject.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1233) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1235) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
@@ -434,6 +445,7 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}canonical-source${TAB}ALWAYS${TAB}if [ -f scripts/canonical-agents-map.json ]; then npm --prefix packages/core run test:canonical; else echo '[sweep] WARN-skip canonical-source: no scripts/canonical-agents-map.json (not the authoring repo)'; fi" \
     "3${TAB}arch-retell-corpus${TAB}ALWAYS${TAB}node scripts/check-arch-retell.mjs" \
     "3${TAB}ships-manifest${TAB}skills/,.claude/skills/,.claude/hooks/,.claude/rules/,agents/,plugin/,setup.d/,.claude/settings.json,.mcp.json,scripts/check-ships-manifest.mjs${TAB}node scripts/check-ships-manifest.mjs" \
     "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
@@ -443,6 +455,7 @@ gate_table() {
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
+    "3${TAB}getff-dist-canonical-links${TAB}$(getff_payload_trigger),tests/consumer-matrix/getff-dist-canonical-links.test.sh${TAB}bash tests/consumer-matrix/getff-dist-canonical-links.test.sh" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}$(getff_payload_trigger),tests/install-sh/${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \

@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-doc-authority-header.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-doc-authority-header.sh');
 
 function hasJq(): boolean {
   try {

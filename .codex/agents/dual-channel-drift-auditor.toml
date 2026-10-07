@@ -1,0 +1,4 @@
+name = "dual-channel-drift-auditor"
+description = "Cold pairwise audit of a declared @dual-pair anchor group. Given ONLY an anchor (never the PR diff or narrative), enumerates the group's members, measures their verbatim overlap and their divergence, and judges each group as INTENTIONAL-TWIN / SSOT-POINTER / COPY-RISK / DRIFT — the intentional-vs-accidental call no clone detector makes. Reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/dual-channel-drift-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

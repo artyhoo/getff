@@ -405,6 +405,7 @@ _own_eslint_ignores() {
   [ -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ] && echo 'eslint-rules-local/**'
   local rel
   for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts scripts/prove-rules.mjs .dependency-cruiser.mjs \
+             scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done

@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-kickoff-traps.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-kickoff-traps.sh');
 
 function hasJq(): boolean {
   try {
@@ -859,7 +859,7 @@ describe.skipIf(!JQ)('host-verify runner miss is applicability-scoped (A3-6)', (
     mkdirSync(join(hooksDir, 'lib'), { recursive: true });
     _copyFileSync2(HOOK, join(hooksDir, 'check-kickoff-traps.sh'));
     _copyFileSync2(
-      resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh'),
+      resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh'),
       join(hooksDir, 'lib', 'hook-emit.sh'),
     );
     return { root, kickoff };

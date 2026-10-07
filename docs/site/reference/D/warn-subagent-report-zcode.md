@@ -155,10 +155,10 @@ same discipline on two fire-points.
 - Arm B sweep: transcript read at lines 217-245, the one-jq-process extraction with
   NUL-delimited records at lines 285-298, aggregation of multiple missing-section
   signatures at lines 300-310, the `stop_hook_active` guard at lines 211-215.
-- Grammar SSOT: the mirror note at line 67 — «Mirrors
-  `.claude/hooks/warn-subagent-report.sh:98-121` VERBATIM (grammar SSOT)» — directly
-  above `_required_sections_check` (lines 73-94, returns 0/1/2); the CC file owns
-  `REPORT_CUE_RE` (line 102) and the section regexes (lines 113-121).
+- Grammar SSOT: the shared lib `.claude/hooks/lib/report-sections.sh` owns the grammar —
+  `_required_sections_check` (lines 5-26, returns 0/1/2; `REPORT_CUE_RE` at line 7 and the
+  section regexes live there). The zcode file sources it at line 72 under its grammar
+  comment block (lines 65-72); the CC hook sources it at `.claude/hooks/warn-subagent-report.sh:101-103`.
 - Duplicate suppression: `_dedup_key` at lines 99-106 (caller-supplied id → sha256 →
   cksum); Arm A reads the one canonical stdin id `.tool_use_id` at lines 169-186 — no
   guessed-name fallback chain, a missing id is named on stderr and degrades to the hash;

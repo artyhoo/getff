@@ -31,7 +31,7 @@ import { randomBytes } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/warn-subagent-report.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/warn-subagent-report.sh');
 
 function hasJq(): boolean {
   try {

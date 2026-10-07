@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# AUTO-GENERATED from .agents/hooks/inject-subagent-context.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# inject-subagent-context.sh — SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode)
 # Backup digest-injection for harnesses WITHOUT the SubagentStart hook event (zcode).
 #
 # @cc-only-rationale: SubagentDigest zcode-fallback backup — CC+ZCode dual-harness via inline
@@ -26,13 +28,13 @@
 # Output contract: PreToolUse updatedInput is applied by the host before dispatch (verified
 # empirically in zcode.cjs: updatedInput applied pre-handler; fR re-validates, silent revert
 # to original on invalid — non-fatal).
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — the session-bootstrap.md it reads is a $REPO_ROOT/-prefixed
+#   project path, not a file beside itself.
 set -uo pipefail
 
-# TWIN DIVERGENCE: the .claude/hooks/ source and this plugin twin now share identical logic
-# (no sibling-call divergence remains after Stage 7B — both read session-bootstrap.md directly).
-# The marker block is retained for traceability and to keep `wc -l` diff-mirroring honest; if
-# the two files diverge again, document the divergence here.
-
+# @plugin-transform: identity — canonical implementation includes native output and path adaptation.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 _is_zcode || exit 0   # CC: the SubagentStart primary handles digest injection; stay silent here
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
@@ -46,7 +48,8 @@ case "$TOOL_NAME" in Agent | Task) ;; *) exit 0 ;; esac
 # B1 fix: env-first REPO_ROOT resolution — `$0`-relative breaks when invoked as a plugin twin
 # ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, NOT the consumer root). Mirrors inject-project-digest.sh:38.
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
+DIGEST_FILE="$REPO_ROOT/.agents/session-bootstrap.md"
+[ -f "$DIGEST_FILE" ] || DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 
 # Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:46). No-op when
 # the file is absent or the block is empty/whitespace-only (zero-setup default — same semantics
@@ -78,6 +81,3 @@ printf '%s' "$INPUT" | jq -c --arg d "$DIGEST" \
   '{hookSpecificOutput:{hookEventName:"PreToolUse",
      updatedInput:(.tool_input | .prompt = (.prompt + "\n\n---\n[subagent context anchor]\n" + $d))}}'
 exit 0
-
-# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep
-# the plugin copy silent where the project runs its own copy (kept last so line citations hold).
