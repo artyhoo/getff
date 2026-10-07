@@ -8,6 +8,14 @@ import { emitCodex } from './render-codex-contributor.mjs';
 import { consumerCodexHooks } from '../setup.d/codex-bindings.mjs';
 import { spawnSync } from 'node:child_process';
 
+// Fixture git subprocesses must never inherit the invoking git's hook-env: a pre-push
+// hook runs this suite with an absolute GIT_DIR pointing at the invoking worktree, and
+// an inherited GIT_DIR resolves every fixture `git init`/`rev-parse` into THAT tree —
+// "fatal: this operation must be run in a work tree" (reproduced from a linked
+// worktree). The var list comes from git itself so it cannot drift (precedent:
+// codex-contributor.test.mjs module scrub; link-coordination's env -u list).
+for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).stdout.trim().split('\n')) delete process.env[key];
+
 const repo = resolve(import.meta.dirname, '..');
 
 test('Codex bindings load one canonical procedure and helpers without copying its body', () => {
