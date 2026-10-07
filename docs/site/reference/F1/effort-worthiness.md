@@ -67,14 +67,16 @@ grep -n "FAILURE_SCENARIO_RE" packages/core/hooks/checks/pr-body-fidelity.ts | h
 
 ```text
 92:const FAILURE_SCENARIO_RE = /Failure-scenario:/;
-161: * Severity-contract arm. Deterministic half only: an EMPTY/absent `Failure-scenario:`
 173:      let has = FAILURE_SCENARIO_RE.test(ls[i]);
+176:        has = FAILURE_SCENARIO_RE.test(ls[j]);
 ```
 
-The regex at `:92` is the gate's detection; the arm comment at `:161` states
-its honest scope — the deterministic half checks presence, not quality. A
-finding can satisfy the regex with a vague scenario; judging that is review
-work, not regex work.
+The regex at `:92` is the gate's detection; the hits at `:173` and `:176`
+are the `test()` sites that scan a graded finding and its continuation
+lines for the marker. The gate's honest scope is stated by the arm comment
+at `packages/core/hooks/checks/pr-body-fidelity.ts:161` — the deterministic
+half checks presence, not quality. A finding can satisfy the regex with a
+vague scenario; judging that is review work, not regex work.
 
 The `class` row is `C` and the channels row says `skill-embed(4)`: the rule is
 carried into four files as embedded summaries, so an agent meets the
