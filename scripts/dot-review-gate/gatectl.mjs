@@ -12,9 +12,18 @@
 //       GitHub transport calls, ZERO model launches (counters in the summary).
 //   gatectl pause --ledger L        durable operator pause (offline)
 //   gatectl read --ledger L         read-only state dump (offline)
-//   gatectl recover --ledger L --coordination-dir D
-//       Idempotent recovery: re-deliver pending coordination INTENTs, report
-//       outbox/queue residue. No model launches, no network mutations.
+//   gatectl recover --ledger L --coordination-dir D [--policy P]
+//       Idempotent recovery of pending coordination INTENTs — HONORING CURRENT
+//       operational authority (D2065-S07): without --policy there is no trusted
+//       authority to check against, so recovery is INSPECT-ONLY (mode:"inspect",
+//       pending list with digest status, recoveryHeld E_NO_TRUSTED_CONFIG, ZERO
+//       writes, nothing marked DELIVERED). With --policy the runner's own gate
+//       runs: pause/authorization-expiry/quota up front, then PER-ACTION current
+//       ACTIVE registration + repository scope before any re-delivery — a
+//       persisted pending action grants no permanent permission. Output reports
+//       the real LOCAL delivery effects (mode, recovered_deliveries, per-action
+//       held codes, local_message_writes), never inferred from network/model
+//       spies. No model launches, no network mutations.
 //   gatectl start ...               REFUSES: E_VALIDATE_ONLY without --allow-live;
 //       even with it, live start is an enrollment-time concern (E_LIVE_UNENROLLED) —
 //       native transports against real GitHub are a live acceptance requirement.
@@ -23,13 +32,14 @@
 // that file — the test harness' proof that validation ran with zero side effects.
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { loadPolicy, policyDigest } from './load-policy.mjs';
 import { openLedger } from './ledger.mjs';
 import { buildQueue } from './queue.mjs';
 import { createBudgets } from './budgets.mjs';
 import { createCcAdapter } from './cc-adapter.mjs';
+import { operationalHold } from './runner.mjs';
 import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 function fail(codeName, message) {
@@ -110,18 +120,109 @@ export async function runValidate({ policyText, schemaBytes, schemaV2Bytes, ledg
   }
 }
 
-export async function runRecover({ ledgerPath, coordinationDir, spy }) {
+export async function runRecover({ ledgerPath, coordinationDir, policyText, spy }) {
   if (!coordinationDir) throw fail('E_CONFIG', 'recover requires --coordination-dir');
   const ledger = openLedger(ledgerPath);
   try {
     const adapter = createCcAdapter({ ledger, coordinationDir });
-    const recovered = adapter.recoverPending();
+    // the REAL local delivery effects of THIS invocation, counted directly — never
+    // inferred from transport/model spies (D2065-S07: the reproduction gap)
+    const msgFiles = () => {
+      try { return readdirSync(coordinationDir).filter((f) => f.startsWith('_dot-gate-msg-')).length; } catch { return 0; }
+    };
+    // inspect-only view of pending INTENTs: id/kind/target + whether the durable
+    // payload still passes its digest — read-only, no state transition
+    const inspectPending = () => ledger.coordList('INTENT').map((a) => ({
+      id: a.id,
+      kind: a.kind,
+      target: a.target,
+      payload_digest_ok: typeof a.payload_text === 'string'
+        && createHash('sha256').update(a.payload_text).digest('hex') === a.payload_digest,
+    }));
+
+    // No trusted policy ⇒ no authority to check against ⇒ INSPECT-ONLY: zero
+    // writes, zero DELIVERED, pending visible. (D2065-S07: the pre-fix CLI
+    // delivered unconditionally here.)
+    if (policyText == null) {
+      return {
+        ok: true,
+        command: 'recover',
+        mode: 'inspect',
+        recoveryHeld: {
+          code: 'E_NO_TRUSTED_CONFIG',
+          reason: 'no trusted policy — recovery is inspect-only; no message is written, nothing is marked DELIVERED',
+        },
+        pending: inspectPending(),
+        recovered_deliveries: 0,
+        held: [],
+        local_message_writes: 0,
+        counts: ledger.counts(),
+        transport_calls: spy.transportCalls,
+        model_calls: spy.modelCalls,
+      };
+    }
+
+    // Gated recovery: the SAME loader, budgets and operationalHold the runner
+    // composes — load failure (including expired authorization) refuses here
+    let policy;
+    try {
+      policy = loadPolicy(policyText);
+    } catch (e) {
+      throw fail(e.code ?? 'E_POLICY_PARSE', `trusted policy is not loadable: ${e.message}`);
+    }
+    if (policy.fails?.length > 0 || (Array.isArray(policy) && policy.length > 0)) {
+      const first = (policy.fails ?? policy)[0];
+      throw fail(first.code ?? 'E_POLICY', `trusted policy invalid: ${first.message ?? JSON.stringify(first)}`);
+    }
+    if (policy.__invalid) throw fail('E_POLICY', `trusted policy invalid: ${policy.__invalid}`);
+    const budgets = createBudgets({ ledger, limits: policy.limits ?? {} });
+    const preHold = operationalHold({ ledger, policy, budgets, registration: undefined, nowMs: Date.now() });
+    if (preHold) {
+      return {
+        ok: true,
+        command: 'recover',
+        mode: 'gated',
+        recoveryHeld: preHold,
+        pending: inspectPending(),
+        recovered_deliveries: 0,
+        held: [],
+        local_message_writes: 0,
+        counts: ledger.counts(),
+        transport_calls: spy.transportCalls,
+        model_calls: spy.modelCalls,
+      };
+    }
+    // PER-ACTION gate, mirroring the runner's authorizeAction: CURRENT pause/
+    // expiry/quota + CURRENT ACTIVE registration for the action's PR node +
+    // repository scope — a mid-recovery state change structurally holds the NEXT
+    // action (the adapter's per-action try/catch lands it in held)
+    const authorize = (action, payload) => {
+      const node = payload?.pr?.node_id ?? payload?.pr_node_id;
+      const repository = payload?.repository_id;
+      const actionHold = operationalHold({
+        ledger, policy, budgets,
+        registration: node ? ledger.getRegistration(node) : undefined,
+        requireRegistration: true,
+        nowMs: Date.now(),
+      });
+      if (actionHold) throw fail(actionHold.code, actionHold.reason);
+      if (!node || repository !== policy.repository_id) throw fail('E_UNREGISTERED', 'unknown or foreign action scope holds delivery');
+      void action;
+    };
+    const before = msgFiles();
+    const recovered = adapter.recoverPending({ authorize });
+    const held = recovered.held ?? [];
     return {
       ok: true,
       command: 'recover',
+      mode: 'gated',
       // SP-5: recoverPending returns the {recovered:[ids]} wrapper — reading .length
       // on the wrapper reported undefined, not the true count
       recovered_deliveries: recovered.recovered.length,
+      held,
+      local_message_writes: msgFiles() - before,
+      recoveryHeld: held.length ? { code: held[0].code, reason: `${held.length} action(s) held (per-action codes in held)`, actions: held } : null,
+      pending: [],
       counts: ledger.counts(),
       transport_calls: spy.transportCalls,
       model_calls: spy.modelCalls,
@@ -184,7 +285,6 @@ async function main() {
 
   try {
     if (command === 'validate') {
-      const { readFileSync } = await import('node:fs');
       emit(await runValidate({
         policyText: readFileSync(need('policy'), 'utf8'),
         schemaBytes: readFileSync(need('schema')),
@@ -203,7 +303,13 @@ async function main() {
     } else if (command === 'read') {
       emit(readState({ ledgerPath: need('ledger') }));
     } else if (command === 'recover') {
-      emit(await runRecover({ ledgerPath: need('ledger'), coordinationDir: need('coordination-dir'), spy }));
+      emit(await runRecover({
+        ledgerPath: need('ledger'),
+        coordinationDir: need('coordination-dir'),
+        // --policy opts into GATED recovery; without it recovery stays inspect-only
+        policyText: typeof args.policy === 'string' && args.policy.length > 0 ? readFileSync(args.policy, 'utf8') : null,
+        spy,
+      }));
     } else if (command === 'start') {
       if (args['allow-live'] !== true) {
         throw fail('E_VALIDATE_ONLY', 'this build is validate-only — live start requires explicit --allow-live and completed enrollment');

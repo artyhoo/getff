@@ -69,6 +69,7 @@ export default defineConfig(
       'scripts/audit-r4.ts',
       'scripts/prove-rules.mjs',
       'scripts/codex-hook-adapter.mjs',
+      'scripts/lib/**',
       'eslint.config.mjs',
       'vitest.config.ts',
       'playwright.config.ts',
