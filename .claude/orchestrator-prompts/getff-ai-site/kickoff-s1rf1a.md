@@ -2,7 +2,7 @@
 
 > **Umbrella:** [kickoff.md](kickoff.md). **Stage contract:** [kickoff-s1.md](kickoff-s1.md).
 > **Class:** stage batch prompt. **Base branch:** staging. **Channel:** aif on project profiles.
-> **Rigor label:** research-grade — consumer-facing pages with source-backed enforcement claims.
+> **Rigor label (L0):** research-grade — consumer-facing pages with source-backed enforcement claims.
 > **Authoritative for:** F1a's sixteen-page selection, boundaries and exit checks.
 > **NOT authoritative for:** project goal ([README](../../../README.md#why-this-exists)),
 > the stage contract, page-kind registry or other families.
