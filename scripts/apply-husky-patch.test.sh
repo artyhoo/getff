@@ -234,6 +234,44 @@ else
   bad "N6 repo pin — want refusal, rc=$rc: $(tr '\n' '|' <<<"$out")"
 fi
 
+# N26-N28 the family pin is EXACT (D2068-S01): a suffix repository, a wrong host and an
+# embedded path must fail the pin BEFORE any write; P1 (https) and N1 (ssh) are the
+# exact-origin positive controls, P16 the same-common-dir fallback control.
+mk_pin_repo() { # mk_pin_repo <dir> <origin-url>
+  git init -q "$1"
+  git -C "$1" config user.email t@t
+  git -C "$1" config user.name t
+  git -C "$1" remote add origin "$2"
+  mkdir -p "$1/.husky"
+  printf '#!/bin/sh\nset -eu\necho "orig"\n' > "$1/.husky/pre-commit"
+}
+pin_refusal() { # pin_refusal <label> <dir>
+  run GIT_SAFETY_COORD_DIR="$TMP" bash "$APPLY" --repo "$2" --patch "$TMP/p.patch" --expected "$TMP/expected.full"
+  if [ "$rc" -ne 0 ] && grep -q "repo pin failed" <<<"$out"; then ok "$1"
+  else bad "$1 — want pin refusal, rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
+}
+ORIG_E1="$TMP/repoE1"; mk_pin_repo "$ORIG_E1" "https://github.com/artyhoo/getff-experiment.git"
+pin_refusal "N26 suffix repository (artyhoo/getff-experiment) refuses" "$ORIG_E1"
+ORIG_E2="$TMP/repoE2"; mk_pin_repo "$ORIG_E2" "https://github.com.evil.example/artyhoo/getff.git"
+pin_refusal "N27 wrong host with the right path refuses" "$ORIG_E2"
+ORIG_E3="$TMP/repoE3"; mk_pin_repo "$ORIG_E3" "https://github.com/unrelated/artyhoo/getff.git"
+pin_refusal "N28 embedded path refuses" "$ORIG_E3"
+
+# P16 same-git-common-dir fallback: a local worktree of the authoring family (no origin
+# of its own) passes the pin and runs the dry-run end-to-end
+FAM_HOME="$TMP/home"; FAM="$FAM_HOME/code/rules-as-tests-aif"
+mk_pin_repo "$FAM" "https://github.com/artyhoo/getff.git"
+git -C "$FAM" add -A
+git -C "$FAM" commit -q -m init
+ORIG_F="$TMP/repoF"
+git -C "$FAM" worktree add -q "$ORIG_F" HEAD
+run HOME="$FAM_HOME" GIT_SAFETY_COORD_DIR="$TMP" bash "$APPLY" --repo "$ORIG_F" --patch "$TMP/p.patch" --expected "$TMP/expected.full"
+if [ "$rc" -eq 0 ] && grep -q "DRY-RUN OK" <<<"$out"; then
+  ok "P16 same-git-common-dir fallback passes the pin (family worktree, no origin)"
+else
+  bad "P16 common-dir fallback — rc=$rc: $(tr '\n' '|' <<<"$out")"
+fi
+
 assert_refused "N7 missing patch file refuses" "missing:" \
   GIT_SAFETY_COORD_DIR="$TMP" -- \
   --repo "$ORIG_A" --patch "$TMP/nope.patch" --expected "$TMP/expected.full"
