@@ -1334,14 +1334,52 @@ do_refresh() {
         chmod_safe +x "$PROJECT_ROOT/scripts/$_gs" 2>/dev/null || true
       fi
     done
-    for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
-               "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
-               "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
-               "git hooks (.husky/pre-commit, .husky/pre-push)" \
-               ".prettierignore managed block" \
-               "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
-      note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
-    done
+    # W2 (D2067-S02): a drivable generic consumer received the W2 proof/plugin payload at
+    # install time (setup.d/40-configs.sh — the SAME drivability gate layer 80's generation
+    # runs through), so --refresh must keep those bytes current too: a rule-logic fix shipped
+    # in prove-rules.mjs, the mutation runner, a core plugin rule or the barrel otherwise
+    # reached fresh installs only, and the installed consumer kept stale framework bytes.
+    # Same delivery profile as fresh: refresh_safe per file (.override.md siblings keep
+    # Layer-3 ownership), core rules then barrel (O9), generate_eslint_barrel's #882 prune
+    # is $STACK-aware (generic prunes to the core set). Undrivable generic gains NOTHING —
+    # the payload arm is gated off and the NOT-wired line stays, so --refresh cannot turn
+    # a lint-less project into a payload-bearing one (fork-1 = B).
+    _g40_linter=$(project_linter "$PROJECT_ROOT")
+    if { [ "$_g40_linter" = "eslint" ] || [ "$_g40_linter" = "oxlint" ]; } \
+       && [ -n "$(project_lint_command "$PROJECT_ROOT")" ]; then
+      echo "▶ W2 proof tooling → scripts/ + eslint-rules-local/ (drivable generic)"
+      refresh_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
+      refresh_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+      fi
+      for _gf in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
+        case "$_gf" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
+        [ -e "$_gf" ] || continue   # empty-glob guard (nullglob off → literal *.ts)
+        _gstem="${_gf%.ts}"; _gbn="$(basename "$_gstem")"
+        refresh_safe "$_gf" "$PROJECT_ROOT/eslint-rules-local/$_gbn.ts"
+        [ -f "$_gstem.mjs" ]  && refresh_safe "$_gstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_gbn.mjs"
+        [ -f "$_gstem.d.ts" ] && refresh_safe "$_gstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_gbn.d.ts"
+      done
+      generate_eslint_barrel
+      for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
+                 "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
+                 "fences-fire fixtures (scripts/fences-fire-fixtures)" \
+                 "git hooks (.husky/pre-commit, .husky/pre-push)" \
+                 ".prettierignore managed block" \
+                 "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
+        note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
+      done
+    else
+      for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
+                 "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
+                 "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
+                 "git hooks (.husky/pre-commit, .husky/pre-push)" \
+                 ".prettierignore managed block" \
+                 "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
+        note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
+      done
+    fi
   else
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"

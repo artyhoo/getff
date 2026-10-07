@@ -81,6 +81,26 @@ _out_bad=$( cd "$TMP" && timeout 5 bash "$INSTALL_SH" not-a-stack --full 2>&1 ) 
   && ok "install.sh not-a-stack: exits non-zero and names the stack choices" \
   || bad "install.sh not-a-stack: exit $_exit_bad, output: ${_out_bad:0:200}"
 
+# ── T5b: W2 named stacks through the PUBLIC wrapper (D2067-S01) ─────────────────
+# kickoff §4 A2/A3 drives named-stack generation through `setup --full <name>`; the wrapper
+# must forward astro|svelte-kit|svelte like the presets (install.sh stays the SSOT) while a
+# TYPO still fails loud at the wrapper, before install.sh is reached.
+for _w2stack in astro svelte-kit svelte; do
+  _exit_w2=0
+  _out_w2=$( cd "$TMP" && timeout 60 bash "$SETUP" "$_w2stack" --full --dry-run 2>&1 ) || _exit_w2=$?
+  [ "$_exit_w2" -eq 0 ] \
+    && ok "setup $_w2stack --full --dry-run: exits 0 (wrapper forwards the W2 name)" \
+    || bad "setup $_w2stack --full --dry-run: exit $_exit_w2, output: ${_out_w2:0:200}"
+  grep -q "$_w2stack" <<<"$_out_w2" \
+    && ok "setup $_w2stack --full --dry-run: the forwarded name reaches install.sh output" \
+    || bad "setup $_w2stack --full --dry-run: output does not name $_w2stack"
+done
+_exit_w2typo=0
+_out_w2typo=$( cd "$TMP" && timeout 5 bash "$SETUP" svelte-kit-typo --full 2>&1 ) || _exit_w2typo=$?
+[ "$_exit_w2typo" -ne 0 ] && grep -q 'Unknown stack: svelte-kit-typo' <<<"$_out_w2typo" \
+  && ok "setup svelte-kit-typo: still rejected (typo guard holds)" \
+  || bad "setup svelte-kit-typo: exit $_exit_w2typo, output: ${_out_w2typo:0:200}"
+
 # ── T6: no self/consumer branch in setup or install.sh (S4 acceptance criterion) ─
 ! grep -qE 'SELF_INSTALL|consumer.branch|personal.branch' "$SETUP" "$INSTALL_SH" \
   && ok "no self/consumer branch code in setup or install.sh" \

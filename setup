@@ -70,6 +70,12 @@ for a in "$@"; do
     --profile=*)       PROFILE_FLAG="--profile=${a#--profile=}" ;;
     --profile)         PROFILE_FLAG="--profile"; _awaiting_profile_value=1 ;;
     ts-server|react-next|react-spa|react-native) STACK="$a" ;;
+    # astro|svelte-kit|svelte = the W2 named no-preset stacks (one-button W2, D2067-S01):
+    # install.sh:180 accepts them and kickoff §4 A2/A3 drives generation THROUGH the public
+    # wrapper (`setup --full <name>`), so the wrapper forwards them like the presets. install.sh
+    # remains the SSOT: a name it does not know still fails there. Forwarded verbatim — the
+    # wrapper adds nothing (no configs, no packages; Fork-1 = B holds).
+    astro|svelte-kit|svelte) STACK="$a" ;;
     # python|cargo|go = the getff toolchain lanes (python-delivery-v0 S2 / ecosystem-wiring W4 /
     # adapter-jig J3; face spec §10 item 2, E3 — `./setup <positional>` must be ONE command shape
     # for every positional the manifest and the site render, not two). Forwarded verbatim to
@@ -82,7 +88,7 @@ for a in "$@"; do
     # A misspelt stack used to vanish here and the install auto-detected instead; with `generic`
     # that would install the stack-free part on a typo. Unknown flags stay ignored.
     -*|"") ;;
-    *) echo "❌ Unknown stack: $a (use ts-server, react-next, react-spa, react-native, generic, python, cargo, or go)" >&2; exit 1 ;;
+    *) echo "❌ Unknown stack: $a (use ts-server, react-next, react-spa, react-native, astro, svelte-kit, svelte, generic, python, cargo, or go)" >&2; exit 1 ;;
   esac
 done
 # --dry-run wins in any flag order: `--dry-run -y` let -y reset MODE to «yes», so install.sh
