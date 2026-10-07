@@ -261,7 +261,7 @@ _copy_tree_with_transform() {
   _pre_overwrite_guard "$src" "$dst" transform
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
-  cp -r "$src" "$dst"
+  cp -rL "$src" "$dst"
   _transform_md_tree "$dst"
   # R1 (W1-A, GH #1540): stage the freshly delivered tree so the NEXT refresh finds baseline
   # entries for it. Without this, skill trees stayed «unknown» forever and the no-entry arm was
@@ -786,7 +786,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:2203               appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:2206               appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1813          tool-decisions copy_safe       → suppress-no-entry (proved)
 # CENSUS-END
@@ -1012,7 +1012,10 @@ copy_safe() {
   # `[ -f … ] && copy_safe …` guards in 10-skills.sh / 40-configs.sh / install.sh) a failed cp
   # still printed ✓ and staged a refresh-baseline hash for a file that never landed, which the
   # next --refresh then reported as «kept».
-  if cp -r "$src" "$dst"; then
+  # -L: GNU cp -r PRESERVES a symlink source argument, BSD dereferences it — the
+  # materialized-delivery contract (real bytes on every platform, 05199ece053) is
+  # only portable with the dereference spelled out.
+  if cp -rL "$src" "$dst"; then
     echo "  ✓ $dst"
     refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
   else
@@ -1324,7 +1327,7 @@ _refresh_one_file() {
     _preserve_unbaselined_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
-  cp -r "$src" "$dst"
+  cp -rL "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
 }
@@ -2479,7 +2482,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3356-3364, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3359-3367, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default

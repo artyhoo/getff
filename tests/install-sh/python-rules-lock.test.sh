@@ -360,7 +360,7 @@ else
     P13=$(py_fixture)
     # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
-    # there; setup.d/lib.sh:1733-1734, the lock writer both lanes share). The prior arm pointed at
+    # there; setup.d/lib.sh:1736-1737, the lock writer both lanes share). The prior arm pointed at
     # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
     # tree and both branches took the `else`, emitting `ok`. THAT wrong path was the whole
     # defect; the seeds below are not what makes the lanes run.
@@ -538,11 +538,11 @@ else
     # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
     # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
-    # by construction (setup.d/lib.sh:1731,1741 — the shared lock writer). REVERSE direction: cargo/go producers do
+    # by construction (setup.d/lib.sh:1734,1744 — the shared lock writer). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
     #
     # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
-    # (setup.d/lib.sh:1733-1734, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
+    # (setup.d/lib.sh:1736-1737, the lock writer both lanes share) — NOT .getff/ (only the PYTHON
     # lock lives there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
     # on every tree and both branches took the `else`, emitting `ok`. With Cargo.toml + go.mod
     # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition
