@@ -2707,11 +2707,20 @@ export function isFrameworkShippedMarkdown(
   if (SHIPPED_MD_DESTINATIONS.includes(p)) return true;
   if (SHIPPED_MD_PREFIXES.some((x) => p.startsWith(x))) return true;
   if (
-    SHIPPED_SKILL_SLUGS.some((slug) => p.startsWith(`.claude/skills/${slug}/`))
+    SHIPPED_SKILL_SLUGS.some(
+      (slug) =>
+        p.startsWith(`.claude/skills/${slug}/`) ||
+        p.startsWith(`.zcode/skills/${slug}/`),
+    )
   )
     return true;
+  // Native twins are MATERIALIZED real files since the consumer-delivery repair (never
+  // links), so the consumer lychee walk reads the skill body AT the native path too — the
+  // slug arm above must classify both harness spellings. The bootstrap native twin is a
+  // single exact row, same as its canonical `.agents/session-bootstrap.md` sibling.
+  if (p === '.claude/session-bootstrap.md') return true;
   if (baseline !== null) return baseline.has(p);
-  return p.startsWith('.claude/agents/');
+  return p.startsWith('.claude/agents/') || p.startsWith('.zcode/agents/');
 }
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)

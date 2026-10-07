@@ -2680,10 +2680,13 @@ function refreshBaselinePaths() {
 function isFrameworkShippedMarkdown(p, baseline) {
   if (SHIPPED_MD_DESTINATIONS.includes(p)) return true;
   if (SHIPPED_MD_PREFIXES.some((x) => p.startsWith(x))) return true;
-  if (SHIPPED_SKILL_SLUGS.some((slug) => p.startsWith(`.claude/skills/${slug}/`)))
+  if (SHIPPED_SKILL_SLUGS.some(
+    (slug) => p.startsWith(`.claude/skills/${slug}/`) || p.startsWith(`.zcode/skills/${slug}/`)
+  ))
     return true;
+  if (p === ".claude/session-bootstrap.md") return true;
   if (baseline !== null) return baseline.has(p);
-  return p.startsWith(".claude/agents/");
+  return p.startsWith(".claude/agents/") || p.startsWith(".zcode/agents/");
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
 function lycheeSection(ctx) {
