@@ -9,9 +9,13 @@
 #   P4     --apply lands the tested bytes end-to-end (no prompts), cmp-verified on disk
 #   P5     the application appends one structured APPLY-HUSKY-PATCH line to the git-safety tamper.log
 #   P6     idempotence: re-applying is a no-op with a named reason, exit 0
-#   P7-P8  the gate APPROVES exactly the two canonical invocation shapes (dry-run; apply with the
-#          canonical GIT_SAFETY_OVERRIDE literal)
-#   P9-P10 the gate stays SILENT for a different override literal and for unrelated commands
+#   P7-P8, P11 the gate APPROVES the canonical invocation shapes (dry-run; apply with the
+#          canonical GIT_SAFETY_OVERRIDE literal; apply with the documented optional flags)
+#   P9-P10, P12-P14 the gate stays SILENT for a different override literal, unrelated
+#          commands, and hook-failure shapes (malformed/empty JSON, non-Bash tool)
+#   N11-N25 the gate requires the COMPLETE canonical single command (D2070-S01): compound
+#          suffixes (; && newline | $( ) ` >), extra/unknown modes and flags, smuggled
+#          variables and truncated flag lists get NO allow — normal permission flow
 #   N1-N10 the writer REFUSES, leaving the target byte-unchanged: expected-file drift, targets
 #          outside .husky/, the generated .husky/_ shim, --apply without / with a wrong override,
 #          a repo outside the rules-as-tests-aif family, missing patch, missing target, symlinked
@@ -126,6 +130,46 @@ if [ -z "$g" ]; then ok "P9 gate silent for a non-canonical override"; else bad 
 # P10 gate silent for unrelated commands
 g="$(gate_call "ls -la")"
 if [ -z "$g" ]; then ok "P10 gate silent for unrelated commands"; else bad "P10 gate leaked a decision: $g"; fi
+
+# P11 gate approves the apply form with the documented optional flags
+g="$(gate_call "GIT_SAFETY_OVERRIDE='$CANON' bash \"\$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh\" --apply --patch /p --expected /e --target .husky/pre-commit --repo /r")"
+if grep -q '"permissionDecision": "allow"' <<<"$g"; then
+  ok "P11 gate approves the apply form with optional --target/--repo"
+else
+  bad "P11 gate apply + optional flags — got: ${g:-<empty>}"
+fi
+
+# P12-P14 hook failure / non-matching event shapes stay silent with rc 0 (normal flow)
+g="$(printf 'not json' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P12 gate silent on malformed JSON payload"; else bad "P12 leaked: $g"; fi
+g="$(printf '' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P13 gate silent on empty stdin"; else bad "P13 leaked: $g"; fi
+g="$(printf '{"hook_event_name":"PreToolUse","tool_name":"Read","tool_input":{"file_path":"/x"}}' | bash "$GATE")"
+if [ -z "$g" ]; then ok "P14 gate silent for non-Bash tools"; else bad "P14 leaked: $g"; fi
+
+# N11-N25 gate negatives (D2070-S01): the approval must require the COMPLETE canonical
+# single command — every compound suffix, substitution, redirection, extra/unknown mode
+# or smuggled variable stays in the normal permission flow (empty stdout).
+gate_silent() { # gate_silent <label> <command>
+  local label="$1" c="$2" out=""
+  out="$(gate_call "$c")"
+  if [ -z "$out" ]; then ok "$label"; else bad "$label — gate approved: $out"; fi
+}
+gate_silent "N11 compound suffix '; printf EXTRA' gets no allow (D2070-S01 repro)" "$GATE_DRY; printf EXTRA"
+gate_silent "N12 && chain gets no allow" "$GATE_DRY && printf EXTRA"
+gate_silent "N13 newline-suffixed command gets no allow" "$(printf '%s\nprintf EXTRA' "$GATE_DRY")"
+gate_silent "N14 piped suffix gets no allow" "$GATE_DRY | cat"
+gate_silent "N15 command substitution gets no allow" "$GATE_DRY \$(printf EXTRA)"
+gate_silent "N16 backtick substitution gets no allow" "$GATE_DRY \`printf EXTRA\`"
+gate_silent "N17 redirection gets no allow" "$GATE_DRY > /tmp/apply-husky-patch-evil"
+gate_silent "N18 extra mode: --apply appended to the dry-run shape gets no allow" "$GATE_DRY --apply"
+gate_silent "N19 unknown flag gets no allow" "$GATE_DRY --evil x"
+gate_silent "N20 smuggled variable gets no allow" "$GATE_DRY --patch \"\$HOME/x\" --expected /e"
+gate_silent "N21 apply form without the override gets no allow" 'bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --apply --patch /p --expected /e'
+gate_silent "N22 duplicate --patch gets no allow" "$GATE_DRY --patch /q"
+gate_silent "N23 subshell parens get no allow" "( $GATE_DRY )"
+gate_silent "N24 env prefix on the dry-run shape gets no allow" "GIT_SAFETY_OVERRIDE='$CANON' bash \"\$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh\" --dry-run --patch /p --expected /e"
+gate_silent "N25 truncated flag list gets no allow" 'bash "$CLAUDE_PROJECT_DIR/scripts/apply-husky-patch.sh" --dry-run --patch /p'
 
 # negative arms: the target must stay byte-unchanged after every refusal
 assert_refused() { # assert_refused <label> <want-grep> <env-prefix...> -- <args...>
