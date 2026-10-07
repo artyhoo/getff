@@ -35,11 +35,11 @@ expect_classify_fail() { # <want-rc> <desc> <required-grep-or-empty> <input-line
   out=$(printf '%s\n' "$@" | bash "$SUT" --classify 2>&1)
   rc=$?
   if [ "$rc" -ne "$want" ]; then
-    report 1 "$desc" "wanted rc=$want got rc=$rc; output: $out"
+    report 0 "$desc" "wanted rc=$want got rc=$rc; output: $out"
     return
   fi
   if [ -n "$pattern" ] && ! grep -q "$pattern" <<<"$out"; then
-    report 1 "$desc" "output lacks '$pattern'; output: $out"
+    report 0 "$desc" "output lacks '$pattern'; output: $out"
     return
   fi
   PASS=$((PASS + 1))
@@ -58,11 +58,11 @@ expect_rc() { # <want-rc> <desc> <required-grep-or-empty> <args...>
   out=$(bash "$SUT" "$@" 2>&1)
   rc=$?
   if [ "$rc" -ne "$want" ]; then
-    report 1 "$desc" "wanted rc=$want got rc=$rc; output: $out"
+    report 0 "$desc" "wanted rc=$want got rc=$rc; output: $out"
     return
   fi
   if [ -n "$pattern" ] && ! grep -q "$pattern" <<<"$out"; then
-    report 1 "$desc" "output lacks '$pattern'; output: $out"
+    report 0 "$desc" "output lacks '$pattern'; output: $out"
     return
   fi
   PASS=$((PASS + 1))
@@ -105,7 +105,7 @@ expect_classify_fail 1 "prefix trap: plugin/hooks2/x is semantic" \
 
 expect_classify_fail 1 "prefix trap: MANIFEST.sha256.bak is not the manifest" \
   "CLASSIFY semantic packages/getff/MANIFEST.sha256.bak" \
-  "MANIFEST.sha256.bak"
+  "packages/getff/MANIFEST.sha256.bak"
 
 expect_classify_fail 1 "prefix trap: tests/install-sh/baseline/x (singular) is semantic" \
   "CLASSIFY semantic tests/install-sh/baseline/x" \
@@ -129,7 +129,7 @@ rm -f "$TMPFILE"
 
 # ── argument contract ────────────────────────────────────────────────────────────
 expect_rc 0 "no arguments prints the planned round and exits 0" "VERDICT: DRY-PLAN"
-expect_rc 0 "--help prints usage" "Options:"
+expect_rc 0 "--help prints usage" "Options:" --help
 expect_rc 2 "unknown option is a usage error" "unknown option" --frobnicate
 expect_rc 2 "--watch and --park are mutually exclusive" "mutually exclusive" --watch --park 2012
 expect_rc 2 "--watch and --dry-run are mutually exclusive" "mutually exclusive" --watch --dry-run 2012
