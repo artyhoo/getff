@@ -29,9 +29,11 @@
     "skills/",
     "templates/",
     ".claude/",
+    ".agents/",
     ".prettierrc.json",
     "packages/",
-    "scripts/"
+    "scripts/",
+    "plugin/"
   ],
   "scripts": {
     "build:dist": "bash ../../scripts/build-getff-dist.sh",

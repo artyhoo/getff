@@ -1,0 +1,99 @@
+---
+name: getff
+description: Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong".
+---
+
+<!-- @harness-posture: portable — pure prose skill; every reference is markdown readable on any harness, no hook or harness-specific primitive required -->
+
+# Rules as Tests
+
+A unified framework for treating **every codebase rule as an executable test**. Documents lie; tests don't. This becomes critical when AI agents write the code, because LLMs reliably violate undocumented conventions and generate plausible-but-vacuous tests.
+
+> **Authoritative for:** skill activation conditions (frontmatter `description`); 5-layer framework summary; reference index (when to read which `references/*.md`); enforcement-extension surfaces (shift-left to AIF, shift-right to production, sideways via Pact).
+> **NOT authoritative for:** project-host goal — see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](https://github.com/artyhoo/getff/blob/main/install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).
+
+## When this skill is relevant
+
+Use this skill when the user is working on (or asking about):
+
+- Setting up linting / testing / CI / pre-commit / pre-push hooks for a JS/TS project
+- Architecture enforcement (layer rules, dependency direction, no-cycles, banned imports)
+- Mutation testing (Stryker, PIT, mutmut)
+- Contract testing between microservices (Pact, can-i-deploy)
+- Fighting AI agents introducing drift / `as any` / tautological tests
+- AI Factory (aif) integration with Claude Code
+- Production fitness functions: SLO-as-code, error budgets, observability
+- Feature flags, canary releases, chaos engineering
+- React/Next.js code-quality stack (Server vs Client boundary, accessibility, Storybook)
+- Designing the rules a Claude Code / Cursor / Copilot project should follow
+
+## The five layers
+
+Every rule fits into one of five layers, each with its own enforcement mechanism:
+
+1. **Architecture Tests / Fitness Functions** — structural rules as tests (no cycles, layered architecture, banned imports, naming, complexity ceilings). Tools: ESLint flat config + `typescript-eslint/strictTypeChecked`, dependency-cruiser, ArchUnit.
+2. **Meta-tests** — tests _about_ the test suite (every public method has a test, every test has a real assertion, no conditional logic in tests, no real I/O in unit tests). Implemented as AST scans + `eslint-plugin-vitest` rules.
+3. **Specification by Example** — table-driven tests where concrete input/output pairs ARE the spec. Vitest `it.each`, fast-check property-based tests, Zod schemas as contractual specs.
+4. **Mutation Testing** — sanity layer on the tests themselves. Catches tautological tests and always-green assertions. Stryker incremental on PR diff, full sweep nightly. Threshold ≥70% kill on changed lines.
+5. **Living Documentation** — tests _are_ the documentation. Test names are sentences; ArchUnit `because(...)` clauses are ADRs; OpenAPI specs generated from Zod schemas.
+
+These five extend in two directions:
+
+- **Down (shift-left → pre-PR)**: `./scripts/audit-ai-docs.sh` plus the `review-sidecar` / `living-docs-auditor` sub-agents, all shipped by this installer. Where an external AI-Factory runtime is present it can wrap that same gate, but it is never the gate itself — an external tool this installer does not deliver cannot be the pre-PR layer.
+- **Up (shift-right → production)**: SLO-as-code (OpenSLO + Pyrra), error budgets, feature flags + observability 2.0, synthetic monitoring, chaos engineering.
+
+Plus a sideways layer:
+
+- **Contract testing (Pact)**: lives in CI by form (fast, deterministic) but solves shift-right problem (production compatibility) via `can-i-deploy` with Pact Broker holding production state.
+
+To (re)generate or repair stack-aware rules and their firing-test material, run `/rule-research` (research → rules regeneration) or `/rule-tests` (repair or verify an existing generated rule's test material).
+
+## Where to dig in
+
+Read these references **as needed**, not all at once:
+
+| File                              | When to read                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `references/checks-map.md`        | **Always read first if user is unclear where their question fits.** Map of all 8 enforcement levels (edit-time → production) and what runs where.                                         |
+| `references/overview.md`          | Quick refresher of the 5-layer framework with patterns and anti-patterns per layer.                                                                                                       |
+| `references/ai-traps.md`          | Specifically what AI agents (Claude/Cursor/Copilot) violate most and which rule catches each. Use when user mentions AI-generated code drift.                                             |
+| `references/doc-organization.md`  | AGENTS.md hot/cold split, when skill vs rule, drift-detection commands, token economy targets. Use when user asks about AGENTS.md/CLAUDE.md structure or the `.claude/` layout.           |
+| `references/self-testing-docs.md` | The `audit-ai-docs.sh` pattern: probe catalog, paired negative-test discipline, three levels of execution (local / pre-push / CI). Use when user is writing or extending an audit script. |
+| `references/base-core.md`         | Every base-core principle and whether it fires here (`fires` / `partial` / `not_wired` + reason), plus getff's lint plugin. Use when asked which principles are enforced here.            |
+
+## Templates ready to copy
+
+Before selecting or copying a config, read [the template catalog](references/template-catalog.md). Its paths are framework sources; in consumers resolve the actual delivered filenames. Apply the verification protocol below before publishing.
+
+## Workflow when applying this skill
+
+1. **Identify which layer(s) the user's question touches.** Use the map in `checks-map.md` if unclear.
+2. **Read the relevant reference file** (overview / ai-traps / checks-map) before writing detailed advice.
+3. **Reach for templates** when giving config recommendations — they are already correct (versions verified, paths consistent, edge cases handled).
+4. **Don't dump all 5 layers at once.** Match recommendation depth to the user's question. If they ask about pre-commit, don't lecture about chaos engineering.
+5. **For React/Next questions**, read `packages/preset-next-15-canonical/templates/eslint.config.react.mjs` in the framework checkout, or the consumer's delivered ESLint config (resolve its actual filename first); then apply Server/Client boundary rules from R12–R20.
+6. **For AI-generated code worries**, prioritize: meta-tests (Layer 2) + mutation testing (Layer 4) + AIF `review-sidecar` two-AI review pattern. These three together catch ~80% of AI-specific failures.
+
+## Verification protocol — apply before publishing any config
+
+A bug pattern this skill explicitly fights: dependency lists with stale versions, missing peer-deps, paths that don't match project structure, scripts that fail on edge cases (new branches, missing files). Before producing a `package.json`, hooks, or CI config in your response:
+
+1. **Each `dependencies`/`devDependencies` entry must be verified** via `npm view <package> version` or web search — not from memory.
+2. **Each import in code examples must exist in `package.json`** (literal cross-check).
+3. **Each path in configs (`include`, `exclude`, `mutate`, `disableTypeChecks`) must match** the project structure described.
+4. **Each file referenced from CI/hooks must be created** in the artifact (`.nvmrc` is the canonical case — easy to forget).
+5. **Each shell command must work on edge cases** — empty branch, missing upstream, fresh checkout.
+
+If you skip this and produce buggy artifacts, you have failed the user — the entire skill is _about_ getting these details right.
+
+## Without this skill
+
+An agent copies a remembered lint config into a React consumer, guesses template paths and marks the setup complete without checking its delivered imports or firing tests. The config can look plausible while conventions still fail at no reachable channel.
+
+## With this skill
+
+The agent selects the relevant enforcement layer, reads the real preset or delivered config and verifies paths, dependencies and meaningful firing tests before publishing. Missing consumer prerequisites remain explicit instead of becoming an invented passing setup.
+
+## Context and vocabulary
+
+For AI-failure examples, term definitions, or integration decisions, read [framework context and vocabulary](references/framework-context.md). AI Factory is external and never a prerequisite for this framework's gates; each integration remains a separate decision.

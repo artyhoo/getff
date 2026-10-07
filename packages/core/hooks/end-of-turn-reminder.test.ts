@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1770-1810 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1777-1817 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -43,7 +43,7 @@ import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
 
 // Every case below spawns `bash .claude/hooks/end-of-turn-reminder.sh`: 106 spawn call
 // sites over 117 cases, and the D13 `fixture 9` arm replays the whole 19-case golden
@@ -1398,6 +1398,42 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       // carry the block now, and the removed chronicle bullet must stay absent.
       expect(payload.reason).toContain('Зачем всё это было');
       expect(payload.reason, 'D-G removed the «по актам» chronicle').not.toMatch(/по актам/i);
+    });
+
+    it('explicit completed story without a PR signal keeps its final answer', () => {
+      const story = '## 🎬 Что изменилось за сессию\n\n' + longMarkdownText();
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('/story'), assistantText(story)]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'explicit-story' });
+      expect(result.status).toBe(0);
+      expect(result.stdout, 'a completed explicit story must not be replaced by a dry recap').toBe('');
+    });
+
+    it('an inline or quoted story marker does not suppress the ordinary recap', () => {
+      for (const prefix of ['Example: ', '> ']) {
+        const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText(prefix + '## 🎬 Что изменилось за сессию\n' + longMarkdownText())]);
+        const result = runHook({ transcript_path: tr, stop_hook_active: false });
+        expect(JSON.parse(result.stdout).reason).toContain('## 🟢 Простыми словами');
+      }
+    });
+
+    it('a fenced story example does not count as a completed story', () => {
+      const tr = writeTranscript([aiTitle('Цель'), userTurn('задание'), assistantText('```markdown\n## 🎬 Что изменилось за сессию\n```\n' + longMarkdownText())]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false });
+      expect(JSON.parse(result.stdout).reason).toContain('## 🟢 Простыми словами');
+    });
+
+    it('a story mention cannot exempt an incomplete recap from its armed section gate', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'explicit-story-gate-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('## 🟢 In plain words\nExample: ## 🎬 What changed this session')]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'story-gate-mention' }, { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir });
+      expect(JSON.parse(result.stdout).reason).toContain('From you:');
+    });
+
+    it('a completed English story keeps its final answer with the section gate armed', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('/story'), assistantText('## 🎬 What changed this session\n' + longMarkdownText())]);
+      const result = runHook({ transcript_path: tr, stop_hook_active: false }, { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' });
+      expect(result.stdout).toBe('');
     });
 
     it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', () => {
@@ -3504,7 +3540,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   });
 
   it('fixture 21f (D40): the index awk uses no interval expression (old mawk ignores `{n,}`)', () => {
-    const src = readFileSync(resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh'), 'utf8');
+    const src = readFileSync(resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh'), 'utf8');
     // The awk PROGRAM only (its comments above may name the forbidden form).
     const start = src.indexOf("! awk '", src.indexOf('# D40 — the handoff is a THIN INDEX'));
     const end = src.indexOf(`' "$gate_handoff_file"`, start);
@@ -3775,7 +3811,7 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
   });
 
   it('story/SKILL.md teaches the same thing as the story spec', () => {
-    const skill = readFileSync(resolve(REPO_ROOT, '.claude/skills/story/SKILL.md'), 'utf8');
+    const skill = readFileSync(resolve(REPO_ROOT, '.agents/procedures/story/SKILL.md'), 'utf8');
     expect(skill).not.toMatch(/jargon (explained )?on the spot/i);
     expect(skill).toMatch(/short sentences/);
     expect(skill).toMatch(/one idea\s+each/);
@@ -3990,7 +4026,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     mkdirSync(join(box, 'lang'), { recursive: true });
     const hookCopy = join(box, 'end-of-turn-reminder.sh');
     writeFileSync(hookCopy, readFileSync(HOOK, 'utf8'), 'utf8');
-    const pack = readFileSync(resolve(REPO_ROOT, '.claude/hooks/lang/en.sh'), 'utf8').replace(strip, '');
+    const pack = readFileSync(resolve(REPO_ROOT, '.agents/hooks/lang/en.sh'), 'utf8').replace(strip, '');
     expect(pack).not.toMatch(gone);
     writeFileSync(join(box, 'lang', 'en.sh'), pack, 'utf8');
     const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { hook: hookCopy });

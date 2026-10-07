@@ -32,8 +32,8 @@ import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
-const LIB = resolve(REPO_ROOT, '.claude/hooks/lib/skill-index.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
+const LIB = resolve(REPO_ROOT, '.agents/hooks/lib/skill-index.sh');
 
 const OPEN = '[skill index — re-injected after compaction]';
 const CLOSE = '[/skill index]';

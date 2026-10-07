@@ -35,7 +35,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/parse-override-flags.sh',
+  '.agents/procedures/pipeline/helpers/parse-override-flags.sh',
 );
 
 /** Invoke the helper with a single umbrella string (mirrors SKILL.md §0 calling convention). */

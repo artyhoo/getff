@@ -807,8 +807,8 @@ function runCmdScriptLivenessGate(base, opts = {}) {
 // packages/core/hooks/checks/s17.ts
 var S17_HISTORICAL_CUTOFF = "2026-05-12";
 var ALLOWLIST_RE = /^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):/;
-var DISCIPLINE_FILE_RE = /^(\.claude\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|\.claude\/skills\/[^/]+\/SKILL\.md)$/;
-var DISCIPLINE_DIR_RE = /^(\.claude\/rules\/|packages\/core\/principles\/|\.claude\/skills\/)/;
+var DISCIPLINE_FILE_RE = /^((?:\.claude|\.agents)\/rules\/[^/]+\.md|packages\/core\/principles\/[^/]+\.test\.ts|(?:\.claude\/skills|\.agents\/procedures)\/[^/]+\/SKILL\.md)$/;
+var DISCIPLINE_DIR_RE = /^((?:\.claude|\.agents)\/rules\/|packages\/core\/principles\/|(?:\.claude\/skills|\.agents\/procedures)\/)/;
 var SECTION_MARKER_RE = /^\+(## §|export const [A-Z_]+: )/;
 var PLACEHOLDERS2 = /* @__PURE__ */ new Set([
   "todo",
@@ -1429,7 +1429,7 @@ function priorArtSection(rb) {
 `);
     }
     process.stdout.write(
-      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\nExamples:\n  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER \u2014 different domain).\n  Prior-art: skipped \u2014 refactor only, no new capability\n\nRules: \u226520 chars after "Prior-art:" (or after "skipped \u2014 "); placeholder\nrationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\nA positive line must also name a resolvable referent \u2014 an SSOT row\n(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\nissue/PR reference (#1271). See CLAUDE.md \xA7`Prior-art:` trailer syntax.\n\n'
+      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\nExamples:\n  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER \u2014 different domain).\n  Prior-art: skipped \u2014 refactor only, no new capability\n\nRules: \u226520 chars after "Prior-art:" (or after "skipped \u2014 "); placeholder\nrationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\nA positive line must also name a resolvable referent \u2014 an SSOT row\n(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:407), or an\nissue/PR reference (#1271). See CLAUDE.md \xA7`Prior-art:` trailer syntax.\n\n'
     );
     process.exit(1);
   }
@@ -2229,7 +2229,7 @@ function payloadDriftSection(ctx) {
   }
   let fingerprints = 0;
   if (hasBaselines) {
-    const recorded = /* @__PURE__ */ new Set();
+    const recordedHomes = /* @__PURE__ */ new Map();
     const walk = (dir) => {
       for (const name of readdirSync(dir)) {
         const abs = `${dir}/${name}`;
@@ -2240,12 +2240,52 @@ function payloadDriftSection(ctx) {
         if (!name.endsWith(".fingerprint")) continue;
         fingerprints += 1;
         for (const line of readFileSync3(abs, "utf8").split("\n")) {
-          const m = /^([0-9a-f]{64})\s/.exec(line.trim());
-          if (m?.[1]) recorded.add(m[1]);
+          const m = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
+          if (m?.[1] && m[2]) {
+            const homes = recordedHomes.get(m[1]);
+            if (homes) homes.push(m[2]);
+            else recordedHomes.set(m[1], [m[2]]);
+          }
         }
       }
     };
     walk(baselineDir);
+    const hashAt = (p) => {
+      try {
+        return sha256Bytes(readFileSync3(resolve2(REPO_ROOT, p)));
+      } catch {
+        return void 0;
+      }
+    };
+    let manifestByHash;
+    const payloadCarries = (hash) => {
+      if (!manifestByHash) {
+        manifestByHash = /* @__PURE__ */ new Map();
+        let lines;
+        try {
+          lines = readFileSync3(manifestPath, "utf8").split("\n");
+        } catch {
+          lines = [];
+        }
+        for (const line of lines) {
+          const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
+          if (!m?.[1] || !m[2]) continue;
+          const recorded = manifestByHash.get(m[1]);
+          const abs = resolve2(REPO_ROOT, m[2]);
+          if (recorded) recorded.push(abs);
+          else manifestByHash.set(m[1], [abs]);
+        }
+      }
+      const rows = manifestByHash.get(hash);
+      if (!rows) return false;
+      return rows.some((abs) => {
+        try {
+          return sha256Bytes(readFileSync3(abs)) === hash;
+        } catch {
+          return false;
+        }
+      });
+    };
     const stale = [];
     for (const { status, path } of changes) {
       if (status === "A") continue;
@@ -2253,7 +2293,15 @@ function payloadDriftSection(ctx) {
         maxBuffer: 64 * 1024 * 1024
       });
       if (show.status !== 0 || !show.stdout) continue;
-      if (recorded.has(sha256Bytes(show.stdout))) stale.push(`  ${path}`);
+      const preHash = sha256Bytes(show.stdout);
+      const homes = recordedHomes.get(preHash);
+      if (!homes) continue;
+      if (homes.includes(path)) {
+        if (hashAt(path) === preHash) continue;
+      } else if (homes.some((p) => hashAt(p) === preHash) || payloadCarries(preHash)) {
+        continue;
+      }
+      stale.push(`  ${path}`);
     }
     if (stale.length)
       die(
@@ -2410,6 +2458,19 @@ function runCoreSuite(script) {
     );
   }
   return r;
+}
+function canonicalSourceSection() {
+  if (!existsSync4(resolve2(REPO_ROOT, "scripts/canonical-agents-map.json")))
+    return;
+  const r = runCoreSuite("test:canonical");
+  if (r.notFound) {
+    die(
+      "\u274C npm/npx not found. Install Node.js to enable canonical source tests."
+    );
+  }
+  if (r.exitCode !== 0)
+    die("\u274C canonical source-contract tests failed \u2014 fix before push", r);
+  emit(r);
 }
 function principlesMetaSection() {
   if (existsSync4(resolve2(CORE, "package.json"))) {
@@ -2574,11 +2635,24 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/rules/integration-rules.md",
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
+  ".agents/session-bootstrap.md",
+  // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:388 / install.sh --refresh (conditional starter)
+  // the native bind-link destination of the row above
 ];
 var SHIPPED_MD_PREFIXES = [
-  ".ai-factory/skill-context/"
+  ".ai-factory/skill-context/",
+  // agents-canonical canonical namespaces (2026-10-05 migration): the common tree the
+  // installer delivers and binds native entries against. Everything under them is
+  // framework-authored; a consumer's own content lives outside .agents/.
+  ".agents/procedures/",
+  ".agents/roles/",
+  ".agents/skills/",
+  // Native compat mirrors (canonical-completion binding): the installer delivers
+  // .zcode/{agents,skills} as alias trees against the common .agents/ sources; a
+  // consumer's own zcode content lives in config files, not markdown.
+  ".zcode/agents/",
+  ".zcode/skills/"
 ];
 var SHIPPED_SKILL_SLUGS = [
   "ai-doc",
@@ -2613,10 +2687,13 @@ function refreshBaselinePaths() {
 function isFrameworkShippedMarkdown(p, baseline) {
   if (SHIPPED_MD_DESTINATIONS.includes(p)) return true;
   if (SHIPPED_MD_PREFIXES.some((x) => p.startsWith(x))) return true;
-  if (SHIPPED_SKILL_SLUGS.some((slug) => p.startsWith(`.claude/skills/${slug}/`)))
+  if (SHIPPED_SKILL_SLUGS.some(
+    (slug) => p.startsWith(`.claude/skills/${slug}/`) || p.startsWith(`.zcode/skills/${slug}/`)
+  ))
     return true;
+  if (p === ".claude/session-bootstrap.md") return true;
   if (baseline !== null) return baseline.has(p);
-  return p.startsWith(".claude/agents/");
+  return p.startsWith(".claude/agents/") || p.startsWith(".zcode/agents/");
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
 function lycheeSection(ctx) {
@@ -2832,6 +2909,11 @@ var SECTIONS = [
     id: "docs-refresh",
     owner: "maintainer",
     run: (c) => docsRefreshSection(c)
+  },
+  {
+    id: "canonical-source",
+    owner: "maintainer",
+    run: () => canonicalSourceSection()
   },
   {
     id: "principles-meta",

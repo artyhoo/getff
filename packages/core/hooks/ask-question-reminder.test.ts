@@ -53,7 +53,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/ask-question-reminder.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/ask-question-reminder.sh');
 
 function hasJq(): boolean {
   try {
@@ -118,7 +118,7 @@ function runHook(
  *  red here rather than silently drifting (#sync-by-copy-paste,
  *  .claude/rules/dual-implementation-discipline.md §8). */
 function renderPackFn(fn: string, lang: 'en' | 'ru'): string {
-  const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
+  const pack = resolve(REPO_ROOT, '.agents/hooks/lang', `${lang}.sh`);
   const r = spawnSync('bash', ['-c', `. "${pack}"; ${fn}`], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`${fn} (${lang}) exited ${r.status}: ${r.stderr}`);
   return (r.stdout ?? '').toString();
@@ -250,7 +250,7 @@ describe.skipIf(!JQ)(
     it.each(['en', 'ru'] as const)(
       '%s: the pack renders with no stderr — the brainstorming backticks never execute',
       (lang) => {
-        const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
+        const pack = resolve(REPO_ROOT, '.agents/hooks/lang', `${lang}.sh`);
         const r = spawnSync('bash', ['-c', `. "${pack}"; aif_msg_question_challenge`], {
           encoding: 'utf8',
         });

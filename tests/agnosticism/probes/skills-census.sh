@@ -73,9 +73,11 @@ unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
 # the two TRACKED counts means a tracked dir with no tracked SKILL.md (or the inverse) — RED,
 # never silently skipped. A NEW tracked skill dir with no declaration is RED on the next run
 # with zero probe edits (kickoff §4.5 falsifier).
-pop=$(git -C "$REPO_ROOT" ls-files '.claude/skills/*/SKILL.md' | sort)
+# The census governs operator-native entries; their file links resolve canonical bodies.
+SKILL_ROOT=.claude/skills
+pop=$(git -C "$REPO_ROOT" ls-files "$SKILL_ROOT/*/SKILL.md" | sort)
 tracked=$(printf '%s\n' "$pop" | grep -c . || true)
-tracked_dirs=$(git -C "$REPO_ROOT" ls-files '.claude/skills/' | grep -E '^\.claude/skills/[^/]+/' | cut -d/ -f3 | sort -u | wc -l)
+tracked_dirs=$(git -C "$REPO_ROOT" ls-files "$SKILL_ROOT/" | grep -E "^${SKILL_ROOT//./\\.}/[^/]+/" | cut -d/ -f3 | sort -u | wc -l)
 if [ "$tracked" -ne "$tracked_dirs" ]; then
   record skills-census "population" "tracked SKILL.md files ($tracked) != tracked skill dirs ($tracked_dirs)" 1 POPULATION-DRIFT
 fi
@@ -92,7 +94,7 @@ for f in $pop; do
     /^```/ { infence = !infence; next }
     !infence && /^<!--[[:space:]]*@harness-posture:/ { print; exit }
   ' "$file")
-  skill=${f#.claude/skills/}
+  skill=${f#"$SKILL_ROOT/"}
   if [ -z "$marker" ]; then
     record skills-census "$f" "no @harness-posture declaration (grammar: probe header)" 1 NO-HARNESS-POSTURE
     continue

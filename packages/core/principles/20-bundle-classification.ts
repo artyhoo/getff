@@ -17,7 +17,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(HERE, '../../..');
 export const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/bundle-curate.sh',
+  '.agents/procedures/pipeline/helpers/bundle-curate.sh',
 );
 export const FIXTURES = resolve(HERE, '__fixtures__/bundle');
 

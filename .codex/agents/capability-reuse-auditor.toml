@@ -1,0 +1,4 @@
+name = "capability-reuse-auditor"
+description = "Audits a proposed or just-authored new capability (a SKILL.md, an agent, or a packages/core module) for overlap with an existing own-stack or upstream capability, and checks that its Prior-art trailer's verdict matches what the body actually does. Flags reinvention before handoff. Reports; does not fix."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/capability-reuse-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

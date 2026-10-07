@@ -32,7 +32,7 @@ set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
 ok(){ PASS=$((PASS+1)); echo "  ✓ $1"; }
-bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
+bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; tail -4 "$SANDBOX/generator.log" 2>/dev/null || true; }
 
 # Every case runs against a THROWAWAY CLONE, never the live tree: the generator writes real
 # files, and a half-applied mutation in the real repo is exactly the accident this guard is
@@ -49,7 +49,7 @@ FIXTURE="$SANDBOX/_fixture"
 build_fixture() {
   mkdir -p "$FIXTURE"
   local d
-  for d in .claude/hooks plugin/hooks agents plugin/agents; do
+  for d in .agents/hooks plugin/hooks .agents/roles plugin/agents; do
     mkdir -p "$FIXTURE/$d"
     cp -R "$REPO_ROOT/$d/." "$FIXTURE/$d/" 2>/dev/null || true
   done
@@ -77,11 +77,11 @@ build_fixture
 # committed at HEAD instead of the change under review — which is how the first draft of this
 # file reported RED against a guard that was already written but not yet committed.
 run_gen() {
-  (CLAUDE_PROJECT_DIR="$1" bash "$REPO_ROOT/scripts/generate-plugin-twins.sh" >/dev/null 2>&1)
+  (CLAUDE_PROJECT_DIR="$1" bash "$REPO_ROOT/scripts/generate-plugin-twins.sh" >"$SANDBOX/generator.log" 2>&1)
 }
 
 # A source declared `manual` whose twin genuinely diverges — the population this guard protects.
-SRC_REL=".claude/hooks/inject-output-language.sh"
+SRC_REL=".agents/hooks/inject-output-language.sh"
 TWIN_REL="plugin/hooks/inject-output-language"
 
 echo "== twin clobber guard =="
@@ -104,7 +104,7 @@ C=$(fresh_clone c1) && {
 # (2) identity source edited, twin stale → generator regenerates (the normal case)
 # ==============================================================================
 C=$(fresh_clone c2) && {
-  ID_SRC="$C/.claude/hooks/check-hook-marker.sh"
+  ID_SRC="$C/.agents/hooks/check-hook-marker.sh"
   ID_TWIN="$C/plugin/hooks/check-hook-marker"
   if [ -f "$ID_SRC" ] && [ -f "$ID_TWIN" ]; then
     printf '\n# sentinel-edit-for-test\n' >> "$ID_SRC"
@@ -122,6 +122,9 @@ C=$(fresh_clone c2) && {
 # (3) `manual` marker removed → generator MUST fail, twin MUST survive
 # ==============================================================================
 C=$(fresh_clone c3) && {
+  printf '\n# @plugin-transform: manual — fixture native channel logic deliberately differs\n' >> "$C/$SRC_REL"
+  printf '\n# unique-native-logic-seeded\n' >> "$C/$TWIN_REL"
+  git -C "$C" add -A; git -C "$C" commit -qm "seed deliberate manual native payload"
   before=$(wc -l < "$C/$TWIN_REL")
   grep -v '^# @plugin-transform: manual' "$C/$SRC_REL" > "$C/.tmp" && mv "$C/.tmp" "$C/$SRC_REL"
   if run_gen "$C"; then
@@ -161,6 +164,10 @@ C=$(fresh_clone c4) && {
 # (5) marker present → still skipped as manual, twin untouched (no regression)
 # ==============================================================================
 C=$(fresh_clone c5) && {
+  # Manual policy remains honored even when this repo's real sources now derive identity.
+  sed '/^# @plugin-transform:/d' "$C/$SRC_REL" > "$C/.tmp"; mv "$C/.tmp" "$C/$SRC_REL"
+  printf '\n# @plugin-transform: manual — fixture retains distinct native channel logic\n' >> "$C/$SRC_REL"
+  printf '\n# unique-native-logic-seeded\n' >> "$C/$TWIN_REL"
   before=$(wc -l < "$C/$TWIN_REL")
   if run_gen "$C"; then
     after=$(wc -l < "$C/$TWIN_REL")
@@ -175,7 +182,7 @@ C=$(fresh_clone c5) && {
 # (6) source + twin absent from HEAD → guard degrades to allow, never hard-errors
 # ==============================================================================
 C=$(fresh_clone c6) && {
-  cp "$C/.claude/hooks/check-hook-marker.sh" "$C/.claude/hooks/brand-new-hook.sh"
+  cp "$C/.agents/hooks/check-hook-marker.sh" "$C/.agents/hooks/brand-new-hook.sh"
   cp "$C/plugin/hooks/check-hook-marker" "$C/plugin/hooks/brand-new-hook"
   if run_gen "$C"; then
     ok "(6) hook absent from HEAD → guard allows (no false block on brand-new twins)"
@@ -208,7 +215,7 @@ C=$(fresh_clone c7) && {
 # (8) agents population — stale twin (source edited) still re-syncs, no false block
 # ==============================================================================
 C=$(fresh_clone c8) && {
-  AG_SRC="$C/agents/review-sidecar.md"; AG_TWIN="$C/plugin/agents/review-sidecar.md"
+  AG_SRC="$C/.agents/roles/review-sidecar.md"; AG_TWIN="$C/plugin/agents/review-sidecar.md"
   if [ -f "$AG_SRC" ]; then
     printf '\n<!-- sentinel-agent-source-edit -->\n' >> "$AG_SRC"
     if run_gen "$C" && grep -q 'sentinel-agent-source-edit' "$AG_TWIN"; then
@@ -218,6 +225,27 @@ C=$(fresh_clone c8) && {
     fi
   else
     bad "(8) fixture missing: agents/review-sidecar.md absent"
+  fi
+}
+
+# The authored native adapter preserves the same fail-closed overwrite contract.
+C=$(fresh_clone c9) && {
+  ADAPTER_TWIN="$C/plugin/hooks/warn-subagent-report-zcode"
+  printf '\n# unique-native-adapter-edit\n' >> "$ADAPTER_TWIN"
+  if run_gen "$C"; then
+    bad "(9) file-mode adapter tamper silently overwritten"
+  elif grep -q 'unique-native-adapter-edit' "$ADAPTER_TWIN"; then
+    ok "(9) file-mode adapter tamper refuses and preserves its bytes"
+  else
+    bad "(9) file-mode adapter tamper refused after losing content"
+  fi
+}
+C=$(fresh_clone c10) && {
+  printf '\n# canonical-adapter-source-edit\n' >> "$C/.agents/hooks/adapters/plugin/warn-subagent-report-zcode"
+  if run_gen "$C" && grep -q 'canonical-adapter-source-edit' "$C/plugin/hooks/warn-subagent-report-zcode"; then
+    ok "(10) file-mode canonical source edit regenerates a stale adapter"
+  else
+    bad "(10) file-mode canonical source edit was not regenerated"
   fi
 }
 

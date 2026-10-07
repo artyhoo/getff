@@ -845,6 +845,12 @@ if [ -x node_modules/.bin/prettier ]; then
     local f dirty="" base
     while IFS= read -r f; do
       [ -f "$f" ] || continue
+      # Canonical-completion compat aliases (byte-identical native entries rebound by
+      # _portable_alias to relative links into .agents/) carry no bytes of their own — and
+      # prettier 3.x refuses explicit symlink patterns with an error exit, not a formatting
+      # verdict. Their content is checked at the canonical target, which this same list
+      # includes as a real file.
+      [ ! -L "$f" ] || continue
       if git cat-file -e "$FIXTURE_SHA:$f" 2>/dev/null; then
         base=$(git show "$FIXTURE_SHA:$f" | node_modules/.bin/prettier --stdin-filepath "$f" 2>/dev/null) || continue
         [ "$base" = "$(git show "$FIXTURE_SHA:$f")" ] || continue   # out of style before the install
