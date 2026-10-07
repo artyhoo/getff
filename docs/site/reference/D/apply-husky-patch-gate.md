@@ -116,10 +116,10 @@ exit=0
   `.claude/hooks/apply-husky-patch-gate.sh:23`:
   `CANONICAL_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)'`.
   Lines 55 to 90 turn that constant and the script path into a complete single-command
-  grammar (`.claude/hooks/apply-husky-patch-gate.sh:61` refuses any metacharacter or
-  further substitution text, `:69` pins the exact token shape, one mode and the required
-  flag pairs), so a literal change in either file makes the approval fail loudly rather
-  than match approximately.
+  grammar (`.claude/hooks/apply-husky-patch-gate.sh:61` refuses any shell special
+  character or further substitution text, `:69` pins the exact token shape, one mode and
+  the required flag pairs), so a literal change in either file makes the approval fail
+  loudly rather than match approximately.
 - The whole decision surface is that grammar plus the two `allow()` exits: the dry-run
   shape allows with the read-only reason, the apply shape allows with the byte-verified
   reason, and `sys.exit(0)` with no output covers everything else — lines 35 to 44 also
