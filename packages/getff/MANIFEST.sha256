@@ -3,7 +3,7 @@ b6a67d35bb69394e80d3c98ecaa16b046868f1ecc615a3fbab0cf9a9f942dc61  .agents/checks
 6aafb61449e79a4629bab5c8fd1f21508fdbe4baffb7c78e36e301a67972b5a6  .agents/hooks/adapters/plugin/_zcode-emit
 d863f146df20add5c2ad2596410ddc14beaf3a1817493ee42be7bc1cf7355214  .agents/hooks/adapters/plugin/warn-subagent-report-zcode
 346653a9c2e653bc14ce0bba656c7721a7126d8dcc9737feea167f98d0ed2b40  .agents/hooks/adopt-orchestrator-prompts.sh
-e402c925ac7ecfe7466038790aa07d14c388ce41e7c5b9f3dbbfc3059a56760f  .agents/hooks/apply-husky-patch-gate.sh
+7696317e5c560f3d245a8dd2e5fc8cd4ffade6b930da1f1f50b1b4bb76ac7a5f  .agents/hooks/apply-husky-patch-gate.sh
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .agents/hooks/ask-question-reminder.sh
 5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .agents/hooks/check-doc-authority-header.sh
 093d93f169d881090f3e714d1382fa817f44ef6928f2a51fbd96f1c916142f94  .agents/hooks/check-doc-authority.sh
@@ -253,7 +253,7 @@ a34ac2c0c3eef3dfb79ddde9c64d88c7fe8b77a61c50e3ff8262ba84da366908  .agents/rules/
 b705ee1269dfa2fb8789bb0e0f60c89195cc99dc845d5182b006a97fdd292b45  .agents/rules/zcode-parity-doctrine.md
 0e2cc2af9aa94e2dcd90ed83e9c5ecb601fd734a1d78723d341b66d7c6b021d5  .agents/session-bootstrap.md
 346653a9c2e653bc14ce0bba656c7721a7126d8dcc9737feea167f98d0ed2b40  .claude/hooks/adopt-orchestrator-prompts.sh
-e402c925ac7ecfe7466038790aa07d14c388ce41e7c5b9f3dbbfc3059a56760f  .claude/hooks/apply-husky-patch-gate.sh
+7696317e5c560f3d245a8dd2e5fc8cd4ffade6b930da1f1f50b1b4bb76ac7a5f  .claude/hooks/apply-husky-patch-gate.sh
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
 5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .claude/hooks/check-doc-authority-header.sh
 093d93f169d881090f3e714d1382fa817f44ef6928f2a51fbd96f1c916142f94  .claude/hooks/check-doc-authority.sh
