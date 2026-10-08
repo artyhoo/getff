@@ -7,8 +7,9 @@
 # CI round; un-conflicting by hand is the same §2 recipe re-typed once per round (measured
 # 2026-10-02 on PR #2008: 4 manual rounds in one day). This script is that recipe.
 #
-# ONE ROUND (§2): fetch -> throwaway scratch worktree at the remote PR tip -> merge
-# origin/<base> -> triage the unmerged list (generated vs semantic, §4) -> regenerate the
+# ONE ROUND (§2): fetch -> throwaway scratch worktree at the remote PR tip -> sweep
+# untracked canonical-link materializations on target-tracked paths (see --sweep) ->
+# merge origin/<base> -> triage the unmerged list (generated vs semantic, §4) -> regenerate the
 # generated conflicts with their own SSOT generators -> commit --no-edit -> verify
 # (SNAPSHOT_MODE=compare N pass/0 fail, build-getff-dist --check, vitest on the PR's own
 # test files) -> pr-body-fidelity pre-flight on the new head (§9) -> merge-base
@@ -31,7 +32,8 @@
 # SAFETY:
 #   - no PR argument -> prints the planned round and exits (dry by default; nothing runs);
 #   - --dry-run with a PR -> read-only probe: trial merge in a throwaway worktree,
-#     classification report, cleanup; it never regenerates, commits or pushes;
+#     classification report, cleanup; it never regenerates, commits or pushes (the
+#     pre-merge canonical-link sweep mutates only that throwaway scratch itself);
 #   - a MERGEABLE PR is refused without --force-round: a merge that resolves nothing is
 #     never pushed (§10, anti-pattern #merge-forward-buries-the-audited-head §5);
 #   - a local trial merge that is CLEAN on a PR GitHub calls CONFLICTING is reported and
@@ -55,6 +57,10 @@
 #   scripts/merge-forward-round.sh <PR> [options]     # one full round; ends in a push
 #   scripts/merge-forward-round.sh --classify [file]  # seam: classify paths (stdin/file), exit 0
 #                                                     # iff every path is generated (§4)
+#   scripts/merge-forward-round.sh --sweep <dir> <ref>
+#                                     # seam: remove untracked canonical-link
+#                                     # materializations on <ref>-tracked paths in <dir>
+#                                     # (the pre-merge step of every round), exit 0/1
 # Options:
 #   --repo <owner/repo>  GitHub slug          (default: resolved from `gh repo view`)
 #   --base <branch>      integration branch   (default: staging)
@@ -91,6 +97,8 @@ TIMEOUT=3600
 KEEP=0
 CI_WAIT="${CI_WAIT_SCRIPT:-$HOME/.claude/scripts/ci-wait.sh}"
 CLASSIFY_FILE=""
+SWEEP_SCRATCH=""
+SWEEP_TARGET=""
 
 ROUND_N=0
 SCRATCH=""
@@ -100,7 +108,7 @@ PUSHED_SHA=""
 PROVISIONED=0
 
 usage() {
-  sed -n '2,60p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,66p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 die() { # <exit-code> <message...>
@@ -156,11 +164,53 @@ do_classify() {
   [ "$sem" -eq 0 ]
 }
 
+# sweep_canonical_links <scratch-dir> <target-ref> — remove untracked files in the
+# scratch whose path is TRACKED in <target-ref>. Fresh worktrees run the post-checkout
+# hook (link-coordination.sh), which materializes gitignored canonical coordination
+# files as untracked symlinks; once the merge target tracks such a path (2026-10-07,
+# #2066 landed .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1{a,b}.md), the
+# merge refuses to overwrite the untracked copies and aborts BEFORE recording any
+# conflict — `git diff --diff-filter=U` is empty and the round died with exit 5
+# «merge failed without an unmerged list». The removal set is exactly the intersection
+# (tracked-in-target AND untracked-in-scratch, ignored files included — the hook only
+# materializes gitignored paths, so `ls-files --others` without --exclude-standard is
+# the population the merge can trip on). Every removed path is a re-materializable
+# link to the canon dir, never work product, and the sweep runs immediately after the
+# worktree materializes — before any build step could have produced a real file there.
+# Exposed as the `--sweep <dir> <ref>` seam (fixture test: merge-forward-round.test.sh).
+sweep_canonical_links() {
+  local scratch="$1" target="$2" tmp_u tmp_t f removed=0 rc=0
+  tmp_u=$(mktemp "${TMPDIR:-/tmp}/mfr-sweep-untracked-XXXXXX") || return 1
+  tmp_t=$(mktemp "${TMPDIR:-/tmp}/mfr-sweep-tracked-XXXXXX") || { rm -f "$tmp_u"; return 1; }
+  git -C "$scratch" ls-files --others -z \
+    | LC_ALL=C tr '\0' '\n' | LC_ALL=C sort >"$tmp_u" ||
+    { rm -f "$tmp_u" "$tmp_t"; return 1; }
+  git -C "$scratch" ls-tree -r --name-only -z "$target" \
+    | LC_ALL=C tr '\0' '\n' | LC_ALL=C sort >"$tmp_t" ||
+    { rm -f "$tmp_u" "$tmp_t"; return 1; }
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if rm -f -- "$scratch/$f"; then
+      echo "   removed untracked canonical-link materialization on a target-tracked path: $f"
+      removed=$((removed + 1))
+    else
+      echo "ERROR: could not remove '$scratch/$f' — the merge may still abort; remove by hand" >&2
+      rc=1
+    fi
+  done < <(LC_ALL=C comm -12 "$tmp_u" "$tmp_t")
+  rm -f "$tmp_u" "$tmp_t"
+  echo "   canonical-link sweep: removed=$removed (tracked-in-target AND untracked-in-scratch)"
+  return "$rc"
+}
+
 print_plan() {
   cat <<'EOF'
 Planned merge-forward round (git-conflict-merge-forward.md §2) for a CONFLICTING <PR>:
   1. git fetch origin <base> <pr-branch>
   2. git worktree add --detach <scratch> <remote-pr-tip>
+  2b. sweep untracked canonical-link materializations on origin/<base>-tracked paths
+      (the post-checkout hook links canon files into every fresh worktree; when the
+      base now tracks such a path the merge aborts with NO unmerged list — exit 5)
   3. git -C <scratch> merge --no-ff --no-edit origin/<base>
   4. triage the unmerged list — generated = packages/getff/MANIFEST.sha256,
      tests/install-sh/baselines/*, plugin/hooks/*, plugin/skills/*; anything else is
@@ -255,6 +305,17 @@ round() { # one full round; sets PUSHED_SHA on a successful push; returns the ro
     return 5
   fi
   SCRATCH_CREATED=1
+
+  # Pre-merge hygiene — see sweep_canonical_links: the post-checkout hook materializes
+  # canonical links in the fresh scratch; when the base tracks such a path the merge
+  # aborts with NO unmerged entries (exit 5; 2026-10-07, #2066). In --dry-run this
+  # mutates only the throwaway scratch this script just created and will clean up.
+  plan "sweep untracked canonical-link materializations on origin/$BASE-tracked paths <scratch>"
+  if ! sweep_canonical_links "$SCRATCH" "origin/$BASE"; then
+    SCRATCH_PARK=1
+    verdict "PARKED-SWEEP" "pr=$PR — a canonical-link materialization could not be removed; state kept in $SCRATCH"
+    return 5
+  fi
 
   # §2 step 3 — the trial merge; conflict is the expected outcome on this path.
   plan "git -C <scratch> merge --no-ff --no-edit origin/$BASE"
@@ -577,6 +638,13 @@ main() {
       do_classify
       exit $?
       ;;
+    sweep)
+      [ -n "$SWEEP_SCRATCH" ] || die 2 "--sweep needs a scratch worktree directory"
+      [ -n "$SWEEP_TARGET" ] || die 2 "--sweep needs a target ref argument"
+      [ -d "$SWEEP_SCRATCH" ] || die 2 "--sweep: not a directory: $SWEEP_SCRATCH"
+      sweep_canonical_links "$SWEEP_SCRATCH" "$SWEEP_TARGET"
+      exit $?
+      ;;
   esac
 
   if [ -z "$PR" ]; then
@@ -630,6 +698,7 @@ main() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --classify) MODE="classify"; shift ;;
+    --sweep) MODE="sweep"; shift ;;
     --dry-run) MODE="dry"; shift ;;
     --repo)
       [ $# -ge 2 ] || die 2 "option $1 needs a value"
@@ -665,6 +734,13 @@ while [ $# -gt 0 ]; do
       if [ "$MODE" = "classify" ]; then
         [ -z "$CLASSIFY_FILE" ] || die 2 "classify takes at most one input file"
         CLASSIFY_FILE="$1"
+      elif [ "$MODE" = "sweep" ]; then
+        if [ -z "$SWEEP_SCRATCH" ]; then
+          SWEEP_SCRATCH="$1"
+        else
+          [ -z "$SWEEP_TARGET" ] || die 2 "sweep takes exactly two positional arguments (scratch dir, target ref)"
+          SWEEP_TARGET="$1"
+        fi
       else
         [ -z "$PR" ] || die 2 "exactly one PR argument is allowed"
         PR="$1"
