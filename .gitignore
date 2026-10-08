@@ -183,3 +183,6 @@ tests/agnosticism/conformance-record.tsv
 /.claude/advisor-bridge-beta/
 # Controller-owned project-local enrollment and reminder ledger; never consumer data.
 /.advisor-role-reminders/
+
+# Reviewed test-assurance campaign stage inputs
+!.claude/orchestrator-prompts/test-assurance-kernel/kickoff-s*.md
