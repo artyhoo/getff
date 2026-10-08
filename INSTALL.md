@@ -6,7 +6,8 @@
 
 Three ways to install. Pick one.
 
----
+The canonical `.agents` procedures, roles, rules and checks feed the native bindings
+and installer payload. See [the contributor guide](CONTRIBUTING.md).
 
 ## Step 0 — Get the framework
 
@@ -16,8 +17,6 @@ cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
-
----
 
 ## Windows
 
@@ -110,8 +109,6 @@ ai-factory extension list
 ```
 
 If AIF doesn't recognize the manifest format yet, fall back to Path B.
-
----
 
 ## Path B: install.sh (guaranteed to work today)
 

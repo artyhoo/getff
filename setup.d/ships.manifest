@@ -3,10 +3,10 @@
 #   kind<TAB>name<TAB>verdict<TAB>installer<TAB>plugin<TAB>reason
 # kind      skill | hook | rule | agent | setting | mcp | script
 #           population (scripts/check-ships-manifest.mjs enumerates it from git):
-#             skill   = dirs with SKILL.md under skills/, .claude/skills/, plugin/skills/
-#             hook    = .claude/hooks/*.sh + the names plugin/hooks/hooks.json registers
-#             rule    = .claude/rules/*.md
-#             agent   = agents/*.md + plugin/agents/*.md
+#             skill   = canonical .agents/procedures/ (native names retain existing aliases), plus plugin entries
+#             hook    = canonical .agents/hooks/*.sh + plugin/hooks/hooks.json registrations
+#             rule    = canonical .agents/rules/*.md
+#             agent   = canonical .agents/roles/*.md + plugin/agents/*.md
 #             setting = getff's .claude/settings.json keys (object values expanded one level:
 #                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
 #             mcp     = getff's .mcp.json mcpServers
@@ -80,6 +80,7 @@ hook	glossary-inject	internal	no	no	internal, because it reads CONTEXT.md, getff
 hook	adopt-orchestrator-prompts	internal	no	no	internal, because it adopts files into getff's own .claude/orchestrator-prompts store; registered nowhere
 hook	worktree-setup	internal	no	no	internal, because WorktreeCreate is not registered even in getff (CLAUDE.md), and its output names getff paths
 hook	seal-primary-checkout	internal	no	no	internal, because it is an operator-repo harness hook awaiting maintainer wiring (SSOT #300), not part of the plugin payload
+hook	apply-husky-patch-gate	internal	no	no	internal, because it is the operator-repo permission gate for the sanctioned .husky patch channel (CLAUDE.md harness gates); consumers have neither the channel nor the user-level git-safety tripwire it cooperates with
 rule	00-rule-index	internal	no	no	internal, because it is the generated index of getff's own rule set (scripts/render-rule-index.mjs)
 rule	ai-laziness-digest	internal	no	no	internal, because it is getff's always-on digest of ai-laziness-traps, which is what ships; principle 35 keeps the two in sync inside getff only
 rule	ai-laziness-traps	ships	no	no	pending: ships with the trigger-build rule corpus (one-button P4, advisor verdict 4); until then shipped docs link it as a GitHub blob URL

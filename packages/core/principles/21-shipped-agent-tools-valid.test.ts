@@ -187,7 +187,7 @@ export function checkFile(
 
 /** Every shipped `agents/*.md` (the #551 surface). */
 export function collectAgentFiles(): string[] {
-  const dir = resolve(REPO_ROOT, 'agents');
+  const dir = resolve(REPO_ROOT, '.agents/roles');
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((f) => f.endsWith('.md'))
@@ -213,7 +213,7 @@ export function collectPluginAgentFiles(): string[] {
 export function collectShippedSkillFiles(): string[] {
   const files: string[] = [];
   // (a) top-level skills/<slug>/SKILL.md
-  const topSkills = resolve(REPO_ROOT, 'skills');
+  const topSkills = resolve(REPO_ROOT, '.agents/procedures');
   if (existsSync(topSkills)) {
     for (const d of readdirSync(topSkills, { withFileTypes: true })) {
       if (!d.isDirectory()) continue;
@@ -223,7 +223,7 @@ export function collectShippedSkillFiles(): string[] {
   }
   // (b) the .claude/skills/ companion skills install.sh ships (tiers, setup.d/lib.sh)
   for (const name of shippedCcSkillDirs()) {
-    const p = resolve(REPO_ROOT, '.claude/skills', name, 'SKILL.md');
+    const p = resolve(REPO_ROOT, '.agents/procedures', name, 'SKILL.md');
     if (existsSync(p)) files.push(p);
   }
   // (c) shipped skill-context overrides under packages/core/templates/shared
@@ -279,7 +279,7 @@ describe('Principle 21 — shipped agent/skill tools-name validity (M1 gate, clo
     // The pipeline skill ships a YAML-list allowed-tools with scoped Bash(...) +
     // Read/Write/Edit/Agent. If extraction silently returned [], arm (b) would be
     // a vacuous green — this proves entries are genuinely parsed AND validated.
-    const pipeline = resolve(REPO_ROOT, '.claude/skills/pipeline/SKILL.md');
+    const pipeline = resolve(REPO_ROOT, '.agents/procedures/pipeline/SKILL.md');
     if (existsSync(pipeline)) {
       const entries = extractToolEntries(readFileSync(pipeline, 'utf8'), 'allowed-tools');
       expect(entries.length, 'pipeline SKILL.md should yield parsed allowed-tools entries').toBeGreaterThan(0);
@@ -306,7 +306,7 @@ describe('Principle 21 — shipped agent/skill tools-name validity (M1 gate, clo
     for (const [i, t] of tiers.entries()) expect(t.length, `tier ${i} is empty`).toBeGreaterThan(0);
 
     const scanned = new Set(collectShippedSkillFiles().map((p) => rel(p)));
-    const missing = shipped.filter((s) => !scanned.has(`.claude/skills/${s}/SKILL.md`));
+    const missing = shipped.filter((s) => !scanned.has(`.agents/procedures/${s}/SKILL.md`));
     expect(
       missing,
       `Shipped skills whose allowed-tools nothing validates (the #551 mechanism, one tier deeper):\n` +

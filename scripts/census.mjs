@@ -66,15 +66,17 @@ function isTestMaterial(relPath) {
 export function listSurfaceFiles(root) {
   const out = [];
   for (const s of WIRING_SURFACES) {
-    const abs = join(root, s.glob);
-    if (s.glob.endsWith('/')) {
+    const glob = s.glob === '.claude/hooks/' && existsSync(join(root, '.agents/hooks'))
+      ? '.agents/hooks/' : s.glob;
+    const abs = join(root, glob);
+    if (glob.endsWith('/')) {
       if (!existsSync(abs)) continue;
       walk(abs, (p) => {
         const rel = relative(root, p);
         if (!isTestMaterial(rel)) out.push({ rel, kind: s.kind });
       });
     } else if (existsSync(abs)) {
-      out.push({ rel: s.glob, kind: s.kind });
+      out.push({ rel: glob, kind: s.kind });
     }
   }
   return out;

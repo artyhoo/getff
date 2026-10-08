@@ -12,8 +12,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
-const doc = readFileSync(join(REPO, 'agents/rule-researcher.md'), 'utf8');
-const table = readFileSync(join(REPO, 'skills/getff/references/base-core.md'), 'utf8');
+const doc = readFileSync(join(REPO, '.agents/roles/rule-researcher.md'), 'utf8');
+const table = readFileSync(join(REPO, '.agents/procedures/getff/references/base-core.md'), 'utf8');
 
 function rows(): Array<Record<string, string>> {
   const lines = table.split('\n');

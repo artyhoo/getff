@@ -21,7 +21,7 @@ echo "▶ Sub-agents → .claude/agents/"
 #     sidecar reads + applies skill-context (3/3 read, 2/2 apply) — SSOT #50, ADOPT.
 #     agents/review-sidecar.md remains the portable SSOT (@dual-pair anchor: review-sidecar).
 mkdir_safe "$PROJECT_ROOT/.claude/agents"
-for f in "$PKG_ROOT"/agents/*.md; do
+for f in "$(role_source_root)"/*.md; do
   case "$(basename "$f")" in
     manual-rule-liveness-prober.md) continue ;;  # authoring-only tool (#552)
     shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)

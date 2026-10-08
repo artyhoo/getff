@@ -12,7 +12,7 @@
 # Asserts (kickoff §2 item 1 chain, in order):
 #   (1) scripted fresh python project (FastAPI/SQLAlchemy-class fixture, pyproject.toml)
 #   (2) `master` as the default branch ON PURPOSE (R1-input W5.4 regression guard — see
-#       setup.d/lib.sh:1427 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
+#       setup.d/lib.sh:1495 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
 #       the consumer's default branch; assert the delivered workflow trigger carries master)
 #   (3) `install.sh python` under a Node-stripped PATH — proves F-A DECLARE (the python
 #       install stays Node-free; Node in the CI RUNNER is fine, per kickoff §6 anti-scope)
@@ -37,7 +37,7 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2318, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2334, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -467,7 +467,7 @@ echo "  ✓ REJECT arm: research-only verdict LOUD + no rule file written (hones
 step "R1-input assertion — delivered workflow branches: [master]"
 
 # The python lane delivers .github/workflows/getff-python.yml via deliver_getff_workflow
-# (setup.d/45-python.sh:474 → setup.d/lib.sh:1622,1363), which sed-substitutes
+# (setup.d/45-python.sh:474 → setup.d/lib.sh:1690,1431), which sed-substitutes
 # `branches: [main]` → `branches: [master]` because the consumer's default branch
 # (git symbolic-ref origin/HEAD) is master. The `getff-python.yml` filename is
 # namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:461).

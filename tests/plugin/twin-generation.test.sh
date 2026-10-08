@@ -3,7 +3,7 @@
 # spec: docs/meta-factory/zcode-parity-mega.decisions.md §Meta-fork B + §Fork 4 (2B-standardize)
 #       .ai-factory/plans/zcode-parity-s6-twin-generator.md
 #
-# For each .claude/hooks/<name>.sh that has a plugin/hooks/<name> twin:
+# For each .agents/hooks/<name>.sh that has a plugin/hooks/<name> twin:
 #   - manual marker → declared, hand-maintained; arm (2) checks the rationale, arm (5) checks
 #                     semantic parity with the source (differential run / body / grammar)
 #   - sed <expr>    → applying the sed expr to source (minus AUTO-GENERATED header on twin)
@@ -11,11 +11,11 @@
 #   - no marker     → source matches twin modulo the twin's AUTO-GENERATED first line
 #
 # Catches drift / generator bugs / missing markers. Twins without a source (e.g. session-start)
-# are skipped (the generator only iterates .claude/hooks/*.sh).
+# are skipped (the generator only iterates .agents/hooks/*.sh).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PLUGIN_DIR="$REPO_ROOT/plugin/hooks"
-SRC_DIR="$REPO_ROOT/.claude/hooks"
+SRC_DIR="$REPO_ROOT/.agents/hooks"
 PASS=0; FAIL=0
 ok(){ PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
@@ -67,7 +67,7 @@ for src in "$SRC_DIR"/*.sh; do
         bad "$name: sed transform diverges from declared marker"
       fi
       ;;
-    "")
+    ""|identity*)
       if diff -q "$TMP/src.body" "$TMP/twin.body" >/dev/null; then
         ok "$name: byte-identical (no marker needed)"
       else
@@ -96,13 +96,13 @@ done
 # invents a twin. CLAUDE_PROJECT_DIR keeps the real tree untouched — and a sandbox (rather
 # than a predicate-only negative) is what proves the population is actually wired in.
 SANDBOX="$TMP/sandbox"
-mkdir -p "$SANDBOX/.claude/hooks" "$SANDBOX/plugin/hooks" "$SANDBOX/agents" "$SANDBOX/plugin/agents"
-printf -- '---\nname: drifted\n---\n\nSOURCE version\n' > "$SANDBOX/agents/drifted.md"
+mkdir -p "$SANDBOX/.agents/hooks" "$SANDBOX/plugin/hooks" "$SANDBOX/.agents/roles" "$SANDBOX/plugin/agents"
+printf -- '---\nname: drifted\n---\n\nSOURCE version\n' > "$SANDBOX/.agents/roles/drifted.md"
 printf -- '---\nname: drifted\n---\n\nSTALE twin version\n' > "$SANDBOX/plugin/agents/drifted.md"
-printf -- '---\nname: untwinned\n---\n\nno twin exists for me\n' > "$SANDBOX/agents/untwinned.md"
+printf -- '---\nname: untwinned\n---\n\nno twin exists for me\n' > "$SANDBOX/.agents/roles/untwinned.md"
 
 if CLAUDE_PROJECT_DIR="$SANDBOX" bash "$REPO_ROOT/scripts/generate-plugin-twins.sh" >/dev/null 2>&1; then
-  if cmp -s "$SANDBOX/agents/drifted.md" "$SANDBOX/plugin/agents/drifted.md"; then
+  if cmp -s "$SANDBOX/.agents/roles/drifted.md" "$SANDBOX/plugin/agents/drifted.md"; then
     ok "sandbox: drifted agent twin re-synced to byte-identical"
   else
     bad "sandbox: drifted agent twin NOT re-synced (agents arm is a no-op)"
@@ -159,13 +159,13 @@ _diff_case() {
   run_hook "$src" "$in" "$@"; s_out="$HOUT"; s_rc="$HRC"
   run_hook "$twin" "$in" "$@"
   if [ "$HOUT" != "$s_out" ] || [ "$HRC" != "$s_rc" ]; then
-    echo "    CC path diverges [$label]: source rc=$s_rc «$s_out» vs twin rc=$HRC «$HOUT»"; return 1
+    echo "    CC path diverges [$label]: source rc=$s_rc «${s_out}» vs twin rc=$HRC «${HOUT}»"; return 1
   fi
   run_hook "$twin" "$in" ZCODE_PROJECT_DIR="$TMP/zcode-root" "$@"
   case "$in" in *'"SubagentStart"'*) t_ctx="$HOUT" ;;  # CC-shaped JSON on both harnesses by design
     *) if [ -z "$s_out" ]; then t_ctx="$HOUT"; else t_ctx="$(zcode_ctx "$HOUT")"$'\n'; fi ;; esac
   if [ "$t_ctx" != "$s_out" ] || [ "$HRC" != "$s_rc" ]; then
-    echo "    ZCode path diverges [$label]: source «$s_out» vs twin additionalContext «$t_ctx» rc=$HRC"; return 1
+    echo "    ZCode path diverges [$label]: source «${s_out}» vs twin additionalContext «${t_ctx}» rc=$HRC"; return 1
   fi
 }
 
@@ -193,12 +193,12 @@ parity_inject_project_digest() {
 }
 
 # strip_yield_marker <file> <hook-name> — the file without the trailing yield marker that
-# plugin/hooks/run-hook.cmd reads (`# Plugin twin of .claude/hooks/<name>.sh — …`, appended after
+# plugin/hooks/run-hook.cmd reads (`# Plugin twin of .agents/hooks/<name>.sh — …`, appended after
 # `exit 0` by #1879 so line citations hold). The marker is dropped — with the blank lines just
 # above it — ONLY when every line from it to EOF is a comment or blank, so code hidden after
 # the marker is still compared.
 strip_yield_marker() {
-  awk -v m="# Plugin twin of .claude/hooks/$2.sh" '
+  awk -v m="# Plugin twin of .agents/hooks/$2.sh" '
     { line[NR] = $0 }
     index($0, m) == 1 { start = NR }
     END {
@@ -229,25 +229,10 @@ parity_inject_subagent_context() {
 report_grammar() { grep -v '^[[:space:]]*#' "$1" | grep -oE "REPORT_CUE_RE='[^']*'|grep -qE '[^']*'|\+=\(\"[A-Za-z]+\"\)"; }
 
 parity_warn_subagent_report() {
-  local src="$1" twin="$2" g ptr cue s1 s2 s3 n
-  g=$(report_grammar "$src")
-  [ "$(printf '%s\n' "$g" | grep -c .)" -eq 7 ] || { echo "    source grammar not found (expected 7 items, got: $g)"; return 1; }
-  [ "$g" = "$(report_grammar "$twin")" ] || { echo "    REPORT grammar diverges from source"; diff <(printf '%s\n' "$g") <(report_grammar "$twin") | sed 's/^/      /'; return 1; }
-  ptr=$(grep -oE 'line [0-9]+: REPORT_CUE_RE, lines [0-9]+/[0-9]+/[0-9]+: section regexes' "$twin" | head -1)
-  [ -n "$ptr" ] || { echo "    twin header lost its grammar pointer (line N: REPORT_CUE_RE, lines a/b/c: section regexes)"; return 1; }
-  read -r cue s1 s2 s3 <<<"$(printf '%s' "$ptr" | grep -oE '[0-9]+' | tr '\n' ' ')"
-  # Each pointer must land on the grammar item it names, in order: cue = item 1, sections =
-  # items 2/4/6 (items 3/5/7 are the labels on the following lines).
-  local i=1 n want
-  for n in "$cue" "$s1" "$s2" "$s3"; do
-    want=$(printf '%s\n' "$g" | sed -n "${i}p"); i=$((i == 1 ? 2 : i + 2))
-    sed -n "${n}p" "$src" | grep -qF -- "$want" || { echo "    pointer to source :$n is stale — expected «$want», found «$(sed -n "${n}p" "$src")»"; return 1; }
-  done
-  # The «Mirrors …:A-B VERBATIM» range must span the whole grammar block.
-  local range a b
-  range=$(grep -oE 'warn-subagent-report\.sh:[0-9]+-[0-9]+ VERBATIM' "$twin" | head -1 | grep -oE '[0-9]+-[0-9]+')
-  a=${range%-*}; b=${range#*-}
-  { [ -n "$range" ] && [ "$a" -le "$cue" ] && [ "$b" -ge "$s3" ]; } || { echo "    «Mirrors …:$range VERBATIM» does not span the grammar block :$cue-$s3"; return 1; }
+  local src="$1" twin="$2" authored="$REPO_ROOT/.agents/hooks/adapters/plugin/warn-subagent-report-zcode"
+  cmp -s "$authored" "$twin" || { echo "    native adapter differs from canonical authored source"; return 1; }
+  grep -q 'lib/report-sections.sh' "$src" && grep -q 'lib/report-sections.sh' "$twin" || { echo "    shared REPORT grammar is not loaded in both channels"; return 1; }
+  cmp -s "$REPO_ROOT/.agents/hooks/lib/report-sections.sh" "$REPO_ROOT/plugin/hooks/lib/report-sections.sh" || { echo "    shared REPORT grammar library drifted"; return 1; }
 }
 
 # check_twin <kind> <src> <twin> — dispatch to the right comparison.
@@ -271,9 +256,9 @@ unregistered_twins() {
     case "$known" in *" $nm "*) ;; *) echo "$nm" ;; esac
   done
   for t in "$2"/*; do
-    # A twin names its source either in prose («twin of .claude/hooks/<x>.sh») or by a
+    # A twin names its source either in prose («twin of .agents/hooks/<x>.sh») or by a
     # `@dual-pair: <x>` anchor that happens to be a hook name; either form counts.
-    base=$(grep -m1 -oE 'twin of \.claude/hooks/[A-Za-z0-9_-]+\.sh' "$t" 2>/dev/null | sed 's#.*/##; s#\.sh$##')
+    base=$(grep -m1 -oE 'twin of \.agents/hooks/[A-Za-z0-9_-]+\.sh' "$t" 2>/dev/null | sed 's#.*/##; s#\.sh$##')
     if [ -z "$base" ]; then
       base=$(grep -m1 -oE '^# @dual-pair: [A-Za-z0-9_-]+' "$t" 2>/dev/null | sed 's/.*: //')
       [ -n "$base" ] && [ -f "$1/$base.sh" ] || base=""
@@ -322,7 +307,7 @@ else
   mutant_red "subagent-context stale citation" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/inject-project-digest\.sh:40,48/inject-project-digest.sh:40,47/'
   mutant_red "subagent-context code above _is_zcode" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/^set -uo pipefail$/set -u/m'
   # The run-hook.cmd yield marker (#1879) is not drift; code smuggled in after it still is.
-  YIELD_MARKER=$'\n# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep\n# the plugin copy silent where the project runs its own copy (kept last so line citations hold).\n'
+  YIELD_MARKER=$'\n# Plugin twin of .agents/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep\n# the plugin copy silent where the project runs its own copy (kept last so line citations hold).\n'
   # Built from the twin with any marker it already carries stripped, so the fixture holds exactly one
   # marker whether or not the shipped twin has #1879's marker yet (on staging it does).
   { strip_yield_marker "$PLUGIN_DIR/inject-subagent-context" inject-subagent-context; printf '%s' "$YIELD_MARKER"; } > "$M/marked"
@@ -331,15 +316,15 @@ else
   { cat "$M/marked"; printf 'echo smuggled\n'; } > "$M/smuggled"
   if check_twin inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$M/smuggled" >/dev/null; then bad "negative [subagent-context code after the yield marker]: still reported parity"
   else ok "negative [subagent-context code after the yield marker]: goes RED"; fi
-  mutant_red "warn-report section regex" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" "s/grep -qE '\\^Confidence:'/grep -qE '^Confidence'/"
-  mutant_red "warn-report stale pointer" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/line \d+: REPORT_CUE_RE/line 78: REPORT_CUE_RE/'
+  mutant_red "warn-report section grammar library" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's#lib/report-sections.sh#lib/missing-report-sections.sh#'
+  mutant_red "warn-report report check invocation" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/_required_sections_check /_wrong_sections_check /g'
   # shellcheck disable=SC2016  # perl back-references, not shell expansions
-  mutant_red "warn-report pointer onto the wrong regex" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's#lines (\d+)/(\d+)/(\d+): section#lines $2/$1/$3: section#'
-  mutant_red "warn-report mirrored range" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/warn-subagent-report\.sh:\d+-\d+ VERBATIM/warn-subagent-report.sh:74-97 VERBATIM/'
+  mutant_red "warn-report emit shape" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/additionalContext/context/g'
+  mutant_red "warn-report noise guard" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/MISSING_LIST/BROKEN_LIST/g'
 
   printf '#!/usr/bin/env bash\n# @plugin-transform: manual — a brand-new hand-maintained twin nobody registered\n' > "$M/src/newhook.sh"
   printf '#!/usr/bin/env bash\necho twin\n' > "$M/tw/newhook"
-  printf '#!/usr/bin/env bash\n# stray-zcode — ZCode twin of .claude/hooks/some-hook.sh\n' > "$M/tw/stray-zcode"
+  printf '#!/usr/bin/env bash\n# stray-zcode — ZCode twin of .agents/hooks/some-hook.sh\n' > "$M/tw/stray-zcode"
   printf '#!/usr/bin/env bash\n' > "$M/src/paired-hook.sh"
   printf '#!/usr/bin/env bash\n# @dual-pair: paired-hook\n' > "$M/tw/paired-hook-zcode"
   printf '#!/usr/bin/env bash\n# @dual-pair: some-i18n-anchor\n' > "$M/tw/anchor-only"

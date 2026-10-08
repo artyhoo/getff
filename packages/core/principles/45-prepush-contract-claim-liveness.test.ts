@@ -370,6 +370,27 @@ describe('Principle 45 — paired negatives (principle 02)', () => {
     expect(run(FRAMEWORK_FIXTURE, claim)).toEqual([]);
   });
 
+  it('canonical owners preserve consumer and framework audiences behind loaders', () => {
+    const claim = 'The pre-push hook runs rule-globs + audit-ai-docs.';
+    for (const file of [
+      'skills/getff/references/checks-map.md',
+      '.agents/procedures/getff/references/checks-map.md',
+      '.agents/roles/review-sidecar.md',
+    ]) {
+      expect(isShippedSurface(file), file).toBe(true);
+      expect(run(file, claim), file).toHaveLength(1);
+    }
+    expect(
+      isShippedSurface('.agents/procedures/self-reflection/SKILL.md'),
+    ).toBe(false);
+    expect(run('.agents/procedures/self-reflection/SKILL.md', claim)).toEqual(
+      [],
+    );
+    expect(enumerateCorpus()).toContain(
+      '.agents/procedures/getff/references/checks-map.md',
+    );
+  });
+
   it('N45-8: a quarantine row that matches nothing is RED', () => {
     // The ratchet's own negative. Feed the partition an empty violation set — as if
     // every quarantined claim had just been repaired — and every row must surface as

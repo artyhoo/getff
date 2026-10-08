@@ -52,19 +52,20 @@ fresh_repo() {
   local r top
   r=$(mktemp -d "$TMP/r.XXXXXX")
   mkdir -p "$r/scripts" "$r/packages/getff" "$r/setup.d" "$r/agents" "$r/skills" "$r/templates" \
-    "$r/.claude/hooks" "$r/packages/core"
+    "$r/.claude/hooks" "$r/.agents/procedures" "$r/packages/core" "$r/plugin/hooks/lib"
   cp "$REPO_ROOT/scripts/build-getff-dist.sh" "$r/scripts/"
   cp "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/" 2>/dev/null || true
   echo '#!/bin/sh' > "$r/install.sh"; echo '#!/bin/sh' > "$r/setup"
   echo 'a=1' > "$r/setup.d/10-a.sh"; echo '# a' > "$r/agents/a.md"; echo '# s' > "$r/skills/s.md"; echo '# s2' > "$r/skills/s2.md"
-  echo 't' > "$r/templates/t.txt"; echo 'h=1' > "$r/.claude/hooks/h.sh"; echo '{}' > "$r/.prettierrc.json"
+  echo 't' > "$r/templates/t.txt"; echo 'h=1' > "$r/.claude/hooks/h.sh"; echo 'a=1' > "$r/.agents/procedures/a.md"; echo '{}' > "$r/.prettierrc.json"
   echo 'core' > "$r/packages/core/index.js"; echo 'ask=1' > "$r/scripts/check-ask-files.sh"
+  echo 'lang=1' > "$r/plugin/hooks/lib/hook-language.sh"
   echo 'notes' > "$r/README.md"
   printf '/*\n!/MANIFEST.sha256\n!/package.json\n!/.gitignore\n' > "$r/packages/getff/.gitignore"
   {
     printf '{ "name": "getff", "files": ['
     local first=1
-    for top in install.sh setup setup.d agents skills templates .claude .prettierrc.json packages scripts; do
+    for top in install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts plugin; do
       [ "$first" -eq 1 ] || printf ', '; first=0; printf '"%s"' "$top"
     done
     printf '] }\n'
@@ -141,12 +142,25 @@ run "P5 payload deletion without the manifest" fire "$r"
 r=$(fresh_repo); echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"; g -C "$r" add packages/getff/MANIFEST.sha256
 run "P6 manifest-only commit rebuilt from unstaged payload edits" fire "$r"
 
+# S1a: a tracked symlink resolving to a TRACKED payload file materializes identically in
+# assemble() and --check-index (post-canonical-migration the payload legitimately contains
+# such links, e.g. skills/tool-bootstrapping/templates/tool-decisions.md.template) → quiet.
 r=$(fresh_repo); ln -s a.md "$r/agents/link.md"; g -C "$r" add agents/link.md; build "$r"
 g -C "$r" add packages/getff/MANIFEST.sha256
-run "S1 tracked symlink under a payload root" fire "$r"
-if grep -q 'could not run' <<<"$LAST_OUT" && grep -q 'symlink' <<<"$LAST_OUT"; then
-  ok "S1 reported as «could not run» naming the symlink, not as a staging mistake"
-else bad "S1 message: $(tr '\n' '|' <<<"$LAST_OUT")"; fi
+run "S1a tracked symlink resolving inside the payload" quiet "$r"
+
+# S1b: a tracked symlink whose target is NOT in the index (untracked) cannot materialize —
+# checkout-index writes the link, the resolved target is missing → build refuses.
+r=$(fresh_repo); echo x > "$r/agents/outside.md"; ln -s outside.md "$r/agents/link.md"; g -C "$r" add agents/link.md; build "$r" || true
+g -C "$r" add packages/getff/MANIFEST.sha256
+run "S1b tracked symlink to an untracked target" fire "$r"
+if grep -q 'could not run' <<<"$LAST_OUT" && grep -q 'agents/link.md' <<<"$LAST_OUT"; then
+  ok "S1b reported as «could not run» naming the unresolvable link, not as a staging mistake"
+else bad "S1b message: $(tr '\n' '|' <<<"$LAST_OUT")"; fi
+
+# S1c is intentionally absent: in --check-index every outside-payload link dies as ENOENT
+# (the index checkout contains payload files only) before materialize's tracked-payload
+# contract message can fire — that message belongs to assemble()'s full-tree source.
 
 echo "── index source"
 # `git commit -a` builds a temporary index and hands the hook GIT_INDEX_FILE; the real
