@@ -125,8 +125,9 @@ exit=0
 - The gate is the permission layer only, by its own header (`.claude/hooks/apply-husky-patch-gate.sh:18`):
   `# The gate is the PERMISSION layer, not the safety layer: the script itself re-validates the`.
   The safety layer's re-validation contract and its refusal arms are enumerated in the
-  suite's own header — `scripts/apply-husky-patch.test.sh:12` (arms `P7-P8, P11` prove the gate
-  approves the canonical invocation shapes, `P9-P10, P12-P14` that it stays silent otherwise) and
+  suite's own header — `scripts/apply-husky-patch.test.sh:12` (arms `P7-P8, P11` prove the
+  gate approves exactly the canonical shapes, `P9-P10, P12-P14` that it stays silent
+  otherwise) and
   `scripts/apply-husky-patch.test.sh:19` (arms `N1-N10` prove the writer leaves the target
   byte-unchanged on every refusal).
 - The canonical shapes the gate mirrors are pinned in the patch script's own header,
