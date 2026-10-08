@@ -169,11 +169,10 @@ mkdir -p "$SWEEP_ROOT/scratch/canon"
 printf 'materialized\n' >"$SWEEP_ROOT/scratch/canon/kickoff-a.md"
 printf 'bystander\n' >"$SWEEP_ROOT/scratch/notes.txt"
 
-git -C "$SWEEP_ROOT/scratch" merge --no-ff --no-edit base >/dev/null 2>&1
-if [ $? -ne 0 ]; then
-  report 1 "fixture realism: the unswept merge is refused (untracked would be overwritten) — the exit-5 shape"
-else
+if git -C "$SWEEP_ROOT/scratch" merge --no-ff --no-edit base >/dev/null 2>&1; then
   report 0 "fixture realism: the unswept merge did NOT fail — the repro premise is gone"
+else
+  report 1 "fixture realism: the unswept merge is refused (untracked would be overwritten) — the exit-5 shape"
 fi
 if git -C "$SWEEP_ROOT/scratch" merge --abort >/dev/null 2>&1; then :; fi
 
