@@ -1,0 +1,164 @@
+{
+  "root": "/Users/art/.codex/worktrees/0479/rules-as-tests-aif",
+  "projectSkillsDiscovered": 39,
+  "missingSkills": [],
+  "brokenGeneratedHelperLinks": 0,
+  "adapterTests": {
+    "pass": 39,
+    "fail": 0
+  },
+  "missingHookDefinitions": [],
+  "hookCount": 21,
+  "trust": {
+    "trusted": 21,
+    "modified": 0
+  },
+  "nativeBootstrap": [
+    {
+      "id": "session-start:19:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+      "status": "completed",
+      "contextReceived": true
+    },
+    {
+      "id": "session-start:19:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+      "status": "completed",
+      "contextReceived": true
+    }
+  ],
+  "nativeMarkerViolation": [
+    {
+      "id": "post-tool-use:10:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json:exec-0c4cb881-f052-4059-9d22-b9affa9ef3ed",
+      "eventName": "postToolUse",
+      "handlerType": "command",
+      "executionMode": "sync",
+      "scope": "turn",
+      "sourcePath": "/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+      "source": "plugin",
+      "displayOrder": 10,
+      "status": "blocked",
+      "statusMessage": null,
+      "startedAt": 1791179537,
+      "completedAt": 1791179537,
+      "durationMs": 93,
+      "entries": [
+        {
+          "kind": "feedback",
+          "text": "\u274c hook-marker: .claude/hooks/codex-native-acceptance-probe.sh has no delivery-channel marker.\n   Add ONE of (own comment line, near the top):\n     # @cc-only-rationale: <why CC-only \u2014 no portable counterpart>\n     # @dual-pair: <anchor shared with the portable agent/skill>\n   Per dual-implementation-discipline.md \u00a76 (prevents silent CC vendor-lock-in)."
+        }
+      ]
+    }
+  ],
+  "probeFilesRemoved": true,
+  "canonicalInputsPreserved": true,
+  "fullWorkflowParity": false,
+  "pendingOperatorAction": null,
+  "priority": "Current project contributor skills/hooks. Factory inputs deferred.",
+  "operatorConfirmationRecheck": {
+    "operatorReported": "apparently all confirmed",
+    "hooksActivated": false,
+    "discovered": true,
+    "remainingModified": [
+      {
+        "event": "preToolUse",
+        "matcher": "Bash|exec_command",
+        "hash": "sha256:4304ef5d4bc30dfd1ce27758fd5495900f6377fcd2642928f1d45f7a867d1182"
+      },
+      {
+        "event": "preToolUse",
+        "matcher": "*",
+        "hash": "sha256:8f35c6e780c1e7b2e5333e0a019dce71e5f691640fee33fcf3b7ce74c1213ed8"
+      },
+      {
+        "event": "postToolUse",
+        "matcher": "Edit|Write|Read|Bash|exec_command",
+        "hash": "sha256:7211da102eeb471048d0fc3b00f6a36f9541640a754b104f2ad167849529c0fc"
+      }
+    ],
+    "daemonComparison": "Read-only default proxy initialize timed out; no daemon status established.",
+    "nativePreToolAcceptance": "NOT VERIFIED: modified hooks remain untrusted in a freshly initialized host."
+  },
+  "trustUiRoute": {
+    "verified": "Codex CLI 0.160.0 startup dialog and /hooks review browser",
+    "startupText": "Hooks need review; 3 hooks are new or changed",
+    "startupChoices": [
+      "Review hooks",
+      "Trust all and continue",
+      "Continue without trusting (hooks won\u2019t run)"
+    ],
+    "hookBrowserCounts": {
+      "PreToolUse": {
+        "installed": 3,
+        "active": 1,
+        "review": 2
+      },
+      "PostToolUse": {
+        "installed": 9,
+        "active": 8,
+        "review": 1
+      }
+    },
+    "agentAction": "Inspected review screens only; did not confirm trust",
+    "officialDocumentation": "https://learn.chatgpt.com/docs/hooks"
+  },
+  "nativePolicyAcceptance": {
+    "status": "NATIVE LIVE VERIFIED bounded cases",
+    "preToolDeny": [
+      {
+        "id": "pre-tool-use:5:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json:exec-d2b56cfe-73cf-4be2-81e0-3d506f6f9a37",
+        "eventName": "preToolUse",
+        "handlerType": "command",
+        "executionMode": "sync",
+        "scope": "turn",
+        "sourcePath": "/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+        "source": "plugin",
+        "displayOrder": 5,
+        "status": "blocked",
+        "statusMessage": null,
+        "startedAt": 1791181265,
+        "completedAt": 1791181265,
+        "durationMs": 63,
+        "entries": [
+          {
+            "kind": "feedback",
+            "text": "Canonical deny Bash(git reset --hard*)"
+          }
+        ]
+      }
+    ],
+    "postToolRuleContext": [
+      {
+        "id": "post-tool-use:8:/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json:exec-4e86b9ff-13f6-48c5-8b37-eaa12b5e3a86",
+        "eventName": "postToolUse",
+        "handlerType": "command",
+        "executionMode": "sync",
+        "scope": "turn",
+        "sourcePath": "/Users/art/.codex/plugins/cache/getff-contributor-local/getff-contributor/0.1.0/hooks/hooks.json",
+        "source": "plugin",
+        "displayOrder": 8,
+        "status": "completed",
+        "statusMessage": null,
+        "startedAt": 1791181272,
+        "completedAt": 1791181273,
+        "durationMs": 963,
+        "entries": [
+          {
+            "kind": "context",
+            "text": "\ud83d\udcce Path-relevant rule \u2014 Rule: pin bare tool installs (pip install pkg==ver, npm install -g pkg@ver) in workflows AND repo shell scripts; use npm ci --prefix, not npm install. See ci-tool-pinning.md \u00a71-\u00a72. (see .claude/rules/ci-tool-pinning.md)\n\ud83d\udcce Path-relevant rule \u2014 Rule: every CC hook must carry @dual-pair or @cc-only-rationale; agents/skills with a CC hook counterpart declare the same anchor. See dual-implementation-discipline.md \u00a76. (see .claude/rules/dual-implementation-discipline.md)\n\ud83d\udcce Path-relevant rule \u2014 Internal machinery (hooks/skills/scripts) is English-only; human-facing output follows AIF_HOOK_LANG (ru\u2192Russian, else English); match-data (triggers, detection patterns) stays bilingual. See \u00a71-\u00a72. (see .claude/rules/language-discipline.md)\n\ud83d\udcce Path-relevant rule \u2014 ZCode parity doctrine \u2014 full parity is the goal (CC-first + AI-agnostic by design). Before editing hooks or render-harness-config, check \u00a72 census for whether the hook has ZCode parity / plugin twin / CC-only rationale, and \u00a73 for whether a Wave B stage changes its classification. (see .claude/rules/zcode-parity-doctrine.md)\n"
+          }
+        ]
+      }
+    ],
+    "turnCompleted": true,
+    "probeRemoved": true,
+    "canonicalInputsPreserved": true,
+    "safeDeniedCommand": "git reset --hard --codex-acceptance-invalid-option",
+    "scope": "One literal native exec_command deny and one apply_patch path injection. Arbitrary executors, remote contracts, compact lifecycle and complete workflows remain open.",
+    "extraFeedback": "The temporary hook also lacked the strict line-2 header, so the canonical marker hook delivered expected header feedback; injection was independently observed."
+  },
+  "authorityAndWorktreeAcceptance": {
+    "evidence": "docs/meta-factory/research-patches/2026-10-05-codex-authority-worktree.evidence.json",
+    "nativeAuthorityHeader": "Live feedback received; completed turn; probe removed",
+    "worktreeReadyCommand": "Independent GO integrated; focused 2 PASS, 10 skipped; Bash syntax PASS",
+    "fullWorkflowParity": false
+  }
+}

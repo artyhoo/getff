@@ -14,6 +14,8 @@
 # test) may not have it, and the summary reads its length under set -u.
 [ -n "${GETFF_ADDED_TO+x}" ] || GETFF_ADDED_TO=()
 
+install_portable_bindings
+
 # ─── synth-wire + #827 B3 per-workspace live-research synth-wire ─────────────────
 # Lives in setup.d/eslint-wire.sh (eslint_wire_synth): do_refresh runs the same pass (refresh sweep G4).
 # shellcheck source=setup.d/eslint-wire.sh

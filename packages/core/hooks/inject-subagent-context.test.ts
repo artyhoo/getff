@@ -30,8 +30,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-subagent-context.sh');
-const SOURCE_DIGEST = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-subagent-context.sh');
+const SOURCE_DIGEST = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
 
 // Hermetic fixture (mirrors inject-project-digest.test.ts:makeTempRepo). The hook reads its
 // digest from the `<!-- digest:start -->…<!-- digest:end -->` block of

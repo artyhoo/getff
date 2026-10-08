@@ -622,16 +622,9 @@ function applyOp(root, op) {
   // Ensure the parent dir exists for nested paths (e.g. .zcode/config.json). The symlink branch
   // already did this; the json branch relied on root-only paths and ENOENT'd once emitZcode moved
   // to .zcode/config.json (harness-config-drift N*/shape tests).
-  if (
-    op.kind === 'json' ||
-    op.kind === 'merge-json' ||
-    op.kind === 'text' ||
-    op.kind === 'seed-text'
-  )
+  if (op.kind === 'json' || op.kind === 'merge-json' || op.kind === 'text')
     mkdirSync(dirname(abs), { recursive: true });
-  if (op.kind === 'seed-text') {
-    if (!existsSync(abs)) writeFileSync(abs, op.value);
-  } else if (op.kind === 'json') writeFileSync(abs, renderJson(op.value));
+  if (op.kind === 'json') writeFileSync(abs, renderJson(op.value));
   else if (op.kind === 'text') writeFileSync(abs, op.value);
   else if (op.kind === 'merge-json') writeFileSync(abs, mergedJson(root, op));
   else if (op.kind === 'symlink') {
@@ -693,17 +686,10 @@ function checkOp(root, op) {
       ? [`${op.path}: retired generated file remains (run --write)`]
       : [];
   }
-  // Seed defaults once; this file belongs to the operator after creation.
-  if (op.kind === 'seed-text')
-    return existsSync(abs) || op.optional
-      ? []
-      : [`${op.path}: missing (run --write)`];
   if (op.kind === 'text')
-    return !existsSync(abs) && op.optional
+    return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
       ? []
-      : existsSync(abs) && readFileSync(abs, 'utf8') === op.value
-        ? []
-        : [`${op.path}: missing or drift vs SSOT`];
+      : [`${op.path}: missing or drift vs SSOT`];
   if (op.kind === 'json' || op.kind === 'merge-json') {
     if (!existsSync(abs))
       return op.optional ? [] : [`${op.path}: missing (run --write)`];

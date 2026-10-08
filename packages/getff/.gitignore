@@ -10,7 +10,10 @@
 /skills/
 /templates/
 /.claude/
+/.agents/
 /.prettierrc.json
 /packages/
 /scripts/
 /*.tgz
+
+/plugin/

@@ -30,7 +30,7 @@ unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
 # Population (T10 — enumerate before probing): tracked hook scripts ∪ scripts wired
 # in tracked .claude/settings.json (the latter adds e.g. scripts/link-coordination.sh,
 # which lives outside .claude/hooks/ and the edit-time gate never sees).
-pop=$( { git -C "$REPO_ROOT" ls-files '.claude/hooks/**/*.sh' '.claude/hooks/*.sh';
+pop=$( { git -C "$REPO_ROOT" ls-files '.agents/hooks/**/*.sh' '.agents/hooks/*.sh' '.claude/hooks/**/*.sh' '.claude/hooks/*.sh';
          grep -oE '\$CLAUDE_PROJECT_DIR/[^"]+\.sh' "$REPO_ROOT/.claude/settings.json" 2>/dev/null \
            | sed 's|^\$CLAUDE_PROJECT_DIR/||'; } | sort -u )
 
@@ -38,7 +38,7 @@ pop=$( { git -C "$REPO_ROOT" ls-files '.claude/hooks/**/*.sh' '.claude/hooks/*.s
 # (orchestrator-prompts, docs/meta-factory/research-patches, docs/superpowers) are
 # EXCLUDED by construction: a narrative mention of an anchor is not a counterpart
 # (domain trap T-S8-A — counting prose as a counterpart is channel-coverage theatre).
-SURFACES=(agents .claude/skills .claude/rules scripts packages .husky .github)
+SURFACES=(.agents/roles .agents/procedures .agents/rules agents .claude/skills .claude/rules scripts packages .husky .github)
 
 for h in $pop; do
   if [ ! -f "$REPO_ROOT/$h" ]; then

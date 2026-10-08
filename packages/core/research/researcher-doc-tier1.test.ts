@@ -19,7 +19,7 @@ import { ALLOWED_SOURCES } from './allowlist.ts';
 import { parse } from '@typescript-eslint/parser';
 
 const REPO = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
-const DOC = join(REPO, 'agents/rule-researcher.md');
+const DOC = join(REPO, '.agents/roles/rule-researcher.md');
 const HEADING = '### Tier-1 entry shape';
 
 function docTier1Example(): Record<string, unknown> {

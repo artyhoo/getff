@@ -57,9 +57,7 @@ function sandbox(): string {
     'plugin/hooks/hooks.json',
     RENDERER_REL,
     'scripts/render-codex-contributor.mjs',
-    'scripts/codex-hook-adapter.mjs',
-    'scripts/lib/is-main-entry.mjs',
-    'plugin/hooks/lib/hook-language.sh',
+    'scripts/lib/codex-hooks.mjs',
   ]) {
     mkdirSync(dirname(join(dir, rel)), { recursive: true });
     copyFileSync(join(REPO_ROOT, rel), join(dir, rel));

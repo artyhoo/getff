@@ -25,17 +25,13 @@ import {
 import { emitCodex } from './render-codex-contributor.mjs';
 import { compareHookDefinitions } from './codex-contributor-doctor.mjs';
 // Fixture subprocesses must never inherit another checkout's Git identity.
-for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], {
-  encoding: 'utf8',
-})
-  .stdout.trim()
-  .split('\n'))
-  delete process.env[key];
+for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).stdout.trim().split('\n')) delete process.env[key];
 const root = resolve(import.meta.dirname, '..');
 const fixture = mkdtempSync(join(tmpdir(), 'codex-contributor-test-'));
 after(() => rmSync(fixture, { recursive: true, force: true }));
 cpSync(join(root, '.claude/hooks'), join(fixture, '.claude/hooks'), {
   recursive: true,
+  dereference: true,
 });
 mkdirSync(join(fixture, '.claude/rules'), { recursive: true });
 writeFileSync(
@@ -169,17 +165,6 @@ test('native emitter preserves lifecycle coverage, replaces only ZCode rewrite, 
   const h = ops.find((o) => o.path.endsWith('hooks/hooks.json')).value.hooks;
   assert.ok(h.SubagentStart);
   assert.ok(h.SubagentStop);
-  const questionHook = h.PreToolUse.find((entry) =>
-    entry.hooks.some((hook) => hook.command.includes('ask-question-reminder')),
-  );
-  const questionMatcher = new RegExp(`^(?:${questionHook.matcher})$`);
-  for (const tool of [
-    'AskUserQuestion',
-    'request_user_input',
-    'request_user_input_async',
-  ])
-    assert.equal(questionMatcher.test(tool), true, tool);
-  assert.equal(questionMatcher.test('exec_command'), false);
   assert.ok(h.PreCompact);
   assert.equal(h.PostCompact, undefined);
   assert.equal(h.PostToolUseFailure, undefined);
@@ -203,11 +188,11 @@ test('native emitter preserves lifecycle coverage, replaces only ZCode rewrite, 
   assert.equal(pipeline.includes('```!'), false);
   assert.match(
     pipeline,
-    /Read \[the complete canonical procedure\].*\.claude\/skills\/pipeline\/SKILL\.md/,
+    /Read \[the complete canonical procedure\].*(?:\.agents\/procedures|\.claude\/skills)\/pipeline\/SKILL\.md/,
   );
   assert.match(
     pipeline,
-    /Replace .*CLAUDE_SKILL_DIR.*with.*\.claude\/skills\/pipeline/,
+    /Replace .*CLAUDE_SKILL_DIR.*with.*(?:\.agents\/procedures|\.claude\/skills)\/pipeline/,
   );
   assert.ok(pipeline.split('\n').length <= 600);
   assert.match(
@@ -715,272 +700,109 @@ test('native model window reaches source context tier while explicit override wi
   }
 });
 
+
 test('native evidence preserves completion, identity and parse diagnostics additively', () => {
   const path = join(fixture, 'eval-provenance.jsonl');
   const native = [
-    {
-      type: 'event_msg',
-      payload: { type: 'user_message', message: 'Inspect', id: 'u1' },
-    },
-    {
-      type: 'event_msg',
-      payload: {
-        type: 'item_completed',
-        item: {
-          type: 'CommandExecution',
-          id: 'c1',
-          command: ['zsh', '-lc', 'rg --files'],
-          status: 'completed',
-          exit_code: 7,
-          aggregated_output: 'failed',
-        },
-      },
-    },
-    {
-      type: 'event_msg',
-      payload: { type: 'agent_message', message: '12 files', id: 'a1' },
-    },
+    { type: 'event_msg', payload: { type: 'user_message', message: 'Inspect', id: 'u1' } },
+    { type: 'event_msg', payload: { type: 'item_completed', item: {
+      type: 'CommandExecution', id: 'c1', command: ['zsh', '-lc', 'rg --files'],
+      status: 'completed', exit_code: 7, aggregated_output: 'failed',
+    } } },
+    { type: 'event_msg', payload: { type: 'agent_message', message: '12 files', id: 'a1' } },
   ];
   writeFileSync(path, native.map(JSON.stringify).join('\n'));
   const legacy = transcriptMessages({ transcript_path: path });
-  const evidence = transcriptMessages(
-    { transcript_path: path },
-    { evidence: true },
-  );
+  const evidence = transcriptMessages({ transcript_path: path }, { evidence: true });
   assert.deepEqual(evidence.diagnostics, []);
-  assert.deepEqual(
-    evidence.records.map(({ codex_evidence, ...record }) => record),
-    legacy,
-  );
+  assert.deepEqual(evidence.records.map(({ codex_evidence, ...record }) => record), legacy);
   assert.equal(evidence.records[0].codex_evidence.message_id, 'u1');
-  const result = evidence.records.find(
-    (r) => r.message.content[0].type === 'tool_result',
-  );
+  const result = evidence.records.find((r) => r.message.content[0].type === 'tool_result');
   assert.equal(result.codex_evidence.status, 'completed');
   assert.equal(result.codex_evidence.exit_code, 7);
   assert.equal(result.codex_evidence.cycle, 1);
-  writeFileSync(
-    path,
-    'broken JSON\n' +
-      JSON.stringify({
-        type: 'event_msg',
-        payload: { type: 'unknown-effect' },
-      }),
-  );
-  const invalid = transcriptMessages(
-    { transcript_path: path },
-    { evidence: true },
-  );
+  writeFileSync(path, 'broken JSON\n' + JSON.stringify({ type: 'event_msg', payload: { type: 'unknown-effect' } }));
+  const invalid = transcriptMessages({ transcript_path: path }, { evidence: true });
   assert.ok(invalid.diagnostics.some((d) => d.includes('malformed')));
   assert.ok(invalid.diagnostics.some((d) => d.includes('unsupported')));
 });
 
+
 test('native evidence retains observed starts without changing default hook output', () => {
   const path = join(fixture, 'eval-start-lineage.jsonl');
   const rows = [
-    {
-      type: 'event_msg',
-      payload: { type: 'user_message', message: 'Inspect' },
-    },
-    {
-      type: 'event_msg',
-      payload: {
-        type: 'item_started',
-        item: {
-          type: 'CommandExecution',
-          id: 'started-1',
-          command: ['zsh', '-lc', 'rg --files'],
-          status: 'in_progress',
-        },
-      },
-    },
-    {
-      type: 'event_msg',
-      payload: {
-        type: 'item_completed',
-        item: {
-          type: 'CommandExecution',
-          id: 'started-1',
-          command: ['zsh', '-lc', 'rg --files'],
-          status: 'completed',
-          exit_code: 0,
-        },
-      },
-    },
-    {
-      type: 'event_msg',
-      payload: { type: 'agent_message', message: '12 files' },
-    },
+    { type: 'event_msg', payload: { type: 'user_message', message: 'Inspect' } },
+    { type: 'event_msg', payload: { type: 'item_started', item: {
+      type: 'CommandExecution', id: 'started-1', command: ['zsh', '-lc', 'rg --files'], status: 'in_progress',
+    } } },
+    { type: 'event_msg', payload: { type: 'item_completed', item: {
+      type: 'CommandExecution', id: 'started-1', command: ['zsh', '-lc', 'rg --files'], status: 'completed', exit_code: 0,
+    } } },
+    { type: 'event_msg', payload: { type: 'agent_message', message: '12 files' } },
   ];
   writeFileSync(path, rows.map(JSON.stringify).join('\n'));
-  const evidence = transcriptMessages(
-    { transcript_path: path },
-    { evidence: true },
-  );
+  const evidence = transcriptMessages({ transcript_path: path }, { evidence: true });
   assert.deepEqual(evidence.diagnostics, []);
-  const result = evidence.records.find(
-    (r) => r.message.content[0].type === 'tool_result',
-  );
+  const result = evidence.records.find((r) => r.message.content[0].type === 'tool_result');
   assert.equal(result.codex_evidence.start_cycle, 1);
   assert.equal(result.codex_evidence.start_line, 2);
   assert.equal(result.codex_evidence.start_source, 'event_msg:item_started');
-  assert.deepEqual(
-    evidence.records.map(({ codex_evidence, ...record }) => record),
-    transcriptMessages({ transcript_path: path }),
-  );
-  rows.splice(2, 0, {
-    type: 'event_msg',
-    payload: { type: 'user_message', message: 'Next' },
-  });
+  assert.deepEqual(evidence.records.map(({ codex_evidence, ...record }) => record), transcriptMessages({ transcript_path: path }));
+  rows.splice(2, 0, { type: 'event_msg', payload: { type: 'user_message', message: 'Next' } });
   writeFileSync(path, rows.map(JSON.stringify).join('\n'));
-  assert.ok(
-    transcriptMessages(
-      { transcript_path: path },
-      { evidence: true },
-    ).diagnostics.some((d) => d.includes('start')),
-  );
+  assert.ok(transcriptMessages({ transcript_path: path }, { evidence: true }).diagnostics.some((d) => d.includes('start')));
 });
 
 test('native evidence correlates observed requests with completion cycle', () => {
   const path = join(fixture, 'eval-request-lineage.jsonl');
   const rows = [
-    {
-      type: 'event_msg',
-      payload: { type: 'user_message', message: 'Inspect', turn_id: 't1' },
-    },
-    {
-      type: 'response_item',
-      payload: {
-        type: 'function_call',
-        call_id: 'request-1',
-        name: 'exec_command',
-        arguments: '{"cmd":"rg --files"}',
-      },
-    },
-    {
-      type: 'event_msg',
-      payload: {
-        type: 'item_completed',
-        item: {
-          type: 'CommandExecution',
-          id: 'request-1',
-          command: ['zsh', '-lc', 'rg --files'],
-          status: 'completed',
-          exit_code: 0,
-        },
-      },
-    },
-    {
-      type: 'event_msg',
-      payload: { type: 'agent_message', message: '12 files' },
-    },
+    { type: 'event_msg', payload: { type: 'user_message', message: 'Inspect', turn_id: 't1' } },
+    { type: 'response_item', payload: { type: 'function_call', call_id: 'request-1', name: 'exec_command', arguments: '{"cmd":"rg --files"}' } },
+    { type: 'event_msg', payload: { type: 'item_completed', item: {
+      type: 'CommandExecution', id: 'request-1', command: ['zsh', '-lc', 'rg --files'], status: 'completed', exit_code: 0,
+    } } },
+    { type: 'event_msg', payload: { type: 'agent_message', message: '12 files' } },
   ];
   writeFileSync(path, rows.map(JSON.stringify).join('\n'));
-  let evidence = transcriptMessages(
-    { transcript_path: path },
-    { evidence: true },
-  );
+  let evidence = transcriptMessages({ transcript_path: path }, { evidence: true });
   assert.deepEqual(evidence.diagnostics, []);
-  const result = evidence.records.find(
-    (r) => r.message.content[0].type === 'tool_result',
-  );
+  const result = evidence.records.find((r) => r.message.content[0].type === 'tool_result');
   assert.equal(result.codex_evidence.start_cycle, 1);
   assert.equal(result.codex_evidence.start_turn_id, 't1');
-  assert.equal(
-    result.codex_evidence.start_source,
-    'response_item:function_call',
-  );
-  assert.deepEqual(
-    evidence.records.map(({ codex_evidence, ...record }) => record),
-    transcriptMessages({ transcript_path: path }),
-  );
-  rows.splice(2, 0, {
-    type: 'event_msg',
-    payload: { type: 'user_message', message: 'Next' },
-  });
+  assert.equal(result.codex_evidence.start_source, 'response_item:function_call');
+  assert.deepEqual(evidence.records.map(({ codex_evidence, ...record }) => record), transcriptMessages({ transcript_path: path }));
+  rows.splice(2, 0, { type: 'event_msg', payload: { type: 'user_message', message: 'Next' } });
   writeFileSync(path, rows.map(JSON.stringify).join('\n'));
   evidence = transcriptMessages({ transcript_path: path }, { evidence: true });
   assert.ok(evidence.diagnostics.some((d) => d.includes('start')));
-  assert.equal(
-    evidence.records.find((r) => r.message.content[0].type === 'tool_result')
-      .codex_evidence.start_cycle,
-    1,
-  );
+  assert.equal(evidence.records.find((r) => r.message.content[0].type === 'tool_result').codex_evidence.start_cycle, 1);
 });
 
 test('native evidence rejects contradictory outer and inner effect turn identities', () => {
   const path = join(fixture, 'eval-effect-turn-consistency.jsonl');
   for (const type of ['item_started', 'item_completed']) {
-    const effect = {
-      type: 'event_msg',
-      payload: {
-        type,
-        turn_id: 't2',
-        item: {
-          type: 'CommandExecution',
-          id: 'conflict-1',
-          turn_id: 't1',
-          command: ['zsh', '-lc', 'rg --files'],
-          status: type === 'item_started' ? 'in_progress' : 'completed',
-          exit_code: 0,
-        },
-      },
-    };
+    const effect = { type: 'event_msg', payload: { type, turn_id: 't2', item: {
+      type: 'CommandExecution', id: 'conflict-1', turn_id: 't1', command: ['zsh', '-lc', 'rg --files'],
+      status: type === 'item_started' ? 'in_progress' : 'completed', exit_code: 0,
+    } } };
     const rows = [
-      {
-        type: 'event_msg',
-        payload: { type: 'user_message', message: 'Inspect', turn_id: 't1' },
-      },
-      {
-        type: 'event_msg',
-        payload: { type: 'user_message', message: 'Next', turn_id: 't2' },
-      },
+      { type: 'event_msg', payload: { type: 'user_message', message: 'Inspect', turn_id: 't1' } },
+      { type: 'event_msg', payload: { type: 'user_message', message: 'Next', turn_id: 't2' } },
       effect,
-      ...(type === 'item_started'
-        ? [
-            {
-              type: 'event_msg',
-              payload: {
-                type: 'item_completed',
-                item: {
-                  type: 'CommandExecution',
-                  id: 'conflict-1',
-                  command: ['zsh', '-lc', 'rg --files'],
-                  status: 'completed',
-                  exit_code: 0,
-                },
-              },
-            },
-          ]
-        : []),
-      {
-        type: 'event_msg',
-        payload: { type: 'agent_message', message: '12 files' },
-      },
+      ...(type === 'item_started' ? [{ type: 'event_msg', payload: { type: 'item_completed', item: {
+        type: 'CommandExecution', id: 'conflict-1', command: ['zsh', '-lc', 'rg --files'], status: 'completed', exit_code: 0,
+      } } }] : []),
+      { type: 'event_msg', payload: { type: 'agent_message', message: '12 files' } },
     ];
     writeFileSync(path, rows.map(JSON.stringify).join('\n'));
-    const evidence = transcriptMessages(
-      { transcript_path: path },
-      { evidence: true },
-    );
+    const evidence = transcriptMessages({ transcript_path: path }, { evidence: true });
     assert.ok(evidence.diagnostics.some((d) => d.includes('turn identity')));
-    assert.deepEqual(
-      evidence.records.map(({ codex_evidence, ...record }) => record),
-      transcriptMessages({ transcript_path: path }),
-    );
-    for (const [outer, inner] of [
-      ['t2', 't2'],
-      ['t2', undefined],
-      [undefined, 't2'],
-    ]) {
+    assert.deepEqual(evidence.records.map(({ codex_evidence, ...record }) => record), transcriptMessages({ transcript_path: path }));
+    for (const [outer, inner] of [['t2', 't2'], ['t2', undefined], [undefined, 't2']]) {
       effect.payload.turn_id = outer;
       effect.payload.item.turn_id = inner;
       writeFileSync(path, rows.map(JSON.stringify).join('\n'));
-      assert.deepEqual(
-        transcriptMessages({ transcript_path: path }, { evidence: true })
-          .diagnostics,
-        [],
-      );
+      assert.deepEqual(transcriptMessages({ transcript_path: path }, { evidence: true }).diagnostics, []);
     }
   }
 });
@@ -1238,7 +1060,7 @@ test('M02/M08 emitted registration flip: known native effect aliases select real
     h[event].some(
       (g) =>
         matches(g, name) &&
-        g.hooks.some((x) => x.command.includes(` ${script} "$root";`)),
+        g.hooks.some((x) => x.command.includes(` ${script};`)),
     );
   for (const name of [
     'Bash',
@@ -1272,7 +1094,7 @@ test('M02/M08 emitted registration flip: known native effect aliases select real
   const registered = (event, name, args, script) => {
     const groups = h[event].filter((g) => matches(g, name));
     const commands = groups.flatMap((g) => g.hooks.map((x) => x.command));
-    const command = commands.find((c) => c.includes(` ${script} "$root";`));
+    const command = commands.find((c) => c.includes(` ${script};`));
     if (!command) return { stdout: '', stderr: '', status: 0 };
     return dispatch(policyInput(name, args, event), script, policyFixture);
   };
@@ -1501,6 +1323,7 @@ test('M02 leading-dash regression: end-of-options enables a filename while quote
     }
   }
 });
+
 
 test('M02 cat stdin regression: bare dash is unresolved while explicit dash filenames remain reads', () => {
   writeFileSync(join(policyFixture, '-'), 'harmless file control');

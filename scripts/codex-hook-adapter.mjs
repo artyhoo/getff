@@ -149,7 +149,7 @@ function shellReads(input) {
 }
 
 function wildcard(pattern, slash = false) {
-  if (/[?\[\]{}()\\]/.test(pattern)) return null;
+  if (/[?[\]{}()\\]/.test(pattern)) return null;
   const escaped = pattern
     .split(/(\*\*|\*)/)
     .map((part) =>
@@ -734,13 +734,22 @@ export function runHook(root, script, input) {
   const path =
     script === 'link-coordination'
       ? join(root, 'scripts', `${script}.sh`)
-      : join(root, '.claude/hooks', `${script}.sh`);
+      : join(
+          root,
+          existsSync(join(root, '.agents/hooks'))
+            ? '.agents/hooks'
+            : '.claude/hooks',
+          `${script}.sh`,
+        );
   if (!existsSync(path))
     return { status: 2, stdout: '', stderr: `Codex hook missing: ${path}` };
-  const languageResolver = resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../plugin/hooks/lib/hook-language.sh',
-  );
+  const consumerLanguage = join(root, '.agents/hooks/lib/hook-language.sh');
+  const languageResolver = existsSync(consumerLanguage)
+    ? consumerLanguage
+    : resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        '../plugin/hooks/lib/hook-language.sh',
+      );
   const result = spawnSync(
     'bash',
     [
@@ -759,46 +768,13 @@ export function runHook(root, script, input) {
       maxBuffer: 8 * 1024 * 1024,
     },
   );
-  // Preserve the canonical SessionStart registration's explicit `|| true`.
-  // Coordination conflicts are advisory; executable gates retain their exit status.
-  if (script === 'link-coordination') {
-    result.stdout = '';
-    if (input.hook_event_name === 'SessionStart' && result.status > 0) {
-      let nonblocking = false;
-      try {
-        const model = JSON.parse(
-          readFileSync(join(root, '.ai-factory/harness-model.json'), 'utf8'),
-        );
-        nonblocking = (model.hooks?.SessionStart ?? []).some(
-          (entry) =>
-            entry.command.includes(
-              '"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh"',
-            ) && entry.command.trimEnd().endsWith('|| true'),
-        );
-      } catch {
-        // Missing or malformed policy never downgrades a failure.
-      }
-      if (nonblocking) {
-        result.status = 0;
-        result.stdout = JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: 'SessionStart',
-            additionalContext: `[coordination warning] Startup continued under the canonical nonblocking registration. Coordination did not complete; inspect the diagnostic before relying on shared files.\n${result.stderr}`,
-          },
-        });
-        result.stderr = '';
-      }
-    }
-  }
+  // Coordination prints its entire symlink census; it is setup output, not model context.
+  if (script === 'link-coordination') result.stdout = '';
   return result;
 }
 
 export function dispatch(input, script, root) {
   const event = input.hook_event_name;
-  // Honor the native Stop retry guard before transcript or helper adaptation.
-  // Otherwise an infrastructure error can loop before the canonical guard runs.
-  if (event === 'Stop' && input.stop_hook_active === true)
-    return { status: 0, stdout: '', stderr: '' };
   let variants;
   try {
     variants = normalizeInput(input);
@@ -993,26 +969,23 @@ export function dispatch(input, script, root) {
 if (isMainEntry(import.meta.url)) {
   try {
     const input = JSON.parse(readFileSync(0, 'utf8'));
-    // Packaged adapters bind canonical hooks to the active checkout, not the
-    // plugin cache. Direct local invocations retain their original root default.
-    const root = realpathSync(
-      resolve(
-        process.argv[3] ??
-          resolve(dirname(fileURLToPath(import.meta.url)), '..'),
-      ),
-    );
-    if (resolve(input.cwd ?? '.') !== root) {
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+    const physicalCwd = realpathSync(input.cwd ?? '.');
+    const consumerRelative = relative(root, physicalCwd);
+    const withinConsumer =
+      existsSync(join(root, '.codex/hooks.json')) &&
+      consumerRelative !== '..' &&
+      !consumerRelative.startsWith('../') &&
+      !isAbsolute(consumerRelative);
+    if (physicalCwd !== root && !withinConsumer) {
       const gitRoot = spawnSync(
         'git',
         ['-C', input.cwd ?? '.', 'rev-parse', '--show-toplevel'],
         { encoding: 'utf8' },
       );
-      if (
-        !gitRoot.stdout?.trim() ||
-        realpathSync(gitRoot.stdout.trim()) !== root
-      )
-        process.exit(0);
+      if (gitRoot.stdout?.trim() !== root) process.exit(0);
     }
+    input.cwd = physicalCwd;
     const script = process.argv[2];
     if (!/^[a-z][a-z0-9-]*$/.test(script ?? ''))
       throw new Error('expected canonical hook basename');

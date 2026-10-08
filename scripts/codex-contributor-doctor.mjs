@@ -3,8 +3,7 @@
  * codex-contributor-doctor — probe native Codex discovery and activation without mutating trust.
  */
 import { spawn } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
+import { resolve } from 'node:path';
 import { isMainEntry } from './lib/is-main-entry.mjs';
 import { readFileSync } from 'node:fs';
 export function compareHookDefinitions(definitions, nativeHooks) {
@@ -34,44 +33,6 @@ export function compareHookDefinitions(definitions, nativeHooks) {
     actual.splice(i, 1);
     return false;
   });
-}
-
-export function comparePackagedRuntime(generated, nativeHooks) {
-  const expected = (generated ?? []).filter((op) =>
-    op.path.startsWith('codex-contributor-plugin/runtime/'),
-  );
-  const roots = [
-    ...new Set(
-      nativeHooks
-        .filter((h) => h.sourcePath)
-        .map((h) => dirname(dirname(h.sourcePath))),
-    ),
-  ];
-  const problems = [];
-  for (const op of expected) {
-    if (!roots.length) {
-      problems.push(`${op.path}: installed plugin source unavailable`);
-      continue;
-    }
-    for (const root of roots) {
-      const relative = op.path.slice('codex-contributor-plugin/'.length);
-      if (relative.split('/').includes('..'))
-        throw new Error('Invalid packaged runtime inventory path');
-      const path = resolve(root, relative);
-      try {
-        const hash = createHash('sha256')
-          .update(readFileSync(path))
-          .digest('hex');
-        if (hash !== op.fingerprint)
-          problems.push(
-            `${path}: installed runtime differs from generated source`,
-          );
-      } catch {
-        problems.push(`${path}: installed runtime missing or unreadable`);
-      }
-    }
-  }
-  return problems;
 }
 
 if (isMainEntry(import.meta.url)) {
@@ -177,14 +138,8 @@ if (isMainEntry(import.meta.url)) {
       missingSkills: inventory.skills
         .filter((s) => !nativeSkills.some((n) => n.name === s.name))
         .map((s) => s.name),
-      disabledSkills: inventory.skills
-        .filter((s) =>
-          nativeSkills.some((n) => n.name === s.name && n.enabled !== true),
-        )
-        .map((s) => s.name),
       expectedHooks,
       missingDefinitions,
-      runtimeProblems: comparePackagedRuntime(inventory.generated, nativeHooks),
       degradations: inventory.degradations,
       contributorHooks: nativeHooks.map((h) => ({
         event: h.eventName,
@@ -213,19 +168,14 @@ if (isMainEntry(import.meta.url)) {
       missingDefinitions.length === 0 &&
       nativeHooks.length === expectedHooks &&
       report.warnings.length === 0;
-    report.skillsActivated =
-      report.missingSkills.length === 0 && report.disabledSkills.length === 0;
     report.hooksActivated =
       report.discovered &&
       nativeHooks.every(
         (h) => h.enabled && ['trusted', 'managed'].includes(h.trustStatus),
       );
-    report.ready =
-      report.hooksActivated &&
-      report.skillsActivated &&
-      report.runtimeProblems.length === 0;
     console.log(JSON.stringify(report, null, 2));
-    if (process.argv.includes('--check') && !report.ready) process.exitCode = 2;
+    if (process.argv.includes('--check') && !report.hooksActivated)
+      process.exitCode = 2;
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
