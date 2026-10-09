@@ -83,8 +83,40 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const CORE = resolve(REPO_ROOT, 'packages/core');
 
+/**
+ * Worktree-discovery vars git exports to THIS hook must not leak into the hook's
+ * children. Measured 2026-10-07 (#2081): under a real pre-push from a linked worktree a
+ * child inheriting GIT_DIR re-targets every fixture git call there — `git init --bare`
+ * in a suite RE-INITIALIZED the shared repo config with core.bare=true on every push,
+ * and the rule-index gate's probes misread the corrupted listings as a dead glob.
+ * Deliberately narrow: GIT_OBJECT_DIRECTORY / GIT_ALTERNATE_OBJECT_DIRECTORIES /
+ * GIT_QUARANTINE_PATH stay exported — arms reading the pushed (quarantined) objects need
+ * them, and the suites audit the working tree, losing nothing.
+ */
+const HOOK_LEAKED_DISCOVERY_VARS = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_COMMON_DIR',
+  'GIT_PREFIX',
+  'GIT_IMPLICIT_WORK_TREE',
+  'GIT_INTERNAL_SUPER_PREFIX',
+] as const;
+
+// GIT_ENV_SCRUB — file-scope marker read by principle 46: this hook is not loaded
+// by vitest, and every child it spawns hands out process.env minus the table above —
+// via run() (the default path) or via runCoreSuite()'s PREPUSH_HEAVY_RUNNER dispatch
+// (D2081-S01: a direct runCheck() call that used to pass the RAW environment, so a
+// runner child's fixture git re-targeted the invoking worktree exactly like any
+// other unscrubbed child would).
+const scrubbedHookEnv = (): NodeJS.ProcessEnv => {
+  const env = { ...process.env };
+  for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];
+  return env;
+};
+
 const run = (cmd: string, args: readonly string[] = []): CheckResult =>
-  runCheck(cmd, args, { cwd: REPO_ROOT });
+  runCheck(cmd, args, { cwd: REPO_ROOT, env: scrubbedHookEnv() });
 
 /**
  * The empty-tree object SHA — a tree-ish that exists in every repo. Used as the
@@ -2241,9 +2273,15 @@ const HEAVY_RUNNER_TIMEOUT_MS = 600_000;
 function runCoreSuite(script: string): CheckResult {
   const runner = process.env['PREPUSH_HEAVY_RUNNER']?.trim();
   if (!runner) return run('npm', ['--prefix', CORE, 'run', script]);
+  // Same scrubbed boundary as run(): the runner is a child like any other, and a
+  // runner that re-roots onto a mirror still runs fixture git there — an inherited
+  // GIT_DIR from the invoking worktree would re-target those into THIS checkout
+  // (D2081-S01). The object-directory vars the heavy-runner contract relies on are
+  // NOT in the scrub table (see HOOK_LEAKED_DISCOVERY_VARS above).
   const r = runCheck(runner, ['npm', 'run', script], {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
+    env: scrubbedHookEnv(),
   });
   // notFound covers ENOENT only; a runner that exists but is not executable
   // fails the spawn with EACCES, which would otherwise read as failing tests.

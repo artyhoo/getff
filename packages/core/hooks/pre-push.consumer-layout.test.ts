@@ -70,6 +70,14 @@ import {
   GOAL_POINTER_DOCS,
 } from '../audit-self/audit-ai-docs.ts';
 
+// Fixture git calls must not inherit the invoking hook's env: under a real pre-push run
+// git exports an absolute GIT_DIR (the invoking worktree's), and a fixture
+// `git init --bare` RE-TARGETS it — measured 2026-10-07 (#2081): every push from a linked
+// worktree rewrote the SHARED repo config to core.bare=true, because the init landed in
+// GIT_DIR instead of the fixture remote. The var list comes from git itself so it cannot
+// drift (precedent: codex-contributor.test.mjs module scrub).
+for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).stdout.trim().split('\n')) delete process.env[key];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 // Resolve the tsx ESM loader from wherever it actually lives (hoisted repo-root
