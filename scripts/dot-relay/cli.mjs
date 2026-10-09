@@ -626,6 +626,10 @@ async function cmdSupervise({ root, flags }) {
   // reconcile must not flip our own row to UNCERTAIN.
   const ledger = openLedger(join(root, 'ledger.sqlite'), { resumeReserved: id });
   try {
+    // F02: supervise obeys the same OFF boundary as tick — the refusal cannot
+    // rely on the scheduler's earlier status read (the tick->supervise race
+    // window). ACK settlement (import-ack) stays open as documented.
+    if (ledger.status().off) fail('OFF');
     const row = ledger.getExecution(id);
     if (!row) fail('UNKNOWN_EXECUTION');
     const ev = ledger.getEvent(row.solution_id);

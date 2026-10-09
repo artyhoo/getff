@@ -1915,3 +1915,21 @@ test('F10 CLI: ambiguous crash image reports the fixed migration code, not a cra
   assert.equal(n, 5);
   rmSync(root, { recursive: true, force: true });
 });
+
+// ------------------------------------------------- F02: OFF_RESUME_ADMISSION
+// supervise is the tick's detached admission path: durable OFF must refuse it
+// with the fixed OFF code at the dispatch boundary, not rely on the
+// scheduler's earlier status read (the race window tick->supervise).
+
+test('F02: supervise refuses under durable OFF with the fixed OFF code (run and resume modes)', () => {
+  const root = freshRoot();
+  const off = cliJson(['off', '--root', root, '--reason', 'operator stop for supervise gate test']);
+  assert.equal(off.off, true);
+  const r1 = JSON.parse(cli(['supervise', '--root', root, '--execution-id', 'DOT-EXEC-any', '--resume'], { expectFail: true }).stdout);
+  assert.equal(r1.ok, false);
+  assert.equal(r1.code, 'OFF');
+  const r2 = JSON.parse(cli(['supervise', '--root', root, '--execution-id', 'DOT-EXEC-any'], { expectFail: true }).stdout);
+  assert.equal(r2.ok, false);
+  assert.equal(r2.code, 'OFF');
+  rmSync(root, { recursive: true, force: true });
+});

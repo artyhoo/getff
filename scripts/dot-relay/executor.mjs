@@ -881,6 +881,15 @@ export async function runExecution(opts) {
     return { state: 'BLOCKED', blocker: 'BLOCKED_PACKET_UNTRUSTED', execution_id: executionId };
   }
 
+  // F02: barrier recheck immediately before the owned child launch — OFF
+  // landing after the entry check wins the race. The reserved row stays for
+  // reconciliation; no spawn, no failure count.
+  if (ledger.status().off) {
+    closeSync(lockFd);
+    releaseOwnedLock();
+    return { state: 'BLOCKED', blocker: 'OFF', execution_id: executionId };
+  }
+
   let child;
   try {
     const prompt = workerPrompt({
@@ -1337,6 +1346,15 @@ export async function resumeExecution(opts) {
   const cpPath = join(workerDir, `${executionId}.checkpoint.json`);
   const stdoutPath = join(workerDir, `${executionId}.a${attemptNumber}.stdout`);
   const stderrPath = join(workerDir, `${executionId}.a${attemptNumber}.stderr`);
+
+  // F02: OFF wins the launch race — the barrier recheck sits immediately
+  // before the owned child launch. The admitted reservation stays retained
+  // (no counter reset, no failure record); the next tick reconciles it.
+  if (ledger.status().off) {
+    closeSync(lockFd);
+    releaseOwnedLock();
+    return { state: 'BLOCKED', blocker: 'OFF', execution_id: executionId };
+  }
 
   let child;
   try {

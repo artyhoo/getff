@@ -2662,3 +2662,101 @@ test('R07: parseAgentsCensus — supported spellings project, completed sessions
   // a completed entry without any pid is still valid metadata: skipped, not unproven
   assert.deepEqual(parseAgentsCensus([{ session_id: 'sess-9', status: 'finished' }], { sessionId: 'sess-9' }), []);
 });
+
+// ------------------------------------------------- F02: OFF_RESUME_ADMISSION
+// Durable OFF is the operator's stop intent: it must refuse attempt admission
+// inside the admission transaction and win the launch race — never a spawn
+// past OFF, never a counter reset for the retained reservation.
+
+test('F02: OFF set after tick dispatch refuses resume admission — no spawn, no attempt, no charge', async () => {
+  const { dir, ledger } = env0();
+  const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir });
+  ledger.setOff({ reason: 'operator stop after tick dispatch' });
+  let spawned = 0;
+  const out = await resumeExecution({
+    ledger, solution, executionId: claim.execution_id, dir,
+    spawnImpl: () => { spawned += 1; return fakeChild(); },
+    gitImpl: gitOk({ branch: jobBranch, toplevel: dir }),
+    sessionProbe: () => [],
+    clock: fakeClock({ bootId: 'BOOT-2', advancePerReadMs: 10_000 }),
+    pollIntervalMs: 5,
+    deadlineMs: 20, // pre-fix code would spawn: bounded so RED fails fast, never hangs
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'OFF');
+  assert.equal(spawned, 0);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.attempts_admitted, 1, 'no resume attempt admitted past OFF');
+  assert.equal(row.charged_reservation_ms, 7_200_000, 'no reservation charged past OFF');
+  assert.equal(row.consecutive_resume_failures, 0, 'OFF is not a concrete resume failure');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F02: OFF landing between admission and spawn — no launch, attempt retained, no counter reset', async () => {
+  const { dir, ledger } = env0();
+  const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir });
+  const origAdmit = ledger.admitNextAttempt.bind(ledger);
+  ledger.admitNextAttempt = (args) => {
+    const r = origAdmit(args);
+    // OFF lands exactly after the admission transaction committed — the
+    // barrier race the operator can lose against a launching supervisor
+    ledger.setOff({ reason: 'operator stop in the launch race window' });
+    return r;
+  };
+  let spawned = 0;
+  const out = await resumeExecution({
+    ledger, solution, executionId: claim.execution_id, dir,
+    spawnImpl: () => { spawned += 1; return fakeChild(); },
+    gitImpl: gitOk({ branch: jobBranch, toplevel: dir }),
+    sessionProbe: () => [],
+    clock: fakeClock({ bootId: 'BOOT-2', advancePerReadMs: 10_000 }),
+    pollIntervalMs: 5,
+    deadlineMs: 20, // pre-fix code would spawn: bounded so RED fails fast, never hangs
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'OFF');
+  assert.equal(spawned, 0, 'OFF wins the race: no child launch');
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.attempts_admitted, 2, 'the admitted reservation is retained, not rolled back');
+  assert.equal(row.consecutive_resume_failures, 0, 'no failure charged for an operator stop');
+  assert.equal(row.state, 'RESUMING_HOST', 'slot stays held for later reconciliation');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F02: OFF landing after the tick claim refuses the supervise launch — reservation retained', async () => {
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger);
+  const claim = ledger.claimExecution({
+    solutionId: solution.id, sessionId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    bootId: 'BOOT-EX', supervisor: { pid: process.pid, start: 'x' },
+  });
+  assert.equal(claim.claimed, true);
+  const realGit = gitOk({});
+  let offArmed = false;
+  const git = (args, opts) => {
+    if (!offArmed) {
+      offArmed = true;
+      // OFF lands after runExecution's entry check, before the spawn — the
+      // window between the scheduler's claim and the owned child launch
+      ledger.setOff({ reason: 'operator stop between claim and launch' });
+    }
+    return realGit(args, opts);
+  };
+  let spawned = 0;
+  const out = await runExecution({
+    ledger, solution, worktree: dir, dir, superviseExecutionId: claim.execution_id,
+    spawnImpl: () => { spawned += 1; return fakeChild(); },
+    gitImpl: git,
+    clock: fakeClock({ advancePerReadMs: 10_000 }),
+    pollIntervalMs: 5,
+    startupTimeoutMs: 100,
+    deadlineMs: 20, // pre-fix code would spawn: bounded so RED fails fast, never hangs
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'OFF');
+  assert.equal(spawned, 0, 'no owned child launched past durable OFF');
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'RESERVED', 'tick reservation retained for reconciliation');
+  assert.equal(row.attempts_admitted, 1);
+  rmSync(dir, { recursive: true, force: true });
+});

@@ -99,7 +99,7 @@ Seeded ledger events: `DOT-BATCH-0001..0005` (state `BASELINE_HOLD`, null digest
 
 ## OFF and resume
 
-`off --reason` sets a durable OFF that survives restarts and blocks ALL admissions — ingest, delivery claims, execution claims, and manifest/snapshot/index imports (ACK-only `receipt-import` stays open so in-flight acknowledgments settle). `bridge-activated` records activation but cannot clear OFF. Resuming is a coordinator control action with evidence; OFF itself has no TTL and no auto-clear.
+`off --reason` sets a durable OFF that survives restarts and blocks ALL admissions — ingest, delivery claims, execution claims, resume-attempt admission (`admitNextAttempt` refuses with `OFF` inside the admission transaction: no attempt row, no allowance charge, no active-row change), the `supervise` dispatch boundary, and manifest/snapshot/index imports (ACK-only `receipt-import` stays open so in-flight acknowledgments settle). A supervisor rechecks durable OFF immediately before every owned child launch (F02): if OFF wins the race the reserved attempt is retained unchanged — no spawn, no failure count — and the next tick reconciles it. `bridge-activated` records activation but cannot clear OFF. Resuming is a coordinator control action with evidence; OFF itself has no TTL and no auto-clear.
 
 ## Uncertain execution recovery
 

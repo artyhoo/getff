@@ -2488,3 +2488,29 @@ test('F01: a WAIT_PARENT child re-routes through the same checks when the wrong-
   assert.equal(ledger.getEvent(a.id).state, 'BLOCKED');
   assert.match(ledger.getEvent(a.id).reason, /PARENT_KIND/);
 });
+
+// ------------------------------------------------- F02: OFF_RESUME_ADMISSION
+// Durable OFF must refuse attempt admission INSIDE the admission transaction:
+// zero new attempts, zero reservation charge, zero state change. The OFF
+// marker is the operator's stop intent — nothing may admit past it.
+
+test('F02: durable OFF refuses admitNextAttempt — no attempt, no charge, no state change', () => {
+  const { ledger } = freshLedger();
+  const { claim } = claimedExecution(ledger);
+  ledger.reconcileHost({ bootId: 'BOOT-2', processProbe: () => ({ alive: false, start: null }), controlActor: 'scheduler-tick' });
+  ledger.setOff({ reason: 'operator stop' });
+  const before = ledger.getExecution(claim.execution_id);
+  const r = ledger.admitNextAttempt({
+    executionId: claim.execution_id, bootId: 'BOOT-2',
+    supervisor: { pid: 701, start: 'Tue Oct  7 09:00:00 2026' },
+    sessionId: claim.session_id, purpose: 'resume',
+  });
+  assert.equal(r.admitted, false);
+  assert.equal(r.code, 'OFF');
+  const after = ledger.getExecution(claim.execution_id);
+  assert.equal(after.attempts_admitted, before.attempts_admitted, 'no attempt admitted past OFF');
+  assert.equal(after.charged_reservation_ms, before.charged_reservation_ms, 'no reservation charged past OFF');
+  assert.equal(after.resumptions, before.resumptions);
+  assert.equal(after.state, before.state, 'active row untouched by the refusal');
+  assert.equal(ledger.getAttempt(claim.execution_id, before.attempts_admitted + 1), null, 'no attempt row inserted');
+});

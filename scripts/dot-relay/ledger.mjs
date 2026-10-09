@@ -1613,6 +1613,10 @@ export function openLedger(path, {
         throw ledgerError('RECONCILE_INPUT', 'executionId and bootId required');
       }
       return api._tx(() => {
+        // F02: the OFF refusal sits INSIDE the admission transaction — before
+        // any allowance charge, attempt insert, or active-row change. A resume
+        // dispatched before OFF landed must stop at this boundary.
+        if (api._isOff()) return { admitted: false, code: 'OFF' };
         const row = db.prepare('SELECT * FROM executions WHERE id = ?').get(executionId);
         if (!row) throw ledgerError('UNKNOWN_EXECUTION', String(executionId));
         // R07: an UNCERTAIN row stays terminal UNLESS the caller supplies FRESH
