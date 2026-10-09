@@ -1,11 +1,11 @@
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  ask-question-reminder.sh
-8006f6963870c79d3e140c194ab179fa692f023bb3c31506dbc42e6ede8eb2b1  ask-question-reminder.sh:lang/
+8762fbb9fcea57fc41425105e93f8a55cbf55a1839ca04e5b412a88c3c3ad5c7  ask-question-reminder.sh:lang/
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  ask-question-reminder.sh:lib/hook-live.sh
 5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  check-doc-authority-header.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  check-doc-authority-header.sh:lib/hook-live.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  deps-hash-check.sh
 01b538995c463881f31fbea004fb80dc7a3f7d99bec634bc2182dfa3d4525068  end-of-turn-reminder.sh
-8006f6963870c79d3e140c194ab179fa692f023bb3c31506dbc42e6ede8eb2b1  end-of-turn-reminder.sh:lang/
+8762fbb9fcea57fc41425105e93f8a55cbf55a1839ca04e5b412a88c3c3ad5c7  end-of-turn-reminder.sh:lang/
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  end-of-turn-reminder.sh:lib/residue-dir.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  end-of-turn-reminder.sh:lib/hook-live.sh
 7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  inject-matching-rule.sh

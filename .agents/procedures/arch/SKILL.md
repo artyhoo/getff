@@ -19,7 +19,7 @@ allowed-tools:
   - Bash(cat *)
 ---
 
-<!-- @harness-posture: cc-native-with-fallback — degradations: no subagents → §2 cold seats + §1.5 probe dispatch degrade; no AskUserQuestion → serial questioning; no Skill invocation → direct file reads; no aif bridge → the `bridge: auto` exit row is unavailable, exit degrades to in-session SDD per tier-home.md:86 -->
+<!-- @harness-posture: cc-native-with-fallback — degradations: no subagents → §2 cold seats + §1.5 probe dispatch degrade; no native question tool → full numbered frontier round in text; no Skill invocation → direct file reads; no aif bridge → the `bridge: auto` exit row is unavailable, exit degrades to in-session SDD per tier-home.md:86 -->
 
 # /arch — external design contour
 
@@ -34,7 +34,9 @@ Run in the operator's top-tier seat; no pinned model replaces that choice.
 
 ## Phases and required reads
 
-1. Before ideation or a consensus retell, read [ideation](references/ideation.md). Adopt brainstorming
+1. Before the first substantive design reply (or a consensus retell), read [ideation](references/ideation.md)
+   and load its required brainstorming, grilling and domain-modeling procedures in full.
+   Execute their current steps; the first reply with open independent forks is a question round. Adopt brainstorming
    as-is, with its user gate; use the pinned grilling/domain-modeling companions and their exact
    fallback rules. Record premise meaning, live decision register and falsifiers as decisions settle.
    Spec includes testing seams. After compaction, retell claims are diffed against the last confirmed
