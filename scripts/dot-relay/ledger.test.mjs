@@ -2605,3 +2605,49 @@ test('F03: held tick with a malformed/throwing owner probe refuses owner-unprove
   assert.equal(done.recorded, true);
   ledger.close();
 });
+
+// ------------------------------------------------- F06: ADOPT_ATTEMPT_CAPTURE
+// The adoption monitor's exclusive ownership is DURABLY recorded on the
+// current attempt row (supervisor pid + process start), and adoption itself
+// is bookkeeping-free: attempts_admitted is never mutated and no attempt row
+// is ever created by monitoring.
+
+test('F06: updateAttempt durably records the adopting supervisor identity on the current attempt', () => {
+  const { ledger, path, dir } = freshLedger();
+  const { claim } = claimedExecution(ledger, { sessionId: 'f06a0000-0000-4000-8000-000000000001' });
+  const MON_START = 'Mon Oct  6 12:00:00 2026';
+  ledger.updateExecution(claim.execution_id, { state: 'RECOVERING_HOST', pid: 702, process_start: 'Mon Oct  6 11:02:00 2026' });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: 'BOOT-1', child_pid: 702, child_start: 'Mon Oct  6 11:02:00 2026' });
+  // the adopting monitor claims the supervisor slot and records its identity
+  ledger.updateAttempt(claim.execution_id, 1, { supervisor_pid: 501, supervisor_start: MON_START });
+  const attempt = ledger.getAttempt(claim.execution_id, 1);
+  assert.equal(attempt.supervisor_pid, 501);
+  assert.equal(attempt.supervisor_start, MON_START);
+  assert.equal(attempt.child_pid, 702, 'child identity untouched by the ownership write');
+  // durable: a FRESH connection reads the same recorded owner
+  ledger.close();
+  const reopened = openLedger(path);
+  const reread = reopened.getAttempt(claim.execution_id, 1);
+  assert.equal(reread.supervisor_pid, 501);
+  assert.equal(reread.supervisor_start, MON_START);
+  reopened.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F06: adoption bookkeeping never mutates attempts_admitted and never creates attempt rows', () => {
+  const { ledger, path, dir } = freshLedger();
+  const { claim } = claimedExecution(ledger, { sessionId: 'f06b0000-0000-4000-8000-000000000002' });
+  ledger.updateExecution(claim.execution_id, { state: 'RECOVERING_HOST', pid: 702, process_start: 'Mon Oct  6 11:02:00 2026' });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: 'BOOT-1', child_pid: 702, child_start: 'Mon Oct  6 11:02:00 2026' });
+  // monitoring-only transitions (UNCERTAIN hold / REQUIRES_REVIEW finish)
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'REQUIRES_REVIEW', measured_active_used_ms: 5 });
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: 'https://github.com/artyhoo/getff/pull/2222' });
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.attempts_admitted, 1, 'monitoring consumed no reservation');
+  const db = new DatabaseSync(path);
+  const n = db.prepare('SELECT COUNT(*) AS c FROM execution_attempts WHERE execution_id = ?').get(claim.execution_id).c;
+  db.close();
+  assert.equal(n, 1, 'no attempt row was ever created by monitoring');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});

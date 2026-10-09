@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn as childSpawn, execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { openLedger } from './ledger.mjs';
@@ -3127,4 +3128,258 @@ test('F05: resume holds the identical original-byte authority — pretty origina
     assert.equal(ledger.getExecution(claim.execution_id).state, 'BLOCKED');
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------------- F06: ADOPT_ATTEMPT_CAPTURE
+// Adoption must select the CURRENT admitted attempt's capture (persisted
+// per-attempt before launch), reverify the packet/checkpoint/immutable files
+// BEFORE monitoring, and take the same exclusive supervisor ownership — one
+// owner, zero GLM spawns, unchanged attempt count.
+
+// Models an execution on attempt N>=2 (a resumed child whose supervisor died
+// same-boot): attempts_admitted=N with a live exact child on attempt N, a
+// per-attempt capture manifest, and a STALE attempt-1 stdout holding a
+// session-matching CODE_COMPLETE capture for a DIFFERENT PR.
+const F06_CHILD_PID = 702;
+const F06_CHILD_START = 'Mon Oct  6 11:02:00 2026';
+function adoptedResumedExecution(ledger, { dir, attempt = 2 }) {
+  const sessionId = `adopt-sess-${String(attempt).padStart(4, '0')}-bbbb`;
+  const solution = queuedSolution(ledger, dir);
+  const claim = ledger.claimExecution({
+    solutionId: solution.id, sessionId,
+    bootId: 'BOOT-1', supervisor: { pid: 501, start: SUP_START },
+  });
+  const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
+  const packet = writePacketFiles(dir, claim.execution_id, solution);
+  writeCp(dir, claim.execution_id, {
+    version: 1,
+    execution_id: claim.execution_id,
+    session_id: sessionId,
+    boot_id: 'BOOT-1',
+    phase: 'RUNNING',
+    branch: jobBranch,
+    worktree: dir,
+    head_sha: BASE_SHA,
+    solution_sha256: solution.sha256,
+    artifact_sha256: packet.artifact_sha256,
+    artifact_bytes: packet.artifact_bytes,
+    kickoff_sha256: packet.kickoff_sha256,
+    framing_sha256: packet.framing_sha256,
+    pr_url: null,
+    active_used_ms: 5,
+  });
+  // per-attempt capture manifest — what the resume path persists pre-launch
+  writeFileSync(join(dir, 'worker', `${claim.execution_id}.a${attempt}.capture.json`), JSON.stringify({
+    version: 1, execution_id: claim.execution_id, attempt_number: attempt, session_id: sessionId,
+    boot_id: 'BOOT-1',
+    stdout: `${claim.execution_id}.a${attempt}.stdout`,
+    stderr: `${claim.execution_id}.a${attempt}.stderr`,
+    startup: null,
+  }));
+  // the attempt-N row + attempts_admitted, the post-crash disk shape a real
+  // resume leaves behind (attempt 1 exists from claimExecution)
+  const raw = new DatabaseSync(join(dir, 'ledger.sqlite'));
+  raw.prepare(
+    'INSERT INTO execution_attempts (execution_id, attempt_number, state, boot_id, active_start_ns, last_active_ns, child_pid, child_start, session_id) VALUES (?,?,?,?,?,?,?,?,?)',
+  ).run(claim.execution_id, attempt, 'RUNNING', 'BOOT-1', '990000000', '995000000', F06_CHILD_PID, F06_CHILD_START, sessionId);
+  raw.prepare('UPDATE executions SET attempts_admitted = ?, state = ?, pid = ?, process_start = ? WHERE id = ?').run(
+    attempt, 'RECOVERING_HOST', F06_CHILD_PID, F06_CHILD_START, claim.execution_id,
+  );
+  raw.close();
+  return { solution, claim, jobBranch, packet, sessionId };
+}
+
+// the DECEPTIVE stale attempt-1 capture: current session id, valid digests,
+// but the attempt-1 PR — accepting it fabricates completion from attempt 1
+function staleAttempt1Capture(executionId, solution, packet, sessionId, prUrl) {
+  return JSON.stringify(outerCapture(sessionId, JSON.stringify(codeCompleteReport({
+    executionId, sessionId, solution, artifactSha256: packet.artifact_sha256, prUrl,
+  }))));
+}
+
+test('F06: adoption of attempts 2 and 3 reads only the exact matching capture — stale attempt-1 success is never accepted', async () => {
+  for (const attempt of [2, 3]) {
+    const { dir, ledger } = env0();
+    const { claim, solution, packet, sessionId } = adoptedResumedExecution(ledger, { dir, attempt });
+    writeFileSync(
+      join(dir, 'worker', `${claim.execution_id}.stdout`),
+      staleAttempt1Capture(claim.execution_id, solution, packet, sessionId, 'https://github.com/artyhoo/getff/pull/1111'),
+    );
+    let alive = true;
+    const r = monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: (pid) => (pid === F06_CHILD_PID && alive ? { alive: true, start: F06_CHILD_START } : { alive: false, start: null }),
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 30_000,
+    });
+    await sleep(20);
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'RECOVERING_HOST', `attempt ${attempt}: still monitored`);
+    alive = false;
+    writeFileSync(
+      join(dir, 'worker', `${claim.execution_id}.a${attempt}.stdout`),
+      JSON.stringify(outerCapture(sessionId, JSON.stringify(codeCompleteReport({
+        executionId: claim.execution_id, sessionId, solution,
+        artifactSha256: packet.artifact_sha256,
+        prUrl: `https://github.com/artyhoo/getff/pull/2${attempt}22`,
+      })))),
+    );
+    const out = await r;
+    assert.equal(out.state, 'REQUIRES_REVIEW', `attempt ${attempt}: the CURRENT attempt capture advances once`);
+    assert.equal(out.pr_url, `https://github.com/artyhoo/getff/pull/2${attempt}22`, `attempt ${attempt}: never the stale attempt-1 PR`);
+    assert.equal(ledger.getWorkerReport(claim.execution_id).pr_url, `https://github.com/artyhoo/getff/pull/2${attempt}22`);
+    assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, attempt, 'adoption consumes NO reservation');
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F06: adoption reverifies packet+checkpoint+immutable files — tampered or missing evidence holds with fixed blockers', async () => {
+  // arm a: one drifted byte in the immutable kickoff file
+  {
+    const { dir, ledger } = env0();
+    const { claim } = adoptedResumedExecution(ledger, { dir, attempt: 2 });
+    const kickoffPath = join(dir, 'worker', `${claim.execution_id}.kickoff.md`);
+    const tampered = `${readFileSync(kickoffPath, 'utf8')}X`;
+    writeFileSync(kickoffPath, tampered);
+    const out = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: () => ({ alive: false, start: null }),
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 5_000,
+    });
+    assert.equal(out.state, 'BLOCKED');
+    assert.equal(out.blocker, 'BLOCKED_PACKET_UNTRUSTED');
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'BLOCKED');
+    assert.equal(readFileSync(kickoffPath, 'utf8'), tampered, 'original bytes never rewritten');
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // arm b: checkpoint absent
+  {
+    const { dir, ledger } = env0();
+    const { claim } = adoptedResumedExecution(ledger, { dir, attempt: 2 });
+    rmSync(join(dir, 'worker', `${claim.execution_id}.checkpoint.json`));
+    const out = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: () => ({ alive: false, start: null }),
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 5_000,
+    });
+    assert.equal(out.state, 'BLOCKED');
+    assert.equal(out.blocker, 'BLOCKED_RESUME_METADATA');
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'BLOCKED');
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // arm c: drifted object-store original (the F05 authority)
+  {
+    const { dir, ledger } = env0();
+    const { claim, solution } = adoptedResumedExecution(ledger, { dir, attempt: 2 });
+    const objPath = join(dir, 'objects', `${ledger.getManifest(solution.id).artifact_sha256}.json`);
+    writeFileSync(objPath, `${readFileSync(objPath, 'utf8')} `);
+    const out = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: () => ({ alive: false, start: null }),
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 5_000,
+    });
+    assert.equal(out.state, 'BLOCKED');
+    assert.equal(out.blocker, 'BLOCKED_PACKET_UNTRUSTED');
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // arm d (GREEN): exact valid packet + latest capture advances ONCE to
+  // REQUIRES_REVIEW; a second adoption of the finished row refuses.
+  {
+    const { dir, ledger } = env0();
+    const { claim, solution, packet, sessionId } = adoptedResumedExecution(ledger, { dir, attempt: 2 });
+    writeFileSync(
+      join(dir, 'worker', `${claim.execution_id}.stdout`),
+      staleAttempt1Capture(claim.execution_id, solution, packet, sessionId, 'https://github.com/artyhoo/getff/pull/1111'),
+    );
+    writeFileSync(
+      join(dir, 'worker', `${claim.execution_id}.a2.stdout`),
+      JSON.stringify(outerCapture(sessionId, JSON.stringify(codeCompleteReport({
+        executionId: claim.execution_id, sessionId, solution,
+        artifactSha256: packet.artifact_sha256, prUrl: 'https://github.com/artyhoo/getff/pull/2222',
+      })))),
+    );
+    const out = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: () => ({ alive: false, start: null }), // child already exited
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 30_000,
+    });
+    assert.equal(out.state, 'REQUIRES_REVIEW');
+    assert.equal(out.pr_url, 'https://github.com/artyhoo/getff/pull/2222');
+    const again = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: () => ({ alive: false, start: null }),
+      clock: fakeClock({ bootId: 'BOOT-1' }),
+      pollIntervalMs: 5, deadlineMs: 30_000,
+    });
+    assert.equal(again.state, 'BLOCKED');
+    assert.equal(again.blocker, 'EXECUTION_STATE', 'a finished row is never re-monitored');
+    assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 2);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F06: two simultaneous adoption monitors — one owner (SUPERVISOR_LOCK), zero GLM spawns, unchanged attempt count', async () => {
+  const { dir, ledger } = env0();
+  const { claim, solution, packet, sessionId } = adoptedResumedExecution(ledger, { dir, attempt: 2 });
+  const ownStart = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(process.pid)], { encoding: 'utf8' }).trim();
+  let alive = true;
+  const kills = []; // fake pid: a real signal to it would hit an unrelated process
+  const killImpl = (pid, sig) => { kills.push({ pid, sig }); };
+  const probe = (pid) => {
+    if (pid === F06_CHILD_PID) return alive ? { alive: true, start: F06_CHILD_START } : { alive: false, start: null };
+    if (pid === process.pid) return { alive: true, start: ownStart }; // the FIRST monitor's lock holder: us
+    return { alive: false, start: null };
+  };
+  const first = monitorAdoptedChild({
+    ledger, executionId: claim.execution_id, dir,
+    processProbe: probe, killImpl,
+    clock: fakeClock({ bootId: 'BOOT-1' }),
+    pollIntervalMs: 5, deadlineMs: 30_000,
+  });
+  await sleep(20); // the first monitor holds the supervisor slot
+  // bounded second claim: exclusive ownership must answer IMMEDIATELY, never
+  // after waiting on the (shared, still-live) child. Assertions over the
+  // refusal run inside try/finally: on a RED failure the still-pending first
+  // monitor is drained (child death + capture) so the runner can exit —
+  // the guardedMidRun contract applied to a probe-driven monitor.
+  const finishOwner = () => {
+    alive = false;
+    writeFileSync(
+      join(dir, 'worker', `${claim.execution_id}.a2.stdout`),
+      JSON.stringify(outerCapture(sessionId, JSON.stringify(codeCompleteReport({
+        executionId: claim.execution_id, sessionId, solution,
+        artifactSha256: packet.artifact_sha256, prUrl: 'https://github.com/artyhoo/getff/pull/2222',
+      })))),
+    );
+  };
+  let second = null;
+  try {
+    second = await monitorAdoptedChild({
+      ledger, executionId: claim.execution_id, dir,
+      processProbe: probe, killImpl,
+      // advancing clock: a refused claim must still be BOUNDED — if ownership
+      // were missing (old code), the shared-child wait ends at its own budget
+      clock: fakeClock({ bootId: 'BOOT-1', advancePerReadMs: 50 }),
+      pollIntervalMs: 5, deadlineMs: 100, termGraceMs: 5,
+    });
+    assert.equal(second.state, 'BLOCKED');
+    assert.equal(second.blocker, 'SUPERVISOR_LOCK', 'a live exact owner refuses the second monitor');
+    assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 2, 'no attempt consumed');
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'RECOVERING_HOST');
+    assert.equal(kills.length, 0, 'identity is read, never signalled, in a refusal');
+  } finally {
+    finishOwner();
+    await first.catch(() => {});
+  }
+  // the single owner finishes from the CURRENT attempt capture
+  const out = await first;
+  assert.equal(out.state, 'REQUIRES_REVIEW');
+  assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 2, 'still unchanged after completion');
+  // the owner released the slot — no stale lock file outlives the monitor
+  assert.ok(!existsSync(join(dir, 'worker', 'supervisor.lock')), 'lock released on monitor exit');
+  rmSync(dir, { recursive: true, force: true });
 });

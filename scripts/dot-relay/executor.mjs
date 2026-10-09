@@ -11,7 +11,7 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, openSync, closeSync, writeSync, ftruncateSync, readFileSync, writeFileSync, renameSync, rmSync, lstatSync, fsyncSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseChildResult, EXECUTOR_MODEL } from '../advisor-bridge-beta/process.mjs';
 import { probeOutcome, envelopeDigest } from './contract.mjs';
@@ -533,6 +533,48 @@ function verifyPacketBytes({ kickoffPath, framingPath, kickoffSha256, framingSha
   return { ok: true };
 }
 
+// F06: the per-attempt capture manifest — the DURABLE record of which private
+// capture files belong to which admitted attempt, persisted before EVERY
+// launch. A later adoption of a resumed child selects its capture through
+// this record, never a hardcoded attempt-1 path. Strict writer semantics via
+// writePrivateArtifact: identical replay is a no-op, any drift or symlink is
+// a fixed hold.
+function writeAttemptCapture({ workerDir, executionId, attemptNumber, sessionId, bootId, stdout, stderr, startup = null }) {
+  const manifest = JSON.stringify({
+    version: 1, execution_id: executionId, attempt_number: attemptNumber,
+    session_id: sessionId, boot_id: bootId, stdout, stderr, startup,
+  });
+  const w = writePrivateArtifact(join(workerDir, `${executionId}.a${attemptNumber}.capture.json`), Buffer.from(manifest, 'utf8'));
+  return w.ok ? { ok: true } : { ok: false, blocker: 'BLOCKED_ATTEMPT_CAPTURE', reason: w.reason };
+}
+
+// F06: adoption capture selection. The manifest is authoritative when
+// present: it must name THIS execution/attempt/session and carry plain
+// basenames (never a path — the capture stays inside worker/). A present but
+// mismatching manifest is a fixed hold, never a silent fallback. Legacy
+// pre-F06 disks derive the name: attempt 1 wrote unsuffixed files, a resumed
+// attempt always wrote .a<n> — attempt-1 files are NEVER read for n>=2.
+function adoptedAttemptCapture({ workerDir, executionId, attemptNumber, sessionId }) {
+  const capPath = join(workerDir, `${executionId}.a${attemptNumber}.capture.json`);
+  let parsed = null;
+  try {
+    if (lstatSync(capPath).isFile()) parsed = JSON.parse(readFileSync(capPath, 'utf8'));
+  } catch { /* absent or unreadable: fall through to the legacy derivation */ }
+  if (parsed && typeof parsed === 'object') {
+    const names = [parsed.stdout, parsed.stderr, ...(parsed.startup == null ? [] : [parsed.startup])];
+    if (parsed.version === 1
+      && parsed.execution_id === executionId
+      && parsed.attempt_number === attemptNumber
+      && typeof parsed.session_id === 'string' && parsed.session_id === sessionId
+      && names.every((n) => typeof n === 'string' && n.length > 0 && !n.includes('/') && n !== '.' && n !== '..')) {
+      return { ok: true, stdoutPath: join(workerDir, parsed.stdout), stderrPath: join(workerDir, parsed.stderr) };
+    }
+    return { ok: false, blocker: 'BLOCKED_ATTEMPT_CAPTURE' };
+  }
+  const suffix = attemptNumber === 1 ? '' : `.a${attemptNumber}`;
+  return { ok: true, stdoutPath: join(workerDir, `${executionId}${suffix}.stdout`), stderrPath: join(workerDir, `${executionId}${suffix}.stderr`) };
+}
+
 // R11: the -p carries ONLY the constant instruction plus the two private file
 // PATHS and their digests — kickoff/framing bytes never ride the argv. The
 // worker reads the packet from the files, never from the command line.
@@ -993,6 +1035,20 @@ export async function runExecution(opts) {
     closeSync(lockFd);
     releaseOwnedLock();
     return { state: 'BLOCKED', blocker: 'OFF', execution_id: executionId };
+  }
+
+  // F06: persist the per-attempt capture manifest BEFORE the launch — the
+  // exact private files THIS attempt writes, so a later adoption of a resumed
+  // child can never read another attempt's capture.
+  const captureWrite = writeAttemptCapture({
+    workerDir, executionId, attemptNumber, sessionId, bootId: clock.bootId(),
+    stdout: basename(stdoutPath), stderr: basename(stderrPath), startup: basename(receiptPath),
+  });
+  if (!captureWrite.ok) {
+    closeSync(lockFd);
+    releaseOwnedLock();
+    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: captureWrite.blocker });
+    return { state: 'BLOCKED', blocker: captureWrite.blocker, execution_id: executionId };
   }
 
   let child;
@@ -1481,6 +1537,19 @@ export async function resumeExecution(opts) {
     return { state: 'BLOCKED', blocker: 'OFF', execution_id: executionId };
   }
 
+  // F06: the resumed attempt's capture manifest before the launch — the .a<n>
+  // private files, so adoption of THIS attempt never reads attempt 1's.
+  const captureWrite = writeAttemptCapture({
+    workerDir, executionId, attemptNumber, sessionId, bootId: clock.bootId(),
+    stdout: basename(stdoutPath), stderr: basename(stderrPath), startup: null,
+  });
+  if (!captureWrite.ok) {
+    closeSync(lockFd);
+    releaseOwnedLock();
+    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: captureWrite.blocker });
+    return { state: 'BLOCKED', blocker: captureWrite.blocker, execution_id: executionId };
+  }
+
   let child;
   try {
     child = spawnImpl(GLM_WRAPPER, buildResumeArgv({ sessionId, prompt: resumePreamble({
@@ -1697,117 +1766,178 @@ export async function monitorAdoptedChild(opts) {
 
   const workerDir = join(dir, 'worker');
   const cp = readCheckpoint(workerDir, executionId);
-  const { clockProven, activeUsedMs, persistSample } = makeAttemptClock({
-    ledger, executionId, attemptNumber, clock,
-    anchorNs: attempt.active_start_ns != null ? attempt.active_start_ns : null,
-  });
 
-  // §5 cessation against a process we did not spawn: the SAME finite ladder —
-  // classify against the recorded identity before each signal, WALL grace
-  // waits (an adopted child has no exit event we can observe), KILL only on a
-  // fresh exact-live re-probe, DEAD only from authoritative absence. A frozen
-  // active clock can never extend or loop it.
-  const recordedAdopted = { pid: attempt.child_pid, process_start: attempt.child_start, session_id: sessionId };
-  const classifyAdopted = () => {
-    let p;
-    try { p = processProbe(attempt.child_pid); } catch { p = null; }
-    const outcome = probeOutcome(p);
-    if (outcome === 'absent') return 'absent';
-    if (outcome === 'live') return classifyProbe(recordedAdopted, { pid: attempt.child_pid, start: p.start, found: true }, sessionId);
-    return 'unknown';
+  // F06: adoption REVERIFIES everything a launch would have verified — the
+  // published object-store original, the checkpoint contract, and the
+  // immutable worker files — BEFORE monitoring. A monitor lends no authority
+  // to bytes no spawn would have accepted, and never invents packet digests
+  // from a possibly-stale checkpoint: the packet comes from the ledger row.
+  const holdBlocked = (blocker) => {
+    ledger.updateAttempt(executionId, attemptNumber, { state: 'BLOCKED', measured_active_used_ms: 0 });
+    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: blocker });
+    return { state: 'BLOCKED', blocker, execution_id: executionId };
   };
-  const ceaseExact = () => runCessationLadder({
-    classify: classifyAdopted,
-    term: () => { try { killImpl(attempt.child_pid, 'SIGTERM'); } catch { /* gone */ } },
-    kill: () => { try { killImpl(attempt.child_pid, 'SIGKILL'); } catch { /* gone */ } },
-    // no observable exit event for an adopted child: the grace is a bounded
-    // WALL sleep, then a fresh classify decides — never an active-clock loop
-    waitExit: async (ms) => { await sleep(ms); return false; },
-    termGraceMs,
-  });
+  let solution = null;
+  try {
+    const ev = ledger.getEvent(row.solution_id);
+    if (ev) {
+      solution = {
+        id: ev.id, sha256: ev.sha256, kind: ev.kind, producer: ev.producer,
+        parents: JSON.parse(ev.parent_json), payload: JSON.parse(ev.payload_json),
+      };
+    }
+  } catch { solution = null; }
+  const packetVerify = solution ? verifySolutionPacket({ ledger, solution, objectsDir: join(dir, 'objects') }) : null;
+  if (!packetVerify || !packetVerify.ok) return holdBlocked('BLOCKED_PACKET_UNTRUSTED');
+  if (!cp || !checkpointValid(cp, { executionId, solution, packet: packetVerify }) || cp.session_id !== sessionId) {
+    return holdBlocked('BLOCKED_RESUME_METADATA');
+  }
+  if (!verifyPacketBytes({
+    kickoffPath: join(workerDir, `${executionId}.kickoff.md`),
+    framingPath: join(workerDir, `${executionId}.framing.md`),
+    kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256,
+  }).ok) return holdBlocked('BLOCKED_PACKET_UNTRUSTED');
+  // F06: the CURRENT admitted attempt's capture — manifest-authoritative,
+  // never a hardcoded attempt-1 path, never attempt-1 files for n>=2.
+  const captureSel = adoptedAttemptCapture({ workerDir, executionId, attemptNumber, sessionId });
+  if (!captureSel.ok) return holdBlocked(captureSel.blocker);
 
-  let ownExit = !childAlive();
-  while (!ownExit) {
-    if (!clockProven()) {
-      const verdict = await ceaseExact();
-      const reason = verdict.dead ? 'CLOCK_UNPROVEN' : unprovenReason(verdict);
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
-      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason });
-      return { state: 'UNCERTAIN', blocker: reason, execution_id: executionId };
-    }
-    const used = activeUsedMs();
-    if (used === null) {
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
-      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'CLOCK_UNPROVEN' });
-      return { state: 'UNCERTAIN', blocker: 'CLOCK_UNPROVEN', execution_id: executionId };
-    }
-    persistSample();
-    if (used >= deadlineMs) {
-      const verdict = await ceaseExact();
-      const finalUsed = activeUsedMs() ?? used;
-      if (verdict.dead) {
-        ledger.updateAttempt(executionId, attemptNumber, { state: 'TIMED_OUT_ACTIVE', measured_active_used_ms: finalUsed });
-        ledger.updateExecution(executionId, {
-          state: 'TIMED_OUT_ACTIVE',
-          reason: `active budget exhausted active_used_ms=${finalUsed} boot=${clock.bootId()}`,
-        });
-        if (cp) makeCheckpointWriter({
-          workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
-          headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
-          artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
-          kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
-        })('TIMED_OUT_ACTIVE', { active_used_ms: finalUsed });
-        return { state: 'TIMED_OUT_ACTIVE', execution_id: executionId, active_used_ms: finalUsed };
+  // F06: adoption takes the SAME exclusive supervisor ownership a launch
+  // takes — one monitor per worker slot, durably recorded on the attempt row
+  // (the same supervisor_pid/supervisor_start columns a launch writes), so a
+  // second concurrent monitor is refused by the lock, not by luck. The slot is
+  // released on every exit path below (try/finally), never left stale.
+  const gate = acquireSupervisorLock({ workerDir, executionId, bootId: clock.bootId(), processProbe });
+  if (gate.blocked) {
+    return { state: 'BLOCKED', blocker: gate.blocked, execution_id: executionId };
+  }
+  const lockFd = gate.fd;
+  const lockPath = gate.lockPath;
+  const ownLockStart = procStart(process.pid);
+  ledger.updateAttempt(executionId, attemptNumber, { supervisor_pid: process.pid, supervisor_start: ownLockStart });
+  const releaseOwnedLock = () => releaseSupervisorLock(lockPath, {
+    pid: process.pid, start: ownLockStart, boot_id: clock.bootId(), execution_id: executionId,
+  });
+  try {
+    const { clockProven, activeUsedMs, persistSample } = makeAttemptClock({
+      ledger, executionId, attemptNumber, clock,
+      anchorNs: attempt.active_start_ns != null ? attempt.active_start_ns : null,
+    });
+
+    // §5 cessation against a process we did not spawn: the SAME finite ladder —
+    // classify against the recorded identity before each signal, WALL grace
+    // waits (an adopted child has no exit event we can observe), KILL only on a
+    // fresh exact-live re-probe, DEAD only from authoritative absence. A frozen
+    // active clock can never extend or loop it.
+    const recordedAdopted = { pid: attempt.child_pid, process_start: attempt.child_start, session_id: sessionId };
+    const classifyAdopted = () => {
+      let p;
+      try { p = processProbe(attempt.child_pid); } catch { p = null; }
+      const outcome = probeOutcome(p);
+      if (outcome === 'absent') return 'absent';
+      if (outcome === 'live') return classifyProbe(recordedAdopted, { pid: attempt.child_pid, start: p.start, found: true }, sessionId);
+      return 'unknown';
+    };
+    const ceaseExact = () => runCessationLadder({
+      classify: classifyAdopted,
+      term: () => { try { killImpl(attempt.child_pid, 'SIGTERM'); } catch { /* gone */ } },
+      kill: () => { try { killImpl(attempt.child_pid, 'SIGKILL'); } catch { /* gone */ } },
+      // no observable exit event for an adopted child: the grace is a bounded
+      // WALL sleep, then a fresh classify decides — never an active-clock loop
+      waitExit: async (ms) => { await sleep(ms); return false; },
+      termGraceMs,
+    });
+
+    let ownExit = !childAlive();
+    while (!ownExit) {
+      if (!clockProven()) {
+        const verdict = await ceaseExact();
+        const reason = verdict.dead ? 'CLOCK_UNPROVEN' : unprovenReason(verdict);
+        ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
+        ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason });
+        return { state: 'UNCERTAIN', blocker: reason, execution_id: executionId };
       }
-      const reason = unprovenReason(verdict);
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: finalUsed });
-      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason });
-      return { state: 'UNCERTAIN', blocker: reason, execution_id: executionId };
+      const used = activeUsedMs();
+      if (used === null) {
+        ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
+        ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'CLOCK_UNPROVEN' });
+        return { state: 'UNCERTAIN', blocker: 'CLOCK_UNPROVEN', execution_id: executionId };
+      }
+      persistSample();
+      if (used >= deadlineMs) {
+        const verdict = await ceaseExact();
+        const finalUsed = activeUsedMs() ?? used;
+        if (verdict.dead) {
+          ledger.updateAttempt(executionId, attemptNumber, { state: 'TIMED_OUT_ACTIVE', measured_active_used_ms: finalUsed });
+          ledger.updateExecution(executionId, {
+            state: 'TIMED_OUT_ACTIVE',
+            reason: `active budget exhausted active_used_ms=${finalUsed} boot=${clock.bootId()}`,
+          });
+          if (cp) makeCheckpointWriter({
+            workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
+            headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
+            artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
+            kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
+          })('TIMED_OUT_ACTIVE', { active_used_ms: finalUsed });
+          return { state: 'TIMED_OUT_ACTIVE', execution_id: executionId, active_used_ms: finalUsed };
+        }
+        const reason = unprovenReason(verdict);
+        ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: finalUsed });
+        ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason });
+        return { state: 'UNCERTAIN', blocker: reason, execution_id: executionId };
+      }
+      await sleep(pollIntervalMs);
+      ownExit = !childAlive();
     }
-    await sleep(pollIntervalMs);
-    ownExit = !childAlive();
-  }
 
-  // The adopted child exited on its own: reconcile from its private capture.
-  const stdoutText = readCapture(join(workerDir, `${executionId}.stdout`));
-  const returnedSession = captureSessionId(stdoutText);
-  if (returnedSession !== undefined && returnedSession !== sessionId) {
-    ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
-    ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_IDENTITY' });
-    return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId };
-  }
-  const cap = captureCodeComplete({
-    stdoutText, sessionId, executionId,
-    solutionSha256: cp ? cp.solution_sha256 : null,
-    artifactSha256: cp ? cp.artifact_sha256 : null,
-    exitCode: null, // an adopted child's exit code was never observed
-  });
-  if (!cap.ok) {
-    if (cap.untrusted) {
-      // No invented exit status: absent evidence stays UNCERTAIN_STOP.
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: activeUsedMs() ?? 0 });
-      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_STOP' });
-      return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_STOP', execution_id: executionId };
+    // The adopted child exited on its own: reconcile from THIS attempt's
+    // private capture (the F06 selection above — never a hardcoded attempt-1 path).
+    const stdoutText = readCapture(captureSel.stdoutPath);
+    const returnedSession = captureSessionId(stdoutText);
+    if (returnedSession !== undefined && returnedSession !== sessionId) {
+      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN' });
+      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_IDENTITY' });
+      return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId };
     }
-    // R10: present-but-invalid evidence from an adopted child is terminal —
-    // the monitor never retries around a rejected capture.
-    ledger.updateAttempt(executionId, attemptNumber, { state: 'BLOCKED', measured_active_used_ms: activeUsedMs() ?? 0 });
-    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: cap.blocker });
-    return { state: 'BLOCKED', blocker: cap.blocker, execution_id: executionId };
+    const cap = captureCodeComplete({
+      stdoutText, sessionId, executionId,
+      solutionSha256: solution.sha256,
+      artifactSha256: packetVerify.packet.artifact_sha256,
+      exitCode: null, // an adopted child's exit code was never observed
+    });
+    if (!cap.ok) {
+      if (cap.untrusted) {
+        // No invented exit status: absent evidence stays UNCERTAIN_STOP.
+        ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: activeUsedMs() ?? 0 });
+        ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_STOP' });
+        return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_STOP', execution_id: executionId };
+      }
+      // R10: present-but-invalid evidence from an adopted child is terminal —
+      // the monitor never retries around a rejected capture.
+      ledger.updateAttempt(executionId, attemptNumber, { state: 'BLOCKED', measured_active_used_ms: activeUsedMs() ?? 0 });
+      ledger.updateExecution(executionId, { state: 'BLOCKED', reason: cap.blocker });
+      return { state: 'BLOCKED', blocker: cap.blocker, execution_id: executionId };
+    }
+    const report = cap.report;
+    // R10: review checkpoint — the monitor never verifies the PR itself.
+    ledger.persistWorkerReport({ executionId, report });
+    ledger.updateAttempt(executionId, attemptNumber, { state: 'REQUIRES_REVIEW', measured_active_used_ms: activeUsedMs() ?? 0 });
+    ledger.updateExecution(executionId, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+    ledger.recordResumeSuccess(executionId);
+    if (cp) makeCheckpointWriter({
+      workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
+      headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
+      artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
+      kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
+    })('REQUIRES_REVIEW', { head_sha: report.head_sha, pr_url: report.pr_url });
+    return { state: 'REQUIRES_REVIEW', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
+  } finally {
+    // F06: the supervisor slot is ALWAYS released — a monitor that finished,
+    // held, or timed out leaves no stale lock behind (release re-proves the
+    // on-disk identity first, so a successor's takeover lock survives).
+    closeSync(lockFd);
+    releaseOwnedLock();
   }
-  const report = cap.report;
-  // R10: review checkpoint — the monitor never verifies the PR itself.
-  ledger.persistWorkerReport({ executionId, report });
-  ledger.updateAttempt(executionId, attemptNumber, { state: 'REQUIRES_REVIEW', measured_active_used_ms: activeUsedMs() ?? 0 });
-  ledger.updateExecution(executionId, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
-  ledger.recordResumeSuccess(executionId);
-  if (cp) makeCheckpointWriter({
-    workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
-    headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
-    artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
-    kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
-  })('REQUIRES_REVIEW', { head_sha: report.head_sha, pr_url: report.pr_url });
-  return { state: 'REQUIRES_REVIEW', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
 }
 
 // ------------------------------------------------------------- verifyPr
