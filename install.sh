@@ -84,6 +84,18 @@ fi
 trap 'refresh_baseline_flush' EXIT
 
 STACK=""
+# W2 (stack-detect-by-files): the detected/explicit stack NAME — the honest answer of
+# _detect_stack_name (setup.d/lib.sh), carried separately from $STACK because the two answer
+# different questions. $STACK stays the PRESET selector (ts-server | react-next | react-spa |
+# react-native | generic — every preset-bound layer and arm keeps reading only it); $STACK_NAME
+# carries what the project's files SAY (astro | svelte-kit | svelte | a preset | generic) for the
+# install report, the rules-research file key (80-rule-bootstrap) and the NOT-wired lines. A
+# named framework getff has no preset for installs exactly like generic ($STACK=generic) — never
+# a preset whose shape the project does not have — while its name stays visible end-to-end.
+# Set by: the explicit positional branch below (presets, generic, and the named stacks
+# astro|svelte-kit|svelte), the --refresh re-detect, and the auto-detect arm. "" only before the
+# pick runs; layers treat "" as "not named yet" (${STACK_NAME:-…} fallbacks keep them byte-stable).
+STACK_NAME=""
 # P0.3 (ultrareview): distinguish an EXPLICIT positional stack (the user typed `./setup ts-server`)
 # from a stack that was auto-detected or menu-picked. The multi-stack monorepo config placement
 # (setup.d/40-configs.sh via _resolve_workspace_stacks) consults this to honor the explicit choice
@@ -159,11 +171,17 @@ while [ "$#" -gt 0 ]; do
     # Under --profile semantics (S1): --all additionally implies --profile factory, since
     # factory = env + AIF suite per inventory §2.1 (the AIF suite IS the factory-only payload).
     --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
-    ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
+    ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_NAME="$arg"; STACK_EXPLICIT="1" ;;
+    # W2: a NAMED framework getff has no preset for — same install shape as `generic` (every
+    # preset-bound layer gated off), but the name travels (STACK_NAME) so the report, the research
+    # file key (.ai-factory/rules-research/<name>.*.json) and the NOT-wired lines say what the
+    # project IS instead of «unknown». Accepted here so the measured flow `./setup --full astro`
+    # (detection named it, the agent researched it) drives the named lane explicitly.
+    astro|svelte-kit|svelte)                       STACK="generic"; STACK_NAME="$arg"; STACK_EXPLICIT="1" ;;
     # generic = no stack getff knows (P2 G1, operator log entry 26 point 2): the same layer loop
     # with every npm-bound layer gated off, each named in NOT wired. Also what an undetectable
     # stack lands on under --full / --dry-run, instead of exiting.
-    generic)                STACK="generic"; STACK_EXPLICIT="1" ;;
+    generic)                STACK="generic"; STACK_NAME="generic"; STACK_EXPLICIT="1" ;;
     # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
     # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
     # package.json precondition + stack pick, then early-exits (never touches the npm layer loop).
@@ -648,8 +666,8 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:688 take `generic` instead of showing
-# the stack menu; --full/--dry-run at :509 claim the detected python/cargo/go
+# else in this script (--full/-y at install.sh:840 take `generic` instead of showing
+# the stack menu; --full/--dry-run at :527 claim the detected python/cargo/go
 # lane without a prompt) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation the INSTALL-FOR-AI.md
 # prompt tells an AI to run (its `setup -y <detected-stack>` line) — hangs on
@@ -694,7 +712,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:947 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:1002 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -747,6 +765,8 @@ fi
 if [ ! -f "$PROJECT_ROOT/package.json" ] && [ -z "$STACK" ] \
    && { [ -z "${_LANE_DECLINED:-}" ] || [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; }; then
   STACK="generic"
+  # W2: no package.json → no name either (_detect_stack_name answers unknown without one).
+  STACK_NAME="generic"
 fi
 
 # An npm stack needs a project (has package.json) — but in dry-run we just warn so the user can preview.
@@ -773,30 +793,56 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
   elif [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ] \
-    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ] \
-    && [ ! -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ]; then
-    # The npm-specific passport proves ts-server; RULES.md alone may belong to Python.
-    # A generic install places no npm passport and must not acquire ESLint on refresh.
+    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ]; then
+    # The preset passports prove a preset; RULES.md alone may belong to Python. The ESLint
+    # rules barrel is NOT a passport since W2: the 40-configs carve-out places
+    # eslint-rules-local/ on every drivable generic install (svelte-kit, astro), so reading
+    # it as a ts-server passport re-detected a completed W2 install as the wrong-shape
+    # preset. A generic install places neither preset passport and must not acquire one on
+    # refresh — the carve-out it already has is exactly what a fresh install would place.
     STACK="generic"
   else
     STACK="ts-server"
   fi
+  # W2 (§3.2, refresh-consistency): the NAME must equal the fresh-install answer for the same
+  # project. It is re-read from the SAME detector (_detect_stack_name), never from getff's own
+  # placed files — those only carry preset names, so an astro / svelte-kit install would otherwise
+  # refresh as a nameless generic while a fresh install names it (the two-detector drift the plan
+  # falsifies). A preset refresh (placed RULES/ARCHITECTURE artefacts) keeps the placed answer as
+  # the name: the install that placed them keyed its research by it.
+  if [ "$STACK" != "generic" ]; then
+    STACK_NAME="$STACK"
+  else
+    STACK_NAME="$(_detect_stack_name)"
+    [ "$STACK_NAME" = "unknown" ] && STACK_NAME="generic"
+  fi
 fi
 
 # Pick stack when none was supplied. An explicit positional STACK (parsed above) always wins.
-# Otherwise auto-detect from the consumer's repo signals (package.json) so a fresh `./setup -y`
-# installs without a hand-typed stack — GH #780. REUSE _detect_stack_from_pkg (lib.sh, SSOT,
-# node-free). Fall back to the interactive menu / `--full` fail-loud ONLY when detection is
-# genuinely `unknown` — never a silent wrong install on doubt.
+# Otherwise auto-detect from the consumer's repo signals so a fresh `./setup -y` installs without
+# a hand-typed stack — GH #780. REUSE the lib.sh SSOT (node-free): _detect_stack_name reads the
+# project's FILES + manifest keys (W2); _name_to_preset projects the name onto the preset
+# selector, so a named framework getff has no preset for installs like `generic` — never a preset
+# whose shape the project does not have (a SvelteKit app listing `typescript` is svelte-kit, not
+# the ts-server Node-server preset). Fall back to the interactive menu / `--full` arm ONLY when
+# detection is genuinely `unknown` — never a silent wrong install on doubt.
 if [ -z "$STACK" ]; then
-  STACK="$(_detect_stack_from_pkg)"
+  STACK_NAME="$(_detect_stack_name)"
+  STACK="$(_name_to_preset "$STACK_NAME")"
   if [ "$STACK" = "unknown" ]; then
     STACK=""   # reset so the --full / --dry-run arm or the interactive menu below handles it
-    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+    if [ "$STACK_NAME" != "unknown" ]; then
+      # W2: a NAMED framework with no getff preset — the stack-free install (generic shape), the
+      # name carried for the report / research key / NOT-wired lines (entry 26 point 4: design for
+      # any stack, promise only what was run; the agent does the stack-bound part from the docs).
+      echo "  ▶ Detected stack $STACK_NAME from the project's files — no getff preset for it → the stack-free part (generic)"
+      STACK="generic"
+    elif [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
       # P2 G1: an undetectable stack is `generic` (the stack-free part), never an exit. It used to
       # exit 1 here, so `./setup -y` on a plain-JS / unknown project delivered nothing.
       echo "  ▶ No stack signal in package.json (no react-native / next / react / typescript dependency) → generic"
       STACK="generic"
+      STACK_NAME="generic"
     else
       echo "What stack does this project use?"
       echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
@@ -806,15 +852,17 @@ if [ -z "$STACK" ]; then
       echo "  5) generic      — none of these: the stack-free part only (skills, agents, docs)"
       read -rp "Choose [1/2/3/4/5]: " choice || choice=""
       case "$choice" in
-        1) STACK="ts-server" ;;
-        2) STACK="react-next" ;;
-        3) STACK="react-spa" ;;
-        4) STACK="react-native" ;;
-        5) STACK="generic" ;;
+        1) STACK="ts-server"; STACK_NAME="ts-server" ;;
+        2) STACK="react-next"; STACK_NAME="react-next" ;;
+        3) STACK="react-spa"; STACK_NAME="react-spa" ;;
+        4) STACK="react-native"; STACK_NAME="react-native" ;;
+        5) STACK="generic"; STACK_NAME="generic" ;;
         *) echo "❌ Invalid choice"; exit 1 ;;
       esac
     fi
   else
+    # Preset detected (name == preset); the line's text is byte-identical to the pre-W2 install
+    # (baseline stability for the four npm presets).
     echo "  ▶ Auto-detected stack from package.json: $STACK"
   fi
 fi
@@ -827,6 +875,12 @@ if [ "$STACK" = "generic" ]; then
   # The one line --dry-run shows (and P1's pre-launch question quotes) for a project getff has no
   # stack for: what lands and what is left to the agent.
   echo "  stack: generic — stack-free part only; stack-bound part: not done (the agent researches it)"
+  # W2: when detection NAMED the stack (astro / svelte-kit / svelte), the report says so — the
+  # name is what the rules-research key (.ai-factory/rules-research/<name>.*.json) and the
+  # NOT-wired lines carry, so the person sees the honest answer, not a bare «generic».
+  if [ -n "${STACK_NAME:-}" ] && [ "$STACK_NAME" != "generic" ]; then
+    echo "  detected stack: $STACK_NAME (named from the project's files; getff has no preset for it)"
+  fi
 fi
 
 if [ -n "$REFRESH" ]; then
@@ -1214,7 +1268,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:699-701), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:726-728), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2352-2355).
   #
@@ -1282,14 +1336,52 @@ do_refresh() {
         chmod_safe +x "$PROJECT_ROOT/scripts/$_gs" 2>/dev/null || true
       fi
     done
-    for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
-               "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
-               "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
-               "git hooks (.husky/pre-commit, .husky/pre-push)" \
-               ".prettierignore managed block" \
-               "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
-      note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
-    done
+    # W2 (D2067-S02): a drivable generic consumer received the W2 proof/plugin payload at
+    # install time (setup.d/40-configs.sh — the SAME drivability gate layer 80's generation
+    # runs through), so --refresh must keep those bytes current too: a rule-logic fix shipped
+    # in prove-rules.mjs, the mutation runner, a core plugin rule or the barrel otherwise
+    # reached fresh installs only, and the installed consumer kept stale framework bytes.
+    # Same delivery profile as fresh: refresh_safe per file (.override.md siblings keep
+    # Layer-3 ownership), core rules then barrel (O9), generate_eslint_barrel's #882 prune
+    # is $STACK-aware (generic prunes to the core set). Undrivable generic gains NOTHING —
+    # the payload arm is gated off and the NOT-wired line stays, so --refresh cannot turn
+    # a lint-less project into a payload-bearing one (fork-1 = B).
+    _g40_linter=$(project_linter "$PROJECT_ROOT")
+    if { [ "$_g40_linter" = "eslint" ] || [ "$_g40_linter" = "oxlint" ]; } \
+       && [ -n "$(project_lint_command "$PROJECT_ROOT")" ]; then
+      echo "▶ W2 proof tooling → scripts/ + eslint-rules-local/ (drivable generic)"
+      refresh_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
+      refresh_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+      fi
+      for _gf in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
+        case "$_gf" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
+        [ -e "$_gf" ] || continue   # empty-glob guard (nullglob off → literal *.ts)
+        _gstem="${_gf%.ts}"; _gbn="$(basename "$_gstem")"
+        refresh_safe "$_gf" "$PROJECT_ROOT/eslint-rules-local/$_gbn.ts"
+        [ -f "$_gstem.mjs" ]  && refresh_safe "$_gstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_gbn.mjs"
+        [ -f "$_gstem.d.ts" ] && refresh_safe "$_gstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_gbn.d.ts"
+      done
+      generate_eslint_barrel
+      for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
+                 "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
+                 "fences-fire fixtures (scripts/fences-fire-fixtures)" \
+                 "git hooks (.husky/pre-commit, .husky/pre-push)" \
+                 ".prettierignore managed block" \
+                 "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
+        note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
+      done
+    else
+      for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
+                 "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
+                 "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
+                 "git hooks (.husky/pre-commit, .husky/pre-push)" \
+                 ".prettierignore managed block" \
+                 "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
+        note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
+      done
+    fi
   else
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"

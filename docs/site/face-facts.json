@@ -84,7 +84,7 @@
   "installCommands": {
     "source": {
       "positionals": "setup:72",
-      "laneTable": "install.sh:300",
+      "laneTable": "install.sh:318",
       "flags": "README.md:147"
     },
     "stacks": [
@@ -92,6 +92,9 @@
       "react-next",
       "react-spa",
       "react-native",
+      "astro",
+      "svelte-kit",
+      "svelte",
       "generic"
     ],
     "lanes": [

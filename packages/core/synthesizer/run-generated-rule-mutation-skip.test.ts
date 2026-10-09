@@ -36,9 +36,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // HERE = <repo>/packages/core/synthesizer/ → repo root is 3 levels up.
-// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:47-48
-// via git rev-parse --show-toplevel) and pre-push.ts:83 (same '../../..' climb from
-// packages/core/hooks/). The previous '../..' resolved to <repo>/packages/, causing
+// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:47-62:
+// git rev-parse --show-toplevel first, then a layout-aware climb where the framework
+// source depth — this '../../..' — is the non-scripts branch) and pre-push.ts:83 (same
+// '../../..' climb from packages/core/hooks/). The previous '../..' resolved to <repo>/packages/, causing
 // PROBES_AVAILABLE=false in standard CI (deps at <repo>/node_modules/.bin/ via root
 // `npm ci` or <repo>/packages/core/node_modules/.bin/ via `npm ci --prefix packages/core`
 // in audit-self.yml) → describe.skipIf silently skipped the suite → zero regression

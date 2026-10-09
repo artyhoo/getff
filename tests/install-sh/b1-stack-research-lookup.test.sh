@@ -51,8 +51,15 @@ _seed() {
   printf '{}\n' > "$_dir/.ai-factory/rules-research/${_stack}.selection.json"
 }
 
+# W2 fixture note: 80-rule-bootstrap is gated on project_linter ∈ {eslint, oxlint} + a drivable
+# scripts.lint (setup.d/80-rule-bootstrap.sh W2 block), so every fixture below carries
+# "scripts":{"lint":"eslint .} — without it the layer's not-drivable NOT-wired line fires before
+# the stack-keyed lookup this test asserts on, and every arm would "fail" for the gate's reason,
+# not the lookup's.
+_PKG_LINT='{"name":"b1-%s","version":"0.0.0","scripts":{"lint":"eslint ."}}\n'
+
 # ── POS — react-native artefacts present, react-native install ───────────────
-P=$(mktemp -d); printf '{"name":"b1-pos","version":"0.0.0"}\n' > "$P/package.json"
+P=$(mktemp -d); printf "$_PKG_LINT" pos > "$P/package.json"
 _seed "$P" "react-native"
 out=$(_run_step "react-native" "$P")
 if grep -q "no rules-research artefacts" <<<"$out"; then
@@ -64,7 +71,7 @@ else
 fi
 
 # ── REG — react-next still works ─────────────────────────────────────────────
-R=$(mktemp -d); printf '{"name":"b1-reg","version":"0.0.0"}\n' > "$R/package.json"
+R=$(mktemp -d); printf "$_PKG_LINT" reg > "$R/package.json"
 _seed "$R" "react-next"
 out=$(_run_step "react-next" "$R")
 if grep -q "would: run rule-bootstrap LIVE" <<<"$out"; then
@@ -74,7 +81,7 @@ else
 fi
 
 # ── NEG — react-native install, NO artefacts ⇒ degrade still fires ───────────
-N=$(mktemp -d); printf '{"name":"b1-neg","version":"0.0.0"}\n' > "$N/package.json"
+N=$(mktemp -d); printf "$_PKG_LINT" neg > "$N/package.json"
 out=$(_run_step "react-native" "$N")
 if grep -q "no rules-research artefacts" <<<"$out"; then
   ok "NEG: react-native install with NO artefacts degrades (the FOUND assertion is conditional, not unconditional)"

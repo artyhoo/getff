@@ -115,12 +115,12 @@ exit=0
 - The canonical literal the apply form must carry is one constant,
   `.claude/hooks/apply-husky-patch-gate.sh:23`:
   `CANONICAL_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)'`.
-  Lines 41 to 47 build the two regexes from that constant and the script path with
+  Lines 45 to 51 build the two regexes from that constant and the script path with
   `re.escape`, so a literal change in either file makes the approval fail loudly rather
   than match approximately.
-- Lines 59 to 65 are the whole decision surface: `dry_re.match(cmd)` allows with the
+- Lines 63 to 69 are the whole decision surface: `dry_re.match(cmd)` allows with the
   read-only reason, `apply_re.match(cmd)` allows with the byte-verified reason, and
-  `sys.exit(0)` with no output covers everything else — lines 35 to 39 also exit silently
+  `sys.exit(0)` with no output covers everything else — lines 39 to 43 also exit silently
   for non-PreToolUse events, non-Bash tools and payloads it cannot parse.
 - The gate is the permission layer only, by its own header (`.claude/hooks/apply-husky-patch-gate.sh:18`):
   `# The gate is the PERMISSION layer, not the safety layer: the script itself re-validates the`.

@@ -26,7 +26,7 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'
 const LIST_PATH = '.agents/procedures/getff/references/base-core.md';
 const BASELINES_DIR = 'tests/install-sh/baselines';
 const LIST_IN_PROJECT = '.claude/skills/getff/references/base-core.md';
-// The lint config each stack's greenfield install places (setup.d/40-configs.sh:589-664). react-native
+// The lint config each stack's greenfield install places (setup.d/40-configs.sh:624-699). react-native
 // splits its config across a baseline file and a shared one, so all of them are read together.
 const STACK_LINT_CONFIGS: Record<string, string[]> = {
   'ts-server': ['templates/ts-server/eslint.config.mjs'],

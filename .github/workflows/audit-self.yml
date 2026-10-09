@@ -768,6 +768,10 @@ jobs:
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
+      - name: Run install-sh W2 stack-detect-by-files test (one-button W2 — files-before-keys detector + layer-80 linter gate)
+        run: bash tests/install-sh/w2-stack-detect-by-files.test.sh
+      - name: Run install-sh W2 generic refresh payload test (D2067-S02 — refresh updates the drivable-generic proof/plugin payload; overrides kept; undrivable gains nothing)
+        run: bash tests/install-sh/w2-generic-refresh-payload.test.sh
       - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
@@ -1837,7 +1841,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/lib.sh:3359-3367, merge_canonical_scripts) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:3424-3432, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`

@@ -36,8 +36,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # sits at scripts/ (1 level deep), so the old fixed `$SCRIPT_DIR/../../..` pointed ABOVE a
 # consumer's root and the script always died exit 2 on-consumer (manifest + tsx/eslint never
 # found — the standing arm was theatre). git's toplevel is correct for BOTH layouts (a
-# consumer's git root = its project root; the framework's = the repo root); fall back to the
-# historical `../../..` for a non-git checkout.
+# consumer's git root = its project root; the framework's = the repo root); fall back (below)
+# to a LAYOUT-AWARE climb for a non-git checkout.
 # THIRD axis (issue 1459): under a git hook in a linked worktree, git exports GIT_DIR into
 # the hook env, which overrides the `cd` and misdirects rev-parse to the hook's git context
 # (root resolves as `<worktree>/scripts`). Strip ONLY GIT_DIR/GIT_WORK_TREE — measured:
@@ -45,7 +45,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # GIT_CEILING_DIRECTORIES individually still yields the correct toplevel; only this pair
 # misdirects. Do not drop the `env -u` guard when editing this line.
 REPO_ROOT="$(cd "$SCRIPT_DIR" && env -u GIT_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$REPO_ROOT" ] || REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# Non-git fallback is LAYOUT-AWARE (one-button W2, 2026-10-06): the historical `../../..` is the
+# FRAMEWORK source depth (packages/core/synthesizer/), three levels above the DELIVERED consumer
+# copy (scripts/, 1 level) — a non-git consumer (a scaffold created without git, an unpacked zip,
+# a Docker layer; measured live on a sv-create W2 fixture) resolved ABOVE its project root and the
+# runner always died exit 2 on a manifest that existed. The script's own dirname is the
+# discriminator: scripts/ → the consumer root one level up; anything else keeps the historical
+# framework-depth climb. Git above still wins (the D-S5 order above); pinned by arm (e) of
+# run-generated-rule-mutation.test.sh.
+if [ -z "$REPO_ROOT" ]; then
+  if [ "$(basename "$SCRIPT_DIR")" = "scripts" ]; then
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  else
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+  fi
+fi
 
 # ─── Args ────────────────────────────────────────────────────────────────────
 # Optional: explicit manifest path; defaults to consumer root manifest

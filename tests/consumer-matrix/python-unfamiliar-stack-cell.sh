@@ -37,7 +37,7 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2334, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2338, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -320,7 +320,7 @@ step "rule-bootstrap-cli --from-practice (Tier-1 resolves via vendored METADATA)
 # constrains the install path, not the runner per kickoff §6 anti-scope). Run via
 # `npx --no-install tsx` from the framework root so the framework's tsx + workspace
 # deps resolve. The installer's own generation step runs the prebuilt bundle on plain node
-# (setup.d/80-rule-bootstrap.sh:208) and skips when node is absent — as it is under this
+# (setup.d/80-rule-bootstrap.sh:259) and skips when node is absent — as it is under this
 # cell's Node-stripped install — so this cell drives the source directly.
 BOOTSTRAP_LOG="$WORK/bootstrap.log"
 ( cd "$FRAMEWORK_ROOT" && npx --no-install tsx "$FRAMEWORK_ROOT/packages/core/install/rule-bootstrap-cli.ts" \

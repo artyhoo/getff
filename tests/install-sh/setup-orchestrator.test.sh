@@ -22,7 +22,7 @@ grep -qi 'superpowers' "$TMP/out.txt" && ok "manifest row parsed through engine 
 ! grep -qi 'command not found' "$TMP/out.txt" && ok "parser produced no garbage commands" || bad "parser produced garbage commands (command not found in output)"
 
 # getff-ai-site S0a (face spec §10 item 2, E3): `setup` learns cargo|go. install.sh already routes
-# the three non-npm toolchain lanes (install.sh:170-176 python|cargo|go → TOOLCHAIN); the wrapper's
+# the three non-npm toolchain lanes (install.sh:188-194 python|cargo|go → TOOLCHAIN); the wrapper's
 # positional case only forwarded python, so `./setup cargo` silently fell through to npm stack
 # auto-detect — two command shapes for one positional, exactly what E3 exists to prevent. python is
 # the CONTROL (already routed before this stage); cargo/go must reach their toolchain lanes too.

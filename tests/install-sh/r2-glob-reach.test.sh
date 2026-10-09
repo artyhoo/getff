@@ -1063,7 +1063,7 @@ JS
     || ok "F11 N/A dropped, two packages left: the summary names no «marked N/A»"
   for _p in apps/web apps/api; do
     # Both forms count: the earlier pass's «in <pkg>/eslint.config.…» AND F11's own «<pkg>: has boundary
-    # files» line — a skip that stopped firing (setup.d/99-finalize.sh:109-111) names the package twice.
+    # files» line — a skip that stopped firing (setup.d/99-finalize.sh:115-117) names the package twice.
     _n=$(f11_push "$T30.log" | grep -cE "$_p(/|: )")
     [ "$_n" -eq 1 ] \
       && ok "F11 N/A dropped, two packages left: $_p is named once" \
