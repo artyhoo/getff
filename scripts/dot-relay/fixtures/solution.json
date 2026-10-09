@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "kind": "solution",
+  "id": "DOT-EVT-SOLUTION-FIXTURE-0001",
+  "producer": "01a11adb-b74f-76f9-8f27-b231e7f31081",
+  "parents": [
+    {
+      "id": "DOT-EVT-ANALYSIS-FIXTURE-0001",
+      "sha256": "84453f6e77ae712699221795c3955e389482a503381f5ca480bdc328a9cabd39"
+    }
+  ],
+  "payload": {
+    "candidate_id": "DOT-CAND-FIXTURE-0001",
+    "finding_keys": [
+      "DOT-FIND-FIXTURE-0001"
+    ],
+    "reviewed_sha": "f315c79adfd80555d0ff9f9cada3c2a4941d8dc6",
+    "base_sha": "ccea83f7cd7f1a1d92ac2fd0396a6916882a5062",
+    "ready": true,
+    "unresolved": [],
+    "prerequisites": [
+      {
+        "name": "base-fetch",
+        "passed": true,
+        "evidence": "git fetch origin staging"
+      }
+    ],
+    "scope_paths": [
+      "scripts/dot-relay/contract.mjs"
+    ],
+    "kickoff": "# Fixture kickoff\nExample solver kickoff; synthetic content only.\n",
+    "commands": [
+      {
+        "argv": [
+          "node",
+          "--test",
+          "scripts/dot-relay/contract.test.mjs"
+        ],
+        "cwd": "worktree",
+        "expected_exit": 0
+      }
+    ],
+    "verify_commands": [
+      {
+        "argv": [
+          "node",
+          "--test",
+          "scripts/dot-relay/contract.test.mjs"
+        ],
+        "cwd": "worktree",
+        "expected_exit": 0
+      }
+    ],
+    "acceptance": [
+      "fixture contract tests pass"
+    ],
+    "kickoff_sha256": "fb95a80a461feb5a87705a5cbb95ddb553e75982398bbd50da87d3764aa3d960",
+    "commands_sha256": "ad64c149b0eac86fc556c17a31e22022e4302f7abed4babc46759f034d7c5dab"
+  },
+  "sha256": "a8a0ba6af0b6bc154140948e2702eecf8eba838b4ba816bbc7a3fa30f3bfa079"
+}

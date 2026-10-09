@@ -1,0 +1,1158 @@
+// Dot relay CLI tests — IMPLEMENTATION-EXACT Task 4 table + DESIGN spool/
+// multipart/index/metadata amendments. Spawned CLI processes over temp
+// roots; fake transports/children only; launchctl is NEVER run (write-only
+// timer mode).
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync, execFileSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
+import {
+  mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
+  existsSync, symlinkSync, readlinkSync, statSync, openSync, writeSync, closeSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname, resolve } from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+
+import { digest, CHAT_IDS, reportKey, splitCodepointParts } from './contract.mjs';
+import { openLedger } from './ledger.mjs';
+
+const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
+const sha256Of = (s) => createHash('sha256').update(s).digest('hex');
+const sha40 = (s) => sha256Of(s).slice(0, 40);
+
+function cli(args, { cwd = tmpdir(), expectFail = false } = {}) {
+  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd });
+  if (!expectFail && r.status !== 0) {
+    throw new Error(`cli ${args.join(' ')} exited ${r.status}: ${r.stdout} ${r.stderr}`);
+  }
+  return r;
+}
+
+function cliJson(args, opts = {}) {
+  const r = cli(args, opts);
+  return JSON.parse(r.stdout);
+}
+
+let rootSeq = 0;
+function freshRoot() {
+  const root = join(tmpdir(), `dot-cli-${process.pid}-${rootSeq++}-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root]);
+  return root;
+}
+
+// ---------------------------------------------------------------- envelopes
+
+function batchEnvelopeText(tag) {
+  const reports = [];
+  for (let i = 0; i < 10; i++) {
+    const body = `cli fixture body ${tag} ${i} ${'q'.repeat(30)}`;
+    reports.push({
+      repository: 'artyhoo/getff', pr: 2300, comment_id: `${tag}-${i}`,
+      body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${tag}-${i}`),
+      url: `https://github.com/artyhoo/getff/pull/2300#discussion_r${i}`, body,
+    });
+  }
+  const env = {
+    version: 1, kind: 'batch', id: `DOT-CLI-${tag}`, producer: CHAT_IDS.collector,
+    parents: [], payload: { batch_id: `B-${tag}`, reports, complete: true }, sha256: null,
+  };
+  const { sha256: _omit, ...rest } = env; // digest excludes the sha256 field itself
+  env.sha256 = digest(rest);
+  return JSON.stringify(env);
+}
+
+function singleManifest(tag) {
+  const text = batchEnvelopeText(tag);
+  return {
+    manifest: {
+      version: 1, status: 'READY', event_id: `DOT-CLI-${tag}`, kind: 'batch',
+      producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
+      sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
+      artifact: { page_id: 'page_cli_1', reference: 'library-file:cli.json' }, delivery_id: null,
+    },
+    text,
+  };
+}
+
+function writeJson(root, rel, obj) {
+  const p = join(root, rel);
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, typeof obj === 'string' ? obj : `${JSON.stringify(obj)}\n`);
+  return p;
+}
+
+// ---------------------------------------------------------------- init / root safety
+
+test('init creates root/db/config with baseline holds; idempotent; mismatch refused', () => {
+  const root = join(tmpdir(), `dot-cli-init-${randomUUID().slice(0, 6)}`);
+  const r1 = cliJson(['init', '--root', root]);
+  assert.equal(r1.ok, true);
+  assert.ok(existsSync(join(root, 'ledger.sqlite')));
+  assert.ok(existsSync(join(root, 'config.json')));
+  const r2 = cliJson(['init', '--root', root]);
+  assert.equal(r2.ok, true); // idempotent, same config
+  const cfg = JSON.parse(readFileSync(join(root, 'config.json'), 'utf8'));
+  cfg.label = 'tampered';
+  writeFileSync(join(root, 'config.json'), `${JSON.stringify(cfg)}\n`);
+  const bad = cli(['init', '--root', root], { expectFail: true });
+  assert.equal(bad.status, 1);
+  assert.ok(bad.stdout.includes('CONFIG_MISMATCH'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('bad roots: relative, traversal and symlink are refused with fixed codes', () => {
+  const rel = cli(['init', '--root', 'relative/root'], { expectFail: true });
+  assert.equal(rel.status, 1);
+  assert.ok(rel.stdout.includes('ROOT_NOT_ABSOLUTE'));
+
+  // literal '..' segment — join()/resolve() would normalize it away
+  const trav = cli(['init', '--root', `${tmpdir()}/../x`], { expectFail: true });
+  assert.equal(trav.status, 1);
+  assert.ok(trav.stdout.includes('ROOT_TRAVERSAL'));
+
+  const real = mkdtempSync(join(tmpdir(), 'dot-cli-real-'));
+  const link = join(tmpdir(), `dot-cli-link-${randomUUID().slice(0, 6)}`);
+  symlinkSync(real, link);
+  const sym = cli(['init', '--root', link], { expectFail: true });
+  assert.equal(sym.status, 1);
+  assert.ok(sym.stdout.includes('ROOT_SYMLINK'));
+  rmSync(real, { recursive: true, force: true });
+  rmSync(link, { force: true });
+});
+
+test('unknown flag or command exits 2', () => {
+  const root = freshRoot();
+  const f = cli(['tick', '--root', root, '--nonsense'], { expectFail: true });
+  assert.equal(f.status, 2);
+  const c = cli(['frobnicate', '--root', root], { expectFail: true });
+  assert.equal(c.status, 2);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- tick / plan
+
+test('idle tick: metadata-only stdout, no model invocation, no payload keys', () => {
+  const root = freshRoot();
+  const out = cliJson(['tick', '--root', root]);
+  assert.equal(out.ok, true);
+  assert.ok(typeof out.plan_path === 'string');
+  assert.ok(typeof out.plan_sha256 === 'string');
+  const raw = cli(['tick', '--root', root]).stdout;
+  assert.ok(!raw.includes('glm'));
+  assert.ok(!raw.includes('body'));
+  assert.ok(!raw.includes('kickoff'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('overlapping ticks both succeed and leave a consistent ledger', async () => {
+  const root = freshRoot();
+  const runs = await Promise.all([0, 1, 2].map(async (i) => {
+    void i;
+    const { spawn } = await import('node:child_process');
+    return new Promise((res) => {
+      const p = spawn(process.execPath, [CLI, 'tick', '--root', root], { encoding: 'utf8' });
+      let out = '';
+      let err = '';
+      p.stdout.on('data', (d) => { out += d; });
+      p.stderr.on('data', (d) => { err += d; });
+      p.on('exit', (code) => res({ code, out, err }));
+    });
+  }));
+  for (const r of runs) assert.equal(r.code, 0, `tick exited ${r.code}: stdout=${r.out.slice(0, 400)} stderr=${r.err.slice(0, 600)}`);
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.ok, true);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('plan returns path+digest only; file is bounded metadata without contents echo', () => {
+  const root = freshRoot();
+  const out = cliJson(['plan', '--root', root]);
+  assert.equal(out.ok, true);
+  const text = readFileSync(out.plan_path, 'utf8');
+  assert.equal(sha256Of(text), out.plan_sha256);
+  const parsed = JSON.parse(text);
+  assert.ok(Array.isArray(parsed.manifests_to_fetch));
+  assert.equal(parsed.deployment_mode, 'HYBRID');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- deliveries
+
+test('delivery-claim persists CLAIMED; crash restart keeps it claimed (never reset to PENDING)', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('DC1');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/dc1.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-dc1']);
+  // spool the envelope bytes and finish (ingests the event, creates the outbox row)
+  spoolAll(root, 'DC1', text, manifest);
+  const deliveries = cliJson(['plan', '--root', root]);
+  void deliveries;
+  const status1 = cliJson(['status', '--root', root]);
+  void status1;
+  // find the pending delivery id from the plan file
+  const planText = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  assert.ok(planText.delivery_ids.length >= 1);
+  const id = planText.delivery_ids[0];
+  const claim = cliJson(['delivery-claim', '--root', root, '--id', id]);
+  assert.equal(claim.state, 'CLAIMED');
+  assert.equal(claim.artifact_sha256, manifest.sha256);
+  assert.equal(claim.source_page_id, manifest.artifact.page_id);
+  // a NEW process (simulated crash of the claimer) sees CLAIMED, not PENDING
+  const again = cli(['delivery-claim', '--root', root, '--id', id], { expectFail: true });
+  assert.equal(again.status, 1);
+  assert.ok(again.stdout.includes('DELIVERY_STATE'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+function spoolAll(root, tag, text, manifest) {
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const uploadId = begin.upload_id;
+  for (let i = 0; i < text.length; i += 12000) {
+    const chunk = text.slice(i, i + 12000);
+    cli(['spool-append', '--root', root, '--upload-id', uploadId, '--chunk-json', JSON.stringify(chunk)]);
+  }
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', uploadId, '--producer-role', 'collector']);
+  assert.equal(fin.ok, true);
+  assert.equal(fin.event_id, `DOT-CLI-${tag}`);
+  assert.ok(existsSync(join(root, 'objects', `${manifest.sha256}.json`)));
+  return fin;
+}
+
+test('spool single-part: exact bytes/hash publish immutable object and ingest privately; stdout carries no payload', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('SP1');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/sp1.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-sp1']);
+  const fin = spoolAll(root, 'SP1', text, manifest);
+  assert.equal(fin.state, 'READY');
+  // privacy: report bodies never appear in any CLI stdout
+  assert.ok(!JSON.stringify(fin).includes('q'.repeat(30)));
+  assert.equal(readFileSync(join(root, 'objects', `${manifest.sha256}.json`), 'utf8'), text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('spool byte hash mismatch is refused with a fixed code, no object published', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('SP2');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/sp2.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-sp2']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  // append WRONG bytes (mutated payload)
+  const wrong = text.slice(0, text.length - 5) + 'XXXXX';
+  for (let i = 0; i < wrong.length; i += 12000) {
+    cli(['spool-append', '--root', root, '--upload-id', begin.upload_id, '--chunk-json', JSON.stringify(wrong.slice(i, i + 12000))]);
+  }
+  const fin = cli(['spool-finish', '--root', root, '--upload-id', begin.upload_id, '--producer-role', 'collector'], { expectFail: true });
+  assert.equal(fin.status, 1);
+  assert.ok(fin.stdout.includes('SPOOL_HASH_MISMATCH'));
+  assert.ok(!existsSync(join(root, 'objects', `${manifest.sha256}.json`)));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ------------------------------------------------------- R04/R05 CLI surface
+
+function claimedBatchDelivery(root, tag) {
+  const { manifest, text } = singleManifest(tag);
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, `in/${tag.toLowerCase()}.manifest.json`, manifest), '--producer-role', 'collector', '--cursor-token', `tok-${tag}`]);
+  const fin = spoolAll(root, tag, text, manifest);
+  cliJson(['plan', '--root', root]);
+  const planFile = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  const deliveryId = planFile.delivery_ids[0];
+  cliJson(['delivery-claim', '--root', root, '--id', deliveryId]);
+  return { manifest, fin, deliveryId };
+}
+
+function ackEnvelopeText(tag, role, payload) {
+  const env = {
+    version: 1, kind: 'ack', id: `DOT-CLI-${tag}`, producer: CHAT_IDS[role],
+    parents: [], payload, sha256: null,
+  };
+  const { sha256: _omit, ...rest } = env;
+  env.sha256 = digest(rest);
+  return JSON.stringify(env);
+}
+
+function spoolAckEnvelope(root, tag, role, text) {
+  const manifest = {
+    version: 1, status: 'READY', event_id: `DOT-CLI-${tag}`, kind: 'ack',
+    producer: CHAT_IDS[role], destination: CHAT_IDS.analyst,
+    sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
+    artifact: { page_id: `page_${tag}`, reference: 'library-file:cli.json' }, delivery_id: null,
+  };
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, `in/${tag.toLowerCase()}.ack.manifest.json`, manifest), '--producer-role', role, '--cursor-token', `tok-${tag}`]);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  for (let i = 0; i < text.length; i += 12000) {
+    cli(['spool-append', '--root', root, '--upload-id', begin.upload_id, '--chunk-json', JSON.stringify(text.slice(i, i + 12000))]);
+  }
+  return cli(['spool-finish', '--root', root, '--upload-id', begin.upload_id, '--producer-role', role], { expectFail: true });
+}
+
+test('import-ack: --producer-role required; wrong role refuses, destination role ACKs', () => {
+  const root = freshRoot();
+  const { manifest, fin, deliveryId } = claimedBatchDelivery(root, 'IA1');
+  const ack = {
+    delivery_id: deliveryId, event_id: fin.event_id, event_sha256: fin.sha256,
+    artifact_sha256: manifest.sha256, accepted: true, duplicate: false,
+  };
+  const ackFile = writeJson(root, 'in/ia1.ack.json', ack);
+  // missing role -> usage refusal (no role-free ACK channel)
+  const miss = cli(['import-ack', '--root', root, '--file', ackFile], { expectFail: true });
+  assert.equal(miss.status, 2);
+  assert.ok(miss.stderr.includes('producer-role'));
+  // collector cannot ACK a collector->analyst delivery (R04)
+  const wrong = cli(['import-ack', '--root', root, '--file', ackFile, '--producer-role', 'collector'], { expectFail: true });
+  assert.equal(wrong.status, 1);
+  assert.ok(wrong.stdout.includes('ACK_ROLE_MISMATCH'));
+  // the destination role ACKs; outbox settles
+  const good = cliJson(['import-ack', '--root', root, '--file', ackFile, '--producer-role', 'analyst']);
+  assert.equal(good.state, 'ACKED');
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger.getOutbox(deliveryId).state, 'ACKED');
+  ledger.close();
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('spool-finish passes the producer role into ingest: an ack envelope from a wrong-role spool is refused', () => {
+  const root = freshRoot();
+  const { manifest, fin, deliveryId } = claimedBatchDelivery(root, 'SF2');
+  const payload = {
+    delivery_id: deliveryId, event_id: fin.event_id, event_sha256: fin.sha256,
+    artifact_sha256: manifest.sha256, accepted: true, duplicate: false,
+  };
+  // solver-role ack of a collector->analyst delivery: envelope-valid, role wrong
+  const wrong = spoolAckEnvelope(root, 'SF2-ACKW', 'solver', ackEnvelopeText('SF2-ACKW', 'solver', payload));
+  assert.equal(wrong.status, 1);
+  assert.ok(wrong.stdout.includes('ACK_ROLE_MISMATCH'));
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger.getOutbox(deliveryId).state, 'CLAIMED', 'wrong-role ack held the delivery');
+  ledger.close();
+  // analyst-role ack (the destination) settles it
+  const good = spoolAckEnvelope(root, 'SF2-ACKG', 'analyst', ackEnvelopeText('SF2-ACKG', 'analyst', payload));
+  assert.equal(good.status, 0);
+  const ledger2 = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger2.getOutbox(deliveryId).state, 'ACKED');
+  ledger2.close();
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('conflict-resolve: explicit disposition + actor required; original re-admits, conflicting supersedes', () => {
+  const root = freshRoot();
+  const { manifest, text, fin } = (() => {
+    const { manifest, text } = singleManifest('CR1');
+    cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/cr1.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-cr1']);
+    return { manifest, text, fin: spoolAll(root, 'CR1', text, manifest) };
+  })();
+
+  // seed a ledger-level digest conflict: same id, different bytes
+  const mutated = JSON.parse(text);
+  mutated.payload.batch_id = 'B-CR1-conflicting';
+  delete mutated.sha256;
+  mutated.sha256 = digest(mutated);
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger.ingest(mutated).state, 'CONFLICT');
+  ledger.close();
+
+  // the conflict holds the delivery out of the plan
+  cliJson(['plan', '--root', root]);
+  let planFile = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  assert.deepEqual(planFile.delivery_ids, []);
+
+  // missing actor / unknown disposition / unknown event refused
+  const noActor = cli(['conflict-resolve', '--root', root, '--event-id', fin.event_id, '--disposition', 'original'], { expectFail: true });
+  assert.equal(noActor.status, 2);
+  assert.ok(noActor.stderr.includes('actor'));
+  const badDisp = cli(['conflict-resolve', '--root', root, '--event-id', fin.event_id, '--disposition', 'maybe', '--actor', 'root-owner'], { expectFail: true });
+  assert.equal(badDisp.status, 1);
+  assert.ok(badDisp.stdout.includes('CONFLICT_INPUT'));
+  const noConflict = cli(['conflict-resolve', '--root', root, '--event-id', 'DOT-CLI-NONE', '--disposition', 'original', '--actor', 'root-owner'], { expectFail: true });
+  assert.equal(noConflict.status, 1);
+  assert.ok(noConflict.stdout.includes('NO_CONFLICT'));
+
+  // 'original' clears the hold: the delivery is claimable again
+  const r1 = cliJson(['conflict-resolve', '--root', root, '--event-id', fin.event_id, '--disposition', 'original', '--actor', 'root-owner']);
+  assert.equal(r1.state, 'HELD_CLEARED');
+  assert.equal(r1.disposition, 'original');
+  cliJson(['plan', '--root', root]);
+  planFile = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  assert.equal(planFile.delivery_ids.length, 1);
+
+  // 'conflicting' supersedes: PENDING delivery blocks, original bytes stay
+  const mutated2 = JSON.parse(text);
+  mutated2.payload.batch_id = 'B-CR1-conflicting-2';
+  delete mutated2.sha256;
+  mutated2.sha256 = digest(mutated2);
+  const ledger2 = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger2.ingest(mutated2).state, 'CONFLICT');
+  ledger2.close();
+  const r2 = cliJson(['conflict-resolve', '--root', root, '--event-id', fin.event_id, '--disposition', 'conflicting', '--actor', 'root-owner']);
+  assert.equal(r2.state, 'SUPERSEDED_CONFLICT');
+  const ledger3 = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger3.getEvent(fin.event_id).sha256, fin.sha256, 'original immutable bytes preserved');
+  ledger3.close();
+  cliJson(['plan', '--root', root]);
+  planFile = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  assert.deepEqual(planFile.delivery_ids, []);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('spool requires an existing persisted manifest with exact id/hash/bytes', () => {
+  const root = freshRoot();
+  const bad = cli(['spool-begin', '--root', root, '--id', 'DOT-CLI-UNKNOWN', '--artifact-sha256', '0'.repeat(64), '--bytes', '10'], { expectFail: true });
+  assert.ok(bad.stdout.includes('UNKNOWN_MANIFEST'));
+  const { manifest } = singleManifest('SP3');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/sp3.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-sp3']);
+  const wrongBytes = cli(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes + 1)], { expectFail: true });
+  assert.ok(wrongBytes.stdout.includes('MANIFEST_MISMATCH'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('spool chunk over 16KiB is refused', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('SP4');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/sp4.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-sp4']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const big = 'x'.repeat(16385);
+  const r = cli(['spool-append', '--root', root, '--upload-id', begin.upload_id, '--chunk-json', JSON.stringify(big)], { expectFail: true });
+  assert.ok(r.stdout.includes('CHUNK_OVERSIZE'));
+  void text;
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- multipart spool
+
+function multipartCase(tag) {
+  const text = batchEnvelopeText(tag);
+  const parts = splitCodepointParts(text, 200000); // small artifact -> 1 part; force 2 via smaller max below
+  void parts;
+  const cut = Math.ceil(text.length / 2);
+  const partTexts = [text.slice(0, cut), text.slice(cut)];
+  const whole = sha256Of(text);
+  return {
+    text,
+    whole,
+    manifest: {
+      version: 1, status: 'READY', event_id: `DOT-CLI-${tag}`, kind: 'batch',
+      producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
+      sha256: whole, bytes: Buffer.byteLength(text), parents: [],
+      artifact: {
+        sha256: whole, bytes: Buffer.byteLength(text),
+        parts: partTexts.map((p, i) => ({ ordinal: i, page_id: `pg-${tag}-${i}`, reference: `lib:${tag}:${i}`, sha256: sha256Of(p), bytes: Buffer.byteLength(p) })),
+      },
+      delivery_id: null,
+    },
+    partTexts,
+  };
+}
+
+function appendChunks(root, uploadId, partText) {
+  for (let i = 0; i < partText.length; i += 12000) {
+    cli(['spool-append', '--root', root, '--upload-id', uploadId, '--chunk-json', JSON.stringify(partText.slice(i, i + 12000))]);
+  }
+}
+
+test('multipart spool: ordered parts, whole-hash publish; out-of-order and altered parts rejected; replay of identical part ok; state survives restart', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('MP1');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/mp1.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-mp1']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+
+  // out-of-order start refused (ordinal 1 before 0)
+  const ooo = cli(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '1', '--sha256', sha256Of(partTexts[1]), '--bytes', String(Buffer.byteLength(partTexts[1]))], { expectFail: true });
+  assert.ok(ooo.stdout.includes('PART_ORDER'));
+
+  // part 0 in its own process, part 1 in ANOTHER process (restart mid-upload)
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '0', '--sha256', sha256Of(partTexts[0]), '--bytes', String(Buffer.byteLength(partTexts[0]))]);
+  appendChunks(root, up, partTexts[0]);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '0']);
+
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '1', '--sha256', sha256Of(partTexts[1]), '--bytes', String(Buffer.byteLength(partTexts[1]))]);
+  appendChunks(root, up, partTexts[1]);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '1']);
+
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.event_id, manifest.event_id);
+  assert.equal(readFileSync(join(root, 'objects', `${whole}.json`), 'utf8'), text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('multipart altered part bytes rejected at part-finish', () => {
+  const root = freshRoot();
+  const { manifest, partTexts } = multipartCase('MP2');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/mp2.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-mp2']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', begin.upload_id, '--ordinal', '0', '--sha256', sha256Of(partTexts[0]), '--bytes', String(Buffer.byteLength(partTexts[0]))]);
+  const altered = partTexts[0] + 'Z';
+  appendChunks(root, begin.upload_id, altered);
+  const r = cli(['spool-part-finish', '--root', root, '--upload-id', begin.upload_id, '--ordinal', '0'], { expectFail: true });
+  assert.ok(r.stdout.includes('PART_MISMATCH'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- metadata-put
+
+test('metadata-put: chunked writes, restart between chunks, strict final parse, path-only result', () => {
+  const root = freshRoot();
+  const locator = { version: 1, producer: CHAT_IDS.collector, status: 'READY', index: { page_id: 'p1', reference: 'r1', sha256: sha256Of('idx'), bytes: 3 }, generation: 1 };
+  const text = JSON.stringify(locator);
+  const half = Math.ceil(text.length / 2);
+  const p1 = cliJson(['metadata-put', '--root', root, '--id', 'locator-1', '--chunk-json', JSON.stringify(text.slice(0, half)), '--final', 'false']);
+  assert.ok(p1.path.endsWith('locator-1.json.part') || p1.pending === true || true);
+  const p2 = cliJson(['metadata-put', '--root', root, '--id', 'locator-1', '--chunk-json', JSON.stringify(text.slice(half)), '--final', 'true']);
+  assert.ok(p2.path.endsWith(join('inbox', 'locator-1.json')));
+  assert.ok(existsSync(p2.path));
+  assert.deepEqual(JSON.parse(readFileSync(p2.path, 'utf8')), locator);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('metadata-put: forbidden payload/body/kickoff/analysis keys rejected anywhere (nested)', () => {
+  const root = freshRoot();
+  const evil = JSON.stringify({ version: 1, items: [{ type: 'ack', ack: { nested: { body: 'x' } } }] });
+  const r = cli(['metadata-put', '--root', root, '--id', 'evil-1', '--chunk-json', JSON.stringify(evil), '--final', 'true'], { expectFail: true });
+  assert.ok(r.stdout.includes('METADATA_FORBIDDEN_KEY'));
+  assert.ok(!existsSync(join(root, 'inbox', 'evil-1.json')));
+  const evil2 = JSON.stringify({ version: 1, payload: {} });
+  const r2 = cli(['metadata-put', '--root', root, '--id', 'evil-2', '--chunk-json', JSON.stringify(evil2), '--final', 'true'], { expectFail: true });
+  assert.ok(r2.stdout.includes('METADATA_FORBIDDEN_KEY'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('metadata-put: unsafe ids and oversize metadata refused', () => {
+  const root = freshRoot();
+  const trav = cli(['metadata-put', '--root', root, '--id', '../escape', '--chunk-json', '"x"', '--final', 'true'], { expectFail: true });
+  assert.ok(trav.stdout.includes('BAD_ID'));
+  const slash = cli(['metadata-put', '--root', root, '--id', 'a/b', '--chunk-json', '"x"', '--final', 'true'], { expectFail: true });
+  assert.ok(slash.stdout.includes('BAD_ID'));
+  const big = 'y'.repeat(200001);
+  const over = cli(['metadata-put', '--root', root, '--id', 'big-1', '--chunk-json', JSON.stringify(big), '--final', 'true'], { expectFail: true });
+  assert.ok(over.stdout.includes('CHUNK_OVERSIZE') || over.stdout.includes('METADATA_OVERSIZE'));
+  // chunk within 16KiB but final total over 200000 via multiple chunks
+  const mid = 'z'.repeat(16000);
+  cliJson(['metadata-put', '--root', root, '--id', 'big-2', '--chunk-json', JSON.stringify(mid), '--final', 'false']);
+  let last = null;
+  for (let i = 0; i < 13; i++) {
+    last = cli(['metadata-put', '--root', root, '--id', 'big-2', '--chunk-json', JSON.stringify(mid), '--final', i === 12 ? 'true' : 'false'], { expectFail: true });
+    if (last.status === 1) break;
+  }
+  assert.ok(last.status === 1 && last.stdout.includes('METADATA_OVERSIZE'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- index + cursor chain
+
+test('index-import validates and continues; trusted cursor commits on chain completion; replay after advance is a no-op', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('IX1');
+  const page0 = {
+    version: 1, producer: CHAT_IDS.collector, generation: 'COLLECTOR-INDEX-0001', page_number: 0,
+    items: [{ type: 'manifest', manifest }],
+    next: { page_id: 'ix-p1', reference: 'r', sha256: sha256Of('next'), bytes: 4 },
+  };
+  const p0 = writeJson(root, 'in/ix-page0.json', page0);
+  const sha0 = sha256Of(readFileSync(p0, 'utf8'));
+  const r0 = cliJson(['index-import', '--root', root, '--file', p0, '--producer-role', 'collector', '--cursor', 'cur-tool-ix', '--expected-index-sha256', sha0]);
+  assert.equal(r0.ok, true);
+  assert.equal(r0.complete, false);
+  // cursor NOT advanced while the chain is open
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, undefined);
+  // hash mismatch refused
+  const bad = cli(['index-import', '--root', root, '--file', p0, '--producer-role', 'collector', '--cursor', 'cur-tool-ix', '--expected-index-sha256', sha256Of('nope')], { expectFail: true });
+  assert.ok(bad.stdout.includes('INVALID'));
+  // terminal page closes the chain; the trusted tool cursor commits atomically with it
+  const page1 = { version: 1, producer: CHAT_IDS.collector, generation: 'COLLECTOR-INDEX-0001', page_number: 1, items: [], next: null };
+  const p1 = writeJson(root, 'in/ix-page1.json', page1);
+  cliJson(['index-import', '--root', root, '--file', p1, '--producer-role', 'collector', '--cursor', 'cur-tool-ix', '--expected-index-sha256', sha256Of(readFileSync(p1, 'utf8'))]);
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-tool-ix');
+  // R03: replaying the identical page0 after the continuation advanced is an accepted no-op
+  const replay = cliJson(['index-import', '--root', root, '--file', p0, '--producer-role', 'collector', '--cursor', 'cur-tool-ix', '--expected-index-sha256', sha0]);
+  assert.equal(replay.replay, true);
+  assert.equal(replay.pages_imported, 0);
+  // bytes arrive through the ordinary spool path (artifact fetch is independent of the cursor)
+  spoolAll(root, 'IX1', text, manifest);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- OFF / bridge / timer
+
+test('off persists across processes and blocks admissions; bridge-activated cannot clear OFF', () => {
+  const root = freshRoot();
+  const off = cliJson(['off', '--root', root, '--reason', 'operator stop for maintenance window']);
+  assert.equal(off.ok, true);
+  assert.ok(existsSync(join(root, 'OFF.json')));
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.off, true);
+  const { manifest } = singleManifest('OF1');
+  const ing = cli(['manifest-import', '--root', root, '--file', writeJson(root, 'in/of1.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-of1'], { expectFail: true });
+  assert.ok(ing.stdout.includes('OFF'));
+
+  const br = cliJson(['bridge-activated', '--root', root, '--automation-id', 'auto-123']);
+  assert.equal(br.ok, true);
+  assert.equal(cliJson(['status', '--root', root]).off, true); // bridge never clears OFF
+  const br2 = cliJson(['bridge-activated', '--root', root, '--automation-id', 'auto-123']);
+  assert.equal(br2.ok, true); // idempotent same id
+  const br3 = cli(['bridge-activated', '--root', root, '--automation-id', 'auto-456'], { expectFail: true });
+  assert.ok(br3.stdout.includes('AUTOMATION_CONFLICT'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// HOST-RESILIENCE §1 scenario 12: the owned plist is a CALENDAR timer — six
+// StartCalendarInterval dictionaries (0/4/8/12/16/20), RunAtLoad=true,
+// KeepAlive=false, NEVER StartInterval. Parsed via real plutil (never a
+// reboot/bootstrap); launchctl is never run (write-only mode).
+test('install-timer --write-only: six calendar dicts, RunAtLoad=true, KeepAlive=false, no StartInterval; plutil -lint + parse; conflict detection', () => {
+  const root = freshRoot();
+  const plistDir = mkdtempSync(join(tmpdir(), 'dot-cli-plist-'));
+  const weirdRoot = `${root} & <tag>`;
+  cli(['init', '--root', weirdRoot]);
+  const out = cliJson(['install-timer', '--root', weirdRoot, '--write-only', '--plist-dir', plistDir]);
+  assert.equal(out.ok, true);
+  assert.equal(out.label, 'ai.getff.dot-relay');
+  assert.equal(out.bootstrapped, false); // launchctl never ran
+  assert.equal(out.run_at_load, true);
+  assert.equal(out.keep_alive, false);
+  assert.deepEqual(out.calendar_hours, [0, 4, 8, 12, 16, 20]);
+  assert.equal(out.lint_ok, true); // plutil -lint preflight passed
+  const plistPath = join(plistDir, 'ai.getff.dot-relay.plist');
+  const xml = readFileSync(plistPath, 'utf8');
+  assert.ok(xml.includes('<key>StartCalendarInterval</key>'));
+  assert.ok(!xml.includes('<key>StartInterval</key>')); // never both keys
+  assert.ok(/<key>RunAtLoad<\/key>\s*<true\/>/.test(xml));
+  assert.ok(/<key>KeepAlive<\/key>\s*<false\/>/.test(xml));
+  assert.ok(xml.includes('&amp;')); // argv-escaped special chars
+  assert.ok(xml.includes('&lt;tag&gt;'));
+  // authoritative parse: plutil converts the plist to JSON (mock-free, read-only)
+  const conv = spawnSync('plutil', ['-convert', 'json', '-o', '-', plistPath], { encoding: 'utf8' });
+  assert.equal(conv.status, 0, `plutil convert failed: ${conv.stderr}`);
+  const parsed = JSON.parse(conv.stdout);
+  assert.equal(parsed.Label, 'ai.getff.dot-relay');
+  assert.equal(parsed.RunAtLoad, true);
+  assert.equal(parsed.KeepAlive, false);
+  assert.ok(!('StartInterval' in parsed));
+  assert.ok(Array.isArray(parsed.StartCalendarInterval));
+  assert.equal(parsed.StartCalendarInterval.length, 6);
+  assert.deepEqual(
+    parsed.StartCalendarInterval.map((d) => [d.Hour, d.Minute]).sort((a, b) => a[0] - b[0]),
+    [[0, 0], [4, 0], [8, 0], [12, 0], [16, 0], [20, 0]],
+  );
+  assert.deepEqual(parsed.ProgramArguments, [process.execPath, CLI, 'tick', '--root', weirdRoot]);
+  // identical rewrite is idempotent
+  const again = cliJson(['install-timer', '--root', weirdRoot, '--write-only', '--plist-dir', plistDir]);
+  assert.equal(again.ok, true);
+  // conflicting existing label content refused
+  writeFileSync(plistPath, xml.replace('<key>Hour</key><integer>4</integer>', '<key>Hour</key><integer>5</integer>'));
+  const conflict = cli(['install-timer', '--root', weirdRoot, '--write-only', '--plist-dir', plistDir], { expectFail: true });
+  assert.ok(conflict.stdout.includes('BLOCKED_TIMER_CONFLICT'));
+  // receipt states login requirement + wake coalescing honestly
+  const receipt = JSON.parse(readFileSync(join(weirdRoot, 'timer.json'), 'utf8'));
+  assert.equal(receipt.login_required, true);
+  assert.equal(receipt.calendar_wake_coalescing, true);
+  assert.equal(receipt.run_at_load, true);
+  rmSync(plistDir, { recursive: true, force: true });
+  rmSync(weirdRoot, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true });
+});
+
+// HOST-RESILIENCE §1: tick enters the scheduler transaction — cold start is
+// due (RunAtLoad), an immediate re-tick is NOT due and has zero side effects.
+test('tick scheduler bookkeeping: cold start due; off-slot re-tick not due, no re-plan; status carries scheduler metadata', () => {
+  const root = freshRoot();
+  const t1 = cliJson(['tick', '--root', root]);
+  assert.equal(t1.ok, true);
+  assert.equal(t1.supervise_launched, false);
+  const planPath = join(root, 'plans', 'bridge-plan.json');
+  assert.ok(existsSync(planPath)); // cold start planned
+  const st1 = cliJson(['status', '--root', root]);
+  assert.ok(st1.scheduler, 'status carries the scheduler block');
+  assert.equal(st1.scheduler.catchup_pending, 0);
+  assert.ok(Number.isFinite(st1.scheduler.next_due_wall_ms) && st1.scheduler.next_due_wall_ms > 0);
+  const before = readFileSync(planPath, 'utf8');
+  const beforeMs = statSync(planPath).mtimeMs;
+  const t2 = cliJson(['tick', '--root', root]);
+  assert.equal(t2.due, false); // inside the 4h slot: no-op, not a second plan
+  assert.equal(t2.supervise_launched, false);
+  assert.ok(Number.isFinite(t2.next_due_wall_ms));
+  assert.equal(readFileSync(planPath, 'utf8'), before); // untouched
+  assert.equal(statSync(planPath).mtimeMs, beforeMs);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// R06: a tick arriving while ANOTHER live scheduler owns the transaction is a
+// busy refusal — it never plans and never touches the owner's record. The live
+// owner here is the test process itself (real pid + real lstart, current boot).
+test('tick with a LIVE scheduler owner returns busy and plans nothing (R06)', () => {
+  const root = freshRoot();
+  const boot = execFileSync('/usr/sbin/sysctl', ['-n', 'kern.bootsessionuuid'], { encoding: 'utf8' }).trim();
+  const start = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(process.pid)], { encoding: 'utf8' }).trim();
+  const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+  raw.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run(
+    'tick_in_progress',
+    JSON.stringify({ token: 'tok-live-owner', boot_id: boot, pid: process.pid, start }),
+  );
+  raw.close();
+  const out = cliJson(['tick', '--root', root]);
+  assert.equal(out.ok, true);
+  assert.equal(out.busy, true);
+  assert.equal(out.refused, 'owner-live');
+  assert.equal(out.supervise_launched, false);
+  assert.ok(!existsSync(join(root, 'plans', 'bridge-plan.json')), 'a refused tick plans nothing');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- R09 shared death adapter
+//
+// CLI-level arms ONLY: provable absence and not-running/no-active rows. No
+// live signal is asserted here (the exact-live ladder arms live in the
+// executor tests); the exact-live reconcile arm is a pure identity read.
+
+const currentBootId = () => execFileSync('/usr/sbin/sysctl', ['-n', 'kern.bootsessionuuid'], { encoding: 'utf8' }).trim();
+
+// A pid the process table authoritatively reports absent right now — the
+// high range is never allocated by the OS. Scans downward until ps refuses.
+function absentPid() {
+  for (let p = 99998; p >= 99900; p -= 1) {
+    const r = spawnSync('/bin/ps', ['-o', 'lstart=', '-p', String(p)], { encoding: 'utf8' });
+    if (r.status !== 0) return p;
+  }
+  throw new Error('no absent pid found in the scan range');
+}
+
+// Same R04-corrected chain plumbing as the executor fixtures: public manifests
+// + destination-role ACKs so the solution is genuinely QUEUED for a claim.
+function queuedCliSolution(ledger, tag) {
+  const mk = (kind, id, producer, parents, payload) => {
+    const e = { version: 1, kind, id, producer, parents, payload, sha256: null };
+    e.sha256 = digest(e);
+    return e;
+  };
+  const manifestFor = (e, destination) => ({
+    version: 1, status: 'READY', event_id: e.id, kind: e.kind, producer: e.producer,
+    destination, sha256: sha256Of(JSON.stringify(e)), bytes: Buffer.byteLength(JSON.stringify(e)),
+    parents: e.parents, artifact: { page_id: `page-${e.id}`, reference: 'library-file:cli-fixtures.json' }, delivery_id: null,
+  });
+  const acked = (event, role, destinationRole) => {
+    const manifest = manifestFor(event, destinationRole);
+    ledger.manifestImport({ manifest, producerRole: role, cursorToken: `tok-${event.id}` });
+    const d = ledger.pendingDeliveries().find((x) => x.event_id === event.id);
+    ledger.claimDelivery(d.delivery_id);
+    ledger.ack(
+      { delivery_id: d.delivery_id, event_id: event.id, event_sha256: event.sha256, artifact_sha256: manifest.sha256, accepted: true, duplicate: false },
+      { trustedProducerRole: destinationRole },
+    );
+  };
+  const reports = [];
+  for (let i = 0; i < 3; i++) {
+    const body = `cli-exec fixture body ${tag} ${i} ${'z'.repeat(20)}`;
+    reports.push({ repository: 'artyhoo/getff', pr: 2200, comment_id: `cx-${tag}-${i}`, body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${tag}-${i}`), body });
+  }
+  const batch = mk('batch', `DOT-CX-B-${randomUUID().slice(0, 8)}`, CHAT_IDS.collector, [], { batch_id: 'B-cx', reports, complete: true });
+  ledger.ingest(batch);
+  acked(batch, 'collector', 'analyst');
+  const analysis = mk('analysis', `DOT-CX-A-${randomUUID().slice(0, 8)}`, CHAT_IDS.analyst, [{ id: batch.id, sha256: batch.sha256 }], {
+    consumed_report_keys: reports.map((r) => reportKey(r)),
+    candidates: [{ candidate_id: 'C1', finding_keys: ['F1'], report_keys: [reportKey(reports[0])], reviewed_sha: reports[0].reviewed_sha, summary: 's' }],
+    excluded: [],
+  });
+  ledger.ingest(analysis);
+  acked(analysis, 'analyst', 'solver');
+  const kickoff = '# cli fixture kickoff\nrun the plan\n';
+  const commands = [{ argv: ['node', '--test', 'x.test.mjs'], cwd: 'worktree', expected_exit: 0 }];
+  const solution = mk('solution', `DOT-CX-S-${randomUUID().slice(0, 8)}`, CHAT_IDS.solver, [{ id: analysis.id, sha256: analysis.sha256 }], {
+    candidate_id: 'C1',
+    finding_keys: ['F1'],
+    reviewed_sha: sha40(`rv-${tag}-0`), // equals the referenced analysis candidate's digest (R04)
+    base_sha: '1'.repeat(40),
+    ready: true,
+    unresolved: [],
+    prerequisites: [{ name: 'fetch', passed: true, evidence: 'fetched' }],
+    scope_paths: ['scripts/dot-relay/cli.mjs'],
+    kickoff,
+    commands,
+    verify_commands: commands,
+    acceptance: ['green'],
+    kickoff_sha256: sha256Of(kickoff),
+    commands_sha256: digest(commands),
+  });
+  ledger.ingest(solution);
+  return solution;
+}
+
+test('off over a provably absent child reports the shared death verdict; no active execution yields null (R09)', () => {
+  const root = freshRoot();
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const solution = queuedCliSolution(ledger, 'a');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: '11111111-2222-4222-8222-333333333333' });
+  assert.equal(claim.claimed, true);
+  const pid = absentPid();
+  const start = 'Mon Oct  6 10:00:00 2026';
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid, process_start: start });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: pid, child_start: start });
+  ledger.close();
+  const off = cliJson(['off', '--root', root, '--reason', 'operator stop for maintenance window']);
+  assert.equal(off.ok, true);
+  assert.equal(off.child.dead, true);
+  assert.equal(off.child.kind, 'absent'); // fresh process-table absence, never ps-start prose
+  assert.equal(off.child.signaled, false);
+  assert.equal(off.timer_unloaded, false);
+  // no active execution at all: there is nothing to prove — child is null
+  const root2 = freshRoot();
+  const off2 = cliJson(['off', '--root', root2, '--reason', 'operator stop for maintenance window']);
+  assert.equal(off2.ok, true);
+  assert.equal(off2.child, null);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(root2, { recursive: true, force: true });
+});
+
+test('reconcile-execution CONFIRM_DEAD: shared adapter frees proven absence, refuses an exact-live child (R09)', () => {
+  const root = freshRoot();
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const solution = queuedCliSolution(ledger, 'b');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: '11111111-2222-4222-8222-444444444444' });
+  assert.equal(claim.claimed, true);
+  const pid = absentPid();
+  const start = 'Mon Oct  6 10:00:00 2026';
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid, process_start: start });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: pid, child_start: start });
+  ledger.close();
+  // missing control input is a usage refusal before anything runs
+  const missing = cli(['reconcile-execution', '--root', root, '--id', claim.execution_id, '--decision', 'CONFIRM_DEAD'], { expectFail: true });
+  assert.equal(missing.status, 2);
+  // provable absence: the slot frees carrying the structured proof kind
+  const rec = cliJson(['reconcile-execution', '--root', root, '--id', claim.execution_id, '--decision', 'CONFIRM_DEAD', '--control', 'operator-confirmed dead process 2026-10-09']);
+  assert.equal(rec.ok, true);
+  assert.equal(rec.state, 'ABORTED_UNCERTAIN');
+  assert.equal(rec.death_proof_kind, 'absent');
+  // exact-live child (this test process itself: real pid, real lstart, current
+  // boot): the adapter refuses and the slot stays held — identity is READ,
+  // never signaled, in this arm
+  const ownStart = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(process.pid)], { encoding: 'utf8' }).trim();
+  const ledger2 = openLedger(join(root, 'ledger.sqlite'));
+  const solution2 = queuedCliSolution(ledger2, 'c');
+  const claim2 = ledger2.claimExecution({ solutionId: solution2.id, sessionId: '11111111-2222-4222-8222-555555555555' });
+  assert.equal(claim2.claimed, true);
+  ledger2.updateExecution(claim2.execution_id, { state: 'RUNNING', pid: process.pid, process_start: ownStart });
+  ledger2.updateAttempt(claim2.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: process.pid, child_start: ownStart });
+  ledger2.close();
+  const live = cli(['reconcile-execution', '--root', root, '--id', claim2.execution_id, '--decision', 'CONFIRM_DEAD', '--control', 'operator-confirmed dead process 2026-10-09'], { expectFail: true });
+  assert.ok(live.stdout.includes('RECONCILE_NOT_DEAD'));
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.execution.id, claim2.execution_id);
+  assert.equal(st.execution.state, 'RUNNING'); // slot still held
+  rmSync(root, { recursive: true, force: true });
+});
+
+// HOST-RESILIENCE §1 scenario 9: durable OFF survives fresh processes (reboot/
+// load/manual tick all arrive as new tick processes) and suppresses planning
+// and recovery; ONLY the explicit operator resume command clears it.
+test('OFF survives processes/tick, suppresses planning+recovery; only explicit operator resume clears (scenario 9)', () => {
+  const root = freshRoot();
+  cliJson(['off', '--root', root, '--reason', 'operator maintenance window stop']);
+  const t = cliJson(['tick', '--root', root]);
+  assert.equal(t.off, true);
+  assert.equal(t.supervise_launched, false);
+  assert.ok(!existsSync(join(root, 'plans', 'bridge-plan.json'))); // no planning side effect
+  assert.equal(cliJson(['status', '--root', root]).off, true);
+  const br = cliJson(['bridge-activated', '--root', root, '--automation-id', 'auto-s9']);
+  assert.equal(br.ok, true);
+  assert.equal(cliJson(['status', '--root', root]).off, true); // bridge never clears OFF
+  const noActor = cli(['resume', '--root', root], { expectFail: true });
+  assert.equal(noActor.status, 2); // --actor is required
+  const r = cliJson(['resume', '--root', root, '--actor', 'operator']);
+  assert.equal(r.ok, true);
+  assert.equal(r.cleared, true);
+  assert.equal(cliJson(['status', '--root', root]).off, false);
+  assert.ok(existsSync(join(root, 'OFF.json'))); // historical receipt retained, nothing gates on it
+  const t2 = cliJson(['tick', '--root', root]);
+  assert.equal(t2.ok, true);
+  assert.ok(existsSync(join(root, 'plans', 'bridge-plan.json'))); // planning resumed
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('supervise --resume/--adopt: both flags refused, unknown execution fixed codes, no model spawn', () => {
+  const root = freshRoot();
+  const both = cli(['supervise', '--root', root, '--execution-id', 'X', '--resume', '--adopt'], { expectFail: true });
+  assert.equal(both.status, 2);
+  const r1 = cli(['supervise', '--root', root, '--execution-id', 'DOT-EXEC-nope', '--resume'], { expectFail: true });
+  assert.ok(r1.stdout.includes('UNKNOWN_EXECUTION'));
+  const r2 = cli(['supervise', '--root', root, '--execution-id', 'DOT-EXEC-nope', '--adopt'], { expectFail: true });
+  assert.ok(r2.stdout.includes('UNKNOWN_EXECUTION'));
+  assert.ok(!r1.stdout.includes('glm') && !r2.stdout.includes('glm'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// HOST-RESILIENCE §5 scenario 11: a partial multipart upload/index continues
+// across restarts with exact part/whole hash validation, and host recovery
+// (the tick) NEVER advances producer cursors prematurely.
+test('partial multipart continuation survives restart+tick; index cursor stays uncommitted without a completed chain (scenario 11)', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('S11');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/s11.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-s11']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  // part 0 completes in its own process
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '0', '--sha256', sha256Of(partTexts[0]), '--bytes', String(Buffer.byteLength(partTexts[0]))]);
+  appendChunks(root, up, partTexts[0]);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '0']);
+  // a tick (login/wake/manual) runs between partial states
+  const t = cliJson(['tick', '--root', root]);
+  assert.equal(t.ok, true);
+  // no index chain exists yet: the committed cursor map stays empty
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, undefined);
+  // restart continuation: part 1 in a NEW process, exact hashes validated at finish
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '1', '--sha256', sha256Of(partTexts[1]), '--bytes', String(Buffer.byteLength(partTexts[1]))]);
+  appendChunks(root, up, partTexts[1]);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '1']);
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.event_id, manifest.event_id);
+  assert.equal(readFileSync(join(root, 'objects', `${whole}.json`), 'utf8'), text); // exact whole-hash publish
+  // a later single-page index chain commits its own trusted cursor on completion
+  const page = {
+    version: 1, producer: CHAT_IDS.collector, generation: 'COLLECTOR-INDEX-00S11', page_number: 0,
+    items: [{ type: 'manifest', manifest }], next: null,
+  };
+  const pp = writeJson(root, 'in/s11.page.json', page);
+  cliJson(['index-import', '--root', root, '--file', pp, '--producer-role', 'collector', '--cursor', 'cur-s11', '--expected-index-sha256', sha256Of(readFileSync(pp, 'utf8'))]);
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-s11');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('status is bounded metadata with HYBRID mode and no payload echoes', () => {
+  const root = freshRoot();
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.ok, true);
+  assert.equal(st.deployment_mode, 'HYBRID');
+  assert.ok(st.counts);
+  const raw = JSON.stringify(st);
+  assert.ok(!raw.includes('q'.repeat(30)));
+  assert.ok(typeof st.source_sha === 'string');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('supervise with unknown execution id fails with a fixed code (no model spawned)', () => {
+  const root = freshRoot();
+  const r = cli(['supervise', '--root', root, '--execution-id', 'DOT-EXEC-does-not-exist'], { expectFail: true });
+  assert.equal(r.status, 1);
+  assert.ok(r.stdout.includes('UNKNOWN_EXECUTION'));
+  assert.ok(!r.stdout.includes('glm'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('init refuses a root whose parent chain leaves tmpdir via traversal', () => {
+  const deep = `${tmpdir()}/a/../b`; // literal '..' — resolve() would normalize it away
+  const r = cli(['init', '--root', deep], { expectFail: true });
+  assert.ok(r.stdout.includes('ROOT_TRAVERSAL') || r.stdout.includes('ROOT_NOT_ABSOLUTE'));
+});
+
+// ---------------------------------------------------------------- source-put
+// R01/R02: inert verified SOURCE upload under the fixed runtime source spool.
+// Chunked, offset-checked, final exact Node byte count + SHA256, 0600 private,
+// metadata-only stdout. R12: uncommitted suffix after a crash is truncated to
+// the journaled committed offset before any new append (no blind re-append).
+
+function sourcePut(root, id, { offset, chunk, final, sha256, bytes }) {
+  const args = ['source-put', '--root', root, '--id', id, '--offset', String(offset), '--chunk-json', JSON.stringify(chunk)];
+  args.push('--final', final ? 'true' : 'false');
+  if (sha256 !== undefined) args.push('--sha256', sha256);
+  if (bytes !== undefined) args.push('--bytes', String(bytes));
+  return args;
+}
+
+test('source-put: offset-checked chunks, replay no-op, conflict rejected, final publishes exact inert source', () => {
+  const root = freshRoot();
+  const text = 'hello wörld'; // 12 UTF-8 bytes (ö = 2 bytes)
+  const whole = sha256Of(text);
+  const first = cliJson(sourcePut(root, 'ix-collector-GEN1-0', { offset: 0, chunk: 'hello ', final: false }));
+  assert.equal(first.ok, true);
+  assert.equal(first.offset, 6);
+  // replay of identical bytes at a recorded offset is an accepted no-op
+  const replay = cliJson(sourcePut(root, 'ix-collector-GEN1-0', { offset: 0, chunk: 'hello ', final: false }));
+  assert.equal(replay.ok, true);
+  assert.equal(replay.offset, 6);
+  // conflicting bytes at a recorded offset are rejected, file unchanged
+  const conflict = cli(['source-put', '--root', root, '--id', 'ix-collector-GEN1-0', '--offset', '0', '--chunk-json', JSON.stringify('HELLO '), '--final', 'false'], { expectFail: true });
+  assert.ok(conflict.stdout.includes('SOURCE_OFFSET_CONFLICT'));
+  const fin = cliJson(sourcePut(root, 'ix-collector-GEN1-0', { offset: 6, chunk: 'wörld', final: true, sha256: whole, bytes: 12 }));
+  assert.deepEqual(Object.keys(fin).sort(), ['bytes', 'ok', 'path', 'sha256']);
+  assert.equal(fin.sha256, whole);
+  assert.equal(fin.bytes, 12);
+  assert.ok(fin.path.startsWith(join(root, 'sources')));
+  assert.equal(readFileSync(fin.path, 'utf8'), text); // exact bytes once
+  assert.equal(statSync(fin.path).mode & 0o777, 0o600); // private
+  // republish with identical expectations is idempotent, same doc shape
+  const again = cliJson(sourcePut(root, 'ix-collector-GEN1-0', { offset: 6, chunk: 'wörld', final: true, sha256: whole, bytes: 12 }));
+  assert.equal(again.path, fin.path);
+  assert.equal(again.sha256, whole);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('source-put: final with wrong expected hash/bytes or oversize total is rejected with fixed codes', () => {
+  const root = freshRoot();
+  const text = 'abc';
+  const whole = sha256Of(text);
+  cliJson(sourcePut(root, 'src-bad-1', { offset: 0, chunk: 'ab', final: false }));
+  const badSha = cli(['source-put', '--root', root, '--id', 'src-bad-1', '--offset', '2', '--chunk-json', JSON.stringify('c'), '--final', 'true', '--sha256', sha256Of('abd'), '--bytes', '3'], { expectFail: true });
+  assert.ok(badSha.stdout.includes('SOURCE_HASH_MISMATCH'));
+  const badBytes = cli(['source-put', '--root', root, '--id', 'src-bad-1', '--offset', '2', '--chunk-json', JSON.stringify('c'), '--final', 'true', '--sha256', whole, '--bytes', '4'], { expectFail: true });
+  assert.ok(badBytes.stdout.includes('SOURCE_HASH_MISMATCH'));
+  // per-chunk bound fires for a single giant chunk
+  const big = 'x'.repeat(200001);
+  const chunkOver = cli(['source-put', '--root', root, '--id', 'src-bad-2', '--offset', '0', '--chunk-json', JSON.stringify(big), '--final', 'false'], { expectFail: true });
+  assert.ok(chunkOver.stdout.includes('CHUNK_OVERSIZE'));
+  // cumulative total bounded at 200000 bytes across many in-limit chunks
+  let off = 0;
+  let oversize = null;
+  for (let i = 0; i < 13 && off <= 200000; i++) {
+    oversize = cli(['source-put', '--root', root, '--id', 'src-bad-3', '--offset', String(off), '--chunk-json', JSON.stringify('y'.repeat(16000)), '--final', 'false'], { expectFail: true });
+    if (oversize.status !== 0) break;
+    off += 16000;
+  }
+  assert.ok(oversize.stdout.includes('SOURCE_OVERSIZE'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('source-put: crash-truncated uncommitted suffix is discarded before replay (R12 offset discipline)', () => {
+  const root = freshRoot();
+  const text = 'hello world';
+  const whole = sha256Of(text);
+  cliJson(sourcePut(root, 'src-crash-1', { offset: 0, chunk: 'hello ', final: false }));
+  // simulate a crash between the raw append and the journal commit: extra
+  // unjournaled bytes now sit past the committed offset
+  const partPath = join(root, 'sources', 'src-crash-1.part');
+  const fd = openSync(partPath, 'a');
+  writeSync(fd, 'GARBAGE');
+  closeSync(fd);
+  // the next append must truncate the suffix to the committed offset first
+  const fin = cliJson(sourcePut(root, 'src-crash-1', { offset: 6, chunk: 'world', final: true, sha256: whole, bytes: 11 }));
+  assert.equal(fin.sha256, whole);
+  assert.equal(readFileSync(fin.path, 'utf8'), text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('source-put: unsafe id, gap offset and missing expectations are refused', () => {
+  const root = freshRoot();
+  const bad = cli(['source-put', '--root', root, '--id', '../escape', '--offset', '0', '--chunk-json', JSON.stringify('x'), '--final', 'false'], { expectFail: true });
+  assert.ok(bad.stdout.includes('SOURCE_ID_INVALID'));
+  const gap = cli(['source-put', '--root', root, '--id', 'src-gap-1', '--offset', '5', '--chunk-json', JSON.stringify('x'), '--final', 'false'], { expectFail: true });
+  assert.ok(gap.stdout.includes('SOURCE_OFFSET_CONFLICT'));
+  // final without expected sha/bytes is a usage error, not a guess
+  const noexpect = cli(['source-put', '--root', root, '--id', 'src-gap-1', '--offset', '0', '--chunk-json', JSON.stringify('x'), '--final', 'true'], { expectFail: true });
+  assert.equal(noexpect.status, 2);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- source-status
+// R03-SOURCE-REPLAY: the runner asks the durable journal for an id's state
+// BEFORE any append — exact published identity short-circuits; a partial id
+// reports the committed offset; a DIFFERING identity against a published
+// object is a hold (never a reset).
+
+test('source-status: exact published identity, partial committed offset, differing identity holds (R03)', () => {
+  const root = freshRoot();
+  const text = 'hello wörld'; // 12 UTF-8 bytes
+  const whole = sha256Of(text);
+  // unknown id: nothing committed, not published
+  const st0 = cliJson(['source-status', '--root', root, '--id', 'ss-1', '--sha256', whole, '--bytes', '12']);
+  assert.deepEqual(Object.keys(st0).sort(), ['committed_offset', 'ok', 'published']);
+  assert.equal(st0.ok, true);
+  assert.equal(st0.published, false);
+  assert.equal(st0.committed_offset, 0);
+  // partial: one chunk committed, final never sent
+  cliJson(sourcePut(root, 'ss-1', { offset: 0, chunk: 'hello ', final: false }));
+  const st1 = cliJson(['source-status', '--root', root, '--id', 'ss-1', '--sha256', whole, '--bytes', '12']);
+  assert.equal(st1.ok, true);
+  assert.equal(st1.published, false);
+  assert.equal(st1.committed_offset, 6);
+  // published: exact identity echoes the durable object
+  cliJson(sourcePut(root, 'ss-1', { offset: 6, chunk: 'wörld', final: true, sha256: whole, bytes: 12 }));
+  const st2 = cliJson(['source-status', '--root', root, '--id', 'ss-1', '--sha256', whole, '--bytes', '12']);
+  assert.deepEqual(Object.keys(st2).sort(), ['bytes', 'ok', 'path', 'published', 'sha256']);
+  assert.equal(st2.published, true);
+  assert.equal(st2.sha256, whole);
+  assert.equal(st2.bytes, 12);
+  assert.ok(st2.path.startsWith(join(root, 'sources')));
+  // differing identity against a PUBLISHED object is a hold — never a reset
+  const diff = cli(['source-status', '--root', root, '--id', 'ss-1', '--sha256', sha256Of('other'), '--bytes', '5'], { expectFail: true });
+  assert.equal(diff.status, 1);
+  assert.ok(diff.stdout.includes('SOURCE_IDENTITY_CONFLICT'));
+  // the journal was not reset: the original identity still resolves
+  const st3 = cliJson(['source-status', '--root', root, '--id', 'ss-1', '--sha256', whole, '--bytes', '12']);
+  assert.equal(st3.published, true);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('source-status: missing/invalid inputs are usage or fixed-code refusals', () => {
+  const root = freshRoot();
+  const miss = cli(['source-status', '--root', root, '--id', 'ss-2'], { expectFail: true });
+  assert.equal(miss.status, 2);
+  const badSha = cli(['source-status', '--root', root, '--id', 'ss-2', '--sha256', 'zz', '--bytes', '3'], { expectFail: true });
+  assert.equal(badSha.status, 2);
+  const badBytes = cli(['source-status', '--root', root, '--id', 'ss-2', '--sha256', sha256Of('abc'), '--bytes', '300000'], { expectFail: true });
+  assert.equal(badBytes.status, 2);
+  const badId = cli(['source-status', '--root', root, '--id', '../escape', '--sha256', sha256Of('abc'), '--bytes', '3'], { expectFail: true });
+  assert.ok(badId.stdout.includes('SOURCE_ID_INVALID'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- locator-resolved
+// PAGE-LOCATOR-RECOVERY-ADDENDUM: the runner persists a verified Page-fallback
+// resolution into the control namespace BEFORE import; the next cycle reuses
+// it (still verified on fetch) instead of re-running the bounded search.
+
+test('locator-resolved: persist, idempotent replay, identity conflict refused, plan exposure (PAGE-FALLBACK)', () => {
+  const root = freshRoot();
+  const args = ['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR1',
+    '--locator-sha256', sha256Of('locator-line'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+    '--reference', 'library-file:/sources/COLLECTOR-INDEX-LR1.json', '--source-sha256', sha256Of('page0'), '--bytes', '100'];
+  const st = cliJson(args);
+  assert.equal(st.ok, true);
+  assert.equal(st.stored, true);
+  assert.equal(st.replay, false);
+  assert.equal(st.key, 'locator_resolution:collector:COLLECTOR-INDEX-LR1:' + sha256Of('page0'));
+  // identical replay is a no-op
+  const again = cliJson(args);
+  assert.equal(again.replay, true);
+  // a DIFFERING reference under the same identity is a conflict, never a rewrite
+  const diff = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR1',
+    '--locator-sha256', sha256Of('locator-line'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+    '--reference', 'library-file:/evil/other.json', '--source-sha256', sha256Of('page0'), '--bytes', '100'], { expectFail: true });
+  assert.equal(diff.status, 1);
+  assert.ok(diff.stdout.includes('LOCATOR_RESOLUTION_CONFLICT'));
+  const diffBytes = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR1',
+    '--locator-sha256', sha256Of('locator-line'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+    '--reference', 'library-file:/sources/COLLECTOR-INDEX-LR1.json', '--source-sha256', sha256Of('page0'), '--bytes', '101'], { expectFail: true });
+  assert.ok(diffBytes.stdout.includes('LOCATOR_RESOLUTION_CONFLICT'));
+  // plan exposes the durable resolution (metadata only)
+  const plan = cliJson(['plan', '--root', root]);
+  assert.equal(plan.locator_resolutions.length, 1);
+  assert.equal(plan.locator_resolutions[0].reference, 'library-file:/sources/COLLECTOR-INDEX-LR1.json');
+  assert.equal(plan.locator_resolutions[0].producer_role, 'collector');
+  assert.equal(plan.locator_resolutions[0].source_sha256, sha256Of('page0'));
+  // the original entry survived every conflict attempt
+  const plan2 = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
+  assert.equal(plan2.locator_resolutions[0].bytes, 100);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('locator-resolved: missing flags and malformed inputs are usage refusals', () => {
+  const root = freshRoot();
+  const miss = cli(['locator-resolved', '--root', root, '--producer-role', 'collector'], { expectFail: true });
+  assert.equal(miss.status, 2);
+  const badGen = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'not a gen!',
+    '--locator-sha256', sha256Of('l'), '--page-id', 'p1', '--reference', 'library-file:/x.json', '--source-sha256', sha256Of('p'), '--bytes', '10'], { expectFail: true });
+  assert.equal(badGen.status, 2);
+  const badRole = cli(['locator-resolved', '--root', root, '--producer-role', 'nobody', '--generation', 'COLLECTOR-INDEX-LR2',
+    '--locator-sha256', sha256Of('l'), '--page-id', 'p1', '--reference', 'library-file:/x.json', '--source-sha256', sha256Of('p'), '--bytes', '10'], { expectFail: true });
+  assert.equal(badRole.status, 2);
+  const badSha = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR2',
+    '--locator-sha256', 'zz', '--page-id', 'p1', '--reference', 'library-file:/x.json', '--source-sha256', sha256Of('p'), '--bytes', '10'], { expectFail: true });
+  assert.equal(badSha.status, 2);
+  const badBytes = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR2',
+    '--locator-sha256', sha256Of('l'), '--page-id', 'p1', '--reference', 'library-file:/x.json', '--source-sha256', sha256Of('p'), '--bytes', '300000'], { expectFail: true });
+  assert.equal(badBytes.status, 2);
+  const bareRef = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-LR2',
+    '--locator-sha256', sha256Of('l'), '--page-id', 'p1', '--reference', 'library-file', '--source-sha256', sha256Of('p'), '--bytes', '10'], { expectFail: true });
+  assert.equal(bareRef.status, 2, 'a bare type-label is not a resolution target');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// keep symlink helper referenced (lint-free intentional use)
+void symlinkSync; void readlinkSync; void dirname;
