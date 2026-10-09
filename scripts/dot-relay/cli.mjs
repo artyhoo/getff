@@ -19,11 +19,11 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { openLedger } from './ledger.mjs';
-import { validateEnvelope, CHAT_IDS } from './contract.mjs';
+import { validateEnvelope, CHAT_IDS, probeOutcome } from './contract.mjs';
 import {
   runExecution, resumeExecution, monitorAdoptedChild, startActiveClock, parseAgentsCensus,
   proveProcessDeath, runCessationLadder, classifyProbe, DEATH_PROOF_SESSION,
-  applyReviewAndVerify,
+  applyReviewAndVerify, productionProcessProbe,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 
@@ -325,18 +325,9 @@ function bootSessionUuid() {
   }
 }
 
-function productionProcessProbe(pid) {
-  if (!Number.isInteger(pid) && !/^\d+$/.test(String(pid ?? ''))) return { alive: false, start: null };
-  try {
-    const start = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
-      encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' },
-    }).trim();
-    if (!start) return { alive: false, start: null };
-    return { alive: true, start };
-  } catch {
-    return { alive: false, start: null };
-  }
-}
+// F03: the canonical process-table adapter lives in executor.mjs — the CLI
+// consumes it, never re-implements it (one adapter, one absence contract:
+// only the documented ps no-such-process result is alive:false).
 
 // Returns a list of live {session_id, pid, cwd, status} entries when the
 // census is projectable, or { identityUnproven: true } when the CLI lacks
@@ -1797,10 +1788,16 @@ async function cmdOff({ root, flags }) {
         const sessionId = attempt?.session_id ?? row.session_id ?? DEATH_PROOF_SESSION;
         const recorded = { pid: row.pid, process_start: row.process_start ?? null, session_id: sessionId };
         const classifyLive = () => {
-          const p = productionProcessProbe(row.pid);
-          return classifyProbe(recorded, p && p.alive === true
-            ? { pid: row.pid, start: p.start ?? null, found: true }
-            : { found: false }, sessionId);
+          // F03: three-way probe — only documented absence maps to found:false;
+          // an unknown/malformed ps result is never a signallable verdict.
+          let p;
+          try { p = productionProcessProbe(row.pid); } catch { p = null; }
+          const outcome = probeOutcome(p);
+          if (outcome === 'absent') return 'absent';
+          if (outcome === 'live') {
+            return classifyProbe(recorded, { pid: row.pid, start: p.start, found: true }, sessionId);
+          }
+          return 'unknown';
         };
         const verdict = await runCessationLadder({
           classify: classifyLive,

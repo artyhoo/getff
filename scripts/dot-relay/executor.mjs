@@ -14,6 +14,7 @@ import { mkdirSync, openSync, closeSync, writeSync, ftruncateSync, readFileSync,
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseChildResult, EXECUTOR_MODEL } from '../advisor-bridge-beta/process.mjs';
+import { probeOutcome } from './contract.mjs';
 
 export const GLM_WRAPPER = '/Users/art/.local/bin/glm';
 export const EXECUTION_MODEL = EXECUTOR_MODEL; // 'glm-5.3'
@@ -364,12 +365,15 @@ export function proveProcessDeath({ pid, processStart, recordedBootId, currentBo
   const recorded = { pid, process_start: processStart ?? null, session_id: DEATH_PROOF_SESSION };
   let probe;
   try { probe = processProbe(pid); } catch { return { dead: false, kind: null, verdict: 'unknown' }; }
-  if (!probe || typeof probe !== 'object') return { dead: false, kind: null, verdict: 'unknown' };
-  const verdict = classifyProbe(recorded, probe.alive === true
-    ? { pid, start: probe.start ?? null, found: true }
-    : { found: false }, DEATH_PROOF_SESSION);
-  if (verdict === 'absent') return { dead: true, kind: 'absent', verdict };
-  return { dead: false, kind: null, verdict };
+  // F03: three-way probe outcome — alive:false is proven absence ONLY in the
+  // documented no-such-process shape; malformed/ambiguous results are unknown.
+  const outcome = probeOutcome(probe);
+  if (outcome === 'absent') return { dead: true, kind: 'absent', verdict: 'absent' };
+  if (outcome === 'live') {
+    const verdict = classifyProbe(recorded, { pid, start: probe.start, found: true }, DEATH_PROOF_SESSION);
+    return { dead: false, kind: null, verdict };
+  }
+  return { dead: false, kind: null, verdict: 'unknown' };
 }
 
 // The finite wall-bounded ladder (HOST-RESILIENCE §5 / R09):
@@ -589,12 +593,43 @@ function verifyStartupReceipt({ receiptPath, sessionId, executionId, gitImpl, ex
 
 // ------------------------------------------------------------- production impls
 
-function procStart(pid) {
-  try {
-    return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8' }).trim();
-  } catch {
-    return null;
+// F03: the canonical production process-table adapter — /bin/ps lstart under
+// LC_ALL=C (the SAME locale-stable representation every producer and consumer
+// uses). ONLY the documented no-such-process result (BSD/macOS ps: exit 1
+// with empty stdout) is absence; any other failure is unknown.
+export function psErrorOutcome(err) {
+  if (err && typeof err === 'object' && err.status === 1
+    && typeof err.stdout === 'string' && err.stdout.trim() === '') return 'absent';
+  return 'unknown';
+}
+
+export function psSuccessOutcome(stdout) {
+  const start = typeof stdout === 'string' ? stdout.trim() : '';
+  return start ? 'live' : 'unknown'; // empty success output is ambiguous
+}
+
+export function productionProcessProbe(pid) {
+  if (!Number.isInteger(pid) && !/^\d+$/.test(String(pid ?? ''))) {
+    return { alive: null, unknown: true }; // malformed pid: never documented absence
   }
+  let stdout;
+  try {
+    stdout = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' },
+    });
+  } catch (err) {
+    return psErrorOutcome(err) === 'absent'
+      ? { alive: false, start: null }
+      : { alive: null, unknown: true };
+  }
+  return psSuccessOutcome(stdout) === 'live'
+    ? { alive: true, start: stdout.trim() }
+    : { alive: null, unknown: true };
+}
+
+function procStart(pid) {
+  const probe = productionProcessProbe(pid);
+  return probe.alive === true ? probe.start : null;
 }
 
 function productionGit(args, { cwd } = {}) {
@@ -611,34 +646,75 @@ const productionGh = {
   checks(args) { return JSON.parse(execFileSync('gh', args, { encoding: 'utf8' })); },
 };
 
-function productionSpawn(executable, argv, { cwd, stdoutPath, stderrPath, env }) {
+export function productionSpawn(executable, argv, { cwd, stdoutPath, stderrPath, env }) {
   const out = openSync(stdoutPath, 'w', 0o600);
   const err = openSync(stderrPath, 'w', 0o600);
+  let fdsClosed = false;
+  const closeFds = () => {
+    if (fdsClosed) return;
+    fdsClosed = true;
+    try { closeSync(out); } catch { /* already closed */ }
+    try { closeSync(err); } catch { /* already closed */ }
+  };
+  const exitCbs = [];
+  let lastOutcome = null;
+  // A settled outcome replays to every late subscriber — an exit that lands
+  // before the consumer subscribes is never lost.
+  const deliver = (code, signal) => {
+    lastOutcome = { code, signal };
+    for (const cb of exitCbs.splice(0)) cb(code, signal);
+  };
+  // F03: spawn failures arrive ASYNCHRONOUSLY ('error' event, not a sync
+  // throw). The wrapper owns the error so an unhandled 'error' can never
+  // crash the supervisor: a pre-boundary failure settles with the captured
+  // error and closes the capture descriptors; a post-boundary failure
+  // surfaces through the exit channel as a bounded outcome.
+  let spawnErr = null;
+  let resolveSettled;
+  const settled = new Promise((res) => { resolveSettled = res; });
+  let spawned = false;
   const real = spawn(executable, argv, { cwd, env, stdio: ['ignore', out, err] });
+  real.once('spawn', () => { spawned = true; resolveSettled(); });
+  real.on('exit', (code, signal) => { closeFds(); deliver(code, signal); });
+  real.once('error', (e) => {
+    if (!spawned) {
+      spawnErr = e ?? new Error('spawn failed');
+      closeFds();
+      resolveSettled();
+      deliver(null, null);
+    } else {
+      deliver(null, null); // post-boundary failure (e.g. bad signal): bounded exit outcome
+    }
+  });
   const started = procStart(real.pid);
   return {
     pid: real.pid,
     start: started,
+    whenSpawnSettled: () => settled,
+    spawnError: () => spawnErr,
     onExit(cb) {
-      real.on('exit', (code, signal) => {
-        closeSync(out);
-        closeSync(err);
-        cb(code, signal);
-      });
+      if (lastOutcome) cb(lastOutcome.code, lastOutcome.signal);
+      else exitCbs.push(cb);
     },
-    kill(sig) { return real.kill(sig); },
+    kill(sig) {
+      if (spawnErr || real.pid === undefined) return false;
+      try { return real.kill(sig); } catch { return false; } // e.g. ERR_UNKNOWN_SIGNAL: never a supervisor crash
+    },
     // §5 pre-signal re-probe: live OS identity read, not the stale capture.
-    probe() { return { pid: real.pid, start: procStart(real.pid) }; },
+    probe() {
+      const p = productionProcessProbe(real.pid);
+      const found = p.alive === true ? true : (p.alive === false ? false : undefined);
+      return { pid: real.pid, start: p.alive === true ? p.start : null, found };
+    },
   };
 }
 
 // ------------------------------------------------------------- R07 lock / census
 
-// Probe a pid's live identity via /bin/ps lstart — the same OS source the
-// ledger's host reconciliation trusts.
+// Probe a pid's live identity via the canonical adapter (F03) — the same OS
+// source the ledger's host reconciliation trusts.
 export function defaultProcessProbe(pid) {
-  const start = procStart(pid);
-  return start ? { alive: true, start } : { alive: false, start: null };
+  return productionProcessProbe(pid);
 }
 
 // R07: exclusive worker-slot ownership with CONSERVATIVE reconciliation. An
@@ -672,9 +748,14 @@ export function acquireSupervisorLock({ workerDir, executionId = null, bootId, p
     if (holder.boot_id !== bootId) {
       reason = 'previous-boot';
     } else {
-      const probe = typeof processProbe === 'function' ? processProbe(holder.pid) : null;
-      if (!probe || typeof probe !== 'object') return { blocked: 'SUPERVISOR_LOCK_UNPROVEN', lockPath };
-      if (probe.alive) {
+      // F03: three-way holder probe — an unknown/thrown result refuses
+      // UNPROVEN; only the documented no-such-process result authorizes a
+      // holder-dead takeover.
+      let probe = null;
+      try { probe = typeof processProbe === 'function' ? processProbe(holder.pid) : null; } catch { probe = null; }
+      const outcome = probeOutcome(probe);
+      if (outcome === 'unknown') return { blocked: 'SUPERVISOR_LOCK_UNPROVEN', lockPath };
+      if (outcome === 'live') {
         if (typeof holder.start !== 'string' || !holder.start || probe.start == null) {
           return { blocked: 'SUPERVISOR_LOCK_UNPROVEN', lockPath };
         }
@@ -683,7 +764,7 @@ export function acquireSupervisorLock({ workerDir, executionId = null, bootId, p
         }
         reason = 'pid-reused';
       } else {
-        reason = 'holder-dead';
+        reason = 'holder-dead'; // outcome === 'absent'
       }
     }
     renameSync(lockPath, `${lockPath}.stale-${Date.now()}`); // evidence retained, never deleted
@@ -914,6 +995,25 @@ export async function runExecution(opts) {
       },
     });
   } catch (err) {
+    closeSync(lockFd);
+    releaseOwnedLock();
+    const blocker = err.code === 'ENOENT' ? 'BLOCKED_LAUNCH'
+      : (err.code === 'EACCES' || err.code === 'EPERM') ? 'BLOCKED_PERMISSION' : null;
+    if (blocker) {
+      ledger.updateExecution(executionId, { state: 'BLOCKED', reason: blocker });
+      return { state: 'BLOCKED', blocker, execution_id: executionId };
+    }
+    ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'unclassified spawn failure' });
+    return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_SPAWN', execution_id: executionId };
+  }
+  // F03: a production spawn can fail asynchronously (Node emits spawn errors
+  // like ENOENT via 'error', not a sync throw). The supervisor awaits the
+  // spawn/error boundary before recording the child as live; a pre-spawn
+  // failure classifies exactly like the sync throw above, so the missing-pid
+  // window is never mistaken for a launched RUNNING child.
+  if (typeof child.whenSpawnSettled === 'function') await child.whenSpawnSettled();
+  if (typeof child.spawnError === 'function' && child.spawnError()) {
+    const err = child.spawnError();
     closeSync(lockFd);
     releaseOwnedLock();
     const blocker = err.code === 'ENOENT' ? 'BLOCKED_LAUNCH'
@@ -1388,6 +1488,21 @@ export async function resumeExecution(opts) {
     ledger.updateExecution(executionId, { state, reason: blocker });
     return { state, blocker, execution_id: executionId };
   }
+  // F03: a production spawn can fail asynchronously — wait for the spawn/error
+  // boundary before recording the child as live. A pre-spawn failure
+  // classifies exactly like the sync throw above.
+  if (typeof child.whenSpawnSettled === 'function') await child.whenSpawnSettled();
+  if (typeof child.spawnError === 'function' && child.spawnError()) {
+    const err = child.spawnError();
+    closeSync(lockFd);
+    releaseOwnedLock();
+    ledger.recordResumeFailure(executionId);
+    const blocker = err.code === 'ENOENT' ? 'BLOCKED_LAUNCH'
+      : (err.code === 'EACCES' || err.code === 'EPERM') ? 'BLOCKED_PERMISSION' : 'UNCERTAIN_SPAWN';
+    const state = blocker === 'UNCERTAIN_SPAWN' ? 'UNCERTAIN' : 'BLOCKED';
+    ledger.updateExecution(executionId, { state, reason: blocker });
+    return { state, blocker, execution_id: executionId };
+  }
 
   const recorded = { pid: child.pid, process_start: child.start, session_id: sessionId };
   if (typeof clock.registerChild === 'function') {
@@ -1535,12 +1650,22 @@ export async function monitorAdoptedChild(opts) {
     return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId }; // hold
   }
   const sessionId = attempt.session_id;
+  // F03: three-way probe — 'live'/'absent'/'unknown'. Only a documented
+  // no-such-process result counts as absence; anything malformed or thrown
+  // is unknown and the row is held for a later tick (never monitored on a
+  // guess, never fabricated into a stop).
   const childAlive = () => {
-    const p = processProbe(attempt.child_pid);
-    return !!p && !!p.alive && p.start === attempt.child_start;
+    let p;
+    try { p = processProbe(attempt.child_pid); } catch { return false; }
+    return probeOutcome(p) === 'live' && p.start === attempt.child_start;
   };
-  const initial = processProbe(attempt.child_pid);
-  if (initial && initial.alive && initial.start !== attempt.child_start) {
+  let initial = null;
+  try { initial = processProbe(attempt.child_pid); } catch { initial = null; }
+  const initialOutcome = probeOutcome(initial);
+  if (initialOutcome === 'unknown') {
+    return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId }; // hold
+  }
+  if (initialOutcome === 'live' && initial.start !== attempt.child_start) {
     // PID reuse: identity unprovable — hold, never signal.
     return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId };
   }
@@ -1561,11 +1686,10 @@ export async function monitorAdoptedChild(opts) {
   const classifyAdopted = () => {
     let p;
     try { p = processProbe(attempt.child_pid); } catch { p = null; }
-    if (!p || typeof p !== 'object') return 'unknown';
-    const probe = p.alive === true
-      ? { pid: attempt.child_pid, start: p.start ?? null, found: true }
-      : { found: false };
-    return classifyProbe(recordedAdopted, probe, sessionId);
+    const outcome = probeOutcome(p);
+    if (outcome === 'absent') return 'absent';
+    if (outcome === 'live') return classifyProbe(recordedAdopted, { pid: attempt.child_pid, start: p.start, found: true }, sessionId);
+    return 'unknown';
   };
   const ceaseExact = () => runCessationLadder({
     classify: classifyAdopted,

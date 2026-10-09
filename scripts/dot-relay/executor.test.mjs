@@ -17,6 +17,7 @@ import {
   buildArgv, buildResumeArgv, runExecution, resumeExecution, monitorAdoptedChild, verifyPr,
   isOwnedChild, startActiveClock, parseAgentsCensus,
   validateFreshnessWindow, sampleOnceIndependent,
+  proveProcessDeath, acquireSupervisorLock,
   GLM_WRAPPER, ALLOW_TOOLS, DISALLOWED_TOOLS,
 } from './executor.mjs';
 // R10: applyReviewAndVerify is imported dynamically inside the review-gate
@@ -2758,5 +2759,166 @@ test('F02: OFF landing after the tick claim refuses the supervise launch — res
   const row = ledger.getExecution(claim.execution_id);
   assert.equal(row.state, 'RESERVED', 'tick reservation retained for reconciliation');
   assert.equal(row.attempts_admitted, 1);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------- F03: PROCESS_UNKNOWN_AS_DEAD
+// One explicit three-way probe result: exact-live / documented absence /
+// unknown. A thrown command, unexpected exit, malformed or empty response is
+// UNKNOWN — never death. Same pid + different start is REUSED and never
+// signalled. Production spawn errors arrive asynchronously and must produce a
+// durable bounded outcome with no orphaned descriptors.
+
+test('F03: proveProcessDeath — {} / live-without-start / throwing probes are unknown; documented absence and reuse stay exact', () => {
+  const base = { pid: 601, processStart: CHILD_START, recordedBootId: 'BOOT-1', currentBootId: 'BOOT-1' };
+  // malformed {} — the OLD code coerced it to {found:false} -> absent -> dead
+  assert.equal(proveProcessDeath({ ...base, processProbe: () => ({}) }).verdict, 'unknown');
+  assert.equal(proveProcessDeath({ ...base, processProbe: () => ({}) }).dead, false);
+  // live-shaped probe missing the start text: identity unprovable
+  assert.equal(proveProcessDeath({ ...base, processProbe: () => ({ alive: true }) }).verdict, 'unknown');
+  // thrown probe (EACCES/EIO/tool failure): unknown, never absence
+  assert.equal(proveProcessDeath({ ...base, processProbe: () => { throw Object.assign(new Error('ps EACCES'), { code: 'EACCES' }); } }).verdict, 'unknown');
+  // documented no-such-process: positive absence stays
+  const absent = proveProcessDeath({ ...base, processProbe: () => ({ alive: false, start: null }) });
+  assert.deepEqual(absent, { dead: true, kind: 'absent', verdict: 'absent' });
+  // previous boot: positive absence without any probe
+  assert.equal(proveProcessDeath({ ...base, recordedBootId: 'BOOT-0', currentBootId: 'BOOT-1' }).kind, 'old-boot');
+  // same pid, different start: REUSED — never dead, never signallable
+  const reused = proveProcessDeath({ ...base, processProbe: () => ({ alive: true, start: 'Mon Oct  6 09:09:00 2026' }) });
+  assert.equal(reused.dead, false);
+  assert.equal(reused.verdict, 'reused');
+});
+
+test('F03: supervisor-lock takeover — malformed/throwing holder probe refuses UNPROVEN, bytes untouched', () => {
+  const arms = [
+    () => ({}),
+    () => { throw Object.assign(new Error('ps EIO'), { code: 'EIO' }); },
+  ];
+  for (const badProbe of arms) {
+    const dir = mkdtempSync(join(tmpdir(), 'dot-f03-lock-'));
+    const workerDir = join(dir, 'worker');
+    mkdirSync(workerDir, { recursive: true });
+    const holderJson = JSON.stringify({ pid: 4242, start: SUP_START, boot_id: 'BOOT-EX', execution_id: 'DOT-EXEC-F03' });
+    writeFileSync(join(workerDir, 'supervisor.lock'), holderJson);
+    const gate = acquireSupervisorLock({ workerDir, bootId: 'BOOT-EX', processProbe: badProbe });
+    assert.equal(gate.blocked, 'SUPERVISOR_LOCK_UNPROVEN');
+    assert.equal(gate.fd, undefined, 'no lock fd handed out on unproven evidence');
+    assert.equal(readFileSync(join(workerDir, 'supervisor.lock'), 'utf8'), holderJson, 'holder bytes untouched');
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F03: adoption with an unprovable child probe holds UNCERTAIN_IDENTITY — no monitor loop, no fabricated outcome', async () => {
+  const { dir, ledger } = env0();
+  const { claim } = adoptedExecution(ledger, { dir });
+  const out = await monitorAdoptedChild({
+    ledger, executionId: claim.execution_id, dir,
+    processProbe: () => ({}), // malformed: neither live nor documented-absent
+    clock: fakeClock({ bootId: 'BOOT-1' }),
+    pollIntervalMs: 5, deadlineMs: 5_000,
+  });
+  assert.equal(out.state, 'UNCERTAIN');
+  assert.equal(out.blocker, 'UNCERTAIN_IDENTITY');
+  // the RECOVERING_HOST row is held for a later tick (same pattern as the
+  // forged-start hold) — never flipped, never fabricated into a stop
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'RECOVERING_HOST');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F03: production adapter maps only the documented no-such-process result to absence', async () => {
+  const { productionProcessProbe, psErrorOutcome, psSuccessOutcome } = await import('./executor.mjs');
+  assert.equal(typeof productionProcessProbe, 'function');
+  // pure error mapping: exit 1 with NO stdout = the documented BSD/macOS ps
+  // no-such-process result; everything else is unknown
+  assert.equal(psErrorOutcome({ status: 1, stdout: '' }), 'absent');
+  assert.equal(psErrorOutcome({ status: 1, stdout: 'weird output\n' }), 'unknown');
+  assert.equal(psErrorOutcome({ status: 2, stdout: '' }), 'unknown');
+  assert.equal(psErrorOutcome({ code: 'EACCES' }), 'unknown');
+  assert.equal(psErrorOutcome({ code: 'EIO' }), 'unknown');
+  assert.equal(psErrorOutcome(null), 'unknown');
+  // success mapping: a real lstart line is live; empty success output is ambiguous
+  assert.equal(psSuccessOutcome('  Mon Oct  6 09:01:00 2026\n'), 'live');
+  assert.equal(psSuccessOutcome('   '), 'unknown');
+  assert.equal(psSuccessOutcome(''), 'unknown');
+  // a malformed pid argument never becomes documented absence
+  const badPid = productionProcessProbe('not-a-pid');
+  assert.equal(badPid.alive, null);
+  assert.equal(badPid.unknown, true);
+  // a REALLY absent pid (ps exit 1, empty stdout) stays positive absence
+  let absent = null;
+  for (let p = 99997; p >= 99900; p -= 1) {
+    const probe = productionProcessProbe(p);
+    if (probe.alive === false) { absent = { pid: p, probe }; break; }
+    if (probe.alive === true) continue; // some live process occupies this pid — keep scanning
+    throw new Error(`unexpected unknown probe for pid ${p}: ${JSON.stringify(probe)}`);
+  }
+  assert.ok(absent, 'found a documented-absent pid in the scan range');
+  assert.deepEqual(absent.probe, { alive: false, start: null });
+  // a REALLY live pid probes live with a start text
+  const live = productionProcessProbe(process.pid);
+  assert.equal(live.alive, true);
+  assert.ok(typeof live.start === 'string' && live.start.length > 0);
+});
+
+test('F03: productionSpawn — async spawn error (ENOENT) settles bounded, surfaces via exit channel, never a blind kill', async () => {
+  const { productionSpawn } = await import('./executor.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'dot-f03-spawn-'));
+  const stdoutPath = join(dir, 'child.stdout');
+  const stderrPath = join(dir, 'child.stderr');
+  const child = productionSpawn('/nonexistent/dot-relay-f03-bin', ['--probe'], {
+    cwd: dir, stdoutPath, stderrPath, env: { PATH: '/usr/bin:/bin' },
+  });
+  assert.equal(typeof child.whenSpawnSettled, 'function');
+  await child.whenSpawnSettled(); // the async error boundary — pre-fix this method does not exist (RED)
+  const err = child.spawnError();
+  assert.ok(err, 'the ENOENT surfaced through the wrapper');
+  assert.equal(err.code, 'ENOENT');
+  assert.equal(child.pid, undefined); // nothing launched
+  let exitSeen = false;
+  child.onExit(() => { exitSeen = true; });
+  await sleep(100);
+  assert.equal(exitSeen, true, 'a failed spawn produces a bounded outcome through the exit channel');
+  assert.equal(child.kill('SIGTERM'), false, 'no pid to signal — never a blind kill');
+  assert.ok(existsSync(stdoutPath) && existsSync(stderrPath), 'capture descriptors were created');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F03: productionSpawn — post-boundary kill failures stay bounded (no supervisor crash), real exits replay to late subscribers', async () => {
+  const { productionSpawn } = await import('./executor.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'dot-f03-spawn2-'));
+  const child = productionSpawn('/bin/sleep', ['30'], {
+    cwd: dir, stdoutPath: join(dir, 'o'), stderrPath: join(dir, 'e'), env: { PATH: '/usr/bin:/bin' },
+  });
+  await child.whenSpawnSettled();
+  assert.equal(child.spawnError(), null); // launched fine: the pid metadata boundary passed
+  assert.ok(Number.isInteger(child.pid));
+  // an invalid signal throws ERR_UNKNOWN_SIGNAL SYNCHRONOUSLY inside
+  // ChildProcess.kill — the wrapper must bound it, never crash the supervisor
+  assert.equal(child.kill('SIGBOGUS'), false);
+  let exitArg = null;
+  child.onExit((code, signal) => { exitArg = { code, signal }; });
+  child.kill('SIGTERM');
+  const t0 = Date.now();
+  while (exitArg === null && Date.now() - t0 < 3_000) await sleep(20);
+  assert.ok(exitArg !== null, 'the real exit reached the exit channel');
+  assert.equal(exitArg.signal, 'SIGTERM');
+  assert.equal(exitArg.code, null);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F03: runExecution with a real async spawn failure checkpoints BLOCKED_LAUNCH — no unhandled-error crash', async () => {
+  const { productionSpawn } = await import('./executor.mjs');
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger);
+  const out = await runExecution({
+    ledger, solution, worktree: dir, dir,
+    spawnImpl: (executable, argv, opts) => productionSpawn('/nonexistent/dot-relay-f03-bin', argv, opts),
+    gitImpl: gitOk(),
+    clock: fakeClock(),
+    pollIntervalMs: 5, startupTimeoutMs: 500, deadlineMs: 5_000,
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_LAUNCH');
+  assert.equal(ledger.status().execution, null); // slot freed by the bounded outcome
   rmSync(dir, { recursive: true, force: true });
 });

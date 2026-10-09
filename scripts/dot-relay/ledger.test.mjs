@@ -2514,3 +2514,94 @@ test('F02: durable OFF refuses admitNextAttempt — no attempt, no charge, no st
   assert.equal(after.state, before.state, 'active row untouched by the refusal');
   assert.equal(ledger.getAttempt(claim.execution_id, before.attempts_admitted + 1), null, 'no attempt row inserted');
 });
+
+// ------------------------------------------------- F03: PROCESS_UNKNOWN_AS_DEAD
+// The process probe is THREE-way: exact-live, documented absence, unknown.
+// Only a documented no-such-process result is absence; a thrown, malformed or
+// empty probe ({}) is UNKNOWN and every consumer holds — no slot free, no
+// replacement admitted, no takeover on unproven evidence.
+
+test('F03: reconcileHost holds on a malformed/throwing SUPERVISOR probe — never adopt or interrupt', () => {
+  const arms = [
+    () => ({}), // malformed: alive neither true nor false
+    () => { throw Object.assign(new Error('ps EACCES'), { code: 'EACCES' }); },
+  ];
+  for (const badProbe of arms) {
+    const { ledger } = freshLedger();
+    const { claim } = claimedExecution(ledger);
+    ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: 601, process_start: CHILD_START });
+    ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', child_pid: 601, child_start: CHILD_START });
+    const r = ledger.reconcileHost({
+      bootId: 'BOOT-1',
+      // supervisor 501 probes malformed/throws; the child is exact-live with a
+      // matching session — the OLD code concluded adopt-monitor off an unproven
+      // supervisor death.
+      processProbe: (pid) => (Number(pid) === 601 ? { alive: true, start: CHILD_START } : badProbe(pid)),
+      sessionProbe: () => [{ session_id: claim.session_id, pid: 601 }],
+      controlActor: 'scheduler-tick',
+    });
+    assert.deepEqual(r.executions.map((e) => e.decision), ['uncertain-identity']);
+    const row = ledger.getExecution(claim.execution_id);
+    assert.equal(row.state, 'UNCERTAIN');
+    assert.equal(row.reason, 'UNCERTAIN_IDENTITY');
+    assert.notEqual(row.state, 'RECOVERING_HOST'); // no monitor admitted on unknown
+    ledger.close();
+  }
+});
+
+test('F03: reconcileHost holds an unknown CHILD probe as uncertain-identity — never uncertain-stop', () => {
+  const { ledger } = freshLedger();
+  const { claim } = claimedExecution(ledger);
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: 601, process_start: CHILD_START });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', child_pid: 601, child_start: CHILD_START });
+  const r = ledger.reconcileHost({
+    bootId: 'BOOT-1',
+    // supervisor documented-absent (real no-such-process), child probe malformed
+    processProbe: (pid) => (Number(pid) === 501 ? { alive: false, start: null } : {}),
+    controlActor: 'scheduler-tick',
+  });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['uncertain-identity']);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'UNCERTAIN');
+  assert.equal(row.reason, 'UNCERTAIN_IDENTITY'); // NOT UNCERTAIN_STOP: death never proven
+  ledger.close();
+});
+
+test('F03: reconcileHost documented child absence stays uncertain-stop (positive path unchanged)', () => {
+  const { ledger } = freshLedger();
+  const { claim } = claimedExecution(ledger);
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: 601, process_start: CHILD_START });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', child_pid: 601, child_start: CHILD_START });
+  const r = ledger.reconcileHost({
+    bootId: 'BOOT-1',
+    processProbe: () => ({ alive: false, start: null }), // documented no-such-process for both
+    controlActor: 'scheduler-tick',
+  });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['uncertain-stop']);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'UNCERTAIN');
+  assert.equal(row.reason, 'UNCERTAIN_STOP');
+  ledger.close();
+});
+
+test('F03: held tick with a malformed/throwing owner probe refuses owner-unproven — no dead-owner takeover', () => {
+  const { ledger } = freshLedger();
+  const t1 = ledger.beginSchedulerTick({ bootId: 'BOOT-1', token: 'tok-f03-hold', owner: { pid: 501, start: SUP_START } });
+  assert.equal(t1.due, true);
+  const t2 = ledger.beginSchedulerTick({
+    bootId: 'BOOT-1', token: 'tok-f03-badobj',
+    processProbe: () => ({}),
+  });
+  assert.equal(t2.refused, 'owner-unproven', 'malformed probe must refuse, never take over');
+  assert.equal(t2.due, undefined);
+  const t3 = ledger.beginSchedulerTick({
+    bootId: 'BOOT-1', token: 'tok-f03-badthrow',
+    processProbe: () => { throw Object.assign(new Error('ps EIO'), { code: 'EIO' }); },
+  });
+  assert.equal(t3.refused, 'owner-unproven', 'a throwing probe must refuse, never crash the tick');
+  assert.equal(t3.due, undefined);
+  // the original owner still completes — its lock was never stolen
+  const done = ledger.completeSchedulerTick({ bootId: 'BOOT-1', token: 'tok-f03-hold', owner: { pid: 501, start: SUP_START }, plannedOk: true });
+  assert.equal(done.recorded, true);
+  ledger.close();
+});

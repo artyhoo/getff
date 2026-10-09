@@ -19,6 +19,7 @@ import {
   reportKey,
   splitCodepointParts,
   validatePartSequence,
+  probeOutcome,
 } from './contract.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -596,4 +597,27 @@ test('F01: batch and ack zero-parent shapes stay valid', () => {
   const ack = makeAckEnvelope({ eventEnv: batch });
   assert.equal(ack.parents.length, 0);
   assert.ok(validateEnvelope(JSON.stringify(ack), 'analyst'));
+});
+
+// ------------------------------------------------- F03: PROCESS_UNKNOWN_AS_DEAD
+// The shared three-way probe outcome. alive:false is proven absence ONLY in
+// the exact documented shape; every malformed/ambiguous result is 'unknown'
+// and can never authorize death, adoption, takeover or a signal.
+test('F03: probeOutcome — exact live/absent shapes pass, everything else is unknown', () => {
+  assert.equal(probeOutcome({ alive: true, start: 'Mon Oct  6 09:00:00 2026' }), 'live');
+  assert.equal(probeOutcome({ alive: false, start: null }), 'absent');
+  // malformed / ambiguous — never absence
+  assert.equal(probeOutcome({}), 'unknown');
+  assert.equal(probeOutcome(null), 'unknown');
+  assert.equal(probeOutcome('alive'), 'unknown');
+  assert.equal(probeOutcome([]), 'unknown');
+  assert.equal(probeOutcome({ alive: null }), 'unknown');
+  assert.equal(probeOutcome({ alive: 1, start: 'x' }), 'unknown');
+  assert.equal(probeOutcome({ alive: 'false' }), 'unknown');
+  // live without a start text: identity unprovable
+  assert.equal(probeOutcome({ alive: true }), 'unknown');
+  assert.equal(probeOutcome({ alive: true, start: '' }), 'unknown');
+  assert.equal(probeOutcome({ alive: true, start: null }), 'unknown');
+  // absent stays absent even with stray start noise: the OS said no-such-process
+  assert.equal(probeOutcome({ alive: false, start: 'stale text' }), 'absent');
 });

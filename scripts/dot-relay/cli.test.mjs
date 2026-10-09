@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
@@ -1933,3 +1933,62 @@ test('F02: supervise refuses under durable OFF with the fixed OFF code (run and 
   assert.equal(r2.code, 'OFF');
   rmSync(root, { recursive: true, force: true });
 });
+
+// ------------------------------------------------- F03: PROCESS_UNKNOWN_AS_DEAD
+// CLI-level guards for the three-way probe: a reused pid (live, DIFFERENT
+// start text) is never signalled and never frees a slot; documented
+// no-such-process stays positive absence (covered by the R09 off test above).
+
+test('F03: off over a REUSED pid (live, different start) — verdict reused, zero signals, child survives', async () => {
+  const root = freshRoot();
+  const sleeper = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
+  const sleeperExit = new Promise((res) => sleeper.on('exit', (c, s) => res({ code: c, signal: s })));
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const solution = queuedCliSolution(ledger, 'f03r');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: '11111111-2222-4222-8222-666666666666' });
+  assert.equal(claim.claimed, true);
+  // a REAL live process whose recorded start text differs: the pid-reuse shape
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: sleeper.pid, process_start: 'Mon Jan  1 00:00:00 2001' });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: sleeper.pid, child_start: 'Mon Jan  1 00:00:00 2001' });
+  ledger.close();
+  const off = cliJson(['off', '--root', root, '--reason', 'operator stop for f03 reuse guard']);
+  assert.equal(off.ok, true);
+  assert.equal(off.child.dead, false);
+  assert.equal(off.child.verdict, 'reused'); // same pid, different start: reused
+  assert.equal(off.child.signaled, false);
+  // the live process was NEVER signalled
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal(sleeper.exitCode, null);
+  assert.equal(sleeper.signalCode, null);
+  sleeper.kill('SIGKILL');
+  await sleeperExit;
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F03: reconcile-execution CONFIRM_DEAD refuses a REUSED pid with the shared verdict', async () => {
+  const root = freshRoot();
+  const sleeper = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
+  const sleeperExit = new Promise((res) => sleeper.on('exit', (c, s) => res({ code: c, signal: s })));
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const solution = queuedCliSolution(ledger, 'f03x');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: '11111111-2222-4222-8222-777777777777' });
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: sleeper.pid, process_start: 'Mon Jan  1 00:00:00 2001' });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: sleeper.pid, child_start: 'Mon Jan  1 00:00:00 2001' });
+  ledger.close();
+  const r = JSON.parse(cli([
+    'reconcile-execution', '--root', root, '--id', claim.execution_id, '--decision', 'CONFIRM_DEAD',
+    '--control', 'operator confirms the reused-pid row is not our child (f03 guard)',
+  ], { expectFail: true }).stdout);
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'RECONCILE_NOT_DEAD');
+  assert.equal(r.verdict, 'reused'); // the slot is NOT freed on a reused pid
+  assert.equal(ledger2state(root), 'RUNNING'); // refusal changed nothing
+  sleeper.kill('SIGKILL');
+  await sleeperExit;
+  rmSync(root, { recursive: true, force: true });
+});
+
+function ledger2state(root) {
+  const l = openLedger(join(root, 'ledger.sqlite'));
+  try { return l.getExecution(l.status().execution?.id ?? '')?.state ?? null; } finally { l.close(); }
+}

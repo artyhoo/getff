@@ -325,3 +325,20 @@ export function validatePartSequence(parts, descriptor) {
   if (sha256Hex(text) !== descriptor.sha256) throw invalid('PART_WHOLE_HASH');
   return { text, sha256: descriptor.sha256, bytes };
 }
+
+// F03: the explicit three-way process-probe outcome shared by every producer
+// and consumer (ledger reconciliation, supervisor lock, death proofs, OFF and
+// cessation ladders). A probe result object is:
+//   { alive: true,  start: '<locale-stable lstart text>' }  -> 'live'
+//   { alive: false, start: null }                           -> 'absent'
+//   anything else (missing object, alive not exactly true/false, live without
+//   a start text)                                           -> 'unknown'
+// Adapters MUST emit alive:false ONLY for a documented, tested OS-specific
+// no-such-process result; every thrown, unexpected-status, malformed or
+// ambiguous response is 'unknown' — never absence, never death.
+export function probeOutcome(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return 'unknown';
+  if (p.alive === true) return (typeof p.start === 'string' && p.start.length > 0) ? 'live' : 'unknown';
+  if (p.alive === false) return 'absent';
+  return 'unknown';
+}

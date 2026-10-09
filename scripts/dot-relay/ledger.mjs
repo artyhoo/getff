@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { sha256Hex } from '../dot-review-gate/digest.mjs';
-import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution } from './contract.mjs';
+import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution, probeOutcome } from './contract.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS events (
@@ -268,9 +268,13 @@ function tickOwnerTakeover(held, bootId, processProbe) {
   if (held.legacy || held.boot_id == null || held.pid == null) return 'unproven';
   if (held.boot_id !== bootId) return 'previous-boot';
   if (typeof processProbe !== 'function') return 'unproven';
-  const probe = processProbe(held.pid);
-  if (!probe || typeof probe !== 'object') return 'unproven';
-  if (probe.alive) {
+  // F03: three-way probe — an unknown/thrown result refuses 'unproven';
+  // only the documented no-such-process result authorizes 'dead-owner'.
+  let probe = null;
+  try { probe = processProbe(held.pid); } catch { return 'unproven'; }
+  const outcome = probeOutcome(probe);
+  if (outcome === 'unknown') return 'unproven';
+  if (outcome === 'live') {
     if (held.start == null || probe.start == null) return 'unproven';
     return probe.start === held.start ? 'live' : 'pid-reused';
   }
@@ -1056,7 +1060,22 @@ export function openLedger(path, {
             markUncertain('UNCERTAIN_IDENTITY', 'uncertain-identity');
             continue;
           }
-          if (api._probeExact(processProbe, attempt.supervisor_pid, attempt.supervisor_start)) {
+          // F03: the supervisor probe is three-way. An UNKNOWN result (thrown
+          // command, unexpected status, malformed shape) holds the row as
+          // uncertain-identity — never "supervisor dead", never adopt/interrupt.
+          // Live with a matching start (or no recorded start to disprove) is
+          // retain; live with a different start is a reused pid (the original
+          // supervisor is gone): the child branch decides; only the documented
+          // no-such-process result falls through as proven supervisor death.
+          let supProbe = null;
+          try { supProbe = attempt.supervisor_pid == null ? null : processProbe(attempt.supervisor_pid); } catch { supProbe = null; }
+          const supOutcome = probeOutcome(supProbe);
+          if (supOutcome === 'unknown') {
+            markUncertain('UNCERTAIN_IDENTITY', 'uncertain-identity');
+            continue;
+          }
+          if (supOutcome === 'live'
+            && (attempt.supervisor_start == null || supProbe.start === attempt.supervisor_start)) {
             executions.push({ execution_id: row.id, decision: 'retain', session_id: row.session_id ?? null });
             continue;
           }
@@ -1067,13 +1086,20 @@ export function openLedger(path, {
             markUncertain('UNCERTAIN_IDENTITY', 'uncertain-identity');
             continue;
           }
-          const childProbe = processProbe(childPid);
-          if (childProbe && childProbe.alive === true && childProbe.start !== childStart) {
+          let childProbe = null;
+          try { childProbe = processProbe(childPid); } catch { childProbe = null; }
+          const childOutcome = probeOutcome(childProbe);
+          if (childOutcome === 'unknown') {
+            // F03: unprovable child identity — hold, never fabricate a stop.
+            markUncertain('UNCERTAIN_IDENTITY', 'uncertain-identity');
+            continue;
+          }
+          if (childOutcome === 'live' && childProbe.start !== childStart) {
             // pid alive but start text differs: identity unproven.
             markUncertain('UNCERTAIN_IDENTITY', 'uncertain-identity');
             continue;
           }
-          if (!(childProbe && childProbe.alive === true)) {
+          if (childOutcome === 'absent') {
             markUncertain('UNCERTAIN_STOP', 'uncertain-stop');
             continue;
           }
