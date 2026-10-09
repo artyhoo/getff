@@ -12,7 +12,7 @@ import { spawn as childSpawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { openLedger } from './ledger.mjs';
-import { digest, CHAT_IDS, reportKey } from './contract.mjs';
+import { digest, envelopeDigest, CHAT_IDS, reportKey } from './contract.mjs';
 import {
   buildArgv, buildResumeArgv, runExecution, resumeExecution, monitorAdoptedChild, verifyPr,
   isOwnedChild, startActiveClock, parseAgentsCensus,
@@ -26,6 +26,7 @@ import {
 // test's own RED reason.
 
 const sha256Of = (s) => createHash('sha256').update(s).digest('hex');
+const sha256OfBytes = (b) => createHash('sha256').update(b).digest('hex');
 const sha40 = (s) => sha256Of(s).slice(0, 40);
 
 let nowMs = 5_000_000;
@@ -134,6 +135,15 @@ const manifestFor = (e, destination) => ({
   parents: e.parents, artifact: { page_id: `page-${e.id}`, reference: 'library-file:fixtures.json' }, delivery_id: null,
 });
 
+// F05: manifest bound to exact published bytes (any producer serialization).
+function manifestForBytes(e, destination, { sha, bytes }) {
+  return {
+    version: 1, status: 'READY', event_id: e.id, kind: e.kind, producer: e.producer,
+    destination, sha256: sha, bytes,
+    parents: e.parents, artifact: { page_id: `page-${e.id}`, reference: 'library-file:fixtures.json' }, delivery_id: null,
+  };
+}
+
 function ackedDelivery(ledger, event, { role, destinationRole }) {
   const manifest = manifestFor(event, destinationRole);
   ledger.manifestImport({ manifest, producerRole: role, cursorToken: `tok-${event.id}` });
@@ -150,23 +160,31 @@ function ackedDelivery(ledger, event, { role, destinationRole }) {
 // plus the digest set the checkpoint pins. Production framing content is the
 // executor's own; resume verification binds whatever bytes were written, so the
 // fixture's framing text only needs to be stable within the test.
-function writePacketFiles(dir, executionId, solution) {
+function writePacketFiles(dir, executionId, solution, serialize = (e) => JSON.stringify(e)) {
   const kickoffText = String(solution.payload.kickoff);
   const framingText = `# dot relay worker framing (fixture)\nconstant contract text for ${executionId}\n`;
   writeFileSync(join(dir, 'worker', `${executionId}.kickoff.md`), kickoffText, { mode: 0o600 });
   writeFileSync(join(dir, 'worker', `${executionId}.framing.md`), framingText, { mode: 0o600 });
+  const artifactBytes = Buffer.from(serialize(solution), 'utf8');
   return {
-    artifact_sha256: sha256Of(JSON.stringify(solution)),
-    artifact_bytes: Buffer.byteLength(JSON.stringify(solution)),
+    artifact_sha256: sha256OfBytes(artifactBytes),
+    artifact_bytes: artifactBytes.length,
     kickoff_sha256: sha256Of(kickoffText),
     framing_sha256: sha256Of(framingText),
   };
 }
 
-function queuedSolution(ledger) {
+// F05 fixture options:
+//  - serialize: how the producer serialized the ORIGINAL artifact file
+//    (compact default; pretty/reordered/LF variants per test arm)
+//  - envelopeOverride: publish a DIFFERENT envelope's bytes under this
+//    solution's manifest (foreign-id / swapped-payload tamper arms)
+//  - manifestOverride: register a drifted manifest (wrong bytes column arm)
+function queuedSolution(ledger, dir, { serialize, envelopeOverride, manifestOverride } = {}) {
   const mk = (kind, id, producer, parents, payload) => {
     const e = { version: 1, kind, id, producer, parents, payload, sha256: null };
-    e.sha256 = digest(e);
+    // contract convention: the envelope digest EXCLUDES the sha256 field
+    e.sha256 = envelopeDigest(e);
     return e;
   };
   const reports = [];
@@ -201,15 +219,29 @@ function queuedSolution(ledger) {
     kickoff,
     commands,
     verify_commands: commands,
-    acceptance: ['green'],
+    // F05: non-ASCII fixture text — every published original is multibyte at
+    // the byte level, so the exact-byte verifier is exercised on real UTF-8.
+    acceptance: ['green — зелёный прогон 東京 🚀'],
     kickoff_sha256: sha256Of(kickoff),
     commands_sha256: digest(commands),
   });
   ledger.ingest(solution);
   // R11: the solution's public manifest is the ONLY whole-artifact authority —
   // run/resume packet verification reads it, so the fixture registers it the
-  // way production does (solver manifest of the solution event).
-  ledger.manifestImport({ manifest: manifestFor(solution, 'coordinator'), producerRole: 'solver', cursorToken: `tok-${solution.id}` });
+  // way production does (solver manifest of the solution event). F05: the
+  // ORIGINAL serialized artifact file is published into the runtime object
+  // store under its own whole-file hash — exact producer bytes in WHATEVER
+  // serialization the producer used; the verifier must read these bytes, never
+  // a canonical reconstruction.
+  const ser = serialize ?? ((e) => JSON.stringify(e));
+  const published = envelopeOverride ? envelopeOverride(solution) : solution;
+  const fileBytes = Buffer.from(ser(published), 'utf8');
+  let manifest = manifestForBytes(solution, 'coordinator', { sha: sha256OfBytes(fileBytes), bytes: fileBytes.length });
+  if (manifestOverride) manifest = manifestOverride(manifest);
+  if (dir) {
+    writeFileSync(join(dir, 'objects', `${manifest.sha256}.json`), fileBytes, { mode: 0o600 });
+  }
+  ledger.manifestImport({ manifest, producerRole: 'solver', cursorToken: `tok-${solution.id}` });
   return solution;
 }
 
@@ -276,6 +308,7 @@ async function guardedMidRun(r, child, fn) {
 function env0() {
   const dir = mkdtempSync(join(tmpdir(), 'dot-exec-'));
   mkdirSync(join(dir, 'worker'), { recursive: true });
+  mkdirSync(join(dir, 'objects'), { recursive: true });
   const ledger = openLedger(join(dir, 'ledger.sqlite'), { now });
   return { dir, ledger };
 }
@@ -327,7 +360,7 @@ test('buildResumeArgv resumes the EXACT session: --resume, never --session-id/--
 
 test('concurrent second reservation is refused while the first holds the slot', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const git = gitOk();
   const first = runExecution({
@@ -358,7 +391,7 @@ test('concurrent second reservation is refused while the first holds the slot', 
 
 test('missing wrapper (proven pid absent) checkpoints BLOCKED_LAUNCH and frees the slot', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const spawnImpl = () => { throw Object.assign(new Error('spawn glm ENOENT'), { code: 'ENOENT' }); };
   const r = await runExecution({ ledger, solution, worktree: dir, dir, spawnImpl, clock: fakeClock(), gitImpl: gitOk(), pollIntervalMs: 5 });
   assert.equal(r.state, 'BLOCKED');
@@ -369,7 +402,7 @@ test('missing wrapper (proven pid absent) checkpoints BLOCKED_LAUNCH and frees t
 
 test('permission refusal checkpoints BLOCKED_PERMISSION, never broadens allowlist', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const spawnImpl = () => { throw Object.assign(new Error('denied'), { code: 'EACCES' }); };
   const r = await runExecution({ ledger, solution, worktree: dir, dir, spawnImpl, clock: fakeClock(), gitImpl: gitOk(), pollIntervalMs: 5 });
   assert.equal(r.state, 'BLOCKED');
@@ -379,7 +412,7 @@ test('permission refusal checkpoints BLOCKED_PERMISSION, never broadens allowlis
 
 test('uncertain spawn failure holds the slot as UNCERTAIN (crash before proven outcome)', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const spawnImpl = () => { throw Object.assign(new Error('EAGAIN'), { code: 'EAGAIN' }); };
   const r = await runExecution({ ledger, solution, worktree: dir, dir, spawnImpl, clock: fakeClock(), gitImpl: gitOk(), pollIntervalMs: 5 });
   assert.equal(r.state, 'UNCERTAIN');
@@ -389,7 +422,7 @@ test('uncertain spawn failure holds the slot as UNCERTAIN (crash before proven o
 
 test('stale base (origin/staging drift) never launches: BLOCKED_STALE_BASE', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const git = gitOk();
   const impl = (args, o) => {
     if (args.join(' ') === 'rev-parse origin/staging') return { code: 0, stdout: `${'1'.repeat(40)}\n` };
@@ -410,7 +443,7 @@ test('stale base (origin/staging drift) never launches: BLOCKED_STALE_BASE', asy
 
 test('existing job branch is BLOCKED_BRANCH_EXISTS, no reset/reuse', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const git = gitOk();
   const impl = (args, o) => {
     if (args[0] === 'rev-parse' && args[1] === '--verify') return { code: 0, stdout: 'refs/heads/codex/dot-job-x\n' };
@@ -432,7 +465,7 @@ test('existing job branch is BLOCKED_BRANCH_EXISTS, no reset/reuse', async () =>
 
 test('session/model mismatch in child output cannot complete: BLOCKED_CAPTURE', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const r = runExecution({
@@ -459,7 +492,7 @@ test('session/model mismatch in child output cannot complete: BLOCKED_CAPTURE', 
 
 test('secret/payload marker in child stdout stays in the private file only', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const r = runExecution({
@@ -488,7 +521,7 @@ test('secret/payload marker in child stdout stays in the private file only', asy
 
 test('no startup receipt within the window: TERM owned child, UNCERTAIN + BLOCKED_STARTUP', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const r = await runExecution({
     ledger, solution, worktree: dir, dir,
@@ -506,7 +539,7 @@ test('no startup receipt within the window: TERM owned child, UNCERTAIN + BLOCKE
 
 test('receipt with mismatched session is not accepted; worker assertions alone are insufficient', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const r = await runExecution({
     ledger, solution, worktree: dir, dir,
@@ -533,7 +566,7 @@ test('receipt with mismatched session is not accepted; worker assertions alone a
 
 test('active-budget exhaustion TERMs the exact verified-live child once: TIMED_OUT_ACTIVE', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const git = gitOk({ head: BASE_SHA, branch: jobBranch });
@@ -561,7 +594,7 @@ test('active-budget exhaustion TERMs the exact verified-live child once: TIMED_O
 
 test('PID reuse at budget stop: ambiguous ownership means no signal, UNCERTAIN_IDENTITY', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const git = gitOk({ head: BASE_SHA, branch: jobBranch });
@@ -593,7 +626,7 @@ test('PID reuse at budget stop: ambiguous ownership means no signal, UNCERTAIN_I
 
 test('OFF blocks admission before spawn and never signals anything', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   ledger.setOff({ reason: 'operator stop' });
   let spawned = 0;
   const r = await runExecution({
@@ -624,7 +657,7 @@ test('isOwnedChild requires pid+start+session identity', () => {
 
 test('verified startup + strict CODE_COMPLETE string capture -> REQUIRES_REVIEW (never direct verification)', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
@@ -799,7 +832,7 @@ test('verifyPr: freshness failing mid-poll -> CLOCK_UNPROVEN (R08)', async () =>
 
 test('supervise mode reuses the tick-reserved execution row and its persisted session id', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'tick-session-0001' });
   assert.equal(claim.claimed, true);
   const child = fakeChild();
@@ -845,7 +878,7 @@ test('supervise mode reuses the tick-reserved execution row and its persisted se
 
 test('supervise mode refuses a row that is not RESERVED (coordinator reconciliation changed it)', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'tick-session-0002' });
   ledger.close();
   const ledger2 = openLedger(join(dir, 'ledger.sqlite'), { now });
@@ -870,7 +903,7 @@ test('supervise mode refuses a row that is not RESERVED (coordinator reconciliat
 
 test('wall +8h while active +10ms: no timeout, the SAME live execution keeps running', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock(); // active time essentially frozen
@@ -898,7 +931,7 @@ test('wall +8h while active +10ms: no timeout, the SAME live execution keeps run
 
 test('budget boundary 7199999->7200000ms active: TIMED_OUT_ACTIVE fires exactly once', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock();
@@ -929,7 +962,7 @@ test('budget boundary 7199999->7200000ms active: TIMED_OUT_ACTIVE fires exactly 
 
 test('backwards active sample: CLOCK_UNPROVEN fail-closed — exact child TERMed after identity re-probe', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock();
@@ -957,7 +990,7 @@ test('backwards active sample: CLOCK_UNPROVEN fail-closed — exact child TERMed
 
 test('broken clock (helper EOF) + missing child identity: UNCERTAIN_IDENTITY, zero signals', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock();
@@ -986,7 +1019,7 @@ test('broken clock (helper EOF) + missing child identity: UNCERTAIN_IDENTITY, ze
 
 test('supervisor lock carries boot identity; checkpoint walks STARTUP_VERIFIED -> DONE with active spend', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const gh = {
@@ -1068,8 +1101,8 @@ function writeCp(dir, executionId, fields) {
 // R11: the checkpoint pins the full trusted packet (whole-artifact hash/bytes
 // from the manifest + separate kickoff/framing digests) and the two immutable
 // worker files exist with exactly the bound bytes.
-function interruptedExecution(ledger, { dir, sessionId = 'resume-sess-0001-aaaa', prUrl = null, cpSessionId = sessionId } = {}) {
-  const solution = queuedSolution(ledger);
+function interruptedExecution(ledger, { dir, sessionId = 'resume-sess-0001-aaaa', prUrl = null, cpSessionId = sessionId, serialize } = {}) {
+  const solution = queuedSolution(ledger, dir, { serialize });
   const claim = ledger.claimExecution({
     solutionId: solution.id, sessionId,
     bootId: 'BOOT-1', supervisor: { pid: 501, start: SUP_START },
@@ -1085,7 +1118,7 @@ function interruptedExecution(ledger, { dir, sessionId = 'resume-sess-0001-aaaa'
     controlActor: 'executor-resume-test',
   });
   assert.deepEqual(r.executions.map((e) => e.decision), ['interrupted-host']);
-  const packet = writePacketFiles(dir, claim.execution_id, solution);
+  const packet = writePacketFiles(dir, claim.execution_id, solution, serialize);
   writeCp(dir, claim.execution_id, {
     version: 1,
     execution_id: claim.execution_id,
@@ -1309,7 +1342,7 @@ test('resume: budget exhaustion on the resumed attempt -> TIMED_OUT_ACTIVE (shar
 // reservation — the monitor consumes the SAME attempt budget from the
 // persisted anchor, and a dead child completes via its private capture.
 function adoptedExecution(ledger, { dir }) {
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const claim = ledger.claimExecution({
     solutionId: solution.id, sessionId: 'adopt-sess-0001-aaaa',
     bootId: 'BOOT-1', supervisor: { pid: 501, start: SUP_START },
@@ -1401,7 +1434,7 @@ test('adopt-monitor: unprovable child identity -> hold, no signal, no spawn', as
 
 test('R11 run: -p is constant/paths/digests only; framing+kickoff files are private exact bytes; checkpoint binds the whole-artifact packet', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
   assert.ok(manifest, 'fixture registers the solution manifest (trusted artifact authority)');
   const child = fakeChild();
@@ -1476,7 +1509,7 @@ test('R11 run: -p is constant/paths/digests only; framing+kickoff files are priv
 test('R11 run: symlinked framing/kickoff paths are refused — fixed code, zero spawns, slot held', async () => {
   for (const which of ['kickoff', 'framing']) {
     const { dir, ledger } = env0();
-    const solution = queuedSolution(ledger);
+    const solution = queuedSolution(ledger, dir);
     const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'r11-sess-0001-aaaa' });
     assert.equal(claim.claimed, true);
     const evil = join(dir, 'evil-target.md');
@@ -1501,7 +1534,7 @@ test('R11 run: identical pre-existing kickoff file replays as a no-op; drifted b
   // replay-identical: the exact original bytes already on disk — spawn proceeds
   {
     const { dir, ledger } = env0();
-    const solution = queuedSolution(ledger);
+    const solution = queuedSolution(ledger, dir);
     const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'r11-sess-0002-bbbb' });
     writeFileSync(join(dir, 'worker', `${claim.execution_id}.kickoff.md`), String(solution.payload.kickoff), { mode: 0o600 });
     const child = fakeChild();
@@ -1522,7 +1555,7 @@ test('R11 run: identical pre-existing kickoff file replays as a no-op; drifted b
   // byte drift: different bytes at the immutable path — refuse, never overwrite
   {
     const { dir, ledger } = env0();
-    const solution = queuedSolution(ledger);
+    const solution = queuedSolution(ledger, dir);
     const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'r11-sess-0003-cccc' });
     writeFileSync(join(dir, 'worker', `${claim.execution_id}.kickoff.md`), '# drifted bytes\n', { mode: 0o600 });
     let spawned = 0;
@@ -1629,7 +1662,7 @@ const PR_R10 = 'https://github.com/artyhoo/getff/pull/9001';
 
 async function runCaptureReject({ name, buildOuter, exitCode = 0 }) {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
@@ -1705,7 +1738,7 @@ test('R10 reject: nonzero child exit -> BLOCKED_CAPTURE even with an otherwise v
 
 test('R10 review gate: REQUIRES_REVIEW survives ledger restart, holds the slot; only a matching OS-owner receipt unlocks DONE', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
@@ -1737,7 +1770,7 @@ test('R10 review gate: REQUIRES_REVIEW survives ledger restart, holds the slot; 
   try {
     assert.equal(ledger2.status().execution.state, 'REQUIRES_REVIEW');
     // the held slot refuses admission of a NEW queued solution
-    const solution2 = queuedSolution(ledger2);
+    const solution2 = queuedSolution(ledger2, dir);
     const claim2 = ledger2.claimExecution({ solutionId: solution2.id, sessionId: 'gate-sess-0001-aaaa' });
     assert.equal(claim2.claimed, false, 'REQUIRES_REVIEW holds the global execution slot');
     const { applyReviewAndVerify } = await import('./executor.mjs');
@@ -1778,7 +1811,7 @@ test('R10 review gate: REQUIRES_REVIEW survives ledger restart, holds the slot; 
 
 test('R10 review gate: a missing worker report holds (REVIEW_REPORT_MISSING), never invents approval', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'gate-sess-0002-bbbb' });
   ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', reason: 'fixture: report lost' });
   const { applyReviewAndVerify } = await import('./executor.mjs');
@@ -2120,7 +2153,7 @@ test('startActiveClock: query watchdog / boot mismatch / backward sample make th
 
 test('R08: a fresh()-false clock unproves the budget — CLOCK_UNPROVEN, never TIMED_OUT_ACTIVE', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock({ advancePerReadMs: 60_000 }); // budget burns instantly IF freshness were ignored
@@ -2150,7 +2183,7 @@ const REUSED_START = 'Mon Oct  6 12:34:56 2026';
 
 test('R09: signaled-but-unproven death is UNCERTAIN_STOP — never TIMED_OUT_ACTIVE on a signal call', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild({ ignoreKills: true }); // signals recorded, child never dies
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const clock = fakeClock(); // frozen: the test alone decides when the budget crosses
@@ -2178,7 +2211,7 @@ test('R09: signaled-but-unproven death is UNCERTAIN_STOP — never TIMED_OUT_ACT
 
 test('R09: pid reused between TERM and KILL — the KILL never fires; verdict stays uncertain', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   let probeCalls = 0;
   const child = fakeChild({
     ignoreKills: true,
@@ -2215,7 +2248,7 @@ test('R09: pid reused between TERM and KILL — the KILL never fires; verdict st
 
 test('R09: pre-signal identity mismatch (reused/unknown) — ZERO signals, UNCERTAIN_IDENTITY', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const reusedFromStart = fakeChild({
     ignoreKills: true,
     probeImpl: () => ({ pid: 4242, start: REUSED_START, found: true }),
@@ -2245,7 +2278,7 @@ test('R09: pre-signal identity mismatch (reused/unknown) — ZERO signals, UNCER
 
 test('R09: authoritative absence after KILL is DEAD (TIMED_OUT_ACTIVE), not UNCERTAIN_STOP', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   let probeCalls = 0;
   const child = fakeChild({
     ignoreKills: true, // signals do nothing; only the process table decides
@@ -2345,7 +2378,7 @@ function preexistingLock(dir, holder) {
 
 test('R07: run mode — previous-boot stale lock is taken over (evidence retained) and the capture holds at REQUIRES_REVIEW', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const manifest = ledger.getManifest(solution.id);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
@@ -2392,7 +2425,7 @@ test('R07: run mode — previous-boot stale lock is taken over (evidence retaine
 
 test('R07: run mode — same-boot DEAD holder is taken over (holder-dead) and the run proceeds', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const lockPath = preexistingLock(dir, { pid: 4242, start: SUP_START, boot_id: 'BOOT-EX', execution_id: 'DOT-EXEC-D' });
@@ -2427,7 +2460,7 @@ test('R07: run mode — same-boot DEAD holder is taken over (holder-dead) and th
 
 test('R07: run mode — reused pid (alive, different start text) is taken over as pid-reused', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const lockPath = preexistingLock(dir, { pid: 4242, start: SUP_START, boot_id: 'BOOT-EX', execution_id: 'DOT-EXEC-R' });
@@ -2455,7 +2488,7 @@ test('R07: run mode — reused pid (alive, different start text) is taken over a
 
 test('R07: run mode — LIVE same-boot holder is preserved: BLOCKED, zero spawns, lock bytes untouched', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const holderStart = 'Mon Oct  6 11:00:00 2026';
   const holderJson = JSON.stringify({ pid: 4242, start: holderStart, boot_id: 'BOOT-EX', execution_id: 'DOT-EXEC-LIVE' });
   const lockPath = preexistingLock(dir, JSON.parse(holderJson));
@@ -2479,7 +2512,7 @@ test('R07: run exit removes the lock ONLY when it is still its OWN — a replace
   // Arm 1: mid-run, the lock file is REPLACED by another owner (takeover after
   // our supposed death). Our exit must NOT delete the successor's lock.
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const lockPath = join(dir, 'worker', 'supervisor.lock');
@@ -2509,7 +2542,7 @@ test('R07: run exit removes the lock ONLY when it is still its OWN — a replace
 
   // Arm 2: the SAME run shape without replacement — our OWN lock is removed on exit.
   const { dir: dir2, ledger: ledger2 } = env0();
-  const solution2 = queuedSolution(ledger2);
+  const solution2 = queuedSolution(ledger2, dir2);
   const child2 = fakeChild();
   const jobBranch2 = `codex/dot-job-${solution2.sha256.slice(0, 12)}`;
   const r2 = runExecution({
@@ -2535,7 +2568,7 @@ test('R07: run exit removes the lock ONLY when it is still its OWN — a replace
 
 test('R07: run mode — unprovable holder (malformed bytes / missing identity) blocks as SUPERVISOR_LOCK_UNPROVEN, untouched', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const lockPath = preexistingLock(dir, { pid: 4242, start: null, boot_id: 'BOOT-EX', execution_id: 'DOT-EXEC-U' });
   let spawned = 0;
   const out = await runExecution({
@@ -2553,7 +2586,7 @@ test('R07: run mode — unprovable holder (malformed bytes / missing identity) b
 
   // raw non-JSON bytes: same conservative refusal
   const { dir: dir2, ledger: ledger2 } = env0();
-  const solution2 = queuedSolution(ledger2);
+  const solution2 = queuedSolution(ledger2, dir2);
   const lockPath2 = join(dir2, 'worker', 'supervisor.lock');
   writeFileSync(lockPath2, 'not-json');
   const out2 = await runExecution({
@@ -2726,7 +2759,7 @@ test('F02: OFF landing between admission and spawn — no launch, attempt retain
 
 test('F02: OFF landing after the tick claim refuses the supervise launch — reservation retained', async () => {
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const claim = ledger.claimExecution({
     solutionId: solution.id, sessionId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     bootId: 'BOOT-EX', supervisor: { pid: process.pid, start: 'x' },
@@ -2909,7 +2942,7 @@ test('F03: productionSpawn — post-boundary kill failures stay bounded (no supe
 test('F03: runExecution with a real async spawn failure checkpoints BLOCKED_LAUNCH — no unhandled-error crash', async () => {
   const { productionSpawn } = await import('./executor.mjs');
   const { dir, ledger } = env0();
-  const solution = queuedSolution(ledger);
+  const solution = queuedSolution(ledger, dir);
   const out = await runExecution({
     ledger, solution, worktree: dir, dir,
     spawnImpl: (executable, argv, opts) => productionSpawn('/nonexistent/dot-relay-f03-bin', argv, opts),
@@ -2921,4 +2954,177 @@ test('F03: runExecution with a real async spawn failure checkpoints BLOCKED_LAUN
   assert.equal(out.blocker, 'BLOCKED_LAUNCH');
   assert.equal(ledger.status().execution, null); // slot freed by the bounded outcome
   rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------- F05: ARTIFACT_RESERIALIZATION
+// The PUBLISHED object-store file is the only byte authority for a solution
+// artifact: compact, pretty, reordered-key, trailing-LF and multibyte originals
+// each verify against their OWN manifest, and a JSON-reconstruction match is
+// never accepted as evidence. Any drift — one byte, absent file, symlink,
+// wrong size, foreign envelope, swapped payload — fails closed BEFORE spawn,
+// and resume holds the identical original-byte authority.
+
+const F05_SERIAL_VARIANTS = [
+  ['compact', (e) => JSON.stringify(e)],
+  ['pretty 2-space', (e) => JSON.stringify(e, null, 2)],
+  ['pretty 4-space', (e) => JSON.stringify(e, null, 4)],
+  ['reordered keys', (e) => JSON.stringify({ sha256: e.sha256, payload: e.payload, parents: e.parents, producer: e.producer, id: e.id, kind: e.kind, version: e.version })],
+  ['trailing LF', (e) => `${JSON.stringify(e)}\n`],
+  ['pretty multibyte original', (e) => JSON.stringify(e, null, 2)],
+];
+
+const F05_PRETTY = (e) => JSON.stringify(e, null, 2);
+
+test('F05: every producer serialization verifies against its OWN manifest — spawn proceeds, kickoff bytes exact', async () => {
+  for (const [name, serialize] of F05_SERIAL_VARIANTS) {
+    const { dir, ledger } = env0();
+    const solution = queuedSolution(ledger, dir, { serialize });
+    const manifest = ledger.getManifest(solution.id);
+    const rawText = readFileSync(join(dir, 'objects', `${manifest.artifact_sha256}.json`), 'utf8');
+    // the multibyte arm really is multibyte at the byte level (non-ASCII
+    // acceptance text by construction)
+    if (name === 'pretty multibyte original') {
+      assert.ok(Buffer.byteLength(rawText, 'utf8') > rawText.length, 'non-ASCII bytes present in the original');
+    }
+    const child = fakeChild();
+    const r = runExecution({
+      ledger, solution, worktree: dir, dir,
+      spawnImpl: captureSpawn(child), gitImpl: gitOk(),
+      clock: fakeClock(),
+      pollIntervalMs: 5, startupTimeoutMs: 200, deadlineMs: 5_000,
+    });
+    await sleep(10);
+    await guardedMidRun(r, child, () => {
+      assert.ok(Array.isArray(child.argv), `${name}: spawn proceeded — original bytes accepted`);
+      // the private kickoff file carries the kickoff of the PARSED ORIGINAL
+      assert.equal(
+        readFileSync(join(dir, 'worker', `${child.opts.env.DOT_RELAY_EXECUTION_ID}.kickoff.md`), 'utf8'),
+        String(solution.payload.kickoff),
+        `${name}: kickoff bytes come from the original file`,
+      );
+    });
+    child.kill('SIGKILL'); // test cleanup
+    await r;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F05: tampered or foreign object-store originals fail closed BEFORE spawn — BLOCKED_PACKET_UNTRUSTED, slot held', async () => {
+  const arms = [
+    {
+      name: 'one byte appended to the pretty original',
+      make: ({ dir, ledger }) => {
+        const solution = queuedSolution(ledger, dir, { serialize: F05_PRETTY });
+        const p = join(dir, 'objects', `${ledger.getManifest(solution.id).artifact_sha256}.json`);
+        writeFileSync(p, `${readFileSync(p, 'utf8')} `);
+        return solution;
+      },
+    },
+    {
+      name: 'object file absent',
+      make: ({ dir, ledger }) => {
+        const solution = queuedSolution(ledger, dir, { serialize: F05_PRETTY });
+        rmSync(join(dir, 'objects', `${ledger.getManifest(solution.id).artifact_sha256}.json`));
+        return solution;
+      },
+    },
+    {
+      name: 'object path is a symlink',
+      make: ({ dir, ledger }) => {
+        const solution = queuedSolution(ledger, dir, { serialize: F05_PRETTY });
+        const p = join(dir, 'objects', `${ledger.getManifest(solution.id).artifact_sha256}.json`);
+        const target = join(dir, 'f05-symlink-target.json');
+        writeFileSync(target, F05_PRETTY(solution));
+        rmSync(p);
+        symlinkSync(target, p);
+        return solution;
+      },
+    },
+    {
+      name: 'manifest bytes column disagrees with the real file',
+      make: ({ dir, ledger }) => queuedSolution(ledger, dir, {
+        serialize: F05_PRETTY,
+        manifestOverride: (m) => ({ ...m, bytes: m.bytes + 1 }),
+      }),
+    },
+    {
+      name: 'foreign envelope (different id) at the registered digest',
+      make: ({ dir, ledger }) => queuedSolution(ledger, dir, {
+        envelopeOverride: (s) => {
+          const forged = { ...s, id: 'DOT-EX-S-FORGED-0001' };
+          forged.sha256 = envelopeDigest(forged);
+          return forged;
+        },
+      }),
+    },
+    {
+      name: 'swapped payload (changed kickoff) at a self-consistent digest',
+      make: ({ dir, ledger }) => queuedSolution(ledger, dir, {
+        envelopeOverride: (s) => {
+          const swapped = { ...s, payload: { ...s.payload, kickoff: '# swapped kickoff\n', kickoff_sha256: sha256Of('# swapped kickoff\n') } };
+          swapped.sha256 = envelopeDigest(swapped);
+          return swapped;
+        },
+      }),
+    },
+  ];
+  for (const arm of arms) {
+    const { dir, ledger } = env0();
+    const solution = arm.make({ dir, ledger });
+    let spawned = 0;
+    const out = await runExecution({
+      ledger, solution, worktree: dir, dir,
+      spawnImpl: () => { spawned += 1; throw new Error('must not spawn'); },
+      gitImpl: gitOk(), clock: fakeClock(), pollIntervalMs: 5,
+    });
+    assert.equal(out.state, 'BLOCKED', arm.name);
+    assert.equal(out.blocker, 'BLOCKED_PACKET_UNTRUSTED', arm.name);
+    assert.equal(spawned, 0, `${arm.name}: no spawn`);
+    assert.equal(ledger.status().execution, null, `${arm.name}: fresh mode never claimed an execution`);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F05: resume holds the identical original-byte authority — pretty original resumes, drifted bytes refuse', async () => {
+  // GREEN arm: a pretty-serialized original (checkpoint bound to THAT manifest)
+  // resumes through the exact --resume spawn.
+  {
+    const { dir, ledger } = env0();
+    const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir, serialize: F05_PRETTY });
+    const child = fakeChild();
+    const r = resumeExecution({
+      ledger, solution, executionId: claim.execution_id, dir,
+      spawnImpl: captureSpawn(child),
+      gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch, toplevel: dir }),
+      sessionProbe: () => [],
+      clock: fakeClock({ bootId: 'BOOT-2' }),
+      pollIntervalMs: 5, deadlineMs: 5_000,
+    });
+    await sleep(10);
+    await guardedMidRun(r, child, () => {
+      assert.equal(child.argv[child.argv.indexOf('--resume') + 1], 'resume-sess-0001-aaaa');
+    });
+    child.kill('SIGKILL'); // test cleanup
+    await r;
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // RED arm: one drifted byte in the pretty original refuses the resume.
+  {
+    const { dir, ledger } = env0();
+    const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir, serialize: F05_PRETTY });
+    const objPath = join(dir, 'objects', `${ledger.getManifest(solution.id).artifact_sha256}.json`);
+    writeFileSync(objPath, `${readFileSync(objPath, 'utf8')} `);
+    let spawned = 0;
+    const out = await resumeExecution({
+      ledger, solution, executionId: claim.execution_id, dir,
+      spawnImpl: () => { spawned += 1; throw new Error('must not spawn'); },
+      gitImpl: gitOk({ branch: jobBranch, toplevel: dir }), sessionProbe: () => [],
+      clock: fakeClock({ bootId: 'BOOT-2' }), pollIntervalMs: 5,
+    });
+    assert.equal(out.state, 'BLOCKED');
+    assert.equal(out.blocker, 'BLOCKED_PACKET_UNTRUSTED');
+    assert.equal(spawned, 0);
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'BLOCKED');
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -14,7 +14,7 @@ import { mkdirSync, openSync, closeSync, writeSync, ftruncateSync, readFileSync,
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseChildResult, EXECUTOR_MODEL } from '../advisor-bridge-beta/process.mjs';
-import { probeOutcome } from './contract.mjs';
+import { probeOutcome, envelopeDigest } from './contract.mjs';
 
 export const GLM_WRAPPER = '/Users/art/.local/bin/glm';
 export const EXECUTION_MODEL = EXECUTOR_MODEL; // 'glm-5.3'
@@ -418,39 +418,62 @@ function startupPreamble({ jobBranch, baseSha, receiptPath, executionId, session
   ].join('\n');
 }
 
-// R11: verify the TRUSTED packet before any attempt reservation/spawn, in BOTH
-// run and resume modes. Authority is the solution's REGISTERED manifest — the
-// whole-artifact hash/bytes of the original serialized envelope — plus the
-// kickoff digest the payload itself declares. No synthetic fallback: an
-// unregistered manifest, a whole-file mismatch, or a kickoff digest mismatch
-// is BLOCKED_PACKET_UNTRUSTED, never a guess.
-function verifySolutionPacket({ ledger, solution }) {
+// R11 + F05: verify the TRUSTED packet before any attempt reservation/spawn,
+// in run and resume modes (adopt re-validates the same packet under F06).
+// Authority is the solution's REGISTERED manifest PLUS the PUBLISHED original
+// artifact file: the exact producer bytes at objects/<artifact_sha256>.json —
+// NEVER a JSON reconstruction of the in-memory envelope (a reserialized twin
+// is indistinguishable from a forged one). The file must be a regular
+// non-symlink file whose lstat size equals artifact_bytes BEFORE any read,
+// whose whole-file hash equals artifact_sha256, which strictly parses to the
+// envelope whose identity fields and canonical digest equal the ledger
+// solution, and whose declared kickoff digest matches the kickoff text of the
+// PARSED ORIGINAL payload. No synthetic fallback: any miss is
+// BLOCKED_PACKET_UNTRUSTED, never a guess.
+function verifySolutionPacket({ ledger, solution, objectsDir }) {
   const manifest = ledger.getManifest(solution.id);
   if (!manifest
     || typeof manifest.artifact_sha256 !== 'string' || !HEX64.test(manifest.artifact_sha256)
     || !Number.isSafeInteger(manifest.artifact_bytes)) {
     return { ok: false, reason: 'manifest-missing' };
   }
-  // Canonical whole-file reconstruction (contract ENVELOPE key order):
-  // version, kind, id, producer, parents, payload, sha256.
-  const wholeFile = JSON.stringify({
-    version: 1,
-    kind: solution.kind,
-    id: solution.id,
-    producer: solution.producer,
-    parents: solution.parents ?? [],
-    payload: solution.payload,
-    sha256: solution.sha256,
-  });
-  if (sha256Of(wholeFile) !== manifest.artifact_sha256
-    || Buffer.byteLength(wholeFile) !== manifest.artifact_bytes) {
-    return { ok: false, reason: 'artifact-mismatch' };
+  if (typeof objectsDir !== 'string' || objectsDir.length === 0) {
+    return { ok: false, reason: 'objects-dir-missing' };
   }
-  const kickoffText = String(solution.payload.kickoff ?? '');
+  const objectPath = join(objectsDir, `${manifest.artifact_sha256}.json`);
+  let st;
+  try { st = lstatSync(objectPath); } catch { return { ok: false, reason: 'object-missing' }; }
+  if (st.isSymbolicLink() || !st.isFile()) return { ok: false, reason: 'object-not-regular' };
+  if (st.size !== manifest.artifact_bytes) return { ok: false, reason: 'object-size' };
+  let buf;
+  try { buf = readFileSync(objectPath); } catch { return { ok: false, reason: 'object-unreadable' }; }
+  if (sha256OfBytes(buf) !== manifest.artifact_sha256) return { ok: false, reason: 'object-hash' };
+  let original;
+  try { original = JSON.parse(buf.toString('utf8')); } catch { return { ok: false, reason: 'object-parse' }; }
+  if (!original || typeof original !== 'object' || Array.isArray(original)) {
+    return { ok: false, reason: 'object-shape' };
+  }
+  if (original.version !== 1
+    || original.kind !== solution.kind
+    || original.id !== solution.id
+    || original.producer !== solution.producer
+    || !Array.isArray(original.parents)
+    || !original.payload || typeof original.payload !== 'object' || Array.isArray(original.payload)) {
+    return { ok: false, reason: 'object-identity' };
+  }
+  if (typeof original.sha256 !== 'string'
+    || original.sha256 !== solution.sha256
+    || envelopeDigest(original) !== solution.sha256) {
+    return { ok: false, reason: 'object-digest' };
+  }
+  // F05: the kickoff digest is extracted from the PARSED ORIGINAL payload —
+  // after the file bytes proved authoritative, never before.
+  const kickoffText = original.payload.kickoff;
+  if (typeof kickoffText !== 'string') return { ok: false, reason: 'kickoff-mismatch' };
   const kickoffSha = sha256Of(kickoffText);
-  if (typeof solution.payload.kickoff_sha256 !== 'string'
-    || !HEX64.test(solution.payload.kickoff_sha256)
-    || solution.payload.kickoff_sha256 !== kickoffSha) {
+  if (typeof original.payload.kickoff_sha256 !== 'string'
+    || !HEX64.test(original.payload.kickoff_sha256)
+    || original.payload.kickoff_sha256 !== kickoffSha) {
     return { ok: false, reason: 'kickoff-mismatch' };
   }
   return {
@@ -860,8 +883,9 @@ export async function runExecution(opts) {
   // R11: the trusted packet verifies BEFORE the worker slot and any attempt
   // reservation — an unregistered/unmatched solution never reaches spawn. In
   // supervise mode the tick-reserved row is marked BLOCKED; fresh mode never
-  // claims an execution at all.
-  const packetVerify = verifySolutionPacket({ ledger, solution });
+  // claims an execution at all. F05: verification reads the PUBLISHED original
+  // artifact bytes from the runtime object store, never a reconstruction.
+  const packetVerify = verifySolutionPacket({ ledger, solution, objectsDir: join(dir, 'objects') });
   if (!packetVerify.ok) {
     if (superviseExecutionId) {
       ledger.updateExecution(superviseExecutionId, { state: 'BLOCKED', reason: 'BLOCKED_PACKET_UNTRUSTED' });
@@ -1346,8 +1370,9 @@ export async function resumeExecution(opts) {
 
   // R11: the trusted packet verifies BEFORE any recovery action — an
   // unregistered/unmatched solution is BLOCKED_PACKET_UNTRUSTED with the slot
-  // held terminally, never resumed.
-  const packetVerify = verifySolutionPacket({ ledger, solution });
+  // held terminally, never resumed. F05: identical original-byte authority as
+  // the run path (objects/<artifact_sha256>.json exact producer bytes).
+  const packetVerify = verifySolutionPacket({ ledger, solution, objectsDir: join(dir, 'objects') });
   if (!packetVerify.ok) {
     ledger.updateExecution(executionId, { state: 'BLOCKED', reason: 'BLOCKED_PACKET_UNTRUSTED' });
     return { state: 'BLOCKED', blocker: 'BLOCKED_PACKET_UNTRUSTED', execution_id: executionId };

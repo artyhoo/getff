@@ -17,7 +17,7 @@ import { join, dirname, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import { digest, CHAT_IDS, reportKey, splitCodepointParts } from './contract.mjs';
+import { digest, envelopeDigest, CHAT_IDS, reportKey, splitCodepointParts } from './contract.mjs';
 import { openLedger } from './ledger.mjs';
 
 const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
@@ -904,7 +904,8 @@ function absentPid() {
 function queuedCliSolution(ledger, tag) {
   const mk = (kind, id, producer, parents, payload) => {
     const e = { version: 1, kind, id, producer, parents, payload, sha256: null };
-    e.sha256 = digest(e);
+    // contract convention: the envelope digest EXCLUDES the sha256 field
+    e.sha256 = envelopeDigest(e);
     return e;
   };
   const manifestFor = (e, destination) => ({
@@ -1992,3 +1993,66 @@ function ledger2state(root) {
   const l = openLedger(join(root, 'ledger.sqlite'));
   try { return l.getExecution(l.status().execution?.id ?? '')?.state ?? null; } finally { l.close(); }
 }
+
+// ------------------------------------------------- F05: ARTIFACT_RESERIALIZATION
+// The supervise CLI path binds the same object-store byte authority: a
+// registered manifest whose original artifact file is absent or byte-drifted
+// never reaches a resume spawn — the fixed BLOCKED_PACKET_UNTRUSTED verdict
+// comes back (rendered as ok:true {state:'BLOCKED'} per the supervise output
+// contract) and the slot is held terminally. Compact producer bytes: the OLD
+// code would accept the reconstruction and walk on — that walk is the RED.
+function f05CliRoot({ tamper }) {
+  const root = freshRoot();
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const solution = queuedCliSolution(ledger, 'f05');
+  // register the solution manifest (the solver's public artifact authority)
+  // and publish the ORIGINAL artifact file — compact producer bytes under
+  // their own whole-file hash.
+  const manifest = {
+    version: 1, status: 'READY', event_id: solution.id, kind: 'solution', producer: solution.producer,
+    destination: 'coordinator', sha256: sha256Of(JSON.stringify(solution)), bytes: Buffer.byteLength(JSON.stringify(solution)),
+    parents: solution.parents, artifact: { page_id: `page-${solution.id}`, reference: 'library-file:cli-fixtures.json' }, delivery_id: null,
+  };
+  ledger.manifestImport({ manifest, producerRole: 'solver', cursorToken: `tok-${solution.id}` });
+  mkdirSync(join(root, 'objects'), { recursive: true });
+  const objPath = join(root, 'objects', `${manifest.sha256}.json`);
+  writeFileSync(objPath, JSON.stringify(solution));
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: '11111111-2222-4222-8222-888888888888' });
+  ledger.updateExecution(claim.execution_id, { state: 'RUNNING', pid: 601, process_start: 'Mon Oct  6 10:00:00 2026' });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'RUNNING', boot_id: currentBootId(), child_pid: 601, child_start: 'Mon Oct  6 10:00:00 2026' });
+  ledger.reconcileHost({
+    bootId: 'BOOT-F05-OTHER',
+    processProbe: () => ({ alive: false, start: null }),
+    controlActor: 'cli-f05-fixture',
+  });
+  ledger.close();
+  tamper(objPath);
+  return { root, executionId: claim.execution_id };
+}
+
+// direct row read: status().execution lists ACTIVE executions only, and a
+// terminal BLOCKED row must be asserted by id, not via the active window
+function executionState(root, executionId) {
+  const l = openLedger(join(root, 'ledger.sqlite'));
+  try { return l.getExecution(executionId)?.state ?? null; } finally { l.close(); }
+}
+
+test('F05: supervise --resume over an absent object-store original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', () => {
+  const { root, executionId } = f05CliRoot({ tamper: (objPath) => rmSync(objPath) });
+  const r = cliJson(['supervise', '--root', root, '--execution-id', executionId, '--resume']);
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_PACKET_UNTRUSTED');
+  assert.equal(executionState(root, executionId), 'BLOCKED'); // slot held terminally, never resumed
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F05: supervise --resume over a byte-drifted compact original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', () => {
+  const { root, executionId } = f05CliRoot({
+    tamper: (objPath) => writeFileSync(objPath, `${readFileSync(objPath, 'utf8')} `),
+  });
+  const r = cliJson(['supervise', '--root', root, '--execution-id', executionId, '--resume']);
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_PACKET_UNTRUSTED');
+  assert.equal(executionState(root, executionId), 'BLOCKED');
+  rmSync(root, { recursive: true, force: true });
+});
