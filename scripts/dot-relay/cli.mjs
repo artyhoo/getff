@@ -1321,8 +1321,13 @@ function cmdLocatorResolved({ root, flags }) {
   if (!/^[A-Z0-9][A-Z0-9-]{0,63}$/.test(generation)) usage('--generation must match the locator generation grammar');
   if (!HEX64_RE.test(locatorSha) || !HEX64_RE.test(sourceSha)) usage('--locator-sha256/--source-sha256 must be 64 lowercase hex');
   if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes > SOURCE_MAX) usage('--bytes must be an integer in 1..200000');
-  // only a FULL scheme reference is a resolution; a bare type-label is not
-  if (reference.indexOf('library-file:/') !== 0 && reference.indexOf('project-file:/') !== 0) usage('--reference must be a full library-file:/ or project-file:/ reference');
+  // F04: a FULL opaque reference exactly as the tool returns it — scheme prefix
+  // plus a NONEMPTY payload, no slash required (real Library targets are
+  // opaque), never decoded or rebuilt. A bare type-label or empty payload is
+  // not a resolution target.
+  const schemeIdx = reference.startsWith('library-file:') ? 'library-file:'.length
+    : reference.startsWith('project-file:') ? 'project-file:'.length : -1;
+  if (schemeIdx === -1 || schemeIdx === reference.length) usage('--reference must be a full library-file: or project-file: reference (nonempty opaque payload, no slash required)');
   const { ledger } = openRoot(root);
   try {
     ok(ledger.recordLocatorResolution({
@@ -1743,7 +1748,7 @@ function cmdBridgeSource({ root, flags }) {
       // (absent), so its fallback can never fire.
       page_registry: {
         collector: 'page_070fdd367758819192e503c9cee51251',
-        analyst: 'page_955c5f291f788719199e9ba5da85bee76',
+        analyst: 'page_955c5f291f78819199e9ba5da85bee76',
       },
       cycle_wall_budget_ms: 45_000,
       event_limit: 10,

@@ -34,9 +34,10 @@ const sha40 = (s) => sha256Of(s).slice(0, 40);
 const MARKER = 'BRIDGE-BODY-MARKER-7c31';
 
 // PAGE-LOCATOR-RECOVERY-ADDENDUM §registry — solver stays disabled (absent).
+// F04 item 3: the analyst registry ID is the exact 32-hex authorized Page.
 const PAGE_REG = {
   collector: 'page_070fdd367758819192e503c9cee51251',
-  analyst: 'page_955c5f291f788719199e9ba5da85bee76',
+  analyst: 'page_955c5f291f78819199e9ba5da85bee76',
 };
 
 // ---------------------------------------------------------------- harness
@@ -95,15 +96,19 @@ function freshRoot() {
 
 // PUBLIC-TOOL-SHAPES-faithful fakes. polls: wait_threads poll objects;
 // pages: reference -> text for read_page_reference; pageSearch: fallback
-// read_page responder; sendBehavior: 'ok' | 'throw' | 'is-error' |
-// 'wrong-thread'; raceClaim: a competing winner claims the same PENDING
-// delivery just before the runner's own claim.
+// read_page responder (its return value is wrapped as structuredContent);
+// pageSearchRaw: F04 — a raw read_page response returned VERBATIM (models an
+// explicit denial envelope with isError and no structuredContent);
+// sendBehavior: 'ok' | 'throw' | 'is-error' | 'wrong-thread'; raceClaim: a
+// competing winner claims the same PENDING delivery just before the runner's
+// own claim.
 function makeTools(opts = {}) {
   const {
     polls = [],
     pages = {},
     refShapes = null,
     pageSearch = null,
+    pageSearchRaw = null,
     sendBehavior = 'ok',
     sendThrowMessage = 'secret-ish network dropped mid-send',
     raceClaim = false,
@@ -176,6 +181,7 @@ function makeTools(opts = {}) {
       // a real MCP boundary JSON-serializes args; record that form (the body's
       // vm-realm objects would otherwise differ by prototype only)
       calls.readPage.push(JSON.parse(JSON.stringify(arg)));
+      if (pageSearchRaw) return pageSearchRaw(arg);
       const r = pageSearch ? pageSearch(arg) : null;
       if (!r) throw new Error('secret-ish read_page failure');
       return { structuredContent: r };
@@ -793,6 +799,16 @@ test('crash-restart: partial multipart spool resumed by a later cycle with exact
 
 // ---------------------------------------------------------------- §8 Page fallback
 
+// Sanitized real tool-result shapes (F04 item 4): opaque ref syntax exactly
+// as the supported tool returns it, actual nested selection/markdown fields.
+function realPageResult({ pageId, markdown, selectionComplete = true }) {
+  return {
+    page_id: pageId,
+    selection: { selection_complete: selectionComplete },
+    content: { blocks: [{ markdown }] },
+  };
+}
+
 function fallbackCase(tag) {
   const c = smallCase(tag, `COLLECTOR-INDEX-FB${tag}`);
   const target = `library-file:/sources/${c.generation}.json`;
@@ -801,10 +817,9 @@ function fallbackCase(tag) {
     target,
     pages: { ...c.pages, [target]: c.page0Text },
     locatorIndex: { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector },
-    pageSearch: () => ({
-      page_id: PAGE_REG.collector,
-      selection_complete: true,
-      content: { blocks: [{ kind: 'markdown', text: `Index directory\n\n[${c.generation}.json](${target})\n` }] },
+    pageSearch: () => realPageResult({
+      pageId: PAGE_REG.collector,
+      markdown: `Index directory\n\n[${c.generation}.json](${target})\n`,
     }),
   };
 }
@@ -839,7 +854,7 @@ test('Page fallback ambiguity: five candidate links -> INDEX_REF_AMBIGUOUS, noth
   const { result } = await runBody(root, makeTools({
     polls: [pollFor('collector', 'cur-fb-2', locatorLine({ generation: c.generation, index: c.locatorIndex }))],
     pages: c.pages,
-    pageSearch: () => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'markdown', text: links }] } }),
+    pageSearch: () => realPageResult({ pageId: PAGE_REG.collector, markdown: links }),
   }).tools);
   assertResultShape(result);
   assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_AMBIGUOUS'));
@@ -855,7 +870,7 @@ test('Page fallback unresolved: links whose bytes do not match the descriptor ->
   const { result } = await runBody(root, makeTools({
     polls: [pollFor('collector', 'cur-fb-3', locatorLine({ generation: c.generation, index: c.locatorIndex }))],
     pages,
-    pageSearch: () => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'markdown', text: `[${c.generation}.json](${badTarget})` }] } }),
+    pageSearch: () => realPageResult({ pageId: PAGE_REG.collector, markdown: `[${c.generation}.json](${badTarget})` }),
   }).tools);
   assertResultShape(result);
   assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_UNRESOLVED'));
@@ -893,7 +908,7 @@ test('Page fallback cross-scheme: a library-file type-label resolves via a proje
   const { tools, calls } = makeTools({
     polls: [pollFor('collector', 'cur-fb-5', locatorLine({ generation: c.generation, index: idx }))],
     pages,
-    pageSearch: () => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'markdown', text: `dir [${c.generation}.json](${target})` }] } }),
+    pageSearch: () => realPageResult({ pageId: PAGE_REG.collector, markdown: `dir [${c.generation}.json](${target})` }),
   });
   const { result } = await runBody(root, tools);
   assertResultShape(result);
@@ -932,18 +947,31 @@ test('Page fallback bounds: >16 blocks, oversize markdown, incomplete selection 
     pageSearch,
   });
   // 17 well-formed markdown blocks
-  const links = Array.from({ length: 17 }, (_, i) => ({ kind: 'markdown', text: `b${i} [x](library-file:/nope-${i}.json)` }));
-  const r17 = await runBody(root, mk(() => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: links } })).tools);
+  const links = Array.from({ length: 17 }, (_, i) => `b${i} [x](library-file:/nope-${i}.json)`);
+  const r17 = await runBody(root, mk(() => ({
+    page_id: PAGE_REG.collector,
+    selection: { selection_complete: true },
+    content: { blocks: links.map((t) => ({ markdown: t })) },
+  })).tools);
   assert.ok(r17.result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED'), '17 blocks refused');
   // markdown sum over 262144 UTF-8 bytes
   const fat = `x [${c.generation}.json](library-file:/nope-fat.json) ${'f'.repeat(262200)}`;
-  const rFat = await runBody(root, mk(() => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'markdown', text: fat }] } })).tools);
+  const rFat = await runBody(root, mk(() => realPageResult({ pageId: PAGE_REG.collector, markdown: fat })).tools);
   assert.ok(rFat.result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED'), 'oversize markdown refused');
   // selection incomplete — the answer is NOT the full page
-  const rInc = await runBody(root, mk(() => ({ page_id: PAGE_REG.collector, selection_complete: false, content: { blocks: [{ kind: 'markdown', text: `[${c.generation}.json](library-file:/nope-inc.json)` }] } })).tools);
+  const rInc = await runBody(root, mk(() => realPageResult({
+    pageId: PAGE_REG.collector,
+    markdown: `[${c.generation}.json](library-file:/nope-inc.json)`,
+    selectionComplete: false,
+  })).tools);
   assert.ok(rInc.result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED'), 'incomplete selection refused');
-  // an agent_instructions block carrying the right-looking link never becomes a candidate
-  const rAg = await runBody(root, mk(() => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'agent_instructions', text: `[${c.generation}.json](library-file:/evil-agent.json)` }] } })).tools);
+  // a block without a canonical markdown field carrying the right-looking link
+  // (agent_instructions shape) never becomes a candidate
+  const rAg = await runBody(root, mk(() => ({
+    page_id: PAGE_REG.collector,
+    selection: { selection_complete: true },
+    content: { blocks: [{ kind: 'agent_instructions', text: `[${c.generation}.json](library-file:/evil-agent.json)` }] },
+  })).tools);
   assert.ok(rAg.result.blockers.some((b) => b.code === 'INDEX_REF_UNRESOLVED'), 'agent_instructions block ignored');
   const plan = cliJson(['plan', '--root', root]);
   assert.equal(plan.committed_cursors.collector, undefined, 'cursor held through every bounds arm');
@@ -958,7 +986,7 @@ test('locator resolution cache: cycle 1 resolves+durably caches but publishing f
   const target = `library-file:/sources/${c.generation}.json`;
   const pages = { ...c.pages, [target]: c.page0Text };
   const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
-  const pageSearch = () => ({ page_id: PAGE_REG.collector, selection_complete: true, content: { blocks: [{ kind: 'markdown', text: `[${c.generation}.json](${target})` }] } });
+  const pageSearch = () => realPageResult({ pageId: PAGE_REG.collector, markdown: `[${c.generation}.json](${target})` });
   // cycle 1: the FINAL source-put dies — resolution already persisted before it
   const base1 = makeTools({ polls: [pollFor('collector', 'cur-fb-8a', locatorLine({ generation: c.generation, index: idx }))], pages, pageSearch });
   const tools1 = {
@@ -989,6 +1017,221 @@ test('locator resolution cache: cycle 1 resolves+durably caches but publishing f
   assert.ok(existsSync(join(root, 'sources', `${idx.sha256}.json`)), 'source published in cycle 2');
   assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-fb-8b');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ------------------------------------------------- F04: PAGES_ADAPTER_CONTRACT
+// Real opaque Library references (library-file:fde1_..., no slash) and the
+// real nested read_page fields (selection.selection_complete, blocks[].markdown)
+// are the ONLY accepted forms — degenerate refs, wrong pages and explicit
+// denials stay blocked, and a denial never authorizes an inline fallback.
+
+test('F04: real opaque library-file:fde1_... reference resolves on the fast path with exact hash/size', async () => {
+  const root = freshRoot();
+  const c = smallCase('F04A', 'COLLECTOR-INDEX-F04A');
+  const opaque = `library-file:fde1_${c.generation}`;
+  const pages = { ...c.pages, [opaque]: c.page0Text };
+  const idx = { ...c.locatorIndex, reference: opaque };
+  const { tools, calls } = makeTools({
+    polls: [pollFor('collector', 'cur-f04-a', locatorLine({ generation: c.generation, index: idx }))],
+    pages,
+  });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  assert.equal(result.state, 'PROGRESSED');
+  assert.equal(result.counts.sources, 1);
+  // the opaque target is fetched DIRECTLY — a slash was never part of the grammar
+  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'ref-sm-F04A']);
+  assert.equal(calls.readPage.length, 0, 'fast path never fires the Page fallback');
+  assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text, 'exact descriptor bytes published');
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f04-a');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F04: real opaque project-file target resolves identically (either scheme, slash never required)', async () => {
+  const root = freshRoot();
+  const c = smallCase('F04B', 'COLLECTOR-INDEX-F04B');
+  const opaque = `project-file:fde1_${c.generation}`;
+  const pages = { ...c.pages, [opaque]: c.page0Text };
+  const idx = { ...c.locatorIndex, reference: opaque };
+  const { tools, calls } = makeTools({
+    polls: [pollFor('collector', 'cur-f04-b', locatorLine({ generation: c.generation, index: idx }))],
+    pages,
+  });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  assert.equal(result.state, 'PROGRESSED');
+  assert.equal(result.counts.sources, 1);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'ref-sm-F04B']);
+  assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F04: real nested read_page shape resolves the bare label with exact hash/size', async () => {
+  const root = freshRoot();
+  const c = smallCase('F04C', 'COLLECTOR-INDEX-F04C');
+  const target = `library-file:fde1_${c.generation}`;
+  const pages = { ...c.pages, [target]: c.page0Text };
+  const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
+  const { tools, calls } = makeTools({
+    polls: [pollFor('collector', 'cur-f04-c', locatorLine({ generation: c.generation, index: idx }))],
+    pages,
+    pageSearch: () => realPageResult({
+      pageId: PAGE_REG.collector,
+      markdown: `Index directory\n\n[${c.generation}.json](${target})\n`,
+    }),
+  });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  assert.equal(result.state, 'PROGRESSED');
+  assert.equal(result.counts.sources, 1);
+  assert.equal(calls.readPage.length, 1);
+  assert.deepEqual(calls.readPage[0], {
+    page_id: PAGE_REG.collector,
+    search: [`${c.generation}.json`],
+    context_blocks: 0,
+  });
+  // the opaque link target is a full candidate and verifies exactly
+  assert.deepEqual(calls.reads.map((r) => r.reference), [target, 'ref-sm-F04C']);
+  assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f04-c');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F04: analyst fallback requests the exact authorized Page ID (registry-corrected)', async () => {
+  const root = freshRoot();
+  const generation = 'ANALYST-INDEX-F04D';
+  const page0 = { version: 1, producer: CHAT_IDS.analyst, generation, page_number: 0, items: [], next: null };
+  const pageText = JSON.stringify(page0);
+  const target = `library-file:fde1_${generation}`;
+  const idx = { page_id: PAGE_REG.analyst, reference: 'library-file', sha256: sha256Of(pageText), bytes: Buffer.byteLength(pageText) };
+  const { tools, calls } = makeTools({
+    polls: [pollFor('analyst', 'cur-f04-d', locatorLine({ role: 'analyst', generation, index: idx }))],
+    pages: { [target]: pageText },
+    pageSearch: () => realPageResult({ pageId: PAGE_REG.analyst, markdown: `[${generation}.json](${target})` }),
+  });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  assert.equal(result.state, 'PROGRESSED');
+  assert.equal(result.counts.sources, 1);
+  assert.equal(calls.readPage.length, 1);
+  assert.equal(calls.readPage[0].page_id, 'page_955c5f291f78819199e9ba5da85bee76', 'the exact authorized analyst Page ID');
+  assert.deepEqual(calls.reads.map((r) => r.reference), [target], 'opaque target fetched and verified');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F04: empty payload, wrong Page, incomplete selection, ambiguity, wrong hash/size and explicit denials stay blocked', async () => {
+  const root = freshRoot();
+  const cursorHeld = () => cliJson(['plan', '--root', root]).committed_cursors;
+  const published = () => readdirSync(join(root, 'sources')).filter((f) => f.endsWith('.json'));
+
+  // empty scheme payload: neither a full reference nor the bare type label
+  {
+    const c = smallCase('F04E1', 'COLLECTOR-INDEX-F04E1');
+    const idx = { ...c.locatorIndex, reference: 'library-file:' };
+    const { tools, calls } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e1', locatorLine({ generation: c.generation, index: idx }))],
+      pages: { 'library-file:': 'evil' },
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_UNRESOLVED'), 'empty scheme payload refused');
+    assert.equal(calls.reads.length, 0, 'no fetch for an empty payload');
+    assert.equal(calls.readPage.length, 0, 'no fallback for an empty payload');
+  }
+  // wrong Page: bare label whose page_id is not the role's registry entry
+  {
+    const c = smallCase('F04E2', 'COLLECTOR-INDEX-F04E2');
+    const idx = { ...c.locatorIndex, reference: 'library-file', page_id: 'page_someone_elses' };
+    const { tools, calls } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e2', locatorLine({ generation: c.generation, index: idx }))],
+      pages: {},
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_UNRESOLVED'), 'foreign registry page refused');
+    assert.equal(calls.readPage.length, 0, 'fallback never fires for a foreign page');
+  }
+  // incomplete selection in the REAL nested shape — the answer is not the page
+  {
+    const c = smallCase('F04E3', 'COLLECTOR-INDEX-F04E3');
+    const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
+    const { tools } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e3', locatorLine({ generation: c.generation, index: idx }))],
+      pages: c.pages,
+      pageSearch: () => realPageResult({
+        pageId: PAGE_REG.collector,
+        markdown: `[${c.generation}.json](library-file:fde1_${c.generation})`,
+        selectionComplete: false,
+      }),
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED'), 'incomplete selection refused');
+  }
+  // ambiguity: five distinct opaque candidates
+  {
+    const c = smallCase('F04E4', 'COLLECTOR-INDEX-F04E4');
+    const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
+    const links = Array.from({ length: 5 }, (_, i) => `[${c.generation}.json](library-file:fde1_${c.generation}-${i})`).join('\n');
+    const { tools } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e4', locatorLine({ generation: c.generation, index: idx }))],
+      pages: {},
+      pageSearch: () => realPageResult({ pageId: PAGE_REG.collector, markdown: links }),
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_AMBIGUOUS'), 'ambiguous evidence refused');
+  }
+  // wrong hash/size: the opaque target resolves but its bytes are not the descriptor's
+  {
+    const c = smallCase('F04E5', 'COLLECTOR-INDEX-F04E5');
+    const target = `library-file:fde1_${c.generation}`;
+    const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
+    const { tools } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e5', locatorLine({ generation: c.generation, index: idx }))],
+      pages: { [target]: '{"version":1,"stale":true}' },
+      pageSearch: () => realPageResult({ pageId: PAGE_REG.collector, markdown: `[${c.generation}.json](${target})` }),
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_REF_UNRESOLVED'), 'digest mismatch is not a resolution');
+  }
+  // explicit denial on the FAST PATH: fixed hold, never a demotion to fallback
+  {
+    const c = smallCase('F04E6', 'COLLECTOR-INDEX-F04E6');
+    const opaque = `library-file:fde1_${c.generation}`;
+    const idx = { ...c.locatorIndex, reference: opaque };
+    const { tools, calls } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e6', locatorLine({ generation: c.generation, index: idx }))],
+      pages: { [opaque]: c.page0Text },
+      refShapes: { [opaque]: { content: [{ type: 'text', text: 'access denied by policy' }], isError: true } },
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'SOURCE_READ_FAILED'), 'explicit denial is a fixed hold');
+    assert.equal(calls.readPage.length, 0, 'a denied full reference never falls back inline');
+  }
+  // explicit denial of the fallback search itself: lookup hold, nothing published
+  {
+    const c = smallCase('F04E7', 'COLLECTOR-INDEX-F04E7');
+    const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
+    const { tools, calls } = makeTools({
+      polls: [pollFor('collector', 'cur-f04-e7', locatorLine({ generation: c.generation, index: idx }))],
+      pages: c.pages,
+      pageSearchRaw: () => ({ content: [{ type: 'text', text: 'access denied by policy' }], isError: true }),
+    });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED'), 'denied search is a lookup hold');
+    assert.equal(calls.reads.length, 0, 'no candidate fetch after a denial');
+  }
+  // every arm held the cursor and published nothing
+  const cursors = cursorHeld();
+  for (const role of ['collector', 'analyst', 'solver']) {
+    assert.equal(cursors[role], undefined, `cursor held for ${role} through every blocked arm`);
+  }
+  assert.deepEqual(published(), [], 'nothing published by a blocked arm');
   rmSync(root, { recursive: true, force: true });
 });
 

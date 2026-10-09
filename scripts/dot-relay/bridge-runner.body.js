@@ -292,16 +292,33 @@ function basenameOf(s) {
   return cut === -1 ? s : s.slice(cut + 1);
 }
 
-// Resolve an index-page descriptor to its exact source text. Fast path: ONLY
-// a full library-file:/ or project-file:/ reference is fetched directly. The
+// F04: a full opaque Library reference is the scheme plus a NONEMPTY payload,
+// taken exactly as the supported tool returns it — a slash is NOT part of the
+// grammar (real targets are opaque ids), the payload is never decoded or
+// rebuilt, and the bare type label (no colon / empty payload) is NOT a full
+// reference. Bounded to the locator reference grammar's 1024 chars, no
+// whitespace.
+function fullRefTarget(ref) {
+  if (typeof ref !== 'string' || ref.length === 0 || ref.length > 1024 || /\s/.test(ref)) return null;
+  for (const scheme of ['library-file:', 'project-file:']) {
+    if (ref.indexOf(scheme) === 0) {
+      return ref.length > scheme.length ? ref : null;
+    }
+  }
+  return null;
+}
+
+// Resolve an index-page descriptor to its exact source text. Fast path: any
+// FULL opaque library-file:/project-file: reference is fetched directly. The
 // bare type-labels ('library-file'/'project-file') enter the bounded Page
 // fallback — gated to the role's own registry page, consulting the durable
 // locator-resolution cache first (a cached ref is still VERIFIED on fetch).
 // Anything else is INDEX_REF_UNRESOLVED before any fetch of any kind.
 async function resolveIndexSource(tools, config, cache, role, generation, desc) {
   const ref = desc.reference;
-  if (typeof ref === 'string' && (ref.indexOf('library-file:/') === 0 || ref.indexOf('project-file:/') === 0)) {
-    const sc = await readRef(tools, config, desc.page_id, ref);
+  const direct = fullRefTarget(ref);
+  if (direct !== null) {
+    const sc = await readRef(tools, config, desc.page_id, direct);
     if (sc.sha256 !== desc.sha256 || sc.byte_size !== desc.bytes) throw bridgeFail('INDEX_DESCRIPTOR_MISMATCH');
     return sc;
   }
@@ -324,15 +341,19 @@ async function resolveIndexSource(tools, config, cache, role, generation, desc) 
     search: [`${generation}.json`],
     context_blocks: 0,
   }), 'CYCLE_TOOL_TIMEOUT');
+  // F04: read the ACTUAL nested read_page fields — selection completeness
+  // lives under page.selection, canonical markdown under blocks[].markdown
   const page = res && typeof res === 'object' ? res.structuredContent : null;
+  const sel = page && typeof page === 'object' && page.selection && typeof page.selection === 'object'
+    ? page.selection : null;
   const blocks = page && typeof page === 'object' && page.content && typeof page.content === 'object'
     && Array.isArray(page.content.blocks) ? page.content.blocks : null;
-  if (!page || page.selection_complete !== true || !blocks || blocks.length > 16) {
+  if (!page || !sel || sel.selection_complete !== true || !blocks || blocks.length > 16) {
     throw bridgeFail('INDEX_PAGE_LOOKUP_FAILED');
   }
   let md = '';
   for (const b of blocks) {
-    if (b && typeof b === 'object' && b.kind === 'markdown' && typeof b.text === 'string') md += b.text;
+    if (b && typeof b === 'object' && typeof b.markdown === 'string') md += b.markdown;
   }
   if (utf8Len(md) > 262144) throw bridgeFail('INDEX_PAGE_LOOKUP_FAILED');
   const expected = `${generation}.json`;
@@ -341,9 +362,8 @@ async function resolveIndexSource(tools, config, cache, role, generation, desc) 
   for (const link of parseMarkdownLinks(md)) {
     const label = String(link.label);
     const target = String(link.target);
-    if (target.length === 0 || target.length > OUT_MAX || /\s/.test(target)) continue;
-    // EITHER full scheme is a candidate — never a bare type-label target
-    if (target.indexOf('library-file:/') !== 0 && target.indexOf('project-file:/') !== 0) continue;
+    // EITHER full opaque scheme is a candidate — never a bare type-label target
+    if (fullRefTarget(target) === null) continue;
     if (basenameOf(label) !== expected) continue;
     if (!seen[target]) {
       seen[target] = true;

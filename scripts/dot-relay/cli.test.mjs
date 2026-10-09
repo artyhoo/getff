@@ -1338,6 +1338,31 @@ test('locator-resolved: missing flags and malformed inputs are usage refusals', 
   rmSync(root, { recursive: true, force: true });
 });
 
+// ------------------------------------------------- F04: PAGES_ADAPTER_CONTRACT
+// A resolution reference is a FULL opaque library-file:/project-file: target
+// exactly as the supported tool returns it — a slash is NOT part of the
+// grammar; the payload must be nonempty and is never decoded or rebuilt.
+
+test('F04: locator-resolved accepts the full opaque reference exactly as returned (no slash required)', () => {
+  const root = freshRoot();
+  const opaque = 'library-file:fde1_COLLECTOR-INDEX-F04X';
+  const st = cliJson(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-F04X',
+    '--locator-sha256', sha256Of('l'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+    '--reference', opaque, '--source-sha256', sha256Of('p'), '--bytes', '10']);
+  assert.equal(st.ok, true);
+  assert.equal(st.stored, true);
+  assert.equal(st.replay, false);
+  const plan = cliJson(['plan', '--root', root]);
+  assert.equal(plan.locator_resolutions.length, 1);
+  assert.equal(plan.locator_resolutions[0].reference, opaque, 'the opaque target persists byte-exact, never rebuilt');
+  // an empty scheme payload is not a resolution target
+  const emptyPayload = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-F04X',
+    '--locator-sha256', sha256Of('l2'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+    '--reference', 'library-file:', '--source-sha256', sha256Of('p2'), '--bytes', '10'], { expectFail: true });
+  assert.equal(emptyPayload.status, 2, 'empty scheme payload is not a full reference');
+  rmSync(root, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------- R10: review-import
 
 // Prepares a REQUIRES_REVIEW execution directly in the root's ledger (fake
