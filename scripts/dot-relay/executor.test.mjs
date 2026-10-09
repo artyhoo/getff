@@ -36,6 +36,36 @@ const now = () => nowMs;
 const BASE_SHA = sha40('origin-staging-base');
 const HEAD = sha40('pr-head');
 
+// F07: the deployed review policy snapshot — the required checks the receipt
+// was approved under, each bound to its expected workflow/app identity. This
+// is what verifyPr compares the ACTUAL `gh pr checks --required` set against.
+const POLICY = {
+  version: 1,
+  digest: sha256Of('review-policy-v1:artyhoo/getff:ci'),
+  required: [{ name: 'ci', workflow: 'CI' }],
+};
+
+// F07: fake trusted Dot-importer adapter. The REAL adapter (verifying actual
+// Dot evidence against the configured producer/Page and the exact published
+// source bytes) is an unsupplied external contract — production supplies
+// NONE. This fake models its decision shape only: it attributes the receipt
+// to the configured producer identity and to the exact artifact bytes the
+// worker report recorded, and never throws on a malformed receipt.
+const dotProvenance = ({ reviewer = 'dot-relay-os-owner' } = {}) => ({
+  verifyReceipt: ({ receipt, report }) => {
+    if (!receipt || typeof receipt !== 'object' || typeof receipt.reviewer !== 'string'
+      || !receipt.source || typeof receipt.source !== 'object') {
+      return { ok: false, reason: 'not-a-v2-dot-receipt' };
+    }
+    if (receipt.reviewer !== reviewer) return { ok: false, reason: 'reviewer-not-the-configured-producer' };
+    if (receipt.source.sha256 !== report.artifact_sha256) {
+      return { ok: false, reason: 'source-bytes-not-the-published-artifact' };
+    }
+    return { ok: true, evidence: { importer: 'fake-dot-importer', reviewer: receipt.reviewer, source_sha256: receipt.source.sha256 } };
+  },
+});
+const permissiveProvenance = () => ({ verifyReceipt: () => ({ ok: true, evidence: { importer: 'test' } }) });
+
 // ---------------------------------------------------------------- fakes
 
 function fakeChild({ pid = 4242, start = '2026-10-08T10:00:00.000Z', ignoreKills = false, probeImpl = null } = {}) {
@@ -276,8 +306,32 @@ const outerCapture = (sessionId, result, { isError = false } = {}) => ({
   result,
 });
 
-// The OS-owner independent review receipt matching a captured report.
+// The OS-owner independent review receipt matching a captured report — F07
+// v2 shape: bound to repository, PR number, the exact base SHA, the policy
+// snapshot the approval was granted under, an explicit Dot GO, and the
+// immutable published source of the review evidence.
 const ownerReviewReceipt = (report, overrides = {}) => ({
+  version: 2,
+  execution_id: report.execution_id,
+  session_id: report.session_id,
+  solution_sha256: report.solution_sha256,
+  artifact_sha256: report.artifact_sha256,
+  source_tree_digest: report.source_tree_digest,
+  head_sha: report.head_sha,
+  repository: 'artyhoo/getff',
+  pr_number: Number((report.pr_url.match(/pull\/(\d+)$/) ?? [null, 9001])[1]),
+  base_sha: BASE_SHA,
+  policy: { version: POLICY.version, digest: POLICY.digest },
+  dot_go: true,
+  source: { reference: `dot://reviews/${report.execution_id}`, sha256: report.artifact_sha256 },
+  reviewer: 'dot-relay-os-owner',
+  verdict: 'APPROVE',
+  ...overrides,
+});
+
+// The pre-F07 v1 shape — kept to witness that the legacy world (arbitrary
+// reviewer string, no context binding) can never import anymore.
+const legacyV1Receipt = (report, overrides = {}) => ({
   version: 1,
   execution_id: report.execution_id,
   session_id: report.session_id,
@@ -289,6 +343,22 @@ const ownerReviewReceipt = (report, overrides = {}) => ({
   verdict: 'APPROVE',
   ...overrides,
 });
+
+// F07: a captured execution awaiting review WITHOUT spawning a child — the
+// ledger state a supervisor capture leaves behind, built directly.
+function f07Fixture({ tag = 'a', prUrl = 'https://github.com/artyhoo/getff/pull/9301' } = {}) {
+  const { dir, ledger } = env0();
+  const sessionId = `f07-${tag}-sess-0001-aaaa`;
+  const solution = queuedSolution(ledger, dir);
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId });
+  const report = codeCompleteReport({
+    executionId: claim.execution_id, sessionId, solution,
+    artifactSha256: sha256Of(`f07-${tag}-art`), prUrl,
+  });
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', reason: 'fixture: captured' });
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  return { dir, ledger, executionId: claim.execution_id, report, prUrl };
+}
 
 // RED-phase boundedness guard: assertions taken WHILE a supervisor promise is
 // in flight can throw (that is the point of a RED test) and leave the
@@ -717,10 +787,10 @@ test('verified startup + strict CODE_COMPLETE string capture -> REQUIRES_REVIEW 
 // ---------------------------------------------------------------- verifyPr table
 
 function viewJson(over = {}) {
-  return { headRefOid: HEAD, baseRefName: 'staging', state: 'OPEN', isDraft: false, mergeStateStatus: 'CLEAN', autoMergeRequest: null, ...over };
+  return { headRefOid: HEAD, baseRefOid: BASE_SHA, baseRefName: 'staging', state: 'OPEN', isDraft: false, mergeStateStatus: 'CLEAN', autoMergeRequest: null, ...over };
 }
 
-function ghWith({ view = viewJson(), checks = [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', link: 'l' }] } = {}) {
+function ghWith({ view = viewJson(), checks = [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }] } = {}) {
   const calls = [];
   return {
     calls,
@@ -731,40 +801,40 @@ function ghWith({ view = viewJson(), checks = [{ name: 'ci', state: 'SUCCESS', b
 
 test('verifyPr: exact stable head + nonempty required all pass -> DONE', async () => {
   const gh = ghWith();
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 1_000 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 1_000 });
   assert.equal(r.state, 'DONE');
   assert.ok(gh.calls.every(([, a]) => Array.isArray(a)));
 });
 
 test('verifyPr: empty required checks -> BLOCKED_CHECK_POLICY, not green', async () => {
   const gh = ghWith({ checks: [] });
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
 });
 
 test('verifyPr: failing required check -> BLOCKED_CI with names', async () => {
-  const gh = ghWith({ checks: [{ name: 'typecheck', state: 'FAILURE', bucket: 'fail', link: 'l' }] });
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const gh = ghWith({ checks: [{ name: 'ci', state: 'FAILURE', bucket: 'fail', workflow: 'CI', link: 'l' }] });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CI');
-  assert.deepEqual(r.failing, ['typecheck']);
+  assert.deepEqual(r.failing, ['ci']);
 });
 
 test('verifyPr: stale head (moves between views) -> not DONE', async () => {
   let n = 0;
   const gh = {
     view: () => { n += 1; return viewJson({ headRefOid: n <= 1 ? HEAD : sha40('moved') }); },
-    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', link: 'l' }],
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
   };
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_HEAD_MOVED');
 });
 
 test('verifyPr: wrong head from the start -> BLOCKED_HEAD_MISMATCH', async () => {
   const gh = ghWith({ view: viewJson({ headRefOid: sha40('other') }) });
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.blocker, 'BLOCKED_HEAD_MISMATCH');
 });
 
@@ -772,16 +842,16 @@ test('verifyPr: pending then pass within the ACTIVE budget -> polls to DONE', as
   let pending = true;
   const gh = {
     view: () => viewJson(),
-    checks: () => (pending ? [{ name: 'ci', state: 'PENDING', bucket: 'pending', link: 'l' }] : [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', link: 'l' }]),
+    checks: () => (pending ? [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }] : [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]),
   };
   setTimeout(() => { pending = false; }, 30);
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 10, deadlineMs: 2_000 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 10, deadlineMs: 2_000 });
   assert.equal(r.state, 'DONE');
 });
 
 test('verifyPr: pending past the ACTIVE budget -> BLOCKED_CI with pending names', async () => {
-  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', link: 'l' }] });
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock({ advancePerReadMs: 10 }), pollIntervalMs: 5, deadlineMs: 60 });
+  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }] });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock({ advancePerReadMs: 10 }), pollIntervalMs: 5, deadlineMs: 60 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CI');
   assert.deepEqual(r.failing, ['ci']);
@@ -789,6 +859,7 @@ test('verifyPr: pending past the ACTIVE budget -> BLOCKED_CI with pending names'
 
 for (const [name, over] of [
   ['conflicting', { mergeStateStatus: 'CONFLICTING' }],
+  ['unknown mergeability (F07)', { mergeStateStatus: 'UNKNOWN' }],
   ['draft', { isDraft: true }],
   ['automerge armed', { autoMergeRequest: { mergeMethod: 'SQUASH' } }],
   ['wrong base', { baseRefName: 'main' }],
@@ -796,7 +867,7 @@ for (const [name, over] of [
 ]) {
   test(`verifyPr: ${name} PR can never reach DONE`, async () => {
     const gh = ghWith({ view: viewJson(over) });
-    const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+    const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
     assert.equal(r.state, 'BLOCKED');
     assert.equal(r.blocker, 'BLOCKED_PR_STATE');
   });
@@ -804,27 +875,105 @@ for (const [name, over] of [
 
 test('verifyPr: no clock -> [INVALID] — wall time never bounds CI polling', async () => {
   await assert.rejects(
-    () => verifyPr({ url: 'u', headSha: HEAD, ghImpl: ghWith(), pollIntervalMs: 5, deadlineMs: 200 }),
+    () => verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: ghWith(), pollIntervalMs: 5, deadlineMs: 200 }),
     /clock required/,
   );
 });
 
 test('verifyPr: clock breaking mid-poll -> CLOCK_UNPROVEN, not a wall deadline BLOCKED_CI', async () => {
   const clock = fakeClock(); // active time frozen: only death ends this
-  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', link: 'l' }] });
+  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }] });
   setTimeout(() => { clock.breakClock(); }, 30);
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock, pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock, pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'CLOCK_UNPROVEN');
 });
 
 test('verifyPr: freshness failing mid-poll -> CLOCK_UNPROVEN (R08)', async () => {
   const clock = fakeClock({ advancePerReadMs: 1 }); // budget would exhaust at ~500 reads
-  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', link: 'l' }] });
+  const gh = ghWith({ checks: [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }] });
   setTimeout(() => { if (typeof clock.breakFreshness === 'function') clock.breakFreshness(); }, 30);
-  const r = await verifyPr({ url: 'u', headSha: HEAD, ghImpl: gh, clock, pollIntervalMs: 2, deadlineMs: 500 });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock, pollIntervalMs: 2, deadlineMs: 500 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'CLOCK_UNPROVEN'); // never the wall-deadline BLOCKED_CI
+});
+
+// ------------------------------------------------------- F07: verification context
+//
+// The approval is bound to the FULL verification context: the exact base SHA,
+// the deployed required-check policy (each context matched by name AND
+// workflow/app identity, as an exact set), mergeability, and stability of
+// ALL of it across the two verification reads. Every test below hands the
+// OLD code an input it can observe (it ignores baseSha/policy params) and
+// asserts the refusal the old code never made.
+
+test('verifyPr F07: base moved between receipt and PR view -> BLOCKED_BASE_MISMATCH', async () => {
+  const gh = ghWith({ view: viewJson({ baseRefOid: sha40('rebased-base') }) });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_BASE_MISMATCH');
+});
+
+test('verifyPr F07: base ref moves between the two verification reads -> BLOCKED_CONTEXT_MOVED', async () => {
+  let n = 0;
+  const gh = {
+    view: () => { n += 1; return viewJson({ baseRefOid: n <= 1 ? BASE_SHA : sha40('rebased-mid-verify') }); },
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+  };
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
+});
+
+test('verifyPr F07: mergeability changes between the two reads -> BLOCKED_CONTEXT_MOVED', async () => {
+  let n = 0;
+  const gh = {
+    view: () => { n += 1; return viewJson({ mergeStateStatus: n <= 1 ? 'CLEAN' : 'DIRTY' }); },
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+  };
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
+});
+
+test('verifyPr F07: required-check set drifts on the second read -> BLOCKED_CONTEXT_MOVED', async () => {
+  let n = 0;
+  const gh = {
+    view: () => viewJson(),
+    checks: () => {
+      n += 1;
+      return n <= 1
+        ? [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]
+        : [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }, { name: 'ci-2', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }];
+    },
+  };
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
+});
+
+test('verifyPr F07: a green same-name check from the WRONG app identity -> BLOCKED_CHECK_POLICY', async () => {
+  const gh = ghWith({ checks: [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'Foreign-App', link: 'l' }] });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: a deployed required check MISSING from the policy set -> BLOCKED_CHECK_POLICY', async () => {
+  const gh = ghWith({ checks: [
+    { name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' },
+    { name: 'ci-extra', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' },
+  ] });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: no deployed policy at all -> BLOCKED_CHECK_POLICY (unknown policy never verifies)', async () => {
+  const gh = ghWith();
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
 });
 
 // ---------------------------------------------------------------- supervise mode
@@ -1143,7 +1292,7 @@ function interruptedExecution(ledger, { dir, sessionId = 'resume-sess-0001-aaaa'
 function ghDone(calls) {
   return {
     view: (args) => { calls.push(['view', args]); return viewJson(); },
-    checks: (args) => { calls.push(['checks', args]); return [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', link: 'l' }]; },
+    checks: (args) => { calls.push(['checks', args]); return [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]; },
   };
 }
 
@@ -1777,30 +1926,38 @@ test('R10 review gate: REQUIRES_REVIEW survives ledger restart, holds the slot; 
     const { applyReviewAndVerify } = await import('./executor.mjs');
     assert.equal(typeof applyReviewAndVerify, 'function', 'R10: applyReviewAndVerify is exported');
     const clock = fakeClock();
-    // self-review: the receipt reviewer IS the worker session
-    const self = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { reviewer: sessionId }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    // self-review: the receipt reviewer IS the worker session — the trusted
+    // importer refuses attribution long before the ledger gate (the ledger's
+    // own REVIEWER_NOT_INDEPENDENT check stays pinned in the ledger suite)
+    const self = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { reviewer: sessionId }), provenance: dotProvenance(), policy: POLICY, ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
     assert.equal(self.state, 'HELD');
-    assert.equal(self.blocker, 'REVIEWER_NOT_INDEPENDENT');
+    assert.equal(self.blocker, 'BLOCKED_DOT_APPROVAL_PROVENANCE');
     assert.equal(ledger2.getExecution(executionId).state, 'REQUIRES_REVIEW');
     // wrong tree: valid-hex64 but different source_tree_digest
-    const wrongTree = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { source_tree_digest: sha256Of('a-different-source-tree') }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    const wrongTree = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { source_tree_digest: sha256Of('a-different-source-tree') }), provenance: dotProvenance(), policy: POLICY, ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
     assert.equal(wrongTree.state, 'HELD');
     assert.equal(wrongTree.blocker, 'RECEIPT_MISMATCH');
     assert.equal(ledger2.getExecution(executionId).state, 'REQUIRES_REVIEW');
     assert.ok(!ledger2.getReviewReceipt(executionId), 'a rejected receipt never persists');
     // legit OS-owner receipt: VERIFYING -> verifyPr -> DONE
-    const done = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    const done = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), provenance: dotProvenance(), policy: POLICY, ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
     assert.equal(done.state, 'DONE');
     assert.equal(done.pr_url, PR);
+    assert.equal(done.verified_now, true);
     assert.equal(ledger2.getExecution(executionId).state, 'DONE');
     assert.equal(ledger2.getAttempt(executionId, 1).state, 'DONE');
     assert.ok(ledger2.getReviewReceipt(executionId), 'applied receipt is durable');
-    // idempotent replay of the SAME receipt bytes
-    const replay = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    // idempotent replay of the SAME receipt bytes: the HISTORICAL outcome is
+    // returned, but it is never a fresh approval (verified_now false) and CI
+    // is not re-polled (the view count does not move)
+    const viewsBeforeReplay = ghCalls.filter((c) => c[0] === 'view').length;
+    const replay = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), provenance: dotProvenance(), policy: POLICY, ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
     assert.equal(replay.state, 'DONE');
     assert.equal(replay.replay, true);
+    assert.equal(replay.verified_now, false);
+    assert.equal(ghCalls.filter((c) => c[0] === 'view').length, viewsBeforeReplay, 'a replay never re-verifies CI');
     // a DIFFERENT receipt after an applied one is immutable-held, state untouched
-    const forged = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { reviewer: 'other-owner-0001' }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    const forged = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { source: { reference: 'dot://reviews/forged-attempt', sha256: report.artifact_sha256 } }), provenance: dotProvenance(), policy: POLICY, ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
     assert.equal(forged.state, 'HELD');
     assert.equal(forged.blocker, 'RECEIPT_IMMUTABLE');
     assert.equal(ledger2.getExecution(executionId).state, 'DONE');
@@ -1819,11 +1976,212 @@ test('R10 review gate: a missing worker report holds (REVIEW_REPORT_MISSING), ne
   const out = await applyReviewAndVerify({
     ledger, executionId: claim.execution_id,
     receipt: ownerReviewReceipt(codeCompleteReport({ executionId: claim.execution_id, sessionId: 'gate-sess-0002-bbbb', solution, artifactSha256: '0'.repeat(64), prUrl: PR_R10 })),
+    provenance: dotProvenance(), policy: POLICY,
     ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
   });
   assert.equal(out.state, 'HELD');
   assert.equal(out.blocker, 'REVIEW_REPORT_MISSING');
   assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// --------------------------------------------------- F07: approval context + importer
+//
+// APPROVAL_CONTEXT_UNBOUND: the review gate must fail closed without a
+// trusted Dot importer, bind the receipt to the full verification context,
+// and separate historical completion from current eligibility. The v1-world
+// tests below hand the OLD code inputs it fully accepts and assert the
+// refusals it never made (its RED is the defect itself); the v2 tests carry
+// the new binding fields (their old-code RED is the v1 ledger schema
+// refusing what it cannot express — recorded as such in the status file).
+
+test('F07: no trusted Dot importer -> BLOCKED_DOT_APPROVAL_PROVENANCE, execution untouched, no receipt row, no gh call', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'np' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: legacyV1Receipt(report),
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_DOT_APPROVAL_PROVENANCE');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  assert.ok(!ledger.getReviewReceipt(executionId), 'nothing imports without the trusted importer');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: an importer that refuses attribution holds BLOCKED_DOT_APPROVAL_PROVENANCE', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'nr' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const refusingImporter = { verifyReceipt: () => ({ ok: false, reason: 'evidence-not-found' }) };
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: legacyV1Receipt(report), provenance: refusingImporter, policy: POLICY,
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_DOT_APPROVAL_PROVENANCE');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  assert.ok(!ledger.getReviewReceipt(executionId));
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: an importer that THROWS is a refusal, never a crash or a pass', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'nt' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const throwingImporter = { verifyReceipt: () => { throw new Error('importer backend down'); } };
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report), provenance: throwingImporter, policy: POLICY,
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_DOT_APPROVAL_PROVENANCE');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: no deployed review policy -> BLOCKED_CHECK_POLICY, nothing imported', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'mp' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: legacyV1Receipt(report), provenance: permissiveProvenance(),
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_CHECK_POLICY');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  assert.ok(!ledger.getReviewReceipt(executionId));
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: the legacy v1 world (hostile verification context, full provenance/policy) can never reach DONE', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'lw' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  // the old code verified THIS exact world as DONE: base rebased mid-verify
+  // and a green same-name check from a foreign app
+  let n = 0;
+  const hostileGh = {
+    view: () => { n += 1; return viewJson({ baseRefOid: n <= 1 ? BASE_SHA : sha40('rebased-under-review') }); },
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'Foreign-App', link: 'l' }],
+  };
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: legacyV1Receipt(report), provenance: permissiveProvenance(), policy: POLICY,
+    ghImpl: hostileGh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.notEqual(out.state, 'DONE');
+  assert.ok(out.state === 'HELD' || out.state === 'BLOCKED');
+  assert.equal(ledger.getExecution(executionId).state === 'DONE', false, 'the v1 world never grants DONE anymore');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: receipt base_sha disagrees with the PR base -> BLOCKED_BASE_MISMATCH (same head is not enough)', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'bm' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report, { base_sha: sha40('a-different-base') }),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghDone([]), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_BASE_MISMATCH');
+  assert.equal(ledger.getExecution(executionId).state, 'BLOCKED');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: receipt policy snapshot differs from the deployed policy -> BLOCKED_POLICY_MISMATCH', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'pm' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report, { policy: { version: 2, digest: sha256Of('some-other-policy') } }),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_POLICY_MISMATCH');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  assert.ok(!ledger.getReviewReceipt(executionId));
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: receipt bound to a different repository -> BLOCKED_RECEIPT_CONTEXT', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'wr' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report, { repository: 'someone/else' }),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_RECEIPT_CONTEXT');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: receipt bound to a different PR number -> BLOCKED_RECEIPT_CONTEXT', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'wp' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report, { pr_number: 999999 }),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'BLOCKED_RECEIPT_CONTEXT');
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: a draft PR imports the receipt (no green-before-review deadlock) but final eligibility blocks non-draft -> BLOCKED_PR_STATE', async () => {
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'dp' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const draftGh = {
+    view: () => viewJson({ isDraft: true }),
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+  };
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: draftGh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_PR_STATE');
+  // the review itself WAS applied (VERIFYING transition happened) — the gate
+  // runs before the draft check, so an operator-requested draft review is
+  // never deadlocked behind a non-draft requirement
+  assert.ok(ledger.getReviewReceipt(executionId), 'the receipt imported before eligibility ran');
+  assert.equal(ledger.getExecution(executionId).state, 'BLOCKED');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F07: genuine v2 receipt + trusted importer + matched context -> DONE verified_now, durable receipt, terminal states', async () => {
+  const { dir, ledger, executionId, report, prUrl } = f07Fixture({ tag: 'ok' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const ghCalls = [];
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghDone(ghCalls), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 1_000,
+  });
+  assert.equal(out.state, 'DONE');
+  assert.equal(out.pr_url, prUrl);
+  assert.equal(out.verified_now, true);
+  assert.equal(out.replay, undefined);
+  assert.equal(ledger.getExecution(executionId).state, 'DONE');
+  assert.equal(ledger.getAttempt(executionId, 1).state, 'DONE');
+  const stored = ledger.getReviewReceipt(executionId);
+  assert.ok(stored, 'applied receipt is durable');
+  assert.equal(stored.version, 2);
+  assert.equal(stored.policy.digest, POLICY.digest);
+  assert.equal(stored.repository, 'artyhoo/getff');
+  ledger.close();
   rmSync(dir, { recursive: true, force: true });
 });
 

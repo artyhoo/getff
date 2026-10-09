@@ -1494,9 +1494,27 @@ test('review-import: usage and file-surface refusals fire before any ledger or c
   rmSync(root, { recursive: true, force: true });
 });
 
-test('review-import: ledger-gate holds render the blocker and leave the review slot untouched (no gh work)', () => {
-  // arm 1: no worker report captured -> REVIEW_REPORT_MISSING
-  const a = requiresReviewRoot({ withReport: false });
+// F07: the production CLI supplies NO trusted Dot importer. Until a real
+// trusted-coordinator importer exists, review-import is FIXED-CLOSED: any
+// receipt — even one the legacy ledger accepted outright — renders
+// BLOCKED_DOT_APPROVAL_PROVENANCE before any ledger transition, clock, or gh
+// call. Offline determinism: PATH carries ONLY a python3 symlink (the clock
+// could run; gh cannot spawn), so the refusal cannot depend on network state,
+// and the OLD behavior is directly observable as the unauthorized import side
+// effect (receipt row + VERIFYING) plus the raw ENOENT crash code.
+test('F07 review-import: no trusted Dot importer -> BLOCKED_DOT_APPROVAL_PROVENANCE, no import side effect, no gh call (offline)', () => {
+  const bin = join(tmpdir(), `dot-cli-bin-${randomUUID().slice(0, 6)}`);
+  mkdirSync(bin, { recursive: true });
+  symlinkSync(execFileSync('which', ['python3']).toString().trim(), join(bin, 'python3'));
+  const run = (root, id, receiptPath) => spawnSync(
+    process.execPath,
+    [CLI, 'review-import', '--root', root, '--execution-id', id, '--receipt', receiptPath],
+    { encoding: 'utf8', cwd: tmpdir(), env: { ...process.env, PATH: bin } },
+  );
+
+  // arm 1: a legacy v1 receipt with an arbitrary reviewer string — the exact
+  // shape the old ledger imported on its own authority
+  const a = requiresReviewRoot();
   const receiptA = join(a.root, 'reviews', 'a.json');
   writeFileSync(receiptA, JSON.stringify({
     version: 1, execution_id: a.claim.execution_id, session_id: a.sessionId,
@@ -1504,42 +1522,54 @@ test('review-import: ledger-gate holds render the blocker and leave the review s
     source_tree_digest: a.report.source_tree_digest, head_sha: a.report.head_sha,
     reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
   }));
-  const r1 = cli(['review-import', '--root', a.root, '--execution-id', a.claim.execution_id, '--receipt', receiptA], { expectFail: true });
+  const r1 = run(a.root, a.claim.execution_id, receiptA);
   assert.equal(r1.status, 1);
-  assert.ok(r1.stdout.includes('REVIEW_REPORT_MISSING'));
+  assert.ok(r1.stdout.includes('BLOCKED_DOT_APPROVAL_PROVENANCE'), `arm1 stdout: ${r1.stdout}`);
 
-  // arm 2: self-review (reviewer IS the worker session) -> REVIEWER_NOT_INDEPENDENT
+  // arm 2: a fully-shaped v2 receipt (dot_go, policy snapshot, published
+  // source) — same fixed refusal: the importer that could endorse it does not
+  // exist, and a receipt alone authorizes nothing
   const b = requiresReviewRoot();
   const receiptB = join(b.root, 'reviews', 'b.json');
   writeFileSync(receiptB, JSON.stringify({
-    version: 1, execution_id: b.claim.execution_id, session_id: b.sessionId,
+    version: 2, execution_id: b.claim.execution_id, session_id: b.sessionId,
     solution_sha256: b.report.solution_sha256, artifact_sha256: b.report.artifact_sha256,
     source_tree_digest: b.report.source_tree_digest, head_sha: b.report.head_sha,
-    reviewer: b.sessionId, verdict: 'APPROVE',
+    repository: 'artyhoo/getff', pr_number: 4101, base_sha: sha40('cli-f07-base'),
+    policy: { version: 1, digest: sha256Of('cli-review-policy-v1') },
+    dot_go: true, source: { reference: `dot://reviews/${b.claim.execution_id}`, sha256: b.report.artifact_sha256 },
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
   }));
-  const r2 = cli(['review-import', '--root', b.root, '--execution-id', b.claim.execution_id, '--receipt', receiptB], { expectFail: true });
-  assert.ok(r2.stdout.includes('REVIEWER_NOT_INDEPENDENT'));
+  const r2 = run(b.root, b.claim.execution_id, receiptB);
+  assert.equal(r2.status, 1);
+  assert.ok(r2.stdout.includes('BLOCKED_DOT_APPROVAL_PROVENANCE'), `arm2 stdout: ${r2.stdout}`);
 
-  // arm 3: digest mismatch against the captured report -> RECEIPT_MISMATCH
+  // arm 3: worker-supplied attribution (reviewer IS the worker session) — the
+  // fixed gate refuses it too; there is no trust upgrade path in prose
   const c = requiresReviewRoot();
   const receiptC = join(c.root, 'reviews', 'c.json');
   writeFileSync(receiptC, JSON.stringify({
-    version: 1, execution_id: c.claim.execution_id, session_id: c.sessionId,
+    version: 2, execution_id: c.claim.execution_id, session_id: c.sessionId,
     solution_sha256: c.report.solution_sha256, artifact_sha256: c.report.artifact_sha256,
-    source_tree_digest: sha256Of('a-different-source-tree'), head_sha: c.report.head_sha,
-    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+    source_tree_digest: c.report.source_tree_digest, head_sha: c.report.head_sha,
+    repository: 'artyhoo/getff', pr_number: 4101, base_sha: sha40('cli-f07-base'),
+    policy: { version: 1, digest: sha256Of('cli-review-policy-v1') },
+    dot_go: true, source: { reference: `dot://reviews/${c.claim.execution_id}`, sha256: c.report.artifact_sha256 },
+    reviewer: c.sessionId, verdict: 'APPROVE',
   }));
-  const r3 = cli(['review-import', '--root', c.root, '--execution-id', c.claim.execution_id, '--receipt', receiptC], { expectFail: true });
-  assert.ok(r3.stdout.includes('RECEIPT_MISMATCH'));
+  const r3 = run(c.root, c.claim.execution_id, receiptC);
+  assert.equal(r3.status, 1);
+  assert.ok(r3.stdout.includes('BLOCKED_DOT_APPROVAL_PROVENANCE'), `arm3 stdout: ${r3.stdout}`);
 
-  // every held root still holds the review slot and persisted nothing
+  // every refused root still holds the review slot and persisted NOTHING
   for (const { root, claim } of [a, b, c]) {
     const ledger = openLedger(join(root, 'ledger.sqlite'));
     assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
-    assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'a refused import persists no receipt');
+    assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'no import side effect without the trusted importer');
     ledger.close();
     rmSync(root, { recursive: true, force: true });
   }
+  rmSync(bin, { recursive: true, force: true });
 });
 
 // ------------------------------------------- Slice E: RECOVERY-ADOPTION (reconcile-external-recovery)

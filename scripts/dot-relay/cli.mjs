@@ -23,7 +23,7 @@ import { validateEnvelope, CHAT_IDS, probeOutcome } from './contract.mjs';
 import {
   runExecution, resumeExecution, monitorAdoptedChild, startActiveClock, parseAgentsCensus,
   proveProcessDeath, runCessationLadder, classifyProbe, DEATH_PROOF_SESSION,
-  applyReviewAndVerify, productionProcessProbe,
+  productionProcessProbe,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 
@@ -678,12 +678,13 @@ async function cmdSupervise({ root, flags }) {
   } finally { ledger.close(); }
 }
 
-// R10: the OS-owner's ONLY production entry past the review gate. The receipt
-// must be a regular, non-world-writable, owner-owned file inside the fixed
-// <root>/reviews directory — every file-surface refusal fires before any
-// ledger or cloud work. The ledger's reviewImport + verifyPr (via
-// applyReviewAndVerify) then decide; held outcomes render the fixed blocker
-// code and never touch the review slot.
+// R10 + F07: the OS-owner's ONLY production entry past the review gate. The
+// receipt must be a regular, non-world-writable, owner-owned file inside the
+// fixed <root>/reviews directory — every file-surface refusal fires before
+// any ledger or cloud work. Past the file surface the command is FIXED-CLOSED
+// (F07): with no trusted Dot importer enrolled, every receipt renders
+// BLOCKED_DOT_APPROVAL_PROVENANCE before any ledger transition, clock, or gh
+// call — the review slot is never touched.
 async function cmdReviewImport({ root, flags }) {
   const id = flags['--execution-id'];
   const receiptPath = flags['--receipt'];
@@ -702,27 +703,15 @@ async function cmdReviewImport({ root, flags }) {
   if (!st.isFile()) fail('REVIEW_FILE_NOT_REGULAR');
   if (st.uid !== process.geteuid()) fail('REVIEW_FILE_NOT_OWNER');
   if (st.mode & 0o002) fail('REVIEW_FILE_WORLD_WRITABLE');
-  const { obj: receipt } = readJsonFile(abs);
-  const ledger = openLedger(join(root, 'ledger.sqlite'));
-  // The gate's CI verification shares the attempt active budget — same
-  // proven-first clock discipline as supervise, stopped before any exit.
-  const clock = startActiveClock();
-  let r;
-  try {
-    const proven = await clock.ready(5_000);
-    if (!proven) {
-      r = { state: 'HELD', held: true, blocker: 'CLOCK_UNPROVEN' };
-    } else {
-      r = await applyReviewAndVerify({ ledger, executionId: id, receipt, clock });
-    }
-  } finally {
-    clock.stop();
-    ledger.close();
-  }
-  if (r.state === 'DONE') {
-    ok({ execution_id: id, state: 'DONE', pr_url: r.pr_url, head_sha: r.head_sha, replay: r.replay === true });
-  }
-  fail(typeof r.blocker === 'string' ? r.blocker : 'REVIEW_STATE', { execution_id: id, state: r.state });
+  readJsonFile(abs);
+  // F07 FIXED-CLOSED GATE: production supplies no trusted coordinator
+  // importer for actual Dot evidence, so a receipt file alone authorizes
+  // NOTHING — never an arbitrary reviewer string, never no-findings prose.
+  // The refusal fires before any ledger transition, clock, or gh call; when a
+  // trusted importer is enrolled, this is where it is injected (passing
+  // `provenance`/`policy` into applyReviewAndVerify). Until then the external
+  // blocker BLOCKED_DOT_APPROVAL_PROVENANCE stands.
+  fail('BLOCKED_DOT_APPROVAL_PROVENANCE', { execution_id: id });
 }
 
 // RECOVERY-ADOPTION (PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real

@@ -710,23 +710,50 @@ export function openLedger(path, {
       return { ...JSON.parse(row.receipt_json), reviewer: row.reviewer, verdict: row.verdict, imported_ms: row.imported_ms };
     },
 
-    // Imports an OS-owner independent review receipt. The receipt is validated
-    // against the CURRENT persisted worker report (exact identity digests) and
-    // must come from a reviewer that is not the worker session. A worker-side
-    // ref is only ever a locator — this call, restricted to the owner reviews
-    // root at the CLI layer, is the sole authority that advances a captured
-    // execution past REQUIRES_REVIEW (to VERIFYING; verification follows).
+    // Imports an independent review receipt (schema v2, F07). The receipt is
+    // validated against the CURRENT persisted worker report (exact identity
+    // digests) and must come from a reviewer that is not the worker session.
+    // Beyond the worker bindings, the approval is bound to the verification
+    // CONTEXT: repository, PR number, base SHA, the policy snapshot it was
+    // granted under, an explicit Dot GO, and the immutable published source of
+    // the review evidence. A worker-side ref is only ever a locator — this
+    // call, restricted to the owner reviews root at the CLI layer, is the sole
+    // authority that advances a captured execution past REQUIRES_REVIEW (to
+    // VERIFYING; verification follows).
+    //
+    // Historical rows stay historical (F07): replay/immutability is decided on
+    // the EXACT BYTES before any schema check, so a pre-v2 row replays
+    // idempotently and can never be upgraded or replaced — but it also grants
+    // nothing new; fresh imports demand the v2 shape.
     reviewImport({ executionId, receipt }) {
       return api._tx(() => {
         const reportRow = db.prepare('SELECT * FROM worker_reports WHERE execution_id = ?').get(executionId);
         if (!reportRow) throw ledgerError('REVIEW_REPORT_MISSING', executionId);
+        const receiptJson = JSON.stringify(receipt);
+        const existing = db.prepare('SELECT * FROM review_receipts WHERE execution_id = ?').get(executionId);
+        if (existing) {
+          if (existing.receipt_json === receiptJson) return { replay: true };
+          throw ledgerError('RECEIPT_IMMUTABLE', 'an approval receipt was already applied and cannot be replaced');
+        }
+        const hex64 = /^[0-9a-f]{64}$/;
         const keys = Object.keys(receipt).sort().join(',');
-        const expected = ['artifact_sha256', 'execution_id', 'head_sha', 'reviewer', 'session_id', 'solution_sha256', 'source_tree_digest', 'verdict', 'version'].sort().join(',');
+        const expected = ['artifact_sha256', 'base_sha', 'dot_go', 'execution_id', 'head_sha', 'policy', 'pr_number', 'repository', 'reviewer', 'session_id', 'solution_sha256', 'source', 'source_tree_digest', 'verdict', 'version'].sort().join(',');
         if (typeof receipt !== 'object' || receipt === null || Array.isArray(receipt) || keys !== expected
-          || receipt.version !== 1 || receipt.execution_id !== executionId
+          || receipt.version !== 2 || receipt.execution_id !== executionId
           || typeof receipt.reviewer !== 'string' || receipt.reviewer.length < 4
-          || receipt.verdict !== 'APPROVE') {
-          throw ledgerError('RECEIPT_SCHEMA', 'receipt must be the exact v1 APPROVE shape bound to this execution');
+          || receipt.verdict !== 'APPROVE' || receipt.dot_go !== true
+          || typeof receipt.repository !== 'string' || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(receipt.repository)
+          || !Number.isSafeInteger(receipt.pr_number) || receipt.pr_number <= 0
+          || typeof receipt.base_sha !== 'string' || !/^[0-9a-f]{40,64}$/.test(receipt.base_sha)
+          || !receipt.policy || typeof receipt.policy !== 'object' || Array.isArray(receipt.policy)
+          || Object.keys(receipt.policy).sort().join(',') !== 'digest,version'
+          || !Number.isSafeInteger(receipt.policy.version) || receipt.policy.version <= 0
+          || typeof receipt.policy.digest !== 'string' || !hex64.test(receipt.policy.digest)
+          || !receipt.source || typeof receipt.source !== 'object' || Array.isArray(receipt.source)
+          || Object.keys(receipt.source).sort().join(',') !== 'reference,sha256'
+          || typeof receipt.source.reference !== 'string' || receipt.source.reference.length < 1 || receipt.source.reference.length > 1024
+          || typeof receipt.source.sha256 !== 'string' || !hex64.test(receipt.source.sha256)) {
+          throw ledgerError('RECEIPT_SCHEMA', 'receipt must be the exact v2 APPROVE shape bound to repository, PR, base SHA, policy snapshot, Dot GO and published source');
         }
         if (receipt.reviewer === reportRow.session_id) {
           throw ledgerError('REVIEWER_NOT_INDEPENDENT', 'the reviewer may not be the worker session');
@@ -737,12 +764,6 @@ export function openLedger(path, {
           || receipt.source_tree_digest !== reportRow.source_tree_digest
           || receipt.head_sha !== reportRow.head_sha;
         if (mismatch) throw ledgerError('RECEIPT_MISMATCH', 'receipt identity digests disagree with the captured worker report');
-        const receiptJson = JSON.stringify(receipt);
-        const existing = db.prepare('SELECT * FROM review_receipts WHERE execution_id = ?').get(executionId);
-        if (existing) {
-          if (existing.receipt_json === receiptJson) return { replay: true };
-          throw ledgerError('RECEIPT_IMMUTABLE', 'an approval receipt was already applied and cannot be replaced');
-        }
         const exec = db.prepare('SELECT * FROM executions WHERE id = ?').get(executionId);
         if (!exec || exec.state !== 'REQUIRES_REVIEW') {
           throw ledgerError('REVIEW_STATE', `execution is ${exec ? exec.state : 'unknown'}, not awaiting review`);
@@ -750,7 +771,7 @@ export function openLedger(path, {
         db.prepare('INSERT INTO review_receipts (execution_id, receipt_json, reviewer, verdict, imported_ms) VALUES (?,?,?,?,?)')
           .run(executionId, receiptJson, receipt.reviewer, receipt.verdict, now());
         db.prepare("UPDATE executions SET state='VERIFYING' WHERE id = ?").run(executionId);
-        api._audit('REVIEW_APPROVED', executionId, { reviewer: receipt.reviewer });
+        api._audit('REVIEW_APPROVED', executionId, { reviewer: receipt.reviewer, repository: receipt.repository, pr_number: receipt.pr_number, policy: receipt.policy });
         return { applied: true };
       });
     },

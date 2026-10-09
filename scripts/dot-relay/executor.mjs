@@ -1946,24 +1946,55 @@ export async function monitorAdoptedChild(opts) {
 // clock anchors at entry; a broken/backwards sample is CLOCK_UNPROVEN, never
 // a silently-wrong wall-time budget.
 
-export async function verifyPr({ url, headSha, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
+// F07: the deployed required-check policy is part of the verification
+// context. Returns the validated required list, or null when the policy is
+// absent/unknown — an unknown policy NEVER verifies.
+function requiredCheckSet(policy) {
+  const required = Array.isArray(policy?.required) ? policy.required : null;
+  if (!required || required.length === 0
+    || !Number.isSafeInteger(policy.version) || policy.version <= 0
+    || typeof policy.digest !== 'string' || !/^[0-9a-f]{64}$/.test(policy.digest)) return null;
+  for (const r of required) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)
+      || Object.keys(r).sort().join(',') !== 'name,workflow'
+      || typeof r.name !== 'string' || r.name.length < 1
+      || typeof r.workflow !== 'string' || r.workflow.length < 1) return null;
+  }
+  return required;
+}
+
+const checkIdentity = (c) => `${c.workflow}\u0000${c.name}`;
+const VIEW_FIELDS = 'headRefOid,baseRefOid,baseRefName,state,isDraft,mergeStateStatus,autoMergeRequest';
+
+export async function verifyPr({ url, headSha, baseSha = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
   if (!clock || typeof clock.ok !== 'function' || typeof clock.activeNs !== 'function' || typeof clock.fresh !== 'function') {
     throw new Error('[INVALID] clock required: CI polling shares the attempt active budget — wall time never bounds it');
   }
   const anchor = clock.activeNs();
   if (anchor === null || !clock.ok() || !clock.fresh()) return { state: 'BLOCKED', blocker: 'CLOCK_UNPROVEN' };
+  const required = requiredCheckSet(policy);
+  if (!required) return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
+  const expected = required.map(checkIdentity).sort().join('|');
   const budgetNs = deadlineMs != null ? BigInt(deadlineMs) * 1_000_000n : null;
   for (;;) {
-    const v1 = ghImpl.view(['pr', 'view', url, '--json', 'headRefOid,baseRefName,state,isDraft,mergeStateStatus,autoMergeRequest']);
+    const v1 = ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]);
     if (v1.headRefOid !== headSha) return { state: 'BLOCKED', blocker: 'BLOCKED_HEAD_MISMATCH' };
+    // F07: the base the approval was granted against is part of the binding —
+    // the same head on a rebased base is a different change.
+    if (baseSha != null && v1.baseRefOid !== baseSha) return { state: 'BLOCKED', blocker: 'BLOCKED_BASE_MISMATCH' };
     if (v1.state !== 'OPEN' || v1.baseRefName !== 'staging' || v1.isDraft === true
-      || (v1.autoMergeRequest ?? null) !== null || v1.mergeStateStatus === 'CONFLICTING') {
+      || (v1.autoMergeRequest ?? null) !== null || v1.mergeStateStatus === 'CONFLICTING' || v1.mergeStateStatus === 'UNKNOWN') {
       return { state: 'BLOCKED', blocker: 'BLOCKED_PR_STATE' };
     }
-    const checks = ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,link']);
+    const checks = ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']);
     if (!Array.isArray(checks) || checks.length === 0) {
       return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
     }
+    // F07: every deployed required check must match the expected set by BOTH
+    // name and app/workflow identity — a green same-name check from a foreign
+    // app is not the policy's check.
+    const observed = checks.map(checkIdentity).sort().join('|');
+    if (observed !== expected) return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
     const failing = checks.filter((c) => c.bucket === 'fail').map((c) => c.name);
     if (failing.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing };
     const pending = checks.filter((c) => c.bucket !== 'pass').map((c) => c.name);
@@ -1976,24 +2007,73 @@ export async function verifyPr({ url, headSha, ghImpl = productionGh, clock, pol
       await sleep(pollIntervalMs);
       continue;
     }
-    // repeat view: head stability proven, not assumed
-    const v2 = ghImpl.view(['pr', 'view', url, '--json', 'headRefOid,baseRefName,state,isDraft,mergeStateStatus,autoMergeRequest']);
+    // repeat view: the whole verification context — head AND base AND PR
+    // state — must be unchanged between the reads (F07: a change under the
+    // same head invalidates, never passes)
+    const v2 = ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]);
     if (v2.headRefOid !== headSha) return { state: 'BLOCKED', blocker: 'BLOCKED_HEAD_MOVED' };
+    if (v2.baseRefOid !== v1.baseRefOid || v2.state !== v1.state || v2.isDraft !== v1.isDraft
+      || v2.mergeStateStatus !== v1.mergeStateStatus || (v2.autoMergeRequest ?? null) !== (v1.autoMergeRequest ?? null)) {
+      return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
+    }
+    const checks2 = ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']);
+    if (!Array.isArray(checks2)) return { state: 'BLOCKED', blocker: 'BLOCKED_CI' };
+    if (checks2.map(checkIdentity).sort().join('|') !== observed) return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
+    const failing2 = checks2.filter((c) => c.bucket === 'fail').map((c) => c.name);
+    if (failing2.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: failing2 };
     return { state: 'DONE' };
   }
 }
 
-// R10: the independent review gate. Applies an OS-owner review receipt through
-// the ledger (reviewImport) and, only then, verifies the PR against the
-// report's exact head. The capture paths never call this — the CLI
-// review-import command is its production caller.
-export async function applyReviewAndVerify({ ledger, executionId, receipt, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
+// R10 + F07: the independent review gate. A receipt alone authorizes NOTHING —
+// a trusted coordinator importer (`provenance`) must first verify the actual
+// Dot evidence against the configured producer and the exact published source
+// bytes; the deployed policy snapshot and the receipt's context bindings
+// (repository, PR number, base SHA) must then agree with the world before the
+// ledger import is even attempted. Only then does verification run, against
+// the report's PR bound to the RECEIPT's base. The capture paths never call
+// this — the CLI review-import command is its production caller.
+export async function applyReviewAndVerify({ ledger, executionId, receipt, provenance = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
   if (!clock || typeof clock.ok !== 'function' || typeof clock.activeNs !== 'function' || typeof clock.fresh !== 'function') {
     throw new Error('[INVALID] clock required: post-review CI polling shares the attempt active budget — wall time never bounds it');
   }
   const report = ledger.getWorkerReport(executionId);
   if (!report) {
     return { state: 'HELD', blocker: 'REVIEW_REPORT_MISSING', execution_id: executionId };
+  }
+  // F07: importer trust is a fixed gate, not a string in the receipt. An
+  // absent importer, a throwing one, or one that refuses the attribution
+  // (e.g. the reviewer is not the configured producer, or the source bytes
+  // are not the published artifact) all hold with the SAME fixed blocker —
+  // before any ledger transition, so nothing is imported untrusted.
+  if (!provenance || typeof provenance.verifyReceipt !== 'function') {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_DOT_APPROVAL_PROVENANCE', execution_id: executionId };
+  }
+  let endorsement = null;
+  try {
+    endorsement = provenance.verifyReceipt({ receipt, report });
+  } catch {
+    endorsement = null;
+  }
+  if (!endorsement || endorsement.ok !== true) {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_DOT_APPROVAL_PROVENANCE', execution_id: executionId };
+  }
+  // F07: the deployed required-check policy must be known and well-formed —
+  // an unknown policy never verifies and never imports.
+  if (!requiredCheckSet(policy)) {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_CHECK_POLICY', execution_id: executionId };
+  }
+  // F07: the receipt's policy snapshot is the grant's terms — a receipt from
+  // a different policy does not apply here.
+  if (!receipt || typeof receipt !== 'object' || !receipt.policy
+    || receipt.policy.version !== policy.version || receipt.policy.digest !== policy.digest) {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_POLICY_MISMATCH', execution_id: executionId };
+  }
+  // F07: repository + PR number bind the approval to THIS pull request.
+  const ctx = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)$/.exec(report.pr_url ?? '');
+  if (!ctx || typeof receipt.repository !== 'string' || receipt.repository !== ctx[1]
+    || !Number.isSafeInteger(receipt.pr_number) || receipt.pr_number !== Number(ctx[2])) {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_RECEIPT_CONTEXT', execution_id: executionId };
   }
   const row = ledger.getExecution(executionId);
   // The ledger gate decides FIRST — an idempotent replay is its no-op, a
@@ -2006,19 +2086,22 @@ export async function applyReviewAndVerify({ ledger, executionId, receipt, ghImp
     const blocker = err && typeof err.code === 'string' ? err.code : 'REVIEW_STATE';
     return { state: 'HELD', held: true, blocker, execution_id: executionId };
   }
-  // replay of the SAME receipt over an already-DONE row: report the stored
-  // outcome without re-polling CI (the PR may legitimately have moved on).
+  // replay of the SAME receipt over an already-DONE row: the HISTORICAL
+  // outcome, never a fresh approval — verified_now:false marks that no
+  // current-eligibility check ran (F07: historical completion is immutable
+  // and never projects current merge approval without revalidation).
   if (imported.replay === true && row && row.state === 'DONE') {
-    return { state: 'DONE', execution_id: executionId, pr_url: row.pr_url, head_sha: row.head_sha, replay: true };
+    return { state: 'DONE', execution_id: executionId, pr_url: row.pr_url, head_sha: row.head_sha, replay: true, verified_now: false };
   }
-  // verification against the report's exact PR head, sharing the active budget
-  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, ghImpl, clock, pollIntervalMs, deadlineMs });
+  // verification against the report's PR, at the receipt's exact head AND
+  // base, under the deployed policy — sharing the active budget
+  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, baseSha: receipt.base_sha, policy, ghImpl, clock, pollIntervalMs, deadlineMs });
   if (v.state === 'DONE') {
     if (row && row.attempts_admitted >= 1) {
       ledger.updateAttempt(executionId, row.attempts_admitted, { state: 'DONE' });
     }
     ledger.updateExecution(executionId, { state: 'DONE' });
-    return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
+    return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha, verified_now: true };
   }
   ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
   return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };

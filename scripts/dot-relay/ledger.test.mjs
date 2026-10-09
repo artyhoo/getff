@@ -1427,6 +1427,29 @@ test('R10 ledger: REQUIRES_REVIEW holds the slot against claim/admission/host-re
 
 // ------------------------------------------------ R10: reviewImport / worker reports
 
+// F07 v2 receipt shape for the ledger suite: the approval bound to
+// repository, PR number, base SHA, policy snapshot, an explicit Dot GO, and
+// the immutable published source of the review evidence.
+const F07_POLICY = { version: 1, digest: sha256Of('ledger-review-policy-v1') };
+const v2Receipt = (report, overrides = {}) => ({
+  version: 2,
+  execution_id: report.execution_id,
+  session_id: report.session_id,
+  solution_sha256: report.solution_sha256,
+  artifact_sha256: report.artifact_sha256,
+  source_tree_digest: report.source_tree_digest,
+  head_sha: report.head_sha,
+  repository: 'artyhoo/getff',
+  pr_number: 4002,
+  base_sha: sha40('r10-base'),
+  policy: { version: F07_POLICY.version, digest: F07_POLICY.digest },
+  dot_go: true,
+  source: { reference: `dot://reviews/${report.execution_id}`, sha256: report.artifact_sha256 },
+  reviewer: 'dot-relay-os-owner',
+  verdict: 'APPROVE',
+  ...overrides,
+});
+
 test('R10 ledger: reviewImport — schema/independence/mismatch refusals never persist; a matching receipt advances to VERIFYING; replay, immutability, source-change invalidation', () => {
   const { ledger } = freshLedger();
   assert.equal(typeof ledger.persistWorkerReport, 'function', 'R10: persistWorkerReport API exists');
@@ -1445,12 +1468,7 @@ test('R10 ledger: reviewImport — schema/independence/mismatch refusals never p
   };
   ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
   // no worker report captured -> hold, never invent approval
-  const receipt = {
-    version: 1, execution_id: claim.execution_id, session_id: claim.session_id,
-    solution_sha256: report.solution_sha256, artifact_sha256: report.artifact_sha256,
-    source_tree_digest: report.source_tree_digest, head_sha: report.head_sha,
-    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
-  };
+  const receipt = v2Receipt(report);
   assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt }), (e) => e.code === 'REVIEW_REPORT_MISSING');
   ledger.persistWorkerReport({ executionId: claim.execution_id, report });
   assert.ok(ledger.getWorkerReport(claim.execution_id), 'worker report persisted and readable');
@@ -1458,6 +1476,7 @@ test('R10 ledger: reviewImport — schema/independence/mismatch refusals never p
   // schema refusals
   assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, verdict: 'LGTM' } }), (e) => e.code === 'RECEIPT_SCHEMA');
   assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, extra_key: 1 } }), (e) => e.code === 'RECEIPT_SCHEMA');
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, dot_go: false } }), (e) => e.code === 'RECEIPT_SCHEMA');
   assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, reviewer: claim.session_id } }), (e) => e.code === 'REVIEWER_NOT_INDEPENDENT');
   // digest/head mismatches against the CURRENT report
   assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, head_sha: sha40('other-head') } }), (e) => e.code === 'RECEIPT_MISMATCH');
@@ -1494,6 +1513,110 @@ test('R10 ledger: reviewImport — schema/independence/mismatch refusals never p
   assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'source change invalidates the applied receipt');
   const reapplied = ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, source_tree_digest: sha256Of('r10-tree-v2') } });
   assert.equal(reapplied.applied, true);
+  ledger.close();
+});
+
+// ------------------------------------------------ F07: v2 receipt binding
+
+test('F07 ledger: the legacy v1 receipt shape no longer imports (RECEIPT_SCHEMA) — an arbitrary reviewer string authorizes nothing', () => {
+  const { ledger } = freshLedger();
+  const solution = solutionChain(ledger, 'f07a');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'f07a0000-0000-4000-8000-000000000001' });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: sha256Of('f07-sol'), artifact_sha256: sha256Of('f07-art'),
+    source_tree_digest: sha256Of('f07-tree'),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4003', head_sha: sha40('f07-head'),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  const v1 = {
+    version: 1, execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: report.solution_sha256, artifact_sha256: report.artifact_sha256,
+    source_tree_digest: report.source_tree_digest, head_sha: report.head_sha,
+    reviewer: 'totally-legit-reviewer', verdict: 'APPROVE',
+  };
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: v1 }), (e) => e.code === 'RECEIPT_SCHEMA');
+  assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'the v1 shape never persists');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  ledger.close();
+});
+
+test('F07 ledger: v2 binding fields are shape-validated (repository/pr/base/policy/dot_go/source)', () => {
+  const { ledger } = freshLedger();
+  const solution = solutionChain(ledger, 'f07b');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'f07b0000-0000-4000-8000-000000000002' });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: sha256Of('f07b-sol'), artifact_sha256: sha256Of('f07b-art'),
+    source_tree_digest: sha256Of('f07b-tree'),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4004', head_sha: sha40('f07b-head'),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  const good = v2Receipt(report);
+  for (const [name, mutate] of [
+    ['version 3', (r) => ({ ...r, version: 3 })],
+    ['dot_go false', (r) => ({ ...r, dot_go: false })],
+    ['repository without owner', (r) => ({ ...r, repository: 'not-a-slash-repo' })],
+    ['pr_number zero', (r) => ({ ...r, pr_number: 0 })],
+    ['pr_number string', (r) => ({ ...r, pr_number: '4004' })],
+    ['39-hex base_sha', (r) => ({ ...r, base_sha: 'a'.repeat(39) })],
+    ['policy without version', (r) => ({ ...r, policy: { digest: r.policy.digest } })],
+    ['policy digest not hex64', (r) => ({ ...r, policy: { version: 1, digest: 'zz' } })],
+    ['policy extra key', (r) => ({ ...r, policy: { version: 1, digest: r.policy.digest, extra: 1 } })],
+    ['source without reference', (r) => ({ ...r, source: { sha256: r.source.sha256 } })],
+    ['source empty reference', (r) => ({ ...r, source: { reference: '', sha256: r.source.sha256 } })],
+    ['source sha256 not hex64', (r) => ({ ...r, source: { reference: 'dot://x', sha256: 'nope' } })],
+  ]) {
+    assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: mutate(good) }), (e) => e.code === 'RECEIPT_SCHEMA', name);
+  }
+  assert.ok(!ledger.getReviewReceipt(claim.execution_id));
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  ledger.close();
+});
+
+test('F07 ledger: a pre-existing v1 row stays a readable historical record — same bytes replay, different bytes immutable, never a new grant', () => {
+  const { dir, ledger } = freshLedger();
+  const solution = solutionChain(ledger, 'f07c');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'f07c0000-0000-4000-8000-000000000003' });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: sha256Of('f07c-sol'), artifact_sha256: sha256Of('f07c-art'),
+    source_tree_digest: sha256Of('f07c-tree'),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4005', head_sha: sha40('f07c-head'),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, { state: 'DONE', pr_url: report.pr_url, head_sha: report.head_sha });
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  // a historical v1 approval, applied before the v2 contract existed
+  const v1 = {
+    version: 1, execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: report.solution_sha256, artifact_sha256: report.artifact_sha256,
+    source_tree_digest: report.source_tree_digest, head_sha: report.head_sha,
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+  };
+  const raw = new DatabaseSync(join(dir, 'ledger.sqlite'));
+  raw.prepare('INSERT INTO review_receipts (execution_id, receipt_json, reviewer, verdict, imported_ms) VALUES (?,?,?,?,?)')
+    .run(claim.execution_id, JSON.stringify(v1), v1.reviewer, v1.verdict, 1);
+  raw.close();
+  // the historical record is still readable
+  const stored = ledger.getReviewReceipt(claim.execution_id);
+  assert.ok(stored);
+  assert.equal(stored.version, 1);
+  assert.equal(stored.reviewer, 'dot-relay-os-owner');
+  // replaying the SAME historical bytes is an idempotent no-op
+  const replay = ledger.reviewImport({ executionId: claim.execution_id, receipt: v1 });
+  assert.equal(replay.replay, true);
+  // a DIFFERENT receipt over the historical row is immutable — the record
+  // can never be upgraded or replaced, and it grants nothing new
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: v2Receipt(report) }), (e) => e.code === 'RECEIPT_IMMUTABLE');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'DONE');
   ledger.close();
 });
 
