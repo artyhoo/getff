@@ -1263,9 +1263,9 @@ test('durable OFF suppresses scheduler planning and survives reopen (login/reboo
   reopened.close();
 });
 
-// ------------------------------------------------ v1 -> v2 in-place migration
+// ------------------------------------------------ v1 -> v2 -> v3 in-place migration
 
-test('v1 ledger migrates to v2 in place: precharged schema added, existing rows preserved, legacy rows never guessed', () => {
+test('v1 ledger migrates through to v3 in place: precharged schema + review gate added, existing rows preserved, legacy rows never guessed', () => {
   const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-v1-'));
   const path = join(dir, 'ledger.sqlite');
   // Build a genuine v1 database (pre HOST-RESILIENCE schema, user_version 1).
@@ -1290,7 +1290,8 @@ test('v1 ledger migrates to v2 in place: precharged schema added, existing rows 
 
   const ledger = openLedger(path, { now });
   const check = new DatabaseSync(path);
-  assert.equal(check.prepare('PRAGMA user_version').get().user_version, 2);
+  // R10: one open migrates v1 -> v2 (precharged attempts) -> v3 (review gate)
+  assert.equal(check.prepare('PRAGMA user_version').get().user_version, 3);
   check.close();
   // Existing rows preserved, not rewritten by the migration itself.
   const row = ledger.getExecution('DOT-EXEC-OLD');
@@ -1307,6 +1308,193 @@ test('v1 ledger migrates to v2 in place: precharged schema added, existing rows 
   assert.equal(rec.deliveries_uncertain, 1);
   ledger.close();
   rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------ R10: v2 -> v3 review-gate migration
+
+test('v2 ledger migrates to v3 in place: REQUIRES_REVIEW joins the unique active index, worker_reports/review_receipts added, rows preserved', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-v2-'));
+  const path = join(dir, 'ledger.sqlite');
+  // Genuine v2 database: the v1 DDL plus the HOST-RESILIENCE v2 additions,
+  // user_version 2 — exactly what a v2 checkout leaves behind.
+  const raw = new DatabaseSync(path);
+  raw.exec(`
+    CREATE TABLE events (id TEXT PRIMARY KEY, sha256 TEXT, kind TEXT NOT NULL, producer TEXT NOT NULL, parent_json TEXT NOT NULL, payload_json TEXT NOT NULL, state TEXT NOT NULL, reason TEXT, created_ms INTEGER NOT NULL);
+    CREATE TABLE reports (report_key TEXT PRIMARY KEY, event_id TEXT NOT NULL, body_sha256 TEXT);
+    CREATE TABLE outbox (delivery_id TEXT PRIMARY KEY, event_id TEXT NOT NULL, destination TEXT NOT NULL, state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_ms INTEGER NOT NULL DEFAULT 0, receipt_json TEXT, created_ms INTEGER NOT NULL, UNIQUE(event_id, destination));
+    CREATE TABLE executions (id TEXT PRIMARY KEY, solution_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL, session_id TEXT UNIQUE, pid INTEGER, process_start TEXT, worktree TEXT, started_ms INTEGER, deadline_ms INTEGER, exit_code INTEGER, pr_url TEXT, head_sha TEXT, reason TEXT);
+    CREATE UNIQUE INDEX idx_exec_active ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING');
+    CREATE TABLE control (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE audit (seq INTEGER PRIMARY KEY, event TEXT NOT NULL, ref TEXT, details_json TEXT, created_ms INTEGER NOT NULL);
+    CREATE TABLE manifests (event_id TEXT PRIMARY KEY, producer_role TEXT NOT NULL, artifact_sha256 TEXT NOT NULL, artifact_bytes INTEGER NOT NULL, source_page_id TEXT, source_reference TEXT, manifest_json TEXT NOT NULL, fetched_ms INTEGER);
+    CREATE TABLE cursors (producer_role TEXT PRIMARY KEY, committed_token TEXT, pending_token TEXT);
+    CREATE TABLE snapshot_items (producer_role TEXT NOT NULL, token TEXT NOT NULL, item_id TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY (producer_role, token, item_id));
+    CREATE TABLE index_progress (producer_role TEXT NOT NULL, token TEXT NOT NULL, generation INTEGER NOT NULL, next_page_number INTEGER NOT NULL, next_descriptor_json TEXT, complete INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (producer_role, token));
+    ALTER TABLE outbox ADD COLUMN sender_boot_id TEXT;
+    ALTER TABLE outbox ADD COLUMN sender_pid INTEGER;
+    ALTER TABLE outbox ADD COLUMN sender_start TEXT;
+    ALTER TABLE executions ADD COLUMN supervisor_boot_id TEXT;
+    ALTER TABLE executions ADD COLUMN authorized_attempts INTEGER NOT NULL DEFAULT 3;
+    ALTER TABLE executions ADD COLUMN reserved_total_ms INTEGER NOT NULL DEFAULT 21600000;
+    ALTER TABLE executions ADD COLUMN attempts_admitted INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE executions ADD COLUMN charged_reservation_ms INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE executions ADD COLUMN resumptions INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE executions ADD COLUMN consecutive_resume_failures INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE executions ADD COLUMN last_resume_boot TEXT;
+    CREATE TABLE execution_attempts (
+      execution_id TEXT NOT NULL,
+      attempt_number INTEGER NOT NULL,
+      boot_id TEXT,
+      state TEXT NOT NULL,
+      reserved_ms INTEGER NOT NULL DEFAULT 7200000,
+      active_start_ns TEXT,
+      last_active_ns TEXT,
+      measured_active_used_ms INTEGER,
+      actual_elapsed_proven INTEGER NOT NULL DEFAULT 0,
+      supervisor_pid INTEGER,
+      supervisor_start TEXT,
+      child_pid INTEGER,
+      child_start TEXT,
+      session_id TEXT,
+      PRIMARY KEY (execution_id, attempt_number)
+    );
+    DROP INDEX IF EXISTS idx_exec_active;
+    CREATE UNIQUE INDEX idx_exec_active
+      ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
+    PRAGMA user_version = 2;
+  `);
+  // A REQUIRES_REVIEW row is legal under the v2 index (it does not know the
+  // state) — a v2 capture checkpoint leaves exactly this shape behind.
+  raw.prepare("INSERT INTO executions (id, solution_id, state, session_id, started_ms, deadline_ms) VALUES ('DOT-EXEC-RV','S-RV','REQUIRES_REVIEW','dddddddd-dddd-4ddd-8ddd-dddddddddddd',1,2)").run();
+  raw.close();
+
+  const ledger = openLedger(path, { now });
+  const check = new DatabaseSync(path);
+  assert.equal(check.prepare('PRAGMA user_version').get().user_version, 3);
+  const tables = check.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('worker_reports','review_receipts')").all().map((r) => r.name).sort();
+  assert.deepEqual(tables, ['review_receipts', 'worker_reports']);
+  // The migrated index now counts REQUIRES_REVIEW as slot-owning: no second
+  // active execution may exist alongside it, in ANY active state.
+  assert.throws(() => check.prepare("INSERT INTO executions (id, solution_id, state, session_id, started_ms, deadline_ms) VALUES ('DOT-EXEC-TWO','S-TWO','RUNNING','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',3,4)").run(), /UNIQUE/);
+  assert.throws(() => check.prepare("INSERT INTO executions (id, solution_id, state, session_id, started_ms, deadline_ms) VALUES ('DOT-EXEC-THR','S-THR','REQUIRES_REVIEW','ffffffff-ffff-4fff-8fff-ffffffffffff',5,6)").run(), /UNIQUE/);
+  check.close();
+  // Row preserved; the ledger sees the review-held slot everywhere.
+  const row = ledger.getExecution('DOT-EXEC-RV');
+  assert.equal(row.state, 'REQUIRES_REVIEW');
+  assert.ok(ledger.status().execution, 'status must expose the review-held slot');
+  assert.equal(ledger.status().execution.id, 'DOT-EXEC-RV');
+  const s2 = solutionChain(ledger, 'r10mig');
+  assert.equal(ledger.claimExecution({ solutionId: s2.id, sessionId: 'abababab-abab-4bab-8bab-abababababab' }).claimed, false);
+  const adm = ledger.admitNextAttempt({ executionId: 'DOT-EXEC-RV', bootId: 'BOOT-3', sessionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+  assert.equal(adm.admitted, false, 'resume admission never bypasses the review gate');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ------------------------------------------------ R10: slot-owning REQUIRES_REVIEW surface
+
+test('R10 ledger: REQUIRES_REVIEW holds the slot against claim/admission/host-reconciliation — only review-import advances it', () => {
+  const { ledger } = freshLedger();
+  const solution = solutionChain(ledger, 'r10a');
+  const claim = ledger.claimExecution({
+    solutionId: solution.id, sessionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    bootId: 'BOOT-1', supervisor: { pid: 901, start: 'Mon Oct  6 09:00:00 2026' },
+  });
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pid: 601, process_start: 'Mon Oct  6 10:00:00 2026', pr_url: 'https://github.com/artyhoo/getff/pull/4001', head_sha: sha40('r10-head') });
+  assert.ok(ledger.status().execution, 'status must expose the review-held slot');
+  assert.equal(ledger.status().execution.state, 'REQUIRES_REVIEW');
+  // a NEW queued solution cannot take the slot
+  const s2 = solutionChain(ledger, 'r10b');
+  assert.equal(ledger.claimExecution({ solutionId: s2.id, sessionId: 'abababab-abab-4bab-8bab-abababababab' }).claimed, false);
+  // resume admission refuses: the review gate, not another GLM attempt, owns the row
+  const adm = ledger.admitNextAttempt({ executionId: claim.execution_id, bootId: 'BOOT-9', sessionId: claim.session_id });
+  assert.equal(adm.admitted, false);
+  // host reconciliation NEVER flips a review-held row to INTERRUPTED_HOST (a
+  // reboot must not open a resume around the review)
+  const rec = ledger.reconcileHost({ bootId: 'BOOT-9', processProbe: () => ({ alive: false, start: null }), controlActor: 'r10-review-gate-test' });
+  assert.deepEqual(rec.executions.map((e) => e.decision), ['requires-review']);
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  // CONFIRM_DEAD reconciliation cannot abort the review either (explicit
+  // refusal — load-bearing once REQUIRES_REVIEW joins ACTIVE_STATES)
+  assert.throws(() => ledger.reconcileExecution({
+    execution_id: claim.execution_id,
+    evidence: { session_id: claim.session_id, control: 'operator test control input for the review-hold refusal arm' },
+    decision: 'CONFIRM_DEAD',
+  }), (e) => e.code === 'RECONCILE_STATE');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  ledger.close();
+});
+
+// ------------------------------------------------ R10: reviewImport / worker reports
+
+test('R10 ledger: reviewImport — schema/independence/mismatch refusals never persist; a matching receipt advances to VERIFYING; replay, immutability, source-change invalidation', () => {
+  const { ledger } = freshLedger();
+  assert.equal(typeof ledger.persistWorkerReport, 'function', 'R10: persistWorkerReport API exists');
+  assert.equal(typeof ledger.getWorkerReport, 'function', 'R10: getWorkerReport API exists');
+  assert.equal(typeof ledger.getReviewReceipt, 'function', 'R10: getReviewReceipt API exists');
+  assert.equal(typeof ledger.reviewImport, 'function', 'R10: reviewImport API exists');
+  const solution = solutionChain(ledger, 'r10c');
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: sha256Of('r10-sol'), artifact_sha256: sha256Of('r10-art'),
+    source_tree_digest: sha256Of('r10-tree'),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4002', head_sha: sha40('r10-head'),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+  // no worker report captured -> hold, never invent approval
+  const receipt = {
+    version: 1, execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: report.solution_sha256, artifact_sha256: report.artifact_sha256,
+    source_tree_digest: report.source_tree_digest, head_sha: report.head_sha,
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+  };
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt }), (e) => e.code === 'REVIEW_REPORT_MISSING');
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  assert.ok(ledger.getWorkerReport(claim.execution_id), 'worker report persisted and readable');
+  assert.equal(ledger.getWorkerReport(claim.execution_id).source_tree_digest, report.source_tree_digest);
+  // schema refusals
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, verdict: 'LGTM' } }), (e) => e.code === 'RECEIPT_SCHEMA');
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, extra_key: 1 } }), (e) => e.code === 'RECEIPT_SCHEMA');
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, reviewer: claim.session_id } }), (e) => e.code === 'REVIEWER_NOT_INDEPENDENT');
+  // digest/head mismatches against the CURRENT report
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, head_sha: sha40('other-head') } }), (e) => e.code === 'RECEIPT_MISMATCH');
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, source_tree_digest: sha256Of('a-different-source-tree') } }), (e) => e.code === 'RECEIPT_MISMATCH');
+  assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'a rejected receipt never persists');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  // REVIEW_STATE: without a prior receipt, only a REQUIRES_REVIEW row accepts.
+  // Own fresh ledger: the main ledger's execution still holds REQUIRES_REVIEW,
+  // and the single-active-slot invariant (asserted in the executor suite)
+  // would refuse a second claim outright.
+  const { ledger: ledgerB } = freshLedger();
+  const solutionB = solutionChain(ledgerB, 'r10d');
+  const claimB = ledgerB.claimExecution({ solutionId: solutionB.id, sessionId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' });
+  ledgerB.updateExecution(claimB.execution_id, { state: 'RUNNING' });
+  ledgerB.persistWorkerReport({ executionId: claimB.execution_id, report: { ...report, execution_id: claimB.execution_id, session_id: claimB.session_id } });
+  assert.throws(() => ledgerB.reviewImport({ executionId: claimB.execution_id, receipt: { ...receipt, execution_id: claimB.execution_id, session_id: claimB.session_id } }), (e) => e.code === 'REVIEW_STATE');
+  ledgerB.close();
+  // legit receipt: atomically applied, state advances to VERIFYING
+  const applied = ledger.reviewImport({ executionId: claim.execution_id, receipt });
+  assert.equal(applied.applied, true);
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'VERIFYING');
+  const stored = ledger.getReviewReceipt(claim.execution_id);
+  assert.ok(stored, 'applied receipt is durable');
+  assert.equal(stored.reviewer, 'dot-relay-os-owner');
+  // identical bytes replay as a no-op
+  const replay = ledger.reviewImport({ executionId: claim.execution_id, receipt });
+  assert.equal(replay.replay, true);
+  // a DIFFERENT receipt after an applied one is immutable-held
+  assert.throws(() => ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, reviewer: 'other-owner-0002' } }), (e) => e.code === 'RECEIPT_IMMUTABLE');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'VERIFYING');
+  // a changed source tree invalidates the prior approval; a fresh matching
+  // receipt may re-approve the new tree
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report: { ...report, source_tree_digest: sha256Of('r10-tree-v2') } });
+  assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'source change invalidates the applied receipt');
+  const reapplied = ledger.reviewImport({ executionId: claim.execution_id, receipt: { ...receipt, source_tree_digest: sha256Of('r10-tree-v2') } });
+  assert.equal(reapplied.applied, true);
+  ledger.close();
 });
 
 // ------------------------------------------------ baseline fall-through fix

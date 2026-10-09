@@ -400,7 +400,7 @@ export function runCessationLadder({ classify, term, kill, waitExit, termGraceMs
   })();
 }
 
-function startupPreamble({ jobBranch, baseSha, receiptPath, executionId, sessionId }) {
+function startupPreamble({ jobBranch, baseSha, receiptPath, executionId, sessionId, solutionSha256, artifactSha256 }) {
   return [
     '# Dot relay supervised execution — fixed startup contract',
     `1. FIRST command, before any edit: git switch -c ${jobBranch} ${baseSha} (exact supervisor substitutions; never alter them).`,
@@ -409,7 +409,7 @@ function startupPreamble({ jobBranch, baseSha, receiptPath, executionId, session
     '   "head":"<git rev-parse HEAD>","toplevel":"<git rev-parse --show-toplevel>","branch":"<git branch --show-current>","clean":"<git status --porcelain>"}',
     '3. Only after that receipt file exists may you edit files or cause any push/PR side effect.',
     '4. Never merge, never arm auto-merge, never force-push; report the exact pushed head.',
-    '5. Final stdout must be the single JSON result object with pr_url and head_sha.',
+    `5. Final stdout must be the single JSON result object whose "result" field is a STRING holding exactly one strict JSON CODE_COMPLETE report (<=16384 UTF-8 bytes, no Markdown, no code fences, no prose around it) with the exact keys {"version":1,"status":"CODE_COMPLETE","execution_id":"${executionId}","session_id":"${sessionId}","solution_sha256":"${solutionSha256}","artifact_sha256":"${artifactSha256}","source_tree_digest":"<64-hex sha256 of your final source tree>","pr_url":"https://github.com/artyhoo/getff/pull/<number>","head_sha":"<40-hex pushed head>","independent_review_ref":null}. Any other shape is rejected without verification.`,
     '',
   ].join('\n');
 }
@@ -516,9 +516,56 @@ function workerPrompt({ kickoffPath, framingPath, kickoffSha256, framingSha256 }
     `2. Read the kickoff artifact file (private; its exact bytes are mandatory): ${kickoffPath} (sha256 ${kickoffSha256}).`,
     '3. Execute exactly what those two files specify; never modify, move, copy, or re-emit them.',
     '4. Never merge, never arm auto-merge, never force-push; report the exact pushed head.',
-    '5. Final stdout must be the single JSON result object with pr_url and head_sha.',
+    '5. Final stdout must be the single JSON result object whose result string is the exact CODE_COMPLETE report the framing contract defines.',
     '',
   ].join('\n');
+}
+
+// R10: strict CODE_COMPLETE capture — the ONE shared validator for the run,
+// resume and adopt paths (a duplicated capture body is how the paths drifted
+// before). The harness --output-format json result field is a STRING holding
+// exactly one strict JSON report (<=16384 UTF-8 bytes); object compatibility,
+// prose, fences and first-substring rescue are all refused. Every identity
+// digest binds the runtime's OWN execution/session/solution/artifact; PR URL
+// and head shapes are fixed. An observed nonzero exitCode is a capture hold.
+// Returns {ok:true, report} or {ok:false, blocker, untrusted} — `untrusted`
+// marks ABSENT evidence (no parsable trusted outer capture at all), which the
+// adopt monitor keeps UNCERTAIN instead of inventing a terminal verdict.
+const REPORT_KEYS_SORTED = ['artifact_sha256', 'execution_id', 'head_sha', 'independent_review_ref', 'pr_url', 'session_id', 'solution_sha256', 'source_tree_digest', 'status', 'version'].join(',');
+const REPORT_LIMIT_BYTES = 16_384;
+const PR_URL_RE = /^https:\/\/github\.com\/artyhoo\/getff\/pull\/\d+$/;
+const HEAD40_RE = /^[0-9a-f]{40}$/;
+
+function captureCodeComplete({ stdoutText, sessionId, executionId, solutionSha256, artifactSha256, exitCode = null }) {
+  const reject = (untrusted) => ({ ok: false, blocker: 'BLOCKED_CAPTURE', untrusted });
+  const parsed = parseChildResult(stdoutText, sessionId, EXECUTION_MODEL);
+  if (!parsed.trusted) return reject(true);
+  if (exitCode !== null && exitCode !== 0) return reject(false);
+  if (parsed.isError) {
+    const r = parsed.result;
+    const permDenied = r && typeof r === 'object'
+      && (r.status === 'BLOCKED_PERMISSION' || r.kind === 'permission_denied');
+    return permDenied ? { ok: false, blocker: 'BLOCKED_PERMISSION', untrusted: false } : reject(false);
+  }
+  if (typeof parsed.result !== 'string') return reject(false); // an object is never production compatibility
+  const text = parsed.result;
+  if (Buffer.byteLength(text, 'utf8') > REPORT_LIMIT_BYTES) return reject(false);
+  let report;
+  try {
+    report = JSON.parse(text); // whole-string parse ONLY — no substring rescue
+  } catch {
+    return reject(false);
+  }
+  if (!report || typeof report !== 'object' || Array.isArray(report)) return reject(false);
+  if (Object.keys(report).sort().join(',') !== REPORT_KEYS_SORTED) return reject(false);
+  if (report.version !== 1 || report.status !== 'CODE_COMPLETE') return reject(false);
+  if (report.execution_id !== executionId || report.session_id !== sessionId) return reject(false);
+  if (report.solution_sha256 !== solutionSha256) return reject(false);
+  if (report.artifact_sha256 !== artifactSha256) return reject(false);
+  if (!HEX64.test(report.source_tree_digest)) return reject(false);
+  if (!PR_URL_RE.test(report.pr_url) || !HEAD40_RE.test(report.head_sha)) return reject(false);
+  if (!(report.independent_review_ref === null || typeof report.independent_review_ref === 'string')) return reject(false);
+  return { ok: true, report };
 }
 
 // Supervisor-side startup verification: receipt identity + independent git proofs.
@@ -820,7 +867,11 @@ export async function runExecution(opts) {
   const framingPath = join(workerDir, `${executionId}.framing.md`);
   const framingWrite = writePrivateArtifact(
     framingPath,
-    Buffer.from(startupPreamble({ jobBranch, baseSha: payload.base_sha, receiptPath, executionId, sessionId }), 'utf8'),
+    Buffer.from(startupPreamble({
+      jobBranch, baseSha: payload.base_sha, receiptPath, executionId, sessionId,
+      solutionSha256: solution.sha256,
+      artifactSha256: packetVerify.packet.artifact_sha256,
+    }), 'utf8'),
   );
   const kickoffWrite = writePrivateArtifact(kickoffPath, Buffer.from(packetVerify.packet.kickoff_text, 'utf8'));
   if (!framingWrite.ok || !kickoffWrite.ok) {
@@ -968,48 +1019,34 @@ export async function runExecution(opts) {
       return { state: 'UNCERTAIN', blocker: reason, execution_id: executionId };
     }
 
-    // --- capture: prove exact session + reported model + no error
+    // --- capture: strict CODE_COMPLETE string report (R10) -> REQUIRES_REVIEW
     let stdoutText = '';
     try {
       stdoutText = readFileSync(stdoutPath, 'utf8');
     } catch {
       stdoutText = '';
     }
-    const parsed = parseChildResult(stdoutText, sessionId, EXECUTION_MODEL);
-    if (!parsed.trusted) {
-      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: 'BLOCKED_CAPTURE' });
-      return { state: 'BLOCKED', blocker: 'BLOCKED_CAPTURE', execution_id: executionId };
+    const cap = captureCodeComplete({
+      stdoutText, sessionId, executionId,
+      solutionSha256: solution.sha256,
+      artifactSha256: packetVerify.packet.artifact_sha256,
+      exitCode: exitInfo.code,
+    });
+    if (!cap.ok) {
+      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: cap.blocker });
+      return { state: 'BLOCKED', blocker: cap.blocker, execution_id: executionId };
     }
-    if (parsed.isError) {
-      const r = parsed.result;
-      const permDenied = r && typeof r === 'object'
-        && (r.status === 'BLOCKED_PERMISSION' || r.kind === 'permission_denied');
-      const blocker = permDenied ? 'BLOCKED_PERMISSION' : 'BLOCKED_CAPTURE';
-      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: blocker });
-      return { state: 'BLOCKED', blocker, execution_id: executionId };
-    }
-    const report = parsed.result;
-    if (!report || typeof report !== 'object' || typeof report.pr_url !== 'string' || typeof report.head_sha !== 'string') {
-      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: 'BLOCKED_CAPTURE' });
-      return { state: 'BLOCKED', blocker: 'BLOCKED_CAPTURE', execution_id: executionId };
-    }
-
-    // --- exact-head PR verification, sharing the SAME active budget
-    ledger.updateExecution(executionId, { state: 'VERIFYING', pr_url: report.pr_url, head_sha: report.head_sha });
-    writeCheckpoint('CAPTURED', { head_sha: report.head_sha, pr_url: report.pr_url });
-    const usedNow = activeUsedMs();
-    const remaining = usedNow === null
-      ? null
-      : Math.max(deadlineMs - usedNow, pollIntervalMs * 2);
-    const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, ghImpl, clock, pollIntervalMs, deadlineMs: remaining });
-    if (v.state === 'DONE') {
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'DONE', measured_active_used_ms: activeUsedMs() ?? 0 });
-      ledger.updateExecution(executionId, { state: 'DONE', exit_code: exitInfo.code });
-      writeCheckpoint('DONE', { head_sha: report.head_sha, pr_url: report.pr_url });
-      return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
-    }
-    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
-    return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };
+    const report = cap.report;
+    // R10: CODE_COMPLETE is a REVIEW CHECKPOINT, never independent approval —
+    // persist the worker report and the slot-owning REQUIRES_REVIEW state; the
+    // PR is NEVER verified from a capture path. Only an OS-owner imported
+    // independent review receipt (applyReviewAndVerify / review-import CLI)
+    // advances the execution to VERIFYING/DONE.
+    ledger.persistWorkerReport({ executionId, report });
+    ledger.updateAttempt(executionId, attemptNumber, { state: 'REQUIRES_REVIEW', measured_active_used_ms: activeUsedMs() ?? 0 });
+    ledger.updateExecution(executionId, { state: 'REQUIRES_REVIEW', exit_code: exitInfo.code, pr_url: report.pr_url, head_sha: report.head_sha });
+    writeCheckpoint('REQUIRES_REVIEW', { head_sha: report.head_sha, pr_url: report.pr_url });
+    return { state: 'REQUIRES_REVIEW', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
   } finally {
     try { closeSync(lockFd); } catch { /* already closed */ }
     releaseOwnedLock();
@@ -1162,7 +1199,7 @@ function resumePreamble({ checkpointPath, kickoffPath, framingPath, kickoffSha25
     `1. FIRST inspect the actual current state: git status, git log, gh pr list + gh pr view for this branch. Determine what is already pushed/open BEFORE doing anything.`,
     '2. Never repeat a completed external side effect: no second push of the same content, no second PR create for this branch. Reuse the existing PR when one is already open.',
     '3. Continue the remaining accepted work; never create a new branch or session. Re-read the framing contract and kickoff artifact files below (exact bytes, sha256 verified); never modify or re-emit them.',
-    '4. Final stdout must be the single JSON result object with pr_url and head_sha.',
+    '4. Final stdout must be the single JSON result object whose result string is the exact CODE_COMPLETE report the framing contract defines.',
     `Checkpoint (private): ${checkpointPath}`,
     `Framing contract (private, sha256 ${framingSha256}): ${framingPath}`,
     `Kickoff artifact (private, sha256 ${kickoffSha256}): ${kickoffPath}`,
@@ -1417,16 +1454,20 @@ export async function resumeExecution(opts) {
       ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_RESUME_IDENTITY' });
       return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_RESUME_IDENTITY', execution_id: executionId };
     }
-    const parsed = parseChildResult(stdoutText, sessionId, EXECUTION_MODEL);
-    if (!parsed.trusted || parsed.isError
-      || !parsed.result || typeof parsed.result !== 'object'
-      || typeof parsed.result.pr_url !== 'string' || typeof parsed.result.head_sha !== 'string') {
+    const cap = captureCodeComplete({
+      stdoutText, sessionId, executionId,
+      solutionSha256: solution.sha256,
+      artifactSha256: packetVerify.packet.artifact_sha256,
+      exitCode: exitInfo.code,
+    });
+    if (!cap.ok) {
       ledger.recordResumeFailure(executionId);
-      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: 'BLOCKED_CAPTURE' });
-      return { state: 'BLOCKED', blocker: 'BLOCKED_CAPTURE', execution_id: executionId };
+      ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: cap.blocker });
+      return { state: 'BLOCKED', blocker: cap.blocker, execution_id: executionId };
     }
-    const report = parsed.result;
-    // §4: an already-open PR is REUSED, never duplicated.
+    const report = cap.report;
+    // §4: an already-open PR is REUSED, never duplicated. Checked BEFORE the
+    // report persists — a duplicate-PR capture leaves no report behind.
     if (cp.pr_url && report.pr_url !== cp.pr_url) {
       ledger.recordResumeFailure(executionId);
       ledger.updateExecution(executionId, { state: 'BLOCKED', exit_code: exitInfo.code, reason: 'BLOCKED_DUPLICATE_PR' });
@@ -1434,20 +1475,13 @@ export async function resumeExecution(opts) {
     }
     const prUrl = cp.pr_url ?? report.pr_url;
 
-    ledger.updateExecution(executionId, { state: 'VERIFYING', pr_url: prUrl, head_sha: report.head_sha });
-    writeCheckpoint('CAPTURED', { head_sha: report.head_sha, pr_url: prUrl });
-    const usedNow = activeUsedMs();
-    const remaining = usedNow === null ? null : Math.max(deadlineMs - usedNow, pollIntervalMs * 2);
-    const v = await verifyPr({ url: prUrl, headSha: report.head_sha, ghImpl, clock, pollIntervalMs, deadlineMs: remaining });
-    if (v.state === 'DONE') {
-      ledger.updateAttempt(executionId, attemptNumber, { state: 'DONE', measured_active_used_ms: activeUsedMs() ?? 0 });
-      ledger.updateExecution(executionId, { state: 'DONE', exit_code: exitInfo.code });
-      ledger.recordResumeSuccess(executionId);
-      writeCheckpoint('DONE', { head_sha: report.head_sha, pr_url: prUrl });
-      return { state: 'DONE', execution_id: executionId, pr_url: prUrl, head_sha: report.head_sha };
-    }
-    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
-    return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };
+    // R10: review checkpoint — the resumed capture never verifies the PR itself.
+    ledger.persistWorkerReport({ executionId, report });
+    ledger.updateAttempt(executionId, attemptNumber, { state: 'REQUIRES_REVIEW', measured_active_used_ms: activeUsedMs() ?? 0 });
+    ledger.updateExecution(executionId, { state: 'REQUIRES_REVIEW', exit_code: exitInfo.code, pr_url: prUrl, head_sha: report.head_sha });
+    ledger.recordResumeSuccess(executionId);
+    writeCheckpoint('REQUIRES_REVIEW', { head_sha: report.head_sha, pr_url: prUrl });
+    return { state: 'REQUIRES_REVIEW', execution_id: executionId, pr_url: prUrl, head_sha: report.head_sha };
   } finally {
     try { closeSync(lockFd); } catch { /* already closed */ }
     releaseOwnedLock();
@@ -1575,34 +1609,38 @@ export async function monitorAdoptedChild(opts) {
     ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_IDENTITY' });
     return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_IDENTITY', execution_id: executionId };
   }
-  const parsed = parseChildResult(stdoutText, sessionId, EXECUTION_MODEL);
-  if (!parsed.trusted || parsed.isError
-    || !parsed.result || typeof parsed.result !== 'object'
-    || typeof parsed.result.pr_url !== 'string' || typeof parsed.result.head_sha !== 'string') {
-    // No invented exit status: absent evidence stays UNCERTAIN_STOP.
-    ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: activeUsedMs() ?? 0 });
-    ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_STOP' });
-    return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_STOP', execution_id: executionId };
+  const cap = captureCodeComplete({
+    stdoutText, sessionId, executionId,
+    solutionSha256: cp ? cp.solution_sha256 : null,
+    artifactSha256: cp ? cp.artifact_sha256 : null,
+    exitCode: null, // an adopted child's exit code was never observed
+  });
+  if (!cap.ok) {
+    if (cap.untrusted) {
+      // No invented exit status: absent evidence stays UNCERTAIN_STOP.
+      ledger.updateAttempt(executionId, attemptNumber, { state: 'UNCERTAIN', measured_active_used_ms: activeUsedMs() ?? 0 });
+      ledger.updateExecution(executionId, { state: 'UNCERTAIN', reason: 'UNCERTAIN_STOP' });
+      return { state: 'UNCERTAIN', blocker: 'UNCERTAIN_STOP', execution_id: executionId };
+    }
+    // R10: present-but-invalid evidence from an adopted child is terminal —
+    // the monitor never retries around a rejected capture.
+    ledger.updateAttempt(executionId, attemptNumber, { state: 'BLOCKED', measured_active_used_ms: activeUsedMs() ?? 0 });
+    ledger.updateExecution(executionId, { state: 'BLOCKED', reason: cap.blocker });
+    return { state: 'BLOCKED', blocker: cap.blocker, execution_id: executionId };
   }
-  const report = parsed.result;
-  ledger.updateExecution(executionId, { state: 'VERIFYING', pr_url: report.pr_url, head_sha: report.head_sha });
-  const usedNow = activeUsedMs();
-  const remaining = usedNow === null ? null : Math.max(deadlineMs - usedNow, pollIntervalMs * 2);
-  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, ghImpl, clock, pollIntervalMs, deadlineMs: remaining });
-  if (v.state === 'DONE') {
-    ledger.updateAttempt(executionId, attemptNumber, { state: 'DONE', measured_active_used_ms: activeUsedMs() ?? 0 });
-    ledger.updateExecution(executionId, { state: 'DONE' });
-    ledger.recordResumeSuccess(executionId);
-    if (cp) makeCheckpointWriter({
-      workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
-      headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
-      artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
-      kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
-    })('DONE', { head_sha: report.head_sha, pr_url: report.pr_url });
-    return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
-  }
-  ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
-  return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };
+  const report = cap.report;
+  // R10: review checkpoint — the monitor never verifies the PR itself.
+  ledger.persistWorkerReport({ executionId, report });
+  ledger.updateAttempt(executionId, attemptNumber, { state: 'REQUIRES_REVIEW', measured_active_used_ms: activeUsedMs() ?? 0 });
+  ledger.updateExecution(executionId, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+  ledger.recordResumeSuccess(executionId);
+  if (cp) makeCheckpointWriter({
+    workerDir, executionId, sessionId, clock, jobBranch: cp.branch, worktree: cp.worktree,
+    headSha: cp.head_sha, solutionSha256: cp.solution_sha256,
+    artifactSha256: cp.artifact_sha256, artifactBytes: cp.artifact_bytes,
+    kickoffSha256: cp.kickoff_sha256, framingSha256: cp.framing_sha256, activeUsedMs,
+  })('REQUIRES_REVIEW', { head_sha: report.head_sha, pr_url: report.pr_url });
+  return { state: 'REQUIRES_REVIEW', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
 }
 
 // ------------------------------------------------------------- verifyPr
@@ -1646,4 +1684,45 @@ export async function verifyPr({ url, headSha, ghImpl = productionGh, clock, pol
     if (v2.headRefOid !== headSha) return { state: 'BLOCKED', blocker: 'BLOCKED_HEAD_MOVED' };
     return { state: 'DONE' };
   }
+}
+
+// R10: the independent review gate. Applies an OS-owner review receipt through
+// the ledger (reviewImport) and, only then, verifies the PR against the
+// report's exact head. The capture paths never call this — the CLI
+// review-import command is its production caller.
+export async function applyReviewAndVerify({ ledger, executionId, receipt, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
+  if (!clock || typeof clock.ok !== 'function' || typeof clock.activeNs !== 'function' || typeof clock.fresh !== 'function') {
+    throw new Error('[INVALID] clock required: post-review CI polling shares the attempt active budget — wall time never bounds it');
+  }
+  const report = ledger.getWorkerReport(executionId);
+  if (!report) {
+    return { state: 'HELD', blocker: 'REVIEW_REPORT_MISSING', execution_id: executionId };
+  }
+  const row = ledger.getExecution(executionId);
+  // The ledger gate decides FIRST — an idempotent replay is its no-op, a
+  // DIFFERENT receipt over an applied one is RECEIPT_IMMUTABLE even on a DONE
+  // row (immutability must not be masked by an outcome replay).
+  let imported;
+  try {
+    imported = ledger.reviewImport({ executionId, receipt });
+  } catch (err) {
+    const blocker = err && typeof err.code === 'string' ? err.code : 'REVIEW_STATE';
+    return { state: 'HELD', held: true, blocker, execution_id: executionId };
+  }
+  // replay of the SAME receipt over an already-DONE row: report the stored
+  // outcome without re-polling CI (the PR may legitimately have moved on).
+  if (imported.replay === true && row && row.state === 'DONE') {
+    return { state: 'DONE', execution_id: executionId, pr_url: row.pr_url, head_sha: row.head_sha, replay: true };
+  }
+  // verification against the report's exact PR head, sharing the active budget
+  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, ghImpl, clock, pollIntervalMs, deadlineMs });
+  if (v.state === 'DONE') {
+    if (row && row.attempts_admitted >= 1) {
+      ledger.updateAttempt(executionId, row.attempts_admitted, { state: 'DONE' });
+    }
+    ledger.updateExecution(executionId, { state: 'DONE' });
+    return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha };
+  }
+  ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
+  return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };
 }

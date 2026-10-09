@@ -523,6 +523,17 @@ async function runBridge({ tools, config, emit }) {
       emit(result);
       return result;
     }
+    // RECOVERY-ADOPTION: a root pending external-recovery reconciliation is
+    // closed to automatic work — no tick, no wait, no send. Only a committed
+    // reconcile-external-recovery clears the flag; the cycle then resumes.
+    if (st.recovery_import_pending === true) {
+      const result = {
+        version: 1, mode: 'HYBRID', state: 'RECOVERY_IMPORT_PENDING', counts: counters,
+        blockers: [{ code: 'RECOVERY_IMPORT_PENDING', event_id: null }], continuation: false,
+      };
+      emit(result);
+      return result;
+    }
     await runCli(tools, config, ['tick']);
     const plan1 = await runCli(tools, config, ['plan']);
     for (const b of (plan1.blockers ?? [])) {

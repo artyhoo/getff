@@ -218,7 +218,7 @@ function assertResultShape(r) {
   assert.deepEqual(Object.keys(r).sort(), ['blockers', 'continuation', 'counts', 'mode', 'state', 'version']);
   assert.equal(r.version, 1);
   assert.equal(r.mode, 'HYBRID');
-  assert.ok(['IDLE', 'PROGRESSED', 'WAIT', 'BLOCKED', 'OFF'].includes(r.state), `bad state ${r.state}`);
+  assert.ok(['IDLE', 'PROGRESSED', 'WAIT', 'BLOCKED', 'OFF', 'RECOVERY_IMPORT_PENDING'].includes(r.state), `bad state ${r.state}`);
   assert.deepEqual(Object.keys(r.counts).sort(), ['acks', 'deliveries', 'executions', 'sources']);
   for (const v of Object.values(r.counts)) {
     assert.ok(Number.isSafeInteger(v) && v >= 0 && v < 1e9, `bad count ${v}`);
@@ -495,6 +495,21 @@ test('durable OFF: status short-circuits to OFF before any wait/send', async () 
   const { result } = await runBody(root, tools);
   assertResultShape(result);
   assert.equal(result.state, 'OFF');
+  assert.equal(calls.wait.length, 0);
+  assert.equal(calls.sends.length, 0);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('RECOVERY-ADOPTION: recovery_import_pending short-circuits the cycle before any tick/wait/send', async () => {
+  const root = join(tmpdir(), `dot-br-rec-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+  const { tools, calls } = makeTools({});
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  assert.equal(result.state, 'RECOVERY_IMPORT_PENDING');
+  assert.deepEqual(result.blockers, [{ code: 'RECOVERY_IMPORT_PENDING', event_id: null }]);
+  assert.equal(calls.exec.length, 1, 'status only — no tick, no plan');
+  assert.ok(calls.exec[0].includes("'status'"));
   assert.equal(calls.wait.length, 0);
   assert.equal(calls.sends.length, 0);
   rmSync(root, { recursive: true, force: true });

@@ -10,6 +10,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
   existsSync, symlinkSync, readlinkSync, statSync, openSync, writeSync, closeSync,
+  chmodSync, appendFileSync, renameSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -486,6 +487,188 @@ test('multipart altered part bytes rejected at part-finish', () => {
   appendChunks(root, begin.upload_id, altered);
   const r = cli(['spool-part-finish', '--root', root, '--upload-id', begin.upload_id, '--ordinal', '0'], { expectFail: true });
   assert.ok(r.stdout.includes('PART_MISMATCH'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- R12 upload journal
+//
+// Crash boundaries are constructed as EXACT post-crash disk shapes (direct
+// file manipulation between CLI invocations) — failpoints live here, never
+// in production environment behavior. Every case restarts at least twice
+// (each CLI call is a fresh process).
+
+function uploadStatePath(root, uploadId) {
+  return join(root, 'spool', `${uploadId}.state.json`);
+}
+function readUploadState(root, uploadId) {
+  return JSON.parse(readFileSync(uploadStatePath(root, uploadId), 'utf8'));
+}
+function uploadPart(root, up, ordinal, partText) {
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', String(ordinal), '--sha256', sha256Of(partText), '--bytes', String(Buffer.byteLength(partText))]);
+  appendChunks(root, up, partText);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', String(ordinal)]);
+}
+
+// boundary: whole append done, journal checkpoint NOT — restart truncates the
+// uncommitted suffix back to the committed offset and replays the part ONCE.
+test('R12: uncommitted whole suffix truncated on restart; part replays exactly once (crash after append, before journal commit)', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('R12A');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12a.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12a']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+
+  uploadPart(root, up, 0, partTexts[0]); // committed: journal at ordinal 1
+
+  // crash shape: part 1 bytes reached whole.tmp but the journal never advanced
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '1', '--sha256', sha256Of(partTexts[1]), '--bytes', String(Buffer.byteLength(partTexts[1]))]);
+  appendChunks(root, up, partTexts[1]);
+  appendFileSync(join(root, 'spool', `${up}.whole.tmp`), partTexts[1]); // uncommitted suffix
+  assert.equal(readUploadState(root, up).next_ordinal, 1);
+
+  // restart: part-finish must shed the suffix, then append part 1 exactly once
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '1']);
+  const wholeTmp = readFileSync(join(root, 'spool', `${up}.whole.tmp`), 'utf8');
+  assert.equal(wholeTmp, text); // p0+p1 — NOT p0+p1+p1 (duplicate concatenation)
+
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.artifact_sha256, whole);
+  assert.equal(readFileSync(join(root, 'objects', `${whole}.json`), 'utf8'), text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// boundary: journal commit done, part-temp unlink NOT — restart drops the
+// orphan temp (its bytes are already committed at the whole prefix).
+test('R12: orphan part temp of a committed ordinal is dropped on restart', () => {
+  const root = freshRoot();
+  const { manifest, whole, partTexts } = multipartCase('R12B');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12b.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12b']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+
+  uploadPart(root, up, 0, partTexts[0]);
+  writeFileSync(join(root, 'spool', `${up}.part0.tmp`), partTexts[0]); // crash shape: unlink never ran
+
+  // restart: the next upload command reaps the orphan
+  cliJson(['spool-part-begin', '--root', root, '--upload-id', up, '--ordinal', '1', '--sha256', sha256Of(partTexts[1]), '--bytes', String(Buffer.byteLength(partTexts[1]))]);
+  assert.ok(!existsSync(join(root, 'spool', `${up}.part0.tmp`)), 'orphan committed part temp must be dropped on restart');
+
+  appendChunks(root, up, partTexts[1]);
+  cliJson(['spool-part-finish', '--root', root, '--upload-id', up, '--ordinal', '1']);
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.artifact_sha256, whole);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// boundary: whole rename done, DB ingest NOT — recovery verifies the published
+// object and ingests exactly once; a crash between the DB commit and the state
+// reap replays idempotently (still exactly one event row / one outbox row).
+test('R12: publication crash (object renamed, ingest missing) recovers and ingests exactly once across restarts', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('R12C');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12c.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12c']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  uploadPart(root, up, 0, partTexts[0]);
+  uploadPart(root, up, 1, partTexts[1]);
+
+  // crash shape: rename done + PUBLISHING intent persisted, DB not ingested
+  const target = join(root, 'objects', `${whole}.json`);
+  renameSync(join(root, 'spool', `${up}.whole.tmp`), target);
+  const st = readUploadState(root, up);
+  st.phase = 'PUBLISHING';
+  writeFileSync(uploadStatePath(root, up), JSON.stringify(st));
+
+  const fin1 = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin1.event_id, manifest.event_id);
+  assert.equal(readFileSync(target, 'utf8'), text);
+  const db = new DatabaseSync(join(root, 'ledger.sqlite'), { readOnly: true });
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM events WHERE id = ?').get(manifest.event_id).c, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) c FROM outbox WHERE event_id = ?').get(manifest.event_id).c, 1);
+  db.close();
+
+  // crash shape: ingest committed but the state reap never ran — second finish replays
+  writeFileSync(uploadStatePath(root, up), JSON.stringify({ ...st, phase: 'PUBLISHED' }));
+  const fin2 = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin2.replay, true);
+  const db2 = new DatabaseSync(join(root, 'ledger.sqlite'), { readOnly: true });
+  assert.equal(db2.prepare('SELECT COUNT(*) c FROM events WHERE id = ?').get(manifest.event_id).c, 1);
+  assert.equal(db2.prepare('SELECT COUNT(*) c FROM outbox WHERE event_id = ?').get(manifest.event_id).c, 1);
+  db2.close();
+  rmSync(root, { recursive: true, force: true });
+});
+
+// a completed-shaped state alone is NEVER completion proof — only a durable
+// ingest (event row digest + registered manifest match) stops the re-offer.
+test('R12: plan re-offers a completed-shaped upload without durable ingest proof, and stops on the proof', () => {
+  const root = freshRoot();
+  const { manifest, partTexts } = multipartCase('R12D');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12d.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12d']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  uploadPart(root, up, 0, partTexts[0]);
+  uploadPart(root, up, 1, partTexts[1]);
+  const st = readUploadState(root, up); // completed-shaped, not finished
+
+  const plan1 = cliJson(['plan', '--root', root]);
+  assert.equal(plan1.pending_uploads.filter((u) => u.upload_id === up).length, 1, 'completed-shaped upload without ingest must be re-offered');
+
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.event_id, manifest.event_id);
+
+  // crash shape: ingest committed, journal at INGESTED, state reap not yet run
+  writeFileSync(uploadStatePath(root, up), JSON.stringify({ ...st, phase: 'INGESTED' }));
+  const plan2 = cliJson(['plan', '--root', root]);
+  assert.equal(plan2.pending_uploads.filter((u) => u.upload_id === up).length, 0, 'durable ingest proof must stop the re-offer');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// boundary: pre-existing object under the whole digest. DIFFERENT bytes is a
+// conflict (never a silent skip-and-ingest); IDENTICAL bytes is accepted
+// without rewriting the object.
+test('R12: pre-existing differing object is SPOOL_OBJECT_CONFLICT; identical object accepted untouched', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('R12E');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12e.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12e']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  uploadPart(root, up, 0, partTexts[0]);
+  uploadPart(root, up, 1, partTexts[1]);
+
+  const target = join(root, 'objects', `${whole}.json`);
+  writeFileSync(target, JSON.stringify({ imposter: true }));
+  const r = cli(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector'], { expectFail: true });
+  assert.ok(r.stdout.includes('SPOOL_OBJECT_CONFLICT'));
+
+  writeFileSync(target, text);
+  const mtimeBefore = statSync(target).mtimeMs;
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.event_id, manifest.event_id);
+  assert.equal(readFileSync(target, 'utf8'), text);
+  assert.equal(statSync(target).mtimeMs, mtimeBefore, 'identical pre-existing object is never rewritten');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// control arm (window A): PUBLISHING intent committed, rename not yet run —
+// whole.tmp still retained; finish completes publication from it. Identical
+// observables to a clean finish on both sides of the change.
+test('R12: PUBLISHING intent with retained whole.tmp completes publication (crash between intent and rename)', () => {
+  const root = freshRoot();
+  const { manifest, text, whole, partTexts } = multipartCase('R12F');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/r12f.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-r12f']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  uploadPart(root, up, 0, partTexts[0]);
+  uploadPart(root, up, 1, partTexts[1]);
+
+  const st = readUploadState(root, up);
+  st.phase = 'PUBLISHING';
+  writeFileSync(uploadStatePath(root, up), JSON.stringify(st));
+
+  const fin = cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+  assert.equal(fin.artifact_sha256, whole);
+  assert.equal(readFileSync(join(root, 'objects', `${whole}.json`), 'utf8'), text);
+  assert.ok(!existsSync(uploadStatePath(root, up)), 'state reaped after recovery completion');
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -1152,6 +1335,538 @@ test('locator-resolved: missing flags and malformed inputs are usage refusals', 
     '--locator-sha256', sha256Of('l'), '--page-id', 'p1', '--reference', 'library-file', '--source-sha256', sha256Of('p'), '--bytes', '10'], { expectFail: true });
   assert.equal(bareRef.status, 2, 'a bare type-label is not a resolution target');
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- R10: review-import
+
+// Prepares a REQUIRES_REVIEW execution directly in the root's ledger (fake
+// QUEUED solution row + claim + review state + optional worker report), the
+// way a prior supervisor capture leaves it behind. Returned ledger is CLOSED —
+// the CLI process opens the database itself.
+function requiresReviewRoot({ withReport = true } = {}) {
+  const root = freshRoot();
+  const sessionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+  raw.prepare("INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, created_ms) VALUES ('DOT-CLI-R10-SOL','deadbeef','solution','solver','[]','{}','QUEUED',1)").run();
+  raw.close();
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const claim = ledger.claimExecution({ solutionId: 'DOT-CLI-R10-SOL', sessionId });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: sessionId,
+    solution_sha256: sha256Of('r10-cli-sol'), artifact_sha256: sha256Of('r10-cli-art'),
+    source_tree_digest: sha256Of('r10-cli-tree'),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4101', head_sha: sha40('r10-cli-head'),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', pr_url: report.pr_url, head_sha: report.head_sha });
+  if (withReport) ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  ledger.close();
+  mkdirSync(join(root, 'reviews'), { recursive: true }); // receipt drop location
+  return { root, sessionId, claim, report };
+}
+
+test('review-import: usage and file-surface refusals fire before any ledger or cloud work', () => {
+  const root = freshRoot();
+  // missing flags -> usage exit 2
+  const usageR = cli(['review-import', '--root', root], { expectFail: true });
+  assert.equal(usageR.status, 2);
+  // uninitialized root
+  const empty = join(tmpdir(), `dot-cli-empty-${randomUUID().slice(0, 6)}`);
+  mkdirSync(empty, { recursive: true });
+  const noRoot = cli(['review-import', '--root', empty, '--execution-id', 'X', '--receipt', join(empty, 'r.json')], { expectFail: true });
+  assert.equal(noRoot.status, 1);
+  assert.ok(noRoot.stdout.includes('ROOT_NOT_INITIALIZED'));
+  rmSync(empty, { recursive: true, force: true });
+  const reviews = join(root, 'reviews');
+  mkdirSync(reviews, { recursive: true });
+  // outside the fixed reviews root
+  const outside = writeJson(root, 'outside.json', { v: 1 });
+  const out1 = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', outside], { expectFail: true });
+  assert.equal(out1.status, 1);
+  assert.ok(out1.stdout.includes('REVIEW_PATH_OUTSIDE_ROOT'));
+  // traversal back out of the reviews root resolves outside too
+  const trav = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', join(reviews, '..', 'outside.json')], { expectFail: true });
+  assert.ok(trav.stdout.includes('REVIEW_PATH_OUTSIDE_ROOT'));
+  // symlink at the receipt path
+  const target = writeJson(reviews, 'target.json', { v: 1 });
+  const link = join(reviews, 'link.json');
+  symlinkSync(target, link);
+  const sym = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', link], { expectFail: true });
+  assert.ok(sym.stdout.includes('REVIEW_FILE_NOT_REGULAR'));
+  // missing file
+  const miss = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', join(reviews, 'absent.json')], { expectFail: true });
+  assert.ok(miss.stdout.includes('REVIEW_FILE_MISSING'));
+  // malformed JSON
+  writeFileSync(join(reviews, 'bad.json'), 'not-json');
+  const bad = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', join(reviews, 'bad.json')], { expectFail: true });
+  assert.ok(bad.stdout.includes('FILE_NOT_JSON'));
+  // world-writable receipt bytes are never trusted
+  const ww = join(reviews, 'ww.json');
+  writeFileSync(ww, '{"v":1}');
+  chmodSync(ww, 0o666);
+  const wwr = cli(['review-import', '--root', root, '--execution-id', 'X', '--receipt', ww], { expectFail: true });
+  assert.ok(wwr.stdout.includes('REVIEW_FILE_WORLD_WRITABLE'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('review-import: ledger-gate holds render the blocker and leave the review slot untouched (no gh work)', () => {
+  // arm 1: no worker report captured -> REVIEW_REPORT_MISSING
+  const a = requiresReviewRoot({ withReport: false });
+  const receiptA = join(a.root, 'reviews', 'a.json');
+  writeFileSync(receiptA, JSON.stringify({
+    version: 1, execution_id: a.claim.execution_id, session_id: a.sessionId,
+    solution_sha256: a.report.solution_sha256, artifact_sha256: a.report.artifact_sha256,
+    source_tree_digest: a.report.source_tree_digest, head_sha: a.report.head_sha,
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+  }));
+  const r1 = cli(['review-import', '--root', a.root, '--execution-id', a.claim.execution_id, '--receipt', receiptA], { expectFail: true });
+  assert.equal(r1.status, 1);
+  assert.ok(r1.stdout.includes('REVIEW_REPORT_MISSING'));
+
+  // arm 2: self-review (reviewer IS the worker session) -> REVIEWER_NOT_INDEPENDENT
+  const b = requiresReviewRoot();
+  const receiptB = join(b.root, 'reviews', 'b.json');
+  writeFileSync(receiptB, JSON.stringify({
+    version: 1, execution_id: b.claim.execution_id, session_id: b.sessionId,
+    solution_sha256: b.report.solution_sha256, artifact_sha256: b.report.artifact_sha256,
+    source_tree_digest: b.report.source_tree_digest, head_sha: b.report.head_sha,
+    reviewer: b.sessionId, verdict: 'APPROVE',
+  }));
+  const r2 = cli(['review-import', '--root', b.root, '--execution-id', b.claim.execution_id, '--receipt', receiptB], { expectFail: true });
+  assert.ok(r2.stdout.includes('REVIEWER_NOT_INDEPENDENT'));
+
+  // arm 3: digest mismatch against the captured report -> RECEIPT_MISMATCH
+  const c = requiresReviewRoot();
+  const receiptC = join(c.root, 'reviews', 'c.json');
+  writeFileSync(receiptC, JSON.stringify({
+    version: 1, execution_id: c.claim.execution_id, session_id: c.sessionId,
+    solution_sha256: c.report.solution_sha256, artifact_sha256: c.report.artifact_sha256,
+    source_tree_digest: sha256Of('a-different-source-tree'), head_sha: c.report.head_sha,
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+  }));
+  const r3 = cli(['review-import', '--root', c.root, '--execution-id', c.claim.execution_id, '--receipt', receiptC], { expectFail: true });
+  assert.ok(r3.stdout.includes('RECEIPT_MISMATCH'));
+
+  // every held root still holds the review slot and persisted nothing
+  for (const { root, claim } of [a, b, c]) {
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+    assert.ok(!ledger.getReviewReceipt(claim.execution_id), 'a refused import persists no receipt');
+    ledger.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------------- Slice E: RECOVERY-ADOPTION (reconcile-external-recovery)
+//
+// PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real deliveries": a narrow
+// OS-owner command adopts already-delivered work from the 4 fixed recovery
+// receipts + the original recovery-spool envelopes. Fake analogues ONLY —
+// temp receipt dirs, temp spool files, temp runtime roots; production state
+// is never touched by tests.
+
+const RECOVERY_BASENAMES = [
+  'recovery-dispatch-0006-0008.json',
+  'recovery-analysis-import.json',
+  'recovery-analysis-validation.json',
+  'recovery-solver-dispatch-0006-0008.json',
+];
+
+// Builds a fake 3-batch + 3-analysis recovery case mirroring the real receipt
+// shapes: sealed envelopes under <dir>/recovery-spool/<id ':'->'-'>/envelope.json,
+// exact-basename receipts with full crosslinks (digests, manifests, ACKs).
+function recoveryCase(tag) {
+  const dir = join(tmpdir(), `dot-recv-${process.pid}-${tag}`);
+  const spool = join(dir, 'recovery-spool');
+  const batches = [];
+  const analyses = [];
+
+  const writeSpool = (env) => {
+    const text = JSON.stringify(env);
+    const d = join(spool, env.id.replace(/:/g, '-'));
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'envelope.json'), text);
+    return { text, sha256: sha256Of(text), bytes: Buffer.byteLength(text, 'utf8') };
+  };
+
+  for (let i = 0; i < 3; i++) {
+    const id = `DOT-BATCH-000${6 + i}:r1`;
+    const reports = [];
+    for (let r = 0; r < 10; r++) {
+      const body = `recovery fixture body ${tag} ${i} ${r} ${'q'.repeat(30)}`;
+      reports.push({
+        repository: 'artyhoo/getff', pr: 2300, comment_id: `${tag}-b${i}-${r}`,
+        body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${tag}-${i}-${r}`),
+        url: `https://github.com/artyhoo/getff/pull/2300#discussion_r${r}`, body,
+      });
+    }
+    const env = {
+      version: 1, kind: 'batch', id, producer: CHAT_IDS.collector, parents: [],
+      payload: { batch_id: `B-REC-${tag}-${i}`, reports, complete: true }, sha256: null,
+    };
+    const { sha256: _drop, ...rest } = env;
+    env.sha256 = digest(rest);
+    const file = writeSpool(env);
+    const pieces = splitCodepointParts(file.text, 200000);
+    const manifest = {
+      version: 1, status: 'READY', event_id: id, kind: 'batch',
+      producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
+      sha256: file.sha256, bytes: file.bytes, parents: [],
+      artifact: {
+        sha256: file.sha256, bytes: file.bytes,
+        parts: pieces.map((piece) => ({
+          ordinal: piece.ordinal, page_id: `page_rec_${tag}_${i}_${piece.ordinal}`,
+          reference: `library-file:/rec-${tag}-${i}-${piece.ordinal}.json`,
+          sha256: piece.sha256, bytes: piece.bytes,
+        })),
+      },
+      delivery_id: null,
+    };
+    batches.push({ env, manifest, file, delivery_id: `DOT-RECOVERY-${id}` });
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const parent = batches[i].env;
+    const keys = parent.payload.reports.map((r) => reportKey(r));
+    const id = `DOT-ANALYSIS-000${6 + i}:r1`;
+    const cand = {
+      candidate_id: `C-${tag}-${i}`, finding_keys: ['F1'],
+      report_keys: [keys[0]], reviewed_sha: parent.payload.reports[0].reviewed_sha,
+      summary: 's',
+    };
+    const env = {
+      version: 1, kind: 'analysis', id, producer: CHAT_IDS.analyst,
+      parents: [{ id: parent.id, sha256: parent.sha256 }],
+      payload: { consumed_report_keys: keys, candidates: [cand], excluded: [] }, sha256: null,
+    };
+    const { sha256: _drop2, ...rest2 } = env;
+    env.sha256 = digest(rest2);
+    const file = writeSpool(env);
+    const manifest = {
+      version: 1, status: 'READY', event_id: id, kind: 'analysis',
+      producer: CHAT_IDS.analyst, destination: CHAT_IDS.solver,
+      sha256: file.sha256, bytes: file.bytes, parents: env.parents,
+      artifact: {
+        sha256: file.sha256, bytes: file.bytes,
+        parts: [{
+          ordinal: 0, page_id: `page_rec_a_${tag}_${i}`,
+          reference: `library-file:/rec-a-${tag}-${i}.json`,
+          sha256: file.sha256, bytes: file.bytes,
+        }],
+      },
+      delivery_id: null,
+    };
+    analyses.push({ env, manifest, file, delivery_id: `DOT-RECOVERY-${id}` });
+  }
+
+  const actualAcks = batches.map((b) => ({
+    version: 1, delivery_id: b.delivery_id, event_id: b.env.id,
+    event_sha256: b.env.sha256, artifact_sha256: b.file.sha256,
+    accepted: true, duplicate: false, destination: CHAT_IDS.analyst,
+  }));
+  const dispatch = {
+    version: 1, id: `DOT-RECOVERY-DISPATCH-${tag}`, state: 'ACKED',
+    destination: CHAT_IDS.analyst,
+    index: { page_id: 'page_rec_ix', reference: 'library-file:/rec-ix.json', sha256: sha256Of(`ix-${tag}`), bytes: 12665 },
+    deliveries: batches.map((b) => ({
+      delivery_id: b.delivery_id, event_id: b.env.id, event_sha256: b.env.sha256,
+      artifact_sha256: b.file.sha256, bytes: b.file.bytes, manifest: b.manifest,
+    })),
+    semantic_replay_allowed: false, recorded_utc: '2026-10-08T21:00:00Z',
+    actual_acks: actualAcks, ack_index_generation: `ANALYST-INDEX-${tag}`,
+  };
+  const analysisImport = {
+    generation: `ANALYST-INDEX-${tag}`, index_sha256: sha256Of(`ix-${tag}`),
+    acks: actualAcks,
+    manifests: analyses.map((a) => a.manifest),
+    records: analyses.map((a) => ({
+      event_id: a.env.id, path: join(spool, a.env.id.replace(/:/g, '-'), 'envelope.json'),
+      artifact_sha256: a.file.sha256, bytes: a.file.bytes,
+    })),
+  };
+  const validation = {
+    version: 1, validated: true,
+    records: analyses.map((a) => ({
+      event_id: a.env.id, event_sha256: a.env.sha256,
+      artifact_sha256: a.file.sha256, bytes: a.file.bytes,
+      candidates: 1, consumed: 10, excluded: 0, valid: true,
+    })),
+  };
+  const solverDispatch = {
+    version: 1, id: `DOT-RECOVERY-ANALYSIS-DISPATCH-${tag}`, state: 'SENT_ACCEPTED',
+    destination: CHAT_IDS.solver,
+    deliveries: analyses.map((a) => ({
+      delivery_id: a.delivery_id, event_id: a.env.id, event_sha256: a.env.sha256,
+      artifact_sha256: a.file.sha256, bytes: a.file.bytes, manifest: a.manifest,
+    })),
+  };
+  for (const [name, obj] of [
+    ['recovery-dispatch-0006-0008.json', dispatch],
+    ['recovery-analysis-import.json', analysisImport],
+    ['recovery-analysis-validation.json', validation],
+    ['recovery-solver-dispatch-0006-0008.json', solverDispatch],
+  ]) {
+    writeFileSync(join(dir, name), `${JSON.stringify(obj)}\n`);
+  }
+  return { dir, spool, batches, analyses, dispatch, analysisImport, validation, solverDispatch };
+}
+
+// The exact bundle the CLI derives from a valid case (mirrors the ledger
+// method contract used by the crash test).
+function recoveryBundle(c) {
+  return {
+    import_key: sha256Of(JSON.stringify([
+      RECOVERY_BASENAMES.map((n) => sha256Of(readFileSync(join(c.dir, n), 'utf8'))),
+      [...c.batches, ...c.analyses].map((x) => x.file.sha256),
+    ])),
+    batches: c.batches.map((b) => ({
+      env: b.env, manifest: b.manifest, delivery_id: b.delivery_id,
+      ack: c.dispatch.actual_acks.find((a) => a.event_id === b.env.id),
+    })),
+    analyses: c.analyses.map((a) => ({
+      env: a.env, manifest: a.manifest, delivery_id: a.delivery_id,
+      send_receipt: { tool: 'send_message_to_thread', delivery_id: a.delivery_id, state: 'SENT_ACCEPTED' },
+    })),
+  };
+}
+
+function outboxRows(root) {
+  const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+  const rows = raw.prepare('SELECT delivery_id, event_id, destination, state, attempts, receipt_json IS NOT NULL AS has_receipt FROM outbox').all();
+  raw.close();
+  return rows;
+}
+
+test('E: reconcile-external-recovery first import: 3 ACKED batch rows + 3 SENT_ACCEPTED solver rows, 0 send offers, replay no-op', () => {
+  const root = join(tmpdir(), `dot-cli-e1-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+  const st0 = cliJson(['status', '--root', root]);
+  assert.equal(st0.recovery_import_pending, true, 'pending flag exposed before reconciliation');
+
+  const c = recoveryCase('E1');
+  const r = cliJson(['reconcile-external-recovery', '--receipt-dir', c.dir, '--root', root]);
+  assert.equal(r.ok, true);
+  assert.equal(r.batches_acked, 3);
+  assert.equal(r.analyses_sent, 3);
+  assert.equal(r.replay, false);
+
+  const rows = outboxRows(root);
+  assert.equal(rows.length, 6, 'exactly 6 deliveries: 3 batches + 3 analyses, no defaults left');
+  for (const b of c.batches) {
+    const row = rows.find((x) => x.delivery_id === b.delivery_id);
+    assert.ok(row, `batch delivery adopted: ${b.delivery_id}`);
+    assert.equal(row.state, 'ACKED');
+    assert.equal(row.event_id, b.env.id);
+    assert.equal(row.destination, CHAT_IDS.analyst);
+  }
+  for (const a of c.analyses) {
+    const row = rows.find((x) => x.delivery_id === a.delivery_id);
+    assert.ok(row, `analysis delivery adopted: ${a.delivery_id}`);
+    assert.equal(row.state, 'SENT_ACCEPTED', 'solver delivery is send-receipted, never ACKED');
+    assert.ok(row.has_receipt, 'send receipt bound');
+    assert.equal(row.destination, CHAT_IDS.solver);
+  }
+
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  for (const b of c.batches) assert.equal(ledger.getEvent(b.env.id).state, 'ACKED');
+  for (const a of c.analyses) assert.equal(ledger.getEvent(a.env.id).state, 'READY');
+  assert.equal(ledger.nextClaimableSolution(), null, 'no executor admission from adoption alone');
+  assert.equal(ledger.getEvent('DOT-BATCH-0001').state, 'BASELINE_HOLD', 'baseline holds preserved');
+  ledger.close();
+
+  const st1 = cliJson(['status', '--root', root]);
+  assert.equal(st1.recovery_import_pending, false, 'pending flag cleared only after commit');
+  const plan = cliJson(['plan', '--root', root]);
+  assert.equal(plan.delivery_ids, 0, 'nothing re-offered for sending: never resend batches/analyses');
+
+  // identical re-import is a metadata-only no-op
+  const r2 = cliJson(['reconcile-external-recovery', '--receipt-dir', c.dir, '--root', root]);
+  assert.equal(r2.replay, true);
+  assert.equal(outboxRows(root).length, 6, 'replay adds no rows');
+  rmSync(root, { recursive: true, force: true });
+  rmSync(c.dir, { recursive: true, force: true });
+});
+
+test('E: receipt/source conflict refuses with RECOVERY_IMPORT_CONFLICT and preserves pending flag; usage and file-surface refusals', () => {
+  const root = join(tmpdir(), `dot-cli-e2-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+
+  const usageR = cli(['reconcile-external-recovery', '--root', root], { expectFail: true });
+  assert.equal(usageR.status, 2);
+
+  // missing fixed basename
+  const c1 = recoveryCase('E2A');
+  renameSync(join(c1.dir, 'recovery-analysis-validation.json'), join(c1.dir, 'other.json'));
+  const miss = cli(['reconcile-external-recovery', '--receipt-dir', c1.dir, '--root', root], { expectFail: true });
+  assert.ok(miss.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+
+  // symlinked receipt rejected
+  const c2 = recoveryCase('E2B');
+  rmSync(join(c2.dir, 'recovery-analysis-import.json'));
+  symlinkSync(join(c2.dir, 'recovery-dispatch-0006-0008.json'), join(c2.dir, 'recovery-analysis-import.json'));
+  const sym = cli(['reconcile-external-recovery', '--receipt-dir', c2.dir, '--root', root], { expectFail: true });
+  assert.ok(sym.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+
+  // tampered original source bytes (hash mismatch) rolls back BEFORE the transaction
+  const c3 = recoveryCase('E2C');
+  const victim = join(c3.spool, c3.batches[1].env.id.replace(/:/g, '-'), 'envelope.json');
+  writeFileSync(victim, `${readFileSync(victim, 'utf8')} `); // byte drift
+  const tampered = cli(['reconcile-external-recovery', '--receipt-dir', c3.dir, '--root', root], { expectFail: true });
+  assert.ok(tampered.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+  // BEFORE any successful import: the tampered case contributed nothing (the
+  // c4 case below reuses the SAME envelope ids, so this check must precede it)
+  {
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    for (const b of c3.batches) assert.equal(ledger.getEvent(b.env.id), null, 'tampered case imported nothing');
+    ledger.close();
+  }
+
+  // changed receipt under the same import key conflicts
+  const c4 = recoveryCase('E2D');
+  cliJson(['reconcile-external-recovery', '--receipt-dir', c4.dir, '--root', root]);
+  const mutated = JSON.parse(readFileSync(join(c4.dir, 'recovery-analysis-import.json'), 'utf8'));
+  mutated.index_sha256 = sha256Of('drifted');
+  writeFileSync(join(c4.dir, 'recovery-analysis-import.json'), `${JSON.stringify(mutated)}\n`);
+  const drift = cli(['reconcile-external-recovery', '--receipt-dir', c4.dir, '--root', root], { expectFail: true });
+  assert.ok(drift.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+
+  // every refusal left the ledger untouched and the pending flag preserved
+  assert.equal(outboxRows(root).length, 6, 'only the successful c4 import survived (3+3), refusals added nothing');
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.recovery_import_pending, false); // c4 committed and cleared it
+  rmSync(root, { recursive: true, force: true });
+  for (const c of [c1, c2, c3, c4]) rmSync(c.dir, { recursive: true, force: true });
+});
+
+test('E: externally-used delivery ID bound elsewhere is a conflict; an already-claimed outbox holds; both roll back everything', () => {
+  const root = join(tmpdir(), `dot-cli-e3-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+
+  // arm 1: the external delivery id already names a different event
+  const c1 = recoveryCase('E3A');
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    raw.prepare("INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, created_ms) VALUES ('DOT-E3-OTHER','deadbeef','batch',?,'[]','{}','READY',1)").run(CHAT_IDS.collector);
+    raw.prepare("INSERT INTO outbox (delivery_id, event_id, destination, state, attempts, next_ms, created_ms) VALUES (?,?,?,'PENDING',0,0,1)").run(
+      c1.batches[0].delivery_id, 'DOT-E3-OTHER', CHAT_IDS.analyst,
+    );
+    raw.close();
+  }
+  const used = cli(['reconcile-external-recovery', '--receipt-dir', c1.dir, '--root', root], { expectFail: true });
+  assert.ok(used.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+  {
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    for (const b of c1.batches) assert.equal(ledger.getEvent(b.env.id), null, 'rollback: no batch imported');
+    ledger.close();
+  }
+
+  // arm 2: the (event,destination) outbox already exists and is CLAIMED
+  const c2 = recoveryCase('E3B');
+  {
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    ledger.manifestImport({ manifest: c2.batches[0].manifest, producerRole: 'collector', cursorToken: 'tok-e3' });
+    ledger.ingest(c2.batches[0].env);
+    const d = ledger.pendingDeliveries()[0];
+    ledger.claimDelivery(d.delivery_id);
+    ledger.close();
+  }
+  const claimed = cli(['reconcile-external-recovery', '--receipt-dir', c2.dir, '--root', root], { expectFail: true });
+  assert.ok(claimed.stdout.includes('RECOVERY_IMPORT_CONFLICT'));
+  {
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    for (const b of c2.batches.slice(1)) assert.equal(ledger.getEvent(b.env.id), null, 'rollback: whole transaction undone');
+    for (const a of c2.analyses) assert.equal(ledger.getEvent(a.env.id), null);
+    ledger.close();
+  }
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.recovery_import_pending, true, 'flag preserved through both refusals');
+  rmSync(root, { recursive: true, force: true });
+  rmSync(c1.dir, { recursive: true, force: true });
+  rmSync(c2.dir, { recursive: true, force: true });
+});
+
+test('E: crash mid-transaction cannot emit a duplicate; rerun imports exactly once', () => {
+  const root = join(tmpdir(), `dot-cli-e4-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+  const c = recoveryCase('E4');
+  const bundle = recoveryBundle(c);
+
+  const boom = openLedger(join(root, 'ledger.sqlite'), { faultAfter: 'insert-outbox' });
+  assert.throws(() => boom.reconcileExternalRecovery(bundle), (e) => e.code === 'FAULT');
+  boom.close();
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    assert.equal(raw.prepare('SELECT COUNT(*) c FROM outbox').get().c, 0, 'rollback left zero deliveries');
+    assert.equal(raw.prepare("SELECT COUNT(*) c FROM events WHERE kind IN ('batch','analysis')").get().c, 6, 'seeds only (5 baseline batches + intake analysis); the rolled-back import left nothing');
+    raw.close();
+  }
+
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const r = ledger.reconcileExternalRecovery(bundle);
+  assert.equal(r.batches_acked, 3);
+  const rows = outboxRows(root);
+  assert.equal(rows.length, 6, 'exactly one import after recovery, no duplicates');
+  const again = ledger.reconcileExternalRecovery(bundle);
+  assert.equal(again.replay, true);
+  ledger.close();
+  rmSync(root, { recursive: true, force: true });
+  rmSync(c.dir, { recursive: true, force: true });
+});
+
+test('E: pending flag blocks automatic tick admission (0 spawn) until reconciliation clears it', () => {
+  const root = join(tmpdir(), `dot-cli-e5-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+  // a would-be-admissible QUEUED solution, the R10 raw-row shape
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    raw.prepare("INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, created_ms) VALUES ('DOT-CLI-E5-SOL','deadbeef','solution','solver','[]','{}','QUEUED',1)").run();
+    raw.close();
+  }
+  const t1 = cliJson(['tick', '--root', root]);
+  assert.equal(t1.recovery_import_pending, true, 'tick reports the pending gate');
+  assert.equal(t1.supervise_launched, false, 'no executor admission while pending');
+  assert.equal(t1.recovery_launched, 0);
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    assert.equal(raw.prepare('SELECT COUNT(*) c FROM executions').get().c, 0, 'no execution reserved while pending');
+    raw.close();
+  }
+
+  // reconcile unrelated recovery work clears the gate; admission resumes only then
+  const c = recoveryCase('E5');
+  cliJson(['reconcile-external-recovery', '--receipt-dir', c.dir, '--root', root]);
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    raw.prepare("DELETE FROM events WHERE id = 'DOT-CLI-E5-SOL'").run(); // nothing claimable afterwards
+    raw.close();
+  }
+  const t2 = cliJson(['tick', '--root', root]);
+  assert.equal(t2.recovery_import_pending, false, 'gate cleared after reconciliation');
+  rmSync(root, { recursive: true, force: true });
+  rmSync(c.dir, { recursive: true, force: true });
+});
+
+test('E: reconcile never clears global OFF; ACK binding alone produces no solver result or executor launch', () => {
+  const root = join(tmpdir(), `dot-cli-e6-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root, '--recovery-pending']);
+  cliJson(['off', '--root', root, '--reason', 'recovery window: runtime stays off']);
+  const c = recoveryCase('E6');
+  const r = cliJson(['reconcile-external-recovery', '--receipt-dir', c.dir, '--root', root]);
+  assert.equal(r.ok, true, 'import is not an admission: it works under durable OFF');
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.off, true, 'global OFF survives reconciliation');
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  assert.equal(ledger.nextClaimableSolution(), null, 'ACKs alone admit no execution');
+  ledger.close();
+  {
+    const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+    assert.equal(raw.prepare("SELECT COUNT(*) c FROM events WHERE kind = 'solution'").get().c, 0);
+    assert.equal(raw.prepare('SELECT COUNT(*) c FROM executions').get().c, 0);
+    raw.close();
+  }
+  rmSync(root, { recursive: true, force: true });
+  rmSync(c.dir, { recursive: true, force: true });
 });
 
 // keep symlink helper referenced (lint-free intentional use)

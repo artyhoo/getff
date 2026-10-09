@@ -23,6 +23,7 @@ import { validateEnvelope, CHAT_IDS } from './contract.mjs';
 import {
   runExecution, resumeExecution, monitorAdoptedChild, startActiveClock, parseAgentsCensus,
   proveProcessDeath, runCessationLadder, classifyProbe, DEATH_PROOF_SESSION,
+  applyReviewAndVerify,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 
@@ -59,9 +60,10 @@ function usage(msg) {
 // ---------------------------------------------------------------- arg parsing
 
 const FLAG_SPECS = {
-  init: {},
+  init: { '--recovery-pending': 'bool' },
   tick: {},
   supervise: { '--execution-id': 'value', '--resume': 'bool', '--adopt': 'bool' },
+  'review-import': { '--execution-id': 'value', '--receipt': 'value' },
   plan: {},
   'spool-begin': { '--id': 'value', '--artifact-sha256': 'value', '--bytes': 'value' },
   'spool-append': { '--upload-id': 'value', '--chunk-json': 'value' },
@@ -90,6 +92,7 @@ const FLAG_SPECS = {
   off: { '--reason': 'value' },
   resume: { '--actor': 'value' },
   'reconcile-execution': { '--id': 'value', '--decision': 'value', '--control': 'value' },
+  'reconcile-external-recovery': { '--receipt-dir': 'value' },
 };
 
 function parseArgs(argv) {
@@ -137,7 +140,7 @@ function checkRoot(root) {
   return root;
 }
 
-const ROOT_DIRS = ['objects', 'spool', 'sources', 'inbox', 'plans', 'worker'];
+const ROOT_DIRS = ['objects', 'spool', 'sources', 'inbox', 'plans', 'worker', 'reviews'];
 
 function openRoot(root, { requireInit = true } = {}) {
   checkRoot(root);
@@ -208,14 +211,69 @@ function spoolPath(root, uploadId, name) {
 function loadUpload(root, uploadId) {
   const p = spoolPath(root, uploadId, 'state.json');
   if (!existsSync(p)) fail('UNKNOWN_UPLOAD');
+  let state;
   try {
-    return JSON.parse(readFileSync(p, 'utf8'));
+    state = JSON.parse(readFileSync(p, 'utf8'));
   } catch {
     fail('UPLOAD_STATE_CORRUPT');
   }
+  if (!state || typeof state !== 'object' || typeof state.upload_id !== 'string') fail('UPLOAD_STATE_CORRUPT');
+  return recoverUpload(root, state);
 }
+// R12: the journal, never the file tail, is the commit authority — saveUpload
+// checkpoints are fsynced atomically so a committed offset always names bytes
+// that are already on disk.
 function saveUpload(root, state) {
-  atomicWrite(spoolPath(root, state.upload_id, 'state.json'), JSON.stringify(state));
+  atomicWriteFsynced(spoolPath(root, state.upload_id, 'state.json'), JSON.stringify(state));
+}
+
+// R12: restart recovery. UPLOADING-phase states get the whole.tmp uncommitted
+// suffix shed back to the committed offset (truncation, never a blind append
+// onto a preexisting suffix) and orphan part temps of already-committed
+// ordinals dropped (their bytes live at the committed whole prefix).
+// Publication phases (PUBLISHING and later) leave the disk untouched —
+// cmdSpoolFinish owns those.
+function committedWholeBytes(state) {
+  // pre-R12 states carry no committed_offset: the committed prefix is the
+  // concatenation of the committed parts (ordinals < next_ordinal)
+  if (Number.isSafeInteger(state.committed_offset)) return state.committed_offset;
+  let sum = 0;
+  for (let i = 0; i < state.next_ordinal && i < state.parts.length; i++) sum += state.parts[i].bytes;
+  return sum;
+}
+
+function recoverUpload(root, state) {
+  if ((state.phase ?? 'UPLOADING') !== 'UPLOADING') return state;
+  const offset = committedWholeBytes(state);
+  const wholePath = state.whole_path;
+  if (existsSync(wholePath)) {
+    const size = statSync(wholePath).size;
+    if (size < offset) fail('SPOOL_STATE_CORRUPT');
+    if (size > offset) {
+      const fd = openSync(wholePath, 'r+');
+      try { ftruncateSync(fd, offset); fsyncSync(fd); } finally { closeSync(fd); }
+    }
+  } else if (offset > 0) {
+    // committed bytes gone with no publication phase recorded: unrecoverable
+    fail('SPOOL_STATE_CORRUPT');
+  }
+  for (let i = 0; i < state.next_ordinal && i < state.parts.length; i++) {
+    const tmp = currentPartTemp(root, state.upload_id, state.parts[i].ordinal);
+    if (existsSync(tmp)) unlinkSync(tmp);
+  }
+  if (state.current_part && state.current_part.ordinal < state.next_ordinal) {
+    // descriptor survived a commit crash: its bytes are committed — stale
+    try { unlinkSync(state.current_part.path); } catch { /* already gone */ }
+    state.current_part = null;
+    saveUpload(root, state);
+    return state;
+  }
+  if (state.committed_offset === undefined) {
+    // adopt the derived offset durably so later truncations have a journal base
+    state.committed_offset = offset;
+    saveUpload(root, state);
+  }
+  return state;
 }
 
 function manifestParts(manifestRow) {
@@ -232,16 +290,21 @@ function currentPartTemp(root, uploadId, ordinal) {
   return spoolPath(root, uploadId, `part${ordinal}.tmp`);
 }
 
-// Verify the in-progress part bytes against the descriptor and concatenate
-// the exact verified bytes onto the whole temp object.
-function finalizePart(root, state, part) {
-  const buf = readFileSync(part.path);
-  const actualSha = sha256OfBuffer(buf);
-  if (actualSha !== part.sha256 || buf.length !== part.bytes) fail('SPOOL_HASH_MISMATCH');
+// R12 journal commit for one VERIFIED part: fsync the whole bytes BEFORE the
+// fsynced checkpoint that advances committed_offset/next_ordinal/retained_part;
+// the part temp is unlinked only AFTER that checkpoint is durable. Replaying
+// the same committed ordinal is a no-op (caller checks); the descriptor bytes
+// are hash-checked before this runs, so the journal never advances on
+// unverified bytes.
+function commitPart(root, state, part, buf) {
   const fd = openSync(state.whole_path, 'a', 0o600);
-  writeSync(fd, buf);
-  closeSync(fd);
-  unlinkSync(part.path);
+  try { writeSync(fd, buf); fsyncSync(fd); } finally { closeSync(fd); }
+  state.committed_offset = (state.committed_offset ?? 0) + buf.length;
+  state.retained_part = { ordinal: part.ordinal, sha256: part.sha256, bytes: part.bytes };
+  state.current_part = null;
+  state.next_ordinal = part.ordinal + 1;
+  saveUpload(root, state);
+  try { unlinkSync(part.path); } catch { /* already gone */ }
 }
 
 // ---------------------------------------------------------------- production probes
@@ -298,7 +361,7 @@ function productionAgentsCensus(sessionId, cwd) {
 
 // ---------------------------------------------------------------- commands
 
-function cmdInit({ root }) {
+function cmdInit({ root, flags }) {
   checkRoot(root);
   for (const d of ROOT_DIRS) mkdirSync(join(root, d), { recursive: true });
   const cfg = {
@@ -321,6 +384,10 @@ function cmdInit({ root }) {
     atomicWrite(cfgPath, `${JSON.stringify(cfg)}\n`);
   }
   const ledger = openLedger(join(root, 'ledger.sqlite'));
+  // RECOVERY-ADOPTION: opt-in flag for a root created to reconcile externally
+  // delivered work — automatic admission stays closed until
+  // reconcile-external-recovery commits. Ordinary roots are unaffected.
+  if (flags['--recovery-pending']) ledger.setRecoveryPending();
   ledger.close();
   ok({ root, label: TIMER_LABEL });
 }
@@ -376,11 +443,18 @@ function cmdPlan({ root }) {
         let state;
         try { state = JSON.parse(readFileSync(join(root, 'spool', name), 'utf8')); } catch { continue; }
         if (!state || typeof state !== 'object' || typeof state.upload_id !== 'string') continue;
-        // completed-but-lingering state (crash between whole rename and the
-        // state unlink): all parts concatenated, no current part — nothing to
-        // resume, never re-offer it as pending work
+        // R12: a completed-shaped state alone is NOT completion proof — only a
+        // durable ingest is (event row with a committed digest AND the
+        // registered manifest matching the spooled artifact). Anything else,
+        // including a PUBLISHING/PUBLISHED/INGESTED crash window, stays
+        // offered so the coordinator re-runs spool-finish recovery.
         const partCount = Array.isArray(state.parts) ? state.parts.length : 0;
-        if (!state.current_part && (state.next_ordinal ?? 0) >= partCount) continue;
+        const completedShape = !state.current_part && (state.next_ordinal ?? 0) >= partCount;
+        if (completedShape && typeof state.event_id === 'string') {
+          const ev = ledger.getEvent(state.event_id);
+          const m = ledger.getManifest(state.event_id);
+          if (ev && ev.sha256 !== null && m && m.artifact_sha256 === state.artifact_sha256) continue;
+        }
         const m = ledger.getManifest(state.event_id);
         const raw = m ? rawManifestParts(m) : [];
         const parts = (Array.isArray(state.parts) ? state.parts : []).map((p, i) => {
@@ -454,9 +528,16 @@ function cmdTick({ root }) {
       owner: tickOwner,
       processProbe: productionProcessProbe,
     });
+    // RECOVERY-ADOPTION: while the root awaits external-recovery
+    // reconciliation, the owned tick plans but admits NOTHING — no executor
+    // claim, no recovery dispatch. Only a committed reconcile-external-recovery
+    // clears the flag (never durable OFF — that stays untouched here). Every
+    // non-off outcome reports the gate so a caller can distinguish "held by
+    // pending recovery" from ordinary idleness.
+    const recoveryPending = ledger.recoveryImportPending();
     if (began.suppressed === 'off') return ok({ off: true, supervise_launched: false });
     if (began.deduped) return ok({ deduped: true, supervise_launched: false });
-    if (began.due === false) return ok({ due: false, next_due_wall_ms: began.next_due_wall_ms, supervise_launched: false });
+    if (began.due === false) return ok({ due: false, next_due_wall_ms: began.next_due_wall_ms, supervise_launched: false, recovery_import_pending: recoveryPending });
     // R06: the slot is owned by another live (or unprovable) scheduler — this
     // firing plans nothing, recovers nothing, and never touches the owner's
     // record. Refusal is a normal busy outcome, not an error.
@@ -469,7 +550,7 @@ function cmdTick({ root }) {
       let executionId = null;
       // Reserve only when a never-attempted QUEUED solution exists AND no
       // execution holds the global slot; never on an idle tick.
-      const solution = ledger.nextClaimableSolution();
+      const solution = recoveryPending ? null : ledger.nextClaimableSolution();
       const active = ledger.status().execution;
       if (solution && !active) {
         const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: randomUUID() });
@@ -493,7 +574,7 @@ function cmdTick({ root }) {
       // tick. The spawned supervise re-proves absence itself before admitting
       // the next attempt (verifiedDead).
       let recoveryLaunched = 0;
-      for (const d of rec.executions ?? []) {
+      for (const d of (recoveryPending ? [] : (rec.executions ?? []))) {
         let flag = null;
         if (d.decision === 'interrupted-host') flag = '--resume';
         else if (d.decision === 'adopt-monitor') flag = '--adopt';
@@ -519,6 +600,7 @@ function cmdTick({ root }) {
         supervise_launched: superviseLaunched,
         execution_id: executionId,
         recovery_launched: recoveryLaunched,
+        recovery_import_pending: recoveryPending,
         overdue_periods: began.overdue_periods ?? 1,
       };
     } catch {
@@ -581,6 +663,10 @@ async function cmdSupervise({ root, flags }) {
     }
     if (r.state === 'DONE') {
       ok({ execution_id: id, state: 'DONE', pr_url: r.pr_url, head_sha: r.head_sha });
+    } else if (r.state === 'REQUIRES_REVIEW') {
+      // R10: a captured execution awaits independent review — the supervisor's
+      // job ended at the checkpoint; review-import owns the next transition.
+      ok({ execution_id: id, state: 'REQUIRES_REVIEW', pr_url: r.pr_url, head_sha: r.head_sha });
     } else if (r.state === 'HELD') {
       ok({ execution_id: id, state: 'HELD' });
     } else if (r.state === 'UNCERTAIN') {
@@ -588,6 +674,253 @@ async function cmdSupervise({ root, flags }) {
     } else {
       ok({ execution_id: id, state: 'BLOCKED', blocker: r.blocker ?? null });
     }
+  } finally { ledger.close(); }
+}
+
+// R10: the OS-owner's ONLY production entry past the review gate. The receipt
+// must be a regular, non-world-writable, owner-owned file inside the fixed
+// <root>/reviews directory — every file-surface refusal fires before any
+// ledger or cloud work. The ledger's reviewImport + verifyPr (via
+// applyReviewAndVerify) then decide; held outcomes render the fixed blocker
+// code and never touch the review slot.
+async function cmdReviewImport({ root, flags }) {
+  const id = flags['--execution-id'];
+  const receiptPath = flags['--receipt'];
+  if (!id || !receiptPath) usage('review-import --execution-id <id> --receipt <path under root/reviews> required');
+  checkRoot(root);
+  if (!existsSync(join(root, 'config.json'))) fail('ROOT_NOT_INITIALIZED');
+  const reviewsRoot = resolve(root, 'reviews');
+  const abs = resolve(receiptPath);
+  if (abs === reviewsRoot || !abs.startsWith(`${reviewsRoot}/`)) fail('REVIEW_PATH_OUTSIDE_ROOT');
+  let st;
+  try {
+    st = lstatSync(abs);
+  } catch {
+    fail('REVIEW_FILE_MISSING');
+  }
+  if (!st.isFile()) fail('REVIEW_FILE_NOT_REGULAR');
+  if (st.uid !== process.geteuid()) fail('REVIEW_FILE_NOT_OWNER');
+  if (st.mode & 0o002) fail('REVIEW_FILE_WORLD_WRITABLE');
+  const { obj: receipt } = readJsonFile(abs);
+  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  // The gate's CI verification shares the attempt active budget — same
+  // proven-first clock discipline as supervise, stopped before any exit.
+  const clock = startActiveClock();
+  let r;
+  try {
+    const proven = await clock.ready(5_000);
+    if (!proven) {
+      r = { state: 'HELD', held: true, blocker: 'CLOCK_UNPROVEN' };
+    } else {
+      r = await applyReviewAndVerify({ ledger, executionId: id, receipt, clock });
+    }
+  } finally {
+    clock.stop();
+    ledger.close();
+  }
+  if (r.state === 'DONE') {
+    ok({ execution_id: id, state: 'DONE', pr_url: r.pr_url, head_sha: r.head_sha, replay: r.replay === true });
+  }
+  fail(typeof r.blocker === 'string' ? r.blocker : 'REVIEW_STATE', { execution_id: id, state: r.state });
+}
+
+// RECOVERY-ADOPTION (PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real
+// deliveries"): the OS-owner's narrow command for adopting ALREADY-DELIVERED
+// work into a fresh runtime root. Everything below validates the 4 fixed
+// recovery receipts and every original recovery-spool envelope against its
+// recorded digests BEFORE the single ledger transaction runs; any refusal is
+// RECOVERY_IMPORT_CONFLICT with the ledger untouched and the
+// recovery_import_pending flag preserved. Stdout stays metadata-only.
+const RECOVERY_BASENAMES = [
+  'recovery-dispatch-0006-0008.json',
+  'recovery-analysis-import.json',
+  'recovery-analysis-validation.json',
+  'recovery-solver-dispatch-0006-0008.json',
+];
+
+function cmdReconcileExternalRecovery({ root, flags }) {
+  const dirFlag = flags['--receipt-dir'];
+  if (!dirFlag) usage('reconcile-external-recovery requires --receipt-dir');
+  const { ledger } = openRoot(root);
+  const conflict = (reason) => fail('RECOVERY_IMPORT_CONFLICT', { reason });
+  try {
+    // Receipt-directory surface: absolute, traversal-free, a real directory,
+    // never a symlink.
+    if (!isAbsolute(dirFlag)) conflict('receipt-dir-not-absolute');
+    if (dirFlag.split('/').includes('..')) conflict('receipt-dir-traversal');
+    let dirSt;
+    try {
+      dirSt = lstatSync(dirFlag);
+    } catch {
+      conflict('receipt-dir-missing');
+    }
+    if (dirSt.isSymbolicLink()) conflict('receipt-dir-symlink');
+    if (!dirSt.isDirectory()) conflict('receipt-dir-not-dir');
+
+    const receipts = {};
+    for (const name of RECOVERY_BASENAMES) {
+      const p = join(dirFlag, name);
+      let st;
+      try {
+        st = lstatSync(p);
+      } catch {
+        conflict('receipt-missing');
+      }
+      if (st.isSymbolicLink()) conflict('receipt-symlink');
+      if (!st.isFile()) conflict('receipt-not-regular');
+      let text;
+      try {
+        text = readFileSync(p, 'utf8');
+      } catch {
+        conflict('receipt-unreadable');
+      }
+      let obj;
+      try {
+        obj = parseStrictJson(text);
+      } catch {
+        conflict('receipt-not-json');
+      }
+      receipts[name] = { obj, text };
+    }
+
+    const dispatch = receipts['recovery-dispatch-0006-0008.json'].obj;
+    const analysisImport = receipts['recovery-analysis-import.json'].obj;
+    const validation = receipts['recovery-analysis-validation.json'].obj;
+    const solverDispatch = receipts['recovery-solver-dispatch-0006-0008.json'].obj;
+
+    const isHash = (v) => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+    const isPosInt = (v) => Number.isInteger(v) && v > 0;
+
+    // --- receipt 1: collector dispatch, ACKED by the analyst ---
+    if (dispatch.version !== 1 || dispatch.state !== 'ACKED') conflict('dispatch-state');
+    if (dispatch.destination !== CHAT_IDS.analyst) conflict('dispatch-destination');
+    if (!Array.isArray(dispatch.deliveries) || dispatch.deliveries.length === 0) conflict('dispatch-deliveries');
+    if (dispatch.ack_index_generation !== analysisImport.generation) conflict('dispatch-generation-crosslink');
+    if (typeof analysisImport.index_sha256 !== 'string' || analysisImport.index_sha256 !== dispatch.index?.sha256) {
+      conflict('dispatch-index-crosslink');
+    }
+    const ackByDelivery = new Map();
+    if (!Array.isArray(dispatch.actual_acks) || dispatch.actual_acks.length !== dispatch.deliveries.length) {
+      conflict('dispatch-acks-parallel');
+    }
+    for (const ack of dispatch.actual_acks) {
+      if (ack.accepted !== true || ack.destination !== CHAT_IDS.analyst) conflict('ack-shape');
+      ackByDelivery.set(ack.delivery_id, ack);
+    }
+
+    // --- original envelopes: the spool files are the byte authority ---
+    const loadSpoolEnvelope = (eventId, declaredBytes, declaredArtifactSha256, role) => {
+      const derived = join(dirFlag, 'recovery-spool', eventId.replace(/:/g, '-'), 'envelope.json');
+      let st;
+      try {
+        st = lstatSync(derived);
+      } catch {
+        conflict('spool-missing');
+      }
+      if (st.isSymbolicLink() || !st.isFile()) conflict('spool-not-regular');
+      const text = readFileSync(derived, 'utf8');
+      if (Buffer.byteLength(text, 'utf8') !== declaredBytes) conflict('spool-bytes-mismatch');
+      if (sha256OfText(text) !== declaredArtifactSha256) conflict('spool-digest-mismatch');
+      let env;
+      try {
+        env = validateEnvelope(text, role);
+      } catch {
+        conflict('spool-envelope-invalid');
+      }
+      if (env.id !== eventId) conflict('spool-event-id');
+      return env;
+    };
+
+    // batches: deliveries in dispatch order
+    const batches = [];
+    for (const d of dispatch.deliveries) {
+      if (d.delivery_id !== `DOT-RECOVERY-${d.event_id}`) conflict('delivery-id-shape');
+      if (!isHash(d.event_sha256) || !isHash(d.artifact_sha256) || !isPosInt(d.bytes)) conflict('delivery-shape');
+      const env = loadSpoolEnvelope(d.event_id, d.bytes, d.artifact_sha256, 'collector');
+      if (env.kind !== 'batch' || env.sha256 !== d.event_sha256) conflict('batch-envelope-crosslink');
+      if (env.parents.length !== 0) conflict('batch-parents-not-empty');
+      const m = d.manifest;
+      if (!m || m.event_id !== env.id || m.destination !== CHAT_IDS.analyst
+        || m.sha256 !== d.artifact_sha256 || m.bytes !== d.bytes
+        || JSON.stringify(m.parents ?? []) !== JSON.stringify(env.parents)) {
+        conflict('batch-manifest-crosslink');
+      }
+      const ack = ackByDelivery.get(d.delivery_id);
+      if (!ack || ack.event_id !== d.event_id || ack.event_sha256 !== d.event_sha256
+        || ack.artifact_sha256 !== d.artifact_sha256) {
+        conflict('ack-delivery-crosslink');
+      }
+      batches.push({ env, manifest: m, delivery_id: d.delivery_id, ack });
+    }
+
+    // --- receipt 2: analyst analysis import (manifests + spool records) ---
+    if (JSON.stringify(analysisImport.acks ?? null) !== JSON.stringify(dispatch.actual_acks)) {
+      conflict('analysis-acks-crosslink');
+    }
+    if (!Array.isArray(analysisImport.manifests) || !Array.isArray(analysisImport.records)
+      || analysisImport.manifests.length !== analysisImport.records.length
+      || analysisImport.manifests.length === 0) {
+      conflict('analysis-records-parallel');
+    }
+
+    // --- receipt 3: validation verdicts must match every record ---
+    const validationByEvent = new Map();
+    if (validation.version !== 1 || validation.validated !== true || !Array.isArray(validation.records)) {
+      conflict('validation-shape');
+    }
+    for (const v of validation.records) validationByEvent.set(v.event_id, v);
+
+    // --- receipt 4: solver dispatch, SENT_ACCEPTED (send receipts, no ACKs) ---
+    if (solverDispatch.version !== 1 || solverDispatch.state !== 'SENT_ACCEPTED') conflict('solver-dispatch-state');
+    if (solverDispatch.destination !== CHAT_IDS.solver) conflict('solver-dispatch-destination');
+    const solverByEvent = new Map();
+    if (!Array.isArray(solverDispatch.deliveries)) conflict('solver-dispatch-deliveries');
+    for (const d of solverDispatch.deliveries) {
+      if (d.delivery_id !== `DOT-RECOVERY-${d.event_id}`) conflict('solver-delivery-id-shape');
+      solverByEvent.set(d.event_id, d);
+    }
+
+    const analyses = [];
+    analysisImport.records.forEach((rec, i) => {
+      if (!isHash(rec.artifact_sha256) || !isPosInt(rec.bytes)) conflict('analysis-record-shape');
+      // records[].path must BE the derived spool location — never a free path.
+      const derived = join(dirFlag, 'recovery-spool', rec.event_id.replace(/:/g, '-'), 'envelope.json');
+      if (resolve(rec.path) !== resolve(derived)) conflict('analysis-record-path');
+      const env = loadSpoolEnvelope(rec.event_id, rec.bytes, rec.artifact_sha256, 'analyst');
+      if (env.kind !== 'analysis') conflict('analysis-envelope-crosslink');
+      const m = analysisImport.manifests[i];
+      if (!m || m.event_id !== rec.event_id || m.destination !== CHAT_IDS.solver
+        || m.sha256 !== rec.artifact_sha256 || m.bytes !== rec.bytes
+        || JSON.stringify(m.parents ?? []) !== JSON.stringify(env.parents ?? [])) {
+        conflict('analysis-manifest-crosslink');
+      }
+      const v = validationByEvent.get(rec.event_id);
+      if (!v || v.event_sha256 !== env.sha256 || v.artifact_sha256 !== rec.artifact_sha256 || v.bytes !== rec.bytes) {
+        conflict('validation-crosslink');
+      }
+      const sd = solverByEvent.get(rec.event_id);
+      if (!sd || sd.event_sha256 !== env.sha256 || sd.artifact_sha256 !== rec.artifact_sha256
+        || sd.bytes !== rec.bytes || JSON.stringify(sd.manifest ?? null) !== JSON.stringify(m)) {
+        conflict('solver-dispatch-crosslink');
+      }
+      analyses.push({
+        env, manifest: m, delivery_id: sd.delivery_id,
+        send_receipt: { tool: 'send_message_to_thread', delivery_id: sd.delivery_id, state: 'SENT_ACCEPTED', destination: CHAT_IDS.solver },
+      });
+    });
+
+    // Import identity: the exact receipt bytes + the exact adopted artifact
+    // hashes. Identical replay is a no-op inside the ledger; any change is a
+    // different import.
+    const importKey = sha256OfText(JSON.stringify([
+      RECOVERY_BASENAMES.map((n) => sha256OfText(receipts[n].text)),
+      [...batches, ...analyses].map((x) => x.manifest.sha256),
+    ]));
+    const r = ledger.reconcileExternalRecovery({ batches, analyses, import_key: importKey });
+    ok({ replay: r.replay, batches_acked: r.batches_acked, analyses_sent: r.analyses_sent });
+  } catch (err) {
+    if (err && typeof err.code === 'string') fail(err.code, {});
+    fail('RECOVERY_IMPORT_ERROR');
   } finally { ledger.close(); }
 }
 
@@ -611,6 +944,9 @@ function cmdSpoolBegin({ root, flags }) {
       explicit_parts: explicit,
       parts,
       next_ordinal: 0,
+      committed_offset: 0,
+      retained_part: null,
+      phase: 'UPLOADING',
       current_part: null,
       whole_path: spoolPath(root, uploadId, 'whole.tmp'),
     };
@@ -650,6 +986,7 @@ function cmdSpoolAppend({ root, flags }) {
   }
   if (typeof chunk !== 'string') fail('CHUNK_NOT_STRING');
   if (Buffer.byteLength(chunk, 'utf8') > CHUNK_MAX) fail('CHUNK_OVERSIZE');
+  if ((state.phase ?? 'UPLOADING') !== 'UPLOADING') fail('SPOOL_UPLOAD_STATE');
   // implicit single-part manifest: auto-begin part 0 on first append
   if (!state.current_part) {
     if (state.explicit_parts) fail('PART_NOT_BEGUN');
@@ -670,6 +1007,7 @@ function cmdSpoolPartBegin({ root, flags }) {
   const bytes = Number(flags['--bytes']);
   if (!uploadId || !Number.isInteger(ordinal) || !sha || !Number.isInteger(bytes)) usage('spool-part-begin requires --upload-id --ordinal --sha256 --bytes');
   const state = loadUpload(root, uploadId);
+  if ((state.phase ?? 'UPLOADING') !== 'UPLOADING') fail('SPOOL_UPLOAD_STATE');
   if (!state.explicit_parts) fail('NOT_MULTIPART');
   const descriptor = state.parts[ordinal];
   if (!descriptor || descriptor.sha256 !== sha || descriptor.bytes !== bytes) fail('PART_DESCRIPTOR_MISMATCH');
@@ -691,6 +1029,7 @@ function cmdSpoolPartFinish({ root, flags }) {
   const ordinal = Number(flags['--ordinal']);
   if (!uploadId || !Number.isInteger(ordinal)) usage('spool-part-finish requires --upload-id --ordinal');
   const state = loadUpload(root, uploadId);
+  if ((state.phase ?? 'UPLOADING') !== 'UPLOADING') fail('SPOOL_UPLOAD_STATE');
   const descriptor = state.parts[ordinal];
   if (!descriptor) fail('PART_DESCRIPTOR_MISMATCH');
   if (ordinal < state.next_ordinal) {
@@ -701,16 +1040,15 @@ function cmdSpoolPartFinish({ root, flags }) {
   const buf = readFileSync(state.current_part.path);
   const actualSha = sha256OfBuffer(buf);
   if (actualSha !== descriptor.sha256 || buf.length !== descriptor.bytes) fail('PART_MISMATCH');
-  const fd = openSync(state.whole_path, 'a', 0o600);
-  writeSync(fd, buf);
-  closeSync(fd);
-  unlinkSync(state.current_part.path);
-  state.current_part = null;
-  state.next_ordinal = ordinal + 1;
-  saveUpload(root, state);
+  commitPart(root, state, state.current_part, buf);
   ok({ upload_id: uploadId, ordinal, next_ordinal: state.next_ordinal });
 }
 
+// R12: publication phases — PUBLISHING (intent durably recorded BEFORE the
+// whole rename), PUBLISHED (rename + directory fsync done), INGESTED (the
+// ledger event row is committed). Every crash window between them is closed
+// by re-running this command: the phase on disk names the first durable step
+// not yet known complete, and recovery proceeds from there, idempotently.
 function cmdSpoolFinish({ root, flags }) {
   const uploadId = flags['--upload-id'];
   const producerRole = flags['--producer-role'];
@@ -720,18 +1058,64 @@ function cmdSpoolFinish({ root, flags }) {
   try {
     const manifest = ledger.getManifest(state.event_id);
     if (!manifest || manifest.artifact_sha256 !== state.artifact_sha256) fail('MANIFEST_MISMATCH');
-    // implicit single part: no separate part commands exist — finalize it here
-    if (!state.explicit_parts && state.current_part) {
-      finalizePart(root, state, state.current_part);
-      state.current_part = null;
-      state.next_ordinal = state.parts.length;
+    const target = join(root, 'objects', `${state.artifact_sha256}.json`);
+
+    if (state.phase === 'INGESTED') {
+      // crash between the DB commit and the state reap: complete the reap and
+      // answer from the durable rows — never re-read the (gone) whole temp
+      const ev = ledger.getEvent(state.event_id);
+      try { unlinkSync(spoolPath(root, uploadId, 'state.json')); } catch { /* already gone */ }
+      ok({ event_id: state.event_id, sha256: ev && ev.sha256, artifact_sha256: state.artifact_sha256, state: ev ? ev.state : 'INGESTED', replay: true });
+    }
+
+    if ((state.phase ?? 'UPLOADING') === 'UPLOADING') {
+      // implicit single part: no separate part commands exist — journal-commit
+      // it here through the same verified-path discipline as part-finish
+      if (!state.explicit_parts && state.current_part) {
+        const part = state.current_part;
+        const pbuf = readFileSync(part.path);
+        if (sha256OfBuffer(pbuf) !== part.sha256 || pbuf.length !== part.bytes) fail('SPOOL_HASH_MISMATCH');
+        commitPart(root, state, part, pbuf);
+      }
+      if (state.next_ordinal !== state.parts.length || state.current_part) fail('PARTS_INCOMPLETE');
+      const buf = readFileSync(state.whole_path);
+      if (sha256OfBuffer(buf) !== state.artifact_sha256 || buf.length !== state.bytes) fail('SPOOL_HASH_MISMATCH');
+      const text = buf.toString('utf8');
+      let env0;
+      try {
+        env0 = validateEnvelope(text, producerRole);
+      } catch {
+        fail('SPOOL_ENVELOPE_INVALID');
+      }
+      if (env0.id !== state.event_id) fail('MANIFEST_MISMATCH');
+      // PUBLISHING intent is durably recorded BEFORE the rename: a crash past
+      // this point recovers from whole.tmp (rename not yet run) or from the
+      // published object (rename done) — never by re-appending.
+      state.phase = 'PUBLISHING';
       saveUpload(root, state);
     }
-    if (state.next_ordinal !== state.parts.length || state.current_part) fail('PARTS_INCOMPLETE');
-    const buf = readFileSync(state.whole_path);
-    const wholeSha = sha256OfBuffer(buf);
-    if (wholeSha !== state.artifact_sha256 || buf.length !== state.bytes) fail('SPOOL_HASH_MISMATCH');
-    const text = buf.toString('utf8');
+
+    // publication completion/verification (fresh, window A, window B alike)
+    if (existsSync(target)) {
+      const obuf = readFileSync(target);
+      if (sha256OfBuffer(obuf) !== state.artifact_sha256 || obuf.length !== state.bytes) fail('SPOOL_OBJECT_CONFLICT');
+      if (existsSync(state.whole_path)) {
+        try { unlinkSync(state.whole_path); } catch { /* already gone */ }
+      }
+    } else if (existsSync(state.whole_path)) {
+      const wbuf = readFileSync(state.whole_path);
+      if (sha256OfBuffer(wbuf) !== state.artifact_sha256 || wbuf.length !== state.bytes) fail('SPOOL_OBJECT_CONFLICT');
+      renameSync(state.whole_path, target);
+      fsyncDir(dirname(target));
+    } else {
+      fail('SPOOL_PUBLISH_RECOVERY_LOST');
+    }
+    state.phase = 'PUBLISHED';
+    saveUpload(root, state);
+
+    // ingest from the published object bytes — the envelope source for both a
+    // fresh finish and every recovery path is the immutable object itself
+    const text = readFileSync(target, 'utf8');
     let env;
     try {
       env = validateEnvelope(text, producerRole);
@@ -739,8 +1123,6 @@ function cmdSpoolFinish({ root, flags }) {
       fail('SPOOL_ENVELOPE_INVALID');
     }
     if (env.id !== state.event_id) fail('MANIFEST_MISMATCH');
-    const target = join(root, 'objects', `${wholeSha}.json`);
-    if (!existsSync(target)) renameSync(state.whole_path, target);
     // R04: the spooled producer role is the trusted caller identity — an
     // ack-kind envelope ingested here goes through the same role check as
     // every other ACK entry point (no role-free spool channel).
@@ -750,12 +1132,13 @@ function cmdSpoolFinish({ root, flags }) {
     } catch (e) {
       fail(e.code ?? 'SPOOL_INGEST_ERROR');
     }
-    // The upload is durably complete (object published + event ingested):
-    // drop the spool state so later plans never re-offer it. Crash between
-    // the rename and this unlink leaves a completed state file, which the
-    // plan projection skips by shape (next_ordinal == parts, no current).
+    state.phase = 'INGESTED';
+    saveUpload(root, state);
+    // the upload is durably complete (object published + event ingested):
+    // drop the spool state so later plans never re-offer it. A crash before
+    // this unlink leaves an INGESTED state file, re-entered above as a replay.
     try { unlinkSync(spoolPath(root, uploadId, 'state.json')); } catch { /* already gone */ }
-    ok({ event_id: env.id, sha256: env.sha256, artifact_sha256: wholeSha, state: r.state, replay: r.replay === true });
+    ok({ event_id: env.id, sha256: env.sha256, artifact_sha256: state.artifact_sha256, state: r.state, replay: r.replay === true });
   } finally { ledger.close(); }
 }
 
@@ -1497,6 +1880,7 @@ const HANDLERS = {
   init: cmdInit,
   tick: cmdTick,
   supervise: cmdSupervise,
+  'review-import': cmdReviewImport,
   plan: cmdPlan,
   'spool-begin': cmdSpoolBegin,
   'spool-append': cmdSpoolAppend,
@@ -1525,6 +1909,7 @@ const HANDLERS = {
   off: cmdOff,
   resume: cmdResume,
   'reconcile-execution': cmdReconcileExecution,
+  'reconcile-external-recovery': cmdReconcileExternalRecovery,
 };
 
 const parsed = parseArgs(process.argv.slice(2));

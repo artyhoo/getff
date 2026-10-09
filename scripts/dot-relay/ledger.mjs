@@ -89,7 +89,25 @@ CREATE TABLE IF NOT EXISTS execution_attempts (
   PRIMARY KEY (execution_id, attempt_number)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exec_active
-  ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
+  ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST','REQUIRES_REVIEW');
+CREATE TABLE IF NOT EXISTS worker_reports (
+  execution_id TEXT PRIMARY KEY,
+  report_json TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  source_tree_digest TEXT NOT NULL,
+  solution_sha256 TEXT NOT NULL,
+  artifact_sha256 TEXT NOT NULL,
+  head_sha TEXT NOT NULL,
+  pr_url TEXT NOT NULL,
+  captured_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS review_receipts (
+  execution_id TEXT PRIMARY KEY,
+  receipt_json TEXT NOT NULL,
+  reviewer TEXT NOT NULL,
+  verdict TEXT NOT NULL,
+  imported_ms INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS control (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -189,13 +207,15 @@ const TICK_PAGE_BUDGET = 10;
 // HOST-RESILIENCE §4: slot-holding states. INTERRUPTED_HOST / RECOVERING_HOST /
 // RESUMING_HOST keep the single-execution slot occupied (no second claim, no
 // second GLM) — an interrupted row is resume-ELIGIBLE, never slot-free.
-const ACTIVE_STATES = ['RESERVED', 'RUNNING', 'UNCERTAIN', 'VERIFYING', 'INTERRUPTED_HOST', 'RECOVERING_HOST', 'RESUMING_HOST'];
+const ACTIVE_STATES = ['RESERVED', 'RUNNING', 'UNCERTAIN', 'VERIFYING', 'INTERRUPTED_HOST', 'RECOVERING_HOST', 'RESUMING_HOST', 'REQUIRES_REVIEW'];
 const ACTIVE_IN = `('${ACTIVE_STATES.join("','")}')`;
 // admitNextAttempt refuses while one of these holds the slot in progress;
 // INTERRUPTED_HOST is the ONE resume-eligible state. UNCERTAIN is handled in
 // JS (R07): terminal unless the caller supplies FRESH verified-dead evidence
 // for a same-boot crash (reason UNCERTAIN_STOP) — never guessed.
-const RESUME_BLOCKED_STATES = new Set(['RESERVED', 'RUNNING', 'VERIFYING', 'RESUMING_HOST', 'RECOVERING_HOST']);
+// R10: REQUIRES_REVIEW is review-gate-owned — no further GLM attempt may be
+// admitted around a captured-but-unreviewed execution.
+const RESUME_BLOCKED_STATES = new Set(['RESERVED', 'RUNNING', 'VERIFYING', 'RESUMING_HOST', 'RECOVERING_HOST', 'REQUIRES_REVIEW']);
 // Precharged recovery allowance: 3 attempts x 2h host-awake per NEW execution,
 // reserved BEFORE spawn, nonrefundable (HOST-RESILIENCE §4 precharged ledger).
 const ATTEMPT_RESERVED_MS = 7_200_000;
@@ -352,7 +372,7 @@ export function openLedger(path, {
       db.close();
       throw err;
     }
-    db.exec('PRAGMA user_version = 2;');
+    db.exec('PRAGMA user_version = 3;');
   } else if (version === 1) {
     // v1 -> v2 (HOST-RESILIENCE): precharged attempts table, execution
     // reservation columns, outbox sender identity, extended active-slot index.
@@ -399,7 +419,49 @@ export function openLedger(path, {
       throw err;
     }
     db.exec('PRAGMA user_version = 2;');
-  } else if (version !== 2) {
+  }
+
+  // v2 -> v3 (R10 review gate): REQUIRES_REVIEW joins the unique active-slot
+  // partial index, and the worker-report / review-receipt tables appear.
+  // Additive only — no existing row is rewritten. Runs for BOTH a freshly
+  // migrated v1 database and an existing v2 one.
+  if (version === 1 || version === 2) {
+    beginImmediate(db);
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS worker_reports (
+          execution_id TEXT PRIMARY KEY,
+          report_json TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          source_tree_digest TEXT NOT NULL,
+          solution_sha256 TEXT NOT NULL,
+          artifact_sha256 TEXT NOT NULL,
+          head_sha TEXT NOT NULL,
+          pr_url TEXT NOT NULL,
+          captured_ms INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS review_receipts (
+          execution_id TEXT PRIMARY KEY,
+          receipt_json TEXT NOT NULL,
+          reviewer TEXT NOT NULL,
+          verdict TEXT NOT NULL,
+          imported_ms INTEGER NOT NULL
+        );
+        DROP INDEX IF EXISTS idx_exec_active;
+        CREATE UNIQUE INDEX idx_exec_active
+          ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST','REQUIRES_REVIEW');
+      `);
+      commitTx(db);
+    } catch (err) {
+      rollbackQuiet(db);
+      db.close();
+      throw err;
+    }
+    db.exec('PRAGMA user_version = 3;');
+  } else if (version !== 0 && version !== 3) {
+    // `version` is the value captured at open: 0 (fresh, handled above) and
+    // 1/2 (handled above) never reach this refusal — only an unknown future
+    // version does.
     db.close();
     throw ledgerError('SCHEMA_VERSION', `unsupported user_version ${version}; refusing to start (no auto-migration)`);
   }
@@ -464,6 +526,100 @@ export function openLedger(path, {
       return db.prepare('SELECT * FROM executions WHERE id = ?').get(id) ?? null;
     },
 
+    // -------------------------------------------------- R10: worker reports + review gate
+
+    getWorkerReport(executionId) {
+      const row = db.prepare('SELECT * FROM worker_reports WHERE execution_id = ?').get(executionId);
+      if (!row) return null;
+      return { ...JSON.parse(row.report_json), captured_ms: row.captured_ms };
+    },
+
+    // Persists the strict CODE_COMPLETE report of a captured execution. The
+    // capture path is the ONLY writer. A re-capture with DIFFERENT identity
+    // digests invalidates any previously imported review approval — a changed
+    // source tree voids the approval it was granted to.
+    persistWorkerReport({ executionId, report }) {
+      return api._tx(() => {
+        const row = db.prepare('SELECT * FROM executions WHERE id = ?').get(executionId);
+        if (!row) throw ledgerError('UNKNOWN_EXECUTION', String(executionId));
+        const prev = db.prepare('SELECT * FROM worker_reports WHERE execution_id = ?').get(executionId);
+        if (prev) {
+          const drifted = prev.solution_sha256 !== report.solution_sha256
+            || prev.artifact_sha256 !== report.artifact_sha256
+            || prev.source_tree_digest !== report.source_tree_digest
+            || prev.head_sha !== report.head_sha
+            || prev.session_id !== report.session_id;
+          if (drifted) {
+            db.prepare('DELETE FROM review_receipts WHERE execution_id = ?').run(executionId);
+            // The voided approval returns the row to the review gate — a
+            // fresh matching receipt may re-approve the new identity.
+            db.prepare("UPDATE executions SET state='REQUIRES_REVIEW' WHERE id = ? AND state='VERIFYING'").run(executionId);
+            api._audit('REVIEW_INVALIDATED', executionId, { reason: 're-captured report identity drifted' });
+          }
+        }
+        db.prepare(
+          `INSERT INTO worker_reports (execution_id, report_json, session_id, source_tree_digest, solution_sha256, artifact_sha256, head_sha, pr_url, captured_ms)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(execution_id) DO UPDATE SET report_json=excluded.report_json, session_id=excluded.session_id,
+             source_tree_digest=excluded.source_tree_digest, solution_sha256=excluded.solution_sha256,
+             artifact_sha256=excluded.artifact_sha256, head_sha=excluded.head_sha, pr_url=excluded.pr_url,
+             captured_ms=excluded.captured_ms`,
+        ).run(executionId, JSON.stringify(report), report.session_id, report.source_tree_digest, report.solution_sha256, report.artifact_sha256, report.head_sha, report.pr_url, now());
+        return { ok: true };
+      });
+    },
+
+    getReviewReceipt(executionId) {
+      const row = db.prepare('SELECT * FROM review_receipts WHERE execution_id = ?').get(executionId);
+      if (!row) return null;
+      return { ...JSON.parse(row.receipt_json), reviewer: row.reviewer, verdict: row.verdict, imported_ms: row.imported_ms };
+    },
+
+    // Imports an OS-owner independent review receipt. The receipt is validated
+    // against the CURRENT persisted worker report (exact identity digests) and
+    // must come from a reviewer that is not the worker session. A worker-side
+    // ref is only ever a locator — this call, restricted to the owner reviews
+    // root at the CLI layer, is the sole authority that advances a captured
+    // execution past REQUIRES_REVIEW (to VERIFYING; verification follows).
+    reviewImport({ executionId, receipt }) {
+      return api._tx(() => {
+        const reportRow = db.prepare('SELECT * FROM worker_reports WHERE execution_id = ?').get(executionId);
+        if (!reportRow) throw ledgerError('REVIEW_REPORT_MISSING', executionId);
+        const keys = Object.keys(receipt).sort().join(',');
+        const expected = ['artifact_sha256', 'execution_id', 'head_sha', 'reviewer', 'session_id', 'solution_sha256', 'source_tree_digest', 'verdict', 'version'].sort().join(',');
+        if (typeof receipt !== 'object' || receipt === null || Array.isArray(receipt) || keys !== expected
+          || receipt.version !== 1 || receipt.execution_id !== executionId
+          || typeof receipt.reviewer !== 'string' || receipt.reviewer.length < 4
+          || receipt.verdict !== 'APPROVE') {
+          throw ledgerError('RECEIPT_SCHEMA', 'receipt must be the exact v1 APPROVE shape bound to this execution');
+        }
+        if (receipt.reviewer === reportRow.session_id) {
+          throw ledgerError('REVIEWER_NOT_INDEPENDENT', 'the reviewer may not be the worker session');
+        }
+        const mismatch = receipt.session_id !== reportRow.session_id
+          || receipt.solution_sha256 !== reportRow.solution_sha256
+          || receipt.artifact_sha256 !== reportRow.artifact_sha256
+          || receipt.source_tree_digest !== reportRow.source_tree_digest
+          || receipt.head_sha !== reportRow.head_sha;
+        if (mismatch) throw ledgerError('RECEIPT_MISMATCH', 'receipt identity digests disagree with the captured worker report');
+        const receiptJson = JSON.stringify(receipt);
+        const existing = db.prepare('SELECT * FROM review_receipts WHERE execution_id = ?').get(executionId);
+        if (existing) {
+          if (existing.receipt_json === receiptJson) return { replay: true };
+          throw ledgerError('RECEIPT_IMMUTABLE', 'an approval receipt was already applied and cannot be replaced');
+        }
+        const exec = db.prepare('SELECT * FROM executions WHERE id = ?').get(executionId);
+        if (!exec || exec.state !== 'REQUIRES_REVIEW') {
+          throw ledgerError('REVIEW_STATE', `execution is ${exec ? exec.state : 'unknown'}, not awaiting review`);
+        }
+        db.prepare('INSERT INTO review_receipts (execution_id, receipt_json, reviewer, verdict, imported_ms) VALUES (?,?,?,?,?)')
+          .run(executionId, receiptJson, receipt.reviewer, receipt.verdict, now());
+        db.prepare("UPDATE executions SET state='VERIFYING' WHERE id = ?").run(executionId);
+        api._audit('REVIEW_APPROVED', executionId, { reviewer: receipt.reviewer });
+        return { applied: true };
+      });
+    },
+
     getManifest(eventId) {
       return db.prepare('SELECT * FROM manifests WHERE event_id = ?').get(eventId) ?? null;
     },
@@ -513,6 +669,25 @@ export function openLedger(path, {
         api._audit('OFF', null, { reason });
         return { off: true };
       });
+    },
+
+    // ------------------------------------------------- recovery import pending
+    //
+    // RECOVERY-ADOPTION: a root created for external-recovery reconciliation
+    // starts with automatic admission closed. tick/bridge refuse sends and
+    // executor admissions while this holds; only a committed
+    // reconcileExternalRecovery clears it. Never touches durable OFF.
+
+    setRecoveryPending() {
+      return api._tx(() => {
+        db.prepare("INSERT OR REPLACE INTO control (key, value) VALUES ('recovery_import_pending','1')").run();
+        api._audit('RECOVERY_PENDING', null, { reason: 'root pending external recovery reconciliation' });
+        return { recovery_import_pending: true };
+      });
+    },
+
+    recoveryImportPending() {
+      return db.prepare("SELECT value FROM control WHERE key = 'recovery_import_pending'").get()?.value === '1';
     },
 
     // ------------------------------------------------------------- deliveries
@@ -712,6 +887,13 @@ export function openLedger(path, {
         }
         const executions = [];
         for (const row of db.prepare(`SELECT * FROM executions WHERE state IN ${ACTIVE_IN}`).all()) {
+          // R10: a review-held row is complete-but-unreviewed — host
+          // reconciliation must NEVER flip it to INTERRUPTED_HOST/UNCERTAIN and
+          // open a resume around the review gate.
+          if (row.state === 'REQUIRES_REVIEW') {
+            executions.push({ execution_id: row.id, decision: 'requires-review', session_id: row.session_id ?? null });
+            continue;
+          }
           const attempt = db
             .prepare('SELECT * FROM execution_attempts WHERE execution_id = ? ORDER BY attempt_number DESC LIMIT 1')
             .get(row.id);
@@ -1052,6 +1234,126 @@ export function openLedger(path, {
       });
     },
 
+    // ------------------------------------------------------ external recovery
+    //
+    // RECOVERY-ADOPTION (PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing
+    // real deliveries"): adopts ALREADY-DELIVERED work into a fresh runtime
+    // ledger in ONE atomic transaction. The caller (reconcile-external-recovery
+    // CLI) has validated the 4 recovery receipts and every original envelope
+    // file against its digests BEFORE opening this transaction; this method
+    // re-proves the DB-dependent invariants (event conflicts, manifest
+    // registration, never-claimed outbox adoption, actual-ACK binding) so the
+    // transaction is self-defending. It never clears durable OFF, never
+    // re-routes adopted work for sending, and never downgrades an existing
+    // ACKED/SENT_ACCEPTED row to an earlier state. Import identity is the
+    // caller-supplied key (sha256 of receipt bytes + artifact hashes): an
+    // identical replay is a metadata-only no-op; a changed key after a recorded
+    // import is a conflict.
+
+    reconcileExternalRecovery({ batches, analyses, import_key: importKey }) {
+      const conflict = (why) => ledgerError('RECOVERY_IMPORT_CONFLICT', why);
+      const guarded = (fn) => {
+        try {
+          return fn();
+        } catch (err) {
+          if (err && err.code === 'FAULT') throw err; // crash-injection arm must observe the raw fault
+          throw conflict(err && err.message ? err.message : 'validation failed');
+        }
+      };
+      return api._tx(() => {
+        if (typeof importKey !== 'string' || !HASH64_RE.test(importKey)) throw conflict('import key');
+        if (!Array.isArray(batches) || batches.length === 0 || !Array.isArray(analyses) || analyses.length === 0) {
+          throw conflict('bundle must carry batches and analyses');
+        }
+        const prior = db.prepare("SELECT value FROM control WHERE key = 'recovery_import'").get();
+        if (prior) {
+          let recorded = null;
+          try { recorded = JSON.parse(prior.value).import_key; } catch { /* unreadable receipt: treat as conflict */ }
+          if (recorded === importKey) {
+            return { replay: true, batches_acked: batches.length, analyses_sent: analyses.length };
+          }
+          throw conflict('a different recovery import was already recorded for this root');
+        }
+
+        // Adoption: the EXTERNALLY USED delivery id becomes the ledger's id for
+        // (event, destination). Renaming a default PENDING row requires proof it
+        // was never claimed/sent/receipted; an external id already bound to a
+        // different event is a conflict, never guessed away.
+        const adopt = (eventId, destination, externalId) => {
+          const holder = db.prepare('SELECT event_id FROM outbox WHERE delivery_id = ?').get(externalId);
+          if (holder && holder.event_id !== eventId) {
+            throw conflict(`delivery id ${externalId} already bound to ${holder.event_id}`);
+          }
+          const row = db.prepare('SELECT * FROM outbox WHERE event_id = ? AND destination = ?').get(eventId, destination);
+          if (!row) throw conflict(`no routed delivery for ${eventId} -> ${destination}`);
+          if (row.delivery_id !== externalId) {
+            const neverUsed = row.state === 'PENDING' && row.attempts === 0 && row.receipt_json === null
+              && row.sender_boot_id === null && row.sender_pid === null && row.sender_start === null;
+            if (!neverUsed) throw conflict(`outbox for ${eventId} already used (${row.state})`);
+            db.prepare('UPDATE outbox SET delivery_id = ? WHERE delivery_id = ?').run(externalId, row.delivery_id);
+            api._audit('RECOVERY_ADOPT', externalId, { event_id: eventId, replaced_default: row.delivery_id });
+          }
+          return db.prepare('SELECT * FROM outbox WHERE delivery_id = ?').get(externalId);
+        };
+
+        const importEvent = (env, manifest, producerRole, expectedDestination) => {
+          if (!env || typeof env !== 'object' || (env.kind !== 'batch' && env.kind !== 'analysis')) {
+            throw conflict('envelope kind');
+          }
+          if (manifest.event_id !== env.id) throw conflict('manifest/event id');
+          if (manifest.destination !== expectedDestination) throw conflict(`manifest destination for ${env.id}`);
+          if (JSON.stringify(manifest.parents ?? []) !== JSON.stringify(env.parents ?? [])) {
+            throw conflict(`manifest/envelope parents for ${env.id}`);
+          }
+          guarded(() => api._manifestImportInTx({ manifest, producerRole, cursorToken: null }));
+          const row = db.prepare('SELECT sha256 FROM events WHERE id = ?').get(env.id);
+          if (row && row.sha256 !== null && row.sha256 !== env.sha256) {
+            throw conflict(`event ${env.id} digest conflict`);
+          }
+          if (!row) {
+            db.prepare(
+              'INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, reason, created_ms) VALUES (?,?,?,?,?,?,?,?,?)',
+            ).run(env.id, env.sha256, env.kind, env.producer, JSON.stringify(env.parents), JSON.stringify(env.payload), 'PENDING', null, now());
+          }
+          const r = guarded(() => api._route(env.id, api._parentsResolved(env.parents)));
+          if (['WAIT_PARENT', 'WAIT_PARENT_ACK', 'BASELINE_HOLD', 'BLOCKED', 'CONFLICT', 'CONSUMED', 'COMPLETE_NO_ACTION'].includes(r.state)) {
+            throw conflict(`${env.id} routed to ${r.state}`);
+          }
+        };
+
+        // Pass 1 — batches: ingest through the existing validation, adopt the
+        // externally used collector->analyst ids, then bind the ACTUAL analyst
+        // ACKs (byte/hash contract inside _ackInTx). The ACK is the release
+        // signal the analysis pass below routes on.
+        for (const b of batches) {
+          importEvent(b.env, b.manifest, 'collector', CHAT_IDS.analyst);
+          adopt(b.env.id, CHAT_IDS.analyst, b.delivery_id);
+          guarded(() => api._ackInTx(b.ack, {}));
+        }
+
+        // Pass 2 — analyses: parent batches are ACKED now, so each routes to
+        // solver through the ordinary coverage/candidate gates; adopt the
+        // externally used analyst->solver ids and bind the SEND receipts
+        // (SENT_ACCEPTED, never ACKED — no solver byte-ACK exists).
+        for (const a of analyses) {
+          importEvent(a.env, a.manifest, 'analyst', CHAT_IDS.solver);
+          const row = adopt(a.env.id, CHAT_IDS.solver, a.delivery_id);
+          if (row.state !== 'ACKED' && row.state !== 'SENT_ACCEPTED') {
+            db.prepare("UPDATE outbox SET state='SENT_ACCEPTED', receipt_json=? WHERE delivery_id=?").run(
+              JSON.stringify({ status: 'sent', receipt: a.send_receipt ?? null, at: now() }), a.delivery_id,
+            );
+          }
+        }
+
+        db.prepare("INSERT OR REPLACE INTO control (key, value) VALUES ('recovery_import', ?)").run(
+          JSON.stringify({ import_key: importKey, batches: batches.length, analyses: analyses.length, at: now() }),
+        );
+        db.prepare("DELETE FROM control WHERE key = 'recovery_import_pending'").run();
+        api._audit('RECOVERY_IMPORT', importKey.slice(0, 16), { batches: batches.length, analyses: analyses.length });
+        return { replay: false, batches_acked: batches.length, analyses_sent: analyses.length };
+      });
+    },
+
     // --------------------------------------------------------- executions
 
     // HOST-RESILIENCE §4 precharged ledger: claiming RESERVES the first attempt
@@ -1244,6 +1546,10 @@ export function openLedger(path, {
         // HOST-RESILIENCE §2: openLedger no longer flips crashed rows to
         // UNCERTAIN, so an evidence-carrying reconciliation may target any
         // still-held slot state.
+        // R10: REQUIRES_REVIEW is excluded from that allowance by name — the
+        // review gate owns the row, and CONFIRM_DEAD must never abort a
+        // captured-but-unreviewed execution around its review.
+        if (row.state === 'REQUIRES_REVIEW') throw ledgerError('RECONCILE_STATE', 'REQUIRES_REVIEW: the independent review gate owns this execution');
         if (!ACTIVE_STATES.includes(row.state)) throw ledgerError('RECONCILE_STATE', `${row.state}`);
         if (decision === 'CONFIRM_DEAD') {
           // R09: a STRUCTURED death proof from the shared fresh ownership/death
@@ -1799,6 +2105,7 @@ export function openLedger(path, {
         source_sha: db.prepare("SELECT value FROM control WHERE key='source_sha'").get()?.value ?? SOURCE_SHA,
         deployment_mode: 'HYBRID',
         off: api._isOff(),
+        recovery_import_pending: api.recoveryImportPending(),
         counts: {
           ...eventStates,
           outbox_total: outboxTotal,

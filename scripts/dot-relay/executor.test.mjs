@@ -14,11 +14,15 @@ import { fileURLToPath } from 'node:url';
 import { openLedger } from './ledger.mjs';
 import { digest, CHAT_IDS, reportKey } from './contract.mjs';
 import {
-  buildArgv, buildResumeArgv, runExecution, resumeExecution, monitorAdoptedChild, verifyPr, applyReviewAndVerify,
+  buildArgv, buildResumeArgv, runExecution, resumeExecution, monitorAdoptedChild, verifyPr,
   isOwnedChild, startActiveClock, parseAgentsCensus,
   validateFreshnessWindow, sampleOnceIndependent,
   GLM_WRAPPER, ALLOW_TOOLS, DISALLOWED_TOOLS,
 } from './executor.mjs';
+// R10: applyReviewAndVerify is imported dynamically inside the review-gate
+// lifecycle test — a static named import of a not-yet-existing export is a
+// module-link error that would fail the WHOLE file and mask every other
+// test's own RED reason.
 
 const sha256Of = (s) => createHash('sha256').update(s).digest('hex');
 const sha40 = (s) => sha256Of(s).slice(0, 40);
@@ -167,7 +171,10 @@ function queuedSolution(ledger) {
   const reports = [];
   for (let i = 0; i < 3; i++) {
     const body = `executor-fixture body ${i} ${'z'.repeat(20)}`;
-    reports.push({ repository: 'artyhoo/getff', pr: 2200, comment_id: `ex-${i}`, body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${i}`), body });
+    // unique comment id PER CALL: the report key is digest(repository,
+    // comment_id, body_sha256, reviewed_sha) — fixed ids make a second
+    // queuedSolution() in the same ledger a CONSUMED replay (no outbox row).
+    reports.push({ repository: 'artyhoo/getff', pr: 2200, comment_id: `ex-${randomUUID().slice(0, 8)}-${i}`, body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${i}`), body });
   }
   const batch = mk('batch', `DOT-EX-B-${randomUUID().slice(0, 8)}`, CHAT_IDS.collector, [], { batch_id: 'B-ex', reports, complete: true });
   ledger.ingest(batch);
@@ -1227,7 +1234,7 @@ test('resume: SAME session --resume in the verified worktree; capture holds at R
     solution,
     artifactSha256: packet.artifact_sha256,
     prUrl: PR,
-  }))));
+  })))));
   child.exit(0);
   const out = await r;
   assert.equal(out.state, 'REQUIRES_REVIEW');
@@ -1355,7 +1362,7 @@ test('adopt-monitor: same-boot live adopted child is monitored with ZERO GLM spa
     solution,
     artifactSha256: packet.artifact_sha256,
     prUrl: 'https://github.com/artyhoo/getff/pull/7777',
-  }))));
+  })))));
   const out = await r;
   assert.equal(out.state, 'REQUIRES_REVIEW');
   assert.equal(out.pr_url, 'https://github.com/artyhoo/getff/pull/7777');
@@ -1598,6 +1605,277 @@ test('R11 resume: every packet tamper holds the slot — weak/null/any-string di
     assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 1, `${arm.name}: no admission consumed`);
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ------------------------------------------- R10: strict CODE_COMPLETE capture + review gate
+//
+// repair-code-review.json R10: the outer --output-format json result is a
+// STRING containing exactly one strict CODE_COMPLETE JSON object (<=16384
+// UTF-8 bytes, exact key set, exact runtime identities). Object
+// compatibility, prose, fences, substrings, identity mismatches and nonzero
+// exits are BLOCKED_CAPTURE — never DONE. Every capture path (run/resume/
+// adopt) persists the worker report + REQUIRES_REVIEW slot-owning state and
+// NEVER verifies the PR; only an OS-owner imported independent review
+// receipt (reviewer != worker session, matching source/head/digests)
+// advances to VERIFYING/DONE.
+
+const ghNever = () => ({
+  view: () => { throw new Error('gh must not be consulted in the capture path'); },
+  checks: () => { throw new Error('gh must not be consulted in the capture path'); },
+});
+
+const PR_R10 = 'https://github.com/artyhoo/getff/pull/9001';
+
+async function runCaptureReject({ name, buildOuter, exitCode = 0 }) {
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger);
+  const manifest = ledger.getManifest(solution.id);
+  const child = fakeChild();
+  const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
+  const r = runExecution({
+    ledger, solution, worktree: dir, dir,
+    spawnImpl: captureSpawn(child), gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch }), ghImpl: ghNever(),
+    clock: fakeClock(),
+    pollIntervalMs: 5, startupTimeoutMs: 500, deadlineMs: 5_000,
+  });
+  await sleep(10);
+  writeFileSync(child.opts.env.DOT_RELAY_STARTUP_RECEIPT, JSON.stringify({
+    session_id: child.opts.env.DOT_RELAY_SESSION_ID,
+    execution_id: child.opts.env.DOT_RELAY_EXECUTION_ID,
+    worktree: dir,
+  }));
+  await sleep(30);
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(buildOuter({
+    sessionId: child.opts.env.DOT_RELAY_SESSION_ID,
+    executionId: child.opts.env.DOT_RELAY_EXECUTION_ID,
+    solution,
+    artifactSha256: manifest.artifact_sha256,
+  })));
+  child.exit(exitCode);
+  const out = await r;
+  assert.equal(out.state, 'BLOCKED', name);
+  assert.equal(out.blocker, 'BLOCKED_CAPTURE', name);
+  assert.equal(ledger.getExecution(out.execution_id).state, 'BLOCKED', `${name}: slot terminal`);
+  assert.ok(!ledger.getWorkerReport(out.execution_id), `${name}: no worker report persists for a rejected capture`);
+  rmSync(dir, { recursive: true, force: true });
+}
+
+for (const [name, mutate] of [
+  ['bare object result (legacy fake shape)', ({ outer, report }) => ({ ...outer, result: report })],
+  ['prose result string', ({ outer }) => ({ ...outer, result: 'The work is complete and the PR is open.' })],
+  ['fenced result string', ({ outer, report }) => ({ ...outer, result: `\`\`\`json\n${JSON.stringify(report)}\n\`\`\`` })],
+  ['prose-wrapped JSON substring', ({ outer, report }) => ({ ...outer, result: `Done! ${JSON.stringify(report)} — trust me` })],
+  ['oversize report >16384 UTF-8 bytes', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, independent_review_ref: 'x'.repeat(17_000) }) })],
+  ['wrong execution_id inside the report', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, execution_id: 'DOT-EXEC-FORGED' }) })],
+  ['wrong session_id inside the report', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, session_id: 'not-the-session' }) })],
+  ['wrong solution_sha256', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, solution_sha256: '0'.repeat(64) }) })],
+  ['wrong artifact_sha256', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, artifact_sha256: '0'.repeat(64) }) })],
+  ['non-hex64 source_tree_digest', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, source_tree_digest: 'not-hex-at-all' }) })],
+  ['wrong PR host', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, pr_url: 'https://gitlab.com/artyhoo/getff/pull/1' }) })],
+  ['39-hex head_sha', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, head_sha: 'a'.repeat(39) }) })],
+  ['missing head_sha key', ({ outer, report }) => {
+    const { head_sha: _drop, ...rest } = report;
+    return { ...outer, result: JSON.stringify(rest) };
+  }],
+  ['extra unknown key', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, unexpected: 1 }) })],
+  ['version 2', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, version: 2 }) })],
+  ['status DONE instead of CODE_COMPLETE', ({ outer, report }) => ({ ...outer, result: JSON.stringify({ ...report, status: 'DONE' }) })],
+  ['outer is_error true', ({ outer }) => ({ ...outer, is_error: true })],
+  ['outer model not the pinned glm-5.3', ({ outer, report }) => ({ session_id: outer.session_id, modelUsage: {}, is_error: false, result: JSON.stringify(report) })],
+]) {
+  test(`R10 reject: ${name} -> BLOCKED_CAPTURE, terminal slot, no worker report`, async () => {
+    await runCaptureReject({
+      name,
+      buildOuter: (ctx) => mutate({
+        outer: outerCapture(ctx.sessionId, JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 }))),
+        report: codeCompleteReport({ ...ctx, prUrl: PR_R10 }),
+      }),
+    });
+  });
+}
+
+test('R10 reject: nonzero child exit -> BLOCKED_CAPTURE even with an otherwise valid report', async () => {
+  await runCaptureReject({
+    name: 'child exit code 1',
+    exitCode: 1,
+    buildOuter: (ctx) => outerCapture(ctx.sessionId, JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 }))),
+  });
+});
+
+test('R10 review gate: REQUIRES_REVIEW survives ledger restart, holds the slot; only a matching OS-owner receipt unlocks DONE', async () => {
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger);
+  const manifest = ledger.getManifest(solution.id);
+  const child = fakeChild();
+  const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
+  const PR = 'https://github.com/artyhoo/getff/pull/9101';
+  const ghCalls = [];
+  const r = runExecution({
+    ledger, solution, worktree: dir, dir,
+    spawnImpl: captureSpawn(child), gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch }), ghImpl: ghDone(ghCalls),
+    clock: fakeClock(),
+    pollIntervalMs: 5, startupTimeoutMs: 500, deadlineMs: 5_000,
+  });
+  await sleep(10);
+  writeFileSync(child.opts.env.DOT_RELAY_STARTUP_RECEIPT, JSON.stringify({
+    session_id: child.opts.env.DOT_RELAY_SESSION_ID,
+    execution_id: child.opts.env.DOT_RELAY_EXECUTION_ID,
+    worktree: dir,
+  }));
+  await sleep(30);
+  const sessionId = child.opts.env.DOT_RELAY_SESSION_ID;
+  const executionId = child.opts.env.DOT_RELAY_EXECUTION_ID;
+  const report = codeCompleteReport({ executionId, sessionId, solution, artifactSha256: manifest.artifact_sha256, prUrl: PR });
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(outerCapture(sessionId, JSON.stringify(report))));
+  child.exit(0);
+  const out = await r;
+  assert.equal(out.state, 'REQUIRES_REVIEW');
+  ledger.close();
+  // restart: a SECOND DB connection must still see the slot occupied
+  const ledger2 = openLedger(join(dir, 'ledger.sqlite'), { now });
+  try {
+    assert.equal(ledger2.status().execution.state, 'REQUIRES_REVIEW');
+    // the held slot refuses admission of a NEW queued solution
+    const solution2 = queuedSolution(ledger2);
+    const claim2 = ledger2.claimExecution({ solutionId: solution2.id, sessionId: 'gate-sess-0001-aaaa' });
+    assert.equal(claim2.claimed, false, 'REQUIRES_REVIEW holds the global execution slot');
+    const { applyReviewAndVerify } = await import('./executor.mjs');
+    assert.equal(typeof applyReviewAndVerify, 'function', 'R10: applyReviewAndVerify is exported');
+    const clock = fakeClock();
+    // self-review: the receipt reviewer IS the worker session
+    const self = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { reviewer: sessionId }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    assert.equal(self.state, 'HELD');
+    assert.equal(self.blocker, 'REVIEWER_NOT_INDEPENDENT');
+    assert.equal(ledger2.getExecution(executionId).state, 'REQUIRES_REVIEW');
+    // wrong tree: valid-hex64 but different source_tree_digest
+    const wrongTree = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { source_tree_digest: sha256Of('a-different-source-tree') }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    assert.equal(wrongTree.state, 'HELD');
+    assert.equal(wrongTree.blocker, 'RECEIPT_MISMATCH');
+    assert.equal(ledger2.getExecution(executionId).state, 'REQUIRES_REVIEW');
+    assert.ok(!ledger2.getReviewReceipt(executionId), 'a rejected receipt never persists');
+    // legit OS-owner receipt: VERIFYING -> verifyPr -> DONE
+    const done = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    assert.equal(done.state, 'DONE');
+    assert.equal(done.pr_url, PR);
+    assert.equal(ledger2.getExecution(executionId).state, 'DONE');
+    assert.equal(ledger2.getAttempt(executionId, 1).state, 'DONE');
+    assert.ok(ledger2.getReviewReceipt(executionId), 'applied receipt is durable');
+    // idempotent replay of the SAME receipt bytes
+    const replay = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    assert.equal(replay.state, 'DONE');
+    assert.equal(replay.replay, true);
+    // a DIFFERENT receipt after an applied one is immutable-held, state untouched
+    const forged = await applyReviewAndVerify({ ledger: ledger2, executionId, receipt: ownerReviewReceipt(report, { reviewer: 'other-owner-0001' }), ghImpl: ghDone(ghCalls), clock, pollIntervalMs: 5, deadlineMs: 1_000 });
+    assert.equal(forged.state, 'HELD');
+    assert.equal(forged.blocker, 'RECEIPT_IMMUTABLE');
+    assert.equal(ledger2.getExecution(executionId).state, 'DONE');
+  } finally {
+    ledger2.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('R10 review gate: a missing worker report holds (REVIEW_REPORT_MISSING), never invents approval', async () => {
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger);
+  const claim = ledger.claimExecution({ solutionId: solution.id, sessionId: 'gate-sess-0002-bbbb' });
+  ledger.updateExecution(claim.execution_id, { state: 'REQUIRES_REVIEW', reason: 'fixture: report lost' });
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const out = await applyReviewAndVerify({
+    ledger, executionId: claim.execution_id,
+    receipt: ownerReviewReceipt(codeCompleteReport({ executionId: claim.execution_id, sessionId: 'gate-sess-0002-bbbb', solution, artifactSha256: '0'.repeat(64), prUrl: PR_R10 })),
+    ghImpl: ghNever(), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'REVIEW_REPORT_MISSING');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('R10 resume: an object-shaped result (legacy fake) is rejected -> BLOCKED_CAPTURE, no DONE', async () => {
+  const { dir, ledger } = env0();
+  const PR = 'https://github.com/artyhoo/getff/pull/9201';
+  const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir, prUrl: PR });
+  const child = fakeChild();
+  const r = resumeExecution({
+    ledger, solution, executionId: claim.execution_id, dir,
+    spawnImpl: captureSpawn(child),
+    gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch, toplevel: dir }),
+    ghImpl: ghNever(),
+    sessionProbe: () => [],
+    clock: fakeClock({ bootId: 'BOOT-2' }),
+    pollIntervalMs: 5, deadlineMs: 5_000,
+  });
+  await sleep(10);
+  writeFileSync(child.opts.stdoutPath, JSON.stringify({
+    session_id: 'resume-sess-0001-aaaa',
+    modelUsage: { 'glm-5.3': 1 },
+    is_error: false,
+    result: { status: 'CODE_COMPLETE', pr_url: PR, head_sha: HEAD },
+  }));
+  child.exit(0);
+  const out = await r;
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_CAPTURE');
+  assert.ok(!ledger.getWorkerReport(claim.execution_id));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('R10 resume: a strict report naming a DIFFERENT PR than the checkpoint -> BLOCKED_DUPLICATE_PR', async () => {
+  const { dir, ledger } = env0();
+  const PR = 'https://github.com/artyhoo/getff/pull/9301';
+  const { solution, claim, jobBranch, packet } = interruptedExecution(ledger, { dir, prUrl: PR });
+  const child = fakeChild();
+  const r = resumeExecution({
+    ledger, solution, executionId: claim.execution_id, dir,
+    spawnImpl: captureSpawn(child),
+    gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch, toplevel: dir }),
+    ghImpl: ghNever(),
+    sessionProbe: () => [],
+    clock: fakeClock({ bootId: 'BOOT-2' }),
+    pollIntervalMs: 5, deadlineMs: 5_000,
+  });
+  await sleep(10);
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(outerCapture('resume-sess-0001-aaaa', JSON.stringify(codeCompleteReport({
+    executionId: claim.execution_id,
+    sessionId: 'resume-sess-0001-aaaa',
+    solution,
+    artifactSha256: packet.artifact_sha256,
+    prUrl: 'https://github.com/artyhoo/getff/pull/9302',
+  })))));
+  child.exit(0);
+  const out = await r;
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_DUPLICATE_PR');
+  assert.ok(!ledger.getWorkerReport(claim.execution_id));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('R10 adopt: an object-shaped result is rejected -> BLOCKED_CAPTURE, slot terminal', async () => {
+  const { dir, ledger } = env0();
+  const { claim } = adoptedExecution(ledger, { dir });
+  let alive = true;
+  const r = monitorAdoptedChild({
+    ledger, executionId: claim.execution_id, dir,
+    processProbe: (pid) => (String(pid) === '601' && alive ? { alive: true, start: CHILD_START } : { alive: false, start: null }),
+    ghImpl: ghNever(),
+    clock: fakeClock({ bootId: 'BOOT-1' }),
+    pollIntervalMs: 5, deadlineMs: 5_000,
+  });
+  await sleep(20);
+  alive = false;
+  writeFileSync(join(dir, 'worker', `${claim.execution_id}.stdout`), JSON.stringify({
+    session_id: 'adopt-sess-0001-aaaa',
+    modelUsage: { 'glm-5.3': 1 },
+    is_error: false,
+    result: { status: 'CODE_COMPLETE', pr_url: 'https://github.com/artyhoo/getff/pull/9202', head_sha: HEAD },
+  }));
+  const out = await r;
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_CAPTURE');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'BLOCKED');
+  assert.ok(!ledger.getWorkerReport(claim.execution_id));
+  rmSync(dir, { recursive: true, force: true });
 });
 
 // ------------------------------------------- active-clock.py (HOST-RESILIENCE §3)
@@ -2064,9 +2342,10 @@ function preexistingLock(dir, holder) {
   return join(workerDir, 'supervisor.lock');
 }
 
-test('R07: run mode — previous-boot stale lock is taken over (evidence retained) and the run completes DONE', async () => {
+test('R07: run mode — previous-boot stale lock is taken over (evidence retained) and the capture holds at REQUIRES_REVIEW', async () => {
   const { dir, ledger } = env0();
   const solution = queuedSolution(ledger);
+  const manifest = ledger.getManifest(solution.id);
   const child = fakeChild();
   const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
   const lockPath = preexistingLock(dir, { pid: 4242, start: SUP_START, boot_id: 'BOOT-OLD', execution_id: 'DOT-EXEC-OLD' });
@@ -2092,15 +2371,21 @@ test('R07: run mode — previous-boot stale lock is taken over (evidence retaine
     worktree: dir,
   }));
   await sleep(20);
-  writeFileSync(child.opts.stdoutPath, JSON.stringify({
-    session_id: child.opts.env.DOT_RELAY_SESSION_ID,
-    modelUsage: { 'glm-5.3': 1 },
-    is_error: false,
-    result: { status: 'DONE', pr_url: 'https://github.com/artyhoo/getff/pull/7778', head_sha: HEAD },
-  }));
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(outerCapture(
+    child.opts.env.DOT_RELAY_SESSION_ID,
+    JSON.stringify(codeCompleteReport({
+      executionId: child.opts.env.DOT_RELAY_EXECUTION_ID,
+      sessionId: child.opts.env.DOT_RELAY_SESSION_ID,
+      solution,
+      artifactSha256: manifest.artifact_sha256,
+      prUrl: 'https://github.com/artyhoo/getff/pull/7778',
+    })),
+  )));
   child.exit(0);
   const out = await r;
-  assert.equal(out.state, 'DONE');
+  assert.equal(out.state, 'REQUIRES_REVIEW');
+  assert.equal(calls.length, 0, 'lock takeover changes nothing about the review gate');
+  assert.ok(ledger.getWorkerReport(out.execution_id), 'worker report persisted after lock takeover');
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -2284,17 +2569,18 @@ test('R07: run mode — unprovable holder (malformed bytes / missing identity) b
   rmSync(dir2, { recursive: true, force: true });
 });
 
-test('R07: resume mode — stale previous-boot lock reconciled BEFORE admission; resume completes DONE on the checkpoint PR', async () => {
+test('R07: resume mode — stale previous-boot lock reconciled BEFORE admission; resumed capture holds at REQUIRES_REVIEW reusing the checkpoint PR', async () => {
   const { dir, ledger } = env0();
   const PR = 'https://github.com/artyhoo/getff/pull/9999';
-  const { solution, claim, jobBranch } = interruptedExecution(ledger, { dir, prUrl: PR });
+  const { solution, claim, jobBranch, packet } = interruptedExecution(ledger, { dir, prUrl: PR });
   const lockPath = preexistingLock(dir, { pid: 501, start: SUP_START, boot_id: 'BOOT-1', execution_id: claim.execution_id });
   const child = fakeChild();
+  const calls = [];
   const r = resumeExecution({
     ledger, solution, executionId: claim.execution_id, dir,
     spawnImpl: captureSpawn(child),
     gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch, toplevel: dir }),
-    ghImpl: ghDone([]),
+    ghImpl: ghDone(calls),
     sessionProbe: () => [],
     clock: fakeClock({ bootId: 'BOOT-2' }),
     pollIntervalMs: 5, deadlineMs: 5_000,
@@ -2305,18 +2591,21 @@ test('R07: resume mode — stale previous-boot lock reconciled BEFORE admission;
   assert.equal(lock.boot_id, 'BOOT-2');
   assert.equal(lock.takeover.reason, 'previous-boot');
   assert.equal(lock.takeover.previous.boot_id, 'BOOT-1');
-  writeFileSync(child.opts.stdoutPath, JSON.stringify({
-    session_id: 'resume-sess-0001-aaaa',
-    modelUsage: { 'glm-5.3': 1 },
-    is_error: false,
-    result: { status: 'DONE', pr_url: PR, head_sha: HEAD },
-  }));
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(outerCapture('resume-sess-0001-aaaa', JSON.stringify(codeCompleteReport({
+    executionId: claim.execution_id,
+    sessionId: 'resume-sess-0001-aaaa',
+    solution,
+    artifactSha256: packet.artifact_sha256,
+    prUrl: PR,
+  })))));
   child.exit(0);
   const out = await r;
-  assert.equal(out.state, 'DONE');
+  assert.equal(out.state, 'REQUIRES_REVIEW');
   assert.equal(out.pr_url, PR);
+  assert.equal(calls.length, 0, 'resume capture never verifies the PR itself');
+  assert.ok(ledger.getWorkerReport(claim.execution_id), 'worker report persisted from the resumed attempt');
   assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 2);
-  assert.equal(ledger.getExecution(claim.execution_id).state, 'DONE');
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'REQUIRES_REVIEW');
   rmSync(dir, { recursive: true, force: true });
 });
 
