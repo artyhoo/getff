@@ -125,6 +125,25 @@ function chunkByBytes(text, maxBytes) {
   return chunks;
 }
 
+// F09: the suffix of text starting at EXACTLY offset UTF-8 bytes in — the
+// resume append stream for an interrupted implicit part. null when offset is
+// not on a codepoint boundary (a torn write — never guess a cut) or past the
+// end; '' when offset is the end (nothing left to append).
+function byteSuffixFrom(text, offset) {
+  let n = 0;
+  let i = 0;
+  for (const ch of text) {
+    if (n === offset) return text.slice(i);
+    const cp = ch.codePointAt(0);
+    if (isLoneSurrogateCp(cp)) throw bridgeFail('SOURCE_NOT_UTF8');
+    const b = cpByteLen(cp);
+    if (n + b > offset) return null;
+    n += b;
+    i += ch.length;
+  }
+  return n === offset ? '' : null;
+}
+
 function sq(token) {
   return `'${String(token).replace(/'/g, "'\\''")}'`;
 }
@@ -498,13 +517,57 @@ async function spoolManifest(tools, config, m) {
   await runCli(tools, config, ['spool-finish', '--upload-id', begin.upload_id, '--producer-role', m.producer_role]);
 }
 
+// F09: an interrupted upload COMPLETES from its durable checkpoint — one
+// upload identity, never a restart over committed bytes.
+//   - publication phases (PUBLISHING/PUBLISHED/INGESTED) dispatch straight to
+//     the idempotent spool-finish: zero source refetch, zero new append;
+//   - an UPLOADING explicit multipart resumes the part sequence as before;
+//   - an UPLOADING implicit part refetches the source ONCE, verifies it
+//     against the descriptor, and appends ONLY the codepoint-safe suffix
+//     after the bytes already in the part temp. A torn offset (mid-codepoint
+//     or past the end), a contradictory image (in-flight part over committed
+//     bytes, or committed bytes that are neither nothing nor the exact whole)
+//     holds SPOOL_RESUME_UNSUPPORTED with the state untouched — never a
+//     second begin, never a whole-object append onto an existing prefix.
 async function resumeUpload(tools, config, up) {
-  if (!up.explicit_parts && up.current && up.current.appended > 0) {
-    // the implicit part cannot be truncated from here — surface, never corrupt
-    throw bridgeFail('SPOOL_RESUME_UNSUPPORTED');
+  const finish = () => runCli(tools, config, ['spool-finish', '--upload-id', up.upload_id, '--producer-role', up.producer_role]);
+  const phase = typeof up.phase === 'string' ? up.phase : 'UPLOADING';
+  if (phase !== 'UPLOADING') {
+    await finish();
+    return;
   }
-  await uploadParts(tools, config, up.upload_id, up.explicit_parts === true, up.parts ?? [], up.next_ordinal ?? 0);
-  await runCli(tools, config, ['spool-finish', '--upload-id', up.upload_id, '--producer-role', up.producer_role]);
+  if (up.explicit_parts === true) {
+    await uploadParts(tools, config, up.upload_id, true, up.parts ?? [], up.next_ordinal ?? 0);
+    await finish();
+    return;
+  }
+  const p = (up.parts ?? [])[0];
+  if (!p) throw bridgeFail('PART_MISSING');
+  const committed = Number.isSafeInteger(up.committed_offset) ? up.committed_offset : 0;
+  if (up.current) {
+    // in-flight implicit part: an already-committed prefix under it is contradictory
+    if (committed > 0) throw bridgeFail('SPOOL_RESUME_UNSUPPORTED');
+    const appended = up.current.appended; // actual part-temp bytes (cmdPlan stats the file)
+    if (!Number.isSafeInteger(appended) || appended < 0 || appended > p.bytes) {
+      throw bridgeFail('SPOOL_RESUME_UNSUPPORTED');
+    }
+    if (appended > 0) {
+      const sc = await readRef(tools, config, p.page_id, p.reference);
+      if (sc.sha256 !== p.sha256 || sc.byte_size !== p.bytes) throw bridgeFail('PART_DESCRIPTOR_MISMATCH');
+      const suffix = byteSuffixFrom(sc.text, appended);
+      if (suffix === null) throw bridgeFail('SPOOL_RESUME_UNSUPPORTED');
+      for (const chunk of chunkByBytes(suffix, CHUNK_BYTES)) {
+        await runCli(tools, config, ['spool-append', '--upload-id', up.upload_id, '--chunk-json', JSON.stringify(chunk)]);
+      }
+    } else {
+      await uploadParts(tools, config, up.upload_id, false, up.parts ?? [], 0);
+    }
+  } else if (committed !== 0 && committed !== p.bytes) {
+    throw bridgeFail('SPOOL_RESUME_UNSUPPORTED');
+  } else if (committed === 0) {
+    await uploadParts(tools, config, up.upload_id, false, up.parts ?? [], 0);
+  }
+  await finish();
 }
 
 // ---------------------------------------------------------------- receipts
@@ -634,8 +697,16 @@ async function runBridge({ tools, config, emit }) {
 
     // 4. fresh manifests -> verified spool -> immutable object + ingest
     const plan2 = await runCli(tools, config, ['plan']);
+    // F09: a manifest already represented by a durable pending upload keeps
+    // ONE upload identity — never begun a second time behind the held or
+    // resumed one (the re-fetch would re-append a whole object).
+    const pendingByEvent = {};
+    for (const pu of (plan2.pending_uploads ?? [])) {
+      if (pu && typeof pu.event_id === 'string') pendingByEvent[pu.event_id] = true;
+    }
     for (const m of (plan2.manifests ?? [])) {
       if (!m || typeof m.event_id !== 'string') continue;
+      if (pendingByEvent[m.event_id]) continue;
       if (!cycleAdmitData()) { continuation = true; continue; }
       try {
         await spoolManifest(tools, config, m);

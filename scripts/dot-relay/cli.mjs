@@ -459,6 +459,12 @@ function cmdPlan({ root }) {
           upload_id: state.upload_id,
           event_id: state.event_id,
           explicit_parts: state.explicit_parts === true,
+          // F09: the plan names the AUTHORITATIVE phase and committed whole
+          // offset — publication windows dispatch straight to idempotent
+          // spool-finish, an UPLOADING implicit part resumes from exactly
+          // this checkpoint (never a fresh begin over committed bytes).
+          phase: state.phase ?? 'UPLOADING',
+          committed_offset: committedWholeBytes(state),
           next_ordinal: state.next_ordinal ?? 0,
           current: state.current_part
             ? { ordinal: state.current_part.ordinal, appended: statBytes(state.current_part.path) }

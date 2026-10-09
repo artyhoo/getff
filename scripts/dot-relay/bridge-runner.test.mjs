@@ -797,6 +797,308 @@ test('crash-restart: partial multipart spool resumed by a later cycle with exact
   rmSync(root, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------- F09 implicit resume
+//
+// DOT-2087-F09: an interrupted single-reference (implicit-part) upload must
+// COMPLETE from its durable checkpoint — suffix-only append from the VERIFIED
+// byte offset, publication windows dispatched straight to idempotent
+// spool-finish, ONE upload identity per manifest, and torn/foreign offsets
+// failing closed with the original state retained.
+
+// A single-ref manifest whose artifact spans MULTIPLE 12000-byte upload
+// chunks (ASCII and multibyte variants) — the implicit resume substrate.
+function implicitCase(tag, { multibyte = false } = {}) {
+  const reports = [];
+  for (let i = 0; i < 10; i++) { // validateBatchPayload pins reports.length === 10
+    const body = `bridge f09 fixture ${tag} ${i} ${multibyte ? '🚦 сигнальный ' : ''}${'q'.repeat(2600)}`;
+    reports.push({
+      repository: 'artyhoo/getff', pr: 2300, comment_id: `F09-${tag}-${i}`,
+      body_sha256: sha256Of(body), reviewed_sha: sha40(`rv-${tag}-${i}`),
+      url: `https://github.com/artyhoo/getff/pull/2300#discussion_r${i}`, body,
+    });
+  }
+  const env = {
+    version: 1, kind: 'batch', id: `DOT-BR-${tag}`, producer: CHAT_IDS.collector,
+    parents: [], payload: { batch_id: `B-${tag}`, reports, complete: true }, sha256: null,
+  };
+  const { sha256: _omit, ...rest } = env;
+  env.sha256 = digest(rest);
+  const text = JSON.stringify(env);
+  if (Buffer.byteLength(text) < 26000) throw new Error('f09 fixture too small');
+  const manifest = {
+    version: 1, status: 'READY', event_id: `DOT-BR-${tag}`, kind: 'batch',
+    producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
+    sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
+    artifact: { page_id: `f09-${tag}`, reference: `ref-f09-${tag}` }, delivery_id: null,
+  };
+  return { text, manifest, pages: { [`ref-f09-${tag}`]: text } };
+}
+
+// Mirrors the body's greedy codepoint-safe 12000-byte chunk packing.
+function f09Chunks(text) {
+  const chunks = [];
+  let cur = '';
+  let curBytes = 0;
+  for (const ch of text) {
+    const b = Buffer.byteLength(ch);
+    if (curBytes > 0 && curBytes + b > 12000) {
+      chunks.push(cur);
+      cur = '';
+      curBytes = 0;
+    }
+    cur += ch;
+    curBytes += b;
+  }
+  if (curBytes > 0) chunks.push(cur);
+  return chunks;
+}
+
+// The codepoint-safe prefix of at most maxBytes UTF-8 bytes of text.
+function f09BytePrefix(text, maxBytes) {
+  let cur = '';
+  let n = 0;
+  for (const ch of text) {
+    const b = Buffer.byteLength(ch);
+    if (n + b > maxBytes) break;
+    cur += ch;
+    n += b;
+  }
+  return cur;
+}
+
+// Simulated crashed uploader: manifest imported, spool begun, exactly
+// prefixText bytes appended to the in-flight implicit part.
+function f09BeginPartial(root, c, prefixText) {
+  mkdirSync(join(root, 'in'), { recursive: true });
+  writeFileSync(join(root, 'in', 'f09.manifest.json'), `${JSON.stringify(c.manifest)}\n`);
+  cliJson(['manifest-import', '--root', root, '--file', join(root, 'in', 'f09.manifest.json'), '--producer-role', 'collector', '--cursor-token', 'tok-f09']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', c.manifest.event_id, '--artifact-sha256', c.manifest.sha256, '--bytes', String(c.manifest.bytes)]);
+  const appendedBytes = Buffer.byteLength(prefixText);
+  if (appendedBytes > 0) {
+    for (const chunk of f09Chunks(prefixText)) {
+      cli(['spool-append', '--root', root, '--upload-id', begin.upload_id, '--chunk-json', JSON.stringify(chunk)]);
+    }
+  }
+  return { uploadId: begin.upload_id, appendedBytes };
+}
+
+// Bytes actually appended by THIS cycle's spool-append invocations, parsed
+// back out of the recorded exec command lines.
+function f09CycleAppendBytes(calls) {
+  let total = 0;
+  for (const cmd of calls.exec) {
+    if (!cmd.includes("'spool-append'")) continue;
+    const argv = splitSq(cmd);
+    const i = argv.indexOf('--chunk-json');
+    total += Buffer.byteLength(JSON.parse(argv[i + 1]));
+  }
+  return total;
+}
+
+function f09StatePath(root, uploadId) {
+  return join(root, 'spool', `${uploadId}.state.json`);
+}
+
+test('F09 crash-restart: partial implicit ASCII upload resumes from the verified offset — suffix only, exactly once, one identity', async () => {
+  const root = freshRoot();
+  const c = implicitCase('F09A');
+  const chunks = f09Chunks(c.text);
+  assert.ok(chunks.length >= 3, 'fixture spans multiple upload chunks');
+  const { uploadId, appendedBytes } = f09BeginPartial(root, c, chunks[0]);
+
+  const { tools, calls } = makeTools({ polls: [], pages: c.pages });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  // the SAME upload completed: exact whole bytes, no leaked spool state
+  const obj = join(root, 'objects', `${c.manifest.sha256}.json`);
+  assert.ok(existsSync(obj), 'object published by resume');
+  assert.equal(readFileSync(obj, 'utf8'), c.text);
+  assert.equal(readdirSync(join(root, 'spool')).length, 0, 'no leaked spool state after completion');
+  // the source was refetched exactly ONCE for the verified suffix
+  assert.deepEqual(calls.reads.map((r) => r.reference), ['ref-f09-F09A']);
+  // ONLY the suffix was appended — never the whole object again
+  assert.equal(f09CycleAppendBytes(calls), Buffer.byteLength(c.text) - appendedBytes);
+  assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
+  // the ingested artifact produced exactly one delivery send this cycle
+  const artifactSends = calls.sends.filter((s) => !String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED '));
+  assert.equal(artifactSends.length, 1);
+
+  // second cycle over the finished state: nothing re-fetched, re-appended or resent
+  const second = makeTools({ polls: [], pages: c.pages });
+  const r2 = await runBody(root, second.tools);
+  assertResultShape(r2.result);
+  assert.equal(r2.result.state, 'IDLE');
+  assert.equal(second.calls.reads.length, 0);
+  assert.equal(f09CycleAppendBytes(second.calls), 0);
+  assert.ok(!second.calls.exec.some((cmd) => cmd.includes("'spool-begin'")));
+  assert.equal(readFileSync(obj, 'utf8'), c.text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F09 crash-restart: partial implicit MULTIBYTE upload resumes codepoint-safely from a non-chunk-boundary offset', async () => {
+  const root = freshRoot();
+  const c = implicitCase('F09B', { multibyte: true });
+  // an offset that is neither a chunk edge nor char-index aligned — the
+  // suffix math must walk UTF-8 bytes, not chars or chunks
+  const partial = f09BytePrefix(c.text, 16321);
+  const appendedBytes = Buffer.byteLength(partial);
+  assert.ok(appendedBytes > 12000 && appendedBytes < Buffer.byteLength(c.text));
+  f09BeginPartial(root, c, partial);
+
+  const { tools, calls } = makeTools({ polls: [], pages: c.pages });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+  const obj = join(root, 'objects', `${c.manifest.sha256}.json`);
+  assert.ok(existsSync(obj), 'object published by resume');
+  assert.equal(readFileSync(obj, 'utf8'), c.text, 'exact multibyte whole bytes');
+  assert.deepEqual(calls.reads.map((r) => r.reference), ['ref-f09-F09B']);
+  assert.equal(f09CycleAppendBytes(calls), Buffer.byteLength(c.text) - appendedBytes, 'suffix only');
+  assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
+  assert.equal(readdirSync(join(root, 'spool')).length, 0, 'no leaked spool state');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// Crash windows around the implicit part commit and publication: after part
+// commit (UPLOADING, completed shape), after the PUBLISHING intent save, and
+// after the object rename (PUBLISHED, ingest missing). Every window must
+// finish through idempotent spool-finish — ZERO source refetch, ZERO new
+// append, never a second upload. The INGESTED-before-reap window (durable
+// ingest proof present) must be offered to NOTHING.
+test('F09 crash windows: part-commit / PUBLISHING / PUBLISHED finish without source reappend; INGESTED-before-reap is not re-offered', async () => {
+  for (const window of ['part-commit', 'PUBLISHING', 'PUBLISHED', 'INGESTED']) {
+    const root = freshRoot();
+    const c = implicitCase('F09W');
+    const { uploadId: up } = f09BeginPartial(root, c, c.text);
+    const statePath = f09StatePath(root, up);
+    const wholeTmp = join(root, 'spool', `${up}.whole.tmp`);
+    const partTmp = join(root, 'spool', `${up}.part0.tmp`);
+    const target = join(root, 'objects', `${c.manifest.sha256}.json`);
+    const committedState = {
+      phase: 'UPLOADING', current_part: null, next_ordinal: 1,
+      committed_offset: Buffer.byteLength(c.text),
+      retained_part: { ordinal: 0, sha256: c.manifest.sha256, bytes: c.manifest.bytes },
+    };
+
+    if (window === 'INGESTED') {
+      // run the real finish (publish + ingest), then recreate the state file
+      // the crash left between the INGESTED save and the state reap
+      const st = JSON.parse(readFileSync(statePath, 'utf8'));
+      cliJson(['spool-finish', '--root', root, '--upload-id', up, '--producer-role', 'collector']);
+      writeFileSync(statePath, JSON.stringify({ ...st, ...committedState, phase: 'INGESTED' }));
+    } else {
+      // hand-craft the exact post-crash disk shape one step past the append
+      writeFileSync(wholeTmp, c.text);
+      if (window !== 'part-commit') {
+        Object.assign(committedState, { phase: window });
+        if (window === 'PUBLISHED') {
+          mkdirSync(dirname(target), { recursive: true });
+          renameSync(wholeTmp, target);
+        }
+      }
+      writeFileSync(statePath, JSON.stringify({ ...JSON.parse(readFileSync(statePath, 'utf8')), ...committedState }));
+      rmSync(partTmp, { force: true }); // commitPart unlinks it before the intent save
+    }
+
+    const { tools, calls } = makeTools({ polls: [], pages: c.pages });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(existsSync(target), `${window}: object published`);
+    assert.equal(readFileSync(target, 'utf8'), c.text, `${window}: exact whole bytes`);
+    assert.equal(calls.reads.length, 0, `${window}: zero source refetch`);
+    assert.equal(f09CycleAppendBytes(calls), 0, `${window}: zero reappend`);
+    assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), `${window}: no second upload identity`);
+    assert.ok(!result.blockers.some((b) => b.code === 'SPOOL_UPLOAD_STATE' || b.code === 'SPOOL_HASH_MISMATCH'), `${window}: no wrong-action blocker`);
+    if (window === 'INGESTED') {
+      // durable ingest proof: the state file is not offered for recovery at all
+      assert.ok(existsSync(statePath), 'INGESTED window: crash-image state untouched');
+      assert.ok(!calls.exec.some((cmd) => cmd.includes(up)), 'INGESTED window: upload never touched');
+    } else {
+      assert.equal(readdirSync(join(root, 'spool')).filter((n) => n.endsWith('.state.json')).length, 0, `${window}: state reaped`);
+    }
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// Fail-closed arm: a torn byte offset, a drifted source, and a contradictory
+// commit image each hold with the ORIGINAL state retained — and the manifest
+// is never re-begun behind the held upload (one upload identity).
+test('F09 holds: torn offset / drifted source / contradictory commit fail closed with the state retained, never a second upload', async () => {
+  // arm 1 — torn multibyte write at the appended offset
+  {
+    const root = freshRoot();
+    const c = implicitCase('F09H1', { multibyte: true });
+    const { uploadId: up } = f09BeginPartial(root, c, f09Chunks(c.text)[0]);
+    // overwrite the part temp with a prefix that CUTS a multibyte character
+    const buf = Buffer.from(c.text, 'utf8');
+    let walk = 0;
+    let torn = -1;
+    for (const ch of c.text) {
+      const b = Buffer.byteLength(ch);
+      if (b > 1) { torn = walk + 1; break; }
+      walk += b;
+    }
+    assert.ok(torn > 0, 'fixture has a multibyte character');
+    const partTmp = join(root, 'spool', `${up}.part0.tmp`);
+    const tornPrefix = buf.subarray(0, torn);
+    writeFileSync(partTmp, tornPrefix);
+
+    const { tools, calls } = makeTools({ polls: [], pages: c.pages });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'SPOOL_RESUME_UNSUPPORTED'), 'torn offset holds');
+    assert.ok(!existsSync(join(root, 'objects', `${c.manifest.sha256}.json`)), 'nothing published');
+    assert.equal(f09CycleAppendBytes(calls), 0, 'no append on a torn offset');
+    assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
+    assert.ok(existsSync(f09StatePath(root, up)), 'original state retained');
+    assert.deepEqual(readFileSync(partTmp), tornPrefix, 'torn temp bytes untouched');
+    rmSync(root, { recursive: true, force: true });
+  }
+
+  // arm 2 — the reference now returns DIFFERENT bytes than the descriptor
+  {
+    const root = freshRoot();
+    const c = implicitCase('F09H2');
+    f09BeginPartial(root, c, f09Chunks(c.text)[0]);
+    const drifted = c.text.replace('bridge f09 fixture', 'drifted f09 fixture');
+    assert.notEqual(sha256Of(drifted), c.manifest.sha256);
+
+    const { tools, calls } = makeTools({ polls: [], pages: { 'ref-f09-F09H2': drifted } });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'PART_DESCRIPTOR_MISMATCH'), 'drifted source holds');
+    assert.ok(!result.blockers.some((b) => b.code === 'SPOOL_RESUME_UNSUPPORTED'));
+    assert.equal(f09CycleAppendBytes(calls), 0, 'no append against a drifted source');
+    assert.ok(!existsSync(join(root, 'objects', `${c.manifest.sha256}.json`)), 'nothing published');
+    assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
+    const st = readdirSync(join(root, 'spool')).filter((n) => n.endsWith('.state.json'));
+    assert.equal(st.length, 1, 'original state retained');
+    rmSync(root, { recursive: true, force: true });
+  }
+
+  // arm 3 — contradictory UPLOADING image: committed bytes without the
+  // in-flight part, and not the exact whole size an implicit commit produces
+  {
+    const root = freshRoot();
+    const c = implicitCase('F09H3');
+    const { uploadId: up } = f09BeginPartial(root, c, f09Chunks(c.text)[0]);
+    const st = JSON.parse(readFileSync(f09StatePath(root, up), 'utf8'));
+    writeFileSync(f09StatePath(root, up), JSON.stringify({
+      ...st, current_part: null, next_ordinal: 1, committed_offset: 12345,
+    }));
+
+    const { tools, calls } = makeTools({ polls: [], pages: c.pages });
+    const { result } = await runBody(root, tools);
+    assertResultShape(result);
+    assert.ok(result.blockers.some((b) => b.code === 'SPOOL_RESUME_UNSUPPORTED'), 'contradictory commit image holds');
+    assert.equal(calls.reads.length, 0, 'no source fetch for a contradictory state');
+    assert.equal(f09CycleAppendBytes(calls), 0);
+    assert.ok(!existsSync(join(root, 'objects', `${c.manifest.sha256}.json`)), 'nothing published');
+    assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
+    assert.ok(existsSync(f09StatePath(root, up)), 'original state retained');
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------- §8 Page fallback
 
 // Sanitized real tool-result shapes (F04 item 4): opaque ref syntax exactly

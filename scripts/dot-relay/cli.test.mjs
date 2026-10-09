@@ -672,6 +672,43 @@ test('R12: PUBLISHING intent with retained whole.tmp completes publication (cras
   rmSync(root, { recursive: true, force: true });
 });
 
+// F09 (DOT-2087): the bounded plan must carry each pending upload's
+// AUTHORITATIVE phase and committed byte offset — the bridge dispatches
+// publication windows straight to idempotent spool-finish and resumes an
+// implicit UPLOADING part by verifying exactly this checkpoint.
+test('F09: plan exposes pending-upload phase + committed_offset (UPLOADING in-flight vs PUBLISHING crash window)', () => {
+  const root = freshRoot();
+  const { manifest, text } = singleManifest('F09P');
+  cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/f09p.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-f09p']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', manifest.event_id, '--artifact-sha256', manifest.sha256, '--bytes', String(manifest.bytes)]);
+  const up = begin.upload_id;
+  appendChunks(root, up, text); // auto-begins the implicit part 0, full text in the temp
+
+  const plan1 = cliJson(['plan', '--root', root]);
+  const pu1 = plan1.pending_uploads.find((u) => u.upload_id === up);
+  assert.ok(pu1, 'in-flight implicit upload offered');
+  assert.equal(pu1.phase, 'UPLOADING');
+  assert.equal(pu1.committed_offset, 0, 'nothing committed to the whole yet');
+  assert.equal(pu1.current.ordinal, 0);
+  assert.equal(pu1.current.appended, Buffer.byteLength(text));
+
+  // crash shape: implicit part committed inline + PUBLISHING intent saved
+  // (rename not run) — the plan must name the phase and the exact offset
+  const st = readUploadState(root, up);
+  writeFileSync(uploadStatePath(root, up), JSON.stringify({
+    ...st, phase: 'PUBLISHING', current_part: null, next_ordinal: 1,
+    committed_offset: Buffer.byteLength(text),
+    retained_part: { ordinal: 0, sha256: manifest.sha256, bytes: manifest.bytes },
+  }));
+  const plan2 = cliJson(['plan', '--root', root]);
+  const pu2 = plan2.pending_uploads.find((u) => u.upload_id === up);
+  assert.ok(pu2, 'publication crash window still offered (no durable ingest)');
+  assert.equal(pu2.phase, 'PUBLISHING');
+  assert.equal(pu2.committed_offset, Buffer.byteLength(text));
+  assert.equal(pu2.current, null);
+  rmSync(root, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------- metadata-put
 
 test('metadata-put: chunked writes, restart between chunks, strict final parse, path-only result', () => {
