@@ -178,6 +178,8 @@ Surfaces: arch input/exit, pipeline preparation/release, dispatcher parks, runti
 
 Park on unrecorded product preferences/material promise changes, absent approval or isolation, unsupported planner hold, concurrent-writer exclusion needed but unproved, failed blind discrimination, missing/stale evidence or a collision. Route intent to advisor/operator and in-scope architecture to the existing architecture owner. No new role or automatic strategy decision.
 
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the fork-challenge discipline `ask-question-reminder.sh` emits (`.claude/hooks/lang/en.sh:110-126`). Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+
 Return: stage verdict, implementation PR URL/head/merge evidence, contract/brief/result refs, actual observation and advisor attempts, effect-negative outputs, host verification, effort observations, limitations and the exact next stage still blocked. Standard fidelity and §1.7 PR-body obligations apply; preserve a frozen accepted artifact and do not rewrite historical evidence to make a check green.
 
 After S1 evidence, elaborate/cold-review S2's complete stage contract before dispatch. After S2, do the same for S3. Record `done.md` only after the entire umbrella's required proofs and merges, not when the first stage's code lands.
