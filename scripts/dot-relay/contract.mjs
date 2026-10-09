@@ -239,6 +239,14 @@ export function validateEnvelope(raw, trustedRole, { chatIds = CHAT_IDS } = {}) 
     exactKeys(p, ['id', 'sha256'], 'PARENTS');
     if (!ID_RE.test(p.id) || !HASH64_RE.test(p.sha256)) throw invalid('PARENTS');
   }
+  // F01: ancestry count is part of the envelope contract — analysis names
+  // exactly one batch, solution names exactly one analysis. The zero-parent
+  // batch and ACK shapes stay explicitly valid. A zero- or multi-parent
+  // analysis/solution is rejected here, before the ledger's routing gates
+  // can run at all.
+  if ((obj.kind === 'analysis' || obj.kind === 'solution') && obj.parents.length !== 1) {
+    throw invalid('PARENT_COUNT', `expected=1,actual=${obj.parents.length}`);
+  }
 
   // Identity: trustedRole is the adapter-supplied role, never payload data.
   const expectedRole = obj.kind === 'ack' ? trustedRole : ROLE_FOR_KIND[obj.kind];

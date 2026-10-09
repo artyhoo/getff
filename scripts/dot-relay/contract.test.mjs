@@ -548,3 +548,52 @@ function invalid(reason) {
     return true;
   };
 }
+
+// ------------------------------------------------- F01: ANCESTRY_ACK_BYPASS
+// analysis and solution carry EXACTLY ONE parent (analysis->batch,
+// solution->analysis); zero-parent stays valid only for batch and ack.
+
+test('F01: analysis/solution with zero, two or duplicate parents reject PARENT_COUNT', () => {
+  const batch = makeBatchEnvelope();
+  const batch2 = makeBatchEnvelope({ id: 'DOT-EVT-BATCH-SYNTH-002' });
+  const analysis = makeAnalysisEnvelope({ batchEnv: batch });
+
+  // analysis: zero parents
+  const a0 = makeAnalysisEnvelope({ batchEnv: batch });
+  a0.parents = [];
+  a0.sha256 = envelopeDigest(a0);
+  assert.throws(() => validateEnvelope(JSON.stringify(a0), 'analyst'), invalid('PARENT_COUNT'));
+
+  // analysis: two parents
+  const a2 = makeAnalysisEnvelope({ batchEnv: batch });
+  a2.parents = [{ id: batch.id, sha256: batch.sha256 }, { id: batch2.id, sha256: batch2.sha256 }];
+  a2.sha256 = envelopeDigest(a2);
+  assert.throws(() => validateEnvelope(JSON.stringify(a2), 'analyst'), invalid('PARENT_COUNT'));
+
+  // analysis: duplicate parents
+  const ad = makeAnalysisEnvelope({ batchEnv: batch });
+  ad.parents = [{ id: batch.id, sha256: batch.sha256 }, { id: batch.id, sha256: batch.sha256 }];
+  ad.sha256 = envelopeDigest(ad);
+  assert.throws(() => validateEnvelope(JSON.stringify(ad), 'analyst'), invalid('PARENT_COUNT'));
+
+  // solution: zero parents
+  const s0 = makeSolutionEnvelope({ analysisEnv: analysis });
+  s0.parents = [];
+  s0.sha256 = envelopeDigest(s0);
+  assert.throws(() => validateEnvelope(JSON.stringify(s0), 'solver'), invalid('PARENT_COUNT'));
+
+  // solution: two parents
+  const analysis2 = makeAnalysisEnvelope({ id: 'DOT-EVT-ANALYSIS-SYNTH-002', batchEnv: batch });
+  const s2 = makeSolutionEnvelope({ analysisEnv: analysis });
+  s2.parents = [{ id: analysis.id, sha256: analysis.sha256 }, { id: analysis2.id, sha256: analysis2.sha256 }];
+  s2.sha256 = envelopeDigest(s2);
+  assert.throws(() => validateEnvelope(JSON.stringify(s2), 'solver'), invalid('PARENT_COUNT'));
+});
+
+test('F01: batch and ack zero-parent shapes stay valid', () => {
+  const batch = makeBatchEnvelope({ parents: [] });
+  assert.ok(validateEnvelope(JSON.stringify(batch), 'collector'));
+  const ack = makeAckEnvelope({ eventEnv: batch });
+  assert.equal(ack.parents.length, 0);
+  assert.ok(validateEnvelope(JSON.stringify(ack), 'analyst'));
+});

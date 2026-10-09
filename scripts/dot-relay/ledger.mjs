@@ -1209,12 +1209,22 @@ export function openLedger(path, {
         }
         const candidates = payload.candidates ?? [];
         const parents = JSON.parse(ev.parent_json || '[]');
-        // R04: exact ancestry — consumed ∪ excluded must equal the parent
-        // batch's report-key set (no missing, no extra). Numeric vs string
-        // comment ids hash to DISTINCT keys (canonical never coerces).
-        const parentBatch = parents.length === 1
-          ? db.prepare('SELECT * FROM events WHERE id = ?').get(parents[0].id) : null;
-        if (parentBatch && parentBatch.kind === 'batch' && parentBatch.sha256 !== null) {
+        // F01: ancestry is EXACTLY one parent of kind batch. An empty ancestry
+        // made the coverage/candidate gates below vacuously true and the ACK
+        // gate vacuously satisfied — it must BLOCK, never fall through.
+        if (parents.length !== 1) {
+          setState('BLOCKED', `PARENT_COUNT:expected=1,actual=${parents.length}`);
+          return { state: 'BLOCKED' };
+        }
+        const parentBatch = db.prepare('SELECT * FROM events WHERE id = ?').get(parents[0].id);
+        if (!parentBatch || parentBatch.kind !== 'batch' || parentBatch.sha256 === null) {
+          setState('BLOCKED', `PARENT_KIND:expected=batch,actual=${parentBatch ? parentBatch.kind : 'unknown'}`);
+          return { state: 'BLOCKED' };
+        }
+        {
+          // R04: exact ancestry — consumed ∪ excluded must equal the parent
+          // batch's report-key set (no missing, no extra). Numeric vs string
+          // comment ids hash to DISTINCT keys (canonical never coerces).
           const parentPayload = JSON.parse(parentBatch.payload_json || '{}');
           const parentKeys = (parentPayload.reports ?? []).map((r) => canonicalDigest([r.repository, r.comment_id, r.body_sha256, r.reviewed_sha]));
           const parentSet = new Set(parentKeys);
@@ -1263,12 +1273,22 @@ export function openLedger(path, {
           return { state: 'BLOCKED', blockers };
         }
         const parents = JSON.parse(ev.parent_json || '[]');
-        // R04: the solution must name an EXACT parent candidate — id, exact
-        // finding_keys array, reviewed_sha. A digest-valid solution naming a
-        // foreign or drifted candidate BLOCKS, never queues.
-        const parentAnalysis = parents.length === 1
-          ? db.prepare('SELECT * FROM events WHERE id = ?').get(parents[0].id) : null;
-        if (parentAnalysis && parentAnalysis.kind === 'analysis' && parentAnalysis.sha256 !== null) {
+        // F01: ancestry is EXACTLY one parent of kind analysis — same
+        // structural gate as the analysis branch; a solution naming a batch
+        // (or nothing) must BLOCK, never queue.
+        if (parents.length !== 1) {
+          setState('BLOCKED', `PARENT_COUNT:expected=1,actual=${parents.length}`);
+          return { state: 'BLOCKED' };
+        }
+        const parentAnalysis = db.prepare('SELECT * FROM events WHERE id = ?').get(parents[0].id);
+        if (!parentAnalysis || parentAnalysis.kind !== 'analysis' || parentAnalysis.sha256 === null) {
+          setState('BLOCKED', `PARENT_KIND:expected=analysis,actual=${parentAnalysis ? parentAnalysis.kind : 'unknown'}`);
+          return { state: 'BLOCKED' };
+        }
+        {
+          // R04: the solution must name an EXACT parent candidate — id, exact
+          // finding_keys array, reviewed_sha. A digest-valid solution naming a
+          // foreign or drifted candidate BLOCKS, never queues.
           const pc = (JSON.parse(parentAnalysis.payload_json || '{}').candidates ?? [])
             .find((c) => c.candidate_id === payload.candidate_id);
           if (!pc) {

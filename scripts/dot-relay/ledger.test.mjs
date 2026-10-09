@@ -2262,3 +2262,229 @@ test('F10: genuine v1 database migrates atomically preserving identities and cou
   assert.equal(countRows(path, 'events'), 6);
   rmSync(dir, { recursive: true, force: true });
 });
+
+// ------------------------------------------------- F01: ANCESTRY_ACK_BYPASS
+// Exactly one parent of the expected kind, or a fixed BLOCKED hold — an empty
+// or wrong-kind ancestry must never fall vacuously through the coverage /
+// candidate / ACK gates into READY, QUEUED, or COMPLETE_NO_ACTION.
+
+function reseal(e) {
+  const { sha256: _omit, ...rest } = e;
+  e.sha256 = digest(rest);
+  return e;
+}
+
+function outboxRowCount(path, eventId) {
+  const db = new DatabaseSync(path);
+  const n = db.prepare('SELECT COUNT(*) AS n FROM outbox WHERE event_id = ?').get(eventId).n;
+  db.close();
+  return n;
+}
+
+function insertAckedOutboxRow(path, eventId, destination) {
+  const db = new DatabaseSync(path);
+  db.prepare(
+    "INSERT INTO outbox (delivery_id, event_id, destination, state, attempts, next_ms, created_ms) VALUES (?,?,?,'ACKED',0,0,?)",
+  ).run(`DOT-RAW-${eventId.slice(0, 24)}`, eventId, destination, nowMs);
+  db.close();
+}
+
+test('F01: analysis with empty parents is BLOCKED — no vacuous bypass, no outbox', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B1', 'f01b1');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const a = analysisEnv('DOT-F01-A1', batch, { candidates: [] });
+  a.parents = [];
+  reseal(a);
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(a.id).reason, /PARENT_COUNT/);
+  assert.equal(outboxRowCount(path, a.id), 0, 'ancestry-blocked analysis emits no delivery');
+});
+
+test('F01: solution with empty parents is BLOCKED, never QUEUED', () => {
+  const { ledger } = freshLedger();
+  const batch = batchEnv('DOT-F01-B2', 'f01b2');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const analysis = analysisEnv('DOT-F01-A2', batch, { candidates: [] });
+  ledger.ingest(analysis);
+  const s = solutionEnv('DOT-F01-S2', analysis);
+  s.parents = [];
+  reseal(s);
+  const r = ledger.ingest(s);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(s.id).reason, /PARENT_COUNT/);
+});
+
+test('F01: analysis naming another analysis as parent is BLOCKED even with a matching ACKED delivery', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B3', 'f01b3');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const parentAnalysis = analysisEnv('DOT-F01-A3', batch, { candidates: [] });
+  ledger.ingest(parentAnalysis);
+  // the exact foreign delivery record the guardless code mistook for
+  // parent-batch coverage: parent analysis -> analyst destination, ACKED
+  insertAckedOutboxRow(path, parentAnalysis.id, CHAT_IDS.analyst);
+  const a = analysisEnv('DOT-F01-A3X', batch, { candidates: [] });
+  a.parents = [{ id: parentAnalysis.id, sha256: parentAnalysis.sha256 }];
+  reseal(a);
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(a.id).reason, /PARENT_KIND/);
+});
+
+test('F01: solution naming a batch as parent is BLOCKED even with a matching ACKED delivery', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B4', 'f01b4');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  insertAckedOutboxRow(path, batch.id, CHAT_IDS.solver);
+  const analysis = analysisEnv('DOT-F01-A4', batch, { candidates: [
+    { candidate_id: 'C1', finding_keys: ['F1'], report_keys: [reportKey(batch.payload.reports[0])], reviewed_sha: batch.payload.reports[0].reviewed_sha, summary: 's' },
+  ] });
+  ledger.ingest(analysis);
+  const s = solutionEnv('DOT-F01-S4', analysis);
+  s.payload.reviewed_sha = batch.payload.reports[0].reviewed_sha;
+  s.parents = [{ id: batch.id, sha256: batch.sha256 }];
+  reseal(s);
+  const r = ledger.ingest(s);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(s.id).reason, /PARENT_KIND/);
+});
+
+test('F01: valid exact ancestry plus actual ACK still flows; replay adds no second outbox or execution', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B5', 'f01b5');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const db0 = ledger.pendingDeliveries()[0];
+  ledger.claimDelivery(db0.delivery_id);
+  ledger.ack(ackPayload(db0.delivery_id, batch, publicManifest(batch).sha256), { trustedProducerRole: 'analyst' });
+  const cand = { candidate_id: 'C1', finding_keys: ['F1'], report_keys: [reportKey(batch.payload.reports[0])], reviewed_sha: batch.payload.reports[0].reviewed_sha, summary: 's' };
+  const analysis = analysisEnv('DOT-F01-A5', batch, { candidates: [cand] });
+  const r1 = ledger.ingest(analysis);
+  assert.equal(r1.state, 'READY', 'exact ancestry + actual ACK still reaches READY');
+  assert.equal(outboxRowCount(path, analysis.id), 1);
+
+  withManifest(ledger, analysis, 'analyst');
+  const solution = solutionEnv('DOT-F01-S5', analysis);
+  solution.payload.candidate_id = 'C1';
+  solution.payload.finding_keys = ['F1'];
+  solution.payload.reviewed_sha = cand.reviewed_sha;
+  seal(solution);
+  const rs1 = ledger.ingest(solution);
+  assert.equal(rs1.state, 'WAIT_PARENT_ACK');
+  const da = ledger.pendingDeliveries().find((x) => x.event_id === analysis.id && x.destination === CHAT_IDS.solver);
+  ledger.claimDelivery(da.delivery_id);
+  ledger.ack(ackPayload(da.delivery_id, analysis, publicManifest(analysis, { destination: CHAT_IDS.solver }).sha256), { trustedProducerRole: 'solver' });
+  const rs2 = ledger.ingest(solution);
+  assert.equal(rs2.state, 'QUEUED', 'solution queues after the parent ACK lands');
+
+  // replay of identical bytes: replay marker, no second outbox, no execution row
+  const replayA = ledger.ingest(analysis);
+  assert.equal(replayA.replay, true);
+  assert.equal(outboxRowCount(path, analysis.id), 1);
+  const db = new DatabaseSync(path);
+  const execCount = db.prepare('SELECT COUNT(*) AS n FROM executions').get().n;
+  db.close();
+  assert.equal(execCount, 0, 'ingest/replay never creates executions');
+});
+
+test('F01: analysis with two resolved parents is BLOCKED PARENT_COUNT (old code fell through to COMPLETE_NO_ACTION)', () => {
+  const { ledger } = freshLedger();
+  const b1 = batchEnv('DOT-F01-B6A', 'f01b6a');
+  withManifest(ledger, b1);
+  ledger.ingest(b1);
+  const b2 = batchEnv('DOT-F01-B6B', 'f01b6b');
+  withManifest(ledger, b2);
+  ledger.ingest(b2);
+  const a = analysisEnv('DOT-F01-A6', b1, { candidates: [] });
+  a.parents = [
+    { id: b1.id, sha256: b1.sha256 },
+    { id: b2.id, sha256: b2.sha256 },
+  ];
+  reseal(a);
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(a.id).reason, /PARENT_COUNT:expected=1,actual=2/);
+});
+
+test('F01: solution with duplicate parents is BLOCKED PARENT_COUNT', () => {
+  const { ledger } = freshLedger();
+  const batch = batchEnv('DOT-F01-B7', 'f01b7');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const analysis = analysisEnv('DOT-F01-A7', batch, { candidates: [] });
+  ledger.ingest(analysis);
+  const s = solutionEnv('DOT-F01-S7', analysis);
+  s.parents = [
+    { id: analysis.id, sha256: analysis.sha256 },
+    { id: analysis.id, sha256: analysis.sha256 },
+  ];
+  reseal(s);
+  const r = ledger.ingest(s);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(s.id).reason, /PARENT_COUNT:expected=1,actual=2/);
+});
+
+test('F01: analysis with an unknown parent id holds WAIT_PARENT, never routes', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B8', 'f01b8');
+  const a = analysisEnv('DOT-F01-A8', batch, { candidates: [] });
+  a.parents = [{ id: 'DOT-F01-UNKNOWN-PARENT', sha256: '0'.repeat(64) }];
+  reseal(a);
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'WAIT_PARENT');
+  assert.equal(outboxRowCount(path, a.id), 0);
+});
+
+test('F01: analysis with a wrong-digest parent holds WAIT_PARENT, never routes', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B9', 'f01b9');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const a = analysisEnv('DOT-F01-A9', batch, { candidates: [] });
+  a.parents = [{ id: batch.id, sha256: '1'.repeat(64) }];
+  reseal(a);
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'WAIT_PARENT');
+  assert.equal(outboxRowCount(path, a.id), 0);
+});
+
+test('F01: parent delivery merely SENT_ACCEPTED does not satisfy the ACK gate', () => {
+  const { ledger, path } = freshLedger();
+  const batch = batchEnv('DOT-F01-B10', 'f01b10');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const db = new DatabaseSync(path);
+  db.prepare("UPDATE outbox SET state='SENT_ACCEPTED' WHERE event_id = ? AND destination = ?").run(batch.id, CHAT_IDS.analyst);
+  db.close();
+  const cand = { candidate_id: 'C1', finding_keys: ['F1'], report_keys: [reportKey(batch.payload.reports[0])], reviewed_sha: batch.payload.reports[0].reviewed_sha, summary: 's' };
+  const analysis = analysisEnv('DOT-F01-A10', batch, { candidates: [cand] });
+  const r = ledger.ingest(analysis);
+  assert.equal(r.state, 'WAIT_PARENT_ACK', 'a send receipt is not an ACK');
+});
+
+test('F01: a WAIT_PARENT child re-routes through the same checks when the wrong-kind parent lands', () => {
+  const { ledger } = freshLedger();
+  const batch = batchEnv('DOT-F01-B11', 'f01b11');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const other = analysisEnv('DOT-F01-A11X', batch, { candidates: [] });
+  // child arrives naming `other` by its exact eventual digest while `other`
+  // is still unknown -> WAIT_PARENT hold
+  const a = analysisEnv('DOT-F01-A11', batch, { candidates: [] });
+  a.parents = [{ id: other.id, sha256: other.sha256 }];
+  reseal(a);
+  const r1 = ledger.ingest(a);
+  assert.equal(r1.state, 'WAIT_PARENT');
+  // the "parent" lands and resolves — as an ANALYSIS, not a batch:
+  // re-evaluation must route the child through the same structural gate and
+  // BLOCK, never fall through to coverage/ACK decisions
+  ledger.ingest(other);
+  assert.equal(ledger.getEvent(a.id).state, 'BLOCKED');
+  assert.match(ledger.getEvent(a.id).reason, /PARENT_KIND/);
+});
