@@ -34,7 +34,7 @@
  *
  * "A literal appears inside a ``` fence" is mechanically detectable → gate, not injection.
  * A principle test is the earliest channel that actually fires for this population: the suite
- * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2322) and in CI
+ * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2334) and in CI
  * (`principles-meta-tests`, audit-self.yml:317).
  *
  * ## Honest ceiling — the fence slice only
@@ -177,7 +177,16 @@ export function skillDocs(): string[] {
     { cwd: REPO_ROOT, encoding: 'utf8' },
   );
   // Preserve the operator-skill population while reading its canonical authored owners.
-  return [...new Set(out.split('\n').filter(Boolean).map((path) => relative(REPO_ROOT, realpathSync(resolve(REPO_ROOT, path)))))];
+  return [
+    ...new Set(
+      out
+        .split('\n')
+        .filter(Boolean)
+        .map((path) =>
+          relative(REPO_ROOT, realpathSync(resolve(REPO_ROOT, path))),
+        ),
+    ),
+  ];
 }
 
 /** Unescaped hits per file, with allowlisted files removed. */

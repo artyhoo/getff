@@ -1216,7 +1216,7 @@ do_refresh() {
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
   # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:699-701), the presence
   # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2378-2381).
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2390-2393).
   #
   # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
   # ask-file-schema section is maintainer-only (owner: 'maintainer' in

@@ -104,13 +104,19 @@ const HOOK_LEAKED_DISCOVERY_VARS = [
 ] as const;
 
 // GIT_ENV_SCRUB — file-scope marker read by principle 46: this hook is not loaded
-// by vitest, and every child it spawns goes through run(), which hands out
-// process.env minus the table above.
-const run = (cmd: string, args: readonly string[] = []): CheckResult => {
+// by vitest, and every child it spawns hands out process.env minus the table above —
+// via run() (the default path) or via runCoreSuite()'s PREPUSH_HEAVY_RUNNER dispatch
+// (D2081-S01: a direct runCheck() call that used to pass the RAW environment, so a
+// runner child's fixture git re-targeted the invoking worktree exactly like any
+// other unscrubbed child would).
+const scrubbedHookEnv = (): NodeJS.ProcessEnv => {
   const env = { ...process.env };
   for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];
-  return runCheck(cmd, args, { cwd: REPO_ROOT, env });
+  return env;
 };
+
+const run = (cmd: string, args: readonly string[] = []): CheckResult =>
+  runCheck(cmd, args, { cwd: REPO_ROOT, env: scrubbedHookEnv() });
 
 /**
  * The empty-tree object SHA — a tree-ish that exists in every repo. Used as the
@@ -2267,9 +2273,15 @@ const HEAVY_RUNNER_TIMEOUT_MS = 600_000;
 function runCoreSuite(script: string): CheckResult {
   const runner = process.env['PREPUSH_HEAVY_RUNNER']?.trim();
   if (!runner) return run('npm', ['--prefix', CORE, 'run', script]);
+  // Same scrubbed boundary as run(): the runner is a child like any other, and a
+  // runner that re-roots onto a mirror still runs fixture git there — an inherited
+  // GIT_DIR from the invoking worktree would re-target those into THIS checkout
+  // (D2081-S01). The object-directory vars the heavy-runner contract relies on are
+  // NOT in the scrub table (see HOOK_LEAKED_DISCOVERY_VARS above).
   const r = runCheck(runner, ['npm', 'run', script], {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
+    env: scrubbedHookEnv(),
   });
   // notFound covers ENOENT only; a runner that exists but is not executable
   // fails the spawn with EACCES, which would otherwise read as failing tests.
