@@ -338,6 +338,104 @@ function execWithBusyRetry(db, sql, attempts = BUSY_ATTEMPTS) {
   }
 }
 
+// ---------------------------------------------------------------- F10 crash-window repair
+
+function masterObjectExists(db, name) {
+  return !!db.prepare("SELECT 1 FROM sqlite_master WHERE name = ?").get(name);
+}
+
+function tableColumnsSet(db, table) {
+  return new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+}
+
+// The v1->v2 ALTER marker set: every column the migration adds plus the
+// execution_attempts table. The ALTERs committed as ONE transaction, so a
+// database produced by shipped code has either all markers or none — any
+// partial set is foreign or hand-edited and must fail closed.
+const V2_MARKER_COLUMNS = {
+  outbox: ['sender_boot_id', 'sender_pid', 'sender_start'],
+  executions: [
+    'supervisor_boot_id', 'authorized_attempts', 'reserved_total_ms', 'attempts_admitted',
+    'charged_reservation_ms', 'resumptions', 'consecutive_resume_failures', 'last_resume_boot',
+  ],
+};
+
+function v2MarkerState(db) {
+  let present = 0;
+  let total = 0;
+  for (const [table, cols] of Object.entries(V2_MARKER_COLUMNS)) {
+    const have = tableColumnsSet(db, table);
+    for (const c of cols) {
+      total += 1;
+      if (have.has(c)) present += 1;
+    }
+  }
+  total += 1;
+  if (masterObjectExists(db, 'execution_attempts')) present += 1;
+  return { present, total };
+}
+
+// Conservative repair for a version-0 database whose schema+seeds already
+// committed under a pre-atomicity open (the version write was lost across a
+// crash). Only the EXACT fresh-init image converges; every deviation is a
+// fixed SCHEMA_MIGRATION_BLOCKED refusal that leaves the file untouched.
+function repairV0CrashImage(db) {
+  const refuse = (why) => {
+    db.close();
+    throw ledgerError('SCHEMA_MIGRATION_BLOCKED', `v0 crash image does not match the exact fresh-init image (${why}); refusing to touch it`);
+  };
+  const expectedTables = [
+    'events', 'reports', 'outbox', 'executions', 'execution_attempts', 'worker_reports',
+    'review_receipts', 'control', 'audit', 'manifests', 'cursors', 'snapshot_items',
+    'index_progress', 'index_generations', 'index_pages', 'receipt_outbox',
+  ];
+  for (const t of expectedTables) {
+    if (!masterObjectExists(db, t)) refuse(`missing table ${t}`);
+  }
+  for (const [table, cols] of Object.entries(V2_MARKER_COLUMNS)) {
+    const have = tableColumnsSet(db, table);
+    for (const c of cols) {
+      if (!have.has(c)) refuse(`table ${table} lacks current column ${c}`);
+    }
+  }
+  // Exact seed identity: six rows, nothing else, byte-exact states.
+  const events = db.prepare('SELECT id, sha256, kind, producer, parent_json, payload_json, state FROM events ORDER BY id').all();
+  const expectedSeeds = new Map();
+  for (const id of KNOWN_BATCHES) {
+    expectedSeeds.set(id, { sha256: null, kind: 'batch', producer: CHAT_IDS.collector, parent_json: '[]', payload_json: '{}', state: 'BASELINE_HOLD' });
+  }
+  expectedSeeds.set(INTAKE_ID, { sha256: null, kind: 'analysis', producer: CHAT_IDS.analyst, parent_json: '[]', payload_json: '{}', state: 'ACCEPTED_CONSUMPTION_UNKNOWN' });
+  if (events.length !== expectedSeeds.size) refuse(`events holds ${events.length} rows, expected exactly the ${expectedSeeds.size} seeds`);
+  for (const row of events) {
+    const want = expectedSeeds.get(row.id);
+    if (!want) refuse(`unexpected event row ${row.id}`);
+    for (const [k, v] of Object.entries(want)) {
+      if (row[k] !== v) refuse(`seed ${row.id} field ${k} drifted (${JSON.stringify(row[k])})`);
+    }
+  }
+  const cursors = db.prepare('SELECT producer_role, committed_token, pending_token FROM cursors').all();
+  if (cursors.length !== 1 || cursors[0].producer_role !== 'analyst' || cursors[0].committed_token !== null || cursors[0].pending_token !== INITIAL_ANALYST_CURSOR) {
+    refuse('cursors is not the exact initial analyst row');
+  }
+  const control = new Map(db.prepare('SELECT key, value FROM control').all().map((r) => [r.key, r.value]));
+  if (control.size !== 2 || control.get('source_sha') !== SOURCE_SHA || control.get('deployment_mode') !== 'HYBRID') {
+    refuse('control is not the exact initial source_sha/deployment_mode pair');
+  }
+  for (const t of ['reports', 'outbox', 'executions', 'execution_attempts', 'worker_reports', 'review_receipts', 'manifests', 'snapshot_items', 'index_progress', 'index_generations', 'index_pages', 'receipt_outbox', 'audit']) {
+    const n = db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
+    if (n !== 0) refuse(`table ${t} holds ${n} rows — not a fresh-init image`);
+  }
+  beginImmediate(db);
+  try {
+    db.exec('PRAGMA user_version = 3;');
+    commitTx(db);
+  } catch (err) {
+    rollbackQuiet(db);
+    db.close();
+    throw err;
+  }
+}
+
 export function openLedger(path, {
   now = () => Date.now(), faultAfter = null, resumeReserved = null,
   nextLocalSlotAfter = defaultNextLocalSlotAfter, // R06: injectable local-slot resolver
@@ -351,80 +449,119 @@ export function openLedger(path, {
   db.exec('PRAGMA foreign_keys = ON;');
 
   const version = db.prepare('PRAGMA user_version').get().user_version;
+  // F10 (SCHEMA_VERSION_CRASH_WINDOW): every schema/data migration commits
+  // together with its PRAGMA user_version write — there is no post-commit
+  // window where the data exists but the version does not. A crash image left
+  // by a PRE-atomicity open (committed data, lost version write) converges
+  // through a conservative repair that re-runs NO non-idempotent work; any
+  // image that is not the exact expected one fails closed with
+  // SCHEMA_MIGRATION_BLOCKED and the database is preserved untouched.
   if (version === 0) {
-    beginImmediate(db);
-    try {
-      db.exec(SCHEMA);
-      const t = now();
-      const seedEvent = db.prepare(
-        'INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, reason, created_ms) VALUES (?,?,?,?,?,?,?,?,?)',
-      );
-      for (const id of KNOWN_BATCHES) {
-        seedEvent.run(id, null, 'batch', CHAT_IDS.collector, '[]', '{}', 'BASELINE_HOLD', 'baseline placeholder: null digest until exact envelope import', t);
+    if (masterObjectExists(db, 'events')) {
+      repairV0CrashImage(db);
+    } else {
+      beginImmediate(db);
+      try {
+        db.exec(SCHEMA);
+        const t = now();
+        const seedEvent = db.prepare(
+          'INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, reason, created_ms) VALUES (?,?,?,?,?,?,?,?,?)',
+        );
+        for (const id of KNOWN_BATCHES) {
+          seedEvent.run(id, null, 'batch', CHAT_IDS.collector, '[]', '{}', 'BASELINE_HOLD', 'baseline placeholder: null digest until exact envelope import', t);
+        }
+        seedEvent.run(INTAKE_ID, null, 'analysis', CHAT_IDS.analyst, '[]', '{}', 'ACCEPTED_CONSUMPTION_UNKNOWN', 'running intake: consumption receipt pending', t);
+        db.prepare('INSERT INTO cursors (producer_role, committed_token, pending_token) VALUES (?,?,?)').run('analyst', null, INITIAL_ANALYST_CURSOR);
+        db.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run('source_sha', SOURCE_SHA);
+        db.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run('deployment_mode', 'HYBRID');
+        db.exec('PRAGMA user_version = 3;');
+        commitTx(db);
+      } catch (err) {
+        rollbackQuiet(db);
+        db.close();
+        throw err;
       }
-      seedEvent.run(INTAKE_ID, null, 'analysis', CHAT_IDS.analyst, '[]', '{}', 'ACCEPTED_CONSUMPTION_UNKNOWN', 'running intake: consumption receipt pending', t);
-      db.prepare('INSERT INTO cursors (producer_role, committed_token, pending_token) VALUES (?,?,?)').run('analyst', null, INITIAL_ANALYST_CURSOR);
-      db.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run('source_sha', SOURCE_SHA);
-      db.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run('deployment_mode', 'HYBRID');
-      commitTx(db);
-    } catch (err) {
-      rollbackQuiet(db);
-      db.close();
-      throw err;
     }
-    db.exec('PRAGMA user_version = 3;');
   } else if (version === 1) {
     // v1 -> v2 (HOST-RESILIENCE): precharged attempts table, execution
     // reservation columns, outbox sender identity, extended active-slot index.
     // Additive only — no existing row is rewritten.
-    beginImmediate(db);
-    try {
-      db.exec(`
-        ALTER TABLE outbox ADD COLUMN sender_boot_id TEXT;
-        ALTER TABLE outbox ADD COLUMN sender_pid INTEGER;
-        ALTER TABLE outbox ADD COLUMN sender_start TEXT;
-        ALTER TABLE executions ADD COLUMN supervisor_boot_id TEXT;
-        ALTER TABLE executions ADD COLUMN authorized_attempts INTEGER NOT NULL DEFAULT 3;
-        ALTER TABLE executions ADD COLUMN reserved_total_ms INTEGER NOT NULL DEFAULT 21600000;
-        ALTER TABLE executions ADD COLUMN attempts_admitted INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE executions ADD COLUMN charged_reservation_ms INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE executions ADD COLUMN resumptions INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE executions ADD COLUMN consecutive_resume_failures INTEGER NOT NULL DEFAULT 0;
-        ALTER TABLE executions ADD COLUMN last_resume_boot TEXT;
-        CREATE TABLE IF NOT EXISTS execution_attempts (
-          execution_id TEXT NOT NULL,
-          attempt_number INTEGER NOT NULL,
-          boot_id TEXT,
-          state TEXT NOT NULL,
-          reserved_ms INTEGER NOT NULL DEFAULT 7200000,
-          active_start_ns TEXT,
-          last_active_ns TEXT,
-          measured_active_used_ms INTEGER,
-          actual_elapsed_proven INTEGER NOT NULL DEFAULT 0,
-          supervisor_pid INTEGER,
-          supervisor_start TEXT,
-          child_pid INTEGER,
-          child_start TEXT,
-          session_id TEXT,
-          PRIMARY KEY (execution_id, attempt_number)
-        );
-        DROP INDEX IF EXISTS idx_exec_active;
-        CREATE UNIQUE INDEX idx_exec_active
-          ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
-      `);
-      commitTx(db);
-    } catch (err) {
-      rollbackQuiet(db);
+    const markers = v2MarkerState(db);
+    if (markers.present === markers.total) {
+      // F10 crash image: the ALTER set already committed, only the version
+      // write was lost. Re-running the ALTERs would fail on duplicate columns;
+      // record the version atomically and continue to v2 -> v3 below.
+      beginImmediate(db);
+      try {
+        db.exec('PRAGMA user_version = 2;');
+        commitTx(db);
+      } catch (err) {
+        rollbackQuiet(db);
+        db.close();
+        throw err;
+      }
+    } else if (markers.present === 0) {
+      if (masterObjectExists(db, 'worker_reports') || masterObjectExists(db, 'review_receipts')) {
+        db.close();
+        throw ledgerError('SCHEMA_MIGRATION_BLOCKED', 'v1 image already carries v3 review tables — not an image any shipped version produces; refusing to touch it');
+      }
+      beginImmediate(db);
+      try {
+        db.exec(`
+          ALTER TABLE outbox ADD COLUMN sender_boot_id TEXT;
+          ALTER TABLE outbox ADD COLUMN sender_pid INTEGER;
+          ALTER TABLE outbox ADD COLUMN sender_start TEXT;
+          ALTER TABLE executions ADD COLUMN supervisor_boot_id TEXT;
+          ALTER TABLE executions ADD COLUMN authorized_attempts INTEGER NOT NULL DEFAULT 3;
+          ALTER TABLE executions ADD COLUMN reserved_total_ms INTEGER NOT NULL DEFAULT 21600000;
+          ALTER TABLE executions ADD COLUMN attempts_admitted INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE executions ADD COLUMN charged_reservation_ms INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE executions ADD COLUMN resumptions INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE executions ADD COLUMN consecutive_resume_failures INTEGER NOT NULL DEFAULT 0;
+          ALTER TABLE executions ADD COLUMN last_resume_boot TEXT;
+          CREATE TABLE IF NOT EXISTS execution_attempts (
+            execution_id TEXT NOT NULL,
+            attempt_number INTEGER NOT NULL,
+            boot_id TEXT,
+            state TEXT NOT NULL,
+            reserved_ms INTEGER NOT NULL DEFAULT 7200000,
+            active_start_ns TEXT,
+            last_active_ns TEXT,
+            measured_active_used_ms INTEGER,
+            actual_elapsed_proven INTEGER NOT NULL DEFAULT 0,
+            supervisor_pid INTEGER,
+            supervisor_start TEXT,
+            child_pid INTEGER,
+            child_start TEXT,
+            session_id TEXT,
+            PRIMARY KEY (execution_id, attempt_number)
+          );
+          DROP INDEX IF EXISTS idx_exec_active;
+          CREATE UNIQUE INDEX idx_exec_active
+            ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
+        `);
+        db.exec('PRAGMA user_version = 2;');
+        commitTx(db);
+      } catch (err) {
+        rollbackQuiet(db);
+        db.close();
+        throw err;
+      }
+    } else {
       db.close();
-      throw err;
+      throw ledgerError('SCHEMA_MIGRATION_BLOCKED', `v1 image carries ${markers.present}/${markers.total} v2 migration markers — half-applied or foreign image; refusing to guess`);
     }
-    db.exec('PRAGMA user_version = 2;');
+  } else if (version !== 2 && version !== 3) {
+    db.close();
+    throw ledgerError('SCHEMA_VERSION', `unsupported user_version ${version}; refusing to start (no auto-migration)`);
   }
 
   // v2 -> v3 (R10 review gate): REQUIRES_REVIEW joins the unique active-slot
   // partial index, and the worker-report / review-receipt tables appear.
   // Additive only — no existing row is rewritten. Runs for BOTH a freshly
-  // migrated v1 database and an existing v2 one.
+  // migrated v1 database and an existing v2 one (a v2 crash image — v3 tables
+  // committed, version write lost — re-runs idempotent CREATE IF NOT EXISTS
+  // and converges).
   if (version === 1 || version === 2) {
     beginImmediate(db);
     try {
@@ -451,19 +588,13 @@ export function openLedger(path, {
         CREATE UNIQUE INDEX idx_exec_active
           ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST','REQUIRES_REVIEW');
       `);
+      db.exec('PRAGMA user_version = 3;');
       commitTx(db);
     } catch (err) {
       rollbackQuiet(db);
       db.close();
       throw err;
     }
-    db.exec('PRAGMA user_version = 3;');
-  } else if (version !== 0 && version !== 3) {
-    // `version` is the value captured at open: 0 (fresh, handled above) and
-    // 1/2 (handled above) never reach this refusal — only an unknown future
-    // version does.
-    db.close();
-    throw ledgerError('SCHEMA_VERSION', `unsupported user_version ${version}; refusing to start (no auto-migration)`);
   }
 
   // R05: event-conflict quarantine register. Additive table, created

@@ -1871,3 +1871,47 @@ test('E: reconcile never clears global OFF; ACK binding alone produces no solver
 
 // keep symlink helper referenced (lint-free intentional use)
 void symlinkSync; void readlinkSync; void dirname;
+
+// ------------------------------------------------- F10: SCHEMA_VERSION_CRASH_WINDOW (CLI surface)
+
+function setUserVersion(root, v) {
+  const db = new DatabaseSync(join(root, 'ledger.sqlite'));
+  db.exec(`PRAGMA user_version = ${v};`);
+  db.close();
+}
+
+test('F10 CLI: status converges a v0 crash-image root (schema+seeds committed, version lost)', () => {
+  const root = join(tmpdir(), `dot-cli-f10a-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root]);
+  setUserVersion(root, 0);
+  const st = cliJson(['status', '--root', root]);
+  assert.equal(st.ok, true);
+  // converged to v3 without reseeding
+  const db = new DatabaseSync(join(root, 'ledger.sqlite'));
+  const v = db.prepare('PRAGMA user_version').get().user_version;
+  const n = db.prepare('SELECT COUNT(*) AS n FROM events').get().n;
+  db.close();
+  assert.equal(v, 3);
+  assert.equal(n, 6);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F10 CLI: ambiguous crash image reports the fixed migration code, not a crash', () => {
+  const root = join(tmpdir(), `dot-cli-f10b-${randomUUID().slice(0, 6)}`);
+  cli(['init', '--root', root]);
+  setUserVersion(root, 0);
+  const db = new DatabaseSync(join(root, 'ledger.sqlite'));
+  db.exec("DELETE FROM events WHERE id = 'DOT-BATCH-0005';");
+  db.close();
+  const r = cli(['status', '--root', root], { expectFail: true });
+  assert.equal(r.status, 1);
+  assert.ok(r.stdout.includes('SCHEMA_MIGRATION_BLOCKED'), `stdout must carry the fixed code, got: ${r.stdout}`);
+  // database preserved: the five remaining seeds are untouched, version still 0
+  const db2 = new DatabaseSync(join(root, 'ledger.sqlite'));
+  const v = db2.prepare('PRAGMA user_version').get().user_version;
+  const n = db2.prepare('SELECT COUNT(*) AS n FROM events').get().n;
+  db2.close();
+  assert.equal(v, 0);
+  assert.equal(n, 5);
+  rmSync(root, { recursive: true, force: true });
+});

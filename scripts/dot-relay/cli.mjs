@@ -1914,4 +1914,11 @@ const HANDLERS = {
 
 const parsed = parseArgs(process.argv.slice(2));
 if (!parsed.root) usage('--root is required');
-await HANDLERS[parsed.command]({ root: parsed.root, flags: parsed.flags });
+try {
+  await HANDLERS[parsed.command]({ root: parsed.root, flags: parsed.flags });
+} catch (err) {
+  // F10: a coded ledger/storage failure (e.g. SCHEMA_MIGRATION_BLOCKED) must
+  // surface as the documented {ok:false,code} line — never a stack-trace crash.
+  if (err && typeof err.code === 'string') fail(err.code, {});
+  throw err;
+}

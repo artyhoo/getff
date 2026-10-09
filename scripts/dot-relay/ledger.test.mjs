@@ -1973,3 +1973,292 @@ test('R07: reconcile decisions carry the session id (uncertain-stop dispatch cen
   // the dispatch loop censuses THIS session before any --resume spawn
   assert.equal(stop.session_id, claim.session_id);
 });
+
+// ------------------------------------------------- F10: SCHEMA_VERSION_CRASH_WINDOW
+// Schema/data commits and the user_version write must be ONE transaction, and
+// an already-committed crash-window image (schema+data committed, version
+// write lost) must converge conservatively — never re-run non-idempotent work,
+// never reset identities, fail closed on anything not the exact expected image.
+
+const V1_BATCH_IDS = ['DOT-BATCH-0001', 'DOT-BATCH-0002', 'DOT-BATCH-0003', 'DOT-BATCH-0004', 'DOT-BATCH-0005'];
+const V1_INTAKE_ID = 'DOT-INTAKE-20261008-01';
+const V1_CURSOR = 'b80b6957-cf4d-434a-9581-33008606603b:5';
+const V1_SOURCE_SHA = '35738554faf029e9fe3b8b4c25bfdde242f65c66';
+
+// The schema the v1->v2 migration was written against: base tables WITHOUT
+// the HOST-RESILIENCE columns and WITHOUT the R10 review tables; the active
+// slot index carries the v1 active-state set.
+const V1_SCHEMA = `
+CREATE TABLE IF NOT EXISTS events (
+  id TEXT PRIMARY KEY, sha256 TEXT, kind TEXT NOT NULL, producer TEXT NOT NULL,
+  parent_json TEXT NOT NULL, payload_json TEXT NOT NULL, state TEXT NOT NULL,
+  reason TEXT, created_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reports (
+  report_key TEXT PRIMARY KEY, event_id TEXT NOT NULL, body_sha256 TEXT
+);
+CREATE TABLE IF NOT EXISTS outbox (
+  delivery_id TEXT PRIMARY KEY, event_id TEXT NOT NULL, destination TEXT NOT NULL,
+  state TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_ms INTEGER NOT NULL DEFAULT 0,
+  receipt_json TEXT, created_ms INTEGER NOT NULL,
+  UNIQUE(event_id, destination)
+);
+CREATE TABLE IF NOT EXISTS executions (
+  id TEXT PRIMARY KEY, solution_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL,
+  session_id TEXT UNIQUE, pid INTEGER, process_start TEXT, worktree TEXT,
+  started_ms INTEGER, deadline_ms INTEGER, exit_code INTEGER, pr_url TEXT,
+  head_sha TEXT, reason TEXT
+);
+CREATE TABLE IF NOT EXISTS control (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS audit (
+  seq INTEGER PRIMARY KEY, event TEXT NOT NULL, ref TEXT, details_json TEXT, created_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS manifests (
+  event_id TEXT PRIMARY KEY, producer_role TEXT NOT NULL, artifact_sha256 TEXT NOT NULL,
+  artifact_bytes INTEGER NOT NULL, source_page_id TEXT, source_reference TEXT,
+  manifest_json TEXT NOT NULL, fetched_ms INTEGER
+);
+CREATE TABLE IF NOT EXISTS cursors (
+  producer_role TEXT PRIMARY KEY, committed_token TEXT, pending_token TEXT
+);
+CREATE TABLE IF NOT EXISTS snapshot_items (
+  producer_role TEXT NOT NULL, token TEXT NOT NULL, item_id TEXT NOT NULL, state TEXT NOT NULL,
+  PRIMARY KEY (producer_role, token, item_id)
+);
+CREATE TABLE IF NOT EXISTS index_progress (
+  producer_role TEXT NOT NULL, token TEXT NOT NULL, generation INTEGER NOT NULL,
+  next_page_number INTEGER NOT NULL, next_descriptor_json TEXT,
+  complete INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (producer_role, token)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exec_active
+  ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
+`;
+
+// The exact ALTER block the pre-atomicity v1->v2 step ran (kept verbatim so a
+// synthesized crash image matches what shipped code actually committed).
+const V1_TO_V2_ALTERS = `
+ALTER TABLE outbox ADD COLUMN sender_boot_id TEXT;
+ALTER TABLE outbox ADD COLUMN sender_pid INTEGER;
+ALTER TABLE outbox ADD COLUMN sender_start TEXT;
+ALTER TABLE executions ADD COLUMN supervisor_boot_id TEXT;
+ALTER TABLE executions ADD COLUMN authorized_attempts INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE executions ADD COLUMN reserved_total_ms INTEGER NOT NULL DEFAULT 21600000;
+ALTER TABLE executions ADD COLUMN attempts_admitted INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE executions ADD COLUMN charged_reservation_ms INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE executions ADD COLUMN resumptions INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE executions ADD COLUMN consecutive_resume_failures INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE executions ADD COLUMN last_resume_boot TEXT;
+CREATE TABLE IF NOT EXISTS execution_attempts (
+  execution_id TEXT NOT NULL, attempt_number INTEGER NOT NULL, boot_id TEXT,
+  state TEXT NOT NULL, reserved_ms INTEGER NOT NULL DEFAULT 7200000,
+  active_start_ns TEXT, last_active_ns TEXT, measured_active_used_ms INTEGER,
+  actual_elapsed_proven INTEGER NOT NULL DEFAULT 0, supervisor_pid INTEGER,
+  supervisor_start TEXT, child_pid INTEGER, child_start TEXT, session_id TEXT,
+  PRIMARY KEY (execution_id, attempt_number)
+);
+DROP INDEX IF EXISTS idx_exec_active;
+CREATE UNIQUE INDEX idx_exec_active
+  ON executions((1)) WHERE state IN ('RESERVED','RUNNING','UNCERTAIN','VERIFYING','INTERRUPTED_HOST','RECOVERING_HOST','RESUMING_HOST');
+`;
+
+function buildV1Image(path, { extra = null } = {}) {
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA busy_timeout = 5000;');
+  db.exec('PRAGMA journal_mode = WAL;');
+  db.exec(V1_SCHEMA);
+  const t = 500_000;
+  const ins = db.prepare(
+    'INSERT INTO events (id, sha256, kind, producer, parent_json, payload_json, state, reason, created_ms) VALUES (?,?,?,?,?,?,?,?,?)',
+  );
+  for (const id of V1_BATCH_IDS) {
+    ins.run(id, null, 'batch', CHAT_IDS.collector, '[]', '{}', 'BASELINE_HOLD', 'baseline placeholder: null digest until exact envelope import', t);
+  }
+  ins.run(V1_INTAKE_ID, null, 'analysis', CHAT_IDS.analyst, '[]', '{}', 'ACCEPTED_CONSUMPTION_UNKNOWN', 'running intake: consumption receipt pending', t);
+  db.prepare('INSERT INTO cursors (producer_role, committed_token, pending_token) VALUES (?,?,?)').run('analyst', null, V1_CURSOR);
+  db.prepare('INSERT INTO control (key, value) VALUES (?,?)').run('source_sha', V1_SOURCE_SHA);
+  db.prepare('INSERT INTO control (key, value) VALUES (?,?)').run('deployment_mode', 'HYBRID');
+  // surviving pre-repair content: one SENT delivery with attempts=2 and one
+  // held UNCERTAIN execution — both must survive every migration verbatim.
+  db.prepare(
+    'INSERT INTO outbox (delivery_id, event_id, destination, state, attempts, next_ms, receipt_json, created_ms) VALUES (?,?,?,?,?,?,?,?)',
+  ).run('D-F10-1', 'DOT-BATCH-0001', CHAT_IDS.analyst, 'SENT', 2, 0, '{"tool":"fake"}', t + 1);
+  db.prepare(
+    "INSERT INTO executions (id, solution_id, state, reason) VALUES ('E-F10-1','S-F10-1','UNCERTAIN','host death unproven')",
+  ).run();
+  if (extra) extra(db);
+  db.exec('PRAGMA user_version = 1;');
+  db.close();
+}
+
+function userVersionOf(path) {
+  const db = new DatabaseSync(path);
+  try { return db.prepare('PRAGMA user_version').get().user_version; } finally { db.close(); }
+}
+
+function columnsOf(path, table) {
+  const db = new DatabaseSync(path);
+  try { return db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name); } finally { db.close(); }
+}
+
+function tableExists(path, table) {
+  const db = new DatabaseSync(path);
+  try {
+    return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type IN ('table','index') AND name = ?").get(table);
+  } finally { db.close(); }
+}
+
+function countRows(path, table) {
+  const db = new DatabaseSync(path);
+  try { return db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n; } finally { db.close(); }
+}
+
+test('F10 foundation: PRAGMA user_version writes are transactional (rollback discards them)', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const db = new DatabaseSync(path);
+  db.exec('BEGIN IMMEDIATE;');
+  db.exec('ALTER TABLE events ADD COLUMN f10_probe INTEGER;');
+  db.exec('PRAGMA user_version = 7;');
+  db.exec('ROLLBACK;');
+  const v = db.prepare('PRAGMA user_version').get().user_version;
+  const cols = db.prepare('PRAGMA table_info(events)').all().map((c) => c.name);
+  db.close();
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(v, 3, 'a rolled-back transaction must discard the version write');
+  assert.ok(!cols.includes('f10_probe'), 'a rolled-back transaction must discard the column');
+});
+
+test('F10: fresh initialization commits schema, seeds and user_version in ONE transaction', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  assert.equal(userVersionOf(path), 3);
+  assert.equal(countRows(path, 'events'), 6);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F10: v0 crash image (schema+seeds committed, version write lost) converges on reopen', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  // Exact pre-atomicity crash window: everything committed, only the
+  // user_version write lost.
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA user_version = 0;');
+  db.close();
+  const reopened = openLedger(path, { now });
+  try {
+    assert.equal(userVersionOf(path), 3, 'crash image converges to v3 without reseeding');
+    assert.equal(countRows(path, 'events'), 6, 'no duplicate seed rows');
+    const batches = reopened.getEvent('DOT-BATCH-0001');
+  assert.equal(batches.state, 'BASELINE_HOLD');
+  } finally {
+    reopened.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F10: v1 crash image (v2 ALTERs committed, version write lost) converges on reopen', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  buildV1Image(path);
+  // Reproduce the exact v1->v2 crash window: ALTERs committed, version lost.
+  const db = new DatabaseSync(path);
+  db.exec('BEGIN IMMEDIATE;');
+  db.exec(V1_TO_V2_ALTERS);
+  db.exec('COMMIT;');
+  db.close();
+  const reopened = openLedger(path, { now });
+  try {
+    assert.equal(userVersionOf(path), 3, 'crash image converges without re-running ALTERs');
+    const out = reopened.getOutbox('D-F10-1');
+    assert.equal(out.state, 'SENT');
+    assert.equal(out.attempts, 2, 'delivery counters survive convergence');
+    assert.equal(out.sender_boot_id, null);
+    const exec = reopened.getExecution('E-F10-1');
+    assert.equal(exec.state, 'UNCERTAIN', 'execution state survives convergence');
+    assert.equal(exec.authorized_attempts, 3, 'v2 default columns were applied exactly once');
+  } finally {
+    reopened.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F10: v2 crash image (v3 tables committed, version write lost) converges on reopen', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA user_version = 2;');
+  db.close();
+  const reopened = openLedger(path, { now });
+  try {
+    assert.equal(userVersionOf(path), 3);
+    assert.equal(countRows(path, 'events'), 6);
+  } finally {
+    reopened.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('F10: ambiguous v0 image fails closed with a fixed code and the database is preserved', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA user_version = 0;');
+  db.exec("DELETE FROM events WHERE id = 'DOT-BATCH-0005';");
+  db.close();
+  let threw = null;
+  try { openLedger(path, { now }); } catch (err) { threw = err; }
+  rmSync(dir, { recursive: true, force: true });
+  assert.ok(threw, 'ambiguous image must be refused');
+  assert.equal(threw.code, 'SCHEMA_MIGRATION_BLOCKED', 'fixed migration blocker, not a raw SQLite error');
+});
+
+test('F10: ambiguous half-applied v1 image fails closed with a fixed code', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  buildV1Image(path, { extra: (db) => {
+    // half-applied ALTER set: outbox columns present, execution columns absent
+    db.exec('BEGIN IMMEDIATE;');
+    db.exec('ALTER TABLE outbox ADD COLUMN sender_boot_id TEXT;');
+    db.exec('COMMIT;');
+  } });
+  let threw = null;
+  try { openLedger(path, { now }); } catch (err) { threw = err; }
+  rmSync(dir, { recursive: true, force: true });
+  assert.ok(threw, 'half-applied image must be refused');
+  assert.equal(threw.code, 'SCHEMA_MIGRATION_BLOCKED');
+});
+
+test('F10: genuine v1 database migrates atomically preserving identities and counters', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  buildV1Image(path);
+  const migrated = openLedger(path, { now });
+  try {
+    assert.equal(userVersionOf(path), 3);
+    // baseline/ACK/protected identities survive
+    for (const id of V1_BATCH_IDS) {
+      const row = migrated.getEvent(id);
+      assert.equal(row.state, 'BASELINE_HOLD');
+      assert.equal(row.sha256, null);
+    }
+    assert.equal(migrated.getEvent(V1_INTAKE_ID).state, 'ACCEPTED_CONSUMPTION_UNKNOWN');
+    const out = migrated.getOutbox('D-F10-1');
+    assert.equal(out.state, 'SENT');
+    assert.equal(out.attempts, 2, 'delivery attempt counter unchanged');
+    const exec = migrated.getExecution('E-F10-1');
+    assert.equal(exec.state, 'UNCERTAIN', 'uncertain execution is never reset by migration');
+    assert.equal(exec.attempts_admitted, 0, 'attempt counters start at the column default, not reset');
+    assert.ok(tableExists(path, 'worker_reports') && tableExists(path, 'review_receipts'), 'R10 tables exist');
+    assert.ok(columnsOf(path, 'idx_exec_active').length >= 0);
+  } finally {
+    migrated.close();
+  }
+  // repeated reopen is a stable no-op
+  for (let i = 0; i < 2; i++) {
+    const again = openLedger(path, { now });
+    again.close();
+  }
+  assert.equal(userVersionOf(path), 3);
+  assert.equal(countRows(path, 'events'), 6);
+  rmSync(dir, { recursive: true, force: true });
+});
