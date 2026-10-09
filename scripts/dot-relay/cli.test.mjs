@@ -918,6 +918,27 @@ test('tick with a LIVE scheduler owner returns busy and plans nothing (R06)', ()
   rmSync(root, { recursive: true, force: true });
 });
 
+// F08 CYCLE_TIMEOUT_NOT_FENCED (bootstrap injection contract, offline analog):
+// bridge-source NAMES the timer-injection requirement in the trusted config
+// so the bootstrap contract is explicit and testable — the adapter pair
+// itself is host-injected, never serialized into the config. Production
+// boundedness stays BLOCKED_BOOTSTRAP_SOURCE until the deployed bootstrap
+// source and its injection are supplied and pinned.
+test('F08: bridge-source declares the timer-injection contract — timer_adapter_required, adapter never serialized', () => {
+  const root = freshRoot();
+  const bodyPath = fileURLToPath(new URL('./bridge-runner.body.js', import.meta.url));
+  const realSha = createHash('sha256').update(readFileSync(bodyPath)).digest('hex');
+  writeFileSync(join(root, 'bridge-runner-pin.json'), `${JSON.stringify({
+    version: 1, sha256: realSha, source_commit: 'b'.repeat(40), reviewed_at: '2026-10-10T00:00:00.000Z',
+  })}\n`);
+  const out = cliJson(['bridge-source', '--expected-sha256', realSha, '--root', root]);
+  assert.equal(out.ok, true);
+  assert.equal(out.config.timer_adapter_required, true, 'the config names the injection requirement');
+  assert.equal('timers' in out.config, false, 'the adapter pair itself is host-injected, never serialized');
+  assert.equal(out.config.cycle_wall_budget_ms, 45000);
+  rmSync(root, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------- R09 shared death adapter
 //
 // CLI-level arms ONLY: provable absence and not-running/no-active rows. No

@@ -423,6 +423,9 @@ test('bridge-source: dual-pin agreement returns exact source + trusted config (i
     ids: { collector: CHAT_IDS.collector, analyst: CHAT_IDS.analyst, solver: CHAT_IDS.solver },
     coordinator_id: CHAT_IDS.coordinator,
     page_registry: PAGE_REG,
+    // F08: the config NAMES the injection contract — the bootstrap must
+    // inject the validated timer pair before the body runs
+    timer_adapter_required: true,
     cycle_wall_budget_ms: 45000,
     event_limit: 10,
     index_page_limit: 10,
@@ -1986,5 +1989,198 @@ test('BC4c: hung source-put CLI exceeds the budget -> CYCLE_CLI_TIMEOUT; one inv
   assertResultShape(r2.result);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-bcc');
   assert.equal(readFileSync(join(root, 'sources', `${c.locatorIndex.sha256}.json`), 'utf8'), c.page0Text, 'exact original bytes after the timeout replay');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- F08 fencing
+
+// F08 CYCLE_TIMEOUT_NOT_FENCED: the bounded-cycle guarantee is real only with
+// a validated trusted clock/timer adapter, deadline admission that fires
+// BEFORE a tool starts, and a settlement window a timed-out send cannot eat.
+// F08 adapter-validation arms are SEPARATE tests: each arm's own RED must be
+// watchable (a single multi-arm test stops at the first failing assert and
+// the later arms' old-code failures go unwatched).
+function f08HungTools(baseTools) {
+  const hung = {};
+  let invoked = 0;
+  for (const name of Object.keys(baseTools)) {
+    hung[name] = async () => { invoked += 1; return new Promise(() => {}); };
+  }
+  return { hung, count: () => invoked };
+}
+
+test('F08: a MISSING timer adapter refuses the cycle bounded, before any tool call (never an unbounded await)', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08M');
+  const polls = [pollFor('collector', 'cur-f08m', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  // a host whose calls NEVER settle — against exactly the serialized
+  // bridge-source config shape (no timers field) this used to await forever
+  const a = f08HungTools(base.tools);
+  let settled = false;
+  const p = runBody(root, a.hung, { timers: undefined }).then((r) => { settled = true; return r; });
+  const guard = await Promise.race([p, new Promise((res) => setTimeout(() => res('UNBOUNDED'), 4000))]);
+  assert.notEqual(guard, 'UNBOUNDED', 'no timer adapter: the cycle must still settle bounded — never await a hung call forever');
+  assert.ok(settled);
+  assertResultShape(guard.result);
+  assert.equal(guard.result.state, 'BLOCKED');
+  assert.ok(guard.result.blockers.some((b) => b.code === 'BRIDGE_TIMER_ADAPTER_MISSING'));
+  assert.equal(a.count(), 0, 'the refusal fires before ANY tool invocation');
+  assert.equal(guard.emitted.length, 1, 'the bounded refusal is still emitted exactly once');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F08: a MALFORMED timer adapter pair refuses the cycle bounded, before any tool call', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08N');
+  const polls = [pollFor('collector', 'cur-f08n', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  const b = f08HungTools(base.tools);
+  const guard = await Promise.race([
+    runBody(root, b.hung, { timers: { setTimeout: 1, clearTimeout: null } }),
+    new Promise((res) => setTimeout(() => res('UNBOUNDED'), 4000)),
+  ]);
+  assert.notEqual(guard, 'UNBOUNDED', 'malformed adapter pair: still bounded, never an unbounded await');
+  assertResultShape(guard.result);
+  assert.equal(guard.result.state, 'BLOCKED');
+  assert.ok(guard.result.blockers.some((x) => x.code === 'BRIDGE_TIMER_ADAPTER_INVALID'));
+  assert.equal(b.count(), 0, 'the refusal fires before ANY tool invocation');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F08: an explicitly broken trusted clock is refused — never a silent Date.now fallback', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08K');
+  const polls = [pollFor('collector', 'cur-f08k', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  const r = await runBody(root, base.tools, { cycle_clock: 'not-a-function' });
+  assertResultShape(r.result);
+  assert.equal(r.result.state, 'BLOCKED');
+  assert.ok(r.result.blockers.some((x) => x.code === 'BRIDGE_CLOCK_INVALID'));
+  assert.equal(base.calls.exec.length, 0, 'zero CLI calls on the clock refusal');
+  assert.equal(base.calls.wait.length, 0, 'zero tool calls of any kind on the clock refusal');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F08: an expired deadline refuses the next tool call BEFORE it starts — zero new invocations, deadline code preserved', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08D');
+  const polls = [pollFor('collector', 'cur-f08d', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  let t = 0;
+  const tools = {
+    ...base.tools,
+    'mcp__codex_app__wait_threads': async (arg) => {
+      const r = await base.tools['mcp__codex_app__wait_threads'](arg);
+      t = 45000; // exactly the full budget: remaining hits 0 mid-cycle, before plan2
+      return r;
+    },
+  };
+  const { result } = await runBody(root, tools, { cycle_clock: () => t });
+  assertResultShape(result);
+  assert.equal(result.state, 'BLOCKED');
+  assert.ok(result.blockers.some((x) => x.code === 'CYCLE_CLI_TIMEOUT'), 'the deadline code is preserved, not relabeled BRIDGE_EXCEPTION');
+  assert.equal(result.continuation, true, 'deadline exhaustion leaves work pending for the next cycle');
+  const planCalls = base.calls.exec.filter((x) => x.includes("'plan'")).length;
+  assert.equal(planCalls, 1, 'plan1 only — the post-deadline plan2 never STARTS (admission before invocation)');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F08: a mutation settling long after its timeout and a completed next cycle is a fenced no-op — one effect, one identity, no duplicate send', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08L');
+  const polls = [pollFor('collector', 'cur-f08l', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  // hang ONLY the final source-put on a test-controlled gate: the CLI runs
+  // when WE release it — the host never cancels a started call (F08 premise),
+  // so its mutation can land long after the race rejected it
+  const late = [];
+  const tools = {
+    ...base.tools,
+    exec_command: (arg) => {
+      const cmd = String(arg?.cmd ?? '');
+      if (cmd.includes("'source-put'") && cmd.includes("'--final'") && cmd.includes("'true'")) {
+        let release;
+        const gate = new Promise((r) => { release = r; });
+        const settled = gate.then(() => base.tools.exec_command(arg));
+        late.push({ release: () => release(), settled });
+        return settled;
+      }
+      return base.tools.exec_command(arg);
+    },
+  };
+  const r1 = await runBody(root, tools, { cycle_wall_budget_ms: 200, cycle_clock: () => 0 });
+  assertResultShape(r1.result);
+  assert.ok(r1.result.blockers.some((b) => b.code === 'CYCLE_CLI_TIMEOUT'));
+  assert.equal(r1.result.counts.sources, 0);
+  assert.equal(late.length, 1, 'exactly one hung final source-put');
+  // the next cycle enters and COMPLETES while the stale mutation pends
+  const polls2 = [pollFor('collector', 'cur-f08l', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const second = makeTools({ polls: polls2, pages: c.pages });
+  const r2 = await runBody(root, second.tools);
+  assertResultShape(r2.result);
+  assert.equal(r2.result.state, 'PROGRESSED');
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f08l');
+  const srcPath = join(root, 'sources', `${c.locatorIndex.sha256}.json`);
+  assert.equal(readFileSync(srcPath, 'utf8'), c.page0Text, 'exact original bytes');
+  const sends2 = second.calls.sends.filter((s) => !String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED '));
+  assert.equal(sends2.length, 1, 'the delivery is sent exactly once (by the fresh cycle, never duplicated)');
+  // NOW the stale cycle-1 final put settles against cycle 2's published state
+  late[0].release();
+  const lateRes = await late[0].settled;
+  assert.equal(lateRes.exit_code, 0, 'the identical final replay against the published journal is a metadata no-op');
+  assert.equal(readFileSync(srcPath, 'utf8'), c.page0Text, 'the late mutation changed nothing');
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f08l', 'cursor untouched by the late write');
+  // a third cycle proves convergence: nothing re-offered, nothing re-sent.
+  // polls: [] — the cursor is committed, so a real host (afterCursor) returns
+  // nothing at-or-behind it; re-delivering the same-cursor poll would test
+  // an input the transport contract excludes
+  const third = makeTools({ polls: [], pages: c.pages });
+  const r3 = await runBody(root, third.tools);
+  assertResultShape(r3.result);
+  assert.equal(third.calls.sends.length, 0, 'no send of any kind after convergence');
+  assert.equal(r3.result.counts.sources, 0);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F08: the send deadline reserves settlement time — a timed-out send settles its UNCERTAIN receipt INSIDE the reserve; never resent; no semantic payload', async () => {
+  const root = freshRoot();
+  const c = smallCase('F08S');
+  const polls = [pollFor('collector', 'cur-f08s', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
+  const base = makeTools({ polls, pages: c.pages });
+  const t0 = Date.now();
+  let sendCalls = 0;
+  const tools = {
+    ...base.tools,
+    'mcp__codex_app__send_message_to_thread': async (arg) => {
+      sendCalls += 1;
+      // effectively never settles inside the 8000ms budget for EITHER the old
+      // full-remaining deadline or the reserved one — but unref'd, so the
+      // timer never holds the process tail open after the cycle returns
+      await new Promise((r) => {
+        const h = setTimeout(r, 30000);
+        if (typeof h.unref === 'function') h.unref();
+      });
+      return base.tools['mcp__codex_app__send_message_to_thread'](arg);
+    },
+  };
+  const { result, emitted } = await runBody(root, tools, { cycle_wall_budget_ms: 8000, cycle_clock: () => Date.now() - t0 });
+  assertResultShape(result);
+  assert.ok(result.blockers.some((b) => b.code === 'SEND_UNCERTAIN'), 'the receipt settled durably UNCERTAIN inside the reserve');
+  assert.ok(!result.blockers.some((b) => b.code === 'CYCLE_CLI_TIMEOUT'), 'receipt settlement was never squeezed out by the send');
+  assert.equal(sendCalls, 1, 'the delivery send was attempted exactly once');
+  assert.equal(cliJson(['status', '--root', root]).counts.outbox_pending, 0);
+  // no semantic payload ever reaches the result/emission (metadata only)
+  const blob = JSON.stringify({ result, emitted });
+  assert.ok(!blob.includes(c.page0Text.slice(0, 60)), 'no page bytes in the emitted result');
+  assert.ok(!blob.includes(c.text.slice(0, 60)), 'no artifact bytes in the emitted result');
+  // the next cycle (fast sends) NEVER re-sends the uncertain delivery.
+  // polls: [] — the cursor rides afterCursor now; a real host returns
+  // nothing at-or-behind it
+  const second = makeTools({ polls: [], pages: c.pages });
+  const r2 = await runBody(root, second.tools, { cycle_wall_budget_ms: 8000, cycle_clock: () => 0 });
+  assertResultShape(r2.result);
+  const dup = second.calls.sends.filter((s) => !String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED '));
+  assert.equal(dup.length, 0, 'an UNCERTAIN delivery is never re-offered, never resent');
   rmSync(root, { recursive: true, force: true });
 });

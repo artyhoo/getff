@@ -1756,6 +1756,11 @@ function cmdBridgeSource({ root, flags }) {
         collector: 'page_070fdd367758819192e503c9cee51251',
         analyst: 'page_955c5f291f78819199e9ba5da85bee76',
       },
+      // F08: the config NAMES the injection contract — the host bootstrap
+      // must inject the validated {setTimeout, clearTimeout} pair (the
+      // body's realm has no host timers) BEFORE the body runs. The adapter
+      // pair itself is host-injected, never serialized here.
+      timer_adapter_required: true,
       cycle_wall_budget_ms: 45_000,
       event_limit: 10,
       index_page_limit: 10,

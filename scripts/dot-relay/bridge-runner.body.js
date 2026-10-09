@@ -29,18 +29,37 @@ const LOCATOR_PREFIX = 'DOT_RELAY_INDEX ';
 // bounded work unit. The wall-clock adapter is injected (config.cycle_clock)
 // defaulting to the ECMAScript Date.now — this realm HAS Date but NO host
 // timers, so the Promise.race bound rides an injected timer pair
-// (config.timers); without a pair the race degrades to awaiting the call
-// directly while the deadline admission checks still bound every NEW work
-// unit. The final reserve window (min(5s, budget/9) — 5s of a 45s budget)
-// is metadata receipt/continuation cleanup only: no new data work is
-// admitted once the remaining time drops to the reserve.
+// (config.timers). F08 fencing: the adapter pair and clock are VALIDATED up
+// front (a missing/malformed pair or an explicitly broken clock is a fixed
+// bounded refusal BEFORE any tool call — never an unbounded await, never a
+// silent Date.now fallback onto an untrusted input), deadline admission
+// fires BEFORE the call starts (zero new invocations past the deadline),
+// and a send's data deadline is shortened by the reserve so its UNCERTAIN
+// receipt settlement always fits inside the cycle. The final reserve window
+// (min(5s, budget/9) — 5s of a 45s budget) is metadata receipt/continuation
+// cleanup only: no new data work is admitted once the remaining time drops
+// to the reserve.
 let CY = null;
 
 function cycleInit(config) {
-  const clock = typeof config.cycle_clock === 'function' ? config.cycle_clock : Date.now;
   const rawBudget = config.cycle_wall_budget_ms;
   const budgetMs = Number.isSafeInteger(rawBudget) && rawBudget > 0 ? rawBudget : 45000;
-  CY = { clock, budgetMs, start: clock(), reserveMs: Math.min(5000, Math.floor(budgetMs / 9)) };
+  CY = { clock: null, timers: null, budgetMs, start: 0, reserveMs: Math.min(5000, Math.floor(budgetMs / 9)), adapterCode: null };
+  // F08: an explicitly supplied but broken trusted input is refused, never
+  // silently repaired — a non-function cycle_clock must not fall back to
+  // Date.now and run the whole cycle on an untrusted clock.
+  if (config.cycle_clock !== undefined && typeof config.cycle_clock !== 'function') {
+    CY.adapterCode = 'BRIDGE_CLOCK_INVALID';
+    return;
+  }
+  const timers = config && typeof config.timers === 'object' && config.timers !== null ? config.timers : null;
+  if (!timers || typeof timers.setTimeout !== 'function' || typeof timers.clearTimeout !== 'function') {
+    CY.adapterCode = timers === null ? 'BRIDGE_TIMER_ADAPTER_MISSING' : 'BRIDGE_TIMER_ADAPTER_INVALID';
+    return;
+  }
+  CY.clock = typeof config.cycle_clock === 'function' ? config.cycle_clock : Date.now;
+  CY.timers = timers;
+  CY.start = CY.clock();
 }
 
 function cycleRemaining() {
@@ -55,28 +74,27 @@ function cycleAdmitData() {
   return cycleRemaining() > CY.reserveMs;
 }
 
-// Race one public tool/CLI call against the remaining cycle budget. The
-// call itself is NEVER cancelled (host timers own it) — a timeout means the
-// outcome is unknown, and every caller treats it by its own fixed code:
+// Race one public tool/CLI call against the remaining cycle budget. F08:
+// the call arrives as a THUNK and admission fires BEFORE it is invoked —
+// an expired deadline refuses the next call with zero new invocations.
+// The call itself is NEVER cancelled (host timers own it) — a timeout means
+// the outcome is unknown, and every caller treats it by its own fixed code:
 // reads/waits stop with no cursor advance, CLI calls surface their timeout
 // code with no fabricated success, sends settle UNCERTAIN (claim-first,
-// never resent). Degradation without an injected timer pair: await directly.
-async function raceTool(config, promise, code) {
+// never resent). settleReserved shortens a send's data deadline by the
+// reserve so the receipt settlement that follows always fits inside the
+// budget (F08: a timed-out send leaves a durable unknown, reconciled once).
+async function raceTool(code, makePromise, settleReserved) {
   const remaining = cycleRemaining();
   if (remaining <= 0) throw bridgeFail(code);
-  const timers = config && typeof config.timers === 'object' ? config.timers : null;
-  if (!timers || typeof timers.setTimeout !== 'function' || typeof timers.clearTimeout !== 'function') {
-    return promise;
-  }
-  let timer = null;
-  try {
-    return await new Promise((resolve, reject) => {
-      timer = timers.setTimeout(() => reject(bridgeFail(code)), Math.max(0, cycleRemaining()));
-      Promise.resolve(promise).then(resolve, reject);
-    });
-  } finally {
-    if (timer !== null) timers.clearTimeout(timer);
-  }
+  const deadline = Math.max(0, settleReserved === true ? remaining - CY.reserveMs : remaining);
+  return await new Promise((resolve, reject) => {
+    const timer = CY.timers.setTimeout(() => reject(bridgeFail(code)), deadline);
+    Promise.resolve().then(makePromise).then(
+      (v) => { CY.timers.clearTimeout(timer); resolve(v); },
+      (e) => { CY.timers.clearTimeout(timer); reject(e); },
+    );
+  });
 }
 
 // ---------------------------------------------------------------- pure bytes
@@ -164,7 +182,7 @@ function codeOf(e) {
 async function runCli(tools, config, args) {
   const cmd = ['env', 'NODE_NO_WARNINGS=1', sq(config.node), sq(config.cli), sq(args[0]), '--root', sq(config.root)]
     .concat(args.slice(1).map(sq)).join(' ');
-  const r = await raceTool(config, tools.exec_command({ cmd }), 'CYCLE_CLI_TIMEOUT');
+  const r = await raceTool('CYCLE_CLI_TIMEOUT', () => tools.exec_command({ cmd }));
   const exit = r && typeof r.exit_code === 'number' ? r.exit_code : 1;
   let out = '';
   try { out = String((r && r.output) ?? ''); } catch { out = ''; }
@@ -199,7 +217,7 @@ async function waitOnce(tools, config, cursors) {
   }
   let res;
   try {
-    res = await raceTool(config, tools['mcp__codex_app__wait_threads']({ targets, timeoutMs: 0 }), 'CYCLE_TOOL_TIMEOUT');
+    res = await raceTool('CYCLE_TOOL_TIMEOUT', () => tools['mcp__codex_app__wait_threads']({ targets, timeoutMs: 0 }));
   } catch {
     return { ok: false, polls: [] };
   }
@@ -217,7 +235,9 @@ async function waitOnce(tools, config, cursors) {
 async function sendOnce(tools, config, threadId, prompt) {
   let res;
   try {
-    res = await raceTool(config, tools['mcp__codex_app__send_message_to_thread']({ threadId, prompt }), 'CYCLE_TOOL_TIMEOUT');
+    // settleReserved=true (F08): the send's data deadline is shortened by the
+    // reserve so the UNCERTAIN receipt settlement always fits inside the cycle
+    res = await raceTool('CYCLE_TOOL_TIMEOUT', () => tools['mcp__codex_app__send_message_to_thread']({ threadId, prompt }), true);
   } catch {
     return { ok: false };
   }
@@ -234,7 +254,7 @@ async function sendOnce(tools, config, threadId, prompt) {
 // count of the text, and the text carries no lone surrogate. Expected-digest
 // equality against the descriptor stays at the call sites.
 async function readRef(tools, config, pageId, reference) {
-  const res = await raceTool(config, tools['mcp__codex_apps__chatgpt_space_read_page_reference']({ page_id: pageId, reference }), 'CYCLE_TOOL_TIMEOUT');
+  const res = await raceTool('CYCLE_TOOL_TIMEOUT', () => tools['mcp__codex_apps__chatgpt_space_read_page_reference']({ page_id: pageId, reference }));
   if (!res || typeof res !== 'object' || (res.isError !== undefined && res.isError !== false)) {
     throw bridgeFail('SOURCE_READ_FAILED');
   }
@@ -355,11 +375,11 @@ async function resolveIndexSource(tools, config, cache, role, generation, desc) 
       /* stale cache entry: fall through to a fresh bounded resolution */
     }
   }
-  const res = await raceTool(config, tools['mcp__codex_apps__chatgpt_space_read_page']({
+  const res = await raceTool('CYCLE_TOOL_TIMEOUT', () => tools['mcp__codex_apps__chatgpt_space_read_page']({
     page_id: reg,
     search: [`${generation}.json`],
     context_blocks: 0,
-  }), 'CYCLE_TOOL_TIMEOUT');
+  }));
   // F04: read the ACTUAL nested read_page fields — selection completeness
   // lives under page.selection, canonical markdown under blocks[].markdown
   const page = res && typeof res === 'object' ? res.structuredContent : null;
@@ -599,6 +619,15 @@ async function runBridge({ tools, config, emit }) {
     }
   };
 
+  // F08: a missing/malformed clock/timer adapter is a fixed bounded refusal
+  // BEFORE any tool call — the race bound is only real with a validated
+  // trusted adapter, so the cycle must never start down an unbounded await.
+  if (CY.adapterCode !== null) {
+    const result = { version: 1, mode: 'HYBRID', state: 'BLOCKED', counts: counters, blockers: [{ code: CY.adapterCode, event_id: null }], continuation: false };
+    emit(result);
+    return result;
+  }
+
   try {
     const st = await runCli(tools, config, ['status']);
     if (st.off === true) {
@@ -787,8 +816,18 @@ async function runBridge({ tools, config, emit }) {
     };
     emit(result);
     return result;
-  } catch {
-    const result = { version: 1, mode: 'HYBRID', state: 'BLOCKED', counts: counters, blockers: [{ code: 'BRIDGE_EXCEPTION', event_id: null }], continuation: false };
+  } catch (e) {
+    // F08: a coded cycle failure is expected operational state — its code is
+    // preserved (never relabeled BRIDGE_EXCEPTION) and the durable work
+    // stays continuable: the next cycle re-derives the pending set from the
+    // ledger. Only genuinely unexpected errors stop continuation.
+    const code = codeOf(e);
+    const isCycle = typeof code === 'string' && code.indexOf('CYCLE_') === 0;
+    const result = {
+      version: 1, mode: 'HYBRID', state: 'BLOCKED', counts: counters,
+      blockers: [{ code: isCycle ? code : 'BRIDGE_EXCEPTION', event_id: null }],
+      continuation: isCycle,
+    };
     emit(result);
     return result;
   }
