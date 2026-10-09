@@ -79,7 +79,8 @@ aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .agents/proced
 ec3486cbf44276fa4ead0d50325ec9b462b95850013dbb57b8d7b53778ce743b  .agents/procedures/pipeline/helpers/lib/common.sh
 e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .agents/procedures/pipeline/helpers/list-presets.sh
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .agents/procedures/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/procedures/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .agents/procedures/pipeline/helpers/plan-currency-check.sh
+048c72afedf06bc6b18173b25eb4a560995fd6f24c5b98abe94c627f6647aaf4  .agents/procedures/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
@@ -108,7 +109,7 @@ a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .agents/proced
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .agents/procedures/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .agents/procedures/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .agents/procedures/pipeline/references/plan-cache.md
-5a6bdf43f9c57b2c4db5e3de9cff8f37270a0f89de66f5a511e88d34649cc799  .agents/procedures/pipeline/references/planning.md
+25c2147c95d86babbbd8a2a0ab763c49ebd0b54230d0e87a9ac8268411256ef3  .agents/procedures/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .agents/procedures/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .agents/procedures/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .agents/procedures/pipeline/references/presets/night.json
@@ -135,6 +136,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .agents/roles/
 4c85c48fe4fbf5222bda1dd98827a3cdd7343a6f4b496ac7f6cdf482b68be1d1  .agents/roles/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .agents/roles/living-docs-auditor.md
 dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .agents/roles/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .agents/roles/plan-drift-semantic-auditor.md
 2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f  .agents/roles/review-sidecar.md
 05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .agents/roles/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .agents/roles/rule-test-author.md
@@ -169,6 +171,8 @@ fbbd67e35f2497b89ce34b3af3bb2d4cdf2f6819818c49008bbdea83363ac4bd  .agents/skills
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/orchestrator/agents/openai.yaml
 f983921d6600d7ebef7357c33b74eb51d723ada86bed60d56e0ab46b2e8120dc  .agents/skills/pipeline/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/pipeline/agents/openai.yaml
+8173046009d636216311f802153df8be4bd0fd3ff4d96ebc282ed7e06b6ac935  .agents/skills/plan-drift-semantic-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/plan-drift-semantic-auditor/agents/openai.yaml
 8fe277495b5871fbc15bf1efef5fd02db1a0bb9a7e40c0b15505a3d8961f257d  .agents/skills/review-sidecar/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/review-sidecar/agents/openai.yaml
 494b902740760a0ff2d856366b12faa35c313c82cc92ad70012678fdc73ee89d  .agents/skills/reviewer/SKILL.md
@@ -193,7 +197,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-d7c04185fcb09725b723c4db43f2a599d06c8b7edbe33e3347c0fd7726de5b6d  .ai-factory/refresh-baseline.json
+fbb89d0b13c6d4e221575e2842beb8ef3ec78a1e7937d056eca5534440422559  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -208,6 +212,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents
 4c85c48fe4fbf5222bda1dd98827a3cdd7343a6f4b496ac7f6cdf482b68be1d1  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .claude/agents/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .claude/agents/plan-drift-semantic-auditor.md
 2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f  .claude/agents/review-sidecar.md
 05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .claude/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents/rule-test-author.md
@@ -293,7 +298,8 @@ aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .claude/skills
 ec3486cbf44276fa4ead0d50325ec9b462b95850013dbb57b8d7b53778ce743b  .claude/skills/pipeline/helpers/lib/common.sh
 e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .claude/skills/pipeline/helpers/list-presets.sh
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .claude/skills/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .claude/skills/pipeline/helpers/plan-currency-check.sh
+048c72afedf06bc6b18173b25eb4a560995fd6f24c5b98abe94c627f6647aaf4  .claude/skills/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
@@ -322,7 +328,7 @@ a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .claude/skills
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .claude/skills/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .claude/skills/pipeline/references/plan-cache.md
-5a6bdf43f9c57b2c4db5e3de9cff8f37270a0f89de66f5a511e88d34649cc799  .claude/skills/pipeline/references/planning.md
+25c2147c95d86babbbd8a2a0ab763c49ebd0b54230d0e87a9ac8268411256ef3  .claude/skills/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .claude/skills/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .claude/skills/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .claude/skills/pipeline/references/presets/night.json
@@ -349,7 +355,7 @@ d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workfl
 dafb464814540ab3fc9062918dd733be073fa237584e0ff278218d48b4a03467  .husky/pre-push
 6080c804ca7ad3beb2729037d9942bce7b17d67bbfed13b5c46d45bcc48436f6  .lintstagedrc.json
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
-ae07e0728246574c15ba8133dca83369d828eff6e3ef328fcb9e760d1e60eff0  .prettierignore
+f2af396bb7dae200c0ecf87532f4e67337d1be39936c9bff6a125a42a1be6d70  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
 c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296  .zcode/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .zcode/agents/capability-reuse-auditor.md
@@ -360,6 +366,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .zcode/agents/
 4c85c48fe4fbf5222bda1dd98827a3cdd7343a6f4b496ac7f6cdf482b68be1d1  .zcode/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .zcode/agents/living-docs-auditor.md
 dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .zcode/agents/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .zcode/agents/plan-drift-semantic-auditor.md
 2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f  .zcode/agents/review-sidecar.md
 05216623227eb8dae43beb35ade29288d2457d1e56dd6ca718cf5e923bfb6906  .zcode/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .zcode/agents/rule-test-author.md
@@ -428,7 +435,8 @@ aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .zcode/skills/
 ec3486cbf44276fa4ead0d50325ec9b462b95850013dbb57b8d7b53778ce743b  .zcode/skills/pipeline/helpers/lib/common.sh
 e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .zcode/skills/pipeline/helpers/list-presets.sh
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .zcode/skills/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .zcode/skills/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .zcode/skills/pipeline/helpers/plan-currency-check.sh
+048c72afedf06bc6b18173b25eb4a560995fd6f24c5b98abe94c627f6647aaf4  .zcode/skills/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .zcode/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .zcode/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh
@@ -457,7 +465,7 @@ a1835e2c4f0c0563f518fd4db3501b8af554996d542fceafaf757996d9f6bb00  .zcode/skills/
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .zcode/skills/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .zcode/skills/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .zcode/skills/pipeline/references/plan-cache.md
-5a6bdf43f9c57b2c4db5e3de9cff8f37270a0f89de66f5a511e88d34649cc799  .zcode/skills/pipeline/references/planning.md
+25c2147c95d86babbbd8a2a0ab763c49ebd0b54230d0e87a9ac8268411256ef3  .zcode/skills/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .zcode/skills/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .zcode/skills/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .zcode/skills/pipeline/references/presets/night.json
