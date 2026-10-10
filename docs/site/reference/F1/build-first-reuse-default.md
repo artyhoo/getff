@@ -13,7 +13,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: ssot-verdict-census, stack: repo, date: 2026-10-07, result: 54-verdicts }
+  - { example: ssot-verdict-census, stack: repo, date: 2026-10-10, result: 54-verdicts }
 ---
 
 # build-first-reuse-default rule
@@ -56,17 +56,17 @@ The verdicts are not decoration. The team keeps a register of prior-art decision
 in the getff repository, the register looks like this:
 
 ```bash
-grep -oE '\*\*(ADOPT VOCABULARY|ADOPT|ADAPT|REFERENCE|KEEP NARROW|BUILD|REJECT)\*\*' docs/meta-factory/prior-art-evaluations.md | sort | uniq -c | sort -rn
+grep -oE '\*\*(ADOPT VOCABULARY|ADOPT|ADAPT|REFERENCE|KEEP NARROW|BUILD|REJECT)\*\*' docs/meta-factory/prior-art-evaluations.md | sort | uniq -c | sort -rn | sed -E 's/^ +//'
 ```
 
 ```text
-     14 **REFERENCE**
-     14 **ADAPT**
-     11 **BUILD**
-      5 **REJECT**
-      5 **ADOPT VOCABULARY**
-      4 **ADOPT**
-      1 **KEEP NARROW**
+14 **REFERENCE**
+14 **ADAPT**
+11 **BUILD**
+5 **REJECT**
+5 **ADOPT VOCABULARY**
+4 **ADOPT**
+1 **KEEP NARROW**
 ```
 
 Fifty-four recorded verdicts, and the reuse side of the ledger outweighs the builds.

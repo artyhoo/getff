@@ -15,7 +15,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: pin-site-grep, stack: repo, date: 2026-10-07, result: two-sites-0.44.1 }
+  - { example: pin-site-grep, stack: repo, date: 2026-10-10, result: two-sites-0.44.1 }
 ---
 
 # evidence-regeneration rule
@@ -76,7 +76,7 @@ grep -n 'ast-grep/cli@' .github/workflows/audit-self.yml
 
 ```text
 355:        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
-1115:        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+1129:        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
 ```
 
 Two sites, same version — the state the rule demands; a bump that touched only
@@ -133,6 +133,6 @@ Checked 2026-10-07 against the working tree this batch was written in.
   `packages/core/backends/astgrep/firing-runner.ts:49` (and the ruff twin at
   `packages/core/backends/ruff/firing-runner.ts:53`).
 - The pin sites quoted above: `.github/workflows/audit-self.yml:355` and
-  `:1115`, both `@ast-grep/cli@0.44.1` at this base.
+  `:1129`, both `@ast-grep/cli@0.44.1` at this base.
 - The index row grading this rule class `B` with channels
   `paths:(1), edit-time inject`: `.claude/rules/00-rule-index.md:24`.

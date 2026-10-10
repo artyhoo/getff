@@ -16,7 +16,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: snapshot-inputs-ref, stack: repo, date: 2026-10-07, result: printed }
+  - { example: snapshot-inputs-ref, stack: repo, date: 2026-10-10, result: printed }
 ---
 
 # cold-seat-economy rule
@@ -79,15 +79,16 @@ it was filled with a real SHA stays judgment, and the test's own header says so.
 
 The tool behind that field is a small repo script. Run it and it prints the ref to
 paste into the seat prompt, then hands out read-only copies of the files as they
-were at that commit:
+were at that commit — pinned to a literal SHA, not a moving ref, which is the
+discipline the tool exists to enforce:
 
 ```bash
-bash scripts/snapshot-for-seat.sh HEAD .claude/rules/cold-seat-economy.md
+bash scripts/snapshot-for-seat.sh a704d36fb3c .agents/rules/cold-seat-economy.md
 ```
 
 ```text
-Inputs-ref: 0e909fb2e3977372d54dee053fd0b49317a9ecc2
-/tmp/seat-snapshot.21r3F5/.claude__rules__cold-seat-economy@0e909fb2e397.md
+Inputs-ref: a704d36fb3c0113acdb171086f7299f54bd26eeb
+/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/seat-snapshot.Y7J5Xa/.agents__rules__cold-seat-economy@a704d36fb3c0.md
 ```
 
 The snapshot files are written read-only (`mode 0444`), and the script writes them

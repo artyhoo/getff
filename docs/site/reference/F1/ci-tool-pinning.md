@@ -15,7 +15,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: pin-and-deferred-gap, stack: repo, date: 2026-10-07, result: pinned-plus-18 }
+  - { example: pin-and-deferred-gap, stack: repo, date: 2026-10-10, result: pinned-plus-18 }
 ---
 
 # ci-tool-pinning rule
@@ -69,7 +69,7 @@ grep -n "run: pip install zizmor==" .github/workflows/audit-self.yml
 ```
 
 ```text
-2220:        run: pip install zizmor==1.26.1
+2234:        run: pip install zizmor==1.26.1
 ```
 
 Second, the rule is honest about what it has not fixed yet. Its own file records a

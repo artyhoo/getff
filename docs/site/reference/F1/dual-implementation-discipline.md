@@ -16,7 +16,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: surface-8-coverage-probe, stack: repo, date: 2026-10-07, result: 34-rows-exit0 }
+  - { example: surface-8-coverage-probe, stack: repo, date: 2026-10-10, result: 69-rows-exit0 }
 ---
 
 # dual-implementation-discipline rule
@@ -61,15 +61,16 @@ are executable. At edit time, a hook inspects any Claude Code hook script you
 touch and rejects it if it carries neither marker. Across the population, a
 CI probe walks every tracked hook script, resolves each `@dual-pair` anchor to
 a real counterpart file, and fails on a dangling anchor. Run by hand, that
-probe prints one line per artifact — 34 rows at this base:
+probe prints one line per artifact — 69 rows at this base, one per tracked
+hook script in each of the two trees. Filtered to one hook's pair of rows:
 
 ```bash
-bash tests/agnosticism/probes/channel-coverage.sh
+bash tests/agnosticism/probes/channel-coverage.sh | grep 'worktree-setup'
 ```
 
 ```text
+channel-coverage	.agents/hooks/worktree-setup.sh	dual-pair 'worktree-create-setup' resolves → scripts/create-worktree.sh (§5)	0	PORTABLE
 channel-coverage	.claude/hooks/worktree-setup.sh	dual-pair 'worktree-create-setup' resolves → scripts/create-worktree.sh (§5)	0	PORTABLE
-channel-coverage	.claude/hooks/lib/skill-index.sh	cc-only-rationale declared (§6 deliberate choice)	0	PORTABLE
 ```
 
 Every row ends `PORTABLE` — not because every artifact has a twin, but because
@@ -117,7 +118,8 @@ Checked 2026-10-07 against the working tree this batch was written in.
   `:14` to `:17`, and the exit-2 channel rationale at `:25` to `:27`.
 - The population probe: `tests/agnosticism/probes/channel-coverage.sh` —
   Surface 8 header at `:2`, marker grep at `:50`, anchor extraction at `:56`
-  (output above: 34 rows, exit 0 at this base). Gated in CI by
+  (output above filtered to one hook's two rows; the full probe prints 69
+  rows, exit 0, at this base). Gated in CI by
   `packages/core/principles/21-agnosticism-conformance.test.ts`.
 - The gated brand-detection probe: `tests/agnosticism/probes/brand-detection.sh`
   (Surface 10); seeded-break paired-negatives in

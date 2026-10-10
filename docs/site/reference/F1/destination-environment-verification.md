@@ -15,7 +15,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: host-verify-list-and-fail-closed, stack: repo, date: 2026-10-07, result: 17-commands-exit0-exit2 }
+  - { example: host-verify-list-and-fail-closed, stack: repo, date: 2026-10-10, result: 17-commands-exit0-exit2 }
 ---
 
 # destination-environment-verification rule
@@ -86,16 +86,28 @@ contract, and `--list` shows the runner parsing it — seventeen commands, from
 file-existence checks to a JSON member-count assertion:
 
 ```bash
-bash scripts/host-verify.sh --list .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md
+bash scripts/host-verify.sh --list .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md; echo "EXIT:$?"
 ```
 
 ```text
 ── host-verify: .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md
-   host=Linux  repo=/home/www/rules-as-tests-aif-feature-getff-ai-site-s1rf1a-9fb180-9fb18033-a4d0-4b59-aad8-0ac9364b799b
+   host=Darwin  repo=/Users/art/.codex/worktrees/328b/rules-as-tests-aif
    • test -f .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md
    • test -f .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.inventory.md
    • test -f docs/site/reference/F1.json
-   ⋮ (14 more declared commands)
+   • test -f docs/site/reference/B/dispatcher.md
+   • test -f docs/site/reference/B/harvest.md
+   • test -f docs/site/reference/B.md
+   • test -f docs/site/guides/add-design-and-review-skills.md
+   • test -f .claude/skills/docs-author/SKILL.md
+   • test -f .claude/skills/docs-author/references/page-kinds.md
+   • test -f agents/docs-form-auditor.md
+   • test -f agents/claims-conformance-auditor.md
+   • test -f agents/fidelity-auditor.md
+   • test -f scripts/render-reference.mjs
+   • test -f scripts/docs-check.mjs
+   • test -f scripts/run-local-ci-sweep.sh
+   • node --input-type=module -e "import {readFileSync} from 'node:fs'; const d=JSON.parse(readFileSync('docs/site/reference/F1.json')); if(d.members.length!==30) process.exit(1);"
    • bash scripts/check-ask-files.sh
 EXIT:0
 ```
