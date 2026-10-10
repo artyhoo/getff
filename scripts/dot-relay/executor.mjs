@@ -15,6 +15,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseChildResult, EXECUTOR_MODEL } from '../advisor-bridge-beta/process.mjs';
 import { probeOutcome, envelopeDigest } from './contract.mjs';
+import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 
 export const GLM_WRAPPER = '/Users/art/.local/bin/glm';
 export const EXECUTION_MODEL = EXECUTOR_MODEL; // 'glm-5.3'
@@ -621,7 +622,12 @@ function captureCodeComplete({ stdoutText, sessionId, executionId, solutionSha25
   if (Buffer.byteLength(text, 'utf8') > REPORT_LIMIT_BYTES) return reject(false);
   let report;
   try {
-    report = JSON.parse(text); // whole-string parse ONLY — no substring rescue
+    // R10: strict full-string parse through the SHARED parser (dot-review-gate
+    // strict-json) — duplicate/prototype/BOM/trailing/depth/size refusals
+    // land HERE, before the report is stored, review eligibility is assigned
+    // or ownership is released. JSON.parse would collapse duplicate keys
+    // (last wins) and accept a forged shape.
+    report = parseStrictJson(text, { maxBytes: REPORT_LIMIT_BYTES, maxDepth: 64 });
   } catch {
     return reject(false);
   }

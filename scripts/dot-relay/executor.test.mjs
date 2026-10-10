@@ -1841,6 +1841,7 @@ async function runCaptureReject({ name, buildOuter, exitCode = 0 }) {
   assert.equal(out.blocker, 'BLOCKED_CAPTURE', name);
   assert.equal(ledger.getExecution(out.execution_id).state, 'BLOCKED', `${name}: slot terminal`);
   assert.ok(!ledger.getWorkerReport(out.execution_id), `${name}: no worker report persists for a rejected capture`);
+  assert.ok(!JSON.stringify(out).includes(PR_R10), `${name}: no report body in output`);
   rmSync(dir, { recursive: true, force: true });
 }
 
@@ -3933,5 +3934,84 @@ test('F06: two simultaneous adoption monitors — one owner (SUPERVISOR_LOCK), z
   assert.equal(ledger.getExecution(claim.execution_id).attempts_admitted, 2, 'still unchanged after completion');
   // the owner released the slot — no stale lock file outlives the monitor
   assert.ok(!existsSync(join(dir, 'worker', 'supervisor.lock')), 'lock released on monitor exit');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// R10 strict-parser arms (kickoff §"original R10 strict report parser"):
+// the capture boundary must refuse duplicate / prototype / BOM / trailing /
+// depth / multibyte-size shapes through the SHARED strict-json parser —
+// BEFORE a report is stored, review eligibility is assigned or ownership is
+// released. Raw result strings are built by hand: JSON.stringify can never
+// emit a duplicate key, and JSON.parse collapses them (last wins), so a
+// same-value duplicate passes every identity check under a lax parser.
+const dupSameValue = (json, key) => json.replace(new RegExp(`"${key}":"([^"]*)"`), `"${key}":"$1","${key}":"$1"`);
+
+const padReportBytes = (json, targetBytes) => {
+  const base = json.replace('"independent_review_ref":null', '"independent_review_ref":""');
+  const need = targetBytes - Buffer.byteLength(base, 'utf8');
+  const multibyte = Math.max(1, Math.floor((need - 1) / 2));
+  const ascii = Math.max(0, need - 2 * multibyte);
+  const padded = json.replace('"independent_review_ref":null', `"independent_review_ref":"${'é'.repeat(multibyte)}${'x'.repeat(ascii)}"`);
+  assert.equal(Buffer.byteLength(padded, 'utf8'), targetBytes, 'padding math must land on the exact byte count');
+  return padded;
+};
+
+for (const [name, rawOf] of [
+  ['duplicate status key, last wins CODE_COMPLETE', (j) => j.replace('"status":"CODE_COMPLETE"', '"status":"INVALID","status":"CODE_COMPLETE"')],
+  ['duplicate status key, last wins INVALID', (j) => j.replace('"status":"CODE_COMPLETE"', '"status":"CODE_COMPLETE","status":"INVALID"')],
+  ['duplicate execution_id (same value)', (j) => dupSameValue(j, 'execution_id')],
+  ['duplicate session_id (same value)', (j) => dupSameValue(j, 'session_id')],
+  ['duplicate artifact_sha256 (same value)', (j) => dupSameValue(j, 'artifact_sha256')],
+  ['duplicate head_sha (same value)', (j) => dupSameValue(j, 'head_sha')],
+  ['duplicate nested object keys despite irrelevant schema', (j) => j.replace('"independent_review_ref":null', '"independent_review_ref":{"nested":{"dup":1,"dup":2}}')],
+  ['escaped equivalent property name duplicates status', (j) => j.replace('"status":"CODE_COMPLETE"', '"statu\\u0073":"CODE_COMPLETE","status":"CODE_COMPLETE"')],
+  ['__proto__ data key', (j) => j.replace(/}\s*$/, ',"__proto__":{"evil":1}}')],
+  ['leading BOM', (j) => `﻿${j}`],
+  ['trailing text after the object', (j) => `${j} trailing`],
+  ['65-level nesting inside a report value', (j) => j.replace('"independent_review_ref":null', `"independent_review_ref":${'{"a":'.repeat(65)}1${'}'.repeat(65)}`)],
+  ['exactly 16385 UTF-8 bytes with multibyte padding', (j) => padReportBytes(j, 16_385)],
+]) {
+  test(`R10 strict reject: ${name} -> BLOCKED_CAPTURE, terminal slot, no worker report`, async () => {
+    await runCaptureReject({
+      name,
+      buildOuter: (ctx) => outerCapture(ctx.sessionId, rawOf(JSON.stringify(codeCompleteReport({ ...ctx, prUrl: PR_R10 })))),
+    });
+  });
+}
+
+test('R10 strict accept: legitimate exact CODE_COMPLETE with multibyte padding at the 16384-byte boundary succeeds once', async () => {
+  const { dir, ledger } = env0();
+  const solution = queuedSolution(ledger, dir);
+  const manifest = ledger.getManifest(solution.id);
+  const child = fakeChild();
+  const jobBranch = `codex/dot-job-${solution.sha256.slice(0, 12)}`;
+  const r = runExecution({
+    ledger, solution, worktree: dir, dir,
+    spawnImpl: captureSpawn(child), gitImpl: gitOk({ head: BASE_SHA, branch: jobBranch }), ghImpl: ghNever(),
+    clock: fakeClock(),
+    pollIntervalMs: 5, startupTimeoutMs: 500, deadlineMs: 5_000,
+  });
+  await sleep(10);
+  writeFileSync(child.opts.env.DOT_RELAY_STARTUP_RECEIPT, JSON.stringify({
+    session_id: child.opts.env.DOT_RELAY_SESSION_ID,
+    execution_id: child.opts.env.DOT_RELAY_EXECUTION_ID,
+    worktree: dir,
+  }));
+  await sleep(30);
+  const sessionId = child.opts.env.DOT_RELAY_SESSION_ID;
+  const executionId = child.opts.env.DOT_RELAY_EXECUTION_ID;
+  const report = codeCompleteReport({ executionId, sessionId, solution, artifactSha256: manifest.artifact_sha256, prUrl: PR_R10 });
+  writeFileSync(child.opts.stdoutPath, JSON.stringify(outerCapture(sessionId, padReportBytes(JSON.stringify(report), 16_384))));
+  child.exit(0);
+  const out = await r;
+  assert.equal(out.state, 'REQUIRES_REVIEW');
+  const stored = ledger.getWorkerReport(executionId);
+  assert.ok(stored, 'the strict-accepted report persists exactly once');
+  assert.equal(stored.execution_id, executionId);
+  assert.equal(stored.pr_url, PR_R10);
+  assert.equal(ledger.getExecution(executionId).state, 'REQUIRES_REVIEW');
+  // pr_url is a fixed-shape projection the success path legitimately
+  // returns; the report BODY (the padded ref) must never leak
+  assert.ok(!JSON.stringify(out).includes('é'), 'no padded report body in output');
   rmSync(dir, { recursive: true, force: true });
 });
