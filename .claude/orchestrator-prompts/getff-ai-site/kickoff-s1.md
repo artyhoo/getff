@@ -82,20 +82,11 @@ four sidebar tabs (§1 of the umbrella spec) and D30's `kind:` registry — and 
 row came from**. That is non-negotiable 5, and it is a precondition, not a task: *enumerate D49's
 third population and record its provenance BEFORE the dispatchability grep can mean anything.*
 
-Three census pages get explicit RUN rows: `/docs/executable-agents-md/` (the full demo page, D12;
-kind `understand`) and `/docs/limits/` (a real page whose stack table is a `maturity.json` fence
-region; kind `understand`) are dispatchable now. **`/docs/faq/` is NOT.** Its live page is seven
-«What is…» questions with no step, no command and no verification, which fits none of D30's seven
-kinds, so its inventory row reads `ESCALATED to D30` and carries no kind. A slug that fits no
-registered `kind:` **escalates to D30** for a registered kind — never an open enum, and never a
-kind the conveyor picks for itself. **Do not write `/docs/faq/` in this stage** until that row
-carries one of the seven; see §7 item 2.
+Three census pages get explicit RUN rows: `/docs/executable-agents-md/`, `/docs/limits/` and `/docs/faq/` use the existing `understand` kind. SITE-D002 resolves the FAQ's former D30 escalation through a conceptual rewrite retaining all seven topics and Mechanism/Proof/Limits, with no new kind or invented guide steps; the exact delegated provenance is recorded in [the inventory](kickoff-s1.inventory.md). The inventory amendment must actually merge to staging before FAQ dispatch; a packet or open PR does not admit writing. The conveyor may not choose a kind for itself. Existing source/claim/form and FAQ JSON-LD/Markdown coherence gates remain required.
 
 **The inventory exists as of 2026-09-21: [`kickoff-s1.inventory.md`](kickoff-s1.inventory.md)**
 (a `sidecar` by `classifyKickoffName`, merged to `staging` before this stage's dispatch per
-non-negotiable 7). It carries the one table across its three populations, plus a companion table
-for non-page URLs — a redirect stub has no `kind:` frontmatter, and forcing it into the page
-table would create exactly the open enum D49 forbids. Read it before generating any batch prompt.
+non-negotiable 7). It carries the one table across its three populations, plus a companion table for legacy URL dispositions: explicit stubs have no `kind:` frontmatter; retained auxiliary pages have their own source/quality profile outside the framework page population. Neither introduces a new D30 kind. Read it before generating any batch prompt.
 **Inventory re-measured 2026-10-07 at `41cc5642f3a`:** §3 now has 236 members plus
 11 overviews = 247 reference rows; §6 gives a 247-page conveyor baseline across populations.
 This is total scope, not remaining work: RUN D already merged in #1850 and later members may
@@ -105,12 +96,7 @@ overview and guide); see `kickoff-s1rf1a.md` and `kickoff-s1rf1b.md`. F1b follow
 F1a staging merge. Other families retain D19 and require a fresh scope/budget check before
 dispatch; E and F3 exceed 30 pages including their guide at this snapshot and remain blocked
 on an explicit task-shape decision in addition to their PARTIAL-family source gates.
-Second, **two live URLs have no successor page in any source** — `/docs/beta` and
-`/docs/reference` — and each is an open operator decision (stub target or `retired-urls.txt`),
-recorded rather than invented. The cold review of the inventory (2026-09-21) found
-`/docs/reference` missing from a first enumeration that used a single command; it is a folder
-index, and the `git ls-tree … *.md` arm that found the other sixteen was blind to it by
-construction. A Worker enumerating live URLs uses **two** paths, never one.
+Second, `/docs/beta` and `/docs/reference` retain real auxiliary routes under SITE-D003 and [the source amendment](s2-source-amendment.md), rather than remaining open stub/retirement choices. Programme prose has one bounded landing source; pinned facts and canonical nav generate the fact regions and Reference index. Their shared projections and auxiliary quality profile remain future S2 acceptance obligations, not S1 framework page rows or implementation approval. Keep both top-level and folder-index arms when enumerating legacy URLs; the original one-arm omission of `/docs/reference` remains a live enumeration falsifier.
 
 **D49 falsifiers, verbatim:** (a) a page merged in S1 that is in no inventory row → the batch
 prompt was not generated from the inventory; **fix the generation, never the page**; (b) the
