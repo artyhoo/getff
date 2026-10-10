@@ -26,6 +26,7 @@ import {
   chmodSync,
   rmSync,
   realpathSync,
+  existsSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -146,6 +147,159 @@ describe('PREPUSH_HEAVY_RUNNER', { timeout: SLOW_SHELL_MS }, () => {
       'run',
       'test:ir',
     ]);
+  });
+
+  // ── The runner boundary scrubs git's hook-env (D2081-S01, PR #2081) ──────────
+  //
+  // The empty-value arm above and the four argv arms spawn the runner through
+  // `run()`-equivalent scrubbing only by accident of what they assert. The dispatch
+  // the runner rides (runCoreSuite's PREPUSH_HEAVY_RUNNER arm) is a DIRECT
+  // `runCheck()` call — until it handed the runner the invoking hook's raw
+  // environment, a pre-push from a linked worktree exported an absolute GIT_DIR
+  // pointing at that worktree, and the runner's fixture git children re-targeted
+  // THERE: the same `core.bare=true` poison the fixture-side scrub (PR #2081,
+  // fc41e0b986b + c05dbc0a1f2) fixed for every OTHER child. githooks(5) prescribes
+  // `unset $(git rev-parse --local-env-vars)` before touching a foreign repository;
+  // the runner boundary must hand the runner that same scrubbed env — while KEEPING
+  // the object-directory family (GIT_OBJECT_DIRECTORY et al.) the heavy-runner
+  // contract exports deliberately, because arms reading the pushed (quarantined)
+  // objects need them (pre-push.ts HOOK_LEAKED_DISCOVERY_VARS comment).
+  //
+  // Both arms below go through the REAL hook (`node --import tsx pre-push.ts`,
+  // PREPUSH_ONLY=ir-meta) with a planted invoking-worktree environment and a SECOND
+  // scratch repository standing in for the checkout the runner must not touch — the
+  // exact damage shape measured on #2081: a fixture `git init <path>` under an
+  // inherited GIT_DIR exits 0, creates nothing at <path>, and re-initialises the
+  // GIT_DIR repository, writing `bare = true` into its config.
+
+  /**
+   * The discovery-set variables a linked-worktree pre-push exports into the hook.
+   *
+   * `second` is the COMMON dir of the standing-in repository; the GIT_DIR target is
+   * its LINKED-WORKTREE admin directory — exactly what git exports to a hook fired
+   * from a linked worktree (principle 46's header: GIT_DIR=<common>/.git/worktrees/<name>,
+   * and NO GIT_WORK_TREE). Replication measured 2026-10-09 (git 2.53.0, throwaway
+   * fixture): with that GIT_DIR, a child `git init <path>` exits 0, creates nothing
+   * at <path>, and writes `bare = true` into the COMMON config.
+   */
+  const PLANTED_INVOKER_ENV = (second: string): Record<string, string> => ({
+    GIT_DIR: join(second, '.git', 'worktrees', 'linked'),
+    GIT_COMMON_DIR: join(second, '.git'),
+    GIT_INDEX_FILE: join(second, '.git', 'worktrees', 'linked', 'index'),
+    GIT_PREFIX: '',
+  });
+
+  /**
+   * Build the standing-in "invoking checkout": a repository with one commit and a
+   * linked worktree, so `.git/worktrees/linked/` exists for GIT_DIR to name.
+   */
+  function makeInvokerRepo(second: string): void {
+    spawnSync('git', ['init', '-q', second]);
+    spawnSync('git', [
+      '-C',
+      second,
+      '-c',
+      'user.email=fixture@test',
+      '-c',
+      'user.name=fixture',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'seed',
+    ]);
+    spawnSync('git', ['-C', second, 'worktree', 'add', '-q', join(second, '..', 'invoker-wt')]);
+  }
+
+  /** `core.bare` as git parses the config file, or '(absent)' when the key is not there. */
+  function coreBare(configFile: string): string {
+    const r = spawnSync(
+      'git',
+      ['config', '--file', configFile, '--type=bool', '--get', 'core.bare'],
+      { encoding: 'utf8' },
+    );
+    return r.status === 0 ? r.stdout.trim() : '(absent)';
+  }
+
+  it('scrubs the hook-env off the runner: a planted GIT_DIR cannot retarget its git', () => {
+    // The "invoking checkout" — a second repository whose COMMON config `git init`
+    // has just written with `bare = false`, so any `bare = true` afterwards is a
+    // WRITE by the defect mechanism, distinguishable from a config that never
+    // mentioned the key.
+    const second = join(dir, 'invoker-repo');
+    makeInvokerRepo(second);
+    expect(coreBare(join(second, '.git', 'config'))).toBe('false');
+
+    const probe = join(dir, 'probe-init');
+    const capture = join(dir, 'probe-runner-env.txt');
+    const probeRunner = join(dir, 'probe-runner.sh');
+    // Records its full environment, then does the exact thing a suite's fixture
+    // git does — `git init <path>` — and exits 0 so the hook section passes.
+    writeFileSync(
+      probeRunner,
+      '#!/bin/sh\n' +
+        `env > '${capture}'\n` +
+        `git init '${probe}' >/dev/null 2>&1\n` +
+        'exit 0\n',
+    );
+    chmodSync(probeRunner, 0o755);
+
+    const r = hook('ir-meta', {
+      PREPUSH_HEAVY_RUNNER: probeRunner,
+      ...PLANTED_INVOKER_ENV(second),
+    });
+    expect(r.status, r.stderr).toBe(0);
+
+    // The init landed at its argument — the runner's git resolved its own repo,
+    // not the planted GIT_DIR (pre-fix nothing is created at the path at all).
+    expect(existsSync(join(probe, '.git', 'HEAD')), 'probe init landed').toBe(
+      true,
+    );
+    // …and no `bare` write landed in the second repository's SHARED config —
+    // the `core.bare=true` poison that took the main checkout down on #2081.
+    expect(coreBare(join(second, '.git', 'config'))).toBe('false');
+
+    // The recorded environment carries none of the discovery set.
+    const keys = new Set(
+      readFileSync(capture, 'utf8')
+        .split('\n')
+        .filter((l) => l.includes('='))
+        .map((l) => l.slice(0, l.indexOf('='))),
+    );
+    for (const key of Object.keys(PLANTED_INVOKER_ENV(second))) {
+      expect(keys.has(key), `${key} scrubbed off the runner env`).toBe(false);
+    }
+  });
+
+  it('keeps the object-directory vars the runner contract relies on', () => {
+    // GIT_OBJECT_DIRECTORY / GIT_ALTERNATE_OBJECT_DIRECTORIES /
+    // GIT_QUARANTINE_PATH stay exported BY DESIGN (arms reading the pushed
+    // quarantined objects need them) — the scrub is deliberately narrow, so the
+    // runner must still SEE a planted object-directory var even as GIT_DIR dies.
+    const second = join(dir, 'invoker-repo-obj');
+    makeInvokerRepo(second);
+    const capture = join(dir, 'obj-runner-env.txt');
+    const objRunner = join(dir, 'obj-runner.sh');
+    writeFileSync(objRunner, `#!/bin/sh\nenv > '${capture}'\nexit 0\n`);
+    chmodSync(objRunner, 0o755);
+
+    const r = hook('ir-meta', {
+      PREPUSH_HEAVY_RUNNER: objRunner,
+      ...PLANTED_INVOKER_ENV(second),
+      GIT_OBJECT_DIRECTORY: join(second, '.git', 'objects'),
+      GIT_ALTERNATE_OBJECT_DIRECTORIES: join(second, '.git', 'objects', 'alt'),
+    });
+    expect(r.status, r.stderr).toBe(0);
+
+    const keys = new Set(
+      readFileSync(capture, 'utf8')
+        .split('\n')
+        .filter((l) => l.includes('='))
+        .map((l) => l.slice(0, l.indexOf('='))),
+    );
+    expect(keys.has('GIT_OBJECT_DIRECTORY')).toBe(true);
+    expect(keys.has('GIT_ALTERNATE_OBJECT_DIRECTORIES')).toBe(true);
+    expect(keys.has('GIT_DIR')).toBe(false);
   });
 });
 

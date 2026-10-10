@@ -115,19 +115,21 @@ exit=0
 - The canonical literal the apply form must carry is one constant,
   `.claude/hooks/apply-husky-patch-gate.sh:23`:
   `CANONICAL_OVERRIDE='apply-husky-patch sanctioned channel (operator-approved 2026-10-06)'`.
-  Lines 41 to 47 build the two regexes from that constant and the script path with
-  `re.escape`, so a literal change in either file makes the approval fail loudly rather
-  than match approximately.
-- Lines 59 to 65 are the whole decision surface: `dry_re.match(cmd)` allows with the
-  read-only reason, `apply_re.match(cmd)` allows with the byte-verified reason, and
-  `sys.exit(0)` with no output covers everything else — lines 35 to 39 also exit silently
-  for non-PreToolUse events, non-Bash tools and payloads it cannot parse.
+  Lines 55 to 90 turn that constant and the script path into a complete single-command
+  grammar (`.claude/hooks/apply-husky-patch-gate.sh:61` refuses any shell special
+  character or further substitution text, `:69` pins the exact token shape, one mode and
+  the required flag pairs), so a literal change in either file makes the approval fail
+  loudly rather than match approximately.
+- The whole decision surface is that grammar plus the two `allow()` exits: the dry-run
+  shape allows with the read-only reason, the apply shape allows with the byte-verified
+  reason, and `sys.exit(0)` with no output covers everything else — lines 35 to 44 also
+  exit silently for non-PreToolUse events, non-Bash tools and payloads it cannot parse.
 - The gate is the permission layer only, by its own header (`.claude/hooks/apply-husky-patch-gate.sh:18`):
   `# The gate is the PERMISSION layer, not the safety layer: the script itself re-validates the`.
   The safety layer's re-validation contract and its refusal arms are enumerated in the
   suite's own header — `scripts/apply-husky-patch.test.sh:12` (arms `P7-P8, P11` prove the
-  gate approves exactly the canonical shapes, `P9-P10, P12-P14` that it stays silent
-  otherwise) and
+  gate approves the canonical shapes, `P9-P10, P12-P14` that it stays silent otherwise,
+  `N11-N25` that a compound suffix gets no allow) and
   `scripts/apply-husky-patch.test.sh:19` (arms `N1-N10` prove the writer leaves the target
   byte-unchanged on every refusal).
 - The canonical shapes the gate mirrors are pinned in the patch script's own header,
