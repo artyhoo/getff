@@ -100,6 +100,15 @@ assert old in s, old
 open(p, 'w').write(s.replace(old, new))
 PY
 }
+# row_del ROW — delete one manifest line (exact match, incl. its newline) in the current repo
+row_del() { python3 - "$1" <<'PY'
+import sys
+p = 'setup.d/ships.manifest'; s = open(p).read()
+row = sys.argv[1].replace('\\t', '\t') + '\n'
+assert s.count(row) == 1, sys.argv[1]
+open(p, 'w').write(s.replace(row, '', 1))
+PY
+}
 
 echo "── clean"
 arm "C0 complete manifest passes" pass ':'
@@ -111,7 +120,7 @@ arm "U3 new rule"    fail 'printf x > .claude/rules/zz.md' 'rule zz'
 arm "U4 new agent"   fail 'printf x > agents/zz.md' 'agent zz'
 arm "U5 new setting" fail 'printf '"'"'{"hooks":{},"autoCompactWindow":1,"env":{"K1":"1","K2":"2"}}\n'"'"' > .claude/settings.json' 'setting env.K2'
 arm "U6 new mcp"     fail 'printf '"'"'{"mcpServers":{"m1":{},"m2":{}}}\n'"'"' > .mcp.json' 'mcp m2'
-arm "U7 script row removed" fail 'sed -i "/^script${TAB}audit-ai-docs/d" setup.d/ships.manifest' 'script audit-ai-docs'
+arm "U7 script row removed" fail 'row_del "script\taudit-ai-docs\tships\tcore\tno\tthe consumer docs gate, delivered into the project'\''s scripts/"' 'script audit-ai-docs'
 
 echo "── stale, malformed and duplicate rows fail"
 arm "S1 stale row"        fail 'git rm -qf .claude/rules/r1.md' 'rule r1'
