@@ -8,7 +8,7 @@
 // Privacy: child stdout/stderr land in 0600 private files; summaries carry
 // fixed codes and ids only, never report bodies, prompts or secrets.
 
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, openSync, closeSync, writeSync, ftruncateSync, readFileSync, writeFileSync, renameSync, rmSync, lstatSync, fsyncSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -706,10 +706,69 @@ function productionGit(args, { cwd } = {}) {
   }
 }
 
-const productionGh = {
-  view(args) { return JSON.parse(execFileSync('gh', args, { encoding: 'utf8' })); },
-  checks(args) { return JSON.parse(execFileSync('gh', args, { encoding: 'utf8' })); },
-};
+// F12: bounded gh subprocess boundary. execFileSync THREW on the documented
+// nonzero exits of `gh pr checks` (8 = pending, 1 = failing) — real pending
+// results crashed the adapter before any polling could happen. The bounded
+// adapter captures exit status, stdout and stderr SEPARATELY, gives every
+// call its own finite wall timeout, parses documented pending/failing JSON
+// as DATA, and distinguishes auth / network / tool / invalid-JSON failures
+// with fixed conservative blockers. Thrown errors carry ONLY the fixed code
+// — raw stdout/stderr never reaches a message or a log.
+export const GH_CALL_TIMEOUT_MS = 30_000;
+
+export function ghSubprocessRun(bin, args, { timeoutMs = GH_CALL_TIMEOUT_MS } = {}) {
+  let r;
+  try {
+    r = spawnSync(bin, args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024 });
+  } catch {
+    return { error: 'SPAWN_ERROR', status: null, stdout: '', stderr: '' };
+  }
+  return {
+    error: r && r.error && typeof r.error.code === 'string' ? r.error.code : (r && r.error ? 'SPAWN_ERROR' : null),
+    status: r && typeof r.status === 'number' ? r.status : null,
+    stdout: r && typeof r.stdout === 'string' ? r.stdout : '',
+    stderr: r && typeof r.stderr === 'string' ? r.stderr : '',
+  };
+}
+
+function ghAdaptResult(res, documentedExits) {
+  if (res.error === 'ENOENT') return { blocker: 'GH_TOOL_MISSING' };
+  if (res.error || res.status === null) return { blocker: 'GH_TRANSPORT' }; // includes timeout kills
+  // gh's auth-exit convention (4) plus explicit auth text on stderr
+  if (res.status === 4 || /auth|credential|log\s?in|authenticat/i.test(res.stderr)) return { blocker: 'GH_AUTH' };
+  // any exit outside the documented set is an infrastructure-class failure —
+  // held conservatively, never treated as data
+  if (!documentedExits.includes(res.status)) return { blocker: 'GH_TRANSPORT' };
+  try {
+    return { value: JSON.parse(res.stdout) };
+  } catch {
+    return { blocker: 'GH_MALFORMED' };
+  }
+}
+
+export function makeGhAdapter(run = null) {
+  const call = run ?? ((args) => ghSubprocessRun('gh', args));
+  const endpoint = (kind, documentedExits, shapeOk) => (args) => {
+    const res = call(args);
+    const adapted = ghAdaptResult(res, documentedExits);
+    if (adapted.blocker || !shapeOk(adapted.value)) {
+      const blocker = adapted.blocker ?? 'GH_MALFORMED';
+      const err = new Error(`gh ${kind}: ${blocker}`);
+      err.ghBlocker = blocker;
+      throw err;
+    }
+    return adapted.value;
+  };
+  return {
+    // `gh pr view --json` exits 0 with the object, nonzero on any failure
+    view: endpoint('view', [0], (v) => v != null && typeof v === 'object' && !Array.isArray(v)),
+    // `gh pr checks --json` exits 0 all-pass / 8 pending / 1 failing — the
+    // JSON on stdout is the DATA in all three cases
+    checks: endpoint('checks', [0, 1, 8], Array.isArray),
+  };
+}
+
+const productionGh = makeGhAdapter();
 
 export function productionSpawn(executable, argv, { cwd, stdoutPath, stderrPath, env }) {
   const out = openSync(stdoutPath, 'w', 0o600);
@@ -1976,8 +2035,21 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
   if (!required) return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
   const expected = required.map(checkIdentity).sort().join('|');
   const budgetNs = deadlineMs != null ? BigInt(deadlineMs) * 1_000_000n : null;
+  // F12: a typed adapter refusal (auth/network/tool/malformed) is an
+  // infrastructure HOLD — the caller preserves its durable state and a later
+  // reconciliation resumes; it is never a crash and never a terminal verdict.
+  const ghTry = (fn) => {
+    try {
+      return { value: fn() };
+    } catch (err) {
+      if (err && typeof err.ghBlocker === 'string') return { blocker: err.ghBlocker };
+      throw err;
+    }
+  };
   for (;;) {
-    const v1 = ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]);
+    const v1r = ghTry(() => ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]));
+    if (v1r.blocker) return { state: 'HELD', blocker: v1r.blocker };
+    const v1 = v1r.value;
     if (v1.headRefOid !== headSha) return { state: 'BLOCKED', blocker: 'BLOCKED_HEAD_MISMATCH' };
     // F07: the base the approval was granted against is part of the binding —
     // the same head on a rebased base is a different change.
@@ -1986,7 +2058,9 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
       || (v1.autoMergeRequest ?? null) !== null || v1.mergeStateStatus === 'CONFLICTING' || v1.mergeStateStatus === 'UNKNOWN') {
       return { state: 'BLOCKED', blocker: 'BLOCKED_PR_STATE' };
     }
-    const checks = ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']);
+    const checksR = ghTry(() => ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']));
+    if (checksR.blocker) return { state: 'HELD', blocker: checksR.blocker };
+    const checks = checksR.value;
     if (!Array.isArray(checks) || checks.length === 0) {
       return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
     }
@@ -2003,20 +2077,27 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
       if (ns === null || !clock.ok() || !clock.fresh() || ns < anchor) {
         return { state: 'BLOCKED', blocker: 'CLOCK_UNPROVEN', failing: pending };
       }
-      if (budgetNs !== null && ns - anchor >= budgetNs) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: pending };
+      // F12: a MISSING budget is never unlimited time — the poll holds
+      // fail-closed instead of looping on an unbounded default.
+      if (budgetNs === null) return { state: 'BLOCKED', blocker: 'BLOCKED_VERIFY_BUDGET', failing: pending };
+      if (ns - anchor >= budgetNs) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: pending };
       await sleep(pollIntervalMs);
       continue;
     }
     // repeat view: the whole verification context — head AND base AND PR
     // state — must be unchanged between the reads (F07: a change under the
     // same head invalidates, never passes)
-    const v2 = ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]);
+    const v2r = ghTry(() => ghImpl.view(['pr', 'view', url, '--json', VIEW_FIELDS]));
+    if (v2r.blocker) return { state: 'HELD', blocker: v2r.blocker };
+    const v2 = v2r.value;
     if (v2.headRefOid !== headSha) return { state: 'BLOCKED', blocker: 'BLOCKED_HEAD_MOVED' };
     if (v2.baseRefOid !== v1.baseRefOid || v2.state !== v1.state || v2.isDraft !== v1.isDraft
       || v2.mergeStateStatus !== v1.mergeStateStatus || (v2.autoMergeRequest ?? null) !== (v1.autoMergeRequest ?? null)) {
       return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
     }
-    const checks2 = ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']);
+    const checks2R = ghTry(() => ghImpl.checks(['pr', 'checks', url, '--required', '--json', 'name,state,bucket,workflow,link']));
+    if (checks2R.blocker) return { state: 'HELD', blocker: checks2R.blocker };
+    const checks2 = checks2R.value;
     if (!Array.isArray(checks2)) return { state: 'BLOCKED', blocker: 'BLOCKED_CI' };
     if (checks2.map(checkIdentity).sort().join('|') !== observed) return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
     const failing2 = checks2.filter((c) => c.bucket === 'fail').map((c) => c.name);
@@ -2033,7 +2114,7 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
 // ledger import is even attempted. Only then does verification run, against
 // the report's PR bound to the RECEIPT's base. The capture paths never call
 // this — the CLI review-import command is its production caller.
-export async function applyReviewAndVerify({ ledger, executionId, receipt, provenance = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
+export async function applyReviewAndVerify({ ledger, executionId, receipt, provenance = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000 }) {
   if (!clock || typeof clock.ok !== 'function' || typeof clock.activeNs !== 'function' || typeof clock.fresh !== 'function') {
     throw new Error('[INVALID] clock required: post-review CI polling shares the attempt active budget — wall time never bounds it');
   }
@@ -2093,15 +2174,48 @@ export async function applyReviewAndVerify({ ledger, executionId, receipt, prove
   if (imported.replay === true && row && row.state === 'DONE') {
     return { state: 'DONE', execution_id: executionId, pr_url: row.pr_url, head_sha: row.head_sha, replay: true, verified_now: false };
   }
+  // F12: the remaining verification budget comes from DURABLE state —
+  // allocated once at the first verification, consumed additively, never
+  // replenished or reset on replay/restart. A missing or unproven budget
+  // HOLDS the operation (no unlimited default), and an active-clock anchor
+  // makes only provably-elapsed awake time count.
+  let budget = null;
+  try {
+    budget = ledger.reviewVerifyBudget({ executionId });
+  } catch {
+    budget = null;
+  }
+  if (!budget || !Number.isSafeInteger(budget.budget_ms) || budget.budget_ms <= 0
+    || !Number.isSafeInteger(budget.spent_ms) || budget.spent_ms < 0) {
+    return { state: 'HELD', held: true, blocker: 'BLOCKED_VERIFY_BUDGET', execution_id: executionId };
+  }
+  const remainingMs = Math.max(0, budget.budget_ms - budget.spent_ms);
+  const anchorNs = clock.activeNs();
   // verification against the report's PR, at the receipt's exact head AND
-  // base, under the deployed policy — sharing the active budget
-  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, baseSha: receipt.base_sha, policy, ghImpl, clock, pollIntervalMs, deadlineMs });
+  // base, under the deployed policy — bounded by the REMAINING durable budget
+  const v = await verifyPr({ url: report.pr_url, headSha: report.head_sha, baseSha: receipt.base_sha, policy, ghImpl, clock, pollIntervalMs, deadlineMs: remainingMs });
+  // persist whatever awake time this run provably burned — additive, capped
+  // at the total, so a restart or replay resumes with the consumed budget
+  // intact (a broken clock at exit simply charges nothing provable)
+  const endNs = clock.activeNs();
+  if (anchorNs !== null && endNs !== null && endNs > anchorNs) {
+    const elapsedMs = Number((endNs - anchorNs) / 1_000_000n);
+    try {
+      ledger.chargeReviewVerifyBudget({ executionId, additionalMs: elapsedMs });
+    } catch { /* a failed charge never flips the verification verdict */ }
+  }
   if (v.state === 'DONE') {
     if (row && row.attempts_admitted >= 1) {
       ledger.updateAttempt(executionId, row.attempts_admitted, { state: 'DONE' });
     }
     ledger.updateExecution(executionId, { state: 'DONE' });
     return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha, verified_now: true };
+  }
+  // F12: an infrastructure HOLD leaves the durable review state untouched —
+  // VERIFYING row + imported receipt stay exactly as they are, so a later
+  // reconciliation resumes safely with no duplicate approval or execution.
+  if (v.state === 'HELD') {
+    return { state: 'HELD', held: true, blocker: v.blocker, execution_id: executionId };
   }
   ledger.updateExecution(executionId, { state: 'BLOCKED', reason: v.blocker });
   return { state: 'BLOCKED', blocker: v.blocker, failing: v.failing, execution_id: executionId };

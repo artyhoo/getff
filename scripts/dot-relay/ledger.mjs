@@ -201,6 +201,10 @@ const KNOWN_BATCHES = ['DOT-BATCH-0001', 'DOT-BATCH-0002', 'DOT-BATCH-0003', 'DO
 const INTAKE_ID = 'DOT-INTAKE-20261008-01';
 const INITIAL_ANALYST_CURSOR = 'b80b6957-cf4d-434a-9581-33008606603b:5';
 const SOURCE_SHA = '35738554faf029e9fe3b8b4c25bfdde242f65c66';
+// F12: the finite total for post-review CI verification polling — a bounded
+// individual operation budget (NOT an executor-duration cap), allocated once
+// per execution in review_verify_budget and consumed additively.
+export const REVIEW_VERIFY_BUDGET_MS = 30 * 60_000;
 const PLAN_LIMIT = 32 * 1024;
 const TICK_PAGE_BUDGET = 10;
 
@@ -618,6 +622,20 @@ export function openLedger(path, {
     );
   `);
 
+  // F12: durable post-review verification budget. One row per execution,
+  // allocated ONCE at the first verification (INSERT OR IGNORE — replay never
+  // re-allocates, never replenishes), consumed additively and capped at the
+  // total. Additive table in the event_conflicts style: idempotent CREATE on
+  // every open, no existing row ever rewritten, no user_version bump.
+  execWithBusyRetry(db, `
+    CREATE TABLE IF NOT EXISTS review_verify_budget (
+      execution_id TEXT PRIMARY KEY,
+      budget_ms INTEGER NOT NULL,
+      spent_ms INTEGER NOT NULL DEFAULT 0,
+      allocated_ms INTEGER NOT NULL
+    );
+  `);
+
   // HOST-RESILIENCE §2: openLedger is READ-ONLY about peer state. The blanket
   // restart reconciliation is gone — a CLAIMED delivery or an in-flight
   // execution is never rewritten on open; only an explicit reconcileHost()
@@ -708,6 +726,35 @@ export function openLedger(path, {
       const row = db.prepare('SELECT * FROM review_receipts WHERE execution_id = ?').get(executionId);
       if (!row) return null;
       return { ...JSON.parse(row.receipt_json), reviewer: row.reviewer, verdict: row.verdict, imported_ms: row.imported_ms };
+    },
+
+    // F12: the finite durable verification budget for a review-gated
+    // execution. The row is allocated ONCE (INSERT OR IGNORE) with the fixed
+    // finite total; every read returns the CURRENT {budget_ms, spent_ms} so
+    // the caller passes the REMAINING budget to verification. A missing
+    // execution has no budget — the caller must hold, never default to
+    // unlimited. Never replenishes: the allocation is idempotent and the
+    // only writes are additive charges.
+    reviewVerifyBudget({ executionId }) {
+      const exec = db.prepare('SELECT id FROM executions WHERE id = ?').get(executionId);
+      if (!exec) return { missing: 'execution' };
+      db.prepare('INSERT OR IGNORE INTO review_verify_budget (execution_id, budget_ms, spent_ms, allocated_ms) VALUES (?,?,0,?)')
+        .run(executionId, REVIEW_VERIFY_BUDGET_MS, now());
+      const row = db.prepare('SELECT budget_ms, spent_ms FROM review_verify_budget WHERE execution_id = ?').get(executionId);
+      if (!row) return null;
+      return { budget_ms: row.budget_ms, spent_ms: row.spent_ms };
+    },
+
+    // F12: charge provably-elapsed verification time. Additive only, capped
+    // at the total, no-op on a missing row or a non-positive charge — there
+    // is no path that decreases spent_ms.
+    chargeReviewVerifyBudget({ executionId, additionalMs }) {
+      if (!Number.isSafeInteger(additionalMs) || additionalMs <= 0) return null;
+      const res = db.prepare(
+        'UPDATE review_verify_budget SET spent_ms = MIN(budget_ms, spent_ms + ?) WHERE execution_id = ?',
+      ).run(additionalMs, executionId);
+      if (res.changes === 0) return null;
+      return db.prepare('SELECT budget_ms, spent_ms FROM review_verify_budget WHERE execution_id = ?').get(executionId);
     },
 
     // Imports an independent review receipt (schema v2, F07). The receipt is

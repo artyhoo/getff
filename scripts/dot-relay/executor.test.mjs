@@ -2185,6 +2185,200 @@ test('F07: genuine v2 receipt + trusted importer + matched context -> DONE verif
   rmSync(dir, { recursive: true, force: true });
 });
 
+// --------------------------------------------------- F12: bounded gh adapter + finite durable budget
+//
+// GH_PENDING_AND_BUDGET_ADAPTER: (1) real `gh pr checks` pending/failing
+// results arrive on NONZERO exit codes (8 pending / 1 failing) with the
+// documented JSON on stdout — execFileSync THREW on them, so the old
+// production adapter crashed before any polling could happen; (2) post-review
+// polling had NO finite default budget (deadlineMs null = unlimited);
+// (3) infrastructure failures must hold VERIFYING with the receipt preserved
+// so reconciliation can resume, never a duplicate approval. makeGhAdapter is
+// imported dynamically — a static named import of a not-yet-existing export
+// is a module-link error that would fail the whole file (same reason
+// applyReviewAndVerify is dynamic above).
+
+test('F12 gh adapter: documented status8 pending then status0 success parses as DATA and polls to DONE', async () => {
+  const { makeGhAdapter } = await import('./executor.mjs');
+  const pendingJson = JSON.stringify([{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }]);
+  const passJson = JSON.stringify([{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]);
+  let checksCalls = 0;
+  const gh = makeGhAdapter((args) => {
+    if (args[0] === 'pr' && args[1] === 'view') {
+      return { error: null, status: 0, stdout: JSON.stringify(viewJson()), stderr: '' };
+    }
+    checksCalls += 1;
+    // first checks read: the REAL pending shape — exit status 8, valid JSON
+    return checksCalls === 1
+      ? { error: null, status: 8, stdout: pendingJson, stderr: '' }
+      : { error: null, status: 0, stdout: passJson, stderr: '' };
+  });
+  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 2_000 });
+  assert.equal(r.state, 'DONE');
+  // exactly 3: the status8 pending read, the pass read, and the F07 context
+  // re-read (verifyPr reads the whole verification context twice before DONE)
+  assert.equal(checksCalls, 3, 'status8 pending was polled through, not thrown on');
+});
+
+test('F12 gh adapter: failing(1)/auth(4)/tool-missing/transport/malformed produce distinct fixed blockers, and no raw payload leaks', async () => {
+  const { makeGhAdapter } = await import('./executor.mjs');
+  const failJson = JSON.stringify([{ name: 'ci', state: 'FAILURE', bucket: 'fail', workflow: 'CI', link: 'l' }]);
+  // scenarios fire on the checks endpoint (the documented pending/failing
+  // surface); view always answers a valid PR view
+  const goodView = { error: null, status: 0, stdout: JSON.stringify(viewJson()), stderr: '' };
+  const mk = (res) => makeGhAdapter((args) => (args[1] === 'view' ? goodView : res));
+  // documented exit 1 with failing JSON is DATA on checks: BLOCKED_CI with names, not an error
+  const r1 = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: mk({ error: null, status: 1, stdout: failJson, stderr: '' }), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r1.state, 'BLOCKED');
+  assert.equal(r1.blocker, 'BLOCKED_CI');
+  assert.deepEqual(r1.failing, ['ci']);
+  // the same exit 1 is UNDOCUMENTED on the view endpoint — per-endpoint documented sets, never a blanket pass
+  const rView1 = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: makeGhAdapter(() => ({ error: null, status: 1, stdout: failJson, stderr: '' })), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(rView1.state, 'HELD');
+  assert.equal(rView1.blocker, 'GH_TRANSPORT');
+  // auth (gh exit 4) / auth via stderr text — held, distinct from transport
+  for (const authRes of [
+    { error: null, status: 4, stdout: '', stderr: 'gh: authentication required' },
+    { error: null, status: 1, stdout: '', stderr: 'gh auth login required for this endpoint' },
+  ]) {
+    const ra = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: mk(authRes), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+    assert.equal(ra.state, 'HELD');
+    assert.equal(ra.blocker, 'GH_AUTH');
+  }
+  // tool missing (ENOENT) / spawn timeout / undocumented exit status — distinct fixed codes
+  const rTool = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: mk({ error: 'ENOENT', status: null, stdout: '', stderr: '' }), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(rTool.state, 'HELD');
+  assert.equal(rTool.blocker, 'GH_TOOL_MISSING');
+  const rTimeout = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: mk({ error: 'ETIMEDOUT', status: null, stdout: '', stderr: '' }), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(rTimeout.state, 'HELD');
+  assert.equal(rTimeout.blocker, 'GH_TRANSPORT');
+  const rUndoc = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: mk({ error: null, status: 2, stdout: '', stderr: 'internal' }), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(rUndoc.state, 'HELD');
+  assert.equal(rUndoc.blocker, 'GH_TRANSPORT');
+  // documented exit but unparseable stdout — malformed, never data
+  const rBad = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: mk({ error: null, status: 0, stdout: 'SUPERSECRET-not-json', stderr: '' }), clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(rBad.state, 'HELD');
+  assert.equal(rBad.blocker, 'GH_MALFORMED');
+  // the adapter's own thrown errors carry only the fixed code — stdout/stderr text never leaks
+  const leaky = mk({ error: null, status: 1, stdout: 'SUPERSECRET-payload', stderr: 'SUPERSECRET-stderr' });
+  assert.throws(
+    () => leaky.checks(['pr', 'checks', 'u', '--json']),
+    (err) => err.ghBlocker === 'GH_MALFORMED' && !err.message.includes('SUPERSECRET'),
+  );
+});
+
+test('F12 verifyPr: a typed gh adapter refusal HOLDS with the fixed blocker — verifyPr never crashes on infrastructure', async () => {
+  const ghThrow = {
+    view: () => { const e = new Error('gh view failed'); e.ghBlocker = 'GH_TRANSPORT'; throw e; },
+    checks: () => { const e = new Error('gh checks failed'); e.ghBlocker = 'GH_TRANSPORT'; throw e; },
+  };
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: ghThrow, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'HELD');
+  assert.equal(r.blocker, 'GH_TRANSPORT');
+});
+
+test('F12 verifyPr: pending with NO finite budget holds BLOCKED_VERIFY_BUDGET — never unlimited polling', async () => {
+  let polls = 0;
+  const gh = {
+    view: () => viewJson(),
+    checks: () => {
+      polls += 1;
+      if (polls > 4) throw new Error('F12-RED: polling continued with no finite budget applied');
+      return [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }];
+    },
+  };
+  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_VERIFY_BUDGET');
+  assert.ok(polls <= 4, 'the pending branch must stop at the budget gate, not loop');
+});
+
+test('F12: perpetual pending consumes the finite DURABLE budget; replay never replenishes it or resets the receipt', async () => {
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'f12b' });
+  const calls = [];
+  let polls = 0;
+  const gh = {
+    view: (a) => { calls.push(['view', a]); return viewJson(); },
+    checks: (a) => {
+      calls.push(['checks', a]);
+      // RED-phase bound: on code with NO finite budget this loop is infinite —
+      // the marker throw is the witnessed defect, not a test artifact. The
+      // bound is far above the handful of iterations the finite budget needs.
+      polls += 1;
+      if (polls > 50) throw new Error('F12-RED: no finite durable budget applied — polling ran away');
+      return [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }];
+    },
+  };
+  // 10 min of host-awake time per clock sample: the finite budget is crossed
+  // within a few poll iterations, on a clock that is fully ok/fresh
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: gh, clock: fakeClock({ advancePerReadMs: 10 * 60_000 }), pollIntervalMs: 5,
+  });
+  assert.equal(out.state, 'BLOCKED');
+  assert.equal(out.blocker, 'BLOCKED_CI');
+  assert.deepEqual(out.failing, ['ci']);
+  const budget = ledger.reviewVerifyBudget({ executionId });
+  assert.ok(budget, 'the durable budget row exists');
+  assert.ok(Number.isSafeInteger(budget.budget_ms) && budget.budget_ms > 0, 'budget is finite and explicit');
+  assert.equal(budget.spent_ms, budget.budget_ms, 'consumed budget is persisted, capped at the total');
+  const checksCalls = calls.filter((c) => c[0] === 'checks').length;
+  assert.ok(checksCalls > 0 && checksCalls < 10, 'polling was bounded by the budget, not by the fakes');
+  // replay of the SAME receipt: budget already consumed — no replenish, no
+  // reset, the receipt row stays byte-identical, and the verdict cannot
+  // flip to DONE while CI is still pending
+  const receiptBefore = ledger.getReviewReceipt(executionId);
+  const out2 = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: gh, clock: fakeClock({ advancePerReadMs: 10 * 60_000 }), pollIntervalMs: 5,
+  });
+  assert.equal(out2.state, 'BLOCKED');
+  assert.equal(out2.blocker, 'BLOCKED_CI');
+  const budget2 = ledger.reviewVerifyBudget({ executionId });
+  assert.equal(budget2.spent_ms, budget2.budget_ms, 'replay never replenishes the consumed budget');
+  assert.equal(budget2.budget_ms, budget.budget_ms, 'the total is never reset');
+  const receiptAfter = ledger.getReviewReceipt(executionId);
+  assert.equal(JSON.stringify(receiptAfter), JSON.stringify(receiptBefore), 'immutable approval receipt preserved');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F12: infrastructure failure mid-verification holds VERIFYING with the receipt preserved — a re-run resumes without a duplicate approval', async () => {
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const { dir, ledger, executionId, report } = f07Fixture({ tag: 'f12i' });
+  const ghInfra = {
+    view: () => viewJson(),
+    checks: () => { const e = new Error('network gone'); e.ghBlocker = 'GH_TRANSPORT'; throw e; },
+  };
+  const out = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghInfra, clock: fakeClock(), pollIntervalMs: 5,
+  });
+  assert.equal(out.state, 'HELD');
+  assert.equal(out.blocker, 'GH_TRANSPORT');
+  assert.equal(ledger.getExecution(executionId).state, 'VERIFYING', 'infra failure holds VERIFYING — never a terminal BLOCKED');
+  const receiptRow = ledger.getReviewReceipt(executionId);
+  assert.ok(receiptRow, 'the imported receipt survives the infrastructure failure');
+  // reconciliation re-runs the SAME receipt on a healthy adapter: resume, no
+  // second import (replay), and the verification completes
+  const ghCalls = [];
+  const out2 = await applyReviewAndVerify({
+    ledger, executionId, receipt: ownerReviewReceipt(report),
+    provenance: dotProvenance(), policy: POLICY,
+    ghImpl: ghDone(ghCalls), clock: fakeClock(), pollIntervalMs: 5,
+  });
+  assert.equal(out2.state, 'DONE');
+  assert.equal(out2.verified_now, true);
+  assert.equal(ledger.getExecution(executionId).state, 'DONE');
+  assert.equal(JSON.stringify(ledger.getReviewReceipt(executionId)), JSON.stringify(receiptRow), 'exactly one approval, byte-identical');
+  ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('R10 resume: an object-shaped result (legacy fake) is rejected -> BLOCKED_CAPTURE, no DONE', async () => {
   const { dir, ledger } = env0();
   const PR = 'https://github.com/artyhoo/getff/pull/9201';

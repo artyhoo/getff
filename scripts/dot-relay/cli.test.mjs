@@ -1572,6 +1572,49 @@ test('F07 review-import: no trusted Dot importer -> BLOCKED_DOT_APPROVAL_PROVENA
   rmSync(bin, { recursive: true, force: true });
 });
 
+// F12 (GH_PENDING_AND_BUDGET_ADAPTER), CLI surface: the correction's
+// cli.mjs:706-716 concern was review-import reaching unbounded default
+// verification. The F07 fixed-closed gate structurally closed that path —
+// this test PINS it from the adapter side: a fake gh binary IS on PATH (it
+// would happily answer), and the fixed refusal still fires before any gh
+// spawn, ledger transition, or budget path. Green-on-old by design since the
+// F07 commit; recorded as such in the status file.
+test('F12 review-import: a gh binary on PATH is never invoked — the fixed-closed refusal precedes any adapter or budget path', () => {
+  const bin = join(tmpdir(), `dot-cli-bin-f12-${randomUUID().slice(0, 6)}`);
+  mkdirSync(bin, { recursive: true });
+  symlinkSync(execFileSync('which', ['python3']).toString().trim(), join(bin, 'python3'));
+  const marker = join(bin, 'gh-invoked.marker');
+  // a fake gh that records its own invocation and answers success-shaped JSON
+  writeFileSync(join(bin, 'gh'), `#!/bin/sh\necho gh-invoked > "${marker}"\necho '[]'\nexit 0\n`);
+  chmodSync(join(bin, 'gh'), 0o755);
+  const run = (root, id, receiptPath) => spawnSync(
+    process.execPath,
+    [CLI, 'review-import', '--root', root, '--execution-id', id, '--receipt', receiptPath],
+    { encoding: 'utf8', cwd: tmpdir(), env: { ...process.env, PATH: bin } },
+  );
+  const c = requiresReviewRoot();
+  const receiptPath = join(c.root, 'reviews', 'f12.json');
+  writeFileSync(receiptPath, JSON.stringify({
+    version: 2, execution_id: c.claim.execution_id, session_id: c.sessionId,
+    solution_sha256: c.report.solution_sha256, artifact_sha256: c.report.artifact_sha256,
+    source_tree_digest: c.report.source_tree_digest, head_sha: c.report.head_sha,
+    repository: 'artyhoo/getff', pr_number: 4101, base_sha: sha40('cli-f12-base'),
+    policy: { version: 1, digest: sha256Of('cli-review-policy-v1') },
+    dot_go: true, source: { reference: `dot://reviews/${c.claim.execution_id}`, sha256: c.report.artifact_sha256 },
+    reviewer: 'dot-relay-os-owner', verdict: 'APPROVE',
+  }));
+  const r = run(c.root, c.claim.execution_id, receiptPath);
+  assert.equal(r.status, 1);
+  assert.ok(r.stdout.includes('BLOCKED_DOT_APPROVAL_PROVENANCE'), `stdout: ${r.stdout}`);
+  assert.ok(!existsSync(marker), 'the gh binary on PATH was never invoked — no adapter, no polling, no budget path');
+  const ledger = openLedger(join(c.root, 'ledger.sqlite'));
+  assert.equal(ledger.getExecution(c.claim.execution_id).state, 'REQUIRES_REVIEW');
+  assert.ok(!ledger.getReviewReceipt(c.claim.execution_id));
+  ledger.close();
+  rmSync(c.root, { recursive: true, force: true });
+  rmSync(bin, { recursive: true, force: true });
+});
+
 // ------------------------------------------- Slice E: RECOVERY-ADOPTION (reconcile-external-recovery)
 //
 // PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real deliveries": a narrow
