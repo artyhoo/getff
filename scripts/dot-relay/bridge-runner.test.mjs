@@ -476,7 +476,7 @@ test('bridge-source: missing flag exits 2; symlinked body refused before any com
 
 // ---------------------------------------------------------------- cycles
 
-test('idle cycle: status+tick+plan, ONE wait_threads with role targets, zero sends, IDLE, emit once', async () => {
+test('idle cycle: status+tick+plan, ONE wait_threads with role targets, zero sends, IDLE, emit once', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const { tools, calls } = makeTools({ polls: [] });
   const { result, emitted } = await runBody(root, tools);
@@ -524,7 +524,7 @@ test('RECOVERY-ADOPTION: recovery_import_pending short-circuits the cycle before
   rmSync(root, { recursive: true, force: true });
 });
 
-test('full small cycle: locator via content-wrapped wait -> source-put + index-import --cursor -> artifact spool -> send -> receipt; afterCursor on cycle 2', async () => {
+test('full small cycle: locator via content-wrapped wait -> source-put + index-import --cursor -> artifact spool -> send -> receipt; afterCursor on cycle 2', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SC1');
   const polls = [pollFor('collector', 'cur-sc1-9', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -581,7 +581,7 @@ test('full small cycle: locator via content-wrapped wait -> source-put + index-i
   rmSync(root, { recursive: true, force: true });
 });
 
-test('big cycle: 2-page chain + 351KiB multipart artifact (multibyte chunks) via real CLI; resume needs no re-fetch', async () => {
+test('big cycle: 2-page chain + 351KiB multipart artifact (multibyte chunks) via real CLI; resume needs no re-fetch', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = bigCase();
   const polls = [pollFor('collector', 'cur-big-4', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -604,7 +604,7 @@ test('big cycle: 2-page chain + 351KiB multipart artifact (multibyte chunks) via
   rmSync(root, { recursive: true, force: true });
 });
 
-test('WAIT_PROTOCOL: completed final_answer without the strict prefix is a fixed blocker, nothing imported', async () => {
+test('WAIT_PROTOCOL: completed final_answer without the strict prefix is a fixed blocker, nothing imported', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const polls = [pollFor('collector', 'cur-wp-1', 'All looks fine, nothing to relay this window.')];
   const { tools, calls } = makeTools({ polls });
@@ -617,7 +617,7 @@ test('WAIT_PROTOCOL: completed final_answer without the strict prefix is a fixed
   rmSync(root, { recursive: true, force: true });
 });
 
-test('locator schema violations: legacy cursor_token field and wrong producer are rejected (no import)', async () => {
+test('locator schema violations: legacy cursor_token field and wrong producer are rejected (no import)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCX');
   // OLD locator shape carrying cursor_token — the trusted cursor must NEVER
@@ -643,7 +643,7 @@ test('locator schema violations: legacy cursor_token field and wrong producer ar
   rmSync(root, { recursive: true, force: true });
 });
 
-test('chatter ignored: non-final phases and uncompleted turns never become locators', async () => {
+test('chatter ignored: non-final phases and uncompleted turns never become locators', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCC');
   const line = locatorLine({ generation: c.generation, index: c.locatorIndex });
@@ -662,7 +662,7 @@ test('chatter ignored: non-final phases and uncompleted turns never become locat
   rmSync(root, { recursive: true, force: true });
 });
 
-test('malformed wait wrapper: isError or extra content blocks -> fixed blocker, no crash, no leak', async () => {
+test('malformed wait wrapper: isError or extra content blocks -> fixed blocker, no crash, no leak', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCW');
   const line = locatorLine({ generation: c.generation, index: c.locatorIndex });
@@ -694,7 +694,7 @@ test('malformed wait wrapper: isError or extra content blocks -> fixed blocker, 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('SEND_UNCERTAIN: unknown send error -> uncertain receipt, never retried, no error-text matching, no inline packet', async () => {
+test('SEND_UNCERTAIN: unknown send error -> uncertain receipt, never retried, no error-text matching, no inline packet', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCU');
   const polls = [pollFor('collector', 'cur-su-2', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -716,7 +716,7 @@ test('SEND_UNCERTAIN: unknown send error -> uncertain receipt, never retried, no
   rmSync(root, { recursive: true, force: true });
 });
 
-test('send result threadId mismatch -> SEND_UNCERTAIN (decoded destination is authoritative)', async () => {
+test('send result threadId mismatch -> SEND_UNCERTAIN (decoded destination is authoritative)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCM');
   const polls = [pollFor('collector', 'cur-sm-3', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -727,7 +727,7 @@ test('send result threadId mismatch -> SEND_UNCERTAIN (decoded destination is au
   rmSync(root, { recursive: true, force: true });
 });
 
-test('budget continuation: index_page_limit stops mid-chain; next cycle resumes from plan.index_continuations without re-reading page 0', async () => {
+test('budget continuation: index_page_limit stops mid-chain; next cycle resumes from plan.index_continuations without re-reading page 0', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = bigCase();
   const polls = [pollFor('collector', 'cur-bc-7', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -757,7 +757,7 @@ test('budget continuation: index_page_limit stops mid-chain; next cycle resumes 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('foreign delivery claim wins the race -> DELIVERY_STATE handled, no duplicate send', async () => {
+test('foreign delivery claim wins the race -> DELIVERY_STATE handled, no duplicate send', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('SCR');
   const polls = [pollFor('collector', 'cur-rc-5', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -772,7 +772,7 @@ test('foreign delivery claim wins the race -> DELIVERY_STATE handled, no duplica
   rmSync(root, { recursive: true, force: true });
 });
 
-test('crash-restart: partial multipart spool resumed by a later cycle with exact part/whole hashes', async () => {
+test('crash-restart: partial multipart spool resumed by a later cycle with exact part/whole hashes', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = bigCase();
   // simulate a crashed uploader: manifest imported, spool begun, part 0 done
@@ -902,7 +902,7 @@ function f09StatePath(root, uploadId) {
   return join(root, 'spool', `${uploadId}.state.json`);
 }
 
-test('F09 crash-restart: partial implicit ASCII upload resumes from the verified offset — suffix only, exactly once, one identity', async () => {
+test('F09 crash-restart: partial implicit ASCII upload resumes from the verified offset — suffix only, exactly once, one identity', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = implicitCase('F09A');
   const chunks = f09Chunks(c.text);
@@ -938,7 +938,7 @@ test('F09 crash-restart: partial implicit ASCII upload resumes from the verified
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F09 crash-restart: partial implicit MULTIBYTE upload resumes codepoint-safely from a non-chunk-boundary offset', async () => {
+test('F09 crash-restart: partial implicit MULTIBYTE upload resumes codepoint-safely from a non-chunk-boundary offset', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = implicitCase('F09B', { multibyte: true });
   // an offset that is neither a chunk edge nor char-index aligned — the
@@ -967,7 +967,7 @@ test('F09 crash-restart: partial implicit MULTIBYTE upload resumes codepoint-saf
 // finish through idempotent spool-finish — ZERO source refetch, ZERO new
 // append, never a second upload. The INGESTED-before-reap window (durable
 // ingest proof present) must be offered to NOTHING.
-test('F09 crash windows: part-commit / PUBLISHING / PUBLISHED finish without source reappend; INGESTED-before-reap is not re-offered', async () => {
+test('F09 crash windows: part-commit / PUBLISHING / PUBLISHED finish without source reappend; INGESTED-before-reap is not re-offered', { skip: process.platform !== 'darwin' }, async () => {
   for (const window of ['part-commit', 'PUBLISHING', 'PUBLISHED', 'INGESTED']) {
     const root = freshRoot();
     const c = implicitCase('F09W');
@@ -1025,7 +1025,7 @@ test('F09 crash windows: part-commit / PUBLISHING / PUBLISHED finish without sou
 // Fail-closed arm: a torn byte offset, a drifted source, and a contradictory
 // commit image each hold with the ORIGINAL state retained — and the manifest
 // is never re-begun behind the held upload (one upload identity).
-test('F09 holds: torn offset / drifted source / contradictory commit fail closed with the state retained, never a second upload', async () => {
+test('F09 holds: torn offset / drifted source / contradictory commit fail closed with the state retained, never a second upload', { skip: process.platform !== 'darwin' }, async () => {
   // arm 1 — torn multibyte write at the appended offset
   {
     const root = freshRoot();
@@ -1129,7 +1129,7 @@ function fallbackCase(tag) {
   };
 }
 
-test('Page fallback: library-file locator resolves via read_page search, verify, import; cursor preserved', async () => {
+test('Page fallback: library-file locator resolves via read_page search, verify, import; cursor preserved', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = fallbackCase('F1');
   const polls = [pollFor('collector', 'cur-fb-1', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1152,7 +1152,7 @@ test('Page fallback: library-file locator resolves via read_page search, verify,
   rmSync(root, { recursive: true, force: true });
 });
 
-test('Page fallback ambiguity: five candidate links -> INDEX_REF_AMBIGUOUS, nothing imported, cursor held', async () => {
+test('Page fallback ambiguity: five candidate links -> INDEX_REF_AMBIGUOUS, nothing imported, cursor held', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = fallbackCase('F2');
   const links = Array.from({ length: 5 }, (_, i) => `[${c.generation}.json](library-file:/sources/${c.generation}-${i}.json)`).join('\n');
@@ -1167,7 +1167,7 @@ test('Page fallback ambiguity: five candidate links -> INDEX_REF_AMBIGUOUS, noth
   rmSync(root, { recursive: true, force: true });
 });
 
-test('Page fallback unresolved: links whose bytes do not match the descriptor -> INDEX_REF_UNRESOLVED', async () => {
+test('Page fallback unresolved: links whose bytes do not match the descriptor -> INDEX_REF_UNRESOLVED', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = fallbackCase('F3');
   const badTarget = `library-file:/sources/${c.generation}-stale.json`;
@@ -1183,7 +1183,7 @@ test('Page fallback unresolved: links whose bytes do not match the descriptor ->
   rmSync(root, { recursive: true, force: true });
 });
 
-test('Page fallback gated: registry mismatch never triggers read_page for a foreign role page', async () => {
+test('Page fallback gated: registry mismatch never triggers read_page for a foreign role page', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   // analyst locator pointing at the COLLECTOR registry page -> not its own
   const c = smallCase('F4A', 'ANALYST-INDEX-F4A');
@@ -1204,7 +1204,7 @@ test('Page fallback gated: registry mismatch never triggers read_page for a fore
   rmSync(root, { recursive: true, force: true });
 });
 
-test('Page fallback cross-scheme: a library-file type-label resolves via a project-file:/ link target (PAGE-FALLBACK)', async () => {
+test('Page fallback cross-scheme: a library-file type-label resolves via a project-file:/ link target (PAGE-FALLBACK)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F5', 'COLLECTOR-INDEX-FB-F5');
   const target = `project-file:/x/${c.generation}.json`;
@@ -1225,7 +1225,7 @@ test('Page fallback cross-scheme: a library-file type-label resolves via a proje
   rmSync(root, { recursive: true, force: true });
 });
 
-test('arbitrary non-scheme references are refused with ZERO fetches of any kind (PAGE-FALLBACK)', async () => {
+test('arbitrary non-scheme references are refused with ZERO fetches of any kind (PAGE-FALLBACK)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F6', 'COLLECTOR-INDEX-FB-F6');
   const idx = { ...c.locatorIndex, reference: 'http://evil.example/x' };
@@ -1242,7 +1242,7 @@ test('arbitrary non-scheme references are refused with ZERO fetches of any kind 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('Page fallback bounds: >16 blocks, oversize markdown, incomplete selection fail lookup; agent_instructions never a candidate (PAGE-FALLBACK)', async () => {
+test('Page fallback bounds: >16 blocks, oversize markdown, incomplete selection fail lookup; agent_instructions never a candidate (PAGE-FALLBACK)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F7', 'COLLECTOR-INDEX-FB-F7');
   const idx = { ...c.locatorIndex, reference: 'library-file', page_id: PAGE_REG.collector };
@@ -1285,7 +1285,7 @@ test('Page fallback bounds: >16 blocks, oversize markdown, incomplete selection 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('locator resolution cache: cycle 1 resolves+durably caches but publishing fails; cycle 2 needs ZERO read_page and completes (PAGE-FALLBACK)', async () => {
+test('locator resolution cache: cycle 1 resolves+durably caches but publishing fails; cycle 2 needs ZERO read_page and completes (PAGE-FALLBACK)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F8', 'COLLECTOR-INDEX-FB-F8');
   const target = `library-file:/sources/${c.generation}.json`;
@@ -1331,7 +1331,7 @@ test('locator resolution cache: cycle 1 resolves+durably caches but publishing f
 // are the ONLY accepted forms — degenerate refs, wrong pages and explicit
 // denials stay blocked, and a denial never authorizes an inline fallback.
 
-test('F04: real opaque library-file:fde1_... reference resolves on the fast path with exact hash/size', async () => {
+test('F04: real opaque library-file:fde1_... reference resolves on the fast path with exact hash/size', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F04A', 'COLLECTOR-INDEX-F04A');
   const opaque = `library-file:fde1_${c.generation}`;
@@ -1353,7 +1353,7 @@ test('F04: real opaque library-file:fde1_... reference resolves on the fast path
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F04: real opaque project-file target resolves identically (either scheme, slash never required)', async () => {
+test('F04: real opaque project-file target resolves identically (either scheme, slash never required)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F04B', 'COLLECTOR-INDEX-F04B');
   const opaque = `project-file:fde1_${c.generation}`;
@@ -1372,7 +1372,7 @@ test('F04: real opaque project-file target resolves identically (either scheme, 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F04: real nested read_page shape resolves the bare label with exact hash/size', async () => {
+test('F04: real nested read_page shape resolves the bare label with exact hash/size', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F04C', 'COLLECTOR-INDEX-F04C');
   const target = `library-file:fde1_${c.generation}`;
@@ -1403,7 +1403,7 @@ test('F04: real nested read_page shape resolves the bare label with exact hash/s
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F04: analyst fallback requests the exact authorized Page ID (registry-corrected)', async () => {
+test('F04: analyst fallback requests the exact authorized Page ID (registry-corrected)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const generation = 'ANALYST-INDEX-F04D';
   const page0 = { version: 1, producer: CHAT_IDS.analyst, generation, page_number: 0, items: [], next: null };
@@ -1425,7 +1425,7 @@ test('F04: analyst fallback requests the exact authorized Page ID (registry-corr
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F04: empty payload, wrong Page, incomplete selection, ambiguity, wrong hash/size and explicit denials stay blocked', async () => {
+test('F04: empty payload, wrong Page, incomplete selection, ambiguity, wrong hash/size and explicit denials stay blocked', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const cursorHeld = () => cliJson(['plan', '--root', root]).committed_cursors;
   const published = () => readdirSync(join(root, 'sources')).filter((f) => f.endsWith('.json'));
@@ -1547,7 +1547,7 @@ test('F04: empty payload, wrong Page, incomplete selection, ambiguity, wrong has
 // sha256/byte_size where possible (echoing the descriptor) so the only reject
 // reason left is the shape itself — the old body sailed past these into a later
 // CLI hash failure instead.
-test('readRef rejects every malformed source shape with fixed codes; nothing published, cursor held (R02)', async () => {
+test('readRef rejects every malformed source shape with fixed codes; nothing published, cursor held (R02)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const lone = '\uD800xx'; // 1 lone high surrogate + 'xx' (Node counts 5 replacement bytes)
   const variants = [
@@ -1693,7 +1693,7 @@ function sizedCase(tag, targetBytes) {
   };
 }
 
-test('identical replay of a published source: source-status short-circuits, ZERO appends/refetches (R03)', async () => {
+test('identical replay of a published source: source-status short-circuits, ZERO appends/refetches (R03)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('R3A');
   const polls1 = [pollFor('collector', 'cur-r3a-1', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1714,7 +1714,7 @@ test('identical replay of a published source: source-status short-circuits, ZERO
   rmSync(root, { recursive: true, force: true });
 });
 
-test('restart after two committed chunks: ORIGINAL logical offsets replay, exact source published (R03)', async () => {
+test('restart after two committed chunks: ORIGINAL logical offsets replay, exact source published (R03)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = sizedCase('R3B', 24100); // exactly 3 chunks: 12000 / 12000 / 100
   const id = `ix-collector-${c.locatorIndex.sha256.slice(0, 24)}`;
@@ -1770,7 +1770,7 @@ function emptyPageCase(role, tag) {
   };
 }
 
-test('BC1: per-call page-budget delta — three 1-page locators at limit 3 ALL import in one cycle (BOUNDED-CYCLE)', async () => {
+test('BC1: per-call page-budget delta — three 1-page locators at limit 3 ALL import in one cycle (BOUNDED-CYCLE)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const cases = ['collector', 'analyst', 'solver'].map((role) => emptyPageCase(role, 'BC1'));
   const pages = Object.assign({}, ...cases.map((c) => c.pages));
@@ -1788,7 +1788,7 @@ test('BC1: per-call page-budget delta — three 1-page locators at limit 3 ALL i
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC1b: page_limit 1 — first role imports with continuation, second role imports next cycle (no starvation)', async () => {
+test('BC1b: page_limit 1 — first role imports with continuation, second role imports next cycle (no starvation)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const a = emptyPageCase('collector', 'BC1B');
   const b = emptyPageCase('analyst', 'BC1B');
@@ -1815,7 +1815,7 @@ test('BC1b: page_limit 1 — first role imports with continuation, second role i
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC2: many pending receipts SHARE the event_limit send cap with deliveries; the rest defer with continuation (BOUNDED-CYCLE)', async () => {
+test('BC2: many pending receipts SHARE the event_limit send cap with deliveries; the rest defer with continuation (BOUNDED-CYCLE)', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   // one PENDING delivery: manifest registered + artifact spooled + ingested
   const text = batchEnvelopeText('BC2');
@@ -1852,7 +1852,7 @@ test('BC2: many pending receipts SHARE the event_limit send cap with deliveries;
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC3: injected wall clock — past the 40s data cutoff admits NO new data work; cleanup still runs; clean bounded stop', async () => {
+test('BC3: injected wall clock — past the 40s data cutoff admits NO new data work; cleanup still runs; clean bounded stop', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('BCW');
   const polls = [pollFor('collector', 'cur-bcw', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1877,7 +1877,7 @@ test('BC3: injected wall clock — past the 40s data cutoff admits NO new data w
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC3b: mid-chain cutoff persists the continuation; the next cycle resumes WITHOUT re-reading page 0', async () => {
+test('BC3b: mid-chain cutoff persists the continuation; the next cycle resumes WITHOUT re-reading page 0', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = bigCase();
   const polls = [pollFor('collector', 'cur-bcw2', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1911,7 +1911,7 @@ test('BC3b: mid-chain cutoff persists the continuation; the next cycle resumes W
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC4: read_page_reference slower than the remaining budget -> CYCLE_TOOL_TIMEOUT, cursor held, nothing imported', async () => {
+test('BC4: read_page_reference slower than the remaining budget -> CYCLE_TOOL_TIMEOUT, cursor held, nothing imported', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('BCT');
   const polls = [pollFor('collector', 'cur-bct', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1935,7 +1935,7 @@ test('BC4: read_page_reference slower than the remaining budget -> CYCLE_TOOL_TI
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC4b: send slower than the remaining budget times out to UNCERTAIN claim-first — one attempt each, never resent', async () => {
+test('BC4b: send slower than the remaining budget times out to UNCERTAIN claim-first — one attempt each, never resent', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('BCS');
   const polls = [pollFor('collector', 'cur-bcs', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -1959,7 +1959,7 @@ test('BC4b: send slower than the remaining budget times out to UNCERTAIN claim-f
   rmSync(root, { recursive: true, force: true });
 });
 
-test('BC4c: hung source-put CLI exceeds the budget -> CYCLE_CLI_TIMEOUT; one invocation, no fabricated success; next cycle replays exactly', async () => {
+test('BC4c: hung source-put CLI exceeds the budget -> CYCLE_CLI_TIMEOUT; one invocation, no fabricated success; next cycle replays exactly', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('BCC');
   const polls = [pollFor('collector', 'cur-bcc', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -2062,7 +2062,7 @@ test('F08: an explicitly broken trusted clock is refused — never a silent Date
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F08: an expired deadline refuses the next tool call BEFORE it starts — zero new invocations, deadline code preserved', async () => {
+test('F08: an expired deadline refuses the next tool call BEFORE it starts — zero new invocations, deadline code preserved', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F08D');
   const polls = [pollFor('collector', 'cur-f08d', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -2086,7 +2086,7 @@ test('F08: an expired deadline refuses the next tool call BEFORE it starts — z
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F08: a mutation settling long after its timeout and a completed next cycle is a fenced no-op — one effect, one identity, no duplicate send', async () => {
+test('F08: a mutation settling long after its timeout and a completed next cycle is a fenced no-op — one effect, one identity, no duplicate send', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F08L');
   const polls = [pollFor('collector', 'cur-f08l', locatorLine({ generation: c.generation, index: c.locatorIndex }))];
@@ -2143,7 +2143,7 @@ test('F08: a mutation settling long after its timeout and a completed next cycle
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F08: the send deadline reserves settlement time — a timed-out send settles its UNCERTAIN receipt INSIDE the reserve; never resent; no semantic payload', async () => {
+test('F08: the send deadline reserves settlement time — a timed-out send settles its UNCERTAIN receipt INSIDE the reserve; never resent; no semantic payload', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const c = smallCase('F08S');
   const polls = [pollFor('collector', 'cur-f08s', locatorLine({ generation: c.generation, index: c.locatorIndex }))];

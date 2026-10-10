@@ -2293,6 +2293,15 @@ test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never l
   const cliText = readFileSync(fileURLToPath(new URL('./cli.test.mjs', import.meta.url)), 'utf8');
   const cliGated = (cliText.match(/skip: process\.platform !== 'darwin'/g) ?? []).length;
   assert.ok(cliGated >= 14, `the Darwin host-surface CLI arms must stay skip-gated for the Linux CI matrix (found ${cliGated})`);
+  // The bridge cycle arms drive the REAL cli.mjs tick/reconcile over temp
+  // roots (freshRoot -> cli init; exec_command -> tick/status/source-put),
+  // i.e. the same Darwin host surface (boot-id sysctl at cli.mjs:321). The
+  // first Linux run that reached them (run 38052887138 — every earlier run
+  // aborted at the cli file before bridge-runner ever executed) showed 43/53
+  // arms collapsing to BLOCKED, so they must stay gated like the CLI arms.
+  const bridgeText = readFileSync(fileURLToPath(new URL('./bridge-runner.test.mjs', import.meta.url)), 'utf8');
+  const bridgeGated = (bridgeText.match(/skip: process\.platform !== 'darwin'/g) ?? []).length;
+  assert.ok(bridgeGated >= 43, `the Darwin host-surface bridge cycle arms must stay skip-gated for the Linux CI matrix (found ${bridgeGated})`);
   // the operations doc must state the distinction: a Linux CI run is the
   // portable offline matrix, never host E2E / calendar-timer acceptance
   assert.ok(DOC_TEXT.includes('dot-relay-suites'), 'the operations doc must name the relay CI job');
