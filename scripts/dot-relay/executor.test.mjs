@@ -380,7 +380,7 @@ function env0() {
   const dir = mkdtempSync(join(tmpdir(), 'dot-exec-'));
   mkdirSync(join(dir, 'worker'), { recursive: true });
   mkdirSync(join(dir, 'objects'), { recursive: true });
-  const ledger = openLedger(join(dir, 'ledger.sqlite'), { now });
+  const ledger = openLedger(join(dir, 'ledger.sqlite'), { now, create: true });
   return { dir, ledger };
 }
 

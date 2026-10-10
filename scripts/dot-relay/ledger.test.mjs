@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync, symlinkSync, statSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -23,7 +23,9 @@ const now = () => nowMs;
 function freshLedger(opts = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
   const path = join(dir, 'ledger.sqlite');
-  const ledger = openLedger(path, { now, ...opts });
+  // F19: fixture seeding uses the explicit init-authority mode; production
+  // reopens stay non-creating by default.
+  const ledger = openLedger(path, { now, create: true, ...opts });
   return { ledger, path, dir };
 }
 
@@ -2772,5 +2774,126 @@ test('F06: adoption bookkeeping never mutates attempts_admitted and never create
   db.close();
   assert.equal(n, 1, 'no attempt row was ever created by monitoring');
   ledger.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- F19: non-creating opens
+
+// F19 (MISSING_LEDGER_SILENT_REINITIALIZATION, BLOCKER): init is the ONLY
+// creation authority. Every non-init open is non-creating by default — the
+// adapter boundary itself (SQLite URI mode=rw, not a precheck followed by a
+// create-capable open) must refuse to create the file, and absent/zero-byte/
+// uninitialized/unqualified images are LEDGER_RECOVERY_REQUIRED with zero new
+// DB/WAL/SHM bytes on disk and no reseed.
+test('F19: non-creating open of an absent database fails LEDGER_RECOVERY_REQUIRED and creates nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  let err;
+  try { openLedger(path, { now }); } catch (e) { err = e; }
+  assert.ok(err, 'refuses');
+  assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+  assert.deepEqual(readdirSync(dir), [], 'no DB/WAL/SHM file was created');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: zero-byte ledger image fails LEDGER_RECOVERY_REQUIRED, file left untouched, no WAL/SHM', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  writeFileSync(path, '');
+  let err;
+  try { openLedger(path, { now }); } catch (e) { err = e; }
+  assert.ok(err, 'refuses');
+  assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+  assert.equal(statSync(path).size, 0, 'the zero-byte file itself is untouched');
+  assert.deepEqual(readdirSync(dir).sort(), ['ledger.sqlite'], 'no WAL/SHM side files were created');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: a valid but uninitialized SQLite image (user_version 0, no schema) is never silently seeded', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  const db = new DatabaseSync(path);
+  db.exec('PRAGMA user_version = 0;'); // forces a real header page: a genuine SQLite file with no schema
+  db.close();
+  let err;
+  try { openLedger(path, { now }); } catch (e) { err = e; }
+  assert.ok(err, 'refuses');
+  assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+  // nothing was seeded: reopen raw and confirm the events table still does not exist
+  const raw = new DatabaseSync(path);
+  const tables = raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='events'").all();
+  raw.close();
+  assert.equal(tables.length, 0, 'no schema was silently created');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: non-database bytes at the ledger path fail LEDGER_RECOVERY_REQUIRED', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  writeFileSync(path, 'this is not a sqlite database at all, just prose bytes');
+  let err;
+  try { openLedger(path, { now }); } catch (e) { err = e; }
+  assert.ok(err, 'refuses');
+  assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: a directory at the ledger path fails LEDGER_RECOVERY_REQUIRED', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  mkdirSync(path);
+  let err;
+  try { openLedger(path, { now }); } catch (e) { err = e; }
+  assert.ok(err, 'refuses');
+  assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: a symlink to an initialized ledger fails LEDGER_RECOVERY_REQUIRED (regular-file identity required)', () => {
+  const real = freshLedger();
+  try {
+    real.ledger.close();
+    const linkDir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+    const linkPath = join(linkDir, 'ledger.sqlite');
+    symlinkSync(real.path, linkPath);
+    let err;
+    try { openLedger(linkPath, { now }); } catch (e) { err = e; }
+    assert.ok(err, 'refuses');
+    assert.equal(err.code, 'LEDGER_RECOVERY_REQUIRED');
+    rmSync(linkDir, { recursive: true, force: true });
+  } finally {
+    rmSync(real.dir, { recursive: true, force: true });
+  }
+});
+
+test('F19: explicit create:true remains the seeding path (init-only authority) and the seed image is exact', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dot-ledger-'));
+  const path = join(dir, 'ledger.sqlite');
+  const ledger = openLedger(path, { now, create: true });
+  const st = ledger.status();
+  assert.ok(st);
+  ledger.close();
+  assert.ok(existsSync(path), 'create:true produced the database');
+  // seed identity in the raw file: the reserved intake seed is present exactly once
+  const raw = new DatabaseSync(path);
+  const seeds = raw.prepare("SELECT id, sha256, state FROM events WHERE id = 'DOT-INTAKE-20261008-01'").all();
+  raw.close();
+  assert.equal(seeds.length, 1);
+  assert.equal(seeds[0].sha256, null);
+  assert.equal(seeds[0].state, 'ACCEPTED_CONSUMPTION_UNKNOWN');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F19: non-creating reopen of an initialized ledger preserves history (no reseed, seeds still exact)', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const reopened = openLedger(path, { now });
+  const st = reopened.status();
+  assert.ok(st);
+  reopened.close();
+  const raw = new DatabaseSync(path);
+  const n = raw.prepare("SELECT COUNT(*) AS n FROM events WHERE id = 'DOT-INTAKE-20261008-01'").get().n;
+  raw.close();
+  assert.equal(n, 1, 'the reserved intake seed exists exactly once after reopen');
   rmSync(dir, { recursive: true, force: true });
 });

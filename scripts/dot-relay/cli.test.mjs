@@ -10,7 +10,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
   existsSync, symlinkSync, readlinkSync, statSync, openSync, writeSync, closeSync,
-  chmodSync, appendFileSync, renameSync,
+  chmodSync, appendFileSync, renameSync, readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -2307,4 +2307,76 @@ test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never l
   assert.ok(DOC_TEXT.includes('dot-relay-suites'), 'the operations doc must name the relay CI job');
   assert.ok(/dot-relay-suites[\s\S]{0,200}portable offline matrix/.test(DOC_TEXT), 'the operations doc must label the relay CI job as the portable offline matrix');
   assert.ok(/never[^.]*host E2E/.test(DOC_TEXT.slice(DOC_TEXT.indexOf('dot-relay-suites'))), 'the operations doc must state the CI job is never host E2E/calendar acceptance');
+});
+
+// ---------------------------------------------------------------- F19: ledger recovery (CLI surface)
+
+// F19 (senior reproduction): an initialized root whose ledger.sqlite was
+// renamed away (config.json + OFF.json retained) used to make `status` exit 0
+// on a silently re-created fresh ledger with off:false. Every non-init
+// command must instead fail closed with LEDGER_RECOVERY_REQUIRED, recreating
+// zero DB/WAL/SHM files, leaving config/OFF untouched — and re-running init
+// on the partly initialized root must refuse rather than reseed.
+test('F19: renamed ledger with retained config/OFF — all non-init commands fail LEDGER_RECOVERY_REQUIRED, zero recreated files', () => {
+  const root = freshRoot();
+  const off = cliJson(['off', '--root', root, '--reason', 'operator stop for F19 test']);
+  assert.equal(off.ok, true);
+  assert.ok(existsSync(join(root, 'OFF.json')));
+  const offBytes = readFileSync(join(root, 'OFF.json'), 'utf8');
+  renameSync(join(root, 'ledger.sqlite'), join(root, 'ledger.sqlite.moved'));
+  const before = readdirSync(root).sort();
+  for (const argv of [
+    ['status'],
+    ['tick'],
+    ['plan'],
+    ['delivery-claim', '--id', 'whatever'],
+    ['supervise', '--execution-id', 'DOT-EXEC-NONE'],
+    ['off', '--reason', 'second stop attempt under a missing ledger'],
+    ['resume', '--actor', 'operator'],
+  ]) {
+    const r = cli([argv[0], '--root', root, ...argv.slice(1)], { expectFail: true });
+    const out = JSON.parse(r.stdout);
+    assert.equal(r.status, 1, `${argv[0]} exits nonzero`);
+    assert.equal(out.ok, false, `${argv[0]} reports failure`);
+    assert.equal(out.code, 'LEDGER_RECOVERY_REQUIRED', `${argv[0]} carries the recovery code`);
+  }
+  assert.deepEqual(readdirSync(root).sort(), before, 'no ledger.sqlite / -wal / -shm was recreated');
+  assert.equal(readFileSync(join(root, 'OFF.json'), 'utf8'), offBytes, 'OFF.json untouched');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F19: init re-run on a partly initialized root (config retained, ledger missing) refuses without reseeding', () => {
+  const root = freshRoot();
+  renameSync(join(root, 'ledger.sqlite'), join(root, 'ledger.sqlite.moved'));
+  const r = cli(['init', '--root', root], { expectFail: true });
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.ok, false);
+  assert.equal(out.code, 'LEDGER_RECOVERY_REQUIRED');
+  assert.ok(!existsSync(join(root, 'ledger.sqlite')), 'init did not reseed a fresh ledger');
+  assert.ok(!existsSync(join(root, 'ledger.sqlite-wal')), 'no WAL file either');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F19: init on a genuinely new root still creates; intact-root init stays idempotent', () => {
+  const root = join(tmpdir(), `dot-cli-f19-${randomUUID().slice(0, 6)}`);
+  const r1 = cliJson(['init', '--root', root]);
+  assert.equal(r1.ok, true);
+  assert.ok(existsSync(join(root, 'ledger.sqlite')));
+  const r2 = cliJson(['init', '--root', root]);
+  assert.equal(r2.ok, true); // intact root: idempotent reopen, no reseed
+  const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
+  const n = raw.prepare("SELECT COUNT(*) AS n FROM events WHERE id = 'DOT-INTAKE-20261008-01'").get().n;
+  raw.close();
+  assert.equal(n, 1, 'exactly one intake seed after two inits');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F19: zero-byte ledger at the CLI surface — status fails LEDGER_RECOVERY_REQUIRED without healing the file', () => {
+  const root = freshRoot();
+  writeFileSync(join(root, 'ledger.sqlite'), '');
+  const r = cli(['status', '--root', root], { expectFail: true });
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.code, 'LEDGER_RECOVERY_REQUIRED');
+  assert.equal(statSync(join(root, 'ledger.sqlite')).size, 0, 'file still zero bytes');
+  rmSync(root, { recursive: true, force: true });
 });

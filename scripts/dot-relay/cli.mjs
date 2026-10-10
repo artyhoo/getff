@@ -363,7 +363,19 @@ function cmdInit({ root, flags }) {
     source_sha: '35738554faf029e9fe3b8b4c25bfdde242f65c66',
   };
   const cfgPath = join(root, 'config.json');
-  if (existsSync(cfgPath)) {
+  // F19: init is the ONLY creation authority — and only for a GENUINELY new
+  // root. A root carrying exactly one of config.json/ledger.sqlite is partly
+  // initialized; re-running init there must refuse (LEDGER_RECOVERY_REQUIRED)
+  // rather than reseed a fresh ledger over lost history.
+  const ledgerPath = join(root, 'ledger.sqlite');
+  const configExisted = existsSync(cfgPath);
+  const ledgerExisted = existsSync(ledgerPath);
+  if (configExisted !== ledgerExisted) {
+    fail('LEDGER_RECOVERY_REQUIRED', configExisted
+      ? { reason: 'config.json present but ledger.sqlite missing — partly initialized root; init refuses to reseed' }
+      : { reason: 'ledger.sqlite present but config.json missing — partly initialized root' });
+  }
+  if (configExisted) {
     let existing;
     try {
       existing = JSON.parse(readFileSync(cfgPath, 'utf8'));
@@ -374,7 +386,7 @@ function cmdInit({ root, flags }) {
   } else {
     atomicWrite(cfgPath, `${JSON.stringify(cfg)}\n`);
   }
-  const ledger = openLedger(join(root, 'ledger.sqlite'));
+  const ledger = openLedger(ledgerPath, { create: true });
   // RECOVERY-ADOPTION: opt-in flag for a root created to reconcile externally
   // delivered work — automatic admission stays closed until
   // reconcile-external-recovery commits. Ordinary roots are unaffected.

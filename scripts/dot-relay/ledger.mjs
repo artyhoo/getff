@@ -12,7 +12,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync, renameSync } from 'node:fs';
+import { mkdirSync, writeFileSync, renameSync, lstatSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { sha256Hex } from '../dot-review-gate/digest.mjs';
 import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution, probeOutcome } from './contract.mjs';
@@ -444,19 +444,82 @@ function repairV0CrashImage(db) {
   }
 }
 
+// F19 (MISSING_LEDGER_SILENT_REINITIALIZATION): init is the ONLY creation
+// authority. Every non-init open proves a writable no-create boundary at the
+// adapter itself — the SQLite URI `mode=rw` fails the OPEN on a missing file
+// instead of creating one (probed on the installed node:sqlite; this is NOT
+// a precheck followed by a create-capable DatabaseSync). Unqualified images —
+// absent / zero-byte / version-0-without-schema / non-database bytes /
+// symlink / directory / replaced mid-open — are LEDGER_RECOVERY_REQUIRED
+// with zero new DB/WAL/SHM bytes and no reseed. Root binding is structural:
+// the ledger must exist AT this root's path as a regular non-symlink
+// initialized file; identity-level cross-root copy detection would need a
+// config/ledger identity pair the existing config idempotence contract
+// (frozen config.json shape) does not carry.
+function noCreateUri(path) {
+  return `file:${path.split('/').map(encodeURIComponent).join('/')}?mode=rw`;
+}
+
+function openExistingNoCreate(path) {
+  let st;
+  try {
+    st = lstatSync(path);
+  } catch {
+    throw ledgerError('LEDGER_RECOVERY_REQUIRED', 'ledger database is absent; only init may create it');
+  }
+  if (st.isSymbolicLink()) throw ledgerError('LEDGER_RECOVERY_REQUIRED', 'ledger path is a symlink, not the root\'s own regular file');
+  if (!st.isFile()) throw ledgerError('LEDGER_RECOVERY_REQUIRED', 'ledger path is not a regular file');
+  try {
+    return { db: new DatabaseSync(noCreateUri(path)), st };
+  } catch (err) {
+    throw ledgerError('LEDGER_RECOVERY_REQUIRED', `ledger database cannot be opened without creating (${err?.message ?? err})`);
+  }
+}
+
 export function openLedger(path, {
   now = () => Date.now(), faultAfter = null, resumeReserved = null,
   nextLocalSlotAfter = defaultNextLocalSlotAfter, // R06: injectable local-slot resolver
+  create = false, // F19: ONLY init (and tests seeding fixtures) passes true
 } = {}) {
-  const db = new DatabaseSync(path);
-  // busy_timeout FIRST: the WAL-mode pragma below can contend on concurrent
-  // first opens (SHM creation/recovery) — every lock wait must be bounded and
-  // retried, or the CLI process crashes with empty stdout (observed flake).
-  db.exec('PRAGMA busy_timeout = 5000;');
-  execWithBusyRetry(db, 'PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA foreign_keys = ON;');
+  let db;
+  let identity = null;
+  if (create) {
+    db = new DatabaseSync(path);
+    // busy_timeout FIRST: the WAL-mode pragma below can contend on concurrent
+    // first opens (SHM creation/recovery) — every lock wait must be bounded and
+    // retried, or the CLI process crashes with empty stdout (observed flake).
+    db.exec('PRAGMA busy_timeout = 5000;');
+    execWithBusyRetry(db, 'PRAGMA journal_mode = WAL;');
+    db.exec('PRAGMA foreign_keys = ON;');
+  } else {
+    ({ db, st: identity } = openExistingNoCreate(path));
+    db.exec('PRAGMA busy_timeout = 5000;');
+  }
 
-  const version = db.prepare('PRAGMA user_version').get().user_version;
+  let version;
+  try {
+    version = db.prepare('PRAGMA user_version').get().user_version;
+    if (!create && version === 0 && !masterObjectExists(db, 'events')) {
+      db.close();
+      throw ledgerError('LEDGER_RECOVERY_REQUIRED', 'ledger image is uninitialized (user_version 0, no schema); only init may create it');
+    }
+  } catch (err) {
+    try { db.close(); } catch { /* already closed above */ }
+    if (err && err.code === 'LEDGER_RECOVERY_REQUIRED') throw err;
+    throw ledgerError('LEDGER_RECOVERY_REQUIRED', `ledger image is not a readable database (${err?.message ?? err})`);
+  }
+  if (!create) {
+    // F19 replacement race: the file SQLite opened must still be the file this
+    // open qualified (dev/ino identity). A swap between qualification and open
+    // is refused, never adopted.
+    const stNow = statSync(path);
+    if (stNow.dev !== identity.dev || stNow.ino !== identity.ino) {
+      db.close();
+      throw ledgerError('LEDGER_RECOVERY_REQUIRED', 'ledger file identity changed during open (replacement refused)');
+    }
+    execWithBusyRetry(db, 'PRAGMA journal_mode = WAL;');
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
   // F10 (SCHEMA_VERSION_CRASH_WINDOW): every schema/data migration commits
   // together with its PRAGMA user_version write — there is no post-commit
   // window where the data exists but the version does not. A crash image left
