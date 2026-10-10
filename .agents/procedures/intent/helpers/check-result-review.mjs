@@ -535,6 +535,22 @@ function main() {
   }
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
+// Am-I-entry-point lock — realpath BOTH sides (SSOT #269 / principle 47). Node resolves
+// import.meta.url through symlinks while process.argv[1] is the path as typed, so a bare
+// resolve() compare is false through the `.claude/skills/intent/` symlink twin and the CLI
+// dies silently (exit 0, no output). Inlined because this helper ships inside the copied
+// skill tree and cannot import scripts/lib/is-main-entry.mjs — the same constraint that
+// module's header documents for its packages/core twin.
+const isMainEntryLock =
+  process.argv[1] !== undefined &&
+  (() => {
+    try {
+      return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+    } catch {
+      return resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+    }
+  })();
+
+if (isMainEntryLock) {
   main();
 }
