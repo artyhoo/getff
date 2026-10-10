@@ -1106,6 +1106,13 @@ export function openLedger(path, {
           });
         }
         if (disposition === 'original') {
+          // F01: re-admitting the original identity re-derives its dependents
+          // in the SAME transaction. Held children re-route through the FULL
+          // strict parent-kind/digest/conflict/coverage/actual-ACK checks,
+          // once — a still-missing ACK or a new conflict keeps them held. A
+          // replay of the resolution is refused by the NO_CONFLICT gate
+          // above, so no duplicate outbox/route can ever be emitted.
+          api._reevaluateChildren(eventId);
           return { state: 'HELD_CLEARED', disposition };
         }
         db.prepare("UPDATE events SET state='SUPERSEDED_CONFLICT', reason='conflicting digest elected by explicit resolution' WHERE id = ?").run(eventId);
@@ -1270,6 +1277,11 @@ export function openLedger(path, {
       return api._tx(() => {
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         if (typeof env !== 'object' || env === null) throw ledgerError('INVALID', 'envelope');
+        // F01: the reserved historical intake seed is never an operational
+        // envelope target. The refusal sits BEFORE the replay/conflict/
+        // placeholder-resolution logic so no path can rewrite the seed row
+        // (its null seed digest makes the replay arm unreachable anyway).
+        if (env.id === INTAKE_ID) throw ledgerError('LEGACY_INTAKE_NONADMITTING', 'the reserved intake seed is never an operational envelope target');
         const row = db.prepare('SELECT * FROM events WHERE id = ?').get(env.id);
         if (row && row.sha256 === env.sha256) {
           return { state: row.state, replay: true };
@@ -1335,6 +1347,18 @@ export function openLedger(path, {
       const ev = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
       const payload = JSON.parse(ev.payload_json || '{}');
       const setState = (state, reason) => db.prepare('UPDATE events SET state=?, reason=? WHERE id=?').run(state, reason, eventId);
+
+      // F01: the reserved historical intake is never an executable parent.
+      // This explicit non-admission fires BEFORE lineage resolution, so even
+      // a later-known stored digest (the seed's null sha256 replaced) cannot
+      // make it an admitting parent of a fresh analysis/solution.
+      if (ev.kind === 'analysis' || ev.kind === 'solution') {
+        const parentsListed = JSON.parse(ev.parent_json || '[]');
+        if (parentsListed.some((p) => p && p.id === INTAKE_ID)) {
+          setState('BLOCKED', 'LEGACY_PARENT_NONADMITTING:reserved historical intake is never an executable parent');
+          return { state: 'BLOCKED' };
+        }
+      }
 
       if (!parentsOk) {
         setState('WAIT_PARENT', 'unknown or mismatched parent');

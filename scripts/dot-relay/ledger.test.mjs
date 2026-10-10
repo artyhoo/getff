@@ -141,15 +141,21 @@ test('fresh ledger seeds five BASELINE_HOLD batches and intake UNKNOWN, no outbo
   assert.equal(ledger.getEvent('DOT-INTAKE-20261008-01').state, 'ACCEPTED_CONSUMPTION_UNKNOWN');
 });
 
-test('baseline intake ingest is accepted UNKNOWN and never creates outbox or resend', () => {
+test('baseline intake ingest refuses LEGACY_INTAKE_NONADMITTING — seed never resolved/routed by an envelope', () => {
   const { ledger } = freshLedger();
   const batch = batchEnv('DOT-BATCH-0001', 'seed1');
   const r = ledger.ingest(batch);
   assert.equal(r.state, 'BASELINE_HOLD'); // held until consumption receipt
   assert.equal(ledger.status().counts.outbox_total, 0);
+  // F01 supplement decision 3: the reserved intake row is never
+  // resolved/updated/routed from a supplied envelope (zero- or
+  // fabricated-parent shape alike); the seed stays untouched and the
+  // baseline receipt stays the sole consumption authority.
   const intake = analysisEnv('DOT-INTAKE-20261008-01', batch);
-  const r2 = ledger.ingest(intake);
-  assert.equal(r2.state, 'ACCEPTED_CONSUMPTION_UNKNOWN');
+  assert.throws(() => ledger.ingest(intake), (e) => e.code === 'LEGACY_INTAKE_NONADMITTING');
+  const seed = ledger.getEvent('DOT-INTAKE-20261008-01');
+  assert.equal(seed.state, 'ACCEPTED_CONSUMPTION_UNKNOWN');
+  assert.equal(seed.sha256, null);
   assert.equal(ledger.status().counts.outbox_total, 0);
 });
 
@@ -3022,4 +3028,144 @@ test('F14: supervise --resume cannot admit a VERIFYING row — admitNextAttempt 
   assert.equal(row.state, 'VERIFYING', 'resume admission left the verification hold intact');
   assert.equal(row.attempts_admitted, 1, 'no attempt consumed');
   assert.ok(!ledger.getAttempt(claim.execution_id, 2));
+});
+
+// ---------------------------------------------------------------- F01: legacy intake non-admission + resolve-reevaluation
+
+// F01 extension (supplement decisions 1/3/4): the reserved historical intake
+// seed DOT-INTAKE-20261008-01 is never an operational envelope target and
+// never an executable parent. Any ingest naming it refuses
+// LEGACY_INTAKE_NONADMITTING before report/candidate/outbox/ACK/execution
+// mutations; a child naming it as parent BLOCKs LEGACY_PARENT_NONADMITTING
+// even if a stored historical digest later becomes known.
+const INTAKE_SEED_ID = 'DOT-INTAKE-20261008-01';
+
+test('F01: operational ingest targeting the reserved intake seed refuses LEGACY_INTAKE_NONADMITTING with zero side effects', () => {
+  const { ledger, path, dir } = freshLedger();
+  const seedBefore = JSON.stringify(ledger.getEvent(INTAKE_SEED_ID));
+  const batch = batchEnv('DOT-EVT-F01A', 'f01a');
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const shapes = [
+    seal(env('analysis', INTAKE_SEED_ID, CHAT_IDS.analyst, [], { note: 'zero-parent operational replacement' })),
+    seal(env('analysis', INTAKE_SEED_ID, CHAT_IDS.analyst, [{ id: batch.id, sha256: batch.sha256 }], { note: 'fabricated valid one-parent shape' })),
+  ];
+  for (const e of shapes) {
+    let err;
+    try { ledger.ingest(e); } catch (x) { err = x; }
+    assert.ok(err, `refuses ${e.parents.length}-parent shape`);
+    assert.equal(err.code, 'LEGACY_INTAKE_NONADMITTING');
+  }
+  assert.equal(JSON.stringify(ledger.getEvent(INTAKE_SEED_ID)), seedBefore, 'seed row byte-identical (sha256 stays null)');
+  ledger.close();
+  const raw = new DatabaseSync(path);
+  const outbox = raw.prepare('SELECT COUNT(*) AS n FROM outbox WHERE event_id = ?').get(INTAKE_SEED_ID).n;
+  const reports = raw.prepare('SELECT COUNT(*) AS n FROM reports WHERE event_id = ?').get(INTAKE_SEED_ID).n;
+  const conflicts = raw.prepare('SELECT COUNT(*) AS n FROM event_conflicts WHERE event_id = ?').get(INTAKE_SEED_ID).n;
+  raw.close();
+  assert.equal(outbox, 0, 'no outbox row for the intake');
+  assert.equal(reports, 0, 'no report rows for the intake');
+  assert.equal(conflicts, 0, 'no conflict quarantine for the intake');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F01: a solution naming the intake as parent BLOCKs LEGACY_PARENT_NONADMITTING — null digest today, known digest later', () => {
+  const { ledger, path, dir } = freshLedger();
+  const s1 = seal(env('solution', 'DOT-EVT-TCS-F01B1', CHAT_IDS.solver, [{ id: INTAKE_SEED_ID, sha256: null }], {}));
+  const r1 = ledger.ingest(s1);
+  assert.equal(r1.state, 'BLOCKED');
+  assert.match(ledger.getEvent(s1.id).reason, /^LEGACY_PARENT_NONADMITTING/);
+  ledger.close();
+  // even if a stored historical digest later becomes known, the explicit
+  // non-admission rule fires before lineage resolution can pass
+  const raw = new DatabaseSync(path);
+  raw.prepare("UPDATE events SET sha256 = ? WHERE id = ?").run('a'.repeat(64), INTAKE_SEED_ID);
+  raw.close();
+  const reopened = openLedger(path, { now });
+  const s2 = seal(env('solution', 'DOT-EVT-TCS-F01B2', CHAT_IDS.solver, [{ id: INTAKE_SEED_ID, sha256: 'a'.repeat(64) }], {}));
+  const r2 = reopened.ingest(s2);
+  assert.equal(r2.state, 'BLOCKED');
+  assert.match(reopened.getEvent(s2.id).reason, /^LEGACY_PARENT_NONADMITTING/);
+  reopened.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F01: an analysis naming the intake as parent BLOCKs LEGACY_PARENT_NONADMITTING (shared expected-parent check)', () => {
+  const { ledger } = freshLedger();
+  const a = seal(env('analysis', 'DOT-EVT-TCA-F01C', CHAT_IDS.analyst, [{ id: INTAKE_SEED_ID, sha256: null }], { candidates: [] }));
+  const r = ledger.ingest(a);
+  assert.equal(r.state, 'BLOCKED');
+  assert.match(ledger.getEvent(a.id).reason, /^LEGACY_PARENT_NONADMITTING/);
+});
+
+// F01 extension (kickoff): after explicit conflictResolve(original),
+// affected children reevaluate INSIDE the same transaction through the FULL
+// strict parent-kind/digest/conflict/coverage/actual-ACK checks, once. A
+// missing ACK or a conflicting disposition keeps children held; resolution
+// replay emits no duplicate.
+function f01ConflictChain(ledger, tag, { ackAnalysisDelivery = true } = {}) {
+  const batch = batchEnv(`DOT-EVT-F01-${tag}-B`, `f01-${tag}-b`);
+  withManifest(ledger, batch);
+  ledger.ingest(batch);
+  const dbatch = ledger.pendingDeliveries().find((x) => x.event_id === batch.id);
+  ledger.claimDelivery(dbatch.delivery_id);
+  ledger.ack(ackPayload(dbatch.delivery_id, batch, publicManifest(batch).sha256), { trustedProducerRole: 'analyst' });
+  const cand = { candidate_id: 'C1', finding_keys: ['F'], report_keys: [reportKey(batch.payload.reports[0])], reviewed_sha: batch.payload.reports[0].reviewed_sha, summary: 'original' };
+  const analysis = analysisEnv(`DOT-EVT-F01-${tag}-A`, batch, { candidates: [cand] });
+  withManifest(ledger, analysis, 'analyst');
+  ledger.ingest(analysis); // READY + outbox analysis->solver PENDING
+  // the analysis is FULLY ACKED before the conflict lands (claim/ack refuse
+  // on quarantined lineage, and the scenario is "conflict on an ACKed parent")
+  if (ackAnalysisDelivery) {
+    const da = ledger.pendingDeliveries().find((x) => x.event_id === analysis.id);
+    ledger.claimDelivery(da.delivery_id);
+    ledger.ack(ackPayload(da.delivery_id, analysis, publicManifest(analysis, { destination: CHAT_IDS.solver }).sha256), { trustedProducerRole: 'solver' });
+  }
+  // conflicting digest under the SAME event id -> durable quarantine
+  const conflicting = analysisEnv(`DOT-EVT-F01-${tag}-A`, batch, { candidates: [{ ...cand, summary: 'drifted' }] });
+  const r = ledger.ingest(conflicting);
+  assert.equal(r.state, 'CONFLICT');
+  // child solution referencing the conflicted analysis holds WAIT_PARENT
+  const solution = solutionEnv(`DOT-EVT-F01-${tag}-S`, analysis);
+  solution.payload.candidate_id = 'C1';
+  solution.payload.finding_keys = ['F'];
+  solution.payload.reviewed_sha = cand.reviewed_sha;
+  seal(solution);
+  const rs = ledger.ingest(solution);
+  assert.equal(rs.state, 'WAIT_PARENT');
+  return { analysis, solution };
+}
+
+test('F01: conflictResolve(original) reevaluates held children in the same transaction — an ACK-satisfied child queues exactly once', () => {
+  const { ledger } = freshLedger();
+  const { analysis, solution } = f01ConflictChain(ledger, 'C1');
+  const outboxBefore = JSON.stringify(ledger.pendingDeliveries());
+  const r = ledger.conflictResolve({ eventId: analysis.id, disposition: 'original', actor: 'os-owner' });
+  assert.equal(r.state, 'HELD_CLEARED');
+  assert.equal(r.disposition, 'original');
+  const row = ledger.getEvent(solution.id);
+  assert.equal(row.state, 'QUEUED', 'the held child released through the full strict checks');
+  // replay of the resolution is refused outright (nothing left to resolve) —
+  // no duplicate outbox/route can be emitted
+  assert.throws(() => ledger.conflictResolve({ eventId: analysis.id, disposition: 'original', actor: 'os-owner' }), (e) => e.code === 'NO_CONFLICT');
+  assert.equal(ledger.getEvent(solution.id).state, 'QUEUED');
+  assert.equal(JSON.stringify(ledger.pendingDeliveries()), outboxBefore, 'no new delivery rows appeared');
+});
+
+test('F01: conflictResolve(original) with a missing parent ACK keeps the child held (WAIT_PARENT_ACK)', () => {
+  const { ledger } = freshLedger();
+  const { analysis, solution } = f01ConflictChain(ledger, 'C2', { ackAnalysisDelivery: false });
+  ledger.conflictResolve({ eventId: analysis.id, disposition: 'original', actor: 'os-owner' });
+  const row = ledger.getEvent(solution.id);
+  assert.equal(row.state, 'WAIT_PARENT_ACK', 'lineage resolved but the actual delivery ACK is still missing');
+  assert.match(row.reason ?? '', /ACK/);
+});
+
+test('F01: conflictResolve(conflicting) keeps children held — a superseded parent never releases dependents', () => {
+  const { ledger } = freshLedger();
+  const { analysis, solution } = f01ConflictChain(ledger, 'C3');
+  const r = ledger.conflictResolve({ eventId: analysis.id, disposition: 'conflicting', actor: 'os-owner' });
+  assert.equal(r.state, 'SUPERSEDED_CONFLICT');
+  assert.equal(ledger.getEvent(analysis.id).state, 'SUPERSEDED_CONFLICT');
+  assert.equal(ledger.getEvent(solution.id).state, 'WAIT_PARENT', 'the child stays held under a conflicting disposition');
 });
