@@ -135,7 +135,10 @@ test('unknown flag or command exits 2', () => {
 
 // ---------------------------------------------------------------- tick / plan
 
-test('idle tick: metadata-only stdout, no model invocation, no payload keys', () => {
+// Host-bound (F11 CI wiring): tick enters host reconciliation, which needs the
+// Darwin boot id (kern.bootsessionuuid); on Linux the CLI refuses the whole
+// tick with RECONCILE_INPUT. These arms run on the supported host only.
+test('idle tick: metadata-only stdout, no model invocation, no payload keys', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const out = cliJson(['tick', '--root', root]);
   assert.equal(out.ok, true);
@@ -148,7 +151,7 @@ test('idle tick: metadata-only stdout, no model invocation, no payload keys', ()
   rmSync(root, { recursive: true, force: true });
 });
 
-test('overlapping ticks both succeed and leave a consistent ledger', async () => {
+test('overlapping ticks both succeed and leave a consistent ledger', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const runs = await Promise.all([0, 1, 2].map(async (i) => {
     void i;
@@ -737,6 +740,9 @@ test('metadata-put: forbidden payload/body/kickoff/analysis keys rejected anywhe
   rmSync(root, { recursive: true, force: true });
 });
 
+// Host-bound arm inside (F11 CI wiring): the single giant chunk exceeds Linux
+// MAX_ARG_STRLEN (128 KiB per argv element), so the CLI never receives it;
+// the cumulative-oversize path below stays portable.
 test('metadata-put: unsafe ids and oversize metadata refused', () => {
   const root = freshRoot();
   const trav = cli(['metadata-put', '--root', root, '--id', '../escape', '--chunk-json', '"x"', '--final', 'true'], { expectFail: true });
@@ -744,8 +750,10 @@ test('metadata-put: unsafe ids and oversize metadata refused', () => {
   const slash = cli(['metadata-put', '--root', root, '--id', 'a/b', '--chunk-json', '"x"', '--final', 'true'], { expectFail: true });
   assert.ok(slash.stdout.includes('BAD_ID'));
   const big = 'y'.repeat(200001);
-  const over = cli(['metadata-put', '--root', root, '--id', 'big-1', '--chunk-json', JSON.stringify(big), '--final', 'true'], { expectFail: true });
-  assert.ok(over.stdout.includes('CHUNK_OVERSIZE') || over.stdout.includes('METADATA_OVERSIZE'));
+  if (process.platform === 'darwin') { // a >128 KiB single argv element never reaches a Linux CLI (MAX_ARG_STRLEN)
+    const over = cli(['metadata-put', '--root', root, '--id', 'big-1', '--chunk-json', JSON.stringify(big), '--final', 'true'], { expectFail: true });
+    assert.ok(over.stdout.includes('CHUNK_OVERSIZE') || over.stdout.includes('METADATA_OVERSIZE'));
+  }
   // chunk within 16KiB but final total over 200000 via multiple chunks
   const mid = 'z'.repeat(16000);
   cliJson(['metadata-put', '--root', root, '--id', 'big-2', '--chunk-json', JSON.stringify(mid), '--final', 'false']);
@@ -819,7 +827,8 @@ test('off persists across processes and blocks admissions; bridge-activated cann
 // StartCalendarInterval dictionaries (0/4/8/12/16/20), RunAtLoad=true,
 // KeepAlive=false, NEVER StartInterval. Parsed via real plutil (never a
 // reboot/bootstrap); launchctl is never run (write-only mode).
-test('install-timer --write-only: six calendar dicts, RunAtLoad=true, KeepAlive=false, no StartInterval; plutil -lint + parse; conflict detection', () => {
+// Host-bound (F11 CI wiring): the plist lint/parse authority is macOS plutil.
+test('install-timer --write-only: six calendar dicts, RunAtLoad=true, KeepAlive=false, no StartInterval; plutil -lint + parse; conflict detection', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const plistDir = mkdtempSync(join(tmpdir(), 'dot-cli-plist-'));
   const weirdRoot = `${root} & <tag>`;
@@ -874,7 +883,7 @@ test('install-timer --write-only: six calendar dicts, RunAtLoad=true, KeepAlive=
 
 // HOST-RESILIENCE §1: tick enters the scheduler transaction — cold start is
 // due (RunAtLoad), an immediate re-tick is NOT due and has zero side effects.
-test('tick scheduler bookkeeping: cold start due; off-slot re-tick not due, no re-plan; status carries scheduler metadata', () => {
+test('tick scheduler bookkeeping: cold start due; off-slot re-tick not due, no re-plan; status carries scheduler metadata', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const t1 = cliJson(['tick', '--root', root]);
   assert.equal(t1.ok, true);
@@ -899,7 +908,7 @@ test('tick scheduler bookkeeping: cold start due; off-slot re-tick not due, no r
 // R06: a tick arriving while ANOTHER live scheduler owns the transaction is a
 // busy refusal — it never plans and never touches the owner's record. The live
 // owner here is the test process itself (real pid + real lstart, current boot).
-test('tick with a LIVE scheduler owner returns busy and plans nothing (R06)', () => {
+test('tick with a LIVE scheduler owner returns busy and plans nothing (R06)', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const boot = execFileSync('/usr/sbin/sysctl', ['-n', 'kern.bootsessionuuid'], { encoding: 'utf8' }).trim();
   const start = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(process.pid)], { encoding: 'utf8' }).trim();
@@ -1018,7 +1027,7 @@ function queuedCliSolution(ledger, tag) {
   return solution;
 }
 
-test('off over a provably absent child reports the shared death verdict; no active execution yields null (R09)', () => {
+test('off over a provably absent child reports the shared death verdict; no active execution yields null (R09)', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const ledger = openLedger(join(root, 'ledger.sqlite'));
   const solution = queuedCliSolution(ledger, 'a');
@@ -1044,7 +1053,7 @@ test('off over a provably absent child reports the shared death verdict; no acti
   rmSync(root2, { recursive: true, force: true });
 });
 
-test('reconcile-execution CONFIRM_DEAD: shared adapter frees proven absence, refuses an exact-live child (R09)', () => {
+test('reconcile-execution CONFIRM_DEAD: shared adapter frees proven absence, refuses an exact-live child (R09)', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const ledger = openLedger(join(root, 'ledger.sqlite'));
   const solution = queuedCliSolution(ledger, 'b');
@@ -1085,7 +1094,7 @@ test('reconcile-execution CONFIRM_DEAD: shared adapter frees proven absence, ref
 // HOST-RESILIENCE §1 scenario 9: durable OFF survives fresh processes (reboot/
 // load/manual tick all arrive as new tick processes) and suppresses planning
 // and recovery; ONLY the explicit operator resume command clears it.
-test('OFF survives processes/tick, suppresses planning+recovery; only explicit operator resume clears (scenario 9)', () => {
+test('OFF survives processes/tick, suppresses planning+recovery; only explicit operator resume clears (scenario 9)', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   cliJson(['off', '--root', root, '--reason', 'operator maintenance window stop']);
   const t = cliJson(['tick', '--root', root]);
@@ -1124,7 +1133,7 @@ test('supervise --resume/--adopt: both flags refused, unknown execution fixed co
 // HOST-RESILIENCE §5 scenario 11: a partial multipart upload/index continues
 // across restarts with exact part/whole hash validation, and host recovery
 // (the tick) NEVER advances producer cursors prematurely.
-test('partial multipart continuation survives restart+tick; index cursor stays uncommitted without a completed chain (scenario 11)', () => {
+test('partial multipart continuation survives restart+tick; index cursor stays uncommitted without a completed chain (scenario 11)', { skip: process.platform !== 'darwin' }, () => {
   const root = freshRoot();
   const { manifest, text, whole, partTexts } = multipartCase('S11');
   cliJson(['manifest-import', '--root', root, '--file', writeJson(root, 'in/s11.manifest.json', manifest), '--producer-role', 'collector', '--cursor-token', 'tok-s11']);
@@ -1226,6 +1235,8 @@ test('source-put: offset-checked chunks, replay no-op, conflict rejected, final 
   rmSync(root, { recursive: true, force: true });
 });
 
+// Host-bound arm inside (F11 CI wiring): the single >128 KiB chunk exceeds
+// Linux MAX_ARG_STRLEN; the cumulative SOURCE_OVERSIZE loop stays portable.
 test('source-put: final with wrong expected hash/bytes or oversize total is rejected with fixed codes', () => {
   const root = freshRoot();
   const text = 'abc';
@@ -1237,8 +1248,10 @@ test('source-put: final with wrong expected hash/bytes or oversize total is reje
   assert.ok(badBytes.stdout.includes('SOURCE_HASH_MISMATCH'));
   // per-chunk bound fires for a single giant chunk
   const big = 'x'.repeat(200001);
-  const chunkOver = cli(['source-put', '--root', root, '--id', 'src-bad-2', '--offset', '0', '--chunk-json', JSON.stringify(big), '--final', 'false'], { expectFail: true });
-  assert.ok(chunkOver.stdout.includes('CHUNK_OVERSIZE'));
+  if (process.platform === 'darwin') { // a >128 KiB single argv element never reaches a Linux CLI (MAX_ARG_STRLEN)
+    const chunkOver = cli(['source-put', '--root', root, '--id', 'src-bad-2', '--offset', '0', '--chunk-json', JSON.stringify(big), '--final', 'false'], { expectFail: true });
+    assert.ok(chunkOver.stdout.includes('CHUNK_OVERSIZE'));
+  }
   // cumulative total bounded at 200000 bytes across many in-limit chunks
   let off = 0;
   let oversize = null;
@@ -1971,7 +1984,7 @@ test('E: crash mid-transaction cannot emit a duplicate; rerun imports exactly on
   rmSync(c.dir, { recursive: true, force: true });
 });
 
-test('E: pending flag blocks automatic tick admission (0 spawn) until reconciliation clears it', () => {
+test('E: pending flag blocks automatic tick admission (0 spawn) until reconciliation clears it', { skip: process.platform !== 'darwin' }, () => {
   const root = join(tmpdir(), `dot-cli-e5-${randomUUID().slice(0, 6)}`);
   cli(['init', '--root', root, '--recovery-pending']);
   // a would-be-admissible QUEUED solution, the R10 raw-row shape
@@ -2096,7 +2109,7 @@ test('F02: supervise refuses under durable OFF with the fixed OFF code (run and 
 // start text) is never signalled and never frees a slot; documented
 // no-such-process stays positive absence (covered by the R09 off test above).
 
-test('F03: off over a REUSED pid (live, different start) — verdict reused, zero signals, child survives', async () => {
+test('F03: off over a REUSED pid (live, different start) — verdict reused, zero signals, child survives', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const sleeper = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
   const sleeperExit = new Promise((res) => sleeper.on('exit', (c, s) => res({ code: c, signal: s })));
@@ -2122,7 +2135,7 @@ test('F03: off over a REUSED pid (live, different start) — verdict reused, zer
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F03: reconcile-execution CONFIRM_DEAD refuses a REUSED pid with the shared verdict', async () => {
+test('F03: reconcile-execution CONFIRM_DEAD refuses a REUSED pid with the shared verdict', { skip: process.platform !== 'darwin' }, async () => {
   const root = freshRoot();
   const sleeper = spawn('/bin/sleep', ['30'], { stdio: 'ignore' });
   const sleeperExit = new Promise((res) => sleeper.on('exit', (c, s) => res({ code: c, signal: s })));
@@ -2193,7 +2206,7 @@ function executionState(root, executionId) {
   try { return l.getExecution(executionId)?.state ?? null; } finally { l.close(); }
 }
 
-test('F05: supervise --resume over an absent object-store original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', () => {
+test('F05: supervise --resume over an absent object-store original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', { skip: process.platform !== 'darwin' }, () => {
   const { root, executionId } = f05CliRoot({ tamper: (objPath) => rmSync(objPath) });
   const r = cliJson(['supervise', '--root', root, '--execution-id', executionId, '--resume']);
   assert.equal(r.state, 'BLOCKED');
@@ -2202,7 +2215,7 @@ test('F05: supervise --resume over an absent object-store original refuses with 
   rmSync(root, { recursive: true, force: true });
 });
 
-test('F05: supervise --resume over a byte-drifted compact original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', () => {
+test('F05: supervise --resume over a byte-drifted compact original refuses with BLOCKED_PACKET_UNTRUSTED (no spawn)', { skip: process.platform !== 'darwin' }, () => {
   const { root, executionId } = f05CliRoot({
     tamper: (objPath) => writeFileSync(objPath, `${readFileSync(objPath, 'utf8')} `),
   });
@@ -2274,6 +2287,12 @@ test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never l
   const exec = readFileSync(fileURLToPath(new URL('./executor.test.mjs', import.meta.url)), 'utf8');
   const darwinGated = (exec.match(/skip: process\.platform !== 'darwin'/g) ?? []).length;
   assert.ok(darwinGated >= 8, `the Darwin-only host-clock arms must stay explicitly skip-gated (found ${darwinGated})`);
+  // The CLI host-surface arms (boot-id sysctl, plutil, real process-table
+  // probes, tick/reconcile) failed the first Linux CI run of this job — they
+  // must stay gated too, or dot-relay-suites goes RED on every ubuntu run.
+  const cliText = readFileSync(fileURLToPath(new URL('./cli.test.mjs', import.meta.url)), 'utf8');
+  const cliGated = (cliText.match(/skip: process\.platform !== 'darwin'/g) ?? []).length;
+  assert.ok(cliGated >= 14, `the Darwin host-surface CLI arms must stay skip-gated for the Linux CI matrix (found ${cliGated})`);
   // the operations doc must state the distinction: a Linux CI run is the
   // portable offline matrix, never host E2E / calendar-timer acceptance
   assert.ok(DOC_TEXT.includes('dot-relay-suites'), 'the operations doc must name the relay CI job');
