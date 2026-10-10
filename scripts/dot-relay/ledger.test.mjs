@@ -2897,3 +2897,129 @@ test('F19: non-creating reopen of an initialized ledger preserves history (no re
   assert.equal(n, 1, 'the reserved intake seed exists exactly once after reopen');
   rmSync(dir, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- F14: VERIFYING is verification-held
+
+// F14 (VERIFYING_RECOVERY_REOPENS_EXECUTION, BLOCKER): a VERIFYING row sits
+// inside the exact F07/F12 verification path (captured worker report +
+// imported OS-owner receipt). Host reconciliation must treat it exactly like
+// the preserved REQUIRES_REVIEW hold — decision verification-held, which the
+// tick dispatcher cannot map to any spawn flag (cli.mjs maps ONLY
+// interrupted-host/adopt-monitor/uncertain-stop) and supervise --resume
+// cannot admit (admitNextAttempt refuses VERIFYING). State, approval
+// receipt, session id, attempt charge and the global slot stay untouched
+// across sameboot-dead-owner, newboot, missing-attempt and UNKNOWN probes.
+function verifyingExecution(ledger, tag) {
+  const { claim } = claimedExecution(ledger, { sessionId: `f14-${tag}-sess-0001-aaaa` });
+  const report = {
+    version: 1, status: 'CODE_COMPLETE',
+    execution_id: claim.execution_id, session_id: claim.session_id,
+    solution_sha256: sha256Of(`f14-${tag}-sol`), artifact_sha256: sha256Of(`f14-${tag}-art`),
+    source_tree_digest: sha256Of(`f14-${tag}-tree`),
+    pr_url: 'https://github.com/artyhoo/getff/pull/4102', head_sha: sha40(`f14-${tag}-head`),
+    independent_review_ref: null,
+  };
+  ledger.updateExecution(claim.execution_id, {
+    state: 'REQUIRES_REVIEW', pid: 601, process_start: CHILD_START,
+    pr_url: report.pr_url, head_sha: report.head_sha,
+  });
+  ledger.updateAttempt(claim.execution_id, 1, { state: 'REQUIRES_REVIEW', child_pid: 601, child_start: CHILD_START });
+  ledger.persistWorkerReport({ executionId: claim.execution_id, report });
+  ledger.reviewImport({ executionId: claim.execution_id, receipt: v2Receipt(report) });
+  assert.equal(ledger.getExecution(claim.execution_id).state, 'VERIFYING');
+  return { claim, report };
+}
+
+test('F14: sameboot dead supervisor + dead child leaves VERIFYING verification-held (no UNCERTAIN_STOP rewrite, no new attempt/debit)', () => {
+  const { ledger } = freshLedger();
+  const { claim } = verifyingExecution(ledger, 'a');
+  const attemptBefore = JSON.stringify(ledger.getAttempt(claim.execution_id, 1));
+  const r = ledger.reconcileHost({
+    bootId: 'BOOT-1',
+    processProbe: bootProbe(new Map()), // supervisor 501 and child 601 both absent
+    controlActor: 'scheduler-tick',
+  });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['verification-held']);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'VERIFYING', 'state preserved');
+  assert.equal(row.session_id, claim.session_id, 'session preserved');
+  assert.equal(row.attempts_admitted, 1, 'no new attempt admitted');
+  assert.equal(row.charged_reservation_ms, 7_200_000, 'no reservation debit change');
+  assert.equal(JSON.stringify(ledger.getAttempt(claim.execution_id, 1)), attemptBefore, 'attempt row byte-identical');
+  assert.ok(!ledger.getAttempt(claim.execution_id, 2), 'no attempt 2 exists');
+  assert.ok(ledger.getReviewReceipt(claim.execution_id), 'approval receipt preserved');
+});
+
+test('F14: newboot leaves VERIFYING verification-held (no INTERRUPTED_HOST rewrite, attempt not reclassified)', () => {
+  const { ledger } = freshLedger();
+  const { claim } = verifyingExecution(ledger, 'b');
+  const attemptBefore = JSON.stringify(ledger.getAttempt(claim.execution_id, 1));
+  const r = ledger.reconcileHost({
+    bootId: 'BOOT-9', // attempt recorded on BOOT-1: previous boot
+    processProbe: bootProbe(new Map()),
+    controlActor: 'scheduler-tick',
+  });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['verification-held']);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'VERIFYING', 'a previous-boot OS process cannot reopen execution');
+  assert.equal(row.session_id, claim.session_id);
+  assert.equal(row.attempts_admitted, 1);
+  assert.equal(JSON.stringify(ledger.getAttempt(claim.execution_id, 1)), attemptBefore);
+  assert.ok(ledger.getReviewReceipt(claim.execution_id), 'approval receipt preserved');
+});
+
+test('F14: missing attempt row leaves VERIFYING verification-held (no evidence-free UNCERTAIN rewrite)', () => {
+  const { ledger, path, dir } = freshLedger();
+  const { claim } = verifyingExecution(ledger, 'c');
+  ledger.close();
+  const raw = new DatabaseSync(path);
+  raw.prepare('DELETE FROM execution_attempts WHERE execution_id = ?').run(claim.execution_id);
+  raw.close();
+  const reopened = openLedger(path, { now });
+  const r = reopened.reconcileHost({
+    bootId: 'BOOT-1',
+    processProbe: bootProbe(new Map()),
+    controlActor: 'scheduler-tick',
+  });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['verification-held']);
+  const row = reopened.getExecution(claim.execution_id);
+  assert.equal(row.state, 'VERIFYING');
+  assert.equal(row.session_id, claim.session_id);
+  assert.equal(row.attempts_admitted, 1);
+  assert.ok(!reopened.getAttempt(claim.execution_id, 1), 'no attempt was fabricated');
+  assert.ok(reopened.getReviewReceipt(claim.execution_id), 'approval receipt preserved');
+  reopened.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F14: UNKNOWN process probe leaves VERIFYING verification-held (never "dead", never adopt)', () => {
+  const { ledger } = freshLedger();
+  const { claim } = verifyingExecution(ledger, 'd');
+  const attemptBefore = JSON.stringify(ledger.getAttempt(claim.execution_id, 1));
+  const unknownProbe = () => { throw new Error('probe channel broken'); };
+  const r = ledger.reconcileHost({ bootId: 'BOOT-1', processProbe: unknownProbe, controlActor: 'scheduler-tick' });
+  assert.deepEqual(r.executions.map((e) => e.decision), ['verification-held']);
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'VERIFYING');
+  assert.equal(row.attempts_admitted, 1);
+  assert.equal(JSON.stringify(ledger.getAttempt(claim.execution_id, 1)), attemptBefore);
+});
+
+test('F14: supervise --resume cannot admit a VERIFYING row — admitNextAttempt refuses with the state preserved', () => {
+  const { ledger } = freshLedger();
+  const { claim } = verifyingExecution(ledger, 'e');
+  const admission = ledger.admitNextAttempt({
+    executionId: claim.execution_id,
+    bootId: 'BOOT-1',
+    supervisor: { pid: 701, start: SUP_START },
+    sessionId: claim.session_id,
+    purpose: 'resume',
+    verifiedDead: true,
+  });
+  assert.equal(admission.admitted, false);
+  assert.equal(admission.code, 'ATTEMPT_IN_PROGRESS');
+  const row = ledger.getExecution(claim.execution_id);
+  assert.equal(row.state, 'VERIFYING', 'resume admission left the verification hold intact');
+  assert.equal(row.attempts_admitted, 1, 'no attempt consumed');
+  assert.ok(!ledger.getAttempt(claim.execution_id, 2));
+});

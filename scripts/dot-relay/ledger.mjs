@@ -1160,6 +1160,19 @@ export function openLedger(path, {
             executions.push({ execution_id: row.id, decision: 'requires-review', session_id: row.session_id ?? null });
             continue;
           }
+          // F14: VERIFYING is verification-held, same as REQUIRES_REVIEW — the
+          // row sits inside the exact F07/F12 verification path (captured
+          // report + imported OS-owner receipt + policy-bound verifyPr), and
+          // ONLY that path may advance it. Decision 'verification-held' maps to
+          // no spawn flag in the tick dispatcher (only interrupted-host /
+          // adopt-monitor / uncertain-stop map) and admitNextAttempt refuses
+          // VERIFYING, so sameboot-dead-owner, newboot, missing-attempt and
+          // UNKNOWN probes all preserve state/approval/session/attempt
+          // charge/slot instead of reopening execution.
+          if (row.state === 'VERIFYING') {
+            executions.push({ execution_id: row.id, decision: 'verification-held', session_id: row.session_id ?? null });
+            continue;
+          }
           const attempt = db
             .prepare('SELECT * FROM execution_attempts WHERE execution_id = ? ORDER BY attempt_number DESC LIMIT 1')
             .get(row.id);
