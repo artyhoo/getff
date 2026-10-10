@@ -201,7 +201,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2391 (spawn-argument)",
-          ".github/workflows/audit-self.yml:2875 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2880 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -357,7 +357,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2851 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2856 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
