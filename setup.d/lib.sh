@@ -62,7 +62,7 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # Per-tier rationale (which skill sits at which depth, and why) stays in setup.d/10-skills.sh.
 GETFF_SKILLS_CORE="template-audit ai-doc rule-research rule-tests"
 GETFF_SKILLS_ENV="arch night-mode orchestrator pipeline reviewer"
-GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest story claude-glm-executor-handoff"
+GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest story claude-glm-executor-handoff intent"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'

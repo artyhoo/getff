@@ -33,6 +33,7 @@
  * @cc-only-rationale: CC-cloud opt-in for laptop-closed / cloud dispatch; REST (AifHandoffBackend) is the portable, agnostic default channel.
  */
 import { BackendError } from './backend.js';
+import { enforceScope } from './resultReview.js';
 import type { KickoffSpec, TaskStatus, TaskResult } from './types.js';
 
 // ── Local types (shared types.ts / backend.ts are NOT edited — Type-decision (b)) ──
@@ -141,6 +142,10 @@ export class AifFireBackend {
    * On failure throws a BackendError (unavailable | quota_exceeded | dispatch_failed).
    */
   async dispatch(kickoff: KickoffSpec): Promise<AifFireHandle> {
+    // Effect-boundary scope check BEFORE the POST /fire (intent-first-result §4): the
+    // fire transport has no claim/release split to re-check at, so this one boundary
+    // must carry the whole guard — a refused scope never reaches the routine.
+    enforceScope(kickoff.content, 'aif-fire');
     if (!this.routineId || !this.token) {
       throw new BackendError(
         'AifFireBackend requires both routineId and token — set RUNTIME_BRIDGE_FIRE_ROUTINE_ID and RUNTIME_BRIDGE_FIRE_TOKEN env vars',
