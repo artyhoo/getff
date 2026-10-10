@@ -2820,6 +2820,11 @@ jobs:
       # Dot gate S4 offline matrix (see the job's own header for the end-of-file
       # placement rationale). Wired by construction — principle 36 catches the omission.
       - dot-review-gate-suites
+      # DOT-2087-F11: the relay suite's OWN always-on job. Without this line a
+      # relay-only regression could go RED while `ci-success` stayed green and
+      # the PR merged — the principle-36 shape. Wired by construction; the
+      # cli.test.mjs F11 arms pin the invocation itself.
+      - dot-relay-suites
       # Sanctioned .husky patch channel (CLAUDE.md harness gates). Wired by construction —
       # principle 36 catches the omission.
       - sanctioned-husky-patch-channel
@@ -2939,3 +2944,34 @@ jobs:
           persist-credentials: false
       - name: Run apply-husky-patch writer + PreToolUse permission gate paired test
         run: bash scripts/apply-husky-patch.test.sh
+
+  # DOT-2087-F11: the dot-relay regression suite wired into the required
+  # aggregate by its OWN always-on job — the dot-review-gate-suites command
+  # list above does not include these files, and a similarly named job is not
+  # a wiring. Explicit filenames (no glob) so registry/coverage enforcement
+  # can see them. Wired by construction: principle 36 catches an unwired job,
+  # the cli.test.mjs F11 arms catch a silent invocation removal. Portable
+  # offline matrix only — fake subprocess/cloud adapters, isolated temp
+  # roots, zero network/model calls (no secrets, no npm install: node
+  # builtins + repo-relative imports only). The Darwin-only host-clock tests
+  # ship `skip:` gates; a Linux run is NEVER host E2E/calendar acceptance.
+  dot-relay-suites:
+    name: Dot relay suites (offline matrix, DOT-2087-F11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Run dot-relay suites
+        run: |
+          node --test scripts/dot-relay/contract.test.mjs
+          node --test scripts/dot-relay/ledger.test.mjs
+          node --test scripts/dot-relay/executor.test.mjs
+          node --test scripts/dot-relay/cli.test.mjs
+          node --test scripts/dot-relay/bridge-runner.test.mjs

@@ -2212,3 +2212,71 @@ test('F05: supervise --resume over a byte-drifted compact original refuses with 
   assert.equal(executionState(root, executionId), 'BLOCKED');
   rmSync(root, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------- F11 pipeline wiring
+
+// DOT-2087-F11: the relay regression suite must be wired into the required CI
+// aggregate by its OWN always-on job — a similarly named dot-review-gate job
+// whose command list omits these files is NOT a wiring. These arms read the
+// REAL workflow file off disk and fail closed when the relay invocation
+// disappears, when the job carrying it is unwired from ci-success, or when the
+// job grows a credential surface. Textual block parsing is deliberate: it sees
+// exactly what a reader of the workflow sees, with no YAML dialect to drift.
+const WORKFLOW_TEXT = readFileSync(fileURLToPath(new URL('../../.github/workflows/audit-self.yml', import.meta.url)), 'utf8');
+const DOC_TEXT = readFileSync(fileURLToPath(new URL('../../docs/dot-relay-operations.md', import.meta.url)), 'utf8');
+
+function workflowJobBlocks() {
+  const ids = [...WORKFLOW_TEXT.matchAll(/^  ([a-z0-9-]+):$/gm)].map((m) => m[1]);
+  const blocks = new Map();
+  for (let i = 0; i < ids.length; i++) {
+    const start = WORKFLOW_TEXT.indexOf(`\n  ${ids[i]}:`);
+    const end = i + 1 < ids.length ? WORKFLOW_TEXT.indexOf(`\n  ${ids[i + 1]}:`) : WORKFLOW_TEXT.length;
+    blocks.set(ids[i], WORKFLOW_TEXT.slice(start, end));
+  }
+  return blocks;
+}
+
+function relayCiJobIds() {
+  return [...workflowJobBlocks()]
+    .filter(([, body]) => body.includes('node --test scripts/dot-relay/contract.test.mjs'))
+    .map(([id]) => id);
+}
+
+function ciSuccessNeeds() {
+  const block = workflowJobBlocks().get('ci-success') ?? '';
+  const needs = [...block.matchAll(/^ {6}- ([a-z0-9-]+)$/gm)].map((m) => m[1]);
+  assert.ok(needs.length > 0, 'ci-success must carry a needs: list');
+  return needs;
+}
+
+test('F11 wiring: the five explicit relay test files run in CI (filenames, never a glob)', () => {
+  for (const n of ['contract', 'ledger', 'executor', 'cli', 'bridge-runner']) {
+    const line = `node --test scripts/dot-relay/${n}.test.mjs`;
+    assert.ok(WORKFLOW_TEXT.includes(line), `workflow must invoke "${line}" explicitly — registry/coverage enforcement reads filenames, not globs`);
+  }
+});
+
+test('F11 wiring: exactly one CI job carries the relay suite and it is wired into ci-success', () => {
+  const ids = relayCiJobIds();
+  assert.equal(ids.length, 1, `exactly one job must run the relay suite (found: ${ids.join(', ') || 'none'})`);
+  const needs = ciSuccessNeeds();
+  assert.ok(needs.includes(ids[0]), `job "${ids[0]}" must appear in the ci-success needs list — an unwired job can go RED while ci-success stays green (principle 36 shape)`);
+});
+
+test('F11 wiring: the relay CI job has no credential surface (portable offline matrix)', () => {
+  const body = workflowJobBlocks().get(relayCiJobIds()[0]) ?? '';
+  assert.ok(body.includes('persist-credentials: false'), 'checkout must disable credential persistence — the suite needs zero network/model calls');
+  assert.ok(!body.includes('secrets.'), 'the relay job must reference no secrets');
+  assert.ok(!/\bnpm\s+(install|ci)\b/.test(body), 'the relay job must not install dependencies — node builtins + repo-relative imports only');
+});
+
+test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never labeled host E2E acceptance', () => {
+  const exec = readFileSync(fileURLToPath(new URL('./executor.test.mjs', import.meta.url)), 'utf8');
+  const darwinGated = (exec.match(/skip: process\.platform !== 'darwin'/g) ?? []).length;
+  assert.ok(darwinGated >= 8, `the Darwin-only host-clock arms must stay explicitly skip-gated (found ${darwinGated})`);
+  // the operations doc must state the distinction: a Linux CI run is the
+  // portable offline matrix, never host E2E / calendar-timer acceptance
+  assert.ok(DOC_TEXT.includes('dot-relay-suites'), 'the operations doc must name the relay CI job');
+  assert.ok(/dot-relay-suites[\s\S]{0,200}portable offline matrix/.test(DOC_TEXT), 'the operations doc must label the relay CI job as the portable offline matrix');
+  assert.ok(/never[^.]*host E2E/.test(DOC_TEXT.slice(DOC_TEXT.indexOf('dot-relay-suites'))), 'the operations doc must state the CI job is never host E2E/calendar acceptance');
+});
