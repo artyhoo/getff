@@ -35,7 +35,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the effort-worthiness discipline — §1 the rule + four-test card, |
-| source | `.claude/rules/effort-worthiness.md:10` |
+| source | `.agents/rules/effort-worthiness.md:10` |
 | class | C |
 | fires | any effort/rigor fork: probe demand, extra round, budget breach. |
 | channels | skill-embed(4) |
@@ -127,7 +127,7 @@ Checked 2026-10-07 against the working tree this batch was written in.
   and `.claude/skills/arch/SKILL.md` — none contains the string.
 - The companion channel-marker check's pass-on-any-live semantics:
   `packages/core/principles/31-rule-channel-declaration.ts` — a marker counts
-  when its artefact exists and contains the anchor string; non-live markers
+  when its artifact exists and contains the anchor string; non-live markers
   become diagnostic reasons, and one live marker passes the rule.
 - The index row grading this rule class `C` with channels `skill-embed(4)`:
   `.claude/rules/00-rule-index.md:22`.

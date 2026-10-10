@@ -34,10 +34,10 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 five anti-patterns + §4.1 supersession clause (premise change amends the declaring artefact), §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers. |
-| source | `.claude/rules/doc-authority-hierarchy.md:17` |
+| source | `.agents/rules/doc-authority-hierarchy.md:20` |
 | class | A |
 | fires | creating/editing any canonical or shipped consumer-facing doc. |
-| channels | paths:(4), edit-time inject |
+| channels | paths:(7), edit-time inject |
 <!-- getff:end section=F1-card-doc-authority-hierarchy -->
 
 <!-- vale on -->
@@ -82,8 +82,8 @@ with its authority intact. The rule names that pattern an anti-pattern and
 states the counter: find the document an auditor would cite to justify the
 current shape, and amend *that* document in place, with a dated addendum whose
 heading says what it does. A repo script turns the auditor's half of that
-clause into a command: given the artefact a verdict cites, it reports every
-later commit to that artefact and every amendment-shaped heading in today's
+clause into a command: given the artifact a verdict cites, it reports every
+later commit to that artifact and every amendment-shaped heading in today's
 file, so an auditor reading only the cited line cannot silently bless a
 decision that was withdrawn after the citation was written.
 
@@ -108,7 +108,7 @@ Checked 2026-10-07 against the working tree this batch was written in.
 - The header format spec: §3 at `:71`, with the field template at `:81` to
   `:82`.
 - The five anti-patterns: §4 at `:104`; `#superseded-intent-left-standing` at
-  `:110`; the §4.1 supersession clause at `:112` (amend the artefact an
+  `:110`; the §4.1 supersession clause at `:112` (amend the artifact an
   auditor would cite, with a dated `Addendum`/`withdraws`/`supersedes`
   heading).
 - The companion test and its module: the header regex at
@@ -121,4 +121,4 @@ Checked 2026-10-07 against the working tree this batch was written in.
   AMENDED / 3 INCONCLUSIVE) at `:25` to `:27`; companion test
   `scripts/cited-spec-addenda.test.sh`.
 - The index row grading this rule class `A` with channels
-  `paths:(4), edit-time inject`: `.claude/rules/00-rule-index.md:20`.
+  `paths:(7), edit-time inject`: `.claude/rules/00-rule-index.md:20`.

@@ -31,10 +31,10 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | ai-laziness-traps discipline rule — §1 problem this solves, §2 canonical trap catalogue, §3 kickoff-author obligations (cite + extend, no blanket reference), §4 anti-patterns, §5 promotion / retirement triggers. |
-| source | `.claude/rules/ai-laziness-traps.md:17` |
+| source | `.agents/rules/ai-laziness-traps.md:20` |
 | class | A |
 | fires | any R-phase, audit, sample-based investigation, or open-ended AI task. |
-| channels | paths:(5), edit-time inject |
+| channels | paths:(8), edit-time inject |
 <!-- getff:end section=F1-card-ai-laziness-traps -->
 
 <!-- vale on -->
@@ -81,15 +81,15 @@ enumeration was written, not that the work was done.
 
 Checked 2026-10-07 against the working tree this batch was written in.
 
-- The catalogue spans `### T1` at `.claude/rules/ai-laziness-traps.md:44` through
-  `### T22` at `:183`; 22 headings, counted live on the digest sheet.
+- The catalogue spans `### T1` at `.claude/rules/ai-laziness-traps.md:47` through
+  `### T22` at `:186`; 22 headings, counted live on the digest sheet.
 - The kickoff obligations this rule imposes, including the blanket-reference
-  rejection, are `§3` at `.claude/rules/ai-laziness-traps.md:193` and `:201`.
+  rejection, are `§3` at `.claude/rules/ai-laziness-traps.md:196` and `:204`.
 - The shipped test and what it requires:
   `packages/core/principles/12-ai-laziness-traps.test.ts:2` names the enforcement;
   `:14` to `:17` list the four citation forms it accepts; `:122` runs the check over
   all non-exempt kickoffs.
 - The greps above ran at this base; both lines are in the kickoff that produced
   this page family.
-- The index row grading this rule class `A`:
-  `.claude/rules/00-rule-index.md:11`.
+- The index row grading this rule class `A` with channels
+  `paths:(8), edit-time inject`: `.claude/rules/00-rule-index.md:11`.

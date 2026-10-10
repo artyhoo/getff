@@ -32,10 +32,10 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement. |
-| source | `.claude/rules/coordinator-seat-delegation.md:18` |
+| source | `.agents/rules/coordinator-seat-delegation.md:19` |
 | class | C |
 | fires | a coordinator seat about to run the stage pipeline itself. |
-| channels | paths:(1) |
+| channels | paths:(2) |
 <!-- getff:end section=F1-card-coordinator-seat-delegation -->
 
 <!-- vale on -->
@@ -104,8 +104,8 @@ Checked 2026-10-07 against the working tree this batch was written in.
   frontmatter at `:3` to `:4`, the `events:` arm patterns at `:5` to `:9`, the
   edit-time injection summary at `:14`, the class-`C` rationale at `:16`, the
   seat-vs-worker statement at `:23` (§1).
-- What counts as the mechanical pipeline (harvest/await CLIs, the harvest and
-  babysit helpers, task polling) — and what deliberately does not count (CI
+- What counts as the mechanical pipeline (the harvest and await CLI entry
+  points, the harvest and babysit helpers, task polling) — and what deliberately does not count (CI
   waits, merges) — at `:27`; the out-of-scope list (the dispatcher seat,
   night-mode, the chip worker itself) at `:29`.
 - The three anti-patterns (`#seat-runs-the-pipeline`, `#subagent-as-chip`,
@@ -119,6 +119,6 @@ Checked 2026-10-07 against the working tree this batch was written in.
   `tool_input.command`), with frontmatter parsing at `:273`.
 - The promotion criterion (a gate once a seat marker becomes observable; two
   more incidents in six months add an orchestrator checklist item):
-  `.claude/rules/coordinator-seat-delegation.md:37`.
-- The index row grading this rule class `C` with channels `paths:(1)`:
-  `.claude/rules/00-rule-index.md:18`.
+  `.claude/rules/coordinator-seat-delegation.md:40`.
+- The index row grading this rule class `C` with channels
+  `paths:(2)`: `.claude/rules/00-rule-index.md:18`.

@@ -32,7 +32,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the autonomous-loop continuity discipline — §1 the stop rule and its mechanism, §2 the wait rule (silence ≠ health), §3 anti-patterns, §4 promotion / retirement. |
-| source | `.claude/rules/autonomous-loop-continuity.md:12` |
+| source | `.agents/rules/autonomous-loop-continuity.md:12` |
 | class | B |
 | fires | unattended turn ending with work in flight. |
 | channels | hook, digest |
@@ -69,7 +69,7 @@ grep -n 'AIF_AUTONOMOUS:-0' .claude/hooks/end-of-turn-reminder.sh .claude/hooks/
 ```text
 118:# #F10 anchor — channel token for .claude/rules/autonomous-loop-continuity.md
 .claude/hooks/end-of-turn-reminder.sh:164:if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
-.claude/hooks/inject-session-bootstrap.sh:156:if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
+.claude/hooks/inject-session-bootstrap.sh:152:if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
 ```
 
 The first line is the anchor the rule's channel marker points at. The other two
@@ -106,8 +106,8 @@ Checked 2026-10-07 against the working tree this batch was written in.
 - The hook arm and its anchor: `.claude/hooks/end-of-turn-reminder.sh:117` names
   the arm, `:118` carries the `#F10` anchor the rule's channel marker points to,
   `:164` is the opt-in gate, and `:215` is the continuation text the model receives.
-- The always-on digest arm: `.claude/hooks/inject-session-bootstrap.sh:137`
-  (the autonomy block) and `:156` (the same opt-in gate).
+- The always-on digest arm: `.claude/hooks/inject-session-bootstrap.sh:133`
+  (the autonomy block) and `:152` (the same opt-in gate).
 - Paired self-tests for the arm ship at
   `packages/core/hooks/end-of-turn-reminder.test.ts`; a count of `test(`/`it(`
   declarations in that file returns 162.

@@ -33,7 +33,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the resident hot digest — every §2 T-number + its one-line counter (exact-prefix quotes from the catalogue). |
-| source | `.claude/rules/ai-laziness-digest.md:5` |
+| source | `.agents/rules/ai-laziness-digest.md:5` |
 | class | A |
 | fires | any R-phase, audit, sample-based investigation, or open-ended AI task. |
 | channels | always-on core |

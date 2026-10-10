@@ -32,7 +32,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the egress channel-preference rule — §1 the two channels (host-push default / API break-glass), §2 trigger, §3 mechanism + why the container cannot push, §4 promotion / retirement, §5 §1.7 self-reflexive note. |
-| source | `.claude/rules/egress-no-api-bypass.md:7` |
+| source | `.agents/rules/egress-no-api-bypass.md:7` |
 | class | B |
 | fires | harvesting/egressing a finished aif-agent branch to a PR. |
 | channels | skill-embed |
@@ -79,7 +79,7 @@ transport to the host is dropped while the API endpoint stays reachable. The
 container's inability to push is also deliberate,
 and the rule argues it should stay that way: the network block is at the TCP
 layer (verified from inside the container), the pre-push toolchain is absent
-there anyway, and a sandboxed autonomous agent that could push to the repository
+there anyway, and an autonomous agent in a sandbox that could push to the repository
 would widen the trust boundary, not close a gap.
 
 The [channel](../../terms.md#channel) row is a single `skill-embed`: the rule
@@ -110,8 +110,8 @@ Checked 2026-10-07 against the working tree this batch was written in.
   channel marker at `:3`, the class-`B` rationale at `:5`, the two-channel
   statement at `:7`, and the 2026-06-27 origin (the harvest skill defaulting
   to API-land) at `:10`.
-- Channel A (host-pull, rebase onto live staging, host push — runs the real
-  pre-push hook): `:14` to `:22`, with "earliest reachable channel" at `:22`.
+- Channel A (host pull, `git pull --rebase` onto live staging, host push — runs
+  the real pre-push hook): `:14` to `:22`, with "earliest reachable channel" at `:22`.
 - Channel B (API as break-glass only, with the mandatory `run-local-ci-sweep.sh`
   gate-substitute and clobber check): `:24` to `:26`.
 - Why the container cannot push (TCP-level network block, missing pre-push

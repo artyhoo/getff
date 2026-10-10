@@ -35,7 +35,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer. |
-| source | `.claude/rules/cold-seat-economy.md:17` |
+| source | `.agents/rules/cold-seat-economy.md:17` |
 | class | C |
 | fires | re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA. |
 | channels | skill-embed(3) |
@@ -68,7 +68,7 @@ review question, two delivery forms:
 | fresh agent (executor tier), inputs inlined, zero tools | 85,855 | 0 | 16 s |
 | fresh agent (executor tier), narrow 4-file review | 177,105 | 7 | 137 s |
 
-Inlining the inputs is twice the tokens and a fraction of the time. That trade is
+Inlined inputs cost twice the tokens and a fraction of the time. That trade is
 the whole point of §7, the one part of the rule backed by a shipped test: seat
 inputs are immutable (files as they were at one pinned commit, never live worktree
 paths), and every answer names the commit it was taken at. The class row is `C` —

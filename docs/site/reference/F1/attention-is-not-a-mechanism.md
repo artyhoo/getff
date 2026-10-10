@@ -30,7 +30,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the attention-is-not-a-mechanism discipline — §1 the rule (human/AI |
-| source | `.claude/rules/attention-is-not-a-mechanism.md:5` |
+| source | `.agents/rules/attention-is-not-a-mechanism.md:5` |
 | class | C |
 | fires | designing any load-bearing check (gate vs. bare human/AI attention). |
 | channels | always-on core |

@@ -32,10 +32,10 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals; the consumer map owed before dropping or slimming an established artefact (§3.1); the scope of fresh prior-art re-verification at PR-authoring / orchestration time (§3.2). |
-| source | `.claude/rules/build-first-reuse-default.md:19` |
+| source | `.agents/rules/build-first-reuse-default.md:22` |
 | class | A |
 | fires | capability commit/proposal; shipped-file removal. |
-| channels | paths:(7), edit-time inject |
+| channels | paths:(10), edit-time inject |
 <!-- getff:end section=F1-card-build-first-reuse-default -->
 
 <!-- vale on -->
@@ -73,7 +73,7 @@ Fifty-four recorded verdicts, and the reuse side of the ledger outweighs the bui
 That is the rule working: a build happens when the search says the gap is real.
 
 The rule also splits one question people tend to merge. A tool can be right for the
-maintainer's own machine and wrong to install into every consumer's project — so each
+maintainer, on their own machine, and wrong to install into every consumer's project — so each
 verdict is reached twice, on an **operator axis** (what the team builds with) and a
 **shipped axis** (what the product carries), and the answers may legitimately differ.
 Before either axis, one more check: does the harness you already run ship the
@@ -102,12 +102,12 @@ exists.
 
 Checked 2026-10-07 against the working tree this batch was written in.
 
-- The seven-verdict table opens at `.claude/rules/build-first-reuse-default.md:36`
-  (the `ADOPT` row); the default sentence is `:44`.
+- The seven-verdict table opens at `.claude/rules/build-first-reuse-default.md:39`
+  (the `ADOPT` row); the default sentence is `:47`.
 - Own-stack-first and the operator/shipped axes: `:50` and `:52`.
 - The §3 search layers: `:69` (mechanism), `:75` (repository question tool, ≥3
   phrasings), `:76` (web search, ≥3 phrasings), and `:80` (the caveat excluding
-  library-docs lookups from that list).
+  library-docs queries from that list).
 - The companion test: `packages/core/principles/11-build-first-reuse-default.test.ts`;
   the verdict-name set starts at `:72`, with the calibration note that extends it
   when the register records a new keyword at `:47` to `:50`. Shipped with the rule
@@ -117,6 +117,7 @@ Checked 2026-10-07 against the working tree this batch was written in.
 - The register the census counted:
   `docs/meta-factory/prior-art-evaluations.md` — the `grep` above returns 54 verdict
   occurrences at this base.
-- The `paths:(7)` delivery scope is the rule file's frontmatter globs
-  (`.claude/rules/build-first-reuse-default.md:2` to `:10`); the index row grading
-  this rule class `A` is `.claude/rules/00-rule-index.md:14`.
+- The `paths:(10)` delivery scope is the rule file's frontmatter globs
+  (`.claude/rules/build-first-reuse-default.md:2` to `:12`); the index row grading
+  this rule class `A` with channels `paths:(10), edit-time inject` is
+  `.claude/rules/00-rule-index.md:14`.

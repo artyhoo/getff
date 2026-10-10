@@ -1,6 +1,6 @@
 ---
 title: companion-install-principle rule
-description: The rule that this project's installer installs only its own artefacts — every companion is installed by its own official installer, detected first, never version-pinned, never silently a paid API.
+description: The rule that this project's installer installs only its own artifacts — every companion is installed by its own official installer, detected first, never version-pinned, never silently a paid API.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -32,7 +32,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | how this project installs companions/external services — §1 the principle, §2 trigger, §3 the manifest mechanism, §4 promotion / retirement. |
-| source | `.claude/rules/companion-install-principle.md:14` |
+| source | `.agents/rules/companion-install-principle.md:14` |
 | class | B |
 | fires | editing `setup.d/**` (companion install manifest/engine). |
 | channels | paths:(1), edit-time inject |
@@ -46,7 +46,7 @@ A "companion" is another team's tool this project installs alongside itself — 
 plugin, an MCP server, a CLI. The maintenance trap is obvious: if your installer
 runs `tool install x@1.2.3`, then every time the tool's authors ship 1.2.4, your
 installer is the thing that has to move. This [rule](../../terms.md#rule) refuses
-that job. Its one-sentence framing: our installer installs only our own artefacts;
+that job. Its one-sentence framing: our installer installs only our own artifacts;
 companions are installed via their own official top-level installer, after a
 detect-first check, without pinning a version, configured to the free tier by
 default.
@@ -123,6 +123,6 @@ Checked 2026-10-07 against the working tree this batch was written in.
 - The engine loop: `setup.d/engine.sh:232` (`companion_step()`), with the
   external-service routing branch at `:236` to `:240`.
 - The edit-time injector that reads the marker:
-  `.claude/hooks/inject-matching-rule.sh:334`.
+  `.claude/hooks/inject-matching-rule.sh:342`.
 - The index row grading this rule class `B` with channels
   `paths:(1), edit-time inject`: `.claude/rules/00-rule-index.md:17`.

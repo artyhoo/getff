@@ -34,7 +34,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the destination-environment verification discipline — §1 the positive contract and its grammar, §1b the negative direction (claims that the destination *cannot*), §2 the incident base, §3 why a green container run is not evidence, §4 anti-patterns, §5 promotion / retirement. |
-| source | `.claude/rules/destination-environment-verification.md:14` |
+| source | `.agents/rules/destination-environment-verification.md:14` |
 | class | B |
 | fires | kickoff authoring; accepting container work; a cannot-reach claim. |
 | channels | paths:(1), edit-time inject |
@@ -53,7 +53,7 @@ missing binary, a path layout that differs between Linux and macOS, hooks
 resolved from a worktree with no `node_modules`, and a timeout budget sized
 against a machine three times faster than the one that enforces it.
 
-This [rule](../../terms.md#rule) closes the gap with an artefact rather than
+This [rule](../../terms.md#rule) closes the gap with an artifact rather than
 with diligence. Every kickoff must declare the commands whose result decides
 acceptance, exactly as they will run on the host, inside a fenced block whose
 info-string says `host-verify`. A runner turns that block into a command with an
@@ -131,7 +131,7 @@ work without running the runner — that is the unclosed execution half, stated
 plainly. And it does not police timing budgets written outside kickoffs; the
 rule counts sixteen hard-coded budgets repo-wide that state a measurement
 without naming a machine, none of them reachable by this rule's channels, and
-records closing that population as a separate, unbuilt change.
+records closing that population as a separate, not-yet-built change.
 
 ## Evidence
 

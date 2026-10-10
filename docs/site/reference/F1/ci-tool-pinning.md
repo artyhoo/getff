@@ -1,6 +1,6 @@
 ---
 title: ci-tool-pinning rule
-description: The rule that a CI job's behaviour must not depend on what a registry happens to serve the day the job runs — pin the tool version, install from the lockfile.
+description: The rule that a CI job's behaviour must not depend on what a registry happens to serve the day the job runs — pin the tool version, install from the lock file.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -34,7 +34,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | CI tool pinning discipline — §1 the two rules (version pin + lockfile-aware install), §2 scope (this repo's `.github/workflows/` + tracked shell scripts), §3 escape hatch, §4 relationship to companion-install-principle.md, §5 promotion / retirement. |
-| source | `.claude/rules/ci-tool-pinning.md:20` |
+| source | `.agents/rules/ci-tool-pinning.md:20` |
 | class | A |
 | fires | editing `.github/workflows/**` or any repo shell script. |
 | channels | paths:(6), edit-time inject |
@@ -49,8 +49,8 @@ serving that morning. If the tool's authors publish a breaking change, your pipe
 changes behaviour with no commit to point at. This [rule](../../terms.md#rule) closes
 that hole with two rules. Rule A: a CI install of a tool must carry an explicit
 version pin. Rule B: a Node dependency install in CI must go through the project's
-lockfile (`npm ci` with a prefix), not a bare install — and where the rule demands
-that, the repository borrows an existing security scanner (zizmor) to check it rather
+lock file (`npm ci` with a prefix), not a bare install — and where the rule demands
+that, the repository borrows an existing security scanner (`zizmor`) to check it rather
 than writing a second detector.
 
 The class row is `A`: the [gate](../../terms.md#gate) ships as code. A pre-push
@@ -98,7 +98,7 @@ this rule would otherwise demand. Each file's enforcement names which of the two
 answers.
 
 What the rule does not do: it does not pin your application dependencies (the
-lockfile rule covers the install *method*, not the versions inside the lockfile),
+lock file rule covers the install *method*, not the versions inside the lock file),
 and its escape hatch — a comment token that suppresses the check for one line — is
 an escape, not a pattern. At this base the token appears in the rule text, the
 detector and test fixtures, but no install line in any workflow or tracked shell
@@ -119,7 +119,7 @@ Checked 2026-10-07 against the working tree this batch was written in.
 - The shipped detector: `packages/core/hooks/checks/unpinned-tool-install.ts` —
   `:54` (shell-script population test), `:72` (escape-token regex), `:94` (pip-line
   check), `:125` (npm-line check), `:153` (entry point). Wired into pre-push at
-  `packages/core/hooks/pre-push.ts:791`.
+  `packages/core/hooks/pre-push.ts:823`.
 - The paired test suite: `packages/core/hooks/unpinned-tool-install.test.ts` —
   42 `it(` declarations counted at this base.
 - The index row grading this rule class `A`:

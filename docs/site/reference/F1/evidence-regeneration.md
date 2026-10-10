@@ -1,6 +1,6 @@
 ---
 title: evidence-regeneration rule
-description: The rule for refreshing a backend's live-fired evidence after a toolchain pin bump — re-fire the fixture with the version CI resolves and paste the fresh output, never edit the evidence block by hand.
+description: The rule for refreshing live-fired evidence on a backend after a toolchain pin bump — re-fire the fixture with the version CI resolves and paste the fresh output, never edit the evidence block by hand.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -34,7 +34,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | kind | rule |
 | ships-to | framework |
 | description | the evidence-regeneration procedure — §1 the rule, §2 the verified per-backend loop (numbered) + the safety interlocks, §3 the two entry conditions + the firing-evidence invariant, §4 the paste-from-fresh-stdout anti-theatre rule, §5 anti-patterns, §6 promotion/retirement. |
-| source | `.claude/rules/evidence-regeneration.md:14` |
+| source | `.agents/rules/evidence-regeneration.md:14` |
 | class | B |
 | fires | a freshness gate RED, or a first live-fired matrix cell. |
 | channels | paths:(1), edit-time inject |
