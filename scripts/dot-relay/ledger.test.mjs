@@ -3169,3 +3169,157 @@ test('F01: conflictResolve(conflicting) keeps children held — a superseded par
   assert.equal(ledger.getEvent(analysis.id).state, 'SUPERSEDED_CONFLICT');
   assert.equal(ledger.getEvent(solution.id).state, 'WAIT_PARENT', 'the child stays held under a conflicting disposition');
 });
+
+// ---------------------------------------------------------------- F15: eligibility precedes the output limit
+//
+// The SQL LIMIT must never apply before conflict-ancestor eligibility: a
+// quarantined prefix larger than the page must not starve later eligible
+// deliveries. A durable scan cursor advances across the held prefix (<=100
+// persisted rows per call) and wraps only after the scanned window ends;
+// listing and claiming share the exact due/PENDING/conflict predicate with
+// a claim-time transactional recheck.
+
+function seedRawDeliveries(path, rows) {
+  const raw = new DatabaseSync(path);
+  const insOutbox = raw.prepare("INSERT INTO outbox (delivery_id, event_id, destination, state, attempts, next_ms, created_ms) VALUES (?,?,?,'PENDING',0,?,?)");
+  const insConflict = raw.prepare('INSERT INTO event_conflicts (event_id, original_sha256, conflicting_sha256, first_seen_ms, occurrences) VALUES (?,?,?,?,1)');
+  for (const r of rows) {
+    insOutbox.run(r.id, r.eventId, 'dest-plain', r.nextMs ?? 0, r.created ?? 1);
+    if (r.held) insConflict.run(r.eventId, sha256Of(`orig-${r.eventId}`), sha256Of(`conf-${r.eventId}`), 1);
+  }
+  raw.close();
+}
+
+test('F15: a conflict-held prefix larger than one page never starves later eligible deliveries (durable cursor, restart-safe)', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const rows = [];
+  for (let i = 1; i <= 105; i++) rows.push({ id: `DOT-DELIV-H${String(i).padStart(3, '0')}`, eventId: `E-HELD-${i}`, created: i, held: true });
+  rows.push({ id: 'DOT-DELIV-OK', eventId: 'E-OK', created: 106 });
+  seedRawDeliveries(path, rows);
+  const l1 = openLedger(path, { now });
+  assert.equal(l1.pendingDeliveries().length, 0, 'page 1 is entirely held — nothing eligible yet');
+  l1.close();
+  // durable across close/reopen: the cursor must NOT restart from the oldest
+  // row — the held prefix advances, and the eligible row surfaces within a
+  // bounded number of continuation calls (never under the old restart-
+  // from-oldest behavior)
+  const l2 = openLedger(path, { now });
+  let surfaced = null;
+  for (let i = 0; i < 3 && !surfaced; i++) {
+    surfaced = l2.pendingDeliveries().find((d) => d.delivery_id === 'DOT-DELIV-OK') ?? null;
+  }
+  assert.ok(surfaced, 'the eligible row behind the held prefix surfaces');
+  l2.claimDelivery('DOT-DELIV-OK');
+  let stillListed = true;
+  for (let i = 0; i < 3 && stillListed; i++) {
+    stillListed = l2.pendingDeliveries().some((d) => d.delivery_id === 'DOT-DELIV-OK');
+  }
+  assert.ok(!stillListed, 'claimed once — never listed again');
+  l2.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: deterministic created_ms+delivery_id ordering under equal created_ms', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  // inserted in REVERSE id order so a rowid-order fallback would list zzz first
+  seedRawDeliveries(path, [
+    { id: 'DOT-DELIV-zzz', eventId: 'E-Z', created: 5 },
+    { id: 'DOT-DELIV-aaa', eventId: 'E-A', created: 5 },
+  ]);
+  const l = openLedger(path, { now });
+  assert.deepEqual(l.pendingDeliveries().map((d) => d.delivery_id), ['DOT-DELIV-aaa', 'DOT-DELIV-zzz']);
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: response stays bounded per page — 150 eligible rows return 10 oldest-first, every row selected exactly once', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const rows = [];
+  for (let i = 1; i <= 150; i++) rows.push({ id: `DOT-DELIV-P${String(i).padStart(3, '0')}`, eventId: `E-P-${i}`, created: i });
+  seedRawDeliveries(path, rows);
+  const l = openLedger(path, { now });
+  const seen = [];
+  let guard = 0;
+  for (;;) {
+    const page = l.pendingDeliveries();
+    assert.ok(page.length <= 10, 'bounded response per page');
+    if (page.length === 0) break;
+    assert.ok(guard++ < 40, 'the scan must terminate');
+    for (const d of page) {
+      assert.ok(!seen.includes(d.delivery_id), `${d.delivery_id} selected exactly once`);
+      seen.push(d.delivery_id);
+      l.claimDelivery(d.delivery_id);
+    }
+  }
+  assert.equal(seen.length, 150);
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: a not-yet-due row is never selected and never hides due work', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedRawDeliveries(path, [
+    { id: 'DOT-DELIV-FUTURE', eventId: 'E-F', created: 1, nextMs: now() + 3600_000 },
+    { id: 'DOT-DELIV-NOW', eventId: 'E-N', created: 2 },
+  ]);
+  const l = openLedger(path, { now });
+  const listed = l.pendingDeliveries();
+  assert.deepEqual(listed.map((d) => d.delivery_id), ['DOT-DELIV-NOW']);
+  assert.deepEqual(l.pendingDeliveries().map((d) => d.delivery_id), ['DOT-DELIV-NOW'], 'unclaimed due work stays listed');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: rows arriving after the scan ceiling wait for the wrap — no skip, no duplicate', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const held = [];
+  for (let i = 1; i <= 100; i++) held.push({ id: `DOT-DELIV-H${String(i).padStart(3, '0')}`, eventId: `E-H-${i}`, created: i, held: true });
+  seedRawDeliveries(path, held);
+  const l = openLedger(path, { now });
+  assert.equal(l.pendingDeliveries().length, 0, 'held page advances the cursor');
+  seedRawDeliveries(path, [{ id: 'DOT-DELIV-LATE', eventId: 'E-LATE', created: 101 }]);
+  let late = null;
+  for (let i = 0; i < 3 && !late; i++) late = l.pendingDeliveries().find((d) => d.delivery_id === 'DOT-DELIV-LATE') ?? null;
+  assert.ok(late, 'the late row surfaces after the wrap, exactly once');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: conflictResolve(original) re-admits a held row once the scan wraps — a lifted quarantine is never lost', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedRawDeliveries(path, [
+    { id: 'DOT-DELIV-H', eventId: 'E-HELD-ONE', created: 1, held: true },
+    { id: 'DOT-DELIV-E', eventId: 'E-ELIG', created: 2 },
+  ]);
+  const l = openLedger(path, { now });
+  assert.deepEqual(l.pendingDeliveries().map((d) => d.delivery_id), ['DOT-DELIV-E']);
+  l.conflictResolve({ eventId: 'E-HELD-ONE', disposition: 'original', actor: 'os-owner' });
+  l.claimDelivery('DOT-DELIV-E');
+  let reAdmitted = null;
+  for (let i = 0; i < 4 && !reAdmitted; i++) reAdmitted = l.pendingDeliveries().find((d) => d.delivery_id === 'DOT-DELIV-H') ?? null;
+  assert.ok(reAdmitted, 'the resolved row re-enters eligibility after the wrap');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F15: claimDelivery rechecks the shared predicate in-transaction — a conflict arriving after listing refuses', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedRawDeliveries(path, [{ id: 'DOT-DELIV-C', eventId: 'E-CLAIM', created: 1 }]);
+  const l = openLedger(path, { now });
+  assert.equal(l.pendingDeliveries().length, 1, 'listed while unconflicted');
+  const raw = new DatabaseSync(path);
+  raw.prepare('INSERT INTO event_conflicts (event_id, original_sha256, conflicting_sha256, first_seen_ms, occurrences) VALUES (?,?,?,?,1)')
+    .run('E-CLAIM', sha256Of('o'), sha256Of('c'), 1);
+  raw.close();
+  assert.throws(() => l.claimDelivery('DOT-DELIV-C'), (e) => e.code === 'CONFLICT_HELD');
+  assert.equal(l.pendingDeliveries().length, 0, 'listing excludes it under the same predicate');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});

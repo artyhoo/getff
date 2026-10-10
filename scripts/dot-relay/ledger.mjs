@@ -207,6 +207,10 @@ const SOURCE_SHA = '35738554faf029e9fe3b8b4c25bfdde242f65c66';
 export const REVIEW_VERIFY_BUDGET_MS = 30 * 60_000;
 const PLAN_LIMIT = 32 * 1024;
 const TICK_PAGE_BUDGET = 10;
+// F15: delivery-eligibility scan — one persisted page per call, bounded
+// response; the held prefix advances the durable cursor, never the limit.
+const DELIVERY_SCAN_PAGE = 100;
+const DELIVERY_RESPONSE_LIMIT = 10;
 
 // HOST-RESILIENCE §4: slot-holding states. INTERRUPTED_HOST / RECOVERING_HOST /
 // RESUMING_HOST keep the single-execution slot occupied (no second claim, no
@@ -958,12 +962,77 @@ export function openLedger(path, {
 
     // ------------------------------------------------------------- deliveries
 
+    // F15: shared delivery-eligibility predicate — the exact same
+    // due/PENDING/conflict-ancestor rules govern listing and claiming;
+    // claimDelivery rechecks it inside the claim transaction.
+    _deliveryHold(row) {
+      if (api._conflictBlocked(row.event_id)) return 'CONFLICT_HELD';
+      if (row.state !== 'PENDING') return 'DELIVERY_STATE';
+      if (row.next_ms > now()) return 'DELIVERY_NOT_DUE';
+      return null;
+    },
+
+    _maxOutboxRowid() {
+      return db.prepare('SELECT COALESCE(MAX(rowid), 0) AS m FROM outbox').get().m;
+    },
+
+    // F15: eligibility precedes the output limit. The SQL LIMIT never applies
+    // before conflict-ancestor eligibility — a durable scan cursor advances
+    // across the held prefix (at most DELIVERY_SCAN_PAGE persisted rows per
+    // call) and wraps only after the scanned window ends, so a quarantined
+    // prefix larger than the page cannot starve later eligible deliveries.
+    // The cursor NEVER advances past an eligible row: an unclaimed due
+    // delivery stays listed until claimed, exactly as before. Rows arriving
+    // after the scan ceiling (rowid captured at scan start) surface on the
+    // next wrapped scan — no skip, no duplicate. Ordering is deterministic:
+    // created_ms, then delivery_id.
     pendingDeliveries() {
-      return db
-        .prepare("SELECT * FROM outbox WHERE state = 'PENDING' AND next_ms <= ? ORDER BY created_ms LIMIT 10")
-        .all(now())
-        .filter((row) => !api._conflictBlocked(row.event_id))
-        .map((row) => ({ ...row, artifact_sha256: api._artifactFor(row.event_id) }));
+      return api._tx(() => {
+        let scan = null;
+        const rawScan = api._ctrl('delivery_scan');
+        if (rawScan != null) {
+          try { scan = JSON.parse(rawScan); } catch { scan = null; }
+        }
+        if (!scan || typeof scan !== 'object' || !Number.isInteger(scan.ceiling_rowid)
+          || (scan.cursor_created_ms !== null && (typeof scan.cursor_created_ms !== 'number' || typeof scan.cursor_delivery_id !== 'string'))) {
+          scan = { cursor_created_ms: null, cursor_delivery_id: null, ceiling_rowid: api._maxOutboxRowid() };
+        }
+        const queryPage = (s) => {
+          const params = [now(), s.ceiling_rowid];
+          let where = "state = 'PENDING' AND next_ms <= ? AND rowid <= ?";
+          if (s.cursor_created_ms !== null) {
+            where += ' AND (created_ms > ? OR (created_ms = ? AND delivery_id > ?))';
+            params.push(s.cursor_created_ms, s.cursor_created_ms, s.cursor_delivery_id);
+          }
+          return db.prepare(
+            `SELECT * FROM outbox WHERE ${where} ORDER BY created_ms, delivery_id LIMIT ${DELIVERY_SCAN_PAGE}`,
+          ).all(...params);
+        };
+        let rows = queryPage(scan);
+        if (rows.length === 0) {
+          // window exhausted: wrap ONCE in this same call with a fresh
+          // ceiling so a row ingested after the scan started is still
+          // listed synchronously; never a second wrap per call.
+          scan = { cursor_created_ms: null, cursor_delivery_id: null, ceiling_rowid: api._maxOutboxRowid() };
+          rows = queryPage(scan);
+        }
+        const eligible = [];
+        let prefixHeldRow = null; // last row of the CONTIGUOUS held prefix
+        for (const row of rows) {
+          if (api._deliveryHold(row)) {
+            if (eligible.length === 0) prefixHeldRow = row;
+            continue;
+          }
+          eligible.push(row);
+          if (eligible.length >= DELIVERY_RESPONSE_LIMIT) break;
+        }
+        if (prefixHeldRow) {
+          scan.cursor_created_ms = prefixHeldRow.created_ms;
+          scan.cursor_delivery_id = prefixHeldRow.delivery_id;
+        }
+        api._ctrlSet('delivery_scan', JSON.stringify(scan));
+        return eligible.map((row) => ({ ...row, artifact_sha256: api._artifactFor(row.event_id) }));
+      });
     },
 
     // R04: the ACK artifact authority is the REGISTERED public manifest only.
@@ -981,9 +1050,12 @@ export function openLedger(path, {
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         const row = db.prepare('SELECT * FROM outbox WHERE delivery_id = ?').get(deliveryId);
         if (!row) throw ledgerError('UNKNOWN_DELIVERY', deliveryId);
-        if (api._conflictBlocked(row.event_id)) throw ledgerError('CONFLICT_HELD', `${row.event_id} quarantined by digest conflict`);
-        if (row.state !== 'PENDING') throw ledgerError('DELIVERY_STATE', `${deliveryId} in ${row.state}`);
-        if (row.next_ms > now()) throw ledgerError('DELIVERY_NOT_DUE', `${deliveryId} next_ms ${row.next_ms}`);
+        // F15: the SAME predicate that governs listing, rechecked inside the
+        // claim transaction (a conflict or state change after listing refuses).
+        const hold = api._deliveryHold(row);
+        if (hold === 'CONFLICT_HELD') throw ledgerError('CONFLICT_HELD', `${row.event_id} quarantined by digest conflict`);
+        if (hold === 'DELIVERY_STATE') throw ledgerError('DELIVERY_STATE', `${deliveryId} in ${row.state}`);
+        if (hold === 'DELIVERY_NOT_DUE') throw ledgerError('DELIVERY_NOT_DUE', `${deliveryId} next_ms ${row.next_ms}`);
         // Persist CLAIMED (with sender identity) BEFORE any tool invocation
         // side effect.
         db.prepare("UPDATE outbox SET state='CLAIMED', sender_boot_id=?, sender_pid=?, sender_start=? WHERE delivery_id = ?").run(
