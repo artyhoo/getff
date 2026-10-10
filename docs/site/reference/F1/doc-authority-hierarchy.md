@@ -97,18 +97,18 @@ directories whose files share one authority.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/doc-authority-hierarchy.md` — delivery globs
-  at `:10`, the edit-time injection summary at `:11`, class `A` at `:15`, the
-  header contract at `:17`, and the 2026-05-09 origin incident at `:20`.
-- Doc categorisation and the required-for lists: §2 at `:43`; the two
+  at `:13`, the edit-time injection summary at `:14`, class `A` at `:18`, the
+  header contract at `:20`, and the 2026-05-09 origin incident at `:23`.
+- Doc categorisation and the required-for lists: §2 at `:46`; the two
   dynamic-enforcement notes (skills covered the moment they land, 2026-07-02;
-  flat rule/agent docs, 2026-07-03) at `:56` and `:58`.
-- The header format spec: §3 at `:71`, with the field template at `:81` to
-  `:82`.
-- The five anti-patterns: §4 at `:104`; `#superseded-intent-left-standing` at
-  `:110`; the §4.1 supersession clause at `:112` (amend the artifact an
+  flat rule/agent docs, 2026-07-03) at `:59` and `:61`.
+- The header format spec: §3 at `:74`, with the field template at `:84` to
+  `:85`.
+- The five anti-patterns: §4 at `:107`; `#superseded-intent-left-standing` at
+  `:113`; the §4.1 supersession clause at `:115` (amend the artifact an
   auditor would cite, with a dated `Addendum`/`withdraws`/`supersedes`
   heading).
 - The companion test and its module: the header regex at

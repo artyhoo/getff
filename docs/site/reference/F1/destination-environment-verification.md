@@ -147,7 +147,7 @@ records closing that population as a separate, not-yet-built change.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The contract grammar (fenced `host-verify` block, declaration order,
   ≥20-character opt-out rationale): `.claude/rules/destination-environment-verification.md:21`

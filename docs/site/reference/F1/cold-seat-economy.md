@@ -112,7 +112,7 @@ optional; narrower is not skipped.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The three decisions: `.claude/rules/cold-seat-economy.md:28` (§1 re-audit on
   substance), `:58` (§2 seat ordering), `:67` (§3 follow-up rounds and the resume

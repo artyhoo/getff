@@ -103,19 +103,19 @@ reason written once stays written; nothing re-asks whether it is still true.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/dual-implementation-discipline.md` — delivery
-  globs at `:9`, the injection summary at `:10`, the class-`A` header naming
-  every enforcement surface at `:14`, the origin framing at `:19`.
-- Problem statement §1 at `:25`; triggers and non-triggers §2 at `:39`;
-  audience triage §3 at `:59`.
-- The capability-check-not-brand-name detection principle: §4 at `:105`.
-- The deterministic drift check (anchor resolution): §5 at `:124`.
-- The CC-bias mitigation and the edit-time marker gate: §6 at `:156`.
+  globs at `:12`, the injection summary at `:13`, the class-`A` header naming
+  every enforcement surface at `:17`, the origin framing at `:22`.
+- Problem statement §1 at `:28`; triggers and non-triggers §2 at `:42`;
+  audience triage §3 at `:62`.
+- The capability-check-not-brand-name detection principle: §4 at `:108`.
+- The deterministic drift check (anchor resolution): §5 at `:127`.
+- The CC-bias mitigation and the edit-time marker gate: §6 at `:159`.
 - The edit-time gate itself: `.claude/hooks/check-hook-marker.sh` — the live
-  `@cc-only-rationale` example at `:5` to `:8`, the two-marker grammar at
-  `:14` to `:17`, and the exit-2 channel rationale at `:25` to `:27`.
+  `@cc-only-rationale` example at `:4` to `:8`, the two-marker grammar at
+  `:10` to `:12`, and the exit-2 channel rationale at `:21` to `:24`.
 - The population probe: `tests/agnosticism/probes/channel-coverage.sh` —
   Surface 8 header at `:2`, marker grep at `:50`, anchor extraction at `:56`
   (output above filtered to one hook's two rows; the full probe prints 69
@@ -126,7 +126,7 @@ Checked 2026-10-07 against the working tree this batch was written in.
   `tests/agnosticism/harness-self.test.sh`.
 - The named cold agent for the semantic anti-patterns:
   `agents/dual-channel-drift-auditor.md` — its un-gateability (38% precision)
-  is recorded in the rule's §8 from `:191` onward and its §9 promotion history
-  at `:209`.
+  is recorded in the rule's §8 from `:194` onward and its §9 promotion history
+  at `:212`.
 - The index row grading this rule class `A` with channels
   `paths:(6), edit-time inject`: `.claude/rules/00-rule-index.md:21`.

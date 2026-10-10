@@ -104,7 +104,7 @@ sibling rule in this family owns that surface.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/egress-no-api-bypass.md` — the skill-embed
   channel marker at `:3`, the class-`B` rationale at `:5`, the two-channel

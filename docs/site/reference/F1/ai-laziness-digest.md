@@ -84,7 +84,7 @@ one-liners cannot silently stop matching what the catalogue actually says.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The digest carries counters T1 through T22 as exact-prefix quotes:
   `.claude/rules/ai-laziness-digest.md:12` (T1) and

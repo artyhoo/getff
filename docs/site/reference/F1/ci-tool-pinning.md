@@ -106,7 +106,7 @@ script carries it: nothing live needs the exemption yet.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - Rule A (version pin) and its MUST wording: `.claude/rules/ci-tool-pinning.md:27`
   to `:34`. Rule B (lockfile-aware install): `:36` to `:42`.

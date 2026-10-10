@@ -105,7 +105,7 @@ guillotine.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/effort-worthiness.md` — four skill-embed
   channel markers at `:3` to `:6`, class `C` at `:8`, the fires line at `:9`,

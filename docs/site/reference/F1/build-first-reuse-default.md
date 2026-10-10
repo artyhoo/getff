@@ -100,18 +100,18 @@ exists.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The seven-verdict table opens at `.claude/rules/build-first-reuse-default.md:39`
   (the `ADOPT` row); the default sentence is `:47`.
-- Own-stack-first and the operator/shipped axes: `:50` and `:52`.
-- The §3 search layers: `:69` (mechanism), `:75` (repository question tool, ≥3
-  phrasings), `:76` (web search, ≥3 phrasings), and `:80` (the caveat excluding
+- Own-stack-first and the operator/shipped axes: `:53` and `:55`.
+- The §3 search layers: `:72` (mechanism), `:78` (repository question tool, ≥3
+  phrasings), `:79` (web search, ≥3 phrasings), and `:83` (the caveat excluding
   library-docs queries from that list).
 - The companion test: `packages/core/principles/11-build-first-reuse-default.test.ts`;
   the verdict-name set starts at `:72`, with the calibration note that extends it
   when the register records a new keyword at `:47` to `:50`. Shipped with the rule
-  per `:114` of the rule file.
+  per `:117` of the rule file.
 - The per-commit gate this rule complements: `CLAUDE.md:12` ("Build-vs-reuse
   invariant").
 - The register the census counted:

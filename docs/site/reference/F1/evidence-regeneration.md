@@ -107,7 +107,7 @@ running.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/evidence-regeneration.md` — `paths:` and the
   `<!-- globs: -->` marker at `:3` to `:9`, the class-`B` ceiling rationale at

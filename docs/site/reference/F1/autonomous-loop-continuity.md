@@ -96,7 +96,7 @@ to always pass `--timeout-ms` until that gap is closed.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The stop rule and its block mechanism: `.claude/rules/autonomous-loop-continuity.md:19`
   (the rule) and `:24` to `:28` (the Stop hook returns `block`, the turn does not end).
@@ -110,6 +110,6 @@ Checked 2026-10-07 against the working tree this batch was written in.
   (the autonomy block) and `:152` (the same opt-in gate).
 - Paired self-tests for the arm ship at
   `packages/core/hooks/end-of-turn-reminder.test.ts`; a count of `test(`/`it(`
-  declarations in that file returns 162.
+  declarations in that file returns 163.
 - The index row grading this rule class `B` with channels `hook, digest`:
   `.claude/rules/00-rule-index.md:13`.

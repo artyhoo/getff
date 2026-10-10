@@ -106,7 +106,7 @@ every detect command actually detects well.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The framing sentence and the never-pin / official-installer / free-default
   terms: `.claude/rules/companion-install-principle.md:23` (§1 opens at `:19`).

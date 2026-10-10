@@ -79,7 +79,7 @@ enumeration was written, not that the work was done.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The catalogue spans `### T1` at `.claude/rules/ai-laziness-traps.md:47` through
   `### T22` at `:186`; 22 headings, counted live on the digest sheet.

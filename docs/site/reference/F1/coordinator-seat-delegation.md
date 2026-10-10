@@ -98,18 +98,18 @@ observable, the rule promotes to a gate.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
 
 - The rule text: `.claude/rules/coordinator-seat-delegation.md` — `paths:`
-  frontmatter at `:3` to `:4`, the `events:` arm patterns at `:5` to `:9`, the
-  edit-time injection summary at `:14`, the class-`C` rationale at `:16`, the
-  seat-vs-worker statement at `:23` (§1).
+  frontmatter at `:3` to `:5`, the `events:` arm patterns at `:6` to `:10`, the
+  edit-time injection summary at `:15`, the class-`C` rationale at `:17`, the
+  seat-vs-worker statement at `:24` (§1).
 - What counts as the mechanical pipeline (the harvest and await CLI entry
   points, the harvest and babysit helpers, task polling) — and what deliberately does not count (CI
-  waits, merges) — at `:27`; the out-of-scope list (the dispatcher seat,
-  night-mode, the chip worker itself) at `:29`.
+  waits, merges) — at `:28`; the out-of-scope list (the dispatcher seat,
+  night-mode, the chip worker itself) at `:30`.
 - The three anti-patterns (`#seat-runs-the-pipeline`, `#subagent-as-chip`,
-  `#worker-decides-fork`) at `:31`.
+  `#worker-decides-fork`) at `:32`.
 - The REPORT contract quoted above: the template's separate-session statement
   and "the seat keeps the REPORT and decides every `ATTN:` item" at
   `.claude/skills/orchestrator/references/chip-worker-template.md:6`; the
