@@ -1,7 +1,7 @@
 /**
  * Principle 19 — meta-orchestrator §2.5 ALIAS-mapping ↔ §5-routing-tree consistency
  *
- * Source: .claude/skills/pipeline/SKILL.md §2.5 (Stage 2C wiring)
+ * Source: .agents/procedures/pipeline/SKILL.md §2.5 (Stage 2C wiring)
  *         docs/meta-factory/research-patches/2026-05-25-meta-orchestrator-mode-triage-and-planner-design.md §5 + §9
  *         DN-3 binding (single source = SKILL.md body; classify-work.sh UNCHANGED)
  *
@@ -29,8 +29,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const SKILL = resolve(REPO_ROOT, '.claude/skills/pipeline/references/planning.md');
-const CARD = resolve(REPO_ROOT, '.claude/skills/pipeline/SKILL.md');
+const SKILL = resolve(REPO_ROOT, '.agents/procedures/pipeline/references/planning.md');
+const CARD = resolve(REPO_ROOT, '.agents/procedures/pipeline/SKILL.md');
 
 const ALIASES = ['DIRECT', 'BUNDLE', 'SOLO', 'PAIR', 'DECOMPOSE', 'RESEARCH'] as const;
 const DISPATCHES = [

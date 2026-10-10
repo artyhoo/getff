@@ -40,7 +40,7 @@ import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
 
 /**
  * Run the hook with a simulated SessionStart stdin payload.
@@ -325,10 +325,10 @@ const fullRulesFixture = (): Record<string, string> => {
 // (five invariants, scripts/render-invariants.mjs); every other line is unchanged.
 const FRAMEWORK_GOLDEN = `[session-bootstrap digest — auto-injected at session start]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
-Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
-Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
-Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/BUILD/REJECT/DEFER, «we should X», «use Y», «pick A over B») — (1) cite SSOT/prior-art by ID, (2) give file:line or command-output evidence, (3) state what would falsify it («wrong if …»), (4) for «nothing exists» claims run the 6-item search check. An unbacked verdict is provisional, not load-bearing. This is a reminder, not a gate. (see also .claude/rules/recommendation-laziness-discipline.md + T-trap in ai-laziness-traps.md §2) (.claude/rules/phase-research-coverage.md §1.7)
-Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.md
+Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.agents/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.agents/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.agents/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
+Step-0 reading order: README.md → .agents/session-bootstrap.md → CLAUDE.md → task-specific docs.
+Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/BUILD/REJECT/DEFER, «we should X», «use Y», «pick A over B») — (1) cite SSOT/prior-art by ID, (2) give file:line or command-output evidence, (3) state what would falsify it («wrong if …»), (4) for «nothing exists» claims run the 6-item search check. An unbacked verdict is provisional, not load-bearing. This is a reminder, not a gate. (see also .agents/rules/recommendation-laziness-discipline.md + T-trap in ai-laziness-traps.md §2) (.agents/rules/phase-research-coverage.md §1.7)
+Full bootstrap + reviewer drift-prevention flowchart: .agents/session-bootstrap.md
 [/session-bootstrap digest]
 `;
 

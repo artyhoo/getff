@@ -54,12 +54,17 @@ export const REPO_ROOT = resolve(HERE, '../../..');
 export const CLAIM_CORPUS_PATHSPECS: readonly string[] = [
   // live authority (this repo's canon) — every tracked root markdown, by predicate
   ':(glob)*.md',
+  '.agents/rules/*.md',
   '.claude/rules/*.md',
   // shipped surface
   'packages/**/*.md',
   'packages/**/*.template',
   'templates/**/*.md',
   'templates/**/*.template',
+  '.agents/procedures/**/*.md',
+  '.agents/procedures/**/*.template',
+  '.agents/skills/**/*.md',
+  '.agents/roles/*.md',
   'skills/**/*.md',
   'skills/**/*.template',
   '.claude/skills/**/*.md',
@@ -88,7 +93,7 @@ const SHIPPED_PREFIXES: readonly string[] = [
   'INSTALL-FOR-AI.md',
 ];
 
-export function isShippedSurface(file: string): boolean {
+function isShippedLegacySurface(file: string): boolean {
   if (SHIPPED_PREFIXES.some((p) => file === p || file.startsWith(p)))
     return true;
   // `.claude/skills/` is NOT a shipped prefix wholesale: setup.d/10-skills.sh delivers
@@ -97,6 +102,22 @@ export function isShippedSurface(file: string): boolean {
   // slug list the §8 walk already derives rather than restating it.
   return SHIPPED_SKILL_SLUGS.some((slug) =>
     file.startsWith(`.claude/skills/${slug}/`),
+  );
+}
+
+// Canonical bodies retain the audiences of their delivery entries. In particular,
+// moving a consumer helper behind a shallow loader must not classify its claims
+// as framework-only or remove them from the measured corpus.
+const canonicalEntries: { legacy: string; owner: string }[] = JSON.parse(
+  readFileSync(resolve(REPO_ROOT, 'scripts/canonical-agents-map.json'), 'utf8'),
+).entries;
+
+export function isShippedSurface(file: string): boolean {
+  return (
+    isShippedLegacySurface(file) ||
+    canonicalEntries.some(
+      (entry) => entry.owner === file && isShippedLegacySurface(entry.legacy),
+    )
   );
 }
 
@@ -710,7 +731,7 @@ export interface QuarantineRow {
  */
 export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
   {
-    file: 'skills/getff/references/checks-map.md',
+    file: '.agents/procedures/getff/references/checks-map.md',
     items: [
       'npm run typecheck',
       'npm run arch:check',
@@ -732,7 +753,8 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'vitest related $changed',
       'vitest related on changed files',
     ],
-    owner: 'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
+    owner:
+      'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
   },
 ];
 

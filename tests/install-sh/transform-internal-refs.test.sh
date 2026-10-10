@@ -2,7 +2,7 @@
 # Behaviour test for install.sh:transform_internal_refs() (sed-rewrites repo-internal
 # markdown links to GitHub blob URLs at install time).
 #
-# Single source of truth: setup.d/lib.sh:146-167, via install.sh — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
+# Single source of truth: setup.d/lib.sh:175-196, via install.sh — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
 # so the function definition is available without running the install pipeline.
 #
 # Sub-tests covering the transform classes + idempotency:
@@ -179,8 +179,12 @@ grep -qF "](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh)" <<<"$OUT" \
   && ok "4f2: scripts/run-local-ci-sweep.sh → blob (allowlist: proven absent at factory depth)" \
   || bad "4f2: unshipped scripts/ allowlist arm failed; got: $(grep -F 'run-local-ci-sweep' <<<"$OUT")"
 
-grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)" <<<"$OUT" \
-  && ok "4f3: hooks/check-worker-dispatch-channel.sh → blob (allowlist: proven absent)" \
+# The hooks/ blob target is the canonical .agents/hooks/ path: the blanket hooks/ arm
+# (consumer-delivery materialization — a relative hooks/ link dangles at every native depth
+# but .claude) superseded the 2026-08-17 per-file allowlist, whose URL still named the stale
+# .claude/hooks/ repo path.
+grep -qF "](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh)" <<<"$OUT" \
+  && ok "4f3: hooks/check-worker-dispatch-channel.sh → blob (blanket hooks/ arm; canonical path)" \
   || bad "4f3: unshipped hook allowlist arm failed; got: $(grep -F 'check-worker-dispatch' <<<"$OUT")"
 
 # Sub-test 4f4: the sibling-skill shape stays RELATIVE. `](../reviewer/SKILL.md)` from
@@ -244,10 +248,14 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/skills/dispatcher/SKILL.md)" <<<"$OUT" 
   && ok "4h: ../.claude/skills/ → ${UPSTREAM_BLOB_URL}/.claude/skills/ (agent shape: doubled-segment fix)" \
   || bad "4h: .claude/skills/ rewrite failed; got: $(grep -F '.claude/skills/dispatcher' <<<"$OUT")"
 
-# Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)
-grep -qF "](../../../hooks/end-of-turn-reminder.sh)" <<<"$OUT" \
-  && ok "5: ../../../hooks/ left intact (consumer-resolvable)" \
-  || bad "5: hooks/ link was modified — leak; got: $(grep -F 'hooks/end' <<<"$OUT")"
+# Sub-test 5: hooks/ → blob. WAS "left intact (consumer has .claude/hooks/)": true only at
+# .claude depth. The consumer delivery materializes the same canonical bytes under .zcode/
+# too, where no hooks dir exists — the relative form dangles there and the whole-tree
+# consumer lychee sweep REDs (measured 2026-10-06: 2 errors from
+# plain-language-tail.md's ../../../hooks/ link alone).
+grep -qF "](${UPSTREAM_BLOB_URL}/.agents/hooks/end-of-turn-reminder.sh)" <<<"$OUT" \
+  && ok "5: ../../../hooks/ → ${UPSTREAM_BLOB_URL}/.agents/hooks/ (location-independent blob)" \
+  || bad "5: hooks/ link was not blob-ified; got: $(grep -F 'hooks/end' <<<"$OUT")"
 
 # Sub-test 6: idempotent — second pass produces identical output
 BEFORE=$(cat "$FIXTURE")

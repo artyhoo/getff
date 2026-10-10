@@ -233,7 +233,7 @@ const entry = (id: string, principle?: string) => ({
   extras: principle ? { principle } : {},
 });
 function baseCore(dir: string, edit: (text: string) => string = (t) => t) {
-  write(dir, '.claude/skills/getff/references/base-core.md', edit(readFileSync(join(REPO, 'skills/getff/references/base-core.md'), 'utf8')));
+  write(dir, '.claude/skills/getff/references/base-core.md', edit(readFileSync(join(REPO, '.agents/procedures/getff/references/base-core.md'), 'utf8')));
 }
 
 const cfgOf = (dir: string) => JSON.parse(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')) as Json & { overrides?: Override[] };

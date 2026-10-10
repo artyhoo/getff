@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const LIST_PATH = 'skills/getff/references/base-core.md';
+const LIST_PATH = '.agents/procedures/getff/references/base-core.md';
 const BASELINES_DIR = 'tests/install-sh/baselines';
 const LIST_IN_PROJECT = '.claude/skills/getff/references/base-core.md';
 // The lint config each stack's greenfield install places (setup.d/40-configs.sh:589-664). react-native

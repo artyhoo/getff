@@ -40,11 +40,11 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const INJECT_HOOK = resolve(REPO_ROOT, '.claude/hooks/glossary-inject.sh');
-const STOP_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
-const EN_PACK = resolve(REPO_ROOT, '.claude/hooks/lang/en.sh');
-const RU_PACK = resolve(REPO_ROOT, '.claude/hooks/lang/ru.sh');
-const PARITY = resolve(REPO_ROOT, '.claude/hooks/lang/check-parity.sh');
+const INJECT_HOOK = resolve(REPO_ROOT, '.agents/hooks/glossary-inject.sh');
+const STOP_HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
+const EN_PACK = resolve(REPO_ROOT, '.agents/hooks/lang/en.sh');
+const RU_PACK = resolve(REPO_ROOT, '.agents/hooks/lang/ru.sh');
+const PARITY = resolve(REPO_ROOT, '.agents/hooks/lang/check-parity.sh');
 
 const SLOW_SHELL_MS = 30_000;
 
@@ -701,7 +701,7 @@ describe('lang-pack parity for the AIF_GLOSSARY_ key class', () => {
       const box = mkdtempSync(join(tmpdir(), 'glossary-parity-'));
       tmpDirs.push(box);
       for (const f of ['en.sh', 'ru.sh', 'check-parity.sh']) {
-        copyFileSync(resolve(REPO_ROOT, '.claude/hooks/lang', f), join(box, f));
+        copyFileSync(resolve(REPO_ROOT, '.agents/hooks/lang', f), join(box, f));
       }
       const en = readFileSync(join(box, 'en.sh'), 'utf8');
       writeFileSync(join(box, 'en.sh'), `AIF_GLOSSARY_EXTRA=1\n${en}`, 'utf8');
@@ -732,7 +732,7 @@ describe('pack-lag (consumer delivery lag) — the pre-feature pack must not abo
     mkdirSync(join(box, 'lang'));
     for (const f of ['en.sh', 'ru.sh']) {
       const body = readFileSync(
-        resolve(REPO_ROOT, '.claude/hooks/lang', f),
+        resolve(REPO_ROOT, '.agents/hooks/lang', f),
         'utf8',
       )
         .replace(/^aif_msg_glossary_demand\(\) \{[\s\S]*?^\}\n/m, '')

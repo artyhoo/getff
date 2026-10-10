@@ -43,6 +43,8 @@ const rnCommon = [
       'eslint.config.rn-common.mjs',
       'vitest.config.ts',
       '.dependency-cruiser.mjs',
+      'scripts/codex-hook-adapter.mjs',
+      'scripts/lib/**',
     ],
   },
 

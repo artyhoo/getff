@@ -58,7 +58,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/runtime-bridge-dispatch.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/runtime-bridge-dispatch.sh');
 
 function hasJq(): boolean {
   try {

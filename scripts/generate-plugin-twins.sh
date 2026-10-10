@@ -2,7 +2,7 @@
 # generate-plugin-twins.sh — generate plugin/ twins from their in-repo sources (two populations, two contracts)
 # Generate plugin/ twins from their in-repo sources. Two populations, two contracts:
 #
-#   (1) plugin/hooks/<name>   ← .claude/hooks/<name>.sh   — copy + AUTO-GENERATED header
+#   (1) plugin/hooks/<name>   ← .agents/hooks/<name>.sh   — copy + AUTO-GENERATED header
 #   (2) plugin/agents/<name>.md ← agents/<name>.md        — byte-identical copy, no header
 #
 # Per-source marker `# @plugin-transform: <mode>` (placed near the top of the source),
@@ -52,15 +52,15 @@ log_debug() { if [ "$LOG_LEVEL" = "DEBUG" ]; then printf '[DEBUG] generate-plugi
 # below, which CLAUDE_PROJECT_DIR can point at a sandbox tree for testing the generator itself.
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
-SRC_DIR="$REPO_ROOT/.claude/hooks"
+SRC_DIR="$REPO_ROOT/.agents/hooks"
 TWIN_DIR="$REPO_ROOT/plugin/hooks"
-AGENT_SRC_DIR="$REPO_ROOT/agents"
+AGENT_SRC_DIR="$REPO_ROOT/.agents/roles"
 AGENT_TWIN_DIR="$REPO_ROOT/plugin/agents"
 
 [ -d "$SRC_DIR" ] || { log_info "source dir missing: $SRC_DIR"; exit 1; }
 [ -d "$TWIN_DIR" ] || mkdir -p "$TWIN_DIR"
 
-log_info "generating plugin twins from .claude/hooks/*.sh"
+log_info "generating plugin twins from .agents/hooks/*.sh"
 
 # Render the identity-mode twin for a source, to stdout. The AUTO-GENERATED header goes AFTER
 # the shebang line (so kernel exec still works): shebang stays line 1, header is line 2, the
@@ -69,7 +69,7 @@ log_info "generating plugin twins from .claude/hooks/*.sh"
 render_twin() {
   local src="$1" nm="$2"
   printf '%s\n' "$(head -1 "$src")"
-  printf '# AUTO-GENERATED from .claude/hooks/%s.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)\n' "$nm"
+  printf '# AUTO-GENERATED from %s/%s.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)\n' "${3:-.agents/hooks}" "$nm"
   printf '%s\n' "$(tail -n +2 "$src")"
 }
 
@@ -104,24 +104,32 @@ guard_identity_clobber() {
 
   git -C "$REPO_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
   local src_rel="${src#"$REPO_ROOT"/}"
-  git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null || return 0
+  if ! git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null; then
+    src_rel=".claude/hooks/$nm.sh"
+    git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel" 2>/dev/null || return 0
+  fi
 
   local head_src rc=0
   head_src=$(mktemp)
   git -C "$REPO_ROOT" show "HEAD:$src_rel" > "$head_src" 2>/dev/null || { rm -f "$head_src"; return 0; }
-  cmp -s <(render_twin "$head_src" "$nm") "$twin" || rc=1
+  if ! cmp -s <(render_twin "$head_src" "$nm") "$twin" && ! cmp -s <(render_twin "$head_src" "$nm" ".claude/hooks") "$twin"; then rc=1; fi
+  # A canonical owner newly replaces a declared manual source. The old plugin HEAD
+  # is the native baseline; a current hand-edit still refuses rather than vanishing.
+  if [ "$rc" -ne 0 ] && [[ "$src_rel" == .claude/hooks/* ]] && grep -q '^# @plugin-transform: manual' "$head_src"; then
+    if git -C "$REPO_ROOT" cat-file -e "HEAD:plugin/hooks/$nm" 2>/dev/null && cmp -s <(git -C "$REPO_ROOT" show "HEAD:plugin/hooks/$nm") "$twin"; then rc=0; fi
+  fi
   rm -f "$head_src"
   [ "$rc" -eq 0 ] && return 0
 
   cat >&2 <<EOF
 [ERROR] generate-plugin-twins: $nm — refusing to overwrite plugin/hooks/$nm.
 
-  Its current content matches neither the twin rendered from .claude/hooks/$nm.sh nor the one
+  Its current content matches neither the twin rendered from .agents/hooks/$nm.sh nor the one
   rendered from that source at HEAD, so this twin holds logic no source reproduces. Writing it
   now would delete that logic silently — the exact way the Stage 9C ZCode arm was lost twice.
 
   Pick the branch that matches what you meant:
-    (a) The logic belongs in BOTH channels  → move it into .claude/hooks/$nm.sh and re-run.
+    (a) The logic belongs in BOTH channels  → move it into .agents/hooks/$nm.sh and re-run.
         This is almost always the right answer; it is what makes the logic regeneration-safe.
     (b) The twin is deliberately hand-maintained → declare it on the SOURCE:
         # @plugin-transform: manual — <≥20-char rationale for the divergence>
@@ -140,7 +148,7 @@ for src in "$SRC_DIR"/*.sh; do
 
   # Skip sources with no existing twin — those are intentionally not twinned
   # (internal-only, or have other delivery arrangements).
-  if [ ! -f "$twin" ]; then
+  if [ ! -f "$twin" ] && ! grep -q '^# @plugin-transform: file ' "$src"; then
     log_debug "skip (no twin): $name"
     continue
   fi
@@ -152,6 +160,22 @@ for src in "$SRC_DIR"/*.sh; do
       log_info "twin: $name mode: manual (declared, hand-maintained)"
       manual=$((manual+1))
       ;;
+    file\ *)
+      adapter_rel=${marker#file }; adapter_rel=${adapter_rel%% *}
+      adapter="$SRC_DIR/$adapter_rel"
+      [ -f "$adapter" ] || { echo "[ERROR] missing authored adapter: $adapter" >&2; exit 2; }
+      twin="$TWIN_DIR/$(basename "$adapter_rel")"
+      if [ -f "$twin" ] && ! cmp -s "$adapter" "$twin"; then
+        head_rel=".agents/hooks/$adapter_rel"
+        git -C "$REPO_ROOT" cat-file -e "HEAD:$head_rel" 2>/dev/null || head_rel="plugin/hooks/$(basename "$adapter_rel")"
+        if git -C "$REPO_ROOT" cat-file -e "HEAD:$head_rel" 2>/dev/null; then
+          cmp -s <(git -C "$REPO_ROOT" show "HEAD:$head_rel") "$twin" || { echo "[ERROR] refusing to overwrite unique adapter twin: $twin" >&2; exit 3; }
+        fi
+      fi
+      cmp -s "$adapter" "$twin" || cp "$adapter" "$twin"
+      log_info "twin: $(basename "$adapter_rel") mode: file (authored canonical adapter)"
+      identical=$((identical+1))
+      ;;
     sed\ *)
       sed_expr=${marker#sed }
       # Apply sed to a temp then write_twin so the shebang stays line 1.
@@ -161,7 +185,7 @@ for src in "$SRC_DIR"/*.sh; do
       rest=$(tail -n +2 "$tmp_transformed")
       {
         printf '%s\n' "$shebang"
-        printf '# AUTO-GENERATED from .claude/hooks/%s.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)\n' "$name"
+        printf '# AUTO-GENERATED from %s/%s.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)\n' ".agents/hooks" "$name"
         printf '%s\n' "$rest"
       } > "$twin"
       rm -f "$tmp_transformed"
@@ -169,7 +193,7 @@ for src in "$SRC_DIR"/*.sh; do
       log_debug "sed expr: $sed_expr"
       sed_transformed=$((sed_transformed+1))
       ;;
-    "")
+    ""|identity*)
       guard_identity_clobber "$src" "$twin" "$name" || exit 3
       write_twin "$src" "$twin"
       log_info "twin: $name mode: identity"
@@ -183,6 +207,15 @@ for src in "$SRC_DIR"/*.sh; do
 done
 
 log_info "generated $((identical + sed_transformed)) twins, skipped $manual manual, $sed_transformed sed-transformed"
+
+# Native adapter dependencies remain authored under the canonical hook owner.
+for rel in lib/report-sections.sh adapters/plugin/_zcode-emit; do
+  src="$SRC_DIR/$rel"
+  [ -f "$src" ] || continue
+  case "$rel" in lib/*) dst="$TWIN_DIR/$rel" ;; *) dst="$TWIN_DIR/$(basename "$rel")" ;; esac
+  mkdir -p "$(dirname "$dst")"
+  cmp -s "$src" "$dst" || cp "$src" "$dst"
+done
 
 # ── Source-hash manifest (consumer yield — spec 2026-09-28 D1) ─────────────────
 # plugin/hooks/run-hook.cmd lets a consumer's installed copy silence the plugin copy only when the
@@ -231,15 +264,16 @@ if [ -d "$AGENT_SRC_DIR" ] && [ -d "$AGENT_TWIN_DIR" ]; then
     # stale twin, the case this pass exists to fix) or no HEAD baseline exists (new agent).
     if git -C "$REPO_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1; then
       agent_src_rel="${agent_src#"$REPO_ROOT"/}"
+      git -C "$REPO_ROOT" cat-file -e "HEAD:$agent_src_rel" 2>/dev/null || agent_src_rel="agents/$agent_name"
       if git -C "$REPO_ROOT" cat-file -e "HEAD:$agent_src_rel" 2>/dev/null; then
         head_agent=$(mktemp)
         if git -C "$REPO_ROOT" show "HEAD:$agent_src_rel" > "$head_agent" 2>/dev/null \
            && ! cmp -s "$head_agent" "$agent_twin"; then
           rm -f "$head_agent"
           echo "[ERROR] generate-plugin-twins: $agent_name — refusing to overwrite plugin/agents/$agent_name." >&2
-          echo "  It matches neither agents/$agent_name nor that file at HEAD, so it holds content no" >&2
+          echo "  It matches neither .agents/roles/$agent_name nor that file at HEAD, so it holds content no" >&2
           echo "  source reproduces; copying over it would delete that content silently. Move the change" >&2
-          echo "  into agents/$agent_name (principle 24(d) requires the two to be byte-identical), or" >&2
+          echo "  into .agents/roles/$agent_name (principle 24(d) requires the two to be byte-identical), or" >&2
           echo "  commit the twin's reduction first so the loss is explicit and reviewable." >&2
           exit 3
         fi

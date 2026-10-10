@@ -40,7 +40,11 @@ T=$(mktemp -d)
 
 H="$T/.claude/hooks"
 S="$T/.claude/settings.json"
-BF="$T/.claude/session-bootstrap.md"
+# The digest anchor's canonical location: inject-project-digest.sh reads
+# .agents/session-bootstrap.md first, .claude/session-bootstrap.md only as a fallback. The
+# consumer delivery materializes both (real files, never symlinks), so the anchor is authored
+# at the canonical path the hook prefers.
+BF="$T/.agents/session-bootstrap.md"
 PDG="$H/inject-project-digest.sh"
 
 # ── ARM (A): delivery ─────────────────────────────────────────────────────────

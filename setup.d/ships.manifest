@@ -3,10 +3,10 @@
 #   kind<TAB>name<TAB>verdict<TAB>installer<TAB>plugin<TAB>reason
 # kind      skill | hook | rule | agent | setting | mcp | script
 #           population (scripts/check-ships-manifest.mjs enumerates it from git):
-#             skill   = dirs with SKILL.md under skills/, .claude/skills/, plugin/skills/
-#             hook    = .claude/hooks/*.sh + the names plugin/hooks/hooks.json registers
-#             rule    = .claude/rules/*.md
-#             agent   = agents/*.md + plugin/agents/*.md
+#             skill   = canonical .agents/procedures/ (native names retain existing aliases), plus plugin entries
+#             hook    = canonical .agents/hooks/*.sh + plugin/hooks/hooks.json registrations
+#             rule    = canonical .agents/rules/*.md
+#             agent   = canonical .agents/roles/*.md + plugin/agents/*.md
 #             setting = getff's .claude/settings.json keys (object values expanded one level:
 #                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
 #             mcp     = getff's .mcp.json mcpServers

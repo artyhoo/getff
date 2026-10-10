@@ -1503,19 +1503,23 @@ export function runProof(root, { lint = realLint } = {}) {
 export const STATUSES = ['fires', 'partial', 'not_wired'];
 const LINT_CMD = 'npm run lint';
 export const BASE_CORE = '.claude/skills/getff/references/base-core.md';
+const CANONICAL_BASE_CORE = '.agents/procedures/getff/references/base-core.md';
 /** The other half of H8 (base-core.md, «The lint plugin»; prove-rules-parity.test.ts holds the two to it). */
 export const BUILTIN_PRINCIPLE = { 'no-throw-literal': 'H8', 'no-empty': 'H8' };
 const CARRIER_NAME = CARRIER.slice('rules-as-tests/'.length);
 
 /** base-core.md's table → rows; a status outside the closed set is an error, never a row. */
 export function readBaseCore(root) {
-  const p = join(root, BASE_CORE);
+  const tableRel = existsSync(join(root, CANONICAL_BASE_CORE))
+    ? CANONICAL_BASE_CORE
+    : BASE_CORE;
+  const p = join(root, tableRel);
   if (!existsSync(p)) return null;
   const lines = readFileSync(p, 'utf8').split('\n');
   const h = lines.findIndex((l) => /^\| id \| principle \|/.test(l));
   if (h < 0)
     throw new Error(
-      `base-core.md: no table with an «id | principle» header in ${BASE_CORE}`,
+      `base-core.md: no table with an «id | principle» header in ${tableRel}`,
     );
   const cells = (l) =>
     l

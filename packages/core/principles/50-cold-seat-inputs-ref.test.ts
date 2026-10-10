@@ -13,7 +13,7 @@
  * at dispatch time (the rule text, not this test).
  *
  * Population (sweep by predicate, not by a hand list): every markdown file under
- * .claude/skills/ that contains the cold-seat dispatch marker «you did not write»
+ * .agents/procedures/ that contains the cold-seat dispatch marker «you did not write»
  * (case-insensitive, markdown emphasis tolerated — `You did **NOT** write` — the sentence the
  * orchestrator templates open their seat prompt with), plus DECLARED_EXTRAS: dispatch
  * contracts that send a cold seat without quoting a marker-bearing skeleton (arch §2's two
@@ -28,7 +28,7 @@
  * Zero paid LLM (.claude/rules/no-paid-llm-in-ci.md): a directory walk and a regex.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { REPO_ROOT } from './kickoff-population.ts';
 
@@ -39,9 +39,9 @@ const FENCE_OPEN = /^[ \t]*(`{3,}|~{3,})/;
 
 /** Dispatch contracts that carry no prompt skeleton (so no marker) but still send a cold seat. */
 const DECLARED_EXTRAS = [
-  '.claude/skills/arch/references/design-review.md',
-  '.claude/skills/dispatcher/references/execution.md',
-  '.claude/skills/harvest/SKILL.md',
+  '.agents/procedures/harvest/SKILL.md',
+  '.agents/procedures/arch/references/design-review.md',
+  '.agents/procedures/dispatcher/references/execution.md',
 ];
 
 function walkMarkdown(dir: string): string[] {
@@ -58,7 +58,7 @@ function walkMarkdown(dir: string): string[] {
 function coldSeatTemplates(): string[] {
   const discovered = walkMarkdown(SKILLS_DIR)
     .filter((f) => MARKER.test(readFileSync(f, 'utf8')))
-    .map((f) => relative(REPO_ROOT, f));
+    .map((f) => relative(REPO_ROOT, realpathSync(f)));
   return [...new Set([...discovered, ...DECLARED_EXTRAS])].sort();
 }
 
@@ -100,8 +100,8 @@ describe('principle 50 — cold-seat dispatch templates carry Inputs-ref', () =>
   });
   it('the population is non-vacuous: the two orchestrator templates are discovered by predicate', () => {
     const pop = coldSeatTemplates();
-    expect(pop).toContain('.claude/skills/orchestrator/references/reviewer-template.md');
-    expect(pop).toContain('.claude/skills/orchestrator/references/phase-minus-1.md');
+    expect(pop).toContain('.agents/procedures/orchestrator/references/reviewer-template.md');
+    expect(pop).toContain('.agents/procedures/orchestrator/references/phase-minus-1.md');
     for (const extra of DECLARED_EXTRAS) expect(pop).toContain(extra);
   });
 

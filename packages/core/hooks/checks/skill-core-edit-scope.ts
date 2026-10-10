@@ -35,7 +35,10 @@ import type { GitProvider } from '../utils/git.ts';
  */
 export const PROTECTED_SURFACES: readonly string[] = [
   '.claude/skills/rule-tests/',
+  '.agents/procedures/rule-tests/',
+  '.agents/skills/rule-tests/',
   'agents/rule-test-author.md',
+  '.agents/roles/rule-test-author.md',
   'packages/core/ir/types.ts',
 ];
 

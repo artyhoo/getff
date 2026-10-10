@@ -131,7 +131,10 @@ OUT=$(printf '%s' "$P" | env -u AIF_HOOK_CHANNEL -u ZCODE_PROJECT_DIR TMPDIR="$R
 # read-only: output and exit code equal those of the same hook installed without the lib.
 aqr_tree() {   # aqr_tree <dir> <with-lib:0|1>
   mkdir -p "$1/.claude/hooks/lib"; cp "$REPO_ROOT/.claude/hooks/ask-question-reminder.sh" "$1/.claude/hooks/"
-  cp -R "$REPO_ROOT/.claude/hooks/lang" "$1/.claude/hooks/"
+  # -L: since the agents-canonical migration .claude/hooks/lang is a symlink to
+  # .agents/hooks/lang — cp -R would copy the dangling relative link, and the fixture hook
+  # would die sourcing lang/en.sh (measured 2026-10-06).
+  cp -RL "$REPO_ROOT/.claude/hooks/lang" "$1/.claude/hooks/"
   [ "$2" = 1 ] && cp "$LIB" "$1/.claude/hooks/lib/"
   mkdir -p "$1/tmp/getff-hook-live.$(id -u)"; chmod 500 "$1/tmp/getff-hook-live.$(id -u)"
 }
@@ -158,7 +161,7 @@ n=$(find "$TMPD/with/tmp/getff-hook-live.$(id -u)" -type f | wc -l | tr -d ' ')
 # runs with rc 0 and its normal output. Real hooks, both prelude forms: the old form must go red.
 hook_tree() {   # hook_tree <dir> <hook> <lib-mode: none|cut>
   mkdir -p "$1/.claude/hooks/lib" "$1/tmp"; cp "$REPO_ROOT/.claude/hooks/$2.sh" "$1/.claude/hooks/"
-  cp -R "$REPO_ROOT/.claude/hooks/lang" "$1/.claude/hooks/"
+  cp -RL "$REPO_ROOT/.claude/hooks/lang" "$1/.claude/hooks/"
   cp "$REPO_ROOT/.claude/hooks/lib/residue-dir.sh" "$1/.claude/hooks/lib/" 2>/dev/null || true
   [ "$3" = cut ] && head -c 3000 "$LIB" > "$1/.claude/hooks/lib/hook-live.sh"; return 0
 }

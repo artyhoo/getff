@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-worker-dispatch-channel.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# AUTO-GENERATED from .agents/hooks/check-worker-dispatch-channel.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #umbrella-execution-launch-without-operator (formerly #worker-dispatch-via-subagent, renamed 2026-10-04 plain-words-recap-v2 D6 — the ban is on launching EXECUTION of an umbrella stage from a kickoff, not on the subagent tool; frozen texts keep the old name)
 # PostToolUse gate — M6 edit-time channel for `#umbrella-execution-launch-without-operator`.
 # On Edit|Write|MultiEdit of a `.claude/orchestrator-prompts/<umbrella>/kickoff.md`,

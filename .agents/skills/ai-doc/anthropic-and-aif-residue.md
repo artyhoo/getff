@@ -1,1 +1,1 @@
-../../../.claude/skills/ai-doc/anthropic-and-aif-residue.md
+../../procedures/ai-doc/anthropic-and-aif-residue.md

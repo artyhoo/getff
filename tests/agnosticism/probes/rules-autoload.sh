@@ -7,7 +7,9 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 source "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"
 
-n=$(find "$REPO_ROOT/.claude/rules" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+RULE_ROOT="$REPO_ROOT/.agents/rules"
+[ -d "$RULE_ROOT" ] || RULE_ROOT="$REPO_ROOT/.claude/rules"
+n=$(find -L "$RULE_ROOT" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 INDEX_FILE="$REPO_ROOT/AGENTS.md"
 
 if [ ! -f "$INDEX_FILE" ]; then
@@ -19,7 +21,7 @@ missing=0
 while IFS= read -r rule; do
   bname=$(basename "$rule")
   grep -qF -- "$bname" "$INDEX_FILE" || missing=$((missing + 1))
-done < <(find "$REPO_ROOT/.claude/rules" -name '*.md' 2>/dev/null | sort)
+done < <(find -L "$RULE_ROOT" -name '*.md' 2>/dev/null | sort)
 
 if [ "$missing" -eq 0 ]; then
   record rules-autoload manual-read-burden "AGENTS.md lists all ${n} rules" 0 "PORTABLE"

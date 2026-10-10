@@ -61,12 +61,12 @@ import {
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { REQUIRED_HEADER_DOCS } from '../principles/09-doc-authority-hierarchy.ts';
+import { REQUIRED_HEADER_DOCS, selectRequiredPaths } from '../principles/09-doc-authority-hierarchy.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const REAL_HOOK = resolve(REPO_ROOT, '.claude/hooks/check-doc-authority.sh');
-const HOOK_LIB = resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh');
+const REAL_HOOK = resolve(REPO_ROOT, '.agents/hooks/check-doc-authority.sh');
+const HOOK_LIB = resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh');
 const REAL_BIN = resolve(
   REPO_ROOT,
   'packages/core/principles/09-doc-authority-hierarchy.bin.ts',
@@ -394,7 +394,7 @@ describe.skipIf(!JQ || !TSX)(
     it('sanity: FIXTURE_REQUIRED_DOC is actually in REQUIRED_HEADER_DOCS', () => {
       // T3: verify our fixture choice against the canonical list
       // (09-doc-authority-hierarchy.ts line 38: '.claude/rules/doc-authority-hierarchy.md')
-      expect(REQUIRED_HEADER_DOCS).toContain(FIXTURE_REQUIRED_DOC);
+      expect(selectRequiredPaths([FIXTURE_REQUIRED_DOC])).toContain(FIXTURE_REQUIRED_DOC);
     });
 
     it('ZCODE: violation under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory)', () => {

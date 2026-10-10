@@ -5,7 +5,8 @@ The ONE reviewed change: register .claude/hooks/apply-husky-patch-gate.sh in
 .ai-factory/harness-model.json (hooks.PreToolUse), re-render .claude/settings.json
 hooks via scripts/render-harness-config.mjs --write, and append the --dry-run allow
 rule to .claude/settings.json permissions.allow. With --commit it also lands the
-wiring commit; without it, the exact commit line is printed.
+wiring commit, scoped to the two wiring paths so unrelated staged work survives
+(D2070-S02); without it, the exact commit line is printed.
 
 SEAL NOTICE: .claude/settings.json denies agents Edit/Write and the harness SSOT is
 [self-Modification]-guarded — this operator launch IS the explicit override.
@@ -187,16 +188,19 @@ def apply_change(repo, st, commit):
     print(f"backups: {bak_model}\n         {bak_settings}")
     print("rollback: cp the two .bak-* files back over their targets")
     if commit:
-        run_repo(repo, "git", "add", MODEL, SETTINGS)
-        rc = run_repo(repo, "git", "commit", "-m", COMMIT_MSG, check=False).returncode
+        # D2070-S02: a scoped partial commit — `git commit -- <paths>` records ONLY the
+        # named paths' working-tree content, so an unrelated earlier-staged sentinel
+        # survives both the commit and the index.
+        rc = run_repo(repo, "git", "commit", "-m", COMMIT_MSG, "--", MODEL, SETTINGS,
+                      check=False).returncode
         if rc != 0:
             print("WARNING: git commit failed — the validated edits stay in the working tree; "
                   "commit manually with the line below")
         else:
             print("OK: wiring commit landed (the approval act)")
             return 0
-    print("commit (the approval act):")
-    print(f"  cd {repo} && git add {MODEL} {SETTINGS} && git commit -m \"{COMMIT_MSG}\"")
+    print("commit (the approval act) — scoped to the two wiring paths:")
+    print(f"  cd {repo} && git commit -m \"{COMMIT_MSG}\" -- {MODEL} {SETTINGS}")
     return 0
 
 
@@ -230,7 +234,7 @@ def main():
         print(f"DRY-RUN: would change, in {repo}:")
         for line in plan_lines():
             print(f"  {line}")
-        print(f"then with --commit: git add {MODEL} {SETTINGS} && git commit")
+        print(f"then with --commit: git commit -m \"<msg>\" -- {MODEL} {SETTINGS} (scoped)")
         print("Everything else stays untouched; timestamped .bak-* copies are created first.")
         return 0
     sys.exit(apply_change(repo, st, args.commit))
@@ -378,6 +382,34 @@ def selftest():
     r6 = _call(dirty, "--dry-run")
     check("6 dirty worktree on targets: refuse-fast",
           r6.returncode != 0 and "uncommitted" in r6.stderr, r6.stdout + r6.stderr)
+
+    # D2070-S02: --commit must be scoped to the two wiring paths — an unrelated
+    # earlier-staged sentinel survives the commit AND the index.
+    sent = _mkrepo(root)
+    _write(sent, "unrelated.txt", "sentinel staged before wiring")
+    subprocess.run(["git", "-C", sent, "add", "unrelated.txt"], check=True)
+    r7 = _call(sent, "--commit")
+    committed = subprocess.run(["git", "-C", sent, "show", "--name-only", "--format="],
+                               capture_output=True, text=True).stdout.split()
+    staged_after = subprocess.run(["git", "-C", sent, "diff", "--name-only", "--cached"],
+                                  capture_output=True, text=True).stdout.split()
+    check("7 --commit lands ONLY the two wiring paths; unrelated staged sentinel survives",
+          r7.returncode == 0 and sorted(committed) == sorted([MODEL, SETTINGS])
+          and staged_after == ["unrelated.txt"], r7.stdout + r7.stderr)
+
+    def commit_count():
+        return subprocess.run(["git", "-C", sent, "rev-list", "--count", "HEAD"],
+                              capture_output=True, text=True).stdout.strip()
+    before = commit_count()
+    r8 = _call(sent, "--commit")
+    check("8 repeat --commit is a no-op (already wired, no second commit)",
+          r8.returncode == 0 and "no-op" in r8.stdout and commit_count() == before,
+          r8.stdout + r8.stderr)
+
+    manual = _mkrepo(root)
+    r9 = _call(manual)
+    check("9 printed manual commit line is scoped to the two wiring paths",
+          r9.returncode == 0 and f'-- {MODEL} {SETTINGS}' in r9.stdout, r9.stdout)
 
     n_bad = len([ok for ok in results if not ok])
     print(f"\nself-test: {len(results) - n_bad}/{len(results)} passed" +

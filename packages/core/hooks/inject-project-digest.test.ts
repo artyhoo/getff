@@ -56,7 +56,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK_SOURCE = resolve(
   REPO_ROOT,
-  '.claude/hooks/inject-project-digest.sh',
+  '.agents/hooks/inject-project-digest.sh',
 );
 
 function hasJq(): boolean {

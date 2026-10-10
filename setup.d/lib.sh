@@ -131,9 +131,14 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
 #     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
 #     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
-#   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
-#     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389 — the worker-dispatch bullet, whose anchor was renamed to `#umbrella-execution-launch-without-operator` on that same line (2026-10-04 plain-words-recap-v2 D6).
+#   - `hooks/check-worker-dispatch-channel.sh` — the 2026-08-17 per-file hook allowlist was
+#     superseded by the blanket `hooks/` arm (see the transform body): the consumer-delivery
+#     materialization re-delivers canonical bytes at .zcode depths where NO hooks dir exists,
+#     so a relative hooks/ link dangles somewhere for every spelling — the blob URL is the
+#     only location-independent form. The blanket arm targets the canonical .agents/hooks/
+#     path (the pre-materialization per-file arm pointed the same link at the stale
+#     .claude/hooks/ blob path). Source: pipeline/SKILL.md:389 — the worker-dispatch bullet,
+#     whose anchor was renamed to `#umbrella-execution-launch-without-operator` on that same line (2026-10-04 plain-words-recap-v2 D6).
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
@@ -143,15 +148,59 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth
 # fixture covers every shipped *.md, so the next unshipped-target ref fails the gate.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
+# Resolve only a file compatibility link whose final target belongs to the
+# canonical common tree. Native consumer links to arbitrary locations stay owned
+# by the consumer; neither a Markdown transform nor a refresh writes through them.
+_canonical_link_target() {
+  local file="$1" allow_package="${2:-}" target hops=0 base project package
+  while [ -L "$file" ]; do
+    hops=$((hops + 1)); [ "$hops" -le 32 ] || return 1
+    target="$(readlink "$file")" || return 1
+    case "$target" in /*) file="$target" ;; *) file="$(dirname "$file")/$target" ;; esac
+  done
+  base="$(cd "$(dirname "$file")" 2>/dev/null && pwd -P)" || return 1
+  file="$base/$(basename "$file")"
+  project=""; package=""
+  if [ -d "${PROJECT_ROOT:-}/.agents" ]; then
+    project="$(cd "$PROJECT_ROOT" && pwd -P)/.agents"
+    case "$file" in "$project"/*) printf '%s\n' "$file"; return 0 ;; esac
+  fi
+  if [ -n "$allow_package" ] && [ -d "${PKG_ROOT:-}/.agents" ]; then
+    package="$(cd "$PKG_ROOT" && pwd -P)/.agents"
+    case "$file" in "$package"/*) printf '%s\n' "$file"; return 0 ;; esac
+  fi
+  return 1
+}
+
 transform_internal_refs() {
-  local f="$1"
+  local f="$1" resolved
   [ -f "$f" ] || return 0
+  # BSD sed -i refuses symbolic links. Follow only our in-root common aliases;
+  # an unrelated consumer link must never become an unintended write target.
+  if [ -L "$f" ]; then
+    if resolved="$(_canonical_link_target "$f" allow-package)"; then f="$resolved";
+    else echo "  ⊝ $f (external or custom compatibility link — target left unchanged)"; return 0; fi
+  fi
+  # The last two procedures/hooks patterns cover canonical-relative intra-tree spellings
+  # (../procedures/ from .agents/roles/*, ../../../hooks/ from .agents/procedures/*/
+  # references/) that resolve ONLY at the canonical location: the materialized native
+  # twins (.claude/**, .zcode/**) re-deliver the same bytes at depths where the sibling
+  # does not exist (.claude/procedures/, .zcode/hooks/ are not delivered), so the relative
+  # link dangles there and the whole-tree consumer lychee sweep REDs. Blob URL, per this
+  # transform's doctrine for authored links a consumer location cannot resolve.
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/rules/#](${UPSTREAM_BLOB_URL}/.agents/rules/#g" \
+    -e "s#\]\((\.\./)+\.agents/procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+\.agents/roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+procedures/#](${UPSTREAM_BLOB_URL}/.agents/procedures/#g" \
+    -e "s#\]\((\.\./)+hooks/#](${UPSTREAM_BLOB_URL}/.agents/hooks/#g" \
+    -e "s#\]\((\.\./)+roles/#](${UPSTREAM_BLOB_URL}/.agents/roles/#g" \
+    -e "s#\]\((\.\./)+\.agents/hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.agents/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
@@ -161,7 +210,6 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+\.github/#](${UPSTREAM_BLOB_URL}/.github/#g" \
     -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
-    -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
     "$f"
   rm -f "${f}.bak"
 }
@@ -213,7 +261,7 @@ _copy_tree_with_transform() {
   _pre_overwrite_guard "$src" "$dst" transform
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
-  cp -r "$src" "$dst"
+  cp -rL "$src" "$dst"
   _transform_md_tree "$dst"
   # R1 (W1-A, GH #1540): stage the freshly delivered tree so the NEXT refresh finds baseline
   # entries for it. Without this, skill trees stayed «unknown» forever and the no-entry arm was
@@ -727,7 +775,7 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1534                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1536                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1838          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
@@ -738,9 +786,9 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:2138                appended marker blocks       → suppress-no-entry (proved)
-#   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1813          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:2206               appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1813          tool-decisions copy_safe       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -893,6 +941,16 @@ refresh_baseline_flush() {
 copy_safe() {
   local src="$1"
   local dst="$2"
+  # Optional 4th arg: what the dry-run preview NAMES as the source. Callers that stage
+  # through an ephemeral mktemp (transform scratch — _portable_copy) pass the real source
+  # so two consecutive --dry-run prints are byte-identical instead of leaking random
+  # temp paths (Detector v1 L1 idempotency). Guards below keep comparing the REAL bytes.
+  local display_src="${4:-$src}"
+  if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
+    SKIPPED+=("$dst")
+    echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
+    return 0
+  fi
   # W1-A review MAJOR 1 (parity): optional 3rd arg declaring the SHAPE OF THE DELIVERED BYTES
   # for deliveries whose caller POST-PROCESSES the dst after copy_safe returns — the no-entry
   # arm of the force guard compares against the delivered bytes, and the raw src is NOT those
@@ -934,7 +992,7 @@ copy_safe() {
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would copy: $src → $dst"
+    echo "  [dry-run] would copy: $display_src → $dst"
     return 0
   fi
 
@@ -954,7 +1012,10 @@ copy_safe() {
   # `[ -f … ] && copy_safe …` guards in 10-skills.sh / 40-configs.sh / install.sh) a failed cp
   # still printed ✓ and staged a refresh-baseline hash for a file that never landed, which the
   # next --refresh then reported as «kept».
-  if cp -r "$src" "$dst"; then
+  # -L: GNU cp -r PRESERVES a symlink source argument, BSD dereferences it — the
+  # materialized-delivery contract (real bytes on every platform, 05199ece053) is
+  # only portable with the dereference spelled out.
+  if cp -rL "$src" "$dst"; then
     echo "  ✓ $dst"
     refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
   else
@@ -1195,6 +1256,13 @@ install_agents_md() {
 refresh_safe() {
   local src="$1"
   local dst="$2"
+  # Optional 4th arg: dry-run display name for the source (see copy_safe — same
+  # ephemeral-staging-source caveat for _portable_copy's transform temp).
+  local display_src="${4:-$src}"
+  if [ -L "$dst" ] && ! _canonical_link_target "$dst" >/dev/null; then
+    echo "  ⊝ $dst (external or custom compatibility link — target left unchanged)"
+    return 0
+  fi
   local exclusive="${3:-}"
   local override="${dst%.md}.override.md"
   if [ ! -e "$src" ]; then
@@ -1226,7 +1294,7 @@ refresh_safe() {
     _refresh_dir_payload "$src" "$dst" "$exclusive"
     return 0
   fi
-  _refresh_one_file "$src" "$dst"
+  _refresh_one_file "$src" "$dst" "$display_src"
 }
 
 # _refresh_one_file <src-file> <dst-file>
@@ -1236,7 +1304,7 @@ refresh_safe() {
 # refresh_safe, which the directory arm re-enters per file — so a Layer-3 escape works on a
 # single file INSIDE a directory payload exactly as it does on a file payload.
 _refresh_one_file() {
-  local src="$1" dst="$2"
+  local src="$1" dst="$2" display_src="${3:-$1}"
   # R1 divergence guard (read-only probe): fires identically under --dry-run so the preview
   # reports `would-flag` for exactly the files the real refresh would warn about. The override
   # skip in refresh_safe returns BEFORE this — the Layer-3 escape produces no conflict copy,
@@ -1250,7 +1318,7 @@ _refresh_one_file() {
     elif [ -f "$dst" ] && [ -z "$REFRESH_BASELINE_ENTRY" ] && ! cmp -s "$src" "$dst"; then
       _preserve_unbaselined_copy "$dst"
     fi
-    echo "  [dry-run] would refresh: $src → $dst"
+    echo "  [dry-run] would refresh: $display_src → $dst"
     return 0
   fi
   if refresh_baseline_diverged "$dst" "$src"; then
@@ -1259,7 +1327,7 @@ _refresh_one_file() {
     _preserve_unbaselined_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
-  cp -r "$src" "$dst"
+  cp -rL "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
 }
@@ -2290,9 +2358,11 @@ ignore_shipped_configs() {
   # custom agent/skill must stay format-checked. The fresh-vs-SKIPPED guard below (now
   # dir-prefix-aware) keeps consumer-owned same-name copies checked too.
   local _src _slug
-  for _src in "$PKG_ROOT"/agents/*.md; do
+  for _src in "$(role_source_root)"/*.md; do
     [ -f "$_src" ] || continue
     candidates+=(".claude/agents/$(basename "$_src")")
+    candidates+=(".agents/roles/$(basename "$_src")" ".agents/skills/$(basename "$_src" .md)/SKILL.md")
+    candidates+=(".zcode/agents/$(basename "$_src")")
   done
   for _src in "$PKG_ROOT"/.claude/skills/*/ "$PKG_ROOT"/skills/*/; do
     [ -d "$_src" ] || continue
@@ -2301,10 +2371,18 @@ ignore_shipped_configs() {
     while IFS= read -r _abs; do
       [ -n "$_abs" ] || continue
       candidates+=("${_abs#"$PROJECT_ROOT"/}")
+      candidates+=(".agents/procedures/$_slug/${_abs#"$PROJECT_ROOT/.claude/skills/$_slug"/}")
+      candidates+=(".zcode/skills/$_slug/${_abs#"$PROJECT_ROOT/.claude/skills/$_slug"/}")
     done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null | LC_ALL=C sort)
     # LC_ALL=C sort: find's output order is filesystem-dependent (macOS APFS vs Linux ext4
     # return different orders) — unsorted entries made the generated .prettierignore hash
     # differ between the local snapshot capture and CI's byte-identical compare.
+  done
+  # Common delivered Markdown undergoes the same link transform as its native
+  # entries. Keep generated/vendor files outside the consumer formatter while
+  # retaining the existing per-path SKIPPED guard for consumer customizations.
+  for _slug in getff tool-bootstrapping $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY; do
+    candidates+=(".agents/skills/$_slug/SKILL.md")
   done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
@@ -2404,7 +2482,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3268, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3359-3367, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2601,6 +2679,25 @@ rewrite_vitest_source_roots() {
   return 0
 }
 
+# Canonical procedure sources. The consumer bootstrapping procedure deliberately
+# retains its public native name while differing from contributor bootstrapping.
+procedure_source() {
+  local slug="$1" owner="$1"
+  [ "$slug" != "tool-bootstrapping" ] || owner="tool-bootstrapping-consumer"
+  if [ -d "$PKG_ROOT/.agents/procedures/$owner" ]; then
+    printf '%s\n' "$PKG_ROOT/.agents/procedures/$owner"
+  elif [ "$slug" = "getff" ] || [ "$slug" = "tool-bootstrapping" ]; then
+    printf '%s\n' "$PKG_ROOT/skills/$slug"
+  else
+    printf '%s\n' "$PKG_ROOT/.claude/skills/$slug"
+  fi
+}
+
+role_source_root() {
+  if [ -d "$PKG_ROOT/.agents/roles" ]; then printf '%s\n' "$PKG_ROOT/.agents/roles";
+  else printf '%s\n' "$PKG_ROOT/agents"; fi
+}
+
 # copy_skill_with_transform <skill-slug>
 # Copies .claude/skills/<slug>/ to the consumer and rewrites repo-internal markdown
 # cross-refs to GitHub blob URLs (transform_internal_refs). Used for pipeline + its
@@ -2609,7 +2706,7 @@ rewrite_vitest_source_roots() {
 # Honors --force (skip-if-exists default) and --dry-run, matching copy_safe semantics.
 copy_skill_with_transform() {
   local slug="$1"
-  local src="$PKG_ROOT/.claude/skills/$slug"
+  local src; src="$(procedure_source "$slug")"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
     SKIPPED+=("$dst")
@@ -2643,7 +2740,7 @@ copy_skill_with_transform() {
 # .claude/skills/pipeline.override.md signals consumer-owned pipeline skill).
 refresh_skill_with_transform() {
   local slug="$1"
-  local src="$PKG_ROOT/.claude/skills/$slug"
+  local src; src="$(procedure_source "$slug")"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   local override="${dst}.override.md"
   [ -d "$src" ] || return 0
@@ -5077,3 +5174,8 @@ getff_dep_names() {
 if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
   return 0 2>/dev/null || true
 fi
+
+GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.claude/hooks"
+[ ! -d "${PKG_ROOT:-.}/.agents/hooks" ] || GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.agents/hooks"
+
+source "${BASH_SOURCE[0]%/*}/portable-bindings.sh"

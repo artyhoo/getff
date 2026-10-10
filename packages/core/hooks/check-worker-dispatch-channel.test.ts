@@ -40,7 +40,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-worker-dispatch-channel.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-worker-dispatch-channel.sh');
 
 function hasJq(): boolean {
   try {

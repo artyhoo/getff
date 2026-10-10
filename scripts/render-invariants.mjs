@@ -33,12 +33,12 @@
  * parent directory). Plain node, no imports beyond node: builtins.
  * Precedent for the --write/--check pair: scripts/render-rule-index.mjs.
  */
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const README_PATH = 'README.md';
-export const HOOK_PATH = '.claude/hooks/inject-session-bootstrap.sh';
+export const HOOK_PATH = '.agents/hooks/inject-session-bootstrap.sh';
 export const HEADING = '### What must not break (invariants)';
 export const BEGIN = '# <!-- getff:begin section=invariants-line plan=scripts/render-invariants.mjs -->';
 export const END = '# <!-- getff:end section=invariants-line -->';
@@ -116,7 +116,7 @@ function renderProse(text) {
 /** Distinct `.claude/rules/<name>.md` citations in a bullet, in order of appearance. */
 function ruleNames(body) {
   const names = [];
-  for (const m of body.matchAll(/\.claude\/rules\/([a-z0-9-]+)\.md/g)) {
+  for (const m of body.matchAll(/(?:\.claude|\.agents)\/rules\/([a-z0-9-]+)\.md/g)) {
     if (!names.includes(m[1])) names.push(m[1]);
   }
   return names;
@@ -150,7 +150,7 @@ export function run(argv) {
   }
   const rootIdx = argv.indexOf('--root');
   const root = rootIdx !== -1 ? resolve(argv[rootIdx + 1] ?? '.') : resolve(dirname(fileURLToPath(import.meta.url)), '..');
-  const hookFile = resolve(root, HOOK_PATH);
+  const hookFile = resolve(root, existsSync(resolve(root, HOOK_PATH)) ? HOOK_PATH : '.claude/hooks/inject-session-bootstrap.sh');
   let hook;
   let next;
   try {

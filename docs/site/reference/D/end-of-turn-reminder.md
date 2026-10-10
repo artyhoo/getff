@@ -180,7 +180,7 @@ behind it is `.claude/rules/recommendation-laziness-discipline.md` («zero-click
 first»).
 
 Delivery per the card: consumer installs copy and register it
-(`setup.d/10-skills.sh:244-267`), the framework registers it at
+(`setup.d/10-skills.sh:244-267`, `EOT_SRC` resolved via the `GETFF_HOOK_SOURCE` seam), the framework registers it at
 `.claude/settings.json:212`, the plugin registry at `plugin/hooks/hooks.json:158`.
 All prose comes from the `lang/` packs (`AIF_HOOK_LANG`, English fallback). On
 ZCode the census classifies it degraded (row 9 of
@@ -238,9 +238,8 @@ consumer-safe posture as its question-time companion
 - Language pack: lines 23-45; the marker and branch messages live in
   `.claude/hooks/lang/en.sh` (`AIF_RECAP_MARKER` at line 16, `aif_msg_eot_branch_a`
   at line 205).
-- Registration: `.claude/settings.json:212` (Stop section, no matcher);
-  `plugin/hooks/hooks.json:158`; consumer install at `setup.d/10-skills.sh:244-267`
-  (copy at 244-245, `register_cc_hook` Stop at 267).
+- Registration: `.claude/settings.json:212` (Stop section, no matcher); `plugin/hooks/hooks.json:158`;
+  consumer install at `setup.d/10-skills.sh:244-267` (`EOT_SRC`/`EOT_DST` at 244-245, `register_cc_hook` Stop at 267).
 - ZCode: census row 9 (`.claude/rules/zcode-parity-doctrine.md` §2) — degraded;
   the thin-recap branch and its inert context arm are documented at lines
   1322-1355 of the hook.

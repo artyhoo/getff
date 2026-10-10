@@ -3,6 +3,8 @@ name: installing-enforcement
 description: Use when the user wants to actually WIRE the hard enforcement layer (git pre-commit/pre-push hooks + CI) into their repo, or asks "how do I make these rules actually fail the build / block a commit / run in CI", or wants to turn the rules-as-tests methodology from advice into a build-failing gate. Explains the soft-vs-hard boundary and points at the /getff:install-enforcement command.
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — the namespaced plugin install command is native; other harnesses run the documented consumer installer workflow with the same requested profile -->
+
 # Installing Enforcement
 
 > **Authoritative for:** when and how to wire the plugin's hard enforcement layer (git hooks + CI) — the soft-vs-hard split and the `/getff:install-enforcement` flow.
@@ -50,3 +52,11 @@ remind the user to commit the new `.husky/` + workflow and install the dev-deps 
 Never tell the user the *plugin* installed the git hooks/CI. The plugin delivered the soft layer;
 **they** opted into the hard layer via this command, which ran the official installer in their
 repo. Keep that distinction explicit — it is the difference between honest packaging and theatre.
+
+## Without this skill
+
+A request to make a rule fail the build can stop at session advice or imply git hooks were installed when the plugin only loaded prompts.
+
+## With this skill
+
+Recognize the hard-layer request and run the explicit install-enforcement flow: detect stack, preview changes, obtain its required consent, then invoke the official installer and report the concrete delivered gates.

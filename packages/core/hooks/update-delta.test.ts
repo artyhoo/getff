@@ -49,7 +49,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/update-delta.sh',
+  '.agents/procedures/pipeline/helpers/update-delta.sh',
 );
 
 const FIXED_TS = '2026-05-26T12:00:00Z';

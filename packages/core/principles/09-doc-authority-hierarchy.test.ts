@@ -48,6 +48,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 
 describe('Principle 9 — every authority-bearing doc declares Authoritative-for header', () => {
+  it.each(['.agents/procedures/fresh/SKILL.md', '.agents/skills/fresh/SKILL.md', '.agents/rules/fresh.md', '.agents/roles/fresh.md', '.claude/skills/fresh/SKILL.md', '.claude/rules/fresh.md', 'agents/fresh.md', 'skills/fresh/SKILL.md'])('authority gate covers %s without exempting loaders', (path) => {
+    expect(selectRequiredPaths([path])).toEqual([path]);
+    expect(isExempt(path)).toBe(false);
+  });
+
   it('all required-header docs declare Authoritative-for', () => {
     const result = checkDocsHaveAuthorityHeader(
       REQUIRED_HEADER_DOCS as string[],
@@ -92,7 +97,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // with rule §2 is the maintainer's responsibility on each list update.
     expect(REQUIRED_HEADER_DOCS.length).toBeGreaterThanOrEqual(20);
     // Upper bound tracks the list in lockstep (66 → 69 react-spa → 72: +3 react-native docs, 2026-06-24 → 73: +egress-no-api-bypass.md, 2026-06-27 → 81: +8 project-local .claude/skills/*/SKILL.md, DN-M1 → 82: +skill-description-quality.md, 2026-06-27 → 84: +rule-researcher agent + rule-research skill (live-adapter Phase 1), 2026-06-29 → 85: +research-source-trust.md, 2026-07-02 (rule-research-trust-tiers S3) → 87: +source-before-shape.md rule + capability-reuse-auditor.md agent, 2026-07-02 (source-before-shape mechanism), 2026-07-19 (zcode-parity-s10-doctrine-doc) → 88: +zcode-parity-doctrine.md rule → 89: +rule-test-author.md agent (rule-tests-surface S1), 2026-07-22 → 90: +tier-home.md template (beta-delivery-ux S3 / spec A3), 2026-08-01 → 91: +AI-USAGE-GUIDE.md template (beta-ai-docs-agnosticism S1 / spec C1), 2026-08-08 → 92: +CONTEXT.md root glossary (plain-words-recap-v2 S3), 2026-09-14).
-    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(92);
+    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(93);
     // Canonical roots must always be present
     expect(REQUIRED_HEADER_DOCS).toContain('README.md');
     expect(REQUIRED_HEADER_DOCS).toContain('CLAUDE.md');
@@ -163,8 +168,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       'packages/preset-next-15-canonical/',
       'packages/preset-react-spa/',
       'packages/preset-react-native/',
-      'agents/',
-      'skills/tool-bootstrapping/',
+      '.agents/roles/',
+      '.agents/procedures/tool-bootstrapping-consumer/',
     ];
     const shippedSubset = REQUIRED_HEADER_DOCS.filter((p) =>
       SHIPPED_DOC_PREFIXES.some((pref) => p.startsWith(pref)),
@@ -178,7 +183,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // +1 tier-home doc (beta-delivery-ux S3 / spec A3, 2026-08-01) = 29;
     // +1 AI Usage Guide (beta-ai-docs-agnosticism S1 / spec C1, 2026-08-08) = 30.
     expect(installShipped).toHaveLength(30);
-    expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
+    const owner = (path: string): string => path.replace(/^agents\//, '.agents/roles/').replace(/^skills\/tool-bootstrapping\//, '.agents/procedures/tool-bootstrapping-consumer/');
+    expect(new Set(installShipped.map(owner))).toEqual(new Set(shippedSubset));
   });
 
   // 7.1.c — changed-files mode API smoke tests (positive + mutation pair)
@@ -326,7 +332,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
 
     it('REQUIRED_PATH_PATTERNS exported and anchored (sentinel)', () => {
       // 2 skill patterns + 2 flat patterns (.claude/rules/*.md, agents/*.md) — M7.
-      expect(REQUIRED_PATH_PATTERNS.length).toBe(4);
+      expect(REQUIRED_PATH_PATTERNS.length).toBe(5);
       // Anchoring sentinel: a path merely *containing* a skills segment must not match.
       expect(matchesRequiredPattern('docs/skills/foo/SKILL.md')).toBe(false);
     });

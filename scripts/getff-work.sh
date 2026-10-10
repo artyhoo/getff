@@ -180,12 +180,18 @@ EOF
 
 # Print the harness-specific ready line if we can detect one.
 HARNESS="unknown"
-if [ -n "${ZCODE_SESSION_ID:-}" ] || command -v zcode >/dev/null 2>&1; then
+if [ -n "${CODEX_THREAD_ID:-}" ] || [ "${AIF_HARNESS:-}" = "codex" ]; then
+  HARNESS="codex"
+  printf '      codex -C %q  # (Codex session in the provisioned worktree)\n' "$WORKTREE_PATH"
+elif [ -n "${ZCODE_SESSION_ID:-}" ] || command -v zcode >/dev/null 2>&1; then
   HARNESS="zcode"
   echo "      zcode  # (ZCode session in $WORKTREE_PATH)"
 elif command -v claude >/dev/null 2>&1; then
   HARNESS="claude-cli"
   echo "      claude -w $NAME  # (Claude Code CLI worktree session)"
+elif command -v codex >/dev/null 2>&1; then
+  HARNESS="codex"
+  printf '      codex -C %q  # (Codex session in the provisioned worktree)\n' "$WORKTREE_PATH"
 else
   echo "      # (no known harness detected — start your editor/agent of choice)"
 fi

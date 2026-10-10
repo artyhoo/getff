@@ -1,0 +1,4 @@
+name = "shipped-agent-liveness-prober"
+description = "Probes each shipped sub-agent for behavioural liveness via with/without-tools fresh-subagent dispatch, capturing a RED→GREEN delta (tool-less fabricates → tool-using cites real evidence). Status DORMANT — operator-initiated only. Reporting-only; never invoked from CI."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/shipped-agent-liveness-prober.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

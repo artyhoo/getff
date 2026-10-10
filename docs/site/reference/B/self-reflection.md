@@ -115,6 +115,6 @@ The test that demands them lists it as an exception.
   The three install lists are lines 63 to 65 of `setup.d/lib.sh`, and the name is in
   none of them.
 - The exception list that names this skill is line 36 of
-  `packages/core/principles/15-skill-paired-negative.test.ts`.
+  `packages/core/principles/15-skill-paired-negative.test.ts` (entry: `'.agents/procedures/self-reflection/SKILL.md'`).
 - The card above is built from the `self-reflection` entry in
   `docs/site/reference/B.json`, which starts at line 324.

@@ -40,7 +40,11 @@ for s in dispatcher aif-doctor template-audit night-mode ai-doc rule-research ha
 done
 
 # ── transform: repo-internal refs rewritten, none left dangling ──────────────
-D="$T/.claude/skills/dispatcher"
+# agents-canonical delivery shape: .claude/skills/<s>/ entries are BIND symlinks to the
+# in-consumer canonical .agents/procedures/<s>/ — the only place consumer *.md bytes live
+# (real, transformed). Assertions grep the canonical trees: grep -r over the bind view sees
+# zero regular files and both halves pass/fail vacuously (measured 2026-10-06).
+D="$T/.agents/procedures/dispatcher"
 if [ -f "$D/SKILL.md" ]; then
   if grep -rqE --include='*.md' '\]\((\.\./)+(docs|packages)/|\]\((\.\./)+README\.md' "$D"; then
     bad "dispatcher card/reference still has un-transformed repo-internal refs (consumer-dangling)"
@@ -51,11 +55,11 @@ if [ -f "$D/SKILL.md" ]; then
     && ok "dispatcher refs rewritten to GitHub blob URLs" \
     || bad "dispatcher has no blob URL — transform did not run"
 else
-  bad "dispatcher SKILL.md missing — cannot check transform"
+  bad "dispatcher canonical tree missing — cannot check transform"
 fi
 
 # ── non-vacuity: the SOURCE dispatcher has repo-internal refs to transform ────
-if grep -rqE --include='*.md' '\]\((\.\./)+(docs/|README\.md)' "$REPO_ROOT/.claude/skills/dispatcher"; then
+if grep -rqE --include='*.md' '\]\((\.\./)+(docs/|README\.md)' "$REPO_ROOT/.agents/procedures/dispatcher"; then
   ok "source dispatcher carries repo-internal refs (transform assertion is non-vacuous)"
 else
   bad "source dispatcher has NO repo-internal refs — transform assertion would be vacuous"
@@ -69,16 +73,16 @@ fi
 # link in a SHIPPED copy = a transform miss (consumer-dangling). Sibling-skill + same-dir links
 # are consumer-valid.
 for s in night-mode ai-doc rule-research harvest story pipeline dispatcher aif-doctor arch orchestrator; do
-  SF="$T/.claude/skills/$s"
-  [ -f "$SF/SKILL.md" ] || { bad "clean-check: shipped skill missing: $s"; continue; }
+  SF="$T/.agents/procedures/$s"
+  [ -f "$SF/SKILL.md" ] || { bad "clean-check: shipped canonical tree missing: $s"; continue; }
   if grep -rqE --include='*.md' '\]\((\.\./)+(docs|packages|rules)/|\]\((\.\./)+\.claude/rules/|\]\((\.\./)+(README\.md|install\.sh)' "$SF"; then
     bad "$s: surviving transform-target repo-internal link (consumer-dangling) — transform missed it"
   else
     ok "$s: no dangling transform-target link"
   fi
 done
-# night-mode carries docs/ refs → its shipped copy must show blob URLs (transform actually ran):
-grep -rq --include='*.md' 'github.com/.*/blob/' "$T/.claude/skills/night-mode" \
+# night-mode carries docs/ refs → its shipped canonical copy must show blob URLs (transform ran):
+grep -rq --include='*.md' 'github.com/.*/blob/' "$T/.agents/procedures/night-mode" \
   && ok "night-mode transform ran (blob URLs present)" \
   || bad "night-mode has no blob URL — transform did not run"
 

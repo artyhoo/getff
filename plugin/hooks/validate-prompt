@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
+# AUTO-GENERATED from .agents/hooks/validate-prompt.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# validate-prompt.sh — PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits
 # Wave 7 sub-wave 7.2.b — PostToolUse hook: validate batch-spec on orchestrator-prompts.
-# Fires on Edit|Write tool calls. Input: hook JSON via stdin (tool_input.file_path).
+# Fires on Edit|Write|MultiEdit tool calls. Input: hook JSON via stdin (tool_input.file_path).
 # Exits 0 silently on pass or unmatched path; non-zero + diagnostic on red.
 # Gracefully skips if jq or tsx unavailable (never block tool calls for missing tooling).
 # @cc-only-rationale: edit-time PostToolUse delivery; the validator itself is portable
 #   (packages/core/spec-validation/validate-batch-spec.ts) — the hook is only its CC
 #   fire-point. No portable hook fires at edit-time.
+# @file-content-gate: this hook validates a file's content (path-only — no internal
+#   tool_name filter), so its registration matcher MUST be Edit|Write|MultiEdit (else a
+#   MultiEdit that violates the spec slips past silently). Enforced by check-hook-marker.sh.
 
 set -uo pipefail
 
+# @plugin-transform: identity — canonical implementation includes native output and path adaptation.
+#   marker, so it cannot be regenerated in identity mode. The consumer-layout $VALIDATOR guard is
+#   NO LONGER a twin-only addition: since the #1597 review-ledger L-2 fix both copies carry the
+#   same _resolve_validator tier list + loud miss branch, and the source-side guard is no longer a
+#   no-op (it fires on any layout without packages/core/). Keep the two blocks in sync by hand.
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
 # non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
 # stderr — the only non-JSON channel the model receives on PostToolUse; exit-1 stderr
@@ -149,6 +159,3 @@ fi
 [[ -n "$VALIDATOR_OUT" ]] && printf '%s\n' "$VALIDATOR_OUT" >&2
 [[ $STATUS -ne 0 ]] && exit 2
 exit 0
-
-# Plugin twin of .claude/hooks/validate-prompt.sh — plugin/hooks/run-hook.cmd reads this line to keep
-# the plugin copy silent where the project runs its own copy (kept last so line citations hold).

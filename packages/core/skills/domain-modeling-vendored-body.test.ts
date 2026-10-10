@@ -11,7 +11,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REFS = resolve(HERE, '../../..', '.claude/skills/arch/references');
+const REFS = resolve(HERE, '../../..', '.agents/procedures/arch/references');
 const BODY_HEADING = '## Upstream body (verbatim — do not edit)\n';
 const START = '<!-- prettier-ignore-start -->\n';
 const END = '<!-- prettier-ignore-end -->';

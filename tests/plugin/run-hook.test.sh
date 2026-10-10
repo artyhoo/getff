@@ -711,7 +711,9 @@ done
 mkdir -p "$STUBS/lib"; cp "$REPO_ROOT/plugin/hooks/lib/source-hash.sh" "$REPO_ROOT/plugin/hooks/lib/source-sha256.txt" \
   "$REPO_ROOT/plugin/hooks/lib/live-claim.sh" "$STUBS/lib/"
 CONS="$TMPD/consumer"; mkdir -p "$CONS/.claude/hooks/lib"
-cp -R "$REPO_ROOT/.claude/hooks/lang" "$CONS/.claude/hooks/"
+# -L: .claude/hooks/lang is a symlink to .agents/hooks/lang since the agents-canonical
+# migration — cp -R would copy the dangling relative link (measured 2026-10-06).
+cp -RL "$REPO_ROOT/.claude/hooks/lang" "$CONS/.claude/hooks/"
 cp "$REPO_ROOT/.claude/hooks/lib/residue-dir.sh" "$REPO_ROOT/.claude/hooks/lib/hook-live.sh" "$CONS/.claude/hooks/lib/"
 echo '{}' > "$CONS/.claude/settings.json"
 creg() {   # creg <event> <matcher|-> <command>

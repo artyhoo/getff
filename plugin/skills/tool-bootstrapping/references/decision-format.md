@@ -1,11 +1,11 @@
 # Tool decisions format — cold reference
 
 > **Authoritative for:** `.ai-factory/tool-decisions.md` schema for consumer projects — §1 file location, §2 YAML frontmatter + section definitions, §3 format example, §4 version-drift policy.
-> **NOT authoritative for:** authoring-repo goal — see authoring repo `README.md#why-this-exists`. Activation discipline — see [../SKILL.md](../SKILL.md).
+> **NOT authoritative for:** authoring-repo goal — see authoring repo `README.md#why-this-exists`. Activation discipline — see [SKILL.md](../SKILL.md).
 
 ## §1 File location
 
-Your project root: `.ai-factory/tool-decisions.md`. **Commit this file** — decisions are team-shared and auditable via git history. Use [../templates/tool-decisions.md.template](../templates/tool-decisions.md.template) as a starter.
+Your project root: `.ai-factory/tool-decisions.md`. **Commit this file** — decisions are team-shared and auditable via git history. Use [templates/tool-decisions.md.template](../templates/tool-decisions.md.template) as a starter.
 
 The template starts a file that does not exist yet. Once the file exists, edit it in place; never regenerate it from the template: the installer writes marked blocks into it — `<!-- aif:project-checks:begin -->` … `<!-- aif:project-checks:end -->`, `<!-- aif:r2-na:begin -->` … `<!-- aif:r2-na:end -->`, and `<!-- getff:installed-versions:begin -->` … `<!-- getff:installed-versions:end -->` where your getff records versions. Keep each block byte-for-byte; the sections below live outside them.
 

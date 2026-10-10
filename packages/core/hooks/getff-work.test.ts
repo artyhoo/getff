@@ -33,7 +33,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -157,8 +157,8 @@ function cleanupRealWorktrees(): void {
 }
 
 /** Build a temp git repo with the 3 worktree helper scripts copied in. */
-function setupTempRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'getff-work-test-'));
+function setupTempRepo(prefix = 'getff-work-test-'): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
   execSync('git init -q -b main', { cwd: dir });
   execSync('git config user.email test@example.com', { cwd: dir });
   execSync('git config user.name test', { cwd: dir });
@@ -217,6 +217,56 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     rmSync(tmpRepo, { recursive: true, force: true });
   });
 
+  it.each([
+    ['thread', { CODEX_THREAD_ID: 'test-codex-thread' }],
+    ['harness', { AIF_HARNESS: 'codex' }],
+  ])('CODEX-READY-TEMP: explicit %s prefers Codex and quotes the worktree path', (_signal, signal) => {
+    // A space in the consumer root makes shell quoting observable. No root or core
+    // package/lockfile exists in this fixture, so neither provisioning leg installs.
+    rmSync(tmpRepo, { recursive: true, force: true });
+    tmpRepo = realpathSync(setupTempRepo('getff work codex-'));
+    const bin = join(tmpRepo, 'bin');
+    const launches = join(tmpRepo, 'launches.log');
+    mkdirSync(bin);
+    for (const cli of ['codex', 'zcode', 'claude']) {
+      writeFileSync(join(bin, cli), '#!/usr/bin/env bash\nprintf "%s\\n" "$0" >> "$CLI_LAUNCH_LOG"\nexit 99\n', { mode: 0o755 });
+    }
+    const env = {
+      ...process.env,
+      CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: '', AIF_HARNESS: '', ZCODE_SESSION_ID: '',
+      WORKTREE_BASE_REF: 'HEAD', CLAUDE_COORDINATION_DIR: join(tmpRepo, 'coordination'),
+      PATH: `${bin}:${process.env.PATH}`, CLI_LAUNCH_LOG: launches,
+      ...signal,
+    };
+    const args = [join(tmpRepo, 'scripts/getff-work.sh'), 'codex-ready', '--no-launch'];
+    const result = spawnSync('bash', args, { cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(result.status, output).toBe(0);
+    expect(existsSync(launches), output).toBe(false);
+    const command = result.stdout.split('\n').find((line) => /^\s+codex -C /.test(line));
+    expect(command, output).toBeDefined();
+    expect(result.stdout, output).not.toMatch(/^\s+(zcode|claude)\b/m);
+    // Parse the printed shell line with a function argument catcher; never invoke
+    // the installed Codex executable, even if the output selects it correctly.
+    const parsed = spawnSync('bash', ['-c', 'codex() { printf "%s\\n" "$#" "$@"; };\n' + command], {
+      cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS,
+    });
+    expect(parsed.status, `${parsed.stdout}${parsed.stderr}`).toBe(0);
+    expect(parsed.stdout.split('\n')).toEqual(['2', '-C', join(tmpRepo, '.claude/worktrees/codex-ready'), '']);
+    expect(existsSync(launches)).toBe(false);
+
+    // Both explicit Codex signals must still defer when CC owns the session.
+    const deferred = spawnSync('bash', args, {
+      cwd: tmpRepo, env: { ...env, CLAUDE_CODE_SESSION_ID: 'test-cc-session' },
+      encoding: 'utf8', timeout: SPAWN_GUARD_MS,
+    });
+    expect(deferred.status, `${deferred.stdout}${deferred.stderr}`).toBe(0);
+    expect(deferred.stdout).toContain('done (CC deferral)');
+    expect(deferred.stdout).toContain('claude -w codex-ready');
+    expect(deferred.stdout).not.toMatch(/^\s+codex -C /m);
+    expect(existsSync(launches)).toBe(false);
+  });
+
   // ✅ CC-DEFERRAL (Park-4 binding)
   it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', () => {
     const name = uniqueName('smoke-cc');
@@ -247,7 +297,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   // ✅ NO-LAUNCH-FLAG (force print even in TTY)
   it('NO-LAUNCH-FLAG: --no-launch forces print-only path', () => {
     // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
-    // non-TTY)" line lives on the NON-CC path (getff-work.sh:194-197), and the
+    // non-TTY)" line lives on the NON-CC path (getff-work.sh:200-203), and the
     // CC check at getff-work.sh:160 exits at :170 before ever reaching it. This
     // test inherited the ambient env, so it passed in CI and failed inside any
     // real CC session — a latent env-dependency that the branch-collision

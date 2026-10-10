@@ -86,4 +86,17 @@ fi
 rm -f "$SANDBOX/.claude/hooks/zeta.sh" "$SANDBOX/.claude/hooks/Alpha.sh" "$SANDBOX/.claude/hooks/beta.sh"
 rm -f "$SANDBOX/plugin/hooks/zeta" "$SANDBOX/plugin/hooks/Alpha" "$SANDBOX/plugin/hooks/beta"
 
+# Canonical owners win over a separately present compatibility path.
+mkdir -p "$SANDBOX/.agents/hooks"
+printf '#!/usr/bin/env bash\necho canonical\n' > "$SANDBOX/.agents/hooks/canonical.sh"
+printf '#!/usr/bin/env bash\necho stale-legacy\n' > "$SANDBOX/.claude/hooks/canonical.sh"
+: > "$SANDBOX/plugin/hooks/canonical"
+OUT5=$(bash "$WRITER" "$SANDBOX" 2>/dev/null)
+canonical_hash=$(shasum -a 256 "$SANDBOX/.agents/hooks/canonical.sh" | awk '{print $1}')
+if printf '%s\n' "$OUT5" | grep -qF "$canonical_hash  canonical.sh"; then
+  ok "canonical source hash wins over a stale compatibility entry"
+else
+  bad "writer hashed the compatibility entry instead of its canonical owner"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

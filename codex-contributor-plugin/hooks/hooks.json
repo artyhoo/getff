@@ -1,0 +1,224 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" deps-hash-check; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" ask-question-reminder; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-matching-rule; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" seal-primary-checkout; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" validate-prompt; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" check-doc-authority; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Read|Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-matching-rule; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" check-kickoff-traps; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" check-hook-marker; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" runtime-bridge-dispatch; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" check-worker-dispatch-channel; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-memory-codification; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" close-aif-task-on-merge; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" end-of-turn-reminder; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-subagent-digest; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" warn-subagent-report; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" link-coordination; fi",
+            "timeout": 360
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-handoff-on-compact; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-matching-rule; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" inject-session-bootstrap; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ] && [ -f \"$root/scripts/codex-hook-adapter.mjs\" ]; then node \"$root/scripts/codex-hook-adapter.mjs\" precompact-residue; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ]
+  }
+}

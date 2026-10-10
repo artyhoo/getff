@@ -92,7 +92,7 @@ proof.
 What the gate checks is decided by the principle-09 module it delegates to, not by this
 script: the module carries a static list of must-carry-header docs plus four path
 patterns — a new rule file is covered the moment it lands, with no list edit
-(`packages/core/principles/09-doc-authority-hierarchy.ts:181-186`). The hook itself is
+(`packages/core/principles/09-doc-authority-hierarchy.ts:183-188`). The hook itself is
 a thin Claude Code [channel](../../terms.md#channel): it filters markdown, resolves the
 principle-09 CLI through a tier list, and runs it. The consumer-facing reimplementation
 of the same check is [check-doc-authority-header](check-doc-authority-header.md) —
@@ -120,7 +120,7 @@ documented escape, a recorded choice rather than a silent one.
   with the command at line 119; the plugin registry registers it too
   (`plugin/hooks/hooks.json:75`).
 - Scope patterns live in the delegated module:
-  `packages/core/principles/09-doc-authority-hierarchy.ts:181-186` defines
+  `packages/core/principles/09-doc-authority-hierarchy.ts:183-188` defines
   `REQUIRED_PATH_PATTERNS` — `skills/**/SKILL.md`, `skills/**/references/*.md`,
   `.claude/rules/[^/]+.md`, `agents/[^/]+.md` — and the comment above them (lines
   172-178) explains the 2026-07-03 widening: «a new rule or agent is covered the

@@ -52,7 +52,7 @@ function consumer(mcp: object = { mcpServers: { context7: { type: 'http', url: '
   writeFileSync(join(root, 'package.json'), JSON.stringify(PKG));
   writeFileSync(join(root, '.mcp.json'), JSON.stringify(mcp));
   mkdirSync(join(root, '.ai-factory'));
-  cpSync(join(import.meta.dirname, '../../../skills/tool-bootstrapping/templates/tool-decisions.md.template'), join(root, '.ai-factory', 'tool-decisions.md'));
+  cpSync(join(import.meta.dirname, '../../../.agents/procedures/tool-bootstrapping-consumer/templates/tool-decisions.md.template'), join(root, '.ai-factory', 'tool-decisions.md'));
   return root;
 }
 /** A copy of the recorded fixtures with EDIT applied to the answer of each URL named. */

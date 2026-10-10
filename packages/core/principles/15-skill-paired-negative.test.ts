@@ -33,9 +33,11 @@ const REPO_ROOT = resolve(HERE, '../../../');
  * paired-negative block to that SKILL.md.
  */
 const EXEMPT_SKILLS: readonly string[] = [
-  '.claude/skills/self-reflection/SKILL.md',
-  '.claude/skills/tool-bootstrapping/SKILL.md',
-  'skills/tool-bootstrapping/SKILL.md',
+  '.agents/procedures/self-reflection/SKILL.md',
+  '.agents/procedures/template-audit/SKILL.md',
+  '.agents/procedures/tool-bootstrapping/SKILL.md',
+  '.agents/procedures/getff/SKILL.md',
+  '.agents/procedures/tool-bootstrapping-consumer/SKILL.md',
 ];
 
 /**
@@ -128,7 +130,7 @@ function trackedSkillMds(roots: readonly string[]): Set<string> | null {
 
 /** Enumerate in-scope SKILL.md files (repo-root-relative POSIX paths). Zero glob dep. */
 function enumerateSkills(): string[] {
-  const roots = ['.claude/skills', 'skills'];
+  const roots = ['.agents/procedures'];
   const tracked = trackedSkillMds(roots);
   const found: string[] = [];
   for (const root of roots) {

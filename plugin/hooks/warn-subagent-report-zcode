@@ -2,12 +2,11 @@
 # warn-subagent-report-zcode — ZCode-functional twin of .claude/hooks/warn-subagent-report.sh
 #
 # @dual-pair: warn-subagent-report
-#   The CC source (.claude/hooks/warn-subagent-report.sh) is the portable-spec pair — it owns
-#   the REPORT-section grammar SSOT (line 102: REPORT_CUE_RE, lines 113/116/119: section regexes).
-#   This twin mirrors that grammar VERBATIM (no shared include file — extensionless plugin
+#   The shared REPORT grammar is authored once in .agents/hooks/lib/report-sections.sh.
+#   This native adapter calls lib/report-sections.sh for the shared grammar; extensionless plugin
 #   hooks under plugin/hooks/ follow the standalone-script convention observed across
 #   check-doc-authority, end-of-turn-reminder, inject-session-bootstrap). A comment block
-#   at the top of each arm cites the CC source by file:line as the grammar SSOT.
+#   native event arms below call that shared library rather than mirror its regexes.
 #
 # Operator decision (docs/meta-factory/zcode-parity-mega.decisions.md §Fork 2): ADOPT 4D —
 #   PostToolUse:Agent (Arm A, real-time) + Stop (Arm B, completeness) hybrid.
@@ -64,34 +63,13 @@ _warn() {
 }
 
 # _required_sections_check <text>
-# Mirrors .claude/hooks/warn-subagent-report.sh:98-121 VERBATIM (grammar SSOT):
+# Shared grammar: .agents/hooks/lib/report-sections.sh:
 #   - noise guard: REPORT_CUE_RE — must contain a REPORT-cue label at line start
 #   - required sections: VERIFY, Confidence:, ATTN
 # Returns 0 if REPORT shape is recognized AND all sections present.
 # Returns 1 if REPORT shape is recognized BUT a section is missing; populates MISSING_LIST.
 # Returns 2 (silent) if not REPORT-shaped (noise guard: not a REPORT at all).
-_required_sections_check() {
-  local text="$1"
-  local REPORT_CUE_RE='^(#{1,3} *VERIFY|VERIFY:|Confidence:|ATTN:|Commit:)'
-  if ! printf '%s' "$text" | grep -qE "$REPORT_CUE_RE"; then
-    return 2   # noise guard: not a REPORT
-  fi
-  local -a missing=()
-  if ! printf '%s' "$text" | grep -qE '^(#{1,3} *VERIFY|VERIFY:)'; then
-    missing+=("VERIFY")
-  fi
-  if ! printf '%s' "$text" | grep -qE '^Confidence:'; then
-    missing+=("Confidence")
-  fi
-  if ! printf '%s' "$text" | grep -qE '^(#{1,3} *ATTN|ATTN:)'; then
-    missing+=("ATTN")
-  fi
-  if [ "${#missing[@]}" -gt 0 ]; then
-    MISSING_LIST="$(IFS=', '; echo "${missing[*]}")"
-    return 1
-  fi
-  return 0
-}
+. "$(dirname "$0")/lib/report-sections.sh"
 
 # _dedup_key <text> <tool-use-id>
 # Uses the caller-supplied tool-use id when non-empty; otherwise derives the key from the text
@@ -136,7 +114,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 # Per R4: ZCode PostToolUse:Agent bundle ships up to 120 KB of Agent tool_result readable
 # directly from `.tool_input`. Schema-drift fallbacks: .tool_result, .tool_response (handles
 # ZCode version variance + CC PostToolUse shape). Reads payload, applies the REPORT grammar
-# from .claude/hooks/warn-subagent-report.sh:98-121, dedups against session state, emits a
+# from .agents/hooks/lib/report-sections.sh, dedups against session state, emits a
 # warning per missing section.
 _arm_a_post() {
   # Extract the tool_result text. Try .tool_input first (R4: ZCode primary path).

@@ -26,7 +26,7 @@
  * Run via `tsx` (imports packages/core/composition/fence.ts — a .ts module, so plain
  * `node` cannot load it on Node <22.6). Precedent: scripts/render-harness-config.mjs --write/--check.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import {
@@ -61,7 +61,7 @@ const TIER0_CORE = new Set([
 function findRoot(start) {
   let d = resolve(start);
   for (;;) {
-    if (existsSync(join(d, '.claude/rules'))) return d;
+    if ((existsSync(join(d, '.agents/rules')) || existsSync(join(d, '.claude/rules')))) return d;
     const up = dirname(d);
     if (up === d) throw new Error('.claude/rules not found (walked to filesystem root). Pass --root <dir>.');
     d = up;
@@ -69,11 +69,23 @@ function findRoot(start) {
 }
 
 function listRuleFiles(root) {
-  const dir = join(root, '.claude/rules');
-  return readdirSync(dir)
-    .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
-    .sort()
-    .map((f) => join(dir, f));
+  const owners = new Set();
+  const names = new Set();
+  const found = [];
+  for (const ruleRoot of ['.agents/rules', '.claude/rules']) {
+    const dir = join(root, ruleRoot);
+    if (!existsSync(dir)) continue;
+    for (const name of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== '00-rule-index.md').sort()) {
+      const path = join(dir, name);
+      const owner = realpathSync(path);
+      if (owners.has(owner)) continue;
+      if (names.has(name)) throw new Error(`${name}: distinct canonical and legacy rule owners; compatibility must be a file link`);
+      owners.add(owner);
+      names.add(name);
+      found.push(path);
+    }
+  }
+  return found;
 }
 
 // Header-marker parsers (extractHeaderField, extractFrontmatterPaths, extractGlobsMarker,
@@ -135,7 +147,7 @@ function checkPathsGlobsParity(rule, root) {
 
 function renderIndexBlock(rows) {
   const lines = [
-    'One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude/rules/00-rule-index.md`).',
+    'One line per rule — full text: read `.agents/rules/<name>.md` (index: `.agents/rules/00-rule-index.md`).',
     '',
     '| Rule | Class | Fires | Channel(s) |',
     '|---|---|---|---|',
@@ -166,7 +178,7 @@ function renderIndexFileContent(block) {
   return `# Rule index — generated, do not hand-edit
 
 > **Authoritative for:** rendered rule digest. Regen: \`npx tsx scripts/render-rule-index.mjs --write\`.
-> **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read \`.claude/rules/<name>.md\`.
+> **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read \`.agents/rules/<name>.md\`.
 
 ${block}
 `;
@@ -187,7 +199,7 @@ function run(argv) {
   }
 
   const block = renderIndexBlock(rows);
-  const indexPath = join(root, '.claude/rules/00-rule-index.md');
+  const indexPath = join(root, existsSync(join(root, '.agents/rules')) ? '.agents/rules/00-rule-index.md' : '.claude/rules/00-rule-index.md');
   const indexContent = renderIndexFileContent(block);
 
   const agentsPath = join(root, 'AGENTS.md');

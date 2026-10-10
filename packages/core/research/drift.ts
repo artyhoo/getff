@@ -11,9 +11,9 @@ import { resolve } from 'node:path';
 import type { DriftMismatch, DriftReport } from './types.ts';
 
 export const SELF_APP_SOURCES = [
-  'skills/getff/SKILL.md',
-  'skills/getff/references/overview.md',
-  'skills/getff/references/ai-traps.md',
+  '.agents/procedures/getff/SKILL.md',
+  '.agents/procedures/getff/references/overview.md',
+  '.agents/procedures/getff/references/ai-traps.md',
 ] as const;
 
 interface Principle {
@@ -62,7 +62,10 @@ function principleAppears(text: string, p: Principle): boolean {
 export function detectDrift(repoRoot: string): DriftReport {
   const present: Record<string, Record<string, string | null>> = {};
   const sources: string[] = [];
-  for (const rel of SELF_APP_SOURCES) {
+  const ownerExists = existsSync(resolve(repoRoot, '.agents/procedures/getff'));
+  const sourcePaths = ownerExists ? SELF_APP_SOURCES
+    : SELF_APP_SOURCES.map((path) => path.replace('.agents/procedures/', 'skills/'));
+  for (const rel of sourcePaths) {
     const abs = resolve(repoRoot, rel);
     if (!existsSync(abs)) {
       throw new Error(`Self-application source missing: ${rel}`);

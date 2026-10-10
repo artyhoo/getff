@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../../..');
-const HELPERS = resolve(REPO, '.claude/skills/pipeline/helpers');
+const HELPERS = resolve(REPO, '.agents/procedures/pipeline/helpers');
 const COMMON = resolve(HELPERS, 'lib/common.sh');
 
 function initRepo(prefix: string): string {
@@ -43,7 +43,7 @@ function initRepo(prefix: string): string {
 function installHelpers(root: string, common?: string): string {
   const dst = resolve(root, '.claude/skills/pipeline/helpers');
   mkdirSync(dirname(dst), { recursive: true });
-  cpSync(HELPERS, dst, { recursive: true });
+  cpSync(HELPERS, dst, { recursive: true, dereference: true });
   if (common !== undefined) writeFileSync(resolve(dst, 'lib/common.sh'), common);
   return dst;
 }
@@ -81,6 +81,14 @@ describe('/pipeline helpers — REPO_ROOT anchored to the skill checkout', () =>
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(existsSync(resolve(foreign, '.ai-factory')), 'the foreign repo must stay untouched').toBe(false);
     expect(readFileSync(cacheIn(own), 'utf8')).toContain('- Umbrella: u1');
+  });
+
+  it('(r10) canonical common source anchors a foreign cwd to its own checkout', () => {
+    const dst = resolve(own, '.agents/procedures/pipeline/helpers');
+    mkdirSync(dirname(dst), { recursive: true });
+    cpSync(HELPERS, dst, { recursive: true, dereference: true });
+    const r = run(resolve(dst, 'print-orch-home.sh'), [], foreign);
+    expect(r.stdout.trim()).toBe(resolve(own, '.ai-factory/orchestrator-prompts'));
   });
 
   it('(r2) OWN CHECKOUT subdir as cwd: resolves to the checkout root', () => {

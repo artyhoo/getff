@@ -198,13 +198,18 @@ else
   bad "arm 4 precondition: manifest absent after the force run — staging broken"
 fi
 rm -rf "$TC/$CONFLICTS_REL"
+# The diverged surface is the native bind path .claude/skills/getff/SKILL.md — a MATERIALIZED
+# real file since the consumer-delivery materialization (the installer writes real bytes, never
+# symlinks), with its OWN refresh-baseline entry. An edit there diverges against ITS OWN
+# baseline — that is the path whose would-flag/warn this arm must name; the canonical twin
+# (.agents/procedures/getff/SKILL.md) keeps its delivered bytes and refreshes clean.
 echo "ARM4 SKILL EDIT" >> "$SKILL"
 MAN_BEFORE=$(mktemp); cp "$TC/$MANIFEST_REL" "$MAN_BEFORE"
 OUT4=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
-  ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill"
+if grep -qF ".claude/skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
+  ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill (native path)"
 else
-  bad "arm 4: no would-flag for .claude/skills/getff/SKILL.md under --refresh --dry-run (MAJOR 2 regression)"
+  bad "arm 4: no would-flag for the diverged plain skill (.claude/skills/getff/SKILL.md) under --refresh --dry-run (MAJOR 2 regression)"
 fi
 grep -qF "ARM4 SKILL EDIT" "$SKILL" \
   && ok "arm 4: dry-run did NOT overwrite the diverged skill file" \
@@ -218,7 +223,7 @@ cmp -s "$TC/$MANIFEST_REL" "$MAN_BEFORE" \
 # neg (LOAD-BEARING): the real refresh right after DOES warn + preserve — the would-flag
 # predicted a real divergence (preview faithful).
 OUT4B=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
+if grep -qF ".claude/skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
   ok "arm 4 neg: the real refresh warns for exactly the file the dry-run would-flagged"
 else
   bad "arm 4 neg: real refresh did not warn for the dry-run-flagged file"

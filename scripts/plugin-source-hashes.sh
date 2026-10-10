@@ -26,10 +26,13 @@ reaches_beside() {
   grep -qE '(^|[;&|([:space:]])(\.|source)[[:space:]]|BASH_SOURCE|_HOOK_DIR|dirname[[:space:]]+"?\$\{?0\}?"?' <<<"$code"
 }
 
+SOURCE_DIR="$ROOT/.agents/hooks"
+[ -d "$SOURCE_DIR" ] || SOURCE_DIR="$ROOT/.claude/hooks"
+
 for twin in "$ROOT"/plugin/hooks/*; do
   [ -f "$twin" ] || continue
   n=$(basename "$twin")
-  src="$ROOT/.claude/hooks/$n.sh"
+  src="$SOURCE_DIR/$n.sh"
   [ -f "$src" ] || continue
   # Marker presence is tested SEPARATELY from its list being empty (fix round 1, item 1): a
   # `# @plugin-yield-deps:` line with nothing after it means "reads nothing beside itself" —
@@ -41,9 +44,9 @@ for twin in "$ROOT"/plugin/hooks/*; do
     deps=""
     reaches_beside "$src" && continue
   fi
-  printf '%s  %s\n' "$(getff_path_hash "$ROOT/.claude/hooks" "$n.sh")" "$n.sh"
+  printf '%s  %s\n' "$(getff_path_hash "$SOURCE_DIR" "$n.sh")" "$n.sh"
   for d in $deps; do
-    h=$(getff_path_hash "$ROOT/.claude/hooks" "$d") \
+    h=$(getff_path_hash "$SOURCE_DIR" "$d") \
       || { echo "plugin-source-hashes: $n declares $d, which is not under .claude/hooks/" >&2; exit 2; }
     printf '%s  %s\n' "$h" "$n.sh:$d"
   done

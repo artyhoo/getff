@@ -355,7 +355,7 @@ const ENFORCEMENT_FILE_RE = /^packages\/core\/principles\/[^/]+$/;
  * Both halves match the OTHER enforcement channel of the same invariant, which
  * has held this semantic since it shipped: principle 11 (SSOT #48) builds its
  * capability set from «non-test» TS files only
- * (`packages/core/principles/11-build-first-reuse-default.test.ts:238`) while
+ * (`packages/core/principles/11-build-first-reuse-default.test.ts:239`) while
  * singling principle tests out as needing «a dedicated SSOT entry with verbatim
  * path OR a Prior-art trailer» (`…:573`). This carve-out brings the pre-push
  * channel into parity with the CI one.

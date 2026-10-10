@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/end-of-turn-reminder.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# AUTO-GENERATED from .agents/hooks/end-of-turn-reminder.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # end-of-turn-reminder.sh — Stop hook — end-of-turn recap + goal-drift verdict reminder
 # @cc-only-rationale: CC-specific Stop hook (session-recap) — a Stop hook only runs INSIDE a
 #   Claude Code session, so there is no portable counterpart by nature (the @dual-pair below is
@@ -1471,6 +1471,13 @@ fi
 # route through _autonomy_exit exactly as before; the unarmed gate goldens
 # (end-of-turn-reminder.test.ts fixture 9) prove byte-identity.
 
+# The localized standalone heading outside examples is the story completion marker.
+# Share the predicate with the recap section gate; mentioning story is not completing it.
+_eot_story_told() {
+  printf '%s\n' "$text" | awk '/^[[:space:]]*(```|~~~)/ {f=!f; next} !f' \
+    | grep -xF -- "$AIF_STORY_MARKER" >/dev/null
+}
+
 # Already-recapped guard: if the current assistant turn already contains the
 # active-language recap marker ($AIF_RECAP_MARKER, sourced from lang/), the recap
 # is done — re-firing would re-inject the recap instruction over an existing recap.
@@ -1495,7 +1502,7 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
   # turn where the handoff gate did not run.
   _eot_turn_shape
   if [ "${AIF_RECAP_GATE:-0}" = "1" ] && [ -z "${gate_line:-}" ] && [ -z "${ctx_line:-}" ] \
-     && ! grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
+     && ! _eot_story_told; then
     _recap_defects="$(_eot_recap_defects)"
     # The gate owns its retry bound (Task 1.6b, R-16). Mirrors the ZCode dense arm's
     # _zcb_sha shape (:~822-852) per spec :134-136, and for the same measured reason: a
@@ -1553,7 +1560,7 @@ if [ -n "$text" ] && _eot_recap_sections_wellformed; then
 fi
 
 # Story already told this turn → do not re-inject.
-if [ -n "$story_signal" ] && [ -n "$text" ] && grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
+if [ -n "$text" ] && _eot_story_told; then
   _autonomy_exit
 fi
 # Debounce by PR: same PR already storied this session → fall through to normal branches.

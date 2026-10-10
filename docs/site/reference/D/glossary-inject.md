@@ -135,7 +135,7 @@ Explanations count toward the same silence.
   default writes «the USER file … the one registration every session on the machine
   reads».
 - The plugin copy is generated, never edited by hand: `plugin/hooks/glossary-inject`,
-  line 2 reads `# AUTO-GENERATED from .claude/hooks/glossary-inject.sh — do not edit`.
+  line 2 reads `# AUTO-GENERATED from .agents/hooks/glossary-inject.sh — do not edit`.
 - Paired test: `packages/core/hooks/glossary-counters.test.ts` covers both sides; its
   header (lines 5 to 8) names this hook and the Stop-side arm, and lines 43 to 44 pin the
   two hook paths under test.

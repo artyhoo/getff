@@ -17,7 +17,7 @@ function installerMarkers(): string[] {
   const names = files.flatMap((f) => [...readFileSync(join(REPO, f), 'utf8').matchAll(MARKER)].map((m) => m[1]));
   return [...new Set(names)].sort();
 }
-const SKILL_FILES = ['skills/tool-bootstrapping/SKILL.md', 'skills/tool-bootstrapping/references/decision-format.md'];
+const SKILL_FILES = ['.agents/procedures/tool-bootstrapping-consumer/SKILL.md', '.agents/procedures/tool-bootstrapping-consumer/references/decision-format.md'];
 const skillText = () => SKILL_FILES.map((f) => readFileSync(join(REPO, f), 'utf8')).join('\n');
 
 function unnamed(markers: string[], text: string): string[] {

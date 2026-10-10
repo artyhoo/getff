@@ -458,8 +458,8 @@ if [ -n "$_ws_lines" ]; then
       if [ -n "$_stryker_vcfg" ] && [ -f "$_ws_abs/tsconfig.json" ]; then
         _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
         _stryker_dst="$PROJECT_ROOT/stryker/$_ws_slug.json"
-        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:907 — precedent
-        # rewrite_arch_sot_header, lib.sh:1868-1873) so a consumer's hand-tuned per-package config
+        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:965 — precedent
+        # rewrite_arch_sot_header, lib.sh:1923-1928) so a consumer's hand-tuned per-package config
         # is never silently clobbered on re-install.
         if [ -e "$_stryker_dst" ] && [ "$FORCE" != "--force" ]; then
           SKIPPED+=("$_stryker_dst")
