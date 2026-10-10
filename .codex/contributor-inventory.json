@@ -181,6 +181,11 @@
       "explicit": true
     },
     {
+      "name": "plan-drift-semantic-auditor",
+      "source": ".agents/roles/plan-drift-semantic-auditor.md",
+      "explicit": true
+    },
+    {
       "name": "review-sidecar",
       "source": ".agents/roles/review-sidecar.md",
       "explicit": true
@@ -769,6 +774,21 @@
     },
     {
       "path": ".agents/skills/orchestrator-worker-discipline/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".codex/agents/plan-drift-semantic-auditor.toml",
+      "kind": "text",
+      "fingerprint": "7c346da88930ec99fd00d026ebcd2ed056380f0f516e39b3e9f9d3ca8822298e"
+    },
+    {
+      "path": ".agents/skills/plan-drift-semantic-auditor/SKILL.md",
+      "kind": "text",
+      "fingerprint": "87a922029a22baa1e5bebc7d953914a01c21b887e1897234102cae53e69d677e"
+    },
+    {
+      "path": ".agents/skills/plan-drift-semantic-auditor/agents/openai.yaml",
       "kind": "text",
       "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
     },
