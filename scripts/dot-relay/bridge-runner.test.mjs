@@ -114,7 +114,7 @@ function makeTools(opts = {}) {
     sendThrowMessage = 'secret-ish network dropped mid-send',
     raceClaim = false,
   } = opts;
-  const calls = { exec: [], wait: [], sends: [], reads: [], readPage: [], raced: false };
+  const calls = { exec: [], wait: [], sends: [], reads: [], readPage: [], raced: false, seq: [] };
   const tools = {
     exec_command: async (arg) => {
       const cmd = String(arg?.cmd ?? '');
@@ -123,6 +123,7 @@ function makeTools(opts = {}) {
       if (argv[0] !== 'env' || !String(argv[1]).startsWith('NODE_NO_WARNINGS')) {
         throw new Error(`unexpected cmd form: ${cmd.slice(0, 120)}`);
       }
+      calls.seq.push(`exec:${argv[4]}`);
       if (raceClaim && cmd.includes("'delivery-claim'") && !calls.raced) {
         calls.raced = true;
         spawnSync(argv[2], argv.slice(3), { encoding: 'utf8' });
@@ -132,6 +133,7 @@ function makeTools(opts = {}) {
     },
     'mcp__codex_app__wait_threads': async (arg) => {
       calls.wait.push(arg);
+      calls.seq.push('wait');
       return {
         content: [{ type: 'text', text: JSON.stringify({ timedOut: false, wake: {}, polls }) }],
         isError: false,
@@ -140,6 +142,7 @@ function makeTools(opts = {}) {
     'mcp__codex_app__send_message_to_thread': async (arg) => {
       const { threadId, prompt } = arg ?? {};
       calls.sends.push({ threadId, prompt });
+      calls.seq.push(String(prompt ?? '').startsWith('DOT_RELAY_IMPORTED ') ? 'send:receipt' : 'send:delivery');
       if (sendBehavior === 'throw') throw new Error(sendThrowMessage);
       if (sendBehavior === 'is-error') {
         return { content: [{ type: 'text', text: 'refused by transport' }], isError: true };
@@ -2278,5 +2281,50 @@ test('F08: the send deadline reserves settlement time — a timed-out send settl
   assertResultShape(r2.result);
   const dup = second.calls.sends.filter((s) => !String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED '));
   assert.equal(dup.length, 0, 'an UNCERTAIN delivery is never re-offered, never resent');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F08 priority extension: recovery and settlement run BEFORE the cycle reads
+// NEW cloud input or acquires continuations — an eligible delivery and a
+// crashed uploader must not lose their turn to a freshly announced locator.
+test('F08: pending-upload recovery and eligible delivery settlement precede new input and continuation acquisition', { skip: process.platform !== 'darwin' }, async () => {
+  const root = freshRoot();
+  mkdirSync(join(root, 'in'), { recursive: true });
+
+  // an ELIGIBLE delivery: manifest registered + artifact fully spooled + ingested
+  const done = implicitCase('F08PA');
+  writeFileSync(join(root, 'in', 'pa.manifest.json'), `${JSON.stringify(done.manifest)}\n`);
+  cliJson(['manifest-import', '--root', root, '--file', join(root, 'in', 'pa.manifest.json'), '--producer-role', 'collector', '--cursor-token', 'tok-f08pa']);
+  const begin = cliJson(['spool-begin', '--root', root, '--id', done.manifest.event_id, '--artifact-sha256', done.manifest.sha256, '--bytes', String(done.manifest.bytes)]);
+  for (let i = 0; i < done.text.length; i += 12000) {
+    cli(['spool-append', '--root', root, '--upload-id', begin.upload_id, '--chunk-json', JSON.stringify(done.text.slice(i, i + 12000))]);
+  }
+  cliJson(['spool-finish', '--root', root, '--upload-id', begin.upload_id, '--producer-role', 'collector']);
+  assert.equal(cliJson(['plan', '--root', root]).deliveries.length, 1, 'delivery eligible');
+
+  // a CRASHED implicit upload from a different manifest (partial spool)
+  const broken = implicitCase('F08PB');
+  f09BeginPartial(root, broken, f09Chunks(broken.text)[0]);
+
+  // AND a freshly announced locator competes in the same cycle
+  const fresh = smallCase('F08PC');
+  const polls = [pollFor('collector', 'cur-f08pc', locatorLine({ generation: fresh.generation, index: fresh.locatorIndex }))];
+  const pages = { ...broken.pages, ...fresh.pages };
+  const { tools, calls } = makeTools({ polls, pages });
+  const { result } = await runBody(root, tools);
+  assertResultShape(result);
+
+  const seq = calls.seq;
+  const at = (tag) => seq.indexOf(tag);
+  const waitAt = at('wait');
+  assert.ok(waitAt >= 0, 'the wait fired');
+  // the eligible delivery settles BEFORE new input is read
+  assert.ok(at('send:delivery') >= 0 && at('send:delivery') < waitAt, `delivery send must precede the wait (seq: ${seq.join(',')})`);
+  // the crashed upload resumes to completion BEFORE new input is read
+  const finishAt = at('exec:spool-finish');
+  assert.ok(finishAt >= 0 && finishAt < waitAt, `upload resume must precede the wait (seq: ${seq.join(',')})`);
+  // and the freshly announced locator is still processed in the same cycle
+  assert.ok(calls.reads.some((r) => r.reference === `library-file:/ix/F08PC.json`), 'new input not starved — still processed this cycle');
+  assert.equal(result.counts.sources, 1);
   rmSync(root, { recursive: true, force: true });
 });

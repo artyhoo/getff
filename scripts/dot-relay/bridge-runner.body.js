@@ -686,7 +686,75 @@ async function runBridge({ tools, config, emit }) {
     const pagePending = (col) => !!col && typeof col === 'object'
       && ((Array.isArray(col.items) && col.items.length > 0) || col.complete === false);
 
-    // 1. resume open index chains first (oldest generation wins)
+    // 1. F08 priority: pending-upload recovery runs FIRST — durable work in
+    // flight (a crashed uploader) never loses its turn to a freshly
+    // announced locator or a continuation.
+    for (const up of (plan1.pending_uploads ?? [])) {
+      if (!up || !up.upload_id) continue;
+      if (!cycleAdmitData()) { continuation = true; continue; }
+      try {
+        await resumeUpload(tools, config, up);
+        progressed = true;
+      } catch (e) {
+        addBlocker(codeOf(e), up.event_id ?? null);
+      }
+    }
+
+    // 2. F08 priority: eligible delivery settlement BEFORE new
+    // input/continuation acquisition. ONE shared send cap spans BOTH passes
+    // (BOUNDED-CYCLE: pending receipt sends count against event_limit exactly
+    // like delivery sends, so a receipt backlog can never ride free past the
+    // cap). The pass below runs on the pre-cycle plan; a second pass after
+    // acquisition settles freshly spooled work under the SAME cycle cap.
+    const sendCap = Math.max(1, Math.floor(config.event_limit) || 1);
+    let sends = 0;
+    const settle = async (planObj) => {
+      for (const d of (planObj.deliveries ?? [])) {
+        if (!d || typeof d.delivery_id !== 'string') continue;
+        if (!cycleAdmitData() || sends >= sendCap) { continuation = true; break; }
+        sends += 1;
+        try {
+          const claim = await runCli(tools, config, ['delivery-claim', '--id', d.delivery_id]);
+          const prompt = typeof claim.manifest === 'string' && claim.manifest.length > 0
+            ? claim.manifest
+            : JSON.stringify({ version: 1, event_id: d.event_id, artifact: { page_id: claim.source_page_id, reference: claim.source_reference, sha256: claim.artifact_sha256 } });
+          const sent = await sendOnce(tools, config, d.destination, prompt);
+          const rcptPath = await putReceiptFile(tools, config, `rcpt-${d.delivery_id}`, { tool: 'send_message_to_thread', ok: sent.ok });
+          await runCli(tools, config, ['delivery-receipt', '--id', d.delivery_id, '--status', sent.ok ? 'sent' : 'uncertain', '--receipt-file', rcptPath]);
+          if (sent.ok) {
+            counters.deliveries += 1;
+            progressed = true;
+          } else {
+            addBlocker('SEND_UNCERTAIN', d.event_id);
+          }
+        } catch (e) {
+          addBlocker(codeOf(e), d.event_id);
+        }
+      }
+      const receiptPage = planObj.pending_receipts;
+      let receiptsAllConsumed = true;
+      for (const r of ((receiptPage ?? {}).items ?? [])) {
+        if (!r || typeof r.receipt_id !== 'string') continue;
+        if (!cycleAdmitData() || sends >= sendCap) { continuation = true; receiptsAllConsumed = false; break; }
+        sends += 1;
+        try {
+          const claim = await runCli(tools, config, ['receipt-claim', '--id', r.receipt_id]);
+          const sent = await sendOnce(tools, config, r.destination, claim.prompt);
+          const rcptPath = await putReceiptFile(tools, config, `rcpt-${r.receipt_id}`, { tool: 'send_message_to_thread', ok: sent.ok });
+          await runCli(tools, config, ['receipt-outcome', '--id', r.receipt_id, '--status', sent.ok ? 'sent' : 'uncertain', '--receipt-file', rcptPath]);
+          if (!sent.ok) addBlocker('SEND_UNCERTAIN', r.receipt_id);
+        } catch (e) {
+          addBlocker(codeOf(e), r.receipt_id);
+        }
+      }
+      // F16: each settled receipt (sent or uncertain) retires from PENDING —
+      // the page is consumed exactly when the loop ended without a cap/admit
+      // skip
+      await advanceAfterConsumption('pending_receipts', receiptPage, receiptsAllConsumed && (receiptPage?.items?.length ?? 0) > 0);
+    };
+    await settle(plan1);
+
+    // 3. resume open index chains first (oldest generation wins)
     const contPage = plan1.index_continuations;
     let contAllConsumed = true;
     for (const cont of ((contPage ?? {}).items ?? [])) {
@@ -706,7 +774,7 @@ async function runBridge({ tools, config, emit }) {
     }
     await advanceAfterConsumption('index_continuations', contPage, contAllConsumed && (contPage?.items?.length ?? 0) > 0);
 
-    // 2. ONE wait_threads with role targets and durably committed cursors
+    // 4. ONE wait_threads with role targets and durably committed cursors
     const wq = await waitOnce(tools, config, plan1.committed_cursors ?? {});
     if (!wq.ok) addBlocker('WAIT_TOOL_FAILED', null);
     for (const poll of wq.polls) {
@@ -736,19 +804,7 @@ async function runBridge({ tools, config, emit }) {
       }
     }
 
-    // 3. resume older partial spool uploads (crashed uploader state)
-    for (const up of (plan1.pending_uploads ?? [])) {
-      if (!up || !up.upload_id) continue;
-      if (!cycleAdmitData()) { continuation = true; continue; }
-      try {
-        await resumeUpload(tools, config, up);
-        progressed = true;
-      } catch (e) {
-        addBlocker(codeOf(e), up.event_id ?? null);
-      }
-    }
-
-    // 4. fresh manifests -> verified spool -> immutable object + ingest
+    // 5. fresh manifests -> verified spool -> immutable object + ingest
     const plan2 = await runCli(tools, config, ['plan']);
     // F09: a manifest already represented by a durable pending upload keeps
     // ONE upload identity — never begun a second time behind the held or
@@ -769,56 +825,12 @@ async function runBridge({ tools, config, emit }) {
       }
     }
 
-    // 5. deliveries + imported-receipt notifications (claim-first sends).
-    // BOUNDED-CYCLE: ONE shared send cap — pending receipt sends count
-    // against event_limit exactly like delivery sends, so a receipt backlog
-    // can never ride free past the cap.
+    // 6. F08: settlement of freshly spooled work — the SAME shared cycle cap
+    // spans both passes, so acquisition can never out-spend settlement.
     const plan3 = await runCli(tools, config, ['plan']);
-    const sendCap = Math.max(1, Math.floor(config.event_limit) || 1);
-    let sends = 0;
-    for (const d of (plan3.deliveries ?? [])) {
-      if (!d || typeof d.delivery_id !== 'string') continue;
-      if (!cycleAdmitData() || sends >= sendCap) { continuation = true; break; }
-      sends += 1;
-      try {
-        const claim = await runCli(tools, config, ['delivery-claim', '--id', d.delivery_id]);
-        const prompt = typeof claim.manifest === 'string' && claim.manifest.length > 0
-          ? claim.manifest
-          : JSON.stringify({ version: 1, event_id: d.event_id, artifact: { page_id: claim.source_page_id, reference: claim.source_reference, sha256: claim.artifact_sha256 } });
-        const sent = await sendOnce(tools, config, d.destination, prompt);
-        const rcptPath = await putReceiptFile(tools, config, `rcpt-${d.delivery_id}`, { tool: 'send_message_to_thread', ok: sent.ok });
-        await runCli(tools, config, ['delivery-receipt', '--id', d.delivery_id, '--status', sent.ok ? 'sent' : 'uncertain', '--receipt-file', rcptPath]);
-        if (sent.ok) {
-          counters.deliveries += 1;
-          progressed = true;
-        } else {
-          addBlocker('SEND_UNCERTAIN', d.event_id);
-        }
-      } catch (e) {
-        addBlocker(codeOf(e), d.event_id);
-      }
-    }
-    const receiptPage = plan3.pending_receipts;
-    let receiptsAllConsumed = true;
-    for (const r of ((receiptPage ?? {}).items ?? [])) {
-      if (!r || typeof r.receipt_id !== 'string') continue;
-      if (!cycleAdmitData() || sends >= sendCap) { continuation = true; receiptsAllConsumed = false; break; }
-      sends += 1;
-      try {
-        const claim = await runCli(tools, config, ['receipt-claim', '--id', r.receipt_id]);
-        const sent = await sendOnce(tools, config, r.destination, claim.prompt);
-        const rcptPath = await putReceiptFile(tools, config, `rcpt-${r.receipt_id}`, { tool: 'send_message_to_thread', ok: sent.ok });
-        await runCli(tools, config, ['receipt-outcome', '--id', r.receipt_id, '--status', sent.ok ? 'sent' : 'uncertain', '--receipt-file', rcptPath]);
-        if (!sent.ok) addBlocker('SEND_UNCERTAIN', r.receipt_id);
-      } catch (e) {
-        addBlocker(codeOf(e), r.receipt_id);
-      }
-    }
-    // F16: each settled receipt (sent or uncertain) retires from PENDING —
-    // the page is consumed exactly when the loop ended without a cap/admit skip
-    await advanceAfterConsumption('pending_receipts', receiptPage, receiptsAllConsumed && (receiptPage?.items?.length ?? 0) > 0);
+    await settle(plan3);
 
-    // 6. continuation: durable work still pending after this cycle's budget.
+    // 7. continuation: durable work still pending after this cycle's budget.
     // Past the FULL budget there is no room even for this metadata call —
     // every refusal above already flagged continuation; the next cycle (with
     // its own fresh budget) re-derives the pending set from durable state.
