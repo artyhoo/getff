@@ -658,29 +658,53 @@ async function runBridge({ tools, config, emit }) {
     }
     const manifestByEvent = {};
     let pageBudget = Math.max(1, Math.floor(config.index_page_limit) || 1);
-    // durable locator resolutions (role:generation:source-sha256 -> record)
+    // durable locator resolutions (role:generation:source-sha256 -> record).
+    // F16: paged collection — cache-loading a page is NOT consumption (the
+    // rows retire only when their generation completes), so this collection
+    // is never advanced here; re-derivation re-offers the still-active rows.
     const locatorCache = {};
-    for (const rec of (plan1.locator_resolutions ?? [])) {
+    for (const rec of ((plan1.locator_resolutions ?? {}).items ?? [])) {
       if (rec && typeof rec === 'object' && typeof rec.producer_role === 'string'
         && typeof rec.generation === 'string' && typeof rec.source_sha256 === 'string') {
         locatorCache[`${rec.producer_role}:${rec.generation}:${rec.source_sha256}`] = rec;
       }
     }
 
+    // F16: commit a paged collection's cursor ONLY after the cycle durably
+    // processed every offered item (success or recorded blocker) with no
+    // budget/admission skip. A skipped page re-offers next cycle.
+    const advanceAfterConsumption = async (collection, page, allConsumed) => {
+      if (!allConsumed || !page || !page.next_cursor || typeof page.scan_id !== 'string') return;
+      try {
+        await runCli(tools, config, ['plan-advance', '--collection', collection, '--scan-id', page.scan_id, '--cursor', JSON.stringify(page.next_cursor)]);
+      } catch (e) {
+        addBlocker(codeOf(e), null);
+      }
+    };
+    // F16: a paged collection still has pending work when items remain OR the
+    // window extends past the offered page.
+    const pagePending = (col) => !!col && typeof col === 'object'
+      && ((Array.isArray(col.items) && col.items.length > 0) || col.complete === false);
+
     // 1. resume open index chains first (oldest generation wins)
-    for (const cont of (plan1.index_continuations ?? [])) {
-      if (!cont || !cont.next_descriptor || pageBudget <= 0 || !cycleAdmitData()) { continuation = true; continue; }
+    const contPage = plan1.index_continuations;
+    let contAllConsumed = true;
+    for (const cont of ((contPage ?? {}).items ?? [])) {
+      if (!cont || !cont.next_descriptor || pageBudget <= 0 || !cycleAdmitData()) { continuation = true; contAllConsumed = false; continue; }
       try {
         const before = counters.sources;
         const open = await followGeneration(tools, config, locatorCache, cont.producer_role, cont.generation, cont.snapshot_cursor, cont.next_descriptor, pageBudget, counters, manifestByEvent);
         // BOUNDED-CYCLE: subtract only THIS call's page delta — the cumulative
         // counter over-charged later roles at small limits (starvation defect)
         pageBudget -= counters.sources - before;
-        if (open) continuation = true;
+        // an open chain STAYS eligible (it must re-surface next cycle): only
+        // completed or durably-failed items count as consumed for the advance
+        if (open) { continuation = true; contAllConsumed = false; }
       } catch (e) {
         addBlocker(codeOf(e), cont.generation);
       }
     }
+    await advanceAfterConsumption('index_continuations', contPage, contAllConsumed && (contPage?.items?.length ?? 0) > 0);
 
     // 2. ONE wait_threads with role targets and durably committed cursors
     const wq = await waitOnce(tools, config, plan1.committed_cursors ?? {});
@@ -774,9 +798,11 @@ async function runBridge({ tools, config, emit }) {
         addBlocker(codeOf(e), d.event_id);
       }
     }
-    for (const r of (plan3.pending_receipts ?? [])) {
+    const receiptPage = plan3.pending_receipts;
+    let receiptsAllConsumed = true;
+    for (const r of ((receiptPage ?? {}).items ?? [])) {
       if (!r || typeof r.receipt_id !== 'string') continue;
-      if (!cycleAdmitData() || sends >= sendCap) { continuation = true; break; }
+      if (!cycleAdmitData() || sends >= sendCap) { continuation = true; receiptsAllConsumed = false; break; }
       sends += 1;
       try {
         const claim = await runCli(tools, config, ['receipt-claim', '--id', r.receipt_id]);
@@ -788,6 +814,9 @@ async function runBridge({ tools, config, emit }) {
         addBlocker(codeOf(e), r.receipt_id);
       }
     }
+    // F16: each settled receipt (sent or uncertain) retires from PENDING —
+    // the page is consumed exactly when the loop ended without a cap/admit skip
+    await advanceAfterConsumption('pending_receipts', receiptPage, receiptsAllConsumed && (receiptPage?.items?.length ?? 0) > 0);
 
     // 6. continuation: durable work still pending after this cycle's budget.
     // Past the FULL budget there is no room even for this metadata call —
@@ -795,10 +824,10 @@ async function runBridge({ tools, config, emit }) {
     // its own fresh budget) re-derives the pending set from durable state.
     if (cycleRemaining() > 0) {
       const plan4 = await runCli(tools, config, ['plan']);
-      if ((plan4.index_continuations ?? []).length > 0
+      if (pagePending(plan4.index_continuations)
         || (plan4.manifests ?? []).length > 0
         || (plan4.delivery_ids ?? 0) > 0
-        || (plan4.pending_receipts ?? []).length > 0) {
+        || pagePending(plan4.pending_receipts)) {
         continuation = true;
       }
     } else {

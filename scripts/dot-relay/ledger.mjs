@@ -211,6 +211,13 @@ const TICK_PAGE_BUDGET = 10;
 // response; the held prefix advances the durable cursor, never the limit.
 const DELIVERY_SCAN_PAGE = 100;
 const DELIVERY_RESPONSE_LIMIT = 10;
+// F16: paged plan collections — max 10 items per collection, item bytes
+// bounded so the whole plan JSON stays <= PLAN_LIMIT with a 2048-byte reserve
+// for cursors/status. A single item beyond the per-collection byte budget
+// becomes a bounded blocked placeholder, never a PLAN_OVERSIZE throw.
+const PLAN_COLLECTION_PAGE = 10;
+const PLAN_CURSOR_RESERVE = 2048;
+const PLAN_COLLECTION_BYTES = Math.floor((PLAN_LIMIT - PLAN_CURSOR_RESERVE) / 3);
 
 // HOST-RESILIENCE §4: slot-holding states. INTERRUPTED_HOST / RECOVERING_HOST /
 // RESUMING_HOST keep the single-execution slot occupied (no second claim, no
@@ -2292,7 +2299,12 @@ export function openLedger(path, {
     },
 
     _ctrlSet(key, value) {
-      db.prepare('INSERT OR REPLACE INTO control (key, value) VALUES (?,?)').run(key, String(value));
+      // rowid-preserving upsert: control rowids feed the locator-collection
+      // scan ceiling, so a plain INSERT OR REPLACE (delete+reinsert, new
+      // rowid) would make every scan-state write look like a late row and
+      // churn epochs forever
+      db.prepare('INSERT INTO control (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+        .run(key, String(value));
     },
 
     // PAGE-LOCATOR-RECOVERY-ADDENDUM: durable record of a VERIFIED Page
@@ -2447,6 +2459,216 @@ export function openLedger(path, {
 
     // --------------------------------------------------------------- plan/status
 
+    // F16: the three paged plan collections, each with its EXACT durable
+    // keyset order (spec): index_generations (first_seen_ms, producer_role,
+    // generation), receipt_outbox (created_ms, receipt_id), locator control
+    // rows (key COLLATE BINARY). The rowid ceiling captured at scan start
+    // bounds the window; rows arriving later surface on the next wrapped
+    // scan. Locator rows whose generation is complete (or quarantined — a
+    // dead chain never continues) stay durable but are not operationally
+    // projected.
+    _planCollections: {
+      index_continuations: {
+        ceiling: () => db.prepare('SELECT COALESCE(MAX(rowid), 0) AS m FROM index_generations').get().m,
+        rows: (s) => {
+          const params = [s.ceiling];
+          let where = 'complete = 0 AND quarantined = 0 AND rowid <= ?';
+          if (s.cursor) {
+            where += ' AND (first_seen_ms > ? OR (first_seen_ms = ? AND (producer_role > ? OR (producer_role = ? AND generation > ?))))';
+            params.push(s.cursor[0], s.cursor[0], s.cursor[1], s.cursor[1], s.cursor[2]);
+          }
+          return db.prepare(`SELECT * FROM index_generations WHERE ${where} ORDER BY first_seen_ms ASC, producer_role ASC, generation ASC LIMIT ${PLAN_COLLECTION_PAGE + 1}`).all(...params);
+        },
+        tuple: (row) => [row.first_seen_ms, row.producer_role, row.generation],
+        id: (row) => row.generation,
+        map: (row) => ({
+          producer_role: row.producer_role,
+          generation: row.generation,
+          next_page_number: row.next_page_number,
+          next_descriptor: row.next_descriptor_json ? JSON.parse(row.next_descriptor_json) : null,
+          snapshot_cursor: row.snapshot_cursor,
+        }),
+      },
+      pending_receipts: {
+        ceiling: () => db.prepare('SELECT COALESCE(MAX(rowid), 0) AS m FROM receipt_outbox').get().m,
+        rows: (s) => {
+          const params = [s.ceiling];
+          let where = "state = 'PENDING' AND rowid <= ?";
+          if (s.cursor) {
+            where += ' AND (created_ms > ? OR (created_ms = ? AND receipt_id > ?))';
+            params.push(s.cursor[0], s.cursor[0], s.cursor[1]);
+          }
+          return db.prepare(`SELECT receipt_id, destination, created_ms FROM receipt_outbox WHERE ${where} ORDER BY created_ms ASC, receipt_id ASC LIMIT ${PLAN_COLLECTION_PAGE + 1}`).all(...params);
+        },
+        tuple: (row) => [row.created_ms, row.receipt_id],
+        id: (row) => row.receipt_id,
+        map: (row) => ({ receipt_id: row.receipt_id, destination: row.destination }),
+      },
+      locator_resolutions: {
+        ceiling: () => db.prepare('SELECT COALESCE(MAX(rowid), 0) AS m FROM control').get().m,
+        rows: (s) => {
+          const params = [s.ceiling];
+          let where = "c.key GLOB 'locator_resolution:*' AND c.rowid <= ?";
+          if (s.cursor) {
+            where += ' AND c.key > ? COLLATE BINARY';
+            params.push(s.cursor[0]);
+          }
+          return db.prepare(
+            `SELECT c.key AS _key, c.value AS _value FROM control c WHERE ${where}
+               AND NOT EXISTS (SELECT 1 FROM index_generations g
+                 WHERE (g.complete = 1 OR g.quarantined = 1)
+                   AND c.key GLOB ('locator_resolution:' || g.producer_role || ':' || g.generation || ':*'))
+               ORDER BY c.key COLLATE BINARY LIMIT ${PLAN_COLLECTION_PAGE + 1}`,
+          ).all(...params);
+        },
+        tuple: (row) => [row._key],
+        id: (row) => row._key,
+        map: (row) => {
+          let v = null;
+          try { v = JSON.parse(row._value); } catch { v = null; }
+          if (!v) return null; // corrupt value row: durable, never projected
+          const parts = row._key.split(':'); // locator_resolution:<role>:<generation>:<sourcehash>
+          return {
+            key: row._key, producer_role: parts[1], generation: parts[2],
+            locator_sha256: v.locator_sha256, page_id: v.page_id, reference: v.reference,
+            source_sha256: v.source_sha256, bytes: v.bytes,
+          };
+        },
+      },
+    },
+
+    _planLoadScan(name) {
+      const spec = api._planCollections[name];
+      let s = null;
+      const raw = api._ctrl(`plan_scan:${name}`);
+      if (raw != null) {
+        try { s = JSON.parse(raw); } catch { s = null; }
+      }
+      if (!s || typeof s !== 'object' || typeof s.scan_id !== 'string' || !Number.isInteger(s.ceiling)) {
+        s = { scan_id: randomUUID(), ceiling: spec.ceiling(), cursor: null };
+        api._ctrlSet(`plan_scan:${name}`, JSON.stringify(s));
+      }
+      return s;
+    },
+
+    // F16: wrap a completed scan: the ACTIVE control row becomes a fresh epoch
+    // (fresh ceiling, null cursor) and the completed scan's record — id,
+    // ceiling and the LAST COMMITTED cursor — persists under
+    // `plan_scan:<name>:last_completed`. Without that record the fresh epoch
+    // would erase the only durable proof that consumption (planAdvance) moved
+    // the scan.
+    _wrapScan(name, st) {
+      const spec = api._planCollections[name];
+      api._ctrlSet(`plan_scan:${name}:last_completed`, JSON.stringify({
+        scan_id: st.scan_id, ceiling: st.ceiling, cursor: st.cursor ?? null, at: now(),
+      }));
+      const fresh = { scan_id: randomUUID(), ceiling: spec.ceiling(), cursor: null };
+      api._ctrlSet(`plan_scan:${name}`, JSON.stringify(fresh));
+      return fresh;
+    },
+
+    // F16: derive one bounded page for a collection. The durable cursor is
+    // committed ONLY by planAdvance (after actual consumption) — a page offer
+    // never moves it. Two in-call exceptions, both consumption-free: a page
+    // whose rows are ALL ineligible advances past them (they were never
+    // offered), and an exhausted window wraps ONCE to a fresh epoch so a
+    // late-arriving row can surface on the next call. A single item beyond
+    // the per-collection byte budget becomes a bounded blocked placeholder
+    // plus a DURABLE blocked-item record — the scan advances, no deadlock.
+    _planCollection(name) {
+      return api._tx(() => {
+        const spec = api._planCollections[name];
+        let st = api._planLoadScan(name);
+        let wrapped = false;
+        for (let round = 0; round < 3; round++) {
+          const rows = spec.rows(st);
+          // lookahead row (LIMIT+1): a FULL page cannot see the window end on
+          // its own — the probe row decides `complete`, never the items
+          const complete = rows.length <= PLAN_COLLECTION_PAGE;
+          const pageRows = rows.slice(0, PLAN_COLLECTION_PAGE);
+          const items = [];
+          const blockedHere = [];
+          let bytes = 0;
+          let lastAdvanced = null; // last row offered (item or placeholder)
+          let stopped = false;
+          for (const row of pageRows) {
+            const item = spec.map(row);
+            if (!item) continue; // ineligible (e.g. corrupt locator value): never offered
+            const itemBytes = Buffer.byteLength(JSON.stringify(item));
+            if (itemBytes > PLAN_COLLECTION_BYTES) {
+              const id = spec.id(row);
+              api._ctrlSet(`plan_blocked:${name}:${id}`, JSON.stringify({
+                code: 'PLAN_ITEM_OVERSIZE', collection: name, id,
+                bytes: itemBytes, scan_id: st.scan_id, at: now(),
+              }));
+              items.push({ code: 'PLAN_ITEM_OVERSIZE', id, bytes: itemBytes });
+              blockedHere.push({ code: 'PLAN_ITEM_OVERSIZE', collection: name, id });
+              lastAdvanced = row;
+              continue;
+            }
+            if (bytes + itemBytes > PLAN_COLLECTION_BYTES) { stopped = true; break; }
+            items.push(item);
+            bytes += itemBytes;
+            lastAdvanced = row;
+          }
+          if (items.length > 0) {
+            return {
+              scan_id: st.scan_id,
+              items,
+              next_cursor: lastAdvanced ? spec.tuple(lastAdvanced) : null,
+              complete: complete && !stopped,
+              blocked: blockedHere,
+            };
+          }
+          if (lastAdvanced) {
+            // every row on this page was ineligible: advancing past them
+            // commits nothing that was ever offered
+            st.cursor = spec.tuple(lastAdvanced);
+            api._ctrlSet(`plan_scan:${name}`, JSON.stringify(st));
+            continue;
+          }
+          if (rows.length === 0 && !wrapped && spec.ceiling() > st.ceiling) {
+            // window exhausted AND genuinely stale (rows exist beyond the
+            // captured ceiling): wrap ONCE with a fresh ceiling so the late
+            // rows surface. A quiescent window keeps its epoch — otherwise
+            // every plan() call would rotate the scan and erase the cursor
+            // a consumer just committed.
+            wrapped = true;
+            st = api._wrapScan(name, st);
+            continue;
+          }
+          return { scan_id: st.scan_id, items: [], next_cursor: null, complete: true, blocked: [] };
+        }
+        // bounded rounds exhausted with an all-ineligible prefix: the persisted
+        // cursor already advanced; the next call continues from there
+        return { scan_id: st.scan_id, items: [], next_cursor: null, complete: false, blocked: [] };
+      });
+    },
+
+    // F16: the ONLY cursor-commit authority. Validated against the ACTIVE
+    // scan id — a stale consumer (pre-crash epoch) can neither advance nor
+    // wrap the current scan. wrap commits a completed scan and starts a fresh
+    // epoch with a fresh ceiling.
+    planAdvance({ collection, scan_id, cursor = null, wrap = false }) {
+      const spec = api._planCollections[collection];
+      if (!spec) throw ledgerError('PLAN_INPUT', `unknown plan collection ${collection}`);
+      if (typeof scan_id !== 'string' || scan_id.length === 0) throw ledgerError('PLAN_INPUT', 'scan_id required');
+      if (!wrap && (cursor === null || typeof cursor !== 'object')) throw ledgerError('PLAN_INPUT', 'cursor required unless wrap');
+      return api._tx(() => {
+        const st = api._planLoadScan(collection);
+        if (st.scan_id !== scan_id) {
+          throw ledgerError('PLAN_SCAN_EPOCH', `scan ${scan_id} is not the active scan for ${collection}`);
+        }
+        if (wrap) {
+          const fresh = api._wrapScan(collection, st);
+          return { ok: true, wrapped: true, scan_id: fresh.scan_id };
+        }
+        st.cursor = Array.isArray(cursor) ? cursor : [cursor];
+        api._ctrlSet(`plan_scan:${collection}`, JSON.stringify(st));
+        return { ok: true, scan_id: st.scan_id };
+      });
+    },
+
     plan({ plansDir } = {}) {
       const toFetch = db.prepare(
         `SELECT m.event_id, m.artifact_bytes FROM manifests m
@@ -2467,25 +2689,23 @@ export function openLedger(path, {
       const manifestsToFetch = toFetch.filter((m) => m.artifact_bytes <= 1048576).map((m) => m.event_id);
       const due = api.pendingDeliveries().map((d) => d.delivery_id);
       const cursors = Object.fromEntries(db.prepare('SELECT producer_role, committed_token FROM cursors WHERE committed_token IS NOT NULL').all().map((r) => [r.producer_role, r.committed_token]));
-      // R03: durable index continuations (oldest in-progress generation first)
-      // and pending DOT_RELAY_IMPORTED receipts — metadata only.
-      const continuations = db.prepare('SELECT * FROM index_generations WHERE complete = 0 AND quarantined = 0 ORDER BY first_seen_ms ASC, generation ASC').all().map((g) => ({
-        producer_role: g.producer_role,
-        generation: g.generation,
-        next_page_number: g.next_page_number,
-        next_descriptor: g.next_descriptor_json ? JSON.parse(g.next_descriptor_json) : null,
-        snapshot_cursor: g.snapshot_cursor,
-      }));
-      const pendingReceipts = db.prepare("SELECT receipt_id, destination FROM receipt_outbox WHERE state = 'PENDING' ORDER BY created_ms ASC, receipt_id ASC").all();
+      // F16: the three unbounded collections page through durable keyset
+      // scans ({items, next_cursor, complete, scan_id}); the cursor commits
+      // only via planAdvance after actual consumption. Oversize placeholders
+      // surface as plan blockers (bounded: current page only).
+      const contPage = api._planCollection('index_continuations');
+      const recPage = api._planCollection('pending_receipts');
+      const locPage = api._planCollection('locator_resolutions');
+      blockers.push(...contPage.blocked, ...recPage.blocked, ...locPage.blocked);
       const activeExec = db.prepare(`SELECT * FROM executions WHERE state IN ${ACTIVE_IN}`).get() ?? null;
       const planObj = {
         deployment_mode: 'HYBRID',
         manifests_to_fetch: manifestsToFetch,
         delivery_ids: due,
         committed_cursors: cursors,
-        index_continuations: continuations,
-        locator_resolutions: api.locatorResolutions(),
-        pending_receipts: pendingReceipts,
+        index_continuations: contPage,
+        locator_resolutions: locPage,
+        pending_receipts: recPage,
         blockers,
         execution: activeExec ? { id: activeExec.id, state: activeExec.state, solution_id: activeExec.solution_id } : null,
       };

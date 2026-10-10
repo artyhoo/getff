@@ -680,7 +680,7 @@ test('index-import: durable page identity — replay no-op after advance, digest
   // quarantined generation keeps holding: further pages of it are refused and it never appears as a continuation
   const gen2page1 = indexPage({ generation: 'COLLECTOR-INDEX-0002', pageNumber: 1, items: [], next: null });
   assert.throws(() => ledger.indexImport({ index: gen2page1, producerRole: 'collector', cursor: 'cur-2', expectedIndexSha256: canonicalSha(gen2page1) }), (e) => e.code === 'INDEX_CONFLICT');
-  assert.ok(ledger.plan().index_continuations.every((c) => c.generation !== 'COLLECTOR-INDEX-0002'));
+  assert.ok(ledger.plan().index_continuations.items.every((c) => c.generation !== 'COLLECTOR-INDEX-0002'));
 });
 
 test('index-import: in-progress continuations exposed by plan, oldest generation first; later generations preserved', () => {
@@ -691,14 +691,14 @@ test('index-import: in-progress continuations exposed by plan, oldest generation
   const nextB = { page_id: 'pb1', reference: 'rb1', sha256: sha256Of('pb1'), bytes: 11 };
   const pageB0 = indexPage({ generation: 'COLLECTOR-INDEX-000B', items: [], next: nextB });
   ledger.indexImport({ index: pageB0, producerRole: 'collector', cursor: 'cur-B', expectedIndexSha256: canonicalSha(pageB0) });
-  const conts = ledger.plan().index_continuations;
+  const conts = ledger.plan().index_continuations.items;
   assert.deepEqual(conts.map((c) => c.generation), ['COLLECTOR-INDEX-000A', 'COLLECTOR-INDEX-000B']); // oldest first
   assert.deepEqual(conts[0].next_descriptor, nextA); // exact stored descriptor
   assert.equal(conts[0].snapshot_cursor, 'cur-A');
   // completing A leaves B in progress — unfinished generations are never replaced
   const pageA1 = indexPage({ generation: 'COLLECTOR-INDEX-000A', pageNumber: 1, items: [], next: null });
   ledger.indexImport({ index: pageA1, producerRole: 'collector', cursor: 'cur-A', expectedIndexSha256: canonicalSha(pageA1) });
-  const conts2 = ledger.plan().index_continuations;
+  const conts2 = ledger.plan().index_continuations.items;
   assert.deepEqual(conts2.map((c) => c.generation), ['COLLECTOR-INDEX-000B']);
 });
 
@@ -709,12 +709,12 @@ test('imported receipts: per-page DOT_RELAY_IMPORTED outbox with exact item iden
   const page0 = indexPage({ generation: 'COLLECTOR-INDEX-000R', items: [{ type: 'manifest', manifest }], next: null });
   const pageSha = canonicalSha(page0);
   ledger.indexImport({ index: page0, producerRole: 'collector', cursor: 'cur-R', expectedIndexSha256: pageSha });
-  const pending = ledger.plan().pending_receipts;
+  const pending = ledger.plan().pending_receipts.items;
   assert.equal(pending.length, 1);
   assert.equal(pending[0].destination, CHAT_IDS.collector);
   // replaying the identical page must not create a second receipt row
   ledger.indexImport({ index: page0, producerRole: 'collector', cursor: 'cur-R', expectedIndexSha256: pageSha });
-  assert.equal(ledger.plan().pending_receipts.length, 1);
+  assert.equal(ledger.plan().pending_receipts.items.length, 1);
 
   const claim = ledger.claimReceipt(pending[0].receipt_id);
   assert.equal(claim.state, 'CLAIMED');
@@ -732,17 +732,17 @@ test('imported receipts: per-page DOT_RELAY_IMPORTED outbox with exact item iden
   assert.throws(() => ledger.claimReceipt(pending[0].receipt_id), (e) => e.code === 'RECEIPT_STATE');
   const out = ledger.receiptOutcome(pending[0].receipt_id, { status: 'sent' });
   assert.equal(out.state, 'SENT_ACCEPTED');
-  assert.equal(ledger.plan().pending_receipts.length, 0);
+  assert.equal(ledger.plan().pending_receipts.items.length, 0);
 
   // UNCERTAIN outcome is never blindly resent
   const { ledger: l2 } = freshLedger();
   const pageU = indexPage({ generation: 'ANALYST-INDEX-000U', producer: CHAT_IDS.analyst, items: [], next: null });
   l2.indexImport({ index: pageU, producerRole: 'analyst', cursor: 'cur-U', expectedIndexSha256: canonicalSha(pageU) });
-  const pu = l2.plan().pending_receipts[0];
+  const pu = l2.plan().pending_receipts.items[0];
   l2.claimReceipt(pu.receipt_id);
   const outU = l2.receiptOutcome(pu.receipt_id, { status: 'uncertain' });
   assert.equal(outU.state, 'UNCERTAIN');
-  assert.equal(l2.plan().pending_receipts.length, 0); // not re-offered
+  assert.equal(l2.plan().pending_receipts.items.length, 0); // not re-offered
   assert.throws(() => l2.claimReceipt(pu.receipt_id), (e) => e.code === 'RECEIPT_STATE');
 });
 
@@ -3320,6 +3320,371 @@ test('F15: claimDelivery rechecks the shared predicate in-transaction — a conf
   raw.close();
   assert.throws(() => l.claimDelivery('DOT-DELIV-C'), (e) => e.code === 'CONFLICT_HELD');
   assert.equal(l.pendingDeliveries().length, 0, 'listing excludes it under the same predicate');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- F16: bounded plan collections
+//
+// Every unbounded plan collection (index continuations, pending receipts,
+// locator resolutions) pages through a durable keyset scan: max 10 items per
+// collection, per-collection item bytes bounded so the whole plan JSON stays
+// <= 32768 bytes with 2048 reserved for cursors/status. The scan cursor
+// commits ONLY after actual consumption (planAdvance) or a durable
+// blocked-item record — never by listing alone. A completed scan wraps once
+// with a fresh rowid ceiling; rows arriving after the ceiling surface on the
+// next scan. A single oversize item becomes a bounded code/ref/id placeholder
+// plus a durable blocked record — never a PLAN_OVERSIZE deadlock.
+
+function seedGenerations(path, rows) {
+  const raw = new DatabaseSync(path);
+  const ins = raw.prepare(
+    'INSERT INTO index_generations (producer_role, generation, first_seen_ms, snapshot_cursor, next_page_number, next_descriptor_json, complete, quarantined) VALUES (?,?,?,?,?,?,?,0)',
+  );
+  for (const r of rows) {
+    ins.run(
+      r.role ?? CHAT_IDS.collector, r.generation, r.firstSeen ?? 1, r.cursor ?? 'cur',
+      r.nextPage ?? 1, JSON.stringify(r.next ?? { page_id: 'p1', reference: 'r1', sha256: sha256Of('p1'), bytes: 10 }),
+      r.complete ?? 0,
+    );
+  }
+  raw.close();
+}
+
+function seedReceipts(path, rows) {
+  const raw = new DatabaseSync(path);
+  const ins = raw.prepare(
+    "INSERT INTO receipt_outbox (receipt_id, producer_role, generation, page_number, source_sha256, prompt, destination, state, created_ms) VALUES (?,?,?,?,?,?,?,'PENDING',?)",
+  );
+  for (const r of rows) ins.run(r.id, 'coordinator', r.generation ?? 'G', 0, sha256Of(r.id), 'DOT_RELAY_IMPORTED {}', r.destination ?? 'dest', r.created ?? 1);
+  raw.close();
+}
+
+function seedLocatorRows(path, rows) {
+  const raw = new DatabaseSync(path);
+  const ins = raw.prepare('INSERT INTO control (key, value) VALUES (?,?)');
+  for (const r of rows) {
+    ins.run(
+      `locator_resolution:${r.role ?? CHAT_IDS.collector}:${r.generation}:${r.source}`,
+      JSON.stringify({ locator_sha256: sha256Of(r.generation), page_id: 'p1', reference: r.reference ?? 'library-file:/x.json', source_sha256: r.source, bytes: r.bytes ?? 10, recorded_ms: 1 }),
+    );
+  }
+  raw.close();
+}
+
+const genId = (i) => `COLLECTOR-INDEX-F16-${String(i).padStart(3, '0')}`;
+
+test('F16: plan collections are paged {items,next_cursor,complete,scan_id} with exact keyset orders and tie columns', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedGenerations(path, [
+    { generation: 'COLLECTOR-INDEX-B', firstSeen: 5 },
+    { generation: 'COLLECTOR-INDEX-A', firstSeen: 5 }, // tie on first_seen -> generation breaks it
+    { generation: 'ANALYST-INDEX-Z', role: CHAT_IDS.analyst, firstSeen: 4 }, // earlier first_seen first, role second
+  ]);
+  seedReceipts(path, [
+    { id: 'DOT-RCPT-zzz', created: 7 },
+    { id: 'DOT-RCPT-aaa', created: 7 }, // tie on created_ms -> receipt_id breaks it
+  ]);
+  seedLocatorRows(path, [
+    { generation: 'G-b', source: sha256Of('s2') },
+    { generation: 'G-a', source: sha256Of('s1') }, // binary key order: G-a before G-b
+  ]);
+  const l = openLedger(path, { now });
+  const plan = l.plan();
+  for (const name of ['index_continuations', 'pending_receipts', 'locator_resolutions']) {
+    const col = plan[name];
+    assert.ok(col && typeof col === 'object' && !Array.isArray(col), `${name} is a paged object`);
+    assert.ok(Array.isArray(col.items) && col.items.length <= 10, `${name} items bounded`);
+    assert.equal(typeof col.scan_id, 'string', `${name} carries the durable scan id`);
+    assert.equal(typeof col.complete, 'boolean', `${name} carries the completion flag`);
+  }
+  assert.deepEqual(plan.index_continuations.items.map((i) => i.generation), ['ANALYST-INDEX-Z', 'COLLECTOR-INDEX-A', 'COLLECTOR-INDEX-B']);
+  assert.deepEqual(plan.pending_receipts.items.map((i) => i.receipt_id), ['DOT-RCPT-aaa', 'DOT-RCPT-zzz']);
+  assert.deepEqual(plan.locator_resolutions.items.map((i) => i.generation), ['G-a', 'G-b']);
+  assert.equal(plan.index_continuations.complete, true, 'a short window completes');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: >10 rows page; the cursor commits only via planAdvance; every eligible id surfaces exactly once per scan', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedGenerations(path, Array.from({ length: 25 }, (_, i) => ({ generation: genId(i + 1), firstSeen: i + 1 })));
+  const l = openLedger(path, { now });
+  const p1 = l.plan().index_continuations;
+  assert.equal(p1.items.length, 10, 'page bounded to 10');
+  assert.equal(p1.complete, false);
+  assert.deepEqual(p1.items.map((i) => i.generation), Array.from({ length: 10 }, (_, i) => genId(i + 1)));
+  // no advance -> the SAME page re-offers (the cursor never commits on listing)
+  const p1b = l.plan().index_continuations;
+  assert.deepEqual(p1b.items.map((i) => i.generation), p1.items.map((i) => i.generation));
+  assert.equal(p1b.scan_id, p1.scan_id);
+  // a foreign / stale scan id never commits into the active scan
+  assert.throws(() => l.planAdvance({ collection: 'index_continuations', scan_id: 'not-the-active-scan', cursor: p1.next_cursor }), (e) => e.code === 'PLAN_SCAN_EPOCH');
+  assert.deepEqual(l.plan().index_continuations.items.map((i) => i.generation), p1.items.map((i) => i.generation), 'refused advance moved nothing');
+  // committed advance moves the window
+  assert.equal(l.planAdvance({ collection: 'index_continuations', scan_id: p1.scan_id, cursor: p1.next_cursor }).ok, true);
+  const p2 = l.plan().index_continuations;
+  assert.deepEqual(p2.items.map((i) => i.generation), Array.from({ length: 10 }, (_, i) => genId(i + 11)));
+  l.planAdvance({ collection: 'index_continuations', scan_id: p2.scan_id, cursor: p2.next_cursor });
+  const p3 = l.plan().index_continuations;
+  assert.deepEqual(p3.items.map((i) => i.generation), [genId(21), genId(22), genId(23), genId(24), genId(25)]);
+  assert.equal(p3.complete, true, 'window end reached');
+  // wrap ONCE with a fresh ceiling: a new scan sees the full backlog again
+  const w = l.planAdvance({ collection: 'index_continuations', scan_id: p3.scan_id, wrap: true });
+  assert.equal(w.wrapped, true);
+  assert.notEqual(w.scan_id, p3.scan_id);
+  const p4 = l.plan().index_continuations;
+  assert.deepEqual(p4.items.map((i) => i.generation), p1.items.map((i) => i.generation));
+  assert.equal(p4.scan_id, w.scan_id);
+  // the stale epoch id can neither advance nor wrap the new scan
+  assert.throws(() => l.planAdvance({ collection: 'index_continuations', scan_id: p3.scan_id, wrap: true }), (e) => e.code === 'PLAN_SCAN_EPOCH');
+  // full walk: every eligible id exactly once (stop at the window end — a wrap
+  // re-scans by design; consumption is what retires rows in production)
+  const seen = [];
+  let page = l.plan().index_continuations;
+  let guard = 0;
+  for (;;) {
+    for (const it of page.items) {
+      assert.ok(!seen.includes(it.generation), `${it.generation} surfaced exactly once`);
+      seen.push(it.generation);
+    }
+    if (page.complete) break;
+    assert.ok(guard++ < 10, 'walk terminates');
+    l.planAdvance({ collection: 'index_continuations', scan_id: page.scan_id, cursor: page.next_cursor });
+    page = l.plan().index_continuations;
+  }
+  assert.equal(seen.length, 25, 'every eligible generation surfaced exactly once');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: rows arriving after the scan ceiling wait for the wrap — no skip, no duplicate', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedGenerations(path, Array.from({ length: 12 }, (_, i) => ({ generation: genId(i + 1), firstSeen: i + 1 })));
+  const l = openLedger(path, { now });
+  const p1 = l.plan().index_continuations;
+  // rows inserted AFTER the epoch started are beyond the captured rowid ceiling
+  seedGenerations(path, Array.from({ length: 3 }, (_, i) => ({ generation: genId(13 + i), firstSeen: 13 + i })));
+  l.planAdvance({ collection: 'index_continuations', scan_id: p1.scan_id, cursor: p1.next_cursor });
+  const p2 = l.plan().index_continuations;
+  assert.deepEqual(p2.items.map((i) => i.generation), [genId(11), genId(12)], 'late rows invisible under the old ceiling');
+  assert.equal(p2.complete, true);
+  l.planAdvance({ collection: 'index_continuations', scan_id: p2.scan_id, wrap: true });
+  // the fresh epoch's ceiling includes the late rows: they surface exactly once
+  const seen = [];
+  let page = l.plan().index_continuations;
+  let guard = 0;
+  for (;;) {
+    for (const it of page.items) {
+      assert.ok(!seen.includes(it.generation));
+      seen.push(it.generation);
+    }
+    if (page.complete) break;
+    assert.ok(guard++ < 10);
+    l.planAdvance({ collection: 'index_continuations', scan_id: page.scan_id, cursor: page.next_cursor });
+    page = l.plan().index_continuations;
+  }
+  assert.deepEqual(seen, Array.from({ length: 15 }, (_, i) => genId(i + 1)), 'full walk includes the late rows in keyset order');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: crash between plan and advance re-offers the same page after restart — no skip, no duplicate', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedReceipts(path, Array.from({ length: 25 }, (_, i) => ({ id: `DOT-RCPT-F16-${String(i + 1).padStart(3, '0')}`, created: i + 1 })));
+  const l1 = openLedger(path, { now });
+  const p1 = l1.plan().pending_receipts;
+  l1.close(); // crash: the page was offered but never consumed/advanced
+  const l2 = openLedger(path, { now });
+  const p2 = l2.plan().pending_receipts;
+  assert.equal(p2.scan_id, p1.scan_id, 'the durable scan id survives the restart');
+  assert.deepEqual(p2.items.map((i) => i.receipt_id), p1.items.map((i) => i.receipt_id));
+  // and a full walk from the restarted ledger loses nothing
+  const seen = [];
+  let page = p2;
+  let guard = 0;
+  for (;;) {
+    for (const it of page.items) seen.push(it.receipt_id);
+    if (page.complete) break;
+    assert.ok(guard++ < 10);
+    l2.planAdvance({ collection: 'pending_receipts', scan_id: page.scan_id, cursor: page.next_cursor });
+    page = l2.plan().pending_receipts;
+  }
+  assert.equal(new Set(seen).size, 25);
+  l2.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: a receipt consumed between pages is not re-offered — current eligibility holds at page derivation', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedReceipts(path, Array.from({ length: 12 }, (_, i) => ({ id: `DOT-RCPT-F16C-${String(i + 1).padStart(3, '0')}`, created: i + 1 })));
+  const l = openLedger(path, { now });
+  const p1 = l.plan().pending_receipts;
+  l.planAdvance({ collection: 'pending_receipts', scan_id: p1.scan_id, cursor: p1.next_cursor });
+  const raw = new DatabaseSync(path);
+  raw.prepare("UPDATE receipt_outbox SET state='SENT_ACCEPTED' WHERE receipt_id = ?").run('DOT-RCPT-F16C-011');
+  raw.close();
+  const p2 = l.plan().pending_receipts;
+  assert.deepEqual(p2.items.map((i) => i.receipt_id), ['DOT-RCPT-F16C-012'], 'the settled row is gone; its neighbour still surfaces');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: combined >32KiB backlog stays bounded — plan never throws PLAN_OVERSIZE, multibyte counted in UTF-8 bytes', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  const fatDescriptor = { page_id: 'p1', reference: `library-file:/${'f'.repeat(1200)}.json`, sha256: sha256Of('p1'), bytes: 10 };
+  seedGenerations(path, Array.from({ length: 30 }, (_, i) => ({ generation: genId(i + 1), firstSeen: i + 1, next: fatDescriptor })));
+  seedLocatorRows(path, Array.from({ length: 30 }, (_, i) => ({
+    generation: `G-${String(i + 1).padStart(3, '0')}`, source: sha256Of(`s${i}`), reference: `library-file:/${'l'.repeat(1200)}.json`,
+  })));
+  seedReceipts(path, Array.from({ length: 30 }, (_, i) => ({ id: `DOT-RCPT-F16F-${String(i + 1).padStart(3, '0')}`, created: i + 1 })));
+  const plans = join(dir, 'plans');
+  const l = openLedger(path, { now });
+  let plan;
+  assert.doesNotThrow(() => { plan = l.plan({ plansDir: plans }); }, 'a >32KiB backlog must page, not throw');
+  let itemsBytes = 0;
+  for (const name of ['index_continuations', 'locator_resolutions', 'pending_receipts']) {
+    const col = plan[name];
+    assert.ok(col.items.length <= 10);
+    // a fat page must be cut by the byte budget, not the item cap
+    if (name !== 'pending_receipts') assert.ok(col.items.length < 10, `${name} truncated by the byte budget`);
+    itemsBytes += Buffer.byteLength(JSON.stringify(col.items));
+  }
+  assert.ok(itemsBytes <= (32 * 1024) - 2048, `item bytes bounded: ${itemsBytes}`);
+  const text = readFileSync(join(plans, 'bridge-plan.json'), 'utf8');
+  assert.ok(Buffer.byteLength(text) <= 32 * 1024, 'the persisted plan stays <= 32KiB');
+  // full walk over the fat backlog: every id exactly once
+  for (const [name, idOf] of [
+    ['index_continuations', (i) => i.generation],
+    ['locator_resolutions', (i) => i.generation],
+    ['pending_receipts', (i) => i.receipt_id],
+  ]) {
+    const seen = [];
+    let page = l.plan()[name];
+    let guard = 0;
+    for (;;) {
+      for (const it of page.items) seen.push(idOf(it));
+      if (page.complete) break;
+      assert.ok(guard++ < 20, `${name} walk terminates`);
+      l.planAdvance({ collection: name, scan_id: page.scan_id, cursor: page.next_cursor });
+      page = l.plan()[name];
+    }
+    assert.equal(new Set(seen).size, 30, `${name}: every eligible id surfaced exactly once`);
+  }
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: a single multibyte oversize item becomes a bounded durable blocked record — the scan advances, no deadlock', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  // 6000 chars of U+00E9 = 12000 UTF-8 bytes: a char-counted budget would admit
+  // it (6000 < 10240), a byte-counted budget must block it.
+  const fatRef = `library-file:/${'é'.repeat(6000)}.json`;
+  seedLocatorRows(path, [
+    { generation: 'G-A', source: sha256Of('sa') },
+    { generation: 'G-B', source: sha256Of('sb'), reference: fatRef },
+    { generation: 'G-C', source: sha256Of('sc') },
+  ]);
+  const l = openLedger(path, { now });
+  const p = l.plan().locator_resolutions;
+  const blocked = p.items.find((i) => i.code === 'PLAN_ITEM_OVERSIZE');
+  assert.ok(blocked, 'the oversize row is a bounded placeholder');
+  assert.equal(blocked.id, `locator_resolution:${CHAT_IDS.collector}:G-B:${sha256Of('sb')}`);
+  assert.ok(blocked.bytes > 10240, 'blocked on BYTES, not chars');
+  assert.ok(!JSON.stringify(p).includes('é'), 'no oversize payload bytes leak into the plan');
+  assert.deepEqual(p.items.filter((i) => !i.code).map((i) => i.generation), ['G-A', 'G-C'], 'normal neighbours still project');
+  // the blocked record is durable (control row), not just an in-page flag
+  const raw = new DatabaseSync(path);
+  const rec = raw.prepare('SELECT value FROM control WHERE key = ?').get(`plan_blocked:locator_resolutions:${blocked.id}`);
+  raw.close();
+  assert.ok(rec && JSON.parse(rec.value).code === 'PLAN_ITEM_OVERSIZE');
+  // the scan ADVANCED past the blocked row: wrap + rederive offers the page again intact
+  l.planAdvance({ collection: 'locator_resolutions', scan_id: p.scan_id, wrap: true });
+  const p2 = l.plan().locator_resolutions;
+  assert.equal(p2.items.filter((i) => !i.code).length, 2, 'no deadlock: the scan keeps offering the live rows');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: completed-generation locator history stays durable but is not operationally projected', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedLocatorRows(path, [
+    { generation: 'G-OPEN', source: sha256Of('open') },
+    { generation: 'G-DONE', source: sha256Of('done') },
+  ]);
+  seedGenerations(path, [{ generation: 'G-DONE', complete: 1, next: null }]);
+  const l = openLedger(path, { now });
+  const col = l.plan().locator_resolutions;
+  assert.deepEqual(col.items.map((i) => i.generation), ['G-OPEN'], 'only the active referenced locator projects');
+  const raw = new DatabaseSync(path);
+  const n = raw.prepare("SELECT COUNT(*) AS n FROM control WHERE key GLOB 'locator_resolution:*'").get().n;
+  raw.close();
+  assert.equal(n, 2, 'the completed history row stays durable');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: a wrap persists the completed scan record — the committed cursor stays observable after the fresh epoch', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedReceipts(path, [{ id: 'DOT-RCPT-h1', created: 1 }, { id: 'DOT-RCPT-h2', created: 2 }]);
+  const l = openLedger(path, { now });
+  const p1 = l.plan().pending_receipts;
+  assert.equal(p1.items.length, 2);
+  // consumption commits the final page cursor…
+  l.planAdvance({ collection: 'pending_receipts', scan_id: p1.scan_id, cursor: p1.next_cursor });
+  // …the rows retire (production: SENT receipts) and a LATE row lands beyond
+  // the ceiling — only that justifies the wrap
+  const raw = new DatabaseSync(path);
+  raw.prepare("UPDATE receipt_outbox SET state = 'SENT'").run();
+  raw.close();
+  seedReceipts(path, [{ id: 'DOT-RCPT-h3', created: 3 }]);
+  const p2 = l.plan().pending_receipts;
+  assert.deepEqual(p2.items.map((i) => i.receipt_id), ['DOT-RCPT-h3'], 'the late row surfaces on the wrapped scan');
+  assert.notEqual(p2.scan_id, p1.scan_id, 'fresh epoch after the wrap');
+  // the completed scan's id + committed cursor SURVIVE the wrap — the durable
+  // proof that consumption (not listing) moved the scan
+  const raw2 = new DatabaseSync(path);
+  const rec = raw2.prepare("SELECT value FROM control WHERE key = 'plan_scan:pending_receipts:last_completed'").get();
+  raw2.close();
+  assert.ok(rec, 'completed-scan record persisted at wrap time');
+  const done = JSON.parse(rec.value);
+  assert.equal(done.scan_id, p1.scan_id);
+  assert.deepEqual(done.cursor, p1.next_cursor, 'the wrap records the last committed cursor');
+  l.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('F16: a quiescent exhausted window never churns epochs — the committed cursor stays in the active scan row', () => {
+  const { ledger, path, dir } = freshLedger();
+  ledger.close();
+  seedReceipts(path, [{ id: 'DOT-RCPT-q1', created: 1 }, { id: 'DOT-RCPT-q2', created: 2 }]);
+  const l = openLedger(path, { now });
+  const p1 = l.plan().pending_receipts;
+  l.planAdvance({ collection: 'pending_receipts', scan_id: p1.scan_id, cursor: p1.next_cursor });
+  const raw = new DatabaseSync(path);
+  raw.prepare("UPDATE receipt_outbox SET state = 'SENT'").run();
+  raw.close();
+  // nothing new arrives: repeated plans must NOT rotate any collection's scan
+  const q1 = l.plan();
+  const q2 = l.plan();
+  for (const name of ['index_continuations', 'pending_receipts', 'locator_resolutions']) {
+    assert.equal(q2[name].scan_id, q1[name].scan_id, `${name}: a quiescent window keeps its epoch`);
+  }
+  assert.deepEqual(q1.pending_receipts.items, [], 'retired rows offer nothing');
+  // the consumption commit stays durably visible in the ACTIVE scan row
+  const raw2 = new DatabaseSync(path);
+  const row = raw2.prepare("SELECT value FROM control WHERE key = 'plan_scan:pending_receipts'").get();
+  raw2.close();
+  assert.deepEqual(JSON.parse(row.value).cursor, p1.next_cursor, 'committed cursor survives quiescent plans');
   l.close();
   rmSync(dir, { recursive: true, force: true });
 });

@@ -26,6 +26,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { digest, CHAT_IDS, splitCodepointParts } from './contract.mjs';
+import { DatabaseSync } from 'node:sqlite';
 
 const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
 const BODY_PATH = fileURLToPath(new URL('./bridge-runner.body.js', import.meta.url));
@@ -737,7 +738,7 @@ test('budget continuation: index_page_limit stops mid-chain; next cycle resumes 
   assert.equal(r1.result.counts.sources, 1, 'only page 0 imported');
   assert.equal(r1.result.continuation, true);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, undefined, 'cursor held while chain open');
-  const cont = cliJson(['plan', '--root', root]).index_continuations;
+  const cont = cliJson(['plan', '--root', root]).index_continuations.items;
   assert.equal(cont.length, 1);
   assert.equal(cont[0].generation, c.generation);
   assert.equal(cont[0].snapshot_cursor, 'cur-bc-7');
@@ -1308,8 +1309,8 @@ test('locator resolution cache: cycle 1 resolves+durably caches but publishing f
   assertResultShape(r1.result);
   assert.ok(r1.result.blockers.some((b) => b.code === 'SOURCE_HASH_MISMATCH'), 'cycle 1 fails at publish');
   const pl1 = cliJson(['plan', '--root', root]);
-  assert.equal(pl1.locator_resolutions.length, 1, 'resolution persisted before the failed publish');
-  assert.equal(pl1.locator_resolutions[0].reference, target);
+  assert.equal(pl1.locator_resolutions.items.length, 1, 'resolution persisted before the failed publish');
+  assert.equal(pl1.locator_resolutions.items[0].reference, target);
   assert.ok(!existsSync(join(root, 'sources', `${idx.sha256}.json`)), 'source NOT published in cycle 1');
   // cycle 2: the producer re-announces; the durable cache answers — read_page NEVER fires
   const polls2 = [pollFor('collector', 'cur-fb-8b', locatorLine({ generation: c.generation, index: idx }))];
@@ -1840,7 +1841,7 @@ test('BC2: many pending receipts SHARE the event_limit send cap with deliveries;
     writeFileSync(p, JSON.stringify(page));
     cliJson(['index-import', '--root', root, '--file', p, '--producer-role', 'collector', '--cursor', `cur-bc2-${i}`, '--expected-index-sha256', sha256Of(readFileSync(p, 'utf8'))]);
   }
-  assert.equal(cliJson(['plan', '--root', root]).pending_receipts.length, 3);
+  assert.equal(cliJson(['plan', '--root', root]).pending_receipts.items.length, 3);
   // event_limit 1: the delivery consumes the shared cap; receipts must defer
   const { tools, calls } = makeTools({ polls: [] });
   const { result } = await runBody(root, tools, { event_limit: 1 });
@@ -1848,7 +1849,102 @@ test('BC2: many pending receipts SHARE the event_limit send cap with deliveries;
   assert.equal(calls.sends.length, 1, 'exactly ONE send — receipts do not ride free past the cap');
   assert.ok(!String(calls.sends[0].prompt ?? '').startsWith('DOT_RELAY_IMPORTED '), 'the one send is the delivery');
   assert.equal(result.continuation, true);
-  assert.equal(cliJson(['plan', '--root', root]).pending_receipts.length, 3, 'all three receipts deferred to the next cycle');
+  assert.equal(cliJson(['plan', '--root', root]).pending_receipts.items.length, 3, 'all three receipts deferred to the next cycle');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ------------------------------------------------ F16: runner commits scan cursors only on consumption
+
+function scanRow(root, collection) {
+  const db = new DatabaseSync(join(root, 'ledger.sqlite'));
+  try {
+    const row = db.prepare('SELECT value FROM control WHERE key = ?').get(`plan_scan:${collection}`);
+    return row ? JSON.parse(row.value) : null;
+  } finally { db.close(); }
+}
+
+test('F16: an OPEN chain never commits the continuation cursor; a COMPLETED chain does (advance only on consumption)', { skip: process.platform !== 'darwin' }, async () => {
+  const root = freshRoot();
+  // a 3-page chain: page 0 seeded via index-import, pages 1-2 readable
+  const b = bigCase();
+  const page2 = { version: 1, producer: CHAT_IDS.collector, generation: b.generation, page_number: 2, items: [], next: null };
+  const page2Text = JSON.stringify(page2);
+  const page1 = {
+    version: 1, producer: CHAT_IDS.collector, generation: b.generation, page_number: 1, items: [],
+    next: { page_id: 'big-p2', reference: 'library-file:/ix/BIG-page-2.json', sha256: sha256Of(page2Text), bytes: Buffer.byteLength(page2Text) },
+  };
+  const page1Text = JSON.stringify(page1);
+  const page0 = {
+    version: 1, producer: CHAT_IDS.collector, generation: b.generation, page_number: 0, items: [{ type: 'manifest', manifest: b.manifest }],
+    next: { page_id: 'big-p1', reference: 'library-file:/ix/BIG-page-1.json', sha256: sha256Of(page1Text), bytes: Buffer.byteLength(page1Text) },
+  };
+  const pages = {
+    'library-file:/ix/BIG-page-0.json': JSON.stringify(page0),
+    'library-file:/ix/BIG-page-1.json': page1Text,
+    'library-file:/ix/BIG-page-2.json': page2Text,
+    ...Object.fromEntries(b.parts.map((p, i) => [`ref-big-${i}`, p])),
+  };
+  mkdirSync(join(root, 'in'), { recursive: true });
+  const p0 = join(root, 'in', 'f16-p0.json');
+  writeFileSync(p0, JSON.stringify(page0));
+  cliJson(['index-import', '--root', root, '--file', p0, '--producer-role', 'collector', '--cursor', 'cur-f16-oc', '--expected-index-sha256', sha256Of(JSON.stringify(page0))]);
+
+  // cycle 1 (budget 1): the continuation page offers page 1, imports it, and
+  // the chain STAYS OPEN (page 2 next) — the cursor must NOT commit
+  const before = cliJson(['plan', '--root', root]).index_continuations;
+  assert.equal(before.items.length, 1, 'continuation offered');
+  const r1 = await runBody(root, makeTools({ polls: [], pages }).tools, { index_page_limit: 1 });
+  assertResultShape(r1.result);
+  assert.equal(r1.result.continuation, true);
+  const s1 = scanRow(root, 'index_continuations');
+  assert.equal(s1.cursor, null, 'an open chain re-surfaces next cycle — no cursor commit');
+  assert.equal(s1.scan_id, before.scan_id, 'same epoch re-offers the open chain');
+  const after1 = cliJson(['plan', '--root', root]).index_continuations;
+  assert.equal(after1.scan_id, before.scan_id, 'the quiescent open-chain window keeps its epoch');
+
+  // cycle 2: page 2 completes the chain — NOW the cursor commits. No late
+  // rows arrive, so the emptied window does NOT wrap: the committed cursor
+  // stays durably visible in the ACTIVE scan row
+  const r2 = await runBody(root, makeTools({ polls: [], pages }).tools, { index_page_limit: 1 });
+  assertResultShape(r2.result);
+  const s2 = scanRow(root, 'index_continuations');
+  assert.ok(Array.isArray(s2.cursor) && s2.cursor.length === 3, `consumed chain committed its cursor: ${JSON.stringify(s2.cursor)}`);
+  assert.equal(s2.scan_id, before.scan_id, 'no epoch churn without late rows');
+  assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f16-oc');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F16: a fully-settled receipt page commits its cursor; a cap-deferred page does not', { skip: process.platform !== 'darwin' }, async () => {
+  const root = freshRoot();
+  mkdirSync(join(root, 'in'), { recursive: true });
+  // two PENDING receipts from two completed single-page chains
+  for (let i = 0; i < 2; i++) {
+    const page = { version: 1, producer: CHAT_IDS.collector, generation: `COLLECTOR-INDEX-F16R-${i}`, page_number: 0, items: [], next: null };
+    const p = join(root, 'in', `f16r-${i}.json`);
+    writeFileSync(p, JSON.stringify(page));
+    cliJson(['index-import', '--root', root, '--file', p, '--producer-role', 'collector', '--cursor', `cur-f16r-${i}`, '--expected-index-sha256', sha256Of(readFileSync(p, 'utf8'))]);
+  }
+  const page1 = cliJson(['plan', '--root', root]).pending_receipts;
+  assert.equal(page1.items.length, 2);
+
+  // event_limit 1: only the first receipt settles — the cap break defers the
+  // page, and the cursor must NOT commit
+  const first = makeTools({ polls: [] });
+  const r1 = await runBody(root, first.tools, { event_limit: 1 });
+  assertResultShape(r1.result);
+  assert.equal(first.calls.sends.filter((s) => String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED ')).length, 1);
+  assert.equal(scanRow(root, 'pending_receipts').cursor, null, 'a cap-deferred page re-offers — no cursor commit');
+
+  // event_limit 5: the remaining receipt settles, the page is fully consumed
+  // and the commit lands in the active scan row (no late rows — no wrap)
+  const second = makeTools({ polls: [] });
+  const r2 = await runBody(root, second.tools, { event_limit: 5 });
+  assertResultShape(r2.result);
+  assert.equal(second.calls.sends.filter((s) => String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED ')).length, 1);
+  const s2 = scanRow(root, 'pending_receipts');
+  assert.ok(Array.isArray(s2.cursor) && s2.cursor.length === 2, `settled page committed its cursor: ${JSON.stringify(s2.cursor)}`);
+  assert.equal(s2.scan_id, page1.scan_id, 'no epoch churn without late rows');
+  assert.equal(cliJson(['plan', '--root', root]).pending_receipts.items.length, 0, 'every receipt retired');
   rmSync(root, { recursive: true, force: true });
 });
 

@@ -1375,15 +1375,15 @@ test('locator-resolved: persist, idempotent replay, identity conflict refused, p
     '--locator-sha256', sha256Of('locator-line'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
     '--reference', 'library-file:/sources/COLLECTOR-INDEX-LR1.json', '--source-sha256', sha256Of('page0'), '--bytes', '101'], { expectFail: true });
   assert.ok(diffBytes.stdout.includes('LOCATOR_RESOLUTION_CONFLICT'));
-  // plan exposes the durable resolution (metadata only)
+  // plan exposes the durable resolution (metadata only, paged collection)
   const plan = cliJson(['plan', '--root', root]);
-  assert.equal(plan.locator_resolutions.length, 1);
-  assert.equal(plan.locator_resolutions[0].reference, 'library-file:/sources/COLLECTOR-INDEX-LR1.json');
-  assert.equal(plan.locator_resolutions[0].producer_role, 'collector');
-  assert.equal(plan.locator_resolutions[0].source_sha256, sha256Of('page0'));
+  assert.equal(plan.locator_resolutions.items.length, 1);
+  assert.equal(plan.locator_resolutions.items[0].reference, 'library-file:/sources/COLLECTOR-INDEX-LR1.json');
+  assert.equal(plan.locator_resolutions.items[0].producer_role, 'collector');
+  assert.equal(plan.locator_resolutions.items[0].source_sha256, sha256Of('page0'));
   // the original entry survived every conflict attempt
   const plan2 = JSON.parse(readFileSync(join(root, 'plans', 'bridge-plan.json'), 'utf8'));
-  assert.equal(plan2.locator_resolutions[0].bytes, 100);
+  assert.equal(plan2.locator_resolutions.items[0].bytes, 100);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -1424,13 +1424,62 @@ test('F04: locator-resolved accepts the full opaque reference exactly as returne
   assert.equal(st.stored, true);
   assert.equal(st.replay, false);
   const plan = cliJson(['plan', '--root', root]);
-  assert.equal(plan.locator_resolutions.length, 1);
-  assert.equal(plan.locator_resolutions[0].reference, opaque, 'the opaque target persists byte-exact, never rebuilt');
+  assert.equal(plan.locator_resolutions.items.length, 1);
+  assert.equal(plan.locator_resolutions.items[0].reference, opaque, 'the opaque target persists byte-exact, never rebuilt');
   // an empty scheme payload is not a resolution target
   const emptyPayload = cli(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', 'COLLECTOR-INDEX-F04X',
     '--locator-sha256', sha256Of('l2'), '--page-id', 'page_070fdd367758819192e503c9cee51251',
     '--reference', 'library-file:', '--source-sha256', sha256Of('p2'), '--bytes', '10'], { expectFail: true });
   assert.equal(emptyPayload.status, 2, 'empty scheme payload is not a full reference');
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ------------------------------------------------- F16: plan-advance (cursor commit)
+
+// The CLI is the ONLY cursor-commit surface for paged plan collections: the
+// bridge runner advances a scan after actually consuming a page. Grammar
+// violations (missing flags, unknown collection, non-array cursor) are usage
+// refusals (exit 2); a stale/foreign scan id is a data refusal
+// (PLAN_SCAN_EPOCH, exit 1) that commits nothing.
+test('F16: plan-advance commits the scan cursor only with the active scan id; wrap opens a fresh epoch', () => {
+  const root = freshRoot();
+  for (const gen of ['COLLECTOR-INDEX-F16A', 'COLLECTOR-INDEX-F16B']) {
+    cliJson(['locator-resolved', '--root', root, '--producer-role', 'collector', '--generation', gen,
+      '--locator-sha256', sha256Of(`l-${gen}`), '--page-id', 'page_070fdd367758819192e503c9cee51251',
+      '--reference', `library-file:/sources/${gen}.json`, '--source-sha256', sha256Of(`s-${gen}`), '--bytes', '100']);
+  }
+  const p1 = cliJson(['plan', '--root', root]);
+  assert.equal(p1.locator_resolutions.items.length, 2);
+  assert.equal(p1.locator_resolutions.complete, true);
+  const cursor = JSON.stringify(p1.locator_resolutions.next_cursor);
+
+  // grammar refusals: exit 2
+  assert.equal(cli(['plan-advance', '--root', root], { expectFail: true }).status, 2, 'no flags');
+  assert.equal(cli(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p1.locator_resolutions.scan_id], { expectFail: true }).status, 2, 'cursor xor wrap required');
+  assert.equal(cli(['plan-advance', '--root', root, '--collection', 'nope', '--scan-id', p1.locator_resolutions.scan_id, '--cursor', cursor], { expectFail: true }).status, 2, 'unknown collection');
+  assert.equal(cli(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p1.locator_resolutions.scan_id, '--cursor', 'not-json'], { expectFail: true }).status, 2, 'cursor must be JSON');
+  assert.equal(cli(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p1.locator_resolutions.scan_id, '--cursor', '"a-string"'], { expectFail: true }).status, 2, 'cursor must be a JSON array');
+  assert.equal(cli(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p1.locator_resolutions.scan_id, '--cursor', cursor, '--wrap'], { expectFail: true }).status, 2, 'wrap takes no cursor');
+
+  // data refusal: a foreign scan id never commits
+  const stale = cli(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', 'not-the-active-scan', '--cursor', cursor], { expectFail: true });
+  assert.equal(stale.status, 1);
+  assert.ok(stale.stdout.includes('PLAN_SCAN_EPOCH'));
+
+  // committed advance past every row: the exhausted window wraps in-call, so
+  // the next plan re-offers the rows under a FRESH epoch id
+  const adv = cliJson(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p1.locator_resolutions.scan_id, '--cursor', cursor]);
+  assert.equal(adv.ok, true);
+  assert.equal(adv.wrapped, false);
+  const p2 = cliJson(['plan', '--root', root]);
+  assert.equal(p2.locator_resolutions.items.length, 2, 're-offered under the fresh epoch');
+  assert.notEqual(p2.locator_resolutions.scan_id, p1.locator_resolutions.scan_id);
+
+  // explicit wrap: fresh epoch id, no cursor needed
+  const w = cliJson(['plan-advance', '--root', root, '--collection', 'locator_resolutions', '--scan-id', p2.locator_resolutions.scan_id, '--wrap']);
+  assert.equal(w.ok, true);
+  assert.equal(w.wrapped, true);
+  assert.notEqual(w.scan_id, p2.locator_resolutions.scan_id);
   rmSync(root, { recursive: true, force: true });
 });
 

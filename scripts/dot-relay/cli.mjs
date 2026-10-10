@@ -65,6 +65,7 @@ const FLAG_SPECS = {
   supervise: { '--execution-id': 'value', '--resume': 'bool', '--adopt': 'bool' },
   'review-import': { '--execution-id': 'value', '--receipt': 'value' },
   plan: {},
+  'plan-advance': { '--collection': 'value', '--scan-id': 'value', '--cursor': 'value', '--wrap': 'bool' },
   'spool-begin': { '--id': 'value', '--artifact-sha256': 'value', '--bytes': 'value' },
   'spool-append': { '--upload-id': 'value', '--chunk-json': 'value' },
   'spool-part-begin': { '--upload-id': 'value', '--ordinal': 'value', '--sha256': 'value', '--bytes': 'value' },
@@ -503,6 +504,38 @@ function cmdPlan({ root }) {
       manifests,
       pending_uploads: pendingUploads,
     });
+  } finally { ledger.close(); }
+}
+
+// F16: the ONLY cursor-commit surface for paged plan collections — the
+// bridge runner advances a scan after actually consuming a page. Grammar
+// violations (missing flags, unknown collection, non-array cursor) are
+// usage refusals; a stale/foreign scan id is a PLAN_SCAN_EPOCH data refusal
+// that commits nothing.
+const PLAN_COLLECTIONS = new Set(['index_continuations', 'pending_receipts', 'locator_resolutions']);
+
+function cmdPlanAdvance({ root, flags }) {
+  const collection = flags['--collection'];
+  const scanId = flags['--scan-id'];
+  const cursorRaw = flags['--cursor'];
+  const wrap = flags['--wrap'] === true;
+  if (!collection || !scanId || (!wrap && !cursorRaw)) {
+    usage('plan-advance requires --collection --scan-id and (--cursor <json array> | --wrap)');
+  }
+  if (!PLAN_COLLECTIONS.has(collection)) usage(`unknown collection: ${collection}`);
+  let cursor = null;
+  if (wrap) {
+    if (cursorRaw) usage('plan-advance: --wrap takes no --cursor');
+  } else {
+    try { cursor = JSON.parse(cursorRaw); } catch { usage('--cursor must be a JSON array'); }
+    if (!Array.isArray(cursor)) usage('--cursor must be a JSON array');
+  }
+  const { ledger } = openRoot(root);
+  try {
+    const r = ledger.planAdvance({ collection, scan_id: scanId, cursor, wrap });
+    ok({ ok: true, wrapped: r.wrapped === true, scan_id: r.scan_id });
+  } catch (e) {
+    fail(e.code ?? 'PLAN_ADVANCE_ERROR');
   } finally { ledger.close(); }
 }
 
@@ -1900,6 +1933,7 @@ const HANDLERS = {
   supervise: cmdSupervise,
   'review-import': cmdReviewImport,
   plan: cmdPlan,
+  'plan-advance': cmdPlanAdvance,
   'spool-begin': cmdSpoolBegin,
   'spool-append': cmdSpoolAppend,
   'spool-part-begin': cmdSpoolPartBegin,
