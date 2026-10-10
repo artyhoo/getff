@@ -84,6 +84,9 @@ export type IntentScope =
 
 const FENCE_OPEN_RE = /^\s*```intent-contract\s*$/;
 const FENCE_CLOSE_RE = /^\s*```\s*$/;
+// A near-miss opener (info-string tail, case drift, space between fence and token) must
+// fail CLOSED, never degrade the description to unscoped — cold-review M1 (2026-10-10).
+const FENCE_OPEN_NEAR_MISS_RE = /^\s*```\s*intent-contract\b/i;
 
 /**
  * Extract the declared intent scope from a persisted task description or kickoff body.
@@ -97,10 +100,16 @@ export function extractIntentScope(content: string): IntentScope {
   let inBlock = false;
   let current: string[] = [];
   for (const line of lines) {
-    if (!inBlock && FENCE_OPEN_RE.test(line)) {
-      inBlock = true;
-      current = [];
-      continue;
+    if (!inBlock && FENCE_OPEN_NEAR_MISS_RE.test(line)) {
+      if (FENCE_OPEN_RE.test(line)) {
+        inBlock = true;
+        current = [];
+        continue;
+      }
+      return {
+        kind: 'invalid',
+        reason: `malformed intent-contract fence opener: "${line.trim()}"`,
+      };
     }
     if (inBlock && FENCE_CLOSE_RE.test(line)) {
       inBlock = false;

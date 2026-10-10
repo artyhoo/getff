@@ -307,8 +307,9 @@ function runDispatch(
   kickoffPath: string,
   baseUrl: string,
   envOverride: Record<string, string> = {},
+  { force = true }: { force?: boolean } = {},
 ): SpawnSyncReturns<string> {
-  return spawnSync(TSX, [CLI, kickoffPath, '--force'], {
+  return spawnSync(TSX, [CLI, kickoffPath, ...(force ? ['--force'] : [])], {
     encoding: 'utf8',
     timeout: SLOW_SHELL_MS,
     env: {
@@ -344,6 +345,30 @@ describe('extractIntentScope — fail-closed fence parsing', () => {
   it('malformed block → invalid (NEVER falls through to unscoped)', async () => {
     const { extractIntentScope } = await loadResultReview();
     expect(extractIntentScope(malformedScopedText('z')).kind).toBe('invalid');
+  });
+  // Cold-review M1 (2026-10-10): a near-miss OPENER used to fail OPEN — it never matched the
+  // strict open regex, so the block was ignored and the description degraded to unscoped.
+  // Flip: the near-miss classifier (FENCE_OPEN_NEAR_MISS_RE) stops returning invalid.
+  it('near-miss opener with an info-string tail → invalid, NOT unscoped', async () => {
+    const { extractIntentScope } = await loadResultReview();
+    const text = '# Demo\n\n```intent-contract json\n{"featureId":"f"}\n```\n';
+    const scope = extractIntentScope(text);
+    expect(scope.kind).toBe('invalid');
+    expect(scope).not.toMatchObject({ kind: 'unscoped' });
+  });
+  it('near-miss opener with case drift → invalid, NOT unscoped', async () => {
+    const { extractIntentScope } = await loadResultReview();
+    const text = '# Demo\n\n```Intent-Contract\n{"featureId":"f"}\n```\n';
+    expect(extractIntentScope(text).kind).toBe('invalid');
+  });
+  it('near-miss opener with a space after the fence → invalid, NOT unscoped', async () => {
+    const { extractIntentScope } = await loadResultReview();
+    const text = '# Demo\n\n``` intent-contract\n{"featureId":"f"}\n```\n';
+    expect(extractIntentScope(text).kind).toBe('invalid');
+  });
+  it('the exact opener still parses as scoped (near-miss net does not swallow the documented form)', async () => {
+    const { extractIntentScope } = await loadResultReview();
+    expect(extractIntentScope(scopedText(produceContract, 'w')).kind).toBe('scoped');
   });
   it('two blocks → invalid (ambiguous declared scope fails closed)', async () => {
     const { extractIntentScope } = await loadResultReview();
@@ -417,8 +442,13 @@ describe('cli/dispatch.ts — a scoped kickoff with a broken contract never disp
   );
 
   it(
-    'a seeded dedup entry does NOT report success ahead of the scope check → exit 2',
+    'a seeded dedup entry does NOT short-circuit the scope check → scope gate fires first (no dedup success, exit 2)',
     async () => {
+      // Cold-review M2 (2026-10-10): this arm previously ran WITH --force, under which
+      // dispatch.ts skips checkDedup entirely — the seeded entry was never read and the arm
+      // duplicated the --force arm. force:false makes the dedup gate REACHABLE, so the pin is
+      // real: if enforceScope moved after checkDedup, the dedup hit would report
+      // "already dispatched" and skip the scope check → stdout assertion RED.
       const stub = startStub();
       const url = await stub.start();
       const content = malformedScopedText('arm4');
@@ -436,12 +466,36 @@ describe('cli/dispatch.ts — a scoped kickoff with a broken contract never disp
         })}\n`,
         'utf8',
       );
-      const r = runDispatch(writeKickoffFile(content), url, {
-        RUNTIME_BRIDGE_DEDUP_PATH: dedupPath,
-      });
+      const r = runDispatch(
+        writeKickoffFile(content),
+        url,
+        { RUNTIME_BRIDGE_DEDUP_PATH: dedupPath },
+        { force: false },
+      );
 
       expect(r.status).toBe(2);
       expect(r.stdout).not.toContain('already dispatched');
+      expect(
+        stub
+          .calls()
+          .filter((c) => c.method === 'POST' && c.url.endsWith('/tasks')),
+      ).toEqual([]);
+    },
+    SLOW_SHELL_MS + 15_000,
+  );
+
+  it(
+    'unconfigured intent helper (empty env) → a scoped task still fails CLOSED → exit 2, NO POST (cold-review O2)',
+    async () => {
+      const stub = startStub();
+      const url = await stub.start();
+      const r = runDispatch(writeKickoffFile(malformedScopedText('arm-unconfigured')), url, {
+        RUNTIME_BRIDGE_INTENT_ROOTS: '',
+        RUNTIME_BRIDGE_INTENT_HELPER: '',
+      });
+
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain('spec_invalid');
       expect(
         stub
           .calls()

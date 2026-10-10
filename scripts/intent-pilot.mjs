@@ -13,11 +13,16 @@
  * so any detection difference is message-independent and any message difference is
  * detection-independent. The canonical rule family is never touched.
  *
- * Advisor blindness is structural, not procedural:
- *   - sample ids are hash-derived from the message (not invertible, not positional);
- *   - the evidence package contains no variant labels and no generation material;
+ * Advisor blindness, honestly bounded:
+ *   - WITHIN the package, blindness is structural: sample ids are hash-derived from the
+ *     message (not invertible, not positional), and the package contains no variant labels
+ *     and no generation material;
  *   - the id→message map is written ONLY to the `--variant-map` path, and a path inside the
- *     evidence directory is refused;
+ *     evidence directory is refused (realpath-compared — a symlinked evidence dir cannot
+ *     alias the map into the package);
+ *   - a REPO-AWARE reader can still re-derive which consumer is canonical (the fixture's
+ *     repo path + sha256 are in the manifest by design, for replay) — the package is blind
+ *     to an advisor who receives only the package, which is the contract the operator runs.
  *   - this script contacts no model and makes no network calls — it manufactures no verdicts.
  *     It verifies DETECTION only (env read fails via the rule, accessor form passes); judging
  *     message quality is the advisor's job, outside this script.
@@ -41,7 +46,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, basename } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isMainEntry } from './lib/is-main-entry.mjs';
 
@@ -222,7 +228,19 @@ export function writeEvidencePackage(evidenceDir, captures) {
 
 /** The observer-side id→message record. NEVER lands inside the evidence directory. */
 export function writeVariantMap(mapPath, { evidenceDir, captures }) {
-  const rel = relative(resolve(evidenceDir), resolve(mapPath));
+  // Realpath BOTH sides before the containment check: a purely lexical relative() can be
+  // aliased around by a symlinked evidence dir (cold-review M4, 2026-10-10). The map path may
+  // not exist yet — realpath its nearest existing ancestor and rejoin the remainder.
+  const realpathish = (p) => {
+    const abs = resolve(p);
+    try {
+      return realpathSync(abs);
+    } catch {
+      const parent = realpathish(dirname(abs));
+      return join(parent, basename(abs));
+    }
+  };
+  const rel = relative(realpathish(evidenceDir), realpathish(mapPath));
   if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
     throw new Error(`refusing to write the observer record inside the evidence package: ${mapPath}`);
   }

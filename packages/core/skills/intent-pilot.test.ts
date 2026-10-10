@@ -15,7 +15,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -45,7 +45,7 @@ const pilot = (await import(pathToFileURL(RUNNER).href)) as {
   renderConfigEntry: (fixture: unknown, message?: string) => string;
   renderFlatConfig: (fixture: unknown, message?: string) => string;
   sampleIdFor: (message: string) => string;
-  planSamples: (fixture: unknown) => Array<{ id: string; message: string; variant: string }>;
+  planSamples: (fixture: unknown) => Array<{ id: string; message: string; kind: string }>;
   buildSample: (dir: string, fixture: unknown, sample: { id: string; message: string }) => void;
   findEslintBin: () => string;
   runEslint: (sampleDir: string, fileName: string, eslintBin?: string) => {
@@ -261,6 +261,20 @@ describe('pilot evidence package stays advisor-neutral', () => {
     // ...and the evidence package still does not contain it.
     expect(walk(evidenceDir).some((f) => f.endsWith('observer-variant-map.json'))).toBe(false);
     rmSync(mapPath);
+  });
+
+  it('a symlinked path INTO the evidence dir is refused too — the containment check realpaths both sides (flip: the check reverts to a lexical relative())', () => {
+    // Cold-review M4 (2026-10-10): relative() is purely lexical — an aliased evidence dir
+    // let the map land inside the real package through the symlink. Pin the realpath compare.
+    const { evidenceDir, captures } = buildEvidence();
+    const aliasParent = tmp();
+    const alias = join(aliasParent, 'ev-symlink');
+    symlinkSync(evidenceDir, alias, 'dir');
+    const throughAlias = join(alias, 'variant-map.json');
+    expect(() => pilot.writeVariantMap(throughAlias, { evidenceDir: alias, captures })).toThrow();
+    // The map must not exist under EITHER spelling of the package.
+    expect(existsSync(throughAlias)).toBe(false);
+    expect(existsSync(join(evidenceDir, 'variant-map.json'))).toBe(false);
   });
 });
 

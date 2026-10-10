@@ -479,6 +479,10 @@ async function main(): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[runtime-bridge] answer: failed to push answer: ${msg}\n`);
+    // A scope hold is a refusal, not a crash: BackendError (e.g. spec_invalid) exits 2 —
+    // matching dispatch.ts/start-reviewed.ts and the shipped "HOLDS (exit 2, no event)" docs
+    // (execution.md / parks.md). Cold-review M3 (2026-10-10): was exit 1 for every failure.
+    if (err instanceof BackendError) process.exit(2);
     process.exit(1);
   }
 
