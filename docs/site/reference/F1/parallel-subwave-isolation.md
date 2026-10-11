@@ -6,6 +6,8 @@ generator: scripts/render-reference.mjs
 sources:
   - .agents/rules/parallel-subwave-isolation.md
   - .agents/rules/00-rule-index.md
+  - .claude/hooks/check-worker-dispatch-channel.sh
+  - .claude/hooks/inject-matching-rule.sh
   - packages/core/principles/29-worker-dispatch-channel.test.ts
   - scripts/create-worktree.sh
   - docs/site/reference/F1.json
