@@ -71,7 +71,7 @@ instruction bodies after their frontmatter, with an allowlist — and it carries
 mutation assertion proving the detector is not vacuous:
 
 ```bash
-grep -nE "describe\(|it\(" packages/core/principles/22-internal-english.test.ts | head -4
+grep -nE "^\s*(describe|it)\(" packages/core/principles/22-internal-english.test.ts | head -4
 ```
 
 ```text

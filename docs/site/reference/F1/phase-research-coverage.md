@@ -78,7 +78,7 @@ the patch's own search could have been the one that missed something — and it 
 its own population:
 
 ```bash
-grep -nE "describe\(|it\(" packages/core/principles/13-phase-research-coverage-s17.test.ts | head -4
+grep -nE "^\s*(describe|it)\(" packages/core/principles/13-phase-research-coverage-s17.test.ts | head -4
 ```
 
 ```text
