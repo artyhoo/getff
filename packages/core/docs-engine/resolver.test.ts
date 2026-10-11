@@ -593,6 +593,30 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
   });
 });
 
+describe('correction 4242549898: regex-literal braces are lexical content (JS close)', () => {
+  it('a `}` inside a regex literal does not decrement the brace depth', () => {
+    const read = mkRead({ 're/x.js': 'function fx() {\n  const re = /}/;\n}\n' });
+    const r = resolvePlace('re/x.js#fn:fx', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+    expect(r.content).toBe('function fx() {\n  const re = /}/;\n}');
+  });
+
+  it('division with a following column-0 close still resolves (no bogus regex state)', () => {
+    const read = mkRead({ 're/div.js': 'function fy() {\n  const half = width / 2;\n}\n' });
+    const r = resolvePlace('re/div.js#fn:fy', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+  });
+
+  it('a regex containing an escaped slash and a bracket class resolves', () => {
+    const read = mkRead({ 're/esc.js': 'function fz() {\n  const re = /a\/[/}] b/g;\n  return re\n}\n' });
+    const r = resolvePlace('re/esc.js#fn:fz', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 4]);
+  });
+});
+
 describe('correction 4242549892: shell here-strings are not heredoc declarations', () => {
   it('`<<<"$var"` inside a function does not swallow the column-0 close', () => {
     const read = mkRead({ 'hs/x.sh': 'fx() {\n  grep -q x <<<"$value"\n}\n' });
