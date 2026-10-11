@@ -593,6 +593,35 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
   });
 });
 
+describe('correction 4242549900: Setext underlines require a real paragraph', () => {
+  it('a list item followed by `---` emits no phantom heading and does not truncate the section', () => {
+    const read = mkRead({ 'setext/list.md': '## Real\nbody\n- item\n---\nmore\n' });
+    const r = resolvePlace('setext/list.md#h:real', read);
+    expectLine(r);
+    // the phantom `-item` setext heading must not exist: the section runs to EOF
+    expect(r.content).toBe('## Real\nbody\n- item\n---\nmore');
+    expectErr(resolvePlace('setext/list.md#h:-item', read), 'MISSING');
+  });
+
+  it('block quotes, indented code, HTML blocks and `***` breaks are not heading text', () => {
+    const read = mkRead({
+      'setext/others.md': 'para\n> quote\n---\nx\n    indented\n---\ny\n<div>html</div>\n---\nz\n***\nw\n',
+    });
+    // none of the three `---` lines follows a run of pure paragraph text
+    expectErr(resolvePlace('setext/others.md#h:quote', read), 'MISSING');
+    expectErr(resolvePlace('setext/others.md#h:indented', read), 'MISSING');
+    expectErr(resolvePlace('setext/others.md#h:-div-html-div', read), 'MISSING');
+    expectErr(resolvePlace('setext/others.md#h:z', read), 'MISSING');
+  });
+
+  it('a genuine paragraph followed by `---` is still a setext L2 heading', () => {
+    const read = mkRead({ 'setext/genuine.md': 'intro words\n---\nrest\n' });
+    const r = resolvePlace('setext/genuine.md#h:intro-words', read);
+    expectLine(r);
+    expect(r.startLine).toBe(1);
+  });
+});
+
 describe('correction 4242549898: regex-literal braces are lexical content (JS close)', () => {
   it('a `}` inside a regex literal does not decrement the brace depth', () => {
     const read = mkRead({ 're/x.js': 'function fx() {\n  const re = /}/;\n}\n' });

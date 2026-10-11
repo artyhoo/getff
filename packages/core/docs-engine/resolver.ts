@@ -417,6 +417,22 @@ function scanHeadings(lines: string[]): HeadingHit[] {
       emit(slugify(atx[2]), atx[1].length, i + 1, i + 1);
       continue;
     }
+    // Non-paragraph constructs (review 4242549900): only real Markdown paragraph text
+    // may accumulate as Setext heading text. List items, block quotes, indented code,
+    // HTML blocks/comments, and dash-free thematic breaks interrupt — they flush the
+    // pending paragraph and never join it, so `- item\n---` emits no phantom heading.
+    // A `-+` run is deliberately NOT here: it may be a genuine Setext underline for
+    // the pending paragraph and is handled by the underline branch below.
+    const isNonParagraph =
+      /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/.test(line) || // list item
+      /^ {0,3}>/.test(line) || // block quote
+      /^(?: {4}|\t)/.test(line) || // indented code
+      /^ {0,3}</.test(line) || // HTML block / comment opener
+      /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line); // thematic break, not `-`
+    if (isNonParagraph) {
+      flushPara();
+      continue;
+    }
     const underline = /^ {0,3}(=+|-+)\s*$/.exec(line);
     if (underline) {
       if (paraStart >= 0) {
