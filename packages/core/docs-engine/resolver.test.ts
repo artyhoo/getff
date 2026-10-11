@@ -592,3 +592,24 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
     expect(r.content).toBe('fx() {\n  { echo hi; }\n}');
   });
 });
+
+describe('correction 4242549876: closing code fences at least the opener length', () => {
+  it('a longer same-char closing fence closes the block; later headings stay visible', () => {
+    const read = mkRead({ 'fence/long.md': '```\nfenced\n````\n## Real\nbody\n' });
+    const r = resolvePlace('fence/long.md#h:real', read);
+    expectLine(r);
+    expect(r.content).toBe('## Real\nbody');
+  });
+
+  it('a shorter closing fence does NOT close; a tilde fence still needs tildes', () => {
+    const read = mkRead({
+      // 4-open, 3-close: still fenced -> the heading after it is never seen
+      'fence/short.md': '````\nfenced\n```\n## Hidden\n',
+      // tilde opener is not closed by backticks
+      'fence/tildes.md': '~~~\nfenced\n```\n## TildeHidden\n~~~\n## After\nbody\n',
+    });
+    expectErr(resolvePlace('fence/short.md#h:hidden', read), 'MISSING');
+    expectErr(resolvePlace('fence/tildes.md#h:tildehidden', read), 'MISSING');
+    expectLine(resolvePlace('fence/tildes.md#h:after', read));
+  });
+});

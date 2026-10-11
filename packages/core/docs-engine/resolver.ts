@@ -361,7 +361,8 @@ function scanHeadings(lines: string[]): HeadingHit[] {
   const out: HeadingHit[] = [];
   const used = new Set<string>();
   let inFence = false;
-  let fenceMarker = '```';
+  let fenceChar = '`';
+  let fenceLen = 3;
   let paraStart = -1; // 0-based index of the pending paragraph's first line
   const paraText: string[] = [];
 
@@ -386,14 +387,18 @@ function scanHeadings(lines: string[]): HeadingHit[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (inFence) {
-      if (new RegExp(`^ {0,3}${fenceMarker}\\s*$`).test(line)) inFence = false;
+      // CommonMark: the closing fence is the same character, at least the opener's
+      // length (review 4242549876 — a 4-backtick close MUST close a 3-backtick open,
+      // else every later heading is ignored).
+      if (new RegExp(`^ {0,3}\\${fenceChar}{${fenceLen},}\\s*$`).test(line)) inFence = false;
       flushPara();
       continue;
     }
     const fenceOpen = /^ {0,3}(`{3,}|~{3,})/.exec(line);
     if (fenceOpen) {
       inFence = true;
-      fenceMarker = fenceOpen[1];
+      fenceChar = fenceOpen[1][0];
+      fenceLen = fenceOpen[1].length;
       flushPara();
       continue;
     }
