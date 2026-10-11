@@ -498,6 +498,9 @@ function shellHeredocStart(line: string, c: number): HeredocStart | null {
 function scanShellClose(lines: string[], startIdx: number, afterCol: number): CloseScan {
   let state: 'code' | 'sq' | 'dq' | 'comment' = 'code';
   let paramDepth = 0; // inside ${…}
+  let groupDepth = 0; // inside a nested `{ … }` brace group in the body — its `}`
+  // closes the GROUP, never the function (review 4242549870: real repo functions
+  // use `{ echo …; }` groups; their closes must not read as inline one-liner ends)
   let heredocTerm: string | null = null;
   let heredocDash = false;
 
@@ -544,6 +547,10 @@ function scanShellClose(lines: string[], startIdx: number, afterCol: number): Cl
         c += 1;
         continue;
       }
+      if (ch === '{') {
+        groupDepth += 1;
+        continue;
+      }
       if (ch === '<' && line[c + 1] === '<') {
         const heredoc = shellHeredocStart(line, c);
         if (heredoc) {
@@ -556,6 +563,10 @@ function scanShellClose(lines: string[], startIdx: number, afterCol: number): Cl
       if (ch === '}') {
         if (paramDepth > 0) {
           paramDepth -= 1;
+          continue;
+        }
+        if (groupDepth > 0) {
+          groupDepth -= 1; // closes a nested brace group, not the function
           continue;
         }
         if (c === 0) return { closeLine: i + 1 };

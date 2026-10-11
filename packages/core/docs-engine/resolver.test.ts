@@ -582,3 +582,13 @@ describe('correction 4242549887: jp: keeps malformed-JSON contents out of diagno
     }
   });
 });
+
+describe('correction 4242549870: shell close scan tracks nested brace groups', () => {
+  it('a `{ … }` group inside the body does not classify as the inline close', () => {
+    const read = mkRead({ 'grp/x.sh': 'fx() {\n  { echo hi; }\n}\n' });
+    const r = resolvePlace('grp/x.sh#fn:fx', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+    expect(r.content).toBe('fx() {\n  { echo hi; }\n}');
+  });
+});
