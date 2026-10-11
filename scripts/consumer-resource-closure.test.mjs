@@ -161,7 +161,19 @@ test('docs role carries a scoped vocabulary reference without replacing the proj
 test('consumer ESLint excludes only recorded delivered portable tools and still rejects user code', async t => {
   const dir = mkdtempSync(join(tmpdir(), 'owned tool lint with spaces '));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const delivered = ['.agents/tools/docs/markdownlint-cli2.bundle.mjs', '.agents/tools/install/rule-bootstrap-cli.bundle.mjs', '.agents/tools/validator/gate-single-token-diff.ts'];
+  const delivered = [
+    '.agents/tools/docs/markdownlint-cli2.bundle.mjs',
+    '.agents/tools/install/rule-bootstrap-cli.bundle.mjs',
+    '.agents/tools/validator/gate-single-token-diff.ts',
+    '.agents/procedures/pipeline/helpers/overview.mjs',
+    '.agents/roles/resources/rule-researcher/preflight.mjs',
+    '.claude/skills/pipeline/helpers/overview.mjs',
+    '.zcode/skills/pipeline/helpers/overview.mjs',
+    'scripts/check-arch-retell.mjs',
+    'scripts/docs-check.mjs',
+    'scripts/render-terms-style.mjs',
+  ];
+  const userPaths = ['.agents/tools/custom.mjs', '.agents/procedures/pipeline/helpers/custom.mjs', '.agents/roles/resources/rule-researcher/custom.mjs', 'scripts/custom.mjs', 'src/violation.mjs'];
   const source = readFileSync(join(root, 'setup.d/eslint-wire.sh'), 'utf8');
   const policy = source.match(/^_own_eslint_ignores\(\) \{[\s\S]*?^\}/m)?.[0];
   assert.ok(policy, 'actual installer ownership policy is present');
@@ -172,7 +184,7 @@ test('consumer ESLint excludes only recorded delivered portable tools and still 
   const ignores = result.stdout.trim().split('\n');
   for (const path of delivered) assert.ok(ignores.includes(path), path);
   assert.ok(!ignores.includes('.agents/tools/**'), 'user-owned tools retain enforcement');
-  for (const path of [...delivered, '.agents/tools/custom.mjs', 'src/violation.mjs']) {
+  for (const path of [...delivered, ...userPaths]) {
     mkdirSync(join(dir, path, '..'), { recursive: true });
     writeFileSync(join(dir, path), 'console.log("violation");\n');
   }
@@ -181,8 +193,8 @@ test('consumer ESLint excludes only recorded delivered portable tools and still 
   const { ESLint } = createRequire(join(root, 'packages/core/package.json'))('eslint');
   const lint = new ESLint({ cwd: dir, overrideConfig: [{ ignores }], warnIgnored: false });
   for (const path of delivered) assert.equal(await lint.isPathIgnored(join(dir, path)), true, path);
-  const results = await lint.lintFiles(['.agents/tools/custom.mjs', 'src/violation.mjs']);
-  assert.equal(results.length, 2);
+  const results = await lint.lintFiles(userPaths);
+  assert.equal(results.length, userPaths.length);
   assert.ok(results.every(r => r.messages.some(m => m.ruleId === 'no-console')));
   assert.equal(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8'), config, 'user rule bytes unchanged');
 });

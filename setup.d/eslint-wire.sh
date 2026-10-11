@@ -434,6 +434,9 @@ _own_eslint_ignores() {
              scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs \
              .agents/tools/docs/markdownlint-cli2.bundle.mjs .agents/tools/install/rule-bootstrap-cli.bundle.mjs \
              .agents/tools/validator/gate-single-token-diff.ts \
+             .agents/procedures/pipeline/helpers/overview.mjs .agents/roles/resources/rule-researcher/preflight.mjs \
+             .claude/skills/pipeline/helpers/overview.mjs .zcode/skills/pipeline/helpers/overview.mjs \
+             scripts/check-arch-retell.mjs scripts/docs-check.mjs scripts/render-terms-style.mjs \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done
