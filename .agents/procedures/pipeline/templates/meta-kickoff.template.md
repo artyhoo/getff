@@ -40,9 +40,12 @@ Sub-waves and their mode decisions are in §2 launch-table below. Read in this o
 > no column, so every not-yet-done stage is frontier and the ordering is judgment again. The
 > §3 gate below is what PROVES a dependency merged; the frontier only says who is eligible.
 
-- **Vertical slice — the default shape of a stage.** One thin end-to-end change carrying its
-  own live proof (RED→GREEN, gate output, or a fired check). A stage that cannot state what it
-  proves on its own is a horizontal layer, not a slice — re-cut it before dispatch.
+- **Vertical slice (tracer bullet) — the default shape of a stage.** Start with the smallest
+  useful end-to-end change through the real entry, wiring and result, carrying its own live
+  proof (RED→GREEN, gate output, or a fired check). Deliver that slice for operator feedback
+  before expanding the remaining scope. Keep the existing predecessor, review and merge gates.
+  A stage that cannot state what it proves on its own is a horizontal layer, not a slice —
+  re-cut it before dispatch.
 - **Expand–contract — the shape for renames, moves, and format changes.** Three phases, never
   one PR: **expand** (the new path/field/spelling lands beside the old, both live), **migrate**
   (callers move, one commit per surface), **contract** (the old form and its shim are deleted).
