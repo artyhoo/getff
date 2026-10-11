@@ -602,7 +602,7 @@ if [ -n "$ctx_entry" ]; then
             # than once per Stop. The Stop channel carries it twice in any project holding
             # BOTH the plugin registration (the plugin's hooks.json → `run-hook.cmd
             # end-of-turn-reminder`) and the project one the installer writes
-            # (setup.d/10-skills.sh:267, and install.sh's --refresh `register_cc_hook … "Stop"` call).
+            # (setup.d/10-skills.sh:276, and install.sh's --refresh `register_cc_hook … "Stop"` call).
             # Both copies derive this baseline path
             # from session_id alone, so the first copy's ALLOW wrote the new sha and the second
             # compared the file against what its twin had just written: «CONTENT unchanged» on a
