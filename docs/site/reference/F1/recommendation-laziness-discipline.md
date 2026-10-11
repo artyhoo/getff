@@ -8,6 +8,7 @@ sources:
   - .agents/rules/00-rule-index.md
   - .claude/hooks/inject-session-bootstrap.sh
   - .claude/hooks/end-of-turn-reminder.sh
+  - .claude/settings.json
   - packages/core/hooks/end-of-turn-reminder.test.ts
   - .agents/rules/ai-laziness-traps.md
   - .agents/rules/phase-research-coverage.md
@@ -15,7 +16,7 @@ sources:
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
-  - { example: channel-anchor-counts, stack: repo, date: 2026-10-11, result: digest-1-chip-1 }
+  - { example: channel-anchor-counts, stack: repo, date: 2026-10-11, result: digest-2-chip-1 }
 ---
 
 # recommendation-laziness-discipline rule
@@ -68,7 +69,7 @@ grep -c "#CHIP anchor" .claude/hooks/end-of-turn-reminder.sh
 ```
 
 ```text
-1
+2
 1
 ```
 
@@ -83,8 +84,10 @@ All conditions holding, ending the turn with the chip is an error with an escape
 token, not a warning. Everything else about chips is judgment and stays with the
 prose.
 
-Both channels are counted in the grep above — one digest definition, one hook
-anchor — and the hook arm carries paired self-tests of its own.
+Both channels are counted in the grep above. The digest arm's count is two
+because the matcher hits the `H1_LINE` definition and a pointer comment quoting
+it; the hook anchor's count is one — and the hook arm carries paired
+self-tests of its own.
 
 What the rule does not do: it cannot stop an unbacked verdict from being *spoken* —
 the digest reminds every session, and nothing audits the reminder's effect. And its

@@ -103,7 +103,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
 
 - The rule sentence and the reason rebase is a dead end:
   `.claude/rules/git-conflict-merge-forward.md:14` (`§1`) and `:51` to `:54`
-  (`§3`, all three blocked forms, each marked verified 2026-07-21).
+  (`§3`, the three blocked forms; two carry the verified-2026-07-21 mark).
 - The ten-step recipe and the step-9 interlock: `:18` to `:39` and `:41`.
 - The channel marker declaring `claude-md`: `:3`; the Class-B ceiling rationale
   (operator-global mechanism, CI structurally unreachable, §8 scoped out of the

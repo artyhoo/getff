@@ -22,7 +22,7 @@ executed:
 
 # Check your framework rules
 
-The getff framework is developed under its own rules: about forty documents in
+The getff framework is developed under its own rules: about thirty documents in
 `.claude/rules/` that declare when they apply and how they are enforced. Those
 declarations are checkable claims, not decoration — a rule that says a test
 exists is saying something you can run. This guide walks one rule from the index

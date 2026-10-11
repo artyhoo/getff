@@ -116,7 +116,10 @@ Checked 2026-10-11 against the working tree this batch was written in.
 - The implementation the rule points at:
   `packages/core/research/allowlist-resolver.ts` (`resolveAllowedSources` +
   `validateProvenance`).
-- The Tier-2 data surface: `.ai-factory/research-allowlist.json`.
+- The Tier-2 data surface: `.ai-factory/research-allowlist.json` — not yet
+  created in the framework repo at this pin; the resolver treats a missing file
+  as an empty map, so the rule is live before the first ack lands
+  (`allowlist-resolver.ts:69`, `:75`).
 - The scope markers: `:3` to `:6` (`paths:` frontmatter), `:8` (`<!-- globs: -->`),
   and the skill-embed channel declaration at `:10` —
   `.claude/skills/rule-research/SKILL.md`.
