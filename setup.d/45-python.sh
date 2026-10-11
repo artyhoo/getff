@@ -1685,9 +1685,9 @@ $msgs"
 # them would deliver nothing. The replication is line-for-line from:
 #   - setup.d/05-mcp.sh T1          (project MCP servers → .mcp.json: the shared lib.sh writer)
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
-#   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
-#   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + its three arms via register_imr_hooks, GETFF_HOOK_SOURCE seam)
+#   - setup.d/10-skills.sh:152-154  (rule-research + rule-tests: copy_skill_with_transform)
+#   - setup.d/10-skills.sh:209-245  (deps-hash-check hook + UserPromptSubmit wiring)
+#   - setup.d/10-skills.sh:327-337  (inject-matching-rule hook + its three arms via register_imr_hooks, GETFF_HOOK_SOURCE seam)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1714,7 +1714,7 @@ _py_deliver_agent_surface() {
   for _py_skill in getff tool-bootstrapping; do
     _py_plain_skill_deliver "$_py_skill"
   done
-  # rule-research + rule-tests ship from .claude/skills/ via copy_skill_with_transform (10-skills.sh:143-145).
+  # rule-research + rule-tests ship from .claude/skills/ via copy_skill_with_transform (10-skills.sh:152-154).
   for _py_skill in rule-research rule-tests; do
     _py_skill_copy_or_refresh "$_py_skill"   # A2-4: refresh-aware
   done
@@ -1733,11 +1733,11 @@ _py_deliver_agent_surface() {
   done
 
   # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (three arms, register_imr_hooks) ─
-  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 318-328 (inject-matching-rule).
+  # Replicates setup.d/10-skills.sh:209-245 (deps-hash-check) + 318-328 (inject-matching-rule).
   # deps-hash-check is wired into .claude/settings.json by register_cc_hook, the canonical helper;
   # inject-matching-rule by register_imr_hooks (setup.d/lib.sh), which widens an older PostToolUse
   # matcher and then calls register_cc_hook once per arm (#1957). The inline
-  # settings-creation block in 10-skills.sh:211-236 was written before register_cc_hook existed;
+  # settings-creation block in 10-skills.sh:220-245 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks"
   _py_settings="$PROJECT_ROOT/.claude/settings.json"
@@ -1754,7 +1754,7 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-328 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:327-337 (kickoff §2 item 1 binding).
   local _py_imr_src="${GETFF_HOOK_SOURCE:-$PKG_ROOT/.claude/hooks}/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then

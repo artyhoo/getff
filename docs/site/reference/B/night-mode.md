@@ -111,7 +111,7 @@ Claude Code, and nobody has yet run it end to end on one.
   calls that paragraph prose and not a mechanism. Line 27 says the advisor script "is
   not shipped". The finish conditions and the morning report are line 46.
 - The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. The installer
-  copies that list on lines 164 to 168 of `setup.d/10-skills.sh`. Lines 99 to 111 of the
+  copies that list on lines 173 to 177 of `setup.d/10-skills.sh`. Lines 99 to 111 of the
   same file record why it moved from `factory` to `env`.
 - The superpowers plugin is an optional companion: the `superpowers` row of
   `setup.d/companions.manifest`. The loop that offers each companion is lines 116 to 128

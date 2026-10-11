@@ -84,9 +84,11 @@ export type IntentScope =
 
 const FENCE_OPEN_RE = /^\s*```intent-contract\s*$/;
 const FENCE_CLOSE_RE = /^\s*```\s*$/;
-// A near-miss opener (info-string tail, case drift, space between fence and token) must
-// fail CLOSED, never degrade the description to unscoped — cold-review M1 (2026-10-10).
-const FENCE_OPEN_NEAR_MISS_RE = /^\s*```\s*intent-contract\b/i;
+// A near-miss opener (info-string tail, case drift, space between fence and token,
+// word-char suffix — intent-contracts / intent-contract2) must fail CLOSED, never
+// degrade the description to unscoped — cold-review M1 (2026-10-10); \b missed the
+// word-char-suffix class, dropped per finding 94ac13a2 (2026-10-11).
+const FENCE_OPEN_NEAR_MISS_RE = /^\s*```\s*intent-contract/i;
 
 /**
  * Extract the declared intent scope from a persisted task description or kickoff body.

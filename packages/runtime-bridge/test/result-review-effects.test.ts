@@ -366,6 +366,15 @@ describe('extractIntentScope — fail-closed fence parsing', () => {
     const text = '# Demo\n\n``` intent-contract\n{"featureId":"f"}\n```\n';
     expect(extractIntentScope(text).kind).toBe('invalid');
   });
+  it('near-miss opener with a word-char suffix → invalid, NOT unscoped (finding 94ac13a2)', async () => {
+    const { extractIntentScope } = await loadResultReview();
+    const plural = extractIntentScope('# Demo\n\n```intent-contracts\n{"featureId":"f"}\n```\n');
+    const numbered = extractIntentScope('# Demo\n\n```intent-contract2\n{"featureId":"f"}\n```\n');
+    expect(plural.kind).toBe('invalid');
+    expect(numbered.kind).toBe('invalid');
+    expect(plural).not.toMatchObject({ kind: 'unscoped' });
+    expect(numbered).not.toMatchObject({ kind: 'unscoped' });
+  });
   it('the exact opener still parses as scoped (near-miss net does not swallow the documented form)', async () => {
     const { extractIntentScope } = await loadResultReview();
     expect(extractIntentScope(scopedText(produceContract, 'w')).kind).toBe('scoped');

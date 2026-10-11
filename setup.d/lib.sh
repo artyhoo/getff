@@ -142,7 +142,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
-# ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
+# ships too)», 10-skills.sh:146 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
 # that `/reviewer` loads it; the fix was to ship it at env, not to bend the link.
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth
