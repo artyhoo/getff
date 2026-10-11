@@ -1635,7 +1635,7 @@ test('F07 review-import: no trusted Dot importer -> BLOCKED_DOT_APPROVAL_PROVENA
 });
 
 // F12 (GH_PENDING_AND_BUDGET_ADAPTER), CLI surface: the correction's
-// cli.mjs:706-716 concern was review-import reaching unbounded default
+// cli.mjs:751-761 concern was review-import reaching unbounded default
 // verification. The F07 fixed-closed gate structurally closed that path —
 // this test PINS it from the adapter side: a fake gh binary IS on PATH (it
 // would happily answer), and the fixed refusal still fires before any gh
@@ -2344,7 +2344,7 @@ test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never l
   assert.ok(cliGated >= 14, `the Darwin host-surface CLI arms must stay skip-gated for the Linux CI matrix (found ${cliGated})`);
   // The bridge cycle arms drive the REAL cli.mjs tick/reconcile over temp
   // roots (freshRoot -> cli init; exec_command -> tick/status/source-put),
-  // i.e. the same Darwin host surface (boot-id sysctl at cli.mjs:321). The
+  // i.e. the same Darwin host surface (boot-id sysctl at cli.mjs:322). The
   // first Linux run that reached them (run 38052887138 — every earlier run
   // aborted at the cli file before bridge-runner ever executed) showed 43/53
   // arms collapsing to BLOCKED, so they must stay gated like the CLI arms.
