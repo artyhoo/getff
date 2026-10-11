@@ -111,12 +111,14 @@ Checked 2026-10-11 against the working tree this batch was written in.
 - The promotion record — both anti-patterns, their channels, and the errors-not-
   warnings rationale: `:41` to `:48`; the not-yet-fired preflight promotion at `:40`.
 - The symlink trap (§5.2) and its measured incident commit: `:59` to `:69`; the
-  commit it names is `9e046c6d55`.
+  commit it names is `9e046c6d55` — carried from the rule file; the object is
+  not present in this branch's store.
 - The naming trap (§5.3), the near-miss walkthrough, and the counter: `:71` to `:79`.
 - The regex quoted above: `packages/core/principles/kickoff-population.ts:34`.
-- The companion test and its arms: `packages/core/principles/44-kickoff-authoring-
-  traps.test.ts:90` (suite), `:91` (the symlink arm, with an anti-tautology
-  assertion at `:111`), `:128` (the naming arm).
+- The companion test and its arms:
+  `packages/core/principles/44-kickoff-authoring-traps.test.ts:90` (suite),
+  `:91` (the symlink arm, with an anti-tautology assertion at `:111`), `:128`
+  (the naming arm).
 - The pre-commit gate section and the edit-time hook arm for the same two traps:
   `.husky/pre-commit` and `.claude/hooks/check-kickoff-traps.sh` (arm 3).
 - The index row grading this rule class `A` with channels `paths:(1), edit-time

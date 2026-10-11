@@ -54,8 +54,9 @@ automatically from a direct dependency's own package metadata: if you already
 install a package, its self-declared home page is a strictly smaller grant than the
 code you just ran — but the trust is scope-locked to that package, and hosts shared
 by many tenants are ineligible, so one dependency cannot vouch for a whole platform.
-Tier 2 is the explicit escape: a human adds a host to a committed, reviewed JSON
-ack file. A provenance URL is authorized by the first tier that matches it.
+Tier 2 is the explicit escape: a human adds a host to a JSON ack file — created
+on first grant, committed and reviewed from then on. A provenance URL is
+authorized by the first tier that matches it.
 Anything else fails closed — there is no fallback to "looks legitimate".
 
 The rule file itself is a pointer, not a copy: the full tier architecture and its
@@ -111,8 +112,9 @@ Checked 2026-10-11 against the working tree this batch was written in.
   fail-closed): `:44` to `:46` (`§4`).
 - The adversarial-review defence-in-depth record (documented acceptances with
   harden-criteria, coded guards with paired-negatives): `:48` to `:62` (`§5`).
-- The companion test quoted above: `packages/core/principles/30-research-source-
-  trust.test.ts:97` (suite), `:183` (paired negative).
+- The companion test quoted above:
+  `packages/core/principles/30-research-source-trust.test.ts:97` (suite),
+  `:183` (paired negative).
 - The implementation the rule points at:
   `packages/core/research/allowlist-resolver.ts` (`resolveAllowedSources` +
   `validateProvenance`).

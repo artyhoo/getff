@@ -106,9 +106,10 @@ Checked 2026-10-11 against the working tree this batch was written in.
   review time, not by a gate" line at `:42`.
 - `§3` the promotion criterion and the semantic-not-structural requirement:
   `:44` to `:50`.
-- The structural neighbors the rule names: `packages/core/principles/14-skill-
-  drift-detection.test.ts`, `packages/core/principles/15-skill-paired-negative.test.ts`
-  (both referenced from `:16`).
+- The structural neighbors the rule names:
+  `packages/core/principles/14-skill-drift-detection.test.ts`,
+  `packages/core/principles/15-skill-paired-negative.test.ts` (both
+  referenced from `:16`).
 - The budget pair the grep above finds:
   `packages/core/principles/48-skill-description-budget.test.ts:86` (suite),
   `:101` (extractor describe) — a size budget, not a quality judge.

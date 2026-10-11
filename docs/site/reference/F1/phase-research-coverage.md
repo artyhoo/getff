@@ -125,8 +125,9 @@ Checked 2026-10-11 against the working tree this batch was written in.
   note that mechanical enforcement is blocked until a detector's recall is fixed.
 - The self-reflection prompts (`§2`) and the research-patch format (`§3`):
   `:114` to `:122` and `:124` to `:136`.
-- The companion test quoted above: `packages/core/principles/13-phase-research-
-  coverage-s17.test.ts:123`, `:124`, `:141`, `:149`.
+- The companion test quoted above:
+  `packages/core/principles/13-phase-research-coverage-s17.test.ts:123`,
+  `:124`, `:141`, `:149`.
 - The read-time scope: `:3` to `:7` (`paths:` frontmatter, four patterns).
 - The index row grading this rule class `A` with channel `paths:(4)`:
   `.claude/rules/00-rule-index.md:31`.
