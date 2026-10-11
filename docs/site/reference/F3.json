@@ -773,9 +773,9 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/10-skills.sh:179 (quoted-path-token)",
-          "setup.d/10-skills.sh:180 (quoted-path-token)",
-          "setup.d/10-skills.sh:181 (quoted-path-token)",
+          "setup.d/10-skills.sh:188 (quoted-path-token)",
+          "setup.d/10-skills.sh:189 (quoted-path-token)",
+          "setup.d/10-skills.sh:190 (quoted-path-token)",
           "install.sh:1233 (quoted-path-token)",
           "install.sh:1234 (quoted-path-token)",
           "install.sh:1235 (quoted-path-token)",
@@ -832,6 +832,7 @@
     "getff-glm-onebutton.sh",
     "host-verify-coverage.sh",
     "install-coordination-wiring.sh",
+    "intent-pilot.mjs",
     "kickoff-hv-inventory.sh",
     "measure-session-start-tokens.sh",
     "measure-turn-attribution.sh",
