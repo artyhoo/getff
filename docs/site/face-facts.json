@@ -339,7 +339,7 @@
       "B": {
         "familyName": "skills",
         "path": "docs/site/reference/B.json",
-        "members": 21
+        "members": 22
       },
       "C": {
         "familyName": "agents",
@@ -379,7 +379,7 @@
       "H": {
         "familyName": "bridge CLI",
         "path": "docs/site/reference/H.json",
-        "members": 8
+        "members": 9
       },
       "I": {
         "familyName": "plugin",
