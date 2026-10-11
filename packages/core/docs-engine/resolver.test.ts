@@ -546,3 +546,28 @@ describe('integration: README.md#h:why-this-exists', () => {
     expect(signature(b.content)).toBe(signature(a.content));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Acceptance-hold corrections (PR #2097 review round — nine blocking defects,
+// one regression test per review comment, RED before its fix commit)
+// ---------------------------------------------------------------------------
+
+describe('correction 4242549866: fn: discovery ignores non-top-level lexical context', () => {
+  const read = mkRead({
+    // the review comment's exact counterexample: a declaration inside a block comment
+    'ghost/only.js': '/*\nfunction ghost() {\n}\n*/',
+    // same ghost plus a REAL top-level function: ghost must not make real AMBIGUOUS
+    'ghost/with-real.js': '/*\nfunction ghost() {\n}\n*/\nfunction real() {\n  return 1\n}\n',
+  });
+
+  it('a fn: carrier inside a block comment is not a top-level match (→ MISSING)', () => {
+    expectErr(resolvePlace('ghost/only.js#fn:ghost', read), 'MISSING');
+  });
+
+  it('a commented declaration does not make a real function spuriously AMBIGUOUS', () => {
+    const r = resolvePlace('ghost/with-real.js#fn:real', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([5, 7]);
+    expectErr(resolvePlace('ghost/with-real.js#fn:ghost', read), 'MISSING');
+  });
+});

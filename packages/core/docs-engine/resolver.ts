@@ -468,6 +468,22 @@ const FN_CARRIERS: FnCarrier[] = [
 
 type CloseScan = { closeLine: number } | 'inline' | 'eof';
 
+interface HeredocStart {
+  term: string;
+  dash: boolean;
+  len: number; // characters of `line` consumed by operator + delimiter
+}
+
+/** Classify `line` at column `c` (where `line[c] === '<' && line[c + 1] === '<'`): a
+ *  heredoc declaration `<<[-] TERM` returns its start; anything else (operator not
+ *  followed by a delimiter) returns null. Shared by the fn: close scanner and the
+ *  discovery pre-scan so both agree on what opens a heredoc. */
+function shellHeredocStart(line: string, c: number): HeredocStart | null {
+  const heredoc = /^<<(-?)\s*(?:'([^']*)'|"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))/.exec(line.slice(c));
+  if (!heredoc) return null;
+  return { dash: heredoc[1] === '-', term: heredoc[2] ?? heredoc[3] ?? heredoc[4], len: heredoc[0].length };
+}
+
 /**
  * Shell body scanner from just after the opener's `{`. Tracks single/double-quoted
  * strings, `#` comments (only outside `${…}` expansions), and heredocs — so a `}` at
@@ -526,11 +542,11 @@ function scanShellClose(lines: string[], startIdx: number, afterCol: number): Cl
         continue;
       }
       if (ch === '<' && line[c + 1] === '<') {
-        const heredoc = /^<<(-?)\s*(?:'([^']*)'|"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))/.exec(line.slice(c));
+        const heredoc = shellHeredocStart(line, c);
         if (heredoc) {
-          heredocDash = heredoc[1] === '-';
-          heredocTerm = heredoc[2] ?? heredoc[3] ?? heredoc[4];
-          c += heredoc[0].length - 1;
+          heredocDash = heredoc.dash;
+          heredocTerm = heredoc.term;
+          c += heredoc.len - 1;
           continue;
         }
       }
@@ -646,6 +662,165 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
   return 'eof';
 }
 
+/**
+ * Per-line lexical context for fn: DISCOVERY (contrast: the close scanners above run
+ * from inside a known function body). Returns one boolean per line: a carrier regex
+ * match on that line counts as a top-level match ONLY when the line STARTS in top-level
+ * code for its language — never inside a comment, quoted string, template literal,
+ * heredoc, or (JS) a nested scope (review 4242549866: `/*…*` comment bodies and
+ * template literals otherwise contribute phantom carriers, and one phantom beside a
+ * real function turns it spuriously AMBIGUOUS).
+ *
+ * JS: full state machine mirroring scanJsClose from file start (top-level = code state,
+ * no open `${…}` template frame, brace depth 0). Shell: mirrors scanShellClose from
+ * file start (top-level = code state, no open heredoc, no open `${…}`) — without brace
+ * depth, because nested shell functions are legitimate top-level definitions.
+ */
+function jsLineStartsTopLevel(lines: string[]): boolean[] {
+  type Frame = { depth: number };
+  const stack: Frame[] = [];
+  let depth = 0;
+  let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' = 'code';
+  const out: boolean[] = [];
+  for (const line of lines) {
+    out.push(state === 'code' && stack.length === 0 && depth === 0);
+    for (let c = 0; c < line.length; c++) {
+      const ch = line[c];
+      if (state === 'linecomment') continue; // ends with the line
+      if (state === 'blockcomment') {
+        if (ch === '*' && line[c + 1] === '/') {
+          state = 'code';
+          c += 1;
+        }
+        continue;
+      }
+      if (state === 'sq') {
+        if (ch === '\\') c += 1;
+        else if (ch === "'") state = 'code';
+        continue;
+      }
+      if (state === 'dq') {
+        if (ch === '\\') c += 1;
+        else if (ch === '"') state = 'code';
+        continue;
+      }
+      if (state === 'template') {
+        if (ch === '\\') c += 1;
+        else if (ch === '`') state = 'code';
+        else if (ch === '$' && line[c + 1] === '{') {
+          stack.push({ depth });
+          depth += 1;
+          state = 'code';
+          c += 1;
+        }
+        continue;
+      }
+      if (ch === '/' && line[c + 1] === '/') {
+        state = 'linecomment';
+        c += 1;
+        continue;
+      }
+      if (ch === '/' && line[c + 1] === '*') {
+        state = 'blockcomment';
+        c += 1;
+        continue;
+      }
+      if (ch === "'") {
+        state = 'sq';
+        continue;
+      }
+      if (ch === '"') {
+        state = 'dq';
+        continue;
+      }
+      if (ch === '`') {
+        state = 'template';
+        continue;
+      }
+      if (ch === '{') {
+        depth += 1;
+        continue;
+      }
+      if (ch === '}') {
+        depth -= 1;
+        if (stack.length > 0 && depth === stack[stack.length - 1].depth) {
+          stack.pop();
+          state = 'template';
+          continue;
+        }
+        if (depth < 0) depth = 0; // a stray close must not poison later line starts
+      }
+    }
+    if (state === 'linecomment') state = 'code';
+  }
+  return out;
+}
+
+function shellLineStartsTopLevel(lines: string[]): boolean[] {
+  const out: boolean[] = [];
+  let state: 'code' | 'sq' | 'dq' | 'comment' = 'code';
+  let paramDepth = 0; // inside ${…}
+  let heredocTerm: string | null = null;
+  let heredocDash = false;
+  for (const line of lines) {
+    out.push(state === 'code' && heredocTerm === null && paramDepth === 0);
+    if (heredocTerm !== null) {
+      const candidate = heredocDash ? line.replace(/^\t+/, '') : line;
+      if (candidate === heredocTerm) heredocTerm = null;
+      continue;
+    }
+    for (let c = 0; c < line.length; c++) {
+      const ch = line[c];
+      if (state === 'comment') continue; // ends with the line
+      if (state === 'sq') {
+        if (ch === '\\') c += 1;
+        else if (ch === "'") state = 'code';
+        continue;
+      }
+      if (state === 'dq') {
+        if (ch === '\\') c += 1;
+        else if (ch === '"') state = 'code';
+        continue;
+      }
+      if (ch === '\\') {
+        c += 1;
+        continue;
+      }
+      if (ch === "'") {
+        state = 'sq';
+        continue;
+      }
+      if (ch === '"') {
+        state = 'dq';
+        continue;
+      }
+      if (ch === '#' && paramDepth === 0) {
+        state = 'comment';
+        continue;
+      }
+      if (ch === '$' && line[c + 1] === '{') {
+        paramDepth += 1;
+        c += 1;
+        continue;
+      }
+      if (ch === '<' && line[c + 1] === '<') {
+        const heredoc = shellHeredocStart(line, c);
+        if (heredoc) {
+          heredocDash = heredoc.dash;
+          heredocTerm = heredoc.term;
+          c += heredoc.len - 1;
+          continue;
+        }
+      }
+      if (ch === '}' && paramDepth > 0) {
+        paramDepth -= 1;
+      }
+    }
+    if (state === 'comment') state = 'code';
+  }
+  return out;
+}
+
 function resolveFunction(content: string, name: string, rel: string, ref: string): PlaceResult {
   const lines = splitLines(content);
   const matches: Array<{ lineIdx: number; lang: 'shell' | 'js'; afterCol: number }> = [];
@@ -657,13 +832,18 @@ function resolveFunction(content: string, name: string, rel: string, ref: string
       }
     }
   }
-  if (matches.length === 0) {
+  // Lexical-context filter: a carrier counts only when its line starts in top-level
+  // code for its language (see the *LineStartsTopLevel doc comment).
+  const shellStarts = matches.some((m) => m.lang === 'shell') ? shellLineStartsTopLevel(lines) : null;
+  const jsStarts = matches.some((m) => m.lang === 'js') ? jsLineStartsTopLevel(lines) : null;
+  const visible = matches.filter((m) => (m.lang === 'shell' ? shellStarts : jsStarts)![m.lineIdx]);
+  if (visible.length === 0) {
     return err('MISSING', ref, `no top-level shell/JS-TS function '${name}' (other spellings are not matched — bind by L:)`);
   }
-  if (matches.length > 1) {
-    return err('AMBIGUOUS', ref, `${matches.length} distinct top-level matches for '${name}' (lines ${matches.map((x) => x.lineIdx + 1).join(', ')})`);
+  if (visible.length > 1) {
+    return err('AMBIGUOUS', ref, `${visible.length} distinct top-level matches for '${name}' (lines ${visible.map((x) => x.lineIdx + 1).join(', ')})`);
   }
-  const hit = matches[0];
+  const hit = visible[0];
   const scan = hit.lang === 'shell' ? scanShellClose(lines, hit.lineIdx, hit.afterCol) : scanJsClose(lines, hit.lineIdx, hit.afterCol);
   if (scan === 'eof') {
     return err('UNSUPPORTED', ref, `function '${name}' has no column-0 closing brace — the E-1 boundary does not exist`);
