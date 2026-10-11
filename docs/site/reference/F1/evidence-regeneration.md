@@ -4,8 +4,8 @@ description: The rule for refreshing live-fired evidence on a backend after a to
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/evidence-regeneration.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/evidence-regeneration.md
+  - .agents/rules/00-rule-index.md
   - .github/workflows/audit-self.yml
   - packages/core/backends/cargo/firing.test.ts
   - packages/core/composition/enforcement-line.ts

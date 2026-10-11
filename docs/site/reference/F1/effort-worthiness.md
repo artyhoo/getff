@@ -4,10 +4,10 @@ description: The rule that flips the burden of proof onto more process — extra
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/effort-worthiness.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/effort-worthiness.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/pr-body-fidelity.ts
-  - .claude/rules/reviewer-discipline.md
+  - .agents/rules/reviewer-discipline.md
   - packages/core/principles/31-rule-channel-declaration.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

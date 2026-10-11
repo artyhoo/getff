@@ -4,14 +4,14 @@ description: The rule that decides when an expensive fresh-agent audit is actual
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/cold-seat-economy.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/cold-seat-economy.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/31-rule-channel-declaration.ts
   - packages/core/principles/50-cold-seat-inputs-ref.test.ts
   - scripts/snapshot-for-seat.sh
-  - .claude/skills/dispatcher/references/execution.md
-  - .claude/skills/harvest/SKILL.md
-  - .claude/skills/orchestrator/references/reviewer-template.md
+  - .agents/procedures/dispatcher/references/execution.md
+  - .agents/procedures/harvest/SKILL.md
+  - .agents/procedures/orchestrator/references/reviewer-template.md
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md

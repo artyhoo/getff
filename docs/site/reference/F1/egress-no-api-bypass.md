@@ -4,10 +4,10 @@ description: The rule that a finished agent branch lands through the host's real
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/egress-no-api-bypass.md
-  - .claude/rules/00-rule-index.md
-  - .claude/skills/harvest/SKILL.md
-  - .claude/skills/dispatcher/helpers/harvest-via-api.sh
+  - .agents/rules/egress-no-api-bypass.md
+  - .agents/rules/00-rule-index.md
+  - .agents/procedures/harvest/SKILL.md
+  - .agents/procedures/dispatcher/helpers/harvest-via-api.sh
   - scripts/run-local-ci-sweep.sh
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

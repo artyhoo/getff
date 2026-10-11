@@ -4,8 +4,8 @@ description: The rule that a load-bearing check must be a gate or a named cold-a
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/attention-is-not-a-mechanism.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/attention-is-not-a-mechanism.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/pr-body-removal-consumers.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

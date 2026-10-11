@@ -4,8 +4,8 @@ description: The rule that names 22 ways an AI agent produces the shape of work 
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/ai-laziness-traps.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/ai-laziness-traps.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/12-ai-laziness-traps.test.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

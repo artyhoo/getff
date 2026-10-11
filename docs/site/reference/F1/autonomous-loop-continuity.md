@@ -4,10 +4,10 @@ description: The rule that an unattended turn does not end while work is still i
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/autonomous-loop-continuity.md
-  - .claude/rules/00-rule-index.md
-  - .claude/hooks/end-of-turn-reminder.sh
-  - .claude/hooks/inject-session-bootstrap.sh
+  - .agents/rules/autonomous-loop-continuity.md
+  - .agents/rules/00-rule-index.md
+  - .agents/hooks/end-of-turn-reminder.sh
+  - .agents/hooks/inject-session-bootstrap.sh
   - packages/core/hooks/end-of-turn-reminder.test.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

@@ -4,12 +4,12 @@ description: The rule that gives every canonical document a declared scope — w
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/doc-authority-hierarchy.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/doc-authority-hierarchy.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/09-doc-authority-hierarchy.ts
   - packages/core/principles/09-doc-authority-hierarchy.test.ts
   - packages/core/principles/09-doc-authority-hierarchy.bin.ts
-  - scripts/cited-spec-addenda.sh
+  - .agents/checks/cited-spec-addenda.sh
   - scripts/cited-spec-addenda.test.sh
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
@@ -116,7 +116,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   required list at `:28`, the dynamic path patterns at `:181`, the skill-doc
   enumerator at `:231`; vitest suite `09-doc-authority-hierarchy.test.ts`;
   the CLI shim `09-doc-authority-hierarchy.bin.ts` (output above).
-- The supersession auditor: `scripts/cited-spec-addenda.sh` — purpose and
+- The supersession auditor: `.agents/checks/cited-spec-addenda.sh` — purpose and
   incident at `:3` to `:11`, usage at `:12`, exit contract (0 CLEAN / 2
   AMENDED / 3 INCONCLUSIVE) at `:25` to `:27`; companion test
   `scripts/cited-spec-addenda.test.sh`.
