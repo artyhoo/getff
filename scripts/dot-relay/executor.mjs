@@ -771,6 +771,11 @@ export function makeGhAdapter(run = null) {
     // `gh pr checks --json` exits 0 all-pass / 8 pending / 1 failing — the
     // JSON on stdout is the DATA in all three cases
     checks: endpoint('checks', [0, 1, 8], Array.isArray),
+    // `gh api repos/<owner>/<repo>/commits/<sha>/check-runs` exits 0 with
+    // {total_count, check_runs:[...]} — the ONLY gh surface exposing which
+    // APP produced each check run (F07 app identity; pr checks --json has no
+    // app field)
+    checkRuns: endpoint('check-runs', [0], (v) => v != null && typeof v === 'object' && !Array.isArray(v) && Array.isArray(v.check_runs)),
   };
 }
 
@@ -2013,7 +2018,10 @@ export async function monitorAdoptedChild(opts) {
 
 // F07: the deployed required-check policy is part of the verification
 // context. Returns the validated required list, or null when the policy is
-// absent/unknown — an unknown policy NEVER verifies.
+// absent/unknown — an unknown policy NEVER verifies. Every entry pins the
+// producing app (slug) alongside name+workflow: `gh pr checks --json` has no
+// app field, so a policy that cannot name the app cannot have its checks
+// identity-verified — an incomplete policy never verifies either.
 function requiredCheckSet(policy) {
   const required = Array.isArray(policy?.required) ? policy.required : null;
   if (!required || required.length === 0
@@ -2021,15 +2029,51 @@ function requiredCheckSet(policy) {
     || typeof policy.digest !== 'string' || !/^[0-9a-f]{64}$/.test(policy.digest)) return null;
   for (const r of required) {
     if (!r || typeof r !== 'object' || Array.isArray(r)
-      || Object.keys(r).sort().join(',') !== 'name,workflow'
+      || Object.keys(r).sort().join(',') !== 'app,name,workflow'
       || typeof r.name !== 'string' || r.name.length < 1
-      || typeof r.workflow !== 'string' || r.workflow.length < 1) return null;
+      || typeof r.workflow !== 'string' || r.workflow.length < 1
+      || typeof r.app !== 'string' || r.app.length < 1) return null;
   }
   return required;
 }
 
 const checkIdentity = (c) => `${c.workflow}\u0000${c.name}`;
 const VIEW_FIELDS = 'headRefOid,baseRefOid,baseRefName,state,isDraft,mergeStateStatus,autoMergeRequest';
+// F07 check-run context: the owner/repo pair extracted from the PR URL — the
+// basis of the REST `repos/<ctx>/commits/<sha>/check-runs` call below.
+const PR_REPO_URL_RE = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+$/;
+
+// F07 app identity: a green set that matches by name+workflow is NOT yet the
+// policy's set — `gh pr checks --json` reports the workflow NAME for Actions
+// but the APP DISPLAY NAME for foreign apps, so a foreign app named exactly
+// like the expected workflow string is indistinguishable there. The producing
+// app comes from the REST check-run surface on the head commit; each green
+// checks entry is correlated with its EXACT run by name AND link
+// (details_url/html_url) so a genuine same-name run can never vouch for a
+// foreign check, and the linked run's app slug must equal the app the policy
+// pins for that entry. Every miss fails closed (BLOCKED_CHECK_POLICY); a
+// typed adapter refusal is an infrastructure HOLD like any other endpoint.
+function verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks }) {
+  const ctx = PR_REPO_URL_RE.exec(String(url ?? ''));
+  if (!ctx) return { blocker: 'BLOCKED_CHECK_POLICY' };
+  const runsR = ghTry(() => ghImpl.checkRuns(['api', `repos/${ctx[1]}/commits/${headSha}/check-runs`]));
+  if (runsR.blocker) return { blocker: runsR.blocker, held: true };
+  const runs = runsR.value && Array.isArray(runsR.value.check_runs) ? runsR.value.check_runs : null;
+  if (!runs) return { blocker: 'BLOCKED_CHECK_POLICY' };
+  for (const c of checks) {
+    const entry = required.find((r) => checkIdentity(r) === checkIdentity(c));
+    if (!entry) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    if (typeof c.link !== 'string' || c.link.length === 0) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    const candidates = runs.filter((run) => run && typeof run === 'object' && run.name === c.name);
+    if (candidates.length === 0) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    const linked = candidates.filter((run) => run.details_url === c.link || run.html_url === c.link);
+    if (linked.length === 0) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    if (!linked.some((run) => run.app && typeof run.app === 'object' && run.app.slug === entry.app)) {
+      return { blocker: 'BLOCKED_CHECK_POLICY' };
+    }
+  }
+  return { ok: true };
+}
 
 export async function verifyPr({ url, headSha, baseSha = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
   if (!clock || typeof clock.ok !== 'function' || typeof clock.activeNs !== 'function' || typeof clock.fresh !== 'function') {
@@ -2090,6 +2134,10 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
       await sleep(pollIntervalMs);
       continue;
     }
+    // F07 app identity on the green set — before the context re-read, so a
+    // foreign-app green never reaches the stability pass.
+    const app1 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks });
+    if (app1.blocker) return app1.held === true ? { state: 'HELD', blocker: app1.blocker } : { state: 'BLOCKED', blocker: app1.blocker };
     // repeat view: the whole verification context — head AND base AND PR
     // state — must be unchanged between the reads (F07: a change under the
     // same head invalidates, never passes)
@@ -2108,6 +2156,10 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
     if (checks2.map(checkIdentity).sort().join('|') !== observed) return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
     const failing2 = checks2.filter((c) => c.bucket === 'fail').map((c) => c.name);
     if (failing2.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: failing2 };
+    // F07 app identity on the second read too — identity drift between the
+    // reads is a changed context, never DONE.
+    const app2 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks: checks2 });
+    if (app2.blocker) return app2.held === true ? { state: 'HELD', blocker: app2.blocker } : { state: 'BLOCKED', blocker: app2.blocker };
     return { state: 'DONE' };
   }
 }

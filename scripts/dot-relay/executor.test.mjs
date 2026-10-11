@@ -37,12 +37,14 @@ const BASE_SHA = sha40('origin-staging-base');
 const HEAD = sha40('pr-head');
 
 // F07: the deployed review policy snapshot — the required checks the receipt
-// was approved under, each bound to its expected workflow/app identity. This
-// is what verifyPr compares the ACTUAL `gh pr checks --required` set against.
+// was approved under, each bound to its expected workflow AND producing-app
+// identity (slug). This is what verifyPr compares the ACTUAL `gh pr checks
+// --required` set against, and the app slug the REST check-run surface must
+// confirm per entry.
 const POLICY = {
-  version: 1,
-  digest: sha256Of('review-policy-v1:artyhoo/getff:ci'),
-  required: [{ name: 'ci', workflow: 'CI' }],
+  version: 2,
+  digest: sha256Of('review-policy-v2:artyhoo/getff:ci:github-actions'),
+  required: [{ name: 'ci', workflow: 'CI', app: 'github-actions' }],
 };
 
 // F07: fake trusted Dot-importer adapter. The REAL adapter (verifying actual
@@ -790,18 +792,28 @@ function viewJson(over = {}) {
   return { headRefOid: HEAD, baseRefOid: BASE_SHA, baseRefName: 'staging', state: 'OPEN', isDraft: false, mergeStateStatus: 'CLEAN', autoMergeRequest: null, ...over };
 }
 
-function ghWith({ view = viewJson(), checks = [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }] } = {}) {
+// F07 app identity: the REST check-run surface (`gh api .../check-runs`) —
+// the ONLY gh surface that reports which app produced each run. `gh pr
+// checks --json` has no app field, and its `workflow` string is the workflow
+// NAME for Actions but the APP DISPLAY NAME for foreign apps, so a foreign
+// app named exactly like the expected workflow is indistinguishable there.
+const CHECK_RUN_OK = [{ name: 'ci', details_url: 'l', html_url: 'h/l', app: { id: 15368, slug: 'github-actions', name: 'GitHub Actions' } }];
+const CHECK_RUNS_OK = () => ({ total_count: CHECK_RUN_OK.length, check_runs: CHECK_RUN_OK });
+const PR_URL = 'https://github.com/artyhoo/getff/pull/9301';
+
+function ghWith({ view = viewJson(), checks = [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }], checkRuns = CHECK_RUN_OK } = {}) {
   const calls = [];
   return {
     calls,
     view: (args) => { calls.push(['view', args]); return view; },
     checks: (args) => { calls.push(['checks', args]); return checks; },
+    checkRuns: (args) => { calls.push(['check-runs', args]); return { total_count: checkRuns.length, check_runs: checkRuns }; },
   };
 }
 
 test('verifyPr: exact stable head + nonempty required all pass -> DONE', async () => {
   const gh = ghWith();
-  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 1_000 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 1_000 });
   assert.equal(r.state, 'DONE');
   assert.ok(gh.calls.every(([, a]) => Array.isArray(a)));
 });
@@ -826,8 +838,9 @@ test('verifyPr: stale head (moves between views) -> not DONE', async () => {
   const gh = {
     view: () => { n += 1; return viewJson({ headRefOid: n <= 1 ? HEAD : sha40('moved') }); },
     checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+    checkRuns: () => CHECK_RUNS_OK(),
   };
-  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_HEAD_MOVED');
 });
@@ -843,9 +856,10 @@ test('verifyPr: pending then pass within the ACTIVE budget -> polls to DONE', as
   const gh = {
     view: () => viewJson(),
     checks: () => (pending ? [{ name: 'ci', state: 'PENDING', bucket: 'pending', workflow: 'CI', link: 'l' }] : [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]),
+    checkRuns: () => CHECK_RUNS_OK(),
   };
   setTimeout(() => { pending = false; }, 30);
-  const r = await verifyPr({ url: 'u', headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 10, deadlineMs: 2_000 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 10, deadlineMs: 2_000 });
   assert.equal(r.state, 'DONE');
 });
 
@@ -919,8 +933,9 @@ test('verifyPr F07: base ref moves between the two verification reads -> BLOCKED
   const gh = {
     view: () => { n += 1; return viewJson({ baseRefOid: n <= 1 ? BASE_SHA : sha40('rebased-mid-verify') }); },
     checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+    checkRuns: () => CHECK_RUNS_OK(),
   };
-  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
 });
@@ -930,8 +945,9 @@ test('verifyPr F07: mergeability changes between the two reads -> BLOCKED_CONTEX
   const gh = {
     view: () => { n += 1; return viewJson({ mergeStateStatus: n <= 1 ? 'CLEAN' : 'DIRTY' }); },
     checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+    checkRuns: () => CHECK_RUNS_OK(),
   };
-  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
 });
@@ -946,8 +962,9 @@ test('verifyPr F07: required-check set drifts on the second read -> BLOCKED_CONT
         ? [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]
         : [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }, { name: 'ci-2', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }];
     },
+    checkRuns: () => CHECK_RUNS_OK(),
   };
-  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
 });
@@ -957,6 +974,81 @@ test('verifyPr F07: a green same-name check from the WRONG app identity -> BLOCK
   const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+// ---------------------------------------- F07 residual: producing-app identity
+//
+// Senior delta 2026-10-10: "required app identity ... still absent; arbitrary
+// workflow/name green is insufficient." The set compare above only proves the
+// workflow STRING — a foreign app whose display name equals the expected
+// workflow text passes it. The tests below pin the residual: the policy names
+// the producing app per entry, and verifyPr correlates each green check with
+// its EXACT check run (name + link) on the head commit and compares the run's
+// app slug. The old code returns DONE on every one of these.
+
+test('verifyPr F07: a green same-name same-workflow check from a FOREIGN APP -> BLOCKED_CHECK_POLICY', async () => {
+  const gh = ghWith({ checkRuns: [{ name: 'ci', details_url: 'l', html_url: 'h/l', app: { slug: 'evil-ci', name: 'CI' } }] });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: policy entry without a pinned app -> BLOCKED_CHECK_POLICY (incomplete policy never verifies)', async () => {
+  const noAppPolicy = { version: 1, digest: sha256Of('no-app-policy'), required: [{ name: 'ci', workflow: 'CI' }] };
+  const gh = ghWith();
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: noAppPolicy, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: check run reporting NO app identity -> BLOCKED_CHECK_POLICY', async () => {
+  const gh = ghWith({ checkRuns: [{ name: 'ci', details_url: 'l', html_url: 'h/l', app: null }] });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: a genuine same-name run cannot vouch for a foreign check (exact link correlation) -> BLOCKED_CHECK_POLICY', async () => {
+  const gh = ghWith({ checkRuns: [{ name: 'ci', details_url: 'genuine-job-url', html_url: 'h/genuine', app: { slug: 'github-actions' } }] });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('verifyPr F07: app identity drifting between the two verification reads -> BLOCKED_CHECK_POLICY', async () => {
+  let n = 0;
+  const gh = {
+    view: () => viewJson(),
+    checks: () => [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }],
+    checkRuns: () => {
+      n += 1;
+      return { total_count: 1, check_runs: [n <= 1 ? CHECK_RUN_OK[0] : { name: 'ci', details_url: 'l', html_url: 'h/l', app: { slug: 'evil-ci' } }] };
+    },
+  };
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
+  assert.equal(r.state, 'BLOCKED');
+  assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+test('F07 gh adapter: check-runs endpoint parses DATA on exit 0 and holds typed on malformed/undocumented exits', async () => {
+  const { makeGhAdapter } = await import('./executor.mjs');
+  const runsJson = JSON.stringify({ total_count: 1, check_runs: CHECK_RUN_OK });
+  let apiArgs = null;
+  const gh = makeGhAdapter((args) => {
+    if (args[0] === 'api') {
+      apiArgs = args;
+      return { error: null, status: 0, stdout: runsJson, stderr: '' };
+    }
+    return { error: null, status: 0, stdout: '[]', stderr: '' };
+  });
+  const v = gh.checkRuns(['api', 'repos/artyhoo/getff/commits/abc/check-runs']);
+  assert.deepEqual(v.check_runs, CHECK_RUN_OK);
+  assert.equal(apiArgs[1], 'repos/artyhoo/getff/commits/abc/check-runs');
+  // documented-exit discipline is per endpoint: exit 8 is checks-only
+  const gh8 = makeGhAdapter(() => ({ error: null, status: 8, stdout: runsJson, stderr: '' }));
+  assert.throws(() => gh8.checkRuns(['api', 'x']), (err) => err.ghBlocker === 'GH_TRANSPORT');
+  const ghBad = makeGhAdapter(() => ({ error: null, status: 0, stdout: '{"total_count":1}', stderr: '' }));
+  assert.throws(() => ghBad.checkRuns(['api', 'x']), (err) => err.ghBlocker === 'GH_MALFORMED');
 });
 
 test('verifyPr F07: a deployed required check MISSING from the policy set -> BLOCKED_CHECK_POLICY', async () => {
@@ -1293,6 +1385,7 @@ function ghDone(calls) {
   return {
     view: (args) => { calls.push(['view', args]); return viewJson(); },
     checks: (args) => { calls.push(['checks', args]); return [{ name: 'ci', state: 'SUCCESS', bucket: 'pass', workflow: 'CI', link: 'l' }]; },
+    checkRuns: (args) => { calls.push(['check-runs', args]); return { total_count: CHECK_RUN_OK.length, check_runs: CHECK_RUN_OK }; },
   };
 }
 
@@ -2208,13 +2301,17 @@ test('F12 gh adapter: documented status8 pending then status0 success parses as 
     if (args[0] === 'pr' && args[1] === 'view') {
       return { error: null, status: 0, stdout: JSON.stringify(viewJson()), stderr: '' };
     }
+    // F07 check-run surface answers its own argv shape (gh api …/check-runs)
+    if (args[0] === 'api') {
+      return { error: null, status: 0, stdout: JSON.stringify(CHECK_RUNS_OK()), stderr: '' };
+    }
     checksCalls += 1;
     // first checks read: the REAL pending shape — exit status 8, valid JSON
     return checksCalls === 1
       ? { error: null, status: 8, stdout: pendingJson, stderr: '' }
       : { error: null, status: 0, stdout: passJson, stderr: '' };
   });
-  const r = await verifyPr({ url: 'u', headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 2_000 });
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 2_000 });
   assert.equal(r.state, 'DONE');
   // exactly 3: the status8 pending read, the pass read, and the F07 context
   // re-read (verifyPr reads the whole verification context twice before DONE)
