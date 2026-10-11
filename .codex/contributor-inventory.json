@@ -46,6 +46,11 @@
       "explicit": false
     },
     {
+      "name": "intent",
+      "source": ".agents/procedures/intent",
+      "explicit": true
+    },
+    {
       "name": "night-mode",
       "source": ".agents/procedures/night-mode",
       "explicit": false
@@ -366,6 +371,26 @@
       "path": ".agents/skills/installing-enforcement/agents/openai.yaml",
       "kind": "text",
       "fingerprint": "8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935"
+    },
+    {
+      "path": ".agents/skills/intent/SKILL.md",
+      "kind": "text",
+      "fingerprint": "a97b322cd4819714d392f197af015a9bd78e3af08a92a85f1276de69430e63ad"
+    },
+    {
+      "path": ".agents/skills/intent/agents/openai.yaml",
+      "kind": "text",
+      "fingerprint": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/intent/helpers",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/intent/helpers"
+    },
+    {
+      "path": ".agents/skills/intent/references",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/intent/references"
     },
     {
       "path": ".agents/skills/night-mode/SKILL.md",
