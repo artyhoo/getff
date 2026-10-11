@@ -593,6 +593,22 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
   });
 });
 
+describe('correction 4242549903: empty-slug headings remain section boundaries', () => {
+  it('`## !!!` still ends the h:real section though it is not addressable', () => {
+    const read = mkRead({ 'slug/empty.md': '## Real\nfirst\n## !!!\nsecond' });
+    const r = resolvePlace('slug/empty.md#h:real', read);
+    expectLine(r);
+    expect(r.content).toBe('## Real\nfirst');
+    expect(r.endLine).toBe(2);
+  });
+
+  it('an empty-slug heading is not addressable by any ref', () => {
+    const read = mkRead({ 'slug/empty2.md': '## Real\nbody\n## !!!\nmore\n' });
+    expectLine(resolvePlace('slug/empty2.md#h:real', read));
+    expectErr(resolvePlace('slug/empty2.md#h:', read), 'UNSUPPORTED');
+  });
+});
+
 describe('correction 4242549900: Setext underlines require a real paragraph', () => {
   it('a list item followed by `---` emits no phantom heading and does not truncate the section', () => {
     const read = mkRead({ 'setext/list.md': '## Real\nbody\n- item\n---\nmore\n' });

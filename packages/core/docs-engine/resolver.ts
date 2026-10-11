@@ -376,7 +376,15 @@ function scanHeadings(lines: string[]): HeadingHit[] {
     paraText.length = 0;
   };
   const emit = (base: string, level: number, startLine: number, endLine: number): void => {
-    if (base === '') return; // empty slug — not addressable (principle 42's convention)
+    if (base === '') {
+      // Empty-slug headings stay unaddressable (principle 42's convention) but REMAIN
+      // section boundaries (review 4242549903): an `h:` section ends at the next
+      // heading of the same or higher level even when that heading's slug is empty.
+      // Recorded without dedup bookkeeping — lookup can never request an empty slug
+      // (parseRef refuses an empty <name> for h:).
+      out.push({ slug: '', level, startLine, endLine });
+      return;
+    }
     let slug = base;
     if (used.has(slug)) {
       let n = 1;
