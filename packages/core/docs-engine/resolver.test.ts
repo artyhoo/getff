@@ -571,3 +571,14 @@ describe('correction 4242549866: fn: discovery ignores non-top-level lexical con
     expectErr(resolvePlace('ghost/with-real.js#fn:ghost', read), 'MISSING');
   });
 });
+
+describe('correction 4242549887: jp: keeps malformed-JSON contents out of diagnostics', () => {
+  it('a JSON parse failure carries a stable reason, never the file contents', () => {
+    const r = resolvePlace('secret.json#jp:', mkRead({ 'secret.json': 'TOPSECRET-BODY' }));
+    expectErr(r, 'MISSING');
+    if (isErr(r)) {
+      expect(r.message.includes('TOPSECRET-BODY')).toBe(false);
+      expect(r.message).toContain('does not parse as JSON');
+    }
+  });
+});

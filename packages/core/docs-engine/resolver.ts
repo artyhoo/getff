@@ -274,8 +274,11 @@ function resolveJsonPointer(content: string, pointer: string, rel: string, ref: 
   let doc: unknown;
   try {
     doc = JSON.parse(content) as unknown;
-  } catch (e) {
-    return err('MISSING', ref, `file does not parse as JSON (JSONC/comments unsupported): ${(e as Error).message}`);
+  } catch {
+    // Stable reason only — Node's JSON.parse message can embed an excerpt of the
+    // parsed text (review 4242549887), and the diagnostic contract carries the ref,
+    // never file contents.
+    return err('MISSING', ref, 'file does not parse as JSON (JSONC/comments unsupported)');
   }
   // Empty pointer = the whole document. `/` = ONE token, the empty string = the root
   // object's member named "" (RFC 6901 §4) — never the document itself.
