@@ -65,7 +65,7 @@
     "test:synthesizer": "vitest run synthesizer/",
     "test:skills": "vitest run skills/",
     "test:spec-validation": "vitest run spec-validation/",
-    "test:units": "vitest run audit-self/ detector/ detector-v0/ diagnostics/ diff/ eslint-rules/ install/ installer/ python-starter/ research/ scenario-generator/ validator/",
+    "test:units": "vitest run audit-self/ detector/ detector-v0/ diagnostics/ diff/ eslint-rules/ install/ installer/ python-starter/ research/ scenario-generator/ validator/ docs-engine/",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
     "demo:cargo": "bash backends/cargo/demo/run-demo.sh",
     "typecheck": "tsc --noEmit",
