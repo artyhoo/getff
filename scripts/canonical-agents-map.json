@@ -572,6 +572,11 @@
       "entry": "link"
     },
     {
+      "legacy": ".claude/skills/pipeline/helpers/saved-coordination.mjs",
+      "owner": ".agents/procedures/pipeline/helpers/saved-coordination.mjs",
+      "entry": "link"
+    },
+    {
       "legacy": ".claude/skills/pipeline/helpers/assign-skill.sh",
       "owner": ".agents/procedures/pipeline/helpers/assign-skill.sh",
       "entry": "link"

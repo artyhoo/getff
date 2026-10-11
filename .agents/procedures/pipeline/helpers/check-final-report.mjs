@@ -14,6 +14,11 @@ import {
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import {
+  SAVED_WORKFLOW,
+  validateSavedContext,
+  validateSavedReport,
+} from './saved-coordination.mjs';
 import { isMainEntry } from './lib/is-main-entry.mjs';
 import {
   sourcePathBindings,
@@ -406,6 +411,8 @@ export function validateSourceReconciliation(
 }
 
 export function validateEvidenceContext(context, evidence) {
+  if (context.workflow === SAVED_WORKFLOW)
+    return validateSavedContext(context, evidence, readReconciliationSource);
   if (
     !['observed-synthesis-v2', 'observed-synthesis-v3'].includes(
       context.workflow,
@@ -581,11 +588,24 @@ export function validateContext(context) {
   )
     errors.push('complete coverage requires unique reconciled expectedIds');
   if (
+    context?.workflow === SAVED_WORKFLOW &&
+    (!Array.isArray(context.nodeIds) ||
+      context.nodeIds.some(
+        (id) => typeof id !== 'string' || !/^[\w.-]+$/.test(id),
+      ) ||
+      new Set(context.nodeIds).size !== context.nodeIds.length ||
+      context.readOnly !== true)
+  )
+    errors.push(
+      'saved scheme requires unique actual nodeIds and read-only scope',
+    );
+  if (
     context?.workflow !== undefined &&
     ![
       'observed-synthesis-v1',
       'observed-synthesis-v2',
       'observed-synthesis-v3',
+      SAVED_WORKFLOW,
     ].includes(context.workflow)
   )
     errors.push('unsupported overview workflow version');
@@ -762,6 +782,8 @@ function witnessedTable(lines, heading, columns, errors) {
 }
 
 export function validateFinalReport(raw, context) {
+  const saved = context.workflow === SAVED_WORKFLOW;
+  const synthesisIds = saved ? context.nodeIds : context.observedIds;
   const contextErrors = validateContext(context);
   if (contextErrors.length) return { contextErrors, errors: [] };
   const errors = [];
@@ -785,7 +807,8 @@ export function validateFinalReport(raw, context) {
     errors.push('unsupported raw HTML/comment outside fences');
   const title = lines.findIndex(
     (line) =>
-      line === `PROJECT OVERVIEW — all open umbrellas (${context.date})`,
+      line ===
+      `PROJECT OVERVIEW — ${saved ? 'admitted saved coordination scheme' : 'all open umbrellas'} (${context.date})`,
   );
   if (title < 0)
     errors.push('dated header missing or differs from capture date');
@@ -894,7 +917,7 @@ export function validateFinalReport(raw, context) {
         );
     }
   }
-  if (context.observedIds !== undefined) {
+  if (synthesisIds !== undefined) {
     const observed = witnessedTable(
       lines,
       '## Observed work synthesis',
@@ -911,11 +934,11 @@ export function validateFinalReport(raw, context) {
     const identities = observed.map((row) => row[0]);
     if (
       new Set(identities).size !== identities.length ||
-      identities.length !== context.observedIds.length ||
-      identities.some((id) => !context.observedIds.includes(id))
+      identities.length !== synthesisIds.length ||
+      identities.some((id) => !synthesisIds.includes(id))
     )
       errors.push('observed inventory differs from independent witness');
-    if (rows.some((id) => !context.observedIds.includes(id)))
+    if (rows.some((id) => !synthesisIds.includes(id)))
       errors.push('queue identity absent from observed inventory');
     for (const row of observed) {
       if (
@@ -949,7 +972,7 @@ export function validateFinalReport(raw, context) {
           );
       }
       if (
-        context.workflow === 'observed-synthesis-v3' &&
+        (context.workflow === 'observed-synthesis-v3' || saved) &&
         !['Authorized alternatives', 'Concurrency conditions'].every((label) =>
           new RegExp(label + ':\\s*[^;\\s][^;]*').test(row[3]),
         )
@@ -991,7 +1014,7 @@ export function validateFinalReport(raw, context) {
       )
     )
       errors.push('claim-policy must explain GO, RED and STOP outcomes');
-    if (context.workflow === 'observed-synthesis-v3') {
+    if (context.workflow === 'observed-synthesis-v3' || saved) {
       const policy =
         lifecycle.find((row) => row[0] === 'task-review')?.[1] ?? '';
       if (
@@ -1129,29 +1152,37 @@ export function validateFinalReport(raw, context) {
       }
     }
   }
-  const countPrefix = context.coverage === 'complete' ? 'Total' : 'Observed';
-  const count = text.match(
-    new RegExp(
-      `^${countPrefix} open umbrellas: (\\d+) \\([^\\n]+\\)\\.?$`,
-      'm',
-    ),
-  );
-  if (
-    lines.filter((line) =>
-      /^(?:Total|Observed) open umbrellas:/.test(line.trimStart()),
-    ).length !== 1
-  )
-    errors.push('exactly one unambiguous count statement required');
-  if (!count || Number(count[1]) !== rows.length)
-    errors.push('count missing or differs from queue');
-  if (context.coverage === 'complete') {
+  if (!saved) {
+    const countPrefix = context.coverage === 'complete' ? 'Total' : 'Observed';
+    const count = text.match(
+      new RegExp(
+        `^${countPrefix} open umbrellas: (\\d+) \\([^\\n]+\\)\\.?$`,
+        'm',
+      ),
+    );
     if (
-      rows.length !== context.expectedIds.length ||
-      rows.some((id) => !context.expectedIds.includes(id))
+      lines.filter((line) =>
+        /^(?:Total|Observed) open umbrellas:/.test(line.trimStart()),
+      ).length !== 1
     )
-      errors.push('queue differs from externally reconciled inventory');
-  } else if (!count?.[0].includes('completeness UNKNOWN; STOP'))
-    errors.push('partial count requires completeness UNKNOWN; STOP');
+      errors.push('exactly one unambiguous count statement required');
+    if (!count || Number(count[1]) !== rows.length)
+      errors.push('count missing or differs from queue');
+    if (context.coverage === 'complete') {
+      if (
+        rows.length !== context.expectedIds.length ||
+        rows.some((id) => !context.expectedIds.includes(id))
+      )
+        errors.push('queue differs from externally reconciled inventory');
+    } else if (!count?.[0].includes('completeness UNKNOWN; STOP'))
+      errors.push('partial count requires completeness UNKNOWN; STOP');
+  } else if (
+    rows.length !== context.expectedIds.length ||
+    rows.some((id) => !context.expectedIds.includes(id))
+  )
+    errors.push(
+      'saved inspection queue differs from explicitly selected identities',
+    );
   const nextActions = [
     ...text.matchAll(
       /(?:First permitted action:|Permitted next action:|Read existing kickoff|Первое разрешённое действие:|Разрешённое следующее действие:|Прочитать существующий kickoff)([^\n]+)/g,
@@ -1225,16 +1256,18 @@ if (isMainEntry(import.meta.url)) {
     }
     const context = JSON.parse(options.get('--context'));
     if (
-      ['observed-synthesis-v2', 'observed-synthesis-v3'].includes(
-        context.workflow,
-      ) &&
+      [
+        'observed-synthesis-v2',
+        'observed-synthesis-v3',
+        SAVED_WORKFLOW,
+      ].includes(context.workflow) &&
       !options.has('--evidence')
     )
       throw new Error(
         'current source-bound workflow requires independent --evidence collector file',
       );
     if (
-      context.workflow === 'observed-synthesis-v3' &&
+      ['observed-synthesis-v3', SAVED_WORKFLOW].includes(context.workflow) &&
       !options.has('--terminal')
     )
       throw new Error(
@@ -1314,6 +1347,14 @@ if (isMainEntry(import.meta.url)) {
           );
         }
       }
+    } else if (context.workflow === SAVED_WORKFLOW) {
+      if (!options.has('--reconciliation') || !options.has('--review'))
+        throw new Error(
+          'saved scheme requires actual source-read --reconciliation and --review artifacts',
+        );
+      ledgerBytes = readFileSync(options.get('--reconciliation'));
+      ledger = JSON.parse(ledgerBytes.toString('utf8'));
+      review = JSON.parse(readFileSync(options.get('--review'), 'utf8'));
     } else if (options.has('--reconciliation') || options.has('--review')) {
       throw new Error(
         'reconciliation artifacts require the current version binding',
@@ -1360,7 +1401,11 @@ if (isMainEntry(import.meta.url)) {
       const result = validateFinalReport(raw, context);
       if (terminal !== null)
         result.errors.push(...validateTerminal(terminal, context, raw));
-      if (ledger)
+      if (context.workflow === SAVED_WORKFLOW)
+        result.errors.push(
+          ...validateSavedReport(raw, evidence, ledger, review, ledgerBytes),
+        );
+      else if (ledger)
         result.errors.push(
           ...validateSourceReconciliation(
             ledger,

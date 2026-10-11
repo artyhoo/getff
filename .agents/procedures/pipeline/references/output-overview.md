@@ -251,3 +251,51 @@ separate. A truly empty or independent graph requires honest text, not a fabrica
 - Wrong if `### Stage — overview only` placeholder is interpreted by a downstream tool as a real Stage block — placeholder text explicitly disambiguates («overview only; drilled-down via /pipeline <umbrella>»).
 
 ---
+
+## Explicit saved coordination snapshot
+
+A direct operator request may select `saved-coordination-v1` for a separately
+admitted immutable coordination scheme. This is read-only and does not convert
+milestones into observed/open umbrellas. Ordinary `observed-synthesis-v3` collection,
+source reconciliation and native trust requirements remain unchanged. No implicit
+fallback, cap reset, worker, extra review or collector relabelling is permitted.
+
+Capture actual sources with `captureSavedCoordination` from
+`../helpers/saved-coordination.mjs`, passing the existing bounded
+`readReconciliationSource` reader, exact admission path, bound project root and
+explicit compact owner paths. Admission must pin PLAN.md, DEPENDENCIES.md,
+dependencies.json and SCHEME-ACCEPTANCE.json. Current bytes, complete canonical
+resources, owner snapshots and accepted graph hashes/counts are checked again by
+ordinary `check-final-report.mjs --context <JSON> --evidence <capture.json>
+--terminal <terminal.md> --reconciliation <ledger.json> --review <review.json>`.
+Keep every flag. Context uses workflow, population=`coordination-nodes`, nodeIds
+from actual graph, admissionSHA256, complete snapshot coverage, readOnly=true,
+actual date/host/invocation and expectedIds for selected inspection queue only.
+Do not supply observedIds/sourceBindings for saved milestones.
+
+Use the same complete grammar, synthesis, priorities, lifecycle, review and terminal
+contracts. Header is `PROJECT OVERVIEW — admitted saved coordination scheme (DATE)`
+with opening/closing separators. Exact population line is
+`Saved coordination nodes: N. Typed edges: M. Global open-umbrella completeness UNKNOWN; STOP.`
+The first Mermaid declares each saved node and every typed edge exactly once,
+using e001-style ordered IDs; a visible text row per edge preserves its endpoints,
+type and complete operative condition. Hard cycles reject; resource locks and
+conditional links remain predicates. All nodes remain in the synthesis; the queue
+contains selected inspections, with unavailable dispatch and concrete next gates.
+
+The report-bound ledger uses workflow, reportSHA256, sourceReads (every captured
+input/resource/owner path, hash, startLine=1 and actual full endLine) and rows
+(id, graphPointer=/nodes/index, exact synthesis rowSHA256, attributed sourcePaths).
+The review receipt binds reportSHA256, ledgerSHA256 and exact nodeIds. Actual
+UNAVAILABLE/REVISE diagnostics stay visible; GO requires distinct actual reviewer,
+implementer, capability/native evidence and no unresolved major finding. Mechanical
+acceptance binds bytes/grammar/graph and does not independently certify semantic
+reading, owner freshness, hook trust, program completion or publication. Preserve
+actual task-specific correction caps even after final-review/CI failures.
+
+Language tokens still come from the actual installed emitter. If the operator
+requires English durable artifacts while chat uses another language, explicitly
+qualify any process-local AIF_HOOK_LANG=en on the checker command; do not alter
+user configuration or claim default-language execution. Preserve rejected output
+and actual diagnostics; changed inputs/approved seam recovery require attributable
+invocation receipts rather than hidden retries.
