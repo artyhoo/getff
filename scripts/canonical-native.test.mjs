@@ -103,7 +103,7 @@ test('consumer native bindings run the delivered authority check without contrib
     } }));
     const { hooks, degradations } = consumerCodexHooks(root);
     assert.equal(hooks.PostToolUse.length, 1, 'only registered delivered framework shell commands are adapted');
-    assert.equal(hooks.PostToolUse[0].matcher, 'Edit|Write');
+    assert.equal(hooks.PostToolUse[0].matcher, 'Edit|apply_patch|Write');
     assert.equal(hooks.PostToolUseFailure, undefined);
     assert.equal(degradations.length, 1);
     mkdirSync(join(root, '.codex'), { recursive: true });

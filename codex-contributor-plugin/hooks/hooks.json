@@ -13,7 +13,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "AskUserQuestion",
+        "matcher": "AskUserQuestion|request_user_input|request_user_input_async",
         "hooks": [
           {
             "type": "command",
@@ -45,7 +45,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|apply_patch|Write",
         "hooks": [
           {
             "type": "command",
@@ -55,7 +55,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|apply_patch|Write",
         "hooks": [
           {
             "type": "command",
@@ -65,7 +65,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|Read|Bash|exec_command",
+        "matcher": "Edit|apply_patch|Write|Read|Bash|exec_command",
         "hooks": [
           {
             "type": "command",
@@ -75,7 +75,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|apply_patch|Write",
         "hooks": [
           {
             "type": "command",
@@ -85,7 +85,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|apply_patch|Write",
         "hooks": [
           {
             "type": "command",
@@ -95,7 +95,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|apply_patch|Edit",
         "hooks": [
           {
             "type": "command",
@@ -105,7 +105,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|apply_patch|Write",
         "hooks": [
           {
             "type": "command",
@@ -115,7 +115,7 @@
         ]
       },
       {
-        "matcher": "Write",
+        "matcher": "Write|apply_patch",
         "hooks": [
           {
             "type": "command",
@@ -125,7 +125,7 @@
         ]
       },
       {
-        "matcher": "Bash",
+        "matcher": "Bash|exec_command",
         "hooks": [
           {
             "type": "command",

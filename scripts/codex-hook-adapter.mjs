@@ -149,7 +149,7 @@ function shellReads(input) {
 }
 
 function wildcard(pattern, slash = false) {
-  if (/[?[\]{}()\\]/.test(pattern)) return null;
+  if (/[?\[\]{}()\\]/.test(pattern)) return null;
   const escaped = pattern
     .split(/(\*\*|\*)/)
     .map((part) =>
@@ -768,13 +768,47 @@ export function runHook(root, script, input) {
       maxBuffer: 8 * 1024 * 1024,
     },
   );
-  // Coordination prints its entire symlink census; it is setup output, not model context.
-  if (script === 'link-coordination') result.stdout = '';
+  // Preserve only the canonical SessionStart command's explicit best-effort policy.
+  // A malformed/missing model or any other hook failure stays blocking.
+  if (script === 'link-coordination') {
+    result.stdout = '';
+    if (input.hook_event_name === 'SessionStart' && result.status > 0) {
+      let nonblocking = false;
+      try {
+        const model = JSON.parse(
+          readFileSync(join(root, '.ai-factory/harness-model.json'), 'utf8'),
+        );
+        nonblocking = (model.hooks?.SessionStart ?? []).some(
+          (entry) =>
+            typeof entry.command === 'string' &&
+            entry.command.includes(
+              '"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh"',
+            ) &&
+            entry.command.trimEnd().endsWith('|| true'),
+        );
+      } catch {
+        /* Missing or malformed policy never downgrades a failure. */
+      }
+      if (nonblocking) {
+        result.status = 0;
+        result.stdout = JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: `[coordination warning] Startup continued under the canonical nonblocking registration. Coordination did not complete; inspect the diagnostic before relying on shared files.\n${result.stderr}`,
+          },
+        });
+        result.stderr = '';
+      }
+    }
+  }
   return result;
 }
 
 export function dispatch(input, script, root) {
   const event = input.hook_event_name;
+  // Guard native Stop retries before transcript/helper adaptation can loop.
+  if (event === 'Stop' && input.stop_hook_active === true)
+    return { status: 0, stdout: '', stderr: '' };
   let variants;
   try {
     variants = normalizeInput(input);
@@ -969,11 +1003,28 @@ export function dispatch(input, script, root) {
 if (isMainEntry(import.meta.url)) {
   try {
     const input = JSON.parse(readFileSync(0, 'utf8'));
-    const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+    // A packaged plugin passes the active checkout explicitly. Consumer copies
+    // retain their physical local root; never bind the checkout to plugin cache.
+    const root = realpathSync(
+      resolve(
+        process.argv[3] ??
+          resolve(dirname(fileURLToPath(import.meta.url)), '..'),
+      ),
+    );
     const physicalCwd = realpathSync(input.cwd ?? '.');
     const consumerRelative = relative(root, physicalCwd);
+    let nearestConsumer = physicalCwd;
+    while (!existsSync(join(nearestConsumer, '.codex/hooks.json'))) {
+      const parent = dirname(nearestConsumer);
+      if (parent === nearestConsumer) {
+        nearestConsumer = null;
+        break;
+      }
+      nearestConsumer = parent;
+    }
     const withinConsumer =
       existsSync(join(root, '.codex/hooks.json')) &&
+      nearestConsumer === root &&
       consumerRelative !== '..' &&
       !consumerRelative.startsWith('../') &&
       !isAbsolute(consumerRelative);
@@ -983,7 +1034,12 @@ if (isMainEntry(import.meta.url)) {
         ['-C', input.cwd ?? '.', 'rev-parse', '--show-toplevel'],
         { encoding: 'utf8' },
       );
-      if (gitRoot.stdout?.trim() !== root) process.exit(0);
+      if (nearestConsumer && nearestConsumer !== root) process.exit(0);
+      if (
+        !gitRoot.stdout?.trim() ||
+        realpathSync(gitRoot.stdout.trim()) !== root
+      )
+        process.exit(0);
     }
     input.cwd = physicalCwd;
     const script = process.argv[2];
