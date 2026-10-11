@@ -36,7 +36,15 @@ Wave 2 — after Wave 1 merges:
 Total open umbrellas: <K> (after §2.5 completion-filter; recently DONE entries hidden).
 
 ### Stage — overview only
-(no per-stage 1-liner; this overview MUST be drilled-down via /pipeline <umbrella> for dispatch)
+(informational actions only; no new worker launch inferred from this overview)
+
+#### Action — <work identity> (<continue existing task / inspect / blocked>)
+**What it does:** <specific permitted action, in plain language>
+**Deliverable:** <useful result or actual unmet gate evidence>
+**Why now:** <source-bound reason and dependencies>
+**Owner / existing task:** <verified owner and task identity, or UNKNOWN>
+**Ready prompt:**
+<copy-ready prompt carrying the source path/anchor, allowed action and stop conditions>
 ═══════════════════════════════════════════════════════════════
 ```
 
@@ -49,6 +57,26 @@ chat still includes the leading priorities, real dependency graph and limits.
 Use `$pipeline <name>` and “new Codex chat” on Codex. Priority order is not a
 `Depends on` edge. Missing mutual parallel declarations mean unknown safety, not
 an invented sequential dependency. Marker-only completion remains unverified.
+
+**Readable action prompts (all informational overview and detailed named output):**
+For each selected next action, include the description and a copy-ready prompt, not
+only the work slug or a drill-down command. Put the complete action set in the attached
+report when it is large; include leading useful actions in chat. Keep the existing queue,
+observed synthesis and identity witness complete. The overview-only footer is informational,
+not permission to launch a worker.
+
+For IN-FLIGHT work, name the existing task and accountable owner from the actual receipt,
+with its observed head/status/time when known. The prompt says to continue or reconcile
+that same task and remaining gates; it forbids a new session, duplicate task, lane claim or
+replacement worker. An old ACK is evidence of that observation, not current readiness:
+verify ownership and current state before any effectful continuation. For blocked work,
+provide the exact next permitted inspection or unmet prerequisite; never disguise it as
+a runnable stage. Unknown ownership or unavailable probes stay UNKNOWN. Read the actual
+kickoff section before naming an action or deliverable. Preserve each source's admission,
+review, rework, fidelity, CI and merge gates; generating a prompt passes none of them.
+Use host-native invocation syntax only when invoking a skill is genuinely the next action.
+A continuation prompt can be plain text for the existing owner; it does not need a new-chat
+chip. A new launch requires separately satisfied source gates and current authorization.
 
 **Observed synthesis table (empty / 0):** after the action queue and before the
 overview-only footer, include `## Observed work synthesis` with these literal

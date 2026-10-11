@@ -297,7 +297,7 @@ EOF
       if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" && getff_bytes_intact "$PROJECT_ROOT/$_r2_root_cfg"; then
         echo "  · R2 boundary layout ambiguous → RULE_GLOBS.boundary in eslint.config.mjs keeps its default globs; scripts/check-rule-globs.sh fails, naming them, if they match no source file"
       elif getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
-        echo "  · R2 boundary layout ambiguous → getff placed $_r2_root_cfg, and it has been edited since, so it is left as it is; once the install finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call) it adds what R2 lacks there, or lists it under NOT wired"
+        echo "  · R2 boundary layout ambiguous → getff placed $_r2_root_cfg, and it has been edited since, so this R2 boundary pass makes no change; the later additive pass may append getff-owned tooling ignores; once the install finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call) it adds what R2 lacks there, or lists it under NOT wired"
       else
         echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
       fi ;;
@@ -432,6 +432,8 @@ _own_eslint_ignores() {
   local rel
   for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts scripts/prove-rules.mjs .dependency-cruiser.mjs \
              scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs \
+             .agents/tools/docs/markdownlint-cli2.bundle.mjs .agents/tools/install/rule-bootstrap-cli.bundle.mjs \
+             .agents/tools/validator/gate-single-token-diff.ts \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done

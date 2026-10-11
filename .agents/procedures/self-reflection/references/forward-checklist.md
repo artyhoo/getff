@@ -10,7 +10,7 @@ Apply each layer in order. Failure on any single layer → recommendation is **p
 If the proposal includes TS / JS code (tests, principles, installer logic, sub-agents):
 
 - TypeScript strict + `noUncheckedIndexedAccess` — proposed code typechecks?
-- ESLint 10 flat config (`eslint.config.mjs`) — passes?
+- ESLint flat config (`eslint.config.mjs`) — passes with the project's declared and installed version? Read its package manifest and lockfile; for generated consumers, the dependency policy is owned by [setup.d/70-deps.sh](../../../../setup.d/70-deps.sh), not a copied version number in this checklist.
 - `dependency-cruiser` — no cycles, no banned imports, layer respect?
 - For UI: R12-R20 (server/client boundary, R17 Storybook stories, etc).
 
@@ -63,7 +63,7 @@ For every new `.md` file the proposal claims to create:
 
 ## Layer 7 — User-value goal lens
 
-[README.md#why-this-exists](../../../../README.md): «AI agents (Claude, Cursor, Copilot, Aider) write plausible-looking code that reliably violates undocumented conventions. This package operationalizes the principle: every rule that governs your codebase is an executable test that fails the build when violated.»
+Read the current goal at [README.md#why-this-exists](../../../../README.md). Each codified rule must fail when violated at its earliest reachable enforcement channel: edit-time → pre-commit → pre-push → CI → production audit. CI is the last-resort gate.
 
 For each new rule the proposal introduces, ask:
 
@@ -71,4 +71,4 @@ For each new rule the proposal introduces, ask:
 - If prose-only — is the prose-only state intentional and documented (e.g. «process rule, ladder of enforcement at level 4»), or is it an undocumented-rule failure mode in disguise?
 - Are claimed enforcement points actually enforced (real test, real CI gate, real pre-push), or are they aspirational?
 
-This layer catches the «I introduced a rule, but didn't make it fail CI» drift — same shape as «documents lie; tests don't» applied to the act of introducing rules.
+This layer catches a claimed rule without verified enforcement at its earliest reachable channel. Verify the actual violation rejection at the claimed channel; a green CI run alone does not establish that enforcement.

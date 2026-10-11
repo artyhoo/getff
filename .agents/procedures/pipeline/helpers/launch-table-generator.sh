@@ -111,6 +111,46 @@ detect_subwaves() {
       }
       END { flush_pending() }
     ' "${KICKOFF}"
+  elif grep -qE '^## §[0-9]+ [Ss]tages([[:space:]]|$)' "${KICKOFF}" 2>/dev/null; then
+    # Stage-index tables declare their scope and linked kickoff column explicitly.
+    # Descriptive labels such as **S0a — source-holes batch** identify S0a, not a
+    # new mode or dispatch permission. Other tables in the kickoff stay out of scope.
+    awk '
+      function flush_pending() { if (pending != "") print pending; pending = "" }
+      function clean(value) {
+        gsub(/[*]/, "", value)
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        return value
+      }
+      /^## §[0-9]+ [Ss]tages([[:space:]]|$)/ { flush_pending(); in_section = 1; kickoff_col = 0; next }
+      in_section && /^## / { flush_pending(); in_section = 0; kickoff_col = 0; next }
+      in_section && /^\|/ {
+        if ($0 ~ /^\|[[:space:]:|-]*\|[[:space:]:|-]*$/) {
+          pending = ""
+          if (prior_label != "stage") kickoff_col = 0
+          next
+        }
+        flush_pending()
+        n = split($0, cells, "|")
+        label = clean(cells[2])
+        prior_label = tolower(label)
+        if (tolower(label) == "stage") {
+          kickoff_col = 0
+          for (i = 3; i < n; i++) if (tolower(clean(cells[i])) == "kickoff") kickoff_col = i
+          next
+        }
+        if (!kickoff_col || cells[kickoff_col] !~ /\]\([^)]*\.md(#[^)]*)?\)/) next
+        # Accept an id alone or an id followed by an explicit descriptive dash.
+        if (label ~ /^([A-Za-z][A-Za-z0-9-]*|[0-9]+)$/) pending = label
+        else if (label ~ /^([A-Za-z][A-Za-z0-9-]*|[0-9]+)[[:space:]]+—[[:space:]]+/) {
+          sub(/[[:space:]]+—.*/, "", label)
+          pending = label
+        }
+      }
+      in_section && !/^\|/ { flush_pending(); kickoff_col = 0; prior_label = "" }
+      END { flush_pending() }
+    ' "${KICKOFF}"
   else
     # FALLBACK PATH: original keyword-filter behavior (F.3 Option A).
     # Handles kickoffs that don't have a recognizable Sub-wave section heading,
@@ -170,7 +210,7 @@ if [[ "${_parse_rc}" -ne 0 && -n "${_sw_rows}" ]]; then
   exit 1
 fi
 if [[ -z "${_sw_rows}" ]]; then
-  echo "DEGRADE: launch-table-generator parsed 0 sub-wave rows from $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md — neither a '## §N Sub-wave' section with parseable id rows nor a keyword-filter table matched (id grammar: | <id> | where id is [A-Za-z][A-Za-z0-9-]* or [0-9]+; keyword fallback needs an orchestration-mode keyword in the row). Fill the launch table manually from the kickoff, or fix the table shape."
+  echo "DEGRADE: launch-table-generator parsed 0 sub-wave rows from $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md — neither a '## §N Sub-wave' id table, a '## §N Stages' table with linked Kickoff cells, nor a keyword-filter table matched (id grammar: | <id> | where id is [A-Za-z][A-Za-z0-9-]* or [0-9]+; keyword fallback needs an orchestration-mode keyword in the row). Fill the launch table manually from the kickoff, or fix the table shape."
   exit 1
 fi
 printf '%s\n' "${_sw_rows}" | sed 's/^/  sub-wave: /'

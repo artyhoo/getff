@@ -91,3 +91,59 @@ test('delta set difference is read-only and corruption rejects without output', 
   assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /NEW-SINCE-LAST: -special/); assert.match(r.stdout, /NEW-SINCE-LAST: space id/);
   r = run('delta-diff.sh', [empty, 'new']); assert.equal(r.status, 1); assert.equal(r.stdout, '');
 });
+
+// Captured stage-index schema: actual getff-ai-site kickoff SHA e442cbae007091129ddbe44aa65c97c23e8cdd0de57e1541d46ac08f7311565f.
+// Stage topology is fixture input, not current readiness or launch authority.
+const stageIndex = `# Site
+## §1 Stages
+| Stage | Dispatch channel | Kickoff |
+|---|---|---|
+| **S0a — source-holes batch** (+ the D29 generator BUILD) | aif on GLM | [kickoff-s0a.md](kickoff-s0a.md) |
+| **S0q — quality-layer build** (D50) | aif on GLM | [kickoff-s0q.md](kickoff-s0q.md) |
+| **S0b — gold pages + rules** (D40, D41) | **a NEW clean Fable session, never an aif profile** | [kickoff-s0b.md](kickoff-s0b.md) |
+| **S1 — conveyor, BUILD then RUN** | aif on GLM, two tasks (R23) | [kickoff-s1.md](kickoff-s1.md) |
+| **S2 — landing cutover** | aif on GLM + operator hands | [kickoff-s2.md](kickoff-s2.md) |
+## §2 Name inventory
+| Name | Kind |
+|---|---|
+| F1b | repo skill |
+`;
+function runStageIndex(body) {
+  const root = mkdtempSync(join(tmpdir(), 'pipeline stage index with spaces '));
+  const orch = join(root, '.ai-factory/orchestrator-prompts');
+  mkdirSync(join(orch, 'site'), { recursive: true });
+  mkdirSync(join(root, 'nested cwd'));
+  writeFileSync(join(orch, 'site/kickoff.md'), body);
+  try {
+    return spawnSync('/bin/bash', [join(helpers, 'launch-table-generator.sh'), 'site'], {
+      cwd: join(root, 'nested cwd'), env: { ...process.env, REPO_ROOT: root, MO_ORCH_HOME: orch }, encoding: 'utf8',
+    });
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}
+test('linked descriptive stage-index rows yield exactly the declared topology from nested cwd', () => {
+  const result = runStageIndex(stageIndex);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.deepEqual([...result.stdout.matchAll(/^  sub-wave: (.+)$/gm)].map((m) => m[1]), ['S0a', 'S0q', 'S0b', 'S1', 'S2']);
+  assert.match(result.stdout, /\| S0a \| \? \| \? \|/);
+  assert.doesNotMatch(result.stdout, /sub-wave: (Stage|Name|F1b)|DEGRADE:|launchable|review passed/);
+});
+test('unlinked or unrelated tables remain explicit DEGRADE without a skeleton', () => {
+  for (const body of [stageIndex.replaceAll(/\]\([^)]*\)/g, ']'), stageIndex.replace('## §1 Stages', '## §1 Inventory')]) {
+    const result = runStageIndex(body);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stdout, /DEGRADE:/);
+    assert.doesNotMatch(result.stdout, /table skeleton|sub-wave:/);
+  }
+});
+test('ordinary sub-wave sections retain their existing id and unknown-judgment contract', () => {
+  const result = runStageIndex('# Ordinary\n## §2 Sub-wave order\n| Sub-wave | Work |\n|---|---|\n| A | read docs |\n| B | implement tests |\n');
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual([...result.stdout.matchAll(/^  sub-wave: (.+)$/gm)].map((m) => m[1]), ['A', 'B']);
+});
+
+test('an unrelated linked table in the same Stages section resets the stage binding', () => {
+  const body = stageIndex.replace('## §2 Name inventory', '| Artifact | Use | Source |\n|---|---|---|\n| FAKE — unrelated linked reference | background | [guide](guide.md) |\n## §2 Name inventory');
+  const result = runStageIndex(body);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual([...result.stdout.matchAll(/^  sub-wave: (.+)$/gm)].map((m) => m[1]), ['S0a', 'S0q', 'S0b', 'S1', 'S2']);
+});

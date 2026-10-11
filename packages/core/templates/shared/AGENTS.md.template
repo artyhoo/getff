@@ -126,7 +126,7 @@ npx playwright test                # E2E — react-next config only; needs @play
 ## Npm stack constraints (enforced)
 
 - TypeScript strict + `noUncheckedIndexedAccess`; Node.js version pinned in `.nvmrc` (CI depends on it).
-- ESLint 10 flat config — `eslint.config.mjs`.
+- ESLint flat config — `eslint.config.mjs`. Read the declared version in `package.json` and its resolved version in the lockfile.
 - Mutation kill rate ≥70% on the PR diff (Stryker incremental); coverage thresholds per-module (`vitest.config.ts`).
 - Architecture rules in `.dependency-cruiser.mjs` — fail on violation.
 

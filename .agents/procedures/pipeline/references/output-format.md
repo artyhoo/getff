@@ -163,8 +163,12 @@ conditions and corrective loops, not a replacement execution order. Unknown
 ownership, verdict, CI, trust, permission or merge state cannot become an active
 worker, passed gate, `NOW` queue row or authorized transition. Include a source-backed
 observed-status table beside the policy diagram; leave unsupported cells unknown.
-For an informational no-arg overview, these remain explanatory requirements;
-no worker is launched and no per-stage dispatch block is added.
+For an informational no-arg overview, no worker is launched and no new per-stage
+dispatch block is added. Include readable action prompts and descriptions in the
+overview-only footer: continue the identified existing task, inspect an unmet gate,
+or explain a source-bound blocker. Follow [the overview action contract](output-overview.md).
+A compact heading or a bare drill-down command does not satisfy the operator's request
+for useful prompts and descriptions.
 
 The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` blocks) are **mandatory** — principle 18 fails if any of the literal headings or the column substrings (§3) is missing from this file.
 

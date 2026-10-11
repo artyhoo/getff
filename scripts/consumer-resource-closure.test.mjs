@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 const root = resolve(import.meta.dirname, '..');
 test('one core install delivers both interfaces and mandatory read-only role resources', t => {
   const dir = mkdtempSync(join(tmpdir(), 'consumer closure space '));
@@ -155,4 +156,33 @@ test('docs role carries a scoped vocabulary reference without replacing the proj
   result=install('--refresh');assert.equal(result.status,0,result.stdout+result.stderr);
   assert.equal(readFileSync(reference,'utf8'),custom);assert.equal(readFileSync(glossary,'utf8'),owned);
   assert.equal(readFileSync(names,'utf8'),ownedNames,'marked project naming style remains active after refresh');
+});
+
+test('consumer ESLint excludes only recorded delivered portable tools and still rejects user code', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'owned tool lint with spaces '));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const delivered = ['.agents/tools/docs/markdownlint-cli2.bundle.mjs', '.agents/tools/install/rule-bootstrap-cli.bundle.mjs', '.agents/tools/validator/gate-single-token-diff.ts'];
+  const source = readFileSync(join(root, 'setup.d/eslint-wire.sh'), 'utf8');
+  const policy = source.match(/^_own_eslint_ignores\(\) \{[\s\S]*?^\}/m)?.[0];
+  assert.ok(policy, 'actual installer ownership policy is present');
+  // The delivery predicate is supplied fixture metadata, not an all-files exemption.
+  const shell = `getff_delivered() { for item in ${delivered.map(p => "'" + p + "'").join(' ')}; do [ "$1" = "$PROJECT_ROOT/$item" ] && return 0; done; return 1; }\n${policy}\n_own_eslint_ignores\n`;
+  const result = spawnSync('/bin/bash', [], { input: shell, env: { ...process.env, PROJECT_ROOT: dir }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const ignores = result.stdout.trim().split('\n');
+  for (const path of delivered) assert.ok(ignores.includes(path), path);
+  assert.ok(!ignores.includes('.agents/tools/**'), 'user-owned tools retain enforcement');
+  for (const path of [...delivered, '.agents/tools/custom.mjs', 'src/violation.mjs']) {
+    mkdirSync(join(dir, path, '..'), { recursive: true });
+    writeFileSync(join(dir, path), 'console.log("violation");\n');
+  }
+  const config = 'export default [{files:["**/*.mjs","**/*.ts"],rules:{"no-console":"error"}}];\n';
+  writeFileSync(join(dir, 'eslint.config.mjs'), config);
+  const { ESLint } = createRequire(join(root, 'packages/core/package.json'))('eslint');
+  const lint = new ESLint({ cwd: dir, overrideConfig: [{ ignores }], warnIgnored: false });
+  for (const path of delivered) assert.equal(await lint.isPathIgnored(join(dir, path)), true, path);
+  const results = await lint.lintFiles(['.agents/tools/custom.mjs', 'src/violation.mjs']);
+  assert.equal(results.length, 2);
+  assert.ok(results.every(r => r.messages.some(m => m.ruleId === 'no-console')));
+  assert.equal(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8'), config, 'user rule bytes unchanged');
 });

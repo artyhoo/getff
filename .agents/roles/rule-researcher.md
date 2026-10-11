@@ -170,7 +170,9 @@ Reuse the project's detector when available (AIF `/aif`, or read `package.json` 
 
 ### 1b. Read the base core's pending principles
 
-Before the stack docs, open `.claude/skills/getff/references/base-core.md` (installed with getff). Take every
+Before the stack docs, open `.agents/procedures/getff/references/base-core.md` from the bound
+consumer root (the common core installed with getff). The host-native skill aliases are not
+required to read this resource. Do not substitute a different checkout if it is missing. Take every
 row of its table with column `status` = `` `not_wired` `` AND column `reason` = `generated-pending`: those
 principles fire only once THIS project's own rule for them is placed and proven. Research a per-project rule for
 each one the stack's canonical docs support, like any other practice below. Carry the link back in the entry's

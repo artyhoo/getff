@@ -75,7 +75,9 @@ bash ".agents/procedures/pipeline/helpers/read-plan-cache.sh"
 
 The report contains `## Dependency graph` with an inline Mermaid DAG on rendering surfaces
 and a compact `↓` text fallback showing the same inter-stage edges, `## Action queue` with
-`Paste into a new CC tab` and `Can parallel with` columns, then one `### Stage` block per stage (empty/0 uses the overview-only placeholder).
+`Paste into a new CC tab` and `Can parallel with` columns, then one `### Stage` block per stage. Empty/0 keeps the overview-only footer and includes
+readable, source-bound continuation or inspection prompts with descriptions there; an in-flight
+entry points to its existing owner/task, never a duplicate session or worker.
 Use the complete grammar and mode examples in [output-format](references/output-format.md).
 
 **Dispatch chips:** only when `spawn_task` is invocable. Before emission read output-format §9/§9A.
