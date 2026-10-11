@@ -4,12 +4,12 @@ description: The rule that every Claude Code-native artifact either has a portab
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/dual-implementation-discipline.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/dual-implementation-discipline.md
+  - .agents/rules/00-rule-index.md
   - tests/agnosticism/probes/channel-coverage.sh
   - tests/agnosticism/probes/brand-detection.sh
-  - .claude/hooks/check-hook-marker.sh
-  - agents/dual-channel-drift-auditor.md
+  - .agents/hooks/check-hook-marker.sh
+  - .agents/roles/dual-channel-drift-auditor.md
   - tests/agnosticism/harness-self.test.sh
   - packages/core/principles/21-agnosticism-conformance.test.ts
   - docs/site/reference/F1.json
@@ -125,7 +125,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   (Surface 10); seeded-break paired-negatives in
   `tests/agnosticism/harness-self.test.sh`.
 - The named cold agent for the semantic anti-patterns:
-  `agents/dual-channel-drift-auditor.md` — its un-gateability (38% precision)
+  `.agents/roles/dual-channel-drift-auditor.md` — its un-gateability (38% precision)
   is recorded in the rule's §8 from `:194` onward and its §9 promotion history
   at `:212`.
 - The index row grading this rule class `A` with channels

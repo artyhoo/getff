@@ -4,8 +4,8 @@ description: The rule that a CI job's behaviour must not depend on what a regist
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/ci-tool-pinning.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/ci-tool-pinning.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/unpinned-tool-install.ts
   - packages/core/hooks/pre-push.ts
   - packages/core/hooks/unpinned-tool-install.test.ts

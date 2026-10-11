@@ -4,11 +4,11 @@ description: The rule that this project's installer installs only its own artifa
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/companion-install-principle.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/companion-install-principle.md
+  - .agents/rules/00-rule-index.md
   - setup.d/companions.manifest
   - setup.d/engine.sh
-  - .claude/hooks/inject-matching-rule.sh
+  - .agents/hooks/inject-matching-rule.sh
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
