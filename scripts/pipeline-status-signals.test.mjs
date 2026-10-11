@@ -93,3 +93,68 @@ JSON
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+function tasksProbe(tasks) {
+  const root = mkdtempSync(join(tmpdir(), 'pipeline-status-current-'));
+  try {
+    writeFileSync(join(root, 'tasks.json'), JSON.stringify(tasks));
+    writeFileSync(
+      join(root, 'curl'),
+      '#!/bin/sh\ncase "$*" in *health*) echo "{}";; *) cat "' +
+        join(root, 'tasks.json') +
+        '";; esac\n',
+      { mode: 0o755 },
+    );
+    writeFileSync(join(root, 'gh'), '#!/bin/sh\necho "[]"\n', { mode: 0o755 });
+    return spawnSync('bash', [helper], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: root + ':' + process.env.PATH },
+    });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+test('status summarizes terminal history and retains current task identity without review dumps', () => {
+  const result = tasksProbe([
+    { id: 'done-id', title: 'Historical completed task', status: 'done' },
+    {
+      id: 'verified-id',
+      title: 'Historical verified task',
+      status: 'verified',
+    },
+    {
+      id: 'current-id',
+      projectId: 'project-id',
+      title: 'Current work',
+      status: 'review',
+      manualReviewRequired: true,
+      reviewComments: 'UNBOUND_REVIEW_BODY'.repeat(20000),
+    },
+    { id: 'future-id', title: 'New status retained', status: 'future_unknown' },
+  ]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Terminal history: 2/);
+  assert.match(result.stdout, /current-id/);
+  assert.match(result.stdout, /project-id/);
+  assert.match(result.stdout, /future_unknown/);
+  assert.doesNotMatch(
+    result.stdout,
+    /Historical completed task|UNBOUND_REVIEW_BODY|answer parked question/,
+  );
+  assert.match(result.stdout, /parked question status unknown/);
+  assert.ok(Buffer.byteLength(result.stdout) < 5000);
+});
+test('large current populations are explicitly truncated, never declared empty', () => {
+  const result = tasksProbe(
+    Array.from({ length: 60 }, (_, i) => ({
+      id: 'active-' + i,
+      title: 'Active task ' + i,
+      status: 'implementing',
+    })),
+  );
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /40 additional current tasks/);
+  assert.doesNotMatch(result.stdout, /no running aif tasks|in-factory empty/);
+  assert.ok(Buffer.byteLength(result.stdout) < 10000);
+});

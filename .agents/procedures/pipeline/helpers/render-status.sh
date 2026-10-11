@@ -53,8 +53,17 @@ if $bridge_ok; then
     echo "  (factory task status unknown — tasks probe failed or invalid)"
     echo ""
   elif [ "$task_count" -gt 0 ] 2>/dev/null; then
-    echo "$tasks_json" | jq -r '.[] | "  - \(.title // .id) [\(.status)]"' 2>/dev/null \
-      || echo "  ($task_count tasks — bridge reachable, JSON parse failed)"
+    printf '%s' "$tasks_json" | jq -r '
+      def brief: tostring | gsub("[\\r\\n\\t]"; " ") | .[0:160];
+      [.[] | select(.status != "done" and .status != "verified")] as $current |
+      "  Total observed: \(length); current attention: \($current | length)",
+      "  Terminal history: \(length - ($current | length)) (done/verified; not acceptance proof)",
+      (group_by(.status)[] | "  Status count: \(.[0].status // "unknown")=\(length)"),
+      ($current[0:20][] | "  - id=\(.id // "unknown") project=\(.projectId // "unknown") \((.title // "untitled") | brief) [\(.status // "unknown")]"),
+      (if ($current | length) > 20 then "  (\(($current | length) - 20) additional current tasks omitted; inspect exact IDs at the task source)" else empty end),
+      "  blocked_external stays visible for attention; it is not a running worker."
+    ' 2>/dev/null || echo "  ($task_count tasks — bridge reachable, JSON parse failed)"
+    echo "  Task state is not owner/session binding or dispatch readiness; reconcile exact owner receipts."
     echo ""
   else
     echo "  (no running aif tasks)"
@@ -99,8 +108,13 @@ if ! $parked_probe_ok; then
   echo "  (parked question status unknown — canonical probe unavailable; fallback is a subset)"
 fi
 if [ "$parked_count" -gt 0 ] 2>/dev/null; then
-  printf '%s' "$parked_output" | jq -r '.[] | "  - \(.title // .id): \(.blockedReason // .reviewComments // "manual review required")"' 2>/dev/null \
-    || echo "  ($parked_count parked — see questions.ts for details)"
+  printf '%s' "$parked_output" | jq -r '
+    def brief: tostring | gsub("[\\r\\n\\t]"; " ") | .[0:160];
+    .[0:20][] | "  - id=\(.id // "unknown") project=\(.projectId // "unknown") \((.title // "untitled") | brief) [\(.status // "unknown")]: \((if (.blockedReason // "") != "" then .blockedReason else "parked signal; inspect canonical question and owner receipt" end) | brief)"
+  ' 2>/dev/null || echo "  ($parked_count parked — see questions.ts for details)"
+  if [ "$parked_count" -gt 20 ]; then
+    echo "  ($((parked_count - 20)) additional parked signals omitted; coverage remains qualified above)"
+  fi
   echo ""
 elif $parked_probe_ok; then
   echo "  (no parked questions)"
@@ -127,6 +141,7 @@ fi
 trace "prs=$pr_count"
 
 echo "### Ready-to-harvest + PR state"
+echo "  (mergeability is an inspection signal, not CI/review acceptance or merge permission)"
 if [ "$pr_count" -gt 0 ] 2>/dev/null; then
   # The `→` and the `mergeable=` label are LITERAL text and must sit outside the \(…)
   # interpolations. An earlier revision had them inside, which is a jq syntax error
@@ -149,7 +164,7 @@ fi
 echo "### Suggested next"
 suggestions=0
 
-# Priority 1: a mergeable PR ready to harvest.
+# Priority 1: inspect checks for a mergeable PR; readiness is not inferred.
 if [ "$pr_count" -gt 0 ] 2>/dev/null && [ -n "$prs_json" ] && command -v jq >/dev/null 2>&1; then
   ready_pr="$(printf '%s' "$prs_json" | jq -r '[.[] | select(.mergeable == "MERGEABLE")][0].number // empty' 2>/dev/null || true)"
   if [ -n "$ready_pr" ]; then
@@ -158,13 +173,14 @@ if [ "$pr_count" -gt 0 ] 2>/dev/null && [ -n "$prs_json" ] && command -v jq >/de
   fi
 fi
 
-# Priority 2: a parked question needing an answer.
+# Priority 2: inspect canonical questions; fallback signals do not authorize answers.
 if [ "$parked_count" -gt 0 ] 2>/dev/null; then
-  first_parked="$(printf '%s' "$parked_output" | jq -r '.[0].id // empty' 2>/dev/null || true)"
-  if [ -n "$first_parked" ]; then
-    echo "→ next: answer parked question on task $first_parked"
-    suggestions=$((suggestions + 1))
+  if [ -f "$questions_cli" ]; then
+    printf '→ next: npx --no-install tsx "%s" --json  (inspect canonical question and owner before answering)\n' "$questions_cli"
+  else
+    echo "→ next: /pipeline status  (canonical questions CLI missing; reconcile factory prerequisites and exact owner receipt)"
   fi
+  suggestions=$((suggestions + 1))
 fi
 
 # Priority 3: factory idle → dispatch.
