@@ -63,7 +63,7 @@ D49 forbids. Its rows are still greppable by slug from this file.
 | 1 — D28 §4 | the page-set table, the census URL paragraph, the post-census stub list | [`face.md:88`–`:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md); census set re-read at D33 ([`site-design.md:157`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) |
 | 2 — D29 families            | the eleven per-family JSONs the generator owns                                                                | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 236 members (re-measured 2026-10-07, see header); the rows in §3 are that read, ordered by D19's family order                                 |
 | 3 — Learn/Guides/Understand | the four sidebar tabs, `nav.json`, D19's task shape, D30's kind registry, and the R7/D37 successor obligation | per-row in §4; no row without a named source |
-| 5 — non-page URLs           | the live site's own tree                                                                                      | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883`                                                                                                                         |
+| 5 — legacy URL dispositions           | the live site's own tree                                                                                      | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883`                                                                                                                         |
 
 The population-2 rows are **generated**, not typed. An earlier draft of this paragraph described
 the rule in prose — «the member id with its extension dropped and `/` folded to `-`» — and the
@@ -113,7 +113,7 @@ The eleven face pages are **gold, written in S0b, never conveyor** — the hub `
 | `/docs/terms/` | `glossary` | S0b | gold (Fable) | D30 registry `glossary` («`terms.md` only»); `docs/site/terms.md`; `nav.json` `glossary` |
 | `/docs/executable-agents-md/` | `understand` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub; D12: How it works §3 and Why §proof LINK it |
 | `/docs/limits/` | `understand` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33); its stack table is a `maturity.json` fence region (D28 `:105`) |
-| `/docs/faq/` | **ESCALATED to D30** — fits none of the seven | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub |
+| `/docs/faq/` | `understand` — SITE-D002 delegated rewrite approval | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub |
 | `/llms.txt` | n/a — build projection | S1 BUILD (landing) | landing build | D28 §5.8 `face.md:293`; head authored as `docs/site/llms-head.txt` (S0b), lists generated from `face-facts.json` + family JSON |
 | `/llms-full.txt` | n/a — build projection | S1 BUILD (landing) | landing build | D28 §5.8 `face.md:304`; every page's processed markdown, face pages first |
 
@@ -137,14 +137,7 @@ that are readable today. The three, with their live headings:
   demands `## Mechanism` and `## Proof` ahead of `## Limits`; the `maturity.json` fence region
   (D28 `:105`) is the only thing available to serve as `## Proof`. **Escalate to D30 if** the
   conveyor cannot write a `## Mechanism` for it from the pin without inventing one.
-- **`/docs/faq/` → ESCALATED to D30; no kind assigned here.** Its seven headings are «What is an
-  executable AGENTS.md?», «Does getff need an LLM?», «Is getff open source?» and four
-  «How is this different from …?» — not one is a «how do I», and the page carries no step, no
-  command and no verification. `guide` is four GATE sections — `## Prerequisites`, `## Steps`,
-  `## Verify`, `## Variations` — plus «the goal belongs in the title», and the title is «FAQ».
-  Assigning it would guarantee the conveyor invents all four. None of the other six fits either,
-  so this is exactly the case D49 routes to D30 for a registered kind. **It is not an open enum
-  and not a licence to widen the set here.**
+- **`/docs/faq/` → `understand` (SITE-D002).** Codex, under explicitly delegated operator brief approval, selects a conceptual rewrite using the existing `## Mechanism`, `## Proof`, `## Limits` contract. Preserve all seven legacy topics with source-backed proof and honest limits; do not invent guide steps or widen D30's registry. Exact approved FAQ brief SHA256: `fbc981dc7b25d4ed04abeb36d448a095dfdab4357c723bee4275972a3580f9fc`; framework input `4849aede80508ebc79e3cccec2398abe0cab5b47`, landing input `bf1ee63a3e49c5bde3632b18652b3845d1d6c1a7`. Independent decision review returned GO at brief altitude. Actual writing/claim/JSON-LD/twin acceptance remains required.
 
 ## §3 Population 2 — the D29 reference families
 
@@ -432,7 +425,7 @@ its own row; nothing is improvised. Four sources carry this population:
    [`face.md:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md)
    («`daily-cycle-*`, `factory-overview`, `degradations`, `reference`, `beta`»). Four of them are
    tab-shaped pages and appear below as the successor that keeps the old URL from 404ing; the
-   other two — `/docs/beta` and `/docs/reference` — are escalated, not invented.
+   other two — `/docs/beta` and `/docs/reference` — use the retained auxiliary dispositions below, outside the framework page population.
 
 **Token rows.** Ten family guides and two Learn tutorials have a source for their _existence_ but
 no source for their _title_. Their slug is a token `<…>`. The conveyor plan (P-R) replaces the
@@ -465,19 +458,11 @@ here would be the improvisation falsifier (b) names.
 **19 rows against D41's «~15».** The estimate is superseded by the enumeration, which is what D49
 asks for; the delta is +4 and its whole size is the successor obligation, which D41 never priced.
 
-**Two escalations, not inventions.** `/docs/beta` («Join the beta») has no successor page in any
-of the four sources: it is a programme surface, not a tutorial, a guide or a mechanism, and D30's
-closed set has no kind for it. `/docs/reference` («Framework reference (raw)») is the old site's
-raw-reference **index**, whose successor would be the Reference tab itself — but `nav.json`
-`tabs[reference]` carries families and overviews and **no index page**, so no slug in this
-inventory is its successor. Per R7/D37 each is either a landing-side page outside `docs/site/**`
-or a `retired-urls.txt` entry — **operator decisions, recorded in §5 as open.** Writing rows for
-them here would be exactly the improvised row falsifier (b) forbids.
+**Two retained auxiliary routes, outside the framework page population (SITE-D003).** `/docs/beta` uses one programme-prose source owned by the site integration owner, `getff-landing/content/auxiliary/beta.md`; pinned framework facts/pages supply maturity and installation regions. `/docs/reference` is generated from accepted pinned canonical Reference nav/family metadata, with no authored catalog. This is the explicitly bounded D35 programme-prose exception in [the S2 source amendment](s2-source-amendment.md), not a new D30 kind. Both resolved pages participate in the same HTML/Markdown/LLM/search/sitemap source; actual S2 implementation/URL/pin/rollback acceptance remains pending. Delegated URL-retention intent was independently GO; the source-placement amendment requires its own exact-packet review and staging application before implementation.
 
-## §5 Non-page URLs — redirect stubs, kept census URLs, and the one open successor
+## §5 Legacy URL dispositions — redirect stubs, kept census URLs and retained auxiliary pages
 
-Not pages: no `kind:` frontmatter, written by `write-redirect-stubs.mjs` in the landing repo
-(R7/R21). Enumerated from `git ls-tree -r --name-only origin/main -- content/docs` in
+These are URL dispositions, not additional framework page rows. Only rows explicitly marked stub are produced by `write-redirect-stubs.mjs` and excluded under R21. Kept census rows resolve to their canonical framework pages; retained auxiliary beta/Reference rows resolve to real shared-source content under the S2 amendment and participate in HTML/Markdown/LLM/search/sitemap. No D30 kind is assigned to auxiliary content. Enumerated from `git ls-tree -r --name-only origin/main -- content/docs` in
 `artyhoo/getff-landing` @ `c091883` — 16 top-level `*.md` pages — **plus `/docs/reference`,
 which that command structurally cannot see**: it is a folder index (`content/docs/reference/meta.json`,
 title «Framework reference (raw)»), not a top-level `*.md`, so the enumeration that found the
@@ -497,8 +482,8 @@ a second enumeration path to see it — one command was not enough.
 | `/docs/daily-cycle-factory` | stub | `/docs/guides/daily-cycle-factory/` | §4 row; R7/D37 |
 | `/docs/factory-overview` | stub | `/docs/understand/<successor-factory-overview>/` | §4 row; R7/D37 |
 | `/docs/degradations` | stub | `/docs/understand/<successor-degradations>/` | §4 row; R7/D37 |
-| `/docs/beta` | **OPEN** — stub or `retired-urls.txt` | none identified | R7/D37; operator decision (§4) |
-| `/docs/reference` | **OPEN** — stub or `retired-urls.txt` | none identified | D28 §4 bulk-map list (`face.md:111`); live nav entry in `content/docs/meta.json` @ `c091883`, title «Framework reference (raw)»; `nav.json` `tabs[reference]` has no index page |
+| `/docs/beta` | **KEEP real auxiliary page** | itself | SITE-D003; single programme source and pinned fact regions; S2 source amendment (§4) |
+| `/docs/reference` | **KEEP generated auxiliary index** | itself | SITE-D003; accepted canonical Reference nav/families, no manual catalog; D28 §4 bulk-map list (`face.md:111`); live nav entry in `content/docs/meta.json` @ `c091883`, title «Framework reference (raw)»; `nav.json` `tabs[reference]` has no index page |
 | `/docs/quickstart-ts` | **no stub, no redirect** | itself (real page) | census set, D33 / R21 — a stub here is a FAILURE |
 | `/docs/quickstart-rust` | **no stub, no redirect** | itself (real page) | census set, D33 / R21 |
 | `/docs/executable-agents-md` | **no stub, no redirect** | itself (real page, §2) | census set, D33 / R21 |
@@ -519,7 +504,7 @@ _URL_ population, and R7's coverage gate is what joins them.
 | 2 — D29 families                 | 247     | 19            | 228                           |
 | 3 — Learn / Guides / Understand | 19 | 3 | 16 |
 | **Total pages**                  | **283** | **34**        | **247**                       |
-| 5 — non-page URLs | 17 | — | landing build (R7) |
+| 5 — legacy URL dispositions | 17 | — | landing build: only stub rows via R7; real retained rows via shared source |
 
 **The inventory now enumerates 247 pages originally owed by S1 RUN** (3 + 228 + 16),
 not the early «~105» estimate. These are scope totals relative to the S0b baseline, NOT a
@@ -548,12 +533,11 @@ guide and understand pages in population 3).
   and re-check §6's counts in the same commit.
 - **Kind widening** — a page whose content fits none of D30's seven kinds → escalate to D30 for a
   registered kind. A new word in the `kind` column of this file is the defect, not the fix.
-- **Escalation that never resolves** — a row reading `ESCALATED to D30` (today: `/docs/faq/`) is a
+- **Escalation that never resolves** — a row reading `ESCALATED to D30` (none after SITE-D002 application) is a
   parked question, not a kind. If that page merges while the row still reads `ESCALATED`, D30's
   registry was widened in practice without being widened on the record — the same defect as the
   bullet above, arriving by silence instead of by a new word. The row must carry one of the seven
-  before the page is written. Its sibling shape is a §5 row still reading **OPEN** (today
-  `/docs/beta`, `/docs/reference`) at cutover: an un-decided URL 404s by default, which is a
+  before the page is written. Its sibling shape is a §5 row still reading **OPEN** (none after SITE-D003 application) at cutover: an un-decided URL 404s by default, which is a
   decision taken by nobody.
 - **T10 order** — this file is the population, and it precedes every coverage claim about the site
   ([`ai-laziness-digest.md`](../../rules/ai-laziness-digest.md) T10). A coverage percentage quoted
