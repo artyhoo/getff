@@ -593,6 +593,16 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
   });
 });
 
+describe('correction 4242549892: shell here-strings are not heredoc declarations', () => {
+  it('`<<<"$var"` inside a function does not swallow the column-0 close', () => {
+    const read = mkRead({ 'hs/x.sh': 'fx() {\n  grep -q x <<<"$value"\n}\n' });
+    const r = resolvePlace('hs/x.sh#fn:fx', read);
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+    expect(r.content).toBe('fx() {\n  grep -q x <<<"$value"\n}');
+  });
+});
+
 describe('correction 4242549882: backslash paths are refused before any read', () => {
   it('a Windows-style relative ref never reaches the injected reader', () => {
     let reads = 0;

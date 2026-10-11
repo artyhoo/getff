@@ -489,9 +489,14 @@ interface HeredocStart {
 
 /** Classify `line` at column `c` (where `line[c] === '<' && line[c + 1] === '<'`): a
  *  heredoc declaration `<<[-] TERM` returns its start; anything else (operator not
- *  followed by a delimiter) returns null. Shared by the fn: close scanner and the
- *  discovery pre-scan so both agree on what opens a heredoc. */
+ *  followed by a delimiter) returns null. A `<<<` HERE-STRING is an operator whose
+ *  word is an ARGUMENT, never a delimiter — a `<` adjacent on either side
+ *  disqualifies (review 4242549892: without this, the scan re-enters on the second
+ *  `<` of `<<<` and records `"$value"` as a heredoc terminator that never arrives,
+ *  swallowing the function's real column-0 close). Shared by the fn: close scanner
+ *  and the discovery pre-scan so both agree on what opens a heredoc. */
 function shellHeredocStart(line: string, c: number): HeredocStart | null {
+  if (line[c - 1] === '<' || line[c + 2] === '<') return null; // `<<<` here-string
   const heredoc = /^<<(-?)\s*(?:'([^']*)'|"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))/.exec(line.slice(c));
   if (!heredoc) return null;
   return { dash: heredoc[1] === '-', term: heredoc[2] ?? heredoc[3] ?? heredoc[4], len: heredoc[0].length };
