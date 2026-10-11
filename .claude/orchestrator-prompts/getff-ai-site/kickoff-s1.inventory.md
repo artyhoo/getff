@@ -443,7 +443,7 @@ here would be the improvisation falsifier (b) names.
 | `/docs/guides/<family-C>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family C `agents` (`C.json`) |
 | `/docs/guides/check-your-installed-hooks/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family D `hooks` (`D.json`) |
 | `/docs/guides/<family-E>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family E `templates` (`E.json`) |
-| `/docs/guides/<family-F1>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F1 `rules` (`F1.json`) |
+| `/docs/guides/check-your-framework-rules/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F1 `rules` (`F1.json`) |
 | `/docs/guides/<family-F2>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F2 `generated rules` (`F2.json`) |
 | `/docs/guides/<family-F3>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F3 `scripts` (`F3.json`) |
 | `/docs/guides/<family-G>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family G `packages` (`G.json`) |
