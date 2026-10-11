@@ -4,10 +4,10 @@ description: The rule that work is accepted where it will run, not where it was 
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/destination-environment-verification.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/destination-environment-verification.md
+  - .agents/rules/00-rule-index.md
   - scripts/host-verify.sh
-  - .claude/hooks/check-kickoff-traps.sh
+  - .agents/hooks/check-kickoff-traps.sh
   - packages/core/hooks/check-kickoff-traps.test.ts
   - packages/core/principles/43-kickoff-host-verify-presence.test.ts
   - .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md

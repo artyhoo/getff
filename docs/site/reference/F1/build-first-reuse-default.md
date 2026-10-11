@@ -4,8 +4,8 @@ description: The rule that turns every build-or-reuse fork into a recorded verdi
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/build-first-reuse-default.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/build-first-reuse-default.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/11-build-first-reuse-default.test.ts
   - CLAUDE.md
   - docs/meta-factory/prior-art-evaluations.md

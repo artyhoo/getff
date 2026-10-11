@@ -4,10 +4,10 @@ description: The rule that keeps a supervising coordinator session from running 
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/coordinator-seat-delegation.md
-  - .claude/rules/00-rule-index.md
-  - .claude/skills/orchestrator/references/chip-worker-template.md
-  - .claude/hooks/inject-matching-rule.sh
+  - .agents/rules/coordinator-seat-delegation.md
+  - .agents/rules/00-rule-index.md
+  - .agents/procedures/orchestrator/references/chip-worker-template.md
+  - .agents/hooks/inject-matching-rule.sh
   - docs/site/reference/F1/egress-no-api-bypass.md
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md

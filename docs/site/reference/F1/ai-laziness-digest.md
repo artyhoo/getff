@@ -4,9 +4,9 @@ description: The rule that keeps a one-line counter for every laziness trap resi
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/ai-laziness-digest.md
-  - .claude/rules/ai-laziness-traps.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/ai-laziness-digest.md
+  - .agents/rules/ai-laziness-traps.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/12-ai-laziness-traps.test.ts
   - packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
   - docs/site/reference/F1.json
