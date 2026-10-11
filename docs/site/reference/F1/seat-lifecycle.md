@@ -78,15 +78,18 @@ what a deterministic check can own:
 
 ```bash
 grep -n "POINTER" packages/core/skills/seat-lifecycle-pointer.test.ts | head -2
-grep -c "seat-lifecycle" .claude/skills/arch/SKILL.md .claude/skills/pipeline/SKILL.md .claude/skills/dispatcher/SKILL.md .claude/skills/night-mode/SKILL.md
+for s in arch pipeline dispatcher night-mode; do
+  printf '%s ' "$s"; grep -c "seat-lifecycle" ".claude/skills/$s/SKILL.md"
+done
 ```
 
 ```text
 20:const POINTER = /rules\/seat-lifecycle\.md/;
-.claude/skills/dispatcher/SKILL.md:1
-.claude/skills/arch/SKILL.md:1
-.claude/skills/night-mode/SKILL.md:1
-.claude/skills/pipeline/SKILL.md:1
+26:      expect(body).toMatch(POINTER);
+arch 1
+pipeline 1
+dispatcher 1
+night-mode 1
 ```
 
 Four skills, one pointer each — the all-carry-the-pointer invariant, green.
