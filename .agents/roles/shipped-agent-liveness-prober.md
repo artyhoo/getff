@@ -4,6 +4,9 @@ description: Probes each shipped sub-agent for behavioural liveness via with/wit
 tools: Read, Glob, Grep, Agent
 ---
 
+> **Codex preflight:** read [host capability preflight](../../docs/codex-contributor.md#capability-preflight-for-every-native-entry). Verify required launch controls before dispatch; a missing experimental control yields DISPATCH-INFEASIBLE, never a simulated successful probe. WebSearch/WebFetch use native web search/open when available.
+
+
 <!-- spec: install.sh §2 (shipped-surface definition) + packages/core/principles/21-shipped-agent-tools-valid.test.ts (M1 gate this complements) -->
 
 # shipped-agent-liveness-prober
@@ -40,35 +43,23 @@ Running a fresh subagent per pass is an LLM dispatch on the operator's own subsc
 
 ## §Shipped surface — how to derive (do this BEFORE dispatching)
 
-**Do NOT use a hardcoded list.** The authoritative shipped surface is defined by `install.sh` §2's `for f in "$PKG_ROOT"/agents/*.md` loop: it copies every `agents/*.md` into `.claude/agents/` **except** the files matched by the `case` skip-arms (authoring-only tools).
+**Do NOT use a hardcoded list.** Derive the surface from `setup.d/20-agents.sh`, the active installer layer, and check `setup.d/ships.manifest` for delivery depth. The layer reads `role_source_root` (defined in `setup.d/lib.sh`) and copies canonical roles into `.claude/agents/` except its skip-arms. Choose and record the consumer profile before deriving the set: a clean `core`/`env` install excludes factory-only roles; `factory` includes them. Refresh may retain roles already installed by prior opt-in.
 
 To verify the current shipped surface:
 
 ```bash
-# Run from the framework repo root.
-# Shows which agents/*.md ARE shipped (not skip-cased in install.sh §2):
-grep -n 'continue' install.sh | grep -A1 'agents'
-# Or directly inspect the case block:
-sed -n '/for f in.*agents/,/done/p' install.sh | grep -E '(case|continue|\.md)'
+# Resolve the active checkout even when invoked from a nested directory.
+root="$(git rev-parse --show-toplevel)" || exit
+cd "$root" || exit
+# Inspect the actual delivery loop and all profile/presence predicates.
+sed -n '/for f in /,/^done/p' setup.d/20-agents.sh || exit
+# Cross-check declared intent; this is not a substitute for the layer predicates.
+awk -F '\t' '$1 == "agent" { print }' setup.d/ships.manifest || exit
 ```
 
-**Illustrative shipped set as of 2026-07-03** (verify against `install.sh` §2 before dispatching — drift is possible):
+No illustrative roster is supplied: read the active layer and selected roles. A dated example is not the current population.
 
-| agent slug                       | tools declared                                       | install.sh-shipped?            |
-| -------------------------------- | ---------------------------------------------------- | ------------------------------ |
-| `aif-init`                       | `Read, Glob, Write`                                  | YES                            |
-| `capability-reuse-auditor`       | `Read, Glob, Grep`                                   | YES                            |
-| `compliance-verifier`            | `Read, Glob, Grep`                                   | YES                            |
-| `living-docs-auditor`            | `Read, Glob, Bash`                                   | YES                            |
-| `memory-codification-auditor`    | `Read, Glob, Grep`                                   | YES                            |
-| `orchestrator-worker-discipline` | `Read`                                               | YES                            |
-| `review-sidecar`                 | `Read, Glob, Grep, Bash`                             | YES                            |
-| `rule-researcher`                | `Read, Write, Bash, Grep, Glob, WebFetch, WebSearch` | YES                            |
-| `backward-sweep-auditor`         | `Read, Glob, Grep, Bash`                             | NO (authoring-only, T21)       |
-| `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent`                            | NO (authoring-only, #552)      |
-| `shipped-agent-liveness-prober`  | `Read, Glob, Grep, Agent`                            | NO (authoring-only, this file) |
-
-**Nuance:** principle 21 arm (a) *form-*scans **all** `agents/*.md` for canonical tool names (including the authoring-only agents). This M2 prober *behaviour-*probes **only the install.sh-copied shipped surface** (the `all` keyword iterates exactly that set, derived per the §Shipped-surface command above — do not hardcode a count) that consumers actually receive. The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer.
+**Nuance:** principle 21 arm (a) *form-*scans all roles for canonical tool names (including the authoring-only agents). This M2 prober *behaviour-*probes only the installer-copied surface for the recorded profile (the `all` keyword iterates exactly that set — do not hardcode a count). The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer. A failed read or enumeration command leaves the population unknown; preserve its error and stop rather than treating it as an empty set.
 
 ---
 
@@ -79,13 +70,15 @@ One of:
 - A single agent slug, e.g. `review-sidecar`.
 - The keyword `all` → iterate all shipped agents (the install.sh §2 surface, verified as above).
 
+Bind the literal input once. Empty input, multiple slugs, path separators, `..`, and an unknown or authoring-only slug are `INPUT-INVALID`: report the offending input and stop before fixture loading or dispatch. Resolve role and fixture paths from the active checkout root, not the invocation cwd. Read `.agents/roles/<slug>.md` in this contributor checkout (the `agents/<slug>.md` compatibility entry is only a pointer). A missing/unreadable role or fixture is `DISPATCH-INFEASIBLE` with the exact path/error; it is not evidence of a dead agent. For `all`, validate each selected fixture and report missing fixtures per slug without inventing a successful pass.
+
 ---
 
 ## Step 1 — Load the agent's fixture and tools
 
 For each agent under probe:
 
-1. `Read` the agent file at `agents/<slug>.md`. Extract from frontmatter:
+1. `Read` the full canonical agent file at `.agents/roles/<slug>.md`. Extract from frontmatter:
    - `tools:` list — every tool the agent declares it uses.
    - `description` — one-line job summary.
 2. `Read` the corresponding fixture at `tests/fixtures/shipped-agent-liveness/<slug>.md`. Extract:
@@ -126,7 +119,7 @@ Dispatch a **FRESH subagent** via your harness's fresh-subagent mechanism (Claud
 Dispatch a **second FRESH subagent** (fresh context — do NOT reuse the Pass 1 agent; reuse leaks the RED behaviour and contaminates the delta) with the SAME `task-prompt` AND the agent's full declared tool set granted:
 
 - The subagent has access to `Read`, `Glob`, `Grep` (and `Bash` for `living-docs-auditor` and `review-sidecar`) as declared in the agent frontmatter.
-- Capture its full output. Record `tool_uses` count and which tools were called.
+- Capture its full output. Record `tool_uses` count and which tools were called. Count native calls by unique tool-use ID, not by prose mentions or guessed grouping. For verified top-level Claude stream-json traces, have the authorized launcher run `node .agents/roles/resources/shipped-agent-liveness-prober/summarize-native-trace.mjs <raw-trace.jsonl>` from the checkout root and supply its JSON tally to this read-only role. Read the [counter](resources/shipped-agent-liveness-prober/summarize-native-trace.mjs) and verify the tally pins the actual raw trace hash/session. The helper rejects failed/incomplete, unknown and uncorrelated nested traces; it does not certify nested Agent controls or authorize a launch. Preserve its stderr/exit status. If no verified counter is available, list exact native IDs/names and mark per-tool counts unknown rather than inventing them.
 - Inspect for the `observable-compliance` markers. Record VERBATIM the lines that match (or note their absence).
 
 The GREEN signal requires both: `tool_uses > 0` AND at least one finding citing a real `file:line` that was only reachable via a tool call (not inferable from training data alone).
@@ -174,6 +167,8 @@ VERDICT: LIVE | BASELINE-DIDN'T-FAIL | WITH-TOOLS-DIDN'T-COMPLY | DISPATCH-INFEA
 
 RECOMMENDATION: <none (LIVE) | strengthen fixture task-prompt + re-run | revise agent/fixture (maintainer) | park + describe>
 ```
+
+For a single slug, report one actually probed row and no total-population denominator unless the selected profile population was actually enumerated. Use the supplied deterministic tally for per-tool counts.
 
 When input is `all`: emit one such block per shipped agent, then a summary table with **one row per agent actually probed** — derive the rows dynamically from the install.sh §2 shipped set (verified per the §Shipped-surface command), do NOT hardcode the row list:
 

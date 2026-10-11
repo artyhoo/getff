@@ -44,6 +44,7 @@ done
 TARGET="${CLAUDE_PROJECT_DIR:-$PWD}"
 SOURCE="${RAT_INSTALL_SOURCE:-https://github.com/artyhoo/getff.git}"
 REF="${RAT_INSTALL_REF:-main}"
+[ "$REF" != main ] || printf 'fetch-and-wire: main is a moving development source, not a pinned release\n' >&2
 
 [ -d "$TARGET" ] || { printf 'fetch-and-wire: target %s is not a directory\n' "$TARGET" >&2; exit 1; }
 
@@ -61,8 +62,8 @@ else
   CLONE_TMP="$(mktemp -d "${TMPDIR:-/tmp}/rat-installer.XXXXXX")"
   printf '▶ Fetching the official installer: %s @ %s\n' "$SOURCE" "$REF"
   if ! git clone --quiet --depth 1 --branch "$REF" "$SOURCE" "$CLONE_TMP" 2>/dev/null; then
-    printf '  (tag %s not found — falling back to the default branch)\n' "$REF"
-    git clone --quiet --depth 1 "$SOURCE" "$CLONE_TMP"
+    printf 'fetch-and-wire: could not fetch requested ref %s; refusing a different source identity\n' "$REF" >&2
+    exit 1
   fi
   PKG="$CLONE_TMP"
 fi

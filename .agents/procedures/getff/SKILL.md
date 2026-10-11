@@ -97,3 +97,23 @@ The agent selects the relevant enforcement layer, reads the real preset or deliv
 ## Context and vocabulary
 
 For AI-failure examples, term definitions, or integration decisions, read [framework context and vocabulary](references/framework-context.md). AI Factory is external and never a prerequisite for this framework's gates; each integration remains a separate decision.
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/getff/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

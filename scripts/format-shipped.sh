@@ -131,28 +131,43 @@ FLAG="--check"
 # canonical target instead.
 resolve_symlinks() {
   [ "$#" -eq 0 ] && return 0
-  local out=() f d t
+  local out=() f d t prior hops duplicate
   for f in "$@"; do
-    if [ -L "$f" ]; then
-      d=$(dirname "$f")
-      t=$(readlink "$f")
-      case "$t" in
-        /*) f="$t" ;;
-        *) f="$(cd "$d" && cd "$(dirname "$t")" && pwd)/$(basename "$t")" ;;
+    case "$f" in /*) ;; *) f="$REPO_TOP/$f" ;; esac
+    hops=0
+    while :; do
+      d=$(cd "$(dirname "$f")" && pwd -P) || return 1
+      f="$d/$(basename "$f")"
+      case "$f" in
+        "$REPO_TOP"/*) ;;
+        *) echo "format-shipped: alias leaves repository: $f" >&2; return 1 ;;
       esac
+      [ -L "$f" ] || break
+      hops=$((hops + 1))
+      [ "$hops" -le 32 ] || { echo "format-shipped: cyclic alias: $f" >&2; return 1; }
+      t=$(readlink "$f") || return 1
+      case "$t" in /*) f="$t" ;; *) f="$d/$t" ;; esac
+    done
+    [ -f "$f" ] || { echo "format-shipped: missing alias target: $f" >&2; return 1; }
+    duplicate=""
+    if [ "${#out[@]}" -gt 0 ]; then
+      for prior in "${out[@]}"; do [ "$prior" = "$f" ] && duplicate=1; done
     fi
-    out+=("$f")
+    [ -n "$duplicate" ] || out+=("$f")
   done
   printf '%s\n' "${out[@]}"
 }
+
 if [ "${#FILES[@]}" -gt 0 ]; then
   RESOLVED=()
-  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${FILES[@]}")
+  RESOLVED_OUTPUT=$(resolve_symlinks "${FILES[@]}") || exit 1
+  while IFS= read -r f; do RESOLVED+=("$f"); done <<<"$RESOLVED_OUTPUT"
   FILES=("${RESOLVED[@]}")
 fi
 if [ "${#TEMPLATES[@]}" -gt 0 ]; then
   RESOLVED=()
-  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${TEMPLATES[@]}")
+  RESOLVED_OUTPUT=$(resolve_symlinks "${TEMPLATES[@]}") || exit 1
+  while IFS= read -r f; do RESOLVED+=("$f"); done <<<"$RESOLVED_OUTPUT"
   TEMPLATES=("${RESOLVED[@]}")
 fi
 

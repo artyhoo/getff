@@ -37,7 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # consumer's root and the script always died exit 2 on-consumer (manifest + tsx/eslint never
 # found — the standing arm was theatre). git's toplevel is correct for BOTH layouts (a
 # consumer's git root = its project root; the framework's = the repo root); fall back to the
-# historical `../../..` for a non-git checkout.
+# layout-aware consumer/framework climb for a non-git checkout.
 # THIRD axis (issue 1459): under a git hook in a linked worktree, git exports GIT_DIR into
 # the hook env, which overrides the `cd` and misdirects rev-parse to the hook's git context
 # (root resolves as `<worktree>/scripts`). Strip ONLY GIT_DIR/GIT_WORK_TREE — measured:
@@ -45,7 +45,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # GIT_CEILING_DIRECTORIES individually still yields the correct toplevel; only this pair
 # misdirects. Do not drop the `env -u` guard when editing this line.
 REPO_ROOT="$(cd "$SCRIPT_DIR" && env -u GIT_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$REPO_ROOT" ] || REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+if [ -z "$REPO_ROOT" ]; then
+  # Installed consumers keep this runner in scripts/; framework source keeps its
+  # original three-level layout. Git binding above remains authoritative.
+  if [ "$(basename "$SCRIPT_DIR")" = "scripts" ]; then
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  else
+    REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+  fi
+fi
 
 # ─── Args ────────────────────────────────────────────────────────────────────
 # Optional: explicit manifest path; defaults to consumer root manifest
@@ -55,16 +63,6 @@ MIN_KILL="${2:-60}"
 die() { echo "run-generated-rule-mutation: $*" >&2; exit 2; }
 
 [ -f "$MANIFEST" ] || die "manifest not found: $MANIFEST (run ./setup --full first)"
-
-# ─── Locate tsx + eslint ──────────────────────────────────────────────────────
-TSX_BIN=""
-for _t in \
-  "$REPO_ROOT/node_modules/.bin/tsx" \
-  "$REPO_ROOT/packages/core/node_modules/.bin/tsx" \
-  "/app/node_modules/.bin/tsx"; do
-  [ -x "$_t" ] && TSX_BIN="$_t" && break
-done
-[ -n "$TSX_BIN" ] || die "tsx not found — run npm install"
 
 # ─── Scratch + probe script ────────────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
@@ -193,9 +191,31 @@ fi
 # Resolved only once there is a rule to test: a manifest with none installs nothing. `npm ci` empties
 # node_modules, so the first run after it installs the toolchain again. That install runs inside the push, so
 # npm's retries are bounded: offline it gives up in seconds (unbounded it took 211 s) and the run exits 2.
-GEN_TOOL_PKGS=(eslint@^9 typescript-eslint typescript)
+GEN_TOOL_PKGS=(eslint@^9 typescript-eslint typescript tsx ts-morph)
 GEN_TOOLS="$REPO_ROOT/node_modules/.cache/getff/generator-tools"
-_has_set() { [ -f "$1/eslint/package.json" ] && [ -f "$1/typescript-eslint/package.json" ]; }
+_has_set() {
+  [ -x "$1/.bin/tsx" ] || return 1
+  node - "$1/.bin/tsx" <<'JS' || return 1
+const {spawnSync}=require('node:child_process');
+const result=spawnSync(process.argv[2], ['--version'], {stdio:'ignore', timeout:10000, killSignal:'SIGKILL'});
+if(result.error || result.status!==0)process.exit(1);
+JS
+  node - "$1" <<'JS'
+const {createRequire}=require('node:module'); const {resolve}=require('node:path');
+const r=createRequire(resolve(process.argv[2], '../package.json'));
+try {
+  const eslint=r('eslint/package.json'); if(String(eslint.version).split('.')[0]!=='9')process.exit(1);
+  r.resolve('eslint'); r.resolve('eslint/use-at-your-own-risk');
+  const m=r('ts-morph');
+  if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");
+  const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});
+  const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});
+  if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");
+  const parser=r('typescript-eslint').parser; if(!parser || typeof parser.parseForESLint!=='function')process.exit(1);
+  createRequire(r.resolve('typescript-eslint')).resolve('typescript');
+} catch {process.exit(1);}
+JS
+}
 NM_SRC=""
 for _nm in "$REPO_ROOT/node_modules" "$REPO_ROOT/packages/core/node_modules" "/app/node_modules"; do
   _has_set "$_nm" && NM_SRC="$_nm" && break
@@ -213,11 +233,12 @@ if [ -z "$NM_SRC" ]; then
            --fetch-retries=1 --fetch-timeout=20000 --fetch-retry-mintimeout=2000 --fetch-retry-maxtimeout=10000 \
            "${GEN_TOOL_PKGS[@]}" >&2 \
       || die "could not install getff's rule-generator toolchain into $GEN_TOOLS (npm failed) — the generated rules are not tested"
-    _has_set "$GEN_TOOLS/node_modules" || die "getff's rule-generator toolchain in $GEN_TOOLS has no eslint + typescript-eslint after npm install"
+    _has_set "$GEN_TOOLS/node_modules" || die "getff's rule-generator toolchain in $GEN_TOOLS has no usable ESLint 9 + TypeScript parser + tsx after npm install"
     : > "$GEN_TOOLS/.complete"
   fi
   NM_SRC="$GEN_TOOLS/node_modules"
 fi
+TSX_BIN="$NM_SRC/.bin/tsx"
 ln -sf "$NM_SRC" "$SCRATCH/node_modules"
 
 echo "=== generated rule mutation: ${RULE_COUNT} rule(s), floor=${MIN_KILL}% ==="

@@ -13,7 +13,8 @@
 #   INFLIGHT: <umbrella> — open PR #<n> <branch> (possibly dispatched in another session)
 #   INFLIGHT: <umbrella> — live branch <name> (not merged)
 #   INFLIGHT: <umbrella> — live worktree <path> (not merged)
-#   CLEAR: <umbrella> no in-flight work
+#   CLEAR: <umbrella> no in-flight work (all required queries succeeded)
+#   UNKNOWN: <umbrella> <unavailable/invalid evidence> (exit 1)
 #
 # Two signals combined deterministically (no LLM):
 #   (1) open PR whose title OR headRefName carries the umbrella slug
@@ -47,7 +48,7 @@ NAME="${1:-}"
 if [[ -z "${NAME}" ]]; then echo "usage: inflight-check.sh <umbrella-name>"; exit 0; fi
 
 # git ops should observe the target repo (mirrors dup-detect's REPO_ROOT use).
-cd "${REPO_ROOT}" 2>/dev/null || true
+cd "${REPO_ROOT}" 2>/dev/null || { echo "UNKNOWN: ${NAME} repository unavailable"; exit 1; }
 
 SLUG="$(printf '%s' "${NAME}" | tr '[:upper:]' '[:lower:]')"
 # Significant slug tokens: split on - _ space, keep >=4 chars, strip stopwords.
@@ -65,8 +66,8 @@ count_token_hits() {
   local hay="$1" hits=0 t
   while IFS= read -r t; do
     [[ -z "${t}" ]] && continue
-    if grep -qF "${t}" <<<"${hay}"; then hits=$((hits + 1)); fi
-  done <<< "${SLUG_TOKENS}"
+    if printf '%s\n' "${hay}" | grep -F "${t}" >/dev/null; then hits=$((hits + 1)); fi
+  done < <(printf '%s\n' "${SLUG_TOKENS}")
   printf '%s' "${hits}"
 }
 
@@ -76,32 +77,45 @@ count_token_hits() {
 # generic stopwords.
 matches_slug() {
   local hay; hay="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
-  if grep -qF "${SLUG}" <<<"${hay}"; then return 0; fi
+  if printf '%s\n' "${hay}" | grep -F "${SLUG}" >/dev/null; then return 0; fi
   [[ -z "${SLUG_TOKENS}" ]] && return 1
   local hits; hits="$(count_token_hits "${hay}")"
   [[ "${hits}" -ge "${EFFECTIVE_MIN}" ]]
 }
 
 found=0
+unknown=0
 
 # ── Signal 1: open PRs ────────────────────────────────────────────────────────
-PR_JSON="$("${MO_GH_BIN}" pr list --state open --json number,title,headRefName --limit 100 2>/dev/null)" || PR_JSON=""
-if [[ -n "${PR_JSON}" ]]; then
-  while IFS= read -r entry; do
-    [[ -z "${entry}" ]] && continue
-    num="$(printf '%s' "${entry}" | grep -oE '"number":[0-9]+' | grep -oE '[0-9]+' || true)"
+if ! PR_JSON="$("${MO_GH_BIN}" pr list --state open --json number,title,headRefName --limit 100)"; then
+  echo "UNKNOWN: ${NAME} open PR lookup unavailable"
+  unknown=1
+elif ! PR_JSON="$(printf '%s\n' "${PR_JSON}" | jq -cse '
+  if length == 1 and (.[0] | type == "array") and
+     all(.[0][]; (.number | type == "number") and (.title | type == "string") and (.headRefName | type == "string"))
+  then .[0] else error("expected one valid PR array") end' 2>/dev/null)"; then
+  echo "UNKNOWN: ${NAME} invalid open PR response"
+  unknown=1
+else
+  PR_ROWS="$(printf '%s\n' "${PR_JSON}" | jq -r '.[] | [.number, .title, .headRefName] | @tsv')"
+  if [[ "$(printf '%s\n' "${PR_JSON}" | jq 'length')" -ge 100 ]]; then
+    echo "UNKNOWN: ${NAME} open PR population reached limit 100"
+    unknown=1
+  fi
+  while IFS=$'\t' read -r num title branch; do
     [[ -z "${num}" ]] && continue
-    title="$(printf '%s' "${entry}" | sed 's/.*"title":"\([^"]*\)".*/\1/')"
-    branch="$(printf '%s' "${entry}" | sed 's/.*"headRefName":"\([^"]*\)".*/\1/')"
     if matches_slug "${title} ${branch}"; then
       echo "INFLIGHT: ${NAME} — open PR #${num} ${branch} ${AIF_PIPELINE_INFLIGHT_PR_NOTE}"
       found=1
     fi
-  done < <(printf '%s\n' "${PR_JSON}" | grep -oE '\{[^}]+\}' 2>/dev/null || true)
+  done < <(printf '%s\n' "${PR_ROWS}")
 fi
 
 # ── Signal 2: un-merged live branches ────────────────────────────────────────
-BRANCHES="$("${MO_GIT_BIN}" branch -a --no-merged "${MO_BASE_REF}" 2>/dev/null || true)"
+if ! BRANCHES="$("${MO_GIT_BIN}" branch -a --no-merged "${MO_BASE_REF}")"; then
+  echo "UNKNOWN: ${NAME} unmerged branch lookup unavailable"
+  unknown=1
+fi
 if [[ -n "${BRANCHES}" ]]; then
   while IFS= read -r b; do
     b="$(printf '%s' "${b}" | sed 's/^[* +]*//; s/[[:space:]]*$//')"
@@ -112,21 +126,25 @@ if [[ -n "${BRANCHES}" ]]; then
       echo "INFLIGHT: ${NAME} — live branch ${short} ${AIF_PIPELINE_INFLIGHT_UNMERGED}"
       found=1
     fi
-  done <<< "${BRANCHES}"
+  done < <(printf '%s\n' "${BRANCHES}")
 fi
 
 # ── Signal 2b: live worktrees ─────────────────────────────────────────────────
-WT="$("${MO_GIT_BIN}" worktree list 2>/dev/null || true)"
+if ! WT="$("${MO_GIT_BIN}" worktree list)"; then
+  echo "UNKNOWN: ${NAME} worktree lookup unavailable"
+  unknown=1
+fi
 if [[ -n "${WT}" ]]; then
   while IFS= read -r line; do
     [[ -z "${line}" ]] && continue
     if matches_slug "${line}"; then
-      wt_path="$(printf '%s' "${line}" | awk '{print $1}')"
+      wt_path="$(printf '%s' "${line}" | sed -E 's/[[:space:]]+[[:xdigit:]]+[[:space:]]+\[.*$//')"
       echo "INFLIGHT: ${NAME} — live worktree ${wt_path} ${AIF_PIPELINE_INFLIGHT_UNMERGED}"
       found=1
     fi
-  done <<< "${WT}"
+  done < <(printf '%s\n' "${WT}")
 fi
 
+if [[ "${unknown}" -ne 0 ]]; then exit 1; fi
 if [[ "${found}" -eq 0 ]]; then echo "CLEAR: ${NAME} no in-flight work"; fi
 exit 0

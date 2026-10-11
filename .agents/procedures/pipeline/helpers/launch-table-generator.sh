@@ -30,7 +30,7 @@ KICKOFF="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
 if [[ ! -f "${KICKOFF}" ]]; then
   # Report the resolved home, not a hardcoded `.claude/…` — see resolve_orch_home_rel().
   echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
-  exit 0
+  exit 1
 fi
 
 echo "=== launch-table-generator: umbrella=${UMBRELLA} ==="
@@ -161,9 +161,14 @@ echo "--- sub-wave candidates (auto-detected) ---"
 # no explanation, while the PRIMARY path exited 0 with an EMPTY skeleton (real instance:
 # adapter-jig-meta-launch). Zero parsed rows in EITHER path is now a loud degrade:
 # a DEGRADE: line on stdout (same protocol prefix frontier.sh uses) + non-zero exit, which
-# the SKILL.md §3 blocking rule halts on. `|| true` absorbs the function's zero-match
-# failure so the empty case reaches THIS check instead of dying inside the pipeline.
-_sw_rows="$(detect_subwaves || true)"
+# the SKILL.md §3 blocking rule halts on. Capture status without discarding it:
+# zero rows degrade, while nonzero partial acquisition is unavailable, never a table.
+_parse_rc=0
+_sw_rows="$(detect_subwaves)" || _parse_rc=$?
+if [[ "${_parse_rc}" -ne 0 && -n "${_sw_rows}" ]]; then
+  echo "UNKNOWN: launch-table-generator parser failed with partial sub-wave rows (rc=${_parse_rc}); no table is complete"
+  exit 1
+fi
 if [[ -z "${_sw_rows}" ]]; then
   echo "DEGRADE: launch-table-generator parsed 0 sub-wave rows from $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md — neither a '## §N Sub-wave' section with parseable id rows nor a keyword-filter table matched (id grammar: | <id> | where id is [A-Za-z][A-Za-z0-9-]* or [0-9]+; keyword fallback needs an orchestration-mode keyword in the row). Fill the launch table manually from the kickoff, or fix the table shape."
   exit 1
@@ -183,6 +188,6 @@ echo "|---|---|---|---|---|---|---|"
 # Emit one skeleton row per detected sub-wave (SKILL.md body fills actual values).
 # Reuses the captured _sw_rows — a second detect_subwaves call here was a redundant re-scan
 # that could emit rows the candidates section above had already (identically) listed.
-while read -r sw; do
+printf '%s\n' "${_sw_rows}" | while read -r sw; do
   echo "| ${sw} | ? | ? | ? | ? | ? | ? |"
-done <<< "${_sw_rows}"
+done

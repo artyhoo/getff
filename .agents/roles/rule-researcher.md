@@ -8,9 +8,12 @@ description: >-
   GenerateSelection — that the deterministic factory turns into a real rule + paired-negative test
   (or degrades to a research-only finding when a practice is not L4-expressible). Use when a
   consumer wants to bootstrap stack-aware lint rules from live documentation rather than ship
-  pre-baked recipes. Reports the two files; does not run the factory itself (that is ./setup --full).
+  pre-baked recipes. Reports the two files; the framework installer runs synthesis from the consumer root.
 tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch
 ---
+
+> **Codex preflight:** read [host capability preflight](../../docs/codex-contributor.md#capability-preflight-for-every-native-entry). Verify required launch controls before dispatch; a missing experimental control yields DISPATCH-INFEASIBLE, never a simulated successful probe. WebSearch/WebFetch use native web search/open when available.
+
 
 <!-- @dual-pair: rule-research-protocol -->
 
@@ -30,14 +33,22 @@ You write exactly two files under the consumer repo (committed, team-shared, aud
 - `.ai-factory/rules-research/<stack>.research.json` — a **`ResearchPlan`**.
 - `.ai-factory/rules-research/<stack>.selection.json` — a **`GenerateSelection`**.
 
-`./setup --full` reads both, runs the deterministic factory + L4 gates + lock. If a file is malformed or its provenance is off-allowlist, the install **degrades with guidance** and ships no rule — so author them precisely.
+The framework installer, run from the consumer root (see step 6), reads both and runs the deterministic factory + L4 gates + lock. If a file is malformed or its provenance is off-allowlist, the install **degrades with guidance** and ships no rule — so author them precisely.
 
 What you do not need to look up in getff's source:
 
 - **The project's linter does not change what you write.** The factory turns each candidate into an ESLint `no-restricted-syntax`-style selector rule; on an oxlint project getff places it in `.oxlintrc.json` through oxlint's `jsPlugins`, and on an ESLint project in its ESLint config. The generator brings its own ESLint toolchain when the project has none it can run with. In `.oxlintrc.json` a generated rule runs on every file the project lints; a `JSX…` selector is proven on `.tsx` samples.
 - **Give every selector at least one quoted attribute value** (`[name.name='img']`, `[typeAnnotation.type='TSAnyKeyword']`). On an ESLint project the install's self-verify mutates each selector 11 ways and needs ≥60% of the mutants to stop firing on the bad example (`scripts/check-generated-rule-mutation.sh`). A selector with no quoted value (`TSAsExpression > TSAnyKeyword`), or with only a regex value, counts as over-broad there: most mutations leave it unchanged, and the install reports self-verify FAILED.
 - **Write `examples.bad` / `examples.good` as complete code that declares what it uses**, e.g. `export function put(el: HTMLElement, text: string): void { el.innerHTML = text; }`, not the fragment `el.innerHTML = text;`. The rule table's proof (`scripts/prove-rules.mjs --prove`) lints each example as a whole file with the project's own lint. A fragment's undeclared names or unused variables trip the project's other rules there (`no-unused-vars`, typed `no-unsafe-*`), the good example is rejected, and the rule reads `partial`.
-- **A complete, valid pair** to copy the shape from (a Next.js example: one rule with whole-file examples and one research-only entry): `packages/core/synthesizer/fixtures/react-next-complete-example.research.json` and `.selection.json` in the getff checkout. It shows the shape, not the answer for your stack: research the project in front of you. A test keeps it valid (`packages/core/research/researcher-doc-tier1.test.ts`).
+- **Historical field-shape reference:** `packages/core/synthesizer/fixtures/react-next-complete-example.research.json` and `.selection.json` in the framework checkout. This fixture is not an acceptance proof: the executable pair adds an import only to `good` (six whitespace-token edits, rejected by FF3011), and its selector-less fallback must stay exclusively in `research.patterns`. Keep declarations identical in both examples and isolate the forbidden token; put larger safe idioms in `safeForms`. A complete minimal pair is:
+
+  <!-- rule-researcher:minimal-pair -->
+  ```json
+  {
+    "bad": "import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }",
+    "good": "import Head from 'next/head'; export { Head }; export default function Page() { return <Head />; }"
+  }
+  ```
 
 ### `ResearchPlan` shape (`<stack>.research.json`)
 
@@ -71,6 +82,12 @@ What you do not need to look up in getff's source:
 ```
 
 ### Tier-1 entry shape
+
+`provenance` is a **closed schema**: each object accepts only `url`, `allowlistKey`,
+`fetchedAt`, and optional `packageName` / `finalUrl`. Trust tiers are resolved by the
+validator; do not add a `tier` field. Put research annotations, tool receipts and
+trust-tier explanations in the entry's `extras`, never in provenance. Parsing JSON
+alone does not validate this contract.
 
 A practice sourced from a **direct dependency's** own docs (Tier 1) names the package TWICE: the
 entry-level `"package"` is the scope-lock the gate trusts, and provenance `packageName` must equal it
@@ -112,7 +129,10 @@ through the real gate — keep it valid JSON.
       "presence": "forbid", // forbid-class signal — see §MAJOR-1
       "selector": "JSXOpeningElement[name.name='head']", // ESQuery selector matching the bad construct
       "message": "Use the Next.js Metadata API or next/head <Head> instead of a raw <head> element.",
-      "examples": { "bad": "<head />", "good": "<Head />" }, // SINGLE-TOKEN diff (head -> Head); the gate
+      "examples": {
+        "bad": "import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }",
+        "good": "import Head from 'next/head'; export { Head }; export default function Page() { return <Head />; }"
+      }, // SINGLE-TOKEN diff (head -> Head); the gate
       // splits each on whitespace and rejects a pair more than 5 such tokens apart (FF3011) — aim for 1
       // safeForms (optional, RECOMMENDED): known-SAFE forms of the forbidden construct the
       // selector must NOT match. `good` is single-token-diff-constrained, so multi-token safe
@@ -124,7 +144,7 @@ through the real gate — keep it valid JSON.
       // if yes, encode it. (GH #915 obs 4)
       // "safeForms": ["Object.prototype.hasOwnProperty.call(obj, key);"],
       "negativeTest": {
-        "input": ["<head />"],
+        "input": ["import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }"],
         "expect-violation": "no-restricted-syntax",
       },
     },
@@ -133,6 +153,16 @@ through the real gate — keep it valid JSON.
 ```
 
 ## Protocol
+
+### 0. Bind the consumer and capabilities
+
+Resolve the explicitly supplied consumer root before detecting its stack or writing files. Use
+that root for manifests, base-core, outputs and validation, including when the native card belongs
+to a separate framework checkout or the caller starts in a nested directory. Missing consumer,
+malformed manifest or missing base-core is a named prerequisite gap: stop rather than substitute
+the framework's stack or an empty principle table. Probe available research tools; preserve fetch
+failures and leave those practices unsourced. Source loading, helper failure and validation are
+separate observations. Do not commit on the consumer's behalf without separate authorization.
 
 ### 1. Detect the stack
 
@@ -197,7 +227,67 @@ Present the full proposed set — each practice, whether it became a rule or a r
 
 ### 6. Write the two files
 
-Write `<stack>.research.json` (the `ResearchPlan`) and `<stack>.selection.json` (the `GenerateSelection`) under `.ai-factory/rules-research/`. Every `GenerateCandidate.entryId` must equal a `ResearchEntry.id`. Then tell the operator to run `./setup --full` (or re-run it) to synthesize.
+Write `<stack>.research.json` (the `ResearchPlan`) and `<stack>.selection.json` (the `GenerateSelection`) under the explicit **consumer root**'s `.ai-factory/rules-research/`. Every `GenerateCandidate.entryId` must equal a `ResearchEntry.id`.
+
+Re-read both written files. `selection.rules` contains executable candidates only; research-only
+cross-file findings stay exclusively in `research.patterns`. Bind `CONSUMER_ROOT` and `STACK`
+from the invocation; `GETFF_CHECKOUT` is an optional verified framework checkout, never the
+consumer's guessed source owner. Prefer the installer-shipped read-only tools at
+`.agents/tools/install/rule-bootstrap-cli.bundle.mjs` and `.agents/tools/validator/gate-single-token-diff.ts`;
+if absent, use the same helpers in the verified framework checkout. An unavailable tool is
+UNVERIFIED with its observed prerequisite, not a successful check. Node with
+`--experimental-strip-types` support is required for Gate 7.
+
+Run this preflight with the bound values. It writes nothing, preserves helper diagnostics,
+checks selection structure, inspects `dropped`/`kept`/`researchOnly`, and runs the real Gate 7.
+The installed resource accepts bound argv; it creates no shell here-document or temporary file
+(which an ordinary read-only host sandbox can reject before validation begins):
+
+<!-- synthesis-preflight:start -->
+```bash
+set -eu
+if [ -z "${CONSUMER_ROOT:-}" ] || [ ! -d "$CONSUMER_ROOT" ]; then
+  printf 'Missing consumer root prerequisite\n' >&2; exit 2
+fi
+if [ -z "${STACK:-}" ] || ! command -v node >/dev/null 2>&1; then
+  printf 'Missing stack or Node prerequisite\n' >&2; exit 2
+fi
+preflight="$CONSUMER_ROOT/.agents/roles/resources/rule-researcher/preflight.mjs"
+if [ ! -f "$preflight" ] && [ -n "${GETFF_CHECKOUT:-}" ]; then
+  preflight="$GETFF_CHECKOUT/.agents/roles/resources/rule-researcher/preflight.mjs"
+fi
+if [ ! -f "$preflight" ]; then
+  printf 'UNVERIFIED: missing installed or framework researcher preflight resource\n' >&2; exit 2
+fi
+cd "$CONSUMER_ROOT"
+node --experimental-strip-types "$preflight" "$CONSUMER_ROOT" "${GETFF_CHECKOUT:-}" "$STACK"
+```
+<!-- synthesis-preflight:end -->
+
+Correct schema, trust, selection or FF3011 defects in the same files and rerun. **Exit 0 alone
+is not PASS:** every intended practice must be kept, no record dropped, and cross-file findings
+must remain research-only. This preflight does not synthesize, prove selector firing, validate
+safe-form false positives, create a lock or establish all L4 gates. A later factory degradation
+is a separate failure; retain mode, stderr and status even when it omits the underlying code.
+
+Report the two files and the validation result. For the synthesis handoff, first
+verify the framework checkout's `install.sh` exists. Give the resolved command with
+the **consumer root as cwd** and the detected stack:
+
+<!-- rule-researcher:consumer-handoff -->
+```bash
+if [ -z "${GETFF_CHECKOUT:-}" ] || [ ! -f "$GETFF_CHECKOUT/install.sh" ]; then
+  printf '%s\n' 'Missing getff installer prerequisite: restore the verified framework checkout.' >&2
+  exit 2
+fi
+(cd "$CONSUMER_ROOT" && bash "$GETFF_CHECKOUT/install.sh" "$STACK" --full)
+```
+
+The role reports this command; it does not run synthesis itself. An installed consumer
+does not receive a root `./setup`; never assume one exists or run the installer from
+the framework cwd when researching another project. If the checkout cannot be found,
+report the missing synthesis prerequisite and **UNVERIFIED** delivery scope without
+inventing a path. Research completion and rule generation/wiring are separate results.
 
 ## Worked example (the validated demo)
 
@@ -205,7 +295,7 @@ Write `<stack>.research.json` (the `ResearchPlan`) and `<stack>.selection.json` 
 
 ## Per-stack arms — author→render→join→lock
 
-The protocol above is the **npm/ESLint** arm (ResearchPlan + GenerateSelection → `./setup --full`
+The protocol above is the **npm/ESLint** arm (ResearchPlan + GenerateSelection → verified framework installer from the consumer root
 → L4 gates → lock). Two more arms exist; each is documented with its **honest lane limits** so a
 consumer reading this file as a "universal rule-research protocol" can tell what each lane CAN
 and CANNOT do today. An unqualified instruction that silently fails on a lane is the
@@ -286,8 +376,8 @@ python rule follows the **Model A′** path — `AstgrepResearchedPractice` JSON
    this unreachable in honest use).
 
 4. **Verify** — two reachable paths:
-   - **Re-run the install's firing self-check** (`bash install.sh python --refresh` from the
-     framework checkout) — the install ends with a self-check that plants a violating `.py` **in
+   - **Re-run the install's firing self-check** (`(cd '<absolute-consumer-root>' && bash '<absolute-getff-checkout>/install.sh' python --refresh)` with the verified
+     framework installer and consumer cwd) — the install ends with a self-check that plants a violating `.py` **in
      an OS temp dir only** (never your tracked tree), runs the delivered ast-grep rules against
      it, and asserts RED. After step 3's join, your researched rule is in the scanned set.
    - **Local live-fire** — plant a violating `.py` matching your `examples.bad` in an OS temp dir

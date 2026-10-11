@@ -212,6 +212,17 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
     "$f"
   rm -f "${f}.bak"
+  # Factory procedures execute the same vendored CLI through the common installed core.
+  # Rewrite only executable source paths; upstream documentation URLs retain provenance.
+  if [ "${PROJECT_ROOT:-}" != "${PKG_ROOT:-}" ]; then
+    # procedure_source selects the consumer owner; delivery publishes its public slug.
+    # Scope the rename to invocation binding, preserving source attribution elsewhere.
+    sed -E -i.bak \
+      -e '/<!-- getff:common-invocation-binding -->/,/<!-- \/getff:common-invocation-binding -->/s#\.agents/procedures/tool-bootstrapping-consumer/SKILL\.md#.agents/procedures/tool-bootstrapping/SKILL.md#g' \
+      -e 's#(^|[[:space:]"`])packages/runtime-bridge/src/#\1.agents/tools/runtime-bridge/src/#g' \
+      -e 's#(^|[[:space:]"`])packages/runtime-bridge/scripts/bridge-health.sh#\1.agents/tools/runtime-bridge/scripts/bridge-health.sh#g' "$f"
+    rm -f "${f}.bak"
+  fi
 }
 
 # _transform_md_tree <tree-root>
@@ -2465,15 +2476,38 @@ detect_pm() {
 # I-2 (§13.5): the optional <target> arg lets the per-workspace walk (_detect_stacks_per_workspace)
 # classify each workspace dir; the no-arg form is unchanged (back-compat — the I-1 install stack-pick
 # and 15-companions-stack.sh both call it no-arg → $PROJECT_ROOT).
-_detect_stack_from_pkg() {
+# W2: classify framework files first; project names onto the existing four-preset interface.
+_detect_stack_name() {
   local target="${1:-$PROJECT_ROOT}"
   local pkg="$target/package.json"
   [ -f "$pkg" ] || { echo "unknown"; return; }
-  if   grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"
-  elif grep -qE '"next"[[:space:]]*:'         "$pkg"; then echo "react-next"
-  elif grep -qE '"react"[[:space:]]*:'        "$pkg"; then echo "react-spa"
-  elif grep -qE '"typescript"[[:space:]]*:'   "$pkg"; then echo "ts-server"
+  if grep -qE '"react-native"[[:space:]]*:' "$pkg"; then echo "react-native"; return; fi
+  local f
+  for f in astro.config.mjs astro.config.js astro.config.ts astro.config.cjs astro.config.json; do
+    if [ -f "$target/$f" ]; then echo "astro"; return; fi
+  done
+  if grep -qE '"@sveltejs/kit"[[:space:]]*:' "$pkg"; then echo "svelte-kit"; return; fi
+  for f in svelte.config.js svelte.config.ts svelte.config.mjs; do
+    if [ -f "$target/$f" ] && [ -d "$target/src/routes" ]; then echo "svelte-kit"; return; fi
+  done
+  for f in svelte.config.js svelte.config.ts svelte.config.mjs; do
+    if [ -f "$target/$f" ]; then echo "svelte"; return; fi
+  done
+  if   grep -qE '"next"[[:space:]]*:'       "$pkg"; then echo "react-next"
+  elif grep -qE '"react"[[:space:]]*:'      "$pkg"; then echo "react-spa"
+  elif grep -qE '"typescript"[[:space:]]*:' "$pkg"; then echo "ts-server"
   else echo "unknown"; fi
+}
+
+_name_to_preset() {
+  case "$1" in
+    react-native|react-next|react-spa|ts-server) echo "$1" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+_detect_stack_from_pkg() {
+  _name_to_preset "$(_detect_stack_name "${1:-$PROJECT_ROOT}")"
 }
 
 # _workspace_pkg_dirs [root] — enumerate workspace package directories (those that contain a
@@ -2818,8 +2852,15 @@ generate_eslint_barrel() {
   local _barrel _rf _b _camel _m _mstem _rid _rkey
   local _valid_dirs _vd _vf _valid_basenames _ef _eb
   local _fw_dir _fw_f _fw_basenames _ln _cb _kc _kept_pairs _kept_names _kept_n
+  local _owned_barrel_rules _owned_rule_present
   if [ -z "$DRY_RUN" ]; then
     _barrel="$PROJECT_ROOT/eslint-rules-local/index.mjs"
+    # The consumer owns the whole barrel when its sibling marker is present.
+    # Keep its exact bytes and rule files, but still prune freshly delivered
+    # framework fixtures below against the barrel that will actually execute.
+    if [ -e "$_barrel.override.md" ]; then
+      echo "  ⊝ eslint-rules-local/index.mjs (.override.md — consumer-owned, keeping)"
+    else
 
     # #882: prune stray rule files from a DIFFERENT stack before generating barrel content below,
     # so a stranded rule from a prior install/refresh isn't re-registered. Small, isolated mapping
@@ -2963,6 +3004,8 @@ generate_eslint_barrel() {
       echo "  ⊟ preserved $_kept_n consumer-added barrel entries (issue 1481)"
     fi
 
+    fi
+
     # #838: a consumer must only carry fences-fire fixtures its OWN barrel can enforce.
     # Fixtures ship unconditionally above (step 5a), but stack-specific rules (e.g. R12
     # no-server-imports-in-client, react-next only) land per-stack — probing a fixture whose
@@ -2989,18 +3032,69 @@ generate_eslint_barrel() {
     # present, so the prune below MUST respect the identical signal — else it deletes
     # framework fixtures inside a consumer-owned dir, contradicting do_refresh's printed
     # ".override.md preserved" guarantee (adversarial-review Important, post-#876). The
-    # barrel regen above still always runs — it lives in eslint-rules-local/, not the owned
-    # fixtures dir, and #876 requires it to stay in sync regardless of fixture ownership.
+    # Barrel ownership and fixture-directory ownership are independent. The fixture
+    # prune still runs against the actual barrel when only the barrel is consumer-owned.
     if [ -e "$PROJECT_ROOT/scripts/fences-fire-fixtures.override.md" ]; then
       echo "  ⊝ scripts/fences-fire-fixtures prune skipped (.override.md — consumer-owned)"
     else
+      _owned_barrel_rules=""
+      if [ -e "$_barrel.override.md" ]; then
+        # The owned barrel can use any valid JS property spelling. Resolve the
+        # same default plugin as check-fences-fire, never infer absence by grep.
+        if ! _owned_barrel_rules="$(node - "$_barrel" "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" <<'OWNED_BARREL_RULES'
+const { spawnSync } = require('node:child_process');
+const source = `import { pathToFileURL } from 'node:url';
+import { readdirSync, readFileSync, writeSync } from 'node:fs';
+import { join } from 'node:path';
+const module = await import(pathToFileURL(process.argv[2]).href);
+const rules = module.default?.rules;
+if (!rules || typeof rules !== 'object' || Array.isArray(rules)) throw new Error('default plugin rules unavailable');
+const keys = [...new Set(readdirSync(process.argv[3]).filter(name => name.endsWith('.manifest.json')).map(name => {
+  const manifest = JSON.parse(readFileSync(join(process.argv[3], name), 'utf8'));
+  const id = manifest['rule-id'];
+  if (typeof id !== 'string' || !id.includes('/')) throw new Error('invalid framework fixture rule identity');
+  return id.slice(id.lastIndexOf('/') + 1);
+}))];
+// ESLint resolves rules?.[ruleName], including inherited/nonenumerable values.
+writeSync(3, JSON.stringify({ kind: "getff-owned-barrel-membership-v1", keys: keys.filter(key => rules[key] !== undefined) }));`;
+const result = spawnSync(process.execPath, ['--input-type=module', '-', process.argv[2], process.argv[3]],
+  { input: source, encoding: 'utf8', timeout: 5000, killSignal: 'SIGKILL',
+    maxBuffer: 65536, stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
+// Import logs are diagnostics, not the membership/completion result channel.
+process.stderr.write(result.stdout || '');
+process.stderr.write(result.stderr || '');
+if (result.status !== 0 || result.error) {
+  process.stderr.write(String(result.error?.message || 'owned barrel membership probe failed') + '\n');
+  process.exit(1);
+}
+try {
+  const receipt = JSON.parse(result.output?.[3] || '');
+  if (receipt.kind !== 'getff-owned-barrel-membership-v1') throw new Error('membership completion unavailable');
+  const keys = receipt.keys;
+  if (!Array.isArray(keys) || keys.some(key => typeof key !== 'string')) throw new Error('invalid membership output');
+  process.stdout.write(JSON.stringify(keys));
+} catch (error) { process.stderr.write(error.message + '\n'); process.exit(1); }
+OWNED_BARREL_RULES
+)"; then
+          echo "  ✗ owned barrel rule membership unavailable — no framework fixtures removed" >&2
+          note_not_wired "fences-fire fixtures — owned barrel could not load; install its module dependencies and retry"
+          return 1
+        fi
+      fi
       for _m in "$PKG_ROOT"/packages/core/audit-self/fixtures/fences-fire/*.manifest.json; do
         [ -f "$_m" ] || continue
         _mstem="$(basename "$_m" .manifest.json)"
         _rid=$(sed -n 's/.*"rule-id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_m" | head -1)
         _rkey="${_rid##*/}"
         [ -n "$_rkey" ] || continue
-        if ! grep -q "'$_rkey':" "$_barrel"; then
+        if [ -n "$_owned_barrel_rules" ]; then
+          _owned_rule_present=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).includes(process.argv[2]) ? "yes" : "no")' "$_owned_barrel_rules" "$_rkey") || return 1
+        elif grep -q "'$_rkey':" "$_barrel"; then
+          _owned_rule_present=yes
+        else
+          _owned_rule_present=no
+        fi
+        if [ "$_owned_rule_present" = no ]; then
           rm -f "$PROJECT_ROOT/scripts/fences-fire-fixtures/$_mstem".*
           echo "  · fences fixture [$_mstem] not shipped — rule '$_rkey' not in this stack's barrel"
         fi
@@ -4059,6 +4153,20 @@ project_linter() {
     echo eslint; return 0
   fi
   echo none
+}
+
+# W2: nonempty scripts.lint is the proof-driving command, independent of preset selection.
+project_lint_command() {
+  local dir="$1"
+  if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1; then
+    GETFF_PKG="$dir/package.json" node -e '
+      try { const s = (JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {}).lint;
+        if (typeof s === "string" && s.trim()) console.log(s); } catch {}' 2>/dev/null
+  elif [ -f "$dir/package.json" ]; then
+    grep -qE '"lint"[[:space:]]*:[[:space:]]*"[^"]' "$dir/package.json" && echo "(lint key present)"
+    return 0
+  fi
+  return 0
 }
 
 # project_formatter <dir> — the formatter the project in <dir> has: prettier | biome | dprint | none.

@@ -34,3 +34,23 @@ An agent authoring a new rule or skill defaults to front-loading all prose as al
 ## With this skill
 
 The agent follows the channel-selection two-axis decision procedure first: detectability → gate vs injection; relevance → narrowest reliable trigger. If a script gate catches the bypass, the prose is kept on-demand or path-scoped (not always-on). If the rule is pure behavioural discipline needing to shape reasoning in the moment, the agent routes it to a compressed digest + path/event-scoped injection rather than a standalone always-on wall. Every verdict cites a probe command or a 6-item negative-existence check — no prose-only findings. The delivered artefact carries a doc-authority header and a paired-negative block where required.
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/ai-doc/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

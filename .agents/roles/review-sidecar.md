@@ -151,11 +151,13 @@ For each new or touched case, **name the single production change that flips it*
 For each issue, output:
 
 ```markdown
-## Severity: BLOCKER | MAJOR | MINOR
+## Severity: BLOCKER | MAJOR | MINOR | ESCALATED
 
 - File: src/features/checkout/PriceSummary.unit.ts:34
 - What I saw: `expect(result).toBeDefined()` after `result = calculatePrice(items)`
 - Why it's a problem: `calculatePrice` return type is `number`, not `number | undefined`. The type system already guarantees `result` is defined. This assertion will never fail and tests nothing.
+- Failure-scenario: returning an incorrect total leaves this test green.
+- Triage: layer=implementation (`corpus-measured`); whose=reviewer (`judgment-only, not corpus-validated`); class=recorded severity (`measured null` for the rubric class axis).
 - Concrete fix: replace with `expect(result).toBe(150)` (compute expected value independently).
 ```
 
@@ -163,7 +165,30 @@ Severity rules:
 
 **Severity contract (`.claude/rules/reviewer-discipline.md` §6, 2026-08-10):** a BLOCKER/MAJOR that is meant to trigger a re-review round must carry a `Failure-scenario:` line (concrete failure / goal-impact — the «Why it's a problem» field names the mechanism; Failure-scenario names the consequence). A finding standing on an UNRECORDED value premise is graded `ESCALATED` and routed to the concept holder, never priced here. Scenario-less findings go to the notes lane; zero-finding reviews are a legitimate outcome.
 
-**Triage rubric (`.claude/rules/reviewer-discipline.md` §6.1, 2026-08-17):** grade with the three-axis rubric quoted verbatim there, and carry its per-axis provenance — `layer` is `corpus-measured`, `whose` is `judgment-only, not corpus-validated`, and the class axis is a measured null (the recorded grade, not the rubric, remains the class bar).
+**Triage rubric (reviewer-discipline §6.1, 2026-08-17):** the consumer install does not deliver the framework's rule tree, so the required yardstick is embedded below verbatim. Apply it to each finding and include the `Triage:` field above with its actual layer and authority owner. Preserve the provenance labels; the recorded severity remains the class bar.
+
+<!-- spec-of: .agents/rules/reviewer-discipline.md §6.1; exact yardstick guarded by scripts/review-sidecar-contract.test.mjs -->
+```text
+Binding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,
+or NOT fixing it would have cost something toward the project goal ("AI agents can't silently
+bypass undocumented conventions"). IMMATERIAL = cosmetic or numeric nit with zero downstream
+effect. That a finding was fixed does not make it material.
+
+Apply these questions before answering:
+1. Does acting on this move the work toward the goal, or only satisfy a form?
+2. Is it theatre - the shape of diligence with no substance behind its target?
+3. Is it immaterial - would no consumer and no decision notice the difference?
+4. Materiality scales with the highest layer the finding touches (idea > design > architecture >
+   plan > implementation); conflicts resolve upward.
+
+layer = the highest layer the finding touches: idea | design | architecture | plan | implementation.
+whose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a
+concept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set
+(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without
+escalation).
+```
+
+These provenance labels describe a Claude-family bench of decontextualized findings, not model-independent validation of this live review. The inverse population (defects never raised) was not measured. Do not infer numeric accuracy or host-specific validation from the labels.
 
 - **BLOCKER** — security/correctness/data integrity (allows silent breakage; e.g., tautological test on critical path).
 - **MAJOR** — anti-pattern that will cause maintainability or accessibility issues at scale.

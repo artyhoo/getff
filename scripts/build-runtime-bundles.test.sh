@@ -2,7 +2,7 @@
 # build-runtime-bundles.test.sh — the runtime-bundle build is cwd-independent, machine-independent,
 # and its drift gate really fires.
 #
-# scripts/build-runtime-bundles.mjs commits three prebuilt bundles a consumer runs on plain node:
+# scripts/build-runtime-bundles.mjs commits four prebuilt bundles a consumer runs on plain node:
 # packages/core/hooks/pre-push.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs and
 # packages/core/install/mcp-source-check.bundle.mjs.
 # Three properties keep that honest, one arm each:
@@ -21,11 +21,20 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="$(cd "$DIR/.." && pwd -P)"
 SCRIPT="$DIR/build-runtime-bundles.mjs"
 BUNDLES=(
+  packages/core/docs/markdownlint-cli2.bundle.mjs
   packages/core/hooks/pre-push.bundle.mjs
   packages/core/install/rule-bootstrap-cli.bundle.mjs
   packages/core/install/mcp-source-check.bundle.mjs
 )
 FAILED=0
+COMMENT_PATH_RE='^[[:space:]]*//[[:space:]]*(/([^*]|$)|\.\./)'
+# A commented-out JSDoc block is prose; absolute/traversal source paths still fail.
+if grep -qE "$COMMENT_PATH_RE" <<<'  // /**' \
+  || ! grep -qE "$COMMENT_PATH_RE" <<<'// /Users/fixture/source.js' \
+  || ! grep -qE "$COMMENT_PATH_RE" <<<'// ../../fixture/source.js'; then
+  echo 'FAIL: source-path classifier confuses prose or misses a build-machine path'
+  exit 1
+fi
 
 FOREIGN="$(mktemp -d)"
 BACKUP="$(mktemp -d)"
@@ -64,10 +73,10 @@ fi
 
 # ── (2) no build-machine paths ──────────────────────────────────────────────────────────────
 for b in "${BUNDLES[@]}"; do
-  if grep -nE '^\s*//\s*(/|\.\./)' "$ROOT/$b" >/dev/null 2>&1 \
+  if grep -nE "$COMMENT_PATH_RE" "$ROOT/$b" >/dev/null 2>&1 \
     || grep -nE '/(Users|home)/[A-Za-z0-9._-]+/' "$ROOT/$b" >/dev/null 2>&1; then
     echo "FAIL: $b carries a path of the machine that built it:"
-    { grep -nE '^\s*//\s*(/|\.\./)' "$ROOT/$b"; grep -nE '/(Users|home)/[A-Za-z0-9._-]+/' "$ROOT/$b"; } \
+    { grep -nE "$COMMENT_PATH_RE" "$ROOT/$b"; grep -nE '/(Users|home)/[A-Za-z0-9._-]+/' "$ROOT/$b"; } \
       | head -5 | cut -c1-160 | sed 's/^/      /'
     FAILED=1
   else

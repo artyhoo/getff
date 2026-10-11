@@ -138,6 +138,15 @@ _portable_discovery() {
     printf '> **Authoritative for:** native discovery and full canonical source loading for %s.\n' "$slug"
     printf '> **NOT authoritative for:** source behavior; the canonical source below owns it.\n\n'
     printf 'Read [the complete canonical procedure](%s) before acting. Load the full file, follow its instructions and resolve its helpers and references relative to that canonical file. Preserve all supplied arguments and the user request.\n' "$relative"
+    if [ "$kind" != role ]; then
+      printf '\nResolve the installed project root before mandatory shell steps. It is the nearest ancestor containing `.agents/procedures`, which may be below the Git root. Run this binding through the host shell tool:\n\n'
+      printf '%s\n' '```bash' 'GETFF_PROJECT_ROOT="$PWD"' 'while [ ! -d "$GETFF_PROJECT_ROOT/.agents/procedures" ] && [ "$GETFF_PROJECT_ROOT" != / ]; do' '  GETFF_PROJECT_ROOT="${GETFF_PROJECT_ROOT%/*}"; GETFF_PROJECT_ROOT="${GETFF_PROJECT_ROOT:-/}"' 'done' '[ -d "$GETFF_PROJECT_ROOT/.agents/procedures" ] || { printf "%s\n" "getff: installed procedure root missing" >&2; exit 2; }'
+      printf 'GETFF_SKILL_DIR="$GETFF_PROJECT_ROOT/.agents/procedures/%s"\n' "$slug"
+      printf '%s\n' 'cd "$GETFF_PROJECT_ROOT"' '```'
+      printf '\nOn Codex, explicit `$%s` or the direct operator request binds legacy `/%s`; bind arguments from that invocation (absent means empty). Execute mandatory shell blocks, including eager `!` steps, through the shell tool. Replace `${CLAUDE_SKILL_DIR}` with `"$GETFF_SKILL_DIR"`. Read/Bash/Write/Edit mean the host file, shell and edit tools; AskUserQuestion means the available user-input tool. Companion Skill calls require the installed companion procedure; if absent, report the prerequisite. Model/tool frontmatter grants no authority on this host; explicit-only policy and host authorization still govern delegation.\n' "$slug" "$slug"
+    else
+      printf '\nFor a cold role, load this canonical prompt and pass only its required inputs without inherited history. Native discovery grants no delegation authority; use the host dispatch contract only when authorized. Model/tool frontmatter does not change host permissions.\n'
+    fi
   } > "$temp"
   _portable_copy "$temp" "$dst"
   rm -f "$temp"
@@ -151,6 +160,88 @@ _portable_discovery() {
   fi
   _portable_copy "$temp" "${dst%/SKILL.md}/agents/openai.yaml"
   rm -f "$temp"
+}
+
+_portable_docs_card() {
+  local src="$PKG_ROOT/.agents/procedures/docs-author/references/criteria-card.md"
+  local dst="$PROJECT_ROOT/.agents/roles/resources/docs-form-auditor/criteria-card.md" temp card_hash terms_hash
+  if [ "$DRY_RUN" = --dry-run ]; then
+    _portable_copy "$src" "$dst"
+    return 0
+  fi
+  card_hash="$(_hash256 "$src")" || card_hash=unknown
+  terms_hash="$(_hash256 "$PKG_ROOT/docs/site/terms.md")" || terms_hash=unknown
+  temp="$(mktemp "${TMPDIR:-/tmp}/getff-docs-card.XXXXXX")"
+  {
+    printf '%s\n' '<!-- getff: installed resource binding; canonical criteria follow unchanged -->' ''
+    printf '## Installed vocabulary and gate binding\n\n'
+    printf 'Canonical card source: `.agents/procedures/docs-author/references/criteria-card.md`; SHA-256: `%s`.\n\n' "$card_hash"
+    printf 'The supplied `framework-terms.md` is a **framework-reference**, projected from the framework source `docs/site/terms.md` (SHA-256: `%s`). It is not project truth and does not establish current project vocabulary or a passing C10 gate.\n\n' "$terms_hash"
+    printf '%s\n' 'For C10, bind the owner-supplied live project glossary, its scope and source identity. Use the framework reference only when that vocabulary scope is explicitly applicable. If the appropriate live glossary or its naming gate is unavailable, report C10 as unassessed and STOP that acceptance cell. Do not copy this reference into the project glossary or regenerate consumer styles during an audit.' ''
+    printf '%s\n' 'When the project owner configures a project naming style outside the audit, protect it through the existing ownership channel: `docs/site-quality/vale/styles/getff/Names.yml.override.md`. Refresh preserves marked consumer files; an unmarked modified framework file may be replaced with a conflict backup. Do not claim that backup alone preserves the active naming gate.' ''
+    printf '%s\n' 'The delivered `scripts/render-terms-style.mjs --check` compares the project `docs/site/terms.md` with its installed naming style. Its success establishes that comparison only. C11 separately requires the applicable D28/D31 twin, llms.txt and manifest gate receipts; neither this card nor docs-check supplies those receipts. Keep absent or inapplicable gate evidence explicit.' '' '---' ''
+    cat "$src"
+  } > "$temp"
+  transform_internal_refs "$temp"
+  _portable_copy "$temp" "$dst"
+  rm -f "$temp"
+}
+
+_portable_workflow_resources() {
+  local pair src dst file rel role
+  # Deliver only the resource closure of an already selected workflow population.
+  # Supporting data never registers a contributor-only procedure as a consumer skill.
+  for role in "$PROJECT_ROOT/.agents/roles/"*.md; do
+    [ -f "$role" ] || continue
+    role="${role##*/}"; role="${role%.md}"
+    src="$PKG_ROOT/.agents/roles/resources/$role"
+    [ -d "$src" ] || continue
+    while IFS= read -r -d '' file; do
+      rel="${file#"$src"/}"
+      _portable_copy "$file" "$PROJECT_ROOT/.agents/roles/resources/$role/$rel"
+    done < <(find -L "$src" -type f -print0)
+  done
+  if [ -f "$PROJECT_ROOT/.agents/roles/docs-form-auditor.md" ]; then
+    for pair in \
+      'packages/core/docs/markdownlint-cli2.bundle.mjs:.agents/tools/docs/markdownlint-cli2.bundle.mjs' \
+      'scripts/docs-check.mjs:scripts/docs-check.mjs' \
+      'scripts/render-terms-style.mjs:scripts/render-terms-style.mjs' \
+      'scripts/lib/mermaid-allowlist.mjs:scripts/lib/mermaid-allowlist.mjs' \
+      'scripts/lib/is-main-entry.mjs:scripts/lib/is-main-entry.mjs' \
+      'docs/site/terms.md:.agents/roles/resources/docs-form-auditor/framework-terms.md' \
+      '.agents/procedures/docs-author/references/page-kinds.md:.agents/roles/resources/docs-form-auditor/page-kinds.md' \
+      'docs/site-quality/calibration.md:docs/site-quality/calibration.md'; do
+      _portable_copy "$PKG_ROOT/${pair%%:*}" "$PROJECT_ROOT/${pair#*:}"
+    done
+    _portable_docs_card
+    src="$PKG_ROOT/docs/site-quality/vale"
+    while IFS= read -r -d '' file; do
+      rel="${file#"$src"/}"
+      _portable_copy "$file" "$PROJECT_ROOT/docs/site-quality/vale/$rel"
+    done < <(find -L "$src" -type f -print0)
+  fi
+  if [ -f "$PROJECT_ROOT/.agents/roles/rule-researcher.md" ]; then
+    for pair in \
+      'install/rule-bootstrap-cli.bundle.mjs' \
+      'research/research-plan.schema.json' 'research/research-allowlist.schema.json' \
+      'research/multi-tenant-hosts.json' 'ir/convention-node.schema.json' \
+      'synthesizer/synthesis-plan.schema.json' 'validator/gate-single-token-diff.ts'; do
+      _portable_copy "$PKG_ROOT/packages/core/$pair" "$PROJECT_ROOT/.agents/tools/$pair"
+    done
+  fi
+  if [ -f "$PROJECT_ROOT/.agents/procedures/arch/SKILL.md" ]; then
+    _portable_copy "$PKG_ROOT/scripts/snapshot-for-seat.sh" "$PROJECT_ROOT/scripts/snapshot-for-seat.sh"
+    _portable_copy "$PKG_ROOT/scripts/check-arch-retell.mjs" "$PROJECT_ROOT/scripts/check-arch-retell.mjs"
+  fi
+  if [ -f "$PROJECT_ROOT/.agents/procedures/aif-doctor/SKILL.md" ]; then
+    src="$PKG_ROOT/packages/runtime-bridge/vendor"
+    while IFS= read -r -d '' file; do
+      rel="${file#"$src"/}"
+      _portable_copy "$file" "$PROJECT_ROOT/.agents/tools/runtime-bridge/$rel"
+    done < <(find -L "$src" -type f -print0)
+    _portable_copy "$PKG_ROOT/packages/runtime-bridge/scripts/bridge-health.sh" \
+      "$PROJECT_ROOT/.agents/tools/runtime-bridge/scripts/bridge-health.sh"
+  fi
 }
 
 install_portable_bindings() {
@@ -212,6 +303,7 @@ install_portable_bindings() {
       fi
     done < <(find -L "$PROJECT_ROOT/.claude/$group" -type f -print0)
   done
+  _portable_workflow_resources
   install_codex_consumer_bindings
   # The consumer's own empty starter template, never the contributor goal digest.
   if [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ]; then

@@ -35,7 +35,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # Cold-QA MINOR fix (beta-delivery-ux S1 round 1): previously the wrapper neither accepted nor
 # forwarded --profile, so `./setup --profile factory ts-server` silently dropped the flag and
 # installed at the resolved default — a silent wrong-depth install, not an error.
-MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
+MODE="interactive"; DRY=""; STACK=""; FULL=""; REFRESH=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
   if [ "$_awaiting_profile_value" -eq 1 ]; then
     # Cold-QA MINOR fix parity with install.sh:150 (flag-after-`--profile` guard): a value
@@ -60,6 +60,7 @@ for a in "$@"; do
     --global)          export GETFF_GLOBAL=1 ;;
     --full)            MODE="yes"; FULL="--full" ;;
     --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
+    --refresh)         REFRESH="--refresh" ;;
     # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the
     # operator's recommended path, so the flag must survive the wrapper (setup.d/10-skills.sh).
     --with-aif-suite)  WITH_AIF_SUITE="--with-aif-suite" ;;
@@ -111,7 +112,14 @@ for tool in bash git python3 curl; do
 done
 
 echo "▶ Framework (install.sh)"
-bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL} ${WITH_AIF_SUITE:+$WITH_AIF_SUITE} ${PROFILE_FLAG:+$PROFILE_FLAG} ${PROFILE_VALUE:+$PROFILE_VALUE}
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL} ${REFRESH:+$REFRESH} ${WITH_AIF_SUITE:+$WITH_AIF_SUITE} ${PROFILE_FLAG:+$PROFILE_FLAG} ${PROFILE_VALUE:+$PROFILE_VALUE}
+
+# Refresh uses the installer's existing project ownership and profile decisions.
+# It does not start the companion, routing, or runtime-bridge setup workflow.
+if [ -n "$REFRESH" ]; then
+  echo "✅ ./setup refresh complete."
+  exit 0
+fi
 
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"

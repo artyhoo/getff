@@ -11,6 +11,8 @@ Two decisions, in order — this is the contour's boundary:
 
 **Decision 1 — factory or in-session?** A senior judgment this skill owns (it is NOT part of the CLAUDE.md tier table, which governs only the factory path). Factory is the **default** for bulky work. Keep it in-session when the work needs the operator in the loop as it unfolds (discipline-bearing authoring, live design iteration), touches surfaces the factory cannot write (agent-uncommittable globals), or the contour itself produced it small enough to finish here.
 
+**Required companion resolution before an in-session availability verdict.** Consult the active host's supplied skill catalogue/native loader for `superpowers:writing-plans` and `superpowers:subagent-driven-development`; project-local discovery cards are only one population. When a native Skill tool is absent, use the documented direct-file fallback and read the complete installed source identified by that active catalogue or enabled plugin manifest. Record the selected absolute source paths and hashes; a name/version or abbreviated description is not the procedure. Do not claim a companion is unavailable merely because `.agents/skills/<name>` is absent. Conversely a file in a plugin cache alone does not prove the plugin is enabled or the procedure selected: distinguish physical payload, catalogue/enablement and actual full reads, and hold this route if permitted source resolution remains unverified. Do not install, enable, change user plugin configuration or trust definitions as an availability workaround. These reads do not grant plan approval, channel selection or permission to implement/dispatch.
+
 **Decision 2 — route:**
 
 <!-- prettier-ignore -->

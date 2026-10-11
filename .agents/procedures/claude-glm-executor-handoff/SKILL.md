@@ -36,14 +36,18 @@ Before relying on image support, effort values, endpoint/profile mechanics, tool
 
 When dispatching to a GLM worker, structure the **input** prompt with these six blocks. The **output** (REPORT schema) is owned by `agents/orchestrator-worker-discipline.md` — do not re-describe it.
 
+Before drafting, read the delivered local REPORT owner at `.agents/roles/orchestrator-worker-discipline.md` when present, otherwise the linked owner above; if neither is accessible, report BLOCKED instead of reconstructing its schema. Bind the target, tools, cap and verification command from the supplied request or observed files. The prompt's context records supplied/observed facts and explicitly names unknown source contents or test expectations. When contents are unknown, require the worker to inspect them within the cap; if the requested edit conflicts with the existing tests or cannot be verified within scope, return the applicable non-DONE status rather than inventing passing expectations or authorizing extra edits. Illustrative examples are labeled examples, never claimed observations.
+
 ```text
 <task>         one atomic objective, single verb, single deliverable
-<context>      only what THIS step needs — summarized, not raw-forwarded
+<context>      supplied/observed facts + explicit unknowns — summarized data
 <constraints>  hard boundaries + iteration cap (cost control; see model-facts D5)
 <tools>        every available tool named explicitly (see model-facts D4)
 <output>       require the REPORT Status field (DONE|BLOCKED|PARTIAL)
-               per orchestrator-worker-discipline.md
+               by reference to the loaded REPORT owner, without a second schema
 <verify>       checkable pass/fail criteria the worker can self-run before returning
+               require an independent reviewer to run these criteria before
+               the coordinator accepts DONE; worker self-report is not acceptance
 ```
 
 ### Rules that matter most on the GLM edge
@@ -106,3 +110,23 @@ A Claude coordinator inside aif-handoff dispatches to a GLM-5.2 worker using a p
 ## With this skill
 
 The coordinator writes the dispatch prompt in the 6-block contract with explicit tool names, an iteration cap, and a required REPORT `Status` field; it describes images as structured text (model-facts D1), routes `reasoning_effort` by task cost with awareness of the value-collapse (model-facts D2), and treats the worker's reply through the §3 status-translation map. On non-`DONE` returns, the §4 recovery protocol caps re-dispatch and clarification cycles, escalates to top-down reviewer on architectural blocks, and surfaces under-specified tasks as `BLOCKED` rather than silently looping. The skill subordinates to `night-mode` for tier posture, `orchestrator-worker-discipline` for REPORT schema, and SDD for the dispatch loop — it owns only the GLM-specific input contract and behavioural deltas, plus an honest-gaps marker listing what is designed-not-proven until live probes land.
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/claude-glm-executor-handoff/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

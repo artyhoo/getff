@@ -64,10 +64,15 @@ if [[ -z "${UMBRELLA}" ]]; then
   exit 0
 fi
 
-# Run the emitter and tee its full output. `|| true` keeps the exit-0 contract
-# even on an emitter crash; an empty capture is INCOMPLETE below, never clean.
-out="$(bash "${EMITTER}" "${UMBRELLA}" 2>&1)" || true
+# Retain partial output for diagnosis, but a failed emitter grants no frontier.
+emitter_status=0
+out="$(bash "${EMITTER}" "${UMBRELLA}" 2>&1)" || emitter_status=$?
 printf '%s\n' "${out}"
+
+if [[ "$emitter_status" -ne 0 ]]; then
+  echo "ADVANCE-INCOMPLETE: emitter failed (exit=${emitter_status}) for '${UMBRELLA}'"
+  exit 0
+fi
 
 if [[ -z "${out}" ]]; then
   echo "ADVANCE-INCOMPLETE: emitter produced no output for '${UMBRELLA}'"

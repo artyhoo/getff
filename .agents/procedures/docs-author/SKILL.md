@@ -82,7 +82,11 @@ entries render into region (b) from the members registry and are never hand-edit
 1. Every example executed at the pin and its real output pasted into the page.
 2. First mentions of glossary terms link to terms.md.
 3. `node scripts/docs-check.mjs <page>` exits 0 (run it from the repo root; an escape needs the
-   two-comment form with a reason of at least 20 characters).
+   two-comment form with a reason of at least 20 characters). Confirm that the requested page
+   appears in the pages population. An out-of-scope skipped path is not a checked page.
+   Preserve the output and exit status. A missing or failed helper, or a reported tool skip,
+   leaves the affected criteria unverified; do not turn a lenient exit 0 into a full PASS.
+   Use `--strict` to verify the complete deterministic tool set when required.
 4. The commit body carries the `Docs-card:` trailer: every criterion id C1 through C13 with
    `PASS`, `FAIL`, or `N/A` — or the escape `Docs-card: skipped — <reason of at least 20
 characters>`. Detection lives in the pre-push gate and CI, not in this prose.
@@ -128,5 +132,25 @@ plugin lacks, so nothing restates and nothing drifts.
 - [references/craft.md](references/craft.md) — openers, why-before-how, progressive disclosure,
   callouts, the punctuation sentence, worked examples.
 - [references/terms.md](references/terms.md) — pointer to the real glossary (never a copy).
-- [references/gold/](references/gold/README.md) — frozen gold pages after the Opus GO; empty
-  until then.
+- [references/gold/](references/gold/README.md) — five frozen bulk-kind pages, landed
+  2026-09-21 after the Opus GO; use these copies for the calibration baseline.
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/docs-author/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

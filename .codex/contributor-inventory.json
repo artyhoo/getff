@@ -230,7 +230,7 @@
     {
       "path": ".agents/skills/ai-doc/SKILL.md",
       "kind": "text",
-      "fingerprint": "c8b2b4bbb673bece5a27be320aeb790afa830765c9dd003b12a065bf69703998"
+      "fingerprint": "d3ba8bb784f7e38e80569ac3e57ae487685b9d123f01f75fbe1ffd38e79a34b6"
     },
     {
       "path": ".agents/skills/ai-doc/agents/openai.yaml",
@@ -245,7 +245,7 @@
     {
       "path": ".agents/skills/aif-doctor/SKILL.md",
       "kind": "text",
-      "fingerprint": "4082f9cc07eb1b0077601857215ef5d0c884d82bc64f5e6361db8547f95a9b00"
+      "fingerprint": "399a83737d29e0bc387d6b0c603440bbe2bdd187594b706eaac48ff1a34f32c9"
     },
     {
       "path": ".agents/skills/aif-doctor/agents/openai.yaml",
@@ -265,7 +265,7 @@
     {
       "path": ".agents/skills/arch/SKILL.md",
       "kind": "text",
-      "fingerprint": "99fb3c7426bebda3c8f45a497322810a7b6a85d23b9234e3e691deca152473fe"
+      "fingerprint": "ff18dc983f871df2c94544ab194df510ec9e0dbcdaf3cb96d60c286b138cec42"
     },
     {
       "path": ".agents/skills/arch/agents/openai.yaml",
@@ -280,7 +280,7 @@
     {
       "path": ".agents/skills/claude-glm-executor-handoff/SKILL.md",
       "kind": "text",
-      "fingerprint": "ef42522d8291b1d73c28ffdb0b9d5bdb071ab1e17ece481b9bca288cf0d8fb29"
+      "fingerprint": "efeeea413a087ee73897a6439df073c72825fcf5cb7f9f21e7abdd8d76f23693"
     },
     {
       "path": ".agents/skills/claude-glm-executor-handoff/agents/openai.yaml",
@@ -295,7 +295,7 @@
     {
       "path": ".agents/skills/dispatcher/SKILL.md",
       "kind": "text",
-      "fingerprint": "2e683a80a59321a57ed31654d3a76b9936a271297de7822f42ef57a91e31cc0f"
+      "fingerprint": "5d63836215931763b8310a648fb6836f37cae7f994a9a2b185419dd39f9db990"
     },
     {
       "path": ".agents/skills/dispatcher/agents/openai.yaml",
@@ -315,7 +315,7 @@
     {
       "path": ".agents/skills/docs-author/SKILL.md",
       "kind": "text",
-      "fingerprint": "9255d640e946d4c345662cc90223b5c103b7544ec2d36c5905cab7f244fe482e"
+      "fingerprint": "c3cee7c4dacb00640a60bf3c38340c1fdfe210df6e0fe690ab1e17fb845d4011"
     },
     {
       "path": ".agents/skills/docs-author/agents/openai.yaml",
@@ -330,7 +330,7 @@
     {
       "path": ".agents/skills/getff/SKILL.md",
       "kind": "text",
-      "fingerprint": "89879c2774c8bf6aeffa0185ac8481fba297fab9317c2965477da70d50c6b9c8"
+      "fingerprint": "93db855584c08a25b3174f71d7e345769107573301140afbd348f6ab5375ad38"
     },
     {
       "path": ".agents/skills/getff/agents/openai.yaml",
@@ -345,7 +345,7 @@
     {
       "path": ".agents/skills/harvest/SKILL.md",
       "kind": "text",
-      "fingerprint": "ca5bf71c51498aaeb9374acbae69462240684d5f3eb63af043261806b4ee2489"
+      "fingerprint": "f84df2612d9ee56c34a26cd3c93994c98803b5772822c183ead42c6bfd75b0aa"
     },
     {
       "path": ".agents/skills/harvest/agents/openai.yaml",
@@ -358,9 +358,14 @@
       "fingerprint": "../../procedures/harvest/references"
     },
     {
+      "path": ".agents/skills/harvest/tests",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/harvest/tests"
+    },
+    {
       "path": ".agents/skills/installing-enforcement/SKILL.md",
       "kind": "text",
-      "fingerprint": "2fc6ea250d1dbf8cad845f77df2a82f5ad5c0242a7105fd9ab3999e615778a8c"
+      "fingerprint": "d37b4fda4afe0f5ce9bf05c88be68cca25b3b012b575b418049db022b21b20f7"
     },
     {
       "path": ".agents/skills/installing-enforcement/agents/openai.yaml",
@@ -370,7 +375,7 @@
     {
       "path": ".agents/skills/night-mode/SKILL.md",
       "kind": "text",
-      "fingerprint": "d889693e90cc9517c8c239c08197995d47bc7d49e248c20b27650acfb7769316"
+      "fingerprint": "1306c438b9c0006487e8e13d602893a9fa23dc2763379170edffbfbb5b15f940"
     },
     {
       "path": ".agents/skills/night-mode/agents/openai.yaml",
@@ -385,7 +390,7 @@
     {
       "path": ".agents/skills/orchestrator/SKILL.md",
       "kind": "text",
-      "fingerprint": "1eba070da4c39b677e0ce99d4a8313b95976176fc3c3538fb48832ad263943fc"
+      "fingerprint": "319b0edb300e0e0d898538d35c6d77092f0e054438cf08673134c68d4bdf7bdc"
     },
     {
       "path": ".agents/skills/orchestrator/agents/openai.yaml",
@@ -405,7 +410,7 @@
     {
       "path": ".agents/skills/pipeline/SKILL.md",
       "kind": "text",
-      "fingerprint": "137eff7966409d6e304bb86dd400a5eedecd6bf0b05c64c89cdd69e5f494f1ac"
+      "fingerprint": "ab1ecd20ada3bd4c1421ac00db1ec35a8b829ab12c327d81850b957839865019"
     },
     {
       "path": ".agents/skills/pipeline/agents/openai.yaml",
@@ -440,7 +445,7 @@
     {
       "path": ".agents/skills/reviewer/SKILL.md",
       "kind": "text",
-      "fingerprint": "cb29f8133a7ba9913da192fb190bf04d6443f86bdac0ecf7c8b24df8cfaced1e"
+      "fingerprint": "955acf851c2bf31498486d7e30143c5ccedab0ca0b821951762cf734a62f9aba"
     },
     {
       "path": ".agents/skills/reviewer/agents/openai.yaml",
@@ -450,7 +455,7 @@
     {
       "path": ".agents/skills/rule-research/SKILL.md",
       "kind": "text",
-      "fingerprint": "d2779862f1f030065a0eaeb143b2244f59dcdfffee38435a48ddf6f7d8062143"
+      "fingerprint": "6aa0f72cb6ca6fad2221616d369da1081424c56a2a1358c7c39370b4ee4aab4d"
     },
     {
       "path": ".agents/skills/rule-research/agents/openai.yaml",
@@ -460,7 +465,7 @@
     {
       "path": ".agents/skills/rule-tests/SKILL.md",
       "kind": "text",
-      "fingerprint": "9cb143d9ea9f28967afaafaec1138d71678e640adbceeb440d1dce0e1400982e"
+      "fingerprint": "071aeb8b9b908fbd7b648e838d682f70941063b97043e186f91edf134e1d28b1"
     },
     {
       "path": ".agents/skills/rule-tests/agents/openai.yaml",
@@ -470,7 +475,7 @@
     {
       "path": ".agents/skills/self-reflection/SKILL.md",
       "kind": "text",
-      "fingerprint": "7768520288b2e43906b5854d4abfeee4ddc1b015a6034a249461d245be0c65d4"
+      "fingerprint": "1df1be9859008dbdca76b7b7f1b8041033c23b7136a0c0a6489531e0cbe1e33d"
     },
     {
       "path": ".agents/skills/self-reflection/agents/openai.yaml",
@@ -485,7 +490,7 @@
     {
       "path": ".agents/skills/story/SKILL.md",
       "kind": "text",
-      "fingerprint": "c64e1110f5ccd7c52cb2a9453c55b60c3d8d177aea643a2bcd9bb008fea73b55"
+      "fingerprint": "6ef6d26cfee85e2ed2687bfcfaea8d9b1e0b7dcccede49b93d0e9ec50d25d169"
     },
     {
       "path": ".agents/skills/story/agents/openai.yaml",
@@ -500,7 +505,7 @@
     {
       "path": ".agents/skills/template-audit/SKILL.md",
       "kind": "text",
-      "fingerprint": "34cfe2d2d3afd6c9c3076388c2d2d8064059138266009cef6698da962c3bd97c"
+      "fingerprint": "f7c003e8aa3055d3df25369bf2fd679f22d6627c88ffccb8ef32310127126f3c"
     },
     {
       "path": ".agents/skills/template-audit/agents/openai.yaml",
@@ -510,7 +515,7 @@
     {
       "path": ".agents/skills/tool-bootstrapping/SKILL.md",
       "kind": "text",
-      "fingerprint": "ebd1772b83b9efd188294dd1c73b7c10bdb6b8180219d2db6127bb01e80e44cc"
+      "fingerprint": "0d9838682a519a38baa2b28e29736b5d07dffc9499a7076813348f3e27c1992d"
     },
     {
       "path": ".agents/skills/tool-bootstrapping/agents/openai.yaml",
@@ -523,9 +528,14 @@
       "fingerprint": "../../procedures/tool-bootstrapping/references"
     },
     {
+      "path": ".agents/skills/tool-bootstrapping/templates",
+      "kind": "symlink",
+      "fingerprint": "../../procedures/tool-bootstrapping/templates"
+    },
+    {
       "path": ".agents/skills/using-getff/SKILL.md",
       "kind": "text",
-      "fingerprint": "2f3c74f17775458e980fd41f0c499694b12bae1db4b4a319db5f64dc7fe2b93d"
+      "fingerprint": "8248cdc0d3af5a5be72bccab401e7ff912966b0adfadab8f79b24ae0df66831e"
     },
     {
       "path": ".agents/skills/using-getff/agents/openai.yaml",
@@ -805,12 +815,12 @@
     {
       "path": ".codex/agents/rule-researcher.toml",
       "kind": "text",
-      "fingerprint": "bd08f3b13a5b5268265c1e4cbdcd335c82c54d739775ad33f7740131293a3770"
+      "fingerprint": "0bd784a12414c9a05642aa1f9b91e0195ad2afed0e95485f1785cf2d6748f01f"
     },
     {
       "path": ".agents/skills/rule-researcher/SKILL.md",
       "kind": "text",
-      "fingerprint": "74978d5dac4ce389b11e859092e9c92ea329beafc27466eec185df28c588618c"
+      "fingerprint": "bf4694486dcfb09c8c83deb08316413ff8823c921003a088012bf71c0e406b33"
     },
     {
       "path": ".agents/skills/rule-researcher/agents/openai.yaml",

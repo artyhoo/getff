@@ -35,7 +35,7 @@ Cross-session advisor/orchestrator communication uses the shared
 Native chat messaging and collaboration subagents are distinct address spaces.
 
 - Invoke project skills with `$name` / the skill picker, or explicitly ask for the named procedure. Explicit-only procedures have `agents/openai.yaml` with `allow_implicit_invocation: false`. A discovered skill grants no permission to spawn a worker.
-- Generated skill entries require loading the complete canonical procedure before executing it. Canonical eager shell steps are commands to execute through the active harness's shell tool before proceeding. Bind `$ARGUMENTS` and other procedure variables from the operator's invocation. Helper paths resolve through `.agents/procedures/<name>` anchored at the repository root — resolve the root with `"$(git rev-parse --show-toplevel)"` first instead of assuming the session cwd is the root; a nested cwd must reach the same helpers.
+- Generated skill entries require loading the complete canonical procedure before executing it. Canonical eager shell steps are commands to execute through the active harness's shell tool before proceeding. Bind `$ARGUMENTS` and other procedure variables from the operator's invocation. Preserve the invocation cwd and resolve the nearest ancestor containing `.agents/procedures/<name>/SKILL.md`, following the entry's Common invocation binding. Anchor helpers at that installed project root; an enclosing Git root may belong to another project and must not replace it. The invoked canonical procedure determines each input's base: project-relative inputs bind to that project, procedure-relative resources to the canonical procedure, and cwd-relative inputs to the preserved invocation cwd. Retain absolute inputs and quote the root and every argument. If the installed procedure root is missing, STOP with the missing path instead of falling back to an enclosing repository. Framework contributor commands below remain contributor-only.
 - `Read` means read the indicated file; `Bash` means the shell tool; `Write/Edit` means `apply_patch`. `AskUserQuestion` means the native user-input tool when available. `Skill('superpowers:…')` means read the installed companion skill and execute its procedure. Tool/model frontmatter from Claude grants neither tool access nor a Claude model on Codex; use host-available models and the canonical relative-tier policy.
 - Agent skills are thin pointers to the canonical `.agents/roles/*.md` procedures. Read the entire prompt. Use a no-history subagent for cold reviews and pass its required inputs. Host authorization still controls delegation; named procedures do not silently create native tool grants.
 - Hooks normalize `apply_patch` add/update/delete/move paths, including every file and both rename endpoints, before reusing source scripts. Source violations become native exit-2 feedback; pre-tool seal decisions remain native deny JSON. Nested code-mode calls inherit host hooks. Post-tool failures cannot undo mutations. `write_stdin` is transport; it does not add a new pre-tool policy check.
@@ -52,6 +52,41 @@ Validated per-response rollout `model_context_window` supplies `AIF_CTX_WINDOW` 
 when the operator has not supplied a non-empty override. Unknown or invalid window
 records supply no window; canonical context-tier feedback remains the source contract.
 These are source integration checks, not native activation evidence.
+
+## Capability preflight for every native entry
+
+Explicit `$name`, the picker, or a direct operator request satisfies the canonical
+explicit invocation channel written as `/name`. An absent argument is empty; it is
+not the word `status` or a request to launch a worker. Bind positional arguments and
+`$ARGUMENTS` once, resolve the nearest installed procedure root as described above,
+and run root-relative procedure commands with that root as the shell workdir.
+Keep the original invocation cwd as evidence and for inputs the canonical procedure
+defines as cwd-relative; its input rules determine every path base. Shell fences (`bash` and legacy `!`)
+are instructions to execute, not already executed evidence. Read conditional
+references before interpreting the helper output. Preserve stderr and exit status;
+a failed probe is unknown, never an empty population.
+
+`WebSearch` maps to native web search, `WebFetch` to web open; if unavailable, report
+research blocked and never manufacture source coverage. Claude tool/model names
+are vocabulary; use actual registered host capabilities. Native collaboration
+shares the workspace and does not accept `isolation: "worktree"`, tool grants,
+consumer cwd, or Claude `<usage>` telemetry. Create and pass a separate checkout
+for authorized write workers, or run sequentially. A fresh conversation is not a
+proof that project instructions or tools were removed.
+
+Orchestrator quota: read host usage limits when available; report those windows
+with their actual units. If usage is absent, mark it unknown; do not invent
+Opus/Sonnet pools, token costs or remaining percentages. Retain the relative
+senior/junior routing intent only where the host supports the requested settings.
+
+The cold-run and liveness probers have stricter experimental requirements:
+`getff-cold-run-prober` needs a verified consumer session cwd/discovery environment;
+`manual-rule-liveness-prober` needs a baseline without project/rule injection;
+`shipped-agent-liveness-prober` needs enforced tools:[] plus tool-use telemetry.
+Without a verified launcher providing those controls, emit `DISPATCH-INFEASIBLE`
+with the missing controls and park that experiment. Read-only source inspection
+may continue but cannot substitute for a firing result. Do not invoke a top-level
+Claude launcher just because a generated Codex entry exists.
 
 ## Scope of evidence
 

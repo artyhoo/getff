@@ -11,11 +11,11 @@
 ## What this project is
 
 See `.ai-factory/DESCRIPTION.md` for full project context — domain, stack, constraints, non-goals.
-See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns — and on a React/Next project also `.ai-factory/ARCHITECTURE.react-next.md` (Server vs Client boundary).
+If delivered, read `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns — and on a React/Next project also `.ai-factory/ARCHITECTURE.react-next.md` (Server vs Client boundary).
 
 ## Project rules (enforced by lint, tests, CI, audit-ai-docs)
 
-Read the delivered `.ai-factory/RULES.md` for this layer. On npm stacks it lists R1–R11, plus R12–R20 for React/Next (`.ai-factory/RULES.react-next.md`) and IR1–IR6 for microservices (`.ai-factory/rules/integration-rules.md`). Each rule names its own enforcement channel there. Read it before your first edit; do not rely on a summary.
+Read `.ai-factory/RULES.md` when delivered for this layer; a stack-free generic installation has no generated rule inventory. On npm stacks it lists R1–R11, plus R12–R20 for React/Next (`.ai-factory/RULES.react-next.md`) and IR1–IR6 for microservices (`.ai-factory/rules/integration-rules.md`). Each rule names its own enforcement channel there. Read it before your first edit; do not rely on a summary.
 
 **On npm stacks, runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set; R2 (validation at boundaries) stays unconditional.
 
@@ -51,7 +51,7 @@ The following scripts and Husky hooks belong to npm stack installs. Run the ones
 - The **pre-push hook** (`.husky/pre-push`) fires automatically on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, command/script check liveness, changed-Markdown links). It does not run your typecheck or your tests.
 - **CI** gates the PR (`ci-success` required check). This is the last-resort authority that does not depend on local tooling.
 
-A generic stack-free layer has the docs audit, but no npm rule/hook bundle. Toolchain-only installs need none of these npm scripts; their absence is expected.
+A generic stack-free layer has the common workflow core and native adapters, but no npm rule/hook bundle. Check the actual installed scripts before claiming a docs gate exists. Toolchain-only installs need none of these npm scripts; their absence is expected.
 
 ### Structural code search (ast-grep)
 
@@ -82,7 +82,7 @@ The framework's thesis is that rules are tested for firing at delivery time, not
 
 ## Skills available
 
-These skills are installed under `.claude/skills/` and **auto-activate on relevant queries in Claude Code**:
+The common source lives in `.agents/procedures/`; Claude Code discovers `.claude/skills/`, and Codex discovers `.agents/skills/`. Both adapters are delivered together for the selected tier. Native discovery does not prove hooks are trusted or enforcing. Load only entries actually present:
 
 - **`getff`** — five-layer framework (architecture / meta-tests / spec by example / mutation / living docs), plus 5 reference docs in `references/`. On Claude Code, auto-triggers on questions about ESLint, Stryker, Pact, dependency-cruiser, AI-driven code drift.
 - **`tool-bootstrapping`** — when project deps change, analyses the stack for MCP/skill fit, proposes a confirmation list, persists accepted/rejected decisions in `.ai-factory/tool-decisions.md`.
@@ -90,13 +90,13 @@ These skills are installed under `.claude/skills/` and **auto-activate on releva
 - **npm layer only: `ai-doc`** / **`template-audit`** — AI-doc authoring standard; local advisory audit of the shipped templates.
 - On npm layers at `env` depth also **`arch`**, `night-mode`, `orchestrator`, `pipeline`, `reviewer`; at `factory` depth also `dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`.
 
-> On other harnesses (Cursor, Codex CLI, Aider, Windsurf, Roo Code) skills do **not** auto-activate — load the skill manually / read its `SKILL.md` when the topic comes up.
+> Codex cards bind the common procedure, project root and invocation arguments. Other harnesses without a native adapter can read the common `SKILL.md`. Operator-owned trust and permissions remain separate prerequisites.
 
 Add additional project skills here as you create them. Don't list a skill until its file is committed (see `references/ai-traps.md`, lesson #2).
 
-## Sub-agents (Claude Code)
+## Role contracts
 
-Python installs `rule-researcher` and `rule-test-author` only. The npm layer additionally installs the other agents below; read only files actually present in `.claude/agents/`:
+Python installs `rule-researcher` and `rule-test-author` only. The common core also delivers the roles selected for its tier through Claude agent files and Codex discovery cards; read only files actually present in `.claude/agents/`:
 
 - **`review-sidecar`** — two-AI tautology review; reads tests as an external reviewer with no memory of how they were written.
 - **`living-docs-auditor`** — runs `scripts/audit-ai-docs.sh` and interprets PASS/FAIL (drift + code-vs-docs).

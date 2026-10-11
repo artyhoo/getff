@@ -192,9 +192,13 @@ test('native emitter preserves lifecycle coverage, replaces only ZCode rewrite, 
   );
   assert.match(
     pipeline,
-    /Replace .*CLAUDE_SKILL_DIR.*with.*(?:\.agents\/procedures|\.claude\/skills)\/pipeline/,
+    /Replace .*CLAUDE_SKILL_DIR.*with.*GETFF_SKILL_DIR/,
   );
   assert.ok(pipeline.split('\n').length <= 600);
+  assert.match(pipeline, /explicit `\$pipeline`.*legacy `\/pipeline`/);
+  assert.match(pipeline, /absent means an empty string/);
+  assert.match(pipeline, /execute canonical commands from that root/);
+
   assert.match(
     ops.find((o) => o.path === '.agents/skills/pipeline/agents/openai.yaml')
       .value,

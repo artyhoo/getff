@@ -71,3 +71,23 @@ The operator re-derives aif operational knowledge every session: which port the 
 `/aif-doctor` runs the $0 read-only sweep, classifies the failure against the empirically-grounded §3 catalogue, and prints the one mapped fix with its evidence and reversibility — in seconds, without re-derivation. It distinguishes the watchdog-recoverable cases (leave them) from the three modes the watchdog cannot see (act on them), refuses to speculate beyond observed modes, and gates every destructive, spending, or standing-config fix behind an explicit operator GO while the Tier-1 reversible in-container fixes auto-apply with a log. The host-proxy block is named and handed back to the operator instead of being chased in the wrong layer.
 
 ---
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/aif-doctor/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

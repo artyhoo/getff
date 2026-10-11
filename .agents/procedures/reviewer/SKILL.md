@@ -24,6 +24,17 @@ Respond in the operator's language. Evidence discipline: claims are verified thr
 
 ## Modes
 
+Bind the mode and review scope to the current invocation before reading deliverables.
+An artifact identifier is a path, named deliverable, or branch actually supplied in that
+invocation. The session cwd and words such as "fixture" or "phase done" do not fill that
+input slot. In deliverable-verification mode, if neither an artifact identifier nor an
+acceptance command is supplied, emit `VERDICT: STOP`, name the missing input, and stop
+before inspecting or running working-directory deliverables. A nearby spec cannot fill
+the missing slot. For an input-only question, use the supplied premises and the governing
+review protocol; do not discover, read, or run adjacent acceptance fixtures. For a bound
+artifact, read its declared criteria and run only its acceptance commands. Preserve a
+failed or denied execution as failure or unverified evidence, never a pass.
+
 1. **Question** — "is this right?" / "does X match the plan?" → read the relevant
    artifacts, answer `YES / NO / PARTIALLY` + one-line why + `file:line` evidence.
 2. **Deliverable verification** — "phase N done, verify" → run the acceptance commands
@@ -97,3 +108,23 @@ the rule — no hand-patching, no drift window.
 - [.claude/rules/cold-seat-economy.md](../../rules/cold-seat-economy.md) — when a fresh cold seat vs a delta check is warranted.
 - [.claude/rules/effort-worthiness.md](../../rules/effort-worthiness.md) — practice-first default; a probe/extra-round demand prices what-breaks-if-wrong.
 - [agents/fidelity-auditor.md](../../../.agents/roles/fidelity-auditor.md) / [agents/review-sidecar.md](../../../.agents/roles/review-sidecar.md) — the cold, dispatched review protocols this skill does NOT replace.
+
+<!-- getff:common-invocation-binding -->
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/reviewer/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+<!-- /getff:common-invocation-binding -->

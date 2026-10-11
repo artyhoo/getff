@@ -250,9 +250,10 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
     // GREEN direction — the real, unmodified file.
     expect(fenceHits(src).filter((h) => h.rationale === null)).toEqual([]);
 
-    // RED direction — reinstate the exact §1 hardcode issue #1245 reported, in the real text.
+    // RED direction — replace the current cache-helper invocation with the §1 hardcode
+    // issue #1245 reported. The former inline head recipe moved behind this helper.
     const seeded = src.replace(
-      /^head -200 "\$\(bash .*print-orch-home\.sh.*$/m,
+      /^bash "\.agents\/procedures\/pipeline\/helpers\/read-plan-cache\.sh"$/m,
       'cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200',
     );
     expect(

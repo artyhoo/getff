@@ -99,14 +99,15 @@ theme (too fine — should merge). State which direction and which nodes.
 
 ## Output format
 
-Per-section verdicts: `CLEAN` / `GAP` (GAP = REVISE-class). Overall verdict tokens
-GO/REVISE/STOP per dispatch-input-checker.md §Output grammar: any GAP → REVISE; population too thin to judge
-→ STOP; complete population + zero GAP → GO.
+Per-section verdicts: `CLEAN` / `GAP` / `INCONCLUSIVE` (GAP = REVISE-class;
+INCONCLUSIVE = a member claim is too thin to judge). Overall verdict tokens
+GO/REVISE/STOP per dispatch-input-checker.md §Output grammar: any INCONCLUSIVE or unreadable
+required input → STOP; otherwise any GAP → REVISE; complete population + zero GAP → GO.
 
 ```text
 Population: <N sections>, <M nodes>, <K excluded>.
 Per section:
-  - <sectionId> "<title>"  — CLEAN | GAP
+  - <sectionId> "<title>"  — CLEAN | GAP | INCONCLUSIVE
       (a) title↔nodes: <verdict + quoted claim if GAP>
       (b) mis-grouping: <none | node <id> fits <section/new title> better>
       (d) granularity:  <right-grained | too coarse: split <…> | too fine: merge <…>>

@@ -24,15 +24,13 @@ If proposal is pure docs/process — N/A.
 
 ## Layer 3 — Commit-level (capability-commit gate)
 
-For each commit in proposal — classify per [CLAUDE.md `What is a capability commit`](../../../../CLAUDE.md):
+For each proposed commit, read the current [CLAUDE.md `What is a capability commit`](../../../../CLAUDE.md) definition and compare with the production [prior-art detector](../../../../packages/core/hooks/checks/prior-art.ts). Those owners supply the classification and trailer grammar; this checklist does not define a second classifier.
 
-- Adds new explicit dep in `package.json` (transitive doesn't count) — capability.
-- Adds new file ≥50 LOC under new subdirectory `packages/core/<new-dir>/` — capability.
-- Adds new file ≥80 LOC anywhere under `packages/` — capability.
+Apply the LOC carve-outs before classifying: documentation, byte-identical copies of already-tracked pre-image blobs, and test additions for existing capabilities are exempt. Files directly under `packages/core/principles/` are enforcement capabilities, so the test-material exemption does not cover them. A qualifying production addition or new explicit dependency alongside an exempt test still makes the commit a capability commit.
 
-For each capability commit: `Prior-art:` trailer drafted with reference to `prior-art-evaluations.md#<ID>` or escape-hatch rationale ≥20 chars.
+For a capability commit, draft a substantive `Prior-art:` trailer with a resolvable referent accepted by CLAUDE.md. A `skipped` escape hatch cannot replace evidence on an actual capability commit.
 
-For each non-capability commit: escape-hatch trailer with ≥20-char rationale (e.g. «refactor only, no new capability»). `.husky/pre-push` enforces this on push.
+A non-capability commit does not require a `Prior-art:` trailer from the capability gate. Use a justified escape hatch only where an applicable mixed-PR check requires one; do not claim the pre-push detector requires it universally.
 
 ## Layer 4 — Build-vs-reuse SSOT
 

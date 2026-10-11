@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:729-730, long before do_refresh at install.sh:1658).
+# (do_python_lane exits at install.sh:731-733, long before do_refresh at install.sh:1658).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:841-842 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -1101,6 +1101,8 @@ _py_deliver_local_hook_rung() {
   # pre-push template (and the pre-commit fragment, which invokes the same body) both run it.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
+  _py_copy_or_refresh "$PKG_ROOT/packages/core/synthesizer/run-rule-tests-firing.sh" "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh" 2>/dev/null || true
   _py_copy_or_refresh "$hook_src" "$hook_dst"
   chmod_safe +x "$hook_dst" 2>/dev/null || true
 
