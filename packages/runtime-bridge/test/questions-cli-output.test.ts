@@ -57,7 +57,7 @@ async function runQuestions(
   try {
     const address = server.address();
     assert.ok(address && typeof address === 'object');
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       RUNTIME_BRIDGE_AIF_URL: `http://127.0.0.1:${address.port}`,
     };
