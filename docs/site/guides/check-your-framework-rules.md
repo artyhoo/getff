@@ -145,8 +145,8 @@ and the page is the thing to report.
 - **The rule you need is class `C` and you want enforcement anyway.** The rule
   records the trigger that promotes it — usually documented incidents, counted
   in its promotion section. Record the incident rather than building a side
-  [gate](../terms.md#gate); an ungated rule with a recorded trigger is the
-  designed state.
+  [gate](../terms.md#gate); a rule with no gate and a recorded trigger is
+  the designed state.
 - **You want the readable version first.** All thirty rules have pages under
   [F1](../reference/F1.md), each with a fact card —
   [how to read a rule page](../reference/F1.md#how-to-read-a-rule-page)

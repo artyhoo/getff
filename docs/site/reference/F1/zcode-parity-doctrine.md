@@ -52,7 +52,7 @@ framework ships, classified per hook as full parity, framework-internal, degrade
 gap, or Claude Code-only — with the rule that a hook absent from another harness
 carries documented degradation rationale, never a shrug.
 
-The expressibility boundary is a concrete list, not a vibe. The harness config
+The boundary of what the config can express is a concrete list, not a vibe. The harness config
 renderer defines exactly which lifecycle events the second harness can express:
 
 ```bash
@@ -66,7 +66,7 @@ ls .claude/hooks/*.sh | wc -l
 26
 ```
 
-Seven events are expressible; subagent lifecycle, worktree creation, and
+Seven events are expressible; sub-agent lifecycle, worktree creation, and
 compaction are not — which is why four census rows carry accepted-degradation
 rationale rather than parity claims. One row's rationale is the doctrine's best
 example of intellectual honesty under pressure: when compaction shipped on the
@@ -82,10 +82,10 @@ enum, trust-channel markers, and hook input/output literals against the installe
 bundle, failing on drift before any documentation is trusted.
 
 One drift is visible from this batch's own working tree, and the page records it
-rather than smoothing it over: the census rollup equates its total (23 rows) with
+rather than smoothing it over: the census roll-up equates its total (23 rows) with
 the hook-directory count at its census baseline, and the directory today holds 26
 scripts — three hooks have landed since. The table binds its 23 rows; the tree has
-moved; the rollup line still points at the baseline, not the present.
+moved; the roll-up line still points at the baseline, not the present.
 
 What the rule does not do: it does not make hooks portable — four lifecycle events
 remain inexpressible and four rows stay Claude Code-only by documented decision.
@@ -101,7 +101,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
 - `§1` the goal and the verbatim operator stance: `:26` to `:34` (quote at `:30`
   to `:32`).
 - `§2` the binding census: `:36` to `:70` — the `ZCODE_EVENTS` definition cited at
-  `:40`, the 23-row table at `:42` to `:66`, the classification rollup at `:68`,
+  `:40`, the 23-row table at `:42` to `:66`, the classification roll-up at `:68`,
   the accepted delivery asymmetry at `:70`.
 - `§3` the per-stage decision table: `:72` to `:91`.
 - `§4` the per-degradation rationale: `:93` to `:113` — the compaction row's

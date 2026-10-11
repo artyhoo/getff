@@ -91,7 +91,7 @@ self-tests of its own.
 
 What the rule does not do: it cannot stop an unbacked verdict from being *spoken* —
 the digest reminds every session, and nothing audits the reminder's effect. And its
-gate's scope is deliberately narrow: a chip naming no dispatchable kickoff is
+gate's scope is deliberately narrow: a chip naming no dispatch-ready kickoff is
 untouched, left to the same human judgment the digest informs.
 
 ## Evidence
@@ -115,7 +115,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
   count above finds), with its conditions and escape token documented at `:810`
   to `:830`; paired self-tests at
   `packages/core/hooks/end-of-turn-reminder.test.ts`.
-- The parent discipline this rule operationalises:
+- The parent discipline this rule puts into operation:
   `.claude/rules/phase-research-coverage.md:99` (`§1.12`), and the trap catalogue
   entry it shares DNA with: `.claude/rules/ai-laziness-traps.md` `T20`.
 - The index row grading this rule class `B` with channels `digest, hook`:

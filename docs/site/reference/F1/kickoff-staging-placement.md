@@ -54,7 +54,7 @@ same name and fixed the wrong thing. The [rule](../../terms.md#rule) is a sequen
 author the kickoff, merge it to staging, and only then hand out the dispatch.
 
 The `class` row is `A`, and the honest reading is in the rule's own header: the
-merge-timing sequence itself stays ungated, because at authoring time the right answer
+merge-timing sequence itself is enforced by no gate, because at authoring time the right answer
 to "is it on staging yet?" is legitimately no — no check at any branch-scoped channel
 can assert a *timing* rule. What makes the class an A is the rest of the shipped
 surface: three authoring mistakes on this directory that render as success, each gated
@@ -63,7 +63,7 @@ backstop for commits no local hook runs. Two of the three are worth knowing beca
 their damage is deferred — everything looks green when the mistake is made.
 
 The first: this directory is gitignored with per-umbrella exceptions, and a
-coordination helper adopts untracked files into a shared store, leaving a symlink
+coordination helper adopts files git does not track into a shared store, leaving a symlink
 behind. Write a new kickoff, run `git add` in a later step, and the commit can take
 the 84-byte link instead of the 232-line brief. Status output shows a normal path;
 everything reads fine through the link; the commit is worthless as a copy, and a later
@@ -71,7 +71,7 @@ cleanup of the store destroys the only real one. A pre-commit section now reject
 symlinked kickoff outright.
 
 The second is a naming trap. Stage kickoffs must match a strict pattern — a letter, a
-digit, optional alphanumerics — and the pattern deliberately keeps dotted sidecar
+digit, optionally letters and digits — and the pattern deliberately keeps dotted sidecar
 files out. A name like `kickoff-bs0.md` just misses it: the single letter consumes
 `b`, then the required digit meets `s`. Every gate then treats the file as a
 deliberate sidecar and reports green having examined nothing. The pattern lives in
@@ -96,7 +96,7 @@ can precede any push.
 What the rule does not do: it cannot stop a dispatch issued before the merge — the
 violation is a message a human or agent sends, and no check sees it at send time. The
 rule file reserves a promotion path for a dispatch-preflight gate should another
-misdispatch incident fire; none has since the rule landed.
+wrong-target dispatch incident fire; none has since the rule landed.
 
 ## Evidence
 
@@ -105,7 +105,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
 - The rule sequence and why a branch-only kickoff is invisible:
   `.claude/rules/kickoff-staging-placement.md:19` to `:28` (`§1`), origin incident at
   `:17`.
-- The Class-A header with the honest "§1 itself stays ungated" scope note: `:12`.
+- The Class-A header with the honest scope note that §1 itself is enforced by no gate: `:12`.
 - The edit-time mechanism and why no push-time gate exists for merge timing: `:34`
   to `:36` (`§3`), delivered by `.claude/hooks/inject-matching-rule.sh`.
 - The promotion record — both anti-patterns, their channels, and the errors-not-
@@ -113,7 +113,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
 - The symlink trap (§5.2) and its measured incident commit: `:59` to `:69`; the
   commit it names is `9e046c6d55` — carried from the rule file; the object is
   not present in this branch's store.
-- The naming trap (§5.3), the near-miss walkthrough, and the counter: `:71` to `:79`.
+- The naming trap (§5.3), the near-miss account, and the counter: `:71` to `:79`.
 - The regex quoted above: `packages/core/principles/kickoff-population.ts:34`.
 - The companion test and its arms:
   `packages/core/principles/44-kickoff-authoring-traps.test.ts:90` (suite),

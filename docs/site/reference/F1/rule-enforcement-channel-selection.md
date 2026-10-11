@@ -45,8 +45,8 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 Every rule on this site answers a second question besides "what is the
 discipline?": where does it live? The origin incident for this
 [rule](../../terms.md#rule) was an agent stumbling over a merge flow that was
-recorded — in memory, the least reliable place to keep anything. The maintainer's
-root insight became the rule: "remember reliably" and "put in memory" are not the
+recorded — in memory, the least reliable place to keep anything. The root insight
+of the maintainer became the rule: "remember reliably" and "put in memory" are not the
 same act, and a convention that must hold across sessions needs a delivery
 [channel](../../terms.md#channel) chosen deliberately, not parked where recall
 happens to find it.
@@ -55,7 +55,7 @@ The choice runs along two independent axes. Axis one is detectability: if a
 violation is mechanically detectable, build a [gate](../../terms.md#gate) — a
 deterministic check that blocks — at the earliest reachable moment; if it needs
 judgment, inject the rule's text at the decision point instead. The two are not
-rankable: a judgment rule cannot be gated, so injection is the only tool, not a
+of the same kind: a judgment rule cannot be gated, so injection is the only tool, not a
 weaker gate. Axis two is breadth: pick the narrowest deterministic trigger that
 still fires reliably, in a strict reliability order — a path-scoped hook first,
 the always-on digest only for the few invariants relevant every turn, semantic

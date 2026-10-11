@@ -1,6 +1,6 @@
 ---
 title: skill-description-quality rule
-description: The rule that a skill's description is routing-load-bearing — it must distinguish the skill from its peers and name a concrete trigger — with a quality gate deliberately deferred until misrouting incidents prove a test would not be theatre.
+description: The rule that a skill's description is routing-load-bearing — it must distinguish the skill from its peers and name a concrete trigger — with a quality gate deliberately deferred until wrong-skill routing incidents prove a test would not be theatre.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -54,7 +54,7 @@ The rule states what quality means — the description must distinguish the skil
 from its peers in the registry, and the trigger section must enumerate at least one
 concrete phrase or condition under which the skill applies — and then does
 something rarer: it declines to build the gate, in writing. Deferred per a
-recorded decision, the reasoning is that no misrouting incident had been recorded,
+recorded decision, the reasoning is that no wrong-skill routing incident had been recorded,
 and a structural proxy (a minimum length, a non-empty trigger) would pass even for
 low-quality descriptions that are merely long — the shape-of-diligence failure the
 framework names discipline theatre. The expectations are enforced at review time,
@@ -82,7 +82,7 @@ the point: nothing in the tree currently decides distinctiveness, which is exact
 what the Class-C row discloses.
 
 The promotion criterion is incident-driven and specific: three documented
-misrouting incidents in six months, each with evidence tracing the routing failure
+wrong-skill routing incidents in six months, each with evidence tracing the routing failure
 to description quality — and the eventual test must be semantic (curated
 positive/negative description examples per skill), never a structural proxy.
 

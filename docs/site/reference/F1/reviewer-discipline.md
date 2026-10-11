@@ -97,7 +97,7 @@ rule names: three cross-session role-swaps within six months.
 
 Checked 2026-10-11 against the working tree this batch was written in.
 
-- The Class-C header and its reclass record (commit 4d52a72): `.claude/rules/reviewer-discipline.md:5`.
+- The Class-C header and its reclassification record (commit 4d52a72): `.claude/rules/reviewer-discipline.md:5`.
 - The origin incident: `:10`.
 - `§1` the discipline and the cannot-pick line: `:12` to `:20` (`:18`); the
   alt-channel note naming the agent protocol: `:20`.

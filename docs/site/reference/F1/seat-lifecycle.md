@@ -60,7 +60,7 @@ dispatcher) have seat lifecycles; night is a mode existing seats enter, never a
 fourth role. The four phases each reuse a settled mechanism — birth verifies an
 isolated worktree (a repo-root session is ineligible as a seat), self-cleaning
 breaks at stage boundaries and never mid-harvest, retirement leaves nothing
-load-bearing in working memory. Steps that depend on unbuilt machinery are labelled
+load-bearing in working memory. Steps that depend on not-yet-built machinery are labelled
 inert rather than improvised.
 
 The handoff shape is the section most seats feel daily: keep the handoff document a

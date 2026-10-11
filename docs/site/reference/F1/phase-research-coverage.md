@@ -94,12 +94,12 @@ so the test asserts the directory it guards is real.
 The `channels` row names `paths:(4)` and nothing else, and that is deliberate — the
 rule file carries a delivery-channel note explaining why it has *no* edit-time
 injector: its scope includes mid-path wildcard patterns the injector's glob engine
-could not express, and the only hook-expressible superset would fire on every edit
+could not express, and the only broader hook-expressible set would fire on every edit
 in the whole documentation tree. Native read-time scoping alone is the correct
 channel here, not a coverage gap.
 
 One checklist item grew into a [rule](../../terms.md#rule) of its own: item 7, the
-recommendation self-discipline check, is operationalised by the
+recommendation self-discipline check, is put into operation by the
 [recommendation-laziness-discipline](./recommendation-laziness-discipline.md) sheet
 in this family.
 

@@ -88,7 +88,7 @@ grep cannot. Both are push sweeps run by a session — a sweep, not a
 [gate](../../terms.md#gate).
 
 What the rule does not do: a session on a machine without the registration writes to
-memory unreminded, and no mechanism in the repository can see it happen. And codifying
+memory without any reminder, and no mechanism in the repository can see it happen. And codifying
 is not a quality stamp — the repo copy still needs its own enforcement
 [channel](../../terms.md#channel), which this rule leaves to the home it lands in.
 

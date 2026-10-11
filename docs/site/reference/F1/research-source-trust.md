@@ -54,7 +54,7 @@ automatically from a direct dependency's own package metadata: if you already
 install a package, its self-declared home page is a strictly smaller grant than the
 code you just ran — but the trust is scope-locked to that package, and hosts shared
 by many tenants are ineligible, so one dependency cannot vouch for a whole platform.
-Tier 2 is the explicit escape: a human adds a host to a JSON ack file — created
+Tier 2 is the explicit escape: a human adds a host to a JSON acknowledgement file — created
 on first grant, committed and reviewed from then on. A provenance URL is
 authorized by the first tier that matches it.
 Anything else fails closed — there is no fallback to "looks legitimate".
@@ -64,7 +64,7 @@ threat model live in the design record it cites, and the rule deliberately refus
 to duplicate them. What the rule *owns* is one binding trigger with no analogy in
 ordinary dependency management: if the project ever ships a flow where research
 output generates code, Tier 1's automatic trust must downgrade to Tier 2's explicit
-human ack for that flow — because the blast radius of a poisoned source changes
+human acknowledgement for that flow — because the blast radius of a poisoned source changes
 class when it can emit arbitrary code. The rule names the condition, quotes the
 design record verbatim, and calls implementing the flow without the downgrade a
 violation rather than an oversight.
@@ -82,13 +82,12 @@ grep -nE "describe\(" packages/core/principles/30-research-source-trust.test.ts 
 ```
 
 The `channels` row names three deliveries: read-time loading when working in the
-research code and the ack file (`paths:(2)`), an edit-time reminder on the same
+research code and the acknowledgement file (`paths:(2)`), an edit-time reminder on the same
 scope, and a skill-embed channel — the rule-research skill's own instructions carry
 the discipline at the moment a research run is scoped.
 
 The anti-patterns are the two ways trust erodes in practice: granting it by *name
-similarity* ("it's basically the same ecosystem") rather than by the resolver's
-scope check, and extending it by editing framework source instead of the data
+similarity* ("it's basically the same ecosystem") rather than by the scope check of the resolver, and extending it by editing framework source instead of the data
 surface — a code change to the curated list is precisely what the tier model
 replaced, and the rule names it the violation even when the edit is convenient.
 
@@ -120,7 +119,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
   `validateProvenance`).
 - The Tier-2 data surface: `.ai-factory/research-allowlist.json` — not yet
   created in the framework repo at this pin; the resolver treats a missing file
-  as an empty map, so the rule is live before the first ack lands
+  as an empty map, so the rule is live before the first acknowledgement lands
   (`allowlist-resolver.ts:69`, `:75`).
 - The scope markers: `:3` to `:6` (`paths:` frontmatter), `:8` (`<!-- globs: -->`),
   and the skill-embed channel declaration at `:10` —

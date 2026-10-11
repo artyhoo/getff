@@ -1,6 +1,6 @@
 ---
 title: git-conflict-merge-forward rule
-description: The rule that a conflicting pull request branch is un-conflicted by merging the base into it and pushing plain, because the force-push a rebase would need afterwards is blocked for agents in every form.
+description: The rule that a conflicting pull request branch is un-conflicted by merging the base into it and pushing plain, because the force-push a history rewrite would need afterwards is blocked for agents in every form.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -44,11 +44,11 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 ## Explanation
 
 When one merged pull request moves the same generated files a later one touched, the
-host marks the later pull request CONFLICTING. The reflex is to rebase the branch. On
+host marks the later pull request CONFLICTING. The reflex is to replay the branch on the base. On
 this team that reflex is a wall: an agent session cannot force-push afterwards — the
 direct flag, the "safer" `--force-with-lease`, even pushing the rewritten history to a
 new branch are all denied. The rule exists because a session learned this the hard way
-(pull request #1058, 2026-07-21): it rebased, hit the wall twice, and stopped, and the
+(pull request #1058, 2026-07-21): it replayed onto the base, hit the wall twice, and stopped, and the
 operator had to diagnose it. Merging the base into the branch instead needed no force
 at all.
 
@@ -58,13 +58,13 @@ The push is a fast-forward of the remote tip, so no force is ever needed. The ru
 file carries a ten-step recipe, and its step 9 is the safety interlock —
 `git merge-base --is-ancestor` proves the remote tip is an ancestor of what you are
 about to push, which is the definition of a fast-forward. The repository
-squash-merges pull requests anyway, so rebase's only payoff, tidy history, is
+squash-merges pull requests anyway, so the only payoff of rewriting history — tidy history — is
 collapsed into one commit at merge time regardless.
 
 The `class` row is `B` and the `channels` row names `claude-md`, and both are honest
 about what a repository can deliver here. The blocking mechanism is a PreToolUse guard
 in the operator's own Claude Code settings — `~/.claude/hooks/git-safety.sh`, a file
-outside this repository — which fires the moment an agent types a rebase on a
+outside this repository — which fires the moment an agent types a history-rewrite command on a
 published branch or any force-push. A [gate](../../terms.md#gate) in CI is
 structurally unreachable for the procedure itself: the violation is a command choice
 inside an agent session, and by the time anything reached CI the push either
@@ -91,8 +91,8 @@ mechanically detectable at pull-request time, and it ships as its own CI job wit
 escape token, `STALE-REVERT: intended — <rationale>`, for deliberate restorations.
 
 What the rule does not do: it cannot stop a person without that operator-level guard
-from rebasing, and it does not decide when a merge of the base is warranted at all —
-§10 of the rule file reserves that for the host's own mergeability report, which no
+from rewriting history by replay, and it does not decide when a merge of the base is warranted at all —
+§10 of the rule file reserves that for the host's own merge-readiness report, which no
 local [channel](../../terms.md#channel) sees. It also does not settle what to do when
 the pull request carries a standing audit verdict (§9 splits that by what the merge
 is for).
@@ -101,7 +101,7 @@ is for).
 
 Checked 2026-10-11 against the working tree this batch was written in.
 
-- The rule sentence and the reason rebase is a dead end:
+- The rule sentence and the reason the replay route is a dead end:
   `.claude/rules/git-conflict-merge-forward.md:14` (`§1`) and `:51` to `:54`
   (`§3`, the three blocked forms; two carry the verified-2026-07-21 mark).
 - The ten-step recipe and the step-9 interlock: `:18` to `:39` and `:41`.

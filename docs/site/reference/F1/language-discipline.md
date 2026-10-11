@@ -67,7 +67,7 @@ companion test deliberately does not scan the surfaces where it lives.
 
 The `class` row is `A`: the companion test ships. It is a deterministic Cyrillic scan
 over two surfaces — machinery shell scripts with zero tolerance, and skill
-instruction bodies after their frontmatter, with an allowlist — and it carries a
+instruction bodies after their frontmatter, with an allow list — and it carries a
 mutation assertion proving the detector is not vacuous:
 
 ```bash
