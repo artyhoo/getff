@@ -593,6 +593,19 @@ describe('correction 4242549870: shell close scan tracks nested brace groups', (
   });
 });
 
+describe('correction 4242549882: backslash paths are refused before any read', () => {
+  it('a Windows-style relative ref never reaches the injected reader', () => {
+    let reads = 0;
+    const r = resolvePlace('..\\outside.md:1', () => {
+      reads += 1;
+      return 'secret';
+    });
+    expectErr(r, 'UNSUPPORTED');
+    expect(reads).toBe(0);
+    if (isErr(r)) expect(r.message).toContain('backslash');
+  });
+});
+
 describe('correction 4242549876: closing code fences at least the opener length', () => {
   it('a longer same-char closing fence closes the block; later headings stay visible', () => {
     const read = mkRead({ 'fence/long.md': '```\nfenced\n````\n## Real\nbody\n' });

@@ -83,6 +83,11 @@ function err(code: PlaceError['code'], ref: string, reason: string): PlaceError 
 function admitPath(raw: string, ref: string): string | PlaceError {
   if (raw === '') return err('UNSUPPORTED', ref, 'empty <path>');
   if (isAbsolute(raw)) return err('UNSUPPORTED', ref, 'absolute <path> — must be a repo-relative POSIX path');
+  // Backslashes are not POSIX separators; on a Windows reader (or any backslash-
+  // interpreting reader) `..\x` escapes the root. Refused BEFORE the reader is ever
+  // invoked — the default reader's realpath check cannot protect the injected route
+  // (review 4242549882).
+  if (raw.includes('\\')) return err('UNSUPPORTED', ref, '<path> contains a backslash — must be a repo-relative POSIX path');
   const norm = posix.normalize(raw);
   if (norm === '' || norm === '.' || norm === '..' || norm.startsWith('../')) {
     return err('UNSUPPORTED', ref, '<path> escapes the repo root');
