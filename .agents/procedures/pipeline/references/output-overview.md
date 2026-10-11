@@ -299,3 +299,9 @@ qualify any process-local AIF_HOOK_LANG=en on the checker command; do not alter
 user configuration or claim default-language execution. Preserve rejected output
 and actual diagnostics; changed inputs/approved seam recovery require attributable
 invocation receipts rather than hidden retries.
+
+Binding resources follow the actual installed discovery card: contributor cards
+that link `docs/codex-contributor.md` require its complete body; shipped consumer
+cards embed their bindings and do not require that contributor-only document.
+The complete native card, canonical procedure and mandatory shared references
+remain required in either delivery. A missing explicitly linked binding fails.

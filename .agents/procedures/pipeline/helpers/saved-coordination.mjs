@@ -10,7 +10,6 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 const required = [
   '.agents/skills/pipeline/SKILL.md',
   '.agents/procedures/pipeline/SKILL.md',
-  'docs/codex-contributor.md',
   ...[
     'invocation',
     'planning',
@@ -49,6 +48,11 @@ export function captureSavedCoordination(
       throw new Error('admitted source hash changed: ' + path);
     return row;
   });
+  const entry = capture(resolve(projectRoot, required[0]));
+  const resourcePaths = [...required];
+  // Contributor cards link external bindings; consumer cards embed them.
+  if (entry.text.includes('docs/codex-contributor.md'))
+    resourcePaths.splice(2, 0, 'docs/codex-contributor.md');
   return {
     workflow: SAVED_WORKFLOW,
     projectRoot: resolve(projectRoot),
@@ -56,7 +60,7 @@ export function captureSavedCoordination(
     sources,
     supplementalResourcePaths,
     resources: [
-      ...required.map((path) => resolve(projectRoot, path)),
+      ...resourcePaths.map((path) => resolve(projectRoot, path)),
       ...supplementalResourcePaths,
     ].map(capture),
     owners: ownerPaths.map(capture),

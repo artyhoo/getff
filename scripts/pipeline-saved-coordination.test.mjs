@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  mkdirSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -322,4 +328,44 @@ test('saved hard cycles and forged accepted counts reject at the context boundar
       kind === 'cycle' ? /hard predecessor cycle/ : /counts/,
     );
   }
+});
+
+test('consumer embedded bindings need no contributor-only document, while linked bindings remain mandatory', (t) => {
+  const f = fixture(t),
+    root = join(f.dir, 'installed project with spaces');
+  for (const source of f.evidence.resources.filter(
+    (row) => !row.path.endsWith('/docs/codex-contributor.md'),
+  )) {
+    const name = source.path.slice(process.cwd().length + 1),
+      target = join(root, name);
+    mkdirSync(resolve(target, '..'), { recursive: true });
+    writeFileSync(target, source.text);
+  }
+  const card = join(root, '.agents/skills/pipeline/SKILL.md');
+  writeFileSync(
+    card,
+    'Native consumer binding is embedded. Read the complete canonical procedure.\n',
+  );
+  const evidence = captureSavedCoordination(
+    { admissionPath: f.evidence.admission.path, projectRoot: root },
+    readReconciliationSource,
+  );
+  assert.ok(
+    !evidence.resources.some((row) =>
+      row.path.endsWith('/docs/codex-contributor.md'),
+    ),
+  );
+  const nested = join(root, 'nested cwd with spaces');
+  mkdirSync(nested);
+  const result = invoke(f, { evidence, cwd: nested });
+  assert.equal(result.status, 0, result.stderr);
+  writeFileSync(card, 'Read docs/codex-contributor.md before acting.\n');
+  assert.throws(
+    () =>
+      captureSavedCoordination(
+        { admissionPath: f.evidence.admission.path, projectRoot: root },
+        readReconciliationSource,
+      ),
+    /ENOENT/,
+  );
 });
