@@ -29,7 +29,7 @@
 _ts_morph_available() {
   _GETFF_TS_MORPH_NODE_PATH="${NODE_PATH:-}"
   _GETFF_AST_TOOLS_ROOT=""
-  if ( cd "$PROJECT_ROOT" && NODE_PATH= node -e 'const m=require("ts-morph");if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");' >/dev/null 2>&1 ); then
+  if ( cd "$PROJECT_ROOT" && NODE_PATH='' node -e 'const m=require("ts-morph");if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");' >/dev/null 2>&1 ); then
     _GETFF_TS_MORPH_NODE_PATH=""
     return 0
   fi

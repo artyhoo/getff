@@ -1,5 +1,5 @@
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .agents/hooks/ask-question-reminder.sh
-5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .agents/hooks/check-doc-authority-header.sh
+56b25d3a1bc572b2b611bbf087c7eaea2466b1f97d2da0f228272540412190af  .agents/hooks/check-doc-authority-header.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .agents/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
@@ -144,7 +144,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .agents/roles/
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .agents/roles/memory-codification-auditor.md
 c248744920da17c91f5fbd01f2dded11135d87147fbb297bafc4cbe9c531b840  .agents/roles/resources/docs-form-auditor/check-report.mjs
 7ca58811b47492c89e48df6d6c74a2f093ded02b1bfa360efe47f4ef3ec3f6b3  .agents/roles/resources/docs-form-auditor/criteria-card.md
-79e50b333e8d32811b7cc84816fe25705d5162df30c1b7f8e01d8a884c0b71cd  .agents/roles/resources/docs-form-auditor/framework-terms.md
+860d526a85605c3144932897b18645a528c225fe548dc789fc2de7249b3fcf68  .agents/roles/resources/docs-form-auditor/framework-terms.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .agents/roles/resources/docs-form-auditor/page-kinds.md
 fe24bec231104ce17e1dc69ea99283ee68cefc9e93e1508c2121af82bb8d375b  .agents/roles/resources/rule-researcher/preflight.mjs
 5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .agents/roles/review-sidecar.md
@@ -213,7 +213,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-826de296225246ba5e9fdd34410bcf7fc5603434288466f846f9b10fe23bd943  .ai-factory/refresh-baseline.json
+94eed86bec8596976caba7e28713aac8045c50d48771e7d2c252aa537130a5ee  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -233,7 +233,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .claude/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents/rule-test-author.md
 13649143bdbb82eca9ff43cc302480a3a19f65cbaf1d5e64fd2792cadc4e6bd2  .claude/hooks/ask-question-reminder.sh
-5f9201e9c416e7b4d81e009d63e321c73bbf4bc4e5f56f6de13c401885505a1b  .claude/hooks/check-doc-authority-header.sh
+56b25d3a1bc572b2b611bbf087c7eaea2466b1f97d2da0f228272540412190af  .claude/hooks/check-doc-authority-header.sh
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .claude/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh

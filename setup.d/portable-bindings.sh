@@ -207,6 +207,32 @@ _portable_docs_card() {
   rm -f "$temp"
 }
 
+# framework-terms.md is a PROJECTION of docs/site/terms.md into the consumer resources
+# dir. Inside docs/site/ the sibling-page links resolve; at the installed location they
+# dangle (the sibling pages are not part of the consumer payload), so the consumer's
+# whole-tree lychee sweep REDs on first push. Same doctrine as transform_internal_refs:
+# authored links a consumer location cannot resolve become upstream blob URLs. The
+# rewrite is data-driven over the actual docs/site population, so a new site page
+# linked from terms.md needs no edit here.
+_portable_framework_terms() {
+  local src="$PKG_ROOT/docs/site/terms.md" dst="$PROJECT_ROOT/.agents/roles/resources/docs-form-auditor/framework-terms.md"
+  local temp rel escaped
+  if [ "$DRY_RUN" = --dry-run ]; then
+    _portable_copy "$src" "$dst"
+    return 0
+  fi
+  temp="$(mktemp "${TMPDIR:-/tmp}/getff-framework-terms.XXXXXX")"
+  cp "$src" "$temp"
+  while IFS= read -r rel; do
+    [ "$rel" = terms.md ] && continue
+    escaped="${rel//./\\.}"
+    sed -E -i.bak "s#\]\(($escaped)([)#])#](${UPSTREAM_BLOB_URL}/docs/site/$rel\2#g" "$temp"
+    rm -f "${temp}.bak"
+  done < <(cd "$PKG_ROOT/docs/site" && find . -name '*.md' -type f | sed 's#^\./##' | sort)
+  _portable_copy "$temp" "$dst"
+  rm -f "$temp"
+}
+
 _portable_workflow_resources() {
   local pair src dst file rel role
   # Deliver only the resource closure of an already selected workflow population.
@@ -228,12 +254,12 @@ _portable_workflow_resources() {
       'scripts/render-terms-style.mjs:scripts/render-terms-style.mjs' \
       'scripts/lib/mermaid-allowlist.mjs:scripts/lib/mermaid-allowlist.mjs' \
       'scripts/lib/is-main-entry.mjs:scripts/lib/is-main-entry.mjs' \
-      'docs/site/terms.md:.agents/roles/resources/docs-form-auditor/framework-terms.md' \
       '.agents/procedures/docs-author/references/page-kinds.md:.agents/roles/resources/docs-form-auditor/page-kinds.md' \
       'docs/site-quality/calibration.md:docs/site-quality/calibration.md'; do
       _portable_copy "$PKG_ROOT/${pair%%:*}" "$PROJECT_ROOT/${pair#*:}"
     done
     _portable_docs_card
+    _portable_framework_terms
     src="$PKG_ROOT/docs/site-quality/vale"
     while IFS= read -r -d '' file; do
       rel="${file#"$src"/}"

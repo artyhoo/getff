@@ -48,6 +48,13 @@ REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
 [ -n "$REPO_TOP" ] || { echo "format-shipped: cannot resolve the repository root (not inside a git checkout)" >&2; exit 1; }
 cd "$REPO_TOP" || exit 1
 
+# Byte-stable prettier output: chalk (pulled in by prettier) forces ANSI color when CI=true
+# (GitHub Actions always exports it), turning `[warn] path` into `[ESC[33mwarnESC[39m] path`.
+# The gate's output is machine-parsed (delivered-prettier-conformance.test.sh greps literal
+# `[warn] ` prefixes) and read in CI logs, so it must be identical on a laptop and on Actions.
+# NO_COLOR is the no-color convention chalk honors; FORCE_COLOR=0 does NOT neutralize CI=true.
+export NO_COLOR=1
+
 # Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the
 # prebuilt pre-push.bundle.mjs (raw esbuild output, drift-gated by build-runtime-bundles.mjs --check
 # and ignored by the consumer's .prettierignore), not as the formatted .ts sources it shipped as

@@ -69,7 +69,13 @@ FENCE_HITS=$( awk '
 #     acceptance asks for — it executes the shipped text rather than asserting about it.
 mkdir -p "$CONSUMER_HOME"
 printf '## Last invocation\n- consumer-cache-sentinel\n' > "$CONSUMER_HOME/_plan-cache.md"
+# Legacy inline fence: one line carrying both _plan-cache.md and head -200. The §1 fence was
+# later extracted into the shipped read-plan-cache.sh helper (same read side, verbatim-runnable
+# in the consumer); accept either shape — the arm's contract is "the shipped text, executed
+# verbatim, sees the consumer cache", not one literal spelling of the fence.
 CACHE_FENCE=$( grep -F '_plan-cache.md' "$SKILL" | grep -F 'head -200' | head -1 )
+[ -z "$CACHE_FENCE" ] \
+  && CACHE_FENCE=$( grep -F 'read-plan-cache.sh' "$SKILL" | grep -F 'bash' | head -1 )
 if [ -z "$CACHE_FENCE" ]; then
   bad "could not locate the §1 plan-cache fence in the shipped SKILL.md"
 else
