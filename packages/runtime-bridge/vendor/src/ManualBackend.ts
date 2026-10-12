@@ -26,6 +26,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import type { RuntimeBackend } from './backend.js';
+import { enforceScope } from './resultReview.js';
 import type {
   KickoffSpec,
   TaskHandle,
@@ -135,7 +136,16 @@ export class ManualBackend implements RuntimeBackend {
     return Promise.resolve(true);
   }
 
-  dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+  // async (not sync-throw-then-Promise.resolve): the RuntimeBackend contract is that
+  // dispatch RETURNS A PROMISE — a synchronous guard throw would escape `await expect(
+  // ...).rejects` and every other caller's try/await (measured: the effects arm caught
+  // exactly that as a raw uncaught BackendError).
+  async dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+    // Effect-boundary scope check BEFORE the /tmp packet write (intent-first-result §4):
+    // a failed validation means no packet — a paste-able artefact for refused scope
+    // would read as a successful dispatch (the exact spec_invalid reasoning the CLI's
+    // isFallbackEligible encodes).
+    enforceScope(kickoff.content, 'manual');
     const taskId = this._makeTaskId(kickoff);
     const kickoffPath = `/tmp/runtime-bridge-${taskId}.md`;
     const responsePath = `/tmp/runtime-bridge-${taskId}.response.md`;
@@ -162,7 +172,7 @@ export class ManualBackend implements RuntimeBackend {
       taskId,
       dispatchedAt: new Date().toISOString(),
     };
-    return Promise.resolve(handle);
+    return handle;
   }
 
   getStatus(handle: TaskHandle): Promise<TaskStatus> {

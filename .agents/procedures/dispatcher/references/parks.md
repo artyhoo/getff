@@ -18,6 +18,17 @@ When §2.2 detects a parked signal, identify the park type from the taxonomy tab
 
 Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
+**NOT a park: an intent-scoped task holding at `plan_ready`.** A task claimed `autoMode:false`
+(its description carries a fenced ` ```intent-contract ` block) parks at `plan_ready` BY DESIGN
+after planning completes — it is the reviewed-start hold, not a Q&A park: it carries no
+`blockedReason`/`manualReviewRequired`/open-question anchor, so `questions.ts` will not list it,
+and none of the four resolution rows above apply. Resolution is the guarded start, not an answer:
+`tsx packages/runtime-bridge/src/cli/start-reviewed.ts --task <id> --review <plan-review.json>`
+(execution §2.1 carries the contract). Routing an A-park-style `answer.ts --decision resume` at it
+does NOT bypass the hold — `resume` is a scope-guarded decision on scoped tasks and is HELD
+(exit 2, no event) unless an authorized review record validates it. Unscoped tasks never reach
+this state and behave exactly as the table above says.
+
 ### Routing seats (who answers which class — spec D5)
 
 <!-- prettier-ignore -->

@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: f10-arm-and-opt-in-gates, stack: repo, date: 2026-10-07, result: printed }
+docs-refresh: deferred — re-verified 2026-10-12, both cited sources changed only comment citation renumbers (the reminder test and the twin-synced hook carrying the same repair); the reminder behaviour and printed strings this sheet maps are untouched; clears at the next gold refresh of this page
 ---
 
 # autonomous-loop-continuity rule

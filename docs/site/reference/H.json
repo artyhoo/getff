@@ -115,6 +115,20 @@
       },
       "extras": {},
       "example": null
+    },
+    {
+      "name": "start-reviewed",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "guarded start of a SCOPED task after its effective-plan review.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/start-reviewed.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
     }
   ]
 }

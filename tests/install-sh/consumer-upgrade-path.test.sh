@@ -434,7 +434,7 @@ rm -rf "$TC7"
 # not ship (TEST 10), and honours an explicit deeper --profile (TEST 11).
 # ══════════════════════════════════════════════════════════════════════════════
 
-# env-depth-only artefacts (install: setup.d/10-skills.sh:164 arch+pipeline,
+# env-depth-only artefacts (install: setup.d/10-skills.sh:173 arch+pipeline,
 # setup.d/30-templates.sh:125 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
 ENVPLUS_ONLY=(
   "scripts/create-worktree.sh"
@@ -445,7 +445,7 @@ ENVPLUS_ONLY=(
   ".claude/skills/pipeline"
   ".ai-factory/tier-home.md"
 )
-# factory-depth-only artefacts (install: setup.d/10-skills.sh:170 + setup.d/20-agents.sh:39 +
+# factory-depth-only artefacts (install: setup.d/10-skills.sh:179 + setup.d/20-agents.sh:39 +
 # setup.d/55-runtime-bridge-vendor.sh:65 — the vendored runtime-bridge payload, whose refresh arm
 # landed after #1412 left it out of scope. Layer 55 is its ONLY deliverer, so a core consumer has
 # no other route to it and its presence here would be a depth-boundary breach like any other.)

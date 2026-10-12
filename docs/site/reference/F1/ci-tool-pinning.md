@@ -16,6 +16,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: pin-and-deferred-gap, stack: repo, date: 2026-10-10, result: pinned-plus-18 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited pre-push.ts moved in-range only by the SHIPPED_SKILL_SLUGS intent line and citation renumbers at :2900+; the ci-tool-pinning wiring this sheet maps at pre-push.ts:823 is untouched; clears at the next gold refresh of this page
 ---
 
 # ci-tool-pinning rule

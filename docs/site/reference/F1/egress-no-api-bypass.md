@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: api-vs-push-census, stack: repo, date: 2026-10-07, result: 9-api-0-push }
+docs-refresh: deferred — re-verified 2026-10-12, the cited local CI sweep script changed only one comment citation renumber; the sweep gate table and egress contract this sheet maps are untouched; clears at the next gold refresh of this page
 ---
 
 # egress-no-api-bypass rule

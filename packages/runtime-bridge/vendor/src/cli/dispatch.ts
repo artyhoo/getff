@@ -57,6 +57,7 @@ import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
 import { ManualBackend } from '../ManualBackend.js';
+import { enforceScope } from '../resultReview.js';
 import { BackendError, type BackendErrorCode } from '../backend.js';
 
 /** True when --force is passed: skip the dedup check and re-dispatch deliberately. */
@@ -177,6 +178,31 @@ async function main(): Promise<void> {
     // bridge: skip marker — silent exit. (Manual-path opt-out only: the hook
     // layer never reaches here without a `bridge: auto` first line, kickoff §7.)
     process.exit(0);
+  }
+
+  // ── Step 1.5: Declared intent scope (intent-first-result) ─────────────────
+  // A kickoff may carry a fenced `intent-contract` block binding its product scope.
+  // Validate BEFORE the dedup gate so a seeded dedup entry can never report success
+  // for work the scope check refused, and regardless of --force: force re-dispatches
+  // deliberately, it never bypasses validation. Rejection is spec_invalid — the same
+  // abort-loudly class as a bad bridge-profile below (no fallback, no /tmp artefact).
+  try {
+    enforceScope(kickoff.content, 'dispatch');
+  } catch (err) {
+    if (err instanceof BackendError) {
+      process.stderr.write(
+        `[runtime-bridge] ABORTED — the declared intent scope is invalid, so no task was ` +
+          `created and nothing was written to /tmp. Fix the kickoff (${kickoff.filePath}) ` +
+          `or the intent owner configuration and re-run.\n` +
+          `[runtime-bridge] dispatch (${err.code}): ${err.message}\n`,
+      );
+      outputContext(
+        `[runtime-bridge] ABORTED (${err.code}): ${err.message} — no aif task was created, ` +
+          `no /tmp artefact written. Fix the declared scope and re-dispatch.`,
+      );
+      process.exit(2);
+    }
+    throw err;
   }
 
   // ── Step 2: Idempotency check (skipped under --force) ─────────────────────
