@@ -18,6 +18,7 @@ executed:
   - { example: class-and-fires-lines, stack: repo, date: 2026-10-11, result: class-b-pointer-mechanism }
   - { example: rule-index-check, stack: repo, date: 2026-10-11, result: exit-0-up-to-date }
   - { example: pointer-promise, stack: repo, date: 2026-10-11, result: regex-line-20-count-1 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this guide's all-thirty-rules claim now matches the overview's linked set; clears at the next gold refresh of this page
 ---
 
 # Check your framework rules

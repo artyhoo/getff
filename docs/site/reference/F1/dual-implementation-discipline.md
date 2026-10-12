@@ -17,6 +17,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: surface-8-coverage-probe, stack: repo, date: 2026-10-10, result: 69-rows-exit0 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # dual-implementation-discipline rule

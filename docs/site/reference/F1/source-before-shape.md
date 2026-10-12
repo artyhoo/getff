@@ -13,6 +13,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: injector-cache-and-auditor, stack: repo, date: 2026-10-11, result: first-time-guard-line-352 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # source-before-shape rule
