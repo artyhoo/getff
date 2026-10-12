@@ -14,7 +14,6 @@ tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch
 
 > **Codex preflight:** read [host capability preflight](../../docs/codex-contributor.md#capability-preflight-for-every-native-entry). Verify required launch controls before dispatch; a missing experimental control yields DISPATCH-INFEASIBLE, never a simulated successful probe. WebSearch/WebFetch use native web search/open when available.
 
-
 <!-- @dual-pair: rule-research-protocol -->
 
 # rule-researcher
@@ -43,6 +42,7 @@ What you do not need to look up in getff's source:
 - **Historical field-shape reference:** `packages/core/synthesizer/fixtures/react-next-complete-example.research.json` and `.selection.json` in the framework checkout. This fixture is not an acceptance proof: the executable pair adds an import only to `good` (six whitespace-token edits, rejected by FF3011), and its selector-less fallback must stay exclusively in `research.patterns`. Keep declarations identical in both examples and isolate the forbidden token; put larger safe idioms in `safeForms`. A complete minimal pair is:
 
   <!-- rule-researcher:minimal-pair -->
+
   ```json
   {
     "bad": "import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }",
@@ -131,7 +131,7 @@ through the real gate — keep it valid JSON.
       "message": "Use the Next.js Metadata API or next/head <Head> instead of a raw <head> element.",
       "examples": {
         "bad": "import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }",
-        "good": "import Head from 'next/head'; export { Head }; export default function Page() { return <Head />; }"
+        "good": "import Head from 'next/head'; export { Head }; export default function Page() { return <Head />; }",
       }, // SINGLE-TOKEN diff (head -> Head); the gate
       // splits each on whitespace and rejects a pair more than 5 such tokens apart (FF3011) — aim for 1
       // safeForms (optional, RECOMMENDED): known-SAFE forms of the forbidden construct the
@@ -144,7 +144,9 @@ through the real gate — keep it valid JSON.
       // if yes, encode it. (GH #915 obs 4)
       // "safeForms": ["Object.prototype.hasOwnProperty.call(obj, key);"],
       "negativeTest": {
-        "input": ["import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }"],
+        "input": [
+          "import Head from 'next/head'; export { Head }; export default function Page() { return <head />; }",
+        ],
         "expect-violation": "no-restricted-syntax",
       },
     },
@@ -246,6 +248,7 @@ The installed resource accepts bound argv; it creates no shell here-document or 
 (which an ordinary read-only host sandbox can reject before validation begins):
 
 <!-- synthesis-preflight:start -->
+
 ```bash
 set -eu
 if [ -z "${CONSUMER_ROOT:-}" ] || [ ! -d "$CONSUMER_ROOT" ]; then
@@ -264,6 +267,7 @@ fi
 cd "$CONSUMER_ROOT"
 node --experimental-strip-types "$preflight" "$CONSUMER_ROOT" "${GETFF_CHECKOUT:-}" "$STACK"
 ```
+
 <!-- synthesis-preflight:end -->
 
 Correct schema, trust, selection or FF3011 defects in the same files and rerun. **Exit 0 alone
@@ -277,6 +281,7 @@ verify the framework checkout's `install.sh` exists. Give the resolved command w
 the **consumer root as cwd** and the detected stack:
 
 <!-- rule-researcher:consumer-handoff -->
+
 ```bash
 if [ -z "${GETFF_CHECKOUT:-}" ] || [ ! -f "$GETFF_CHECKOUT/install.sh" ]; then
   printf '%s\n' 'Missing getff installer prerequisite: restore the verified framework checkout.' >&2

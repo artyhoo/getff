@@ -128,7 +128,7 @@ Ratified 2026-08-18 (harmonization round 3 — [operator-axis spec §5.1](docs/s
 
 - **TDD loop:** `superpowers:test-driven-development` owns the loop. On «TDD» / «test-first» work, invoke it by explicit name; never route to `mattpocock-skills:tdd`.
 - **Merge conflicts:** follow [.agents/rules/git-conflict-merge-forward.md](.agents/rules/git-conflict-merge-forward.md); never `mattpocock-skills:resolving-merge-conflicts` — its rebase-continuation advice dead-ends (force-push is classifier-blocked for agents machine-wide).
-- **Domain vocabulary:** never invoke `mattpocock-skills:domain-modeling` outside a `/arch` idea session. A question about what a word means follows the growth rule in [CONTEXT.md](CONTEXT.md) — explain the word, record it with the operator's spelling — and no ADR is offered ([reuse spec D8/D9](docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md)).
+- **Domain vocabulary:** never invoke `mattpocock-skills:domain-modeling` outside an idea session — where a product discussion hosted by [`/intent`](.agents/procedures/intent/SKILL.md) counts as one, direct, or via the named `/arch` product route. A question about what a word means outside a product discussion follows the growth rule in [CONTEXT.md](CONTEXT.md) — explain the word, record it with the operator's spelling — and no ADR is offered ([reuse spec D8/D9](docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md)).
 
 Full ownership map: [harmonization spec §3](docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md). A live misroute despite these bindings = D-H7 incident (SSOT #253) → D-H8 escalation ladder (frontmatter neutering → prune → vendor).
 

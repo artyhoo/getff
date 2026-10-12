@@ -62,7 +62,7 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # Per-tier rationale (which skill sits at which depth, and why) stays in setup.d/10-skills.sh.
 GETFF_SKILLS_CORE="template-audit ai-doc rule-research rule-tests"
 GETFF_SKILLS_ENV="arch night-mode orchestrator pipeline reviewer"
-GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest story claude-glm-executor-handoff"
+GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest story claude-glm-executor-handoff intent"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
@@ -142,7 +142,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:138 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
-# ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
+# ships too)», 10-skills.sh:146 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
 # that `/reviewer` loads it; the fix was to ship it at env, not to bend the link.
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth

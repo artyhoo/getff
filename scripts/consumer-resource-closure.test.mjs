@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 const root = resolve(import.meta.dirname, '..');
 test('one core install delivers both interfaces and mandatory read-only role resources', t => {
   const dir = mkdtempSync(join(tmpdir(), 'consumer closure space '));
@@ -174,31 +175,57 @@ test('consumer ESLint excludes only recorded delivered portable tools and still 
     'scripts/render-terms-style.mjs',
   ];
   const userPaths = ['.agents/tools/custom.mjs', '.agents/procedures/pipeline/helpers/custom.mjs', '.agents/roles/resources/rule-researcher/custom.mjs', 'scripts/custom.mjs', 'src/violation.mjs'];
-  const source = readFileSync(join(root, 'setup.d/eslint-wire.sh'), 'utf8');
-  const policy = source.match(/^_own_eslint_ignores\(\) \{[\s\S]*?^\}/m)?.[0];
-  assert.ok(policy, 'actual installer ownership policy is present');
-  // The delivery predicate is supplied fixture metadata, not an all-files exemption; the
-  // ownership predicates the exact-ownership policy consults (recorded bytes intact, no
-  // portable-owned or consumer-skipped entries in this fixture) consent for the whole list,
-  // keeping the exclusion list-driven while user code stays rejected below.
-  const stubs = `getff_delivered() { for item in ${delivered.map(p => "'" + p + "'").join(' ')}; do [ "$1" = "$PROJECT_ROOT/$item" ] && return 0; done; return 1; }\ngetff_bytes_intact() { return 0; }\n_portable_owned_path() { return 1; }\n_prettierignore_in_skipped() { return 1; }\ngetff_portable_owned_paths() { :; }\n`;
-  const shell = `${stubs}${policy}\n_own_eslint_ignores\n`;
-  const result = spawnSync('/bin/bash', [], { input: shell, env: { ...process.env, PROJECT_ROOT: dir }, encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
-  const ignores = result.stdout.trim().split('\n');
-  for (const path of delivered) assert.ok(ignores.includes(path), path);
-  assert.ok(!ignores.includes('.agents/tools/**'), 'user-owned tools retain enforcement');
-  for (const path of [...delivered, ...userPaths]) {
+  // Three known collector paths exercise both its explicit list and shared registry.
+  const modified = 'scripts/docs-check.mjs';
+  const overridden = '.agents/tools/validator/gate-single-token-diff.ts';
+  const skipped = '.zcode/skills/pipeline/helpers/overview.mjs';
+  const protectedPaths = [modified, overridden, skipped];
+  // This positive path is outside the explicit list: disabling the registry must fail.
+  const registryOnly = '.agents/roles/resources/ownership-fixture/intact.mjs';
+  const attempted = [...delivered, registryOnly];
+  const intact = attempted.filter(path => !protectedPaths.includes(path));
+  for (const path of [...attempted, ...userPaths]) {
     mkdirSync(join(dir, path, '..'), { recursive: true });
     writeFileSync(join(dir, path), 'console.log("violation");\n');
   }
+  const baseline = Object.fromEntries(attempted.map(path => [
+    path, createHash('sha256').update(readFileSync(join(dir, path))).digest('hex'),
+  ]));
+  mkdirSync(join(dir, '.ai-factory'), { recursive: true });
+  writeFileSync(join(dir, '.ai-factory/refresh-baseline.json'), JSON.stringify(baseline));
+  writeFileSync(join(dir, modified), 'console.log("consumer changed these bytes");\n');
+  writeFileSync(join(dir, '.agents/tools/validator.override.md'), '# Consumer-owned validator directory\n');
+  const source = readFileSync(join(root, 'setup.d/eslint-wire.sh'), 'utf8');
+  const policy = source.match(/^_own_eslint_ignores\(\) \{[\s\S]*?^\}/m)?.[0];
+  assert.ok(policy, 'actual installer ownership policy is present');
+  // Load real ownership helpers. Persisted baseline hashes are explicit fixture
+  // metadata; no helper is replaced by unconditional consent or an empty registry.
+  const shell = `set -euo pipefail
+INSTALL_SH_LIB_ONLY=1 source "$PKG_ROOT/setup.d/lib.sh"
+GETFF_PORTABLE_PATHS=( ${attempted.map(path => '"$PROJECT_ROOT/' + path + '"').join(' ')} )
+SKIPPED=( "$PROJECT_ROOT/${skipped}" )
+${policy}
+_own_eslint_ignores
+`;
+  const result = spawnSync('/bin/bash', [], {
+    input: shell,
+    env: { ...process.env, PROJECT_ROOT: dir, PKG_ROOT: root, DRY_RUN: '', FORCE: '' },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const ignores = [...new Set(result.stdout.trim().split('\n').filter(Boolean))];
+  assert.deepEqual([...ignores].sort(), [...intact].sort(), 'only recorded intact, unprotected delivery is excluded');
+  for (const path of protectedPaths) assert.ok(!ignores.includes(path), path);
+  assert.ok(!ignores.includes('.agents/tools/**'), 'user-owned tools retain enforcement');
   const config = 'export default [{files:["**/*.mjs","**/*.ts"],rules:{"no-console":"error"}}];\n';
   writeFileSync(join(dir, 'eslint.config.mjs'), config);
   const { ESLint } = createRequire(join(root, 'packages/core/package.json'))('eslint');
   const lint = new ESLint({ cwd: dir, overrideConfig: [{ ignores }], warnIgnored: false });
-  for (const path of delivered) assert.equal(await lint.isPathIgnored(join(dir, path)), true, path);
-  const results = await lint.lintFiles(userPaths);
-  assert.equal(results.length, userPaths.length);
+  for (const path of intact) assert.equal(await lint.isPathIgnored(join(dir, path)), true, path);
+  for (const path of protectedPaths) assert.equal(await lint.isPathIgnored(join(dir, path)), false, path);
+  const checkedPaths = [...userPaths, ...protectedPaths];
+  const results = await lint.lintFiles(checkedPaths);
+  assert.equal(results.length, checkedPaths.length);
   assert.ok(results.every(r => r.messages.some(m => m.ruleId === 'no-console')));
   assert.equal(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8'), config, 'user rule bytes unchanged');
 });

@@ -959,7 +959,7 @@ do_refresh() {
     refresh_skill_with_transform "$_skill"
   done
   for _skill in $GETFF_SKILLS_ENV; do
-    # env+ contour surface — parity with setup.d/10-skills.sh:164 (env | factory |
+    # env+ contour surface — parity with setup.d/10-skills.sh:173 (env | factory |
     # WITH_AIF_SUITE), plus the presence clause.
     if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
       || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
@@ -967,7 +967,7 @@ do_refresh() {
     fi
   done
   for _skill in $GETFF_SKILLS_FACTORY; do
-    # AIF operator suite — parity with setup.d/10-skills.sh:170 (factory | WITH_AIF_SUITE),
+    # AIF operator suite — parity with setup.d/10-skills.sh:179 (factory | WITH_AIF_SUITE),
     # plus the presence clause. Never created on a shallower profile: the suite presupposes
     # the aif-handoff runtime, so refresh must not silently opt a consumer into it.
     if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
@@ -1727,7 +1727,7 @@ done
 # Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
 # for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
 # (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
-# Gating matches setup.d/10-skills.sh:170 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Gating matches setup.d/10-skills.sh:179 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
 # Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "▶ aif-handoff guided install (profile=factory)"

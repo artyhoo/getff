@@ -158,7 +158,11 @@ resolve_symlinks() {
   printf '%s\n' "${out[@]}"
 }
 
+# Keep the selected delivery identities before resolving/deduplicating source bytes.
+# A canonical .agents/ target does not carry its installer's skills/ or agents/ route.
+DELIVERY_ALIASES=()
 if [ "${#FILES[@]}" -gt 0 ]; then
+  DELIVERY_ALIASES=("${FILES[@]}")
   RESOLVED=()
   RESOLVED_OUTPUT=$(resolve_symlinks "${FILES[@]}") || exit 1
   while IFS= read -r f; do RESOLVED+=("$f"); done <<<"$RESOLVED_OUTPUT"
@@ -218,11 +222,14 @@ delivered_map() { # repo path → consumer path, or empty when the file is not t
 }
 
 DELIVERED=()
-for f in "${FILES[@]:-}"; do
+for f in "${DELIVERY_ALIASES[@]:-}"; do
   [ -n "$f" ] || continue
   case "$f" in *.md) ;; *) continue ;; esac
   d=$(delivered_map "$f")
-  [ -n "$d" ] && DELIVERED+=("$f=>$d")
+  if [ -n "$d" ]; then
+    src=$(resolve_symlinks "$f") || exit 1
+    DELIVERED+=("$src=>$d")
+  fi
 done
 
 if [ "${#DELIVERED[@]}" -gt 0 ]; then
@@ -247,6 +254,8 @@ if [ "${#DELIVERED[@]}" -gt 0 ]; then
     for p in "${DPATHS[@]}"; do transform_internal_refs "$p"; done
   ) || drc=1
   if [ "$drc" -eq 0 ]; then
+    echo "format-shipped: checking ${#DPATHS[@]} delivered file(s):"
+    printf '  %s\n' "${DPATHS[@]}"
     # --ignore-path /dev/null: the shipped .prettierignore's managed block lists these very files,
     # so honouring it here would measure "is it hidden?" instead of "is it conformant?".
     ( cd "$DTMP" && npx --yes prettier@3.8.3 --check --ignore-path /dev/null "${DPATHS[@]}" ) || drc=$?

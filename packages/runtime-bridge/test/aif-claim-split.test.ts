@@ -262,6 +262,12 @@ describe('dispatch() — composed from the two halves, old semantics kept', () =
             new Response(JSON.stringify({ id: 'task-123' }), { status: 201 }),
           );
         }
+        if (method === 'GET' && url.endsWith('/tasks/task-123')) {
+          // release() re-reads the persisted description before the unpause
+          // (intent-first-result scope check) — an unscoped row, so the PUT below
+          // remains the failing effect this arm is about.
+          return Promise.resolve(new Response(JSON.stringify({ id: 'task-123' }), { status: 200 }));
+        }
         return Promise.resolve(new Response('nope', { status: 400 }));
       },
     );

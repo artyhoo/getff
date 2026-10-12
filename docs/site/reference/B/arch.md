@@ -125,7 +125,7 @@ helper/install examples are unchanged. No live runtime certification is claimed.
   modeling; `research-contour.md` in the same folder owns the optional research pass.
 - `.claude/skills/arch/references/design-review.md` owns the two cold reviews and the
   two-REVISE convergence cap. `exit-and-escalation.md` owns the three exits.
-- The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 168 of
+- The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 173 to 177 of
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
 - The superpowers plugin is an optional companion: the `superpowers` row of `setup.d/companions.manifest`.

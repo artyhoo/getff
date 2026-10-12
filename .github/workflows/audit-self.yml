@@ -137,6 +137,18 @@ jobs:
         # and asserts output + exit code — never greps the scripts' source text.
         run: bash packages/core/audit-self/pre-merge-local.test.sh
 
+      # Arm (d) consumes real tools from the workspace lock: its root ESLint is
+      # version 9, while the isolated packages/core lock resolves ESLint 10.
+      # Install after the whole-tree mechanical checks so their find population
+      # does not grow to include dependency files.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked workspace tools for mutation runner fixtures
+        run: npm ci --silent
+
       - name: "Mutation runner root-resolution self-tests (issue 1459: worktree-under-hook + plain-clone + direct-invocation arms)"
         # Live-fire: real bare remote + linked worktree + pre-push hook + a real push.
         # Asserts the runner's resolved root is <worktree>, not <worktree>/scripts,

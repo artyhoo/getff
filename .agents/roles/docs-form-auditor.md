@@ -174,8 +174,8 @@ status, normalize literal frontmatter during the audit or rerun a modified helpe
 The validator enforces consistency of these supplied declarations, not actual
 execution or truth of their evidence. Compare them against the actual separate
 command receipts and the supplied card/registry before serialization.
-<!-- Integration revision: docs_form_closure lane; canonical docs-form owner attribution retained. -->
 
+<!-- Integration revision: docs_form_closure lane; canonical docs-form owner attribution retained. -->
 
 Overall verdict tokens GO/REVISE/STOP (grammar shared with
 [dispatch-input-checker.md](https://github.com/artyhoo/getff/blob/main/agents/dispatch-input-checker.md)):

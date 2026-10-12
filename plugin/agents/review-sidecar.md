@@ -168,6 +168,7 @@ Severity rules:
 **Triage rubric (reviewer-discipline §6.1, 2026-08-17):** the consumer install does not deliver the framework's rule tree, so the required yardstick is embedded below verbatim. Apply it to each finding and include the `Triage:` field above with its actual layer and authority owner. Preserve the provenance labels; the recorded severity remains the class bar.
 
 <!-- spec-of: .agents/rules/reviewer-discipline.md §6.1; exact yardstick guarded by scripts/review-sidecar-contract.test.mjs -->
+
 ```text
 Binding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,
 or NOT fixing it would have cost something toward the project goal ("AI agents can't silently

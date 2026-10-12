@@ -91,17 +91,21 @@ describe('review-state decisions release a manual-review park (2026-09-09)', () 
 
   it('POSITIVE — request_review_changes POSTs the comment before the event', async () => {
     // Human-owned: the ownership flip below is a no-op here, so this test stays about the
-    // comment→event ordering it was written for. The GET is the ownership read.
+    // comment→event ordering it was written for. request_review_changes is a plan-changing
+    // decision, so the FIRST call is the standing-scope read of the task row (unscoped
+    // here → ordinary flow), then the participants-mode probe, then comment, then event.
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({}))
       .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
       .mockImplementation(async () => okResponse({ ok: true }));
 
     const result = await pushAnswer('http://aif.test', 'task-rv', 'request_review_changes', 'fix the count');
 
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
-    const [commentUrl, commentInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
-    const [eventUrl, eventInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(String(fetchSpy.mock.calls[0][0])).toBe('http://aif.test/tasks/task-rv');
+    const [commentUrl, commentInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    const [eventUrl, eventInit] = fetchSpy.mock.calls[3] as [string, RequestInit];
     expect(commentUrl).toBe('http://aif.test/tasks/task-rv/comments');
     expect(JSON.parse(String(commentInit.body))).toEqual({ message: 'fix the count' });
     expect(eventUrl).toBe('http://aif.test/tasks/task-rv/events');
@@ -134,19 +138,20 @@ describe('review-state decisions release a manual-review park (2026-09-09)', () 
 describe('POSITIVE — request_changes attaches the answer as a comment then re-opens', () => {
   it('POSTs /comments { message } before /events { event: request_changes }', async () => {
     // Fresh Response per call — a Response body can only be read once, and this
-    // path makes two fetches (comment, then event).
+    // path makes three fetches: the standing-scope read of the task row (unscoped
+    // here → ordinary flow), then comment, then event.
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse()));
 
     const result = await pushAnswer('http://localhost:3009', 't-9', 'request_changes', '  use Option A  ');
 
-    // Two calls, in order: comment, then event.
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    const [firstUrl, firstInit] = fetchSpy.mock.calls[0];
+    // Three calls, in order: scope read, comment, then event.
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    const [firstUrl, firstInit] = fetchSpy.mock.calls[1];
     expect(firstUrl).toBe('http://localhost:3009/tasks/t-9/comments');
     // Source: createTaskCommentSchema — the text field is `message` (NOT content/body).
     expect(JSON.parse((firstInit as RequestInit).body as string)).toEqual({ message: 'use Option A' });
 
-    const [secondUrl, secondInit] = fetchSpy.mock.calls[1];
+    const [secondUrl, secondInit] = fetchSpy.mock.calls[2];
     expect(secondUrl).toBe('http://localhost:3009/tasks/t-9/events');
     expect(JSON.parse((secondInit as RequestInit).body as string)).toEqual({ event: 'request_changes' });
 
@@ -177,12 +182,16 @@ describe('POSITIVE — approve and retry send exactly one event and no comment',
   });
 
   it('retry → only POST /events { event: retry_from_blocked }', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse());
+    // Fresh Response per call — the standing-scope read and the event POST are two
+    // fetches now, and a Response body can only be read once.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse()));
 
     await pushAnswer('http://localhost:3009', 't-2', 'retry', undefined);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+    // retry is a restarting decision, so the standing-scope read of the task row
+    // (unscoped here → ordinary flow) precedes the single event POST.
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string)).toEqual({
       event: 'retry_from_blocked',
     });
   });
@@ -336,18 +345,22 @@ describe('NEGATIVE — resume refuses a task that is not paused (A6-6b)', () => 
   }
 });
 
-// Paired negative for A6-6b: the guard must not touch the event-driven decisions. The
+// Paired negative for A6-6b: the paused guard must not touch the event-driven decisions. The
 // `/pipeline` REVISE flow resolves a `done` task with `request_changes` (dispatcher
 // SKILL.md §2.4), and `approve`/`retry` are likewise event-only — none of the three reads
-// `paused`, none goes through resumePark. RED if the guard is ever hoisted into pushAnswer
-// ahead of the decision switch and starts blocking the flow C12 narrowed to protect.
+// `paused`, none goes through resumePark. The intent-first-result SCOPE guard (2026-10-10)
+// IS hoisted into pushAnswer, but it is decision-scoped ({@link SCOPE_GUARDED_DECISIONS})
+// and only ever refuses an intent-scoped task — it must never block these unscoped flows.
+// RED if the A6-6b guard itself is ever hoisted ahead of the decision switch, or if the
+// scope guard starts blocking the unscoped flow C12 narrowed to protect.
 describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused task alone', () => {
   it('request_changes on a done, non-paused task still comments + fires the event', async () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
     const result = await pushAnswer('http://localhost:3009', 't-7', 'request_changes', 'auditor findings');
-    expect(spy.mock.calls).toHaveLength(2);
-    expect(String(spy.mock.calls[0][0])).toContain('/comments');
-    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).event).toBe('request_changes');
+    // The standing-scope read (unscoped task → ordinary flow) precedes the comment + event.
+    expect(spy.mock.calls).toHaveLength(3);
+    expect(String(spy.mock.calls[1][0])).toContain('/comments');
+    expect(JSON.parse((spy.mock.calls[2][1] as RequestInit).body as string).event).toBe('request_changes');
     expect(result).toMatchObject({ decision: 'request_changes', commented: true });
   });
   it('approve on a done, non-paused task still fires approve_done', async () => {
@@ -359,8 +372,9 @@ describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused
   it('retry on a blocked_external, non-paused task still fires retry_from_blocked', async () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
     await pushAnswer('http://localhost:3009', 't-7', 'retry', undefined);
-    expect(spy.mock.calls).toHaveLength(1);
-    expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
+    // Standing-scope read (unscoped → ordinary flow), then the event.
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
   });
 });
 

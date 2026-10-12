@@ -103,9 +103,9 @@ the `python` [lane](../../terms.md#lane), which receives four skills and not thi
 - The `test:template-render` script is line 64 of `packages/core/package.json`. The test
   is `packages/core/audit-self/template-render.audit.ts`. Lines 4 to 11 of that file say
   which checks run in CI and which three are left to this skill.
-- The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
-  to 145 of `setup.d/10-skills.sh`. Line 67 there says what it is for.
-- The `python` lane copies four skills by name, lines 1716 to 1722 of
+- The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 152
+  to 154 of `setup.d/10-skills.sh`. Line 67 there says what it is for.
+- The `python` lane copies four skills by name, lines 1714 to 1720 of
   `setup.d/45-python.sh`, and this skill is missing from
   `tests/install-sh/baselines/python/greenfield.fingerprint`.
 - The card is built from `docs/site/reference/B.json`.

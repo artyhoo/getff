@@ -17,6 +17,7 @@ bash ".agents/procedures/pipeline/helpers/render-status.sh"
 
 **Section sources + degradation:**
 
+<!-- prettier-ignore -->
 | Section                     | Source                                                    | Degradation when brick unavailable                          |
 | --------------------------- | --------------------------------------------------------- | ----------------------------------------------------------- |
 | In-factory                  | bridge REST (`/health`, task list)                        | "(bridge unreachable at <url>)"                             |

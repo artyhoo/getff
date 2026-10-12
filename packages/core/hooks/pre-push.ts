@@ -2700,6 +2700,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
   'dispatcher',
   'getff',
   'harvest',
+  'intent',
   'night-mode',
   'orchestrator',
   'pipeline',
@@ -2881,28 +2882,34 @@ function lycheeSection(ctx: SectionCtx): void {
     // so a finding here names a file the byte-identical copy is forbidden to fix.
     // Excluded ONLY while byte-identical to its canonical — checked per file at gate
     // time, not trusted — so a diverged twin keeps no exclusion and is walked, and the
-    // canonical itself remains in the walk as the authoring location: no link text
-    // escapes checking. Unreadable inputs stay checked and keep their real failure.
+    // exact canonical sources are added to this gate population even when unchanged.
+    // Unreadable inputs stay checked and keep their real failure.
     {
       const before = changedMd.length;
+      const canonicalSources = new Set<string>();
       changedMd = changedMd.filter((f) => {
         if (!f.startsWith('.claude/agents/') || !f.endsWith('.md')) return true;
         const canonical = `.agents/roles/${f.slice('.claude/agents/'.length)}`;
         try {
-          return !(
+          if (
             existsSync(resolve(REPO_ROOT, canonical)) &&
             readFileSync(resolve(REPO_ROOT, f)).equals(
               readFileSync(resolve(REPO_ROOT, canonical)),
             )
-          );
+          ) {
+            canonicalSources.add(canonical);
+            return false;
+          }
+          return true;
         } catch {
           return true;
         }
       });
       const excluded = before - changedMd.length;
+      changedMd = [...new Set([...changedMd, ...canonicalSources])];
       if (excluded > 0) {
         process.stdout.write(
-          `  · §8 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) — link-checked at their .agents/roles/ source\n`,
+          `  · §8 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) — exact canonical .agents/roles/ source(s) included in this link check\n`,
         );
       }
     }

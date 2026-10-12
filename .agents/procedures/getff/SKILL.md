@@ -99,6 +99,7 @@ The agent selects the relevant enforcement layer, reads the real preset or deliv
 For AI-failure examples, term definitions, or integration decisions, read [framework context and vocabulary](references/framework-context.md). AI Factory is external and never a prerequisite for this framework's gates; each integration remains a separate decision.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -116,4 +117,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

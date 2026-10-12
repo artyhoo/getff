@@ -2679,6 +2679,7 @@ var SHIPPED_SKILL_SLUGS = [
   "dispatcher",
   "getff",
   "harvest",
+  "intent",
   "night-mode",
   "orchestrator",
   "pipeline",
@@ -2745,21 +2746,27 @@ function lycheeSection(ctx) {
     }
     {
       const before = changedMd.length;
+      const canonicalSources = /* @__PURE__ */ new Set();
       changedMd = changedMd.filter((f) => {
         if (!f.startsWith(".claude/agents/") || !f.endsWith(".md")) return true;
         const canonical = `.agents/roles/${f.slice(".claude/agents/".length)}`;
         try {
-          return !(existsSync4(resolve2(REPO_ROOT, canonical)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
+          if (existsSync4(resolve2(REPO_ROOT, canonical)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
             readFileSync3(resolve2(REPO_ROOT, canonical))
-          ));
+          )) {
+            canonicalSources.add(canonical);
+            return false;
+          }
+          return true;
         } catch {
           return true;
         }
       });
       const excluded = before - changedMd.length;
+      changedMd = [.../* @__PURE__ */ new Set([...changedMd, ...canonicalSources])];
       if (excluded > 0) {
         process.stdout.write(
-          `  \xB7 \xA78 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) \u2014 link-checked at their .agents/roles/ source
+          `  \xB7 \xA78 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) \u2014 exact canonical .agents/roles/ source(s) included in this link check
 `
         );
       }
