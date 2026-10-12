@@ -150,7 +150,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/proced
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
-5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .agents/procedures/pipeline/helpers/priority-score.sh
+5e4ebdd80ab7b0bcc4efc421948eef2be24edb630b33ea91e6bc19bc73b02ba7  .agents/procedures/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .agents/procedures/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .agents/procedures/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .agents/procedures/pipeline/helpers/resolve-preset.sh
@@ -406,7 +406,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .claude/skills/pipeline/helpers/priority-score.sh
+5e4ebdd80ab7b0bcc4efc421948eef2be24edb630b33ea91e6bc19bc73b02ba7  .claude/skills/pipeline/helpers/priority-score.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .claude/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
 9edd1e4451d5c985a92e6b4659285b0d9cd60535b12e28922dcd7d0cd58c6c48  .claude/skills/pipeline/helpers/run-helper.sh

@@ -87,7 +87,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/proced
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
-5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .agents/procedures/pipeline/helpers/priority-score.sh
+5e4ebdd80ab7b0bcc4efc421948eef2be24edb630b33ea91e6bc19bc73b02ba7  .agents/procedures/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .agents/procedures/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .agents/procedures/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .agents/procedures/pipeline/helpers/resolve-preset.sh
@@ -214,7 +214,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-02e7959bbfe125f20ae357877d1f41d4f72393f040179bd1e57020f9e0854729  .ai-factory/refresh-baseline.json
+977104dda12e86c8662143c5029717b540f6f4cb17f781bdd4b2a7295f5cb900  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -322,7 +322,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .claude/skills/pipeline/helpers/priority-score.sh
+5e4ebdd80ab7b0bcc4efc421948eef2be24edb630b33ea91e6bc19bc73b02ba7  .claude/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .claude/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .claude/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
@@ -465,7 +465,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .zcode/skills/
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .zcode/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .zcode/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh
-5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .zcode/skills/pipeline/helpers/priority-score.sh
+5e4ebdd80ab7b0bcc4efc421948eef2be24edb630b33ea91e6bc19bc73b02ba7  .zcode/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .zcode/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .zcode/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .zcode/skills/pipeline/helpers/resolve-preset.sh

@@ -155,10 +155,20 @@ for _d in "${PROMPTS_DIR}"/*/; do
   _n="${_d%/}"; _n="${_n##*/}"                        # basename, pure-bash (no subprocess)
   [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
   [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
-  if [[ -n "${_merged_branch_names}" ]] \
-      && grep -qxF "${_n}" 2>/dev/null <<<"${_merged_branch_names}"; then
-    continue                                          # C1 cheap-closed → skip expensive C2
+  # C1 exact-branch match, pipe- AND write-free: a `producer | grep -qxF` pipe is
+  # the SIGPIPE-under-pipefail shape check-pipefail-early-exit.mjs forbids, while
+  # the here-string fix it suggests creates a $TMPDIR temp file that the write-denied
+  # sandbox of pipeline-priority-readonly.test.mjs rejects. Branch names carry no
+  # IFS whitespace, so word-splitting the newline-separated jq output is
+  # token-equal to grep -qxF whole-line matching.
+  _c1_closed=0
+  if [[ -n "${_merged_branch_names}" ]]; then
+    for _b in ${_merged_branch_names}; do
+      [[ "${_b}" == "${_n}" ]] && { _c1_closed=1; break; }
+    done
   fi
+  [[ "${_c1_closed}" == 1 ]] \
+    && continue                                       # C1 cheap-closed → skip expensive C2
   _open_survivors+="${_n}"$'\n'
 done
 
@@ -221,11 +231,19 @@ for dir in "${PROMPTS_DIR}"/*/; do
 
   # Extract Type from kickoff header (line 2-5 typically)
   type_line="$(grep -m1 '^\*\*Type:\*\*\|^> \*\*Type:\*\*' "${kickoff}" 2>/dev/null || echo '')"
-  if grep -qi 'R-phase\|research' <<<"${type_line}"; then
+  # Case-insensitive substring match, pipe- AND write-free: the here-string forms
+  # this replaced create a $TMPDIR temp file that the write-denied sandbox of
+  # pipeline-priority-readonly.test.mjs rejects (push 6 pre-push red), while the
+  # `printf | grep -qi` pipe is the SIGPIPE-under-pipefail shape
+  # check-pipefail-early-exit.mjs forbids. `tr` reads its whole input (no
+  # early-exit reader → no SIGPIPE risk); one lowercase copy, then glob
+  # substring compares — same alternation semantics as the grep -qi arms.
+  type_lc="$(printf '%s' "${type_line}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${type_lc}" == *r-phase* || "${type_lc}" == *research* ]]; then
     wave_type="R-phase"
-  elif grep -qi 'I-phase\|execution\|build' <<<"${type_line}"; then
+  elif [[ "${type_lc}" == *i-phase* || "${type_lc}" == *execution* || "${type_lc}" == *build* ]]; then
     wave_type="I-phase"
-  elif grep -qi 'wiring\|config\|ci' <<<"${type_line}"; then
+  elif [[ "${type_lc}" == *wiring* || "${type_lc}" == *config* || "${type_lc}" == *ci* ]]; then
     wave_type="wiring"
   else
     wave_type="unknown"
