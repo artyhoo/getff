@@ -635,12 +635,28 @@ function jsRegexCanStart(sigChar: string, sigWord: string): boolean {
   return '=([{;,!&|?:'.includes(sigChar);
 }
 
+// Both JS scans consume the same regex body, starting AFTER its opening slash.
+// Inspect the first body character too: it may open a class or escape a slash.
+function scanJsRegexEnd(line: string, opening: number): number {
+  let inClass = false;
+  for (let c = opening + 1; c < line.length; c++) {
+    const ch = line[c];
+    if (ch === '\\') c += 1;
+    else if (ch === '[') inClass = true;
+    else if (ch === ']') inClass = false;
+    else if (ch === '/' && !inClass) return c;
+  }
+  // Regex literals cannot span lines. An invalid unterminated literal consumes
+  // this line only, preserving the existing close scanner's end-of-line reset.
+  return line.length;
+}
+
 /**
  * JS/TS body scanner from just after the opener's `{`. Tracks line/block comments,
  * single/double-quoted strings, and template literals with `${…}` nesting — so a `}`
  * at column 0 inside a template literal or comment does NOT close (T-S3-B). Also
- * tracks regex literals (review 4242549898): a `/` in literal position enters regex
- * state until its unescaped, non-class `/`, so punctuation inside it (`/}/`, `/[/}] /`)
+ * tracks regex literals (review 4242549898): a `/` in literal position consumes the
+ * body through its unescaped, non-class `/`, so punctuation inside it (`/}/`, `/[/}]/`)
  * never touches the brace depth. Entering
  * `${` SPENDS its `{` in `depth` (the frame records the pre-entry depth), so the
  * interpolation's closing `}` lands exactly ON the frame's depth — it pops the frame
@@ -652,8 +668,7 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
   type Frame = { kind: 'template'; depth: number };
   const stack: Frame[] = [];
   let depth = 1; // the function's own opening brace
-  let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' | 'regex' = 'code';
-  let regexClass = false; // inside a `[...]` class in regex state — `/` there is literal
+  let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' = 'code';
   let sigChar = ''; // last significant code-state char (regex-vs-division context)
   let sigWord = ''; // the identifier ending at sigChar, '' if sigChar is not one
 
@@ -667,17 +682,6 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
         if (ch === '*' && line[c + 1] === '/') {
           state = 'code';
           c += 1;
-        }
-        continue;
-      }
-      if (state === 'regex') {
-        if (ch === '\\') c += 1;
-        else if (ch === '[') regexClass = true;
-        else if (ch === ']') regexClass = false;
-        else if (ch === '/' && !regexClass) {
-          state = 'code';
-          sigChar = '/';
-          sigWord = '';
         }
         continue;
       }
@@ -716,12 +720,9 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
       }
       if (ch === '/') {
         if (jsRegexCanStart(sigChar, sigWord)) {
-          state = 'regex';
-          regexClass = false;
-          c += 1;
-          continue;
+          c = scanJsRegexEnd(line, c);
         }
-        sigChar = '/'; // division: ordinary code punctuation, no brace effect
+        sigChar = '/'; // regex end or division: no brace effect
         sigWord = '';
         continue;
       }
@@ -765,9 +766,7 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
         }
       }
     }
-    // A regex literal cannot span lines in JS; an unterminated one is invalid code,
-    // and carrying the state would poison the rest of the scan.
-    if (state === 'linecomment' || state === 'regex') state = 'code';
+    if (state === 'linecomment') state = 'code';
   }
   return 'eof';
 }
@@ -791,6 +790,8 @@ function jsLineStartsTopLevel(lines: string[]): boolean[] {
   const stack: Frame[] = [];
   let depth = 0;
   let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' = 'code';
+  let sigChar = '';
+  let sigWord = '';
   const out: boolean[] = [];
   for (const line of lines) {
     out.push(state === 'code' && stack.length === 0 && depth === 0);
@@ -834,6 +835,21 @@ function jsLineStartsTopLevel(lines: string[]): boolean[] {
         state = 'blockcomment';
         c += 1;
         continue;
+      }
+      if (ch === '/') {
+        if (jsRegexCanStart(sigChar, sigWord)) c = scanJsRegexEnd(line, c);
+        sigChar = '/';
+        sigWord = '';
+        continue;
+      }
+      if (/[A-Za-z0-9_$]/.test(ch)) {
+        sigWord = /[A-Za-z0-9_$]/.test(sigChar) ? sigWord + ch : ch;
+        sigChar = ch;
+        continue;
+      }
+      if (!/\s/.test(ch)) {
+        sigChar = ch;
+        sigWord = '';
       }
       if (ch === "'") {
         state = 'sq';

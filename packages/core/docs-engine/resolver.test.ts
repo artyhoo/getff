@@ -662,6 +662,29 @@ describe('correction 4242549898: regex-literal braces are lexical content (JS cl
   });
 });
 
+describe('correction S3-E619-D1/D2: regex scanning agrees across discovery and extraction', () => {
+  it('a regex brace before a real top-level function does not hide its declaration', () => {
+    const source = 'const re = /{/;\nfunction real() {\n  return 1;\n}\n';
+    expect(() => new Function(source)).not.toThrow();
+    const r = resolvePlace('re/before.js#fn:real', mkRead({ 're/before.js': source }));
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([2, 4]);
+    expect(r.content).toBe('function real() {\n  return 1;\n}');
+  });
+
+  it.each([String.raw`/\/}/`, String.raw`/[/}]/`])(
+    'a regex beginning with an escape or class keeps its body brace lexical: %s',
+    (literal) => {
+      const source = `function fx() {\n  const re = ${literal};\n}\n`;
+      expect(() => new Function(source)).not.toThrow();
+      const r = resolvePlace('re/leading.js#fn:fx', mkRead({ 're/leading.js': source }));
+      expectLine(r);
+      expect([r.startLine, r.endLine]).toEqual([1, 3]);
+      expect(r.content).toBe(`function fx() {\n  const re = ${literal};\n}`);
+    },
+  );
+});
+
 describe('correction 4242549892: shell here-strings are not heredoc declarations', () => {
   it('`<<<"$var"` inside a function does not swallow the column-0 close', () => {
     const read = mkRead({ 'hs/x.sh': 'fx() {\n  grep -q x <<<"$value"\n}\n' });
