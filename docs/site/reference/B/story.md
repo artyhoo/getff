@@ -122,7 +122,7 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   lines 48 to 54.
 - The helper is `.claude/skills/story/helpers/emit-story-prompt.sh`. Line 12 picks the
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
-- The instruction text is the story branch at line 343 of `.claude/hooks/lang/en.sh`,
+- The instruction text is the story branch at line 337 of `.claude/hooks/lang/en.sh`,
   which renders the shared recap sections from line 81 in session scope. The
   end-of-session reminder calls the same branch:
   `.claude/hooks/end-of-turn-reminder.sh`, line 1772.
