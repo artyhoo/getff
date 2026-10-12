@@ -242,7 +242,7 @@
           {
             "id": "verify-payload",
             "title": "Verify the payload landed",
-            "action": "On npm stack layers: `ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/` and `.claude/skills/claude-glm-executor-handoff/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
+            "action": "On npm stack layers: `ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/`, `.claude/skills/claude-glm-executor-handoff/` and `.claude/skills/intent/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there. Toolchain lanes follow toolchainLanes verification (AI Usage Guide §2.4); cargo/Go install no passport or skills.",
             "evidence": "setup.d/10-skills.sh; verified in a temp consumer 2026-08-08"
           },
           {
