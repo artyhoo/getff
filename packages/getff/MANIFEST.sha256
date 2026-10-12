@@ -994,7 +994,7 @@ ba8b13f1a2a23e2dc8d23a44670e0326a02df53eee8bc7bfa4e0188428437348  packages/core/
 30ce4d638da09b28bc82fcc837515cdcbcd28e06b4e1550f3f3bb162bbf01cfe  packages/core/principles/45-prepush-contract-claim-liveness.ts
 a3c3a7e859fcfd9be9c207b5cba8211a05f9c9401c23721606ef4da9e65ac157  packages/core/principles/46-git-env-inheritance-safety.test.ts
 9e03b3892215b9ebdb908ea100011c943e8b42b67403db3d5332cbe1d48dc047  packages/core/principles/46-git-env-inheritance-safety.ts
-f9008c68b0bd3943463053036a9928c7569f197b5ec9f19cf07081bf6193aeda  packages/core/principles/46-reference-generator-arms.test.ts
+7879aedeaa9bff07903b2dba91b0fdc42e26ec3182ca6e71d31678079211c8d1  packages/core/principles/46-reference-generator-arms.test.ts
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
 0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
