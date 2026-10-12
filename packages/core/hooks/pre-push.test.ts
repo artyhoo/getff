@@ -20,6 +20,7 @@ import {
   SHIPPED_MD_PREFIXES,
   SHIPPED_SKILL_SLUGS,
   isFrameworkShippedMarkdown,
+  isRetainedNativeLinkFixture,
 } from './pre-push.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -352,5 +353,35 @@ describe('shipped-markdown classifier — drift gate against the install fingerp
         /^[^/]+\/.+\/$/,
       );
     }
+  });
+});
+
+// The original native report is immutable adverse evidence, not a live document.
+describe('retained native link fixture — exact authoring input identity', () => {
+  const path = 'tests/skills/pipeline-final-report/retained-r3.md';
+  const bytes = readFileSync(resolve(REPO_ROOT, path));
+  it('excludes only the original retained bytes in the authoring repo', () => {
+    expect(isRetainedNativeLinkFixture(path, bytes, true)).toBe(true);
+  });
+  it('does not exclude edited bytes at the retained path', () => {
+    expect(
+      isRetainedNativeLinkFixture(
+        path,
+        Buffer.concat([bytes, Buffer.from('edited')]),
+        true,
+      ),
+    ).toBe(false);
+  });
+  it('does not exclude sibling or prefixed lookalike inputs', () => {
+    for (const file of [
+      'tests/skills/pipeline-final-report/valid-overview.md',
+      'other/' + path,
+      'docs/authored.md',
+    ]) {
+      expect(isRetainedNativeLinkFixture(file, bytes, true)).toBe(false);
+    }
+  });
+  it('does not exclude consumer-authored files even with the original path and bytes', () => {
+    expect(isRetainedNativeLinkFixture(path, bytes, false)).toBe(false);
   });
 });

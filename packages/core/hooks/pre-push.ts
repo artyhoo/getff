@@ -2818,6 +2818,27 @@ export function isFrameworkShippedMarkdown(
 // defect.
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
+// This exact native failure is retained verbatim for check-final-report's adverse test.
+// Its links name the historical scratch installation, not current project documents.
+const RETAINED_NATIVE_LINK_FIXTURE =
+  'tests/skills/pipeline-final-report/retained-r3.md';
+const RETAINED_NATIVE_LINK_SHA256 =
+  'a5e5bc1282f35a291a8c59ef8fdff8819749a5edbe9c99916a49ad78745764f7';
+
+/** Exempt only the unchanged recorded input in the framework authoring checkout. */
+export function isRetainedNativeLinkFixture(
+  file: string,
+  contents: string | Uint8Array,
+  isFrameworkRepo: boolean,
+): boolean {
+  return (
+    isFrameworkRepo &&
+    file === RETAINED_NATIVE_LINK_FIXTURE &&
+    createHash('sha256').update(contents).digest('hex') ===
+      RETAINED_NATIVE_LINK_SHA256
+  );
+}
+
 function lycheeSection(ctx: SectionCtx): void {
   // Without lychee the body below says so and skips, as before; the record arms the check only
   // where lychee runs (scripts/check-doc-links.sh exits 3 without it).
@@ -2848,6 +2869,29 @@ function lycheeSection(ctx: SectionCtx): void {
       if (excluded > 0) {
         process.stdout.write(
           `  · §8 lychee: excluded ${excluded} plugin/agents twin(s) — byte-identical copies, link-checked at their agents/ source\n`,
+        );
+      }
+    }
+    // A path alone cannot exempt edited/live documents or a consumer-owned file.
+    // Unreadable inputs stay in the checker population and preserve its real failure.
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((file) => {
+        if (!ctx.isFrameworkRepo || file !== RETAINED_NATIVE_LINK_FIXTURE)
+          return true;
+        try {
+          return !isRetainedNativeLinkFixture(
+            file,
+            readFileSync(resolve(REPO_ROOT, file)),
+            true,
+          );
+        } catch {
+          return true;
+        }
+      });
+      if (changedMd.length < before) {
+        process.stdout.write(
+          '  · §8 lychee: excluded unchanged retained native fixture (exact path + SHA256); live and consumer-authored inputs remain checked\n',
         );
       }
     }

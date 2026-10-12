@@ -2711,6 +2711,11 @@ function isFrameworkShippedMarkdown(p, baseline) {
   return p.startsWith(".claude/agents/") || p.startsWith(".zcode/agents/");
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
+var RETAINED_NATIVE_LINK_FIXTURE = "tests/skills/pipeline-final-report/retained-r3.md";
+var RETAINED_NATIVE_LINK_SHA256 = "a5e5bc1282f35a291a8c59ef8fdff8819749a5edbe9c99916a49ad78745764f7";
+function isRetainedNativeLinkFixture(file, contents, isFrameworkRepo) {
+  return isFrameworkRepo && file === RETAINED_NATIVE_LINK_FIXTURE && createHash("sha256").update(contents).digest("hex") === RETAINED_NATIVE_LINK_SHA256;
+}
 function lycheeSection(ctx) {
   if (!run("lychee", ["--version"]).notFound && recordGoverned(
     ctx,
@@ -2733,6 +2738,27 @@ function lycheeSection(ctx) {
         process.stdout.write(
           `  \xB7 \xA78 lychee: excluded ${excluded} plugin/agents twin(s) \u2014 byte-identical copies, link-checked at their agents/ source
 `
+        );
+      }
+    }
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((file) => {
+        if (!ctx.isFrameworkRepo || file !== RETAINED_NATIVE_LINK_FIXTURE)
+          return true;
+        try {
+          return !isRetainedNativeLinkFixture(
+            file,
+            readFileSync3(resolve2(REPO_ROOT, file)),
+            true
+          );
+        } catch {
+          return true;
+        }
+      });
+      if (changedMd.length < before) {
+        process.stdout.write(
+          "  \xB7 \xA78 lychee: excluded unchanged retained native fixture (exact path + SHA256); live and consumer-authored inputs remain checked\n"
         );
       }
     }
@@ -3067,5 +3093,6 @@ export {
   activeSections,
   composeSections,
   isFrameworkShippedMarkdown,
+  isRetainedNativeLinkFixture,
   lineCitationsTimeoutMs
 };
