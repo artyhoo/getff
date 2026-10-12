@@ -2699,6 +2699,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
   'dispatcher',
   'getff',
   'harvest',
+  'intent',
   'night-mode',
   'orchestrator',
   'pipeline',

@@ -45,11 +45,29 @@ import { fileURLToPath } from 'node:url';
 const CONTRACT_VERSION = 1;
 const MODES = ['produce', 'repair', 'expand'];
 const OUTCOMES = ['matches', 'mismatch', 'needs-evidence', 'needs-operator'];
-const COMPARISONS = ['supported', 'contradicted', 'unobserved', 'needs-operator'];
-const CLASSIFICATIONS = ['within-contract', 'contract-revision', 'product-decision'];
+const COMPARISONS = [
+  'supported',
+  'contradicted',
+  'unobserved',
+  'needs-operator',
+];
+const CLASSIFICATIONS = [
+  'within-contract',
+  'contract-revision',
+  'product-decision',
+];
 const SHA256_RE = /^[0-9a-f]{64}$/;
 /** Fixed ownership-relevant field list for the reviewed task pre-image digest. */
-const PRE_IMAGE_FIELDS = ['autoMode', 'executionOwner', 'id', 'ownershipRevision', 'paused', 'plan', 'status', 'title'];
+const PRE_IMAGE_FIELDS = [
+  'autoMode',
+  'executionOwner',
+  'id',
+  'ownershipRevision',
+  'paused',
+  'plan',
+  'status',
+  'title',
+];
 
 const ok = () => ({ ok: true });
 const reject = (code, reason) => ({ ok: false, code, reason });
@@ -88,8 +106,13 @@ function contained(candidate, root) {
  * the target file exists outside the roots. Returns { bytes } or a reject result.
  */
 export function resolveContentRef(ref, roots) {
-  if (!Array.isArray(roots) || roots.length === 0) return reject('ref_missing', 'no owner roots configured');
-  if (!isContentRef(ref)) return reject('invalid_ref', 'ContentRef must be {path: string, sha256: 64-hex}');
+  if (!Array.isArray(roots) || roots.length === 0)
+    return reject('ref_missing', 'no owner roots configured');
+  if (!isContentRef(ref))
+    return reject(
+      'invalid_ref',
+      'ContentRef must be {path: string, sha256: 64-hex}',
+    );
   for (const root of roots) {
     let realRoot;
     try {
@@ -106,16 +129,26 @@ export function resolveContentRef(ref, roots) {
       continue;
     }
     if (!contained(intended, realRoot)) continue;
-    if (!existsSync(intended) || !statSync(intended).isFile()) return reject('ref_missing', `no file at ${ref.path} under the configured roots`);
+    if (!existsSync(intended) || !statSync(intended).isFile())
+      return reject(
+        'ref_missing',
+        `no file at ${ref.path} under the configured roots`,
+      );
     const real = realpathSync(intended);
     if (!contained(real, realRoot)) continue; // symlink dodging out of the root — try other roots
     const bytes = readFileSync(real);
     if (sha256(bytes) !== ref.sha256) {
-      return reject('ref_digest_mismatch', `bytes at ${ref.path} do not match the bound digest`);
+      return reject(
+        'ref_digest_mismatch',
+        `bytes at ${ref.path} do not match the bound digest`,
+      );
     }
     return { ok: true, bytes };
   }
-  return reject('path_escapes_roots', `${ref.path} resolves outside every configured owner root`);
+  return reject(
+    'path_escapes_roots',
+    `${ref.path} resolves outside every configured owner root`,
+  );
 }
 
 function loadJsonRef(ref, roots, label) {
@@ -148,26 +181,48 @@ function readRelative(relPath, roots) {
       continue;
     }
     if (!contained(intended, realRoot)) continue;
-    if (!existsSync(intended) || !statSync(intended).isFile()) return reject('review_missing', `no file at ${relPath} under the configured roots`);
+    if (!existsSync(intended) || !statSync(intended).isFile())
+      return reject(
+        'review_missing',
+        `no file at ${relPath} under the configured roots`,
+      );
     const real = realpathSync(intended);
     if (!contained(real, realRoot)) continue;
     return { ok: true, bytes: readFileSync(real) };
   }
-  return reject('path_escapes_roots', `${relPath} resolves outside every configured owner root`);
+  return reject(
+    'path_escapes_roots',
+    `${relPath} resolves outside every configured owner root`,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Contract side
 // ---------------------------------------------------------------------------
 function validateContractShape(contract) {
-  if (contract === null || typeof contract !== 'object' || Array.isArray(contract)) {
+  if (
+    contract === null ||
+    typeof contract !== 'object' ||
+    Array.isArray(contract)
+  ) {
     return reject('invalid_contract', 'contract must be a JSON object');
   }
-  if (contract.version !== CONTRACT_VERSION) return reject('unsupported_version', `contract.version must be ${CONTRACT_VERSION}`);
-  if (!isNonEmptyString(contract.featureId)) return reject('invalid_contract', 'featureId must be a non-empty string');
-  if (!isNonEmptyString(contract.resultId)) return reject('invalid_contract', 'resultId must be a non-empty string');
-  if (!MODES.includes(contract.mode)) return reject('invalid_contract', `mode must be one of ${MODES.join(' | ')}`);
-  if (!isContentRef(contract.brief)) return reject('invalid_contract', 'brief must be a ContentRef');
+  if (contract.version !== CONTRACT_VERSION)
+    return reject(
+      'unsupported_version',
+      `contract.version must be ${CONTRACT_VERSION}`,
+    );
+  if (!isNonEmptyString(contract.featureId))
+    return reject('invalid_contract', 'featureId must be a non-empty string');
+  if (!isNonEmptyString(contract.resultId))
+    return reject('invalid_contract', 'resultId must be a non-empty string');
+  if (!MODES.includes(contract.mode))
+    return reject(
+      'invalid_contract',
+      `mode must be one of ${MODES.join(' | ')}`,
+    );
+  if (!isContentRef(contract.brief))
+    return reject('invalid_contract', 'brief must be a ContentRef');
   if (!Array.isArray(contract.shared) || !contract.shared.every(isContentRef)) {
     return reject('invalid_contract', 'shared must be an array of ContentRefs');
   }
@@ -176,20 +231,38 @@ function validateContractShape(contract) {
     contract.essentialPromiseIds.length === 0 ||
     !contract.essentialPromiseIds.every(isNonEmptyString)
   ) {
-    return reject('invalid_contract', 'essentialPromiseIds must be a non-empty array of strings');
+    return reject(
+      'invalid_contract',
+      'essentialPromiseIds must be a non-empty array of strings',
+    );
   }
-  if (new Set(contract.essentialPromiseIds).size !== contract.essentialPromiseIds.length) {
-    return reject('duplicate_ids', 'essentialPromiseIds contains conflicting duplicate IDs');
+  if (
+    new Set(contract.essentialPromiseIds).size !==
+    contract.essentialPromiseIds.length
+  ) {
+    return reject(
+      'duplicate_ids',
+      'essentialPromiseIds contains conflicting duplicate IDs',
+    );
   }
   if (contract.mode !== 'produce') {
     if (!isNonEmptyString(contract.producesOrRepairs)) {
-      return reject('invalid_contract', `${contract.mode} contracts must name producesOrRepairs`);
+      return reject(
+        'invalid_contract',
+        `${contract.mode} contracts must name producesOrRepairs`,
+      );
     }
   }
   if (contract.mode === 'expand' && !isContentRef(contract.parentContract)) {
-    return reject('invalid_contract', 'expand contracts must bind parentContract');
+    return reject(
+      'invalid_contract',
+      'expand contracts must bind parentContract',
+    );
   }
-  if (contract.requiresReview !== undefined && !isContentRef(contract.requiresReview)) {
+  if (
+    contract.requiresReview !== undefined &&
+    !isContentRef(contract.requiresReview)
+  ) {
     return reject('invalid_contract', 'requiresReview must be a ContentRef');
   }
   return ok();
@@ -205,11 +278,20 @@ function resolveContractRefs(contract, roots) {
 }
 
 function checkParentScope(enforcing, parent, roots) {
-  if (!Array.isArray(parent.essentialPromiseIds)) return reject('invalid_contract', 'parent contract has no essentialPromiseIds');
+  if (!Array.isArray(parent.essentialPromiseIds))
+    return reject(
+      'invalid_contract',
+      'parent contract has no essentialPromiseIds',
+    );
   // A child cannot WEAKEN its parent: every parent essential must survive in the child scope.
-  const dropped = parent.essentialPromiseIds.filter((id) => !enforcing.essentialPromiseIds.includes(id));
+  const dropped = parent.essentialPromiseIds.filter(
+    (id) => !enforcing.essentialPromiseIds.includes(id),
+  );
   if (dropped.length > 0) {
-    return reject('weakens_parent_scope', `child scope drops parent essentials: ${dropped.join(', ')}`);
+    return reject(
+      'weakens_parent_scope',
+      `child scope drops parent essentials: ${dropped.join(', ')}`,
+    );
   }
   return ok();
 }
@@ -221,17 +303,37 @@ function validateReviewShape(review) {
   if (review === null || typeof review !== 'object' || Array.isArray(review)) {
     return reject('invalid_review', 'result review must be a JSON object');
   }
-  if (review.version !== CONTRACT_VERSION) return reject('unsupported_version', `review.version must be ${CONTRACT_VERSION}`);
-  if (!isNonEmptyString(review.attemptId)) return reject('invalid_review', 'attemptId must be a non-empty string');
-  if (!isNonEmptyString(review.featureId)) return reject('invalid_review', 'featureId must be a non-empty string');
-  if (!isNonEmptyString(review.resultId)) return reject('invalid_review', 'resultId must be a non-empty string');
-  if (!isContentRef(review.brief)) return reject('invalid_review', 'brief must be a ContentRef');
-  if (!isContentRef(review.producerContract)) return reject('invalid_review', 'producerContract must be a ContentRef');
-  if (!isNonEmptyString(review.observedRevision)) return reject('invalid_review', 'observedRevision must be a non-empty string');
-  if (!Array.isArray(review.sourceInputs) || !review.sourceInputs.every(isContentRef)) {
-    return reject('invalid_review', 'sourceInputs must be an array of ContentRefs');
+  if (review.version !== CONTRACT_VERSION)
+    return reject(
+      'unsupported_version',
+      `review.version must be ${CONTRACT_VERSION}`,
+    );
+  if (!isNonEmptyString(review.attemptId))
+    return reject('invalid_review', 'attemptId must be a non-empty string');
+  if (!isNonEmptyString(review.featureId))
+    return reject('invalid_review', 'featureId must be a non-empty string');
+  if (!isNonEmptyString(review.resultId))
+    return reject('invalid_review', 'resultId must be a non-empty string');
+  if (!isContentRef(review.brief))
+    return reject('invalid_review', 'brief must be a ContentRef');
+  if (!isContentRef(review.producerContract))
+    return reject('invalid_review', 'producerContract must be a ContentRef');
+  if (!isNonEmptyString(review.observedRevision))
+    return reject(
+      'invalid_review',
+      'observedRevision must be a non-empty string',
+    );
+  if (
+    !Array.isArray(review.sourceInputs) ||
+    !review.sourceInputs.every(isContentRef)
+  ) {
+    return reject(
+      'invalid_review',
+      'sourceInputs must be an array of ContentRefs',
+    );
   }
-  if (!isContentRef(review.environment)) return reject('invalid_review', 'environment must be a ContentRef');
+  if (!isContentRef(review.environment))
+    return reject('invalid_review', 'environment must be a ContentRef');
   if (!Array.isArray(review.evidence) || !review.evidence.every(isContentRef)) {
     return reject('invalid_review', 'evidence must be an array of ContentRefs');
   }
@@ -240,20 +342,46 @@ function validateReviewShape(review) {
   }
   const seen = new Set();
   for (const p of review.promises) {
-    if (p === null || typeof p !== 'object' || Array.isArray(p)) return reject('invalid_review', 'each promise must be an object');
-    if (!isNonEmptyString(p.id)) return reject('invalid_review', 'promise.id must be a non-empty string');
-    if (!COMPARISONS.includes(p.comparison)) return reject('invalid_comparison', `comparison must be one of ${COMPARISONS.join(' | ')}`);
+    if (p === null || typeof p !== 'object' || Array.isArray(p))
+      return reject('invalid_review', 'each promise must be an object');
+    if (!isNonEmptyString(p.id))
+      return reject('invalid_review', 'promise.id must be a non-empty string');
+    if (!COMPARISONS.includes(p.comparison))
+      return reject(
+        'invalid_comparison',
+        `comparison must be one of ${COMPARISONS.join(' | ')}`,
+      );
     if (!Array.isArray(p.evidence) || !p.evidence.every(isContentRef)) {
-      return reject('invalid_review', `promise ${p.id} evidence must be an array of ContentRefs`);
+      return reject(
+        'invalid_review',
+        `promise ${p.id} evidence must be an array of ContentRefs`,
+      );
     }
-    if (!isNonEmptyString(p.explanation)) return reject('invalid_review', `promise ${p.id} explanation must be a non-empty string`);
-    if (seen.has(p.id)) return reject('duplicate_ids', `conflicting duplicate promise ID ${p.id}`);
+    if (!isNonEmptyString(p.explanation))
+      return reject(
+        'invalid_review',
+        `promise ${p.id} explanation must be a non-empty string`,
+      );
+    if (seen.has(p.id))
+      return reject(
+        'duplicate_ids',
+        `conflicting duplicate promise ID ${p.id}`,
+      );
     seen.add(p.id);
   }
-  if (!OUTCOMES.includes(review.outcome)) return reject('invalid_outcome', `outcome must be one of ${OUTCOMES.join(' | ')}`);
-  if (!Array.isArray(review.limits)) return reject('invalid_review', 'limits must be an array of strings');
-  if (!review.limits.every(isNonEmptyString)) return reject('invalid_review', 'limits entries must be non-empty strings');
-  if (review.operatorCheckpoint !== undefined && !isContentRef(review.operatorCheckpoint)) {
+  if (!OUTCOMES.includes(review.outcome))
+    return reject(
+      'invalid_outcome',
+      `outcome must be one of ${OUTCOMES.join(' | ')}`,
+    );
+  if (!Array.isArray(review.limits))
+    return reject('invalid_review', 'limits must be an array of strings');
+  if (!review.limits.every(isNonEmptyString))
+    return reject('invalid_review', 'limits entries must be non-empty strings');
+  if (
+    review.operatorCheckpoint !== undefined &&
+    !isContentRef(review.operatorCheckpoint)
+  ) {
     return reject('invalid_review', 'operatorCheckpoint must be a ContentRef');
   }
   return ok();
@@ -265,7 +393,8 @@ function resolveReviewRefs(review, roots) {
   // mask the identity finding behind ref_digest_mismatch. Evidence-class refs are resolved.
   const refs = [review.environment, ...review.sourceInputs, ...review.evidence];
   for (const p of review.promises) refs.push(...p.evidence);
-  if (review.operatorCheckpoint !== undefined) refs.push(review.operatorCheckpoint);
+  if (review.operatorCheckpoint !== undefined)
+    refs.push(review.operatorCheckpoint);
   for (const ref of refs) {
     const res = resolveContentRef(ref, roots);
     if (!res.ok) return res;
@@ -279,17 +408,26 @@ function checkReviewOutcomeSemantics(review, enforcing) {
   for (const p of review.promises) {
     if (!enforcing.essentialPromiseIds.includes(p.id)) continue;
     if (p.comparison === 'contradicted') {
-      return reject('contradicted_essential', `essential ${p.id} is contradicted by its recorded evidence`);
+      return reject(
+        'contradicted_essential',
+        `essential ${p.id} is contradicted by its recorded evidence`,
+      );
     }
   }
   for (const id of enforcing.essentialPromiseIds) {
     const p = review.promises.find((x) => x.id === id);
     if (!p || p.comparison !== 'supported' || p.evidence.length === 0) {
-      return reject('missing_essential_evidence', `essential ${id} is not supported by recorded observations`);
+      return reject(
+        'missing_essential_evidence',
+        `essential ${id} is not supported by recorded observations`,
+      );
     }
   }
   if (review.operatorCheckpoint !== undefined) {
-    return reject('outstanding_checkpoint', 'an operator checkpoint is recorded and unresolved');
+    return reject(
+      'outstanding_checkpoint',
+      'an operator checkpoint is recorded and unresolved',
+    );
   }
   return ok();
 }
@@ -298,7 +436,11 @@ function checkReviewOutcomeSemantics(review, enforcing) {
 // validateResultReview
 // ---------------------------------------------------------------------------
 export function validateResultReview(request) {
-  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
+  if (
+    request === null ||
+    typeof request !== 'object' ||
+    Array.isArray(request)
+  ) {
     return reject('invalid_request', 'request must be a JSON object');
   }
   const roots = request.roots;
@@ -309,14 +451,20 @@ export function validateResultReview(request) {
     const shape = validateContractShape(request.contract);
     if (!shape.ok) return shape;
     enforcing = request.contract;
-  } else if (request.contractRef !== undefined && request.contractRef !== null) {
+  } else if (
+    request.contractRef !== undefined &&
+    request.contractRef !== null
+  ) {
     const loaded = loadJsonRef(request.contractRef, roots, 'contract');
     if (!loaded.ok) return loaded;
     const shape = validateContractShape(loaded.value);
     if (!shape.ok) return shape;
     enforcing = loaded.value;
   } else {
-    return reject('contract_missing', 'request supplies neither contract nor contractRef');
+    return reject(
+      'contract_missing',
+      'request supplies neither contract nor contractRef',
+    );
   }
 
   // 2. Ref resolution for the enforcing scope (paths may not escape; bytes must match).
@@ -338,11 +486,19 @@ export function validateResultReview(request) {
 
   // 4. Inline↔registered parity: a declared inline scope that names a registered contract
   //    must equal it canonically.
-  if (request.contract !== undefined && request.contract !== null && request.contractRef !== undefined && request.contractRef !== null) {
+  if (
+    request.contract !== undefined &&
+    request.contract !== null &&
+    request.contractRef !== undefined &&
+    request.contractRef !== null
+  ) {
     const loaded = loadJsonRef(request.contractRef, roots, 'contract');
     if (!loaded.ok) return loaded;
     if (canonicalJson(loaded.value) !== canonicalJson(request.contract)) {
-      return reject('declared_scope_mismatch', 'declared inline scope diverges from the registered contract');
+      return reject(
+        'declared_scope_mismatch',
+        'declared inline scope diverges from the registered contract',
+      );
     }
   }
 
@@ -354,7 +510,10 @@ export function validateResultReview(request) {
     try {
       review = JSON.parse(read.bytes.toString('utf8'));
     } catch (err) {
-      return reject('invalid_review', `review is not valid JSON: ${err.message}`);
+      return reject(
+        'invalid_review',
+        `review is not valid JSON: ${err.message}`,
+      );
     }
     const shape = validateReviewShape(review);
     if (!shape.ok) return shape;
@@ -362,13 +521,22 @@ export function validateResultReview(request) {
     if (!refsRes.ok) return refsRes;
 
     if (review.featureId !== enforcing.featureId) {
-      return reject('feature_mismatch', `review feature ${review.featureId} != contract feature ${enforcing.featureId}`);
+      return reject(
+        'feature_mismatch',
+        `review feature ${review.featureId} != contract feature ${enforcing.featureId}`,
+      );
     }
     if (review.resultId !== enforcing.resultId) {
-      return reject('result_mismatch', `review result ${review.resultId} != contract result ${enforcing.resultId}`);
+      return reject(
+        'result_mismatch',
+        `review result ${review.resultId} != contract result ${enforcing.resultId}`,
+      );
     }
     if (canonicalJson(review.brief) !== canonicalJson(enforcing.brief)) {
-      return reject('brief_mismatch', 'review is bound to different brief bytes than the contract');
+      return reject(
+        'brief_mismatch',
+        'review is bound to different brief bytes than the contract',
+      );
     }
     // Cycle before producer match: a review produced under the enforcing expansion contract
     // itself is a contract→review→same-contract digest cycle.
@@ -379,47 +547,90 @@ export function validateResultReview(request) {
       enforcing.parentContract !== undefined &&
       canonicalJson(review.producerContract) === canonicalJson(selfRef)
     ) {
-      return reject('contract_review_cycle', 'review was produced under the enforcing contract itself');
+      return reject(
+        'contract_review_cycle',
+        'review was produced under the enforcing contract itself',
+      );
     }
     const baseRef = enforcing.parentContract ?? request.contractRef;
-    if (baseRef !== undefined && baseRef !== null && canonicalJson(review.producerContract) !== canonicalJson(baseRef)) {
-      return reject('producer_mismatch', 'review producer contract is not the enforcing base contract');
+    if (
+      baseRef !== undefined &&
+      baseRef !== null &&
+      canonicalJson(review.producerContract) !== canonicalJson(baseRef)
+    ) {
+      return reject(
+        'producer_mismatch',
+        'review producer contract is not the enforcing base contract',
+      );
     }
-    if (request.observedRevision !== undefined && request.observedRevision !== null) {
+    if (
+      request.observedRevision !== undefined &&
+      request.observedRevision !== null
+    ) {
       if (review.observedRevision !== request.observedRevision) {
-        return reject('stale_review', `review observedRevision ${review.observedRevision} is behind the current binding ${request.observedRevision}`);
+        return reject(
+          'stale_review',
+          `review observedRevision ${review.observedRevision} is behind the current binding ${request.observedRevision}`,
+        );
       }
     }
-    if (enforcing.mode === 'expand' && review.attemptId !== enforcing.producesOrRepairs) {
-      return reject('matching_attempt_mismatch', `expansion is bound to ${enforcing.producesOrRepairs}, review records ${review.attemptId}`);
+    if (
+      enforcing.mode === 'expand' &&
+      review.attemptId !== enforcing.producesOrRepairs
+    ) {
+      return reject(
+        'matching_attempt_mismatch',
+        `expansion is bound to ${enforcing.producesOrRepairs}, review records ${review.attemptId}`,
+      );
     }
     if (review.outcome !== 'matches') {
       if (enforcing.mode === 'expand') {
-        return reject('expansion_requires_match', 'expansion requires the exact selected matching attempt');
+        return reject(
+          'expansion_requires_match',
+          'expansion requires the exact selected matching attempt',
+        );
       }
-      return reject('review_not_matching', `review outcome ${review.outcome} does not authorize continuation`);
+      return reject(
+        'review_not_matching',
+        `review outcome ${review.outcome} does not authorize continuation`,
+      );
     }
     const semantics = checkReviewOutcomeSemantics(review, enforcing);
     if (!semantics.ok) return semantics;
   }
 
   // 6. Prior review (repair semantics): names the failed attempt being repaired.
-  if (request.priorReviewPath !== undefined && request.priorReviewPath !== null) {
+  if (
+    request.priorReviewPath !== undefined &&
+    request.priorReviewPath !== null
+  ) {
     const read = readRelative(request.priorReviewPath, roots);
     if (!read.ok) return read;
     let prior;
     try {
       prior = JSON.parse(read.bytes.toString('utf8'));
     } catch (err) {
-      return reject('invalid_review', `prior review is not valid JSON: ${err.message}`);
+      return reject(
+        'invalid_review',
+        `prior review is not valid JSON: ${err.message}`,
+      );
     }
     const shape = validateReviewShape(prior);
     if (!shape.ok) return shape;
-    if (enforcing.producesOrRepairs !== undefined && prior.attemptId !== enforcing.producesOrRepairs) {
-      return reject('prior_attempt_mismatch', `repair names ${enforcing.producesOrRepairs}, prior review records ${prior.attemptId}`);
+    if (
+      enforcing.producesOrRepairs !== undefined &&
+      prior.attemptId !== enforcing.producesOrRepairs
+    ) {
+      return reject(
+        'prior_attempt_mismatch',
+        `repair names ${enforcing.producesOrRepairs}, prior review records ${prior.attemptId}`,
+      );
     }
     if (prior.outcome === 'matches') {
-      return reject('repair_target_already_matches', 'the named prior attempt already matches — nothing to repair');
+      return reject(
+        'repair_target_already_matches',
+        'the named prior attempt already matches — nothing to repair',
+      );
     }
   }
 
@@ -430,52 +641,97 @@ export function validateResultReview(request) {
 // validatePlanReview — structural validation only; a digest never grants authority.
 // ---------------------------------------------------------------------------
 export function validatePlanReview(request) {
-  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
+  if (
+    request === null ||
+    typeof request !== 'object' ||
+    Array.isArray(request)
+  ) {
     return reject('invalid_request', 'request must be a JSON object');
   }
   const review = request.planReview;
   if (review === null || typeof review !== 'object' || Array.isArray(review)) {
     return reject('plan_review_invalid', 'planReview must be a JSON object');
   }
-  if (!isNonEmptyString(review.taskId)) return reject('plan_review_invalid', 'taskId must be a non-empty string');
-  if (!isContentRef(review.contractRef)) return reject('plan_review_invalid', 'contractRef must be a ContentRef');
-  if (!isHex64(review.effectivePlanSha256)) return reject('plan_review_invalid', 'effectivePlanSha256 must be 64 hex chars');
-  if (!isHex64(review.taskPreImageSha256)) return reject('plan_review_invalid', 'taskPreImageSha256 must be 64 hex chars');
+  if (!isNonEmptyString(review.taskId))
+    return reject('plan_review_invalid', 'taskId must be a non-empty string');
+  if (!isContentRef(review.contractRef))
+    return reject('plan_review_invalid', 'contractRef must be a ContentRef');
+  if (!isHex64(review.effectivePlanSha256))
+    return reject(
+      'plan_review_invalid',
+      'effectivePlanSha256 must be 64 hex chars',
+    );
+  if (!isHex64(review.taskPreImageSha256))
+    return reject(
+      'plan_review_invalid',
+      'taskPreImageSha256 must be 64 hex chars',
+    );
   if (review.payloadSha256 !== undefined && !isHex64(review.payloadSha256)) {
     return reject('plan_review_invalid', 'payloadSha256 must be 64 hex chars');
   }
   if (!CLASSIFICATIONS.includes(review.classification)) {
-    return reject('invalid_classification', `classification must be one of ${CLASSIFICATIONS.join(' | ')}`);
+    return reject(
+      'invalid_classification',
+      `classification must be one of ${CLASSIFICATIONS.join(' | ')}`,
+    );
   }
-  if (!isNonEmptyString(review.ownerReference)) return reject('owner_reference_missing', 'a digest alone grants no authority — owner reference required');
+  if (!isNonEmptyString(review.ownerReference))
+    return reject(
+      'owner_reference_missing',
+      'a digest alone grants no authority — owner reference required',
+    );
 
-  if (!isNonEmptyString(request.taskId)) return reject('invalid_request', 'taskId must be a non-empty string');
-  if (!isContentRef(request.contractRef)) return reject('invalid_request', 'contractRef must be a ContentRef');
-  if (!isHex64(request.taskPlanSha256)) return reject('invalid_request', 'taskPlanSha256 must be 64 hex chars');
-  if (!isHex64(request.taskPreImageSha256)) return reject('invalid_request', 'taskPreImageSha256 must be 64 hex chars');
+  if (!isNonEmptyString(request.taskId))
+    return reject('invalid_request', 'taskId must be a non-empty string');
+  if (!isContentRef(request.contractRef))
+    return reject('invalid_request', 'contractRef must be a ContentRef');
+  if (!isHex64(request.taskPlanSha256))
+    return reject('invalid_request', 'taskPlanSha256 must be 64 hex chars');
+  if (!isHex64(request.taskPreImageSha256))
+    return reject('invalid_request', 'taskPreImageSha256 must be 64 hex chars');
   if (request.payloadSha256 !== undefined && !isHex64(request.payloadSha256)) {
     return reject('invalid_request', 'payloadSha256 must be 64 hex chars');
   }
 
   if (review.taskId !== request.taskId) {
-    return reject('plan_review_task_mismatch', `review names task ${review.taskId}, continuation targets ${request.taskId}`);
+    return reject(
+      'plan_review_task_mismatch',
+      `review names task ${review.taskId}, continuation targets ${request.taskId}`,
+    );
   }
-  if (canonicalJson(review.contractRef) !== canonicalJson(request.contractRef)) {
-    return reject('contract_ref_mismatch', 'plan review names a different contract than the declared scope');
+  if (
+    canonicalJson(review.contractRef) !== canonicalJson(request.contractRef)
+  ) {
+    return reject(
+      'contract_ref_mismatch',
+      'plan review names a different contract than the declared scope',
+    );
   }
   if (review.effectivePlanSha256 !== request.taskPlanSha256) {
-    return reject('plan_digest_mismatch', 'plan bytes changed since the review');
+    return reject(
+      'plan_digest_mismatch',
+      'plan bytes changed since the review',
+    );
   }
   if (review.taskPreImageSha256 !== request.taskPreImageSha256) {
-    return reject('pre_image_digest_mismatch', 'reviewed task pre-image does not match the current task row');
+    return reject(
+      'pre_image_digest_mismatch',
+      'reviewed task pre-image does not match the current task row',
+    );
   }
   const reviewedPayload = review.payloadSha256;
   const proposedPayload = request.payloadSha256;
   if (proposedPayload !== undefined && reviewedPayload !== proposedPayload) {
-    return reject('payload_digest_mismatch', 'proposed payload bytes differ from the reviewed payload');
+    return reject(
+      'payload_digest_mismatch',
+      'proposed payload bytes differ from the reviewed payload',
+    );
   }
   if (proposedPayload === undefined && reviewedPayload !== undefined) {
-    return reject('payload_digest_mismatch', 'review binds a payload but no payload is proposed');
+    return reject(
+      'payload_digest_mismatch',
+      'review binds a payload but no payload is proposed',
+    );
   }
   return { ok: true, classification: review.classification };
 }
@@ -484,7 +740,8 @@ export function validatePlanReview(request) {
 export function taskPreImageDigestOf(task) {
   const picked = {};
   for (const field of PRE_IMAGE_FIELDS) {
-    if (task !== null && typeof task === 'object' && task[field] !== undefined) picked[field] = task[field];
+    if (task !== null && typeof task === 'object' && task[field] !== undefined)
+      picked[field] = task[field];
   }
   return sha256(canonicalJson(picked));
 }
@@ -507,8 +764,17 @@ function main() {
 
   const flag = args[0];
   const value = args[1];
-  if ((flag !== '--request' && flag !== '--pre-image' && flag !== '--plan-review') || value === undefined || args.length !== 2) {
-    fail('invalid_request', 'usage: check-result-review.mjs --request <path|-> | --plan-review <path|-> | --pre-image <path|->');
+  if (
+    (flag !== '--request' &&
+      flag !== '--pre-image' &&
+      flag !== '--plan-review') ||
+    value === undefined ||
+    args.length !== 2
+  ) {
+    fail(
+      'invalid_request',
+      'usage: check-result-review.mjs --request <path|-> | --plan-review <path|-> | --pre-image <path|->',
+    );
     return;
   }
   let parsed;
@@ -545,9 +811,14 @@ const isMainEntryLock =
   process.argv[1] !== undefined &&
   (() => {
     try {
-      return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+      return (
+        realpathSync(process.argv[1]) ===
+        realpathSync(fileURLToPath(import.meta.url))
+      );
     } catch {
-      return resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+      return (
+        resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
+      );
     }
   })();
 

@@ -2677,6 +2677,7 @@ var SHIPPED_SKILL_SLUGS = [
   "dispatcher",
   "getff",
   "harvest",
+  "intent",
   "night-mode",
   "orchestrator",
   "pipeline",
