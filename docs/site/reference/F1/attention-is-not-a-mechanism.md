@@ -80,7 +80,7 @@ example the removal-consumers PR-body check) are deterministic, no-LLM checks.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including this PR's in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule sentence and the two allowed forms:
   `.claude/rules/attention-is-not-a-mechanism.md:15` (`§1`) and `:17` (the MUST).
