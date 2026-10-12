@@ -553,6 +553,27 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
     _root_getff=""
     getff_delivered "$PROJECT_ROOT/eslint.config.mjs" && getff_bytes_intact "$PROJECT_ROOT/eslint.config.mjs" \
       && _root_getff=1
+    # Reuse the additive writer for exact portable ignores in an intact template.
+    # Generic has no preset rules; an owned empty snippet contributes no live
+    # rules, and absent boundary arguments leave R2 unchanged.
+    if [ -n "$_root_getff" ]; then
+      if _portable_ignore_snippet=$(mktemp "${TMPDIR:-/tmp}/getff-ignore-only.XXXXXX") \
+         && printf '{}\n' > "$_portable_ignore_snippet"; then
+        _portable_ignore_args=( --own-config --stack generic --snippet "$_portable_ignore_snippet" --path "$PROJECT_ROOT/eslint.config.mjs" )
+        while IFS= read -r _g; do [ -n "$_g" ] && _portable_ignore_args+=( --ignore "$_g" ); done < <(getff_portable_owned_paths)
+        _portable_ignore_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
+            node "$_synth_wirer" "${_portable_ignore_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _portable_ignore_rc=0 || _portable_ignore_rc=$?
+        rm -f "$_portable_ignore_snippet"
+        printf '%s\n' "$_portable_ignore_out"
+        if [ "$_portable_ignore_rc" -ne 0 ]; then
+          note_not_wired "portable payload ignores in eslint.config.mjs — additive writer exited $_portable_ignore_rc (reason printed above)"
+        fi
+        refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
+      else
+        [ -z "${_portable_ignore_snippet:-}" ] || rm -f "$_portable_ignore_snippet"
+        note_not_wired "portable payload ignores in eslint.config.mjs — could not prepare an empty snippet for the additive writer"
+      fi
+    fi
     _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
         node "$_synth_wirer" \
           --stack "${STACK:-ts-server}" \
