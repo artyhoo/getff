@@ -816,9 +816,10 @@ const isMainEntryLock =
         realpathSync(fileURLToPath(import.meta.url))
       );
     } catch {
-      return (
-        resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
-      );
+      // realpath unavailable (dangling argv[1]) — fail CLOSED: an entry lock that cannot
+      // verify both sides must not run main. A resolve()-only fallback is the naive
+      // one-sided compare principle 47 bans (symlink false-through, SSOT #269).
+      return false;
     }
   })();
 
