@@ -87,7 +87,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/proced
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .agents/procedures/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .agents/procedures/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .agents/procedures/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .agents/procedures/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .agents/procedures/pipeline/helpers/resolve-preset.sh
@@ -214,7 +214,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-a942917a635e060a7c52d925706fa2fe463ead733cedd1692c20b0d4301b6561  .ai-factory/refresh-baseline.json
+02e7959bbfe125f20ae357877d1f41d4f72393f040179bd1e57020f9e0854729  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -322,7 +322,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .claude/skills/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .claude/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .claude/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .claude/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
@@ -465,7 +465,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .zcode/skills/
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .zcode/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .zcode/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .zcode/skills/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .zcode/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .zcode/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .zcode/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .zcode/skills/pipeline/helpers/resolve-preset.sh
@@ -589,7 +589,7 @@ fa864074769cbe791277f472a267c855da0a1a6b30e5e40f5aa997447a5f7146  eslint-rules-l
 24c0e9c5961211d85133ceabffde5abd7405657c2e03b87055eaad88a5b367a2  eslint-rules-local/restricted-syntax-audit-exempt.d.ts
 71f115fc4a27dfa2919902d57b609b5bff1f0f8eed69bbf22b698d13d4d41c2b  eslint-rules-local/restricted-syntax-audit-exempt.mjs
 f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-local/restricted-syntax-audit-exempt.ts
-3d16d8d779539a0547ba5437262dffd827e58736666c991262ec42fc5837bd7b  eslint.config.mjs
+0582e789556cf8d318e031e2859efae3e31880d49add4bc7aca7286470521811  eslint.config.mjs
 881d44cfc8d332820bbf368149e0337ef647b0aa7a5b7590711a8bb6d02ca126  package.json
 b753c99c8cba3d60315e831b71f998bd7d023d943ccd152d55a852fc31044898  packages/core/hooks/pre-push.bundle.mjs
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
@@ -608,7 +608,7 @@ e8970b5d628b7e805316450b8674a7e649c8988a40406abef3bafd3c5f804e5f  scripts/check-
 f9bd865af4cc488cfed16193631f19c7102034f65cf7dc7f61a9922dd8ff4cc2  scripts/check-shields-up.sh
 8a9302524aa42db678ca9d631ee02b55294c3a69e72131ee5163c0d3e5c27cff  scripts/check-zcode-mirror.sh
 d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  scripts/ci-available-probe.sh
-6d0f61b3221ebe1e7058a0cf5692ccb279494233e9f82625f542e50474674140  scripts/codex-hook-adapter.mjs
+80a39d78abbb9747cb0da75c1746ee7a29b3a6ea33dee9ebb43132cd0e032636  scripts/codex-hook-adapter.mjs
 e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create-worktree.sh
 6d6a346a97d9aa202fc34da57256ceffa1186dee8fc062bf6ab3e860b6839ac0  scripts/detect-r2-boundary.sh
 ec98670e29c15eefde78337a6dbc2bfe2365661a52f63b7aa172c9b7f0b3e3ba  scripts/docs-check.mjs

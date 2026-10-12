@@ -149,7 +149,7 @@ function shellReads(input) {
 }
 
 function wildcard(pattern, slash = false) {
-  if (/[?\[\]{}()\\]/.test(pattern)) return null;
+  if (/[?[\]{}()\\]/.test(pattern)) return null;
   const escaped = pattern
     .split(/(\*\*|\*)/)
     .map((part) =>

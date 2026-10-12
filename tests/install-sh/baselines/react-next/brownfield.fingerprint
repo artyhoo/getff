@@ -86,7 +86,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/proced
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .agents/procedures/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .agents/procedures/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .agents/procedures/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .agents/procedures/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .agents/procedures/pipeline/helpers/resolve-preset.sh
@@ -213,7 +213,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-ffb1062caa9be442bec3839b545eea36f9336646c6a9060d8d503f5aa64df309  .ai-factory/refresh-baseline.json
+e9e264f12516eccc19004eb6b1c4b50c915f174c99358ef270a64a9901a3dfc1  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -322,7 +322,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .claude/skills/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .claude/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .claude/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .claude/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
@@ -466,7 +466,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .zcode/skills/
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .zcode/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .zcode/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh
-58524608a5c62e96d17d1f4beaedbe6cbb26a55d45b7a9afd4b8e08a8a5c9470  .zcode/skills/pipeline/helpers/priority-score.sh
+5997bb68ff497a7eb08da9805e5e8e3a6b7818d6dea381a6a0c1e9a5ad24a959  .zcode/skills/pipeline/helpers/priority-score.sh
 37cd13c7088c466e7eeeb2947f3a602052d61a78493a0cb07cebc3ac6957c301  .zcode/skills/pipeline/helpers/read-plan-cache.sh
 7962681d48e0755c7d6e2233b9ff5fac36cf03f9c262248e40b96f5d71efa4a1  .zcode/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .zcode/skills/pipeline/helpers/resolve-preset.sh
@@ -593,7 +593,7 @@ fa864074769cbe791277f472a267c855da0a1a6b30e5e40f5aa997447a5f7146  eslint-rules-l
 24c0e9c5961211d85133ceabffde5abd7405657c2e03b87055eaad88a5b367a2  eslint-rules-local/restricted-syntax-audit-exempt.d.ts
 71f115fc4a27dfa2919902d57b609b5bff1f0f8eed69bbf22b698d13d4d41c2b  eslint-rules-local/restricted-syntax-audit-exempt.mjs
 f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-local/restricted-syntax-audit-exempt.ts
-ab1544ac6fb0ded0805cc7716986ee909b7b2e44b299e85ded81f6149cb528b0  eslint.config.mjs
+865a7d849c669a9cbf7ec30801460e2cdbd8460e2081efe97bb1bf44d313ffe5  eslint.config.mjs
 16e5860fd46561bb05acd547cf080ff61ad1f5ea9744877f1a4d920bac696db9  index.ts
 97e38a1e877a327eddbae979bcdc3dad4a421954dc587e95fce915c8f362dae6  package.json
 b753c99c8cba3d60315e831b71f998bd7d023d943ccd152d55a852fc31044898  packages/core/hooks/pre-push.bundle.mjs
