@@ -2566,7 +2566,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:64-83 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:71-90 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
 //       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
@@ -2639,7 +2639,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/tool-decisions.md',
   '.agents/session-bootstrap.md', // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
   '.claude/session-bootstrap.md', // the native bind-link destination of the row above
-  'docs/site-quality/calibration.md', // portable-bindings.sh:233 — the docs-quality calibration page delivered to the consumer root
+  'docs/site-quality/calibration.md', // portable-bindings.sh:258 — the docs-quality calibration page delivered to the consumer root
 ];
 
 /**
