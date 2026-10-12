@@ -17,7 +17,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: snapshot-inputs-ref, stack: repo, date: 2026-10-10, result: printed }
-docs-refresh: deferred — re-verified 2026-10-12: the cited dispatcher execution reference gained two intent-scoped dispatch sections (the start-reviewed gate holding at plan-ready and scoped rework bindings); the seat-economy contract this sheet maps is untouched by them; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-10-12, the cited dispatcher execution reference gained two intent-scoped dispatch sections (the start-reviewed gate holding at plan-ready and scoped rework bindings); the seat-economy contract this sheet maps is untouched by them; clears at the next gold refresh of this page
 ---
 
 # cold-seat-economy rule
