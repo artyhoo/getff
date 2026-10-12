@@ -680,6 +680,8 @@ test('native model window reaches source context tier while explicit override wi
   try {
     process.env.TMPDIR = temp;
     process.env.AIF_HOOK_LANG = 'en';
+    // This Codex fixture must not inherit a parent Claude SDK session's recap exemption.
+    delete process.env.CLAUDE_CODE_ENTRYPOINT;
     delete process.env.AIF_CTX_WINDOW;
     delete process.env.AIF_HANDOFF_GATE;
     rollout(200000);
