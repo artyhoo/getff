@@ -20,7 +20,7 @@
 #   (1) open PR whose title OR headRefName carries the umbrella slug
 #   (2) un-merged local/remote branch or worktree carrying the umbrella slug
 #
-# Seams for testing (mirror dup-detect.sh:23-25):
+# Seams for testing (mirror dup-detect.sh:24-26):
 #   REPO_ROOT, MO_GH_BIN (default gh), MO_GIT_BIN (default git),
 #   MO_BASE_REF (default origin/staging), MO_INFLIGHT_MIN_TOKENS (default 2)
 #

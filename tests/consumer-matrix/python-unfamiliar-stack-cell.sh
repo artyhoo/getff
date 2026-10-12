@@ -12,7 +12,7 @@
 # Asserts (kickoff §2 item 1 chain, in order):
 #   (1) scripted fresh python project (FastAPI/SQLAlchemy-class fixture, pyproject.toml)
 #   (2) `master` as the default branch ON PURPOSE (R1-input W5.4 regression guard — see
-#       setup.d/lib.sh:1495 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
+#       setup.d/lib.sh:1506 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
 #       the consumer's default branch; assert the delivered workflow trigger carries master)
 #   (3) `install.sh python` under a Node-stripped PATH — proves F-A DECLARE (the python
 #       install stays Node-free; Node in the CI RUNNER is fine, per kickoff §6 anti-scope)
@@ -37,7 +37,7 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2334, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2336, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:1700-1702.
+# per setup.d/45-python.sh:1702-1704.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -320,7 +320,7 @@ step "rule-bootstrap-cli --from-practice (Tier-1 resolves via vendored METADATA)
 # constrains the install path, not the runner per kickoff §6 anti-scope). Run via
 # `npx --no-install tsx` from the framework root so the framework's tsx + workspace
 # deps resolve. The installer's own generation step runs the prebuilt bundle on plain node
-# (setup.d/80-rule-bootstrap.sh:208) and skips when node is absent — as it is under this
+# (setup.d/80-rule-bootstrap.sh:252) and skips when node is absent — as it is under this
 # cell's Node-stripped install — so this cell drives the source directly.
 BOOTSTRAP_LOG="$WORK/bootstrap.log"
 ( cd "$FRAMEWORK_ROOT" && npx --no-install tsx "$FRAMEWORK_ROOT/packages/core/install/rule-bootstrap-cli.ts" \
@@ -467,7 +467,7 @@ echo "  ✓ REJECT arm: research-only verdict LOUD + no rule file written (hones
 step "R1-input assertion — delivered workflow branches: [master]"
 
 # The python lane delivers .github/workflows/getff-python.yml via deliver_getff_workflow
-# (setup.d/45-python.sh:474 → setup.d/lib.sh:1690,1431), which sed-substitutes
+# (setup.d/45-python.sh:474 → setup.d/lib.sh:1701,1442), which sed-substitutes
 # `branches: [main]` → `branches: [master]` because the consumer's default branch
 # (git symbolic-ref origin/HEAD) is master. The `getff-python.yml` filename is
 # namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:461).

@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1677-1679 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1721-1723 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -67,7 +67,7 @@
 # this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
 # which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
 # after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
-# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:338), so
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:349), so
 # re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
 if ! declare -F _lane_log >/dev/null 2>&1; then
   # shellcheck source=setup.d/lib.sh
@@ -105,7 +105,7 @@ _py_copy_or_refresh() {
 # (do_python_lane exits at install.sh:731-733, long before do_refresh at install.sh:1658).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:841-842 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:865-866 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:933).
+# orchestration-skills arm (install.sh:957).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:877). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:901). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1403, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1414, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -651,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1721). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1732). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -715,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1721), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1732), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -1569,7 +1569,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:841-842 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:865-866 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1695,7 +1695,7 @@ $msgs"
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
 #   - setup.d/30-templates.sh:112    (AGENTS.md)
 #
-# The python lane has NO STACK context (it bypasses the npm stack pick at install.sh:276+), so the
+# The python lane has NO STACK context (it bypasses the npm stack pick at install.sh:278+), so the
 # stack-specific ARCHITECTURE/RULES branches in 30-templates.sh don't apply — we always use the
 # default ts-server source (canonical SSOT).
 #
@@ -1819,7 +1819,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1555).
+  # (install.sh:1599).
   # Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
@@ -1840,7 +1840,7 @@ _py_deliver_agent_surface() {
   copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst" arch-header
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
-  # skill-context overrides (replicates 20-agents.sh:66-79). SHIPPED_DOCS is in scope from install.sh:219.
+  # skill-context overrides (replicates 20-agents.sh:66-79). SHIPPED_DOCS is in scope from install.sh:221.
   # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
   for _py_doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
     case "$_py_doc" in

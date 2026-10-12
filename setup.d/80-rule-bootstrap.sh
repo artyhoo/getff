@@ -11,7 +11,7 @@
 # Option-1 gate placement — a standalone setup.d step, mirroring 05-mcp.sh's FULL gate (the
 # placement fork the spike parked per kickoff §6; resolved to Option 1 at harvest time).
 #
-# Gated on FULL ("--full" carrier, install.sh:95+128) so the non-full / snapshot path no-ops
+# Gated on FULL ("--full" carrier, install.sh:96+128) so the non-full / snapshot path no-ops
 # → byte-identical guarantee preserved (the read-only research lines for the record, below, run on
 # every pass but only when a research file exists, which no snapshot fixture has). $0-in-CI (principle 17): the consume path is a pure
 # file-read (the live MCP research already happened in the human session); the CI self-install
@@ -114,7 +114,7 @@ fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
-# ${STACK:-ts-server} D3 notice in 99-finalize.sh:32-33). Multi-stack delivery (#827 B1):
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:33-35). Multi-stack delivery (#827 B1):
 # react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
 # instead of the former react-next-only hardcode that silently degraded every other stack.
 _plan="$_research_dir/$_rb_key.research.json"

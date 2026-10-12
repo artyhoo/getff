@@ -471,7 +471,7 @@ function priorArtSection(rb: ResolvedBase): void {
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
         'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
         'A positive line must also name a resolvable referent — an SSOT row\n' +
-        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:407), or an\n' +
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:418), or an\n' +
         'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
@@ -2614,16 +2614,16 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:334-336).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:345-347).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1790 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1792 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1799 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1801 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2713,7 +2713,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:881-939) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:892-950) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
