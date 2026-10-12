@@ -685,6 +685,38 @@ describe('correction S3-E619-D1/D2: regex scanning agrees across discovery and e
   );
 });
 
+describe('correction S3-9F-R1: keyword-named members do not introduce regex literals', () => {
+  it.each(['obj.return', 'obj?.return', 'obj. /* member */ return'])(
+    'division after %s keeps a later top-level function visible',
+    (member) => {
+      const source = `const obj = { return: 4 };\nif (true) { ${member} / 2; }\nfunction real() {\n  return 1;\n}\n`;
+      expect(() => new Function(source)).not.toThrow();
+      const r = resolvePlace('re/member.js#fn:real', mkRead({ 're/member.js': source }));
+      expectLine(r);
+      expect([r.startLine, r.endLine]).toEqual([3, 5]);
+      expect(r.content).toBe('function real() {\n  return 1;\n}');
+    },
+  );
+
+  it('division after a keyword-named member keeps the nested body close visible', () => {
+    const source = 'function fx() {\n  if (true) { obj.return / 2; }\n  return 1;\n}\n';
+    expect(() => new Function(source)).not.toThrow();
+    const r = resolvePlace('re/body-member.js#fn:fx', mkRead({ 're/body-member.js': source }));
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 4]);
+    expect(r.content).toBe('function fx() {\n  if (true) { obj.return / 2; }\n  return 1;\n}');
+  });
+
+  it('a return keyword still introduces a regex with a lexical brace', () => {
+    const source = 'function fx() {\n  return /}/;\n}\n';
+    expect(() => new Function(source)).not.toThrow();
+    const r = resolvePlace('re/keyword.js#fn:fx', mkRead({ 're/keyword.js': source }));
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+    expect(r.content).toBe('function fx() {\n  return /}/;\n}');
+  });
+});
+
 describe('correction 4242549892: shell here-strings are not heredoc declarations', () => {
   it('`<<<"$var"` inside a function does not swallow the column-0 close', () => {
     const read = mkRead({ 'hs/x.sh': 'fx() {\n  grep -q x <<<"$value"\n}\n' });

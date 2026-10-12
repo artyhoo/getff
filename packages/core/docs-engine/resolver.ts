@@ -629,9 +629,9 @@ const JS_REGEX_KEYWORDS = new Set([
  *  DIVISION, whose misreads cost nothing (a slash pair can never swallow a brace);
  *  the covered set is chosen so every common literal position (`= /re/`, `( /re/`,
  *  `: /re/`, `return /re/`, `&& /re/`) resolves to LITERAL (review 4242549898). */
-function jsRegexCanStart(sigChar: string, sigWord: string): boolean {
+function jsRegexCanStart(sigChar: string, sigWord: string, sigWordIsMember: boolean): boolean {
   if (sigChar === '') return true; // nothing significant seen yet
-  if (/[A-Za-z0-9_$]/.test(sigChar)) return JS_REGEX_KEYWORDS.has(sigWord);
+  if (/[A-Za-z0-9_$]/.test(sigChar)) return !sigWordIsMember && JS_REGEX_KEYWORDS.has(sigWord);
   return '=([{;,!&|?:'.includes(sigChar);
 }
 
@@ -671,6 +671,7 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
   let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' = 'code';
   let sigChar = ''; // last significant code-state char (regex-vs-division context)
   let sigWord = ''; // the identifier ending at sigChar, '' if sigChar is not one
+  let sigWordIsMember = false; // a keyword after `.` is a property, not a regex introducer
 
   for (let i = startIdx; i < lines.length; i++) {
     const line = lines[i];
@@ -719,21 +720,27 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
         continue;
       }
       if (ch === '/') {
-        if (jsRegexCanStart(sigChar, sigWord)) {
+        if (jsRegexCanStart(sigChar, sigWord, sigWordIsMember)) {
           c = scanJsRegexEnd(line, c);
         }
         sigChar = '/'; // regex end or division: no brace effect
         sigWord = '';
+        sigWordIsMember = false;
         continue;
       }
       if (/[A-Za-z0-9_$]/.test(ch)) {
-        sigWord = /[A-Za-z0-9_$]/.test(sigChar) ? sigWord + ch : ch;
+        if (/[A-Za-z0-9_$]/.test(sigChar)) sigWord += ch;
+        else {
+          sigWord = ch;
+          sigWordIsMember = sigChar === '.';
+        }
         sigChar = ch;
         continue;
       }
       if (!/\s/.test(ch)) {
         sigChar = ch;
         sigWord = '';
+        sigWordIsMember = false;
       }
       if (ch === "'") {
         state = 'sq';
@@ -792,6 +799,7 @@ function jsLineStartsTopLevel(lines: string[]): boolean[] {
   let state: 'code' | 'sq' | 'dq' | 'linecomment' | 'blockcomment' | 'template' = 'code';
   let sigChar = '';
   let sigWord = '';
+  let sigWordIsMember = false;
   const out: boolean[] = [];
   for (const line of lines) {
     out.push(state === 'code' && stack.length === 0 && depth === 0);
@@ -837,19 +845,25 @@ function jsLineStartsTopLevel(lines: string[]): boolean[] {
         continue;
       }
       if (ch === '/') {
-        if (jsRegexCanStart(sigChar, sigWord)) c = scanJsRegexEnd(line, c);
+        if (jsRegexCanStart(sigChar, sigWord, sigWordIsMember)) c = scanJsRegexEnd(line, c);
         sigChar = '/';
         sigWord = '';
+        sigWordIsMember = false;
         continue;
       }
       if (/[A-Za-z0-9_$]/.test(ch)) {
-        sigWord = /[A-Za-z0-9_$]/.test(sigChar) ? sigWord + ch : ch;
+        if (/[A-Za-z0-9_$]/.test(sigChar)) sigWord += ch;
+        else {
+          sigWord = ch;
+          sigWordIsMember = sigChar === '.';
+        }
         sigChar = ch;
         continue;
       }
       if (!/\s/.test(ch)) {
         sigChar = ch;
         sigWord = '';
+        sigWordIsMember = false;
       }
       if (ch === "'") {
         state = 'sq';
