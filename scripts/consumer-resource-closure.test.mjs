@@ -177,8 +177,12 @@ test('consumer ESLint excludes only recorded delivered portable tools and still 
   const source = readFileSync(join(root, 'setup.d/eslint-wire.sh'), 'utf8');
   const policy = source.match(/^_own_eslint_ignores\(\) \{[\s\S]*?^\}/m)?.[0];
   assert.ok(policy, 'actual installer ownership policy is present');
-  // The delivery predicate is supplied fixture metadata, not an all-files exemption.
-  const shell = `getff_delivered() { for item in ${delivered.map(p => "'" + p + "'").join(' ')}; do [ "$1" = "$PROJECT_ROOT/$item" ] && return 0; done; return 1; }\n${policy}\n_own_eslint_ignores\n`;
+  // The delivery predicate is supplied fixture metadata, not an all-files exemption; the
+  // ownership predicates the exact-ownership policy consults (recorded bytes intact, no
+  // portable-owned or consumer-skipped entries in this fixture) consent for the whole list,
+  // keeping the exclusion list-driven while user code stays rejected below.
+  const stubs = `getff_delivered() { for item in ${delivered.map(p => "'" + p + "'").join(' ')}; do [ "$1" = "$PROJECT_ROOT/$item" ] && return 0; done; return 1; }\ngetff_bytes_intact() { return 0; }\n_portable_owned_path() { return 1; }\n_prettierignore_in_skipped() { return 1; }\ngetff_portable_owned_paths() { :; }\n`;
+  const shell = `${stubs}${policy}\n_own_eslint_ignores\n`;
   const result = spawnSync('/bin/bash', [], { input: shell, env: { ...process.env, PROJECT_ROOT: dir }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const ignores = result.stdout.trim().split('\n');
