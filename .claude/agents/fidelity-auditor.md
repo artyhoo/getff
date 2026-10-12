@@ -1,0 +1,1 @@
+../../.agents/roles/fidelity-auditor.md

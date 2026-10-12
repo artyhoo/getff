@@ -126,9 +126,13 @@ try {
     if (expected.has(file)) throw Error(`metadata overlaps payload rows: ${file}`);
     expected.set(file, hash(path.join(expectedRoot, file)));
   }
-  const tar = args => cp.execFileSync('tar', args, {encoding:'utf8',maxBuffer:32*1024*1024});
-  const members = tar(['-tzf', archive]).trimEnd().split('\n');
-  const headers = tar(['-tvzf', archive]).trimEnd().split('\n');
+  // A drive-letter archive argument is interpreted as a remote host by GNU tar.
+  // Use a local basename from its directory; this also works with BSD tar.
+  const archiveDir = path.dirname(path.resolve(archive));
+  const archiveName = './' + path.basename(archive);
+  const tar = args => cp.execFileSync('tar', args, {cwd:archiveDir,encoding:'utf8',maxBuffer:32*1024*1024});
+  const members = tar(['-tzf', archiveName]).trimEnd().split('\n');
+  const headers = tar(['-tvzf', archiveName]).trimEnd().split('\n');
   if (headers.length !== members.length || headers.some(line => !line.startsWith('-'))) throw Error('nonregular archive member');
   const seen = new Set();
   for (const member of members) {
@@ -140,7 +144,7 @@ try {
   }
   for (const file of expected.keys()) if (!seen.has(file)) throw Error(`missing archive member: ${file}`);
   extracted = fs.mkdtempSync(path.join(os.tmpdir(), 'getff-packed-check-'));
-  cp.execFileSync('tar', ['-xzf', archive, '-C', extracted]);
+  tar(['-xzf', archiveName, '-C', extracted]);
   for (const [file, sha] of expected) {
     const input = path.join(extracted, 'package', file);
     if (!fs.lstatSync(input).isFile() || hash(input) !== sha) throw Error(`changed archive member: ${file}`);

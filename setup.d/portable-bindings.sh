@@ -15,6 +15,20 @@ _portable_owned_path() {
   return 1
 }
 
+# Exact destinations attempted by portable delivery, not a directory-wide ignore.
+# Repeated passes are harmless: the consumer below sorts and checks ownership.
+GETFF_PORTABLE_PATHS=()
+getff_portable_owned_paths() {
+  local dst
+  for dst in ${GETFF_PORTABLE_PATHS[@]+"${GETFF_PORTABLE_PATHS[@]}"}; do
+    [ -f "$dst" ] || continue
+    _portable_owned_path "$dst" && continue
+    _prettierignore_in_skipped "$dst" && continue
+    getff_delivered "$dst" && getff_bytes_intact "$dst" || continue
+    printf '%s\n' "${dst#"$PROJECT_ROOT"/}"
+  done | LC_ALL=C sort -u
+}
+
 _portable_copy() {
   local src="$1" dst="$2" temp="" display_src="$1"
   if _portable_owned_path "$dst"; then
@@ -43,6 +57,7 @@ _portable_copy() {
   else
     copy_safe "$src" "$dst" "" "$display_src"
   fi
+  GETFF_PORTABLE_PATHS+=("$dst")
   [ -z "$temp" ] || rm -f "$temp"
 }
 
@@ -75,6 +90,11 @@ _portable_alias() {
   if ! _canonical_link_target "$canonical" >/dev/null; then
     echo "  · $native kept (canonical target is outside the consumer common tree)"
     return 0
+  fi
+  # Native materialized twins are part of the same exact delivery population.
+  # A consumer-owned common source must not confer framework ownership on them.
+  if getff_delivered "$canonical" && getff_bytes_intact "$canonical"; then
+    GETFF_PORTABLE_PATHS+=("$native")
   fi
   if _portable_owned_path "$native"; then return 0; fi
   if [ -L "$native" ] && ! _canonical_link_target "$native" >/dev/null; then

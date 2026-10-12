@@ -2319,10 +2319,10 @@ merge_prettierignore() {
 
 _prettierignore_in_skipped() {
   local needle="$1" s
-  # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
-  # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
-  [ "${#SKIPPED[@]}" -gt 0 ] || return 1
-  for s in "${SKIPPED[@]}"; do
+  # Library-only callers can have no dispatcher SKIPPED array at all.
+  # Absent and empty both mean no recorded skipped paths, including on bash 3.2.
+  # Preserve each path as one argument, using the delivery helpers' guarded expansion.
+  for s in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
     [ "$s" = "$needle" ] && return 0
     # Prefix match: SKIPPED may hold a DIRECTORY (e.g. a consumer-owned skill dir kept by
     # copy_skill_with_transform) — any file inside it is consumer-owned too.
@@ -2395,6 +2395,12 @@ ignore_shipped_configs() {
   for _slug in getff tool-bootstrapping $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY; do
     candidates+=(".agents/skills/$_slug/SKILL.md")
   done
+  # Portable helpers, schemas, rubrics and vendored styles share the exact delivery
+  # population with ESLint. Customized and overridden destinations remain checked.
+  local _portable_rel
+  while IFS= read -r _portable_rel; do
+    [ -z "$_portable_rel" ] || candidates+=("$_portable_rel")
+  done < <(getff_portable_owned_paths)
   local fresh=() rel
   for rel in "${candidates[@]}"; do
     [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset
@@ -2516,7 +2522,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3453-3461, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3459-3467, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -5275,6 +5281,13 @@ getff_dep_names() {
   return 0
 }
 
+# Pure portable definitions belong to the library contract too. Initialize the
+# hook source and expose every helper before the library-only early return.
+GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.claude/hooks"
+[ ! -d "${PKG_ROOT:-.}/.agents/hooks" ] || GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.agents/hooks"
+
+source "${BASH_SOURCE[0]%/*}/portable-bindings.sh"
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`
@@ -5283,7 +5296,3 @@ if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
   return 0 2>/dev/null || true
 fi
 
-GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.claude/hooks"
-[ ! -d "${PKG_ROOT:-.}/.agents/hooks" ] || GETFF_HOOK_SOURCE="${PKG_ROOT:-.}/.agents/hooks"
-
-source "${BASH_SOURCE[0]%/*}/portable-bindings.sh"

@@ -438,8 +438,15 @@ _own_eslint_ignores() {
              .claude/skills/pipeline/helpers/overview.mjs .zcode/skills/pipeline/helpers/overview.mjs \
              scripts/check-arch-retell.mjs scripts/docs-check.mjs scripts/render-terms-style.mjs \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
+    case "$rel" in
+      .agents/*|.claude/skills/*|.zcode/skills/*|scripts/check-arch-retell.mjs|scripts/docs-check.mjs|scripts/render-terms-style.mjs)
+        _portable_owned_path "$PROJECT_ROOT/$rel" && continue
+        _prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue
+        getff_bytes_intact "$PROJECT_ROOT/$rel" || continue ;;
+    esac
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done
+  getff_portable_owned_paths
   return 0
 }
 if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
