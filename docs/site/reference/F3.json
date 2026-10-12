@@ -169,7 +169,7 @@
           ".husky/pre-commit:241 (quoted-path-token)",
           "setup.d/eslint-wire.sh:439 (command-position)",
           "setup.d/eslint-wire.sh:442 (command-position)",
-          "setup.d/portable-bindings.sh:254 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:280 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -395,8 +395,8 @@
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
           "setup.d/eslint-wire.sh:434 (command-position)",
-          "setup.d/portable-bindings.sh:375 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:382 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:401 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:408 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -828,7 +828,7 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/portable-bindings.sh:253 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:279 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
