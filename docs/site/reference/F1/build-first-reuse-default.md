@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: ssot-verdict-census, stack: repo, date: 2026-10-10, result: 54-verdicts }
+docs-refresh: deferred — re-verified 2026-10-12: the cited CLAUDE.md changed only its domain-vocabulary bullet gaining the intent product-session route; the build-vs-reuse consult gates this sheet maps are untouched; clears at the next gold refresh of this page
 ---
 
 # build-first-reuse-default rule

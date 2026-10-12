@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: failure-scenario-regex, stack: repo, date: 2026-10-07, result: re-at-92 }
+docs-refresh: deferred — re-verified 2026-10-12: the cited reviewer-discipline rule changed only one citation renumber forced by lines added above it; no budget or convergence-cap claim this sheet maps changed; clears at the next gold refresh of this page
 ---
 
 # effort-worthiness rule
