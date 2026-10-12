@@ -168,7 +168,8 @@
           ".github/workflows/audit-self.yml:2690 (workflow-run:invocation-verb)",
           ".husky/pre-commit:241 (quoted-path-token)",
           "setup.d/eslint-wire.sh:439 (command-position)",
-          "setup.d/portable-bindings.sh:234 (quoted-path-token)",
+          "setup.d/eslint-wire.sh:442 (command-position)",
+          "setup.d/portable-bindings.sh:254 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -394,8 +395,8 @@
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
           "setup.d/eslint-wire.sh:434 (command-position)",
-          "setup.d/portable-bindings.sh:355 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:362 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:375 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:382 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -450,6 +451,7 @@
         "wired-from": [
           ".github/workflows/audit-self.yml:1420 (workflow-run:invocation-verb)",
           ".github/workflows/audit-self.yml:1425 (workflow-run:invocation-verb)",
+          "setup.d/eslint-wire.sh:442 (command-position)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -774,6 +776,7 @@
       "extras": {
         "wired-from": [
           ".github/workflows/audit-self.yml:1448 (workflow-run:invocation-verb)",
+          "setup.d/eslint-wire.sh:442 (command-position)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -825,7 +828,7 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/portable-bindings.sh:233 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:253 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
