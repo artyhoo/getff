@@ -105,7 +105,7 @@ guillotine.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including this PR's in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/effort-worthiness.md` — four skill-embed
   channel markers at `:3` to `:6`, class `C` at `:8`, the fires line at `:9`,
