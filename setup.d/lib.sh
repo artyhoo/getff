@@ -5295,4 +5295,3 @@ source "${BASH_SOURCE[0]%/*}/portable-bindings.sh"
 if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
   return 0 2>/dev/null || true
 fi
-
