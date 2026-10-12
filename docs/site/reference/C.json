@@ -25,6 +25,7 @@
         "tools": "Read, Glob, Write",
         "referenced-by": [
           ".agents/roles/aif-init.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/source-before-shape.md"
         ]
       },
@@ -51,6 +52,7 @@
         "tools": "Read, Glob, Grep",
         "referenced-by": [
           ".agents/roles/capability-reuse-auditor.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/source-before-shape.md"
         ]
       },
@@ -103,6 +105,7 @@
         "tools": "Read, Glob, Grep",
         "referenced-by": [
           ".agents/roles/compliance-verifier.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/attention-is-not-a-mechanism.md",
           ".agents/rules/dual-implementation-discipline.md",
           ".agents/rules/no-paid-llm-in-ci.md",
@@ -244,6 +247,7 @@
         "tools": "Read, Glob, Grep",
         "referenced-by": [
           ".agents/roles/memory-codification-auditor.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/memory-codification.md"
         ]
       },
@@ -308,6 +312,7 @@
           ".agents/procedures/rule-tests/SKILL.md",
           ".agents/roles/rule-researcher.md",
           ".agents/roles/rule-test-author.md",
+          ".agents/roles/shipped-agent-liveness-prober.md",
           ".agents/rules/research-source-trust.md"
         ]
       },

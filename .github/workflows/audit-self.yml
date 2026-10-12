@@ -719,7 +719,7 @@ jobs:
       - name: Run aif-doctor heal test
         run: bash tests/aif-doctor/heal.test.sh
       - name: Run aif-doctor refresh-aif-base + aif-agent-target tests
-        run: bash tests/aif-doctor/refresh-aif-base.test.sh && bash tests/aif-doctor/aif-agent-target.test.sh # the shared agent-container resolver (hermetic stub docker); same line so no citation shifts
+        run: bash tests/aif-doctor/refresh-aif-base.test.sh && bash tests/aif-doctor/aif-agent-target.test.sh && bash tests/aif-doctor/heal-status.test.sh # the shared agent-container resolver (hermetic stub docker) + the AC8 wrapper failure-propagation pair; same line so no citation shifts
       - name: Run probe-channels self-test
         run: bash scripts/probe-channels.test.sh && bash scripts/probe-hook-stdin.test.sh # + the hook-stdin probe's non-LLM parts (stub claude, mktemp, no network); same line so no citation shifts
 
@@ -923,7 +923,7 @@ jobs:
       - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
         run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
-        run: bash tests/install-sh/workspace-stack-detect.test.sh
+        run: bash tests/install-sh/workspace-stack-detect.test.sh && bash tests/install-sh/w2-stack-detect-by-files.test.sh # + the W2 by-files detector pair (hermetic mktemp fixtures); same line so no citation shifts
       - name: "install-sh — generic stack: an unknown-stack project gets the stack-free part, -y claims a toolchain lane, no prompt under --full (P2 G1)"
         run: bash tests/install-sh/generic-stack.test.sh
       - name: "install-sh — the project's package versions win: declared packages are not re-installed, an ERESOLVE drops our package and retries strict (P2 G2)"

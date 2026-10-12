@@ -57,7 +57,25 @@ sed -n '/for f in /,/^done/p' setup.d/20-agents.sh || exit
 awk -F '\t' '$1 == "agent" { print }' setup.d/ships.manifest || exit
 ```
 
-No illustrative roster is supplied: read the active layer and selected roles. A dated example is not the current population.
+The shipped surface itself stays command-derived (above) — never copy it from a table. The roster below serves a different job: it is the **parity contract** `packages/core/principles/21-shipped-agent-liveness-tool-parity.test.ts` parses (fixture `tools-required` ↔ role frontmatter `tools` ↔ this roster). Each row re-states the role's current frontmatter tool set; the moment any of the three surfaces drifts, that principle test fails. Rows are not a derivation shortcut — a new role ships only when the layer above copies it, and then its row lands here with its fixture in the same change.
+
+| agent slug                       | tools declared                                       | shipped (fixture parity)        |
+| -------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| `aif-init`                       | `Glob, Read, Write`                                  | YES                              |
+| `capability-reuse-auditor`       | `Glob, Grep, Read`                                   | YES                              |
+| `compliance-verifier`            | `Glob, Grep, Read`                                   | YES                              |
+| `living-docs-auditor`            | `Bash, Glob, Read`                                   | YES                              |
+| `memory-codification-auditor`    | `Glob, Grep, Read`                                   | YES                              |
+| `orchestrator-worker-discipline` | `Bash, Read`                                         | YES                              |
+| `review-sidecar`                 | `Bash, Glob, Grep, Read`                             | YES                              |
+| `rule-researcher`                | `Bash, Glob, Grep, Read, WebFetch, WebSearch, Write` | YES                              |
+| `backward-sweep-auditor`         | `Bash, Glob, Grep, Read`                             | NO (authoring-only, T21)         |
+| `dual-channel-drift-auditor`     | `Bash, Glob, Grep, Read`                             | NO (authoring-only, DiD §8)      |
+| `adapter-jig-reviewer`           | `Bash, Glob, Grep, Read`                             | NO (authoring-only, J1)          |
+| `dispatch-input-checker`         | `Bash, Glob, Grep, Read`                             | NO (authoring-only, S-B v2)      |
+| `getff-cold-run-prober`          | `Agent, Bash, Glob, Grep, Read`                      | NO (framework-only, S4 §9.3)     |
+| `manual-rule-liveness-prober`    | `Agent, Glob, Grep, Read`                            | NO (authoring-only, #552)        |
+| `shipped-agent-liveness-prober`  | `Agent, Glob, Grep, Read`                            | NO (authoring-only, this file)   |
 
 **Nuance:** principle 21 arm (a) *form-*scans all roles for canonical tool names (including the authoring-only agents). This M2 prober *behaviour-*probes only the installer-copied surface for the recorded profile (the `all` keyword iterates exactly that set — do not hardcode a count). The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer. A failed read or enumeration command leaves the population unknown; preserve its error and stop rather than treating it as an empty set.
 

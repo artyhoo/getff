@@ -1,5 +1,9 @@
 // Check the greeting audit's actual drafted prompt, not the skill source.
-// Usage: node scripts/claude-glm-handoff-runtime-check.mjs <native-result.txt|json>
+/**
+ * claude-glm-handoff-runtime-check — asserts the drafted greeting-audit worker prompt keeps unknowns disclosed, REPORT ownership and independent review.
+ *
+ * Usage: node scripts/claude-glm-handoff-runtime-check.mjs <native-result.txt|json>
+ */
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 

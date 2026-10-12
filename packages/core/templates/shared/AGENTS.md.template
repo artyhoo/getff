@@ -90,7 +90,7 @@ The common source lives in `.agents/procedures/`; Claude Code discovers `.claude
 - **npm layer only: `ai-doc`** / **`template-audit`** — AI-doc authoring standard; local advisory audit of the shipped templates.
 - On npm layers at `env` depth also **`arch`**, `night-mode`, `orchestrator`, `pipeline`, `reviewer`; at `factory` depth also `dispatcher`, `harvest`, `aif-doctor`, `story`, `claude-glm-executor-handoff`.
 
-> Codex cards bind the common procedure, project root and invocation arguments. Other harnesses without a native adapter can read the common `SKILL.md`. Operator-owned trust and permissions remain separate prerequisites.
+> Codex cards bind the common procedure, project root and invocation arguments. Harnesses without a native adapter (Cursor, Aider, Windsurf, Roo Code) do **not** auto-activate — load the skill manually / read its `SKILL.md` when the topic comes up. Operator-owned trust and permissions remain separate prerequisites.
 
 Add additional project skills here as you create them. Don't list a skill until its file is committed (see `references/ai-traps.md`, lesson #2).
 
