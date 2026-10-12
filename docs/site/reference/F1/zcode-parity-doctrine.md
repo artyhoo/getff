@@ -5,6 +5,8 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .agents/rules/zcode-parity-doctrine.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md
+  - docs/meta-factory/zcode-parity-mega.decisions.md
   - .agents/rules/00-rule-index.md
   - scripts/render-harness-config.mjs
   - packages/core/hooks/zcode-runtime-probe.test.ts
@@ -23,7 +25,7 @@ executed:
 What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page).
 
 <!-- vale off -->
-<!-- vale-reason: the card quotes the rule file's own header text verbatim, in the rule file's voice rather than this site's -->
+<!-- vale-reason: the card quotes the rule header wording with source-relative links rebased for this sheet, in the rule file's voice -->
 
 <!-- getff:begin section=F1-card-zcode-parity-doctrine plan=scripts/render-reference.mjs -->
 | Field | Value |
@@ -31,7 +33,7 @@ What each row means: [how to read a rule page](../F1.md#how-to-read-a-rule-page)
 | name | `zcode-parity-doctrine` |
 | kind | rule |
 | ships-to | framework |
-| description | the canonical ZCode-parity SSOT — §2 per-hook census (binding, extends [census.md](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)), §3 per-stage decision rollup (binding, extends [decisions.md](../../docs/meta-factory/zcode-parity-mega.decisions.md)), §4 degradation rationale per CC-only hook, §5 agnosticism tier table. |
+| description | the canonical ZCode-parity SSOT — §2 per-hook census (binding, extends [census.md](../../../meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)), §3 per-stage decision rollup (binding, extends [decisions.md](../../../meta-factory/zcode-parity-mega.decisions.md)), §4 degradation rationale per CC-only hook, §5 agnosticism tier table. |
 | source | `.agents/rules/zcode-parity-doctrine.md:20` |
 | class | A |
 | fires | editing hook twins, the harness-config renderer, or zcode-parity decision docs. |
