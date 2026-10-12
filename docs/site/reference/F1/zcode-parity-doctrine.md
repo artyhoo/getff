@@ -114,7 +114,7 @@ Checked 2026-10-11 against the working tree this batch was written in.
   caveat: `:115` to `:128`.
 - `§6` cross-references, including the runtime-probe gate: `:130` to `:138`
   (`:137`).
-- The renderer quoted above: `scripts/render-harness-config.mjs:47`, `:257`; the
+- The renderer quoted above: `scripts/render-harness-config.mjs:48`, `:258`; the
   probe pair: `packages/core/hooks/zcode-runtime-probe.test.ts` +
   `scripts/probe-zcode-runtime.sh`.
 - The scope markers: `:2` to `:14` (`paths:` frontmatter, eleven entries), `:23`
