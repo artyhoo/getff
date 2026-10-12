@@ -25,6 +25,7 @@ Execute this binding through the shell tool, passing only the supplied document
 paths as separately quoted positional arguments (none when no paths were supplied):
 
 <!-- template-audit:bind -->
+
 ```bash
 invocation_cwd="$PWD"
 rendered_documents=()
@@ -103,6 +104,7 @@ Promote P2/P3/P5 → CI gate when:
 Promotion path: re-evaluate Decision 3 in [closed-questions.md §13.27](../../../docs/meta-factory/closed-questions.md).
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -121,4 +123,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

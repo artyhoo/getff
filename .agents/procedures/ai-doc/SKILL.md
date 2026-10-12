@@ -36,6 +36,7 @@ An agent authoring a new rule or skill defaults to front-loading all prose as al
 The agent follows the channel-selection two-axis decision procedure first: detectability → gate vs injection; relevance → narrowest reliable trigger. If a script gate catches the bypass, the prose is kept on-demand or path-scoped (not always-on). If the rule is pure behavioural discipline needing to shape reasoning in the moment, the agent routes it to a compressed digest + path/event-scoped injection rather than a standalone always-on wall. Every verdict cites a probe command or a 6-item negative-existence check — no prose-only findings. The delivered artefact carries a doc-authority header and a paired-negative block where required.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -53,4 +54,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

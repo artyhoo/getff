@@ -76,6 +76,7 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 ---
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -93,4 +94,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

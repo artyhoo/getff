@@ -35,13 +35,13 @@ of what changed for the reader vs. a checklist for your own sake.
 
    Build the recap from a session fact ledger before writing the five sections:
 
-   | Ledger field | Value comes from |
-   | --- | --- |
+   | Ledger field                      | Value comes from                                                                                                                                              |
+   | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
    | Before / after / observed benefit | Supplied session facts or an observed result; an expected benefit is labelled expected and its consumer prerequisites also need supplied or observed evidence |
-   | Test result | The exact reported outcome; test cases, executions, file sizes and CI results each need their own evidence |
-   | Delivery | The reported PR-push statement; separate evidence for PR existence, other pushes, merge, publication and local/remote state |
-   | Decisions | The stated choice and its stated owner |
-   | Open decision | The operator's pending choice, preserved as pending |
+   | Test result                       | The exact reported outcome; test cases, executions, file sizes and CI results each need their own evidence                                                    |
+   | Delivery                          | The reported PR-push statement; separate evidence for PR existence, other pushes, merge, publication and local/remote state                                   |
+   | Decisions                         | The stated choice and its stated owner                                                                                                                        |
+   | Open decision                     | The operator's pending choice, preserved as pending                                                                                                           |
 
    A field without evidence has the value **unknown**, not a guessed value or a
    negative claim. "A regression test passed" supplies its outcome, not its execution
@@ -100,6 +100,7 @@ It begins with the `## 🎬` marker so the human spots it at a glance.
   via the lang pack selected by `AIF_HOOK_LANG`.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -117,4 +118,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

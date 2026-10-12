@@ -36,6 +36,7 @@ An agent researching a stack's practices hand-authors ESLint rules ad-hoc — wi
 The agent follows the resolved rule-researcher protocol: it fetches canonical official docs (quoted provenance), proposes a rule **only** when the practice is a single-file forbid-selector with a single-token-diff pair, and writes two committed JSON files. The deterministic factory turns them into an executable rule + firing test — or records a research-only finding when a practice is not L4-expressible. Every shipped rule is provably non-vacuous.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -53,4 +54,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

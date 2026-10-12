@@ -392,8 +392,8 @@ not compute priorities, invent dependencies, certify citations/ownership/trust,
 run workers or change the existing review/dispatch policy. Ordinary permitted
 future drill-down/cards remain governed by §9; a supplied read-only prohibition
 requires explicit unavailable Paste cells and a concrete permitted next action.
-<!-- Integration closure attribution: docs_form_closure lane; existing pipeline source-owner contracts retained. -->
 
+<!-- Integration closure attribution: docs_form_closure lane; existing pipeline source-owner contracts retained. -->
 
 **Step 2 — score each candidate (multi-criteria, judgment):**
 

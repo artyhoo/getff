@@ -112,6 +112,7 @@ A Claude coordinator inside aif-handoff dispatches to a GLM-5.2 worker using a p
 The coordinator writes the dispatch prompt in the 6-block contract with explicit tool names, an iteration cap, and a required REPORT `Status` field; it describes images as structured text (model-facts D1), routes `reasoning_effort` by task cost with awareness of the value-collapse (model-facts D2), and treats the worker's reply through the §3 status-translation map. On non-`DONE` returns, the §4 recovery protocol caps re-dispatch and clarification cycles, escalates to top-down reviewer on architectural blocks, and surfaces under-specified tasks as `BLOCKED` rather than silently looping. The skill subordinates to `night-mode` for tier posture, `orchestrator-worker-discipline` for REPORT schema, and SDD for the dispatch loop — it owns only the GLM-specific input contract and behavioural deltas, plus an honest-gaps marker listing what is designed-not-proven until live probes land.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -129,4 +130,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

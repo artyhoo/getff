@@ -95,6 +95,7 @@ A harvest ships stale overrides or uncommitted residue and discovers an omitted 
 Committed work passes task-worktree guards, live-base reconciliation, the local sweep and cold fidelity before publication; merged task closure is verified through the CLI.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -112,4 +113,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

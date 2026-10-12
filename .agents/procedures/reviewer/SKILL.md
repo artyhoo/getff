@@ -110,6 +110,7 @@ the rule — no hand-patching, no drift window.
 - [agents/fidelity-auditor.md](../../../.agents/roles/fidelity-auditor.md) / [agents/review-sidecar.md](../../../.agents/roles/review-sidecar.md) — the cold, dispatched review protocols this skill does NOT replace.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -127,4 +128,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

@@ -39,6 +39,7 @@ An agent hand-repairs a generated rule's test material ad-hoc, or «fixes» a re
 The agent follows the resolved rule-test-author protocol: it edits test material only (never the rule), fires the rule-under-repair in single-rule isolation so the verdict is unambiguous, and quotes the tool's own output. The staleness-consent script offers regeneration only on an explicit yes, reading the existing freshness ledgers with their honest limits stated at offer time.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -56,4 +57,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

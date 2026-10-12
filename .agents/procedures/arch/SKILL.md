@@ -91,6 +91,7 @@ Each contour is re-improvised: the operator manually switches models per phase (
 One entry point runs the whole contour in one top-tier session: brainstorming unchanged, then two cold reviewers at fixed altitudes gate the design before any implementation spend, then the exit is routed by the recorded tier criteria — the handoff artifact (kickoff on staging, or an in-session plan) lands exactly where the next contour expects it, and parked factory questions flow back to the right seat in batch.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -108,4 +109,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

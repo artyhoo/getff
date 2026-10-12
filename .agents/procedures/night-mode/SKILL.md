@@ -69,6 +69,7 @@ Each unattended run re-improvises the parts SDD does not cover: it stops dead fo
 The executor + review loop is delegated to `superpowers:subagent-driven-development` (not re-described), and only the overnight delta is added: an autonomy policy that **logs** owner forks instead of deciding them, quota-backoff that survives the reset window, Workflow-driven context economy, and a verification discipline that **proves** harness claims before they become load-bearing — ending on a done, green, self-reviewed result plus a morning report.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -86,4 +87,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->

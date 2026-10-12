@@ -58,6 +58,7 @@ Delegation collapses into two failure modes. Either the senior does the work its
 Task size picks the mechanism (small → the senior's own `Edit`, bulk → an isolated inline `Agent`, a queue of research kickoffs → Queue mode), discovery is taken once per repo so junior prompts carry real commands, quota zones switch the working mode before a 429 rather than after it, and every kickoff above the trigger threshold gets a cold independent read before dispatch instead of after. One PR per umbrella, with a verify-trace that survives the Phase 4.5 audit.
 
 <!-- getff:common-invocation-binding -->
+
 ## Common invocation binding
 
 Preserve the complete supplied arguments and operator request. Before resolving a
@@ -75,4 +76,5 @@ small Mermaid diagram plus equivalent readable text in an existing permitted out
 section. Preserve strict report grammars and closing anchors. Show only supplied or
 verified relationships, label uncertainty, and do not depict an unobserved execution
 or authorization as completed. Skip diagrams when they add no explanatory value.
+
 <!-- /getff:common-invocation-binding -->
