@@ -44,7 +44,7 @@
  * Principle test: packages/core/principles/46-reference-generator-arms.test.ts (arms A-G).
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname, resolve, extname } from 'node:path';
+import { join, dirname, resolve, extname, posix } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { beginMarker, endMarker, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
@@ -904,11 +904,18 @@ function renderTwin(t) {
 export function renderCardFence(dir, entry) {
   const member = JSON.parse(readFileSync(join(dir, entry, 'member.json'), 'utf8'));
   const section = `${member.family}-card-${member.name}`;
+  // Descriptions keep source-relative links in JSON; sheets project them at their own depth.
+  const sheetPath = `${REFERENCE_DIR}/${member.family}/${member.name}.md`;
+  const description = member.description.replace(/\]\((\.\.?\/[^)\s]+)\)/g, (_link, target) => {
+    const [, targetPath, suffix] = target.match(/^([^?#]+)(.*)$/);
+    const href = posix.relative(posix.dirname(sheetPath), posix.join(posix.dirname(member.source.path), targetPath));
+    return `](${href}${suffix})`;
+  });
   const rows = [
     ['name', `\`${member.name}\``],
     ['kind', member.kind],
     ['ships-to', renderShips(member)],
-    ['description', member.description],
+    ['description', description],
     ['source', `\`${member.source.path}:${member.source.line}\``],
     ...Object.entries(member.extras ?? {}).map(([k, v]) => [k, typeof v === 'string' ? v : `\`${JSON.stringify(v)}\``]),
     ...(member.installedTo ? [['installed-to', renderInstalled(member)]] : []),
