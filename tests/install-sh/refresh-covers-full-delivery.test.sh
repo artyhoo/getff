@@ -67,8 +67,8 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:2322-2324 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
-# the test cleanly with a message rather than crashing on the array expansion below.
+# setup.d/lib.sh:2322-2324 (_prettierignore_in_skipped's absent/empty SKIPPED handling on bash 3.2
+# via its guarded expansion) — check length first, fail cleanly rather than crash below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
 # ── EXCLUDED: copy_safe destinations deliberately NOT refreshed (data-driven escape hatch) ──
