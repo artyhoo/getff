@@ -908,14 +908,14 @@ ca14a7d6e7d22f16029bcf4b7fd0c0a12333b1b0c648b2853306fac8263b7393  packages/core/
 55b3de7f85f49ab437e5fb69685254045fdb74d9ad9e92cf7731c4be5371b1f6  packages/core/hooks/parse-override-flags.test.ts
 3b00f0a8152a23ae205463405c52642c129d971acdd6d49e579f1433910e8323  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
-fc3f6989b4568f97386acaed4dcb1f4b4845057b2a3e21710bc13d2c1e1b6aa4  packages/core/hooks/pre-push.bundle.mjs
+b753c99c8cba3d60315e831b71f998bd7d023d943ccd152d55a852fc31044898  packages/core/hooks/pre-push.bundle.mjs
 7d3da627b28e03a15965440e14d803e216e2bcb8a5192f809c9678ead19fadd4  packages/core/hooks/pre-push.consumer-layout.test.ts
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 741235da5bcc98cee9c17f5ab53dd8ccc24c96c5a977f0b6155ec490d8fb4113  packages/core/hooks/pre-push.heavy-runner.test.ts
 746482b3c3fabc3ccc1e33064754408fc6912159c0a0218c9b8f06da41faeac2  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 e3f3ff3846121a754be5f3e5ece84281f91b39f64b4485216a5a4111a77bcaa8  packages/core/hooks/pre-push.test.ts
-566a4bb5dec48906547004a32776f227cd34e176bde6e2ef4e9d682e8b9520de  packages/core/hooks/pre-push.ts
+3600cfb22c164da05922fee9980e367f706f8064de4fc6f84f3f89b7ea857ec7  packages/core/hooks/pre-push.ts
 6245c832a1aa845859e72b2dcf8d566ebafb566b5d27f3cb677a8fb56c532169  packages/core/hooks/precompact-residue.test.ts
 b9a825679616c6e7a65e49ef7f5daa3a368021cc19e59a619ef79e06e59b52a7  packages/core/hooks/priority-score-branch-matcher.test.ts
 5b5bf489313dfbdb63bf3d3b2525e948c12de720f323c1079d57ef8b10e09f4b  packages/core/hooks/priority-score-reconstruct-stub.test.ts
@@ -1062,7 +1062,7 @@ dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/
 67c54b2b192a4a038c077cce251232952dd493f45ba5d555d70c7010b4c636c7  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
-023e3d878165f55675bc4569590e2a40b5c34551594aa048c1d59e4a5507cff5  packages/core/principles/42-context-md-pointer-rule.test.ts
+a6f59fffb8d94803414a3923fb05a8e8d0fbd511bbe93255d6a7698f6fdfa582  packages/core/principles/42-context-md-pointer-rule.test.ts
 4855016c0e4bc571d8f882b2014d6b1227c0c76a3fd6531d5252a5c4799356ef  packages/core/principles/42-context-md-spelling-uniqueness.test.ts
 5b361a30b9881057c031376e255e2bbf528251d90ccc603d23080324910bf6df  packages/core/principles/43-kickoff-host-verify-presence.test.ts
 8fbe181dbddbade859afb728f49e4dcdcd0493e024a0f71a0e2c3f0380d6bc39  packages/core/principles/44-kickoff-authoring-traps.test.ts

@@ -2745,6 +2745,27 @@ function lycheeSection(ctx) {
     }
     {
       const before = changedMd.length;
+      changedMd = changedMd.filter((f) => {
+        if (!f.startsWith(".claude/agents/") || !f.endsWith(".md")) return true;
+        const canonical = `.agents/roles/${f.slice(".claude/agents/".length)}`;
+        try {
+          return !(existsSync4(resolve2(REPO_ROOT, canonical)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
+            readFileSync3(resolve2(REPO_ROOT, canonical))
+          ));
+        } catch {
+          return true;
+        }
+      });
+      const excluded = before - changedMd.length;
+      if (excluded > 0) {
+        process.stdout.write(
+          `  \xB7 \xA78 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) \u2014 link-checked at their .agents/roles/ source
+`
+        );
+      }
+    }
+    {
+      const before = changedMd.length;
       changedMd = changedMd.filter((file) => {
         if (!ctx.isFrameworkRepo || file !== RETAINED_NATIVE_LINK_FIXTURE)
           return true;

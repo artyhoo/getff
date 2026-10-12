@@ -690,7 +690,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2979 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:3012 (spawn-argument)",
           ".husky/pre-commit:361 (quoted-path-token)"
         ]
       },

@@ -2873,6 +2873,39 @@ function lycheeSection(ctx: SectionCtx): void {
         );
       }
     }
+    // Native agent twins (.claude/agents/<role>.md): byte-identical materialized copies of
+    // the canonical .agents/roles/<role>.md — same structural class as the plugin twin
+    // above. A `](../procedures/…)` or `](resources/…)` link that resolves from
+    // .agents/roles/ resolves from the native twin to a .claude/… path that exists only
+    // in a consumer install (the native bind target), never in the framework checkout,
+    // so a finding here names a file the byte-identical copy is forbidden to fix.
+    // Excluded ONLY while byte-identical to its canonical — checked per file at gate
+    // time, not trusted — so a diverged twin keeps no exclusion and is walked, and the
+    // canonical itself remains in the walk as the authoring location: no link text
+    // escapes checking. Unreadable inputs stay checked and keep their real failure.
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((f) => {
+        if (!f.startsWith('.claude/agents/') || !f.endsWith('.md')) return true;
+        const canonical = `.agents/roles/${f.slice('.claude/agents/'.length)}`;
+        try {
+          return !(
+            existsSync(resolve(REPO_ROOT, canonical)) &&
+            readFileSync(resolve(REPO_ROOT, f)).equals(
+              readFileSync(resolve(REPO_ROOT, canonical)),
+            )
+          );
+        } catch {
+          return true;
+        }
+      });
+      const excluded = before - changedMd.length;
+      if (excluded > 0) {
+        process.stdout.write(
+          `  · §8 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) — link-checked at their .agents/roles/ source\n`,
+        );
+      }
+    }
     // A path alone cannot exempt edited/live documents or a consumer-owned file.
     // Unreadable inputs stay in the checker population and preserve its real failure.
     {
