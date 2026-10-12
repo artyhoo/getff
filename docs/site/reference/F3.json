@@ -141,7 +141,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2368 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1512 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1514 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -150,8 +150,13 @@
       "name": "check-arch-retell.mjs",
       "kind": "script",
       "shipsTo": {
-        "tier": "framework",
-        "absent": "no-lane"
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "every point of an /arch consensus retell names where it came from.",
       "source": {
@@ -160,8 +165,11 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2688 (workflow-run:invocation-verb)",
-          ".husky/pre-commit:241 (quoted-path-token)"
+          ".github/workflows/audit-self.yml:2690 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:241 (quoted-path-token)",
+          "setup.d/eslint-wire.sh:439 (command-position)",
+          "setup.d/portable-bindings.sh:234 (quoted-path-token)",
+          "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
       "example": null
@@ -181,7 +189,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2401 (spawn-argument)",
-          "install.sh:1228 (quoted-path-token)"
+          "install.sh:1252 (quoted-path-token)"
         ]
       },
       "example": null
@@ -201,7 +209,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2429 (spawn-argument)",
-          ".github/workflows/audit-self.yml:2875 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2877 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -239,7 +247,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2624 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2626 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -258,7 +266,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2673 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2675 (workflow-run:invocation-verb)",
           ".husky/pre-commit:181 (quoted-path-token)"
         ]
       },
@@ -278,7 +286,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:812 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:814 (workflow-run:invocation-verb)",
           ".husky/pre-commit:203 (quoted-path-token)"
         ]
       },
@@ -298,7 +306,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2722 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2724 (workflow-run:invocation-verb)",
           ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
@@ -357,7 +365,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2851 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2853 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -385,9 +393,9 @@
       "extras": {
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
-          "setup.d/eslint-wire.sh:408 (command-position)",
-          "setup.d/portable-bindings.sh:263 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:270 (quoted-path-token)",
+          "setup.d/eslint-wire.sh:434 (command-position)",
+          "setup.d/portable-bindings.sh:355 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:362 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -413,8 +421,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1260 (quoted-path-token)",
-          "install.sh:1262 (for-in-list)",
+          "install.sh:1284 (quoted-path-token)",
+          "install.sh:1286 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -425,8 +433,13 @@
       "name": "docs-check.mjs",
       "kind": "script",
       "shipsTo": {
-        "tier": "framework",
-        "absent": "no-lane"
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "the deterministic form gate of the getff.ai docs quality contract (S0q).",
       "source": {
@@ -435,8 +448,9 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1418 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1423 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1420 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1425 (workflow-run:invocation-verb)",
+          "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
       "example": null
@@ -521,7 +535,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1262 (for-in-list)",
+          "install.sh:1286 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -569,7 +583,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1262 (for-in-list)",
+          "install.sh:1286 (for-in-list)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -744,8 +758,13 @@
       "name": "render-terms-style.mjs",
       "kind": "script",
       "shipsTo": {
-        "tier": "framework",
-        "absent": "no-lane"
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
       },
       "description": "docs/site/terms.md region (a) → the Vale substitution rule (S0q).",
       "source": {
@@ -754,7 +773,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1446 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1448 (workflow-run:invocation-verb)",
+          "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
       "example": null
@@ -776,12 +796,37 @@
           "setup.d/10-skills.sh:179 (quoted-path-token)",
           "setup.d/10-skills.sh:180 (quoted-path-token)",
           "setup.d/10-skills.sh:181 (quoted-path-token)",
-          "install.sh:1233 (quoted-path-token)",
-          "install.sh:1234 (quoted-path-token)",
-          "install.sh:1235 (quoted-path-token)",
-          "install.sh:1236 (quoted-path-token)",
-          "install.sh:1237 (quoted-path-token)",
+          "install.sh:1257 (quoted-path-token)",
+          "install.sh:1258 (quoted-path-token)",
+          "install.sh:1259 (quoted-path-token)",
+          "install.sh:1260 (quoted-path-token)",
+          "install.sh:1261 (quoted-path-token)",
           "scripts/run-local-ci-sweep.sh:1201 (command-substitution, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "snapshot-for-seat.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "give a cold seat immutable inputs: files as they are AT one commit.",
+      "source": {
+        "path": "scripts/snapshot-for-seat.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/portable-bindings.sh:233 (quoted-path-token)",
+          "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
       "example": null
@@ -806,7 +851,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1262 (for-in-list)",
+          "install.sh:1286 (for-in-list)",
           ".agents/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
@@ -825,6 +870,7 @@
     "check-merge-pushed.sh",
     "ci-capture.sh",
     "cited-spec-addenda.sh",
+    "claude-glm-handoff-runtime-check.mjs",
     "close-merged-sweep.sh",
     "codex-contributor-doctor.mjs",
     "exclude-path-scoped-rules.sh",
@@ -851,7 +897,6 @@
     "rule-load-replay.sh",
     "run-install-sh-suite.sh",
     "setup-cc-adoptions.sh",
-    "snapshot-for-seat.sh",
     "triage-corpus-probe.mjs",
     "triage-s0-run.mjs",
     "triage-s0-score.mjs",
