@@ -132,7 +132,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The shared firing runner the manual firing reproduces:
   `packages/core/backends/astgrep/firing-runner.ts:49` (and the ruff twin at
   `packages/core/backends/ruff/firing-runner.ts:53`).
-- The pin sites quoted above: `.github/workflows/audit-self.yml:355` and
-  `:1129`, both `@ast-grep/cli@0.44.1` at this base.
+- The pin sites quoted above: `.github/workflows/audit-self.yml:367` and
+  `:1141`, both pinned installs at this base.
 - The index row grading this rule class `B` with channels
   `paths:(1), edit-time inject`: `.claude/rules/00-rule-index.md:24`.
