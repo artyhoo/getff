@@ -728,6 +728,13 @@ function scanJsClose(lines: string[], startIdx: number, afterCol: number): Close
         sigWordIsMember = false;
         continue;
       }
+      if (ch === '.' && line[c + 1] === '.' && line[c + 2] === '.') {
+        sigChar = '...'; // consume spread as one token, not a member-access dot
+        sigWord = '';
+        sigWordIsMember = false;
+        c += 2;
+        continue;
+      }
       if (/[A-Za-z0-9_$]/.test(ch)) {
         if (/[A-Za-z0-9_$]/.test(sigChar)) sigWord += ch;
         else {
@@ -849,6 +856,13 @@ function jsLineStartsTopLevel(lines: string[]): boolean[] {
         sigChar = '/';
         sigWord = '';
         sigWordIsMember = false;
+        continue;
+      }
+      if (ch === '.' && line[c + 1] === '.' && line[c + 2] === '.') {
+        sigChar = '...'; // consume spread as one token, not a member-access dot
+        sigWord = '';
+        sigWordIsMember = false;
+        c += 2;
         continue;
       }
       if (/[A-Za-z0-9_$]/.test(ch)) {

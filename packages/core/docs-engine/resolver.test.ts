@@ -717,6 +717,26 @@ describe('correction S3-9F-R1: keyword-named members do not introduce regex lite
   });
 });
 
+describe('correction S3-A7-R1: spread is not a member-access dot', () => {
+  it('a keyword regex after spread keeps the body brace lexical', () => {
+    const source = 'function fx() {\n  const values = [...typeof /}/];\n}\n';
+    expect(() => new Function(source)).not.toThrow();
+    const r = resolvePlace('re/spread-body.js#fn:fx', mkRead({ 're/spread-body.js': source }));
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([1, 3]);
+    expect(r.content).toBe('function fx() {\n  const values = [...typeof /}/];\n}');
+  });
+
+  it('a keyword regex after spread keeps a later top-level function visible', () => {
+    const source = 'const values = [...typeof /{/];\nfunction real() {\n  return 1;\n}\n';
+    expect(() => new Function(source)).not.toThrow();
+    const r = resolvePlace('re/spread-before.js#fn:real', mkRead({ 're/spread-before.js': source }));
+    expectLine(r);
+    expect([r.startLine, r.endLine]).toEqual([2, 4]);
+    expect(r.content).toBe('function real() {\n  return 1;\n}');
+  });
+});
+
 describe('correction 4242549892: shell here-strings are not heredoc declarations', () => {
   it('`<<<"$var"` inside a function does not swallow the column-0 close', () => {
     const read = mkRead({ 'hs/x.sh': 'fx() {\n  grep -q x <<<"$value"\n}\n' });
