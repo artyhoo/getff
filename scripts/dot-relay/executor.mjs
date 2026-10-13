@@ -753,9 +753,9 @@ function ghAdaptResult(res, documentedExits) {
 }
 
 export function makeGhAdapter(run = null) {
-  const call = run ?? ((args) => ghSubprocessRun('gh', args));
-  const endpoint = (kind, documentedExits, shapeOk) => (args) => {
-    const res = call(args);
+  const call = run ?? ((args, options) => ghSubprocessRun('gh', args, options));
+  const endpoint = (kind, documentedExits, shapeOk) => (args, options) => {
+    const res = call(args, options);
     const adapted = ghAdaptResult(res, documentedExits);
     if (adapted.blocker || !shapeOk(adapted.value)) {
       const blocker = adapted.blocker ?? 'GH_MALFORMED';
@@ -2047,19 +2047,43 @@ const PR_REPO_URL_RE = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/\d+$/;
 // policy's set — `gh pr checks --json` reports the workflow NAME for Actions
 // but the APP DISPLAY NAME for foreign apps, so a foreign app named exactly
 // like the expected workflow string is indistinguishable there. The producing
-// app comes from the REST check-run surface on the head commit; each green
-// checks entry is correlated with its EXACT run by name AND link
-// (details_url/html_url) so a genuine same-name run can never vouch for a
-// foreign check, and the linked run's app slug must equal the app the policy
-// pins for that entry. Every miss fails closed (BLOCKED_CHECK_POLICY); a
-// typed adapter refusal is an infrastructure HOLD like any other endpoint.
-function verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks }) {
+// app comes from a complete bounded REST snapshot on the exact head. A link
+// can be chosen by an app, so multiple matching runs are ambiguous even if
+// one is trusted. Retain immutable run/app IDs and compare both reads.
+// More than 1000 latest runs remains held rather than using partial evidence.
+function verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks, verificationBudget }) {
   const ctx = PR_REPO_URL_RE.exec(String(url ?? ''));
   if (!ctx) return { blocker: 'BLOCKED_CHECK_POLICY' };
-  const runsR = ghTry(() => ghImpl.checkRuns(['api', `repos/${ctx[1]}/commits/${headSha}/check-runs`]));
-  if (runsR.blocker) return { blocker: runsR.blocker, held: true };
-  const runs = runsR.value && Array.isArray(runsR.value.check_runs) ? runsR.value.check_runs : null;
-  if (!runs) return { blocker: 'BLOCKED_CHECK_POLICY' };
+  const runs = [];
+  const seen = new Set();
+  let total = null;
+  for (let page = 1; page <= 10; page += 1) {
+    const before = verificationBudget();
+    if (before.blocker) return before;
+    const runsR = ghTry(() => ghImpl.checkRuns(
+      ['api', `repos/${ctx[1]}/commits/${headSha}/check-runs?filter=latest&per_page=100&page=${page}`],
+      { timeoutMs: before.timeoutMs },
+    ));
+    if (runsR.blocker) return { blocker: runsR.blocker, held: true };
+    const after = verificationBudget();
+    if (after.blocker) return after;
+    const response = runsR.value;
+    if (!response || !Number.isSafeInteger(response.total_count) || response.total_count < 0
+      || response.total_count > 1000 || !Array.isArray(response.check_runs)) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    if (total === null) total = response.total_count;
+    if (response.total_count !== total || response.check_runs.length !== Math.min(100, total - runs.length)) {
+      return { blocker: 'BLOCKED_CHECK_POLICY' };
+    }
+    for (const run of response.check_runs) {
+      if (!run || !Number.isSafeInteger(run.id) || run.id <= 0 || seen.has(run.id)
+        || run.head_sha !== headSha) return { blocker: 'BLOCKED_CHECK_POLICY' };
+      seen.add(run.id);
+      runs.push(run);
+    }
+    if (runs.length === total) break;
+  }
+  if (total === null || runs.length !== total) return { blocker: 'BLOCKED_CHECK_POLICY' };
+  const identities = [];
   for (const c of checks) {
     const entry = required.find((r) => checkIdentity(r) === checkIdentity(c));
     if (!entry) return { blocker: 'BLOCKED_CHECK_POLICY' };
@@ -2067,12 +2091,16 @@ function verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks 
     const candidates = runs.filter((run) => run && typeof run === 'object' && run.name === c.name);
     if (candidates.length === 0) return { blocker: 'BLOCKED_CHECK_POLICY' };
     const linked = candidates.filter((run) => run.details_url === c.link || run.html_url === c.link);
-    if (linked.length === 0) return { blocker: 'BLOCKED_CHECK_POLICY' };
-    if (!linked.some((run) => run.app && typeof run.app === 'object' && run.app.slug === entry.app)) {
+    if (linked.length !== 1) return { blocker: 'BLOCKED_CHECK_POLICY' };
+    const run = linked[0];
+    if (run.status !== 'completed' || run.conclusion !== 'success'
+      || !run.app || typeof run.app !== 'object' || run.app.slug !== entry.app
+      || !Number.isSafeInteger(run.app.id) || run.app.id <= 0) {
       return { blocker: 'BLOCKED_CHECK_POLICY' };
     }
+    identities.push([checkIdentity(c), run.id, run.app.id, run.app.slug]);
   }
-  return { ok: true };
+  return { ok: true, identity: JSON.stringify(identities.sort((a, b) => a[0].localeCompare(b[0]))) };
 }
 
 export async function verifyPr({ url, headSha, baseSha = null, policy = null, ghImpl = productionGh, clock, pollIntervalMs = 60_000, deadlineMs = null }) {
@@ -2085,6 +2113,18 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
   if (!required) return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
   const expected = required.map(checkIdentity).sort().join('|');
   const budgetNs = deadlineMs != null ? BigInt(deadlineMs) * 1_000_000n : null;
+  // Every identity page in BOTH reads shares one active deadline. Freshness
+  // and backward movement are checked before and after the synchronous call;
+  // its wall watchdog is narrowed to the remaining active allowance.
+  let previousBudgetNs = anchor;
+  const verificationBudget = () => {
+    const ns = clock.activeNs();
+    if (ns === null || !clock.ok() || !clock.fresh() || ns < previousBudgetNs) return { blocker: 'CLOCK_UNPROVEN' };
+    previousBudgetNs = ns;
+    if (budgetNs === null || ns - anchor >= budgetNs) return { blocker: 'BLOCKED_VERIFY_BUDGET' };
+    const remainingMs = Number((budgetNs - (ns - anchor)) / 1_000_000n);
+    return { timeoutMs: Math.max(1, Math.min(GH_CALL_TIMEOUT_MS, remainingMs)) };
+  };
   // F12: a typed adapter refusal (auth/network/tool/malformed) is an
   // infrastructure HOLD — the caller preserves its durable state and a later
   // reconciliation resumes; it is never a crash and never a terminal verdict.
@@ -2121,6 +2161,8 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
     if (observed !== expected) return { state: 'BLOCKED', blocker: 'BLOCKED_CHECK_POLICY' };
     const failing = checks.filter((c) => c.bucket === 'fail').map((c) => c.name);
     if (failing.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing };
+    const nonSuccess = checks.filter((c) => c.bucket === 'pass' && c.state !== 'SUCCESS').map((c) => c.name);
+    if (nonSuccess.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: nonSuccess };
     const pending = checks.filter((c) => c.bucket !== 'pass').map((c) => c.name);
     if (pending.length > 0) {
       const ns = clock.activeNs();
@@ -2136,7 +2178,7 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
     }
     // F07 app identity on the green set — before the context re-read, so a
     // foreign-app green never reaches the stability pass.
-    const app1 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks });
+    const app1 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks, verificationBudget });
     if (app1.blocker) return app1.held === true ? { state: 'HELD', blocker: app1.blocker } : { state: 'BLOCKED', blocker: app1.blocker };
     // repeat view: the whole verification context — head AND base AND PR
     // state — must be unchanged between the reads (F07: a change under the
@@ -2154,12 +2196,13 @@ export async function verifyPr({ url, headSha, baseSha = null, policy = null, gh
     const checks2 = checks2R.value;
     if (!Array.isArray(checks2)) return { state: 'BLOCKED', blocker: 'BLOCKED_CI' };
     if (checks2.map(checkIdentity).sort().join('|') !== observed) return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
-    const failing2 = checks2.filter((c) => c.bucket === 'fail').map((c) => c.name);
+    const failing2 = checks2.filter((c) => c.bucket !== 'pass' || c.state !== 'SUCCESS').map((c) => c.name);
     if (failing2.length > 0) return { state: 'BLOCKED', blocker: 'BLOCKED_CI', failing: failing2 };
     // F07 app identity on the second read too — identity drift between the
     // reads is a changed context, never DONE.
-    const app2 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks: checks2 });
+    const app2 = verifyCheckAppIdentity({ ghImpl, ghTry, url, headSha, required, checks: checks2, verificationBudget });
     if (app2.blocker) return app2.held === true ? { state: 'HELD', blocker: app2.blocker } : { state: 'BLOCKED', blocker: app2.blocker };
+    if (app1.identity !== app2.identity) return { state: 'BLOCKED', blocker: 'BLOCKED_CONTEXT_MOVED' };
     return { state: 'DONE' };
   }
 }

@@ -797,7 +797,7 @@ function viewJson(over = {}) {
 // checks --json` has no app field, and its `workflow` string is the workflow
 // NAME for Actions but the APP DISPLAY NAME for foreign apps, so a foreign
 // app named exactly like the expected workflow is indistinguishable there.
-const CHECK_RUN_OK = [{ name: 'ci', details_url: 'l', html_url: 'h/l', app: { id: 15368, slug: 'github-actions', name: 'GitHub Actions' } }];
+const CHECK_RUN_OK = [{ id: 101, head_sha: HEAD, name: 'ci', status: 'completed', conclusion: 'success', details_url: 'l', html_url: 'h/l', app: { id: 15368, slug: 'github-actions', name: 'GitHub Actions' } }];
 const CHECK_RUNS_OK = () => ({ total_count: CHECK_RUN_OK.length, check_runs: CHECK_RUN_OK });
 const PR_URL = 'https://github.com/artyhoo/getff/pull/9301';
 
@@ -1028,6 +1028,107 @@ test('verifyPr F07: app identity drifting between the two verification reads -> 
   const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), pollIntervalMs: 5, deadlineMs: 200 });
   assert.equal(r.state, 'BLOCKED');
   assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+});
+
+for (const collisionRead of [1, 2]) {
+  test(`S8 F07: trusted and foreign runs sharing one link on read ${collisionRead} never authorize DONE`, async () => {
+    const gh = ghWith();
+    let reads = 0;
+    gh.checkRuns = () => {
+      reads += 1;
+      const runs = reads === collisionRead
+        ? [CHECK_RUN_OK[0], { ...CHECK_RUN_OK[0], id: 102, app: { id: 9001, slug: 'foreign-app' } }]
+        : CHECK_RUN_OK;
+      return { total_count: runs.length, check_runs: runs };
+    };
+    const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+    assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+  });
+}
+
+test('S8 F07: a required run on page two is found on both complete verification reads', async () => {
+  const gh = ghWith();
+  const pages = [];
+  const unrelated = Array.from({ length: 100 }, (_, i) => ({ ...CHECK_RUN_OK[0], id: 1000 + i, name: `other-${i}`, details_url: `other-${i}`, html_url: `other-html-${i}` }));
+  gh.checkRuns = (args) => {
+    const query = new URL(`https://api.github.com/${args[1]}`).searchParams;
+    const page = Number(query.get('page') ?? 1);
+    pages.push(page);
+    return { total_count: 101, check_runs: page === 1 ? unrelated : CHECK_RUN_OK };
+  };
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+  assert.equal(r.state, 'DONE');
+  assert.deepEqual(pages, [1, 2, 1, 2]);
+});
+
+for (const [name, response] of [
+  ['missing total', { check_runs: CHECK_RUN_OK }],
+  ['negative total', { total_count: -1, check_runs: CHECK_RUN_OK }],
+  ['short page', { total_count: 2, check_runs: CHECK_RUN_OK }],
+  ['over bound', { total_count: 1001, check_runs: CHECK_RUN_OK }],
+  ['duplicate run id', { total_count: 2, check_runs: [CHECK_RUN_OK[0], { ...CHECK_RUN_OK[0], name: 'other', details_url: 'other' }] }],
+  ['wrong head', { total_count: 1, check_runs: [{ ...CHECK_RUN_OK[0], head_sha: sha40('foreign-head') }] }],
+  ['missing run id', { total_count: 1, check_runs: [{ ...CHECK_RUN_OK[0], id: undefined }] }],
+]) {
+  test(`S8 F07: ${name} check-run evidence holds instead of authorizing DONE`, async () => {
+    const gh = ghWith();
+    gh.checkRuns = () => response;
+    const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+    assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+  });
+}
+
+for (const [name, changed] of [
+  ['immutable run id', { ...CHECK_RUN_OK[0], id: 102 }],
+  ['producing app id', { ...CHECK_RUN_OK[0], app: { ...CHECK_RUN_OK[0].app, id: 9001 } }],
+]) {
+  test(`S8 F07: ${name} changes under stable name/link/slug invalidate the second read`, async () => {
+    const gh = ghWith();
+    let reads = 0;
+    gh.checkRuns = () => ({ total_count: 1, check_runs: [++reads === 1 ? CHECK_RUN_OK[0] : changed] });
+    const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+    assert.equal(r.blocker, 'BLOCKED_CONTEXT_MOVED');
+  });
+}
+
+test('S8 F07: budget expiry after page one starts no second-page or context call', async () => {
+  let active = 1_000_000_000n;
+  const clock = { activeNs: () => active, ok: () => true, fresh: () => true };
+  const gh = ghWith();
+  let pages = 0;
+  gh.checkRuns = () => {
+    pages += 1;
+    active += 100_000_000n;
+    return { total_count: 101, check_runs: Array.from({ length: 100 }, (_, i) => ({ ...CHECK_RUN_OK[0], id: 1000 + i, name: `other-${i}` })) };
+  };
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, baseSha: BASE_SHA, policy: POLICY, ghImpl: gh, clock, deadlineMs: 50 });
+  assert.equal(r.blocker, 'BLOCKED_VERIFY_BUDGET');
+  assert.equal(pages, 1);
+  assert.equal(gh.calls.filter(([kind]) => kind === 'view').length, 1);
+});
+
+for (const conclusion of ['neutral', 'skipped', 'failure', null]) {
+  test(`S8 F07: ${conclusion} REST conclusion cannot corroborate a stale successful CLI projection`, async () => {
+    const gh = ghWith({ checkRuns: [{ ...CHECK_RUN_OK[0], conclusion }] });
+    const r = await verifyPr({ url: PR_URL, headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+    assert.equal(r.blocker, 'BLOCKED_CHECK_POLICY');
+  });
+}
+
+for (const state of ['NEUTRAL', 'SKIPPED']) {
+  test(`S8 F07: a ${state} CLI check is not a successful required check`, async () => {
+    const gh = ghWith({ checks: [{ name: 'ci', state, bucket: 'pass', workflow: 'CI', link: 'l' }] });
+    const r = await verifyPr({ url: PR_URL, headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+    assert.equal(r.blocker, 'BLOCKED_CI');
+  });
+}
+
+test('S8 F07: a second-read pending check invalidates an earlier successful snapshot', async () => {
+  const gh = ghWith();
+  let reads = 0;
+  gh.checks = () => [{ name: 'ci', state: ++reads === 1 ? 'SUCCESS' : 'PENDING', bucket: reads === 1 ? 'pass' : 'pending', workflow: 'CI', link: 'l' }];
+  const r = await verifyPr({ url: PR_URL, headSha: HEAD, policy: POLICY, ghImpl: gh, clock: fakeClock(), deadlineMs: 1_000 });
+  assert.equal(r.blocker, 'BLOCKED_CI');
 });
 
 test('F07 gh adapter: check-runs endpoint parses DATA on exit 0 and holds typed on malformed/undocumented exits', async () => {

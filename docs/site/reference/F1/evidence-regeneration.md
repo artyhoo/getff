@@ -14,7 +14,7 @@ sources:
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
-docs-refresh: deferred — re-verified 2026-10-12, the only in-range change to the cited .github/workflows/audit-self.yml (this PR's early wave) appends two new CI jobs at lines 2820+ and 2944+ (citation-fullsweep + docs-refresh), after both quoted pin sites; the grep here still returns `:355` and `:1129` with the same `@ast-grep/cli@0.44.1` rows and the rule text is unchanged in the range; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-10-12, the only in-range change to the cited .github/workflows/audit-self.yml (the early wave of this pull request) appends two new CI jobs at lines 2820+ and 2944+ (citation-fullsweep + docs-refresh), after both quoted pin sites; the grep here still returns `:355` and `:1129` with the same `@ast-grep/cli@0.44.1` rows and the rule text is unchanged in the range; clears at the next gold refresh of this page
 executed:
   - { example: pin-site-grep, stack: repo, date: 2026-10-10, result: two-sites-0.44.1 }
 ---
