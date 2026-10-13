@@ -696,7 +696,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:971 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:977 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -776,8 +776,14 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
   elif [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ] \
-    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ]; then
-    # W2: the generic proof/plugin barrel is not a ts-server passport; preset passports still win.
+    && [ ! -f "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs" ] \
+    && { [ ! -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ] \
+         || { [ "$(_detect_stack_name)" != "unknown" ] \
+              && [ "$(_name_to_preset "$(_detect_stack_name)")" = "unknown" ]; }; }; then
+    # W2 + #2047: the generic proof/plugin barrel (40-configs places it on a drivable generic) is
+    # not a ts-server passport when the project's own files name a preset-less stack — but on a
+    # bare or preset-shaped project the barrel still proves a prior npm install (#2047 sparse
+    # evidence refreshes the npm layer). Preset passports still win.
     # A generic install places no npm passport and must not acquire ESLint on refresh.
     STACK="generic"
   else

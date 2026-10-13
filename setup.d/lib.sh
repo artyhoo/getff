@@ -786,7 +786,7 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1580                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1586                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1840          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:621          patch_stryker_package_manager → stryker-pm

@@ -169,7 +169,7 @@
           ".husky/pre-commit:241 (quoted-path-token)",
           "setup.d/eslint-wire.sh:439 (command-position)",
           "setup.d/eslint-wire.sh:442 (command-position)",
-          "setup.d/portable-bindings.sh:280 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:283 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -190,7 +190,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2401 (spawn-argument)",
-          "install.sh:1252 (quoted-path-token)"
+          "install.sh:1258 (quoted-path-token)"
         ]
       },
       "example": null
@@ -395,8 +395,8 @@
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
           "setup.d/eslint-wire.sh:434 (command-position)",
-          "setup.d/portable-bindings.sh:401 (quoted-path-token)",
-          "setup.d/portable-bindings.sh:408 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:404 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:411 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -422,8 +422,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1284 (quoted-path-token)",
-          "install.sh:1286 (for-in-list)",
+          "install.sh:1290 (quoted-path-token)",
+          "install.sh:1292 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -537,7 +537,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1286 (for-in-list)",
+          "install.sh:1292 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -585,7 +585,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1286 (for-in-list)",
+          "install.sh:1292 (for-in-list)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".agents/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -799,11 +799,11 @@
           "setup.d/10-skills.sh:188 (quoted-path-token)",
           "setup.d/10-skills.sh:189 (quoted-path-token)",
           "setup.d/10-skills.sh:190 (quoted-path-token)",
-          "install.sh:1257 (quoted-path-token)",
-          "install.sh:1258 (quoted-path-token)",
-          "install.sh:1259 (quoted-path-token)",
-          "install.sh:1260 (quoted-path-token)",
-          "install.sh:1261 (quoted-path-token)",
+          "install.sh:1263 (quoted-path-token)",
+          "install.sh:1264 (quoted-path-token)",
+          "install.sh:1265 (quoted-path-token)",
+          "install.sh:1266 (quoted-path-token)",
+          "install.sh:1267 (quoted-path-token)",
           "scripts/run-local-ci-sweep.sh:1201 (command-substitution, closure)"
         ]
       },
@@ -828,7 +828,7 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/portable-bindings.sh:279 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:282 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -854,7 +854,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1286 (for-in-list)",
+          "install.sh:1292 (for-in-list)",
           ".agents/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".agents/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
