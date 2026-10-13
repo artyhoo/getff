@@ -248,7 +248,7 @@ bbf1ee37b73dbf68ad95ce9c4eb9b8e0a25374e37fa7f9909a1381444dcde7ea  .agents/rules/
 089f089cb3a10b6681aaffc3e88a8e2bf54549b5b6c3db2810b40b2f6bf7b066  .agents/rules/attention-is-not-a-mechanism.md
 ceffb151f45816474fa5540bb6f411055c8a826525886b7382f11238045a344a  .agents/rules/autonomous-loop-continuity.md
 56fdc573ec340330fbbcb11d672a94d60f0a72f2e42b68197b4721152c5faa2e  .agents/rules/build-first-reuse-default.md
-f05622c247d835f46032b0613eb6aa6b12764f1617816719c3fb5cb52d76ce32  .agents/rules/ci-tool-pinning.md
+487baca0df4e2158a6b37a861cb08bcfee8ddd7501556d474426de3dd1f229c8  .agents/rules/ci-tool-pinning.md
 20d67f366ce30b176bc96e3fd7e2e5e591023a1d839fbcb10dbe2c66fad1d0f6  .agents/rules/cold-seat-economy.md
 fddd3c7b8ffae41e8fd9af60e3325c305583317a0ce26ca063d7ad37d54253f7  .agents/rules/companion-install-principle.md
 7d58a6121d8084687d6051bca1ab071ebf4a1d8446c4b876667002eceedcd07c  .agents/rules/coordinator-seat-delegation.md
@@ -916,14 +916,14 @@ ca14a7d6e7d22f16029bcf4b7fd0c0a12333b1b0c648b2853306fac8263b7393  packages/core/
 55b3de7f85f49ab437e5fb69685254045fdb74d9ad9e92cf7731c4be5371b1f6  packages/core/hooks/parse-override-flags.test.ts
 3b00f0a8152a23ae205463405c52642c129d971acdd6d49e579f1433910e8323  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
-cb59efb8839ffc6802b96b999c4c2c102d2f5b9d043afa609e449fcdd4a3731b  packages/core/hooks/pre-push.bundle.mjs
+5e270660df40b9a2b764275742d64b4512a4f35da900c1ce593480bd71002f3c  packages/core/hooks/pre-push.bundle.mjs
 7d3da627b28e03a15965440e14d803e216e2bcb8a5192f809c9678ead19fadd4  packages/core/hooks/pre-push.consumer-layout.test.ts
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 741235da5bcc98cee9c17f5ab53dd8ccc24c96c5a977f0b6155ec490d8fb4113  packages/core/hooks/pre-push.heavy-runner.test.ts
 746482b3c3fabc3ccc1e33064754408fc6912159c0a0218c9b8f06da41faeac2  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 e3f3ff3846121a754be5f3e5ece84281f91b39f64b4485216a5a4111a77bcaa8  packages/core/hooks/pre-push.test.ts
-5064032134a58506c167c13488251a5719946eb90d79bd13d52ddda30e99e369  packages/core/hooks/pre-push.ts
+ef8febca4af972a618523b6b7790ef955fe64fbcdaf722b509b9adcbd4bb0700  packages/core/hooks/pre-push.ts
 6245c832a1aa845859e72b2dcf8d566ebafb566b5d27f3cb677a8fb56c532169  packages/core/hooks/precompact-residue.test.ts
 b9a825679616c6e7a65e49ef7f5daa3a368021cc19e59a619ef79e06e59b52a7  packages/core/hooks/priority-score-branch-matcher.test.ts
 5b5bf489313dfbdb63bf3d3b2525e948c12de720f323c1079d57ef8b10e09f4b  packages/core/hooks/priority-score-reconstruct-stub.test.ts
@@ -1063,7 +1063,7 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 1425319ff3163e5e6b0488437f3b67a0482ab775bd36c65eb4a48bea9154032f  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 94a5d167d4c475b51a9fad67b23d8e9a2650079a9ef9c405ee613fdd25f2df05  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-c0bcd6bf47f41a61e5e5de0d04b47246aad082a69fe21fe69aaeac339cd1d892  packages/core/principles/36-ci-needs-completeness.test.ts
+304662ea13439b02d7d0dee85a715bfe68ceba071a06a0310e5e0fb184ccf259  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 229ed1d93fa7d08bfe31e0cf6ee71f5b6733eba60a12e03a70f412d36d01dc4d  packages/core/principles/37-required-context-completeness.test.ts
 3a63d0fcaedac75fb72ec9ce2c82604ba2b08f6c21cd56475fe105c07d6e10ae  packages/core/principles/38-vitest-include-ci-coverage.test.ts

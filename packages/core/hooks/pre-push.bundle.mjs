@@ -2655,7 +2655,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".claude/session-bootstrap.md",
   // the native bind-link destination of the row above
   "docs/site-quality/calibration.md"
-  // portable-bindings.sh:261 — the docs-quality calibration page delivered to the consumer root
+  // portable-bindings.sh:268 — the docs-quality calibration page delivered to the consumer root
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/",
