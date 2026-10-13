@@ -9,7 +9,7 @@
 #
 #   L1  Layer-2 pass (flat repo, root config getff's), no ts-morph in node_modules — the default
 #       install without --full: each per-package config the pass would wire is one summary line
-#       with the ts-morph / --full reason; the others (no boundary code, R2 already named) none.
+#       with the ts-morph resolution reason; the others (no boundary code, R2 already named) none.
 #   L2  Layer-2 pass, ts-morph present, the R2 wirer missing from the getff package: the same
 #       configs, with that reason.
 #   L3  configs getff placed on an earlier install (refresh-baseline entries): one still holding
@@ -180,17 +180,20 @@ flat_arm() {
 
 L1=$(flat_project l1)
 run_finalize "$L1" "$PKG_WIRED" "" "eslint.config.mjs apps/svc/eslint.config.mjs"
-flat_arm L1 'ts-morph.*--full'
+# The delivered reason (_ts_morph_why, setup.d/eslint-wire.sh) names the resolution failure and
+# its sources — never a manual remedy (Q4.7: no --full advice, no dev-dependency step to run).
+flat_arm L1 'usable ts-morph AST editor.*could not resolve'
 
 L2=$(flat_project l2); fake_ts_morph "$L2"
 run_finalize "$L2" "$PKG_NOWIRER" "" "eslint.config.mjs apps/svc/eslint.config.mjs"
 flat_arm L2 'missing from this getff package'
 
 # F1: a --full install whose dev-dependency step did not put ts-morph in node_modules — telling the
-# consumer to re-run with --full would send them round the same loop; the reason points at that step.
+# consumer to re-run with --full would send them round the same loop; the line carries the same
+# resolution reason (the step's own output above says why it did not — Q4.7, no manual remedy).
 F1=$(flat_project f1)
 T_FULL=1 run_finalize "$F1" "$PKG_WIRED" "" "eslint.config.mjs apps/svc/eslint.config.mjs"
-flat_arm F1 'ts-morph.*dev-dependency'
+flat_arm F1 'usable ts-morph AST editor.*could not resolve'
 if grep -qE -- 're-run the install with --full' <<<"$F_OUT"; then
   bad "F1: a --full install is told to re-run with --full (output: $(printf '%s\n' "$F_OUT" | grep -E -- '--full' | tr '\n' '|'))"
 else
@@ -199,14 +202,14 @@ fi
 ran_through F1
 
 # F2: the synth-wire sibling — the root config is the consumer's own, --full, no ts-morph: its
-# not-wired line carries the same --full-aware reason.
+# not-wired line carries the same resolution reason.
 F2=$(make_project f2); put "$F2" eslint.config.mjs "$PLAIN_CFG"
 T_FULL=1 run_finalize "$F2" "$PKG_WIRED" "" ""
-if sum_has "^      - getff's rules.* in eslint\.config\.mjs \(your own config\) — .*ts-morph.*dev-dependency" \
+if sum_has "^      - getff's rules.* in eslint\.config\.mjs \(your own config\) — .*usable ts-morph AST editor.*could not resolve" \
    && ! sum_has 're-run the install with --full'; then
-  ok "F2: the own root config's not-wired line on a --full install points at the dev-dependency step"
+  ok "F2: the own root config's not-wired line on a --full install names the resolution reason"
 else
-  bad "F2: expected the own root config's line to name the dev-dependency step, not a --full re-run (summary: $(sum_show))"
+  bad "F2: expected the own root config's line to name the resolution reason, not a --full re-run (summary: $(sum_show))"
 fi
 
 # N1: no Node on PATH at all — the Layer-2 pass names that, not ts-morph.
@@ -408,7 +411,7 @@ ws_arm() {
 
 W1=$(ws_project w1)
 run_finalize "$W1" "$PKG_WIRED" "$WS"
-ws_arm W1 'ts-morph.*--full'
+ws_arm W1 'usable ts-morph AST editor.*could not resolve'
 
 W2=$(ws_project w2); fake_ts_morph "$W2"
 run_finalize "$W2" "$PKG_NOWIRER" "$WS"
