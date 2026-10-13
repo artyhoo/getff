@@ -202,11 +202,19 @@ mkdir -p "$FIXTURE"
 printf '{"name":"packaged-terms-nav","version":"0.0.0"}\n' > "$FIXTURE/package.json"
 (
   cd "$FIXTURE" \
-    && git init -q && git config user.email test@test.com && git config user.name Test \
-    && UPSTREAM_BLOB_URL="$BASE" bash "$EXPKG/install.sh" ts-server --force < /dev/null
-) >"$WORK/install.log" 2>&1 \
-  && ok "archive install.sh ts-server --force completed" \
-  || { tail -30 "$WORK/install.log"; bad "archive install failed — see log above"; }
+    && git init -q && git config user.email test@test.com && git config user.name Test
+) >"$WORK/install.log" 2>&1
+# The install's own rc is captured on its invocation line and compared below
+# (principle 50: a failure branch after the closing paren of a subshell does
+# not attach to the invocation).
+rc=0
+( cd "$FIXTURE" && UPSTREAM_BLOB_URL="$BASE" bash "$EXPKG/install.sh" ts-server --force < /dev/null ) >>"$WORK/install.log" 2>&1 || rc=$?
+if [ "$rc" -eq 0 ]; then
+  ok "archive install.sh ts-server --force completed (rc=$rc)"
+else
+  tail -30 "$WORK/install.log"
+  bad "archive install failed (rc=$rc) — see log above"
+fi
 INSTALLED="$FIXTURE/.agents/roles/resources/docs-form-auditor/framework-terms.md"
 if [ -f "$INSTALLED" ]; then
   ok "installed framework-terms.md exists at the consumer resources path"
