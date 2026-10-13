@@ -2748,6 +2748,7 @@ export function openLedger(path, {
         deployment_mode: 'HYBRID',
         off: api._isOff(),
         recovery_import_pending: api.recoveryImportPending(),
+        baseline_ready: db.prepare("SELECT value FROM control WHERE key='baseline_receipt'").get()?.value === '1',
         counts: {
           ...eventStates,
           outbox_total: outboxTotal,

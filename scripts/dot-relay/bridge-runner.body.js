@@ -646,6 +646,14 @@ async function runBridge({ tools, config, emit }) {
         blockers:[{code:'ACTIVATION_ADMISSION_UNPROVEN',event_id:null}], continuation:false };
       emit(result); return result;
     }
+    // Native start preserves the frozen historical intake. The owner's
+    // verified consumption receipt is the release authority; service or
+    // heartbeat activation alone never admits packet acquisition/delivery.
+    if (config.operation_fence_required === true && st.baseline_ready !== true) {
+      const result = { version:1, mode:'HYBRID', state:'WAIT_BASELINE', counts:counters,
+        blockers:[{code:'BASELINE_RECEIPT_REQUIRED',event_id:null}], continuation:false };
+      emit(result); return result;
+    }
     // RECOVERY-ADOPTION: a root pending external-recovery reconciliation is
     // closed to automatic work — no tick, no wait, no send. Only a committed
     // reconcile-external-recovery clears the flag; the cycle then resumes.

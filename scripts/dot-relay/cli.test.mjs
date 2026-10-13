@@ -120,6 +120,11 @@ test('F08 native bootstrap: installed source/authority pins and real operation w
       interval_seconds:14400,native_binding_sha256:bindingSha,bootstrap_sha256:bootstrap.source_sha256,
       automation_source:{path:automationFile,sha256:sha256Of(readFileSync(automationFile))}});
     cliJson(['bridge-activated','--root',root,'--automation-id','dot-native','--receipt-file',activation]);
+    const heldBaseline=await fn(tools,setTimeout,clearTimeout,()=>{});
+    assert.equal(heldBaseline.state,'WAIT_BASELINE'); assert.equal(waits,0); assert.equal(sends,0);
+    const fixtureLedger=openLedger(join(root,'ledger.sqlite'));
+    fixtureLedger.recordBaselineReceipt({intake_id:'DOT-INTAKE-20261008-01',consumed_report_keys:[sha256Of('explicit synthetic baseline receipt')],excluded:[]});
+    fixtureLedger.close();
     const liveResult=await fn(tools,setTimeout,clearTimeout,()=>{});
     assert.equal(liveResult.state,'IDLE'); assert.equal(waits,1); assert.equal(sends,0);
     // Drive the installed bootstrap, real CLI journal/spool/claim boundary
