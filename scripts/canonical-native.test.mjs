@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, cpSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { runHook } from './codex-hook-adapter.mjs';
+import { runHook, normalizeInput } from './codex-hook-adapter.mjs';
 import { emitCodex } from './render-codex-contributor.mjs';
 import { consumerCodexHooks } from '../setup.d/codex-bindings.mjs';
 import { spawnSync } from 'node:child_process';
@@ -120,7 +120,21 @@ test('consumer native bindings run the delivered authority check without contrib
     for (const name of ['.codex', '.agents', 'scripts']) cpSync(join(root, name), join(nested, name), { recursive: true });
     const run = () => spawnSync('bash', ['-c', command], { cwd: root, input, encoding: 'utf8' });
     const adverse = run();
-    assert.equal(adverse.status, 2, adverse.stderr);
+    let adverseDiagnostic = adverse.stderr;
+    if (adverse.status !== 2) {
+      // Preserve the first failure; component and wrapper replays are diagnostic only.
+      const direct = runHook(root, 'check-doc-authority-header', normalizeInput(JSON.parse(input))[0]);
+      const wrapperReplay = spawnSync('bash', ['-x', '-c', command], { cwd: root, input, encoding: 'utf8' });
+      const tools = spawnSync('bash', ['-c', 'command -v node; node --version; command -v jq; jq --version'], { cwd: root, encoding: 'utf8' });
+      const summary = result => ({ status: result.status, signal: result.signal, error: result.error?.message, stdout: result.stdout, stderr: result.stderr });
+      adverseDiagnostic = JSON.stringify({
+        first: summary(adverse), root, command, input,
+        fileContent: readFileSync(file, 'utf8'),
+        authorityEnvironment: Object.fromEntries(['AIF_DOC_AUTHORITY', 'BASH_ENV', 'SHELLOPTS', 'TMPDIR', 'NODE_OPTIONS', 'PATH'].map(key => [key, process.env[key] ?? null])),
+        tools: summary(tools), directReplay: summary(direct), wrapperReplay: summary(wrapperReplay),
+      }, null, 2);
+    }
+    assert.equal(adverse.status, 2, adverseDiagnostic);
     assert.match(adverse.stderr, /doc-authority.*missing/);
     const nestedInput = JSON.stringify({ ...JSON.parse(input), cwd: nested });
     const nestedResult = spawnSync('bash', ['-c', command], { cwd: nested, input: nestedInput, encoding: 'utf8' });
