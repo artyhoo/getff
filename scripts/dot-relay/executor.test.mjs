@@ -36,6 +36,33 @@ const now = () => nowMs;
 const BASE_SHA = sha40('origin-staging-base');
 const HEAD = sha40('pr-head');
 
+test('F13 native: the actual push adapter rejects unsafe argv before invoking git and binds positive dispatch to observed repository/branch/remote', async () => {
+  const { nativeGitPush } = await import('./executor.mjs');
+  assert.equal(typeof nativeGitPush, 'function');
+  const binding = { cwd: '/owned/task', repository: 'artyhoo/getff', remote: 'origin', branch: 'codex/dot-scripted-relay-draft', remote_url: 'https://github.com/artyhoo/getff.git' };
+  const normal = ['push', 'origin', 'HEAD:refs/heads/codex/dot-scripted-relay-draft'];
+  const rejected = [[], ['push'], ['push','other',normal[2]], ['push','origin'],
+    ...['--force','--force-with-lease','--delete','--mirror','--all','--tags','--no-verify','--for','-f','-d','--'].map((a) => ['push',a,'origin',normal[2]]),
+    ['push','origin',':refs/heads/codex/dot-scripted-relay-draft'], ['push','origin',normal[2],normal[2]],
+    ['push','origin','HEAD:refs/heads/main'], ['push','origin',normal[2]+'; echo bad'],
+    ['push','origin',normal[2]+' && true'], ['push','origin','$(bad)']];
+  for (const argv of rejected) {
+    const calls = [];
+    assert.equal(nativeGitPush(argv, { binding, gitImpl: (...a) => { calls.push(a); return { code: 0 }; } }).code, 'NATIVE_PUSH_ARGS');
+    assert.equal(calls.length, 0);
+  }
+  const calls = [];
+  const gitImpl = (a, options) => {
+    calls.push({ argv:a, cwd:options.cwd });
+    return { code:0, stdout: a[0]==='rev-parse' ? binding.cwd : a[0]==='symbolic-ref' ? binding.branch : a[0]==='remote' ? binding.remote_url : '' };
+  };
+  assert.equal(nativeGitPush(normal, { binding, gitImpl }).ok, true);
+  assert.deepEqual(calls.at(-1), { argv:normal, cwd:binding.cwd });
+  let pushed = false;
+  const mismatch = nativeGitPush(normal, { binding, gitImpl: (a) => { if(a[0]==='push') pushed=true; return { code:0, stdout:'wrong' }; } });
+  assert.equal(mismatch.code, 'NATIVE_PUSH_IDENTITY'); assert.equal(pushed,false);
+});
+
 // F07: the deployed review policy snapshot — the required checks the receipt
 // was approved under, each bound to its expected workflow AND producing-app
 // identity (slug). This is what verifyPr compares the ACTUAL `gh pr checks

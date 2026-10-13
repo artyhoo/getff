@@ -36,6 +36,82 @@ export const MAX_ENVELOPE_BYTES = 1048576; // 1 MiB whole private envelope (mult
 export const MAX_PART_BYTES = 200000;
 export const MAX_PARTS = 8;
 
+// F18: the transport wrapper carries the actual claim identity while keeping
+// the producer's immutable manifest string byte-for-byte. Both sender and
+// recipient use this same parser; receipt creation follows byte verification.
+export const DELIVERY_PREFIX = 'DOT_RELAY_DELIVERY ';
+const DELIVERY_KEYS = ['version', 'kind', 'delivery_id', 'event_id', 'event_sha256', 'artifact_sha256', 'bytes', 'destination', 'manifest'];
+
+export function validateDeliveryMessage(message, destination) {
+  try {
+    if (typeof message !== 'string' || !message.startsWith(DELIVERY_PREFIX)) throw invalid('DELIVERY_WRAPPER');
+    const w = parseStrictJson(message.slice(DELIVERY_PREFIX.length), { maxBytes: 16384, maxDepth: 64 });
+    exactKeys(w, DELIVERY_KEYS, 'DELIVERY_WRAPPER');
+    if (w.version !== 1 || w.kind !== 'dot_delivery' || !ID_RE.test(w.delivery_id ?? '')
+      || !ID_RE.test(w.event_id ?? '') || !HASH64_RE.test(w.event_sha256 ?? '')
+      || !HASH64_RE.test(w.artifact_sha256 ?? '') || !Number.isSafeInteger(w.bytes)
+      || w.bytes < 1 || w.bytes > MAX_ENVELOPE_BYTES || w.destination !== destination
+      || typeof w.manifest !== 'string') throw invalid('DELIVERY_BINDING');
+    const m = parseStrictJson(w.manifest, { maxBytes: 16384, maxDepth: 64 });
+    exactKeys(m, ['version','status','event_id','kind','producer','destination','sha256','bytes','parents','artifact','delivery_id'], 'DELIVERY_MANIFEST');
+    const next = { batch: CHAT_IDS.analyst, analysis: CHAT_IDS.solver, solution: 'LOCAL_GLM_EXECUTOR' };
+    if (m.version !== 1 || m.status !== 'READY' || m.event_id !== w.event_id || m.destination !== w.destination
+      || m.destination !== next[m.kind] || m.producer !== CHAT_IDS[ROLE_FOR_KIND[m.kind]]
+      || m.sha256 !== w.artifact_sha256 || m.bytes !== w.bytes || !Array.isArray(m.parents)
+      || (m.delivery_id !== null && m.delivery_id !== w.delivery_id)) throw invalid('DELIVERY_MANIFEST_BINDING');
+    const a = m.artifact;
+    if (!a || typeof a !== 'object' || Array.isArray(a)) throw invalid('DELIVERY_PARTS');
+    const refOK = (p) => typeof p.page_id === 'string' && p.page_id.startsWith('page_')
+      && typeof p.reference === 'string' && /^(library-file|project-file):.+$/.test(p.reference);
+    if (Array.isArray(a.parts)) {
+      exactKeys(a, ['sha256','bytes','parts'], 'DELIVERY_PARTS');
+      if (a.sha256 !== w.artifact_sha256 || a.bytes !== w.bytes || a.parts.length < 1 || a.parts.length > MAX_PARTS) throw invalid('DELIVERY_PARTS');
+      let total = 0;
+      for (let i = 0; i < a.parts.length; i += 1) {
+        const p = a.parts[i]; exactKeys(p, ['ordinal','page_id','reference','sha256','bytes'], 'DELIVERY_PART');
+        if (p.ordinal !== i || !refOK(p) || !HASH64_RE.test(p.sha256 ?? '') || !Number.isSafeInteger(p.bytes)
+          || p.bytes < 1 || p.bytes > MAX_PART_BYTES) throw invalid('DELIVERY_PART');
+        total += p.bytes;
+      }
+      if (total !== w.bytes) throw invalid('DELIVERY_PARTS');
+    } else {
+      exactKeys(a, ['page_id','reference'], 'DELIVERY_PART');
+      if (!refOK(a) || w.bytes > MAX_PART_BYTES) throw invalid('DELIVERY_PART');
+    }
+    return { wrapper: w, manifest: m };
+  } catch { throw invalid('DELIVERY_WRAPPER'); }
+}
+
+export function deliveryMessage(claim, manifest) {
+  const m = parseStrictJson(manifest, { maxBytes: 16384, maxDepth: 64 });
+  const wrapper = { version: 1, kind: 'dot_delivery', delivery_id: claim.delivery_id, event_id: claim.event_id,
+    event_sha256: claim.event_sha256, artifact_sha256: claim.artifact_sha256, bytes: m.bytes,
+    destination: claim.destination, manifest };
+  const message = DELIVERY_PREFIX + JSON.stringify(wrapper);
+  validateDeliveryMessage(message, claim.destination);
+  return message;
+}
+
+export function receiveDelivery(message, artifactText, destination, { duplicate = false } = {}) {
+  const { wrapper: w, manifest: m } = validateDeliveryMessage(message, destination);
+  if (Array.isArray(artifactText)) {
+    const parts=m.artifact.parts;
+    if (!Array.isArray(parts) || parts.length!==artifactText.length || artifactText.some((text,i)=>
+      typeof text!=='string' || Buffer.byteLength(text,'utf8')!==parts[i].bytes || sha256Hex(text)!==parts[i].sha256)) throw invalid('DELIVERY_PART_BYTES');
+    artifactText=artifactText.join('');
+  }
+  if (typeof artifactText !== 'string' || Buffer.byteLength(artifactText, 'utf8') !== w.bytes
+    || sha256Hex(artifactText) !== w.artifact_sha256) throw invalid('DELIVERY_BYTES');
+  let envelope;
+  try { envelope = validateEnvelope(artifactText, ROLE_FOR_KIND[m.kind]); }
+  catch { throw invalid('DELIVERY_ENVELOPE'); }
+  if (envelope.id !== w.event_id || envelope.kind !== m.kind || envelope.producer !== m.producer
+    || envelope.sha256 !== w.event_sha256 || canonical(envelope.parents) !== canonical(m.parents)) throw invalid('DELIVERY_ENVELOPE');
+  return { envelope, ack: { version: 1, delivery_id: w.delivery_id, event_id: w.event_id,
+    artifact_sha256: w.artifact_sha256, event_sha256: w.event_sha256, accepted: true,
+    duplicate: duplicate === true, destination } };
+}
+
 function invalid(reason, detail) {
   const e = new Error(`[INVALID] ${reason}${detail ? `: ${detail}` : ''}`);
   e.code = 'INVALID';

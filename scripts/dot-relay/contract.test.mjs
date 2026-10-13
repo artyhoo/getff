@@ -129,6 +129,44 @@ function makeAckEnvelope({ producer = CHAT_IDS.analyst, deliveryId = 'DOT-DELIV-
 
 // --- tests ---
 
+test('F18: actual claim wrapper preserves original manifest bytes and recipient verifies both digests before ACK', async () => {
+  const mod = await import('./contract.mjs');
+  assert.equal(typeof mod.deliveryMessage, 'function');
+  assert.equal(typeof mod.receiveDelivery, 'function');
+  const env = makeBatchEnvelope();
+  const bytes = `${JSON.stringify(env, null, 2)}\n`;
+  const manifest = { version: 1, status: 'READY', event_id: env.id, kind: 'batch', producer: CHAT_IDS.collector,
+    destination: CHAT_IDS.analyst, sha256: sha256Of(bytes), bytes: Buffer.byteLength(bytes), parents: [],
+    artifact: { page_id: 'page_f18', reference: 'library-file:f18' }, delivery_id: null };
+  const original = `${JSON.stringify(manifest, null, 2)}\n`;
+  const claim = { delivery_id: 'DOT-DELIV-F18', event_id: env.id, destination: CHAT_IDS.analyst,
+    artifact_sha256: manifest.sha256, event_sha256: env.sha256 };
+  const message = mod.deliveryMessage(claim, original);
+  const wrapper = JSON.parse(message.slice('DOT_RELAY_DELIVERY '.length));
+  assert.equal(wrapper.manifest, original);
+  assert.equal(JSON.parse(wrapper.manifest).delivery_id, null);
+  const received = mod.receiveDelivery(message, bytes, CHAT_IDS.analyst);
+  assert.deepEqual(received.ack, { version: 1, delivery_id: 'DOT-DELIV-F18', event_id: env.id,
+    artifact_sha256: manifest.sha256, event_sha256: env.sha256, accepted: true, duplicate: false, destination: CHAT_IDS.analyst });
+  for (const change of [ { event_id: 'OTHER' }, { destination: CHAT_IDS.solver }, { event_sha256: '0'.repeat(64) },
+    { artifact_sha256: '0'.repeat(64) }, { delivery_id: null }, { bytes: manifest.bytes + 1 } ]) {
+    const bad = 'DOT_RELAY_DELIVERY '+JSON.stringify({ ...wrapper, ...change });
+    assert.throws(() => mod.receiveDelivery(bad, bytes, CHAT_IDS.analyst), /DELIVERY/);
+  }
+  assert.throws(() => mod.receiveDelivery(message, bytes+' ', CHAT_IDS.analyst), /DELIVERY/);
+  assert.throws(() => mod.receiveDelivery(message, bytes, CHAT_IDS.solver), /DELIVERY/);
+  assert.throws(() => mod.deliveryMessage({ ...claim, event_id: 'OTHER' }, original), /DELIVERY/);
+  assert.throws(() => mod.deliveryMessage(claim, JSON.stringify({ ...manifest, producer: CHAT_IDS.solver })), /DELIVERY/);
+  const chunks=[bytes.slice(0,50),bytes.slice(50)];
+  const multipart={...manifest,artifact:{sha256:manifest.sha256,bytes:manifest.bytes,parts:chunks.map((text,ordinal)=>({ordinal,
+    page_id:'page_f18',reference:'library-file:f18-'+ordinal,sha256:sha256Of(text),bytes:Buffer.byteLength(text)}))}};
+  const mp=mod.deliveryMessage(claim,JSON.stringify(multipart));
+  assert.deepEqual(mod.receiveDelivery(mp,chunks,CHAT_IDS.analyst).ack,received.ack);
+  assert.throws(()=>mod.receiveDelivery(mp,[...chunks].reverse(),CHAT_IDS.analyst),/DELIVERY/);
+  assert.throws(()=>mod.receiveDelivery(mp,[chunks[0],chunks[1]+' '],CHAT_IDS.analyst),/DELIVERY/);
+  assert.throws(()=>mod.deliveryMessage(claim,JSON.stringify({...multipart,artifact:{...multipart.artifact,parts:[...multipart.artifact.parts].reverse()}})),/DELIVERY/);
+});
+
 test('canonical sorts object keys recursively, preserves array order', () => {
   assert.equal(canonical({ b: 1, a: { d: 2, c: 3 } }), canonical({ a: { c: 3, d: 2 }, b: 1 }));
   assert.equal(canonical({ b: 1, a: 2 }), '{"a":2,"b":1}');

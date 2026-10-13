@@ -87,6 +87,90 @@ function writeJson(root, rel, obj) {
 
 // ---------------------------------------------------------------- init / root safety
 
+test('F08 native bootstrap: installed source/authority pins and real operation wrapper gate activation without launching a legacy executor', async () => {
+  const root=freshRoot();
+  try {
+    const here=dirname(CLI); const owner='01a12f24-188e-7933-84a9-0fb5a4a76269';
+    const evidence=writeJson(root,'evidence.json',{version:1,fixture:'owned native admission'});
+    const ref={path:evidence,sha256:sha256Of(readFileSync(evidence))};
+    const binding={version:1,mode:'NATIVE_EXISTING_OWNER',owner,cli:CLI,source_commit:'a'.repeat(40),
+      source_files:['cli.mjs','contract.mjs','executor.mjs','ledger.mjs','bridge-runner.body.js'].map((name)=>({name,sha256:sha256Of(readFileSync(join(here,name)))})),
+      authority:ref,source_acceptance:ref,installation:ref,receiver_contract:ref};
+    const bindingPath=writeJson(root,'native-binding.json',binding); const bindingSha=sha256Of(readFileSync(bindingPath));
+    const bodySha=sha256Of(readFileSync(join(here,'bridge-runner.body.js')));
+    writeJson(root,'bridge-runner-pin.json',{version:1,sha256:bodySha,source_commit:binding.source_commit});
+    assert.equal(cliJson(['bridge-activated','--root',root,'--automation-id','dot-native'],{expectFail:true}).code,'ACTIVATION_ADMISSION_UNPROVEN');
+    assert.equal(cliJson(['tick','--root',root]).supervise_launched,false);
+    assert.equal(cliJson(['supervise','--root',root,'--execution-id','unknown'],{expectFail:true}).code,'NATIVE_OWNER_REQUIRED');
+    assert.equal(cliJson(['bridge-bootstrap','--root',root,'--expected-sha256',bodySha,'--binding-sha256','0'.repeat(64)],{expectFail:true}).code,'NATIVE_BINDING_UNTRUSTED');
+    const bootstrap=cliJson(['bridge-bootstrap','--root',root,'--expected-sha256',bodySha,'--binding-sha256',bindingSha]);
+    let sends=0,waits=0;
+    const tools={exec_command:async ({cmd})=>{const r=spawnSync('/bin/sh',['-c',cmd],{encoding:'utf8'});return {exit_code:r.status,output:r.stdout};},
+      mcp__codex_app__wait_threads:async()=>{waits++; return {content:[{type:'text',text:'{"polls":[]}'}]};},
+      mcp__codex_app__send_message_to_thread:async()=>{sends++;throw Error('Unexpected send');}};
+    const fn=new (async function(){}).constructor('tools','setTimeout','clearTimeout','emit',bootstrap.source);
+    const emitted=[]; const result=await fn(tools,setTimeout,clearTimeout,(r)=>emitted.push(r));
+    assert.equal(result.state,'PARTIAL_AWAITING_BRIDGE'); assert.equal(sends,0); assert.equal(waits,0);
+    assert.equal(emitted.length,1); assert.equal(existsSync(join(root,'bridge-cycle.lock')),false);
+    const cycle=readdirSync(join(root,'bridge-history'))[0];
+    const operation=JSON.parse(readFileSync(join(root,'bridge-history',cycle,'operations','cli-1.json'),'utf8'));
+    assert.equal(operation.state,'DONE'); assert.equal(operation.kind,'cli');
+    const automationFile=writeJson(root,'native-automation.toml',`id = "dot-native"\nkind = "heartbeat"\nstatus = "ACTIVE"\nrrule = "FREQ=HOURLY;INTERVAL=4"\ntarget_thread_id = "${owner}"\nprompt = "Run accepted bootstrap ${bootstrap.source_sha256}"\n`);
+    const activation=writeJson(root,'inbox/activation.json',{version:1,automation_id:'dot-native',status:'ACTIVE',kind:'heartbeat',owner,
+      interval_seconds:14400,native_binding_sha256:bindingSha,bootstrap_sha256:bootstrap.source_sha256,
+      automation_source:{path:automationFile,sha256:sha256Of(readFileSync(automationFile))}});
+    cliJson(['bridge-activated','--root',root,'--automation-id','dot-native','--receipt-file',activation]);
+    const liveResult=await fn(tools,setTimeout,clearTimeout,()=>{});
+    assert.equal(liveResult.state,'IDLE'); assert.equal(waits,1); assert.equal(sends,0);
+    writeJson(root,'native-binding.json',{...binding,source_commit:'b'.repeat(40)});
+    assert.equal(cliJson(['status','--root',root]).bridge.active,false);
+  } finally {rmSync(root,{recursive:true,force:true});}
+});
+
+test('F08 native: durable operation intent refuses another cycle and recovers only a captured completed result', () => {
+  const root = freshRoot();
+  try {
+    const begin = cliJson(['bridge-cycle-begin', '--root', root, '--cycle-id', 'CYCLE-A', '--owner', 'existing-native-owner']);
+    assert.equal(begin.cycle_id, 'CYCLE-A');
+    const intent = cliJson(['bridge-operation-begin', '--root', root, '--cycle-id', 'CYCLE-A', '--operation-id', 'OP-A', '--kind', 'send']);
+    assert.equal(intent.state, 'PENDING');
+    const held = cliJson(['bridge-cycle-begin', '--root', root, '--cycle-id', 'CYCLE-B', '--owner', 'existing-native-owner'], { expectFail: true });
+    assert.equal(held.code, 'BRIDGE_OPERATION_PENDING');
+    assert.equal(cliJson(['bridge-cycle-end', '--root', root, '--cycle-id', 'CYCLE-A'], { expectFail: true }).code, 'BRIDGE_OPERATION_PENDING');
+    assert.equal(cliJson(['bridge-operation-end', '--root', root, '--cycle-id', 'WRONG', '--operation-id', 'OP-A', '--result-json', '{"ok":true}'], { expectFail: true }).code, 'BRIDGE_CYCLE_MISMATCH');
+    cliJson(['bridge-operation-end', '--root', root, '--cycle-id', 'CYCLE-A', '--operation-id', 'OP-A', '--result-json', '{"ok":true}']);
+    assert.equal(cliJson(['bridge-cycle-begin', '--root', root, '--cycle-id', 'CYCLE-B', '--owner', 'existing-native-owner']).recovered, 'CYCLE-A');
+    assert.equal(cliJson(['bridge-operation-begin', '--root', root, '--cycle-id', 'CYCLE-A', '--operation-id', 'LATE', '--kind', 'cli'], { expectFail: true }).code, 'BRIDGE_CYCLE_MISMATCH');
+    const result = cliJson(['bridge-operation', '--root', root, '--cycle-id', 'CYCLE-B', '--operation-id', 'OP-B', '--argv-json', '["status"]']);
+    assert.equal(result.ok, true);
+    assert.equal(cliJson(['bridge-operation', '--root', root, '--cycle-id', 'CYCLE-B', '--operation-id', 'OP-B', '--argv-json', '["status"]'], { expectFail: true }).code, 'BRIDGE_OPERATION_EXISTS');
+    assert.equal(cliJson(['bridge-cycle-end', '--root', root, '--cycle-id', 'CYCLE-B']).ended, true);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('F18 CLI: actual stored claim emits an immutable manifest wrapper and verifies only its exact claimed identity', () => {
+  const root = freshRoot();
+  try {
+    const { text, manifest } = singleManifest('F18-WRAP');
+    const ledger = openLedger(join(root, 'ledger.sqlite'));
+    ledger.manifestImport({ manifest, producerRole: 'collector', cursorToken: 'f18-wrapper-cursor' });
+    ledger.ingest(JSON.parse(text), { trustedProducerRole: 'collector' });
+    const id = ledger.pendingDeliveries()[0].delivery_id;
+    ledger.close();
+    const claim = cliJson(['delivery-claim', '--root', root, '--id', id]);
+    assert.equal(typeof claim.delivery_wrapper, 'string');
+    const wrapped = JSON.parse(claim.delivery_wrapper.slice('DOT_RELAY_DELIVERY '.length));
+    assert.equal(wrapped.delivery_id, id);
+    assert.equal(wrapped.manifest, claim.manifest);
+    assert.equal(JSON.parse(wrapped.manifest).delivery_id, null);
+    const file = writeJson(root, 'inbox/F18-wrapper.json', claim.delivery_wrapper);
+    assert.equal(cliJson(['delivery-verify', '--root', root, '--id', id, '--file', file]).verified, true);
+    wrapped.delivery_id = 'OTHER-CLAIM';
+    writeJson(root, 'inbox/F18-wrapper.json', 'DOT_RELAY_DELIVERY '+JSON.stringify(wrapped));
+    assert.equal(cliJson(['delivery-verify', '--root', root, '--id', id, '--file', file], { expectFail: true }).code, 'DELIVERY_CLAIM_MISMATCH');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('init creates root/db/config with baseline holds; idempotent; mismatch refused', () => {
   const root = join(tmpdir(), `dot-cli-init-${randomUUID().slice(0, 6)}`);
   const r1 = cliJson(['init', '--root', root]);
@@ -1635,7 +1719,7 @@ test('F07 review-import: no trusted Dot importer -> BLOCKED_DOT_APPROVAL_PROVENA
 });
 
 // F12 (GH_PENDING_AND_BUDGET_ADAPTER), CLI surface: the correction's
-// cli.mjs:751-761 concern was review-import reaching unbounded default
+// Original review-import concern was reaching unbounded default
 // verification. The F07 fixed-closed gate structurally closed that path —
 // this test PINS it from the adapter side: a fake gh binary IS on PATH (it
 // would happily answer), and the fixed refusal still fires before any gh
@@ -2344,7 +2428,7 @@ test('F11 wiring: Darwin-only host-clock tests stay skip-gated and CI is never l
   assert.ok(cliGated >= 14, `the Darwin host-surface CLI arms must stay skip-gated for the Linux CI matrix (found ${cliGated})`);
   // The bridge cycle arms drive the REAL cli.mjs tick/reconcile over temp
   // roots (freshRoot -> cli init; exec_command -> tick/status/source-put),
-  // i.e. the same Darwin host surface (boot-id sysctl at cli.mjs:322). The
+  // i.e. the same Darwin host surface (bootSessionUuid calls boot-id sysctl). The
   // first Linux run that reached them (run 38052887138 — every earlier run
   // aborted at the cli file before bridge-runner ever executed) showed 43/53
   // arms collapsing to BLOCKED, so they must stay gated like the CLI arms.

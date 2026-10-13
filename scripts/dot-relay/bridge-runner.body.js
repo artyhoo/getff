@@ -180,6 +180,12 @@ function codeOf(e) {
 
 // One exec_command per CLI invocation; exit code + bounded stdout JSON only.
 async function runCli(tools, config, args) {
+  if (config.operation_fence_required === true) {
+    if (typeof config.operation_exec !== 'function') throw bridgeFail('BLOCKED_BOOTSTRAP_SOURCE');
+    const r = await raceTool('CYCLE_CLI_TIMEOUT', () => config.operation_exec(args));
+    if (!r || r.ok !== true) throw bridgeFail(r && typeof r.code === 'string' ? r.code : 'CLI_FAILED');
+    return r;
+  }
   const cmd = ['env', 'NODE_NO_WARNINGS=1', sq(config.node), sq(config.cli), sq(args[0]), '--root', sq(config.root)]
     .concat(args.slice(1).map(sq)).join(' ');
   const r = await raceTool('CYCLE_CLI_TIMEOUT', () => tools.exec_command({ cmd }));
@@ -635,6 +641,11 @@ async function runBridge({ tools, config, emit }) {
       emit(result);
       return result;
     }
+    if (config.operation_fence_required === true && st.bridge?.active !== true) {
+      const result = { version:1, mode:'HYBRID', state:'PARTIAL_AWAITING_BRIDGE', counts:counters,
+        blockers:[{code:'ACTIVATION_ADMISSION_UNPROVEN',event_id:null}], continuation:false };
+      emit(result); return result;
+    }
     // RECOVERY-ADOPTION: a root pending external-recovery reconciliation is
     // closed to automatic work — no tick, no wait, no send. Only a committed
     // reconcile-external-recovery clears the flag; the cycle then resumes.
@@ -715,7 +726,9 @@ async function runBridge({ tools, config, emit }) {
         sends += 1;
         try {
           const claim = await runCli(tools, config, ['delivery-claim', '--id', d.delivery_id]);
-          const prompt = typeof claim.manifest === 'string' && claim.manifest.length > 0
+          const prompt = typeof claim.delivery_wrapper === 'string' && claim.delivery_wrapper.length > 0
+            ? claim.delivery_wrapper
+            : typeof claim.manifest === 'string' && claim.manifest.length > 0
             ? claim.manifest
             : JSON.stringify({ version: 1, event_id: d.event_id, artifact: { page_id: claim.source_page_id, reference: claim.source_reference, sha256: claim.artifact_sha256 } });
           const sent = await sendOnce(tools, config, d.destination, prompt);

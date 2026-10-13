@@ -712,6 +712,29 @@ function productionGit(args, { cwd } = {}) {
   }
 }
 
+// Native execution exposes only this structured push boundary. Its binding
+// comes from the installed admission, never from a producer packet/prompt.
+export function nativeGitPush(argv, { binding, gitImpl = productionGit } = {}) {
+  if (!binding || binding.repository !== 'artyhoo/getff' || binding.remote !== 'origin'
+    || typeof binding.cwd !== 'string' || !binding.cwd.startsWith('/')
+    || typeof binding.branch !== 'string' || !/^codex\/[A-Za-z0-9][A-Za-z0-9_-]*(?:\/[A-Za-z0-9][A-Za-z0-9_-]*)*$/.test(binding.branch)
+    || !['https://github.com/artyhoo/getff.git','git@github.com:artyhoo/getff.git'].includes(binding.remote_url)) {
+    return { ok:false, code:'NATIVE_PUSH_BINDING' };
+  }
+  const expected = ['push','origin',`HEAD:refs/heads/${binding.branch}`];
+  if (!Array.isArray(argv) || argv.length !== 3 || argv.some((a,i) => a !== expected[i])) return { ok:false, code:'NATIVE_PUSH_ARGS' };
+  for (const [args, value] of [
+    [['rev-parse','--show-toplevel'],binding.cwd],
+    [['symbolic-ref','--quiet','--short','HEAD'],binding.branch],
+    [['remote','get-url','--push','origin'],binding.remote_url],
+  ]) {
+    const r = gitImpl(args,{cwd:binding.cwd});
+    if (r.code !== 0 || String(r.stdout ?? '').trim() !== value) return { ok:false, code:'NATIVE_PUSH_IDENTITY' };
+  }
+  const r = gitImpl(expected,{cwd:binding.cwd});
+  return r.code === 0 ? { ok:true, code:'NATIVE_PUSH_COMPLETE' } : { ok:false, code:'NATIVE_PUSH_FAILED' };
+}
+
 // F12: bounded gh subprocess boundary. execFileSync THREW on the documented
 // nonzero exits of `gh pr checks` (8 = pending, 1 = failing) — real pending
 // results crashed the adapter before any polling could happen. The bounded

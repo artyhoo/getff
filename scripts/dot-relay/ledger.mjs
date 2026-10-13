@@ -1077,6 +1077,7 @@ export function openLedger(path, {
         return {
           delivery_id: deliveryId,
           event_id: row.event_id,
+          event_sha256: api.getEvent(row.event_id)?.sha256 ?? null,
           destination: row.destination,
           state: 'CLAIMED',
           artifact_sha256: api._artifactFor(row.event_id),

@@ -12,18 +12,18 @@ import { randomUUID, createHash } from 'node:crypto';
 import {
   mkdirSync, writeFileSync, readFileSync, existsSync, lstatSync,
   openSync, closeSync, writeSync, renameSync, unlinkSync, readdirSync,
-  fsyncSync, ftruncateSync, statSync,
+  fsyncSync, ftruncateSync, statSync, rmdirSync,
 } from 'node:fs';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 import { openLedger } from './ledger.mjs';
-import { validateEnvelope, CHAT_IDS, probeOutcome } from './contract.mjs';
+import { validateEnvelope, CHAT_IDS, probeOutcome, deliveryMessage, validateDeliveryMessage } from './contract.mjs';
 import {
   runExecution, resumeExecution, monitorAdoptedChild, startActiveClock, parseAgentsCensus,
   proveProcessDeath, runCessationLadder, classifyProbe, DEATH_PROOF_SESSION,
-  productionProcessProbe,
+  productionProcessProbe, nativeGitPush,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 
@@ -41,18 +41,31 @@ const CHUNK_MAX = 16 * 1024;
 const METADATA_MAX = 200_000;
 const SAFE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/;
 const FORBIDDEN_METADATA_KEYS = new Set(['payload', 'body', 'kickoff', 'analysis']);
+let bridgeMutex = null;
+function releaseBridgeMutex() {
+  if (bridgeMutex !== null) { const p=bridgeMutex; bridgeMutex=null; rmdirSync(p); fsyncDir(dirname(p)); }
+}
+function acquireBridgeMutex(root) {
+  checkRoot(root);
+  const p=join(root,'bridge-mutation.lock');
+  try { mkdirSync(p,{mode:0o700}); } catch { fail('BRIDGE_OPERATION_PENDING'); }
+  bridgeMutex=p; fsyncDir(root);
+}
 
 // ---------------------------------------------------------------- output/exit
 
 function ok(obj) {
+  releaseBridgeMutex();
   process.stdout.write(`${JSON.stringify({ ok: true, ...obj })}\n`);
   process.exit(0);
 }
 function fail(code, extra = {}) {
+  releaseBridgeMutex();
   process.stdout.write(`${JSON.stringify({ ok: false, code, ...extra })}\n`);
   process.exit(1);
 }
 function usage(msg) {
+  releaseBridgeMutex();
   process.stderr.write(`${msg}\n`);
   process.exit(2);
 }
@@ -72,6 +85,7 @@ const FLAG_SPECS = {
   'spool-part-finish': { '--upload-id': 'value', '--ordinal': 'value' },
   'spool-finish': { '--upload-id': 'value', '--producer-role': 'value' },
   'delivery-claim': { '--id': 'value' },
+  'delivery-verify': { '--id': 'value', '--file': 'value', '--message-json': 'value' },
   'delivery-receipt': { '--id': 'value', '--status': 'value', '--receipt-file': 'value' },
   'import-ack': { '--file': 'value', '--producer-role': 'value' },
   'conflict-resolve': { '--event-id': 'value', '--disposition': 'value', '--actor': 'value' },
@@ -86,8 +100,15 @@ const FLAG_SPECS = {
   'source-put': { '--id': 'value', '--offset': 'value', '--chunk-json': 'value', '--final': 'value', '--sha256': 'value', '--bytes': 'value' },
   'source-status': { '--id': 'value', '--sha256': 'value', '--bytes': 'value' },
   'locator-resolved': { '--producer-role': 'value', '--generation': 'value', '--locator-sha256': 'value', '--page-id': 'value', '--reference': 'value', '--source-sha256': 'value', '--bytes': 'value' },
-  'bridge-activated': { '--automation-id': 'value' },
+  'bridge-activated': { '--automation-id': 'value', '--receipt-file': 'value' },
   'bridge-source': { '--expected-sha256': 'value' },
+  'bridge-bootstrap': { '--expected-sha256': 'value', '--binding-sha256': 'value' },
+  'native-push': { '--argv-json': 'value', '--binding-sha256': 'value' },
+  'bridge-cycle-begin': { '--cycle-id': 'value', '--owner': 'value' },
+  'bridge-cycle-end': { '--cycle-id': 'value' },
+  'bridge-operation-begin': { '--cycle-id': 'value', '--operation-id': 'value', '--kind': 'value' },
+  'bridge-operation-end': { '--cycle-id': 'value', '--operation-id': 'value', '--result-json': 'value' },
+  'bridge-operation': { '--cycle-id': 'value', '--operation-id': 'value', '--argv-json': 'value' },
   status: {},
   'install-timer': { '--write-only': 'bool', '--plist-dir': 'value' },
   off: { '--reason': 'value' },
@@ -197,6 +218,129 @@ function atomicWriteFsynced(path, text, mode = 0o600) {
   } finally { closeSync(fd); }
   renameSync(tmp, path);
   fsyncDir(dirname(path));
+}
+
+// F08 native boundary: a cycle and each operation retain durable ownership
+// BEFORE subprocess/tool dispatch. No timeout/dead PID silently unlocks an
+// unknown operation. Captured completed results are the recovery authority;
+// old cycle tokens cannot start late writes after the next cycle takes over.
+function bridgeLock(root, cycleId = null) {
+  checkRoot(root);
+  const dir = join(root, 'bridge-cycle.lock');
+  let st;
+  try { st = lstatSync(dir); } catch { fail('BRIDGE_CYCLE_MISMATCH'); }
+  if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== process.geteuid()) fail('BRIDGE_CYCLE_RECOVERY_REQUIRED');
+  let record;
+  try { record = parseStrictJson(readFileSync(join(dir, 'cycle.json'), 'utf8')); } catch { fail('BRIDGE_CYCLE_RECOVERY_REQUIRED'); }
+  if (record.root !== root || (cycleId !== null && record.cycle_id !== cycleId)) fail('BRIDGE_CYCLE_MISMATCH');
+  return { dir, record };
+}
+
+function bridgePending(dir) {
+  const ops = join(dir, 'operations');
+  return readdirSync(ops).filter((n) => n.endsWith('.json') && !n.endsWith('.result.json')).some((n) => {
+    try {
+      const st = lstatSync(join(ops, n));
+      if (!st.isFile() || st.uid !== process.geteuid()) return true;
+      const r = parseStrictJson(readFileSync(join(ops, n), 'utf8'));
+      const path = join(ops, `${r.operation_id}.result.json`);
+      return r.state !== 'DONE' || !existsSync(path) || sha256OfBuffer(readFileSync(path)) !== r.result_sha256;
+    } catch { return true; }
+  });
+}
+
+function retireBridgeCycle(root, dir, record) {
+  const history = join(root, 'bridge-history');
+  mkdirSync(history, { recursive: true, mode: 0o700 });
+  const target = join(history, record.cycle_id);
+  if (existsSync(target)) fail('BRIDGE_CYCLE_RECOVERY_REQUIRED');
+  renameSync(dir, target); fsyncDir(root); fsyncDir(history);
+}
+
+function cmdBridgeCycleBegin({ root, flags }) {
+  const id = flags['--cycle-id']; const owner = flags['--owner'];
+  if (!SAFE_ID_RE.test(id ?? '') || !SAFE_ID_RE.test(owner ?? '')) usage('valid cycle/owner identities required');
+  checkRoot(root);
+  if (!existsSync(join(root, 'config.json')) || !existsSync(join(root, 'ledger.sqlite'))) fail('ROOT_NOT_INITIALIZED');
+  acquireBridgeMutex(root);
+  const dir = join(root, 'bridge-cycle.lock'); let recovered = null;
+  if (existsSync(dir)) {
+    const prior = bridgeLock(root);
+    if (prior.record.owner !== owner || bridgePending(dir)) fail('BRIDGE_OPERATION_PENDING');
+    recovered = prior.record.cycle_id;
+    retireBridgeCycle(root, dir, prior.record);
+  }
+  try { mkdirSync(dir, { mode: 0o700 }); } catch { fail('BRIDGE_OPERATION_PENDING'); }
+  mkdirSync(join(dir, 'operations'), { mode: 0o700 });
+  atomicWriteFsynced(join(dir, 'cycle.json'), JSON.stringify({ version: 1, root, cycle_id: id, owner, at: new Date().toISOString() })+'\n');
+  fsyncDir(root);
+  ok({ cycle_id: id, recovered });
+}
+
+function cmdBridgeCycleEnd({ root, flags }) {
+  acquireBridgeMutex(root);
+  const { dir, record } = bridgeLock(root, flags['--cycle-id']);
+  if (bridgePending(dir)) fail('BRIDGE_OPERATION_PENDING');
+  retireBridgeCycle(root, dir, record);
+  ok({ ended: true, cycle_id: record.cycle_id });
+}
+
+function beginBridgeOperation(root, flags, extra = {}) {
+  acquireBridgeMutex(root);
+  const { dir, record } = bridgeLock(root, flags['--cycle-id']);
+  const id = flags['--operation-id'];
+  if (!SAFE_ID_RE.test(id ?? '') || !['cli','send'].includes(flags['--kind'])) usage('valid operation/kind required');
+  if (bridgePending(dir)) fail('BRIDGE_OPERATION_PENDING');
+  const path = join(dir, 'operations', `${id}.json`);
+  try { const fd = openSync(path, 'wx', 0o600); closeSync(fd); } catch { fail('BRIDGE_OPERATION_EXISTS'); }
+  const intent = { version: 1, cycle_id: record.cycle_id, operation_id: id, owner: record.owner,
+    kind: flags['--kind'], state: 'PENDING', pid: process.pid,
+    process_start: productionProcessProbe(process.pid)?.start ?? null, ...extra };
+  atomicWriteFsynced(path, JSON.stringify(intent)+'\n');
+  releaseBridgeMutex();
+  return { path, intent };
+}
+
+function endBridgeOperation(root, flags, result) {
+  acquireBridgeMutex(root);
+  const { dir } = bridgeLock(root, flags['--cycle-id']); const id = flags['--operation-id'];
+  if (!SAFE_ID_RE.test(id ?? '')) usage('valid operation required');
+  const path = join(dir, 'operations', `${id}.json`);
+  let intent; try { intent = parseStrictJson(readFileSync(path, 'utf8')); } catch { fail('BRIDGE_OPERATION_PENDING'); }
+  if (intent.operation_id !== id || intent.cycle_id !== flags['--cycle-id'] || intent.state !== 'PENDING') fail('BRIDGE_OPERATION_EXISTS');
+  const bytes = JSON.stringify(result)+'\n';
+  if (Buffer.byteLength(bytes) > 65536 || scanForbiddenKeys(result)) fail('BRIDGE_OPERATION_RESULT');
+  atomicWriteFsynced(join(dir, 'operations', `${id}.result.json`), bytes);
+  atomicWriteFsynced(path, JSON.stringify({ ...intent, state: 'DONE', result_sha256: sha256OfText(bytes) })+'\n');
+  releaseBridgeMutex();
+}
+
+function cmdBridgeOperationBegin({ root, flags }) {
+  const { intent } = beginBridgeOperation(root, flags);
+  ok({ operation_id: intent.operation_id, state: intent.state });
+}
+
+function cmdBridgeOperationEnd({ root, flags }) {
+  let result; try { result = parseStrictJson(flags['--result-json'] ?? '', { maxBytes: 65536 }); } catch { fail('BRIDGE_OPERATION_RESULT'); }
+  endBridgeOperation(root, flags, result);
+  ok({ operation_id: flags['--operation-id'], state: 'DONE' });
+}
+
+function cmdBridgeOperation({ root, flags }) {
+  let args; try { args = parseStrictJson(flags['--argv-json'] ?? '', { maxBytes: 65536 }); } catch { fail('BRIDGE_OPERATION_ARGS'); }
+  const allowed = new Set(['status','tick','plan','plan-advance','spool-begin','spool-append','spool-part-begin','spool-part-finish','spool-finish',
+    'delivery-claim','delivery-verify','delivery-receipt','import-ack','manifest-import','snapshot-import','receipt-import','index-import',
+    'receipt-claim','receipt-outcome','metadata-put','source-put','source-status','locator-resolved']);
+  if (!Array.isArray(args) || args.length < 1 || !allowed.has(args[0]) || args.some((a) => typeof a !== 'string')
+    || args.includes('--root')) fail('BRIDGE_OPERATION_ARGS');
+  const childArgs = [...args, '--root', root];
+  parseArgs(childArgs); // reject malformed command/flags before intent or child
+  beginBridgeOperation(root, { ...flags, '--kind': 'cli' }, { argv_sha256: sha256OfText(JSON.stringify(childArgs)) });
+  const r = spawnSync(process.execPath, [SELF, ...childArgs], { encoding: 'utf8', maxBuffer: 65536 });
+  let result; try { result = parseStrictJson(r.stdout ?? '', { maxBytes: 65536 }); } catch { result = { ok: false, code: 'BRIDGE_OPERATION_RESULT' }; }
+  if (r.error || r.status === null) fail('BRIDGE_OPERATION_PENDING'); // outcome unknown; retain intent
+  endBridgeOperation(root, flags, { exit_code: r.status, result });
+  process.stdout.write(JSON.stringify(result)+'\n'); process.exit(r.status);
 }
 
 function fsyncExistingFile(path) {
@@ -545,6 +689,13 @@ function cmdTick({ root }) {
     // Durable OFF suppresses planning/admission/recovery entirely (§1) —
     // reboot/login/manual tick all arrive here and none clears it.
     if (ledger.status().off) return ok({ off: true, supervise_launched: false });
+    if (existsSync(join(root, 'native-binding.json'))) {
+      const native = nativeBinding(root);
+      // Existing native owner consumes the durable plan on its heartbeat.
+      // No GLM launch, reservation, attempt debit or session substitution.
+      return ok({ deployment_mode:'NATIVE_EXISTING_OWNER', owner:native.owner,
+        supervise_launched:false, source_commit:native.source_commit });
+    }
     // §2: host reconciliation runs ONLY from the owned scheduler (never from
     // status/open). Unprovable session census maps to "no session evidence" —
     // reconcileHost then holds conservatively instead of adopting.
@@ -664,6 +815,10 @@ async function cmdSupervise({ root, flags }) {
   const mode = flags['--resume'] ? 'resume' : flags['--adopt'] ? 'adopt' : 'run';
   checkRoot(root);
   if (!existsSync(join(root, 'config.json'))) fail('ROOT_NOT_INITIALIZED');
+  if (existsSync(join(root, 'native-binding.json'))) {
+    nativeBinding(root);
+    fail('NATIVE_OWNER_REQUIRED');
+  }
   // resumeReserved: this open takes over the row tick reserved — the restart
   // reconcile must not flip our own row to UNCERTAIN.
   const ledger = openLedger(join(root, 'ledger.sqlite'), { resumeReserved: id });
@@ -1393,10 +1548,39 @@ function cmdDeliveryClaim({ root, flags }) {
       // The exact stored manifest bytes — the bridge sends this verbatim as
       // the delivery prompt (BRIDGE-RUNNER-ADDENDUM send contract).
       manifest: m ? m.manifest_json : null,
+      delivery_wrapper: m ? deliveryMessage(c, m.manifest_json) : null,
     });
   } catch (e) {
     fail(e.code ?? 'DELIVERY_ERROR');
   } finally { ledger.close(); }
+}
+
+function cmdDeliveryVerify({ root, flags }) {
+  const { ledger } = openRoot(root);
+  try {
+    const id = flags['--id'];
+    const row = id ? ledger.getOutbox(id) : null;
+    if (!row || row.state !== 'CLAIMED') fail('DELIVERY_CLAIM_MISMATCH');
+    let message;
+    if (flags['--message-json']) {
+      try { message = parseStrictJson(flags['--message-json'], { maxBytes: 32768 }); } catch { fail('DELIVERY_CLAIM_MISMATCH'); }
+    } else {
+      const path = flags['--file'];
+      if (!path || !resolve(path).startsWith(resolve(root)+ '/')) fail('DELIVERY_CLAIM_MISMATCH');
+      const st = lstatSync(path);
+      if (!st.isFile() || st.uid !== process.geteuid() || (st.mode & 0o002)) fail('DELIVERY_CLAIM_MISMATCH');
+      message = readFileSync(path, 'utf8');
+    }
+    const manifest = ledger.getManifest(row.event_id);
+    const event = ledger.getEvent(row.event_id);
+    if (!manifest || !event) fail('DELIVERY_CLAIM_MISMATCH');
+    const expected = deliveryMessage({ delivery_id: id, event_id: row.event_id, destination: row.destination,
+      artifact_sha256: manifest.artifact_sha256, event_sha256: event.sha256 }, manifest.manifest_json);
+    if (message !== expected) fail('DELIVERY_CLAIM_MISMATCH');
+    validateDeliveryMessage(message, row.destination);
+    ok({ verified: true, delivery_id: id, event_id: row.event_id, destination: row.destination });
+  } catch { fail('DELIVERY_CLAIM_MISMATCH'); }
+  finally { ledger.close(); }
 }
 
 function cmdDeliveryReceipt({ root, flags }) {
@@ -1591,6 +1775,35 @@ function cmdBridgeActivated({ root, flags }) {
   if (!automationId || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$/.test(automationId)) fail('BAD_AUTOMATION_ID');
   const { ledger } = openRoot(root);
   try {
+    let nativeReceipt = null;
+    if (existsSync(join(root,'native-binding.json'))) {
+      const native = nativeBinding(root);
+      let r;
+      try {
+        const p=resolve(flags['--receipt-file'] ?? '');
+        if (!p.startsWith(root+'/')) throw Error();
+        const st=lstatSync(p);
+        if(!st.isFile() || st.isSymbolicLink() || st.uid!==process.geteuid()) throw Error();
+        r=parseStrictJson(readFileSync(p,'utf8'),{maxBytes:32768});
+        if(r.version!==1 || r.automation_id!==automationId || r.status!=='ACTIVE' || r.kind!=='heartbeat'
+          || r.owner!==native.owner || r.interval_seconds!==14400
+          || r.native_binding_sha256!==sha256OfBuffer(readFileSync(join(root,'native-binding.json')))
+          || !/^[0-9a-f]{64}$/.test(r.bootstrap_sha256 ?? '') || !r.automation_source) throw Error();
+        const a=r.automation_source; const ast=lstatSync(a.path);
+        if(!isAbsolute(a.path) || !ast.isFile() || ast.isSymbolicLink() || ast.uid!==process.geteuid()
+          || sha256OfBuffer(readFileSync(a.path))!==a.sha256) throw Error();
+        const automation=readFileSync(a.path,'utf8');
+        const field=(key)=>{
+          const lines=automation.split('\n').filter((line)=>line.startsWith(key+' = '));
+          if(lines.length!==1) throw Error();
+          return parseStrictJson(lines[0].slice((key+' = ').length),{maxBytes:16384});
+        };
+        if(field('id')!==automationId || field('kind')!=='heartbeat' || field('status')!=='ACTIVE'
+          || field('target_thread_id')!==native.owner || field('rrule')!=='FREQ=HOURLY;INTERVAL=4'
+          || !field('prompt').includes(r.bootstrap_sha256)) throw Error();
+      } catch { fail('ACTIVATION_ADMISSION_UNPROVEN'); }
+      nativeReceipt=r;
+    }
     const receiptPath = join(root, 'bridge-activation.json');
     if (existsSync(receiptPath)) {
       let prior;
@@ -1599,11 +1812,12 @@ function cmdBridgeActivated({ root, flags }) {
       } catch {
         fail('ACTIVATION_RECEIPT_CORRUPT');
       }
-      if (prior.automation_id !== automationId) fail('AUTOMATION_CONFLICT');
+      if (prior.automation_id !== automationId || (nativeReceipt && prior.native_binding_sha256!==nativeReceipt.native_binding_sha256)) fail('AUTOMATION_CONFLICT');
       ok({ automation_id: automationId, replay: true, off_cleared: false });
       return;
     }
     const receipt = {
+      ...(nativeReceipt ?? {}),
       automation_id: automationId,
       os_user: process.env.USER ?? null,
       at: new Date().toISOString(),
@@ -1626,7 +1840,16 @@ function cmdStatus({ root }) {
     if (existsSync(tp)) {
       try { timer = JSON.parse(readFileSync(tp, 'utf8')); } catch { timer = null; }
     }
-    ok({ ...st, scheduler, timer });
+    let bridge = { state:'PARTIAL_AWAITING_BRIDGE', active:false };
+    if (existsSync(join(root, 'native-binding.json'))) {
+      const native = nativeBinding(root);
+      let activation; try { activation = parseStrictJson(readFileSync(join(root, 'bridge-activation.json'), 'utf8')); } catch { activation=null; }
+      bridge = { state:activation?.native_binding_sha256 === sha256OfBuffer(readFileSync(join(root,'native-binding.json')))
+        && activation?.owner === native.owner ? 'ACTIVATED' : 'PARTIAL_AWAITING_BRIDGE',
+        active:false, owner:native.owner, source_commit:native.source_commit };
+      bridge.active = bridge.state === 'ACTIVATED' && st.off !== true;
+    }
+    ok({ ...st, scheduler, timer, bridge });
   } finally { ledger.close(); }
 }
 
@@ -1749,7 +1972,7 @@ function cmdResume({ root, flags }) {
 // on-root reviewed pin file, and the actual file bytes all agree. A symlink,
 // an oversize file, or any pin disagreement is BRIDGE_SOURCE_UNTRUSTED —
 // refused before a single byte of source is handed out.
-function cmdBridgeSource({ root, flags }) {
+function bridgeSource(root, flags) {
   const expected = flags['--expected-sha256'];
   if (!expected || !/^[0-9a-f]{64}$/.test(expected)) usage('--expected-sha256 (64 lowercase hex) required');
   const { ledger } = openRoot(root);
@@ -1799,8 +2022,105 @@ function cmdBridgeSource({ root, flags }) {
       event_limit: 10,
       index_page_limit: 10,
     };
-    ok({ version: 1, sha256: sha, source: bytes.toString('utf8'), config });
+    if (existsSync(join(root,'native-binding.json'))) {
+      const native = nativeBinding(root);
+      config.coordinator_id = native.owner;
+      config.operation_fence_required = true;
+    }
+    return { version: 1, sha256: sha, source: bytes.toString('utf8'), config };
   } finally { ledger.close(); }
+}
+
+function cmdBridgeSource({ root, flags }) { ok(bridgeSource(root, flags)); }
+
+function nativeBinding(root, expected = null) {
+  const path = join(root,'native-binding.json');
+  let b;
+  try {
+    const st = lstatSync(path);
+    if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.geteuid()) throw Error();
+    const bytes = readFileSync(path);
+    if (expected !== null && sha256OfBuffer(bytes) !== expected) throw Error();
+    b = parseStrictJson(bytes.toString('utf8'),{maxBytes:32768});
+    if (b.version !== 1 || b.mode !== 'NATIVE_EXISTING_OWNER' || b.cli !== SELF
+      || !/^[0-9a-f-]{36}$/.test(b.owner ?? '') || !/^[0-9a-f]{40}$/.test(b.source_commit ?? '')
+      || !Array.isArray(b.source_files) || b.source_files.length < 4) throw Error();
+    for (const f of b.source_files) {
+      if (!/^[A-Za-z0-9_.-]+$/.test(f.name) || !/^[0-9a-f]{64}$/.test(f.sha256)) throw Error();
+      const p = join(HERE,f.name); const s = lstatSync(p);
+      if (!s.isFile() || s.isSymbolicLink() || sha256OfBuffer(readFileSync(p)) !== f.sha256) throw Error();
+    }
+    for (const evidence of [b.authority,b.source_acceptance,b.installation,b.receiver_contract]) {
+      if (!evidence || !isAbsolute(evidence.path) || !/^[0-9a-f]{64}$/.test(evidence.sha256)) throw Error();
+      const st = lstatSync(evidence.path);
+      if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.geteuid()
+        || sha256OfBuffer(readFileSync(evidence.path)) !== evidence.sha256) throw Error();
+    }
+  } catch { fail('NATIVE_BINDING_UNTRUSTED'); }
+  return b;
+}
+
+function cmdNativePush({ root, flags }) {
+  const b = nativeBinding(root,flags['--binding-sha256']);
+  let argv; try { argv = parseStrictJson(flags['--argv-json'] ?? '',{maxBytes:4096}); } catch { fail('NATIVE_PUSH_ARGS'); }
+  const r = nativeGitPush(argv,{binding:b.push});
+  if (!r.ok) fail(r.code);
+  ok(r);
+}
+
+// The installed host bootstrap executes in the native tool isolate. The
+// reviewed source bytes are embedded only after both source pins pass.
+// Awaiting retained operations keeps the isolate alive after body deadlines;
+// unknown tool outcomes leave their durable PENDING intent, never unlock.
+function cmdBridgeBootstrap({ root, flags }) {
+  if (!/^[0-9a-f]{64}$/.test(flags['--binding-sha256'] ?? '')) usage('--binding-sha256 required');
+  const native = nativeBinding(root,flags['--binding-sha256']);
+  const loaded = bridgeSource(root,flags);
+  const config = { ...loaded.config, owner:native.owner, operation_fence_required:true };
+  const source = `const config = ${JSON.stringify(config)};
+const source = ${JSON.stringify(loaded.source)};
+const sq = (s) => "'" + String(s).replace(/'/g, "'\\\\''") + "'";
+const cycle = 'cycle-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+let serial = 0; const pending = new Set();
+const cli = async (args) => {
+  const cmd = ['env','NODE_NO_WARNINGS=1',sq(config.node),sq(config.cli),...args.map(sq),'--root',sq(config.root)].join(' ');
+  let r = await tools.exec_command({cmd,yield_time_ms:1000,max_output_tokens:32768});
+  let output = r.output ?? '';
+  while (r.session_id && r.exit_code === undefined) {
+    r = await tools.write_stdin({session_id:r.session_id,chars:'',yield_time_ms:1000,max_output_tokens:32768});
+    output += r.output ?? '';
+  }
+  let value; try { value = JSON.parse(output.trim()); } catch { throw Error('BRIDGE_OPERATION_RESULT'); }
+  if(r.exit_code !== 0 || value.ok !== true) throw Error(value.code ?? 'CLI_FAILED');
+  return value;
+};
+const track = (p) => { pending.add(p); p.then(() => pending.delete(p),() => pending.delete(p)); return p; };
+await cli(['bridge-cycle-begin','--cycle-id',cycle,'--owner',config.owner]);
+config.timers = {setTimeout,clearTimeout};
+config.operation_exec = (args) => track(cli(['bridge-operation','--cycle-id',cycle,'--operation-id','cli-'+(++serial),'--argv-json',JSON.stringify(args)]));
+const supported = {};
+for (const name of ['mcp__codex_app__wait_threads','mcp__codex_apps__chatgpt_space_read_page_reference','mcp__codex_apps__chatgpt_space_read_page']) supported[name] = (...args) => track(tools[name](...args));
+supported.mcp__codex_app__send_message_to_thread = (arg) => track((async () => {
+  if (typeof arg?.prompt !== 'string' || ![config.ids.collector,config.ids.analyst,config.ids.solver].includes(arg.threadId)) throw Error('DELIVERY_DESTINATION');
+  if (arg.prompt.startsWith('DOT_RELAY_DELIVERY ')) {
+    let w; try { w=JSON.parse(arg.prompt.slice('DOT_RELAY_DELIVERY '.length)); } catch { throw Error('DELIVERY_WRAPPER'); }
+    await config.operation_exec(['delivery-verify','--id',w.delivery_id,'--message-json',JSON.stringify(arg.prompt)]);
+  } else if (!arg.prompt.startsWith('DOT_RELAY_IMPORTED ')) throw Error('DELIVERY_WRAPPER');
+  const id = 'send-'+(++serial);
+  await cli(['bridge-operation-begin','--cycle-id',cycle,'--operation-id',id,'--kind','send']);
+  const r = await tools.mcp__codex_app__send_message_to_thread(arg);
+  let response=null; try { if(r.isError !== true && r.content?.length===1 && r.content[0].type==='text') response=JSON.parse(r.content[0].text); } catch {}
+  await cli(['bridge-operation-end','--cycle-id',cycle,'--operation-id',id,'--result-json',JSON.stringify({ok:response?.threadId===arg.threadId,thread_id:arg.threadId})]);
+  return r;
+})());
+const emitted=[]; let result;
+try { const fn = new (async function(){}).constructor('tools','config','emit',source); result=await fn(supported,config,(r)=>emitted.push(r)); }
+finally { while(pending.size) await Promise.allSettled([...pending]); }
+await cli(['bridge-cycle-end','--cycle-id',cycle]);
+if(emitted.length!==1 || JSON.stringify(result).length>4096) throw Error('BRIDGE_OUTPUT');
+emit(result);
+return result;`;
+  ok({version:1,source,source_sha256:sha256OfText(source),body_sha256:loaded.sha256,native_binding_sha256:flags['--binding-sha256']});
 }
 
 // ---------------------------------------------------------------- off / stop
@@ -1940,6 +2260,7 @@ const HANDLERS = {
   'spool-part-finish': cmdSpoolPartFinish,
   'spool-finish': cmdSpoolFinish,
   'delivery-claim': cmdDeliveryClaim,
+  'delivery-verify': cmdDeliveryVerify,
   'delivery-receipt': cmdDeliveryReceipt,
   'import-ack': cmdImportAck,
   'conflict-resolve': cmdConflictResolve,
@@ -1956,6 +2277,13 @@ const HANDLERS = {
   'locator-resolved': cmdLocatorResolved,
   'bridge-activated': cmdBridgeActivated,
   'bridge-source': cmdBridgeSource,
+  'bridge-bootstrap': cmdBridgeBootstrap,
+  'native-push': cmdNativePush,
+  'bridge-cycle-begin': cmdBridgeCycleBegin,
+  'bridge-cycle-end': cmdBridgeCycleEnd,
+  'bridge-operation-begin': cmdBridgeOperationBegin,
+  'bridge-operation-end': cmdBridgeOperationEnd,
+  'bridge-operation': cmdBridgeOperation,
   status: cmdStatus,
   'install-timer': cmdInstallTimer,
   off: cmdOff,

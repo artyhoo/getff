@@ -25,7 +25,7 @@ import { join, dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import { digest, CHAT_IDS, splitCodepointParts } from './contract.mjs';
+import { digest, CHAT_IDS, splitCodepointParts, validateDeliveryMessage } from './contract.mjs';
 import { DatabaseSync } from 'node:sqlite';
 
 const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
@@ -277,7 +277,7 @@ function smallCase(tag, gen = `COLLECTOR-INDEX-${tag}`) {
     version: 1, status: 'READY', event_id: `DOT-BR-${tag}`, kind: 'batch',
     producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
     sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
-    artifact: { page_id: `sm-${tag}`, reference: `ref-sm-${tag}` }, delivery_id: null,
+    artifact: { page_id: `page_sm-${tag}`, reference: `library-file:ref-sm-${tag}` }, delivery_id: null,
   };
   const page0 = {
     version: 1, producer: CHAT_IDS.collector, generation: gen, page_number: 0,
@@ -287,7 +287,7 @@ function smallCase(tag, gen = `COLLECTOR-INDEX-${tag}`) {
   return {
     text, manifest, page0, page0Text, generation: gen,
     locatorIndex: { page_id: `ix-${tag}`, reference: `library-file:/ix/${tag}.json`, sha256: sha256Of(page0Text), bytes: Buffer.byteLength(page0Text) },
-    pages: { [`ref-sm-${tag}`]: text, [`library-file:/ix/${tag}.json`]: page0Text },
+    pages: { [`library-file:ref-sm-${tag}`]: text, [`library-file:/ix/${tag}.json`]: page0Text },
   };
 }
 
@@ -339,7 +339,7 @@ function bigCase() {
     artifact: {
       sha256: sha256Of(text), bytes: Buffer.byteLength(text),
       parts: descriptors.map((d, i) => ({
-        ordinal: i, page_id: `big-part-${i}`, reference: `ref-big-${i}`,
+        ordinal: i, page_id: `page_big-part-${i}`, reference: `library-file:ref-big-${i}`,
         sha256: d.sha256, bytes: d.bytes,
       })),
     },
@@ -356,7 +356,7 @@ function bigCase() {
   const pages = {
     'library-file:/ix/BIG-page-0.json': page0Text,
     'library-file:/ix/BIG-page-1.json': page1Text,
-    ...Object.fromEntries(parts.map((p, i) => [`ref-big-${i}`, p])),
+    ...Object.fromEntries(parts.map((p, i) => [`library-file:ref-big-${i}`, p])),
   };
   return {
     text, manifest, parts, pages, wholeSha: sha256Of(text), generation: 'COLLECTOR-INDEX-BIG',
@@ -549,14 +549,16 @@ test('full small cycle: locator via content-wrapped wait -> source-put + index-i
   const obj = join(root, 'objects', `${c.manifest.sha256}.json`);
   assert.equal(readFileSync(obj, 'utf8'), c.text);
   // reads: index page then artifact reference; NO read_page fallback on a full reference
-  assert.deepEqual(calls.reads.map((r) => r.reference), [`library-file:/ix/SC1.json`, `ref-sm-SC1`]);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [`library-file:/ix/SC1.json`, `library-file:ref-sm-SC1`]);
   assert.equal(calls.readPage.length, 0);
 
   // delivery send: destination thread, prompt carries the exact manifest
   const deliverySend = calls.sends.find((s) => s.prompt && !s.prompt.startsWith('DOT_RELAY_IMPORTED '));
   assert.ok(deliverySend, 'one artifact delivery send');
   assert.equal(deliverySend.threadId, CHAT_IDS.analyst);
-  assert.deepEqual(JSON.parse(deliverySend.prompt), c.manifest);
+  const { wrapper } = validateDeliveryMessage(deliverySend.prompt, deliverySend.threadId);
+  assert.deepEqual(JSON.parse(wrapper.manifest), c.manifest);
+  assert.equal(typeof wrapper.delivery_id, 'string');
   // receipt send: DOT_RELAY_IMPORTED to the collector thread
   const receiptSend = calls.sends.find((s) => s.prompt && s.prompt.startsWith('DOT_RELAY_IMPORTED '));
   assert.ok(receiptSend, 'one imported-receipt send');
@@ -598,7 +600,7 @@ test('big cycle: 2-page chain + 351KiB multipart artifact (multibyte chunks) via
   const obj = join(root, 'objects', `${c.wholeSha}.json`);
   assert.equal(statSync(obj).size, Buffer.byteLength(c.text));
   assert.equal(readFileSync(obj, 'utf8'), c.text);
-  assert.deepEqual(calls.reads.map((r) => r.reference), ['library-file:/ix/BIG-page-0.json', 'library-file:/ix/BIG-page-1.json', ...c.parts.map((_, i) => `ref-big-${i}`)]);
+  assert.deepEqual(calls.reads.map((r) => r.reference), ['library-file:/ix/BIG-page-0.json', 'library-file:/ix/BIG-page-1.json', ...c.parts.map((_, i) => `library-file:ref-big-${i}`)]);
   // a second cycle with no new polls re-fetches nothing and sends nothing
   const second = makeTools({ polls: [], pages: c.pages });
   const r2 = await runBody(root, second.tools);
@@ -798,7 +800,7 @@ test('crash-restart: partial multipart spool resumed by a later cycle with exact
   assertResultShape(result);
   assert.ok(existsSync(join(root, 'objects', `${c.wholeSha}.json`)), 'whole object published by resume');
   assert.equal(readFileSync(join(root, 'objects', `${c.wholeSha}.json`), 'utf8'), c.text);
-  assert.deepEqual(calls.reads.map((r) => r.reference), c.parts.slice(1).map((_, i) => `ref-big-${i + 1}`), 'only the missing parts refetched');
+  assert.deepEqual(calls.reads.map((r) => r.reference), c.parts.slice(1).map((_, i) => `library-file:ref-big-${i + 1}`), 'only the missing parts refetched');
   const artifactSends = calls.sends.filter((s) => !String(s.prompt ?? '').startsWith('DOT_RELAY_IMPORTED '));
   assert.equal(artifactSends.length, 1, 'delivery send fired after resume');
   rmSync(root, { recursive: true, force: true });
@@ -836,9 +838,9 @@ function implicitCase(tag, { multibyte = false } = {}) {
     version: 1, status: 'READY', event_id: `DOT-BR-${tag}`, kind: 'batch',
     producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
     sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
-    artifact: { page_id: `f09-${tag}`, reference: `ref-f09-${tag}` }, delivery_id: null,
+    artifact: { page_id: `page_f09-${tag}`, reference: `library-file:ref-f09-${tag}` }, delivery_id: null,
   };
-  return { text, manifest, pages: { [`ref-f09-${tag}`]: text } };
+  return { text, manifest, pages: { [`library-file:ref-f09-${tag}`]: text } };
 }
 
 // Mirrors the body's greedy codepoint-safe 12000-byte chunk packing.
@@ -922,7 +924,7 @@ test('F09 crash-restart: partial implicit ASCII upload resumes from the verified
   assert.equal(readFileSync(obj, 'utf8'), c.text);
   assert.equal(readdirSync(join(root, 'spool')).length, 0, 'no leaked spool state after completion');
   // the source was refetched exactly ONCE for the verified suffix
-  assert.deepEqual(calls.reads.map((r) => r.reference), ['ref-f09-F09A']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), ['library-file:ref-f09-F09A']);
   // ONLY the suffix was appended — never the whole object again
   assert.equal(f09CycleAppendBytes(calls), Buffer.byteLength(c.text) - appendedBytes);
   assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
@@ -958,7 +960,7 @@ test('F09 crash-restart: partial implicit MULTIBYTE upload resumes codepoint-saf
   const obj = join(root, 'objects', `${c.manifest.sha256}.json`);
   assert.ok(existsSync(obj), 'object published by resume');
   assert.equal(readFileSync(obj, 'utf8'), c.text, 'exact multibyte whole bytes');
-  assert.deepEqual(calls.reads.map((r) => r.reference), ['ref-f09-F09B']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), ['library-file:ref-f09-F09B']);
   assert.equal(f09CycleAppendBytes(calls), Buffer.byteLength(c.text) - appendedBytes, 'suffix only');
   assert.ok(!calls.exec.some((cmd) => cmd.includes("'spool-begin'")), 'no second upload identity');
   assert.equal(readdirSync(join(root, 'spool')).length, 0, 'no leaked spool state');
@@ -1069,7 +1071,7 @@ test('F09 holds: torn offset / drifted source / contradictory commit fail closed
     const drifted = c.text.replace('bridge f09 fixture', 'drifted f09 fixture');
     assert.notEqual(sha256Of(drifted), c.manifest.sha256);
 
-    const { tools, calls } = makeTools({ polls: [], pages: { 'ref-f09-F09H2': drifted } });
+    const { tools, calls } = makeTools({ polls: [], pages: { 'library-file:ref-f09-F09H2': drifted } });
     const { result } = await runBody(root, tools);
     assertResultShape(result);
     assert.ok(result.blockers.some((b) => b.code === 'PART_DESCRIPTOR_MISMATCH'), 'drifted source holds');
@@ -1150,7 +1152,7 @@ test('Page fallback: library-file locator resolves via read_page search, verify,
     context_blocks: 0,
   });
   // then exactly one verified read_page_reference of the linked target
-  assert.deepEqual(calls.reads.map((r) => r.reference), [c.target, `ref-sm-F1`]);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [c.target, `library-file:ref-sm-F1`]);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-fb-1');
   assert.ok(existsSync(join(root, 'sources', `${c.locatorIndex.sha256}.json`)));
   rmSync(root, { recursive: true, force: true });
@@ -1224,7 +1226,7 @@ test('Page fallback cross-scheme: a library-file type-label resolves via a proje
   assert.equal(result.state, 'PROGRESSED');
   assert.equal(result.counts.sources, 1);
   // EITHER full scheme is a candidate — not confined to the literal type-label
-  assert.deepEqual(calls.reads.map((r) => r.reference), [target, 'ref-sm-F5']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [target, 'library-file:ref-sm-F5']);
   assert.ok(existsSync(join(root, 'sources', `${idx.sha256}.json`)));
   rmSync(root, { recursive: true, force: true });
 });
@@ -1322,7 +1324,7 @@ test('locator resolution cache: cycle 1 resolves+durably caches but publishing f
   assertResultShape(r2.result);
   assert.ok(!r2.result.blockers.some((b) => b.code === 'INDEX_PAGE_LOOKUP_FAILED' || b.code === 'INDEX_REF_UNRESOLVED'));
   assert.equal(second.calls.readPage.length, 0, 'cached resolution skips read_page entirely');
-  assert.deepEqual(second.calls.reads.map((r) => r.reference), [target, 'ref-sm-F8'], 'cached ref fetched + verified exactly once');
+  assert.deepEqual(second.calls.reads.map((r) => r.reference), [target, 'library-file:ref-sm-F8'], 'cached ref fetched + verified exactly once');
   assert.ok(existsSync(join(root, 'sources', `${idx.sha256}.json`)), 'source published in cycle 2');
   assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-fb-8b');
@@ -1350,7 +1352,7 @@ test('F04: real opaque library-file:fde1_... reference resolves on the fast path
   assert.equal(result.state, 'PROGRESSED');
   assert.equal(result.counts.sources, 1);
   // the opaque target is fetched DIRECTLY — a slash was never part of the grammar
-  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'ref-sm-F04A']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'library-file:ref-sm-F04A']);
   assert.equal(calls.readPage.length, 0, 'fast path never fires the Page fallback');
   assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text, 'exact descriptor bytes published');
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f04-a');
@@ -1371,7 +1373,7 @@ test('F04: real opaque project-file target resolves identically (either scheme, 
   assertResultShape(result);
   assert.equal(result.state, 'PROGRESSED');
   assert.equal(result.counts.sources, 1);
-  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'ref-sm-F04B']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [opaque, 'library-file:ref-sm-F04B']);
   assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
   rmSync(root, { recursive: true, force: true });
 });
@@ -1401,7 +1403,7 @@ test('F04: real nested read_page shape resolves the bare label with exact hash/s
     context_blocks: 0,
   });
   // the opaque link target is a full candidate and verifies exactly
-  assert.deepEqual(calls.reads.map((r) => r.reference), [target, 'ref-sm-F04C']);
+  assert.deepEqual(calls.reads.map((r) => r.reference), [target, 'library-file:ref-sm-F04C']);
   assert.equal(readFileSync(join(root, 'sources', `${idx.sha256}.json`), 'utf8'), c.page0Text);
   assert.equal(cliJson(['plan', '--root', root]).committed_cursors.collector, 'cur-f04-c');
   rmSync(root, { recursive: true, force: true });
@@ -1663,7 +1665,7 @@ function sizedCase(tag, targetBytes) {
     version: 1, status: 'READY', event_id: env.id, kind: 'batch',
     producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
     sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
-    artifact: { page_id: `sz-${tag}`, reference: `ref-sz-${tag}` }, delivery_id: null,
+    artifact: { page_id: `page_sz-${tag}`, reference: `library-file:ref-sz-${tag}` }, delivery_id: null,
   };
   const padManifest = (i, refLen) => ({
     version: 1, status: 'READY', event_id: `DOT-BR-${tag}-PAD${i}`, kind: 'batch',
@@ -1693,7 +1695,7 @@ function sizedCase(tag, targetBytes) {
   return {
     text, manifest, page0Text, generation: `COLLECTOR-INDEX-${tag}`,
     locatorIndex: { page_id: `ix-${tag}`, reference: `library-file:/ix/${tag}.json`, sha256: sha256Of(page0Text), bytes: len },
-    pages: { [`ref-sz-${tag}`]: text, [`library-file:/ix/${tag}.json`]: page0Text },
+    pages: { [`library-file:ref-sz-${tag}`]: text, [`library-file:/ix/${tag}.json`]: page0Text },
   };
 }
 
@@ -1827,7 +1829,7 @@ test('BC2: many pending receipts SHARE the event_limit send cap with deliveries;
     version: 1, status: 'READY', event_id: 'DOT-BR-BC2', kind: 'batch',
     producer: CHAT_IDS.collector, destination: CHAT_IDS.analyst,
     sha256: sha256Of(text), bytes: Buffer.byteLength(text), parents: [],
-    artifact: { page_id: 'pg-bc2', reference: 'ref-bc2' }, delivery_id: null,
+    artifact: { page_id: 'page_pg-bc2', reference: 'library-file:ref-bc2' }, delivery_id: null,
   };
   mkdirSync(join(root, 'in'), { recursive: true });
   writeFileSync(join(root, 'in', 'bc2.manifest.json'), `${JSON.stringify(manifest)}\n`);
@@ -1885,7 +1887,7 @@ test('F16: an OPEN chain never commits the continuation cursor; a COMPLETED chai
     'library-file:/ix/BIG-page-0.json': JSON.stringify(page0),
     'library-file:/ix/BIG-page-1.json': page1Text,
     'library-file:/ix/BIG-page-2.json': page2Text,
-    ...Object.fromEntries(b.parts.map((p, i) => [`ref-big-${i}`, p])),
+    ...Object.fromEntries(b.parts.map((p, i) => [`library-file:ref-big-${i}`, p])),
   };
   mkdirSync(join(root, 'in'), { recursive: true });
   const p0 = join(root, 'in', 'f16-p0.json');
