@@ -230,7 +230,7 @@
     {
       "path": "codex-contributor-plugin/runtime/scripts/codex-hook-adapter.mjs",
       "kind": "text",
-      "fingerprint": "6d0f61b3221ebe1e7058a0cf5692ccb279494233e9f82625f542e50474674140"
+      "fingerprint": "80a39d78abbb9747cb0da75c1746ee7a29b3a6ea33dee9ebb43132cd0e032636"
     },
     {
       "path": "codex-contributor-plugin/runtime/scripts/lib/is-main-entry.mjs",
