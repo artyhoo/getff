@@ -141,7 +141,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2368 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1526 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1528 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -165,11 +165,11 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2702 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2704 (workflow-run:invocation-verb)",
           ".husky/pre-commit:241 (quoted-path-token)",
           "setup.d/eslint-wire.sh:439 (command-position)",
           "setup.d/eslint-wire.sh:442 (command-position)",
-          "setup.d/portable-bindings.sh:283 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:290 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -210,7 +210,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2429 (spawn-argument)",
-          ".github/workflows/audit-self.yml:2889 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2891 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -248,7 +248,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2638 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2640 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -267,7 +267,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2687 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2689 (workflow-run:invocation-verb)",
           ".husky/pre-commit:181 (quoted-path-token)"
         ]
       },
@@ -307,7 +307,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2736 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2738 (workflow-run:invocation-verb)",
           ".husky/pre-commit:223 (quoted-path-token)"
         ]
       },
@@ -366,7 +366,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2865 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2867 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -395,8 +395,8 @@
         "wired-from": [
           "setup.d/codex-bindings.mjs:27 (quoted-path-token)",
           "setup.d/eslint-wire.sh:434 (command-position)",
-          "setup.d/portable-bindings.sh:404 (quoted-path-token)",
           "setup.d/portable-bindings.sh:411 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:418 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -449,8 +449,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1432 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1437 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1434 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1439 (workflow-run:invocation-verb)",
           "setup.d/eslint-wire.sh:442 (command-position)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -775,7 +775,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1460 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1462 (workflow-run:invocation-verb)",
           "setup.d/eslint-wire.sh:442 (command-position)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -828,7 +828,7 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/portable-bindings.sh:282 (quoted-path-token)",
+          "setup.d/portable-bindings.sh:289 (quoted-path-token)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },

@@ -215,23 +215,30 @@ _portable_docs_card() {
 # dangle (the sibling pages are not part of the consumer payload), so the consumer's
 # whole-tree lychee sweep REDs on first push. Same doctrine as transform_internal_refs:
 # authored links a consumer location cannot resolve become upstream blob URLs. The
-# rewrite is data-driven over the actual docs/site population, so a new site page
-# linked from terms.md needs no edit here.
+# rewrite runs over the glossary's own authored references, not the packaged site
+# population — the package ships docs/site/terms.md ALONE, and a population-driven loop
+# rewrote nothing (packaged-navigation defect, root probe at f6381a30: input bytes
+# identical to output, 19 relative references left dangling).
 _portable_framework_terms() {
   local src="$PKG_ROOT/docs/site/terms.md" dst="$PROJECT_ROOT/.agents/roles/resources/docs-form-auditor/framework-terms.md"
-  local temp rel escaped
+  local temp
   if [ "$DRY_RUN" = --dry-run ]; then
     _portable_copy "$src" "$dst"
     return 0
   fi
   temp="$(mktemp "${TMPDIR:-/tmp}/getff-framework-terms.XXXXXX")"
   cp "$src" "$temp"
-  while IFS= read -r rel; do
-    [ "$rel" = terms.md ] && continue
-    escaped="${rel//./\\.}"
-    sed -E -i.bak "s#\]\(($escaped)([)#])#](${UPSTREAM_BLOB_URL}/docs/site/$rel\2#g" "$temp"
-    rm -f "${temp}.bak"
-  done < <(cd "$PKG_ROOT/docs/site" && find . -name '*.md' -type f | sed 's#^\./##' | sort)
+  # Rewrite the glossary's own relative page references straight from the authored bytes. The
+  # package ships docs/site/terms.md alone, so enumerating the packaged site population rewrote
+  # nothing — every reference stayed relative in a real consumer install (packaged-navigation
+  # defect, root probe at f6381a30: input byte-identical to output, 19 relative references). A
+  # relative `](page.md…)` target in a docs/site page is a sibling-page reference: the upstream
+  # blob URL carries it, anchors included. URLs (a scheme colon), pure `#anchor` links and
+  # `../`-escaped paths never match the leading-character class.
+  sed -E -i.bak \
+    "s|\]\(([A-Za-z0-9_][A-Za-z0-9_./-]*\.md(#[^) ]*)?)\)|](${UPSTREAM_BLOB_URL}/docs/site/\1)|g" \
+    "$temp"
+  rm -f "${temp}.bak"
   _portable_copy "$temp" "$dst"
   rm -f "$temp"
 }
