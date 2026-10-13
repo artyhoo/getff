@@ -23,7 +23,7 @@ import {
   runHook,
 } from './codex-hook-adapter.mjs';
 import { emitCodex } from './render-codex-contributor.mjs';
-import { compareHookDefinitions } from './codex-contributor-doctor.mjs';
+import { compareHookDefinitions, comparePackagedRuntime } from './codex-contributor-doctor.mjs';
 // Fixture subprocesses must never inherit another checkout's Git identity.
 for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], { encoding: 'utf8' }).stdout.trim().split('\n')) delete process.env[key];
 const root = resolve(import.meta.dirname, '..');
@@ -362,6 +362,82 @@ test('native doctor rejects stale commands, metadata and missing duplicate regis
     ]).length,
     1,
   );
+});
+
+test('contributor commands and runtime reuse packaged closure with canonical source bytes', () => {
+  const model = JSON.parse(
+    readFileSync(join(root, '.ai-factory/harness-model.json')),
+  );
+  const ops = emitCodex(model, root);
+  const definitions = ops.find(
+    (op) => op.path === 'codex-contributor-plugin/hooks/hooks.json',
+  ).value.hooks;
+  for (const [event, groups] of Object.entries(definitions)) {
+    for (const group of groups) {
+      const command = group.hooks[0].command;
+      assert.match(command, /PLUGIN_ROOT/);
+      assert.match(command, /node "\$runtime" [a-z-]+ "\$root"/);
+      assert.match(
+        command,
+        new RegExp(`exit ${event === 'Stop' ? 0 : 2}; fi;`),
+      );
+    }
+  }
+  const runtime = ops.filter((op) =>
+    op.path.startsWith('codex-contributor-plugin/runtime/'),
+  );
+  assert.equal(runtime.length, 3);
+  for (const op of runtime) {
+    const source = op.path.slice('codex-contributor-plugin/runtime/'.length);
+    assert.equal(op.value, readFileSync(join(root, source), 'utf8'));
+  }
+  const inventory = ops.find(
+    (op) => op.path === '.codex/contributor-inventory.json',
+  ).value;
+  assert.equal(
+    inventory.generated.filter((op) =>
+      op.path.startsWith('codex-contributor-plugin/runtime/'),
+    ).length,
+    3,
+  );
+});
+
+test('doctor rejects stale or missing packaged runtime while keeping definition matching strict', () => {
+  const f = mkdtempSync(join(tmpdir(), 'codex-runtime-snapshot-'));
+  try {
+    const rel = 'runtime/scripts/codex-hook-adapter.mjs';
+    mkdirSync(join(f, 'hooks'), { recursive: true });
+    mkdirSync(join(f, 'runtime/scripts'), { recursive: true });
+    const bytes = readFileSync(join(root, 'scripts/codex-hook-adapter.mjs'));
+    writeFileSync(join(f, rel), bytes);
+    const expected = [
+      {
+        path: `codex-contributor-plugin/${rel}`,
+        fingerprint: createHash('sha256').update(bytes).digest('hex'),
+      },
+    ];
+    const native = [{ sourcePath: join(f, 'hooks/hooks.json') }];
+    assert.deepEqual(comparePackagedRuntime(expected, native), []);
+    writeFileSync(
+      join(f, rel),
+      Buffer.concat([bytes, Buffer.from('\n// stale snapshot\n')]),
+    );
+    assert.match(
+      comparePackagedRuntime(expected, native)[0],
+      /differs from generated source/,
+    );
+    rmSync(join(f, rel));
+    assert.match(
+      comparePackagedRuntime(expected, native)[0],
+      /missing or unreadable/,
+    );
+    assert.match(
+      comparePackagedRuntime(expected, [])[0],
+      /installed plugin source unavailable/,
+    );
+  } finally {
+    rmSync(f, { recursive: true, force: true });
+  }
 });
 
 test('generation refuses destination symlinks without rewriting canonical or foreign files', () => {

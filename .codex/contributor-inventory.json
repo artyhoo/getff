@@ -215,7 +215,7 @@
     {
       "path": "codex-contributor-plugin/hooks/hooks.json",
       "kind": "json",
-      "fingerprint": "9a4925a835857db2b541dc948be2f2fe8c823813223dbfeb46809c7346ce1d3a"
+      "fingerprint": "25be1ad2c9041e12e48a12816d31b664c8569ff0f72e7f11ac074ad35b6446ab"
     },
     {
       "path": "codex-contributor-plugin/.codex-plugin/plugin.json",
@@ -226,6 +226,21 @@
       "path": "codex-contributor-plugin/.claude-plugin/marketplace.json",
       "kind": "json",
       "fingerprint": "a6ce0210638499d0eae375b9cd8c57661477e4c98f301d3615f17d3f5b9807ed"
+    },
+    {
+      "path": "codex-contributor-plugin/runtime/scripts/codex-hook-adapter.mjs",
+      "kind": "text",
+      "fingerprint": "6d0f61b3221ebe1e7058a0cf5692ccb279494233e9f82625f542e50474674140"
+    },
+    {
+      "path": "codex-contributor-plugin/runtime/scripts/lib/is-main-entry.mjs",
+      "kind": "text",
+      "fingerprint": "03581a7d76131f9ad0a98317a7182a1bed7ad7aaa8c41b22cc538bba6a3b8d54"
+    },
+    {
+      "path": "codex-contributor-plugin/runtime/plugin/hooks/lib/hook-language.sh",
+      "kind": "text",
+      "fingerprint": "2fad642ed211c7abad08be5caa7870fc1213db6e17f6405bb412592e67d28e97"
     },
     {
       "path": ".codex/config.toml",

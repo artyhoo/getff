@@ -43,7 +43,7 @@ export function emitCodexHooks(source, commandFor) {
         hooks: [
           {
             type: 'command',
-            command: commandFor(name),
+            command: commandFor(name, event),
             timeout: name === 'link-coordination' ? 360 : 45,
           },
         ],

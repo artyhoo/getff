@@ -27,8 +27,10 @@ function assertReachable(abs, rel) {
 }
 
 export function emitCodex(model, root) {
-  const { hooks, degradations } = emitCodexHooks(model.hooks, name =>
-    `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ] && [ -f "$root/scripts/codex-hook-adapter.mjs" ]; then node "$root/scripts/codex-hook-adapter.mjs" ${name}; fi`,
+  const { hooks, degradations } = emitCodexHooks(
+    model.hooks,
+    (name, event) =>
+      `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ]; then runtime="\${PLUGIN_ROOT:-\${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs"; if [ ! -f "$runtime" ] || [ ! -f "$(dirname "$runtime")/lib/is-main-entry.mjs" ] || [ ! -f "$(dirname "$runtime")/../plugin/hooks/lib/hook-language.sh" ]; then echo "getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout" >&2; exit ${event === 'Stop' ? 0 : 2}; fi; node "$runtime" ${name} "$root"; fi`,
   );
   degradations.push({
     mechanism: 'bounded-input-policy',
@@ -69,6 +71,19 @@ export function emitCodex(model, root) {
       },
     },
   ];
+  // Reuse PR #2076's package closure while reading the current canonical adapter.
+  // Preserve source-relative imports and language resolution in the cache snapshot.
+  for (const path of [
+    'scripts/codex-hook-adapter.mjs',
+    'scripts/lib/is-main-entry.mjs',
+    'plugin/hooks/lib/hook-language.sh',
+  ]) {
+    ops.push({
+      kind: 'text',
+      path: `codex-contributor-plugin/runtime/${path}`,
+      value: readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'),
+    });
+  }
   const toml = [
     '# Generated contributor MCP configuration. Operator owns permission/model policy.',
   ];
