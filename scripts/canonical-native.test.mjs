@@ -103,7 +103,7 @@ test('consumer native bindings run the delivered authority check without contrib
     } }));
     const { hooks, degradations } = consumerCodexHooks(root);
     assert.equal(hooks.PostToolUse.length, 1, 'only registered delivered framework shell commands are adapted');
-    assert.equal(hooks.PostToolUse[0].matcher, 'Edit|Write');
+    assert.equal(hooks.PostToolUse[0].matcher, 'Edit|apply_patch|Write');
     assert.equal(hooks.PostToolUseFailure, undefined);
     assert.equal(degradations.length, 1);
     mkdirSync(join(root, '.codex'), { recursive: true });
@@ -192,27 +192,60 @@ test('native card parity is gated: description, policy flag and deleted target f
   } finally { rmSync(f, { recursive: true, force: true }); }
 });
 
-test('emitted card helper bindings execute from root and nested cwd through the git-anchored path', () => {
-  const f = realpathSync(mkdtempSync(join(tmpdir(), 'canonical-helper-cwd-')));
+test('emitted card binding executes real helpers below Git from root and nested space cwd', () => {
+  const outer = realpathSync(mkdtempSync(join(tmpdir(), 'canonical-helper-cwd-')));
+  const f = join(outer, 'installed project with spaces');
   try {
     mkdirSync(join(f, '.ai-factory'), { recursive: true });
     writeFileSync(join(f, '.ai-factory/harness-model.json'), '{}');
     mkdirSync(join(f, '.agents/procedures/example/helpers'), { recursive: true });
     writeFileSync(join(f, '.agents/procedures/example/SKILL.md'), '---\nname: example\ndescription: Example workflow\n---\n\nProcedure body.\n');
     writeFileSync(join(f, '.agents/procedures/example/helpers/run.sh'), '#!/bin/bash\nprintf HELPER-OK\n');
-    assert.equal(spawnSync('git', ['init', '-q'], { cwd: f }).status, 0);
+    assert.equal(spawnSync('git', ['init', '-q'], { cwd: outer }).status, 0);
     const gen = spawnSync(process.execPath, [join(repo, 'scripts/render-harness-config.mjs'), '--write', '--only', 'codex', '--root', f], { encoding: 'utf8' });
     assert.equal(gen.status, 0, gen.stderr);
-    const nested = join(f, 'packages/app');
+    const nested = join(f, 'packages/app with spaces');
     mkdirSync(nested, { recursive: true });
-    // GH-4201345530: helper paths are root-anchored via git, never session-cwd-relative —
-    // both the canonical owner and the card's symlinked twin must run from root AND nested cwd.
+    const card = readFileSync(join(f, '.agents/skills/example/SKILL.md'), 'utf8');
+    const block = card.match(/```bash\n([\s\S]*?)\n```/)?.[1];
+    assert.ok(block, 'native card must publish its executable project binding');
     for (const [label, cwd] of [['root', f], ['nested cwd', nested]]) {
       for (const path of ['.agents/procedures/example/helpers/run.sh', '.agents/skills/example/helpers/run.sh']) {
-        const r = spawnSync('bash', ['-c', 'root="$(git rev-parse --show-toplevel)"; bash "$root/' + path + '"'], { cwd, encoding: 'utf8' });
+        const r = spawnSync('bash', ['-c', block + '\nbash "$GETFF_PROJECT_ROOT/' + path + '"'], { cwd, encoding: 'utf8' });
         assert.equal(r.status, 0, r.stderr);
         assert.equal(r.stdout, 'HELPER-OK', `${path} from ${label}`);
       }
     }
-  } finally { rmSync(f, { recursive: true, force: true }); }
+    const missing = spawnSync('bash', ['-c', block], { cwd: outer, encoding:'utf8' });
+    assert.equal(missing.status, 2); assert.match(missing.stderr, /procedure root missing/);
+  } finally { rmSync(outer, { recursive: true, force: true }); }
+});
+
+// The production flip is the root/skill-dir binding in _portable_discovery.
+// A consumer may be installed below the Git root; contributor git-root recipes fail here.
+test('consumer card resolves mandatory helpers from a nested installed project, not the Git root', () => {
+  const outer = mkdtempSync(join(tmpdir(), 'consumer-card-root-'));
+  try {
+    spawnSync('git', ['init', '-q', outer]);
+    const project = join(outer, 'consumer');
+    const canonical = join(project, '.agents/procedures/example/SKILL.md');
+    mkdirSync(join(project, '.agents/procedures/example/helpers'), {recursive:true});
+    const nested = join(project, 'src/deep');
+    mkdirSync(nested, {recursive:true});
+    writeFileSync(canonical, '---\nname: example\ndescription: Example helper\n---\n\n! bash "${CLAUDE_SKILL_DIR}/helpers/run.sh"\n');
+    writeFileSync(join(project, '.agents/procedures/example/helpers/run.sh'), 'printf NESTED-CONSUMER-HELPER');
+    const shell = `PKG_ROOT="$1" PROJECT_ROOT="$2" DRY_RUN="" FORCE="" REFRESH=""; SKIPPED=(); SHIPPED_DOCS=(); REFRESH_BASELINE_STAGED=(); source "$1/setup.d/lib.sh"; source "$1/setup.d/portable-bindings.sh"; _portable_discovery "$2/.agents/procedures/example/SKILL.md" example`;
+    const delivery = spawnSync('bash', ['-c', shell, 'fixture', repo, project], {encoding:'utf8'});
+    assert.equal(delivery.status, 0, delivery.stderr);
+    const card = readFileSync(join(project, '.agents/skills/example/SKILL.md'), 'utf8');
+    const resolution = card.match(/```bash\n([^`]+)\n```/)?.[1];
+    assert.ok(resolution, 'consumer card must supply its install-root binding');
+    const helper = spawnSync('bash', ['-c', `${resolution}\nbash "$GETFF_SKILL_DIR/helpers/run.sh"`], {cwd:nested,encoding:'utf8'});
+    assert.equal(helper.status, 0, helper.stderr);
+    assert.equal(helper.stdout, 'NESTED-CONSUMER-HELPER');
+    assert.match(card, /mandatory shell|mandatory.*shell/);
+    assert.match(card, /CLAUDE_SKILL_DIR/);
+    assert.match(card, /authority|authorization/);
+    assert.equal(readFileSync(join(project,'.agents/skills/example/agents/openai.yaml'),'utf8'), 'policy:\n  allow_implicit_invocation: true\n');
+  } finally {rmSync(outer,{recursive:true,force:true});}
 });

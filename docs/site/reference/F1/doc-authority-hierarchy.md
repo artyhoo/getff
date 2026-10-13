@@ -16,6 +16,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: authority-header-cli, stack: repo, date: 2026-10-07, result: ok-2-paths }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # doc-authority-hierarchy rule
@@ -97,7 +98,7 @@ directories whose files share one authority.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/doc-authority-hierarchy.md` — delivery globs
   at `:13`, the edit-time injection summary at `:14`, class `A` at `:18`, the

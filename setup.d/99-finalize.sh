@@ -29,14 +29,17 @@ eslint_wire_synth
 # stack fence. Surface that + point at the live-research protocol. Deps-free echo; exit stays 0.
 # Mirrors the R7/R8-arming WARN style below; --dry-run-aware.
 _rr_dir="$PROJECT_ROOT/.ai-factory/rules-research"
-_rr_plan="$_rr_dir/${STACK:-ts-server}.research.json"
-_rr_sel="$_rr_dir/${STACK:-ts-server}.selection.json"
+# W2: use the honest install name consistently; preserve legacy preset/stand-alone fallback.
+_rr_key="${STACK_NAME:-${STACK:-ts-server}}"
+[ "$_rr_key" = "unknown" ] && _rr_key="generic"
+_rr_plan="$_rr_dir/${_rr_key}.research.json"
+_rr_sel="$_rr_dir/${_rr_key}.selection.json"
 if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would check ${STACK:-ts-server} rules-research artefacts for the presets-are-fallback notice"
+  echo "  [dry-run] would check ${_rr_key} rules-research artefacts for the presets-are-fallback notice"
 elif [ ! -f "$_rr_plan" ] || [ ! -f "$_rr_sel" ]; then
   echo ""
   echo "ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules."
-  echo "   No .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json found, so the shipped"
+  echo "   No .ai-factory/rules-research/${_rr_key}.{research,selection}.json found, so the shipped"
   echo "   preset rules are your only stack fence this install. Live-researched rules come from the"
   echo "   rule-research protocol (agents/rule-researcher.md, the rule-research skill), which an install"
   echo "   does not run; a --full install delivers its output into eslint.config.mjs when it is there."

@@ -52,12 +52,14 @@ a smaller value to test short-reason acceptance without padding.
 **Full invocation form:**
 
 ```text
-/pipeline "my-umbrella --mode-solo --reason=kickoff is small single-worker"
+/pipeline "my-umbrella --mode-solo --reason='kickoff is small single-worker'"
 ```
 
 User must quote the entire argument as one shell token because `arguments: [umbrella]`
 declares a single argument (SKILL.md line 4); embedded flags + reason are part of that
-single umbrella string. `parse-override-flags.sh` tokenises `$1` internally (see §3).
+single umbrella string. Keep a multiword reason quoted inside that string; outer
+argument quotes alone do not preserve the reason as one value.
+`parse-override-flags.sh` tokenises `$1` internally (see §3).
 
 ---
 
@@ -167,12 +169,16 @@ per [memory-codification.md §3](../../../rules/memory-codification.md).
 
 **Four declarative presets** — data, not prose — at `references/presets/<name>.json`:
 
-| Preset    | `mode`                | `marker`                    | When to pick                                |
-| --------- | --------------------- | --------------------------- | ------------------------------------------- |
-| `aif`     | `autonomous`          | `Claude Opus (plan+review)` | unattended / overnight aif-handoff dispatch |
-| `night`   | `mode-a-inline`       | `null`                      | night-mode unattended single-session        |
-| `economy` | `whole-line-executor` | `Z.AI GLM-5.2 SDK`          | cost-conscious whole-line on executor tier  |
-| `sdd`     | `in-session`          | `null`                      | interactive single-feature SDD              |
+| Preset    | `mode`                | `marker`           | When to pick                                |
+| --------- | --------------------- | ------------------ | ------------------------------------------- |
+| `aif`     | `autonomous`          | `null`             | unattended / overnight aif-handoff dispatch |
+| `night`   | `mode-a-inline`       | `null`             | night-mode unattended single-session        |
+| `economy` | `whole-line-executor` | `Z.AI GLM-5.3 SDK` | cost-conscious whole-line on executor tier  |
+| `sdd`     | `in-session`          | `null`             | interactive single-feature SDD              |
+
+The current JSON registry is authoritative for these mappings; `aif` inherits
+project-default runtime profiles without emitting a marker. Listing a preset does
+not prove that its runtime profile or execution prerequisites are available.
 
 **Activation (clig.dev flag-first — A4 binding constraint 1+2):**
 

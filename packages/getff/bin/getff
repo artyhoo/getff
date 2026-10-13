@@ -33,7 +33,7 @@ function usage() {
   return `getff — AI DX for your codebase: conventions AI agents can't silently bypass.
 
 Usage:
-  getff init [<stack>] [-y|--yes] [--global] [--profile core|env|factory] [--dry-run] [--all]
+  getff init [<stack>] [-y|--yes] [--global] [--profile core|env|factory] [--dry-run] [--all] [--refresh]
   getff --version
   getff --help
 
@@ -44,6 +44,11 @@ Usage:
            Run it from the project root. -y installs into the project only; add
            --global to also install machine-wide companions (user-scope Claude
            plugins and MCP servers, npm -g tools, the runtime-bridge).
+           --refresh updates framework-owned project files, honors project overrides,
+           and preserves copies of local edits. It keeps the installed profile unless
+           you explicitly select another profile.
+           It skips the later companion, skill-routing and runtime-bridge setup steps.
+           The installer's existing MCP refresh flags and --global consent still apply.
 
 Docs: https://getff.ai/docs/  ·  Issues: https://github.com/artyhoo/getff/issues
 `;

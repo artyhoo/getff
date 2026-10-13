@@ -126,7 +126,7 @@ direct = set()
 for dirpath, dirnames, filenames in os.walk(CORE_SRC):
     dirnames[:] = [d for d in dirnames if d != 'node_modules' and not d.startswith('.')]
     for fn in filenames:
-        if not fn.endswith(('.ts', '.mts', '.tsx')):
+        if not fn.endswith(('.ts', '.mts', '.tsx', '.js', '.mjs', '.cjs')):
             continue
         try:
             with open(os.path.join(dirpath, fn), encoding='utf-8') as fh:

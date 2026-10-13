@@ -235,6 +235,8 @@ printf '{"name":"ajv","version":"8.20.0","dependencies":{"fast-uri":"^3.0.1"}}' 
 install_pkg "$TMP/c6j" fast-uri 3.1.8 .
 install_pkg "$TMP/c6j" fast-uri 3.1.7 packages/core
 expect 'the tree walk follows the parent, not packages/core' 0 "$TMP/c6j" 'fast-uri@3.1.8'
+mv "$TMP/c6j/packages/core/render/render-rules.ts" "$TMP/c6j/packages/core/render/render-rules.mjs"
+expect 'an MJS entry follows its parent instead of an unrelated nested copy' 0 "$TMP/c6j" 'fast-uri@3.1.8'
 
 # 6k — NEGATIVE (tree, mirror of 6j): ajv is in packages/core/node_modules with a stale 3.1.7
 #      nested under it; the root copy is 3.1.8. ajv's own directory wins, so 3.1.7 is inlined.

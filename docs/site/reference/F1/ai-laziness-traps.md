@@ -13,6 +13,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: kickoff-citation-and-enumeration, stack: repo, date: 2026-10-07, result: printed }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # ai-laziness-traps rule
@@ -79,7 +80,7 @@ enumeration was written, not that the work was done.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The catalogue spans `### T1` at `.claude/rules/ai-laziness-traps.md:47` through
   `### T22` at `:186`; 22 headings, counted live on the digest sheet.

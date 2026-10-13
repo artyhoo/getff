@@ -105,6 +105,6 @@ description says so.
 - The rule that only a finding with a failure story can reopen a round is quoted at
   lines 55 to 57, from section 6 of `.claude/rules/reviewer-discipline.md`.
 - The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. The installer
-  copies that list on lines 164 to 168 of `setup.d/10-skills.sh`. Lines 96 to 98 of the
+  copies that list on lines 173 to 177 of `setup.d/10-skills.sh`. Lines 96 to 98 of the
   same file record why it joined `env`.
 - The card above is built from `docs/site/reference/B.json`.

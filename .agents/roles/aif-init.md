@@ -188,17 +188,26 @@ Write: .ai-factory/ARCHITECTURE.md ← content from Step 3
 
 The `Write` tool creates the parent directory automatically if `.ai-factory/` does not exist.
 
-**Do NOT overwrite** if the target file already exists AND does not contain `<PLACEHOLDER>` tokens — it has already been filled by a human. Ask before overwriting.
+Classify each existing target before writing:
+
+- Missing target: write the draft.
+- Unfilled description: fill its visible template fields such as `<PROJECT_NAME>` or `<One paragraph: ...>`; `<PLACEHOLDER>` is a category, not a required literal token. Preserve any filled project values, getff region markers and consumer prose.
+- Pristine installer architecture: read the matching `ARCHITECTURE.ts-server.md` or `ARCHITECTURE.react-next.md` beside the target. Compare the entire contents. For comparison only, normalize the installer's instruction-line rewrite: ``> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. `` corresponds to ``> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs. ``. If every other byte matches, the target is an unreviewed starter, not human-filled content. Adapt it to the observed project and add the DRAFT review banner even if it contains no angle-bracket fields.
+- Any other existing target: preserve its bytes and ask before replacing it. A starter-looking title or instruction line alone does not authorize an overwrite; a missing/unreadable comparison template means the match is unverified and the target stays protected.
+
+Report which files were written and which were protected. Never claim both files are DRAFT when a protected file was left unchanged.
 
 ---
 
 ## Review gate (non-negotiable)
 
-Both files are written as DRAFT. The `⚠️ DRAFT — PLEASE REVIEW` banner must remain in the output until the human confirms the content. The confirmation is the human's; removing the banner is yours — never ask the human to edit the files by hand. When they name corrections, apply them; when they say the files are right, delete the `> ⚠️ DRAFT` banner line from both files and tell them it is gone.
+Every file written by this invocation is DRAFT. The `⚠️ DRAFT — PLEASE REVIEW` banner must remain until the human confirms that file's content. The confirmation is the human's; removing the banner is yours — never ask the human to edit the files by hand. When they name corrections, apply them to the authorized drafts; when they confirm those drafts, delete their DRAFT banner lines and tell them which files changed. Protected files remain unchanged unless the human separately authorizes editing them.
 
-Tell the user:
+When both files were written, tell the user:
 
 > Both files have been written as DRAFT. Please read `.ai-factory/DESCRIPTION.md` and `.ai-factory/ARCHITECTURE.md`, especially the `[GUESSED — verify]` annotations, and tell me what is wrong — I will fix it. When you say they are right, I remove the `> ⚠️ DRAFT` banner; from then on these files are the authoritative project passport loaded by every AI agent at session start.
+
+When only one file or neither file was written, name the written drafts and the protected files separately. Request review only for written drafts and ask for overwrite confirmation only for protected files that need changes. Never claim a protected starter has been reviewed or made DRAFT.
 
 ---
 

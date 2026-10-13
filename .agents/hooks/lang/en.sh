@@ -131,15 +131,12 @@ EOF
 aif_msg_eot_recap_sections() {
   _eot_recap_scope="${1:-turn}"
   if [ "$_eot_recap_scope" = "session" ]; then
-    cat <<EOF
-1. ${AIF_EOT_STORY_SEC_WHY} — always, one sentence: what this was for, in human terms.
+    printf '%s\n' "1. ${AIF_EOT_STORY_SEC_WHY} — always, one sentence: what this was for, in human terms.
 2. ${AIF_EOT_STORY_SEC_NOW} — per change: before, after, what it gives the operator; no chronology.
 3. ${AIF_EOT_STORY_SEC_DECIDED} — one line each, and who decided (you / me).
-4. ${AIF_EOT_STORY_SEC_UNSURE} — where it is thinly verified (one run, one case), what is still left.
-EOF
+4. ${AIF_EOT_STORY_SEC_UNSURE} — where evidence ends and what remains; state counts only when established, otherwise unknown."
   else
-    cat <<EOF
-1. ${AIF_EOT_SEC_WHERE} — always.
+    printf '%s\n' "1. ${AIF_EOT_SEC_WHERE} — always.
 2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
 3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
    the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
@@ -147,20 +144,17 @@ EOF
    per question in an /arch round — section 3 is ONE pointer line to it, never a second card.
    One fork text per turn. Otherwise — the card in full:
 $(aif_msg_fork_card | sed 's/^/   /')
-4. ${AIF_EOT_SEC_UNSURE} — optional.
-EOF
+4. ${AIF_EOT_SEC_UNSURE} — optional."
   fi
-  cat <<EOF
-5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
+  printf '%s\n' "5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
    ${AIF_EOT_ME_PREFIX} <what I am doing>
    ${AIF_EOT_FOR_YOU_PREFIX} <one of four>
    — ${AIF_EOT_FOR_YOU_NOTHING}
    — ${AIF_EOT_FOR_YOU_WAITING}
    — ${AIF_EOT_FOR_YOU_DECIDE}
    — ${AIF_EOT_FOR_YOU_HANDS}
-Nothing else ever follows "${AIF_EOT_FOR_YOU_PREFIX}". The words
-"${AIF_EOT_FOR_YOU_BANNED}" are not work for the human — they are offloading your own.
-EOF
+Nothing else ever follows \"${AIF_EOT_FOR_YOU_PREFIX}\". The words
+\"${AIF_EOT_FOR_YOU_BANNED}\" are not work for the human — they are offloading your own."
 }
 
 # The per-turn recap contract (D-A, D-B) — the body every Stop-hook branch below carries
@@ -341,20 +335,18 @@ AIF_STORY_MARKER='## 🎬 What changed this session'
 # pack. ${anchor:-} is safe when unset (the /story skill has no transcript anchor and
 # names the goal from context).
 aif_msg_eot_branch_story() {
-  cat <<EOF
-The work is done (a PR was just pushed) — now tell the human what this whole session changed, primarily for them.
-You MUST begin the block with exactly the line "${AIF_STORY_MARKER}" — so the human spots it at a glance.
+  printf '%s\n' "Recap what is established about this session from supplied or observed facts. Delivery state, test results and quantities remain unknown without evidence.
+You MUST begin the block with exactly the line \"${AIF_STORY_MARKER}\" — so the human spots it at a glance.
 
-Session goal (from the title / first instruction): "${anchor:-(name it yourself from context)}".
+Session goal (from the title / first instruction): \"${anchor:-(name it yourself from context)}\".
 
 The same five-section recap as every turn, session-scale — one block, in this order:
 $(aif_msg_eot_recap_sections session)
 Outside the sections, how to write:
-• Short sentences, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: "The test failed — the assert expected the old text (fixed it), green now". Good: "The test failed: the assert expected the old text. I fixed it. The test is green."
-• One idea per sentence. Bad: "Fixed X, but CI is red because of Y". Good: "Fixed X. CI is red: Y."
-• Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: "did a merge-forward". Good: "merged fresh staging into the branch".
-Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
-EOF
+• Short sentences, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: \"The test failed — the assert expected the old text (fixed it), green now\". Good: \"The test failed: the assert expected the old text. I fixed it. The test is green.\"
+• One idea per sentence. Bad: \"Fixed X, but CI is red because of Y\". Good: \"Fixed X. CI is red: Y.\"
+• Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: \"did a merge-forward\". Good: \"merged fresh staging into the branch\".
+Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly."
 }
 
 # Fork card template (shared with the recap block + ask-question-reminder rewrite, D-C).

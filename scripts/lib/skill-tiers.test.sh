@@ -39,8 +39,8 @@ if [ -n "$tiers" ]; then
     *) bad "env tier mismatch: $tiers" ;;
   esac
   case "$tiers" in
-    *'"factory":["aif-doctor","claude-glm-executor-handoff","dispatcher","harvest","story"]'*)
-      ok "factory tier = 5 dirs sorted (lib.sh:65)" ;;
+    *'"factory":["aif-doctor","claude-glm-executor-handoff","dispatcher","harvest","intent","story"]'*)
+      ok "factory tier = 6 dirs sorted (lib.sh:65)" ;;
     *) bad "factory tier mismatch: $tiers" ;;
   esac
 fi

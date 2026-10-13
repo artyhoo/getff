@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: f10-arm-and-opt-in-gates, stack: repo, date: 2026-10-07, result: printed }
+docs-refresh: deferred — re-verified 2026-10-12, both cited sources changed only comment citation renumbers (the reminder test and the twin-synced hook carrying the same repair); the reminder behaviour and printed strings this sheet maps are untouched; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # autonomous-loop-continuity rule
@@ -96,7 +97,7 @@ to always pass `--timeout-ms` until that gap is closed.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The stop rule and its block mechanism: `.claude/rules/autonomous-loop-continuity.md:19`
   (the rule) and `:24` to `:28` (the Stop hook returns `block`, the turn does not end).

@@ -17,6 +17,7 @@ sources:
 docs-refresh: deferred — re-verified 2026-10-12, the only in-range change to the cited .github/workflows/audit-self.yml (the early wave of this pull request) appends two new CI jobs at lines 2820+ and 2944+ (citation-fullsweep + docs-refresh), after both quoted pin sites; the grep here still returns `:355` and `:1129` with the same `@ast-grep/cli@0.44.1` rows and the rule text is unchanged in the range; clears at the next gold refresh of this page
 executed:
   - { example: pin-site-grep, stack: repo, date: 2026-10-10, result: two-sites-0.44.1 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # evidence-regeneration rule
@@ -108,7 +109,7 @@ running.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/evidence-regeneration.md` — `paths:` and the
   `<!-- globs: -->` marker at `:3` to `:9`, the class-`B` ceiling rationale at
@@ -133,7 +134,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The shared firing runner the manual firing reproduces:
   `packages/core/backends/astgrep/firing-runner.ts:49` (and the ruff twin at
   `packages/core/backends/ruff/firing-runner.ts:53`).
-- The pin sites quoted above: `.github/workflows/audit-self.yml:355` and
-  `:1129`, both `@ast-grep/cli@0.44.1` at this base.
+- The pin sites quoted above: `.github/workflows/audit-self.yml:367` and
+  `:1141`, both pinned installs at this base.
 - The index row grading this rule class `B` with channels
   `paths:(1), edit-time inject`: `.claude/rules/00-rule-index.md:24`.

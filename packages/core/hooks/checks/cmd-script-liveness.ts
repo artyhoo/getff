@@ -208,7 +208,7 @@ function tokenize(subCmd: string, filesSubstitution: string): { bin: string; arg
  * An untracked path is build output or a foreign checkout by construction, so
  * trackedness is the predicate, not any path pattern. Same reasoning and same
  * primitive as principles/34-claudemd-excludes-liveness.test.ts:66-73 (`git ls-files`
- * is "the honest population for the repo file tree") and scripts/build-getff-dist.sh:19-21
+ * is "the honest population for the repo file tree") and scripts/build-getff-dist.sh:20-22
  * ("a directory walk would ship whatever is lying in the working tree").
  *
  * Fail-closed: a repoRoot git cannot enumerate yields an EMPTY population, so a

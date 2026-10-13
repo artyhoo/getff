@@ -271,6 +271,49 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     }
   });
 
+  it.each(['.agents/rules', '.claude/rules'])(
+    'arm A: projects description links from %s to readable sheet targets',
+    async (sourceDir) => {
+      // Copying source-relative hrefs verbatim makes valid rule links fail from a deeper sheet.
+      const g = await gen();
+      const root = fixtureRoot('card-links');
+      const name = 'parity';
+      const entry = join(root, name);
+      const sheetDir = join(root, 'docs/site/reference/F1');
+      const targetDir = join(root, 'docs/meta-factory');
+      mkdirSync(entry, { recursive: true });
+      mkdirSync(sheetDir, { recursive: true });
+      mkdirSync(targetDir, { recursive: true });
+      writeFileSync(join(targetDir, 'census.md'), '# Census\n');
+      writeFileSync(join(targetDir, 'decisions.md'), '# Decisions\n');
+      const member = {
+        family: 'F1',
+        name,
+        kind: 'rule',
+        shipsTo: { tier: 'framework' },
+        source: { path: `${sourceDir}/parity.md`, line: 20 },
+        description:
+          '[census](../../docs/meta-factory/census.md#census) and ' +
+          '[decisions](../../docs/meta-factory/decisions.md?view=plain#decisions)',
+        extras: {},
+      };
+      const sourceBytes = JSON.stringify(member);
+      writeFileSync(join(entry, 'member.json'), sourceBytes);
+
+      const rendered = g.renderCardFence(root, name);
+      expect(rendered).toContain('[census](../../../meta-factory/census.md#census)');
+      expect(rendered).toContain(
+        '[decisions](../../../meta-factory/decisions.md?view=plain#decisions)',
+      );
+      const hrefs = [...rendered.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1]);
+      expect(hrefs).toHaveLength(2);
+      for (const href of hrefs) {
+        expect(existsSync(resolve(sheetDir, href.split(/[?#]/)[0]))).toBe(true);
+      }
+      expect(readFileSync(join(entry, 'member.json'), 'utf8')).toBe(sourceBytes);
+    },
+  );
+
   // ---- Arm B — schema validation (additionalProperties:false, no empty strings) ----
   it('arm B: every family doc validates against its draft-07 schema; no empty strings', async () => {
     const g = await gen();

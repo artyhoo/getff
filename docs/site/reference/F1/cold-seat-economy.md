@@ -17,6 +17,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: snapshot-inputs-ref, stack: repo, date: 2026-10-10, result: printed }
+docs-refresh: deferred — re-verified 2026-10-12, the cited dispatcher execution reference gained two intent-scoped dispatch sections (the start-reviewed gate holding at plan-ready and scoped rework bindings); the seat-economy contract this sheet maps is untouched by them; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # cold-seat-economy rule
@@ -112,7 +113,7 @@ optional; narrower is not skipped.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The three decisions: `.claude/rules/cold-seat-economy.md:28` (§1 re-audit on
   substance), `:58` (§2 seat ordering), `:67` (§3 follow-up rounds and the resume

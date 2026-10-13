@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: manifest-kinds-no-pin, stack: repo, date: 2026-10-07, result: 6-rows-empty-grep }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # companion-install-principle rule
@@ -106,7 +107,7 @@ every detect command actually detects well.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The framing sentence and the never-pin / official-installer / free-default
   terms: `.claude/rules/companion-install-principle.md:23` (§1 opens at `:19`).

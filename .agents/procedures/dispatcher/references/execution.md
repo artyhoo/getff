@@ -98,6 +98,16 @@ tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts \
 
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.
 
+**Intent-scoped kickoffs (`intent-contract`) — the start of implementation is gated.** A kickoff description carrying a fenced ` ```intent-contract ` JSON block dispatches scoped: the claim runs `autoMode:false` + `paused:true`, so after the unpause planning still runs but the task HOLDS at `plan_ready` — the auto-queue refuses `start_implementation` for `autoMode:false` tasks, by design. The ONLY bridge path that starts implementation is:
+
+```bash
+# Framework repo:                                  # consumer install (vendor drop):
+tsx packages/runtime-bridge/src/cli/start-reviewed.ts \
+  --task <id> --review <plan-review.json>          # tsx .claude/vendor/runtime-bridge/src/cli/start-reviewed.ts ...
+```
+
+`--review` names an authorized PlanReview record binding task ID, the SAME contract the persisted description declares, the EXACT effective-plan bytes digest, the reviewed task pre-image digest, and the owner/decision reference, classified `within-contract` (S1 holds `contract-revision`/`product-decision` continuations). The CLI re-reads the task immediately before posting `start_implementation` and HELDS (exit 2, no event, task stays paused at `plan_ready`) on: no declared scope (this route is scoped-only), wrong state, `autoMode` not false, review/contract/pre-image/payload mismatch, or a row changed between validation and start. Malformed declared scope is `spec_invalid` — never ordinary scope. Unscoped kickoffs are unchanged: ordinary dispatch, auto-queue starts them as always.
+
 Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
 
 **Model routing — do NOT override the runtime profile per task (operator verdict, 2026-08-09).** A
@@ -172,7 +182,13 @@ Inputs-ref: <container HEAD sha the diff and every file path in this prompt are 
   — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
   head, `packages/core/hooks/checks/pr-body-fidelity.ts:252`).
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
-  the next harvest attempt audits as `Round: 2`. **Deliver rework ONLY via `answer.ts` — never a
+  the next harvest attempt audits as `Round: 2`. **On an intent-scoped task**, the plan-changing
+  decisions (`request_changes`, `retry`, `resume`, `request_review_changes`) additionally require
+  `--review <plan-review-or-result-review.json>`: `answer.ts` validates the standing declared scope
+  and the review's bindings (contract ref, pre-image/payload digests, classification) BEFORE any
+  write/event, and HOLDS (exit 2) without one — the rework that re-enters implementation is exactly
+  the effect the scoped route guards. Status-only closers (`approve`, `complete_review`) stay
+  ordinary on scoped tasks. **Deliver rework ONLY via `answer.ts` — never a
   bare events-API POST.** A raw `POST /tasks/:id/events {"event":"request_changes"}` (curl) flips
   the task to `implementing` but **silently drops your findings**: the rework prompt consumes the
   LATEST human comment, and the bare event posts none, so the worker reworks blind against

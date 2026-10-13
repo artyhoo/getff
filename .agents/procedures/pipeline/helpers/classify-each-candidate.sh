@@ -13,13 +13,13 @@
 # >                        per DN-3 — UNCHANGED here, this helper only routes
 # >                        the input shape).
 #
-# Usage: classify-each-candidate.sh
+# Usage: classify-each-candidate.sh [--stdin]
 #
-# Reads stdin OR (default) invokes priority-score.sh internally. Per-candidate
+# Reads explicit --stdin OR (default) invokes priority-score.sh internally. Per-candidate
 # stdout: "--- candidate: <name> ---" + classify-work.sh output. Per-candidate
 # failure (classify-work.sh exit 3 MISSING-FILE) is recorded inline; iteration
-# continues. Final exit code = 0 if at least one candidate classified; non-zero
-# only if priority-score.sh itself fails.
+# continues. Final exit code is non-zero if acquisition or any classification fails.
+# Empty candidate sets are explicit EMPTY; missing candidates remain SKIP.
 #
 # Seam:
 #   MO_PRIORITY_INPUT — file path with pre-captured priority-score output
@@ -43,25 +43,62 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRIORITY="${HERE}/priority-score.sh"
 CLASSIFY="${HERE}/classify-work.sh"
 
-# Source: stdin (if piped) OR a fixture file (MO_PRIORITY_INPUT) OR run priority-score.sh fresh.
-if [[ -n "${MO_PRIORITY_INPUT:-}" && -f "${MO_PRIORITY_INPUT}" ]]; then
-  SRC="cat ${MO_PRIORITY_INPUT}"
-elif [[ ! -t 0 ]]; then
-  SRC="cat"
-else
-  SRC="bash ${PRIORITY} 2>/dev/null"
+# Default always acquires live candidates, even with closed/non-TTY stdin.
+# Explicit seams: MO_PRIORITY_INPUT=<file>, or --stdin for a captured stream.
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--stdin" ) ]]; then
+  echo "usage: classify-each-candidate.sh [--stdin]" >&2; exit 2
 fi
-
-eval "${SRC}" \
-  | awk 'NF>=2 && /kickoff=/ && !/^=== /' \
-  | while IFS= read -r line; do
-      name="${line%% *}"
-      printf '\n--- candidate: %s ---\n' "${name}"
-      if grep -q 'kickoff=exists' <<<"${line}"; then
-        bash "${CLASSIFY}" "$(resolve_orch_home)/${name}/kickoff.md" 2>&1 || true
-      elif grep -q 'kickoff=synthetic' <<<"${line}"; then
-        bash "${CLASSIFY}" "${line}" 2>&1 || true
-      else
-        echo "SKIP: ${line}"
-      fi
-    done
+if [[ -n "${MO_PRIORITY_INPUT:-}" ]]; then
+  if ! INPUT="$(cat "${MO_PRIORITY_INPUT}")"; then
+    echo "UNKNOWN: priority input unavailable" >&2; exit 1
+  fi
+elif [[ "${1:-}" == "--stdin" ]]; then
+  INPUT="$(cat)"
+else
+  if ! INPUT="$(bash "${PRIORITY}")"; then
+    echo "UNKNOWN: priority acquisition failed" >&2; exit 1
+  fi
+fi
+# Accept only explicit key=value candidate records. Known priority protocol
+# diagnostics/header lines are not candidates; unknown nonempty captures reject.
+if ! ROWS="$(printf '%s\n' "${INPUT}" | awk '
+  /^[[:space:]]*$/ || /^=== .* ===$/ { next }
+  /^PROBE-INCOMPLETE: / || /^RECONSTRUCT-STUB: / { next }
+  /^\(no .* directory\)$/ { next }
+  {
+    valid = ($1 ~ /^[[:alnum:]_][[:alnum:]_.:\/§-]*$/ && NF >= 2)
+    kickoff = ""; count = 0
+    for (i = 2; i <= NF; i++) {
+      if ($i !~ /^[[:alpha:]_][[:alnum:]_]*=.+$/) valid = 0
+      if ($i ~ /^kickoff=/) { kickoff = $i; count++ }
+    }
+    if (count != 1 || kickoff !~ /^kickoff=(exists|missing|synthetic)$/) valid = 0
+    if (!valid) { bad = 1; next }
+    print $0
+  }
+  END { if (bad) exit 1 }
+')"; then
+  echo "UNKNOWN: malformed priority candidate capture" >&2
+  exit 1
+fi
+if [[ -z "${ROWS}" ]]; then
+  echo "EMPTY: no candidate rows"
+  exit 0
+fi
+failed=0
+printf '%s\n' "${ROWS}" | {
+  while IFS= read -r line; do
+    name="${line%% *}"
+    printf '\n--- candidate: %s ---\n' "${name}"
+    case " ${line} " in
+      *" kickoff=exists "*) input="$(resolve_orch_home)/${name}/kickoff.md" ;;
+      *" kickoff=synthetic "*) input="${line}" ;;
+      *" kickoff=missing "*) echo "SKIP: ${line}"; continue ;;
+    esac
+    if ! bash "${CLASSIFY}" "${input}"; then
+      echo "UNKNOWN: classification unavailable for ${name}" >&2
+      failed=1
+    fi
+  done
+  exit "${failed}"
+}

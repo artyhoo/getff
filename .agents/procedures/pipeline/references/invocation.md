@@ -33,10 +33,12 @@
 bash ".agents/procedures/pipeline/helpers/integer-name-guard.sh" --auto
 ```
 
-**Mode-override flags (optional):** parse `--mode-bundle` / `--mode-pair` / `--mode-solo` / … + `--reason=<text>` from the umbrella arg up-front — `OVERRIDE_MODE` / `OVERRIDE_REASON` output feeds §2.5 Step 5 predicates (`bundle_opt_in` / `review_required`); exit 1 = no flag (normal — routing tree proceeds). Spec: [`references/mode-overrides.md`](mode-overrides.md). <!-- @dual-pair: meta-orchestrator-mode-overrides -->
+**Mode-override flags (optional):** parse `--mode-bundle` / `--mode-pair` / `--mode-solo` / … + `--reason=<text>` from the umbrella arg up-front — `OVERRIDE_MODE` / `OVERRIDE_REASON` output feeds §2.5 Step 5 predicates (`bundle_opt_in` / `review_required`); exit 1 = no flag (normal — routing tree proceeds); exit 2 = invalid input
+(halt with stderr before planning or dispatch). Preserve both stderr and the exit
+status; an invalid override is never a successful no-override result. Spec: [`references/mode-overrides.md`](mode-overrides.md). <!-- @dual-pair: meta-orchestrator-mode-overrides -->
 
 ```bash
-bash ".agents/procedures/pipeline/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/dev/null || true
+bash ".agents/procedures/pipeline/helpers/parse-override-flags.sh" "${umbrella:-}"
 ```
 
 **Preset flag (optional, A4):** the parser above also recognises `--preset <name>` (flag) and `AIF_PIPELINE_PRESET=<name>` (env). Precedence: flag > env > default. When resolved, the preamble output carries `PRESET_MODE` / `PRESET_MARKER` / `PRESET_BUNDLE_OPT_IN` / `PRESET_REVIEW_REQUIRED` / `PRESET_PARALLEL_SAFE` lines. **Seam #3 — marker relay:** when `PRESET_MARKER=<value>` is non-empty (the economy preset), the generated meta-kickoff header MUST carry `<!-- bridge-profile: <value> -->`. The value MUST be the profile's full display name, unique under the resolver's case-insensitive substring match (see [CLAUDE.md «Marker value rule»](../../../../CLAUDE.md)). For null-marker presets (aif/night/sdd — `aif` dispatches on the project's per-mode default profiles) no marker line is emitted. **Seam #2 — routing short-circuit:** see §2.5 Step 5.
@@ -54,6 +56,10 @@ bash ".agents/procedures/pipeline/helpers/parse-override-flags.sh" "${umbrella:-
 ```bash
 bash ".agents/procedures/pipeline/helpers/list-presets.sh"
 ```
+
+**Failure:** preserve helper stderr and exit status. Missing jq or a failed JSON
+read means enumeration is unavailable; halt with that diagnostic rather than
+claiming zero presets. A successful zero-file scan is a known empty population.
 
 **Output shape:** one line per preset, sorted alphabetically:
 `<name> — <description> (mode=<mode>[, marker=<marker>])`.

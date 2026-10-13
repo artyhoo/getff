@@ -17,6 +17,7 @@ sources:
 docs-refresh: deferred — re-verified 2026-10-12, the only in-range change to the cited .github/workflows/audit-self.yml (the early wave of this pull request) appends two new CI jobs at lines 2820+ and 2944+ (citation-fullsweep + docs-refresh), after every site this page greps or names; the re-derive commands here still return the same rows and the rule text (.agents/rules/ci-tool-pinning.md) is unchanged in the range; clears at the next gold refresh of this page
 executed:
   - { example: pin-and-deferred-gap, stack: repo, date: 2026-10-10, result: pinned-plus-18 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited pre-push.ts moved in-range only by the SHIPPED_SKILL_SLUGS intent line and citation renumbers at :2900+; the ci-tool-pinning wiring this sheet maps at pre-push.ts:823 is untouched; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # ci-tool-pinning rule
@@ -107,7 +108,7 @@ script carries it: nothing live needs the exemption yet.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - Rule A (version pin) and its MUST wording: `.claude/rules/ci-tool-pinning.md:27`
   to `:34`. Rule B (lockfile-aware install): `:36` to `:42`.

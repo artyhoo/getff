@@ -14,6 +14,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: api-vs-push-census, stack: repo, date: 2026-10-07, result: 9-api-0-push }
+docs-refresh: deferred — re-verified 2026-10-12, the cited local CI sweep script changed only one comment citation renumber; the sweep gate table and egress contract this sheet maps are untouched; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # egress-no-api-bypass rule
@@ -104,7 +105,7 @@ sibling rule in this family owns that surface.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/egress-no-api-bypass.md` — the skill-embed
   channel marker at `:3`, the class-`B` rationale at `:5`, the two-channel

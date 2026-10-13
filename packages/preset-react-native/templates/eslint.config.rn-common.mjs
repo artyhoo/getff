@@ -44,6 +44,7 @@ const rnCommon = [
       'vitest.config.ts',
       '.dependency-cruiser.mjs',
       'scripts/codex-hook-adapter.mjs',
+      'scripts/check-arch-retell.mjs',
       'scripts/lib/**',
     ],
   },

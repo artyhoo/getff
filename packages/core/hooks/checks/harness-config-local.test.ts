@@ -58,6 +58,12 @@ function sandbox(): string {
     RENDERER_REL,
     'scripts/render-codex-contributor.mjs',
     'scripts/lib/codex-hooks.mjs',
+    // emitCodex reads these canonical sources relative to its own location to
+    // snapshot the contributor runtime into the sandbox (the native0166
+    // projection) — the sandbox renderer must find them beside itself.
+    'scripts/codex-hook-adapter.mjs',
+    'scripts/lib/is-main-entry.mjs',
+    'plugin/hooks/lib/hook-language.sh',
   ]) {
     mkdirSync(dirname(join(dir, rel)), { recursive: true });
     copyFileSync(join(REPO_ROOT, rel), join(dir, rel));
