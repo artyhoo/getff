@@ -24,7 +24,10 @@ getff_portable_owned_paths() {
     [ -f "$dst" ] || continue
     _portable_owned_path "$dst" && continue
     _prettierignore_in_skipped "$dst" && continue
-    getff_delivered "$dst" && getff_bytes_intact "$dst" || continue
+    # Not A && B || continue (SC2015): bytes-intact failing on a delivered file must skip it
+    # too — an explicit guard per predicate, never the if-then-else look-alike.
+    getff_delivered "$dst" || continue
+    getff_bytes_intact "$dst" || continue
     printf '%s\n' "${dst#"$PROJECT_ROOT"/}"
   done | LC_ALL=C sort -u
 }
