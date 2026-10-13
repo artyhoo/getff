@@ -1,5 +1,5 @@
 // Intent-routing contract — intent-first-result S1, kickoff Task 1 fixtures
-// (spec §3 routing rules, docs/superpowers/specs/2026-10-07-idea-arch-incremental-design.md:65-67).
+// (spec §3 routing rules, docs/superpowers/specs/2026-10-07-idea-arch-incremental-design.md:69-71).
 //
 // `/intent` is a product-only contour beside `/arch`: it owns clarifying and preserving
 // PRODUCT intent (the brief) and reviewing the first working result against it — never

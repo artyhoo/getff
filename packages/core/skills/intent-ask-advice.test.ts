@@ -1081,7 +1081,7 @@ describe('ask-advice — legacy v1 asks keep their contract', () => {
         '',
         '## Evidence',
         '',
-        '- scripts/check-ask-files.sh:1 — the gate.',
+        '- .agents/checks/check-ask-files.sh:1 — the gate.',
       ].join('\n') + '\n',
       'utf8',
     );
@@ -1121,7 +1121,7 @@ describe('ask-advice — legacy v1 asks keep their contract', () => {
         '',
         '## Evidence',
         '',
-        '- scripts/check-ask-files.sh:1 — the gate.',
+        '- .agents/checks/check-ask-files.sh:1 — the gate.',
         '',
         '## Answer',
         '',
