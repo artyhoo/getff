@@ -832,7 +832,7 @@ describe('check-result-review — specification-review mode', () => {
     outcome: string;
     priorAttemptId?: string;
     priorSpecRef?: { path: string; sha256: string };
-    boundedDiff?: { summary: string };
+    boundedDiff?: { summary?: string };
   }
 
   const prdRef = E('specs/prd.md');
