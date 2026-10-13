@@ -98,7 +98,7 @@ b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .agents/proced
 a589bc8b504d994fc0d09a910529658859ece98b452ea5999d3e394bbd1041f5  .agents/procedures/installing-enforcement/SKILL.md
 b3fe2a6b017756dafc958676420b7b7d8e994fade81727e065f2292dc739c934  .agents/procedures/intent/SKILL.md
 1501b4da627d82808708508d75d31a08acf337f2508c75457418b05aba4c0115  .agents/procedures/intent/helpers/ask-advice.mjs
-09261865d38b3e4910a143dbb072091a92fb9b711b05d0e95dfa8e9d82c3fa2d  .agents/procedures/intent/helpers/check-result-review.mjs
+06c698616c0d68a70a3ccdebd228fa875ef5256620035415404d97de0bcda48a  .agents/procedures/intent/helpers/check-result-review.mjs
 e6707e03f4f3ebbfd8c10b2d8e7d8c16c152ab365293c432d29c401241396c24  .agents/procedures/intent/helpers/current-decisions.mjs
 ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80  .agents/procedures/intent/helpers/publish-result-review.mjs
 3971596ecf0bec4f4de5f5be24a4e73239610fa7f2611540bf38bd2b5424d93a  .agents/procedures/intent/helpers/publish-spec-review.mjs
@@ -345,7 +345,7 @@ f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills
 87f7bd01b921addbd470dff3c5c6b7f23c0179f2f70aefca2f717d3925186bfc  .claude/skills/harvest/references/history.md
 78f5fae8c395e326ce7b2e8fa7964927b15562811010738f456838a6542a80c6  .claude/skills/harvest/references/publication-and-closure.md
 b3fe2a6b017756dafc958676420b7b7d8e994fade81727e065f2292dc739c934  .claude/skills/intent/SKILL.md
-09261865d38b3e4910a143dbb072091a92fb9b711b05d0e95dfa8e9d82c3fa2d  .claude/skills/intent/helpers/check-result-review.mjs
+06c698616c0d68a70a3ccdebd228fa875ef5256620035415404d97de0bcda48a  .claude/skills/intent/helpers/check-result-review.mjs
 7f678f7b76c4da9a66b5f4e464608f46cfe4534fc8840f0b6b1c23efd9325c94  .claude/skills/intent/references/product-brief.md
 f2b2d6d5b6016ec57b7a5a55225e150901f55071807cd868044ea4dccf387bda  .claude/skills/intent/references/result-review.md
 6b104b82e25b240edcd1f3fbf0cd26de55d0585b44cdaa3271be065813d1440d  .claude/skills/night-mode/SKILL.md
