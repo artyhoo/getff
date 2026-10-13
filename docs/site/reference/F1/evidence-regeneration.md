@@ -108,7 +108,7 @@ running.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/evidence-regeneration.md` — `paths:` and the
   `<!-- globs: -->` marker at `:3` to `:9`, the class-`B` ceiling rationale at
@@ -133,7 +133,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The shared firing runner the manual firing reproduces:
   `packages/core/backends/astgrep/firing-runner.ts:49` (and the ruff twin at
   `packages/core/backends/ruff/firing-runner.ts:53`).
-- The pin sites quoted above: `.github/workflows/audit-self.yml:355` and
-  `:1129`, both `@ast-grep/cli@0.44.1` at this base.
+- The pin sites quoted above: `.github/workflows/audit-self.yml:367` and
+  `:1141`, both pinned installs at this base.
 - The index row grading this rule class `B` with channels
   `paths:(1), edit-time inject`: `.claude/rules/00-rule-index.md:24`.

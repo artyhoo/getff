@@ -48,6 +48,13 @@ REPO_TOP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
 [ -n "$REPO_TOP" ] || { echo "format-shipped: cannot resolve the repository root (not inside a git checkout)" >&2; exit 1; }
 cd "$REPO_TOP" || exit 1
 
+# Byte-stable prettier output: chalk (pulled in by prettier) forces ANSI color when CI=true
+# (GitHub Actions always exports it), turning `[warn] path` into `[ESC[33mwarnESC[39m] path`.
+# The gate's output is machine-parsed (delivered-prettier-conformance.test.sh greps literal
+# `[warn] ` prefixes) and read in CI logs, so it must be identical on a laptop and on Actions.
+# NO_COLOR is the no-color convention chalk honors; FORCE_COLOR=0 does NOT neutralize CI=true.
+export NO_COLOR=1
+
 # Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the
 # prebuilt pre-push.bundle.mjs (raw esbuild output, drift-gated by build-runtime-bundles.mjs --check
 # and ignored by the consumer's .prettierignore), not as the formatted .ts sources it shipped as
@@ -131,28 +138,47 @@ FLAG="--check"
 # canonical target instead.
 resolve_symlinks() {
   [ "$#" -eq 0 ] && return 0
-  local out=() f d t
+  local out=() f d t prior hops duplicate
   for f in "$@"; do
-    if [ -L "$f" ]; then
-      d=$(dirname "$f")
-      t=$(readlink "$f")
-      case "$t" in
-        /*) f="$t" ;;
-        *) f="$(cd "$d" && cd "$(dirname "$t")" && pwd)/$(basename "$t")" ;;
+    case "$f" in /*) ;; *) f="$REPO_TOP/$f" ;; esac
+    hops=0
+    while :; do
+      d=$(cd "$(dirname "$f")" && pwd -P) || return 1
+      f="$d/$(basename "$f")"
+      case "$f" in
+        "$REPO_TOP"/*) ;;
+        *) echo "format-shipped: alias leaves repository: $f" >&2; return 1 ;;
       esac
+      [ -L "$f" ] || break
+      hops=$((hops + 1))
+      [ "$hops" -le 32 ] || { echo "format-shipped: cyclic alias: $f" >&2; return 1; }
+      t=$(readlink "$f") || return 1
+      case "$t" in /*) f="$t" ;; *) f="$d/$t" ;; esac
+    done
+    [ -f "$f" ] || { echo "format-shipped: missing alias target: $f" >&2; return 1; }
+    duplicate=""
+    if [ "${#out[@]}" -gt 0 ]; then
+      for prior in "${out[@]}"; do [ "$prior" = "$f" ] && duplicate=1; done
     fi
-    out+=("$f")
+    [ -n "$duplicate" ] || out+=("$f")
   done
   printf '%s\n' "${out[@]}"
 }
+
+# Keep the selected delivery identities before resolving/deduplicating source bytes.
+# A canonical .agents/ target does not carry its installer's skills/ or agents/ route.
+DELIVERY_ALIASES=()
 if [ "${#FILES[@]}" -gt 0 ]; then
+  DELIVERY_ALIASES=("${FILES[@]}")
   RESOLVED=()
-  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${FILES[@]}")
+  RESOLVED_OUTPUT=$(resolve_symlinks "${FILES[@]}") || exit 1
+  while IFS= read -r f; do RESOLVED+=("$f"); done <<<"$RESOLVED_OUTPUT"
   FILES=("${RESOLVED[@]}")
 fi
 if [ "${#TEMPLATES[@]}" -gt 0 ]; then
   RESOLVED=()
-  while IFS= read -r f; do RESOLVED+=("$f"); done < <(resolve_symlinks "${TEMPLATES[@]}")
+  RESOLVED_OUTPUT=$(resolve_symlinks "${TEMPLATES[@]}") || exit 1
+  while IFS= read -r f; do RESOLVED+=("$f"); done <<<"$RESOLVED_OUTPUT"
   TEMPLATES=("${RESOLVED[@]}")
 fi
 
@@ -203,11 +229,14 @@ delivered_map() { # repo path → consumer path, or empty when the file is not t
 }
 
 DELIVERED=()
-for f in "${FILES[@]:-}"; do
+for f in "${DELIVERY_ALIASES[@]:-}"; do
   [ -n "$f" ] || continue
   case "$f" in *.md) ;; *) continue ;; esac
   d=$(delivered_map "$f")
-  [ -n "$d" ] && DELIVERED+=("$f=>$d")
+  if [ -n "$d" ]; then
+    src=$(resolve_symlinks "$f") || exit 1
+    DELIVERED+=("$src=>$d")
+  fi
 done
 
 if [ "${#DELIVERED[@]}" -gt 0 ]; then
@@ -232,6 +261,8 @@ if [ "${#DELIVERED[@]}" -gt 0 ]; then
     for p in "${DPATHS[@]}"; do transform_internal_refs "$p"; done
   ) || drc=1
   if [ "$drc" -eq 0 ]; then
+    echo "format-shipped: checking ${#DPATHS[@]} delivered file(s):"
+    printf '  %s\n' "${DPATHS[@]}"
     # --ignore-path /dev/null: the shipped .prettierignore's managed block lists these very files,
     # so honouring it here would measure "is it hidden?" instead of "is it conformant?".
     ( cd "$DTMP" && npx --yes prettier@3.8.3 --check --ignore-path /dev/null "${DPATHS[@]}" ) || drc=$?
@@ -264,7 +295,7 @@ fi
 # 24-plugin-manifest-integrity.test.ts (d)/(e)/(g)) and as the vendor hook ↔ .claude/hooks twin.
 #
 # WHY HERE and not a principle test: this check needs the SAME pinned Prettier the vendor copy is
-# formatted with. The principles CI job installs packages/core only (audit-self.yml:334-335) and
+# formatted with. The principles CI job installs packages/core only (audit-self.yml:346-347) and
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit

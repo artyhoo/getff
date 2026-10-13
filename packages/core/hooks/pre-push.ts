@@ -471,7 +471,7 @@ function priorArtSection(rb: ResolvedBase): void {
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
         'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
         'A positive line must also name a resolvable referent — an SSOT row\n' +
-        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:407), or an\n' +
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:418), or an\n' +
         'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
@@ -2566,7 +2566,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:64-83 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:71-90 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
 //       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
@@ -2614,16 +2614,16 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:334-336).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:345-347).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1790 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1792 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1799 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1801 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2639,6 +2639,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/tool-decisions.md',
   '.agents/session-bootstrap.md', // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
   '.claude/session-bootstrap.md', // the native bind-link destination of the row above
+  'docs/site-quality/calibration.md', // portable-bindings.sh:268 — the docs-quality calibration page delivered to the consumer root
 ];
 
 /**
@@ -2714,7 +2715,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:881-939) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:892-950) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2819,6 +2820,27 @@ export function isFrameworkShippedMarkdown(
 // defect.
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
+// This exact native failure is retained verbatim for check-final-report's adverse test.
+// Its links name the historical scratch installation, not current project documents.
+const RETAINED_NATIVE_LINK_FIXTURE =
+  'tests/skills/pipeline-final-report/retained-r3.md';
+const RETAINED_NATIVE_LINK_SHA256 =
+  'a5e5bc1282f35a291a8c59ef8fdff8819749a5edbe9c99916a49ad78745764f7';
+
+/** Exempt only the unchanged recorded input in the framework authoring checkout. */
+export function isRetainedNativeLinkFixture(
+  file: string,
+  contents: string | Uint8Array,
+  isFrameworkRepo: boolean,
+): boolean {
+  return (
+    isFrameworkRepo &&
+    file === RETAINED_NATIVE_LINK_FIXTURE &&
+    createHash('sha256').update(contents).digest('hex') ===
+      RETAINED_NATIVE_LINK_SHA256
+  );
+}
+
 function lycheeSection(ctx: SectionCtx): void {
   // Without lychee the body below says so and skips, as before; the record arms the check only
   // where lychee runs (scripts/check-doc-links.sh exits 3 without it).
@@ -2849,6 +2871,68 @@ function lycheeSection(ctx: SectionCtx): void {
       if (excluded > 0) {
         process.stdout.write(
           `  · §8 lychee: excluded ${excluded} plugin/agents twin(s) — byte-identical copies, link-checked at their agents/ source\n`,
+        );
+      }
+    }
+    // Native agent twins (.claude/agents/<role>.md): byte-identical materialized copies of
+    // the canonical .agents/roles/<role>.md — same structural class as the plugin twin
+    // above. A `](../procedures/…)` or `](resources/…)` link that resolves from
+    // .agents/roles/ resolves from the native twin to a .claude/… path that exists only
+    // in a consumer install (the native bind target), never in the framework checkout,
+    // so a finding here names a file the byte-identical copy is forbidden to fix.
+    // Excluded ONLY while byte-identical to its canonical — checked per file at gate
+    // time, not trusted — so a diverged twin keeps no exclusion and is walked, and the
+    // exact canonical sources are added to this gate population even when unchanged.
+    // Unreadable inputs stay checked and keep their real failure.
+    {
+      const before = changedMd.length;
+      const canonicalSources = new Set<string>();
+      changedMd = changedMd.filter((f) => {
+        if (!f.startsWith('.claude/agents/') || !f.endsWith('.md')) return true;
+        const canonical = `.agents/roles/${f.slice('.claude/agents/'.length)}`;
+        try {
+          if (
+            existsSync(resolve(REPO_ROOT, canonical)) &&
+            readFileSync(resolve(REPO_ROOT, f)).equals(
+              readFileSync(resolve(REPO_ROOT, canonical)),
+            )
+          ) {
+            canonicalSources.add(canonical);
+            return false;
+          }
+          return true;
+        } catch {
+          return true;
+        }
+      });
+      const excluded = before - changedMd.length;
+      changedMd = [...new Set([...changedMd, ...canonicalSources])];
+      if (excluded > 0) {
+        process.stdout.write(
+          `  · §8 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) — exact canonical .agents/roles/ source(s) included in this link check\n`,
+        );
+      }
+    }
+    // A path alone cannot exempt edited/live documents or a consumer-owned file.
+    // Unreadable inputs stay in the checker population and preserve its real failure.
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((file) => {
+        if (!ctx.isFrameworkRepo || file !== RETAINED_NATIVE_LINK_FIXTURE)
+          return true;
+        try {
+          return !isRetainedNativeLinkFixture(
+            file,
+            readFileSync(resolve(REPO_ROOT, file)),
+            true,
+          );
+        } catch {
+          return true;
+        }
+      });
+      if (changedMd.length < before) {
+        process.stdout.write(
+          '  · §8 lychee: excluded unchanged retained native fixture (exact path + SHA256); live and consumer-authored inputs remain checked\n',
         );
       }
     }

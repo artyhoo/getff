@@ -59,28 +59,61 @@ prevent (T21).
 
 ## Method (no prose-only findings — per T3)
 
-1. **Enumerate the population BEFORE judging** (T10). Members of an anchor group:
+1. **Enumerate the population BEFORE judging** (T10). Bind `ANCHOR` to the
+   supplied literal `[A-Za-z0-9_-]+` name, or `--all` for a full sweep. Missing or
+   invalid input produces `OVERALL: STOP` with the input diagnostic; a diff or
+   narrative without an anchor is insufficient input.
 
    ```bash
-   git grep -lE "@dual-pair:[[:space:]]*<anchor>([[:space:]]|$)" \
-     -- .claude/hooks agents .claude/skills scripts packages .husky .github
+   ROOT="$(git rev-parse --show-toplevel)" || exit 2
+   python3 "$ROOT/.agents/roles/dual-channel-drift-auditor/enumerate.py" "$ANCHOR"
    ```
 
-   All anchors: `git grep -hoE '@dual-pair:[[:space:]]*[A-Za-z0-9_-]+' -- <same paths> | sed -E 's/.*@dual-pair:[[:space:]]*//' | sort -u`.
-   State the member count. A group of 1 is a **dangling anchor** — that is Surface 8's job
-   ([channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh)), not yours; note and skip.
+   Preserve stdout, stderr and exit status. The helper enumerates tracked files
+   in canonical `.agents/hooks`, `.agents/roles` and `.agents/procedures`, plus
+   legacy `.claude/hooks`, `agents`, `.claude/skills`, `scripts`, `packages`,
+   `.husky` and `.github`. Canonical paths win over symlink aliases; each real
+   file counts once. Historical docs and generated native cards are not members.
+   It resolves the checkout from cwd, including a nested cwd. Do not substitute
+   the primary checkout or an input narrative for that root.
 
-2. **Measure overlap, don't eyeball it.** For each member pair, get the longest run of
-   consecutive identical non-boilerplate lines. `diff`'s GNU `--*-group-format` options are
-   **absent on macOS/BSD** (they exit 2 and print nothing — a silent false-clean that voided
-   the first run of this measurement); use `python3 difflib.SequenceMatcher.get_matching_blocks`,
-   or `diff -u` and count by hand. Quote the number.
+   Exit 0 supplies the population; exit 1 means the requested anchor (or sweep)
+   has no tracked members and requires `OVERALL: STOP`, never GO. Exit 2 means
+   invalid input, failed git/read probe or an escaping symlink: report the exact
+   diagnostic and `OVERALL: STOP`; no clean or complete-coverage claim is possible.
+   Read every returned member before classifying. State each group's member
+   count. A group of 1 is a **dangling anchor** — that is Surface 8's job
+   ([channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh)), not
+   yours; note and skip. Report its count in coverage without claiming pairwise
+   validation.
+
+2. **Measure overlap, don't eyeball it.** For EVERY enumerated member pair,
+   bind `LEFT` and `RIGHT` to their root-relative paths and run:
+
+   ```bash
+   python3 "$ROOT/.agents/roles/dual-channel-drift-auditor/overlap.py" "$ROOT/$LEFT" "$ROOT/$RIGHT"
+   ```
+
+   Preserve stdout, stderr and status. Exit 2 is failed measurement: report the
+   diagnostic, `INCONCLUSIVE` and `OVERALL: STOP`, never zero overlap. Exit 0
+   supplies the raw count, non-boilerplate count, original starting lines and
+   excluded line numbers/kinds. Copy BOTH counts into the output fields. The
+   helper uses `difflib.SequenceMatcher` with autojunk disabled and preserves
+   original-file continuity. GNU diff group-format flags are absent on macOS.
+
+   Its mandatory exclusions cover empty/comment delimiters, path headers,
+   anchor/delivery metadata, specification pointers/citations and standalone
+   shell control/safety boilerplate. Substantive prose inside comments remains.
+   You may identify additional group-specific boilerplate, but name its exact
+   original line numbers and measure again without stitching separated runs.
+   Do not override the helper's mandatory exclusions or relabel raw overlap as
+   non-boilerplate. Byte identity does not replace the two measured fields.
 
 3. **Classify each group** — the judgment only you provide:
 
    | Verdict              | Shape                                                                                                                                                                                         | GO/REVISE/STOP                                         |
    | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-   | **INTENTIONAL-TWIN** | High overlap is by construction — a vendored copy, a generated/dogfood twin, an i18n string-table sibling. Evidence required: a regenerating hook, a byte-identity test, or a `vendor/` path. | **GO** — cite the mechanism that keeps them identical. |
+   | **INTENTIONAL-TWIN** | High overlap is by construction — a vendored copy, a generated/dogfood twin, an i18n string-table sibling. Evidence required: a regenerating hook or an identity/parity gate covering this exact pair. A `vendor/` path establishes provenance only. | **GO** — cite the mechanism that keeps them identical. |
    | **SSOT-POINTER**     | One member is the canonical spec; the other carries `# spec: <path>` / `<!-- spec-of: <path> -->` and stays thin. §7 satisfied.                                                               | **GO**                                                 |
    | **COPY-RISK**        | Substantial verbatim overlap (≥5 consecutive non-boilerplate lines) with **no** regeneration mechanism and **no** `spec:` pointer — `#sync-by-copy-paste`.                                    | **REVISE** — name which member should become SSOT.     |
    | **DRIFT**            | Members describe the «same» capability but diverge by ≥3 substantive lines (excluding boilerplate, comments, path refs) — `#two-prompts-drift`. Quote the diverging lines.                    | **REVISE**                                             |
@@ -90,7 +123,25 @@ prevent (T21).
    evidence. INTENTIONAL-TWIN requires a named artefact that _enforces_ the identity — e.g.
    `packages/core/hooks/deps-hash-check.test.ts` asserts byte-identity for the
    `deps-hash-check-dogfood` pair. Absent such a mechanism, the honest verdict is COPY-RISK,
-   because nothing stops the twins from diverging.
+   because nothing stops the twins from diverging. A `vendor/` path, specification,
+   current `cmp` equality or a documented manual copy is provenance/current state,
+   not ongoing enforcement. A delivery script that copies vendor → consumer does
+   not enforce source → vendor identity. For INTENTIONAL-TWIN, identify the actual
+   enforcing hook/test/gate and verify that this pair is in its population.
+
+   **Mechanism search preflight:** inventory the project's active check entrypoints
+   (package/build scripts, git hooks and CI workflows) before declaring a mechanism
+   absent. Search for identity/parity/vendor/twin/format/sync checks and follow their
+   referenced implementations. Inspect directory-wide gates, not just hits for the
+   exact filename or anchor: a population-wide parity gate can cover the pair without
+   naming it literally. Prove membership from the gate's actual target enumeration.
+   Preserve search commands and candidate coverage. An unread candidate is partial
+   coverage/INCONCLUSIVE, not `MECHANISM: NONE — verified`. Current manual-update docs
+   cannot establish that later hook/CI gates are absent.
+
+   When
+   no such mechanism is established, report COPY-RISK if its threshold is met,
+   otherwise INCONCLUSIVE/STOP; do not upgrade provenance into a mechanism.
 
 5. **Distinguish «no finding» from «low coverage»** (T14). «CLEAN across N of M groups» is a
    coverage statement, not a clean bill.
@@ -104,7 +155,8 @@ COPY-RISK or DRIFT → REVISE; any INCONCLUSIVE or unenumerable population → S
 ANCHOR: <name>  (members: <N>, enumerated via <command>)
   - <path>  [role: canonical | mirror | twin]
   - <path>
-OVERLAP: longest verbatim run = <K> lines (<memberA> ~ <memberB>), measured via <tool>
+RAW OVERLAP: longest verbatim run = <K> lines (<memberA> ~ <memberB>), measured via <tool>
+NON-BOILERPLATE OVERLAP: longest original consecutive run = <K> lines; exclusions: <line kinds>
 DIVERGENCE: <none | K substantive lines — quote them with file:line>
 MECHANISM: <regenerating hook / byte-identity test / spec: pointer / NONE>
 VERDICT: <INTENTIONAL-TWIN | SSOT-POINTER | COPY-RISK | DRIFT | INCONCLUSIVE> — <one line>

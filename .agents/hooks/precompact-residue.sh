@@ -2,7 +2,7 @@
 # precompact-residue.sh — PreCompact hook — writes the session-residue note before compaction
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
-#   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart
+#   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:47-55), so no portable counterpart
 #   exists by nature. Delivered to consumers by the installer at env+ with the handoff group
 #   (setup.d/10-skills.sh §1k), beside its reader inject-handoff-on-compact.sh; no plugin
 #   copy — setup.d/ships.manifest records it installer-only, with the reason. Audience triage

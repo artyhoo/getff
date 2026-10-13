@@ -209,10 +209,10 @@ done
 log_info "generated $((identical + sed_transformed)) twins, skipped $manual manual, $sed_transformed sed-transformed"
 
 # Native adapter dependencies remain authored under the canonical hook owner.
-for rel in lib/report-sections.sh adapters/plugin/_zcode-emit; do
+for rel in lib/report-sections.sh adapters/plugin/_zcode-emit lang/en.sh lang/ru.sh lang/check-parity.sh; do
   src="$SRC_DIR/$rel"
   [ -f "$src" ] || continue
-  case "$rel" in lib/*) dst="$TWIN_DIR/$rel" ;; *) dst="$TWIN_DIR/$(basename "$rel")" ;; esac
+  case "$rel" in lib/*|lang/*) dst="$TWIN_DIR/$rel" ;; *) dst="$TWIN_DIR/$(basename "$rel")" ;; esac
   mkdir -p "$(dirname "$dst")"
   cmp -s "$src" "$dst" || cp "$src" "$dst"
 done

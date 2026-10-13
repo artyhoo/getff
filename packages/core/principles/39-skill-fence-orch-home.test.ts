@@ -14,7 +14,7 @@
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
  * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
- * (`copy_skill_with_transform`, setup.d/lib.sh:2707), so a fence that hardcodes the framework
+ * (`copy_skill_with_transform`, setup.d/lib.sh:2747), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
  * ends in `2>/dev/null` or a `[ -d "$dir" ] || exit 0` short-circuit.
  *
@@ -35,7 +35,7 @@
  * "A literal appears inside a ``` fence" is mechanically detectable → gate, not injection.
  * A principle test is the earliest channel that actually fires for this population: the suite
  * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2334) and in CI
- * (`principles-meta-tests`, audit-self.yml:317).
+ * (`principles-meta-tests`, audit-self.yml:329).
  *
  * ## Honest ceiling — the fence slice only
  *
@@ -250,9 +250,10 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
     // GREEN direction — the real, unmodified file.
     expect(fenceHits(src).filter((h) => h.rationale === null)).toEqual([]);
 
-    // RED direction — reinstate the exact §1 hardcode issue #1245 reported, in the real text.
+    // RED direction — replace the current cache-helper invocation with the §1 hardcode
+    // issue #1245 reported. The former inline head recipe moved behind this helper.
     const seeded = src.replace(
-      /^head -200 "\$\(bash .*print-orch-home\.sh.*$/m,
+      /^bash "\.agents\/procedures\/pipeline\/helpers\/read-plan-cache\.sh"$/m,
       'cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200',
     );
     expect(

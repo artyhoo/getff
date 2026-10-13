@@ -38,12 +38,19 @@ This procedure requires no global permission changes.
 1. Before argument routing, read [invocation](references/invocation.md): empty → overview,
    integer → top-N (0 → overview), `list` → presets, `status` → status, else → named umbrella.
    Apply the integer-name collision guard before dispatch. For `list`, stop after enumeration.
-2. For `status`, read [status](references/status.md) before rendering; perform no writes or dispatch.
+2. Empty/0 is a read-only operator overview: use planning §2 overview evidence collection,
+   include in-flight and synthetic sections, synthesize every independently observed identity
+   (including cached-stage and ownership-check rows) with actual outcome/four-axis/gate/source evidence,
+   read the output contract and emit its lifecycle/status plus complete graph fallback, validate the exact
+   final synthesized overview with the observed-identity witness, per-row source reconciliation and
+   bounded read-only source-fidelity review in planning §2 final-report closure, then STOP.
+   Stale/missing plan is reported as a limit; skip shared currency/cache writers in this mode. Do not enter
+   launch/dispatch or stop at a raw candidate list. For `status`, read [status](references/status.md) before rendering; perform no writes or dispatch.
 3. For overview/top-N or a named umbrella, read [planning](references/planning.md) before checking
    currency, priority, dedup/classification and routing. Wait for each background helper's own
    END trailer or task-notification before interpreting output; header-only means still running.
-   Live git/PR evidence overrides REPORT and cache. Missing plan → write a stub, present it and
-   halt until confirmed. A strategy tie goes to an advisor ask or the maintainer; at night stay parked.
+   Live git/PR evidence overrides REPORT and cache. In named/top-N planning modes,
+   missing plan → write a stub, present it and halt until confirmed. A strategy tie goes to an advisor ask or the maintainer; at night stay parked.
 4. Before emitting a launch table or writing a meta-kickoff, read [launch](references/launch.md).
    Verify actual destination inputs and publish factory kickoffs to staging before dispatch.
 5. Before dispatch/review/transition, read [dispatch](references/dispatch.md) and apply its channel
@@ -51,7 +58,8 @@ This procedure requires no global permission changes.
    Stage N+1 until required Stage N PRs are actually merged. An unreachable bridge is recorded as
    unguarded; it never silently claims a lane. Release/cancel every claim after its verdict.
 6. Before completing any planning/dispatch invocation, read [artifacts](references/artifacts.md)
-   and the [output grammar](references/output-format.md); update cache and report failures honestly.
+   and the [output grammar](references/output-format.md); update cache only for named/top-N
+   planning, and report failures honestly. Empty/0/status return without shared writes.
    For failure classification read the matching entry in [failures](references/failures.md).
    For a scope/ownership fork, read [scope](references/scope.md) before proposing a change.
 
@@ -60,13 +68,16 @@ This procedure requires no global permission changes.
 Run for the plan-currency check; the cache remains supplementary and requires live reconciliation.
 
 ```bash
-head -200 "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done; for f in $(ls -t "$(bash ".agents/procedures/pipeline/helpers/print-orch-home.sh" 2>/dev/null)"/_handoff-*.md 2>/dev/null | head -3); do echo "--- Model handoff (D15/D28): the model-authored CURRENT-STATE file of a compacted session — the SessionStart injector's payload. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
+bash ".agents/procedures/pipeline/helpers/read-plan-cache.sh"
 ```
 
 ## §10 Output artifacts
 
-The report contains `## Dependency graph` with `↓` inter-stage edges, `## Action queue` with
-`Paste into a new CC tab` and `Can parallel with` columns, then one `### Stage` block per stage.
+The report contains `## Dependency graph` with an inline Mermaid DAG on rendering surfaces
+and a compact `↓` text fallback showing the same inter-stage edges, `## Action queue` with
+`Paste into a new CC tab` and `Can parallel with` columns, then one `### Stage` block per stage. Empty/0 keeps the overview-only footer and includes
+readable, source-bound continuation or inspection prompts with descriptions there; an in-flight
+entry points to its existing owner/task, never a duplicate session or worker.
 Use the complete grammar and mode examples in [output-format](references/output-format.md).
 
 **Dispatch chips:** only when `spawn_task` is invocable. Before emission read output-format §9/§9A.
@@ -111,3 +122,25 @@ The cost of absence: orchestrator surgery time when a parallel branch contaminat
 
 <!-- globs: .claude/orchestrator-prompts/**, .ai-factory/orchestrator-prompts/**, docs/meta-factory/wave-sequencing-plan.md -->
 <!-- inject: Meta-orchestrator — ≥2 in-flight wave umbrellas or wave-sequencing-plan.md drift: /pipeline (plan-currency + priority + launch-table + stage-gate dispatch). Forward-going annotation: activates when inject-matching-rule.sh is extended to scan .claude/skills/*/SKILL.md (today scans .claude/rules/ only). -->
+
+<!-- getff:common-invocation-binding -->
+
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/pipeline/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+
+<!-- /getff:common-invocation-binding -->

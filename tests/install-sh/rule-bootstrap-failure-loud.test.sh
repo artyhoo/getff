@@ -36,6 +36,13 @@ run_layer() {  # $1 = generator exit, $2 = optional stderr line, $3 = stack; pri
   W=$(mktemp -d)
   mkdir -p "$W/pkg/packages/core/install" "$W/proj/.ai-factory/rules-research" "$W/bin"
   : > "$W/pkg/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+  # Routing prerequisites are real project metadata, not a LINTER_SLOT override.
+  # Generic/no-linter remains the paired unsupported-toolchain arm.
+  if [ "$stack" = generic ]; then
+    printf '{"name":"bootstrap-generic","version":"0.0.0"}\n' > "$W/proj/package.json"
+  else
+    printf '{"name":"bootstrap-eslint","version":"0.0.0","scripts":{"lint":"eslint ."},"devDependencies":{"eslint":"^9"}}\n' > "$W/proj/package.json"
+  fi
   if [ -z "${NO_RESEARCH:-}" ]; then
     echo '{}' > "$W/proj/.ai-factory/rules-research/$stack.research.json"
     echo '{}' > "$W/proj/.ai-factory/rules-research/$stack.selection.json"
@@ -118,9 +125,9 @@ grep -qx "RESEARCH_EXTRA: research-rejected: $_why" <<<"$_out" \
 grep -q 'RESEARCH_EXTRA_COUNT=1' <<<"$_out" && ok "(G) and nothing else" || bad "(G) expected 1 research line (got: $_out)"
 
 _out=$(CHECK_JSON='{"kept":["go-errors-wrapped"],"dropped":[],"researchOnly":["go-errors-wrapped"]}' run_layer 0 '' generic)
-grep -q "NOT_WIRED: generated rules — not run: the rule generator writes ESLint rules, and stack «generic» has no ESLint getff placed" <<<"$_out" \
+grep -q "NOT_WIRED: generated rules — not run: no ESLint or oxlint in this project" <<<"$_out" \
   && ok "(H) generic keeps its NOT wired line" || bad "(H) generic NOT wired line missing (got: $_out)"
-grep -qx "RESEARCH_EXTRA: research-only: go-errors-wrapped — stack generic: no rule generator lane for this project's toolchain" <<<"$_out" \
+grep -qx "RESEARCH_EXTRA: research-only: go-errors-wrapped — no ESLint or oxlint in the project" <<<"$_out" \
   && ok "(H) each generic research entry is recorded with the generic reason" || bad "(H) no generic research-only line (got: $_out)"
 grep -q 'stub generator: node' <<<"$_out" && bad "(H) the generator ran on generic" || ok "(H) the generator does not run on generic"
 _out=$(NO_RESEARCH=1 run_layer 0 '' generic)

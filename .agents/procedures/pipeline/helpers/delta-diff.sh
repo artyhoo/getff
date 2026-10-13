@@ -46,23 +46,25 @@ fi
 DELTA_FILE="${MO_DELTA_FILE:-$1}"
 shift
 
-SEEN_FILE="$(mktemp)"
-CURRENT_FILE="$(mktemp)"
-trap 'rm -f "$SEEN_FILE" "$CURRENT_FILE"' EXIT
-
-if [ -f "$DELTA_FILE" ]; then
-  if ! jq empty "$DELTA_FILE" 2>/dev/null; then
-    echo "delta-diff.sh: delta corrupt — invalid JSON at $DELTA_FILE" >&2
-    exit 1
-  fi
-  jq -r '.untracked_seen[]?.id' "$DELTA_FILE" 2>/dev/null | sort -u > "$SEEN_FILE"
+# Read prior history through the existing resource file seam, not a large argv.
+# A missing file/absent key retains the documented empty prior-set behavior.
+DELTA_SOURCE=/dev/null
+DELTA_PRESENT=false
+if [ -f "$DELTA_FILE" ]; then DELTA_SOURCE="$DELTA_FILE"; DELTA_PRESENT=true; fi
+if ! OUTPUT="$(jq -nr --slurpfile previous "$DELTA_SOURCE" --argjson present "$DELTA_PRESENT" --args '
+  (if $present then
+    ($previous | if length == 1 and (.[0] | type == "object")
+      then .[0] else error("expected one delta object") end) |
+    if has("untracked_seen") then
+      .untracked_seen | if type == "array" and all(.[]; type == "object" and (.id | type == "string"))
+        then map(.id) else error("invalid prior-set schema") end
+    else [] end
+  else [] end) as $seen |
+  ($ARGS.positional | unique) as $current |
+  (($current - $seen) | unique | .[] | "NEW-SINCE-LAST: " + .),
+  (($seen - $current) | unique | .[] | "RESOLVED-SINCE-LAST: " + .)
+' -- "$@" 2>/dev/null)"; then
+  echo "delta-diff.sh: delta corrupt — invalid JSON or prior-set schema at $DELTA_FILE" >&2
+  exit 1
 fi
-
-if [ "$#" -gt 0 ]; then
-  printf '%s\n' "$@" | sort -u > "$CURRENT_FILE"
-fi
-
-# NEW = CURRENT \ SEEN
-comm -23 "$CURRENT_FILE" "$SEEN_FILE" | sed 's/^/NEW-SINCE-LAST: /'
-# RESOLVED = SEEN \ CURRENT
-comm -13 "$CURRENT_FILE" "$SEEN_FILE" | sed 's/^/RESOLVED-SINCE-LAST: /'
+[ -z "$OUTPUT" ] || printf '%s\n' "$OUTPUT"

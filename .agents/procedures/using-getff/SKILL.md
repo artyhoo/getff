@@ -35,6 +35,8 @@ Use the **Skill tool** when available and permitted, or the harness's actual ski
 | `getff` | The user is setting up or reasoning about enforcement: linting, CI, pre-commit/pre-push hooks, architecture/dependency rules, meta-tests, spec-by-example, mutation testing (Stryker), contract testing (Pact), living documentation, fitness functions, or "make my codebase resist AI agents breaking conventions". This is the core methodology skill. |
 | `installing-enforcement` | The user wants to actually **wire** the hard layer (git hooks + CI) into their repo — see the `/getff:install-enforcement` command. (Ships in S5.) |
 
+For enforcement-status and soft/hard-boundary questions, including read-only audits and requests to claim that hooks or CI are green, the sequence is: load `using-getff` → invoke/load `getff` → perform authorized inspection → answer. These questions reason about enforcement and therefore use the `getff` row above even when no installation is authorized. A refusal of silent installation preserves the boundary but does not replace methodology activation. If `getff` cannot be loaded, report the loading failure and the unverified scope; do not proceed with enforcement inspection or claim complete activation.
+
 ## What the plugin delivers (and what it honestly does not)
 
 - **Soft layer (this plugin):** skills, sub-agents, and session hooks that run *inside the agent session* — advice, rule-injection, review sidecars. Installed by `/plugin install`.

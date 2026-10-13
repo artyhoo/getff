@@ -33,6 +33,7 @@
     ".prettierrc.json",
     "packages/",
     "scripts/",
+    "docs/",
     "plugin/"
   ],
   "scripts": {

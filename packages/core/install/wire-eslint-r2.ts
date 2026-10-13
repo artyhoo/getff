@@ -31,6 +31,29 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
+
+// Installer supplies this selector only to validated AST wirer child processes.
+async function loadTsMorph(): Promise<any> {
+  const tools = process.env.GETFF_AST_TOOLS_ROOT;
+  if (tools && (!path.isAbsolute(tools) || !existsSync(join(tools, '.complete')))) {
+    throw new Error('selected AST toolchain is not complete');
+  }
+  const base = tools ? join(tools, 'package.json') : resolve(process.cwd(), 'package.json');
+  const entry = createRequire(base).resolve('ts-morph');
+  if (tools) {
+    const inside = relative(realpathSync(join(tools, 'node_modules')), realpathSync(entry));
+    if (path.isAbsolute(inside) || inside === '..' || inside.startsWith(`..${path.sep}`)) {
+      throw new Error('AST editor is outside selected toolchain');
+    }
+  }
+  const mod = await import(pathToFileURL(entry).href);
+  if(typeof mod.Project!=="function" || !mod.SyntaxKind)throw new Error("no AST editor");
+  const editor=new mod.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});
+  const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});
+  if(sf.getKind()!==mod.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");
+  return mod;
+}
+
 export const R2_RULE_ID = 'rules-as-tests/no-unsafe-zod-parse';
 
 export type TransformVariant = 'bare' | 'self-contained';
@@ -192,12 +215,14 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   let Project: any;
   let SyntaxKind: any;
   try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const tsMorphPath = requireFromCwd.resolve('ts-morph'); // resolves from <cwd>/node_modules
-    const mod = await import(pathToFileURL(tsMorphPath).href); // file URL — raw abs path → ERR_UNSUPPORTED_ESM_URL_SCHEME
+    const mod = await loadTsMorph();
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    // A failed explicit editor selection is never evidence that a quoted rule is wired.
+    if (process.env.GETFF_AST_TOOLS_ROOT) {
+      return { status: 'degrade', original: source, modified: source, degradeReason: 'selected ts-morph toolchain failed' };
+    }
     // Without the parser only the quoted search can answer; it decides already-wired vs degrade, never an edit.
     if (simpleRulePresent(source, R2_RULE_ID)) return { status: 'already-wired', original: source, modified: source };
     return {
@@ -698,10 +723,12 @@ export async function wireNRules(
   // search below still tells an already-wired config from one that needs an edit it cannot make.
   let mod: any;
   try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const tsMorphPath = requireFromCwd.resolve('ts-morph');
-    mod = await import(pathToFileURL(tsMorphPath).href);
+    mod = await loadTsMorph();
   } catch {
+    // A failed explicit editor selection is never evidence that a quoted rule is wired.
+    if (process.env.GETFF_AST_TOOLS_ROOT) {
+      return { status: 'degrade', original: source, modified: source, degradeReason: 'selected ts-morph toolchain failed' };
+    }
     mod = undefined;
   }
   const SyntaxKind: any = mod?.SyntaxKind;
@@ -1049,8 +1076,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   let Project: any;
   let SyntaxKind: any;
   try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const mod = await import(pathToFileURL(requireFromCwd.resolve('ts-morph')).href); // GH #642: consumer cwd
+    const mod = await loadTsMorph();
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
