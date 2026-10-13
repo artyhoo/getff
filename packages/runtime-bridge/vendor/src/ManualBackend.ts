@@ -26,7 +26,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import type { RuntimeBackend } from './backend.js';
-import { enforceScope } from './resultReview.js';
+import { enforceKickoffAdmission, enforceScope } from './resultReview.js';
 import type {
   KickoffSpec,
   TaskHandle,
@@ -141,6 +141,7 @@ export class ManualBackend implements RuntimeBackend {
   // ...).rejects` and every other caller's try/await (measured: the effects arm caught
   // exactly that as a raw uncaught BackendError).
   async dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+    enforceKickoffAdmission(kickoff, 'manual');
     // Effect-boundary scope check BEFORE the /tmp packet write (intent-first-result §4):
     // a failed validation means no packet — a paste-able artefact for refused scope
     // would read as a successful dispatch (the exact spec_invalid reasoning the CLI's

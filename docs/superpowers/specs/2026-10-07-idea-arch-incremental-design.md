@@ -4,6 +4,10 @@
 > **Authoritative for:** the proposed change to product clarification, progressive design and result review; the accepted premises preserved below; explicit distinctions between operator decisions and author proposals.
 > **NOT authoritative for:** current skill/runtime behavior, project goals, or execution authorization. Goal: [README](../../../README.md#why-this-exists).
 
+## 2026-10-12 clarification
+
+The operator identified the earliest failure as losing the agreed purpose **while writing the specification**, before implementation exists to review. The [approved PRD](2026-10-12-intent-continuity-idea.md) and [agreed follow-on design](2026-10-12-intent-continuity-design.md) add a mandatory specification-to-intent check, with one primary document per advisor: PRD for product intent, specification for architecture, kickoff/plan for the task. Questions route directly by class; a fixed owner-to-owner relay is not required. Both existing autonomous and operator-selected manual launch routes remain available after specification agreement. This addendum does not upgrade the earlier design's implementation or test evidence.
+
 ## 1. The experience this change should provide
 
 The operator describes a desired feature. Before discussing implementation, the agent helps them explain what a user will be able to do, why it matters, and what would count as the wrong outcome. They agree a short **product brief**. For substantial work, a separate **intent session** preserves this product understanding while `/arch` designs the solution.

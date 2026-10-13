@@ -13,6 +13,10 @@
 // routes it — removing that sentence flips the fixture RED (T22 flip-change). The
 // domain-modeling permission and its preserved exclusion are asserted TOGETHER in both the
 // binding (CLAUDE.md) and the procedure (intent SKILL.md) — neither may ship without the other.
+//
+// A1 extension (2026-10-12, intent-continuity slice A1): three fixtures pin the /arch + /intent
+// wiring of the intent-fidelity checkpoint, the plan-preparation guard, and the approval
+// recorder's pointer advance — the executable transitions of the agreed design §4/§6.
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, readlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -106,6 +110,50 @@ const ROUTING_FIXTURES: RoutingFixture[] = [
       { file: IDEATION, re: /the named route; never keyword discovery/ },
     ],
   },
+  {
+    id: 'spec-offered-only-through-intent-fidelity-checkpoint',
+    scenario: 'a spec this contour produced is about to be offered for operator agreement',
+    route: 'fresh artifact-only intent review, then --check-presentation exit 0',
+    decides: [
+      { file: IDEATION, re: /Intent-fidelity checkpoint \(2026-10-12, intent-continuity slice A1/ },
+      // The gate command names the canonical helper + the bash orch-home resolver form —
+      // a node-invoke of the resolver or a symlink-view path is a different (broken) command.
+      {
+        file: IDEATION,
+        re: /--check-presentation --feature <feature-id> --spec <candidate-spec-path> --orch-home "\$\(bash \.agents\/procedures\/pipeline\/helpers\/print-orch-home\.sh\)"/,
+      },
+      { file: IDEATION, re: /publish-spec-review\.mjs --attempt/ },
+      { file: IDEATION, re: /--advance-spec --feature <feature-id> --receipt <receipt\.json> --expect-revision <presentation-revision>/ },
+      // IC-A: the reviewing seat is fresh and document-restored — no dialogue, no expected outcome.
+      { file: IDEATION, re: /UNLABELED candidate spec/ },
+      { file: IDEATION, re: /expected labels belong to test harnesses, not advisor input/ },
+    ],
+  },
+  {
+    id: 'plan-prep-gated-on-selected-current-authority',
+    scenario: 'an executable handoff is prepared for feature work with recorded intent continuity',
+    route: '--check-plan-prep exit 0 over the selected current PRD/spec/matches chain',
+    decides: [
+      { file: EXIT, re: /Plan-preparation guard for feature work with recorded intent continuity/ },
+      { file: EXIT, re: /--check-plan-prep --feature <feature-id> \[--spec <exact-spec-path>\]/ },
+      // The freeze discriminator answers "is this artifact legacy?" mechanically, not by judgment.
+      { file: EXIT, re: /--classify-artifact --path <abs>/ },
+      // Durable identity: deleting a kickoff cannot reclassify adopted work as legacy.
+      { file: EXIT, re: /deleting a kickoff or its marker cannot reclassify adopted work as legacy/ },
+    ],
+  },
+  {
+    id: 'approval-recorder-advances-the-current-prd-pointer',
+    scenario: 'an operator approval statement binds a preserved PRD snapshot',
+    route: 'advance-prd with the exact-content receipt; supersession visibly invalidates spec agreement',
+    decides: [
+      { file: INTENT_BRIEF, re: /The approval recorder advances the current-decision pointer/ },
+      { file: INTENT_BRIEF, re: /--advance-prd --feature <feature-id> --receipt <receipt\.json\|-> --expect-revision <captured-revision> --orch-home "\$\(bash \.agents\/procedures\/pipeline\/helpers\/print-orch-home\.sh\)"/ },
+      { file: INTENT_BRIEF, re: /Never refresh this value just before recording/ },
+      // IC-B made visible: a newer approved PRD clears currentSpec and demands renewed agreement.
+      { file: INTENT_BRIEF, re: /renewed agreement is required before the spec can gate anything again/ },
+    ],
+  },
 ];
 
 describe('intent-routing fixtures (S1 Task 1 — the product-only routing boundary)', () => {
@@ -177,6 +225,41 @@ describe('fixture (e): domain-modeling permission + preserved exclusion — bind
       'Domain vocabulary: domain-modeling is permitted in a product discussion hosted by /intent (direct, or via the named /arch product route).';
     expect(permissionOnly).toMatch(/product discussion hosted by/);
     expect(permissionOnly).not.toMatch(/growth rule in \[CONTEXT\.md\]/);
+  });
+});
+
+describe('A1 wiring — canonical helper paths, hold semantics, evidence-not-agreement', () => {
+  const WIRED = [IDEATION, EXIT, INTENT_BRIEF];
+
+  it('every wiring command cites the canonical .agents/procedures helper tree, never the symlink view', () => {
+    for (const file of WIRED) {
+      const body = read(file);
+      expect(body, `${file} must cite the canonical helper tree`).toMatch(
+        /\.agents\/procedures\/intent\/helpers\/(current-decisions|publish-spec-review)\.mjs/,
+      );
+      expect(body, `${file} must not point commands at the .claude/skills symlink view`).not.toMatch(
+        /\.claude\/skills\/intent\/helpers/,
+      );
+    }
+  });
+
+  it('hold semantics are recorded at both gates: exit 2 is repaired, never routed around', () => {
+    expect(read(IDEATION)).toMatch(/never present past a hold, never relax the gate/);
+    expect(read(EXIT)).toMatch(/repair the evidence, never route around the gate/);
+  });
+
+  it('a matches attempt is gate evidence, never operator agreement', () => {
+    expect(read(IDEATION)).toMatch(/A `matches` attempt is gate evidence, never operator agreement/);
+  });
+
+  it('paired negative: the wiring sentences do not appear in a rule-free control body', () => {
+    const control =
+      '## Gates\nThis contour offers the spec when it looks complete and prepares plans directly. No checkpoint command is recorded here.';
+    expect(control).not.toMatch(/--check-presentation/);
+    expect(control).not.toMatch(/--check-plan-prep/);
+    expect(control).not.toMatch(/--advance-prd/);
+    expect(control).not.toMatch(/Intent-fidelity checkpoint/);
+    expect(control).not.toMatch(/Plan-preparation guard/);
   });
 });
 

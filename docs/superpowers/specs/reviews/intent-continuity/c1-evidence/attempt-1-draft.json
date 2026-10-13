@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "attemptId": "c1-needs-evidence-1",
+  "featureId": "intent-continuity",
+  "resultId": "c1-result-continuity",
+  "brief": {
+    "path": "docs/superpowers/specs/snapshots/intent-continuity/f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a.md",
+    "sha256": "f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a"
+  },
+  "producerContract": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/producer-contract.json",
+    "sha256": "f82e562defcf022935fd1cda92f6ffee27c24bd9c9c6c80e96c235b5dddde190"
+  },
+  "observedRevision": "ecafc4c7dd1d8028f22f6d03a5bdbc8d1749e7610a375585bdfdeba047bab0d2",
+  "sourceInputs": [
+    {
+      "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+      "sha256": "9962c464d126acfcef8d1b77c292d708d8b8a3b8f78f8d36197b50bd17d434d7"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/publish-result-review.mjs",
+      "sha256": "ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80"
+    },
+    {
+      "path": "packages/runtime-bridge/src/resultReview.ts",
+      "sha256": "c524dbe51dc0e9a30a076d2a8c6c9a419b305e180014b08658cfa5a051d558eb"
+    },
+    {
+      "path": "packages/runtime-bridge/src/AifHandoffBackend.ts",
+      "sha256": "06992963999c078101eb871306c5dbe8de58950ba305c8ed02d2b8c4858a1420"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/claim.ts",
+      "sha256": "6b1c4f62f6e2d0cf022e37e6dd9995d10a26a13af5484a4962a782712a4ada67"
+    },
+    {
+      "path": "packages/core/skills/intent-result-review.test.ts",
+      "sha256": "abb3d3aacaec08737e70d3e02aee032f22dbe9719312b8a58d4bf802c45d2219"
+    },
+    {
+      "path": "packages/runtime-bridge/test/result-review-effects.test.ts",
+      "sha256": "0e88f464b1dd508badef75eedd9992fa680393c9a46fad323fc7cefc7a65e285"
+    }
+  ],
+  "environment": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/environment.md",
+    "sha256": "8ab315764f57008288b3bc0acc73d30ae6a962a04975e70e03e5ac6e27090322"
+  },
+  "evidence": [
+    {
+      "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest.log",
+      "sha256": "c3501a05aaabbca18afa8338da793d0c67dbe958acf3be22dd45f3d8508c166e"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/product-review-1.md",
+      "sha256": "7e5bbe54ccf7c04c3f64444a70c7ffc3c8b4eb4c8d8e99131984f479fc6153ed"
+    }
+  ],
+  "promises": [
+    {
+      "id": "IC-P6",
+      "comparison": "unobserved",
+      "evidence": [
+        {
+          "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest.log",
+          "sha256": "c3501a05aaabbca18afa8338da793d0c67dbe958acf3be22dd45f3d8508c166e"
+        },
+        {
+          "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/product-review-1.md",
+          "sha256": "7e5bbe54ccf7c04c3f64444a70c7ffc3c8b4eb4c8d8e99131984f479fc6153ed"
+        }
+      ],
+      "explanation": "The independent reviewer observed local retention and stale-evidence mechanics, but the only positive meaning ruling is a synthetic pilot fixture. A bound real C1 result comparison remains unobserved."
+    }
+  ],
+  "outcome": "needs-evidence",
+  "limits": [
+    "Bounded to C1 and IC-P6; local fixtures/mock AIF HTTP only; no live factory result."
+  ]
+}

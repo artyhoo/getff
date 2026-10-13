@@ -30,6 +30,8 @@ import { supportsClaims } from '../backend.js';
 import type { RuntimeBackend } from '../backend.js';
 import type { CancelOutcome } from '../AifHandoffBackend.js';
 import type { TaskHandle } from '../types.js';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export type ClaimVerb = 'create' | 'release' | 'cancel';
 
@@ -40,12 +42,16 @@ export function parseClaimArgs(
   const positional = argv.filter((a) => !a.startsWith('--'));
   const [verb, arg] = positional;
   if (verb !== 'create' && verb !== 'release' && verb !== 'cancel') {
-    return { error: `unknown verb ${verb ? `"${verb}"` : '(none)'} — expected create|release|cancel` };
+    return {
+      error: `unknown verb ${verb ? `"${verb}"` : '(none)'} — expected create|release|cancel`,
+    };
   }
   if (!arg) {
     return {
       error:
-        verb === 'create' ? 'create needs a kickoff path' : `${verb} needs a taskId`,
+        verb === 'create'
+          ? 'create needs a kickoff path'
+          : `${verb} needs a taskId`,
     };
   }
   return { verb, arg };
@@ -55,7 +61,9 @@ export function parseClaimArgs(
  * Narrow a resolved backend to a claim-capable one, or explain why not.
  * Loud on purpose — see the module docblock on why there is no manual fallback.
  */
-export function requireClaimBackend(backend: RuntimeBackend): { error: string } | null {
+export function requireClaimBackend(
+  backend: RuntimeBackend,
+): { error: string } | null {
   if (supportsClaims(backend)) return null;
   return {
     error:
@@ -66,8 +74,46 @@ export function requireClaimBackend(backend: RuntimeBackend): { error: string } 
 }
 
 /** Handle shim for the release/cancel verbs, which are given a bare taskId. */
-export function handleFromTaskId(taskId: string): TaskHandle {
-  return { backend: 'aif-handoff', taskId, dispatchedAt: new Date().toISOString() };
+export function handleFromTaskId(
+  taskId: string,
+  intentRepoRoot?: string,
+): TaskHandle {
+  return {
+    backend: 'aif-handoff',
+    taskId,
+    dispatchedAt: new Date().toISOString(),
+    ...(intentRepoRoot ? { intentRepoRoot } : {}),
+  };
+}
+
+/** A separate CLI process must rediscover the selector owner before releasing a bare ID. */
+export function releaseOwnerRoot(
+  cwd: string = process.cwd(),
+): string | undefined {
+  const configured =
+    process.env['AIF_INTENT_REPO_ROOT'] ??
+    process.env['RUNTIME_BRIDGE_INTENT_ROOTS']?.split(
+      process.platform === 'win32' ? ';' : ':',
+    )[0];
+  if (configured) return resolve(configured);
+  let dir = resolve(cwd);
+  while (true) {
+    if (
+      existsSync(
+        join(
+          dir,
+          '.claude',
+          'orchestrator-prompts',
+          'intent-continuity',
+          'current-decisions.json',
+        ),
+      )
+    )
+      return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
 }
 
 /** A backend that can say WHY a cancel did not happen, not just that it did not. */
@@ -76,8 +122,13 @@ interface CheckedCanceller {
 }
 
 /** Capability probe, same shape as `supportsClaims` — optional by construction. */
-export function supportsCheckedCancel(backend: unknown): backend is CheckedCanceller {
-  return typeof (backend as Partial<CheckedCanceller>).cancelClaimChecked === 'function';
+export function supportsCheckedCancel(
+  backend: unknown,
+): backend is CheckedCanceller {
+  return (
+    typeof (backend as Partial<CheckedCanceller>).cancelClaimChecked ===
+    'function'
+  );
 }
 
 /**
@@ -97,7 +148,10 @@ export function describeCancelOutcome(
   outcome: CancelOutcome,
 ): { text: string; exit: 0 | 1 } {
   if (outcome.cancelled) {
-    return { text: `[runtime-bridge] cancelled claim ${taskId} — lane is free\n`, exit: 0 };
+    return {
+      text: `[runtime-bridge] cancelled claim ${taskId} — lane is free\n`,
+      exit: 0,
+    };
   }
   if (outcome.reason === 'running') {
     return {
@@ -147,7 +201,9 @@ async function main(): Promise<void> {
     if (parsed.verb === 'create') {
       // requireAutoMarker:false for the same reason dispatch.ts opts out — an
       // explicit CLI invocation is itself the operator's consent (kickoff §7).
-      const kickoff = buildKickoffSpec(parsed.arg, { requireAutoMarker: false });
+      const kickoff = buildKickoffSpec(parsed.arg, {
+        requireAutoMarker: false,
+      });
       if (!kickoff) {
         process.stderr.write(
           `[runtime-bridge] claim: ${parsed.arg} carries a \`bridge: skip\` marker — nothing claimed\n`,
@@ -162,8 +218,15 @@ async function main(): Promise<void> {
       );
       process.stdout.write(JSON.stringify(handle) + '\n');
     } else if (parsed.verb === 'release') {
-      await backend.release(handleFromTaskId(parsed.arg));
-      process.stderr.write(`[runtime-bridge] released claim ${parsed.arg} — coordinator picks it up\n`);
+      const ownerRoot = releaseOwnerRoot();
+      if (!ownerRoot)
+        throw new Error(
+          'claim release needs the selector owner root: run from its checkout or set AIF_INTENT_REPO_ROOT',
+        );
+      await backend.release(handleFromTaskId(parsed.arg, ownerRoot));
+      process.stderr.write(
+        `[runtime-bridge] released claim ${parsed.arg} — coordinator picks it up\n`,
+      );
     } else {
       const handle = handleFromTaskId(parsed.arg);
       // Prefer the reporting form when the backend has it: «could not delete» and
@@ -173,13 +236,19 @@ async function main(): Promise<void> {
         ? await backend.cancelClaimChecked(handle)
         : (await backend.cancelClaim(handle))
           ? { cancelled: true, reason: 'deleted' }
-          : { cancelled: false, reason: 'delete-failed', detail: 'DELETE did not succeed' };
+          : {
+              cancelled: false,
+              reason: 'delete-failed',
+              detail: 'DELETE did not succeed',
+            };
       const { text, exit } = describeCancelOutcome(parsed.arg, outcome);
       process.stderr.write(text);
       if (exit !== 0) process.exit(exit);
     }
   } catch (err) {
-    process.stderr.write(`[runtime-bridge] claim ${parsed.verb} failed: ${err}\n`);
+    process.stderr.write(
+      `[runtime-bridge] claim ${parsed.verb} failed: ${err}\n`,
+    );
     process.exit(1);
   }
   process.exit(0);

@@ -15,7 +15,7 @@
  *   module is a clean no-op (no live aif-handoff server needed — §2 only gates
  *   the live E2E, not these unit tests).
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BackendError } from '../src/backend.js';
 import {
   parseAnswerArgs,
@@ -38,7 +38,12 @@ function okResponse(body: unknown = {}, status = 200): Response {
   });
 }
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
