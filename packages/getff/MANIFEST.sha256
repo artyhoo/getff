@@ -853,7 +853,7 @@ cff85d30ae62cf8a7e30e6f9d25c1084135cb5797b7c456ac8c710a41858017b  packages/core/
 c3948b93be91c68c6052ff9525ec5992bf261c96e67b51b1347e8fcc9c3fdc62  packages/core/hooks/checks/guard-liveness-fullsweep.ts
 3200f762806ac49f1c615339f2aa70a5c169686f761300eb40a4acfafb2b99cc  packages/core/hooks/checks/guard-liveness.test.ts
 5c37e5f230f0fed95f6b95bb58247ff6ccb2c56b81e7b8d7f3e6fd252bd4b395  packages/core/hooks/checks/guard-liveness.ts
-6618185febd7037eb07ac11a46b5f38aee8c2e0c6afe2339491535b38e334258  packages/core/hooks/checks/harness-config-local.test.ts
+8c37766cc816bd22ac0b21975377be05e9730776571183ba4c8c4c68f5f302d9  packages/core/hooks/checks/harness-config-local.test.ts
 21da3f6b1d19b9722dfb07be47872c9255800f904fec77942143ae0f16f6881f  packages/core/hooks/checks/harness-config-local.ts
 ac26588d9da5982279a5edeb4e916ae8782148a530f7eeb6015839a54363d966  packages/core/hooks/checks/hooks-path.test.ts
 0e99dd01da436e9b31735fbbedbf6a76bbcd16b545cd8d8ddddbdead615907b4  packages/core/hooks/checks/hooks-path.ts
