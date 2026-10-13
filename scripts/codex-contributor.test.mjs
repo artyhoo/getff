@@ -1138,11 +1138,14 @@ test('M02/M08 emitted registration flip: known native effect aliases select real
   ).value.hooks;
   const matches = (group, name) =>
     group.matcher === '*' || new RegExp(`^(?:${group.matcher})$`).test(name);
+  // The accepted renderer's command carries the packaged-runtime guard and the explicit
+  // "$root" argument, so the script name stands as its own word before a space — never the
+  // bare ` <name>;` shape the pre-native emitter produced.
   const selected = (event, name, script) =>
     h[event].some(
       (g) =>
         matches(g, name) &&
-        g.hooks.some((x) => x.command.includes(` ${script};`)),
+        g.hooks.some((x) => x.command.includes(` ${script} `)),
     );
   for (const name of [
     'Bash',
@@ -1176,7 +1179,7 @@ test('M02/M08 emitted registration flip: known native effect aliases select real
   const registered = (event, name, args, script) => {
     const groups = h[event].filter((g) => matches(g, name));
     const commands = groups.flatMap((g) => g.hooks.map((x) => x.command));
-    const command = commands.find((c) => c.includes(` ${script};`));
+    const command = commands.find((c) => c.includes(` ${script} `));
     if (!command) return { stdout: '', stderr: '', status: 0 };
     return dispatch(policyInput(name, args, event), script, policyFixture);
   };
