@@ -935,9 +935,7 @@ const isMainEntryLock =
         realpathSync(fileURLToPath(import.meta.url))
       );
     } catch {
-      return (
-        resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
-      );
+      return false;
     }
   })();
 

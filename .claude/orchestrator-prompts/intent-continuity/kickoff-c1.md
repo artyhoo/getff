@@ -3,6 +3,8 @@
 > **Authoritative for:** bounded Stage C result-continuity execution and acceptance evidence.
 > **NOT authoritative for:** changing the approved PRD or operator-agreed architecture, publishing shared WIP, or claiming arbitrary external execution is intercepted.
 
+Rigor label (L0): `build-and-verify`
+
 ## 0. Authority and workspace
 
 - Feature ID: `intent-continuity`. Approved PRD snapshot SHA-256 `f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a`; agreed design snapshot SHA-256 `31000fc2b2bd0fc2c98f7315ec011660be9767a7e5be9cbfdc306fa334bbd078`. Read those exact artifacts and design §§4, 7–9 before work.

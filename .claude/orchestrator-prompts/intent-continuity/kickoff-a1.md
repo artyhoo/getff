@@ -3,6 +3,8 @@
 > **Authoritative for:** this first implementation stage and its acceptance evidence.
 > **NOT authoritative for:** changing the product promise, replacing the agreed architecture, launching later slices, or declaring the entire feature complete.
 
+Rigor label (L0): `build-and-verify`
+
 ## 0. Authority, inputs and working tree
 
 - Feature ID: `intent-continuity`. Operator authorized GLM implementation after agreeing to the written specification on 2026-10-12. Execute this stage; do not request a second plan vote.

@@ -3,6 +3,8 @@
 > **Authoritative for:** Stage B's bounded execution and acceptance evidence.
 > **NOT authoritative for:** changing the approved product idea or agreed architecture, activating Stage C/D effects, or publishing this shared worktree.
 
+Rigor label (L0): `build-and-verify`
+
 ## 0. Authority, dependency and workspace
 
 - Feature ID: `intent-continuity`. The operator agreed to the written design and now selected GLM execution for the next stage. Do not request a second design or plan vote for in-scope implementation choices.

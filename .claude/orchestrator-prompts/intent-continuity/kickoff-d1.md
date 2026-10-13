@@ -3,6 +3,8 @@
 > **Authoritative for:** bounded canonical/native/runtime delivery and host-channel acceptance of the already agreed intent-continuity design.
 > **NOT authoritative for:** changing product promises, redesigning `/intent`, `/arch` or `/pipeline`, starting execution from this design-only artifact, or publishing the shared WIP.
 
+Rigor label (L0): `build-and-verify`
+
 ## Authority and placement
 
 - Work in `/Users/art/.codex/worktrees/0166/rules-as-tests-aif`; verify `pwd` and preserve the unrelated WIP. No reset, clean, bulk stage, commit, push, PR or merge.
