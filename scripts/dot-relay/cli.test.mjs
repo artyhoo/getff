@@ -17,7 +17,7 @@ import { join, dirname, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import { digest, envelopeDigest, CHAT_IDS, reportKey, splitCodepointParts } from './contract.mjs';
+import { digest, envelopeDigest, CHAT_IDS, reportKey, splitCodepointParts, receiveDelivery } from './contract.mjs';
 import { openLedger } from './ledger.mjs';
 
 const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
@@ -122,6 +122,39 @@ test('F08 native bootstrap: installed source/authority pins and real operation w
     cliJson(['bridge-activated','--root',root,'--automation-id','dot-native','--receipt-file',activation]);
     const liveResult=await fn(tools,setTimeout,clearTimeout,()=>{});
     assert.equal(liveResult.state,'IDLE'); assert.equal(waits,1); assert.equal(sends,0);
+    // Drive the installed bootstrap, real CLI journal/spool/claim boundary
+    // and actual shared recipient parser together. Literal apostrophes and
+    // multibyte packet bytes must survive the nested native argv transport.
+    const env=JSON.parse(batchEnvelopeText('NATIVE-ROUNDTRIP'));
+    env.payload.reports[0].body="Native recipient's exact UTF-8 bytes: 日本語.\n";
+    env.payload.reports[0].body_sha256=sha256Of(env.payload.reports[0].body);
+    const {sha256:ignored,...content}=env; env.sha256=digest(content);
+    const packet=JSON.stringify(env); const artifactRef="library-file:native-recipient's-packet";
+    const manifest={version:1,status:'READY',event_id:env.id,kind:'batch',producer:CHAT_IDS.collector,destination:CHAT_IDS.analyst,
+      sha256:sha256Of(packet),bytes:Buffer.byteLength(packet),parents:[],artifact:{page_id:'page_native_fixture',reference:artifactRef},delivery_id:null};
+    const index=JSON.stringify({version:1,producer:CHAT_IDS.collector,generation:'COLLECTOR-NATIVE-ROUNDTRIP',page_number:0,items:[{type:'manifest',manifest}],next:null});
+    const locator={version:1,producer:CHAT_IDS.collector,status:'READY',generation:'COLLECTOR-NATIVE-ROUNDTRIP',
+      index:{page_id:'page_native_fixture',reference:'library-file:native-index',sha256:sha256Of(index),bytes:Buffer.byteLength(index)}};
+    tools.mcp__codex_app__wait_threads=async()=>({content:[{type:'text',text:JSON.stringify({polls:[{cursor:'native-cursor',thread:{id:CHAT_IDS.collector},
+      latestTurn:{status:'completed'},latestAssistantMessage:{phase:'final_answer',text:'DOT_RELAY_INDEX '+JSON.stringify(locator)}}]})}]});
+    tools.mcp__codex_apps__chatgpt_space_read_page_reference=async({page_id,reference})=>{
+      const text=reference===artifactRef?packet:index;
+      return {structuredContent:{kind:'text',text_representation:'source',page_id,reference,text,sha256:sha256Of(text),byte_size:Buffer.byteLength(text)}};
+    };
+    let actualAck=null;
+    tools.mcp__codex_app__send_message_to_thread=async({threadId,prompt})=>{
+      const cycleDir=join(root,'bridge-cycle.lock');
+      const intents=readdirSync(join(cycleDir,'operations')).filter(n=>!n.endsWith('.result.json')).map(n=>JSON.parse(readFileSync(join(cycleDir,'operations',n),'utf8')));
+      assert.equal(intents.filter(r=>r.kind==='send' && r.state==='PENDING').length,1);
+      assert.equal(cliJson(['bridge-cycle-begin','--root',root,'--cycle-id','COMPETING','--owner',owner],{expectFail:true}).code,'BRIDGE_OPERATION_PENDING');
+      if(prompt.startsWith('DOT_RELAY_DELIVERY ')) actualAck=receiveDelivery(prompt,packet,threadId).ack;
+      return {content:[{type:'text',text:JSON.stringify({threadId})}]};
+    };
+    const delivered=await fn(tools,setTimeout,clearTimeout,()=>{});
+    assert.equal(delivered.state,'PROGRESSED'); assert.equal(delivered.counts.deliveries,1);
+    assert.equal(actualAck.event_id,env.id); assert.equal(actualAck.event_sha256,env.sha256);
+    assert.equal(actualAck.artifact_sha256,manifest.sha256);
+    assert.equal(readFileSync(join(root,'objects',manifest.sha256+'.json'),'utf8'),packet);
     writeJson(root,'native-binding.json',{...binding,source_commit:'b'.repeat(40)});
     assert.equal(cliJson(['status','--root',root]).bridge.active,false);
   } finally {rmSync(root,{recursive:true,force:true});}
