@@ -118,9 +118,9 @@ grep -q 'edited since' <<<"$(grep 'R2 boundary layout ambiguous' "$D/.install2.l
 # mv over their file, and a «✓ added 1 glob(s)» even when the config had no `boundary: [` line and
 # nothing changed. This config carries such a line, so an unguarded patch would visibly change it.
 # A consumer's config gets RULE_GLOBS and R2 from synth-and-wire --own-config instead (Q4.7,
-# 2026-09-28), which needs ts-morph: a plain install has none, so the file stays as it was and the
-# not-wired summary says a --full install adds them (synth-wire-consumer-config.test.sh arm R
-# covers the write itself).
+# 2026-09-28), which needs ts-morph: a plain install resolves none (project dependencies / getff
+# toolchain cache), so the file stays as it was and the not-wired summary names the ts-morph
+# resolution reason (synth-wire-consumer-config.test.sh arm R covers the write itself).
 E=$(mktemp -d)
 printf '{"name":"e","version":"0.0.0"}\n' > "$E/package.json"
 mkdir -p "$E/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$E/src/api/handler.ts"
@@ -144,9 +144,9 @@ cmp -s "$E/eslint.config.mjs" "$E.before" \
 ! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$E.log" \
   && ok "E: no «added N glob(s)» claim over a config the install did not touch" \
   || bad "E: the install claimed it added globs to the consumer's config"
-grep -q 'R2.*your own config.*--full' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$E.log")" \
-  && ok "E: the not-wired summary says R2 is not in the consumer's own config yet, and that --full adds it" \
-  || bad "E: the not-wired summary does not report the unwired R2 boundary with the --full way to add it"
+grep -q 'R2.*your own config.*ts-morph AST editor' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$E.log")" \
+  && ok "E: the not-wired summary says R2 is not in the consumer's own config yet, and names the ts-morph resolution reason" \
+  || bad "E: the not-wired summary does not report the unwired R2 boundary with the ts-morph resolution reason"
 ! grep -qiE 'by hand|manually' <<<"$(grep -iE 'eslint|R2' "$E.log")" \
   && ok "E: nothing asks for a manual ESLint edit" \
   || bad "E: the install asks for a manual ESLint edit: $(grep -iE 'eslint|R2' "$E.log" | grep -iE 'by hand|manually' | head -2 | tr '\n' '|')"
@@ -156,8 +156,9 @@ rm -f "$E.before" "$E.log"
 # R2 registered by the consumer, scoped their own way, stays as it is; the own-config wirer adds a
 # RULE_GLOBS declaration alone for the boundary code 60-ci found, so check-rule-globs.sh has globs to read
 # and check-rule-enforced.sh boundary files to ask ESLint about (operator decision 2026-09-29). This
-# install has no ts-morph, so the wirer does not run: the not-wired summary says that a --full install
-# adds RULE_GLOBS — and must not promise R2, which is the consumer's setting.
+# install resolves no ts-morph editor (project dependencies / getff toolchain cache), so the wirer
+# does not run: the not-wired summary names RULE_GLOBS with the ts-morph resolution reason — and
+# must not promise R2, which is the consumer's setting.
 E2=$(mktemp -d)
 printf '{"name":"e2","version":"0.0.0"}\n' > "$E2/package.json"
 mkdir -p "$E2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$E2/src/api/handler.ts"
@@ -172,11 +173,12 @@ JS
   || bad "E2: install exited non-zero (tail: $(tail -3 "$E2.log" | tr '\n' '|'))"
 grep -q 'eslint.config.mjs is your own config' "$E2.log" \
   || bad "E2: 60-ci did not route the consumer's config as their own — the arm below would be vacuous"
-# The line that says what a --full install adds to this config: RULE_GLOBS, with ts-morph as the reason.
+# The line that names what the wirer cannot add to this config: RULE_GLOBS, with the ts-morph
+# resolution reason (the delivered two-source wording the payload's own suites assert).
 _e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | grep -F 'ts-morph')
-grep -q 'RULE_GLOBS' <<<"$_e2_line" && grep -q -- '--full' <<<"$_e2_line" \
-  && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary says a --full install adds RULE_GLOBS" \
-  || bad "E2: the not-wired summary does not say a --full install adds RULE_GLOBS to this config: $(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | tr '\n' '|')"
+grep -q 'RULE_GLOBS' <<<"$_e2_line" && grep -qF 'usable ts-morph AST editor' <<<"$_e2_line" \
+  && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary names RULE_GLOBS with the ts-morph resolution reason" \
+  || bad "E2: the not-wired summary does not name the ts-morph resolution reason for RULE_GLOBS on this config: $(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | tr '\n' '|')"
 ! grep -qE 'RULE_GLOBS and R2|R2 and its|R2 \(scoped' <<<"$_e2_line" \
   && ok "E2: the summary promises no R2 — where R2 runs stays the consumer's setting" \
   || bad "E2: the not-wired summary promises R2 for a config whose R2 the wirer leaves as it is: $(printf '%s' "$_e2_line" | tr '\n' '|')"
