@@ -40,3 +40,7 @@ node scripts/render-harness-config.mjs --check --only codex
 ## 4. Quality and handoff
 
 Use test-first slices, the existing project rules and review/test-quality gates. Active AI-laziness traps: T2 (a helper green is not a wired effect), T3 (report actual commands and outputs), T5 (preserve WIP), T10 (enumerate reachable effect paths), T11/T16 (reuse the incumbent validator and bridge), T14 (hash/schema passes do not prove product meaning), T15 (self-test the result path), T19 (cold review final bytes), T20 (read live owner state before verdict). A failed current-authority or result check holds the affected branch, not permission to weaken the PRD/spec or bypass a review. Stage D owns canonical/native/vendor delivery breadth after Stage C acceptance.
+
+## 5. Operator staging addendum (2026-10-13)
+
+The operator chose to merge the bounded technical candidate into `staging` and exercise the independent product comparison on the next genuine feature result, rather than spend a separate training task on a synthetic result. This changes the timing of the live AC7 demonstration, not AC7 or the PRD promise. This staging PR may claim the implemented guards, immutable negative attempts, and tested runtime effects; it must not claim C1's full product acceptance or an independent `matches` on a real result. The first genuine result remains a required follow-up observation, and any later substantive change must make a prior matching ruling historical until a new ruling is recorded. Keep the open cell visible in acceptance evidence and the PR body.
