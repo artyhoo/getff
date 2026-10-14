@@ -14,9 +14,9 @@ sources:
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
+docs-refresh: deferred — re-verified 2026-10-13 on staging-integrated PR2087, inherited native workflow edits shift the quoted pin locations; current grep returns367 and1143, both with the same @ast-grep/cli@0.44.1 literal. The former355/1129 locations and append-only explanation are superseded for this integrated tuple; prior executed evidence remains historical. The evidence-regeneration rule is unchanged. The cited overview changed its batch-status paragraph, class-list links and frontmatter sources during the previous all-30 refresh; this sheet's #how-to-read-a-rule-page anchor remains unchanged. Clears at the next gold refresh of this page
 executed:
   - { example: pin-site-grep, stack: repo, date: 2026-10-10, result: two-sites-0.44.1 }
-docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # evidence-regeneration rule
