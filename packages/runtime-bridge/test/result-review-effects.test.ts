@@ -38,16 +38,31 @@ import {
   writeFileSync,
   readFileSync,
   readdirSync,
+  rmSync,
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
+import { createServer } from 'node:http';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { ManualBackend } from '../src/ManualBackend.js';
 import { AifFireBackend } from '../src/AifFireBackend.js';
+import {
+  enforceAnswerScope,
+  enforceKickoffAdmission,
+  enforceScope,
+  enforceTaskAdmission,
+  recordTaskAdoption,
+  recordLegacyTaskClaim,
+  recordRecoveredLegacyTask,
+  taskPreImageDigest,
+  validateDeclaredScope,
+} from '../src/resultReview.js';
 import { BackendError } from '../src/backend.js';
 import { pushAnswer } from '../src/cli/answer.js';
 import { startReviewed } from '../src/cli/start-reviewed.js';
+import { handleFromTaskId, releaseOwnerRoot } from '../src/cli/claim.js';
+import { recoverLegacyTaskFromAif } from '../src/cli/recover-legacy-task.js';
 import type { KickoffSpec } from '../src/types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -100,7 +115,7 @@ interface FxContract {
   version: number;
   featureId: string;
   resultId: string;
-  mode: string;
+  mode: 'produce' | 'repair' | 'expand';
   brief: { path: string; sha256: string };
   shared: Array<{ path: string; sha256: string }>;
   essentialPromiseIds: string[];
@@ -148,6 +163,634 @@ const matchingReview = {
 };
 const reviewBytes = `${JSON.stringify(matchingReview, null, 2)}\n`;
 writeFileSync(resolve(ROOT, 'reviews/a1.json'), reviewBytes, 'utf8');
+mkdirSync(resolve(ROOT, 'result-reviews/a1'), { recursive: true });
+writeFileSync(
+  resolve(ROOT, 'result-reviews/a1/result-review.json'),
+  reviewBytes,
+  'utf8',
+);
+
+describe('intent continuity — repair references the historical failed attempt', () => {
+  it('allows scoped repair of a recorded mismatch without pretending it is a current match', () => {
+    const failed = {
+      ...matchingReview,
+      outcome: 'mismatch',
+      promises: [
+        {
+          id: 'P1',
+          comparison: 'contradicted',
+          evidence: [p1Ref],
+          explanation: 'observed failure',
+        },
+      ],
+    };
+    const failedBytes = `${JSON.stringify(failed)}\n`;
+    writeFileSync(resolve(ROOT, 'reviews/failed.json'), failedBytes, 'utf8');
+    const repair: FxContract = {
+      ...produceContract,
+      mode: 'repair',
+      producesOrRepairs: 'a1',
+      requiresReview: {
+        path: 'reviews/failed.json',
+        sha256: sha256(failedBytes),
+      },
+    };
+    expect(
+      validateDeclaredScope(repair, { roots: [ROOT], helperPath: HELPER }),
+    ).toEqual({ ok: true });
+  });
+});
+
+describe('intent continuity — independently selected authority at an effect', () => {
+  const spec = E('env/agreed-spec.md', '# Agreed specification\n');
+  const adopted = {
+    ...produceContract,
+    featureId: 'adopted-demo',
+    shared: [spec],
+  };
+  const selector = resolve(ROOT, 'selector-probe.mjs');
+  writeFileSync(
+    selector,
+    `
+const prd = process.env.TEST_CURRENT_PRD_SHA;
+const spec = process.env.TEST_CURRENT_SPEC_SHA;
+if (process.argv.includes('--classify-artifact')) {
+  process.stdout.write(JSON.stringify({ok:true,classification:'unknown',sha256:process.env.TEST_KICKOFF_SHA})+'\\n');
+} else if (process.argv.includes('--read')) {
+  process.stdout.write(JSON.stringify({ok:true,currentPrd:{snapshotRef:{path:'brief.md',sha256:prd}},currentSpec:{specRef:{path:'env/agreed-spec.md',sha256:spec}}})+'\\n');
+} else {
+  process.stdout.write(JSON.stringify({ok:true,prdSha256:prd,specSha256:spec,attemptId:'spec-attempt'})+'\\n');
+}
+`,
+  );
+
+  it('holds an unchanged adopted payload after current PRD supersession before effect', () => {
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', 'f'.repeat(64));
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', spec.sha256);
+    expect(() =>
+      enforceScope(scopedText(adopted, 'adopted-prd'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+      }),
+    ).toThrow(/current PRD|brief/i);
+  });
+
+  it('holds an unchanged adopted payload after agreed spec supersession before effect', () => {
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', briefDigest);
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', 'e'.repeat(64));
+    expect(() =>
+      enforceScope(scopedText(adopted, 'adopted-spec'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+      }),
+    ).toThrow(/current spec|shared/i);
+  });
+
+  it('accepts the same adopted payload while both current decisions match', () => {
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', briefDigest);
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', spec.sha256);
+    expect(
+      enforceScope(scopedText(adopted, 'adopted-ok'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+      }),
+    ).toMatchObject({ kind: 'scoped' });
+  });
+
+  it('an adopted expansion needs a current observed revision and cannot reuse a stale match', () => {
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', briefDigest);
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', spec.sha256);
+    const expansion: FxContract = {
+      ...adopted,
+      featureId: 'fx-pilot',
+      mode: 'expand',
+      producesOrRepairs: 'a1',
+      parentContract: contractRef,
+      requiresReview: {
+        path: 'result-reviews/a1/result-review.json',
+        sha256: sha256(reviewBytes),
+      },
+    };
+    // The selector probe selects the same PRD and spec for this fixture feature.
+    expect(() =>
+      enforceScope(scopedText(expansion, 'expand-no-revision'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+      }),
+    ).toThrow(/observed revision/i);
+    expect(() =>
+      enforceScope(scopedText(expansion, 'expand-stale'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+        observedRevision: 'rev-2',
+      }),
+    ).toThrow(/stale_review/i);
+    expect(
+      enforceScope(scopedText(expansion, 'expand-current'), 'test', {
+        helperPath: HELPER,
+        roots: [ROOT],
+        decisionsHelperPath: selector,
+        observedRevision: 'rev-1',
+      }),
+    ).toMatchObject({ kind: 'scoped' });
+    expect(() =>
+      enforceScope(
+        scopedText(
+          {
+            ...expansion,
+            requiresReview: {
+              path: 'reviews/a1.json',
+              sha256: sha256(reviewBytes),
+            },
+          },
+          'expand-unpublished',
+        ),
+        'test',
+        {
+          helperPath: HELPER,
+          roots: [ROOT],
+          decisionsHelperPath: selector,
+          observedRevision: 'rev-1',
+        },
+      ),
+    ).toThrow(/review_not_published/);
+  });
+
+  it('rejects a newly authored kickoff whose scope marker was removed before dispatch', () => {
+    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-admission-'));
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(resolve(home, 'current-decisions.json'), '{}');
+    writeFileSync(resolve(home, 'legacy-freeze.json'), '{}');
+    const path = resolve(admissionRoot, 'new-kickoff.md');
+    const content = '# New kickoff with marker removed\n';
+    writeFileSync(path, content);
+    vi.stubEnv('TEST_KICKOFF_SHA', sha256(content));
+    expect(() =>
+      enforceKickoffAdmission({ filePath: path, content }, 'test', {
+        repoRoot: admissionRoot,
+        decisionsHelperPath: selector,
+      }),
+    ).toThrow(/adoption|scope/i);
+  });
+
+  it('uses the configured external orchestration home for admission and holds a missing selector', async () => {
+    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-external-root-'));
+    const orchHome = mkdtempSync(resolve(tmpdir(), 'intent-external-home-'));
+    const home = resolve(orchHome, 'intent-continuity');
+    mkdirSync(home, { recursive: true });
+    writeFileSync(resolve(home, 'current-decisions.json'), '{}');
+    writeFileSync(resolve(home, 'legacy-freeze.json'), '{}');
+    const filePath = resolve(admissionRoot, 'kickoff-new.md');
+    const content = '# Newly adopted kickoff with marker removed\n';
+    writeFileSync(filePath, content);
+    vi.stubEnv('AIF_INTENT_REPO_ROOT', admissionRoot);
+    vi.stubEnv('AIF_INTENT_ORCH_HOME', orchHome);
+    vi.stubEnv('TEST_KICKOFF_SHA', sha256(content));
+
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test', {
+        decisionsHelperPath: selector,
+      }),
+    ).toThrow(/adoption|scope/i);
+    expect(() =>
+      enforceTaskAdmission({ id: 'new-task', description: content }, 'test'),
+    ).toThrow(/adoption|legacy/i);
+
+    const calls: Call[] = [];
+    mockTaskStore(calls, { id: 'new-task', paused: true, description: content });
+    await expect(
+      new AifHandoffBackend({
+        baseUrl: 'http://localhost:3009',
+        projectId: 'proj-uuid',
+      }).release(handleFromTaskId('new-task', admissionRoot)),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(calls.some((call) => call.url.endsWith('/tasks/new-task'))).toBe(
+      true,
+    );
+
+    // Removing the selector must not turn this configured owner into legacy mode.
+    rmSync(resolve(home, 'current-decisions.json'));
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test'),
+    ).toThrow(/selector is missing/i);
+    expect(() =>
+      enforceTaskAdmission({ id: 'new-task', description: content }, 'test'),
+    ).toThrow(/selector is missing/i);
+  });
+
+  it('direct AIF claim refuses marker removal before any network effect', async () => {
+    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-admission-'));
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(resolve(home, 'current-decisions.json'), '{}');
+    writeFileSync(resolve(home, 'legacy-freeze.json'), '{}');
+    const content = '# Newly admitted task without its scope\n';
+    const filePath = resolve(admissionRoot, 'kickoff-new.md');
+    writeFileSync(filePath, content);
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_DECISIONS_HELPER', selector);
+    vi.stubEnv('TEST_KICKOFF_SHA', sha256(content));
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('network call forbidden in admission test'));
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    await expect(
+      backend.claim({
+        filePath,
+        content,
+        umbrellaName: 'adopted-demo',
+        contentHash: sha256(content),
+      }),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('manual packet and /fire refuse an unknown kickoff with its adopted scope removed', async () => {
+    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-admission-'));
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(resolve(home, 'current-decisions.json'), '{}');
+    writeFileSync(resolve(home, 'legacy-freeze.json'), '{}');
+    const content = '# New kickoff missing adopted scope\n';
+    const filePath = resolve(admissionRoot, 'kickoff-new.md');
+    writeFileSync(filePath, content);
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_DECISIONS_HELPER', selector);
+    vi.stubEnv('TEST_KICKOFF_SHA', sha256(content));
+    const kickoff = {
+      filePath,
+      content,
+      umbrellaName: 'adopted-demo',
+      contentHash: sha256(content),
+    };
+    const before = new Set(manualArtifacts());
+    await expect(new ManualBackend().dispatch(kickoff)).rejects.toMatchObject({
+      code: 'spec_invalid',
+    });
+    await expect(
+      new AifFireBackend({ routineId: 'test', token: 'never-send' }).dispatch(
+        kickoff,
+      ),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(manualArtifacts().filter((f) => !before.has(f))).toEqual([]);
+  });
+
+  it('a persisted adopted task cannot become legacy when its scope is removed', () => {
+    const admissionRoot = mkdtempSync(
+      resolve(tmpdir(), 'intent-task-admission-'),
+    );
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'test-repo' }),
+    );
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({ repoIdentity: 'test-repo', artifacts: [] }),
+    );
+    const description = scopedText(adopted, 'durable-task');
+    recordTaskAdoption({ id: 'task-new', description }, admissionRoot);
+    expect(() =>
+      enforceTaskAdmission(
+        { id: 'task-new', description: '# marker removed' },
+        'test',
+        { repoRoot: admissionRoot },
+      ),
+    ).toThrow(/description|adoption/i);
+    expect(() =>
+      enforceTaskAdmission(
+        { id: 'task-unknown', description: '# marker removed' },
+        'test',
+        { repoRoot: admissionRoot },
+      ),
+    ).toThrow(/adoption|legacy/i);
+    vi.spyOn(process, 'cwd').mockReturnValue(admissionRoot);
+    expect(() =>
+      enforceAnswerScope(
+        {
+          id: 'task-new',
+          description: '# marker removed',
+        },
+        { backend: 'answer' },
+      ),
+    ).toThrow(/adoption|description/i);
+  });
+
+  it('admits only frozen task IDs or claimed frozen kickoffs as legacy', () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'intent-legacy-task-'));
+    const home = resolve(
+      root,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'legacy-repo' }),
+    );
+    const description = '# Old kickoff\n';
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({
+        repoIdentity: 'legacy-repo',
+        frozenAt: '2026-10-12T00:00:00.000Z',
+        artifacts: [{ sha256: sha256(description) }],
+        taskIds: ['frozen-id'],
+      }),
+    );
+    vi.stubEnv('RUNTIME_BRIDGE_AIF_PROJECT_ID', 'correct-project');
+    expect(
+      enforceTaskAdmission({ id: 'frozen-id', description: 'edited' }, 'test', {
+        repoRoot: root,
+      }),
+    ).toEqual({ adopted: false });
+    expect(() =>
+      enforceTaskAdmission(
+        {
+          id: 'old-id',
+          description: 'edited',
+          createdAt: '2026-10-11T00:00:00.000Z',
+          projectId: 'correct-project',
+        },
+        'test',
+        { repoRoot: root },
+      ),
+    ).toThrow(/adoption|legacy/i);
+    expect(() =>
+      enforceTaskAdmission(
+        {
+          id: 'new-copy',
+          description,
+          createdAt: '2026-10-13T00:00:00.000Z',
+          projectId: 'correct-project',
+        },
+        'test',
+        { repoRoot: root },
+      ),
+    ).toThrow(/adoption|legacy/i);
+    expect(() =>
+      enforceTaskAdmission(
+        {
+          id: 'foreign-old',
+          description,
+          createdAt: '2026-10-11T00:00:00.000Z',
+          projectId: 'other-project',
+        },
+        'test',
+        { repoRoot: root },
+      ),
+    ).toThrow(/adoption|legacy/i);
+    recordLegacyTaskClaim({ id: 'claimed-old-kickoff', description }, root);
+    expect(
+      enforceTaskAdmission({ id: 'claimed-old-kickoff', description }, 'test', {
+        repoRoot: root,
+      }),
+    ).toEqual({ adopted: false });
+    const old = {
+      id: 'recovered-active',
+      status: 'plan_ready',
+      projectId: 'correct-project',
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-11T00:00:00.000Z',
+    };
+    expect(recordRecoveredLegacyTask(old, root, 'correct-project')).toMatch(
+      /legacy-recovery\.json$/,
+    );
+    expect(
+      enforceTaskAdmission(
+        {
+          id: old.id,
+          description: '# edited after recovery',
+          projectId: old.projectId,
+        },
+        'test',
+        { repoRoot: root },
+      ),
+    ).toEqual({ adopted: false });
+    expect(() =>
+      recordRecoveredLegacyTask(
+        { ...old, id: 'already-done', status: 'done' },
+        root,
+        'correct-project',
+      ),
+    ).toThrow(/not proven active/i);
+    expect(() =>
+      recordRecoveredLegacyTask(
+        {
+          ...old,
+          id: 'changed-after-freeze',
+          updatedAt: '2026-10-13T00:00:00.000Z',
+        },
+        root,
+        'correct-project',
+      ),
+    ).toThrow(/not proven active/i);
+  });
+
+  it('recovers only the requested live AIF row through the CLI readback', async () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'intent-live-recovery-'));
+    const home = resolve(
+      root,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'legacy-repo' }),
+    );
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({
+        repoIdentity: 'legacy-repo',
+        frozenAt: '2026-10-12T00:00:00.000Z',
+        artifacts: [],
+        taskIds: [],
+      }),
+    );
+    const row = {
+      id: 'live-recovery',
+      status: 'plan_ready',
+      projectId: 'correct-project',
+      createdAt: '2026-10-10T00:00:00.000Z',
+      updatedAt: '2026-10-11T00:00:00.000Z',
+    };
+    const server = createServer((req, res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(
+        JSON.stringify({
+          ...row,
+          id: req.url === '/tasks/wrong-id' ? row.id : 'live-recovery',
+        }),
+      );
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string')
+        throw new Error('no test port');
+      const base = `http://127.0.0.1:${address.port}`;
+      await expect(
+        recoverLegacyTaskFromAif(base, 'wrong-id', root, row.projectId),
+      ).rejects.toThrow(/lacks freeze-recovery fields/);
+      expect(() =>
+        enforceTaskAdmission(
+          { id: 'wrong-id', projectId: row.projectId },
+          'test',
+          { repoRoot: root },
+        ),
+      ).toThrow(/neither a standing adoption receipt/i);
+      await expect(
+        recoverLegacyTaskFromAif(base, row.id, root, row.projectId),
+      ).resolves.toMatch(/legacy-recovery\.json$/);
+      expect(
+        enforceTaskAdmission({ id: row.id, projectId: row.projectId }, 'test', {
+          repoRoot: root,
+        }),
+      ).toEqual({ adopted: false });
+    } finally {
+      server.close();
+    }
+  });
+
+  it('resumes a changed adopted task only after current product authority and a new plan review bind both payloads', () => {
+    const revisionRoot = mkdtempSync(
+      resolve(tmpdir(), 'intent-task-revision-'),
+    );
+    const home = resolve(
+      revisionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    mkdirSync(resolve(revisionRoot, 'env'), { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'revision-repo' }),
+    );
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({ repoIdentity: 'revision-repo', artifacts: [] }),
+    );
+    const oldBrief = '# Old product promise\n';
+    const newBrief = '# Operator-approved new promise\n';
+    writeFileSync(resolve(revisionRoot, 'brief.md'), newBrief);
+    const specBytes = '# Agreed specification\n';
+    writeFileSync(resolve(revisionRoot, 'env/agreed-spec.md'), specBytes);
+    const oldContract: FxContract = {
+      ...produceContract,
+      featureId: 'adopted-demo',
+      brief: { path: 'brief.md', sha256: sha256(oldBrief) },
+      shared: [{ path: 'env/agreed-spec.md', sha256: sha256(specBytes) }],
+    };
+    const newContract: FxContract = {
+      ...oldContract,
+      brief: { path: 'brief.md', sha256: sha256(newBrief) },
+    };
+    const oldDescription = scopedText(oldContract, 'prior');
+    const newDescription = scopedText(newContract, 'updated');
+    recordTaskAdoption(
+      { id: 'revised-task', description: oldDescription },
+      revisionRoot,
+    );
+    expect(() =>
+      enforceAnswerScope(
+        { id: 'revised-task', description: '# marker removed' },
+        { backend: 'test', roots: [revisionRoot] },
+      ),
+    ).toThrow(/marker was removed/);
+    const contractBytes = `${JSON.stringify(newContract)}\n`;
+    writeFileSync(resolve(revisionRoot, 'contract-new.json'), contractBytes);
+    const task = {
+      id: 'revised-task',
+      description: newDescription,
+      plan: '# Current plan\n',
+      paused: true,
+      status: 'done',
+      title: 'revised',
+    };
+    const review = {
+      taskId: task.id,
+      contractRef: { path: 'contract-new.json', sha256: sha256(contractBytes) },
+      effectivePlanSha256: sha256(task.plan),
+      taskPreImageSha256: taskPreImageDigest(task, { helperPath: HELPER }),
+      classification: 'product-decision',
+      ownerReference: 'current operator-approved PRD and agreed spec',
+      previousDescriptionSha256: sha256(oldDescription),
+    };
+    const reviewPath = resolve(revisionRoot, 'plan-review.json');
+    writeFileSync(reviewPath, JSON.stringify(review));
+    const opts = {
+      backend: 'test',
+      reviewPath,
+      helperPath: HELPER,
+      roots: [revisionRoot],
+      decisionsHelperPath: selector,
+    };
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', sha256(specBytes));
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', sha256(oldBrief));
+    expect(() => enforceAnswerScope(task, opts)).toThrow(/current PRD|brief/i);
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', sha256(newBrief));
+    expect(enforceAnswerScope(task, opts)).toEqual({ scoped: true });
+    expect(enforceAnswerScope(task, opts)).toEqual({ scoped: true });
+    writeFileSync(
+      reviewPath,
+      JSON.stringify({ ...review, ownerReference: 'changed review' }),
+    );
+    expect(() => enforceAnswerScope(task, opts)).toThrow(
+      /adoption receipt|differs/i,
+    );
+
+    const specB = '# Newly agreed specification\n';
+    writeFileSync(resolve(revisionRoot, 'env/agreed-spec.md'), specB);
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', sha256(specB));
+    const thirdContract: FxContract = {
+      ...newContract,
+      shared: [{ path: 'env/agreed-spec.md', sha256: sha256(specB) }],
+    };
+    const thirdDescription = scopedText(thirdContract, 'architecture-updated');
+    const thirdTask = { ...task, description: thirdDescription };
+    const thirdContractBytes = `${JSON.stringify(thirdContract)}\n`;
+    writeFileSync(
+      resolve(revisionRoot, 'contract-third.json'),
+      thirdContractBytes,
+    );
+    const thirdReview = {
+      ...review,
+      contractRef: {
+        path: 'contract-third.json',
+        sha256: sha256(thirdContractBytes),
+      },
+      taskPreImageSha256: taskPreImageDigest(thirdTask, { helperPath: HELPER }),
+      classification: 'contract-revision',
+      previousDescriptionSha256: sha256(newDescription),
+    };
+    const thirdReviewPath = resolve(revisionRoot, 'plan-review-third.json');
+    writeFileSync(thirdReviewPath, JSON.stringify(thirdReview));
+    expect(
+      enforceAnswerScope(thirdTask, { ...opts, reviewPath: thirdReviewPath }),
+    ).toEqual({ scoped: true });
+  });
+});
 
 /** A contract whose requiresReview binds the matching attempt — the release seam validates it. */
 const reviewedContract: FxContract = {
@@ -368,8 +1011,12 @@ describe('extractIntentScope — fail-closed fence parsing', () => {
   });
   it('near-miss opener with a word-char suffix → invalid, NOT unscoped (finding 94ac13a2)', async () => {
     const { extractIntentScope } = await loadResultReview();
-    const plural = extractIntentScope('# Demo\n\n```intent-contracts\n{"featureId":"f"}\n```\n');
-    const numbered = extractIntentScope('# Demo\n\n```intent-contract2\n{"featureId":"f"}\n```\n');
+    const plural = extractIntentScope(
+      '# Demo\n\n```intent-contracts\n{"featureId":"f"}\n```\n',
+    );
+    const numbered = extractIntentScope(
+      '# Demo\n\n```intent-contract2\n{"featureId":"f"}\n```\n',
+    );
     expect(plural.kind).toBe('invalid');
     expect(numbered.kind).toBe('invalid');
     expect(plural).not.toMatchObject({ kind: 'unscoped' });
@@ -377,7 +1024,9 @@ describe('extractIntentScope — fail-closed fence parsing', () => {
   });
   it('the exact opener still parses as scoped (near-miss net does not swallow the documented form)', async () => {
     const { extractIntentScope } = await loadResultReview();
-    expect(extractIntentScope(scopedText(produceContract, 'w')).kind).toBe('scoped');
+    expect(extractIntentScope(scopedText(produceContract, 'w')).kind).toBe(
+      'scoped',
+    );
   });
   it('two blocks → invalid (ambiguous declared scope fails closed)', async () => {
     const { extractIntentScope } = await loadResultReview();
@@ -498,10 +1147,14 @@ describe('cli/dispatch.ts — a scoped kickoff with a broken contract never disp
     async () => {
       const stub = startStub();
       const url = await stub.start();
-      const r = runDispatch(writeKickoffFile(malformedScopedText('arm-unconfigured')), url, {
-        RUNTIME_BRIDGE_INTENT_ROOTS: '',
-        RUNTIME_BRIDGE_INTENT_HELPER: '',
-      });
+      const r = runDispatch(
+        writeKickoffFile(malformedScopedText('arm-unconfigured')),
+        url,
+        {
+          RUNTIME_BRIDGE_INTENT_ROOTS: '',
+          RUNTIME_BRIDGE_INTENT_HELPER: '',
+        },
+      );
 
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('spec_invalid');
@@ -669,6 +1322,58 @@ describe('AifHandoffBackend.release — validation against the PERSISTED descrip
       projectId: 'proj-uuid',
     });
 
+  it('holds a claimed adopted handle after its marker is removed even without root env', async () => {
+    const admissionRoot = mkdtempSync(
+      resolve(tmpdir(), 'intent-release-root-'),
+    );
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'release-root' }),
+    );
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({ repoIdentity: 'release-root', artifacts: [] }),
+    );
+    recordTaskAdoption(
+      {
+        id: 'task-42',
+        description: scopedText(produceContract, 'claim-adopted'),
+      },
+      admissionRoot,
+    );
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', '');
+    vi.stubEnv('AIF_INTENT_REPO_ROOT', '');
+    const calls: Call[] = [];
+    mockTaskStore(calls, {
+      id: 'task-42',
+      paused: true,
+      description: '# marker removed',
+    });
+    expect(releaseOwnerRoot(admissionRoot)).toBe(admissionRoot);
+    await expect(
+      backend().release(
+        handleFromTaskId('task-42', releaseOwnerRoot(admissionRoot)),
+      ),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(calls.filter((call) => call.method === 'PUT')).toEqual([]);
+    vi.spyOn(process, 'cwd').mockReturnValue(admissionRoot);
+    calls.length = 0;
+    mockTaskStore(calls, {
+      id: 'task-42',
+      paused: true,
+      description: '# marker removed',
+    });
+    await expect(
+      backend().release(handleFromTaskId('task-42')),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(calls.filter((call) => call.method === 'PUT')).toEqual([]);
+  });
+
   it('stale delayed release → refused, NO unpause PUT; the paused claim remains paused', async () => {
     vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', ROOT);
     vi.stubEnv('RUNTIME_BRIDGE_INTENT_HELPER', HELPER);
@@ -759,6 +1464,7 @@ describe('AifHandoffBackend.release — validation against the PERSISTED descrip
   });
 
   it('UNSCOPED CONTROL: release stays a bare unpause PUT — no event, unchanged behaviour', async () => {
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', ROOT);
     const content = unscopedText('rel5');
     const calls: Call[] = [];
     mockTaskStore(calls, {
@@ -922,6 +1628,7 @@ describe('cli/answer.ts pushAnswer — scoped tasks require an authorized within
   });
 
   it('UNSCOPED CONTROL: resume without a contract stays ordinary (unpause PUT proceeds)', async () => {
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', ROOT);
     const calls: Call[] = [];
     mockTaskStore(calls, {
       id: 'task-42',
@@ -974,6 +1681,45 @@ function mockChangingTaskStore(
 
 describe('cli/start-reviewed.ts startReviewed — the event POST fires only on an authorized review of a waiting scoped claim', () => {
   const PLAN = '## Task\nimplement the scoped thing\n';
+
+  it('holds a reviewed start when the adopted PRD changed after planning, with no event POST', async () => {
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', ROOT);
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_HELPER', HELPER);
+    vi.stubEnv(
+      'RUNTIME_BRIDGE_INTENT_DECISIONS_HELPER',
+      resolve(ROOT, 'selector-probe.mjs'),
+    );
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', 'f'.repeat(64));
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', sha256('# Agreed specification\n'));
+    const adopted = {
+      ...produceContract,
+      featureId: 'adopted-demo',
+      shared: [
+        {
+          path: 'env/agreed-spec.md',
+          sha256: sha256('# Agreed specification\n'),
+        },
+      ],
+    };
+    const adoptedRef = E(
+      'contract-adopted.json',
+      `${JSON.stringify(adopted)}\n`,
+    );
+    const row = waitingScopedTask({
+      description: scopedText(adopted, 'stale-start'),
+    });
+    const reviewPath = await writeReview('adopted-stale', row, {
+      contractRef: adoptedRef,
+    });
+    const calls: Call[] = [];
+    mockTaskStore(calls, row);
+    await expect(
+      startReviewed('http://localhost:3009', 'task-42', reviewPath),
+    ).rejects.toMatchObject({ code: 'spec_invalid' });
+    expect(
+      calls.filter((c) => c.method === 'POST' && c.url.endsWith('/events')),
+    ).toEqual([]);
+  });
 
   /** A task parked at plan_ready by the scoped claim (autoMode:false). */
   const waitingScopedTask = (

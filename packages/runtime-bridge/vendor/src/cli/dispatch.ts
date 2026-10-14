@@ -57,7 +57,7 @@ import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
 import { ManualBackend } from '../ManualBackend.js';
-import { enforceScope } from '../resultReview.js';
+import { enforceKickoffAdmission, enforceScope } from '../resultReview.js';
 import { BackendError, type BackendErrorCode } from '../backend.js';
 
 /** True when --force is passed: skip the dedup check and re-dispatch deliberately. */
@@ -187,6 +187,7 @@ async function main(): Promise<void> {
   // deliberately, it never bypasses validation. Rejection is spec_invalid — the same
   // abort-loudly class as a bad bridge-profile below (no fallback, no /tmp artefact).
   try {
+    enforceKickoffAdmission(kickoff, 'dispatch');
     enforceScope(kickoff.content, 'dispatch');
   } catch (err) {
     if (err instanceof BackendError) {

@@ -60,6 +60,7 @@ Product intent is captured once as an approved immutable brief and restored from
 
 ## See also
 
+- [Specification review](references/spec-review.md) — the on-demand record format, complete essential coverage and explicit resolution of conflicting reviews used by `/arch`.
 - [/arch](../arch/SKILL.md) — the sibling solution-design contour; its ideation reference owns the route INTO this procedure, its exit reference the product-discussion exit.
 - [Advisor pattern design](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md) — the consultation, journal-before-answer and restoration mechanisms this contour reuses.
 - [intent-first spec](../../../docs/superpowers/specs/2026-10-07-idea-arch-incremental-design.md) — the product source of this contour (§1 experience, §3 brief and routing, §5-§6 review and continuation).

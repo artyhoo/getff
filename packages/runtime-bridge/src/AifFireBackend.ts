@@ -33,7 +33,7 @@
  * @cc-only-rationale: CC-cloud opt-in for laptop-closed / cloud dispatch; REST (AifHandoffBackend) is the portable, agnostic default channel.
  */
 import { BackendError } from './backend.js';
-import { enforceScope } from './resultReview.js';
+import { enforceKickoffAdmission, enforceScope } from './resultReview.js';
 import type { KickoffSpec, TaskStatus, TaskResult } from './types.js';
 
 // ── Local types (shared types.ts / backend.ts are NOT edited — Type-decision (b)) ──
@@ -112,7 +112,8 @@ export class AifFireBackend {
   private readonly anthropicVersion: string;
 
   constructor(config: AifFireConfig = {}) {
-    this.routineId = config.routineId ?? process.env['RUNTIME_BRIDGE_FIRE_ROUTINE_ID'];
+    this.routineId =
+      config.routineId ?? process.env['RUNTIME_BRIDGE_FIRE_ROUTINE_ID'];
     this.token = config.token ?? process.env['RUNTIME_BRIDGE_FIRE_TOKEN'];
     this.baseUrl =
       config.baseUrl ??
@@ -142,6 +143,7 @@ export class AifFireBackend {
    * On failure throws a BackendError (unavailable | quota_exceeded | dispatch_failed).
    */
   async dispatch(kickoff: KickoffSpec): Promise<AifFireHandle> {
+    enforceKickoffAdmission(kickoff, 'aif-fire');
     // Effect-boundary scope check BEFORE the POST /fire (intent-first-result §4): the
     // fire transport has no claim/release split to re-check at, so this one boundary
     // must carry the whole guard — a refused scope never reaches the routine.
@@ -163,7 +165,7 @@ export class AifFireBackend {
         res = await fetch(url, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.token}`,
+            Authorization: `Bearer ${this.token}`,
             'anthropic-beta': this.betaHeader,
             'anthropic-version': this.anthropicVersion,
             'Content-Type': 'application/json',
@@ -177,7 +179,11 @@ export class AifFireBackend {
     } catch (err) {
       const name = err instanceof Error ? err.name : '';
       const msg = err instanceof Error ? err.message : String(err);
-      if (name === 'AbortError' || msg.includes('abort') || msg.includes('timeout')) {
+      if (
+        name === 'AbortError' ||
+        msg.includes('abort') ||
+        msg.includes('timeout')
+      ) {
         throw new BackendError(
           `AifFireBackend POST ${url} timed out`,
           'unavailable',
@@ -225,8 +231,14 @@ export class AifFireBackend {
     }
 
     const b = body as Record<string, unknown>;
-    const sessionId = typeof b['claude_code_session_id'] === 'string' ? b['claude_code_session_id'] : undefined;
-    const sessionUrl = typeof b['claude_code_session_url'] === 'string' ? b['claude_code_session_url'] : undefined;
+    const sessionId =
+      typeof b['claude_code_session_id'] === 'string'
+        ? b['claude_code_session_id']
+        : undefined;
+    const sessionUrl =
+      typeof b['claude_code_session_url'] === 'string'
+        ? b['claude_code_session_url']
+        : undefined;
 
     if (!sessionId || !sessionUrl) {
       throw new BackendError(
@@ -276,7 +288,10 @@ export class AifFireBackend {
    * @param handle AifFireHandle from dispatch().
    * @param _timeoutMs Accepted for structural parity but unused (immediate return).
    */
-  async awaitDone(handle: AifFireHandle, _timeoutMs?: number): Promise<TaskResult> {
+  async awaitDone(
+    handle: AifFireHandle,
+    _timeoutMs?: number,
+  ): Promise<TaskResult> {
     // Honest-fast: return immediately. No setTimeout, no poll, no fetch.
     // The /fire token has no read access — completion is unobservable.
     // Operator monitors progress via handle.sessionUrl in a browser.

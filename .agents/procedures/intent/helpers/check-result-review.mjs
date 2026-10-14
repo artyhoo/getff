@@ -14,7 +14,11 @@
  *
  * Import:  `import { validateResultReview, validatePlanReview, canonicalJson } from <this file>`
  * CLI:     node check-result-review.mjs --request <request-json-path | ->        (exit 0 valid / 2 reject-or-io)
+ *          node check-result-review.mjs --current-result <request-json-path | -> (current approved brief,
+ *                                                                                observed revision and attempt)
  *          node check-result-review.mjs --plan-review <request-json-path | ->   (PlanReview binding check;
+ *                                                                                same tagged result + exit codes)
+ *          node check-result-review.mjs --spec-review <request-json-path | ->   (specification-review shape;
  *                                                                                same tagged result + exit codes)
  *          node check-result-review.mjs --pre-image <task-json-path | ->        (prints the reviewed
  *                                                                                task pre-image digest)
@@ -26,6 +30,14 @@
  *   { roots?: string[], contractRef: ContentRef, taskId: string,
  *     taskPlanSha256: string, taskPreImageSha256: string, payloadSha256?: string,
  *     planReview: PlanReview }
+ * Request shape (validateSpecReview) — intent-continuity design §6, a DISTINCT attempt kind:
+ *   { roots: string[], specReview: { kind: 'spec-review'|'formatting-equivalence', version: 1,
+ *     featureId, prdRef: ContentRef, specRef: ContentRef, approvalRef: ContentRef,
+ *     reviewer: { independence, context, documents: ContentRef[] },
+ *     promises: [{ id, comparison, reason, citations: [{source:'prd'|'spec', quote, location}] }],
+ *     outcome, priorAttemptId?, priorSpecRef?, boundedDiff?: {summary} } }
+ *   It asserts a SPECIFICATION preserves approved-PRD promises — never observed
+ *   implementation — so it never shares the result-review record shape.
  *
  * Check order is load-bearing (each rejecting test pins ONE code):
  *   contract side:  contract_missing → shape/unsupported_version → duplicate_ids →
@@ -435,7 +447,7 @@ function checkReviewOutcomeSemantics(review, enforcing) {
 // ---------------------------------------------------------------------------
 // validateResultReview
 // ---------------------------------------------------------------------------
-export function validateResultReview(request) {
+function validateResultReviewInternal(request, publication) {
   if (
     request === null ||
     typeof request !== 'object' ||
@@ -542,6 +554,7 @@ export function validateResultReview(request) {
     // itself is a contract→review→same-contract digest cycle.
     const selfRef = request.contractRef;
     if (
+      !publication &&
       selfRef !== undefined &&
       selfRef !== null &&
       enforcing.parentContract !== undefined &&
@@ -552,7 +565,9 @@ export function validateResultReview(request) {
         'review was produced under the enforcing contract itself',
       );
     }
-    const baseRef = enforcing.parentContract ?? request.contractRef;
+    const baseRef = publication
+      ? request.contractRef
+      : (enforcing.parentContract ?? request.contractRef);
     if (
       baseRef !== undefined &&
       baseRef !== null &&
@@ -575,6 +590,7 @@ export function validateResultReview(request) {
       }
     }
     if (
+      !publication &&
       enforcing.mode === 'expand' &&
       review.attemptId !== enforcing.producesOrRepairs
     ) {
@@ -583,7 +599,7 @@ export function validateResultReview(request) {
         `expansion is bound to ${enforcing.producesOrRepairs}, review records ${review.attemptId}`,
       );
     }
-    if (review.outcome !== 'matches') {
+    if (review.outcome !== 'matches' && !publication) {
       if (enforcing.mode === 'expand') {
         return reject(
           'expansion_requires_match',
@@ -595,8 +611,10 @@ export function validateResultReview(request) {
         `review outcome ${review.outcome} does not authorize continuation`,
       );
     }
-    const semantics = checkReviewOutcomeSemantics(review, enforcing);
-    if (!semantics.ok) return semantics;
+    if (review.outcome === 'matches') {
+      const semantics = checkReviewOutcomeSemantics(review, enforcing);
+      if (!semantics.ok) return semantics;
+    }
   }
 
   // 6. Prior review (repair semantics): names the failed attempt being repaired.
@@ -617,6 +635,43 @@ export function validateResultReview(request) {
     }
     const shape = validateReviewShape(prior);
     if (!shape.ok) return shape;
+    if (prior.featureId !== enforcing.featureId) {
+      return reject(
+        'prior_feature_mismatch',
+        'the failed attempt belongs to another feature',
+      );
+    }
+    if (prior.resultId !== enforcing.resultId) {
+      return reject(
+        'prior_result_mismatch',
+        'the failed attempt belongs to another result',
+      );
+    }
+    if (canonicalJson(prior.brief) !== canonicalJson(enforcing.brief)) {
+      return reject(
+        'prior_brief_mismatch',
+        'the failed attempt binds another product brief',
+      );
+    }
+    const priorProducer = loadJsonRef(
+      prior.producerContract,
+      roots,
+      'prior producer contract',
+    );
+    if (!priorProducer.ok) return priorProducer;
+    const priorProducerShape = validateContractShape(priorProducer.value);
+    if (!priorProducerShape.ok) return priorProducerShape;
+    if (
+      priorProducer.value.featureId !== enforcing.featureId ||
+      priorProducer.value.resultId !== enforcing.resultId ||
+      canonicalJson(priorProducer.value.brief) !==
+        canonicalJson(enforcing.brief)
+    ) {
+      return reject(
+        'prior_producer_mismatch',
+        'the failed attempt was produced for another feature, result or brief',
+      );
+    }
     if (
       enforcing.producesOrRepairs !== undefined &&
       prior.attemptId !== enforcing.producesOrRepairs
@@ -635,6 +690,108 @@ export function validateResultReview(request) {
   }
 
   return ok();
+}
+
+export function validateResultReview(request) {
+  return validateResultReviewInternal(request, false);
+}
+
+/** Validate a historical observation for immutable publication, without granting continuation. */
+export function validateResultAttemptForPublication(request) {
+  return validateResultReviewInternal(request, true);
+}
+
+/** A current-use check for a previously published result attempt. The caller must obtain
+ * currentBriefRef and observedRevision from the owner, independently of the attempt or
+ * contract being checked. Historical attempts remain readable through --request. */
+export function validateCurrentResult(request) {
+  if (
+    request === null ||
+    typeof request !== 'object' ||
+    Array.isArray(request)
+  ) {
+    return reject(
+      'invalid_request',
+      'current result request must be an object',
+    );
+  }
+  if (!isContentRef(request.currentBriefRef)) {
+    return reject(
+      'current_brief_missing',
+      'current result use needs the independently selected current brief ref',
+    );
+  }
+  if (!isNonEmptyString(request.observedRevision)) {
+    return reject(
+      'current_revision_missing',
+      'current result use needs the current observed-input revision',
+    );
+  }
+  if (!isNonEmptyString(request.reviewPath)) {
+    return reject(
+      'current_review_missing',
+      'current result use needs a published attempt path',
+    );
+  }
+  if (request.requirePublished === true) {
+    const segments = request.reviewPath.split(/[\\/]/);
+    const tail = segments.slice(-3);
+    if (
+      tail[0] !== 'result-reviews' ||
+      !/^[a-z0-9][a-z0-9-]{0,63}$/.test(tail[1] ?? '') ||
+      tail[2] !== 'result-review.json'
+    ) {
+      return reject(
+        'review_not_published',
+        'current expansion requires a result-reviews/<attemptId>/result-review.json path',
+      );
+    }
+    const loadedAttempt = readRelative(request.reviewPath, request.roots);
+    if (!loadedAttempt.ok) return loadedAttempt;
+    let published;
+    try {
+      published = JSON.parse(loadedAttempt.bytes.toString('utf8'));
+    } catch {
+      return reject(
+        'invalid_review',
+        'published result attempt is not valid JSON',
+      );
+    }
+    if (published.attemptId !== tail[1])
+      return reject(
+        'published_attempt_mismatch',
+        'published directory and attempt ID differ',
+      );
+  }
+  const currentBrief = resolveContentRef(
+    request.currentBriefRef,
+    request.roots,
+  );
+  if (!currentBrief.ok) return currentBrief;
+  let enforcing;
+  if (request.contractRef !== undefined) {
+    const loaded = loadJsonRef(request.contractRef, request.roots, 'contract');
+    if (!loaded.ok) return loaded;
+    enforcing = loaded.value;
+  } else if (request.contract !== undefined) {
+    const shape = validateContractShape(request.contract);
+    if (!shape.ok) return shape;
+    enforcing = request.contract;
+  } else {
+    return reject(
+      'contract_missing',
+      'current result use needs an enforcing contract or contractRef',
+    );
+  }
+  if (
+    canonicalJson(enforcing.brief) !== canonicalJson(request.currentBriefRef)
+  ) {
+    return reject(
+      'current_brief_mismatch',
+      'the selected current brief differs from the contract brief',
+    );
+  }
+  return validateResultReview(request);
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +904,401 @@ export function taskPreImageDigestOf(task) {
 }
 
 // ---------------------------------------------------------------------------
+// Specification-review mode (intent-continuity design §6) — a distinct immutable attempt
+// kind, NOT a result-review record: it compares a candidate SPECIFICATION against the
+// approved PRD and never asserts observed implementation. Only mode-specific shape and
+// identity checks live here (the charter's "add only the mode-specific checks" rule);
+// per-promise semantics belong to the fresh artifact-only advisor, and publication to the
+// narrow writer (publish-spec-review.mjs).
+// ---------------------------------------------------------------------------
+const SPEC_REVIEW_KINDS = ['spec-review', 'formatting-equivalence'];
+const CITATION_SOURCES = ['prd', 'spec'];
+
+// Read the two existing brief table forms, never the reviewer's self-selected list.
+// Unknown prose is not evidence of an empty essential set. Semantics stay with the advisor.
+function essentialPromisesFromBrief(bytes) {
+  const ids = [];
+  let essentialSection = false;
+  let sectionLevel = 0;
+  let header = null;
+  let fence = null;
+  const plain = (cell) => cell.replace(/[`*]/g, '').trim();
+  for (const line of bytes.toString('utf8').split(/\r?\n/)) {
+    const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length)
+        fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+    if (heading) {
+      if (heading[1].length <= sectionLevel) essentialSection = false;
+      if (plain(heading[2]).toLowerCase() === 'essential promises') {
+        essentialSection = true;
+        sectionLevel = heading[1].length;
+      }
+      header = null;
+      continue;
+    }
+    if (!/(?<!\\)\|/.test(line)) {
+      header = null;
+      continue;
+    }
+    const cells = line
+      .trim()
+      .replace(/^\||\|$/g, '')
+      .split(/(?<!\\)\|/)
+      .map(plain);
+    if (cells[0]?.toLowerCase() === 'id') {
+      header = cells.map((c) => c.toLowerCase());
+      continue;
+    }
+    if (!header || cells.every((c) => /^:?-+:?$/.test(c))) continue;
+    const essentialColumn = header.indexOf('essential');
+    if (essentialColumn < 0 && !essentialSection) continue;
+    if (essentialColumn >= 0) {
+      const value = cells[essentialColumn]?.toLowerCase();
+      if (value === 'no') continue;
+      if (value !== 'yes')
+        return reject(
+          'essential_promises_invalid',
+          'Essential cells must explicitly say Yes or No',
+        );
+    }
+    const id = cells[0];
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id) || ids.includes(id)) {
+      return reject(
+        'essential_promises_invalid',
+        'essential promise IDs must be unique stable identifiers',
+      );
+    }
+    ids.push(id);
+  }
+  return ids.length
+    ? { ok: true, ids }
+    : reject(
+        'essential_promises_missing',
+        'approved PRD needs an Essential promises table or an ID table with an Essential Yes/No column',
+      );
+}
+
+export function validateSpecReview(request) {
+  if (
+    request === null ||
+    typeof request !== 'object' ||
+    Array.isArray(request)
+  ) {
+    return reject('invalid_request', 'request must be a JSON object');
+  }
+  const { roots, specReview } = request;
+  if (
+    specReview === null ||
+    typeof specReview !== 'object' ||
+    Array.isArray(specReview)
+  ) {
+    return reject('spec_review_invalid', 'specReview must be a JSON object');
+  }
+  if (specReview.version !== CONTRACT_VERSION) {
+    return reject(
+      'unsupported_version',
+      `specReview.version must be ${CONTRACT_VERSION}`,
+    );
+  }
+  if (!SPEC_REVIEW_KINDS.includes(specReview.kind)) {
+    return reject(
+      'spec_review_invalid',
+      `kind must be one of ${SPEC_REVIEW_KINDS.join(' | ')}`,
+    );
+  }
+  if (!isNonEmptyString(specReview.featureId))
+    return reject(
+      'spec_review_invalid',
+      'featureId must be a non-empty string',
+    );
+  if (!isContentRef(specReview.prdRef))
+    return reject('spec_review_invalid', 'prdRef must be a ContentRef');
+  if (!isContentRef(specReview.specRef))
+    return reject('spec_review_invalid', 'specRef must be a ContentRef');
+  if (!isContentRef(specReview.approvalRef))
+    return reject('spec_review_invalid', 'approvalRef must be a ContentRef');
+
+  const reviewer = specReview.reviewer;
+  if (
+    reviewer === null ||
+    typeof reviewer !== 'object' ||
+    Array.isArray(reviewer)
+  ) {
+    return reject('spec_review_invalid', 'reviewer must be a JSON object');
+  }
+  if (!isNonEmptyString(reviewer.independence)) {
+    return reject(
+      'spec_review_invalid',
+      'reviewer.independence must be a non-empty independence declaration',
+    );
+  }
+  if (!isNonEmptyString(reviewer.context))
+    return reject(
+      'spec_review_invalid',
+      'reviewer.context must be a non-empty string',
+    );
+  if (
+    !Array.isArray(reviewer.documents) ||
+    reviewer.documents.length === 0 ||
+    !reviewer.documents.every(isContentRef)
+  ) {
+    return reject(
+      'spec_review_invalid',
+      'reviewer.documents must be a non-empty array of ContentRefs',
+    );
+  }
+  // Primary-document binding (design §4): the advisor's primary document is the approved
+  // PRD — the reviewed document set must contain the exact PRD bytes under judgement, so a
+  // reviewer that only saw the spec or a different PRD revision cannot produce an attempt.
+  if (
+    !reviewer.documents.some(
+      (ref) => canonicalJson(ref) === canonicalJson(specReview.prdRef),
+    )
+  ) {
+    return reject(
+      'prd_not_primary',
+      'reviewer documents do not include the exact approved PRD under review',
+    );
+  }
+
+  const semantic = specReview.kind === 'spec-review';
+  if (specReview.resolutions !== undefined) {
+    if (
+      !semantic ||
+      specReview.outcome !== 'matches' ||
+      !Array.isArray(specReview.resolutions)
+    ) {
+      return reject(
+        'spec_resolution_invalid',
+        'only a semantic matches review may resolve prior objections',
+      );
+    }
+    const resolved = new Set();
+    for (const resolution of specReview.resolutions) {
+      if (
+        !resolution ||
+        !isHex64(resolution.attemptId) ||
+        !isNonEmptyString(resolution.reason) ||
+        resolved.has(resolution.attemptId)
+      ) {
+        return reject(
+          'spec_resolution_invalid',
+          'each resolution needs a unique attemptId and an explanation',
+        );
+      }
+      resolved.add(resolution.attemptId);
+    }
+  }
+  const promises = specReview.promises;
+  if (!Array.isArray(promises))
+    return reject('spec_review_invalid', 'promises must be an array');
+  if (semantic && promises.length === 0) {
+    return reject(
+      'spec_review_invalid',
+      'a semantic spec-review must enumerate at least one promise',
+    );
+  }
+  const seen = new Set();
+  for (const p of promises) {
+    if (p === null || typeof p !== 'object' || Array.isArray(p))
+      return reject('spec_review_invalid', 'each promise must be an object');
+    if (!isNonEmptyString(p.id))
+      return reject(
+        'spec_review_invalid',
+        'promise.id must be a non-empty string',
+      );
+    if (!COMPARISONS.includes(p.comparison)) {
+      return reject(
+        'invalid_comparison',
+        `comparison must be one of ${COMPARISONS.join(' | ')}`,
+      );
+    }
+    if (!isNonEmptyString(p.reason))
+      return reject(
+        'spec_review_invalid',
+        `promise ${p.id} reason must be a non-empty string`,
+      );
+    if (!Array.isArray(p.citations) || p.citations.length === 0) {
+      return reject(
+        'spec_review_invalid',
+        `promise ${p.id} citations must be a non-empty array`,
+      );
+    }
+    for (const c of p.citations) {
+      if (c === null || typeof c !== 'object' || Array.isArray(c))
+        return reject('spec_review_invalid', 'each citation must be an object');
+      if (!CITATION_SOURCES.includes(c.source)) {
+        return reject(
+          'spec_review_invalid',
+          `citation.source must be one of ${CITATION_SOURCES.join(' | ')}`,
+        );
+      }
+      if (!isNonEmptyString(c.quote))
+        return reject(
+          'spec_review_invalid',
+          'citation.quote must be a non-empty string',
+        );
+      if (!isNonEmptyString(c.location))
+        return reject(
+          'spec_review_invalid',
+          'citation.location must be a non-empty string',
+        );
+    }
+    if (seen.has(p.id))
+      return reject(
+        'duplicate_ids',
+        `conflicting duplicate promise ID ${p.id}`,
+      );
+    seen.add(p.id);
+  }
+  if (!OUTCOMES.includes(specReview.outcome)) {
+    return reject(
+      'invalid_outcome',
+      `outcome must be one of ${OUTCOMES.join(' | ')}`,
+    );
+  }
+
+  // Outcome coherence: the declared outcome must be earned by the recorded comparisons —
+  // a `matches` cannot rest on an unobserved promise, a `mismatch` must name a contradiction.
+  // `matches` in this mode means "the design preserves the promise", never that anything was
+  // built or tested; that narrower semantics is carried by the mode itself.
+  const contradicted = promises.some((p) => p.comparison === 'contradicted');
+  const unobserved = promises.some((p) => p.comparison === 'unobserved');
+  const needsOperator = promises.some((p) => p.comparison === 'needs-operator');
+  if (specReview.outcome === 'matches') {
+    if (contradicted)
+      return reject(
+        'outcome_incoherent',
+        'matches cannot stand with a contradicted promise',
+      );
+    if (unobserved)
+      return reject(
+        'outcome_incoherent',
+        'matches cannot stand with an unobserved promise',
+      );
+    if (needsOperator)
+      return reject(
+        'outcome_incoherent',
+        'matches cannot stand with a needs-operator promise',
+      );
+    if (semantic && promises.some((p) => p.comparison !== 'supported')) {
+      return reject(
+        'outcome_incoherent',
+        'a semantic matches requires every promise supported',
+      );
+    }
+  } else if (specReview.outcome === 'mismatch') {
+    if (!contradicted)
+      return reject(
+        'outcome_incoherent',
+        'mismatch requires at least one contradicted promise',
+      );
+  } else if (specReview.outcome === 'needs-evidence') {
+    if (contradicted)
+      return reject(
+        'outcome_incoherent',
+        'a contradicted promise is a mismatch, not missing evidence',
+      );
+    if (!unobserved)
+      return reject(
+        'outcome_incoherent',
+        'needs-evidence requires at least one unobserved promise',
+      );
+  } else if (specReview.outcome === 'needs-operator') {
+    if (contradicted)
+      return reject(
+        'outcome_incoherent',
+        'a contradicted promise is a mismatch, not an operator question',
+      );
+    if (!needsOperator)
+      return reject(
+        'outcome_incoherent',
+        'needs-operator requires at least one needs-operator promise',
+      );
+  }
+
+  // A formatting-equivalence attempt rebinds reviewed bytes to a reformatted spec WITHOUT a
+  // fresh semantic review (design §6) — so it must name the prior attempt, the prior spec,
+  // a reviewer-attested bounded diff, and can only attest `matches`. Semantic findings go
+  // through the semantic path; an author cannot self-declare equivalence.
+  if (specReview.kind === 'formatting-equivalence') {
+    if (specReview.outcome !== 'matches') {
+      return reject(
+        'spec_review_invalid',
+        'a formatting-equivalence attempt can only attest matches; semantic findings need a spec-review',
+      );
+    }
+    if (!isNonEmptyString(specReview.priorAttemptId)) {
+      return reject(
+        'spec_review_invalid',
+        'a formatting-equivalence attempt must name priorAttemptId',
+      );
+    }
+    if (!isContentRef(specReview.priorSpecRef)) {
+      return reject(
+        'spec_review_invalid',
+        'a formatting-equivalence attempt must bind priorSpecRef',
+      );
+    }
+    if (
+      canonicalJson(specReview.priorSpecRef) ===
+      canonicalJson(specReview.specRef)
+    ) {
+      return reject(
+        'spec_review_invalid',
+        'priorSpecRef must differ from the newly bound specRef',
+      );
+    }
+    const boundedDiff = specReview.boundedDiff;
+    if (
+      boundedDiff === null ||
+      typeof boundedDiff !== 'object' ||
+      Array.isArray(boundedDiff) ||
+      !isNonEmptyString(boundedDiff.summary)
+    ) {
+      return reject(
+        'spec_review_invalid',
+        'a formatting-equivalence attempt must carry boundedDiff.summary',
+      );
+    }
+  }
+
+  // Identity refs resolve + digest-verify against the configured owner roots through the
+  // SHARED resolver (no second reference validator). Promise citations are quoted prose
+  // with a source tag — shape-checked above; quoting semantics stay with the advisor.
+  for (const ref of [
+    specReview.prdRef,
+    specReview.specRef,
+    specReview.approvalRef,
+    ...reviewer.documents,
+  ]) {
+    const res = resolveContentRef(ref, roots);
+    if (!res.ok) return res;
+  }
+  // Negative/uncertain reviews may report a single discovered problem. A positive
+  // semantic ruling must cover the entire approved inventory before granting anything.
+  if (semantic && specReview.outcome === 'matches') {
+    const prd = resolveContentRef(specReview.prdRef, roots);
+    if (!prd.ok) return prd;
+    const essentials = essentialPromisesFromBrief(prd.bytes);
+    if (!essentials.ok) return essentials;
+    const missing = essentials.ids.filter((id) => !seen.has(id));
+    if (missing.length)
+      return reject(
+        'missing_essential_promise',
+        `review omits approved PRD essentials: ${missing.join(', ')}`,
+      );
+  }
+  return ok();
+}
+
+// ---------------------------------------------------------------------------
 // CLI — read-only; never writes; parse/IO failures exit 2.
 // ---------------------------------------------------------------------------
 function readInput(path) {
@@ -766,14 +1318,16 @@ function main() {
   const value = args[1];
   if (
     (flag !== '--request' &&
+      flag !== '--current-result' &&
       flag !== '--pre-image' &&
-      flag !== '--plan-review') ||
+      flag !== '--plan-review' &&
+      flag !== '--spec-review') ||
     value === undefined ||
     args.length !== 2
   ) {
     fail(
       'invalid_request',
-      'usage: check-result-review.mjs --request <path|-> | --plan-review <path|-> | --pre-image <path|->',
+      'usage: check-result-review.mjs --request <path|-> | --current-result <path|-> | --plan-review <path|-> | --spec-review <path|-> | --pre-image <path|->',
     );
     return;
   }
@@ -786,6 +1340,16 @@ function main() {
   }
   if (flag === '--request') {
     const result = validateResultReview(parsed);
+    emit(result, result.ok ? 0 : 2);
+    return;
+  }
+  if (flag === '--current-result') {
+    const result = validateCurrentResult(parsed);
+    emit(result, result.ok ? 0 : 2);
+    return;
+  }
+  if (flag === '--spec-review') {
+    const result = validateSpecReview(parsed);
     emit(result, result.ok ? 0 : 2);
     return;
   }
@@ -816,9 +1380,6 @@ const isMainEntryLock =
         realpathSync(fileURLToPath(import.meta.url))
       );
     } catch {
-      // realpath unavailable (dangling argv[1]) — fail CLOSED: an entry lock that cannot
-      // verify both sides must not run main. A resolve()-only fallback is the naive
-      // one-sided compare principle 47 bans (symlink false-through, SSOT #269).
       return false;
     }
   })();

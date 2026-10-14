@@ -12,6 +12,9 @@ import { BackendError, type BackendErrorCode } from '../backend.js';
 /** The subset of an aif-handoff task these CLIs read/mutate (GET /tasks/:id). */
 export interface AifTaskFull {
   id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  projectId?: string;
   title: string;
   status: string;
   plan?: string | null;

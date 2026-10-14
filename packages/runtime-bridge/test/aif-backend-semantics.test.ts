@@ -23,7 +23,7 @@
  *   ManualBackend + exit 0. It is an operator-fixable defect in the dispatch spec's
  *   required configuration, so it belongs on the abort side of isFallbackEligible.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { BackendError } from '../src/backend.js';
 import { describeCancelOutcome, handleFromTaskId } from '../src/cli/claim.js';
@@ -94,7 +94,12 @@ const backend = (): AifHandoffBackend =>
 
 const deletes = (calls: Call[]): Call[] => calls.filter((c) => c.method === 'DELETE');
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 

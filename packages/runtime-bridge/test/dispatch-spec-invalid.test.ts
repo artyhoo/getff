@@ -23,7 +23,7 @@
  * CLI's `available()` probe — every arm would silently degrade to ManualBackend
  * and the spec_invalid arms would "pass" for the wrong reason.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   spawnSync,
   spawn,
@@ -81,7 +81,12 @@ createServer((req, res) => {
 `;
 
 const running: ChildProcess[] = [];
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (running.length) running.pop()?.kill();
 });
 

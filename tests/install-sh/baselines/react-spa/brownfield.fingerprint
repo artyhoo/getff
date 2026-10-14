@@ -20,9 +20,9 @@ b3b43c1e624f8bb7b7a5759965791ee3fbd757ce50cca521cba8f80ad31ba4db  .agents/proced
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .agents/procedures/arch/references/CONTEXT-FORMAT.md
 a8ce742f0d0ee8fff8c0d2d4561b02744fa1de6cf1c8e55ce69f5e597595d557  .agents/procedures/arch/references/design-review.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .agents/procedures/arch/references/domain-modeling.md
-7eb6a0aca3d2c49a9f11d501d0e5deb30b12ff24f826283a4deb2e8f252a86f9  .agents/procedures/arch/references/exit-and-escalation.md
+0927170a5fcda7f3e38d1856a6f632a802478a5faf20308fbc6bb3805d70f570  .agents/procedures/arch/references/exit-and-escalation.md
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .agents/procedures/arch/references/grilling.md
-e6a5c36e2af76c941c88c19882563cef891969561b3ca5a0dd9eb6b0127ed4d2  .agents/procedures/arch/references/ideation.md
+0cbc9e83da1b4c38aa9275553860b2a594c3f93ffd19a4b0cf3e7f9744726280  .agents/procedures/arch/references/ideation.md
 71d4dc5a9823729d69456d122475aabe8139d619ef7cf7264bcab7316d6b4c67  .agents/procedures/arch/references/research-contour.md
 d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd  .agents/procedures/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .agents/procedures/getff/references/ai-traps.md
@@ -213,7 +213,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-e6f57ac7ba9ecad385126a2b13810c0ef7bda237b5707cab32f774624a81e36c  .ai-factory/refresh-baseline.json
+a2bb2a93017b82650628f9dba0ae33d272a864298243dfe0fabd9d125c1ff2e9  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -256,9 +256,9 @@ b3b43c1e624f8bb7b7a5759965791ee3fbd757ce50cca521cba8f80ad31ba4db  .claude/skills
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills/arch/references/CONTEXT-FORMAT.md
 a8ce742f0d0ee8fff8c0d2d4561b02744fa1de6cf1c8e55ce69f5e597595d557  .claude/skills/arch/references/design-review.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .claude/skills/arch/references/domain-modeling.md
-7eb6a0aca3d2c49a9f11d501d0e5deb30b12ff24f826283a4deb2e8f252a86f9  .claude/skills/arch/references/exit-and-escalation.md
+0927170a5fcda7f3e38d1856a6f632a802478a5faf20308fbc6bb3805d70f570  .claude/skills/arch/references/exit-and-escalation.md
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
-e6a5c36e2af76c941c88c19882563cef891969561b3ca5a0dd9eb6b0127ed4d2  .claude/skills/arch/references/ideation.md
+0cbc9e83da1b4c38aa9275553860b2a594c3f93ffd19a4b0cf3e7f9744726280  .claude/skills/arch/references/ideation.md
 71d4dc5a9823729d69456d122475aabe8139d619ef7cf7264bcab7316d6b4c67  .claude/skills/arch/references/research-contour.md
 d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
@@ -398,9 +398,9 @@ b3b43c1e624f8bb7b7a5759965791ee3fbd757ce50cca521cba8f80ad31ba4db  .zcode/skills/
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .zcode/skills/arch/references/CONTEXT-FORMAT.md
 a8ce742f0d0ee8fff8c0d2d4561b02744fa1de6cf1c8e55ce69f5e597595d557  .zcode/skills/arch/references/design-review.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .zcode/skills/arch/references/domain-modeling.md
-7eb6a0aca3d2c49a9f11d501d0e5deb30b12ff24f826283a4deb2e8f252a86f9  .zcode/skills/arch/references/exit-and-escalation.md
+0927170a5fcda7f3e38d1856a6f632a802478a5faf20308fbc6bb3805d70f570  .zcode/skills/arch/references/exit-and-escalation.md
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .zcode/skills/arch/references/grilling.md
-e6a5c36e2af76c941c88c19882563cef891969561b3ca5a0dd9eb6b0127ed4d2  .zcode/skills/arch/references/ideation.md
+0cbc9e83da1b4c38aa9275553860b2a594c3f93ffd19a4b0cf3e7f9744726280  .zcode/skills/arch/references/ideation.md
 71d4dc5a9823729d69456d122475aabe8139d619ef7cf7264bcab7316d6b4c67  .zcode/skills/arch/references/research-contour.md
 d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd  .zcode/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .zcode/skills/getff/references/ai-traps.md

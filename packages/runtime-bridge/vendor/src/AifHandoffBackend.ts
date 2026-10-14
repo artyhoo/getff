@@ -47,6 +47,8 @@
  * @dual-pair: runtime-bridge-aif-handoff
  */
 import type { ClaimCapableBackend } from './backend.js';
+import { existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
 import {
@@ -54,7 +56,14 @@ import {
   type AifHttpMethod,
   type AifTaskFull,
 } from './cli/aifHttp.js';
-import { enforceScope, extractIntentScope } from './resultReview.js';
+import {
+  enforceKickoffAdmission,
+  enforceScope,
+  enforceTaskAdmission,
+  extractIntentScope,
+  recordTaskAdoption,
+  recordLegacyTaskClaim,
+} from './resultReview.js';
 import type {
   KickoffSpec,
   TaskHandle,
@@ -285,6 +294,7 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * this whole split exists to close lives inside that window.
    */
   async claim(kickoff: KickoffSpec): Promise<TaskHandle> {
+    const admission = enforceKickoffAdmission(kickoff, 'aif-handoff');
     // Scope branch (intent-first-result §4): a declared `intent-contract` scopes this
     // task's product intent, so the claim must NOT let the auto-queue carry it past
     // planning — autoMode:false keeps the task in `plan_ready` until an authorized
@@ -390,10 +400,36 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     }
     const taskId = (createResult as { id: string }).id;
 
+    try {
+      if (admission.adopted) {
+        recordTaskAdoption(
+          { id: taskId, description: kickoff.content },
+          admission.repoRoot!,
+        );
+      } else if (admission.repoRoot) {
+        recordLegacyTaskClaim(
+          { id: taskId, description: kickoff.content },
+          admission.repoRoot,
+        );
+      }
+    } catch (err) {
+      try {
+        await this._rest('DELETE', `/tasks/${taskId}`);
+      } catch (rollbackError) {
+        throw new BackendError(
+          `claim ${taskId} has no admission receipt and rollback failed: ${(rollbackError as Error).message}`,
+          'spec_invalid',
+          'aif-handoff',
+        );
+      }
+      throw err;
+    }
+
     return {
       backend: 'aif-handoff',
       taskId,
       dispatchedAt: new Date().toISOString(),
+      ...(admission.repoRoot ? { intentRepoRoot: admission.repoRoot } : {}),
     };
   }
 
@@ -410,6 +446,30 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * losing its place in the queue.
    */
   async release(handle: TaskHandle): Promise<TaskHandle> {
+    if (handle.intentRepoRoot) {
+      const configured =
+        process.env['AIF_INTENT_REPO_ROOT'] ??
+        process.env['RUNTIME_BRIDGE_INTENT_ROOTS']?.split(
+          process.platform === 'win32' ? ';' : ':',
+        )[0];
+      const selector = join(
+        process.env['AIF_INTENT_ORCH_HOME'] ??
+          join(handle.intentRepoRoot, '.claude', 'orchestrator-prompts'),
+        'intent-continuity',
+        'current-decisions.json',
+      );
+      if (
+        !existsSync(selector) ||
+        (configured &&
+          realpathSync(configured) !== realpathSync(handle.intentRepoRoot))
+      ) {
+        throw new BackendError(
+          'claim owner root no longer binds the active selector',
+          'spec_invalid',
+          'aif-handoff',
+        );
+      }
+    }
     // Release-time scope check against the PERSISTED description (intent-first-result
     // §4 Task 2): the claim window may be long (Phase -1 cold review sits inside it), so
     // this re-reads the task row and re-validates the declared contract against the
@@ -422,7 +482,20 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       'GET',
       `/tasks/${handle.taskId}`,
     )) as AifTaskFull | null;
-    enforceScope(persisted?.description ?? '', 'aif-handoff');
+    const admission = enforceTaskAdmission(
+      {
+        id: handle.taskId,
+        description: persisted?.description,
+        createdAt: persisted?.createdAt,
+        projectId: persisted?.projectId,
+      },
+      'aif-handoff',
+      { repoRoot: handle.intentRepoRoot },
+    );
+    enforceScope(persisted?.description ?? '', 'aif-handoff', {
+      requireAdopted: admission.adopted,
+      ...(handle.intentRepoRoot ? { roots: [handle.intentRepoRoot] } : {}),
+    });
     await this._rest('PUT', `/tasks/${handle.taskId}`, { paused: false });
     // Scoped route: the unpause carries the `start_ai` planning event — planning may
     // run, but the auto-queue is NOT enabled on this task (claimed autoMode:false), so

@@ -10,7 +10,7 @@
  * standing (the caller owns the decision), while dispatch() still cancels it — the
  * pre-split behaviour that aif-rest-dispatch.test.ts pins.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AifHandoffBackend } from '../src/AifHandoffBackend.js';
 import { ManualBackend } from '../src/ManualBackend.js';
 import { supportsClaims } from '../src/backend.js';
@@ -90,7 +90,12 @@ const backend = (): AifHandoffBackend =>
     projectId: 'proj-uuid',
   });
 
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
