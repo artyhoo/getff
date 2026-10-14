@@ -130,7 +130,7 @@ test('exact native review rejects wrong epoch, stale HEAD and fabricated GO with
   const review = { version: 1, kind: 'dot_head_review', producer: binding.producer, epoch, review_id: 'review-1', request_id: request.request_id,
     repository: request.repository, pr: request.pr, head_sha: request.head_sha, decision: 'GO', decided_at: '2026-10-14T09:00:00.000Z', finding_count: 0, findings_artifact: null };
   assert.equal(validateNativeReview(JSON.stringify(review), { binding, request, currentHead: request.head_sha }).decision, 'GO');
-  for (const patch of [{ epoch: 'OTHER' }, { finding_count: 1 }, { decision: 'APPROVE' }, { request_id: 'other' }, { extra: true }]) {
+  for (const patch of [{ epoch: 'OTHER' }, { finding_count: 1 }, { decision: 'APPROVE' }, { request_id: 'other' }, { review_id: 7 }, { review_id: null }, { extra: true }]) {
     assert.throws(() => validateNativeReview(JSON.stringify({ ...review, ...patch }), { binding, request, currentHead: request.head_sha }));
   }
   assert.throws(() => validateNativeReview(JSON.stringify(review), { binding, request, currentHead: 'b'.repeat(40) }), e => e.code === 'DOT_APPROVAL_STALE');

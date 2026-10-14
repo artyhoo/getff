@@ -85,7 +85,7 @@ export function validateNativeReview(text, { binding, request, currentHead }) {
   const s = parseStrictJson(text, { maxBytes: 16384 });
   exactNativeKeys(s, ['version', 'kind', 'producer', 'epoch', 'review_id', 'request_id', 'repository', 'pr', 'head_sha', 'decision', 'decided_at', 'finding_count', 'findings_artifact']);
   if (s.version !== 1 || s.kind !== 'dot_head_review' || s.producer !== binding.producer || s.epoch !== binding.epoch
-    || !id.test(s.review_id ?? '') || s.request_id !== request.request_id || s.repository !== request.repository
+    || typeof s.review_id !== 'string' || !id.test(s.review_id) || s.request_id !== request.request_id || s.repository !== request.repository
     || s.pr !== request.pr || !Number.isSafeInteger(s.pr) || s.pr < 1 || !head.test(s.head_sha ?? '')
     || !Number.isSafeInteger(s.finding_count) || s.finding_count < 0
     || typeof s.decided_at !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(s.decided_at) || !Number.isFinite(Date.parse(s.decided_at))) reject('DOT_APPROVAL_UNPROVEN');
