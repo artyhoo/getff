@@ -18,8 +18,10 @@
  * Skips gracefully when `jq` (hook only) is unavailable.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync, execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -49,6 +51,10 @@ function hasJq(): boolean {
   }
 }
 const JQ = hasJq();
+// win32: the SUTs (worktree-setup.sh / create-worktree.sh) link state.md via
+// link-coordination.sh's `ln -s`, which MSYS copies by default (nativestrict needs
+// admin/Dev-Mode and fails hard otherwise) — the link-shape assertions cannot hold (#1799).
+const WIN_SUT_LINK = process.platform === 'win32';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,41 +65,38 @@ interface Result {
 }
 
 function runHook(
+  ctx: Skippable,
   input: Record<string, unknown>,
   env: Record<string, string> = {},
 ): Result {
-  try {
-    const stdout = execFileSync('bash', [HOOK], {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-      env: { ...process.env, ...env },
-    });
-    return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
-  } catch (e) {
-    const err = e as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
-    return {
-      stdout: (err.stdout?.toString() ?? '').trim(),
-      stderr: (err.stderr?.toString() ?? '').trim(),
-      status: err.status ?? 1,
-    };
-  }
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+  return {
+    stdout: (r.stdout ?? '').trim(),
+    stderr: (r.stderr ?? '').trim(),
+    status: r.status ?? 1,
+  };
 }
 
-function runScript(args: string[], env: Record<string, string> = {}): Result {
-  try {
-    const stdout = execFileSync('bash', [SCRIPT, ...args], {
-      encoding: 'utf8',
-      env: { ...process.env, ...env },
-    });
-    return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
-  } catch (e) {
-    const err = e as { stdout?: Buffer | string; stderr?: Buffer | string; status?: number };
-    return {
-      stdout: (err.stdout?.toString() ?? '').trim(),
-      stderr: (err.stderr?.toString() ?? '').trim(),
-      status: err.status ?? 1,
-    };
-  }
+function runScript(
+  ctx: Skippable,
+  args: string[],
+  env: Record<string, string> = {},
+): Result {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT, ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+  return {
+    stdout: (r.stdout ?? '').trim(),
+    stderr: (r.stderr ?? '').trim(),
+    status: r.status ?? 1,
+  };
 }
 
 /** Build a temp repo whose .claude/orchestrator-prompts/ has gitignored kickoffs. */
@@ -143,8 +146,11 @@ function setupRepoWithKickoffs(): string {
   // Provide link-coordination.sh in the temp repo so the wiring call
   // `bash "$PROJECT_DIR/scripts/link-coordination.sh"` resolves correctly
   // when the real SCRIPT / HOOK sets PROJECT_DIR to this temp dir.
+  // A copy satisfies that identically to the old `ln -sf` (bash executes the
+  // same bytes; nothing asserts this fixture's link-shape) and needs no `ln`
+  // binary — `execSync('ln …')` cannot resolve under cmd.exe on win32 (#1799).
   mkdirSync(resolve(dir, 'scripts'), { recursive: true });
-  execSync(`ln -sf "${LINK_COORDINATION}" "${resolve(dir, 'scripts/link-coordination.sh')}"`);
+  copyFileSync(LINK_COORDINATION, resolve(dir, 'scripts/link-coordination.sh'));
 
   return dir;
 }
@@ -193,8 +199,8 @@ describe.skipIf(!JQ)(
       try { rmSync(canon, { recursive: true, force: true }); } catch { /* ignore */ }
     });
 
-    it('POSITIVE: state.md present AS A SYMLINK in worktree after creation', () => {
-      const r = runHook(hookPayload('hyd-pos', repo), {
+    it('POSITIVE: state.md present AS A SYMLINK in worktree after creation', (ctx) => {
+      const r = runHook(ctx, hookPayload('hyd-pos', repo), {
         CLAUDE_PROJECT_DIR: repo,
         CLAUDE_COORDINATION_DIR: canon,
       });
@@ -208,7 +214,7 @@ describe.skipIf(!JQ)(
       expect(content).toContain('my-umbrella state');
     });
 
-    it('PAIRED-NEGATIVE: without link-coordination.sh call, state.md is ABSENT (T-coord-sync)', () => {
+    it('PAIRED-NEGATIVE: without link-coordination.sh call, state.md is ABSENT (T-coord-sync)', (ctx) => {
       // Create a stripped version of the hook without the link-coordination.sh call
       // and verify the worktree does NOT contain the kickoff.
       const strippedHook = (() => {
@@ -224,12 +230,13 @@ describe.skipIf(!JQ)(
       writeFileSync(tmpHook, strippedHook, { mode: 0o755 });
 
       try {
-        const result = execFileSync('bash', [tmpHook], {
+        // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+        const result = spawnBashOrSkip(ctx, 'bash', [tmpHook], {
           input: JSON.stringify(hookPayload('hyd-neg', repo)),
           encoding: 'utf8',
           env: { ...process.env, CLAUDE_PROJECT_DIR: repo, CLAUDE_COORDINATION_DIR: canon },
         });
-        const wt = result.trim();
+        const wt = (result.stdout ?? '').trim();
         // Worktree was created but kickoff must be ABSENT (the gap)
         expect(
           existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`),
@@ -258,8 +265,9 @@ describe(
       try { rmSync(canon, { recursive: true, force: true }); } catch { /* ignore */ }
     });
 
-    it('POSITIVE: state.md present AS A SYMLINK in worktree after script run', () => {
-      const r = runScript(['hyd-script-pos', repo], { CLAUDE_COORDINATION_DIR: canon });
+    // win32: the SUT links state.md with `ln -s`, which MSYS copies by default — see WIN_SUT_LINK.
+    it.skipIf(WIN_SUT_LINK)('POSITIVE: state.md present AS A SYMLINK in worktree after script run', (ctx) => {
+      const r = runScript(ctx, ['hyd-script-pos', repo], { CLAUDE_COORDINATION_DIR: canon });
       expect(r.status).toBe(0);
       const wt = `${repo}/.claude/worktrees/hyd-script-pos`;
       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`;
@@ -267,7 +275,7 @@ describe(
       expect(lstatSync(statePath).isSymbolicLink(), 'state.md must be a symlink').toBe(true);
     });
 
-    it('PAIRED-NEGATIVE (script): without link-coordination.sh call, state.md absent (T-coord-sync)', () => {
+    it('PAIRED-NEGATIVE (script): without link-coordination.sh call, state.md absent (T-coord-sync)', (ctx) => {
       const strippedScript = (() => {
         const src = readFileSync(SCRIPT, 'utf8');
         // Remove the line calling link-coordination.sh
@@ -281,11 +289,12 @@ describe(
       writeFileSync(tmpScript, strippedScript, { mode: 0o755 });
 
       try {
-        const result = execFileSync('bash', [tmpScript, 'hyd-script-neg', repo], {
+        // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+        const result = spawnBashOrSkip(ctx, 'bash', [tmpScript, 'hyd-script-neg', repo], {
           encoding: 'utf8',
           env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
         });
-        const wt = result.trim();
+        const wt = (result.stdout ?? '').trim();
         expect(
           existsSync(`${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`),
         ).toBe(false);
@@ -294,10 +303,11 @@ describe(
       }
     });
 
-    it('DUAL-PAIR PARITY: hook and script both produce symlinks (when jq available)', () => {
+    // win32: the SUT links state.md with `ln -s`, which MSYS copies by default — see WIN_SUT_LINK.
+    it.skipIf(WIN_SUT_LINK)('DUAL-PAIR PARITY: hook and script both produce symlinks (when jq available)', (ctx) => {
       // Both must link the kickoff as a symlink — T-coord-parity guard
       // (only testing the script here; hook parity tested in the hook suite above when JQ=true)
-      const r = runScript(['hyd-parity', repo], { CLAUDE_COORDINATION_DIR: canon });
+      const r = runScript(ctx, ['hyd-parity', repo], { CLAUDE_COORDINATION_DIR: canon });
       expect(r.status).toBe(0);
       const wt = `${repo}/.claude/worktrees/hyd-parity`;
       const statePath = `${wt}/.claude/orchestrator-prompts/my-umbrella/state.md`;

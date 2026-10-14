@@ -20,7 +20,8 @@
  * S2b bench: the same fixture scored `body source: recap` under `en` and `excerpt` under `ru`.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -123,12 +124,14 @@ interface RunResult {
 }
 
 function run(
+  ctx: Skippable,
   residueDir: string,
   payload: Record<string, unknown>,
   lang = 'en',
   env: Record<string, string> = {},
 ): RunResult {
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
     env: {
@@ -151,14 +154,14 @@ function run(
 }
 
 describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
-  it('writes _residue-<session>.md into the residue dir on a manual trigger', () => {
+  it('writes _residue-<session>.md into the residue dir on a manual trigger', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       { type: 'ai-title', aiTitle: 'S2b bench session' },
       userTurn('build the residue writer'),
       ccAssistant('done for now'),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-1',
       transcript_path: transcript,
       hook_event_name: 'PreCompact',
@@ -169,10 +172,10 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('# Session residue — S2b bench session');
   });
 
-  it('emits NOTHING on stdout — a PreCompact decision could block compaction (D8 forbids it)', () => {
+  it('emits NOTHING on stdout — a PreCompact decision could block compaction (D8 forbids it)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [ccAssistant('some text')]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-quiet',
       transcript_path: transcript,
       trigger: 'auto',
@@ -181,10 +184,10 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.stdout).toBe('');
   });
 
-  it('header carries session id, trigger, branch and a UTC ISO-8601 timestamp', () => {
+  it('header carries session id, trigger, branch and a UTC ISO-8601 timestamp', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [ccAssistant('x')]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-hdr',
       transcript_path: transcript,
       trigger: 'manual',
@@ -195,14 +198,14 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toMatch(/- \*\*Branch:\*\* `[^`]+` @ `[^`]+`/);
   });
 
-  it('captures the LAST recap block and labels the body source `recap`', () => {
+  it('captures the LAST recap block and labels the body source `recap`', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       ccAssistant(`${RECAP_EN}\nFIRST recap — superseded.`),
       ccAssistant('an intermediate turn'),
       ccAssistant(`${RECAP_EN}\nSECOND recap — the live one.`),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-recap',
       transcript_path: transcript,
       trigger: 'manual',
@@ -212,13 +215,13 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).not.toContain('FIRST recap — superseded.');
   });
 
-  it('keeps the turns that FOLLOW the last recap (the work the recap does not yet cover)', () => {
+  it('keeps the turns that FOLLOW the last recap (the work the recap does not yet cover)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       ccAssistant(`${RECAP_EN}\nrecapped up to here.`),
       ccAssistant('and then I also landed the renderer note'),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-tail',
       transcript_path: transcript,
       trigger: 'manual',
@@ -227,7 +230,7 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('and then I also landed the renderer note');
   });
 
-  it('NEVER captures a sidechain (subagent) recap — the isSidechain filter is load-bearing', () => {
+  it('NEVER captures a sidechain (subagent) recap — the isSidechain filter is load-bearing', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       ccAssistant('main thread, no marker here'),
@@ -235,7 +238,7 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
         isSidechain: true,
       }),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-side',
       transcript_path: transcript,
       trigger: 'manual',
@@ -246,13 +249,13 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('main thread, no marker here');
   });
 
-  it('falls back to the last assistant excerpt when no recap marker exists', () => {
+  it('falls back to the last assistant excerpt when no recap marker exists', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       ccAssistant('early turn'),
       ccAssistant('the final assistant turn'),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-fallback',
       transcript_path: transcript,
       trigger: 'auto',
@@ -261,9 +264,9 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('the final assistant turn');
   });
 
-  it('writes a residue even with NO transcript — anchor+timestamp+branch are unconditional (D8)', () => {
+  it('writes a residue even with NO transcript — anchor+timestamp+branch are unconditional (D8)', (ctx) => {
     const { residueDir } = sandbox();
-    const r = run(residueDir, { session_id: 'sess-notrans', trigger: 'auto' });
+    const r = run(ctx, residueDir, { session_id: 'sess-notrans', trigger: 'auto' });
     expect(r.status).toBe(0);
     expect(r.files).toContain('_residue-sess-notrans.md');
     expect(r.residue).toContain('- **Body source:** none');
@@ -271,14 +274,14 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toMatch(/- \*\*Branch:\*\*/);
   });
 
-  it('anchors on the ai-title when present, else the first user turn', () => {
+  it('anchors on the ai-title when present, else the first user turn', (ctx) => {
     const a = sandbox();
     const withTitle = writeTranscript(a.dir, [
       { type: 'ai-title', aiTitle: 'the titled session' },
       userTurn('the first instruction'),
       ccAssistant('x'),
     ]);
-    const r1 = run(a.residueDir, {
+    const r1 = run(ctx, a.residueDir, {
       session_id: 'sess-title',
       transcript_path: withTitle,
       trigger: 'manual',
@@ -290,7 +293,7 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
       userTurn('the first instruction'),
       ccAssistant('x'),
     ]);
-    const r2 = run(b.residueDir, {
+    const r2 = run(ctx, b.residueDir, {
       session_id: 'sess-notitle',
       transcript_path: noTitle,
       trigger: 'manual',
@@ -301,9 +304,9 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
   // Same defect as end-of-turn-reminder (incident 2026-09-24): the desktop app names a session
   // with `custom-title` only, and the worktree hook prepends a `<system-reminder>` block to the
   // first message — so the residue headline was the literal tag.
-  it('anchors on the desktop custom-title over ai-title, and skips a leading injected tag block', () => {
+  it('anchors on the desktop custom-title over ai-title, and skips a leading injected tag block', (ctx) => {
     const a = sandbox();
-    const r1 = run(a.residueDir, {
+    const r1 = run(ctx, a.residueDir, {
       session_id: 'sess-custom',
       transcript_path: writeTranscript(a.dir, [
         { type: 'custom-title', customTitle: 'named by the operator' },
@@ -316,7 +319,7 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r1.residue).toContain('# Session residue — named by the operator');
 
     const b = sandbox();
-    const r2 = run(b.residueDir, {
+    const r2 = run(ctx, b.residueDir, {
       session_id: 'sess-leadtag',
       transcript_path: writeTranscript(b.dir, [
         userTurn('<system-reminder>\nWorktree path: /x/y\n</system-reminder>\n\nthe real instruction'),
@@ -328,9 +331,9 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r2.residue).not.toContain('<system-reminder>');
   });
 
-  it('falls back to the no-anchor line when the first message is tags only, never a blank headline', () => {
+  it('falls back to the no-anchor line when the first message is tags only, never a blank headline', (ctx) => {
     const a = sandbox();
-    const r = run(a.residueDir, {
+    const r = run(ctx, a.residueDir, {
       session_id: 'sess-tagsonly',
       transcript_path: writeTranscript(a.dir, [
         userTurn('<system-reminder>\nWorktree path: /x/y\n</system-reminder>'),
@@ -341,32 +344,32 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('# Session residue — (no session anchor in the transcript)');
   });
 
-  it('sanitises the session id — a `../` id cannot escape the residue dir', () => {
+  it('sanitises the session id — a `../` id cannot escape the residue dir', (ctx) => {
     const { residueDir } = sandbox();
-    const r = run(residueDir, { session_id: '../../escaped', trigger: 'auto' });
+    const r = run(ctx, residueDir, { session_id: '../../escaped', trigger: 'auto' });
     expect(r.status).toBe(0);
     expect(r.files).toEqual(['_residue-.._.._escaped.md']);
     expect(existsSync(join(residueDir, '../../escaped'))).toBe(false);
   });
 
-  it('a missing `trigger` field degrades to `unknown` and still writes', () => {
+  it('a missing `trigger` field degrades to `unknown` and still writes', (ctx) => {
     const { residueDir } = sandbox();
-    const r = run(residueDir, { session_id: 'sess-notrigger' });
+    const r = run(ctx, residueDir, { session_id: 'sess-notrigger' });
     expect(r.status).toBe(0);
     expect(r.residue).toContain('trigger=`unknown`');
   });
 
-  it('treats auto and manual identically — the writer is matcher-independent', () => {
+  it('treats auto and manual identically — the writer is matcher-independent', (ctx) => {
     const a = sandbox();
     const b = sandbox();
     const t1 = writeTranscript(a.dir, [ccAssistant(`${RECAP_EN}\nsame body`)]);
     const t2 = writeTranscript(b.dir, [ccAssistant(`${RECAP_EN}\nsame body`)]);
-    const manual = run(a.residueDir, {
+    const manual = run(ctx, a.residueDir, {
       session_id: 's',
       transcript_path: t1,
       trigger: 'manual',
     });
-    const auto = run(b.residueDir, {
+    const auto = run(ctx, b.residueDir, {
       session_id: 's',
       transcript_path: t2,
       trigger: 'auto',
@@ -381,12 +384,12 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     );
   });
 
-  it('extracts from a ZCode synthetic transcript (message.role, no outer type)', () => {
+  it('extracts from a ZCode synthetic transcript (message.role, no outer type)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       zcodeAssistant(`${RECAP_EN}\nzcode-shaped recap`),
     ]);
-    const r = run(residueDir, {
+    const r = run(ctx, residueDir, {
       session_id: 'sess-zcode',
       transcript_path: transcript,
       trigger: 'auto',
@@ -395,12 +398,12 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r.residue).toContain('zcode-shaped recap');
   });
 
-  it('finds a Russian recap under AIF_HOOK_LANG=ru (the marker is category-3 match-data)', () => {
+  it('finds a Russian recap under AIF_HOOK_LANG=ru (the marker is category-3 match-data)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [
       ccAssistant(`${RECAP_RU}\nрусский рекап`),
     ]);
-    const ru = run(residueDir, {
+    const ru = run(ctx, residueDir, {
       session_id: 'sess-ru',
       transcript_path: transcript,
       trigger: 'manual',
@@ -411,7 +414,7 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     // interchangeable, which is exactly why every other case here pins the language.
     const b = sandbox();
     const t2 = writeTranscript(b.dir, [ccAssistant(`${RECAP_RU}\nрусский рекап`)]);
-    const en = run(b.residueDir, {
+    const en = run(ctx, b.residueDir, {
       session_id: 'sess-ru2',
       transcript_path: t2,
       trigger: 'manual',
@@ -419,12 +422,13 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(en.residue).toContain('- **Body source:** excerpt');
   });
 
-  it('never fails compaction when the residue dir cannot be written', () => {
+  it('never fails compaction when the residue dir cannot be written', (ctx) => {
     const { residueDir } = sandbox();
     const locked = join(residueDir, 'locked');
     mkdirSync(locked, { recursive: true });
     chmodSync(locked, 0o555);
-    const r = spawnSync('bash', [HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
       input: JSON.stringify({ session_id: 'sess-ro', trigger: 'auto' }),
       encoding: 'utf8',
       env: {
@@ -483,7 +487,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
   }
 
-  it('an AUTO trigger records the observed ceiling where the Stop hook looks for it', () => {
+  it('an AUTO trigger records the observed ceiling where the Stop hook looks for it', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [
@@ -491,7 +495,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
       userTurn('go'),
       withUsage('nearly full', 190_000),
     ]);
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33b-auto', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -502,11 +506,11 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(observation(tmp, 'a33b-auto'), 'the usage SUM at the compaction instant').toBe('190000');
   });
 
-  it('PAIRED-NEGATIVE: a MANUAL trigger records nothing — /compact says nothing about the window', () => {
+  it('PAIRED-NEGATIVE: a MANUAL trigger records nothing — /compact says nothing about the window', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), withUsage('half full', 90_000)]);
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33b-manual', transcript_path: transcript, trigger: 'manual' },
       'en',
@@ -516,7 +520,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(observation(tmp, 'a33b-manual'), 'an operator-invoked compaction is not a measurement').toBe(null);
   });
 
-  it('PAIRED-NEGATIVE: a SIDECHAIN entry is not the main thread’s size', () => {
+  it('PAIRED-NEGATIVE: a SIDECHAIN entry is not the main thread’s size', (ctx) => {
     // Subagent turns share the transcript file. Recording a sidechain's usage would pin the
     // main thread's window to whatever a subagent happened to consume.
     const { dir, residueDir } = sandbox();
@@ -526,7 +530,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
       withUsage('main thread', 120_000),
       withUsage('subagent', 600_000, { isSidechain: true }),
     ]);
-    run(
+    run(ctx, 
       residueDir,
       { session_id: 'a33b-side', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -535,13 +539,13 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(observation(tmp, 'a33b-side'), 'the main-thread sum, never the sidechain’s').toBe('120000');
   });
 
-  it('PAIRED-NEGATIVE: an auto trigger with no usage fields records nothing, never a 0 ceiling', () => {
+  it('PAIRED-NEGATIVE: an auto trigger with no usage fields records nothing, never a 0 ceiling', (ctx) => {
     // A recorded 0 would make both derived floors 1 and fire the D7 arm on every single turn
     // of the next session — strictly worse than the silence it replaces.
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), zcodeAssistant('no usage fields here')]);
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33b-nousage', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -551,11 +555,11 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(observation(tmp, 'a33b-nousage')).toBe(null);
   });
 
-  it('the residue file states the observed ceiling, so a human reader sees the same number', () => {
+  it('the residue file states the observed ceiling, so a human reader sees the same number', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), withUsage('nearly full', 190_000)]);
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33b-residue', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -566,7 +570,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     );
   });
 
-  it('END-TO-END: what this hook writes is what the Stop hook\u2019s D7 arm then reads', () => {
+  it('END-TO-END: what this hook writes is what the Stop hook\u2019s D7 arm then reads', (ctx) => {
     // The one case that fails if either SIDE of the contract drifts \u2014 in particular the key
     // derivation, which is duplicated by necessity (two independent scripts, no shared lib).
     // The session id here needs sanitising, so a mismatch between the two `tr -c` expressions
@@ -585,7 +589,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     ]);
 
     // 1. The harness decides to compact. This hook records the ceiling it can observe.
-    const pre = run(
+    const pre = run(ctx, 
       residueDir,
       { session_id: sessionId, transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -595,7 +599,8 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
 
     // 2. The next turn ends. The D7 arm must now judge 190k against the OBSERVED 190000
     //    rather than the assumed 1000000 \u2014 soft = 70% of 190000 = 133000, so it fires.
-    const stop = spawnSync('bash', [EOT_HOOK], {
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const stop = spawnBashOrSkip(ctx, 'bash', [EOT_HOOK], {
       input: JSON.stringify({
         session_id: sessionId,
         transcript_path: transcript,
@@ -612,10 +617,10 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(parsed.reason).toMatch(/190000 tokens/);
   });
 
-  it('no transcript on an auto trigger: the residue is still written, the observation is not', () => {
+  it('no transcript on an auto trigger: the residue is still written, the observation is not', (ctx) => {
     const { residueDir } = sandbox();
     const tmp = privateTmp();
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33b-notr', transcript_path: '/nonexistent/transcript.jsonl', trigger: 'auto' },
       'en',
@@ -666,7 +671,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
   const flagPath = (tmp: string, sessionKey: string, tier: string) =>
     join(tmp, `aif-ctx-${sessionKey}-${tier}`);
 
-  it('an AUTO trigger clears the spent tier flags, so the next climb can warn again', () => {
+  it('an AUTO trigger clears the spent tier flags, so the next climb can warn again', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
@@ -674,7 +679,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     writeFileSync(flagPath(tmp, 'a33c-auto', 'soft'), '', 'utf8');
     writeFileSync(flagPath(tmp, 'a33c-auto', 'deep'), '', 'utf8');
 
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'a33c-auto', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -685,13 +690,13 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     expect(existsSync(flagPath(tmp, 'a33c-auto', 'deep')), 'deep flag cleared').toBe(false);
   });
 
-  it('PAIRED-NEGATIVE: a MANUAL trigger leaves the flags alone (the probe showed it can fire on a REFUSED compaction)', () => {
+  it('PAIRED-NEGATIVE: a MANUAL trigger leaves the flags alone (the probe showed it can fire on a REFUSED compaction)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
     writeFileSync(flagPath(tmp, 'a33c-manual', 'soft'), '', 'utf8');
 
-    run(
+    run(ctx, 
       residueDir,
       { session_id: 'a33c-manual', transcript_path: transcript, trigger: 'manual' },
       'en',
@@ -703,7 +708,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     ).toBe(true);
   });
 
-  it('PAIRED-NEGATIVE: the reset does NOT take the observed ceiling with it', () => {
+  it('PAIRED-NEGATIVE: the reset does NOT take the observed ceiling with it', (ctx) => {
     // `aif-ctx-observed-<key>` sits in the same directory under the same prefix. A sweep
     // written as "remove aif-ctx-<key>*" would delete the measurement this whole contract
     // exists to carry, silently returning the reader to its 1M assumption.
@@ -712,7 +717,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
     writeFileSync(flagPath(tmp, 'a33c-keep', 'soft'), '', 'utf8');
 
-    run(
+    run(ctx, 
       residueDir,
       { session_id: 'a33c-keep', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -725,13 +730,13 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     ).toBe('190000');
   });
 
-  it('PAIRED-NEGATIVE: a neighbouring session’s flags are untouched', () => {
+  it('PAIRED-NEGATIVE: a neighbouring session’s flags are untouched', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
     writeFileSync(flagPath(tmp, 'a33c-other', 'soft'), '', 'utf8');
 
-    run(
+    run(ctx, 
       residueDir,
       { session_id: 'a33c-mine', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -743,7 +748,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     ).toBe(true);
   });
 
-  it('END-TO-END: after an auto compaction the arm warns again on the SECOND climb', () => {
+  it('END-TO-END: after an auto compaction the arm warns again on the SECOND climb', (ctx) => {
     // The whole point, exercised through both hooks: climb → warn → debounced → compact →
     // climb → warn again. Pre-fix the last step was silent for the rest of the session.
     const EOT_HOOK = resolve(REPO_ROOT, '.agents/hooks/end-of-turn-reminder.sh');
@@ -753,7 +758,8 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     const climb = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);
 
     const stop = (label: string) =>
-      spawnSync('bash', [EOT_HOOK], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      spawnBashOrSkip(ctx, 'bash', [EOT_HOOK], {
         input: JSON.stringify({
           session_id: sessionId,
           transcript_path: climb,
@@ -778,7 +784,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     expect(stop('first'), 'first climb warns').toMatch(/\[context\]/);
     expect(stop('second').trim(), 'same climb is debounced').toBe('');
 
-    run(
+    run(ctx, 
       residueDir,
       { session_id: sessionId, transcript_path: climb, trigger: 'auto' },
       'en',
@@ -822,12 +828,12 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     },
   });
 
-  it('D15: the pointer line is `present` with the line count and the sha short', () => {
+  it('D15: the pointer line is `present` with the line count and the sha short', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [ccAssistant('a turn')]);
     const handoff = join(residueDir, '_handoff-pc15a.md');
     writeFileSync(handoff, '# handoff\n\n## Next action\n- x\n', 'utf8');
-    const r = run(residueDir, { session_id: 'pc15a', transcript_path: transcript, trigger: 'auto' });
+    const r = run(ctx, residueDir, { session_id: 'pc15a', transcript_path: transcript, trigger: 'auto' });
     expect(r.status).toBe(0);
     const line = (r.residue ?? '').split('\n').find((l) => l.startsWith('- **Model handoff:**'));
     expect(line, 'the pointer line exists').toBeDefined();
@@ -835,16 +841,16 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     expect(line).toMatch(/\(present, 4 lines, [0-9a-f]{8}\)/);
   });
 
-  it('D15: the pointer line reads `absent` when no handoff exists', () => {
+  it('D15: the pointer line reads `absent` when no handoff exists', (ctx) => {
     const { dir, residueDir } = sandbox();
     const transcript = writeTranscript(dir, [ccAssistant('a turn')]);
-    const r = run(residueDir, { session_id: 'pc15b', transcript_path: transcript, trigger: 'auto' });
+    const r = run(ctx, residueDir, { session_id: 'pc15b', transcript_path: transcript, trigger: 'auto' });
     const line = (r.residue ?? '').split('\n').find((l) => l.startsWith('- **Model handoff:**'));
     expect(line).toBeDefined();
     expect(line).toMatch(/\(absent\)$/);
   });
 
-  it('D34: an AUTO trigger clears the gate baseline by EXACT name — neighbours, the observed ceiling and the handoff file all survive', () => {
+  it('D34: an AUTO trigger clears the gate baseline by EXACT name — neighbours, the observed ceiling and the handoff file all survive', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
@@ -856,7 +862,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     const handoff = join(residueDir, '_handoff-pc34.md');
     writeFileSync(handoff, '# the handoff survives compaction\n', 'utf8');
 
-    const r = run(
+    const r = run(ctx, 
       residueDir,
       { session_id: 'pc34', transcript_path: transcript, trigger: 'auto' },
       'en',
@@ -870,12 +876,12 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     expect(existsSync(handoff), 'the handoff FILE survives (the injector reads it)').toBe(true);
   });
 
-  it('D34 PAIRED-NEGATIVE: a MANUAL trigger leaves the baseline alone (same refused-compact evidence as the tier flags)', () => {
+  it('D34 PAIRED-NEGATIVE: a MANUAL trigger leaves the baseline alone (same refused-compact evidence as the tier flags)', (ctx) => {
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
     writeFileSync(join(tmp, 'aif-handoff-pc34m.v2'), 'keepme', 'utf8');
-    run(
+    run(ctx, 
       residueDir,
       { session_id: 'pc34m', transcript_path: transcript, trigger: 'manual' },
       'en',
@@ -884,7 +890,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     expect(readFileSync(join(tmp, 'aif-handoff-pc34m.v2'), 'utf8')).toBe('keepme');
   });
 
-  it('D34 END-TO-END: compaction resets the baseline, so a stale handoff is re-judged from scratch', () => {
+  it('D34 END-TO-END: compaction resets the baseline, so a stale handoff is re-judged from scratch', (ctx) => {
     // Through both hooks: stop (records baseline) → compact (clears it) → stop (allows once,
     // records again). Without the clear, the second stop would block on a baseline recorded
     // against a window that no longer exists.
@@ -893,7 +899,8 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);
     const stop = () =>
-      spawnSync('bash', [EOT_HOOK], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      spawnBashOrSkip(ctx, 'bash', [EOT_HOOK], {
         input: JSON.stringify({
           transcript_path: transcript,
           session_id: 'pc34e2e',
@@ -931,7 +938,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     // The compaction clears ONLY the acceptance state. (The clear sits in the same
     // trigger=auto + transcript-present block as the A3-3c tier-flag reset — "alongside",
     // per D34 — so the transcript path here must be a REAL file, as it always is in CC.)
-    run(residueDir, { session_id: 'pc34e2e', transcript_path: transcript, trigger: 'auto' }, 'en', { TMPDIR: tmp });
+    run(ctx, residueDir, { session_id: 'pc34e2e', transcript_path: transcript, trigger: 'auto' }, 'en', { TMPDIR: tmp });
     expect(existsSync(join(tmp, 'aif-handoff-pc34e2e.v2')), 'baseline cleared by the auto compaction').toBe(false);
     expect(existsSync(handoff), 'the handoff file itself survived').toBe(true);
 

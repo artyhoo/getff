@@ -31,7 +31,8 @@
  * exercises the current mutant.
  */
 import { describe, it, expect, afterAll } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   copyFileSync,
   existsSync,
@@ -66,7 +67,7 @@ const SANDBOX_HOOKS = join(SANDBOX, '.claude', 'hooks');
 mkdirSync(SANDBOX_HOOKS, { recursive: true });
 const HOOK = join(SANDBOX_HOOKS, 'check-hook-marker.sh');
 /** Set by the Layer-2 describe so the A3-8 arms can reuse its fixture-root staging. */
-let runInFixtureRootExported: (hookBody: string, matcher: string) => number;
+let runInFixtureRootExported: (ctx: Skippable, hookBody: string, matcher: string) => number;
 
 // Applicability seed (#1597 review ledger A3-4). The gate now runs only where the convention
 // it enforces actually lives: it probes for .claude/rules/dual-implementation-discipline.md,
@@ -142,6 +143,7 @@ function writeHook(body: string, ext = '.sh', headerDesc?: string): string {
 }
 
 function runHook(
+  ctx: Skippable,
   tool: string,
   absPath: string,
   env: Record<string, string> = {},
@@ -149,11 +151,12 @@ function runHook(
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own
   // dev harness), which would flip _adv_violation to the JSON branch and break the exit-code
   // assertions below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors
-  // deps-hash-check.test.ts:339.
+  // deps-hash-check.test.ts:353.
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
       tool_input: { file_path: absPath },
@@ -171,58 +174,58 @@ function runHook(
 describe.skipIf(!JQ)(
   'check-hook-marker.sh — PostToolUse delivery-channel marker gate',
   () => {
-    it('PAIRED-NEGATIVE: hook with no marker → exit 2', () => {
+    it('PAIRED-NEGATIVE: hook with no marker → exit 2', (ctx) => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# just a comment, no marker\nexit 0\n',
       );
-      expect(runHook('Write', abs).status).toBe(2);
+      expect(runHook(ctx, 'Write', abs).status).toBe(2);
     });
 
-    it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', () => {
+    it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', (ctx) => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# @cc-only-rationale: edit-time gate, no portable equivalent\nexit 0\n',
         '.sh',
         'edit-time gate with no portable counterpart (fixture)',
       );
-      expect(runHook('Write', abs).status).toBe(0);
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
     });
 
-    it('PAIRED-POSITIVE: @dual-pair present → exit 0', () => {
+    it('PAIRED-POSITIVE: @dual-pair present → exit 0', (ctx) => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# @dual-pair: some-anchor-slug\nexit 0\n',
         '.sh',
         'hook with a portable counterpart (fixture)',
       );
-      expect(runHook('Edit', abs).status).toBe(0);
+      expect(runHook(ctx, 'Edit', abs).status).toBe(0);
     });
 
-    it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 2', () => {
+    it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 2', (ctx) => {
       // The string "@cc-only-rationale:" appears, but not as a leading "# " comment line.
       const abs = writeHook(
         '#!/usr/bin/env bash\necho "add a @cc-only-rationale: marker"\nexit 0\n',
       );
-      expect(runHook('Write', abs).status).toBe(2);
+      expect(runHook(ctx, 'Write', abs).status).toBe(2);
     });
 
-    it('wrong tool (Read) → exit 0 even on a marker-less hook', () => {
+    it('wrong tool (Read) → exit 0 even on a marker-less hook', (ctx) => {
       const abs = writeHook('#!/usr/bin/env bash\n# no marker\nexit 0\n');
-      expect(runHook('Read', abs).status).toBe(0);
+      expect(runHook(ctx, 'Read', abs).status).toBe(0);
     });
 
-    it('off-path: a .sh outside .claude/hooks/ → exit 0', () => {
+    it('off-path: a .sh outside .claude/hooks/ → exit 0', (ctx) => {
       const dir = join(SANDBOX, 'offpath');
       mkdirSync(dir, { recursive: true });
       const abs = join(dir, 'random.sh');
       writeFileSync(abs, '#!/usr/bin/env bash\n# no marker\n', 'utf8');
-      expect(runHook('Write', abs).status).toBe(0);
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
     });
 
-    it('off-path: a non-.sh file under .claude/hooks/ → exit 0', () => {
+    it('off-path: a non-.sh file under .claude/hooks/ → exit 0', (ctx) => {
       const abs = writeHook('# no marker, but markdown\n', '.md');
-      expect(runHook('Write', abs).status).toBe(0);
+      expect(runHook(ctx, 'Write', abs).status).toBe(0);
     });
 
-    it('ZCODE: marker-less hook under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
+    it('ZCODE: marker-less hook under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded). The ZCode branch (_adv_violation at hook line 31) emits schema-valid
@@ -239,7 +242,7 @@ describe.skipIf(!JQ)(
         '.sh',
         'marker-less fixture for the ZCode advisory path',
       );
-      const r = runHook('Write', abs, { ZCODE_PROJECT_DIR: SANDBOX });
+      const r = runHook(ctx, 'Write', abs, { ZCODE_PROJECT_DIR: SANDBOX });
       // On ZCode: exit 0 (advisory), output = JSON additionalContext.
       expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
       expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
@@ -303,7 +306,7 @@ describe.skipIf(!JQ)(
       );
     }
 
-    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 2', () => {
+    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 2', (ctx) => {
       const name = `zzz-fcg-neg-${Date.now()}.sh`;
       // Headered fixture: the exit 2 must come from the @file-content-gate arm (the arm
       // under test), never from arm 2 firing on a header-less fixture.
@@ -317,10 +320,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
-    it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', () => {
+    it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', (ctx) => {
       const name = `zzz-fcg-pos-${Date.now()}.sh`;
       writeFileSync(
         join(SANDBOX_HOOKS, name),
@@ -332,10 +335,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
-    it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', () => {
+    it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', (ctx) => {
       // A hook shipped solely via setup.d/install.sh (not in framework-self settings.json,
       // and not in the plugin channel either): the gate has no matcher to check → skip.
       const abs = writeHook(
@@ -355,7 +358,7 @@ describe.skipIf(!JQ)(
         );
       }
       rmSync(join(SANDBOX, 'plugin'), { recursive: true, force: true });
-      expect(runHook('Edit', abs).status).toBe(0);
+      expect(runHook(ctx, 'Edit', abs).status).toBe(0);
     });
 
     // ── GAP-2: plugin-channel matcher lookup (#1727 §1.7 Backward-check) ─────────
@@ -397,7 +400,7 @@ describe.skipIf(!JQ)(
       );
     }
 
-    it('GAP-2 NEGATIVE: plugin-channel-only registration Edit|Write (no MultiEdit) → exit 2', () => {
+    it('GAP-2 NEGATIVE: plugin-channel-only registration Edit|Write (no MultiEdit) → exit 2', (ctx) => {
       const name = `zzz-gap2-neg-${Date.now()}.sh`;
       // Headered fixture: the exit 2 must come from the plugin-channel @file-content-gate
       // lookup, never from arm 2 firing on a header-less fixture.
@@ -417,10 +420,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxPluginHooks('Edit|Write', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
-    it('GAP-2 POSITIVE: plugin-channel-only registration Edit|Write|MultiEdit → exit 0', () => {
+    it('GAP-2 POSITIVE: plugin-channel-only registration Edit|Write|MultiEdit → exit 0', (ctx) => {
       const name = `zzz-gap2-pos-${Date.now()}.sh`;
       writeFileSync(
         join(SANDBOX_HOOKS, name),
@@ -437,10 +440,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxPluginHooks('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
-    it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header must not satisfy <name>.sh lookup', () => {
+    it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header must not satisfy <name>.sh lookup', (ctx) => {
       // The lookup must not let `check-doc-authority-header`'s registration stand in for
       // `check-doc-authority` (prefix collision). ONE merged hooks.json carries BOTH the
       // -header sibling (FULL matcher) and the hook's own NARROW entry — the assertion goes
@@ -499,7 +502,7 @@ describe.skipIf(!JQ)(
       );
       // Exit 2 must come from the hook's OWN narrow entry; if the prefix boundary broke,
       // the sibling's full matcher would satisfy the lookup and this would (wrongly) pass 0.
-      expect(runHook('Edit', renamed).status).toBe(2);
+      expect(runHook(ctx, 'Edit', renamed).status).toBe(2);
     });
 
     // ── @matcher-parity invariant (case-TOOL hooks, matcher-widening GH #934 follow-up) ──
@@ -508,7 +511,7 @@ describe.skipIf(!JQ)(
     // carry NO @file-content-gate marker (check-kickoff-traps, check-worker-dispatch-channel,
     // check-hook-marker itself). Self-calibrating: a Write-only case-arm stays green.
 
-    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 2', () => {
+    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 2', (ctx) => {
       const name = `zzz-parity-neg-${Date.now()}.sh`;
       // Headered fixture: the exit 2 must come from the @matcher-parity arm (the arm under
       // test), never from arm 2 firing on a header-less fixture.
@@ -522,10 +525,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
-    it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', () => {
+    it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', (ctx) => {
       const name = `zzz-parity-pos-${Date.now()}.sh`;
       writeFileSync(
         join(SANDBOX_HOOKS, name),
@@ -537,10 +540,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
+      expect(runHook(ctx, 'Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
-    it('PARITY-WRITE-ONLY (A5 self-calibration): case-arm Write + matcher Write → exit 0', () => {
+    it('PARITY-WRITE-ONLY (A5 self-calibration): case-arm Write + matcher Write → exit 0', (ctx) => {
       // inject-memory-codification precedent: a deliberately Write-only hook stays GREEN — the
       // parity rule requires matcher ⊇ case-arm, NOT a hardcoded MultiEdit demand.
       const name = `zzz-parity-wo-${Date.now()}.sh`;
@@ -554,10 +557,10 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Write', name);
-      expect(runHook('Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
+      expect(runHook(ctx, 'Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
-    it('PARITY comment-immunity: a `case "$TOOL" in …` in PROSE above the real arm is not mis-extracted', () => {
+    it('PARITY comment-immunity: a `case "$TOOL" in …` in PROSE above the real arm is not mis-extracted', (ctx) => {
       // A doc comment mentioning `case "$TOOL" in Read)` sits ABOVE the real code arm
       // `case "$TOOL" in Write)`. The extraction strips comment lines first, so parity reads
       // the REAL arm {Write}; matcher Write ⊇ {Write} → exit 0. If comments were NOT stripped,
@@ -573,7 +576,7 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxSettings('Write', name);
-      expect(runHook('Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
+      expect(runHook(ctx, 'Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
   },
 );
@@ -597,10 +600,11 @@ describe.skipIf(!JQ)(
   () => {
     const realHooksDir = resolve(REPO_ROOT, '.agents/hooks');
 
-    function runRealHook(root: string, tool: string, absPath: string): number {
+    function runRealHook(ctx: Skippable, root: string, tool: string, absPath: string): number {
       const fullEnv: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
       delete fullEnv.ZCODE_PROJECT_DIR;
-      const r = spawnSync('bash', [REAL_HOOK], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const r = spawnBashOrSkip(ctx, 'bash', [REAL_HOOK], {
         input: JSON.stringify({
           tool_name: tool,
           tool_input: { file_path: absPath },
@@ -615,7 +619,7 @@ describe.skipIf(!JQ)(
     // `matcher`, run the REAL gate against it, return the exit code. Root is removed by caller.
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     runInFixtureRootExported = runInFixtureRoot;
-    function runInFixtureRoot(hookBody: string, matcher: string): number {
+    function runInFixtureRoot(ctx: Skippable, hookBody: string, matcher: string): number {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-backstop-')));
       const hooksDir = join(root, '.claude', 'hooks');
       mkdirSync(hooksDir, { recursive: true });
@@ -656,12 +660,12 @@ describe.skipIf(!JQ)(
         }),
         'utf8',
       );
-      const status = runRealHook(root, 'Edit', join(hooksDir, hookName));
+      const status = runRealHook(ctx, root, 'Edit', join(hooksDir, hookName));
       rmSync(root, { recursive: true, force: true });
       return status;
     }
 
-    it('every tracked .claude/hooks/*.sh passes the gate against the LIVE settings.json (all matchers ⊇ requirement)', () => {
+    it('every tracked .claude/hooks/*.sh passes the gate against the LIVE settings.json (all matchers ⊇ requirement)', (ctx) => {
       const hooks = readdirSync(realHooksDir).filter((f) => f.endsWith('.sh'));
       // Population sentinel (T10): a broken glob returning [] would vacuously pass.
       expect(
@@ -670,7 +674,7 @@ describe.skipIf(!JQ)(
       ).toBeGreaterThanOrEqual(5);
       const flagged: string[] = [];
       for (const h of hooks) {
-        if (runRealHook(REPO_ROOT, 'Edit', resolve(realHooksDir, h)) !== 0) {
+        if (runRealHook(ctx, REPO_ROOT, 'Edit', resolve(realHooksDir, h)) !== 0) {
           flagged.push(h);
         }
       }
@@ -680,16 +684,16 @@ describe.skipIf(!JQ)(
       ).toEqual([]);
     });
 
-    it('RED fixture: @file-content-gate hook registered with a narrow matcher IS caught (non-vacuous)', () => {
-      const status = runInFixtureRoot(
+    it('RED fixture: @file-content-gate hook registered with a narrow matcher IS caught (non-vacuous)', (ctx) => {
+      const status = runInFixtureRoot(ctx, 
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
         'Edit|Write',
       );
       expect(status).toBe(2);
     });
 
-    it('RED fixture: case-TOOL hook whose case-arm ⊋ matcher IS caught by the parity rule', () => {
-      const status = runInFixtureRoot(
+    it('RED fixture: case-TOOL hook whose case-arm ⊋ matcher IS caught by the parity rule', (ctx) => {
+      const status = runInFixtureRoot(ctx, 
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
         'Edit|Write',
       );
@@ -704,10 +708,11 @@ describe.skipIf(!JQ)(
 // check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
 // 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
-import { spawnSync as _spawnSync } from 'node:child_process';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 
 describe('canonical hook path routing', () => {
   it.each(['.agents/hooks', '.claude/hooks'])('rejects a missing marker at %s', (dir) => {
@@ -727,17 +732,21 @@ describe('canonical hook path routing', () => {
 });
 
 describe('dependency-missing skip is announced on the model channel', () => {
-  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string; stderr: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      // POSIX: byte-identical spawnSync pass-through; win32: named skip — no Git Bash can
+      // stand in for an absolute MSYS binary (#1799).
+      const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [REAL_HOOK], {
+    // Absolute bash path: the masked PATH cannot resolve `bash` itself — win32 named skip (#1799).
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [REAL_HOOK], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
       encoding: 'utf8',
       env,
@@ -745,8 +754,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
-  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq('/x/.claude/hooks/foo.sh');
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/.claude/hooks/foo.sh');
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -756,8 +765,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 
-  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
-    const { status, stdout } = runNoJq('/x/README.md');
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/README.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
@@ -792,10 +801,12 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
     return { root, hook };
   }
 
-  function run(root: string, hook: string): { status: number; stderr: string; stdout: string } {
+  function run(ctx: Skippable, root: string, hook: string): { status: number; stderr: string; stdout: string } {
     const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = spawnSync('/bin/bash', [REAL_HOOK_PATH], {
+    // Absolute bash path (this funnel does not mask PATH): win32 named skip — no Git Bash can
+    // stand in for /bin/bash (#1799).
+    const r = spawnBashOrSkip(ctx, '/bin/bash', [REAL_HOOK_PATH], {
       input: JSON.stringify({
         tool_name: 'Write',
         tool_input: { file_path: hook },
@@ -807,9 +818,9 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
     return { status: r.status ?? -1, stderr: r.stderr ?? '', stdout: r.stdout ?? '' };
   }
 
-  it('A3-4: a consumer without the rule is NOT told to add a getff-internal marker', () => {
+  it('A3-4: a consumer without the rule is NOT told to add a getff-internal marker', (ctx) => {
     const { root, hook } = tree(false);
-    const r = run(root, hook);
+    const r = run(ctx, root, hook);
     // NOT-APPLICABLE, not a dependency SKIP: there is no convention in this project for the
     // edit to violate, so silence here is a true statement rather than the L-2 silent-pass.
     expect(r.status, 'pre-fix this was exit 2 on the consumer’s own hook').toBe(0);
@@ -817,21 +828,21 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
     expect(r.stdout.trim()).toBe('');
   });
 
-  it('A3-4: the same edit in a project that DOES carry the rule is still gated', () => {
+  it('A3-4: the same edit in a project that DOES carry the rule is still gated', (ctx) => {
     // The other half of the fork — the scoping must not turn the gate off for the framework
     // (or for a consumer who deliberately vendored the rule and thereby opted in).
     const { root, hook } = tree(true);
-    const r = run(root, hook);
+    const r = run(ctx, root, hook);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/no delivery-channel marker/);
   });
 
-  it('A3-8: Write|Edit|MultiEdit satisfies @file-content-gate (order must not matter)', () => {
+  it('A3-8: Write|Edit|MultiEdit satisfies @file-content-gate (order must not matter)', (ctx) => {
     // hooks.json itself registers runtime-bridge-dispatch as Write|Edit|MultiEdit; the old
     // positional glob `*Edit*Write*MultiEdit*` rejected exactly that form while its own
     // comment claimed both orders were fine.
     for (const matcher of ['Edit|Write|MultiEdit', 'Write|Edit|MultiEdit', 'MultiEdit|Write|Edit']) {
-      const status = runInFixtureRootExported(
+      const status = runInFixtureRootExported(ctx, 
         '#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n',
         matcher,
       );
@@ -839,7 +850,7 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
     }
   });
 
-  it('A3-8: a genuinely narrow matcher is still caught, and the message names what is missing', () => {
+  it('A3-8: a genuinely narrow matcher is still caught, and the message names what is missing', (ctx) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-narrow-')));
     extraTmpDirs.push(root);
     const hooksDir = join(root, '.claude', 'hooks');
@@ -881,7 +892,8 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
     );
     const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = spawnSync('/bin/bash', [REAL_HOOK_PATH], {
+    // Absolute bash path: win32 named skip — no Git Bash can stand in for /bin/bash (#1799).
+    const r = spawnBashOrSkip(ctx, '/bin/bash', [REAL_HOOK_PATH], {
       input: JSON.stringify({
         tool_name: 'Edit',
         tool_input: { file_path: join(hooksDir, hookName) },

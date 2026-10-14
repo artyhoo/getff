@@ -21,7 +21,8 @@
  *        cwd-derived line, the foreign file IS written
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -71,6 +72,7 @@ function makeShim(): string {
 }
 
 function run(
+  ctx: Skippable,
   script: string,
   cwd: string,
   shim: string,
@@ -83,7 +85,8 @@ function run(
   env.PATH = `${shim}:${env.PATH ?? ''}`;
   env.GIT_CONFIG_NOSYSTEM = '1';
   Object.assign(env, extra);
-  const r = spawnSync('bash', [script, '--write'], { cwd, env, encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [script, '--write'], { cwd, env, encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
 }
 
@@ -106,43 +109,43 @@ describe('format-shipped.sh --write — repo anchor', { timeout: SLOW_SHELL_MS }
     for (const d of [own, foreign, shim]) rmSync(d, { recursive: true, force: true });
   });
 
-  it('(f1) FOREIGN CWD: the foreign shipped file is untouched; the own one is written', () => {
-    const r = run(script, foreign, shim);
+  it('(f1) FOREIGN CWD: the foreign shipped file is untouched; the own one is written', (ctx) => {
+    const r = run(ctx, script, foreign, shim);
     expect(shipped(foreign), `the foreign repo must not be formatted\n${r.out}`).toBe(SEED);
     expect(shipped(own), r.out).toContain(MARK);
   });
 
-  it('(f2) OWN CHECKOUT (a subdir) as cwd: the own shipped file is written', () => {
-    const r = run(script, resolve(own, 'templates'), shim);
+  it('(f2) OWN CHECKOUT (a subdir) as cwd: the own shipped file is written', (ctx) => {
+    const r = run(ctx, script, resolve(own, 'templates'), shim);
     expect(r.status, r.out).toBe(0);
     expect(shipped(own), r.out).toContain(MARK);
   });
 
-  it('(f3) OWN LINKED WORKTREE: the copy in that worktree writes that worktree', () => {
+  it('(f3) OWN LINKED WORKTREE: the copy in that worktree writes that worktree', (ctx) => {
     const wt = resolve(own, 'wt-linked');
     execSync(`git worktree add -q "${wt}" HEAD`, { cwd: own });
-    const r = run(installScript(wt), wt, shim);
+    const r = run(ctx, installScript(wt), wt, shim);
     expect(r.status, r.out).toBe(0);
     expect(shipped(wt), r.out).toContain(MARK);
     expect(shipped(foreign)).toBe(SEED);
   });
 
-  it('(f4) CDPATH naming a dir with its own scripts/: a relative run still formats the own checkout', () => {
+  it('(f4) CDPATH naming a dir with its own scripts/: a relative run still formats the own checkout', (ctx) => {
     mkdirSync(resolve(foreign, 'scripts'), { recursive: true });
-    const r = run('scripts/format-shipped.sh', own, shim, { CDPATH: foreign });
+    const r = run(ctx, 'scripts/format-shipped.sh', own, shim, { CDPATH: foreign });
     expect(r.status, r.out).toBe(0);
     expect(shipped(own), r.out).toContain(MARK);
     expect(shipped(foreign), r.out).toBe(SEED);
   });
 
-  it('(f-neg) PAIRED-NEGATIVE: with the pre-anchor cwd lookup restored, the foreign file IS written', () => {
+  it('(f-neg) PAIRED-NEGATIVE: with the pre-anchor cwd lookup restored, the foreign file IS written', (ctx) => {
     const src = readFileSync(SCRIPT, 'utf8');
     const stripped = src.replace(
       /# ── REPO-ANCHOR[\s\S]*?# ── END REPO-ANCHOR[^\n]*\n/,
       'REPO_TOP="$(git rev-parse --show-toplevel 2>/dev/null)" || REPO_TOP=""\n',
     );
     expect(stripped, 'the REPO-ANCHOR block must be present to replace').not.toBe(src);
-    run(installScript(own, stripped), foreign, shim);
+    run(ctx, installScript(own, stripped), foreign, shim);
     expect(shipped(foreign), 'without the anchor the foreign repo is formatted').toContain(MARK);
   });
 });
