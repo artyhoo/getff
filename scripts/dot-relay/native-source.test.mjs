@@ -236,7 +236,7 @@ test('native review is source-bound to one persisted request, execution and curr
   assert.throws(() => l.nativeSources.approval({ receipt, currentHead: report.head_sha }), e => e.code === 'DOT_APPROVAL_UNPROVEN', 'a changed worker capture under the same HEAD must invalidate the old request');
 });
 
-test('actual CLI request and original GO importer use the existing CI verification gate without spawning a worker', t => {
+test('actual CLI review gate verifies GO on Darwin and holds unsupported hosts without new work', t => {
   const root = rootFixture(t);
   const report = capturedExecution(root);
   const f = registrationFixture(root);
@@ -255,6 +255,21 @@ test('actual CLI request and original GO importer use the existing CI verificati
   const env = { PATH: bin + ':' + process.env.PATH };
   const r = run(root, ['dot-review-request', '--execution-id', report.execution_id], env);
   assert.equal(r.status, 0, JSON.stringify(r));
+  if (process.platform !== 'darwin') {
+    assert.equal(r.value.state, 'HELD', JSON.stringify(r.value));
+    assert.equal(r.value.blocker, 'CLOCK_UNPROVEN');
+    const l = openLedger(join(root, 'ledger.sqlite'));
+    assert.equal(l.getExecution(report.execution_id).state, 'REQUIRES_REVIEW');
+    assert.equal(l.getReviewReceipt(report.execution_id), null);
+    l.close();
+    const db = new DatabaseSync(join(root, 'ledger.sqlite'));
+    assert.equal(db.prepare('SELECT count(*) AS n FROM native_review_requests').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM native_reviews').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM execution_attempts').get().n, 1);
+    db.close();
+    return;
+  }
+  assert.ok(r.value.request, JSON.stringify(r.value));
   const request = r.value.request;
   const l = openLedger(join(root, 'ledger.sqlite')); const binding = l.nativeSources.getBinding(); l.close();
   const review = { version: 1, kind: 'dot_head_review', producer: binding.producer, epoch, review_id: 'actual-cli-review', request_id: request.request_id,
