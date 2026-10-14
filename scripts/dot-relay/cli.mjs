@@ -28,6 +28,7 @@ import {
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
 import { admittedNativeInput, admittedNativeRead, exactNativeKeys, NATIVE_DOT, privateNativeBytes, verifyNativeOriginal, validateNativeRegistry, validateNativeReview } from './native-source.mjs';
+import { validateInstructionPacket, glmExecutorShape, glmCheckoutShape } from './glm-intake.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -84,6 +85,10 @@ const FLAG_SPECS = {
   'native-source-import': { '--file': 'value' },
   'dot-review-request': { '--execution-id': 'value' },
   'dot-approval-import': { '--file': 'value' },
+  'glm-task-bind': { '--file': 'value' },
+  'glm-task-report': { '--task-id': 'value', '--file': 'value' },
+  'glm-review-request': { '--task-id': 'value' },
+  'glm-approval-import': { '--file': 'value' },
   plan: {},
   'plan-advance': { '--collection': 'value', '--scan-id': 'value', '--cursor': 'value', '--wrap': 'bool' },
   'spool-begin': { '--id': 'value', '--artifact-sha256': 'value', '--bytes': 'value' },
@@ -963,15 +968,26 @@ function cmdNativeSourceImport({ root, flags }) {
     const actualRead = admittedNativeRead(root, input.source, native);
     const bytes = privateNativeBytes(input.local_source_path, { root: join(root, 'native-source', 'verified') });
     const text = verifyNativeOriginal(bytes, input.source, input.access, binding);
-    const discriminator = parseStrictJson(text, { maxBytes: 1048576 });
+    // Format discriminator over the exact original bytes. Non-JSON bytes and
+    // the instruction-packet shapes (solution envelopes, correction packets,
+    // page review packets) route to the GLM intake validator; everything else
+    // stays on the closed native registry contract.
+    let discriminator = null;
+    let nonJson = false;
+    try { discriminator = parseStrictJson(text, { maxBytes: 1048576 }); } catch { nonJson = true; }
     let parsed;
-    if (discriminator.kind === 'dot_head_review') {
+    if (discriminator && typeof discriminator === 'object' && discriminator.kind === 'dot_head_review') {
       const request = ledger.nativeSources.getRequest(discriminator.request_id);
       if (!request) fail('DOT_REVIEW_REQUEST_UNPROVEN');
       const review = validateNativeReview(text, { binding, request, currentHead: request.head_sha });
       parsed = { kind: 'dot_head_review', generation: review.review_id };
-    } else parsed = validateNativeRegistry(text, binding);
-    ok(ledger.nativeSources.retain({ binding, descriptor: input.source, access: input.access, bytes, sourceReadSha256: actualRead.receiptSha256, ...parsed }));
+    } else if (nonJson || (discriminator && typeof discriminator === 'object' && (discriminator.kind === 'solution'
+      || discriminator.format === 'dot-correction-instructions-v1' || discriminator.format === 'dot.executable-correction-instructions.v1'
+      || discriminator.schema === 'DOT-INDEPENDENT-PR-REVIEW-v1'))) {
+      parsed = validateInstructionPacket(text);
+    } else if (discriminator && typeof discriminator !== 'object') fail('DOT_SOURCE_UNTRUSTED');
+    else parsed = validateNativeRegistry(text, binding);
+    ok({ ...ledger.nativeSources.retain({ binding, descriptor: input.source, access: input.access, bytes, sourceReadSha256: actualRead.receiptSha256, ...parsed }), kind: parsed.kind });
   } finally { ledger.close(); }
 }
 
@@ -1058,6 +1074,146 @@ async function cmdDotApprovalImport({ root, flags }) {
   } finally { clock?.stop(); ledger.close(); }
   ok(result);
 }
+
+// ---------------------------------------------------------------- GLM intake
+
+// Binds ONE admitted instruction packet to ONE GLM executor identity and one
+// checkout fence. The OS-owner GLM_TASK_INTAKE admission names the exact
+// intake-file bytes; the packet must already be retained as a
+// dot_instruction_packet original, so Page provenance is proven before any
+// task exists. Ingest-once: a second task for the same source is refused.
+function cmdGlmTaskBind({ root, flags }) {
+  const native = nativeBinding(root);
+  const admitted = admittedNativeInput(root, flags['--file'], native, 'GLM_TASK_INTAKE');
+  const input = admitted.input;
+  exactNativeKeys(input, ['version', 'owner', 'source', 'access', 'local_source_path', 'executor', 'checkout']);
+  if (input.version !== 1 || input.owner !== native.owner) fail('GLM_INTAKE_UNPROVEN');
+  glmExecutorShape(input.executor);
+  glmCheckoutShape(input.checkout);
+  const { ledger } = openRoot(root);
+  try {
+    // Precedent order from dot-approval-import: store lookup first, then read
+    // provenance — a source never ingested is GLM_SOURCE_UNKNOWN regardless of
+    // whether this intake carries a read receipt for it.
+    const binding = enrolledNativeBinding(ledger, native);
+    const stored = ledger.nativeSources.getSource(input.source.sha256);
+    if (!binding || !stored) fail('GLM_SOURCE_UNKNOWN');
+    const actualRead = admittedNativeRead(root, input.source, native);
+    if (stored.source_read_sha256 !== actualRead.receiptSha256) fail('DOT_SOURCE_ACCESS_UNPROVEN');
+    const bytes = privateNativeBytes(input.local_source_path, { root: join(root, 'native-source', 'verified'), maxBytes: 1048576 });
+    const text = verifyNativeOriginal(bytes, input.source, input.access, binding);
+    const parsed = validateInstructionPacket(text);
+    if (parsed.kind !== 'dot_instruction_packet' || stored.kind !== 'dot_instruction_packet'
+      || !stored.original_bytes.equals(bytes)) fail('GLM_PACKET_NOT_INSTRUCTION');
+    ok(ledger.glmTasks.bind({ source: input.source, parsed, intakeSha256: admitted.inputSha256,
+      admissionSha256: admitted.admissionSha256, executor: input.executor, checkout: input.checkout }));
+  } finally { ledger.close(); }
+}
+
+// The executor report: one immutable report per task, accepted only from the
+// pinned executor session. The file surface is the fixed <root>/glm-reports
+// directory (regular, owner-owned, non-world-writable), review-import style.
+function cmdGlmTaskReport({ root, flags }) {
+  const id = flags['--task-id'];
+  const receiptPath = flags['--file'];
+  if (!id || !receiptPath) usage('glm-task-report --task-id <id> --file <path under root/glm-reports> required');
+  checkRoot(root);
+  if (!existsSync(join(root, 'config.json'))) fail('ROOT_NOT_INITIALIZED');
+  const reportsRoot = resolve(root, 'glm-reports');
+  const abs = resolve(receiptPath);
+  if (abs === reportsRoot || !abs.startsWith(`${reportsRoot}/`)) fail('GLM_REPORT_PATH_OUTSIDE_ROOT');
+  let st;
+  try {
+    st = lstatSync(abs);
+  } catch {
+    fail('GLM_REPORT_FILE_MISSING');
+  }
+  if (!st.isFile()) fail('GLM_REPORT_FILE_NOT_REGULAR');
+  if (st.uid !== process.geteuid()) fail('GLM_REPORT_FILE_NOT_OWNER');
+  if (st.mode & 0o002) fail('GLM_REPORT_FILE_WORLD_WRITABLE');
+  const report = parseStrictJson(readFileSync(abs, 'utf8'), { maxBytes: 65536 });
+  const { ledger } = openRoot(root);
+  try { ok(ledger.glmTasks.report({ taskId: id, report })); } finally { ledger.close(); }
+}
+
+// Exact-HEAD review request for a reported GLM task. Mirrors the legacy
+// dot-review-request fences — live gh head match, active clock, finite F12
+// verification budget (task-keyed), CI verification — then persists the
+// request under the SAME native governance table (unique request ids,
+// (task, head, epoch) conflict fence, capture-pinned executor report).
+async function cmdGlmReviewRequest({ root, flags }) {
+  const native = nativeBinding(root);
+  const policy = nativeReviewPolicy(root, native);
+  const taskId = flags['--task-id'];
+  const { ledger } = openRoot(root);
+  let clock;
+  let result;
+  try {
+    const binding = enrolledNativeBinding(ledger, native);
+    const task = ledger.glmTasks.getTask(taskId);
+    if (!binding || !task || task.state !== 'REPORTED') fail('GLM_TASK_NOT_REPORTED');
+    const report = task.report;
+    if (report.status !== 'CODE_COMPLETE') fail('GLM_TASK_NOT_COMPLETE');
+    const ctx = /^https:\/\/github\.com\/(artyhoo\/getff)\/pull\/([1-9]\d*)$/.exec(report.pr_url);
+    if (!ctx) fail('GLM_REPORT_MISMATCH');
+    const view = makeGhAdapter().view(['pr', 'view', report.pr_url, '--json', 'headRefOid,baseRefOid']);
+    if (view.headRefOid !== report.head_sha || !/^[0-9a-f]{40}$/.test(view.baseRefOid ?? '')) fail('DOT_APPROVAL_STALE');
+    clock = startActiveClock();
+    if (!await clock.ready(5000)) result = { state: 'HELD', blocker: 'CLOCK_UNPROVEN' };
+    else {
+      const budget = ledger.glmTasks.reviewBudget({ taskId });
+      const before = clock.activeNs();
+      const verified = await verifyPr({ url: report.pr_url, headSha: report.head_sha, baseSha: view.baseRefOid, policy, clock,
+        deadlineMs: Math.min(15000, Math.max(0, budget.budget_ms - budget.spent_ms)), pollIntervalMs: 1000 });
+      const after = clock.activeNs();
+      if (before !== null && after !== null && after > before) ledger.glmTasks.chargeReviewBudget({ taskId, additionalMs: Number((after - before) / 1000000n) });
+      if (verified.state !== 'DONE') result = verified;
+      else result = { ...ledger.glmTasks.requestReview({ task, request: { version: 1, request_id: 'GLM-REQUEST-' + randomUUID(), execution_id: task.task_id,
+        repository: ctx[1], pr: Number(ctx[2]), head_sha: report.head_sha, base_sha: view.baseRefOid, epoch: binding.epoch,
+        source_binding_sha256: binding.sha256, policy: { version: policy.version, digest: policy.digest },
+        required_evidence_sha256: sha256OfText(JSON.stringify({ view, policy, verified })) } }), transport: 'NOT_SENT' };
+    }
+  } finally { clock?.stop(); ledger.close(); }
+  ok(result);
+}
+
+// Dot decision import for a GLM task. Validates the SAME v1 dot_head_review
+// source contract as the legacy path, then only RECORDS: a NEEDS_FIX is the
+// durable blocking fence (shared same-request scan), and a GO is history for
+// the coordinator/operator. No v2 derivation, no applyReviewAndVerify, no
+// execution state change — the relay never merges GLM-task work.
+async function cmdGlmApprovalImport({ root, flags }) {
+  const native = nativeBinding(root);
+  nativeReviewPolicy(root, native);
+  const input = parseStrictJson(privateNativeBytes(flags['--file'], { root: join(root, 'native-source'), maxBytes: 32768 }).toString('utf8'), { maxBytes: 32768 });
+  exactNativeKeys(input, ['version', 'task_id', 'request_id', 'source_binding_sha256', 'source', 'local_source_path']);
+  const { local_source_path: localPath, ...receipt } = input;
+  const { ledger } = openRoot(root);
+  let result;
+  try {
+    const binding = enrolledNativeBinding(ledger, native);
+    const task = ledger.glmTasks.getTask(receipt.task_id);
+    const stored = ledger.nativeSources.getSource(receipt.source?.sha256);
+    if (!binding || !task || !stored || receipt.version !== 1) fail('DOT_APPROVAL_UNPROVEN');
+    const actualRead = admittedNativeRead(root, receipt.source, native);
+    if (stored.source_read_sha256 !== actualRead.receiptSha256) fail('DOT_SOURCE_ACCESS_UNPROVEN');
+    const bytes = privateNativeBytes(localPath, { root: join(root, 'native-source', 'verified'), maxBytes: 16384 });
+    verifyNativeOriginal(bytes, receipt.source, JSON.parse(stored.access_json), binding);
+    if (!bytes.equals(stored.original_bytes)) fail('DOT_APPROVAL_UNPROVEN');
+    const request = ledger.nativeSources.getRequest(receipt.request_id);
+    if (!request || request.execution_id !== task.task_id) fail('DOT_REVIEW_REQUEST_UNPROVEN');
+    const view = makeGhAdapter().view(['pr', 'view', `https://github.com/${request.repository}/pull/${request.pr}`, '--json', 'headRefOid,baseRefOid']);
+    if (view.baseRefOid !== request.base_sha) fail('DOT_APPROVAL_STALE');
+    const review = validateNativeReview(stored.original_bytes.toString('utf8'), { binding, request, currentHead: view.headRefOid });
+    const recorded = ledger.glmTasks.approvalRecord({ task, request, review, sourceSha256: receipt.source.sha256 });
+    if (recorded.blocking) result = { state: 'HELD', blocker: 'DOT_NEEDS_FIX', review_id: recorded.blocking.review_id,
+      findings_artifact: recorded.blocking.findings_artifact, replay: recorded.replay };
+    else result = { state: 'RECORDED_GO', review_id: review.review_id, applied: false, replay: recorded.replay,
+      note: 'GLM task GO is recorded for coordinator/operator decision; the relay never merges' };
+  } finally { ledger.close(); }
+  ok(result);
+}
+
 
 // RECOVERY-ADOPTION (PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real
 // deliveries"): the OS-owner's narrow command for adopting ALREADY-DELIVERED
@@ -2219,7 +2375,7 @@ function nativeBinding(root, expected = null) {
       const p = join(HERE,f.name); const s = lstatSync(p);
       if (!s.isFile() || s.isSymbolicLink() || sha256OfBuffer(readFileSync(p)) !== f.sha256) throw Error();
     }
-    if (b.native_source_admission && ['native-source.mjs', 'native-source-store.mjs'].some(name => !b.source_files.some(f => f.name === name))) throw Error();
+    if (b.native_source_admission && ['native-source.mjs', 'native-source-store.mjs', 'glm-intake.mjs'].some(name => !b.source_files.some(f => f.name === name))) throw Error();
     for (const evidence of [b.authority,b.source_acceptance,b.installation,b.receiver_contract,...(b.native_source_admission ? [b.native_source_admission] : [])]) {
       if (!evidence || !isAbsolute(evidence.path) || !/^[0-9a-f]{64}$/.test(evidence.sha256)) throw Error();
       const st = lstatSync(evidence.path);
@@ -2427,6 +2583,10 @@ const HANDLERS = {
   'native-source-import': cmdNativeSourceImport,
   'dot-review-request': cmdDotReviewRequest,
   'dot-approval-import': cmdDotApprovalImport,
+  'glm-task-bind': cmdGlmTaskBind,
+  'glm-task-report': cmdGlmTaskReport,
+  'glm-review-request': cmdGlmReviewRequest,
+  'glm-approval-import': cmdGlmApprovalImport,
   plan: cmdPlan,
   'plan-advance': cmdPlanAdvance,
   'spool-begin': cmdSpoolBegin,

@@ -22,7 +22,7 @@ function nativeAdmission(root, effectFiles) {
     effects: Object.fromEntries(Object.entries(effectFiles).map(([effect, file]) => [effect, sha(readFileSync(file))])) });
   const here = fileURLToPath(new URL('.', import.meta.url));
   write(join(root, 'native-binding.json'), { version: 1, mode: 'NATIVE_EXISTING_OWNER', owner, cli: CLI, source_commit: 'a'.repeat(40),
-    source_files: ['cli.mjs', 'contract.mjs', 'executor.mjs', 'ledger.mjs', 'bridge-runner.body.js', 'native-source.mjs', 'native-source-store.mjs'].map(name => ({ name, sha256: sha(readFileSync(join(here, name))) })),
+    source_files: ['cli.mjs', 'contract.mjs', 'executor.mjs', 'ledger.mjs', 'bridge-runner.body.js', 'native-source.mjs', 'native-source-store.mjs', 'glm-intake.mjs'].map(name => ({ name, sha256: sha(readFileSync(join(here, name))) })),
     authority: ref, source_acceptance: ref, installation: ref, receiver_contract: ref,
     native_source_admission: { path: admission, sha256: sha(readFileSync(admission)) } });
 }
