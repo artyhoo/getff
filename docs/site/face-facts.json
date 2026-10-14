@@ -83,8 +83,8 @@
   },
   "installCommands": {
     "source": {
-      "positionals": "setup:72",
-      "laneTable": "install.sh:300",
+      "positionals": "setup:73",
+      "laneTable": "install.sh:302",
       "flags": "README.md:147"
     },
     "stacks": [
@@ -369,7 +369,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 38
+        "members": 39
       },
       "G": {
         "familyName": "packages",

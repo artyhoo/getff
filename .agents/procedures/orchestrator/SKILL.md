@@ -56,3 +56,25 @@ Delegation collapses into two failure modes. Either the senior does the work its
 ## With this skill
 
 Task size picks the mechanism (small → the senior's own `Edit`, bulk → an isolated inline `Agent`, a queue of research kickoffs → Queue mode), discovery is taken once per repo so junior prompts carry real commands, quota zones switch the working mode before a 429 rather than after it, and every kickoff above the trigger threshold gets a cold independent read before dispatch instead of after. One PR per umbrella, with a verify-trace that survives the Phase 4.5 audit.
+
+<!-- getff:common-invocation-binding -->
+
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/orchestrator/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+
+<!-- /getff:common-invocation-binding -->

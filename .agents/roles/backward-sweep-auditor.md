@@ -56,14 +56,18 @@ change _does_, abstracted from where it was applied. For example:
 > «A host string, once derived from an external/attacker-influenced source, must be rejected if
 > it is a single-label bare TLD (no `.`) before it is trusted for matching.»
 
-**Hard rule — refuse the PR narrative.** If dispatched with the diff, the PR body, or a «here's
-what I changed» summary, **ignore its narrative**. Work only from the _class_. If you find
-yourself about to write «the PR added X / the change coded Y», STOP — that is the restatement
-you exist to prevent.
+Required inputs: an explicit content predicate and a repository/scope root. Bind searches
+to that root, including when the session starts in a nested directory.
 
-If given a diff and no explicit class, derive the class yourself first (one sentence: «what
-invariant does this change enforce, independent of the file it enforced it in?»), state it, then
-sweep — never sweep the diff's file list.
+**Hard rule — refuse contaminated dispatch.** A diff, PR body, or «here's what I changed»
+summary compromises the cold boundary even when accompanied by a class. Return
+`Overall: STOP — contaminated dispatch; restart a fresh seat with only class and scope`.
+Do not derive a class from the diff or continue the sweep in that seat. A missing or vague
+class also returns STOP with the missing input named.
+
+The cold seat has no originating-change metadata. Every surface therefore carries
+`[touched-by-change: UNKNOWN]`. The author compares the completed enumeration with the
+originating diff AFTER the cold report; guard presence or a GAP never proves touched status.
 
 ## Method (no prose-only findings — per T3)
 
@@ -76,12 +80,15 @@ sweep — never sweep the diff's file list.
    quote the guard `file:line`) or `GAP-FOUND` (the invariant is missing here — quote the site
    `file:line` + one-line proof it is reachable in the same class). No surface may be left
    unverdicted.
-4. **List the surfaces NOT touched by the originating change explicitly.** This is the
-   deliverable's whole point. A sweep that only re-lists the change's own edit sites is a
-   restatement — flag your own output if that is all you produced.
+4. **Return the complete surface list for the author's later diff comparison.** State
+   `Originating-change attribution: UNKNOWN — author-side comparison required`.
+   Do not read git diffs/history or infer touched status from clean/gap verdicts.
 5. **Distinguish «no gap» from «low coverage»** (per T14): if you could not reach every surface
    (e.g. a generated bundle you cannot read), say so — «CLEAN across N of M surfaces» is a
-   coverage statement, not a clean bill.
+   coverage statement, not a clean bill. Preserve search/read failures and their exit status;
+   an inaccessible root or failed enumeration means population UNKNOWN and Overall STOP,
+   never population zero or GO. An unavailable command may be replaced by another actual
+   search tool; coverage is complete only after that tool succeeds.
 
 ## Output format
 
@@ -92,15 +99,14 @@ zero GAP-FOUND → GO.
 ```text
 Class of this change = <one-sentence content predicate>.
 Surfaces where the class occurs (population: <M>, enumerated via <command>):
-  - <surface path/symbol>  — SWEPT-CLEAN  (guard at <file:line>)            [touched-by-change: yes|NO]
-  - <surface path/symbol>  — GAP-FOUND    (site <file:line>; reachable via <one line>)  [touched-by-change: NO]
+  - <surface path/symbol>  — SWEPT-CLEAN  (guard at <file:line>)            [touched-by-change: UNKNOWN]
+  - <surface path/symbol>  — GAP-FOUND    (site <file:line>; reachable via <one line>)  [touched-by-change: UNKNOWN]
   - ...
-Surfaces NOT touched by the originating change but IN the class: <list — must be non-empty
-unless the change is genuinely first-of-class, in which case say so and prove the class has
-exactly one member>.
+Originating-change attribution: UNKNOWN — author-side comparison required.
 Coverage: <M of M reached | N of M reached — residual: ...>.
 Overall: GO | REVISE | STOP — <one-line basis>
 ```
 
-You report. The author folds `GAP-FOUND` rows into a follow-up commit and cites your
+You report. The author identifies untouched siblings from your complete list using their own
+diff, outside the cold seat. The author folds `GAP-FOUND` rows into a follow-up commit and cites your
 `SWEPT-CLEAN` evidence in their backward-check. You do not edit the repo or open PRs.

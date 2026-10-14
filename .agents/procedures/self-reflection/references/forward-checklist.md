@@ -10,7 +10,7 @@ Apply each layer in order. Failure on any single layer → recommendation is **p
 If the proposal includes TS / JS code (tests, principles, installer logic, sub-agents):
 
 - TypeScript strict + `noUncheckedIndexedAccess` — proposed code typechecks?
-- ESLint 10 flat config (`eslint.config.mjs`) — passes?
+- ESLint flat config (`eslint.config.mjs`) — passes with the project's declared and installed version? Read its package manifest and lockfile; for generated consumers, the dependency policy is owned by [setup.d/70-deps.sh](../../../../setup.d/70-deps.sh), not a copied version number in this checklist.
 - `dependency-cruiser` — no cycles, no banned imports, layer respect?
 - For UI: R12-R20 (server/client boundary, R17 Storybook stories, etc).
 
@@ -24,15 +24,13 @@ If proposal is pure docs/process — N/A.
 
 ## Layer 3 — Commit-level (capability-commit gate)
 
-For each commit in proposal — classify per [CLAUDE.md `What is a capability commit`](../../../../CLAUDE.md):
+For each proposed commit, read the current [CLAUDE.md `What is a capability commit`](../../../../CLAUDE.md) definition and compare with the production [prior-art detector](../../../../packages/core/hooks/checks/prior-art.ts). Those owners supply the classification and trailer grammar; this checklist does not define a second classifier.
 
-- Adds new explicit dep in `package.json` (transitive doesn't count) — capability.
-- Adds new file ≥50 LOC under new subdirectory `packages/core/<new-dir>/` — capability.
-- Adds new file ≥80 LOC anywhere under `packages/` — capability.
+Apply the LOC carve-outs before classifying: documentation, byte-identical copies of already-tracked pre-image blobs, and test additions for existing capabilities are exempt. Files directly under `packages/core/principles/` are enforcement capabilities, so the test-material exemption does not cover them. A qualifying production addition or new explicit dependency alongside an exempt test still makes the commit a capability commit.
 
-For each capability commit: `Prior-art:` trailer drafted with reference to `prior-art-evaluations.md#<ID>` or escape-hatch rationale ≥20 chars.
+For a capability commit, draft a substantive `Prior-art:` trailer with a resolvable referent accepted by CLAUDE.md. A `skipped` escape hatch cannot replace evidence on an actual capability commit.
 
-For each non-capability commit: escape-hatch trailer with ≥20-char rationale (e.g. «refactor only, no new capability»). `.husky/pre-push` enforces this on push.
+A non-capability commit does not require a `Prior-art:` trailer from the capability gate. Use a justified escape hatch only where an applicable mixed-PR check requires one; do not claim the pre-push detector requires it universally.
 
 ## Layer 4 — Build-vs-reuse SSOT
 
@@ -65,7 +63,7 @@ For every new `.md` file the proposal claims to create:
 
 ## Layer 7 — User-value goal lens
 
-[README.md#why-this-exists](../../../../README.md): «AI agents (Claude, Cursor, Copilot, Aider) write plausible-looking code that reliably violates undocumented conventions. This package operationalizes the principle: every rule that governs your codebase is an executable test that fails the build when violated.»
+Read the current goal at [README.md#why-this-exists](../../../../README.md). Each codified rule must fail when violated at its earliest reachable enforcement channel: edit-time → pre-commit → pre-push → CI → production audit. CI is the last-resort gate.
 
 For each new rule the proposal introduces, ask:
 
@@ -73,4 +71,4 @@ For each new rule the proposal introduces, ask:
 - If prose-only — is the prose-only state intentional and documented (e.g. «process rule, ladder of enforcement at level 4»), or is it an undocumented-rule failure mode in disguise?
 - Are claimed enforcement points actually enforced (real test, real CI gate, real pre-push), or are they aspirational?
 
-This layer catches the «I introduced a rule, but didn't make it fail CI» drift — same shape as «documents lie; tests don't» applied to the act of introducing rules.
+This layer catches a claimed rule without verified enforcement at its earliest reachable channel. Verify the actual violation rejection at the claimed channel; a green CI run alone does not establish that enforcement.

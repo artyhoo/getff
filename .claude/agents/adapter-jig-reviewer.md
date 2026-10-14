@@ -1,0 +1,1 @@
+../../.agents/roles/adapter-jig-reviewer.md

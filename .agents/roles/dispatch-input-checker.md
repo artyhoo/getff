@@ -57,9 +57,44 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
    [cold-seat-economy.md §3](../rules/cold-seat-economy.md)). **Never** the chat,
    **never** the implementation log, **never** the executor's session.
 2. The kickoff's permitted-file list (for K1 anchor resolution against repo state).
-3. The runtime profile list (for K5 external-state preconditions) — verified live via
-   `curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles" | jq -r '.[].name'` when the kickoff
-   names profile requirements.
+3. The runtime profile list (for K5 external-state preconditions) — run the bounded
+   probe below when the kickoff names profile requirements. Bind the endpoint from
+   the provided runtime configuration; an unset endpoint is unknown, not localhost.
+
+K5 routing starts with the input's **required profile names**. For an empty list
+(including `Runtime profiles: none required`), report `K5: 0 findings — no required
+runtime profiles` and skip the runtime endpoint probe. For a nonempty list, use the
+bounded probe below. An endpoint already present in the environment does not add
+a profile requirement or authorize a request outside the input's named probes.
+
+<!-- runtime-profile-probe:start -->
+```bash
+(
+  if [ -z "${RUNTIME_BRIDGE_AIF_URL:-}" ]; then
+    printf 'K5 probe unavailable: RUNTIME_BRIDGE_AIF_URL is unset\n' >&2
+    exit 2
+  fi
+  profiles_json="$(curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+    "${RUNTIME_BRIDGE_AIF_URL%/}/runtime-profiles")"
+  probe_rc=$?
+  [ "$probe_rc" -eq 0 ] || exit "$probe_rc"
+  printf '%s\n' "$profiles_json" | jq -e '
+    type == "array" and all(.[];
+      type == "object" and (.name | type == "string" and length > 0))
+  ' >/dev/null
+  probe_rc=$?
+  [ "$probe_rc" -eq 0 ] || exit "$probe_rc"
+  printf '%s\n' "$profiles_json" | jq -r '.[].name'
+)
+```
+<!-- runtime-profile-probe:end -->
+
+Preserve stdout, stderr and exit status. A nonzero probe, missing tool, HTTP error,
+invalid JSON or invalid response shape means **K5 unknown**; name it in `Coverage`,
+never infer that a required profile is absent. Only a successful validated list can
+prove profile presence or absence. A successful empty array is a verified empty
+population. Apply the existing verdict rule to confirmed findings; coverage gaps
+remain explicit and do not certify executor fitness.
 
 ## The five EQUAL classes (ADR-6 — no primary/background split)
 
@@ -163,6 +198,11 @@ never names, so some candidates are in fact permitted edits.
 W1 supersedes: `High —` is **dropped** from the lexicon. This file applies the kickoff's wording.
 
 ## Output grammar (mandatory, machine-consumed — paste-ready into the ledger row)
+
+Copy the field names and fixed tokens below exactly in English, including `findings`
+and `absent`, regardless of operator locale. Each K1–K5 line starts with
+`K<n>: <integer> findings —`; put unknown/coverage qualifiers after the em dash.
+Operator-facing explanation outside the block follows the active output language.
 
 ```text
 DISPATCH-INPUT: GO | REVISE | STOP

@@ -29,6 +29,11 @@
 #   F1  99-finalize maps the wirer's rc 3 to a «NOT wired» summary line (it used to be `|| true`).
 #   F1b the wirer's own «  · not wired: <what> — <why>» line reaches that summary with its reason.
 #   F2  paired: rc 0 adds no such line.
+#   K   the consumer's own root config whose original cannot be kept aside (.ai-factory/before-getff
+#       taken by a file): the install goes on, the file is as it was, and the NOT wired summary says
+#       why (cold-review F10). The own-config pass runs its wirer only when _ts_morph_available
+#       says yes — a functional probe — so the fixture links the framework's real ts-morph (NM_SRC),
+#       as the P consumers' node_modules does; a bare package.json stub fails the probe.
 #
 # P1/P2 run the real bundle against the real ESLint (node_modules linked read-only, never installed
 # into). Without ESLint they SKIP locally and FAIL under CI, where a skip would prove nothing.
@@ -243,21 +248,32 @@ fi
 # F10 — the original used to be deleted silently, the changed file left in place).
 OWN_DRIVER="$WORK/driver-own.sh"
 { echo 'set -eo pipefail'; grep -v '^REFRESH_BASELINE_STAGED=' "$DRIVER" | grep -v '^set -o pipefail$'; } > "$OWN_DRIVER"
-K="$WORK/k-proj"; KP="$WORK/k-pkg"
-mkdir -p "$K/.ai-factory" "$K/node_modules/ts-morph" "$KP/packages/core/install"
-printf '{"name":"ts-morph","version":"0.0.0"}\n' > "$K/node_modules/ts-morph/package.json"
-: > "$K/.ai-factory/before-getff"
-printf 'export default [];\n' > "$K/eslint.config.mjs"
-printf '%s\n' "import { appendFileSync } from 'node:fs';" \
-  "const i = process.argv.indexOf('--path'); appendFileSync(process.argv[i + 1], '// getff block\n');" \
-  "console.log('stub own wirer');" > "$KP/packages/core/install/synth-and-wire.bundle.mjs"
-K_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$K" PKG_ROOT="$KP" FINALIZE="$FINALIZE" bash "$OWN_DRIVER" 2>&1); K_RC=$?
-grep -q 'stub own wirer' <<<"$K_OUT" \
-  || bad "K: the own-config wirer never ran — the arm would be vacuous (tail: $(printf '%s\n' "$K_OUT" | tail -4 | tr '\n' '|'))"
-[ "$K_RC" -eq 0 ] && [ "$(cat "$K/eslint.config.mjs")" = 'export default [];' ] \
-  && grep -qE '^      - .*eslint.config.mjs.*original could not be kept' <<<"$K_OUT" \
-  && ok "K: an original that cannot be kept → the install goes on, the file is as it was, NOT wired says why" \
-  || bad "K: rc=$K_RC file='$(cat "$K/eslint.config.mjs")' (tail: $(printf '%s\n' "$K_OUT" | tail -6 | tr '\n' '|'))"
+if [ -z "$NM_SRC" ]; then
+  if [ -n "${CI:-}" ]; then
+    bad "K: eslint + ts-morph are not installed under packages/core or the repo root — the own-config arm cannot run in CI"
+  else
+    echo "· K SKIP — eslint + ts-morph not installed (run npm ci --prefix packages/core)"
+  fi
+else
+  K="$WORK/k-proj"; KP="$WORK/k-pkg"
+  mkdir -p "$K/.ai-factory" "$K/node_modules" "$KP/packages/core/install"
+  # The own-config pass runs its wirer only when _ts_morph_available says yes — a functional probe
+  # (it parses a throwaway file in memory), so a bare package.json stub no longer opens that branch:
+  # link the framework's real ts-morph, as the P consumers' node_modules does.
+  ln -s "$NM_SRC/ts-morph" "$K/node_modules/ts-morph"
+  : > "$K/.ai-factory/before-getff"
+  printf 'export default [];\n' > "$K/eslint.config.mjs"
+  printf '%s\n' "import { appendFileSync } from 'node:fs';" \
+    "const i = process.argv.indexOf('--path'); appendFileSync(process.argv[i + 1], '// getff block\n');" \
+    "console.log('stub own wirer');" > "$KP/packages/core/install/synth-and-wire.bundle.mjs"
+  K_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$K" PKG_ROOT="$KP" FINALIZE="$FINALIZE" bash "$OWN_DRIVER" 2>&1); K_RC=$?
+  grep -q 'stub own wirer' <<<"$K_OUT" \
+    || bad "K: the own-config wirer never ran — the arm would be vacuous (tail: $(printf '%s\n' "$K_OUT" | tail -4 | tr '\n' '|'))"
+  [ "$K_RC" -eq 0 ] && [ "$(cat "$K/eslint.config.mjs")" = 'export default [];' ] \
+    && grep -qE '^      - .*eslint.config.mjs.*original could not be kept' <<<"$K_OUT" \
+    && ok "K: an original that cannot be kept → the install goes on, the file is as it was, NOT wired says why" \
+    || bad "K: rc=$K_RC file='$(cat "$K/eslint.config.mjs")' (tail: $(printf '%s\n' "$K_OUT" | tail -6 | tr '\n' '|'))"
+fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

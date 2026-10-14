@@ -345,17 +345,22 @@ origin_count=$(printf '%s' "$origin_branches" | grep -c . || true)
 echo "SIGNAL origin-branch ${origin_count}"
 
 # ── Signal 2: pull requests (any state) ───────────────────────────────────────
+pr_status="ok"
 if [[ -n "${PROBE_PRS+x}" ]]; then
   prs_json="$PROBE_PRS"
 elif command -v gh &>/dev/null; then
-  prs_json=$(gh pr list --state all --search "$SLUG" --json number,state,headRefName --limit 100 2>/dev/null || echo '[]')
+  prs_json=$(gh pr list --state all --search "$SLUG" --json number,state,headRefName --limit 100 2>/dev/null) || pr_status="unavailable"
 else
-  prs_json='[]'
+  prs_json=''
+  pr_status="unavailable"
 fi
-[[ -z "$prs_json" ]] && prs_json='[]'
+if ! printf '%s' "$prs_json" | jq -e 'type == "array"' &>/dev/null; then
+  prs_json='[]'
+  pr_status="unavailable"
+fi
 pr_count=$(printf '%s' "$prs_json" | jq 'length' 2>/dev/null || echo 0)
 pr_open_count=$(printf '%s' "$prs_json" | jq '[.[] | select(.state == "OPEN")] | length' 2>/dev/null || echo 0)
-echo "SIGNAL pr ${pr_count} open=${pr_open_count}"
+echo "SIGNAL pr ${pr_count} open=${pr_open_count} status=${pr_status}"
 
 # ── Signal 3: done.md closure marker ──────────────────────────────────────────
 # The orch home resolves by LAYOUT, not by hardcoding the framework path: a consumer
@@ -557,9 +562,8 @@ fi
 if [[ -n "${PROBE_TASKS+x}" ]]; then
   tasks_json="$PROBE_TASKS"
 else
-  tasks_json=$(curl -s --max-time 10 "http://${AIF_HOST}:${AIF_PORT}/tasks" 2>/dev/null || echo '[]')
+  tasks_json=$(curl -fsS --max-time 10 "http://${AIF_HOST}:${AIF_PORT}/tasks" 2>/dev/null) || tasks_json=''
 fi
-[[ -z "$tasks_json" ]] && tasks_json='[]'
 if ! printf '%s' "$tasks_json" | jq -e 'type == "array"' &>/dev/null; then
   tasks_json='[]'
   task_status="unavailable"
@@ -650,7 +654,7 @@ origin_signals=0
 [[ "$pr_count" -gt 0 ]] && origin_signals=$((origin_signals + 1))
 [[ "$done_md" == "yes" ]] && origin_signals=$((origin_signals + 1))
 
-if [[ "$container_status" != "ok" || "$task_status" != "ok" ]]; then
+if [[ "$container_status" != "ok" || "$task_status" != "ok" || "$pr_status" != "ok" ]]; then
   echo "VERDICT: PROBE-INCOMPLETE"
 elif [[ "$unharvested_count" -gt 0 ]]; then
   echo "VERDICT: DONE-UNHARVESTED"

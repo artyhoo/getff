@@ -123,7 +123,14 @@ fi
 # by convention (no false DONE on partial-progress, matching kickoff §3 self-app test).
 # Counters T-NoArg-B: does NOT grep '#<num>' from kickoff (kickoff written before PRs).
 # Counters T-NoArg-C: does NOT rely on PR-title word overlap (that is Layer C2's job).
-merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100 2>/dev/null || echo '[]')"
+if ! merged_prs_json="$(${MO_GH_BIN} pr list --state merged --json number,headRefName --limit 100)"; then
+  echo "PROBE-INCOMPLETE: merged PR query failed; closure evidence unavailable"
+  merged_prs_json='[]'
+fi
+if command -v jq &>/dev/null && ! printf '%s' "${merged_prs_json}" | jq -e 'type == "array"' >/dev/null 2>&1; then
+  echo "PROBE-INCOMPLETE: merged PR response invalid; closure evidence unavailable"
+  merged_prs_json='[]'
+fi
 
 # ── Skip-closed pre-filter: feed the expensive C2 scan only the OPEN survivors ──────
 # Perf (pipeline-completion-scan-skip-closed, 2026-06-17): the per-umbrella jaccard in
@@ -148,10 +155,20 @@ for _d in "${PROMPTS_DIR}"/*/; do
   _n="${_d%/}"; _n="${_n##*/}"                        # basename, pure-bash (no subprocess)
   [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
   [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
-  if [[ -n "${_merged_branch_names}" ]] \
-      && grep -qxF "${_n}" 2>/dev/null <<<"${_merged_branch_names}"; then
-    continue                                          # C1 cheap-closed → skip expensive C2
+  # C1 exact-branch match, pipe- AND write-free: a `producer | grep -qxF` pipe is
+  # the SIGPIPE-under-pipefail shape check-pipefail-early-exit.mjs forbids, while
+  # the here-string fix it suggests creates a $TMPDIR temp file that the write-denied
+  # sandbox of pipeline-priority-readonly.test.mjs rejects. Branch names carry no
+  # IFS whitespace, so word-splitting the newline-separated jq output is
+  # token-equal to grep -qxF whole-line matching.
+  _c1_closed=0
+  if [[ -n "${_merged_branch_names}" ]]; then
+    for _b in ${_merged_branch_names}; do
+      [[ "${_b}" == "${_n}" ]] && { _c1_closed=1; break; }
+    done
   fi
+  [[ "${_c1_closed}" == 1 ]] \
+    && continue                                       # C1 cheap-closed → skip expensive C2
   _open_survivors+="${_n}"$'\n'
 done
 
@@ -175,11 +192,22 @@ fi
 # Stage 3 worktree-hardening W3: the per-umbrella `gh pr list --search` inside the loop
 # below cost one gh round-trip per candidate (~138 calls on a full backlog). Fetch all
 # open PRs ONCE here; per-umbrella `open_prs` becomes an in-memory grep over this blob.
-_ALL_OPEN_PRS="$(${MO_GH_BIN:-gh} pr list --state open --json number,headRefName --limit 500 2>/dev/null || echo '[]')"
+_open_probe_ok=1
+if ! _ALL_OPEN_PRS="$(${MO_GH_BIN:-gh} pr list --state open --json number,headRefName --limit 500)"; then
+  echo "PROBE-INCOMPLETE: open PR query failed; in-flight status unknown"
+  _ALL_OPEN_PRS='[]'
+  _open_probe_ok=0
+fi
+if command -v jq &>/dev/null && ! printf '%s' "${_ALL_OPEN_PRS}" | jq -e 'type == "array"' >/dev/null 2>&1; then
+  echo "PROBE-INCOMPLETE: open PR response invalid; in-flight status unknown"
+  _ALL_OPEN_PRS='[]'
+  _open_probe_ok=0
+fi
 
 # ── REAL KICKOFF ENTRIES (existing behaviour — T17 preserve) ─────────────────
 
 for dir in "${PROMPTS_DIR}"/*/; do
+  [[ -d "${dir}" ]] || continue
   name="$(basename "${dir}")"
   kickoff="${dir}kickoff.md"
 
@@ -203,11 +231,19 @@ for dir in "${PROMPTS_DIR}"/*/; do
 
   # Extract Type from kickoff header (line 2-5 typically)
   type_line="$(grep -m1 '^\*\*Type:\*\*\|^> \*\*Type:\*\*' "${kickoff}" 2>/dev/null || echo '')"
-  if grep -qi 'R-phase\|research' <<<"${type_line}"; then
+  # Case-insensitive substring match, pipe- AND write-free: the here-string forms
+  # this replaced create a $TMPDIR temp file that the write-denied sandbox of
+  # pipeline-priority-readonly.test.mjs rejects (push 6 pre-push red), while the
+  # `printf | grep -qi` pipe is the SIGPIPE-under-pipefail shape
+  # check-pipefail-early-exit.mjs forbids. `tr` reads its whole input (no
+  # early-exit reader → no SIGPIPE risk); one lowercase copy, then glob
+  # substring compares — same alternation semantics as the grep -qi arms.
+  type_lc="$(printf '%s' "${type_line}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${type_lc}" == *r-phase* || "${type_lc}" == *research* ]]; then
     wave_type="R-phase"
-  elif grep -qi 'I-phase\|execution\|build' <<<"${type_line}"; then
+  elif [[ "${type_lc}" == *i-phase* || "${type_lc}" == *execution* || "${type_lc}" == *build* ]]; then
     wave_type="I-phase"
-  elif grep -qi 'wiring\|config\|ci' <<<"${type_line}"; then
+  elif [[ "${type_lc}" == *wiring* || "${type_lc}" == *config* || "${type_lc}" == *ci* ]]; then
     wave_type="wiring"
   else
     wave_type="unknown"
@@ -225,11 +261,18 @@ for dir in "${PROMPTS_DIR}"/*/; do
     volume="L"
   fi
 
-  # Check for open PRs matching this umbrella (W3 — in-memory grep over the single
-  # pre-fetched _ALL_OPEN_PRS blob; no per-umbrella gh round-trip).
-  # `grep -c` always emits a count (0 if no match) but exits 1 on no match;
-  # `|| true` keeps `set -e` happy without duplicating the "0" output that `|| echo 0` produced.
-  open_prs="$(printf '%s' "${_ALL_OPEN_PRS}" | grep -c "\"${name}\"" || true)"
+  # Match the branch leaf including stage/task suffixes, but not an unrelated
+  # slug prefix (alpha must not match alphabet). A failed probe stays unknown.
+  if [[ "${_open_probe_ok}" -eq 0 ]]; then
+    open_prs=unknown
+  elif command -v jq &>/dev/null; then
+    open_prs="$(printf '%s' "${_ALL_OPEN_PRS}" | jq -r --arg name "${name}" \
+      '[.[] | select((.headRefName | split("/") | last) as $leaf | $leaf == $name or ($leaf | startswith($name + "-")))] | length' \
+      || echo unknown)"
+  else
+    open_prs=unknown
+    echo "PROBE-INCOMPLETE: jq unavailable; cannot parse PR branch count for ${name}"
+  fi
 
   # ── Completion-detection tri-layer classifier (C1 → C2 → C3, first-match-wins) ──
   done_pr=""
@@ -288,8 +331,8 @@ for dir in "${PROMPTS_DIR}"/*/; do
       _c2_basis="${_c2_basis#basis=}"
       _c2_completion_line=""
       if [[ -n "${done_pr}" && -x "${MO_FRONTIER_BIN}" ]]; then
-        _c2_frontier="$(grep -m1 '^FRONTIER: ' <<<"$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
-          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null)" || true)"
+        _c2_frontier="$(grep -m1 '^FRONTIER: ' < <(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
+          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null) || true)"
         _c2_frontier="${_c2_frontier#FRONTIER: }"
         if [[ -n "${_c2_frontier}" && "${_c2_frontier}" != "(none)" ]]; then
           _c2_completion_line="$(grep -m1 -E \

@@ -13,9 +13,9 @@
 # @cc-only-rationale: meta-orchestrator skill helper library — sourced in-session by helpers
 #   invoked via !shell injection; no portable equivalent fires at the same moment.
 
-# Repo-root resolution (honour pre-set/env value; else the cwd's checkout when it belongs to
-# the repo this skill is installed in; else that skill checkout; else the cwd's git toplevel;
-# else pwd). Idempotent.
+# Repo-root resolution: explicit REPO_ROOT, then a validated native project binding,
+# then the installed procedure's own project (even below Git), then the existing
+# same-repository worktree/skill-checkout/global-install fallbacks. Idempotent.
 # ── SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────────
 # The helpers run as `bash .agents/procedures/pipeline/helpers/<x>.sh` — an absolute path, reachable
 # from ANY cwd. Deriving REPO_ROOT from the cwd alone let a session whose Bash cwd sat in a
@@ -33,6 +33,14 @@
 #     dotfiles repo at ~ is not taken for the project): the cwd fallback below, unchanged.
 # `pwd -P` so the .zcode/skills -> ../.claude/skills symlink (render-harness-config.mjs) still
 # matches; CDPATH is cleared because `cd` would echo a CDPATH hit into the substitution.
+if [ -z "${REPO_ROOT:-}" ] && [ -n "${GETFF_PROJECT_ROOT:-}" ]; then
+  if [ ! -f "$GETFF_PROJECT_ROOT/.agents/procedures/pipeline/SKILL.md" ]; then
+    printf '%s\n' 'pipeline: bound installed procedure root missing' >&2
+    exit 2
+  fi
+  REPO_ROOT="$(CDPATH='' cd "$GETFF_PROJECT_ROOT" && pwd -P)" || exit 2
+  cd "$REPO_ROOT" || exit 2
+fi
 if [ -z "${REPO_ROOT:-}" ]; then
   _mo_git() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR git -C "$@"; }
   _mo_common() { # $1 = dir -> physical git common dir; empty outside a checkout
@@ -49,7 +57,13 @@ if [ -z "${REPO_ROOT:-}" ]; then
       esac
       if [ "$_mo_home" != "$(CDPATH='' cd "${HOME:-/nonexistent}" 2>/dev/null && pwd -P)" ]; then
         _mo_self_common="$(_mo_common "$_mo_home")"
-        if [ -n "$_mo_self_common" ]; then
+        _mo_home_top="$(_mo_git "$_mo_home" rev-parse --show-toplevel 2>/dev/null || true)"
+        if [ -f "$_mo_home/.agents/procedures/pipeline/SKILL.md" ] && [ "$_mo_home_top" != "$_mo_home" ]; then
+          # An installed project may be below an enclosing Git root, or have no Git
+          # yet. Its own delivered procedure owns the cache and orchestration home.
+          REPO_ROOT="$_mo_home"
+          cd "$REPO_ROOT" || exit 2
+        elif [ -n "$_mo_self_common" ]; then
           _mo_cwd_top="$(_mo_git . rev-parse --show-toplevel 2>/dev/null || true)"
           if [ -n "$_mo_cwd_top" ] && [ "$(_mo_common "$_mo_cwd_top")" = "$_mo_self_common" ]; then
             REPO_ROOT="$_mo_cwd_top"
@@ -61,7 +75,7 @@ if [ -z "${REPO_ROOT:-}" ]; then
       fi
       ;;
   esac
-  unset _mo_lib _mo_home _mo_self_common _mo_cwd_top
+  unset _mo_lib _mo_home _mo_home_top _mo_self_common _mo_cwd_top
   unset -f _mo_git _mo_common
 fi
 # ── END SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────
