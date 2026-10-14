@@ -160,8 +160,8 @@ D19 gates behind their D14d source holes being fixed (S0a). Family B is the gold
 overview and 18 sheets shipped in S0b, so they are `writer: gold`, not conveyor.
 
 The slug is the member id with its extension dropped and `/` folded to `-`; the mapping is
-injective across all 247 rows (checked over the regenerated set at
-`41cc5642f3a`, 2026-10-07).
+injective across all 255 rows (re-checked over the regenerated set at `9868fe50791`,
+2026-10-15; the same check passed at 247 rows on `41cc5642f3a`, 2026-10-07).
 
 | slug | kind | stage | writer | provenance |
 |---|---|---|---|---|

@@ -1,7 +1,9 @@
 # getff-ai-site S1 RUN — F2: generated rules (one task)
 
 > **Umbrella:** [kickoff.md](kickoff.md). **Stage contract:** [kickoff-s1.md](kickoff-s1.md).
-> **Class:** stage batch prompt. **Base branch:** staging. **Channel:** aif on project profiles.
+> **Class:** stage batch prompt. **Base branch:** staging. **Channel:** retained native
+> execution — the SAME original GLM session produces; the native Codex direction owner
+> accepts the exact brief and the final source (operator 2026-10-14 existing-owner authority).
 > **Rigor label (L0):** research-grade — consumer-facing pages with source-backed enforcement claims.
 > **Authoritative for:** F2's twenty-eight-page selection, boundaries and exit checks.
 > **NOT authoritative for:** project goal ([README](../../../README.md#why-this-exists)),
@@ -15,12 +17,23 @@ exception is invoked; the F1 two-batch split does not transfer.
 
 ## §0 Admission and order
 
+**Current binding (operator 2026-10-14 existing-owner authority):** this batch is produced by
+the SAME original retained GLM session — no new aif task, worker, paid model or reviewer
+session is created, and the closed F1b task is never rearmed. The native Codex direction
+owner (`01a12f25-6bc8-7122-9dde-898d96cd8922`) accepts the exact brief and the final source
+at the exact head; that acceptance is the binding review, never described as an independent
+or cold seat, and no fresh audit ladder is manufactured beside it. Deterministic checks run
+in the actual execution destination, each labeled truthfully as host/Darwin or container
+evidence. The factory/channel wording of earlier batch prompts is historical; this prompt
+binds the retained native route as it is, not a promise to create a new worker later.
+
 S1 BUILD framework #1827, landing artyhoo/getff-landing#16 and RUN D #1850 are merged.
 Batch-0 D17c is 0.0 (task `441880ad-f27a-4706-9527-5e6adcc33a03`, reviewIterationCount 0,
 27 pages; recorded in #1850). F1 is fully delivered: F1a #2095, the #2096 source-canonicalization
 refresh, F1b #2100 (squash `54c9e4c7fcbb`) and the all-30 overview #2101 (squash
-`640a347efe34`). F1's family measurement is 32/16 = 2.0 < 2.1; the falsifier did not fire.
-F1 → actual staging merge → F2. No parallel F2 tasks.
+`640a347efe34`). The retained 32/16 = 2.0 < 2.1 measurement is F1b's 16-page packet metric
+(32 REVISE rounds over F1b's 16 pages), not a proved whole-F1 or global mean; the falsifier
+did not fire on it. F1 → actual staging merge → F2. No parallel F2 tasks.
 
 Before dispatch, derive F1b's and the overview's actual heads from their PRs, then run:
 `gh pr list --search "is:merged head:<actual-head> base:staging" --json number,mergedAt,headRefName`
@@ -152,13 +165,20 @@ Do not treat a green input-presence check as acceptance of pages that do not exi
    with its real reason. Do not bypass hooks or silently relax a gate.
 7. Report per-page REVISE events, total rounds and mean REVISE rounds per page (denominator 28).
    This is follow-on evidence, not a replacement for batch-0's recorded 0.0 / threshold 2.1.
-8. Before harvest, the host runs `bash scripts/run-local-ci-sweep.sh` on the final diff and
-   repeats the page/card/render checks. Cold `docs-form-auditor` and
-   `claims-conformance-auditor` inspect at least five sheets spread across the selected set
-   and ALL available overview/guide pages in this batch. Record inputs-ref and findings.
+8. Before handoff, the execution destination runs `bash scripts/run-local-ci-sweep.sh` on the
+   final diff and repeats the page/card/render checks; label where each check ran
+   (host/Darwin versus container) truthfully — no fabricated container evidence. Acceptance
+   is the existing direction owner's exact-head source/form/claims/fidelity pass under the
+   operator delivery-without-model-rechecks override (2026-10-14): no new cold-model or
+   agent-seat audit is launched for it, and the owner's verdict is never labeled independent
+   or cold. The shipped auditor prompts (`agents/docs-form-auditor.md`,
+   `agents/claims-conformance-auditor.md`, `agents/fidelity-auditor.md`) remain criteria
+   references for the writer's own per-page self-checks; their presence authorizes launching
+   nothing.
 9. The final REPORT must name DONE|PARTIAL|BLOCKED, page paths/counts, commits, all gate
    outputs, per-page measurement, initial findings/dispositions and any parked question.
-   Cold fidelity and actual staging merge remain mandatory before advancing the next family.
+   Direction-owner fidelity acceptance and actual staging merge remain mandatory before
+   advancing the next family.
 
 ## §4c Park-don't-guess
 
@@ -197,12 +217,17 @@ bash scripts/check-ask-files.sh
 
 See [ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md).
 Active traps: **T1**, **T2**, **T3**, **T8**, **T10**, **T14**, **T15**, **T19**, **T21**.
-T1/T10: enumerate all twenty-eight pages before sampling; cold-review at least five sheets.
+T1/T10: enumerate all twenty-eight pages before sampling; review at least five sheets spread
+across the set against the docs-author criteria card.
 T2/T3: run checks and examples, quote counts/output, verify claims against actual sources.
-T8: read the binding stage contract before asking. T14: incomplete coverage is not clean.
+T8: read the binding stage contract before asking; a substantive ambiguity goes to the
+direction owner as a finding, never a routine human brief vote.
+T14: incomplete coverage is not clean.
 T15: audit this prompt's own population, source claims and commands before following it.
-T19: cold review of the final diff precedes harvest. T21: the backward sweep covers sibling
-channels named by each documented rule, not just the pages changed here.
+T19: the writer's own adversarial review of the final diff precedes handoff; the binding
+acceptance is the direction owner's exact-head pass, not a re-review or a new cold seat.
+T21: the backward sweep covers sibling channels named by each documented rule, not just the
+pages changed here.
 
 **T-F2-A — mutation-script misapplied as a repo-side demo:** `run-generated-rule-mutation.sh`
 probes `check.selector` and defaults to a consumer-emitted manifest that does not exist in
