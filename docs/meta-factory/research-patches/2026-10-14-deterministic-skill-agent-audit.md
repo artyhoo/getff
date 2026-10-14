@@ -1,3 +1,4 @@
+<!-- scope:deterministic-skill-agent-audit -->
 # Deterministic skill and agent audit — 2026-10-14
 
 > **Authoritative for:** this dated source audit, its inspected population, evidence and provisional extraction candidates.

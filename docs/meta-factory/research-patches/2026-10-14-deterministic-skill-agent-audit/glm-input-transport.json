@@ -366,7 +366,7 @@
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit.md",
       "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit.md",
-      "sha256": "fbaa9170c40c19289e6e346900350263381d207ba9baef7bc0b774eed409422f"
+      "sha256": "c8e7dac10f0eb0f683d51ba33e7992afed8d7febb619b98241ae373be77a3a3c"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
@@ -405,5 +405,5 @@
     }
   ],
   "authority": "Canonical host selector remains at source orchestration home. No approval replay or selector rewrite.",
-  "postTransportRepairs": "2026-10-15: six arch-review input-snapshot filenames shortened for Windows MAX_PATH (stripped redundant flattened path prefix; file CONTENT bytes unchanged, @content-hash suffixes unchanged); name references inside top-down-r1.md, intent-final.json, r1-inputs.txt, final-inputs.txt updated to keep resolving (their sha256 rows above reflect the post-repair bytes); manifest destination paths updated to the renamed files. Cause: PR #2108 Consumer-matrix Windows cell failed git checkout with \"Filename too long\"."
+  "postTransportRepairs": "2026-10-15: six arch-review input-snapshot filenames shortened for Windows MAX_PATH (stripped redundant flattened path prefix; file CONTENT bytes unchanged, @content-hash suffixes unchanged); name references inside top-down-r1.md, intent-final.json, r1-inputs.txt, final-inputs.txt updated to keep resolving (their sha256 rows above reflect the post-repair bytes); manifest destination paths updated to the renamed files. Cause: PR #2108 Consumer-matrix Windows cell failed git checkout with \"Filename too long\". || 2026-10-15: scope annotation `<!-- scope:deterministic-skill-agent-audit -->` prepended as the first line of the top-level patch file 2026-10-14-deterministic-skill-agent-audit.md (repo invariant — principle 10 requires a first-line scope annotation on every research patch; CI Principles job failed without it). Content otherwise unchanged; sha256 row updated accordingly (fbaa9170… -> c8e7dac1…). The 6612 source archive record in recovery-receipt.json deliberately keeps the pre-annotation archivedSha256 as source provenance. Companion repair in the same commit: docs/site/face-facts.json regenerated via scripts/render-face-facts.mjs --write (derived counts patches 285->286, specs 113->115; CI drift gate requires the derived artifact to match)."
 }
