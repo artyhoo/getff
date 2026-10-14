@@ -82,7 +82,7 @@ const E = (rel: string): { path: string; sha256: string } => ({
 });
 
 const prdBytes =
-  '# PRD v1\n\nRules are generated from live documentation, never from a ready-made template library.\n';
+  '# PRD v1\n\nRules are generated from live documentation, never from a ready-made template library.\n\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| P1 | Generate from live documentation |\n';
 const prd2Bytes = `${prdBytes}Passkeys are in scope.\n`;
 const prd3Bytes = `${prd2Bytes}A third promise line.\n`;
 const spec1Bytes =

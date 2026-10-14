@@ -914,6 +914,53 @@ export function taskPreImageDigestOf(task) {
 const SPEC_REVIEW_KINDS = ['spec-review', 'formatting-equivalence'];
 const CITATION_SOURCES = ['prd', 'spec'];
 
+// Read the two existing brief table forms, never the reviewer's self-selected list.
+// Unknown prose is not evidence of an empty essential set. Semantics stay with the advisor.
+function essentialPromisesFromBrief(bytes) {
+  const ids = [];
+  let essentialSection = false;
+  let sectionLevel = 0;
+  let header = null;
+  let fence = null;
+  const plain = (cell) => cell.replace(/[`*]/g, '').trim();
+  for (const line of bytes.toString('utf8').split(/\r?\n/)) {
+    const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+    if (heading) {
+      if (heading[1].length <= sectionLevel) essentialSection = false;
+      if (plain(heading[2]).toLowerCase() === 'essential promises') {
+        essentialSection = true;
+        sectionLevel = heading[1].length;
+      }
+      header = null;
+      continue;
+    }
+    if (!line.trim().startsWith('|')) { header = null; continue; }
+    const cells = line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(plain);
+    if (cells[0]?.toLowerCase() === 'id') { header = cells.map(c => c.toLowerCase()); continue; }
+    if (!header || cells.every(c => /^:?-+:?$/.test(c))) continue;
+    const essentialColumn = header.indexOf('essential');
+    if (essentialColumn < 0 && !essentialSection) continue;
+    if (essentialColumn >= 0) {
+      const value = cells[essentialColumn]?.toLowerCase();
+      if (value === 'no') continue;
+      if (value !== 'yes') return reject('essential_promises_invalid', 'Essential cells must explicitly say Yes or No');
+    }
+    const id = cells[0];
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id) || ids.includes(id)) {
+      return reject('essential_promises_invalid', 'essential promise IDs must be unique stable identifiers');
+    }
+    ids.push(id);
+  }
+  return ids.length ? { ok: true, ids } : reject('essential_promises_missing', 'approved PRD needs an Essential promises table or an ID table with an Essential Yes/No column');
+}
+
 export function validateSpecReview(request) {
   if (
     request === null ||
@@ -998,6 +1045,18 @@ export function validateSpecReview(request) {
   }
 
   const semantic = specReview.kind === 'spec-review';
+  if (specReview.resolutions !== undefined) {
+    if (!semantic || specReview.outcome !== 'matches' || !Array.isArray(specReview.resolutions)) {
+      return reject('spec_resolution_invalid', 'only a semantic matches review may resolve prior objections');
+    }
+    const resolved = new Set();
+    for (const resolution of specReview.resolutions) {
+      if (!resolution || !isHex64(resolution.attemptId) || !isNonEmptyString(resolution.reason) || resolved.has(resolution.attemptId)) {
+        return reject('spec_resolution_invalid', 'each resolution needs a unique attemptId and an explanation');
+      }
+      resolved.add(resolution.attemptId);
+    }
+  }
   const promises = specReview.promises;
   if (!Array.isArray(promises))
     return reject('spec_review_invalid', 'promises must be an array');
@@ -1183,6 +1242,16 @@ export function validateSpecReview(request) {
   ]) {
     const res = resolveContentRef(ref, roots);
     if (!res.ok) return res;
+  }
+  // Negative/uncertain reviews may report a single discovered problem. A positive
+  // semantic ruling must cover the entire approved inventory before granting anything.
+  if (semantic && specReview.outcome === 'matches') {
+    const prd = resolveContentRef(specReview.prdRef, roots);
+    if (!prd.ok) return prd;
+    const essentials = essentialPromisesFromBrief(prd.bytes);
+    if (!essentials.ok) return essentials;
+    const missing = essentials.ids.filter(id => !seen.has(id));
+    if (missing.length) return reject('missing_essential_promise', `review omits approved PRD essentials: ${missing.join(', ')}`);
   }
   return ok();
 }

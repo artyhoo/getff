@@ -44,8 +44,8 @@ const write = (abs: string, bytes: string): string => {
 };
 const writeRel = (rel: string, bytes: string): string => write(join(ROOT, rel), bytes);
 
-const prdBytes = '# PRD v1\n\nUsers shall log in with SSO; the login form never asks for a password.\n';
-const prd2Bytes = '# PRD v2\n\nUsers shall log in with SSO; the login form never asks for a password. Passkeys are in scope.\n';
+const prdBytes = '# PRD v1\n\nUsers shall log in with SSO; the login form never asks for a password.\n\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| P1 | SSO-only login |\n';
+const prd2Bytes = '# PRD v2\n\nUsers shall log in with SSO; the login form never asks for a password. Passkeys are in scope.\n\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| P1 | SSO and passkeys |\n';
 const specBytes = '# Spec\n\nThe login screen uses SSO only.\n';
 const wrongSpecBytes = '# Wrong spec\n\nThe login screen uses email and password.\n';
 const approvalBytes = '# Approval record\n\nOperator approved PRD v1 by digest.\n';
@@ -371,7 +371,7 @@ describe('current-decisions — IC-B supersession', () => {
 // ---------------------------------------------------------------------------
 describe('current-decisions — pre-mechanism bootstrap', () => {
   const billingPrd = writeRel('docs/features/billing-prd.md', '# Billing PRD\n\nInvoices list line items.\n');
-  const billingPrd2 = writeRel('docs/features/billing-prd-v2.md', '# Billing PRD v2\n\nInvoices list line items and taxes.\n');
+  const billingPrd2 = writeRel('docs/features/billing-prd-v2.md', '# Billing PRD v2\n\nInvoices list line items and taxes.\n\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| B1 | List items and taxes |\n');
   const billingSpec = writeRel('docs/features/billing-spec.md', '# Billing spec\n\nInvoice view lists line items.\n');
 
   it('seeds a PRD pointer with provenance pre-mechanism-seed, then allows a newer pre-mechanism supersession', () => {

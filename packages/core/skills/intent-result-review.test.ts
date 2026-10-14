@@ -138,7 +138,7 @@ const D = {
   ),
   prd: write(
     'specs/prd.md',
-    '# PRD\n\nRules and tests are generated per stack from documentation, never shipped as fixed templates.\n',
+    '# PRD\n\nRules and tests are generated per stack from documentation, never shipped as fixed templates.\n\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| IC-P1 | Generate from documentation |\n',
   ),
   candidate: write(
     'specs/candidate.md',

@@ -414,6 +414,15 @@ function chainResolves(corpus, roots, featureId, prdSha, specSha, attemptId, dep
   const { specReview } = found;
   if (specReview.featureId !== featureId) return false;
   if (specReview.prdRef.sha256 !== prdSha) return false;
+  if (!validateSpecLive(specReview, roots)) return false;
+  const objections = corpus.filter(({ specReview: review }) =>
+    review.featureId === featureId && review.prdRef?.sha256 === prdSha &&
+    review.specRef?.sha256 === specSha && review.outcome !== 'matches' && validateSpecLive(review, roots));
+  // Neither file order nor a newer positive opinion settles a disagreement. The
+  // fresh semantic review must name and explain every objection to these bytes.
+  const resolutions = specReview.resolutions ?? [];
+  if (objections.some(({ attemptId: id }) => !resolutions.some(r => r.attemptId === id))) return false;
+  if (resolutions.some(r => !objections.some(({ attemptId: id }) => r.attemptId === id))) return false;
   if (specReview.kind === 'spec-review') {
     if (specReview.outcome !== 'matches' || specReview.specRef.sha256 !== specSha) return false;
     // A candidate attempt must still pass the shared mode-specific validator against the
@@ -442,6 +451,10 @@ function findMatchesAttempt(featureHome, roots, featureId, prdSha, specSha) {
       return ok({ attemptId, prdSha256: prdSha, specSha256: specSha });
     }
   }
+  const objections = checked.corpus.filter(({ specReview: review }) =>
+    review.featureId === featureId && review.prdRef?.sha256 === prdSha &&
+    review.specRef?.sha256 === specSha && review.outcome !== 'matches' && validateSpecLive(review, roots));
+  if (objections.length) return reject('spec_review_conflict', `no semantic matches resolves every current objection: ${objections.map(a => a.attemptId).join(', ')}; publish a fresh semantic review with resolutions [{attemptId, reason}]`);
   return reject('matches_attempt_missing', `no current published matches attempt binds PRD ${prdSha.slice(0, 12)}… to spec ${specSha.slice(0, 12)}…`);
 }
 

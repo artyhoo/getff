@@ -14,6 +14,8 @@ A brief is narrative first — who the user is, what problem they have, what the
 
 Metadata identifies the feature it belongs to, its promise IDs, its essential IDs, its immutable approved snapshot, and the actual approval reference.
 
+For the specification checkpoint, keep the essential inventory in the brief itself: an `ID` table under an `Essential promises` heading, or an `ID` table with an `Essential` column whose values are `Yes` or `No`. IDs are unique letters/digits/underscores/hyphens starting with a letter or digit; backticks/bold are accepted. Fenced examples are not the inventory. A positive spec review holds when the approved inventory is absent, unrecognized or incomplete; it cannot choose its own smaller list. This table accompanies the narrative and scenarios above. See [specification review](spec-review.md) for review publication and dispute resolution.
+
 ## §2 Approval binds a snapshot, not a path
 
 **Approval applies to a preserved snapshot** — a Git blob digest of the exact approved bytes — never to a mutable path. A later edit produces unapproved content, even at the same path. The consuming contract binds those bytes via a content ref (path + sha256).
