@@ -865,6 +865,7 @@ export function openLedger(path, {
     // nothing new; fresh imports demand the v2 shape.
     reviewImport({ executionId, receipt }) {
       return api._tx(() => {
+        api.nativeSources.assertApprovalCurrent(receipt);
         const reportRow = db.prepare('SELECT * FROM worker_reports WHERE execution_id = ?').get(executionId);
         if (!reportRow) throw ledgerError('REVIEW_REPORT_MISSING', executionId);
         const receiptJson = JSON.stringify(receipt);
@@ -1850,10 +1851,28 @@ export function openLedger(path, {
       });
     },
 
+    // CI is asynchronous. Recheck the governing native decision in the same
+    // transaction that completes both the attempt and its execution.
+    completeReviewedExecution({ executionId, receipt }) {
+      return api._tx(() => {
+        api.nativeSources.assertApprovalCurrent(receipt);
+        const review = db.prepare('SELECT receipt_json FROM review_receipts WHERE execution_id=?').get(executionId);
+        const row = db.prepare('SELECT * FROM executions WHERE id=?').get(executionId);
+        if (!row || row.state !== 'VERIFYING' || review?.receipt_json !== JSON.stringify(receipt)) throw ledgerError('REVIEW_STATE', executionId);
+        db.prepare("UPDATE execution_attempts SET state='DONE' WHERE execution_id=? AND attempt_number=?").run(executionId, row.attempts_admitted);
+        db.prepare("UPDATE executions SET state='DONE' WHERE id=?").run(executionId);
+        return { ok: true };
+      });
+    },
+
     updateExecution(id, patch) {
       return api._tx(() => {
         const row = db.prepare('SELECT * FROM executions WHERE id = ?').get(id);
         if (!row) throw ledgerError('UNKNOWN_EXECUTION', id);
+        if (patch.state === 'DONE') {
+          const review = db.prepare('SELECT receipt_json FROM review_receipts WHERE execution_id=?').get(id);
+          if (review) api.nativeSources.assertApprovalCurrent(JSON.parse(review.receipt_json));
+        }
         const fields = ['state', 'pid', 'process_start', 'worktree', 'exit_code', 'pr_url', 'head_sha', 'reason'];
         const sets = [];
         const vals = [];

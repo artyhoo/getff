@@ -25,6 +25,19 @@ export function nativeSourceStore(db, api) {
       source_sha256 TEXT NOT NULL, decision TEXT NOT NULL, review_json TEXT NOT NULL
     );
   `);
+  // Review IDs and originals remain immutable history. A verified finding
+  // binds the whole request; another GO cannot resolve it by arrival order
+  // or by a later timestamp. A fix needs a separately qualified request.
+  const recordReview = (review, sourceSha256) => {
+    const prior = db.prepare('SELECT * FROM native_reviews WHERE review_id=?').get(review.review_id);
+    if (prior) {
+      if (prior.request_id !== review.request_id || prior.source_sha256 !== sourceSha256) reject('DOT_REVIEW_IMMUTABLE');
+      return { replay: true };
+    }
+    db.prepare('INSERT INTO native_reviews VALUES (?,?,?,?,?)').run(review.review_id, review.request_id, sourceSha256, review.decision, JSON.stringify(review));
+    api._audit('DOT_REVIEW_SOURCE_VERIFIED', review.review_id, { head_sha: review.head_sha, decision: review.decision });
+    return { replay: false };
+  };
   return {
     getBinding() {
       const r = db.prepare('SELECT * FROM native_source_binding WHERE singleton=1').get();
@@ -50,6 +63,34 @@ export function nativeSourceStore(db, api) {
     getRequest(requestId) {
       const r = db.prepare('SELECT request_json FROM native_review_requests WHERE request_id=?').get(requestId);
       return r ? JSON.parse(r.request_json) : null;
+    },
+    blockingReview(requestId) {
+      const binding = this.getBinding();
+      const request = this.getRequest(requestId);
+      if (!binding || !request || request.source_binding_sha256 !== binding.sha256) reject('DOT_APPROVAL_UNPROVEN');
+      // Include originals retained before this guard shipped, even if no
+      // approval-import has yet projected them into native_reviews.
+      const sources = db.prepare("SELECT original_bytes FROM native_sources WHERE kind='dot_head_review' AND binding_sha256=? ORDER BY source_sha256").all(binding.sha256);
+      for (const source of sources) {
+        const text = Buffer.from(source.original_bytes).toString('utf8');
+        if (JSON.parse(text).request_id !== requestId) continue;
+        const review = validateNativeReview(text, { binding, request, currentHead: request.head_sha });
+        if (review.decision === 'NEEDS_FIX') return review;
+      }
+      return null;
+    },
+    assertApprovalCurrent(receipt) {
+      if (typeof receipt?.source?.sha256 !== 'string') return; // Existing legacy schema/replay checks own this shape.
+      const stored = this.getSource(receipt?.source?.sha256);
+      if (!stored || stored.kind !== 'dot_head_review') return; // Legacy receipts keep their existing gates.
+      const binding = this.getBinding();
+      const requestId = JSON.parse(stored.original_bytes.toString('utf8')).request_id;
+      const request = this.getRequest(requestId);
+      if (!binding || !request || request.execution_id !== receipt.execution_id || stored.binding_sha256 !== binding.sha256
+        || request.source_binding_sha256 !== binding.sha256 || receipt.source.reference !== JSON.parse(stored.descriptor_json).reference) reject('DOT_APPROVAL_UNPROVEN');
+      const review = validateNativeReview(stored.original_bytes.toString('utf8'), { binding, request, currentHead: receipt.head_sha });
+      if (review.decision !== 'GO') reject('DOT_NEEDS_FIX');
+      if (this.blockingReview(requestId)) reject('DOT_NEEDS_FIX');
     },
     request({ request }) {
       exactNativeKeys(request, ['version', 'request_id', 'execution_id', 'repository', 'pr', 'head_sha', 'base_sha', 'epoch', 'source_binding_sha256', 'policy', 'required_evidence_sha256']);
@@ -91,23 +132,16 @@ export function nativeSourceStore(db, api) {
         || report.head_sha !== request.head_sha || report.pr_url !== `https://github.com/${request.repository}/pull/${request.pr}`) reject('DOT_APPROVAL_UNPROVEN');
       const review = validateNativeReview(stored.original_bytes.toString('utf8'), { binding, request, currentHead });
       const result = api._tx(() => {
-        const prior = db.prepare('SELECT * FROM native_reviews WHERE review_id=?').get(review.review_id);
-        if (prior) {
-          if (prior.request_id !== request.request_id || prior.source_sha256 !== receipt.source.sha256) reject('DOT_REVIEW_IMMUTABLE');
-          return { replay: true };
-        }
-        db.prepare('INSERT INTO native_reviews VALUES (?,?,?,?,?)').run(review.review_id, request.request_id, receipt.source.sha256, review.decision, JSON.stringify(review));
-        api._audit('DOT_REVIEW_SOURCE_VERIFIED', review.review_id, { execution_id: receipt.execution_id, head_sha: review.head_sha, decision: review.decision });
-        return { replay: false };
+        return { ...recordReview(review, receipt.source.sha256), blocking: this.blockingReview(request.request_id) };
       });
       // This internal v2 normalization is reachable only after the exact v1
       // native GO source was verified. The legacy CLI still cannot import v2.
-      const derived = review.decision === 'GO' ? { version: 2, execution_id: report.execution_id, reviewer: binding.producer,
+      const derived = !result.blocking && review.decision === 'GO' ? { version: 2, execution_id: report.execution_id, reviewer: binding.producer,
         verdict: 'APPROVE', dot_go: true, session_id: report.session_id, head_sha: report.head_sha,
         solution_sha256: report.solution_sha256, artifact_sha256: report.artifact_sha256, source_tree_digest: report.source_tree_digest,
         repository: request.repository, pr_number: request.pr, base_sha: request.base_sha, policy: request.policy,
         source: { reference: receipt.source.reference, sha256: receipt.source.sha256 } } : null;
-      return { ...result, review, receipt: derived };
+      return { replay: result.replay, review: result.blocking ?? review, receipt: derived };
     },
     retain({ binding, descriptor, access, bytes, kind, generation, sourceReadSha256 }) {
       verifyNativeOriginal(bytes, descriptor, access, binding);
@@ -116,6 +150,14 @@ export function nativeSourceStore(db, api) {
         if (api._ctrl('source_mode') !== 'SOURCE_ONLY') reject('SOURCE_ONLY_REQUIRED');
         const current = this.getBinding();
         if (!current || current.sha256 !== binding.sha256) reject('DOT_SOURCE_UNTRUSTED');
+        if (kind === 'dot_head_review') {
+          const requestId = JSON.parse(bytes.toString('utf8')).request_id;
+          const request = this.getRequest(requestId);
+          if (!request) reject('DOT_REVIEW_REQUEST_UNPROVEN');
+          const review = validateNativeReview(bytes.toString('utf8'), { binding, request, currentHead: request.head_sha });
+          if (generation !== review.review_id) reject('DOT_REVIEW_IMMUTABLE');
+          recordReview(review, descriptor.sha256);
+        }
         const old = this.getSource(descriptor.sha256);
         if (old) {
           if (old.binding_sha256 !== binding.sha256 || old.source_read_sha256 !== sourceReadSha256 || !old.original_bytes.equals(bytes)) reject('DOT_SOURCE_CONFLICT');

@@ -57,12 +57,13 @@ function registrationFixture(root) {
   admitSourceRead(root, descriptor);
   return { registration, mode, descriptor, access, source, text };
 }
-function capturedExecution(root) {
+function capturedExecution(root, tag = '') {
   const raw = new DatabaseSync(join(root, 'ledger.sqlite'));
-  raw.prepare("INSERT INTO events (id,sha256,kind,producer,parent_json,payload_json,state,created_ms) VALUES ('fixture-sol','hash','solution','solver','[]','{}','QUEUED',1)").run();
+  raw.prepare("INSERT INTO events (id,sha256,kind,producer,parent_json,payload_json,state,created_ms) VALUES (?,'hash','solution','solver','[]','{}','QUEUED',1)").run('fixture-sol' + tag);
   raw.close();
   const l = openLedger(join(root, 'ledger.sqlite'));
-  const claimed = l.claimExecution({ solutionId: 'fixture-sol', sessionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+  const claimed = l.claimExecution({ solutionId: 'fixture-sol' + tag,
+    sessionId: tag ? 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' : 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
   const report = { version: 1, status: 'CODE_COMPLETE', execution_id: claimed.execution_id, session_id: claimed.session_id,
     solution_sha256: '1'.repeat(64), artifact_sha256: '2'.repeat(64), source_tree_digest: '3'.repeat(64),
     pr_url: 'https://github.com/artyhoo/getff/pull/7', head_sha: 'a'.repeat(40), independent_review_ref: null };
@@ -236,7 +237,140 @@ test('native review is source-bound to one persisted request, execution and curr
   assert.throws(() => l.nativeSources.approval({ receipt, currentHead: report.head_sha }), e => e.code === 'DOT_APPROVAL_UNPROVEN', 'a changed worker capture under the same HEAD must invalidate the old request');
 });
 
-test('actual CLI review gate verifies GO on Darwin and holds unsupported hosts without new work', t => {
+function conflictingReviews(t) {
+  const root = rootFixture(t);
+  const otherReport = capturedExecution(root, '-other');
+  const prior = openLedger(join(root, 'ledger.sqlite'));
+  prior.updateExecution(otherReport.execution_id, { state: 'BLOCKED' });
+  prior.close();
+  const report = capturedExecution(root);
+  const f = registrationFixture(root);
+  assert.equal(run(root, ['native-source-mode', '--file', f.mode]).status, 0);
+  assert.equal(run(root, ['native-source-register', '--file', f.registration]).status, 0);
+  const l = openLedger(join(root, 'ledger.sqlite'));
+  t.after(() => l.close());
+  const binding = l.nativeSources.getBinding();
+  const policy = { version: 1, digest: '4'.repeat(64), required: [{ name: 'ci', workflow: 'CI', app: 'github-actions' }] };
+  for (const [id, capture] of [['request-1', report], ['request-2', otherReport]]) {
+    l.nativeSources.request({ request: { version: 1, request_id: id, execution_id: capture.execution_id, repository: 'artyhoo/getff', pr: 7,
+      head_sha: capture.head_sha, base_sha: 'b'.repeat(40), epoch, source_binding_sha256: binding.sha256,
+      policy: { version: policy.version, digest: policy.digest }, required_evidence_sha256: '5'.repeat(64) } });
+  }
+  function original(id, decision, requestId = 'request-1', decidedAt = '2026-10-14T10:00:00Z') {
+    const review = { version: 1, kind: 'dot_head_review', producer: binding.producer, epoch, review_id: id, request_id: requestId,
+      repository: 'artyhoo/getff', pr: 7, head_sha: report.head_sha, decision, decided_at: decidedAt,
+      finding_count: decision === 'GO' ? 0 : 1,
+      findings_artifact: decision === 'GO' ? null : { page_id: page, reference: 'library-file:synthetic-findings', sha256: 'f'.repeat(64), bytes: 1 } };
+    const bytes = Buffer.from(JSON.stringify(review));
+    const descriptor = { page_id: page, reference: 'library-file:synthetic-' + id, sha256: sha(bytes), bytes: bytes.length };
+    const capture = requestId === 'request-1' ? report : otherReport;
+    return { bytes, review, descriptor, receipt: { version: 1, execution_id: capture.execution_id, request_id: requestId,
+      source_binding_sha256: binding.sha256, source: descriptor } };
+  }
+  const a = original('go-a', 'GO', 'request-1', '2026-10-14T09:00:00Z');
+  const b = original('fix-b', 'NEEDS_FIX');
+  const c = original('go-c', 'GO', 'request-2');
+  const retain = item => l.nativeSources.retain({ binding, descriptor: item.descriptor,
+    access: { kind: 'text', text_representation: 'source', ...item.descriptor }, bytes: item.bytes,
+    kind: 'dot_head_review', generation: item.review.review_id, sourceReadSha256: 'a'.repeat(64) });
+  const approve = item => l.nativeSources.approval({ receipt: item.receipt, currentHead: report.head_sha });
+  return { root, l, report, otherReport, policy, a, b, c, retain, approve, original };
+}
+
+for (const order of ['needs-fix-first', 'go-first', 'go-replay', 'retained-only']) {
+  test('same-request NEEDS_FIX blocks obsolete GO: ' + order, t => {
+    const { l, report, a, b, c, retain, approve, original } = conflictingReviews(t);
+    if (order === 'needs-fix-first') { retain(b); approve(b); retain(a); }
+    else {
+      retain(a);
+      if (order === 'go-replay') assert.equal(approve(a).receipt.dot_go, true);
+      retain(b);
+      if (order !== 'retained-only') approve(b);
+    }
+    assert.equal(approve(a).receipt, null, 'the obsolete GO cannot create current approval');
+    assert.equal(approve(a).review.decision, 'NEEDS_FIX');
+    // Conflicting same-request GO stays blocked regardless of decision time.
+    const laterGo = original('go-later', 'GO', 'request-1', '2026-10-14T11:00:00Z');
+    retain(laterGo);
+    assert.equal(approve(laterGo).receipt, null);
+    retain(c);
+    assert.equal(approve(c).receipt.dot_go, true, 'another persisted request remains independent');
+    assert.equal(approve(c).replay, true, 'unchanged valid GO remains idempotent');
+    for (const item of [a, b]) assert.deepEqual(l.nativeSources.getSource(item.descriptor.sha256).original_bytes, item.bytes);
+    assert.equal(l.getExecution(report.execution_id).state, 'REQUIRES_REVIEW');
+    assert.equal(l.getExecution(report.execution_id).attempts_admitted, 1);
+    assert.equal(l.status().local_executor_admission, 'OFF');
+  });
+}
+
+test('an applied GO held by infrastructure cannot resume after same-request NEEDS_FIX', async t => {
+  const { applyReviewAndVerify } = await import('./executor.mjs');
+  const { l, report, policy, a, b, retain, approve } = conflictingReviews(t);
+  retain(a);
+  const receipt = approve(a).receipt;
+  let ns = 1_000_000_000n;
+  const clock = { ok: () => true, fresh: () => true, activeNs: () => (ns += 10_000_000n) };
+  const provenance = { verifyReceipt: ({ receipt: r }) => ({ ok: JSON.stringify(r) === JSON.stringify(receipt) }) };
+  const first = await applyReviewAndVerify({ ledger: l, executionId: report.execution_id, receipt, policy, clock, provenance,
+    ghImpl: { view: () => { throw Object.assign(new Error('offline'), { ghBlocker: 'GH_TRANSPORT' }); } } });
+  assert.equal(first.blocker, 'GH_TRANSPORT');
+  assert.equal(l.getExecution(report.execution_id).state, 'VERIFYING');
+  const before = { receipt: l.getReviewReceipt(report.execution_id), budget: l.reviewVerifyBudget({ executionId: report.execution_id }),
+    attempt: l.getAttempt(report.execution_id, 1) };
+  retain(b); approve(b);
+  let calls = 0;
+  const retry = await applyReviewAndVerify({ ledger: l, executionId: report.execution_id, receipt, policy, clock, provenance,
+    ghImpl: { view: () => { calls++; throw Object.assign(new Error('probe'), { ghBlocker: 'GH_TRANSPORT' }); } } });
+  assert.equal(retry.blocker, 'DOT_NEEDS_FIX');
+  assert.equal(calls, 0, 'revoked approval cannot start another CI verification');
+  assert.equal(l.getExecution(report.execution_id).state, 'VERIFYING');
+  assert.deepEqual(l.getReviewReceipt(report.execution_id), before.receipt, 'old approval remains immutable history');
+  assert.deepEqual(l.reviewVerifyBudget({ executionId: report.execution_id }), before.budget);
+  assert.deepEqual(l.getAttempt(report.execution_id, 1), before.attempt);
+});
+
+for (const when of ['during-ci', 'after-done']) {
+  test('native findings remain governing ' + when, async t => {
+    const { applyReviewAndVerify } = await import('./executor.mjs');
+    const { l, report, policy, a, b, retain, approve } = conflictingReviews(t);
+    retain(a);
+    const receipt = approve(a).receipt;
+    let ns = 1_000_000_000n;
+    const clock = { ok: () => true, fresh: () => true, activeNs: () => (ns += 10_000_000n) };
+    const provenance = { verifyReceipt: () => ({ ok: true }) };
+    let read = 0;
+    const link = 'https://github.com/artyhoo/getff/actions/runs/123/job/456';
+    const ghImpl = {
+      view: () => ({ headRefOid: report.head_sha, baseRefOid: 'b'.repeat(40), baseRefName: 'staging', state: 'OPEN',
+        isDraft: false, mergeStateStatus: 'CLEAN', autoMergeRequest: null }),
+      checks: () => {
+        if (++read === 2 && when === 'during-ci') { retain(b); approve(b); }
+        return [{ name: 'ci', workflow: 'CI', state: 'SUCCESS', bucket: 'pass', link }];
+      },
+      checkRuns: () => ({ total_count: 1, check_runs: [{ id: 456, head_sha: report.head_sha, name: 'ci', status: 'completed',
+        conclusion: 'success', details_url: link, app: { id: 15368, slug: 'github-actions' } }] }),
+    };
+    const out = await applyReviewAndVerify({ ledger: l, executionId: report.execution_id, receipt, policy, clock, provenance, ghImpl });
+    if (when === 'during-ci') {
+      assert.equal(out.blocker, 'DOT_NEEDS_FIX');
+      assert.equal(l.getExecution(report.execution_id).state, 'VERIFYING');
+      assert.notEqual(l.getAttempt(report.execution_id, 1).state, 'DONE', 'attempt and execution completion are atomic');
+      assert.throws(() => l.updateExecution(report.execution_id, { state: 'DONE' }), e => e.code === 'DOT_NEEDS_FIX');
+    } else {
+      assert.equal(out.state, 'DONE');
+      const before = l.getExecution(report.execution_id);
+      const oldReceipt = l.getReviewReceipt(report.execution_id);
+      retain(b); approve(b);
+      const replay = await applyReviewAndVerify({ ledger: l, executionId: report.execution_id, receipt, policy, clock, provenance, ghImpl });
+      assert.equal(replay.blocker, 'DOT_NEEDS_FIX', 'historical completion cannot project current approval');
+      assert.deepEqual(l.getExecution(report.execution_id), before, 'historical outcome remains immutable');
+      assert.deepEqual(l.getReviewReceipt(report.execution_id), oldReceipt);
+    }
+  });
+}
+
+for (const scenario of ['complete', 'needs-fix-after-hold']) {
+test('actual CLI native review on Darwin: ' + scenario, t => {
   const root = rootFixture(t);
   const report = capturedExecution(root);
   const f = registrationFixture(root);
@@ -251,7 +385,7 @@ test('actual CLI review gate verifies GO on Darwin and holds unsupported hosts w
   write(ghData, { view: { headRefOid: report.head_sha, baseRefOid: 'b'.repeat(40), baseRefName: 'staging', state: 'OPEN', isDraft: false, mergeStateStatus: 'CLEAN', autoMergeRequest: null },
     checks: [{ name: 'ci-success', workflow: 'CI', state: 'SUCCESS', bucket: 'pass', link }],
     runs: { total_count: 1, check_runs: [{ id: 456, head_sha: report.head_sha, name: 'ci-success', status: 'completed', conclusion: 'success', details_url: link, app: { slug: 'github-actions', id: 15368 } }] } });
-  writeFileSync(join(bin, 'gh'), '#!' + process.execPath + '\nimport{readFileSync}from"node:fs";const s=JSON.parse(readFileSync(' + JSON.stringify(ghData) + ',"utf8"));const a=process.argv.slice(2);process.stdout.write(JSON.stringify(a[0]==="api"?s.runs:a[1]==="checks"?s.checks:s.view));\n', { mode: 0o700 });
+  writeFileSync(join(bin, 'gh'), '#!' + process.execPath + '\nimport{readFileSync}from"node:fs";const s=JSON.parse(readFileSync(' + JSON.stringify(ghData) + ',"utf8"));const a=process.argv.slice(2);if(s.offline&&a[1]==="checks")process.exit(2);process.stdout.write(JSON.stringify(a[0]==="api"?s.runs:a[1]==="checks"?s.checks:s.view));\n', { mode: 0o700 });
   const env = { PATH: bin + ':' + process.env.PATH };
   const r = run(root, ['dot-review-request', '--execution-id', report.execution_id], env);
   assert.equal(r.status, 0, JSON.stringify(r));
@@ -282,9 +416,41 @@ test('actual CLI review gate verifies GO on Darwin and holds unsupported hosts w
   admitSourceRead(root, descriptor);
   assert.equal(run(root, ['native-source-import', '--file', original]).status, 0);
   const input = write(join(root, 'native-source', 'approval.json'), { version: 1, execution_id: report.execution_id, request_id: request.request_id, source_binding_sha256: binding.sha256, source: descriptor, local_source_path: source });
+  if (scenario === 'needs-fix-after-hold') write(ghData, { ...JSON.parse(readFileSync(ghData)), offline: true });
   const applied = run(root, ['dot-approval-import', '--file', input], env);
   assert.equal(applied.status, 0, JSON.stringify(applied));
-  assert.equal(applied.value.state, 'DONE');
+  if (scenario === 'complete') assert.equal(applied.value.state, 'DONE');
+  else {
+    assert.equal(applied.value.state, 'HELD');
+    assert.equal(applied.value.blocker, 'GH_TRANSPORT');
+    const held = openLedger(join(root, 'ledger.sqlite'));
+    const before = { receipt: held.getReviewReceipt(report.execution_id), budget: held.reviewVerifyBudget({ executionId: report.execution_id }),
+      attempt: held.getAttempt(report.execution_id, 1) };
+    held.close();
+    const fix = { ...review, review_id: 'actual-cli-needs-fix', decision: 'NEEDS_FIX', decided_at: '2026-10-14T10:00:00Z', finding_count: 1,
+      findings_artifact: { page_id: page, reference: 'library-file:synthetic-findings', sha256: 'f'.repeat(64), bytes: 1 } };
+    const fixText = JSON.stringify(fix), fixSource = join(root, 'native-source', 'verified', 'fix.json');
+    writeFileSync(fixSource, fixText, { mode: 0o600 });
+    const fixDescriptor = { page_id: page, reference: 'library-file:synthetic-fix', sha256: sha(fixText), bytes: Buffer.byteLength(fixText) };
+    admitSourceRead(root, fixDescriptor);
+    const fixImport = write(join(root, 'native-source', 'fix-import.json'), { version: 1, source: fixDescriptor,
+      access: { kind: 'text', text_representation: 'source', ...fixDescriptor }, local_source_path: fixSource });
+    assert.equal(run(root, ['native-source-import', '--file', fixImport]).status, 0);
+    const fixApproval = write(join(root, 'native-source', 'fix-approval.json'), { version: 1, execution_id: report.execution_id,
+      request_id: request.request_id, source_binding_sha256: binding.sha256, source: fixDescriptor, local_source_path: fixSource });
+    assert.equal(run(root, ['dot-approval-import', '--file', fixApproval], env).value.blocker, 'DOT_NEEDS_FIX');
+    write(ghData, { ...JSON.parse(readFileSync(ghData)), offline: false });
+    const replay = run(root, ['dot-approval-import', '--file', input], env);
+    assert.equal(replay.status, 0, JSON.stringify(replay));
+    assert.equal(replay.value.state, 'HELD');
+    assert.equal(replay.value.blocker, 'DOT_NEEDS_FIX', 'green checks cannot resurrect the obsolete GO');
+    const after = openLedger(join(root, 'ledger.sqlite'));
+    assert.equal(after.getExecution(report.execution_id).state, 'VERIFYING');
+    assert.deepEqual(after.getReviewReceipt(report.execution_id), before.receipt);
+    assert.deepEqual(after.reviewVerifyBudget({ executionId: report.execution_id }), before.budget);
+    assert.deepEqual(after.getAttempt(report.execution_id, 1), before.attempt);
+    after.close();
+  }
   const after = run(root, ['status']).value;
   assert.equal(after.local_executor_admission, 'OFF');
   assert.equal(after.counts.outbox_total, 0);
@@ -293,6 +459,7 @@ test('actual CLI review gate verifies GO on Darwin and holds unsupported hosts w
   assert.equal(db.prepare('SELECT count(*) AS n FROM execution_attempts').get().n, 1, 'original task attempt only, no review-created worker');
   db.close();
 });
+}
 
 test('native admission refuses an adapter missing from the pinned source inventory', t => {
   const root = rootFixture(t);
