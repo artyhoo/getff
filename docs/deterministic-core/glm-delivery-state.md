@@ -68,6 +68,26 @@ manifest re-verified **80/80 ok, 0 mismatch, 0 missing** after the repair. Repai
 lands as a new commit on the same PR (published branch — no rebase); the Codex candidate
 head moves to the repair commit.
 
+**Publication repair round 2 (2026-10-15, principle-10 scope annotation + face-facts drift).**
+CI round 2 on head `c33b882eaf0` surfaced two deterministic failures (full rollup read
+via `gh pr view --json statusCheckRollup`, after the ci-wait heuristic exited 0 on a
+truncated 11-of-38 read — its own ⚠ lines flagged the truncation):
+1. `Principles as meta-tests (Phase 2)`: principle 10 requires a first-line
+   `<!-- scope:<slug> -->` on every top-level research patch — the packet's
+   `2026-10-14-deterministic-skill-agent-audit.md` lacked it. Repair: prepended
+   `<!-- scope:deterministic-skill-agent-audit -->` (content otherwise unchanged);
+   full test logic re-run mechanically over the population: 286 files, 0 violations.
+2. `Manifest → RULES.md drift check`: `docs/site/face-facts.json` is a derived
+   artifact (D42) — the packet's new patch/spec files moved the derived counts
+   (patches 285→286, specs 113→115). Repair: `render-face-facts.mjs --write`;
+   `--check` now byte-identical.
+Manifest sha256 row for the annotated file updated (`fbaa9170…` → `c8e7dac1…`), repair
+recorded in `postTransportRepairs`; the 6612 source-archive provenance in
+`recovery-receipt.json` deliberately keeps the pre-annotation `archivedSha256`.
+Manifest re-verified **80/80 ok, 0 mismatch, 0 missing** after the repair. Repair
+commit `36596f1643d` (published branch — new commit, no rebase); Codex candidate
+head moves to the PR tip including this repair.
+
 **Operator coordination change (2026-10-15, mid-flight).** Periodic monitoring of this
 delivery is disabled; no status-only prompts or polling will come from the operator side.
 At each REAL stage READY the delivery session must hand the immutable candidate/head,
@@ -110,7 +130,7 @@ chip-worker delegation would violate the operator's no-second-executor instructi
 
 | Batch | Iterations used (max 5) | PARTIAL redispatch (max 2) | Clarifications (max 2) | State |
 |---|---|---|---|---|
-| input-publication | **1** (Windows MAX_PATH filename repair, 2026-10-15) | 0 | 0 | awaiting-codex-stage-review (PR #2108) |
+| input-publication | **2** (1: Windows MAX_PATH filename repair; 2: principle-10 scope annotation + face-facts regen, 2026-10-15) | 0 | 0 | awaiting-codex-stage-review (PR #2108) |
 | d0-living-docs | 0 | 0 | 0 | not started |
 | d1-rule-tests | 0 | 0 | 0 | not started |
 | later-stage batches | — | — | — | not started |
@@ -119,7 +139,7 @@ chip-worker delegation would violate the operator's no-second-executor instructi
 
 | Stage | AIF task IDs | Profile/model | Candidate head | Factory gates | Codex stage review | State |
 |---|---|---|---|---|---|---|
-| input-publication (docs→staging) | n/a (local) | n/a | PR **#2108**, head `bdd38a68614` (85 files; Prior-art escape trailer; §1.7 body; late probe LATE-CLEAR) | §1.7 PR body, CI, in-flight probes (+`--late`) | **awaiting-codex-stage-review** — candidate = PR #2108 head `bdd38a68614`; merge held for content-bound Codex GO | awaiting-codex-stage-review |
+| input-publication (docs→staging) | n/a (local) | n/a | PR **#2108**; heads per repair round: r0 `bdd38a68614` (85 files; §1.7 body; late probe LATE-CLEAR) → r1 `c33b882eaf0` (MAX_PATH) → r2 `36596f1643d` (scope annotation + face-facts) + state-record commit = PR tip (exact SHA delivered in the Codex handoff; `gh pr view 2108 --json headRefOid` is authoritative) | §1.7 PR body, CI, in-flight probes (+`--late`) | **awaiting-codex-stage-review** — candidate = PR #2108 tip; merge held for content-bound Codex GO | awaiting-codex-stage-review |
 | input-transport (AIF dest) | n/a (transport) | n/a | — | hash verification at destination | evidence recorded here | pending |
 | D0 living-docs | — | resolve ordinary GLM-5.3 (non-Flash) | — | fidelity review + CI + predecessor gates | required before merge/acceptance/dependent dispatch | pending |
 | D1 rule-tests | — | — | — | same | required | pending |
@@ -144,8 +164,9 @@ recorded as dated-evidence drift; product approval not reopened (per contract `<
   (principle 12 form). Hook fallback demanded a trailer — escape-hatch `Prior-art:
   skipped — documentation-only…` added (doc/md/json files only, no packages/ code).
 - **State: awaiting-codex-stage-review on input-publication** (candidate = PR #2108
-  head `bdd38a68614`; this state-file note kept local so the reviewed head does not
-  churn; CI watched, merge held). D0 dispatch additionally waits for publication merge.
+  tip after repair round 2 — CI round 2 exposed two deterministic failures, both
+  repaired in `36596f1643d`; CI round 3 watched; merge held). D0 dispatch
+  additionally waits for publication merge.
 - Next permitted action without further permission (parallel, per addendum "publication/
   transport … may continue"): watch PR #2108 CI; transport + hash-verify inputs at the
   AIF destination through existing mechanisms; resolve the ordinary GLM-5.3 (non-Flash)
