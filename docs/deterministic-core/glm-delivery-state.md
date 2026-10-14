@@ -55,6 +55,29 @@ by design (`matches_attempt_missing`: `print-orch-home.sh` resolves orch-home to
 checkout, while the canonical selector lives only in 6612); verb verified read-only
 (write-free grep over the verb implementation) before the 6612-rooted rerun.
 
+**Publication repair round 1 (2026-10-15, Windows MAX_PATH).** First CI run on PR #2108
+(head `bdd38a68614`) failed the Consumer-matrix Windows cell in 13 s: `git.exe` checkout
+`unable to create file … Filename too long` — six arch-review input-snapshot filenames
+(219–279 chars repo-relative) exceeded Windows MAX_PATH once the runner prefix was added.
+Repair: stripped the redundant flattened path prefix from those six names (content bytes
+unchanged, `@content-hash` suffixes unchanged), updated name references inside
+`top-down-r1.md`, `intent-final.json`, `r1-inputs.txt`, `final-inputs.txt`, updated the
+manifest's destination paths + the four edited records' sha256 rows, and recorded the
+repair in the manifest's `postTransportRepairs` field. Longest packet path now 197 chars;
+manifest re-verified **80/80 ok, 0 mismatch, 0 missing** after the repair. Repair commit
+lands as a new commit on the same PR (published branch — no rebase); the Codex candidate
+head moves to the repair commit.
+
+**Operator coordination change (2026-10-15, mid-flight).** Periodic monitoring of this
+delivery is disabled; no status-only prompts or polling will come from the operator side.
+At each REAL stage READY the delivery session must hand the immutable candidate/head,
+evidence, findings, caps and proposed next action to the existing Codex review chat
+`01a13bf0-a4a9-7060-bc9d-f6e0eefcad54` through an ALREADY-SUPPORTED owner handoff — a
+state-file update alone cannot wake the reviewer. Do not invent a bridge/scheduler/
+watcher/new session; if no supported addressed delivery route exists in this harness,
+report that exact handoff blocker at the safe boundary while preserving the stage gate
+and any independent admitted work.
+
 **In-flight probe (2026-10-15, before publication commit).**
 `SLUG=deterministic-core bash .agents/procedures/dispatcher/helpers/probe-inflight.sh`
 → `VERDICT: PROBE-INCOMPLETE` — one arm unaskable (item d, container git branches:
@@ -87,7 +110,7 @@ chip-worker delegation would violate the operator's no-second-executor instructi
 
 | Batch | Iterations used (max 5) | PARTIAL redispatch (max 2) | Clarifications (max 2) | State |
 |---|---|---|---|---|
-| input-publication | 0 | 0 | 0 | in progress |
+| input-publication | **1** (Windows MAX_PATH filename repair, 2026-10-15) | 0 | 0 | awaiting-codex-stage-review (PR #2108) |
 | d0-living-docs | 0 | 0 | 0 | not started |
 | d1-rule-tests | 0 | 0 | 0 | not started |
 | later-stage batches | — | — | — | not started |
@@ -96,7 +119,7 @@ chip-worker delegation would violate the operator's no-second-executor instructi
 
 | Stage | AIF task IDs | Profile/model | Candidate head | Factory gates | Codex stage review | State |
 |---|---|---|---|---|---|---|
-| input-publication (docs→staging) | n/a (local) | n/a | (commit + PR — recorded here on create) | §1.7 PR body, CI, in-flight probes (+`--late`) | pre-merge Codex GO required (immutable candidate = PR head) | committing |
+| input-publication (docs→staging) | n/a (local) | n/a | PR **#2108**, head `bdd38a68614` (85 files; Prior-art escape trailer; §1.7 body; late probe LATE-CLEAR) | §1.7 PR body, CI, in-flight probes (+`--late`) | **awaiting-codex-stage-review** — candidate = PR #2108 head `bdd38a68614`; merge held for content-bound Codex GO | awaiting-codex-stage-review |
 | input-transport (AIF dest) | n/a (transport) | n/a | — | hash verification at destination | evidence recorded here | pending |
 | D0 living-docs | — | resolve ordinary GLM-5.3 (non-Flash) | — | fidelity review + CI + predecessor gates | required before merge/acceptance/dependent dispatch | pending |
 | D1 rule-tests | — | — | — | same | required | pending |
@@ -112,18 +135,23 @@ recorded as dated-evidence drift; product approval not reopened (per contract `<
 
 - Done this checkpoint: required reading (full), host plan-prep GREEN (canonical roots),
   in-flight probe (asked arms clear; docker arm unaskable, recorded), coordinator-seat
-  delegation rule reconciled (out-of-scope for this contract-assigned executor role).
-- In progress: input-publication commit + PR to staging (merge held for Codex stage GO).
-  Pre-commit gates verified locally: all packet markdown < 600 lines (max 416,
-  `osmani-complete.md`); staged kickoffs mode 100644; no secrets in packet (leaked-token
-  value + generic patterns scanned, zero hits); research-patch index carries §1.7
-  Forward/Backward; both kickoffs carry §6 T-enumeration citations (principle 12 form).
-- Next permitted action without further permission: push branch + create PR (with
-  `probe-inflight.sh --late` in the same turn); transport + hash-verify at AIF
-  destination; resolve the ordinary GLM-5.3 (non-Flash) profile; prepare D0 dispatch
-  inputs (no dispatch before publication merge + Codex stage GO).
+  delegation rule reconciled (out-of-scope for this contract-assigned executor role),
+  publication commit `bdd38a68614` pushed + PR **#2108** created (late probe LATE-CLEAR
+  in the same turn). Pre-commit gates verified locally: all packet markdown < 600 lines
+  (max 416, `osmani-complete.md`); staged kickoffs mode 100644; no secrets in packet
+  (leaked-token value + generic patterns scanned, zero hits); research-patch index
+  carries §1.7 Forward/Backward; both kickoffs carry §6 T-enumeration citations
+  (principle 12 form). Hook fallback demanded a trailer — escape-hatch `Prior-art:
+  skipped — documentation-only…` added (doc/md/json files only, no packages/ code).
+- **State: awaiting-codex-stage-review on input-publication** (candidate = PR #2108
+  head `bdd38a68614`; this state-file note kept local so the reviewed head does not
+  churn; CI watched, merge held). D0 dispatch additionally waits for publication merge.
+- Next permitted action without further permission (parallel, per addendum "publication/
+  transport … may continue"): watch PR #2108 CI; transport + hash-verify inputs at the
+  AIF destination through existing mechanisms; resolve the ordinary GLM-5.3 (non-Flash)
+  profile; prepare D0 dispatch inputs.
 - Not permitted without Codex stage GO: merge/accept any stage, dispatch dependent
   implementation stages. Not permitted at all: main merge, release publication, settings/
   provider changes, force push, rebase of published branches, check bypass, paid LLM in CI.
 
-_Updated: 2026-10-15 ~02:20 MSK by session `b6564858` (GLM glm-5.3, xhigh, auto)._
+_Updated: 2026-10-15 ~02:35 MSK by session `b6564858` (GLM glm-5.3, xhigh, auto)._

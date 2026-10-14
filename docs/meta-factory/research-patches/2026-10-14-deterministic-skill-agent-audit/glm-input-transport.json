@@ -221,7 +221,7 @@
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/top-down-r1.md",
       "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/top-down-r1.md",
-      "sha256": "ab9690076d4d9f5ac1adc925fc09ae2c06ac0eb2d7936c12e04b150f69ea2b7c"
+      "sha256": "0782fe05cca45140f9c4c771d38190f0d11827c10b592a6a55f3a0eb007e0061"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/self-check.md",
@@ -236,7 +236,7 @@
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.json",
       "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.json",
-      "sha256": "4fa14a5d16a2d66311aeeb5b48de454437e26857bc02217aca078e8178c5f14d"
+      "sha256": "057fc9756a5448c2a0fad579ee5cada4c66f3dba293c80ba836bab70675840dd"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/bottom-up-r1.md",
@@ -261,12 +261,12 @@
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs.txt",
       "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs.txt",
-      "sha256": "fe76408307832fdf1032d1d937398998f2164cbc96f04a0477480c42eba51713"
+      "sha256": "304f38bc0fbc716afce6191ce632d9368e6e9ea16c783198485051d6b5f946bf"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs.txt",
       "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs.txt",
-      "sha256": "d5ecf8d7bff96497071f16d63e6d6cb379a7772dfe9979018874787ad428b27b"
+      "sha256": "e481d0116ba7f3586440ce001fc99a9cf10b9d8dcdb55297f7477ebaf3a5bfba"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.md",
@@ -290,17 +290,17 @@
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md",
       "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@09d408cc6377.json",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@09d408cc6377.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/product-brief-approval@09d408cc6377.json",
       "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@09d408cc6377.md",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/product-intent-source@09d408cc6377.md",
       "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
     },
     {
@@ -315,7 +315,7 @@
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@a86648554d19.json",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@a86648554d19.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-approval@a86648554d19.json",
       "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
     },
     {
@@ -325,12 +325,12 @@
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
       "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
     },
     {
       "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@a86648554d19.md",
-      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/product-intent-source@a86648554d19.md",
       "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
     },
     {
@@ -404,5 +404,6 @@
       "sha256": "3c7da7f88473fd044410102ede7bb1d787cece13287f20e89765b3233c999781"
     }
   ],
-  "authority": "Canonical host selector remains at source orchestration home. No approval replay or selector rewrite."
+  "authority": "Canonical host selector remains at source orchestration home. No approval replay or selector rewrite.",
+  "postTransportRepairs": "2026-10-15: six arch-review input-snapshot filenames shortened for Windows MAX_PATH (stripped redundant flattened path prefix; file CONTENT bytes unchanged, @content-hash suffixes unchanged); name references inside top-down-r1.md, intent-final.json, r1-inputs.txt, final-inputs.txt updated to keep resolving (their sha256 rows above reflect the post-repair bytes); manifest destination paths updated to the renamed files. Cause: PR #2108 Consumer-matrix Windows cell failed git checkout with \"Filename too long\"."
 }

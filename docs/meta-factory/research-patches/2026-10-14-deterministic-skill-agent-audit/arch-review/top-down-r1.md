@@ -12,9 +12,9 @@ All paths below are relative to this report's directory. Line references through
 
 - **D**: `r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@09d408cc6377.md`
 - **C**: `r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@09d408cc6377.md`
-- **P**: `r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md`
-- **I**: `r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@09d408cc6377.md`
-- **A**: `r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@09d408cc6377.json`
+- **P**: `r1-inputs/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md`
+- **I**: `r1-inputs/product-intent-source@09d408cc6377.md`
+- **A**: `r1-inputs/product-brief-approval@09d408cc6377.json`
 
 ## Assessment
 
