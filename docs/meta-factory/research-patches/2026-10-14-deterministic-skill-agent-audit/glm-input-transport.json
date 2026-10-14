@@ -1,0 +1,408 @@
+{
+  "sourceRoot": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif",
+  "destinationRoot": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif",
+  "base": "9868fe507910d4905cfae59cdac9cfea8ea716c2",
+  "files": [
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/intent-discussion.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/intent-discussion.md",
+      "sha256": "8c0e6a7f34815d1d7690f7e11e325214afc4e0de54c6729cd5f21f1c31b5ccdd"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-receipt.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-receipt.json",
+      "sha256": "b7348d0504a45aed9d187d38c4e9edd6c78c9c68b158fea1a493ffa51d766a86"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/simplicity-research.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/simplicity-research.md",
+      "sha256": "7ba4ed3732b936dfd6c1129152d6ecac1d1f864c070c3d13b642ebc79aab7115"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pipeline-preflight-2026-10-15.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pipeline-preflight-2026-10-15.md",
+      "sha256": "2bfd72b819fe2eda8d3f7e849fdb36c9c4147b994663cbccfc6324ac4ad71bf3"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.json",
+      "sha256": "4b3600242ebda804d840c01a2794ea9898a85eef96dee9607187859af74dbac5"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/local-evidence.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/local-evidence.json",
+      "sha256": "1602bf654501fe5f111b021a8e1acf68117590d7abab3d849335710a454a2ef7"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-coverage.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-coverage.json",
+      "sha256": "eee3556caf600356b62dea46e223d2e9e9582c0b465256fc429b6ed70080ad90"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-intent-source.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-intent-source.md",
+      "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-approval.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-approval.json",
+      "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/agents.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/agents.json",
+      "sha256": "07168a291e4dd02176eb2fd3f37a09f78bf2e815c4365143a999a91818b7422e"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.json",
+      "sha256": "4196ca6d38fcbdac5d68a566eca7ce3bde7091768a84d6bede3faf2f97259605"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-surface-matrix.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-surface-matrix.md",
+      "sha256": "429190ad03ba77fe04bc2275260c412f9e770ff324292e19b0e243d03eb41103"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-full-execution.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-full-execution.md",
+      "sha256": "f7393f165758365fbf79babf2bb2acc181ab3e8a26c104f12b0863b356080406"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief.md",
+      "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/2026-10-15-continuation.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/2026-10-15-continuation.md",
+      "sha256": "ff20e6cc4f3f2451af49b20760860509f2b210ccd83576147e54371a9f953e28"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/recovery-receipt.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/recovery-receipt.json",
+      "sha256": "841017169b024626234a1db1c7ed8c3952f3d733c485bf7e43580f1bb156ed44"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/base-core-index.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/base-core-index.json",
+      "sha256": "0f69fdf8731bb61890b2009d7cadec24df6bac9a3ced85a4f8e0ada6ed38ebe2"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/inventory.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/inventory.json",
+      "sha256": "1ed39eb8392ccd57ac507a4c800d1ffedcd0426e89045b845decea37a6110b22"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-inventory.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-inventory.json",
+      "sha256": "feaced33704f43ef5c887dbbe2333987ab08f88ef022ebf78dae67ad450fb796"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/spec-agreement.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/spec-agreement.md",
+      "sha256": "f6f86504e3e5a73e5b8be7f5c9b6de1bfe3e6ec379635ccefbaaef9582c17c0c"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-comparison.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-comparison.md",
+      "sha256": "24a463e99de7562af72bc6fc854a93ddf49744c87e3b33f2ac5237116a4c7e76"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/source-transcript.txt",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/source-transcript.txt",
+      "sha256": "b8f29d94f8c7581d9b71f237a3a10293eb2f2ad531421841df432b47140a637c"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/pstack-complete.md",
+      "sha256": "5a29daa6c1f76b200853a7148760511cdcd88312701001bb719e887091c7aecf"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-evidence.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/external-evidence.json",
+      "sha256": "9759fbd791255ccae8d19dc8caa21650f9ef85b38b4853fb55f82b68516c5991"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/skills.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/skills.json",
+      "sha256": "973bfbca084179427fb196dbf77219cf6b046c335676c2f766d2e19781953240"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/spec-agreement-receipt.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/spec-agreement-receipt.json",
+      "sha256": "f811ff10c8b3a318c601575c77101132ec67744f4cee6ebbb468f2643a5cfd2a"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/osmani-complete.md",
+      "sha256": "aacb4051f5f19f48e40be4818d48b37a90c0c38006e60f6dda7334b02bfe53be"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/HANDOFF.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/HANDOFF.md",
+      "sha256": "bf1d04cce99756208ce72b60b6500b15ebb91787b5fef904ae671513e4274cf2"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/research-overview.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/research-overview.md",
+      "sha256": "481c1228922d5cad495c93ab95691e58a40e4e393c09edf1544e1b79fa95d7aa"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-notes.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/video-notes.md",
+      "sha256": "17c018694b14ef21b7fdbc564b34e91b822ef91da67e2ea7f7e69a440589d271"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326.md",
+      "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/REVIEW-SUMMARY.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/REVIEW-SUMMARY.md",
+      "sha256": "42d17bf14d9c607522d83aa91718bd7bc5d4fff5056f3ed82b5f4d8f2e0736ac"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/top-down-r1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/top-down-r1.md",
+      "sha256": "9dd651bc8890be194aa7f9cf6f18fb4ee143cc6cca31135e777d4973a887369d"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-delta.diff",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-delta.diff",
+      "sha256": "57c53a7c5442e01e6fc11aa053d600499e6e983652b8140aee79ec323de817ce"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/bottom-up-r1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/bottom-up-r1.md",
+      "sha256": "5c498668254744d4135de44becd197598acde23e1246c72eeb1fd34ded8a3103"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/bottom-up-final.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/bottom-up-final.md",
+      "sha256": "2577e15028758f7b2b4bd7433823dffb76ce864a4a253dd70e6c1e6c53b4d8f7"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/top-down-final.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/top-down-final.md",
+      "sha256": "27906db88a65940924d6282a39ab57fde568d87cd5f9d7a6961c8c342856871d"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/structural-checks.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/structural-checks.json",
+      "sha256": "13ad6cac5d715f0a19c3d96a6815367f5a02a3e5616923db6aed80a41ca218a0"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/REVIEW-SUMMARY.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/REVIEW-SUMMARY.md",
+      "sha256": "b3a9e1f954e6324ff8c6580bcdff93b5a424189a4ab44ee6435fc0a46d0d0fe4"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/authority-restoration.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/authority-restoration.md",
+      "sha256": "01ebc8c1dd91f0cdb1b40cc3586fb1757f9c7b2d81ef0323bb08649ae41da04f"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/agreement-recording.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/agreement-recording.json",
+      "sha256": "b5a517fa4cdd7206a3d61b6cf2fa2a5520d67f3bb71c05bf4e8bbaa8df2d63b7"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/plan-prep-check.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/plan-prep-check.json",
+      "sha256": "88c384be82db9dd51691aae71c21160fd3e55180ba6ec3bfae9959c0902f563b"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-metadata.diff",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-metadata.diff",
+      "sha256": "916425ef8cdc7d3b538eeb07e38a464def8cf3e04a08d9ae98fd3f26efad67bc"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/top-down-r1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/top-down-r1.md",
+      "sha256": "ab9690076d4d9f5ac1adc925fc09ae2c06ac0eb2d7936c12e04b150f69ea2b7c"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/self-check.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/self-check.md",
+      "sha256": "21df38acdfffbdcce79bdcb2a55b3b4de96ac49ef012ad79baa71b360ebe6c7c"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-snapshot.txt",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-snapshot.txt",
+      "sha256": "329a322f757f01677ed816104a6c4b9f4aef59812ec61d1761183b1e1d20d40a"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.json",
+      "sha256": "4fa14a5d16a2d66311aeeb5b48de454437e26857bc02217aca078e8178c5f14d"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/bottom-up-r1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/bottom-up-r1.md",
+      "sha256": "6e3534f882f6a896afc86867d8d34198d3bd6435a54b8a986bd989eca998dd7e"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/presentation-check.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/presentation-check.json",
+      "sha256": "81a284fc91cbac6ea38cf08c60e170510f3919e45bee1b4a62a7188779f9df32"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/plan-prep-agreed.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/plan-prep-agreed.json",
+      "sha256": "3650bbf266b6cb51731ec24e3d47f26d883c66b661dfa9d2f85e702531161111"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-snapshot.txt",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-snapshot.txt",
+      "sha256": "737f797d5fadc1cafd0500867e74debcca02e8c570dcdd24d0764939d59c450b"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs.txt",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs.txt",
+      "sha256": "fe76408307832fdf1032d1d937398998f2164cbc96f04a0477480c42eba51713"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs.txt",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs.txt",
+      "sha256": "d5ecf8d7bff96497071f16d63e6d6cb379a7772dfe9979018874787ad428b27b"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/intent-final.md",
+      "sha256": "7a5079caf1a8ccff9fbb2e8172eb4726e2d820be2c26cc26e7a83825dbb7328d"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-delta-review.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-delta-review.md",
+      "sha256": "e4af0c0d34bde770442ac45403a356b84ca9e3a9be3a47c66d6c8415ce05cf79"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/structural-checks.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/structural-checks.json",
+      "sha256": "2b9f891c491f38afa58e806aaebc894fc9eee0309b1a0f409c5784e05fddae11"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@09d408cc6377.md",
+      "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@09d408cc6377.md",
+      "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@09d408cc6377.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@09d408cc6377.json",
+      "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@09d408cc6377.md",
+      "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@09d408cc6377.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@09d408cc6377.md",
+      "sha256": "80367d23e34e375db22235a3cdd77e2cd83f968af59a2eb6e06ab0a30c604713"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@a86648554d19.md",
+      "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@a86648554d19.json",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-approval@a86648554d19.json",
+      "sha256": "7de1d887212aabbef1a2a7f05511157de94f99a18e780866ad7cd643d260e7b4"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@a86648554d19.md",
+      "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-brief-4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326@a86648554d19.md",
+      "sha256": "4869eaee6c97d6ea055a94e11f462d4c4c3870a79a5fe5bf6eecd17574d3d326"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@a86648554d19.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/arch-review/final-inputs/docs__meta-factory__research-patches__2026-10-14-deterministic-skill-agent-audit__product-intent-source@a86648554d19.md",
+      "sha256": "d8208866c44ae7af5cf071735253151d12fa0eec9ae55fa6fa1557cc15be7762"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@3961819303a1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-design@3961819303a1.md",
+      "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff-d0@3961819303a1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff-d0@3961819303a1.md",
+      "sha256": "ec760d7818044369e0835dfd4bc8413b78ed083b7e008f423c60d89330f4aeba"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@3961819303a1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/docs__superpowers__specs__2026-10-14-deterministic-core-coverage@3961819303a1.md",
+      "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff@3961819303a1.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/r1-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff@3961819303a1.md",
+      "sha256": "9fc77084fab47e46d40da62d36e47fe67d8daf7a7d70b0260161708081cf1ee2"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff@a82ebc9308e7.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff@a82ebc9308e7.md",
+      "sha256": "21ec59588830e3decc555fee1b7b7b9c66744f409b59793576f17a59e5d34d54"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff-d0@a82ebc9308e7.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/kickoff-review/final-inputs/.claude__orchestrator-prompts__deterministic-core__kickoff-d0@a82ebc9308e7.md",
+      "sha256": "83b9f00bb58ada33d843bf21ae817405a3c3a6a9903e8b32b2dd8db5235a6bb0"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit.md",
+      "sha256": "fbaa9170c40c19289e6e346900350263381d207ba9baef7bc0b774eed409422f"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/superpowers/specs/2026-10-14-deterministic-core-design.md",
+      "sha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/docs/superpowers/specs/2026-10-14-deterministic-core-coverage.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/superpowers/specs/2026-10-14-deterministic-core-coverage.md",
+      "sha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/.claude/orchestrator-prompts/deterministic-core/kickoff.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/.claude/orchestrator-prompts/deterministic-core/kickoff.md",
+      "sha256": "21ec59588830e3decc555fee1b7b7b9c66744f409b59793576f17a59e5d34d54"
+    },
+    {
+      "source": "/Users/art/.codex/worktrees/6612/rules-as-tests-aif/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/.claude/orchestrator-prompts/deterministic-core/kickoff-d0.md",
+      "sha256": "83b9f00bb58ada33d843bf21ae817405a3c3a6a9903e8b32b2dd8db5235a6bb0"
+    },
+    {
+      "source": "/Users/art/.agents/skills/coordinator/SKILL.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-support/coordinator/SKILL.md",
+      "sha256": "88b8ff05adf21d6e5e20abd35c84f6d9f452c2e683283de4c69be3d94654db67"
+    },
+    {
+      "source": "/Users/art/.agents/skills/coordinator/references/hosts.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-support/coordinator/references/hosts.md",
+      "sha256": "94d42c13de8b6064b37bfc815c245fd0dfe2025cf50324131f247e05ee250687"
+    },
+    {
+      "source": "/Users/art/.agents/skills/coordinator/references/checkpoint.md",
+      "destination": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-support/coordinator/references/checkpoint.md",
+      "sha256": "3c7da7f88473fd044410102ede7bb1d787cece13287f20e89765b3233c999781"
+    }
+  ],
+  "authority": "Canonical host selector remains at source orchestration home. No approval replay or selector rewrite."
+}
