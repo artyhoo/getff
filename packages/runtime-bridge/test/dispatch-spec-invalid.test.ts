@@ -23,12 +23,24 @@
  * CLI's `available()` probe — every arm would silently degrade to ManualBackend
  * and the spec_invalid arms would "pass" for the wrong reason.
  */
-import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync, spawn, type ChildProcess, type SpawnSyncReturns } from 'node:child_process';
-import { readdirSync, existsSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  spawnSync,
+  spawn,
+  type ChildProcess,
+  type SpawnSyncReturns,
+} from 'node:child_process';
+import {
+  readdirSync,
+  existsSync,
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { isFallbackEligible } from '../src/cli/dispatch.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -69,7 +81,12 @@ createServer((req, res) => {
 `;
 
 const running: ChildProcess[] = [];
+beforeEach(() => {
+  vi.stubEnv('AIF_INTENT_REPO_ROOT', '/__runtime_bridge_unactivated_test_owner__');
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (running.length) running.pop()?.kill();
 });
 
@@ -86,10 +103,15 @@ function startStub(cfg: {
   const dir = mkdtempSync(resolve(tmpdir(), 'rb-stub-'));
   const stubPath = resolve(dir, 'stub.mjs');
   writeFileSync(stubPath, STUB_SRC, 'utf8');
-  const child = spawn('node', [stubPath, JSON.stringify(cfg)], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn('node', [stubPath, JSON.stringify(cfg)], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   running.push(child);
   return new Promise((ok, fail) => {
-    const t = setTimeout(() => fail(new Error('stub never reported READY')), 10_000);
+    const t = setTimeout(
+      () => fail(new Error('stub never reported READY')),
+      10_000,
+    );
     child.stdout!.on('data', (buf: Buffer) => {
       const m = /READY (\S+)/.exec(String(buf));
       if (m) {
@@ -100,20 +122,40 @@ function startStub(cfg: {
   });
 }
 
-/** Names of the ManualBackend kickoff artefacts currently sitting in /tmp. */
+/** Fixture umbrella — the kickoff dir name the CLI reads back as umbrellaName, and the
+ *  string ManualBackend hashes into its /tmp packet names. */
+const FIXTURE_UMBRELLA = 'demo-stage';
+const FIXTURE_TASK_HASH = createHash('sha256')
+  .update(FIXTURE_UMBRELLA)
+  .digest('hex')
+  .slice(0, 8);
+
+/** Kickoff artefacts THIS suite's dispatches can produce. Scoped to the fixture umbrella's
+ *  taskId hash: a parallel vitest worker legitimately writing its own manual-fallback
+ *  control packet (result-review-effects.test.ts arm10 — measured 2026-10-10 landing
+ *  inside the A5-4 window, plus any other host writer) must not fail a "no manual packet"
+ *  arm, while a real fallback from THESE kickoffs still carries exactly this suffix. */
 function manualArtifacts(): string[] {
   return readdirSync('/tmp').filter(
-    (f) => f.startsWith('runtime-bridge-') && f.endsWith('.md') && !f.includes('.response.'),
+    (f) =>
+      f.startsWith('runtime-bridge-') && f.endsWith(`-${FIXTURE_TASK_HASH}.md`),
   );
 }
 
 /** Write a kickoff whose header carries the given bridge-profile marker line. */
 function writeKickoff(marker: string): string {
-  const kickoffDir = resolve(mkdtempSync(resolve(tmpdir(), 'rb-kickoff-')), 'demo-stage');
+  const kickoffDir = resolve(
+    mkdtempSync(resolve(tmpdir(), 'rb-kickoff-')),
+    FIXTURE_UMBRELLA,
+  );
   mkdirSync(kickoffDir, { recursive: true });
   const path = resolve(kickoffDir, 'kickoff.md');
   // Unique body so the idempotency log never dedups one arm against another.
-  writeFileSync(path, `${marker}\n# Demo ${Math.random()}\n\n## §1\nBody.\n`, 'utf8');
+  writeFileSync(
+    path,
+    `${marker}\n# Demo ${Math.random()}\n\n## §1\nBody.\n`,
+    'utf8',
+  );
   return path;
 }
 
@@ -153,9 +195,14 @@ describe('cli/dispatch.ts — an unresolvable bridge-profile marker aborts inste
   it(
     'hint matching NO profile → exit 2, no /tmp artefact, operator told what to fix',
     async () => {
-      const url = await startStub({ profiles: [{ id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' }] });
+      const url = await startStub({
+        profiles: [{ id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' }],
+      });
       const before = new Set(manualArtifacts());
-      const r = runDispatch(writeKickoff('<!-- bridge-profile: Nonexistent Seat -->'), url);
+      const r = runDispatch(
+        writeKickoff('<!-- bridge-profile: Nonexistent Seat -->'),
+        url,
+      );
 
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('Nonexistent Seat');
@@ -190,8 +237,13 @@ describe('cli/dispatch.ts — an unresolvable bridge-profile marker aborts inste
   it(
     'CONTROL: a resolvable hint still dispatches normally (exit 0, real task created)',
     async () => {
-      const url = await startStub({ profiles: [{ id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' }] });
-      const r = runDispatch(writeKickoff('<!-- bridge-profile: Z.AI GLM-5.2 SDK -->'), url);
+      const url = await startStub({
+        profiles: [{ id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' }],
+      });
+      const r = runDispatch(
+        writeKickoff('<!-- bridge-profile: Z.AI GLM-5.2 SDK -->'),
+        url,
+      );
 
       expect(r.status).toBe(0);
       expect(r.stdout).toContain('task-123');
@@ -207,7 +259,10 @@ describe('cli/dispatch.ts — an unresolvable bridge-profile marker aborts inste
       // split rather than "stop falling back": kill it and the bridge starts
       // leaving operators stuck on a transient aif failure.
       const url = await startStub({ profiles: [], failCreate: true });
-      const r = runDispatch(writeKickoff('<!-- no profile marker here -->'), url);
+      const r = runDispatch(
+        writeKickoff('<!-- no profile marker here -->'),
+        url,
+      );
 
       expect(r.status).toBe(0);
       expect(r.stdout).toContain('paste into a new Claude Code session');
@@ -236,9 +291,13 @@ describe('E-3 — a missing RUNTIME_BRIDGE_AIF_PROJECT_ID aborts, it does not de
       // re-dispatchable later as a duplicate.
       const url = await startStub({ profiles: [] });
       const before = new Set(manualArtifacts());
-      const r = runDispatch(writeKickoff('<!-- no profile marker here -->'), url, {
-        RUNTIME_BRIDGE_AIF_PROJECT_ID: '',
-      });
+      const r = runDispatch(
+        writeKickoff('<!-- no profile marker here -->'),
+        url,
+        {
+          RUNTIME_BRIDGE_AIF_PROJECT_ID: '',
+        },
+      );
 
       expect(r.status).toBe(2);
       expect(r.stderr).toContain('RUNTIME_BRIDGE_AIF_PROJECT_ID');
@@ -266,7 +325,10 @@ describe('A5-4 — an unexpected (non-BackendError) failure is reported, not swa
       // author saw nothing but a successful Write.
       const url = await startStub({ profiles: [], emptyProfilesBody: true });
       const before = new Set(manualArtifacts());
-      const r = runDispatch(writeKickoff('<!-- bridge-profile: Some Seat -->'), url);
+      const r = runDispatch(
+        writeKickoff('<!-- bridge-profile: Some Seat -->'),
+        url,
+      );
 
       expect(r.status).toBe(1);
       // Reaches the agent through the ONE channel the hook forwards.
@@ -283,8 +345,13 @@ describe('A5-4 — an unexpected (non-BackendError) failure is reported, not swa
   it(
     'CONTROL: the same wire with a resolvable profile still dispatches (exit 0)',
     async () => {
-      const url = await startStub({ profiles: [{ id: 'seat-1', name: 'Some Seat' }] });
-      const r = runDispatch(writeKickoff('<!-- bridge-profile: Some Seat -->'), url);
+      const url = await startStub({
+        profiles: [{ id: 'seat-1', name: 'Some Seat' }],
+      });
+      const r = runDispatch(
+        writeKickoff('<!-- bridge-profile: Some Seat -->'),
+        url,
+      );
       expect(r.status).toBe(0);
       expect(r.stdout).toContain('task-123');
     },

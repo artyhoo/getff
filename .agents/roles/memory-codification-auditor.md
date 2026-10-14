@@ -58,6 +58,8 @@ For each entry, ask: **would a fresh session on a different machine — with no 
 
 ## Output format
 
+Emit all five headings below in this order, including empty groups. Write `None` under an empty group. Keep codified-but-unreduced notes and invalid-pointer findings explicit in RESIDUAL / INCONCLUSIVE; do not omit another heading when using that group.
+
 ```text
 POPULATION: <M> entries reviewed of <total> (coverage %)
 CODIFY (owed a pointer, not yet codified):

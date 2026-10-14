@@ -1,0 +1,7 @@
+# Bounded live legacy-task recovery
+
+At 2026-10-13 host readback, `GET /tasks?projectId=<configured project>` returned 275 tasks. Exactly one task created before the A1 freeze was still nonterminal: `0a94f879-0799-4e18-be7e-e35dc43e9936`, `plan_ready`. Its server `createdAt` was `2026-10-10T16:34:07.265Z` and `updatedAt` was `2026-10-10T18:57:56.623Z`, both before the immutable freeze instant `2026-10-12T18:56:20.186Z`. The task's project matched the configured project. No task description or title was copied into this evidence.
+
+The source CLI `npx tsx packages/runtime-bridge/src/cli/recover-legacy-task.ts <task-id>` re-read that task via the AIF API, required the same bound project, a nonterminal status and no server update after the freeze, then wrote one immutable `legacy-recovery.json` receipt under the real selector's shared coordination directory. Receipt SHA-256: `926302b488f3b48b7c14a3575b421d3443f5cdb916430f6ee7ced4203bbd1dad`. A subsequent read-only call to `enforceTaskAdmission` on the current AIF row returned `{ "adopted": false }`. The AIF task itself was not modified.
+
+This recovers that proven active task only. The A1 `legacy-freeze.json` still has `taskIds: []`; historical tasks that were active at the freeze but later changed state are not inferred from age and remain held without separate trustworthy historical evidence. Calls outside an activated checkout and without an owner root are not covered by this proof.

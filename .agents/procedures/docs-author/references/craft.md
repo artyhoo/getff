@@ -6,8 +6,9 @@
 > deterministic slice of this — `scripts/docs-check.mjs` (spelling, names, structure). Diátaxis
 > mechanics generally — the installed diataxis plugin (see SKILL.md's upstream pointer).
 
-Worked examples come from the gold pages once they exist
-([references/gold/](gold/README.md)); until then each rule carries a minimal shape only.
+Worked examples come from the five frozen bulk-kind gold pages
+([references/gold/](gold/README.md)), landed 2026-09-21 after the Opus GO. Each rule below
+also carries a minimal shape.
 
 ## Openers
 

@@ -58,7 +58,9 @@ found=""
 for entry in "$dir"/*/; do
   [ -d "$entry" ] || continue          # unmatched glob stays literal → skip
   name="$(basename "$entry")"
-  if grep -qE '^[0-9]+$' <<<"$name"; then
+  # A shell regex needs no here-string temporary file; a read-only host
+  # must not silently treat grep/redirection failure as a clean guard.
+  if [[ "$name" =~ ^[0-9]+$ ]]; then
     found="$name"
     break
   fi

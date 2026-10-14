@@ -119,10 +119,10 @@ helper/install examples are unchanged. No live runtime certification is claimed.
   and technical answers; `scope-and-provenance.md` owns the out-of-scope limits and origin.
 - `.claude/skills/dispatcher/helpers/probe-inflight.sh` prints that verdict on lines 74
   to 78, before it touches git, Docker, or the network.
-- The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
-  copies that list on lines 170 to 174 of `setup.d/10-skills.sh`. Line 17 of
+- The skill belongs to the six-member `factory` list (`intent` sixth) on line 65 of `setup.d/lib.sh`. The installer
+  copies that list on lines 179 to 183 of `setup.d/10-skills.sh`. Line 17 of
   `install.sh` names the flag.
 - The superpowers plugin is an optional companion: the `superpowers` row of
-  `setup.d/companions.manifest`. The loop that offers each companion is lines 116 to 128
+  `setup.d/companions.manifest`. The loop that offers each companion is lines 124 to 136
   of `setup`.
 - The card above is built from `docs/site/reference/B.json`.

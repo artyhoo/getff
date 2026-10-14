@@ -115,6 +115,34 @@
       },
       "extras": {},
       "example": null
+    },
+    {
+      "name": "recover-legacy-task",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "Recover one pre-freeze active AIF task omitted from the write-once freeze.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/recover-legacy-task.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "start-reviewed",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "guarded start of a SCOPED task after its effective-plan review.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/start-reviewed.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
     }
   ]
 }

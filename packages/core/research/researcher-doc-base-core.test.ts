@@ -30,7 +30,9 @@ function rows(): Array<Record<string, string>> {
 
 describe('agents/rule-researcher.md reads the base core', () => {
   it('names the installed base-core file, the filter and the link-back field', () => {
-    expect(doc).toContain('.claude/skills/getff/references/base-core.md');
+    expect(doc).toContain('.agents/procedures/getff/references/base-core.md');
+    expect(doc).toContain('from the bound\nconsumer root');
+    expect(doc).toContain('host-native skill aliases are not\nrequired');
     expect(doc).toMatch(/`status`\s*=\s*`` `not_wired` ``\s*AND[^\n]*`reason`\s*=\s*`generated-pending`/);
     expect(doc).toContain('"principle": "<id>"');
   });

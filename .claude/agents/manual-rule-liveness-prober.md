@@ -1,0 +1,1 @@
+../../.agents/roles/manual-rule-liveness-prober.md

@@ -6,9 +6,10 @@
 # even when the child dies mid-output, exits non-zero, or is killed by a timeout
 # (a `set -e` abort or SIGKILL inside the child would skip a child-side `echo END`).
 #
-# Trailer shape (the `=== ` prefix is load-bearing — the candidate parser at
-# classify-each-candidate.sh:52 `awk '... && !/^=== /'` strips any `=== … ===`
-# line, so the trailer can never become a spurious candidate):
+# Trailer shape (the `=== ` prefix is load-bearing — the candidate parser's
+# awk filter at classify-each-candidate.sh:65 (`/^=== .* ===$/ { next }`)
+# strips any `=== … ===` line, so the trailer can never become a spurious
+# candidate):
 #
 #     === <helper-name>: END rc=<exit-code> (lines=<stdout-line-count>) ===
 #

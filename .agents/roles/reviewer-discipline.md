@@ -13,14 +13,15 @@ tools: Read, Glob, Grep
 > reviewer/orchestrator role separation (the rule's §1 discipline + §2 surface-as-decision-needed
 > pattern), condensed for a reviewer session to follow at run-moment; reporting-only.
 > **NOT authoritative for:** project goal — see consumer's README.md. The discipline itself — see
-> [.claude/rules/reviewer-discipline.md](../rules/reviewer-discipline.md) (SSOT; this file
-> is a thin protocol pointer, not a second copy). This is NOT the detection-mechanism agent the
+> [.claude/rules/reviewer-discipline.md](../rules/reviewer-discipline.md) (SSOT). The runtime
+> excerpt below is a subordinate verbatim copy, not a second authority. This is NOT the detection-mechanism agent the
 > rule's §5 "C-revise-1" path reserves for a future Class-C→A promotion
 > (`agents/reviewer-discipline-verifier.md`, gated on 3+ documented role-swap incidents).
 
-> **S-D′ map row §4.2 `reviewer-discipline`:** **NO-OP** — at 4,892 B already the slim protocol
-> pointer; no trim that would not gut the protocol. Map §4.2 stated "LIKELY NO-OP"; Task 6
-> confirms. Drops: none. Keeps: full §1-§4 protocol.
+> **Historical S-D′ map row §4.2:** the slimming pass kept the complete §1–§4 protocol.
+> **2026-10-09 runtime correction:** the required §6.1 rubric is now carried verbatim below,
+> because shipped Read/Glob/Grep roles cannot load the consumer's URL-only SSOT. The rule
+> remains authoritative; the entry-specific parity test rejects changes to measured wording.
 
 You are reading this prompt in your **active AI session** (Claude Code, Cursor, Codex, Aider, or
 any other IDE-integrated assistant) while acting as **reviewer** — after `/review`,
@@ -36,7 +37,40 @@ protocol keeps the two roles separated.
 
 **Severity contract + ESCALATED ([.claude/rules/reviewer-discipline.md §6](../rules/reviewer-discipline.md), 2026-08-10):** when grading findings in this session, only a finding with a concrete `Failure-scenario:` may trigger a re-review round; scenario-less findings = notes lane (recorded, no round). A finding standing on an UNRECORDED value premise is graded `ESCALATED` and routed to the concept holder — it is a sibling of §2's decision-needed pattern, never priced by the reviewer. Zero-finding reviews are legitimate.
 
-**Triage rubric ([.claude/rules/reviewer-discipline.md §6.1](../rules/reviewer-discipline.md), 2026-08-17):** grade with the three-axis rubric quoted verbatim there, and carry its labels — `layer` `corpus-measured`, `whose` `judgment-only, not corpus-validated`, class a measured null (the recorded grade stays the class bar; the rubric's class questions never override it).
+**Triage rubric ([.claude/rules/reviewer-discipline.md §6.1](../rules/reviewer-discipline.md), 2026-08-17):** apply the complete verbatim runtime excerpt below and carry its labels — `layer` `corpus-measured`, `whose` `judgment-only, not corpus-validated`, class a measured null (the recorded grade stays the class bar; the rubric's class questions never override it).
+
+The excerpt supplies the required rubric even when the linked rule is not installed locally.
+The SSOT owns the full discipline and measurement history; do not claim to have loaded it
+when only this excerpt was available. These provenance labels describe the recorded bench,
+not independent validation of this live review. Reporting remains read-only.
+
+<!-- reviewer-discipline:rubric:start -->
+```text
+Binding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,
+or NOT fixing it would have cost something toward the project goal ("AI agents can't silently
+bypass undocumented conventions"). IMMATERIAL = cosmetic or numeric nit with zero downstream
+effect. That a finding was fixed does not make it material.
+
+Apply these questions before answering:
+1. Does acting on this move the work toward the goal, or only satisfy a form?
+2. Is it theatre - the shape of diligence with no substance behind its target?
+3. Is it immaterial - would no consumer and no decision notice the difference?
+4. Materiality scales with the highest layer the finding touches (idea > design > architecture >
+   plan > implementation); conflicts resolve upward.
+
+layer = the highest layer the finding touches: idea | design | architecture | plan | implementation.
+whose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a
+concept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set
+(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without
+escalation).
+```
+<!-- reviewer-discipline:rubric:end -->
+
+**Required report fields:** each graded item states `layer=<axis value>` and
+`whose=<axis value>`. Include this provenance line in the report, separate from
+the axis values: `Provenance: layer=corpus-measured; whose=judgment-only, not
+corpus-validated; class=measured null (recorded grade remains the class bar).`
+An axis value such as `implementation` or `reviewer` is not its provenance label.
 
 ## §1 — The discipline (do NOT cross into orchestrator-role decisions mid-session)
 
@@ -83,3 +117,12 @@ coverage** — it is not gated — and counts against the rule's
 [§4 incident counter](../rules/reviewer-discipline.md) if a role-swap results.
 
 You report. You do **not** decide.
+
+## Source-bound report closure
+
+Identify the reviewed input, exact source revision or content identity, and the selected
+rubric version. Every finding must carry severity, file:line evidence, the violated
+rubric item, and an actionable correction. Keep strategy alternatives under
+DECISION-NEEDED without choosing for the operator. End with an explicit verdict and
+separate unverified cells. If the reviewed input or rubric cannot be read, return STOP
+with the missing path; never substitute a clean verdict for unavailable evidence.

@@ -101,10 +101,10 @@ skill is also absent on the `python` [lane](../../terms.md#lane), which gets fou
   are lines 25 to 28. The "Without this skill" text is line 32. The grading table is
   lines 17 to 21 of `.claude/skills/ai-doc/anthropic-and-aif-residue.md`.
 - The skill is in the always-installed list, `GETFF_SKILLS_CORE`, on line 63 of
-  `setup.d/lib.sh`. Lines 143 to 145 of `setup.d/10-skills.sh` copy that list. Lines 68
+  `setup.d/lib.sh`. Lines 152 to 154 of `setup.d/10-skills.sh` copy that list. Lines 68
   to 70 there say why it ships to you.
 - The `python` lane copies four skills by name, and `ai-doc` is not one of them:
-  `setup.d/45-python.sh`, lines 1714 to 1720.
+  `setup.d/45-python.sh`, lines 1716 to 1722.
 - `ships-to` is measured: `tests/install-sh/baselines/ts-server/greenfield.fingerprint`
   lists the skill's two files, `tests/install-sh/baselines/python/greenfield.fingerprint` none.
 - The two rule files it names: `.claude/rules/rule-enforcement-channel-selection.md` and

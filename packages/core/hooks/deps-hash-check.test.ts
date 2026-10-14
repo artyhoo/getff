@@ -41,7 +41,7 @@ import crypto from 'node:crypto';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.agents/hooks/deps-hash-check.sh');
-/** The shipped SOURCE copy (setup.d/10-skills.sh:202). HOOK above is the dogfood copy. */
+/** The shipped SOURCE copy (setup.d/10-skills.sh:211). HOOK above is the dogfood copy. */
 const HOOK_SOURCE = resolve(REPO_ROOT, 'packages/core/hooks/deps-hash-check.sh');
 
 /** Compute the same sha256 the hook computes for a given deps JSON string. */

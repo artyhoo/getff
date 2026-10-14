@@ -68,7 +68,16 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+# Parse failures must be loud, not silent skips: with `|| true` a transient jq error
+# (corrupted/truncated stdin, runner IO hiccup) yields an empty ABS_PATH and exit 0 —
+# the gate reports healthy while it checked nothing (CI not-ok-10 class, 2026-10-12:
+# status 0 + empty stderr on a runner whose jq was verified present). An
+# empty-after-SUCCESSFUL-parse stays the legitimate silent scope-exit below.
+_RAW_HOOK_INPUT="$(cat)"
+if ! ABS_PATH="$(printf '%s' "$_RAW_HOOK_INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null)"; then
+  printf '✗ doc-authority: hook input missing or unparseable (jq failed) — the check DID NOT RUN; refusing the silent skip.\n' >&2
+  exit 2
+fi
 [[ -z "$ABS_PATH" ]] && exit 0
 
 # ── Repo-root-relative path (scope patterns are repo-relative) ────────────────

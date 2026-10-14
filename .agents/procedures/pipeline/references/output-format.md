@@ -1,6 +1,6 @@
 # Output format — `/pipeline <umbrella>` inline session report
 
-> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract (incl. the channel order: aif auto-dispatch before any chip), §9A launch card (plain-words-recap-v2 D7). Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
+> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract (incl. the channel order: aif auto-dispatch before any chip), §9A launch card (plain-words-recap-v2 D7). Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) checks source-template substrings; it does not validate an actual emitted report. Empty/0 final-artifact grammar is checked by `../helpers/check-final-report.mjs`.
 > **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/pipeline` skill body authority — see [`../SKILL.md`](../SKILL.md).
 
 > **Origin:** F.3 (2026-05-24). The 3-layer structure synthesises F.1 prior-art (PR #203) — Argo Workflows' `├── / └──` ASCII tree (ADAPT vocabulary, SSOT row TBA) + maintainer's binding 1-liner format refinement (parent kickoff §1 Sub-wave F.3 lines 237-254). The slash-tag draft (`/Mode-A /Roles-… /Skills-…`) was rated «not convenient» by the maintainer and has zero upstream precedent across 10 surveyed tools (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, gh workflow run, orchestrator-guide).
@@ -46,6 +46,130 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 ═══════════════════════════════════════════════════════════════
 ```
 
+### Native diagram presentation
+
+Under `## Dependency graph`, render a fenced `mermaid` flowchart when the surface
+supports inline diagrams (including Codex desktop). Keep the compact text edges with
+`↓` immediately below it so Claude Code/CLI/plain-text readers have the same plan.
+The surface decides rendering capability; a provider or model name does not.
+Draw only dependencies verified in the selected plan or kickoff. Label unknown
+status as unknown and identify the source of a blocker; never infer a running worker,
+completed review or merge permission from a diagram. Show independent stages as
+parallel branches only when the plan explicitly establishes parallel safety and
+isolation; absent dependency edges alone do not prove that safety. Label unknown
+parallel safety as unknown. Keep the action queue authoritative for what is launchable now.
+Keep two views separate: the selected plan's dependency graph and the applicable
+role/gate lifecycle. The latter describes policy, not an observed execution.
+For each role, identify its assignment or `unassigned/unknown`; for each gate,
+give `required`, `passed`, `failed`, or `unknown`, with the artifact/head, source
+and observation time supporting a claimed result. `Required` is a policy obligation,
+not evidence of a completed gate. An unavailable probe remains `unknown`.
+The existing dispatch, review, rework and merge policies are unchanged.
+
+Example only — these names and relationships are supplied fixture inputs, not live status:
+
+```mermaid
+flowchart TB
+  A["A: establish input contract"] --> B["B: native adapter"]
+  A --> C["C: installed resources"]
+  B --> D["D: combined acceptance"]
+  C --> D
+  T["Operator-owned hook trust: unverified"] -.-> D
+```
+
+Text fallback: A ↓ B and C (parallel); B + C ↓ D. D also requires verified
+operator-owned hook trust. This example does not grant that trust.
+
+**Role/gate lifecycle — policy-derived example, not a live run:** use the selected
+mode's protocol. SDD implementation and its spec/code-quality review loops belong
+to the invoked `superpowers:subagent-driven-development` procedure, selected by
+[dispatch §5](dispatch.md). Separate spec/quality nodes below are the framework's
+role and acceptance vocabulary, not a certification of the companion's seat topology.
+Read the actual installed companion: its task decomposition, combined task-review
+seats, correction/re-review sequencing and required final whole-branch review govern
+execution. Do not turn two acceptance labels into extra reviewer sessions or omit
+the final branch review. Reviewer findings and operator strategy forks retain
+[reviewer discipline](../../../rules/reviewer-discipline.md). Verification evidence
+belongs to [orchestrator acceptance Phase 4/4.5](../../orchestrator/references/acceptance.md);
+the authorized chip recipe's CI/merge mechanics belong to
+[its scoped template](../../orchestrator/references/chip-worker-template.md), when
+that factory mode actually applies. These references grant no new dispatch,
+push, merge or factory authorization.
+
+```mermaid
+flowchart TB
+  W["Implementer: assignment unknown, implementation required"] --> S["Spec reviewer: assignment unknown, verdict unknown"]
+  S -->|"findings requiring correction"| RW["Implementer rework: required only on findings"]
+  RW --> T["Task fix-round cap: read actual companion; SDD 6.4.2 cap 5"]
+  T -->|"within cap: original implementer 1–3, fresh more capable implementer 4–5"| S
+  T -->|"cap reached: stop fixes"| TA["Ledger each residual ruling: park or smallest unblock carried into next task"]
+  TA -->|"ruled continuation available"| B
+  TA -->|"every path is a guess or operator-owned fork"| O
+  S -->|"spec accepted for this revision"| Q["Quality reviewer: assignment unknown, verdict unknown"]
+  Q -->|"findings requiring correction"| RW
+  Q -->|"task review accepted"| B["Final whole-branch review: verdict unknown"]
+  B -->|"findings: apply installed companion final-fix bound"| BF["One fix wave when required by installed SDD"]
+  BF --> SR["Exactly one scoped re-review under installed SDD"]
+  SR --> A["Residual adjudication and ledger, load-bearing residual to operator"]
+  A -->|"acceptance disposition permits continuation"| C["CI: required checks, result unknown"]
+  A -->|"unresolved stop class or operator decision"| O
+  B -->|"accepted, local evidence verified"| C
+  C -->|"failed checks requiring correction"| RW
+  C -->|"checks green for current head"| M["Merge: authorization unknown, blocked"]
+  O["Operator-owned decisions and merge authority: unknown"] -.-> M
+  M -->|"authorized merge actually observed"| G["Stage merge gate: verify all required PRs"]
+  G -->|"all required merges verified"| L["Lane claim policy: claim and capacity unknown"]
+  L -->|"bridge reachable and claim confirmed"| R["Phase -1 stage-admission reviewer: verdict unknown"]
+  L -->|"bridge unavailable: no claim, explicitly unguarded"| R
+  R -->|"REVISE with Failure-scenario: cancel existing claim"| F["Worker fixes, repeat claim policy before review"]
+  F --> L
+  R -->|"GO: release existing claim, remaining gates satisfied"| N["Next stage: eligible under selected dispatch policy"]
+  R -->|"STOP or strategy fork: cancel existing claim"| H["Halt and surface decision to operator"]
+```
+
+Text fallback: implementer ↓ spec review (correction ↓ implementer ↓ repeat review)
+↓ quality review (correction ↓ implementer ↓ repeat affected reviews) ↓ required
+final whole-branch review. Final findings follow the applicable installed companion's
+bounded fix/re-review and residual adjudication, before verified local evidence,
+current-head CI and separately authorized observed merge. For installed SDD 6.4.2,
+that means ONE fix subagent with all final findings, exactly one scoped re-review,
+then residual rulings/ledger and operator escalation for remaining load-bearing
+findings; there is no second final fix wave or infinite return to broad review.
+The separate task-review loop is also finite: the selected SDD 6.4.2 companion
+allows five fix rounds per task, each one fix dispatch plus one scoped re-review.
+Resume the original implementer in rounds 1–3; if the harness cannot resume, carry
+the brief, report and findings into a fresh implementer. In rounds 4–5 use a fresh
+implementer on a more capable model within actual authorization. At the cap stop
+fix dispatch, ledger every adjudication and park contestable/nondependent residuals
+with a ruling. For a real load-bearing residual, rule on the smallest unblock and
+carry it into the next task's dispatch; stop when every path forward is a guess,
+and surface operator-owned strategy decisions. Read the actually
+selected companion before applying this policy to another version. A final branch
+review cap does not substitute for the task-review cap.
+When those steps are required, show both findings and accepted branches in Mermaid
+and this text fallback. No finding, ruling or operator authorization is invented. These are acceptance labels; the installed companion
+owns the actual reviewer seats and loops.
+Then all required PR merges ↓ claim policy ↓ Phase -1 stage-admission review;
+REVISE/RED ↓ cancel existing claim ↓ worker fixes ↓ fresh claim policy ↓ repeat
+Phase -1, GO ↓ release existing claim ↓ remaining dispatch gates, STOP or strategy
+fork ↓ cancel existing claim ↓ operator decision. An unavailable bridge claims
+nothing: record the review as unguarded, not as a successful claim. A paused claim
+does not prove free capacity. Apply [dispatch §6–§7](dispatch.md) and
+[claim machinery](claim-machinery.md); neither this diagram nor an unguarded review
+creates authorization. Dispatch §6–§7 places Phase -1
+**after** the confirmed stage merges; it is not the pre-merge spec/quality review.
+CI can run earlier, concurrently or again; the diagram presents logical acceptance
+conditions and corrective loops, not a replacement execution order. Unknown
+ownership, verdict, CI, trust, permission or merge state cannot become an active
+worker, passed gate, `NOW` queue row or authorized transition. Include a source-backed
+observed-status table beside the policy diagram; leave unsupported cells unknown.
+For an informational no-arg overview, no worker is launched and no new per-stage
+dispatch block is added. Include readable action prompts and descriptions in the
+overview-only footer: continue the identified existing task, inspect an unmet gate,
+or explain a source-bound blocker. Follow [the overview action contract](output-overview.md).
+A compact heading or a bare drill-down command does not satisfy the operator's request
+for useful prompts and descriptions.
+
 The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` blocks) are **mandatory** — principle 18 fails if any of the literal headings or the column substrings (§3) is missing from this file.
 
 **Description block (3 lines `What it does / Deliverable / Why now`) is mandatory above every `<1-liner>`** — see §4.1 below for rationale + falsifiers. The block is not principle-18-checked (per maintainer scope decision 2026-05-25, Option A); enforcement is prose-discipline at session time. The block exists because `### Stage X — name (Mode, cost)` heading answers «how» but not «what / why now»; without it the receiving fresh CC-session can be pasted without the maintainer-reader understanding what they just dispatched.
@@ -54,58 +178,9 @@ The three layers (`## Dependency graph` / `## Action queue` / `### Stage N` bloc
 
 ## §1A No-arg overview format
 
-> **Origin:** V3 binding per [research-patch §3](../../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md), Stage 3 I-phase. Sibling format to §1 — coexists, does not replace.
-
-Emitted by `/pipeline` (no arg) OR `/pipeline 0`. Renders ALL open umbrellas surviving §2.5 completion-filter (DONE entries dropped by [`priority-score.sh`](../helpers/priority-score.sh) tri-layer classifier — C1 branch / C2 jaccard / C3 done.md). Wave-style grouping ADAPTs SSOT #68 (OhMyOpencode Atlas/Prometheus `## Parallel Execution Graph` `Wave N`). Reuses **all 6** principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste into a new CC tab` / `Can parallel with` / `### Stage`) — **zero churn** on [`packages/core/principles/18-meta-orchestrator-output-format.test.ts`](../../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) (whole-file scope passes; §10 SKILL.md scope unchanged).
-
-**Skeleton (binding, ≤30 lines body):**
-
-```text
-═══════════════════════════════════════════════════════════════
-PROJECT OVERVIEW — all open umbrellas (<YYYY-MM-DD>)
-═══════════════════════════════════════════════════════════════
-
-## Dependency graph
-
-Wave 1 — NOW (parallel-OK):
-├── <umbrella-A>   (Stage <N>, ~<cost>, <Mode>)   PARALLEL-OK ↔
-└── <umbrella-B>   (Stage <N>, ~<cost>, <Mode>)
-                                  ↓
-Wave 2 — after Wave 1 merges:
-└── <umbrella-C>   (Stage <N>, ~<cost>, <Mode>)
-
-## Action queue — what you do next
-
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | /pipeline <umbrella-A> | Now | — | <umbrella-B> |
-| 2 | /pipeline <umbrella-B> | Now | — | <umbrella-A> |
-| 3 | /pipeline <umbrella-C> | After Wave 1 | Wave 1 merged | — |
-
-Total open umbrellas: <K> (after §2.5 completion-filter; recently DONE entries hidden).
-
-### Stage — overview only
-(no per-stage 1-liner; this overview MUST be drilled-down via /pipeline <umbrella> for dispatch)
-═══════════════════════════════════════════════════════════════
-```
-
-**Wave-grouping rules:**
-
-- **Wave 1 — NOW:** candidates whose dependencies are already merged (free to dispatch now).
-- **Wave N (N ≥ 2):** candidates dependent on Wave N-1 merges; ordered by Wave label.
-- **Intra-wave parallel/sequential markers:** derived from each candidate's kickoff §2 `Parallel-with` column (V2 binding). Pairwise rule — if A claims B AND B claims A → emit `PARALLEL-OK ↔` between them; if either side omits the column or they disagree → treat as sequential `↓` + emit ATTN.
-
-**Coexistence with §1 (dispatch path):**
-
-- §1 fires on `/pipeline <umbrella-name>` (string arg) — proceeds to §3/§4/§5 dispatch.
-- §1A fires on `/pipeline` (no arg) OR `/pipeline 0` — emits overview, STOPS.
-- Heading prefixes differ verbatim (`EXECUTION PLAN — <umbrella>` vs `PROJECT OVERVIEW — all open umbrellas`) — no collision; §0 routing in [`../SKILL.md`](../SKILL.md) branches BEFORE format selection (no mixed renderer).
-
-**Falsifiers:**
-
-- Wrong if principle-18 test fails after §1A lands — run `npx vitest run packages/core/principles/18-meta-orchestrator-output-format.test.ts` BEFORE push; expect green (whole-file scope sees the 6 substrings from §1A's skeleton even if §1's example were stripped, but §1's example is preserved → both surfaces pass).
-- Wrong if dispatch path mistakenly fires §1A (cross-mode rendering) — §0 routing's regex check decides; format selection follows routing, never the reverse.
-- Wrong if `### Stage — overview only` placeholder is interpreted by a downstream tool as a real Stage block — placeholder text explicitly disambiguates («overview only; drilled-down via /pipeline <umbrella>»).
+For no-arg, `0`, and top-N overview output, read the complete binding
+[overview grammar](output-overview.md) before rendering. All source reconciliation,
+acceptance verification and fidelity requirements remain mandatory.
 
 ---
 
@@ -302,182 +377,8 @@ Every `### Stage X — <name> (<Mode>, <cost>)` heading MUST be followed by a 3-
 
 ## §5 Four worked examples
 
-### Example 1 — Mode A single (R-phase audit, ~30k Opus)
-
-```text
-═══════════════════════════════════════════════════════════════
-EXECUTION PLAN — meta-orchestrator-followup-audit (2026-05-24)
-═══════════════════════════════════════════════════════════════
-
-## Dependency graph
-
-Stage 1 — NOW:
-└── F.2 — Cold review of SKILL.md   (Mode A, ~30k, read-only)
-
-## Action queue — what you do next
-
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | Stage 1 block below | Now | — | — |
-
-Total pastes: 1.
-
-## 1-liner blocks (copy ONE block = ONE new CC session)
-
-### Stage 1 — Cold review (Mode A, ~30k)
-
-**What it does:** runs a cold-eye review of SKILL.md as a fresh reader (without your session context), looks for structural drift / missing sections / broken refs; does NOT edit files — REPORT only.
-**Deliverable:** REPORT with GO/REVISE/STOP verdict + per-section findings (file:line + suggestions) inline in session output, no commits.
-**Why now:** F.1+G-design + F.3 UX shipped; before closing the audit umbrella an independent check is needed that the F.2 deliverable (cold-review of SKILL.md) is consistent with binding spec G §1.5 — otherwise T19 (own QA before handoff).
-
-/orchestrator meta-orchestrator-followup-audit §1 Sub-wave F.2 — Mode A reviewer cold-eye of SKILL.md, return REPORT, no edits, rest in kickoff
-═══════════════════════════════════════════════════════════════
-```
-
-### Example 2 — Mode SDD (build with implementer + 2 reviewers, ~80k Opus)
-
-```text
-═══════════════════════════════════════════════════════════════
-EXECUTION PLAN — feature-X-SDD-build (2026-05-25)
-═══════════════════════════════════════════════════════════════
-
-## Dependency graph
-
-Stage 1 — NOW:
-├── Implementer session   (Mode A, ~50k, writes code)
-├── Spec reviewer         (Mode A subagent, ~15k, read-only)
-└── Code-quality reviewer (Mode A subagent, ~15k, read-only)
-                                  ↓
-Stage 2 — after Stage 1 PR merges:
-└── Smoke test runner    (Mode A, ~10k)
-
-## Action queue — what you do next
-
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | Stage 1 block below | Now | — | — |
-| 2 | Stage 2 block below | After Stage 1 PR merges | Stage 1 PR merged | — |
-
-Total pastes: 2.
-
-## 1-liner blocks (copy ONE block = ONE new CC session)
-
-### Stage 1 — SDD build (Mode SDD, ~80k)
-
-**What it does:** Implementer writes feature-X end-to-end (~50k); spec reviewer subagent checks conformance to kickoff §3 binding spec (~15k); code-quality reviewer subagent runs lint+tests+style (~15k). All three in one session via Agent tool, NOT in worktrees.
-**Deliverable:** PR feature-X with code + tests + spec-review GO + code-quality-review GO, ready to merge to staging.
-**Why now:** kickoff §3 binding spec frozen, all dependencies resolved; SDD threshold (≥3 independent tasks: implementer + 2 reviewer roles) met; single complex feature without parallel-decomposition surface = SDD beats Mode A solo on catch-rate.
-
-/orchestrator feature-X-SDD-build §3 — Mode SDD implementer + 2 reviewers (spec + code-quality), full autonomous, rest in kickoff
-
-### Stage 2 — Smoke test (Mode A, ~10k)
-
-**What it does:** runs feature-X integration smoke (curl endpoints / `npm test -- smoke` / any manual-liveness probe per kickoff §4), does not edit code.
-**Deliverable:** smoke output (pass/fail per probe) inline in session report, or BLOCKER finding if something broke after merge.
-**Why now:** Stage 1 PR merged, feature-X in staging; CI pass ≠ runtime-verified (T19), an independent post-merge probe is needed BEFORE umbrella closure.
-
-/orchestrator feature-X-SDD-build §4 — Mode A runner checks smoke, rest in kickoff
-═══════════════════════════════════════════════════════════════
-```
-
-### Example 3 — Mode B × N parallel workers in worktrees (~150k Opus)
-
-```text
-═══════════════════════════════════════════════════════════════
-EXECUTION PLAN — refactor-large-module (2026-05-25)
-═══════════════════════════════════════════════════════════════
-
-## Dependency graph
-
-Stage 1 — NOW (3 parallel worktrees):
-├── Worker 1 — module/auth   (Mode B worktree, ~50k)   PARALLEL-OK ↔
-├── Worker 2 — module/api    (Mode B worktree, ~50k)   PARALLEL-OK ↔
-└── Worker 3 — module/db     (Mode B worktree, ~50k)
-                                  ↓
-Stage 2 — after all Stage 1 PRs merge:
-└── Integration smoke    (Mode A, ~20k)
-
-## Action queue — what you do next
-
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | Stage 1 Worker-1 block below | Now | — | Worker-2 + Worker-3 |
-| 2 | Stage 1 Worker-2 block below | Now | — | Worker-1 + Worker-3 |
-| 3 | Stage 1 Worker-3 block below | Now | — | Worker-1 + Worker-2 |
-| 4 | Stage 2 block below | After 3 Stage 1 PRs merge | 3 PRs merged | — |
-
-Total pastes: 4 (3 in parallel in Stage 1 + 1 in Stage 2).
-
-## 1-liner blocks (copy ONE block = ONE new CC session)
-
-### Stage 1 Worker-1 — auth refactor (Mode B worktree, ~50k)
-
-**What it does:** refactors `module/auth` in a separate worktree (parallel-subwave-isolation §1 + §4a node_modules links MANDATORY); all edits inside `module/auth/**`, tests in `module/auth/__tests__/`.
-**Deliverable:** PR `refactor/auth-<scope>` with green CI, file:line evidence for cold-review.
-**Why now:** kickoff §4 decomposed refactor into 3 independent modules (auth/api/db); auth has no dependency edges to api/db → safe for parallel dispatch; launching all 3 workers simultaneously cuts wall-clock by ×3 at the same quota total.
-
-/orchestrator refactor-large-module §4 Worker-1 auth — Mode B implementer in worktree, autonomous, rest in kickoff
-
-### Stage 1 Worker-2 — api refactor (Mode B worktree, ~50k)
-
-**What it does:** refactors `module/api` in worktree #2; scope is limited to `module/api/**`; does not touch auth or db (shared file race trap counter).
-**Deliverable:** PR `refactor/api-<scope>` with green CI.
-**Why now:** parallel-safe with Worker-1 and Worker-3 (different file-scopes); one of 3 sub-waves of Stage 1.
-
-/orchestrator refactor-large-module §4 Worker-2 api — Mode B implementer in worktree, autonomous, rest in kickoff
-
-### Stage 1 Worker-3 — db refactor (Mode B worktree, ~50k)
-
-**What it does:** refactors `module/db` in worktree #3; scope `module/db/**`.
-**Deliverable:** PR `refactor/db-<scope>` with green CI.
-**Why now:** third of 3 parallel-safe sub-waves; completes Stage 1.
-
-/orchestrator refactor-large-module §4 Worker-3 db — Mode B implementer in worktree, autonomous, rest in kickoff
-
-### Stage 2 — Integration smoke (Mode A, ~20k)
-
-**What it does:** runs integration tests on staging after all 3 refactor PRs merge, verifies that auth↔api↔db did not break at the boundaries (regression surface from parallel refactor).
-**Deliverable:** integration test output inline; or BLOCKER finding if cross-module contracts are violated.
-**Why now:** Stage 1 ×3 PRs merged → staging has all 3 refactored modules; unit tests in each PR are OK, but integration surface catches cross-module issues only post-merge — critical to validate the parallel-refactor pattern.
-
-/orchestrator refactor-large-module §5 — Mode A runner integration smoke across 3 modules, rest in kickoff
-═══════════════════════════════════════════════════════════════
-```
-
-### Example 4 — Mode Queue (sequential research kickoff queue, ~120k Opus)
-
-```text
-═══════════════════════════════════════════════════════════════
-EXECUTION PLAN — research-umbrella-Q (2026-05-25)
-═══════════════════════════════════════════════════════════════
-
-## Dependency graph
-
-Stage 1 — NOW (sequential queue):
-├── R1 — prior-art sweep    (Queue iter 1, ~30k)
-├── R2 — gap analysis       (Queue iter 2, ~30k, after R1)
-├── R3 — verdict synthesis  (Queue iter 3, ~30k, after R2)
-└── R4 — patch draft        (Queue iter 4, ~30k, after R3)
-
-## Action queue — what you do next
-
-| # | Paste into a new CC tab | When | Waiting on | Can parallel with |
-|---|-------------------------|------|------------|-------------------|
-| 1 | Stage 1 Queue block below | Now | — | — |
-
-Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
-
-## 1-liner blocks (copy ONE block = ONE new CC session)
-
-### Stage 1 — Queue mode R1→R4 (Queue mode, ~120k)
-
-**What it does:** one Opus session iterates R1 (prior-art sweep) → Reviewer GO/REVISE → R2 (gap analysis) → Reviewer GO → R3 (verdict synthesis) → Reviewer GO → R4 (patch draft) → Reviewer GO; each R-iteration produces incremental output, with a cold-review checkpoint between them automatically.
-**Deliverable:** one research-patch with R1-R4 sections + Reviewer GO chain logged; or REVISE-loop with explicit escalation.
-**Why now:** kickoff §2 enumerated 4 sequential R-iterations with iterative-review-each semantics; Queue mode threshold (≥2 sequential R-kickoffs) met; flat-queue dispatch without stage-gates is OK because this is an R-only umbrella (no I-phase build downstream).
-
-/orchestrator research-umbrella-Q §2 — Mode Queue iterative review of each iteration (R1 → R2 → R3 → R4), autonomous, rest in kickoff
-═══════════════════════════════════════════════════════════════
-```
+Read the complete [worked examples](output-examples.md) before producing the
+selected Mode A, SDD, Mode B or Queue report. The examples remain part of this contract.
 
 ---
 

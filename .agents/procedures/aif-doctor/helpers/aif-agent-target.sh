@@ -100,7 +100,12 @@ aif_agent_resolve() {
     return 1
   fi
   here="no aif agent on the current context"
-  [ "$rc" -ne 0 ] && here="the current docker context is unreachable"
+  if [ "$rc" -ne 0 ]; then
+    here="the current docker context is unreachable"
+    # A failed daemon may have emitted partial stdout before failing. It cannot
+    # certify a target; only a successful ps response supplies candidates.
+    found=""
+  fi
   n=$(printf '%s' "$found" | grep -c . || true)
   if [ "$n" -eq 1 ]; then
     AIF_AGENT_NAME="$found"

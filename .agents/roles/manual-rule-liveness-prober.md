@@ -4,6 +4,9 @@ description: Probes a manifest manual rule for liveness via with/without-rule fr
 tools: Read, Glob, Grep, Agent
 ---
 
+> **Codex preflight:** read [host capability preflight](../../docs/codex-contributor.md#capability-preflight-for-every-native-entry). Verify required launch controls before dispatch; a missing experimental control yields DISPATCH-INFEASIBLE, never a simulated successful probe. WebSearch/WebFetch use native web search/open when available.
+
+
 <!-- spec: packages/core/manifest/rules-manifest.json (pressure-scenario contract) + packages/core/principles/02-*.test.ts (mechanical gate) -->
 
 # manual-rule-liveness-prober
@@ -32,15 +35,23 @@ One of:
 - A single manual rule id, e.g. `R10`.
 - The keyword `all` → iterate every `check.type==='manual'` rule in the manifest.
 
-The manual rules at time of writing (keyed by id in `packages/core/manifest/rules-manifest.json`):
+Resolve the active repository root and read `packages/core/manifest/rules-manifest.json`
+before selecting scenarios. For a single id, require an existing entry with
+`check.type === 'manual'`; otherwise report `INVALID-INPUT` and do not dispatch.
+For `all`, enumerate exactly those entries whose current `check.type === 'manual'`.
+The manifest owns membership; a generated scenario or historical example does not
+make an ESLint rule manual. A failed read or parse is unknown, not an empty set.
+
+Current manual-rule roster (the regression test checks this against the manifest):
 
 | id    | title                        | shape                                      |
 | ----- | ---------------------------- | ------------------------------------------ |
 | `R10` | Naming                       | code-grep-shaped (demoable)                |
-| `R13` | Data fetching                | code-grep-shaped (demoable)                |
-| `R18` | TanStack Query / SWR         | code-grep-shaped (demoable)                |
 | `IR5` | Observability propagation    | runtime-shaped (behavioural demo DEFERRED) |
 | `IR6` | Resilience (circuit breaker) | runtime-shaped (behavioural demo DEFERRED) |
+
+R13 and R18 now use ESLint checks and are outside this manual-rule probe. Their
+historical scenarios are examples of code-grep-shaped behavior, not active input.
 
 ## Step 1 — Load the rule's pressure-scenario + policy text
 
@@ -68,7 +79,9 @@ Note the source in your report preamble: `(source: generated-scenarios.json, val
 - **code-grep-shaped** (`R10`, `R13`, `R18`): the `observable-failure` is visible in the code or text the subagent writes — a misplaced `*Service` in the domain layer, a hand-rolled `fetch` inside `useEffect`, a `queryFn` returning unvalidated JSON. A text-only subagent _can_ exhibit the failure (it just writes the offending code). → **behaviorally demoable**: run the full RED→GREEN dispatch (Steps 3–4).
 - **runtime-shaped** (`IR5`, `IR6`): the manifest `observable-failure` is written as a **code-marker proxy** (a bare `fetch('http://service-b/...')` not routed through the instrumented client for `IR5`; an `await fetch(url)` with no timeout/retry/breaker for `IR6`). A text-only subagent **can** write that RED code and the GREEN code — the proxy _is_ textually inspectable, so do not pretend no textual signal exists. **But the rule itself is a runtime property** the proxy only stands in for: that the trace context actually propagates end-to-end (`IR5`) / the breaker actually trips and the timeout actually fires under load (`IR6`). The code-marker is **necessary but not sufficient** — a subagent emitting `opossum` + `timeout` syntax proves the syntax is present, _not_ that the breaker trips correctly. → **report structural-validation-only**: principle 02 confirms the scenario is well-formed and the code-marker is present, but the **behavioural RED→GREEN is DEFERRED** to a runtime-probe sub-wave that can observe the runtime consequence (a Jaeger/Tempo child span; a chaos-test breaker trip). **Do NOT run a text RED→GREEN on the code-marker and present it as proof of runtime liveness** — demoing the proxy-flip as though it proved the runtime rule is exactly the discipline-theatre this sub-wave exists to prevent. (Contrast: for `R10`/`R13`/`R18` the code shape _is_ the whole rule — file location/layer, `useQuery` vs hand-rolled `fetch`, `.parse()` in the `queryFn` — so a text RED→GREEN fully proves liveness.)
 
-If input is `all`, run Steps 3–6 for the code-grep-shaped rules and emit the RUNTIME-SHAPED report row for IR5/IR6.
+If input is `all`, classify each entry in the manifest-derived manual population;
+run Steps 3–6 only for its code-grep-shaped rules and emit the RUNTIME-SHAPED report
+row for its runtime-shaped rules. Do not add historical R13/R18 scenarios to that set.
 
 ## Step 3 — Pass 1: RED / baseline (rule absent)
 
@@ -114,7 +127,10 @@ VERDICT: LIVE | BASELINE-DIDN'T-FAIL | WITH-RULE-DIDN'T-COMPLY | RUNTIME-SHAPED
 RECOMMENDATION: <none (LIVE) | strengthen baseline + re-run | revise rule/scenario (maintainer) | runtime-probe sub-wave>
 ```
 
-When the input is `all`: emit one such block per code-grep-shaped rule (`R10`/`R13`/`R18`), then a single `RUNTIME-SHAPED (DEFERRED)` row for each of `IR5`/`IR6` (no PASS 1 / PASS 2 — structural-validation-only per Step 2).
+When the input is `all`: emit one such block per code-grep-shaped entry in the
+current manual population, then a `RUNTIME-SHAPED (DEFERRED)` row per runtime-shaped
+entry (no PASS 1 / PASS 2 — structural-validation-only per Step 2). Today those are
+R10, followed by IR5 and IR6; R13/R18 are not manual inputs.
 
 ## §Shape note — same RED→GREEN mechanism, different artifact
 
@@ -138,7 +154,7 @@ State the problem-class match explicitly:
 This prober is itself a manual-rule-shaped convention: _"every manifest manual rule must carry a live pressure-scenario."_ Its OWN liveness is enforced two ways, the same RED→GREEN split it applies to other rules:
 
 - **(a) Structural — principle 02's mechanical gate (the RED):** a `check.type==='manual'` rule that lacks a well-formed pressure-scenario fails CI. That is the always-reachable floor — the structural liveness check this prober _cannot_ be, because it is text-only and CI-bound. Remove a rule's pressure-scenario and CI goes red; that is the RED proof that the convention bites.
-- **(b) Behavioural — the RED→GREEN demo on `R10`/`R13`/`R18`:** running this very prober against the three code-grep-shaped rules is the behavioural proof that the _pressure-scenarios themselves_ are live (they actually flip a fresh agent from violation to compliance). If a scenario yields BASELINE-DIDN'T-FAIL, the convention is structurally present but behaviourally hollow — exactly the discipline-theatre gap (`structure ≠ substance`) this prober surfaces.
+- **(b) Behavioural — the RED→GREEN demo on current code-grep-shaped manual rules (today `R10`):** running this very prober against that manifest-derived population is the behavioural proof that the _pressure-scenarios themselves_ are live (they actually flip a fresh agent from violation to compliance). Historical R13/R18 probes do not count as current manual-rule evidence. If a scenario yields BASELINE-DIDN'T-FAIL, the convention is structurally present but behaviourally hollow — exactly the discipline-theatre gap (`structure ≠ substance`) this prober surfaces.
 
 So the artifact self-applies: it is governed by the same two-channel liveness (structural-gate + behavioural-demo) it imposes on the rules it probes. The runtime-shaped pair (`IR5`/`IR6`) sits at channel (a) only until the runtime-probe sub-wave lands channel (b) for them — and the report says so honestly rather than faking it.
 

@@ -1,6 +1,6 @@
 /**
  * Functional meta-test for the meta-orchestrator dup-detect helper's empty-arg
- * branch (.claude/skills/pipeline/helpers/dup-detect.sh) — paired-negative
+ * branch (.agents/procedures/pipeline/helpers/dup-detect.sh) — paired-negative
  * contract for Stage 4 P4-b (meta-orch-no-arg-overview umbrella, 2026-05-28).
  *
  * Channel: in-session helper invoked via Bash tool from SKILL.md §2.5 Step 2.
@@ -26,7 +26,7 @@
  * (vitest + spawnSync + mkdtempSync sandbox).
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
@@ -64,6 +64,8 @@ afterEach(() => {
 function makeSandbox(): string {
   const d = mkdtempSync(join(tmpdir(), 'dup-detect-empty-arg-test-'));
   sandboxes.push(d);
+  execFileSync('git', ['init', '-q'], { cwd: d });
+  execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'core.hooksPath=/dev/null', 'commit', '--allow-empty', '-qm', 'complete empty deliverable tree'], { cwd: d });
   return d;
 }
 
@@ -104,6 +106,7 @@ function runHelper(
       ...process.env,
       REPO_ROOT: sandboxRoot,
       MO_GH_BIN: fakeGh,
+      MO_DELIVERABLE_REF: 'HEAD',
     },
   });
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
@@ -166,7 +169,7 @@ describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { tim
     const fakeGh = setupRepo(sandbox, ['real-umbrella']);
 
     const r = runHelper(ctx, sandbox, fakeGh, ['nonexistent-umbrella']);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(1);
     expect(r.stdout).toMatch(/MISSING: nonexistent-umbrella no kickoff\.md found/);
     expect(r.stdout).not.toMatch(/Usage:/);
   });

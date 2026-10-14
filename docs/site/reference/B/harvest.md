@@ -114,11 +114,11 @@ CI-only, and the skill says so: whole-tree Markdown checks are not in the local 
   The runtime health check is step 0 (line 58). The default push path is step 4
   (line 63). The last-resort path is step 5 (line 64). The CI-only checks are named at
   line 83.
-- The list of `factory` skills is line 65 of `setup.d/lib.sh`. The loop that copies
-  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 170
-  to 174.
+- The list of `factory` skills (six members, `intent` sixth) is line 65 of `setup.d/lib.sh`. The loop that copies
+  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 179
+  to 183.
 - The same block delivers `scripts/run-local-ci-sweep.sh` next to the skill:
-  `setup.d/10-skills.sh`, lines 175 to 182. The usage text printed above is lines 234 to
+  `setup.d/10-skills.sh`, lines 184 to 191. The usage text printed above is lines 234 to
   239 of that script.
 - The card above is built from the `harvest` entry in `docs/site/reference/B.json`,
   which starts at line 159.

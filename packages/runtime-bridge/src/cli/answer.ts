@@ -60,6 +60,7 @@
  */
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { BackendError } from '../backend.js';
+import { enforceAnswerScope } from '../resultReview.js';
 import { getJson, getTask, putTask, postJson, getParticipantsModeEnabled } from './aifHttp.js';
 import type { AifTaskFull } from './aifHttp.js';
 
@@ -87,6 +88,23 @@ export const VALID_DECISIONS: readonly AnswerDecision[] = [
   'retry',
   'resume',
   'complete_review',
+  'request_review_changes',
+];
+
+/**
+ * The PLAN-CHANGING / RESTARTING decisions (intent-first-result kickoff §4 Task 2): each
+ * moves a task back into implementation (resume lifts the pause over a rewritten plan,
+ * request_changes / request_review_changes re-open it for rework, retry re-fires it out
+ * of blocked_external), so on a feature-scoped task — one whose PERSISTED description
+ * declares an `intent-contract` — each requires an authorized within-contract PlanReview
+ * BEFORE its write or event. `approve` and `complete_review` are status-only closers:
+ * nothing re-enters implementation, so they — and every decision on an unscoped task —
+ * keep today's behaviour exactly.
+ */
+export const SCOPE_GUARDED_DECISIONS: readonly AnswerDecision[] = [
+  'request_changes',
+  'retry',
+  'resume',
   'request_review_changes',
 ];
 
@@ -158,10 +176,13 @@ export interface AnswerArgs {
   answer?: string;
   decision: string;
   json: boolean;
+  /** Path to the authorized PlanReview record — REQUIRED for intent-scoped tasks. */
+  review?: string;
 }
 
 /**
- * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json.
+ * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes),
+ * --review <path>, --json.
  * Throws {@link CliArgError} on a malformed invocation — see cliEntry.ts (A6-7).
  */
 export function parseAnswerArgs(argv: string[]): AnswerArgs {
@@ -170,6 +191,7 @@ export function parseAnswerArgs(argv: string[]): AnswerArgs {
       task: { type: 'string' },
       answer: { type: 'string' },
       decision: { type: 'string' },
+      review: { type: 'string' },
       json: { type: 'boolean' },
     },
   });
@@ -177,6 +199,7 @@ export function parseAnswerArgs(argv: string[]): AnswerArgs {
     taskId: values.task as string | undefined,
     answer: values.answer as string | undefined,
     decision: (values.decision as string | undefined) ?? 'request_changes',
+    review: values.review as string | undefined,
     json: values.json === true,
   };
 }
@@ -319,8 +342,14 @@ export async function postEvent(baseUrl: string, taskId: string, event: string):
  * under an OPERATOR ANSWER block, and PUT { plan, paused:false, blockedReason:null }.
  * The implementer re-reads the plan on its next tick (spec §3 resume / A).
  */
-export async function resumePark(baseUrl: string, taskId: string, answer: string): Promise<PushResult> {
-  const task = await getTask(baseUrl, taskId);
+export async function resumePark(
+  baseUrl: string,
+  taskId: string,
+  answer: string,
+  /** Task row already read by the caller (pushAnswer's standing-scope read) — spares a duplicate GET. */
+  preloaded?: AifTaskFull,
+): Promise<PushResult> {
+  const task = preloaded ?? (await getTask(baseUrl, taskId));
   // A6-6b guard (#1597 ledger, the half #1625 deferred): `resume` dispatches NO
   // state-machine event — it is a bare PUT that lifts `paused`. On a task that is not
   // paused there is nothing to lift, so the call degrades to a silent plan rewrite: the
@@ -365,22 +394,40 @@ export async function pushAnswer(
   taskId: string,
   decision: AnswerDecision,
   answer: string | undefined,
+  opts: { reviewPath?: string } = {},
 ): Promise<PushResult> {
-  if (decision === 'resume') {
-    if (!answer || !answer.trim()) {
-      throw new BackendError(`decision "resume" requires answer text`, 'dispatch_failed', 'aif-handoff');
-    }
-    return resumePark(baseUrl, taskId, answer.trim());
+  // Argument validation first: it is free (no fetch), and a caller who forgot the
+  // answer text deserves that error rather than a message about the deployment's
+  // dispatcher — the standing-scope read below must never run for a doomed call.
+  const step = decision === 'resume' ? null : resolveStep(decision);
+  if (decision === 'resume' && !answer?.trim()) {
+    throw new BackendError(`decision "resume" requires answer text`, 'dispatch_failed', 'aif-handoff');
   }
-  const step = resolveStep(decision);
-  // Argument validation first: it is free, and a caller who forgot the answer text deserves
-  // that error rather than a message about the deployment's dispatcher.
-  if (step.needsComment && !answer?.trim()) {
+  if (step?.needsComment && !answer?.trim()) {
     throw new BackendError(
       `decision "${decision}" requires answer text to attach as a comment`,
       'dispatch_failed',
       'aif-handoff',
     );
+  }
+  // Standing-scope guard BEFORE any write or event (intent-first-result §4 Task 2) —
+  // for the PLAN-CHANGING / RESTARTING decisions only ({@link SCOPE_GUARDED_DECISIONS}):
+  // the task's PERSISTED description carries the durable declared scope, so a bare task
+  // ID does not erase it. A scoped task requires an authorized within-contract PlanReview
+  // binding the current plan bytes, task pre-image and proposed payload — otherwise the
+  // answer HELDs (spec_invalid) before the comment POST and before the event. Status-only
+  // decisions (approve, complete_review) and every unscoped task keep today's behaviour.
+  let scopedRow: AifTaskFull | undefined;
+  if (SCOPE_GUARDED_DECISIONS.includes(decision)) {
+    scopedRow = await getTask(baseUrl, taskId);
+    enforceAnswerScope(scopedRow, {
+      ...(answer !== undefined ? { answer: answer.trim() } : {}),
+      reviewPath: opts.reviewPath,
+      backend: 'aif-handoff',
+    });
+  }
+  if (decision === 'resume') {
+    return resumePark(baseUrl, taskId, answer!.trim(), scopedRow);
   }
   // Probe BEFORE any write: a review-state event this deployment cannot serve must not
   // leave a comment behind as the only trace of a call that was always going to 409.
@@ -388,12 +435,12 @@ export async function pushAnswer(
     await assertReviewEventReachable(baseUrl, taskId, decision);
   }
   let commented = false;
-  if (step.needsComment) {
+  if (step!.needsComment) {
     await postComment(baseUrl, taskId, (answer as string).trim());
     commented = true;
   }
-  await postEvent(baseUrl, taskId, step.event);
-  return { taskId, decision, event: step.event, commented };
+  await postEvent(baseUrl, taskId, step!.event);
+  return { taskId, decision, event: step!.event, commented };
 }
 
 /** Render a PushResult as a human-readable confirmation. */
@@ -426,10 +473,16 @@ async function main(): Promise<void> {
 
   let result: PushResult;
   try {
-    result = await pushAnswer(baseUrl, args.taskId!, args.decision as AnswerDecision, args.answer);
+    result = await pushAnswer(baseUrl, args.taskId!, args.decision as AnswerDecision, args.answer, {
+      reviewPath: args.review,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[runtime-bridge] answer: failed to push answer: ${msg}\n`);
+    // A scope hold is a refusal, not a crash: BackendError (e.g. spec_invalid) exits 2 —
+    // matching dispatch.ts/start-reviewed.ts and the shipped "HOLDS (exit 2, no event)" docs
+    // (execution.md / parks.md). Cold-review M3 (2026-10-10): was exit 1 for every failure.
+    if (err instanceof BackendError) process.exit(2);
     process.exit(1);
   }
 

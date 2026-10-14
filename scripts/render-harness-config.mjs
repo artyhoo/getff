@@ -24,6 +24,7 @@
  * A per-harness emitter shipped to consumers via install.sh is a PARKED fork (#894 §7).
  */
 import {
+  readdirSync,
   readFileSync,
   writeFileSync,
   existsSync,
@@ -554,8 +555,18 @@ export function emitPlugin(model) {
   return ops;
 }
 
+// Native contributor role discovery is independent of sealed Claude settings/MCP.
+// This explicit lane never changes trust or permissions.
+export function emitClaudeRoles(_model, root) {
+  if (!existsSync(join(root, '.agents/roles'))) return [];
+  return readdirSync(join(root, '.agents/roles'))
+    .filter(name => name.endsWith('.md')).sort()
+    .map(name => ({ kind: 'symlink', path: `.claude/agents/${name}`, target: `../../.agents/roles/${name}` }));
+}
+
 const EMITTERS = [
   { name: 'codex', emit: emitCodex },
+  { name: 'claude-roles', emit: emitClaudeRoles },
   { name: 'claude', emit: emitClaude },
   { name: 'zcode', presenceProbe: '.zcode/config.json', emit: emitZcode },
   {

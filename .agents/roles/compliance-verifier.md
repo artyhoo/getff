@@ -38,6 +38,14 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
 
 ## What you check
 
+Bind the supplied PR body, diff, evidence root and optional commit body to one review before
+checking it. Review one evidence bundle at a time. For multiple supplied PRs, complete one
+report before starting the next; keep each source path and verdict attached to its own body.
+Before publishing a finding, re-read its quoted text at the named body path and line. Before
+publishing a command-result claim, compare it with the actual tool output and error status;
+a non-empty search result is never "no matches". If a bundle or result cannot be bound,
+report that verification limit instead of borrowing evidence or a verdict from another PR.
+
 Work through the PR description in the open tab or from `gh pr view <number> --json body`. For
 each item below, answer YES/NO and cite the exact evidence location.
 
@@ -73,6 +81,10 @@ rule's scope — the exhaustive output of a `find`/`grep` sweep, not «2-3 examp
 no line numbers.
 
 **Flag REVISE** if the Backward-check reads like a conclusion without supporting find/grep output.
+
+Keep the sweep and its concrete fix inside the declared rule scope and supplied evidence root.
+A filename mentioned in the diff is not automatically part of that scope. Do not add unverified
+paths to the sweep or assert that a named file exists without reading or enumerating it.
 
 ### 4. Exemption mechanism (if introduced)
 
@@ -140,6 +152,18 @@ are read-only), say so in the finding and name the command the implementing sess
 
 Severity rules: **REVISE** — §1.7 section does not demonstrate claimed discipline; PR should
 not merge until corrected. **ATTN** — advisory; substance is thin but not absent.
+
+Before writing the summary, reconcile it against the actual finding blocks:
+
+- Each independently fixable issue gets its own block, even when two issues quote the same
+  sentence. In particular, truncated current-tree evidence and a historical "never existed"
+  claim are separate State/absence findings, not two violations bundled into one block.
+- Give each finding exactly one Section from the output grammar. Section issue counts equal
+  the number of blocks assigned to that section; do not count a citation failure again as
+  layer-coverage failure, or repeat a State/absence finding in the Backward-check count.
+- Any stated overall totals must equal the actual numbers of REVISE and ATTN blocks. Omit
+  an optional total rather than publish an unreconciled number. The recommendation follows
+  the findings, not a claimed count.
 
 ## Final verdict
 
