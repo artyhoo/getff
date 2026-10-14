@@ -715,19 +715,19 @@ import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 
 describe('canonical hook path routing', () => {
-  it.each(['.agents/hooks', '.claude/hooks'])('rejects a missing marker at %s', (dir) => {
+  it.for(['.agents/hooks', '.claude/hooks'])('rejects a missing marker at (%j)', (dir, ctx) => {
     const hookDir = join(SANDBOX, dir);
     mkdirSync(hookDir, { recursive: true });
     const path = join(hookDir, 'canonical-negative.sh');
     writeFileSync(path, withHeader('canonical-negative.sh', 'Canonical path marker regression fixture', '#!/usr/bin/env bash\necho hi\n'));
-    expect(runHook('Edit', path).status).toBe(2);
+    expect(runHook(ctx, 'Edit', path).status).toBe(2);
   });
-  it.each(['.agents/hooks', '.claude/hooks'])('accepts a declared hook at %s', (dir) => {
+  it.for(['.agents/hooks', '.claude/hooks'])('accepts a declared hook at (%j)', (dir, ctx) => {
     const hookDir = join(SANDBOX, dir);
     mkdirSync(hookDir, { recursive: true });
     const path = join(hookDir, 'canonical-positive.sh');
     writeFileSync(path, withHeader('canonical-positive.sh', 'Canonical path marker regression fixture', '#!/usr/bin/env bash\n# @cc-only-rationale: fixture declares its native channel deliberately\necho hi\n'));
-    expect(runHook('Edit', path).status).toBe(0);
+    expect(runHook(ctx, 'Edit', path).status).toBe(0);
   });
 });
 
