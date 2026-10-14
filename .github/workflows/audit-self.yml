@@ -2991,3 +2991,4 @@ jobs:
           node --test scripts/dot-relay/executor.test.mjs
           node --test scripts/dot-relay/cli.test.mjs
           node --test scripts/dot-relay/bridge-runner.test.mjs
+          node --test scripts/dot-relay/native-source.test.mjs
