@@ -2329,10 +2329,11 @@ export async function applyReviewAndVerify({ ledger, executionId, receipt, prove
     } catch { /* a failed charge never flips the verification verdict */ }
   }
   if (v.state === 'DONE') {
-    if (row && row.attempts_admitted >= 1) {
-      ledger.updateAttempt(executionId, row.attempts_admitted, { state: 'DONE' });
+    try {
+      ledger.completeReviewedExecution({ executionId, receipt });
+    } catch (err) {
+      return { state: 'HELD', held: true, blocker: err?.code ?? 'REVIEW_STATE', execution_id: executionId };
     }
-    ledger.updateExecution(executionId, { state: 'DONE' });
     return { state: 'DONE', execution_id: executionId, pr_url: report.pr_url, head_sha: report.head_sha, verified_now: true };
   }
   // F12: an infrastructure HOLD leaves the durable review state untouched —
