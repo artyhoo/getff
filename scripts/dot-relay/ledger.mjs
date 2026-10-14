@@ -16,6 +16,7 @@ import { mkdirSync, writeFileSync, renameSync, lstatSync, statSync } from 'node:
 import { join } from 'node:path';
 import { sha256Hex } from '../dot-review-gate/digest.mjs';
 import { canonical, digest as canonicalDigest, CHAT_IDS, validateSolution, probeOutcome } from './contract.mjs';
+import { nativeSourceStore } from './native-source-store.mjs';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS events (
@@ -753,6 +754,22 @@ export function openLedger(path, {
       return db.prepare('SELECT * FROM executions WHERE id = ?').get(id) ?? null;
     },
 
+    // Controlled migration never changes durable OFF, historical claims,
+    // semantic ownership or execution rows. No promotion command is supplied.
+    enterSourceOnly({ owner, admissionSha256 }) {
+      if (!/^[0-9a-f-]{36}$/.test(owner ?? '') || !/^[0-9a-f]{64}$/.test(admissionSha256 ?? '')) {
+        throw ledgerError('DOT_SOURCE_CONTROL_UNTRUSTED', 'owner admission required');
+      }
+      return api._tx(() => {
+        if (api._ctrl('source_mode') === 'SOURCE_ONLY') return { replay: true };
+        api._ctrlSet('source_mode', 'SOURCE_ONLY');
+        if (api._ctrl('cloud_semantic_owner') === null) api._ctrlSet('cloud_semantic_owner', 'LEGACY');
+        api._ctrlSet('local_executor_admission', 'OFF');
+        api._audit('SOURCE_ONLY_ADMITTED', owner, { admission_sha256: admissionSha256 });
+        return { replay: false };
+      });
+    },
+
     // -------------------------------------------------- R10: worker reports + review gate
 
     getWorkerReport(executionId) {
@@ -1054,6 +1071,7 @@ export function openLedger(path, {
     // reconcileHost can PROVE the claiming process dead before UNCERTAIN.
     claimDelivery(deliveryId, { sender = null } = {}) {
       return api._tx(() => {
+        if (api._ctrl('source_mode') === 'SOURCE_ONLY') throw ledgerError('SOURCE_ONLY', 'frozen producer delivery denied');
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         const row = db.prepare('SELECT * FROM outbox WHERE delivery_id = ?').get(deliveryId);
         if (!row) throw ledgerError('UNKNOWN_DELIVERY', deliveryId);
@@ -1355,6 +1373,7 @@ export function openLedger(path, {
 
     ingest(env, { trustedProducerRole } = {}) {
       return api._tx(() => {
+        if (api._ctrl('source_mode') === 'SOURCE_ONLY') throw ledgerError('SOURCE_ONLY', 'legacy semantic input denied');
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         if (typeof env !== 'object' || env === null) throw ledgerError('INVALID', 'envelope');
         // F01: the reserved historical intake seed is never an operational
@@ -1787,6 +1806,7 @@ export function openLedger(path, {
     // never over-spend the allowance.
     claimExecution({ solutionId, sessionId, bootId = null, supervisor = null }) {
       return api._tx(() => {
+        if (api._ctrl('local_executor_admission') === 'OFF') throw ledgerError('LOCAL_EXECUTOR_OFF', 'separate execution admission required');
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         const active = db.prepare(`SELECT id FROM executions WHERE state IN ${ACTIVE_IN}`).get();
         if (active) {
@@ -1887,6 +1907,7 @@ export function openLedger(path, {
         throw ledgerError('RECONCILE_INPUT', 'executionId and bootId required');
       }
       return api._tx(() => {
+        if (api._ctrl('local_executor_admission') === 'OFF') return { admitted: false, code: 'LOCAL_EXECUTOR_OFF' };
         // F02: the OFF refusal sits INSIDE the admission transaction — before
         // any allowance charge, attempt insert, or active-row change. A resume
         // dispatched before OFF landed must stop at this boundary.
@@ -2244,6 +2265,7 @@ export function openLedger(path, {
     // (claim-first, SENT_ACCEPTED/UNCERTAIN terminal, uncertain never resent).
     claimReceipt(receiptId, { sender = null } = {}) {
       return api._tx(() => {
+        if (api._ctrl('source_mode') === 'SOURCE_ONLY') throw ledgerError('SOURCE_ONLY', 'frozen producer receipt delivery denied');
         if (api._isOff()) throw ledgerError('OFF', 'admissions blocked by durable OFF');
         const row = db.prepare('SELECT * FROM receipt_outbox WHERE receipt_id = ?').get(receiptId);
         if (!row) throw ledgerError('UNKNOWN_RECEIPT', receiptId);
@@ -2701,6 +2723,9 @@ export function openLedger(path, {
       const activeExec = db.prepare(`SELECT * FROM executions WHERE state IN ${ACTIVE_IN}`).get() ?? null;
       const planObj = {
         deployment_mode: 'HYBRID',
+        source_mode: api._ctrl('source_mode') ?? 'LEGACY',
+        cloud_semantic_owner: api._ctrl('cloud_semantic_owner') ?? 'LEGACY',
+        local_executor_admission: api._ctrl('local_executor_admission') ?? 'LEGACY',
         manifests_to_fetch: manifestsToFetch,
         delivery_ids: due,
         committed_cursors: cursors,
@@ -2748,6 +2773,9 @@ export function openLedger(path, {
         deployment_mode: 'HYBRID',
         off: api._isOff(),
         recovery_import_pending: api.recoveryImportPending(),
+        source_mode: api._ctrl('source_mode') ?? 'LEGACY',
+        cloud_semantic_owner: api._ctrl('cloud_semantic_owner') ?? 'LEGACY',
+        local_executor_admission: api._ctrl('local_executor_admission') ?? 'LEGACY',
         baseline_ready: db.prepare("SELECT value FROM control WHERE key='baseline_receipt'").get()?.value === '1',
         counts: {
           ...eventStates,
@@ -2778,5 +2806,6 @@ export function openLedger(path, {
     return result;
   };
 
+  api.nativeSources = nativeSourceStore(db, api);
   return api;
 }

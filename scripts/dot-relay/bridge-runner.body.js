@@ -641,6 +641,13 @@ async function runBridge({ tools, config, emit }) {
       emit(result);
       return result;
     }
+    // Source-only admission is orthogonal to historical consumption. Even a
+    // complete baseline must not resume frozen role waits, reads or sends.
+    if (st.source_mode === 'SOURCE_ONLY') {
+      const result = { version: 1, mode: 'HYBRID', state: 'SOURCE_ONLY', counts: counters,
+        blockers: [{ code: 'LOCAL_EXECUTOR_OFF', event_id: null }], continuation: false };
+      emit(result); return result;
+    }
     if (config.operation_fence_required === true && st.bridge?.active !== true) {
       const result = { version:1, mode:'HYBRID', state:'PARTIAL_AWAITING_BRIDGE', counts:counters,
         blockers:[{code:'ACTIVATION_ADMISSION_UNPROVEN',event_id:null}], continuation:false };

@@ -24,8 +24,10 @@ import {
   runExecution, resumeExecution, monitorAdoptedChild, startActiveClock, parseAgentsCensus,
   proveProcessDeath, runCessationLadder, classifyProbe, DEATH_PROOF_SESSION,
   productionProcessProbe, nativeGitPush,
+  makeGhAdapter, verifyPr, applyReviewAndVerify,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
+import { admittedNativeInput, exactNativeKeys, NATIVE_DOT, privateNativeBytes, verifyNativeOriginal, validateNativeRegistry, validateNativeReview } from './native-source.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -77,6 +79,11 @@ const FLAG_SPECS = {
   tick: {},
   supervise: { '--execution-id': 'value', '--resume': 'bool', '--adopt': 'bool' },
   'review-import': { '--execution-id': 'value', '--receipt': 'value' },
+  'native-source-mode': { '--file': 'value' },
+  'native-source-register': { '--file': 'value' },
+  'native-source-import': { '--file': 'value' },
+  'dot-review-request': { '--execution-id': 'value' },
+  'dot-approval-import': { '--file': 'value' },
   plan: {},
   'plan-advance': { '--collection': 'value', '--scan-id': 'value', '--cursor': 'value', '--wrap': 'bool' },
   'spool-begin': { '--id': 'value', '--artifact-sha256': 'value', '--bytes': 'value' },
@@ -689,6 +696,7 @@ function cmdTick({ root }) {
     // Durable OFF suppresses planning/admission/recovery entirely (§1) —
     // reboot/login/manual tick all arrive here and none clears it.
     if (ledger.status().off) return ok({ off: true, supervise_launched: false });
+    if (ledger.status().source_mode === 'SOURCE_ONLY') return ok({ source_mode: 'SOURCE_ONLY', supervise_launched: false });
     if (existsSync(join(root, 'native-binding.json'))) {
       const native = nativeBinding(root);
       // Existing native owner consumes the durable plan on its heartbeat.
@@ -885,6 +893,19 @@ async function cmdSupervise({ root, flags }) {
 // (F07): with no trusted Dot importer enrolled, every receipt renders
 // BLOCKED_DOT_APPROVAL_PROVENANCE before any ledger transition, clock, or gh
 // call — the review slot is never touched.
+function cmdNativeSourceMode({ root, flags }) {
+  checkRoot(root);
+  if (!existsSync(join(root, 'native-binding.json'))) fail('DOT_SOURCE_CONTROL_UNTRUSTED');
+  const binding = nativeBinding(root);
+  const admitted = admittedNativeInput(root, flags['--file'], binding, 'SOURCE_ONLY');
+  const input = admitted.input;
+  exactNativeKeys(input, ['version', 'owner', 'mode']);
+  if (input.version !== 1 || input.owner !== binding.owner || input.mode !== 'SOURCE_ONLY') fail('DOT_SOURCE_CONTROL_UNTRUSTED');
+  const { ledger } = openRoot(root);
+  try { ok({ ...ledger.enterSourceOnly({ owner: binding.owner, admissionSha256: admitted.admissionSha256 }), source_mode: 'SOURCE_ONLY' }); }
+  finally { ledger.close(); }
+}
+
 async function cmdReviewImport({ root, flags }) {
   const id = flags['--execution-id'];
   const receiptPath = flags['--receipt'];
@@ -912,6 +933,126 @@ async function cmdReviewImport({ root, flags }) {
   // `provenance`/`policy` into applyReviewAndVerify). Until then the external
   // blocker BLOCKED_DOT_APPROVAL_PROVENANCE stands.
   fail('BLOCKED_DOT_APPROVAL_PROVENANCE', { execution_id: id });
+}
+
+function cmdNativeSourceRegister({ root, flags }) {
+  const native = nativeBinding(root);
+  const admitted = admittedNativeInput(root, flags['--file'], native, 'REGISTER_NATIVE_DOT');
+  const r = admitted.input;
+  exactNativeKeys(r, ['version', 'owner', 'producer', 'epoch', 'page_id', 'challenge', 'access', 'local_source_path']);
+  if (r.version !== 1 || r.owner !== native.owner || Object.keys(NATIVE_DOT).some(k => r[k] !== NATIVE_DOT[k])) fail('DOT_SOURCE_UNTRUSTED');
+  const bytes = privateNativeBytes(r.local_source_path, { root: join(root, 'native-source', 'verified') });
+  const text = verifyNativeOriginal(bytes, r.challenge, r.access, NATIVE_DOT);
+  validateNativeRegistry(text, NATIVE_DOT);
+  const { ledger } = openRoot(root);
+  try {
+    ok({ ...ledger.nativeSources.register({ binding: NATIVE_DOT, registrationSha256: admitted.inputSha256,
+      admissionSha256: admitted.admissionSha256 }), producer: NATIVE_DOT.producer, epoch: NATIVE_DOT.epoch });
+  } finally { ledger.close(); }
+}
+
+function cmdNativeSourceImport({ root, flags }) {
+  const native = nativeBinding(root);
+  const input = parseStrictJson(privateNativeBytes(flags['--file'], { root: join(root, 'native-source'), maxBytes: 32768 }).toString('utf8'), { maxBytes: 32768 });
+  exactNativeKeys(input, ['version', 'source', 'access', 'local_source_path']);
+  if (input.version !== 1) fail('DOT_SOURCE_UNTRUSTED');
+  const { ledger } = openRoot(root);
+  try {
+    const binding = enrolledNativeBinding(ledger, native);
+    const bytes = privateNativeBytes(input.local_source_path, { root: join(root, 'native-source', 'verified') });
+    const text = verifyNativeOriginal(bytes, input.source, input.access, binding);
+    const discriminator = parseStrictJson(text, { maxBytes: 1048576 });
+    let parsed;
+    if (discriminator.kind === 'dot_head_review') {
+      const request = ledger.nativeSources.getRequest(discriminator.request_id);
+      if (!request) fail('DOT_REVIEW_REQUEST_UNPROVEN');
+      const review = validateNativeReview(text, { binding, request, currentHead: request.head_sha });
+      parsed = { kind: 'dot_head_review', generation: review.review_id };
+    } else parsed = validateNativeRegistry(text, binding);
+    ok(ledger.nativeSources.retain({ binding, descriptor: input.source, access: input.access, bytes, ...parsed }));
+  } finally { ledger.close(); }
+}
+
+function nativeReviewPolicy(root, binding) {
+  const admitted = admittedNativeInput(root, join(root, 'native-source', 'policy.json'), binding, 'CHECK_POLICY');
+  exactNativeKeys(admitted.input, ['version', 'digest', 'required']);
+  return admitted.input;
+}
+
+function enrolledNativeBinding(ledger, native) {
+  const binding = ledger.nativeSources.getBinding();
+  const evidence = native.native_source_admission;
+  if (!binding || !evidence) fail('DOT_SOURCE_UNREGISTERED');
+  const admission = parseStrictJson(privateNativeBytes(evidence.path, { maxBytes: 32768 }).toString('utf8'), { maxBytes: 32768 });
+  if (admission.version !== 1 || admission.owner !== native.owner || admission.effects?.REGISTER_NATIVE_DOT !== binding.sha256) fail('DOT_SOURCE_UNREGISTERED');
+  return binding;
+}
+
+async function cmdDotReviewRequest({ root, flags }) {
+  const native = nativeBinding(root);
+  const policy = nativeReviewPolicy(root, native);
+  const { ledger } = openRoot(root);
+  const id = flags['--execution-id'];
+  let clock;
+  let result;
+  try {
+    const binding = enrolledNativeBinding(ledger, native);
+    const report = ledger.getWorkerReport(id);
+    if (!binding || !report || ledger.getExecution(id)?.state !== 'REQUIRES_REVIEW') fail('DOT_REVIEW_REQUEST_UNPROVEN');
+    const ctx = /^https:\/\/github\.com\/(artyhoo\/getff)\/pull\/([1-9]\d*)$/.exec(report.pr_url);
+    if (!ctx) fail('DOT_REVIEW_REQUEST_UNPROVEN');
+    const view = makeGhAdapter().view(['pr', 'view', report.pr_url, '--json', 'headRefOid,baseRefOid']);
+    if (view.headRefOid !== report.head_sha || !/^[0-9a-f]{40}$/.test(view.baseRefOid ?? '')) fail('DOT_APPROVAL_STALE');
+    clock = startActiveClock();
+    if (!await clock.ready(5000)) result = { state: 'HELD', blocker: 'CLOCK_UNPROVEN' };
+    else {
+      const budget = ledger.reviewVerifyBudget({ executionId: id });
+      const before = clock.activeNs();
+      const verified = await verifyPr({ url: report.pr_url, headSha: report.head_sha, baseSha: view.baseRefOid, policy, clock,
+        deadlineMs: Math.min(15000, Math.max(0, budget.budget_ms - budget.spent_ms)), pollIntervalMs: 1000 });
+      const after = clock.activeNs();
+      if (before !== null && after !== null && after > before) ledger.chargeReviewVerifyBudget({ executionId: id, additionalMs: Number((after - before) / 1000000n) });
+      if (verified.state !== 'DONE') result = verified;
+      else result = { ...ledger.nativeSources.request({ request: { version: 1, request_id: 'DOT-REQUEST-' + randomUUID(), execution_id: id,
+        repository: ctx[1], pr: Number(ctx[2]), head_sha: report.head_sha, base_sha: view.baseRefOid, epoch: binding.epoch,
+        source_binding_sha256: binding.sha256, policy: { version: policy.version, digest: policy.digest },
+        required_evidence_sha256: sha256OfText(JSON.stringify({ view, policy, verified })) } }), transport: 'NOT_SENT' };
+    }
+  } finally { clock?.stop(); ledger.close(); }
+  ok(result);
+}
+
+async function cmdDotApprovalImport({ root, flags }) {
+  const native = nativeBinding(root);
+  const policy = nativeReviewPolicy(root, native);
+  const input = parseStrictJson(privateNativeBytes(flags['--file'], { root: join(root, 'native-source'), maxBytes: 32768 }).toString('utf8'), { maxBytes: 32768 });
+  exactNativeKeys(input, ['version', 'execution_id', 'request_id', 'source_binding_sha256', 'source', 'local_source_path']);
+  const { local_source_path: localPath, ...receipt } = input;
+  const { ledger } = openRoot(root);
+  let clock;
+  let result;
+  try {
+    const binding = enrolledNativeBinding(ledger, native);
+    const stored = ledger.nativeSources.getSource(receipt.source?.sha256);
+    if (!binding || !stored) fail('DOT_APPROVAL_UNPROVEN');
+    const bytes = privateNativeBytes(localPath, { root: join(root, 'native-source', 'verified'), maxBytes: 16384 });
+    verifyNativeOriginal(bytes, receipt.source, JSON.parse(stored.access_json), binding);
+    if (!bytes.equals(stored.original_bytes)) fail('DOT_APPROVAL_UNPROVEN');
+    const request = ledger.nativeSources.getRequest(receipt.request_id);
+    if (!request) fail('DOT_REVIEW_REQUEST_UNPROVEN');
+    const view = makeGhAdapter().view(['pr', 'view', `https://github.com/${request.repository}/pull/${request.pr}`, '--json', 'headRefOid,baseRefOid']);
+    if (view.baseRefOid !== request.base_sha) fail('DOT_APPROVAL_STALE');
+    const verified = ledger.nativeSources.approval({ receipt, currentHead: view.headRefOid });
+    if (verified.review.decision === 'NEEDS_FIX') result = { state: 'HELD', blocker: 'DOT_NEEDS_FIX', review_id: verified.review.review_id,
+      findings_artifact: verified.review.findings_artifact };
+    else {
+      clock = startActiveClock();
+      if (!await clock.ready(5000)) result = { state: 'HELD', blocker: 'CLOCK_UNPROVEN' };
+      else result = await applyReviewAndVerify({ ledger, executionId: input.execution_id, receipt: verified.receipt, policy, clock,
+        provenance: { verifyReceipt: ({ receipt: candidate }) => ({ ok: JSON.stringify(candidate) === JSON.stringify(verified.receipt) }) } });
+    }
+  } finally { clock?.stop(); ledger.close(); }
+  ok(result);
 }
 
 // RECOVERY-ADOPTION (PAGE-LOCATOR-RECOVERY-ADDENDUM §"Import existing real
@@ -2050,7 +2191,8 @@ function nativeBinding(root, expected = null) {
       const p = join(HERE,f.name); const s = lstatSync(p);
       if (!s.isFile() || s.isSymbolicLink() || sha256OfBuffer(readFileSync(p)) !== f.sha256) throw Error();
     }
-    for (const evidence of [b.authority,b.source_acceptance,b.installation,b.receiver_contract]) {
+    if (b.native_source_admission && ['native-source.mjs', 'native-source-store.mjs'].some(name => !b.source_files.some(f => f.name === name))) throw Error();
+    for (const evidence of [b.authority,b.source_acceptance,b.installation,b.receiver_contract,...(b.native_source_admission ? [b.native_source_admission] : [])]) {
       if (!evidence || !isAbsolute(evidence.path) || !/^[0-9a-f]{64}$/.test(evidence.sha256)) throw Error();
       const st = lstatSync(evidence.path);
       if (!st.isFile() || st.isSymbolicLink() || st.uid !== process.geteuid()
@@ -2252,6 +2394,11 @@ const HANDLERS = {
   tick: cmdTick,
   supervise: cmdSupervise,
   'review-import': cmdReviewImport,
+  'native-source-mode': cmdNativeSourceMode,
+  'native-source-register': cmdNativeSourceRegister,
+  'native-source-import': cmdNativeSourceImport,
+  'dot-review-request': cmdDotReviewRequest,
+  'dot-approval-import': cmdDotApprovalImport,
   plan: cmdPlan,
   'plan-advance': cmdPlanAdvance,
   'spool-begin': cmdSpoolBegin,
