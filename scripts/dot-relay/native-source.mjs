@@ -58,6 +58,29 @@ export function verifyNativeOriginal(bytes, descriptor, access, binding) {
   // never become a new original. Decode only after verifying whole bytes.
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
 }
+
+// Independent OS-owner admission binds each actual Page read separately.
+// Fields supplied by the importing caller or a same-UID file are not proof.
+export function admittedNativeRead(root, source, native) {
+  try {
+    nativeDescriptor(source);
+    const evidence = native.native_source_admission;
+    const admissionBytes = privateNativeBytes(evidence.path, { maxBytes: 32768 });
+    if (sha256Hex(admissionBytes) !== evidence.sha256) reject();
+    const admission = parseStrictJson(admissionBytes.toString('utf8'), { maxBytes: 32768 });
+    const path = resolve(root, 'native-source', 'access', source.sha256 + '.json');
+    const bytes = privateNativeBytes(path, { root: resolve(root, 'native-source', 'access'), maxBytes: 32768 });
+    const receiptSha256 = sha256Hex(bytes);
+    if (admission.owner !== native.owner || admission.effects?.['SOURCE_ACCESS:' + source.sha256] !== receiptSha256) reject();
+    const r = parseStrictJson(bytes.toString('utf8'), { maxBytes: 32768 });
+    exactNativeKeys(r, ['version', 'owner', 'tool', 'source', 'kind', 'text_representation']);
+    nativeDescriptor(r.source);
+    if (r.version !== 1 || r.owner !== native.owner || r.tool !== 'mcp__codex_apps__chatgpt_space_read_page_reference'
+      || r.kind !== 'text' || r.text_representation !== 'source'
+      || ['page_id', 'reference', 'sha256', 'bytes'].some(k => r.source[k] !== source[k])) reject();
+    return { receiptSha256, receipt: r };
+  } catch { reject('DOT_SOURCE_ACCESS_UNPROVEN'); }
+}
 export function validateNativeReview(text, { binding, request, currentHead }) {
   const s = parseStrictJson(text, { maxBytes: 16384 });
   exactNativeKeys(s, ['version', 'kind', 'producer', 'epoch', 'review_id', 'request_id', 'repository', 'pr', 'head_sha', 'decision', 'decided_at', 'finding_count', 'findings_artifact']);

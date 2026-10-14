@@ -13,7 +13,7 @@ export function nativeSourceStore(db, api) {
     CREATE TABLE IF NOT EXISTS native_sources (
       source_sha256 TEXT PRIMARY KEY, binding_sha256 TEXT NOT NULL,
       descriptor_json TEXT NOT NULL, access_json TEXT NOT NULL,
-      kind TEXT NOT NULL, generation TEXT NOT NULL, original_bytes BLOB NOT NULL
+      kind TEXT NOT NULL, generation TEXT NOT NULL, original_bytes BLOB NOT NULL, source_read_sha256 TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS native_review_requests (
       request_id TEXT PRIMARY KEY, execution_id TEXT NOT NULL,
@@ -109,19 +109,20 @@ export function nativeSourceStore(db, api) {
         source: { reference: receipt.source.reference, sha256: receipt.source.sha256 } } : null;
       return { ...result, review, receipt: derived };
     },
-    retain({ binding, descriptor, access, bytes, kind, generation }) {
+    retain({ binding, descriptor, access, bytes, kind, generation, sourceReadSha256 }) {
       verifyNativeOriginal(bytes, descriptor, access, binding);
+      if (!/^[0-9a-f]{64}$/.test(sourceReadSha256 ?? '')) reject('DOT_SOURCE_ACCESS_UNPROVEN');
       return api._tx(() => {
         if (api._ctrl('source_mode') !== 'SOURCE_ONLY') reject('SOURCE_ONLY_REQUIRED');
         const current = this.getBinding();
         if (!current || current.sha256 !== binding.sha256) reject('DOT_SOURCE_UNTRUSTED');
         const old = this.getSource(descriptor.sha256);
         if (old) {
-          if (old.binding_sha256 !== binding.sha256 || !old.original_bytes.equals(bytes)) reject('DOT_SOURCE_CONFLICT');
+          if (old.binding_sha256 !== binding.sha256 || old.source_read_sha256 !== sourceReadSha256 || !old.original_bytes.equals(bytes)) reject('DOT_SOURCE_CONFLICT');
           return { replay: true, source_sha256: descriptor.sha256 };
         }
-        db.prepare('INSERT INTO native_sources VALUES (?,?,?,?,?,?,?)').run(descriptor.sha256, binding.sha256,
-          JSON.stringify(descriptor), JSON.stringify(access), kind, generation, bytes);
+        db.prepare('INSERT INTO native_sources VALUES (?,?,?,?,?,?,?,?)').run(descriptor.sha256, binding.sha256,
+          JSON.stringify(descriptor), JSON.stringify(access), kind, generation, bytes, sourceReadSha256);
         api._audit('NATIVE_SOURCE_RETAINED', generation, { source_sha256: descriptor.sha256, bytes: descriptor.bytes, kind });
         return { replay: false, source_sha256: descriptor.sha256 };
       });

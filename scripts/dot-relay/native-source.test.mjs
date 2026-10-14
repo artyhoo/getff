@@ -26,6 +26,19 @@ function nativeAdmission(root, effectFiles) {
     authority: ref, source_acceptance: ref, installation: ref, receiver_contract: ref,
     native_source_admission: { path: admission, sha256: sha(readFileSync(admission)) } });
 }
+function admitSourceRead(root, descriptor) {
+  mkdirSync(join(root, 'native-source', 'access'), { recursive: true, mode: 0o700 });
+  const file = write(join(root, 'native-source', 'access', descriptor.sha256 + '.json'), { version: 1, owner,
+    tool: 'mcp__codex_apps__chatgpt_space_read_page_reference', source: descriptor, kind: 'text', text_representation: 'source' });
+  const admissionPath = join(root, 'native-source-admission.json');
+  const a = JSON.parse(readFileSync(admissionPath, 'utf8'));
+  a.effects['SOURCE_ACCESS:' + descriptor.sha256] = sha(readFileSync(file));
+  write(admissionPath, a);
+  const bindingPath = join(root, 'native-binding.json');
+  const b = JSON.parse(readFileSync(bindingPath, 'utf8'));
+  b.native_source_admission.sha256 = sha(readFileSync(admissionPath));
+  write(bindingPath, b);
+}
 function registrationFixture(root) {
   mkdirSync(join(root, 'native-source', 'verified'), { recursive: true, mode: 0o700 });
   const text = JSON.stringify({ format: 'getff-dot-consolidation-index/1', control_id: 'DOT-CONSOLIDATION-20261008-01',
@@ -41,6 +54,7 @@ function registrationFixture(root) {
     challenge: descriptor, access, local_source_path: source });
   const mode = write(join(root, 'native-source', 'mode.json'), { version: 1, owner, mode: 'SOURCE_ONLY' });
   nativeAdmission(root, { SOURCE_ONLY: mode, REGISTER_NATIVE_DOT: registration });
+  admitSourceRead(root, descriptor);
   return { registration, mode, descriptor, access, source, text };
 }
 function capturedExecution(root) {
@@ -206,7 +220,7 @@ test('native review is source-bound to one persisted request, execution and curr
     repository: request.repository, pr: request.pr, head_sha: request.head_sha, decision: 'GO', decided_at: '2026-10-14T09:00:00.000Z', finding_count: 0, findings_artifact: null };
   const bytes = Buffer.from(JSON.stringify(review));
   const descriptor = { page_id: page, reference: 'library-file:synthetic-review', sha256: sha(bytes), bytes: bytes.length };
-  l.nativeSources.retain({ binding, descriptor, access: { kind: 'text', text_representation: 'source', ...descriptor }, bytes, kind: 'dot_head_review', generation: review.review_id });
+  l.nativeSources.retain({ binding, descriptor, access: { kind: 'text', text_representation: 'source', ...descriptor }, bytes, kind: 'dot_head_review', generation: review.review_id, sourceReadSha256: 'a'.repeat(64) });
   const receipt = { version: 1, execution_id: report.execution_id, request_id: request.request_id, source_binding_sha256: binding.sha256, source: descriptor };
   const result = l.nativeSources.approval({ receipt, currentHead: report.head_sha });
   assert.equal(result.review.decision, 'GO');
@@ -228,6 +242,7 @@ test('actual CLI request and original GO importer use the existing CI verificati
   const f = registrationFixture(root);
   const policy = write(join(root, 'native-source', 'policy.json'), { version: 1, digest: '4'.repeat(64), required: [{ name: 'ci-success', workflow: 'CI', app: 'github-actions' }] });
   nativeAdmission(root, { SOURCE_ONLY: f.mode, REGISTER_NATIVE_DOT: f.registration, CHECK_POLICY: policy });
+  admitSourceRead(root, f.descriptor);
   assert.equal(run(root, ['native-source-mode', '--file', f.mode]).status, 0);
   assert.equal(run(root, ['native-source-register', '--file', f.registration]).status, 0);
   const bin = join(root, 'bin'); mkdirSync(bin);
@@ -248,6 +263,8 @@ test('actual CLI request and original GO importer use the existing CI verificati
   writeFileSync(source, text, { mode: 0o600 });
   const descriptor = { page_id: page, reference: 'library-file:synthetic-original-review', sha256: sha(text), bytes: Buffer.byteLength(text) };
   const original = write(join(root, 'native-source', 'review-source.json'), { version: 1, source: descriptor, access: { kind: 'text', text_representation: 'source', ...descriptor }, local_source_path: source });
+  assert.equal(run(root, ['native-source-import', '--file', original]).value.code, 'DOT_SOURCE_ACCESS_UNPROVEN', 'an otherwise exact same-head GO with claimed access is not native evidence');
+  admitSourceRead(root, descriptor);
   assert.equal(run(root, ['native-source-import', '--file', original]).status, 0);
   const input = write(join(root, 'native-source', 'approval.json'), { version: 1, execution_id: report.execution_id, request_id: request.request_id, source_binding_sha256: binding.sha256, source: descriptor, local_source_path: source });
   const applied = run(root, ['dot-approval-import', '--file', input], env);
@@ -301,4 +318,59 @@ test('observed native consolidation extensions stay opaque, never become head re
   assert.equal(validateNativeRegistry(JSON.stringify(s), NATIVE_DOT).kind, 'native_registry');
   assert.throws(() => validateNativeReview(JSON.stringify(s), { binding: NATIVE_DOT, request: {}, currentHead: 'a'.repeat(40) }));
   assert.throws(() => validateNativeRegistry(JSON.stringify({ ...s, unrecognized_extension: true }), NATIVE_DOT));
+});
+
+test('a privately self-authored source cannot acquire native origin through claimed access metadata', t => {
+  const root = rootFixture(t);
+  const f = registrationFixture(root);
+  run(root, ['native-source-mode', '--file', f.mode]);
+  assert.equal(run(root, ['native-source-register', '--file', f.registration]).status, 0);
+  const text = JSON.stringify({ ...JSON.parse(f.text), generation: 'SELF-AUTHORED-NATIVE' });
+  const source = join(root, 'native-source', 'verified', 'self-authored.json');
+  writeFileSync(source, text, { mode: 0o600 });
+  const descriptor = { ...f.descriptor, reference: 'library-file:invented-by-caller', sha256: sha(text), bytes: Buffer.byteLength(text) };
+  const file = write(join(root, 'native-source', 'self-import.json'), { version: 1, source: descriptor,
+    access: { kind: 'text', text_representation: 'source', ...descriptor }, local_source_path: source });
+  const r = run(root, ['native-source-import', '--file', file]);
+  assert.equal(r.status, 1);
+  assert.equal(r.value.code, 'DOT_SOURCE_ACCESS_UNPROVEN');
+  // Even a same-UID fabricated receipt cannot replace independent admission.
+  mkdirSync(join(root, 'native-source', 'access'), { recursive: true });
+  write(join(root, 'native-source', 'access', descriptor.sha256 + '.json'), { version: 1, owner,
+    tool: 'mcp__codex_apps__chatgpt_space_read_page_reference', source: descriptor, kind: 'text', text_representation: 'source' });
+  assert.equal(run(root, ['native-source-import', '--file', file]).value.code, 'DOT_SOURCE_ACCESS_UNPROVEN');
+});
+
+test('same-heartbeat source-only activation rollover needs independent intent and retains prior bytes', t => {
+  const root = rootFixture(t);
+  const f = registrationFixture(root);
+  run(root, ['native-source-mode', '--file', f.mode]);
+  const activationPath = join(root, 'bridge-activation.json');
+  write(activationPath, { automation_id: 'dot-native-source', native_binding_sha256: '0'.repeat(64), owner, historical: true });
+  const prior = readFileSync(activationPath);
+  const intent = write(join(root, 'native-source', 'renewal.json'), { version: 1, owner, automation_id: 'dot-native-source',
+    prior_activation_sha256: sha(prior), source_commit: 'a'.repeat(40) });
+  const admissionPath = join(root, 'native-source-admission.json');
+  const a = JSON.parse(readFileSync(admissionPath, 'utf8')); a.effects.RENEW_ACTIVATION = sha(readFileSync(intent)); write(admissionPath, a);
+  const bindingPath = join(root, 'native-binding.json'); const b = JSON.parse(readFileSync(bindingPath, 'utf8'));
+  b.native_source_admission.sha256 = sha(readFileSync(admissionPath)); write(bindingPath, b);
+  const bodySha = sha(readFileSync(new URL('./bridge-runner.body.js', import.meta.url)));
+  write(join(root, 'bridge-runner-pin.json'), { version: 1, sha256: bodySha, source_commit: b.source_commit });
+  const bootstrap = run(root, ['bridge-bootstrap', '--expected-sha256', bodySha, '--binding-sha256', sha(readFileSync(bindingPath))]).value;
+  writeFileSync(join(root, 'native-bootstrap.js'), bootstrap.source, { mode: 0o700 });
+  const toml = join(root, 'automation.toml');
+  writeFileSync(toml, 'id = "dot-native-source"\nkind = "heartbeat"\nstatus = "ACTIVE"\nrrule = "FREQ=HOURLY;INTERVAL=4"\ntarget_thread_id = "' + owner + '"\nprompt = "Run ' + bootstrap.source_sha256 + '"\n', { mode: 0o600 });
+  const receipt = write(join(root, 'native-source', 'activation.json'), { version: 1, automation_id: 'dot-native-source', status: 'ACTIVE', kind: 'heartbeat', owner,
+    interval_seconds: 14400, native_binding_sha256: sha(readFileSync(bindingPath)), bootstrap_sha256: bootstrap.source_sha256,
+    automation_source: { path: toml, sha256: sha(readFileSync(toml)) } });
+  const args = ['bridge-activated', '--automation-id', 'dot-native-source', '--receipt-file', receipt];
+  assert.equal(run(root, args).value.code, 'AUTOMATION_CONFLICT');
+  const invalidIntent = write(join(root, 'native-source', 'invented-renewal.json'), { version: 1 });
+  assert.equal(run(root, [...args, '--renewal-file', invalidIntent]).value?.code, 'DOT_SOURCE_CONTROL_UNTRUSTED');
+  const r = run(root, [...args, '--renewal-file', intent]);
+  assert.equal(r.status, 0, JSON.stringify(r));
+  assert.equal(r.value.renewed, true);
+  assert.deepEqual(readFileSync(join(root, 'native-source', 'activation-history', sha(prior) + '.json')), prior);
+  assert.equal(run(root, ['status']).value.bridge.active, true);
+  assert.equal(run(root, ['status']).value.local_executor_admission, 'OFF');
 });

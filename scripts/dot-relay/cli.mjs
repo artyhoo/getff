@@ -27,7 +27,7 @@ import {
   makeGhAdapter, verifyPr, applyReviewAndVerify,
 } from './executor.mjs';
 import { parseStrictJson } from '../dot-review-gate/strict-json.mjs';
-import { admittedNativeInput, exactNativeKeys, NATIVE_DOT, privateNativeBytes, verifyNativeOriginal, validateNativeRegistry, validateNativeReview } from './native-source.mjs';
+import { admittedNativeInput, admittedNativeRead, exactNativeKeys, NATIVE_DOT, privateNativeBytes, verifyNativeOriginal, validateNativeRegistry, validateNativeReview } from './native-source.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
@@ -107,7 +107,7 @@ const FLAG_SPECS = {
   'source-put': { '--id': 'value', '--offset': 'value', '--chunk-json': 'value', '--final': 'value', '--sha256': 'value', '--bytes': 'value' },
   'source-status': { '--id': 'value', '--sha256': 'value', '--bytes': 'value' },
   'locator-resolved': { '--producer-role': 'value', '--generation': 'value', '--locator-sha256': 'value', '--page-id': 'value', '--reference': 'value', '--source-sha256': 'value', '--bytes': 'value' },
-  'bridge-activated': { '--automation-id': 'value', '--receipt-file': 'value' },
+  'bridge-activated': { '--automation-id': 'value', '--receipt-file': 'value', '--renewal-file': 'value' },
   'bridge-source': { '--expected-sha256': 'value' },
   'bridge-bootstrap': { '--expected-sha256': 'value', '--binding-sha256': 'value' },
   'native-push': { '--argv-json': 'value', '--binding-sha256': 'value' },
@@ -941,6 +941,7 @@ function cmdNativeSourceRegister({ root, flags }) {
   const r = admitted.input;
   exactNativeKeys(r, ['version', 'owner', 'producer', 'epoch', 'page_id', 'challenge', 'access', 'local_source_path']);
   if (r.version !== 1 || r.owner !== native.owner || Object.keys(NATIVE_DOT).some(k => r[k] !== NATIVE_DOT[k])) fail('DOT_SOURCE_UNTRUSTED');
+  admittedNativeRead(root, r.challenge, native);
   const bytes = privateNativeBytes(r.local_source_path, { root: join(root, 'native-source', 'verified') });
   const text = verifyNativeOriginal(bytes, r.challenge, r.access, NATIVE_DOT);
   validateNativeRegistry(text, NATIVE_DOT);
@@ -959,6 +960,7 @@ function cmdNativeSourceImport({ root, flags }) {
   const { ledger } = openRoot(root);
   try {
     const binding = enrolledNativeBinding(ledger, native);
+    const actualRead = admittedNativeRead(root, input.source, native);
     const bytes = privateNativeBytes(input.local_source_path, { root: join(root, 'native-source', 'verified') });
     const text = verifyNativeOriginal(bytes, input.source, input.access, binding);
     const discriminator = parseStrictJson(text, { maxBytes: 1048576 });
@@ -969,7 +971,7 @@ function cmdNativeSourceImport({ root, flags }) {
       const review = validateNativeReview(text, { binding, request, currentHead: request.head_sha });
       parsed = { kind: 'dot_head_review', generation: review.review_id };
     } else parsed = validateNativeRegistry(text, binding);
-    ok(ledger.nativeSources.retain({ binding, descriptor: input.source, access: input.access, bytes, ...parsed }));
+    ok(ledger.nativeSources.retain({ binding, descriptor: input.source, access: input.access, bytes, sourceReadSha256: actualRead.receiptSha256, ...parsed }));
   } finally { ledger.close(); }
 }
 
@@ -1035,6 +1037,8 @@ async function cmdDotApprovalImport({ root, flags }) {
     const binding = enrolledNativeBinding(ledger, native);
     const stored = ledger.nativeSources.getSource(receipt.source?.sha256);
     if (!binding || !stored) fail('DOT_APPROVAL_UNPROVEN');
+    const actualRead = admittedNativeRead(root, receipt.source, native);
+    if (stored.source_read_sha256 !== actualRead.receiptSha256) fail('DOT_SOURCE_ACCESS_UNPROVEN');
     const bytes = privateNativeBytes(localPath, { root: join(root, 'native-source', 'verified'), maxBytes: 16384 });
     verifyNativeOriginal(bytes, receipt.source, JSON.parse(stored.access_json), binding);
     if (!bytes.equals(stored.original_bytes)) fail('DOT_APPROVAL_UNPROVEN');
@@ -1917,8 +1921,9 @@ function cmdBridgeActivated({ root, flags }) {
   const { ledger } = openRoot(root);
   try {
     let nativeReceipt = null;
+    let native = null;
     if (existsSync(join(root,'native-binding.json'))) {
-      const native = nativeBinding(root);
+      native = nativeBinding(root);
       let r;
       try {
         const p=resolve(flags['--receipt-file'] ?? '');
@@ -1953,7 +1958,30 @@ function cmdBridgeActivated({ root, flags }) {
       } catch {
         fail('ACTIVATION_RECEIPT_CORRUPT');
       }
-      if (prior.automation_id !== automationId || (nativeReceipt && prior.native_binding_sha256!==nativeReceipt.native_binding_sha256)) fail('AUTOMATION_CONFLICT');
+      if (prior.automation_id !== automationId) fail('AUTOMATION_CONFLICT');
+      if (nativeReceipt && prior.native_binding_sha256 !== nativeReceipt.native_binding_sha256) {
+        if (!flags['--renewal-file'] || !native || ledger.status().source_mode !== 'SOURCE_ONLY') fail('AUTOMATION_CONFLICT');
+        const admitted = admittedNativeInput(root, flags['--renewal-file'], native, 'RENEW_ACTIVATION');
+        const intent = admitted.input;
+        exactNativeKeys(intent, ['version', 'owner', 'automation_id', 'prior_activation_sha256', 'source_commit']);
+        const priorBytes = privateNativeBytes(receiptPath, { root, maxBytes: 32768 });
+        const priorSha = sha256OfBuffer(priorBytes);
+        if (intent.version !== 1 || intent.owner !== native.owner || intent.automation_id !== automationId
+          || intent.prior_activation_sha256 !== priorSha || intent.source_commit !== native.source_commit) fail('DOT_SOURCE_CONTROL_UNTRUSTED');
+        const bootstrap = privateNativeBytes(join(root, 'native-bootstrap.js'), { root });
+        if (sha256OfBuffer(bootstrap) !== nativeReceipt.bootstrap_sha256) fail('ACTIVATION_ADMISSION_UNPROVEN');
+        const historyDir = join(root, 'native-source', 'activation-history');
+        mkdirSync(historyDir, { recursive: true, mode: 0o700 });
+        if (lstatSync(historyDir).isSymbolicLink()) fail('DOT_SOURCE_CONTROL_UNTRUSTED');
+        const history = join(historyDir, priorSha + '.json');
+        if (existsSync(history)) {
+          if (!privateNativeBytes(history, { root: historyDir, maxBytes: 32768 }).equals(priorBytes)) fail('ACTIVATION_HISTORY_CONFLICT');
+        } else atomicWriteFsynced(history, priorBytes.toString('utf8'));
+        atomicWriteFsynced(receiptPath, JSON.stringify({ ...nativeReceipt, automation_id: automationId,
+          os_user: process.env.USER ?? null, at: new Date().toISOString(), deployment_mode: 'HYBRID' }) + '\n');
+        ledger._audit('NATIVE_ACTIVATION_RENEWED', automationId, { prior_sha256: priorSha, admission_sha256: admitted.admissionSha256 });
+        return ok({ automation_id: automationId, renewed: true, prior_sha256: priorSha, off_cleared: false });
+      }
       ok({ automation_id: automationId, replay: true, off_cleared: false });
       return;
     }
