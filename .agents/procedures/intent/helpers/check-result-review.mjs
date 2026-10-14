@@ -941,7 +941,7 @@ function essentialPromisesFromBrief(bytes) {
       header = null;
       continue;
     }
-    if (!line.trim().startsWith('|')) { header = null; continue; }
+    if (!/(?<!\\)\|/.test(line)) { header = null; continue; }
     const cells = line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(plain);
     if (cells[0]?.toLowerCase() === 'id') { header = cells.map(c => c.toLowerCase()); continue; }
     if (!header || cells.every(c => /^:?-+:?$/.test(c))) continue;

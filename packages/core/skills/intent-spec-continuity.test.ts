@@ -165,6 +165,19 @@ describe('spec continuity through the real publisher and presentation gate', () 
     ).toMatchObject({ status: 2, code: 'missing_essential_promise' });
   });
 
+  it.each([
+    '## Essential promises\n| ID | Promise |\n| --- | --- |\n| P1 | Generate |\nP2 | Explain |\n',
+    '| ID | Promise | Essential |\n| --- | --- | --- |\n| P1 | Generate | Yes |\nP2 | Explain | Yes\n',
+    '## Essential promises\nID | Promise\n--- | ---\nP1 | Generate\nP2 | Explain\n',
+  ])('retains essential rows with optional outer table delimiters', (prd) => {
+    const f = fixture(prd);
+    expect(
+      f.publish({ ...f.review, promises: f.review.promises.slice(0, 1) }),
+    ).toMatchObject({ status: 2, code: 'missing_essential_promise' });
+    expect(f.publish(f.review).ok).toBe(true);
+    expect(f.check().ok).toBe(true);
+  });
+
   it('does not infer an essential inventory from an unstructured PRD or fenced example', () => {
     const f = fixture(
       '# Idea\nPromises are not enumerated.\n```md\n## Essential promises\n| ID | Promise |\n| --- | --- |\n| P1 | Example only |\n```\n',

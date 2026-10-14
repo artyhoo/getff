@@ -99,7 +99,7 @@ b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71  .agents/proced
 d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0  .agents/procedures/installing-enforcement/SKILL.md
 c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970  .agents/procedures/intent/SKILL.md
 1501b4da627d82808708508d75d31a08acf337f2508c75457418b05aba4c0115  .agents/procedures/intent/helpers/ask-advice.mjs
-60707bfc228fa6ee197da628d053f4aac366c48bde49c06aae6eed503961ba7a  .agents/procedures/intent/helpers/check-result-review.mjs
+a6effb5fe3b0df8624b7ea3e26f0056aa7c71bbd8475ad22adc352643e9ecf4a  .agents/procedures/intent/helpers/check-result-review.mjs
 da8d177e952fae26768e30c71bdd35d139c14b0c7b965049081d342ba5df450f  .agents/procedures/intent/helpers/current-decisions.mjs
 ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80  .agents/procedures/intent/helpers/publish-result-review.mjs
 3971596ecf0bec4f4de5f5be24a4e73239610fa7f2611540bf38bd2b5424d93a  .agents/procedures/intent/helpers/publish-spec-review.mjs
@@ -364,7 +364,7 @@ b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71  .claude/skills
 87f7bd01b921addbd470dff3c5c6b7f23c0179f2f70aefca2f717d3925186bfc  .claude/skills/harvest/references/history.md
 78f5fae8c395e326ce7b2e8fa7964927b15562811010738f456838a6542a80c6  .claude/skills/harvest/references/publication-and-closure.md
 c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970  .claude/skills/intent/SKILL.md
-60707bfc228fa6ee197da628d053f4aac366c48bde49c06aae6eed503961ba7a  .claude/skills/intent/helpers/check-result-review.mjs
+a6effb5fe3b0df8624b7ea3e26f0056aa7c71bbd8475ad22adc352643e9ecf4a  .claude/skills/intent/helpers/check-result-review.mjs
 9af17c360799bf7bd1a0f01a9250b86fd36c5151c4c618773201e975d5b6d809  .claude/skills/intent/references/product-brief.md
 f2b2d6d5b6016ec57b7a5a55225e150901f55071807cd868044ea4dccf387bda  .claude/skills/intent/references/result-review.md
 9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca  .claude/skills/intent/references/spec-review.md
@@ -1216,7 +1216,7 @@ a4dde450400bfde83caa651464e5de8640da8d24a3aa2e9fef5b97e2f429bfaa  packages/core/
 f85b77998a0a20423b62e291a6d1b3928aa192f24c6ddfedadfe1de4d430658f  packages/core/skills/intent-pilot.test.ts
 615275adff1c0f262434d2fbdcf812dac1a89290890c2d21e54f9812c02b9593  packages/core/skills/intent-result-review.test.ts
 d7642a2ef6bf0048f44084d123bfeca88453f1aae19f37fc2d48db016eb77ead  packages/core/skills/intent-routing.test.ts
-3f0bca7935c7d65c1bd9a9b1afeaf1376009cf363fcf21a1abb484e720d3d376  packages/core/skills/intent-spec-continuity.test.ts
+177650a3430603add4c041be7ee20193570e8cd7610112f92c85eae44eb57268  packages/core/skills/intent-spec-continuity.test.ts
 15b2eba03721edad3bf77f984b7fbf0aa9bc9f2123310b23ab0ae03f413af6e0  packages/core/skills/orch-home-resolver.test.ts
 a0abb8b2f8882be86ed58e903841b8f8cc187549e6108a6f5192d2e0cbe4d5d9  packages/core/skills/pipeline-english-canonical.test.ts
 7e5d7a392c5a39222c40ee35ef51b99ed180eee5d69bfc641e8708130f5e559c  packages/core/skills/pipeline-lang-parity.test.ts
