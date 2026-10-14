@@ -927,7 +927,8 @@ function essentialPromisesFromBrief(bytes) {
     const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
     if (marker) {
       if (!fence) fence = marker[1];
-      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length)
+        fence = null;
       continue;
     }
     if (fence) continue;
@@ -941,24 +942,46 @@ function essentialPromisesFromBrief(bytes) {
       header = null;
       continue;
     }
-    if (!/(?<!\\)\|/.test(line)) { header = null; continue; }
-    const cells = line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(plain);
-    if (cells[0]?.toLowerCase() === 'id') { header = cells.map(c => c.toLowerCase()); continue; }
-    if (!header || cells.every(c => /^:?-+:?$/.test(c))) continue;
+    if (!/(?<!\\)\|/.test(line)) {
+      header = null;
+      continue;
+    }
+    const cells = line
+      .trim()
+      .replace(/^\||\|$/g, '')
+      .split(/(?<!\\)\|/)
+      .map(plain);
+    if (cells[0]?.toLowerCase() === 'id') {
+      header = cells.map((c) => c.toLowerCase());
+      continue;
+    }
+    if (!header || cells.every((c) => /^:?-+:?$/.test(c))) continue;
     const essentialColumn = header.indexOf('essential');
     if (essentialColumn < 0 && !essentialSection) continue;
     if (essentialColumn >= 0) {
       const value = cells[essentialColumn]?.toLowerCase();
       if (value === 'no') continue;
-      if (value !== 'yes') return reject('essential_promises_invalid', 'Essential cells must explicitly say Yes or No');
+      if (value !== 'yes')
+        return reject(
+          'essential_promises_invalid',
+          'Essential cells must explicitly say Yes or No',
+        );
     }
     const id = cells[0];
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(id) || ids.includes(id)) {
-      return reject('essential_promises_invalid', 'essential promise IDs must be unique stable identifiers');
+      return reject(
+        'essential_promises_invalid',
+        'essential promise IDs must be unique stable identifiers',
+      );
     }
     ids.push(id);
   }
-  return ids.length ? { ok: true, ids } : reject('essential_promises_missing', 'approved PRD needs an Essential promises table or an ID table with an Essential Yes/No column');
+  return ids.length
+    ? { ok: true, ids }
+    : reject(
+        'essential_promises_missing',
+        'approved PRD needs an Essential promises table or an ID table with an Essential Yes/No column',
+      );
 }
 
 export function validateSpecReview(request) {
@@ -1046,13 +1069,28 @@ export function validateSpecReview(request) {
 
   const semantic = specReview.kind === 'spec-review';
   if (specReview.resolutions !== undefined) {
-    if (!semantic || specReview.outcome !== 'matches' || !Array.isArray(specReview.resolutions)) {
-      return reject('spec_resolution_invalid', 'only a semantic matches review may resolve prior objections');
+    if (
+      !semantic ||
+      specReview.outcome !== 'matches' ||
+      !Array.isArray(specReview.resolutions)
+    ) {
+      return reject(
+        'spec_resolution_invalid',
+        'only a semantic matches review may resolve prior objections',
+      );
     }
     const resolved = new Set();
     for (const resolution of specReview.resolutions) {
-      if (!resolution || !isHex64(resolution.attemptId) || !isNonEmptyString(resolution.reason) || resolved.has(resolution.attemptId)) {
-        return reject('spec_resolution_invalid', 'each resolution needs a unique attemptId and an explanation');
+      if (
+        !resolution ||
+        !isHex64(resolution.attemptId) ||
+        !isNonEmptyString(resolution.reason) ||
+        resolved.has(resolution.attemptId)
+      ) {
+        return reject(
+          'spec_resolution_invalid',
+          'each resolution needs a unique attemptId and an explanation',
+        );
       }
       resolved.add(resolution.attemptId);
     }
@@ -1250,8 +1288,12 @@ export function validateSpecReview(request) {
     if (!prd.ok) return prd;
     const essentials = essentialPromisesFromBrief(prd.bytes);
     if (!essentials.ok) return essentials;
-    const missing = essentials.ids.filter(id => !seen.has(id));
-    if (missing.length) return reject('missing_essential_promise', `review omits approved PRD essentials: ${missing.join(', ')}`);
+    const missing = essentials.ids.filter((id) => !seen.has(id));
+    if (missing.length)
+      return reject(
+        'missing_essential_promise',
+        `review omits approved PRD essentials: ${missing.join(', ')}`,
+      );
   }
   return ok();
 }

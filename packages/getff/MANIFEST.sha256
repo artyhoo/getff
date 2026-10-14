@@ -99,7 +99,7 @@ b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71  .agents/proced
 d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0  .agents/procedures/installing-enforcement/SKILL.md
 c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970  .agents/procedures/intent/SKILL.md
 1501b4da627d82808708508d75d31a08acf337f2508c75457418b05aba4c0115  .agents/procedures/intent/helpers/ask-advice.mjs
-a6effb5fe3b0df8624b7ea3e26f0056aa7c71bbd8475ad22adc352643e9ecf4a  .agents/procedures/intent/helpers/check-result-review.mjs
+959223659d6d9119e877b85935ad5f1151e95d67168199ead4e5a2760fe1357c  .agents/procedures/intent/helpers/check-result-review.mjs
 da8d177e952fae26768e30c71bdd35d139c14b0c7b965049081d342ba5df450f  .agents/procedures/intent/helpers/current-decisions.mjs
 ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80  .agents/procedures/intent/helpers/publish-result-review.mjs
 3971596ecf0bec4f4de5f5be24a4e73239610fa7f2611540bf38bd2b5424d93a  .agents/procedures/intent/helpers/publish-spec-review.mjs
@@ -364,7 +364,7 @@ b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71  .claude/skills
 87f7bd01b921addbd470dff3c5c6b7f23c0179f2f70aefca2f717d3925186bfc  .claude/skills/harvest/references/history.md
 78f5fae8c395e326ce7b2e8fa7964927b15562811010738f456838a6542a80c6  .claude/skills/harvest/references/publication-and-closure.md
 c6167f99b3212497231bc181d70c5563f8b6e3cc8ec7eaef263561a1ed024970  .claude/skills/intent/SKILL.md
-a6effb5fe3b0df8624b7ea3e26f0056aa7c71bbd8475ad22adc352643e9ecf4a  .claude/skills/intent/helpers/check-result-review.mjs
+959223659d6d9119e877b85935ad5f1151e95d67168199ead4e5a2760fe1357c  .claude/skills/intent/helpers/check-result-review.mjs
 9af17c360799bf7bd1a0f01a9250b86fd36c5151c4c618773201e975d5b6d809  .claude/skills/intent/references/product-brief.md
 f2b2d6d5b6016ec57b7a5a55225e150901f55071807cd868044ea4dccf387bda  .claude/skills/intent/references/result-review.md
 9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca  .claude/skills/intent/references/spec-review.md
