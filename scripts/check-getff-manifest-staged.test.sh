@@ -49,10 +49,11 @@ g() { git -c user.name=t -c user.email=t@t -c commit.gpgsign=false -c core.hooks
 # fresh_repo: a committed fixture whose MANIFEST.sha256 is in sync; prints its path.
 # mktemp, not a counter: callers run it inside $(...), where a counter never leaves the subshell.
 fresh_repo() {
-  local r top
+  local r top file
   r=$(mktemp -d "$TMP/r.XXXXXX")
   mkdir -p "$r/scripts" "$r/packages/getff" "$r/setup.d" "$r/agents" "$r/skills" "$r/templates" \
-    "$r/.claude/hooks" "$r/.agents/procedures" "$r/packages/core" "$r/plugin/hooks/lib"
+    "$r/.claude/hooks" "$r/.agents/procedures" "$r/packages/core" "$r/plugin/hooks/lib" \
+    "$r/docs/site-quality" "$r/packages/getff/bin"
   cp "$REPO_ROOT/scripts/build-getff-dist.sh" "$r/scripts/"
   cp "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/" 2>/dev/null || true
   echo '#!/bin/sh' > "$r/install.sh"; echo '#!/bin/sh' > "$r/setup"
@@ -61,11 +62,26 @@ fresh_repo() {
   echo 'core' > "$r/packages/core/index.js"; echo 'ask=1' > "$r/scripts/check-ask-files.sh"
   echo 'lang=1' > "$r/plugin/hooks/lib/hook-language.sh"
   echo 'notes' > "$r/README.md"
-  printf '/*\n!/MANIFEST.sha256\n!/package.json\n!/.gitignore\n' > "$r/packages/getff/.gitignore"
+  echo 'fixture docs payload' > "$r/docs/site-quality/fixture.md"
+  for file in LICENSE README.md bin/getff; do
+    cp "$REPO_ROOT/packages/getff/$file" "$r/packages/getff/$file"
+  done
+  # Exact canonical D018 source witnesses remain checked even though npm omits them.
+  for file in \
+    packages/core/backends/cargo/demo/crate/.gitignore \
+    packages/core/backends/cargo/fixtures/firing/invalid/.gitignore \
+    packages/core/backends/cargo/fixtures/firing/valid-clean/.gitignore \
+    packages/core/backends/cargo/fixtures/firing/valid/.gitignore \
+    packages/core/synthesizer/fixtures/live-generation/rust/firing/bad/.gitignore \
+    packages/core/synthesizer/fixtures/live-generation/rust/firing/good/.gitignore; do
+    mkdir -p "$r/$(dirname "$file")"
+    cp "$REPO_ROOT/$file" "$r/$file"
+  done
+  printf '/*\n!/MANIFEST.sha256\n!/package.json\n!/.gitignore\n!/LICENSE\n!/README.md\n!/bin/\n' > "$r/packages/getff/.gitignore"
   {
-    printf '{ "name": "getff", "files": ['
+    printf '{ "name": "getff", "version": "0.1.0", "files": ['
     local first=1
-    for top in install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts plugin; do
+    for top in install.sh setup setup.d agents skills templates .agents .claude .prettierrc.json packages scripts plugin docs MANIFEST.sha256 bin; do
       [ "$first" -eq 1 ] || printf ', '; first=0; printf '"%s"' "$top"
     done
     printf '] }\n'

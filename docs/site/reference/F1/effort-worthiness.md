@@ -4,16 +4,17 @@ description: The rule that flips the burden of proof onto more process — extra
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/effort-worthiness.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/effort-worthiness.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/pr-body-fidelity.ts
-  - .claude/rules/reviewer-discipline.md
+  - .agents/rules/reviewer-discipline.md
   - packages/core/principles/31-rule-channel-declaration.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
   - { example: failure-scenario-regex, stack: repo, date: 2026-10-07, result: re-at-92 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited reviewer-discipline rule changed only one citation renumber forced by lines added above it; no budget or convergence-cap claim this sheet maps changed; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # effort-worthiness rule
@@ -105,7 +106,7 @@ guillotine.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/effort-worthiness.md` — four skill-embed
   channel markers at `:3` to `:6`, class `C` at `:8`, the fires line at `:9`,

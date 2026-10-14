@@ -94,6 +94,17 @@ else
   echo "⚠ getff pre-push: scripts/check-zcode-mirror.sh not found — .zcode/skills mirror NOT checked; getff's installer puts it back: bash /path/to/getff/install.sh python --refresh (skipped while scripts/check-zcode-mirror.sh.override.md marks it project-owned)." >&2
 fi
 
+# Sidecar repairs must fire at the standing rung, before tool-absence early exits.
+# The shared runner validates material first and reports unavailable lane tools.
+if [ -d .ai-factory/rule-tests ] && find .ai-factory/rule-tests -name '*.json' -type f | grep . >/dev/null; then
+  if [ ! -f scripts/run-rule-tests-firing.sh ]; then
+    echo '⚠ getff pre-push: rule-test sidecars present but scripts/run-rule-tests-firing.sh missing — firing NOT proven; reinstall or refresh.' >&2
+  elif ! bash scripts/run-rule-tests-firing.sh "$PWD"; then
+    echo '✗ getff pre-push: broken rule-test sidecar material — push blocked.' >&2
+    exit 1
+  fi
+fi
+
 if [[ "$have_ast_grep" == "0" ]]; then
   echo "⚠ getff pre-push: ast-grep NOT on PATH — skipping ast-grep arm (fail OPEN)." >&2
   echo "    install hint: npm install -g @ast-grep/cli@0.44.1" >&2

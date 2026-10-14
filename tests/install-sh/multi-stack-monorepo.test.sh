@@ -181,7 +181,7 @@ own_mono() {
 
 # §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
 # with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
-# ts-morph / --full reason — for a ts-server (apps/api), a react-next (apps/web) and a react-spa
+# usable AST editor / completed toolchain reason — for a ts-server (apps/api), a react-next (apps/web) and a react-spa
 # (apps/spa) workspace, whose getff presets all carry R2 on boundary code. The react-native one
 # (apps/mobile), whose preset ships no R2, is one line for the workspace with that reason, not a line
 # for its config. No --force, so 40-configs keeps the consumer's files.
@@ -194,9 +194,9 @@ if [ -f "$O/node_modules/ts-morph/package.json" ]; then
   echo "  · SKIP §6c — ts-morph is in the fixture's node_modules, so the pass runs instead"
 else
   for _w in api web spa; do
-    grep -qE "^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/$_w/eslint.config.mjs — .*ts-morph.*--full" "$O/.install.log" \
-      && ok "§6c: apps/$_w (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
-      || bad "§6c: no NOT wired line for apps/$_w naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
+    grep -qE "^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/$_w/eslint.config.mjs — .*usable ts-morph AST editor.*project dependencies / completed getff toolchain cache" "$O/.install.log" \
+      && ok "§6c: apps/$_w (your config, boundary code) is a NOT wired line naming the usable AST editor reason" \
+      || bad "§6c: no NOT wired line for apps/$_w naming the usable AST editor reason (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
   done
   grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset ships no R2' "$O/.install.log" \
     && [ "$(grep -cE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile[ /]' "$O/.install.log")" = 1 ] \

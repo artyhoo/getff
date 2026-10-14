@@ -4,18 +4,19 @@ description: The rule that gives every canonical document a declared scope — w
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/doc-authority-hierarchy.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/doc-authority-hierarchy.md
+  - .agents/rules/00-rule-index.md
   - packages/core/principles/09-doc-authority-hierarchy.ts
   - packages/core/principles/09-doc-authority-hierarchy.test.ts
   - packages/core/principles/09-doc-authority-hierarchy.bin.ts
-  - scripts/cited-spec-addenda.sh
+  - .agents/checks/cited-spec-addenda.sh
   - scripts/cited-spec-addenda.test.sh
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
   - { example: authority-header-cli, stack: repo, date: 2026-10-07, result: ok-2-paths }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # doc-authority-hierarchy rule
@@ -97,7 +98,7 @@ directories whose files share one authority.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule text: `.claude/rules/doc-authority-hierarchy.md` — delivery globs
   at `:13`, the edit-time injection summary at `:14`, class `A` at `:18`, the
@@ -116,7 +117,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   required list at `:28`, the dynamic path patterns at `:181`, the skill-doc
   enumerator at `:231`; vitest suite `09-doc-authority-hierarchy.test.ts`;
   the CLI shim `09-doc-authority-hierarchy.bin.ts` (output above).
-- The supersession auditor: `scripts/cited-spec-addenda.sh` — purpose and
+- The supersession auditor: `.agents/checks/cited-spec-addenda.sh` — purpose and
   incident at `:3` to `:11`, usage at `:12`, exit contract (0 CLEAN / 2
   AMENDED / 3 INCONCLUSIVE) at `:25` to `:27`; companion test
   `scripts/cited-spec-addenda.test.sh`.

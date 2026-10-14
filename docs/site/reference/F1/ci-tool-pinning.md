@@ -4,8 +4,8 @@ description: The rule that a CI job's behaviour must not depend on what a regist
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/ci-tool-pinning.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/ci-tool-pinning.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/unpinned-tool-install.ts
   - packages/core/hooks/pre-push.ts
   - packages/core/hooks/unpinned-tool-install.test.ts
@@ -14,6 +14,7 @@ sources:
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
+docs-refresh: deferred — re-verified 2026-10-13 on staging-integrated PR2087, the workflow includes inherited native integration and relay/citation/docs-refresh jobs; the earlier append-only explanation is superseded because inherited edits also shift line locations. Tool versions and the ci-tool-pinning rule remain unchanged. The pre-push.ts wiring at823 is unchanged; inherited SHIPPED_SKILL_SLUGS intent and later citation renumbers do not alter that wiring. The overview batch-status paragraph, class-list links and frontmatter sources changed in the previous all-30 refresh, while this sheet's #how-to-read-a-rule-page anchor remains unchanged. Prior executed evidence is retained; clears at the next gold refresh of this page
 executed:
   - { example: pin-and-deferred-gap, stack: repo, date: 2026-10-10, result: pinned-plus-18 }
 ---
@@ -106,7 +107,7 @@ script carries it: nothing live needs the exemption yet.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - Rule A (version pin) and its MUST wording: `.claude/rules/ci-tool-pinning.md:27`
   to `:34`. Rule B (lockfile-aware install): `:36` to `:42`.

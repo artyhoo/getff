@@ -367,9 +367,8 @@ test_ac7b() {
 test_ac8() {
   echo ""
   echo "=== AC8: existing refresh-aif-base.test.sh still green ==="
-  local out
-  out="$(bash "$SCRIPT_DIR/refresh-aif-base.test.sh" 2>&1 || true)"
-  local exit=$?
+  local out exit=0
+  out="$(bash "$SCRIPT_DIR/refresh-aif-base.test.sh" 2>&1)" || exit=$?
   printf '%s\n' "$out" | tail -3 | sed 's/^/    /'
   if [ "$exit" -ne 0 ]; then
     record_fail "AC8: refresh-aif-base.test.sh exited $exit (regression)"

@@ -122,13 +122,13 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   lines 48 to 54.
 - The helper is `.claude/skills/story/helpers/emit-story-prompt.sh`. Line 12 picks the
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
-- The instruction text is the story branch at line 343 of `.claude/hooks/lang/en.sh`,
+- The instruction text is the story branch at line 337 of `.claude/hooks/lang/en.sh`,
   which renders the shared recap sections from line 81 in session scope. The
   end-of-session reminder calls the same branch:
   `.claude/hooks/end-of-turn-reminder.sh`, line 1772.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
-  lines 238 to 253. The skill itself is in the `factory` list at line 65 of
-  `setup.d/lib.sh`. Why it stays there, a product choice rather than a blocker fix, is
+  lines 247 to 262. The skill itself is in the six-member `factory` list (`intent` sixth) at
+  line 65 of `setup.d/lib.sh`. Why it stays there, a product choice rather than a blocker fix, is
   recorded at lines 119 to 123 of `setup.d/10-skills.sh`.
 - The skill's "with and without" sections are checked by
   `packages/core/principles/15-skill-paired-negative.test.ts`.

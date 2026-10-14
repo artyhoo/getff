@@ -24,6 +24,38 @@
 # not put ts-morph in node_modules»): unset = an install; do_refresh sets it to «this --refresh».
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
+# Resolve the AST editor from the project, else the completed getff-owned cache.
+# NODE_PATH is applied only to the wirer's child process; never exported into the caller.
+_ts_morph_available() {
+  _GETFF_TS_MORPH_NODE_PATH="${NODE_PATH:-}"
+  _GETFF_AST_TOOLS_ROOT=""
+  if ( cd "$PROJECT_ROOT" && NODE_PATH='' node -e 'const m=require("ts-morph");if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");' >/dev/null 2>&1 ); then
+    _GETFF_TS_MORPH_NODE_PATH=""
+    return 0
+  fi
+  local root="${GETFF_TOOLS_ROOT:-$PROJECT_ROOT/node_modules/.cache/getff/generator-tools}"
+  [ -f "$root/.complete" ] && [ -d "$root/node_modules" ] || return 1
+  if ( cd "$PROJECT_ROOT" && GETFF_AST_TOOLS_ROOT="$root" NODE_PATH="$root/node_modules" node --input-type=module - <<'JS' >/dev/null 2>&1
+import { createRequire } from 'node:module'; import { resolve, relative, isAbsolute, sep } from 'node:path';
+import { realpathSync } from 'node:fs'; import { pathToFileURL } from 'node:url';
+const root=process.env.GETFF_AST_TOOLS_ROOT;
+if(!isAbsolute(root))process.exit(1);
+const p=createRequire(resolve(root, 'package.json')).resolve('ts-morph');
+const inside=relative(realpathSync(resolve(root,'node_modules')),realpathSync(p));
+if(isAbsolute(inside) || inside==='..' || inside.startsWith(`..${sep}`))process.exit(1);
+const m=await import(pathToFileURL(p).href); if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");
+const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});
+const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});
+if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");
+JS
+  ); then
+    _GETFF_TS_MORPH_NODE_PATH="$root/node_modules"
+    _GETFF_AST_TOOLS_ROOT="$root"
+    return 0
+  fi
+  return 1
+}
+
 eslint_wire_r2_root() {
 # ─── 6b-bis. GH #547 Point 2: auto-wire R2 by reading the repo ───────────────
 # Classify the consumer's layout (C1) and configure R2 enforcement so the shipped check:globs gate
@@ -265,7 +297,7 @@ EOF
       if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" && getff_bytes_intact "$PROJECT_ROOT/$_r2_root_cfg"; then
         echo "  · R2 boundary layout ambiguous → RULE_GLOBS.boundary in eslint.config.mjs keeps its default globs; scripts/check-rule-globs.sh fails, naming them, if they match no source file"
       elif getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
-        echo "  · R2 boundary layout ambiguous → getff placed $_r2_root_cfg, and it has been edited since, so it is left as it is; once the install finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call) it adds what R2 lacks there, or lists it under NOT wired"
+        echo "  · R2 boundary layout ambiguous → getff placed $_r2_root_cfg, and it has been edited since, so this R2 boundary pass makes no change; the later additive pass may append getff-owned tooling ignores; once the install finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call) it adds what R2 lacks there, or lists it under NOT wired"
       else
         echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
       fi ;;
@@ -330,20 +362,14 @@ _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-s
 # install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
 # step's output above says why it did not.
 _ts_morph_why() {
-  if [ -n "${REFRESH:-}" ]; then
-    echo "adding $1 needs ts-morph, which is not in node_modules, and --refresh installs no dependencies"
-  elif [ -n "${FULL:-}" ]; then
-    echo "adding $1 needs ts-morph, which this --full install's dev-dependency step did not put in node_modules (its output is above)"
-  else
-    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules, and this install was not --full"
-  fi
+  echo "adding $1 needs a usable ts-morph AST editor, which this wiring stage could not resolve (project dependencies / completed getff toolchain cache)"
 }
 # _getff_rules_in <rel-cfg> — exit 0 IFF the stack's rules and the live snippet's are all in <rel-cfg>
 # already: getff's wirer on getff's branch, as a dry-run — a string check that needs no ts-morph and
 # writes nothing. Any other answer, or a wirer that cannot run, is a «no».
 _getff_rules_in() {
   local out
-  out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+  out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
       node "$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs" \
         --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$1" --dry-run 2>&1 ) || return 1
   case "$out" in *"all synthesized rules already present in"*|*"synthesizer emitted no rules"*) return 0 ;; esac
@@ -406,9 +432,21 @@ _own_eslint_ignores() {
   local rel
   for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts scripts/prove-rules.mjs .dependency-cruiser.mjs \
              scripts/codex-hook-adapter.mjs scripts/lib/is-main-entry.mjs scripts/lib/codex-hooks.mjs \
+             .agents/tools/docs/markdownlint-cli2.bundle.mjs .agents/tools/install/rule-bootstrap-cli.bundle.mjs \
+             .agents/tools/validator/gate-single-token-diff.ts \
+             .agents/procedures/pipeline/helpers/overview.mjs .agents/roles/resources/rule-researcher/preflight.mjs \
+             .claude/skills/pipeline/helpers/overview.mjs .zcode/skills/pipeline/helpers/overview.mjs \
+             scripts/check-arch-retell.mjs scripts/docs-check.mjs scripts/render-terms-style.mjs \
              vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
+    case "$rel" in
+      .agents/*|.claude/skills/*|.zcode/skills/*|scripts/check-arch-retell.mjs|scripts/docs-check.mjs|scripts/render-terms-style.mjs)
+        _portable_owned_path "$PROJECT_ROOT/$rel" && continue
+        _prettierignore_in_skipped "$PROJECT_ROOT/$rel" && continue
+        getff_bytes_intact "$PROJECT_ROOT/$rel" || continue ;;
+    esac
     getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
   done
+  getff_portable_owned_paths
   return 0
 }
 if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
@@ -422,7 +460,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
   elif [ ! -f "$_synth_wirer" ]; then
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
     note_not_wired "getff's rules in $_root_eslint (your own config) — the synth-and-wire bundle is missing from this getff package ($_synth_wirer)"
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ] && [ -n "$_root_edited" ] \
+  elif ! _ts_morph_available && [ -n "$_root_edited" ] \
        && _getff_rules_in "$_root_eslint"; then
     # Nothing can be inserted without ts-morph. getff's rules came with its template and are still in
     # the consumer's edit (as are its ignores), so what is left is R2 for an HTTP boundary 60-ci
@@ -435,7 +473,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
       note_not_wired "$_own_gap in $_root_eslint (your own config) — $(_ts_morph_why this)"
     fi
     if _r2_own_refused "$_root_eslint"; then note_not_wired "$_R2_OWN_REFUSAL ($_root_eslint)"; fi
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+  elif ! _ts_morph_available; then
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which ${_GETFF_RUN:-this install} did not put in node_modules"
     _own_what="getff's rules"
     _own_gap=$(_r2_own_gap "$_root_eslint")
@@ -450,7 +488,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
     [ -f "$_synth_live_snippet" ] && _own_args+=( --snippet "$_synth_live_snippet" )
     _own_snap=""
     if [ "$DRY_RUN" != "--dry-run" ]; then _own_snap=$(keep_original_snapshot "$PROJECT_ROOT/$_root_eslint") || _own_snap=""; fi
-    _own_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+    _own_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
         node "$_synth_wirer" "${_own_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
     printf '%s\n' "$_own_out"
     # settle rc 1: the original could not be kept aside, so the write was undone (its warning above).
@@ -501,6 +539,9 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
   else
     echo "▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs"
+    # Refresh can have a completed editor cache without a project dependency.
+    # Reset/select it on this managed-config route before the wirer's child.
+    _ts_morph_available || true
     # Run from PROJECT_ROOT so ts-morph resolves from consumer node_modules.
     # AIF_SYNTH_PKG_ROOT anchors the bundle's fs-based recipe + schema reads to the
     # correct framework payload dir (packages/core/) — import.meta.url collapses to
@@ -512,7 +553,28 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
     _root_getff=""
     getff_delivered "$PROJECT_ROOT/eslint.config.mjs" && getff_bytes_intact "$PROJECT_ROOT/eslint.config.mjs" \
       && _root_getff=1
-    _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+    # Reuse the additive writer for exact portable ignores in an intact template.
+    # Generic has no preset rules; an owned empty snippet contributes no live
+    # rules, and absent boundary arguments leave R2 unchanged.
+    if [ -n "$_root_getff" ]; then
+      if _portable_ignore_snippet=$(mktemp "${TMPDIR:-/tmp}/getff-ignore-only.XXXXXX") \
+         && printf '{}\n' > "$_portable_ignore_snippet"; then
+        _portable_ignore_args=( --own-config --stack generic --snippet "$_portable_ignore_snippet" --path "$PROJECT_ROOT/eslint.config.mjs" )
+        while IFS= read -r _g; do [ -n "$_g" ] && _portable_ignore_args+=( --ignore "$_g" ); done < <(getff_portable_owned_paths)
+        _portable_ignore_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
+            node "$_synth_wirer" "${_portable_ignore_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _portable_ignore_rc=0 || _portable_ignore_rc=$?
+        rm -f "$_portable_ignore_snippet"
+        printf '%s\n' "$_portable_ignore_out"
+        if [ "$_portable_ignore_rc" -ne 0 ]; then
+          note_not_wired "portable payload ignores in eslint.config.mjs — additive writer exited $_portable_ignore_rc (reason printed above)"
+        fi
+        refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
+      else
+        [ -z "${_portable_ignore_snippet:-}" ] || rm -f "$_portable_ignore_snippet"
+        note_not_wired "portable payload ignores in eslint.config.mjs — could not prepare an empty snippet for the additive writer"
+      fi
+    fi
+    _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
         node "$_synth_wirer" \
           --stack "${STACK:-ts-server}" \
           --path "$PROJECT_ROOT/eslint.config.mjs" \
@@ -593,7 +655,10 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
             _sw_own=( --own-config )
             _sw_snap=$(keep_original_snapshot "$_sw_cfg") || _sw_snap=""
           fi
-          _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+          # Workspace-only wiring does not enter the own-root resolver branch.
+          # Select per invocation so stale private selectors cannot carry over.
+          _ts_morph_available || true
+          _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
               node "$_synth_wirer_ws" ${_sw_own[@]+"${_sw_own[@]}"} \
                 --stack "${STACK:-ts-server}" \
                 --path "$_sw_cfg" \

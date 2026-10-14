@@ -85,12 +85,14 @@ RED-proof requirement.
 4. **Lock integrity** — D1 (`lock-never-stale-on-any-pass`), D2 (`no-silent-fingerprint-degrade`), D3 (`lock-schema-parity`).
 5. **Firing** — E1 (`scratch-consumer-red-green-pair`), E2 (`self-check-resolves-delivered-config`), E3 (`toolchain-freshness-vs-evidence`).
 6. **CI pinning** — P1 (`pinned-toolchain-in-ci`).
-7. **Type-shape / wiring atomicity** — G1 (`type-widening-exhaustiveness`), G2 (`all-callsites-migrated-atomically`), G3 (`zero-skill-core-edits`).
-8. **Tripwire lockstep** — H1 (`baseline-debt-lockstep`), H2 (`tripwire-predicate-no-conjunctive-narrowing`), H3 (`tripwire-population-equality`).
+7. **Type-shape / wiring atomicity** — G1 (`type-widening-exhaustiveness`), G2 (`all-callsites-migrated-atomically` — production `ResolveCtx` construction sites, not shell pipeline sites), G3 (`zero-skill-core-edits`).
+8. **Tripwire lockstep** — H1 (`baseline-debt-lockstep`), H2 (`tripwire-predicate-no-conjunctive-narrowing` — security tripwire predicates, not firing-diagnostic grep conditions), H3 (`tripwire-population-equality`).
 
 **Distinguish «no finding» from «low coverage» (per T14).** If you could not reach a dimension
 (tool absent on this host, arm not yet landed in J2), the verdict is `INSUFFICIENT` with the
 reason — never `GO`. «GO across N of 8 groups» is a coverage statement, not a clean bill.
+Each arm tests the object defined in design §3; matching a similar-looking token in another
+subsystem does not cover it. An unchanged diff surface alone is not an arm's required RED-proof.
 
 ## Output grammar
 
@@ -113,10 +115,16 @@ Diff scope (git diff --name-only): <list>
 Roll-up: <N> GO / <N> REVISE / <N> INSUFFICIENT (of 8)
 Frozen-row breach? <NONE | which frozen F-row a change touched — STOP, spec revision first (design §9 J3)>
 Recommendation: GO — merge when deterministic arms pass  |  REVISE — <the groups to fix>
+                |  INSUFFICIENT — <missing evidence; STOP, no approval>
 ```
 
 Every `REVISE` names the specific arm, the site (`file:line` or emitted-artefact), the RED-proof
 that is missing or vacuous, and a concrete fix. Every `GO` cites the real lane evidence you read.
+The recommendation is `INSUFFICIENT` if any group is `INSUFFICIENT`; otherwise it is `REVISE`
+if any group is `REVISE`, and `GO` only when all eight groups are `GO`. Apply the same precedence
+to arms within each group first: one `GO` arm cannot make a group `GO` while another is
+`INSUFFICIENT` or `REVISE`. An unresolved diff or
+range is missing evidence, not an empty change set. Report the failed command and exit status.
 
 ## What you do NOT do
 

@@ -128,6 +128,15 @@ fi
 #                      installs in the same stage. Spec A8 lists env/factory; the kickoff's
 #                      narrower reading (factory-only) is adopted per §2 binding #3 + recorded
 #                      in the PR body §1.7 Forward-check as a spec-vs-kickoff divergence.
+#   - intent         — product-only boundary skill (interview → approved brief → result
+#                      comparison; helpers/check-result-review.mjs rides inside the copied
+#                      tree). Factory-only for S1 (intent-first-result kickoff §2): its
+#                      effect-boundary enforcement is validated at factory depth first —
+#                      env-wide/native delivery is the S3 outline, not yet verified. The
+#                      skill itself degrades gracefully without the runtime (it is a
+#                      discussion boundary), but S1's expansion-stop discipline gates the
+#                      delivery widening on the first actual result, so the lane move is
+#                      deliberate and owned by S3, not a missing-env-depth bug.
 #
 # Only self-reflection is intentionally NOT shipped at all: it is the §1.7 self-review discipline
 # specific to THIS repo's own development process (not a reusable consumer capability) — see the
@@ -157,9 +166,9 @@ done
 # defines the env depth as carrying «pipeline presets, status, …» verbatim
 # (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
-# arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
+# arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff/intent
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:642-643), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:644-645), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"

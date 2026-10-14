@@ -26,7 +26,8 @@ against the current repo.
    "${CLAUDE_PLUGIN_ROOT}/install/fetch-and-wire.sh" <stack>
    ```
 
-   This fetches the official installer (pinned to the plugin version) and runs
+   This fetches the official installer at `RAT_INSTALL_REF` (default: moving `main`,
+   not a release pin; a failed requested ref stops without fallback) and runs
    `install.sh <stack> --dry-run` against `$CLAUDE_PROJECT_DIR`. Nothing is written.
 
 3. **Get explicit consent.** Show the preview, then ask the user `[y/N]` whether to apply it.

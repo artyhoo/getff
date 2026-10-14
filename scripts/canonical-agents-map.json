@@ -572,6 +572,11 @@
       "entry": "link"
     },
     {
+      "legacy": ".claude/skills/pipeline/helpers/saved-coordination.mjs",
+      "owner": ".agents/procedures/pipeline/helpers/saved-coordination.mjs",
+      "entry": "link"
+    },
+    {
       "legacy": ".claude/skills/pipeline/helpers/assign-skill.sh",
       "owner": ".agents/procedures/pipeline/helpers/assign-skill.sh",
       "entry": "link"
@@ -1064,6 +1069,21 @@
     {
       "legacy": "scripts/cited-spec-addenda.sh",
       "owner": ".agents/checks/cited-spec-addenda.sh",
+      "entry": "link"
+    },
+    {
+      "legacy": ".claude/skills/pipeline/helpers/overview.mjs",
+      "owner": ".agents/procedures/pipeline/helpers/overview.mjs",
+      "entry": "link"
+    },
+    {
+      "legacy": ".claude/skills/pipeline/references/output-overview.md",
+      "owner": ".agents/procedures/pipeline/references/output-overview.md",
+      "entry": "link"
+    },
+    {
+      "legacy": ".claude/skills/pipeline/references/output-examples.md",
+      "owner": ".agents/procedures/pipeline/references/output-examples.md",
       "entry": "link"
     }
   ],

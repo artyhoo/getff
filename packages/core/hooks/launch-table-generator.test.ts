@@ -34,7 +34,7 @@
  *     NEGATIVE: call WITH an arg (but missing kickoff) → that message is NOT emitted
  *
  *   Case 2 — Missing kickoff:
- *     POSITIVE: umbrella arg given but no kickoff.md in sandbox → stdout contains "MISSING kickoff:", exit 0
+ *     POSITIVE: umbrella arg given but no kickoff.md in sandbox → stdout contains "MISSING kickoff:", exit 1
  *     NEGATIVE: umbrella arg given and kickoff EXISTS → stdout does NOT contain "MISSING kickoff"
  *
  *   Case 3 — Primary path (B5 section-scoped):
@@ -169,11 +169,11 @@ describe('Case 1 — no-arg quiet skip (script lines 20-26)', () => {
 // Case 2 — Missing kickoff
 // ---------------------------------------------------------------------------
 describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
-  it('POSITIVE: umbrella arg given, no kickoff.md → stdout contains "MISSING kickoff:", exit 0', () => {
+  it('POSITIVE: umbrella arg given, no kickoff.md → stdout contains "MISSING kickoff:", exit 1', () => {
     // Targets script lines 30-34:
     //   if [[ ! -f "${KICKOFF}" ]]; then
     //     echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
-    //     exit 0
+    //     exit 1
     //   fi
     // This sandbox has NO .claude/orchestrator-prompts (writeKickoff is not called), so
     // resolve_orch_home() takes the CONSUMER branch and the message must name .ai-factory/.
@@ -182,7 +182,7 @@ describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
     const sandbox = makeSandbox();
     // No kickoff.md written for 'my-umbrella'
     const r = run(sandbox, 'my-umbrella');
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(1);
     expect(r.stdout).toContain(
       'MISSING kickoff: .ai-factory/orchestrator-prompts/my-umbrella/kickoff.md',
     );
@@ -195,7 +195,7 @@ describe('Case 2 — missing kickoff detection (script lines 30-34)', () => {
     const sandbox = makeSandbox();
     writeKickoff(sandbox, 'other-umbrella', '# Other\n');
     const r = run(sandbox, 'my-umbrella');
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(1);
     expect(r.stdout).toContain(
       'MISSING kickoff: .claude/orchestrator-prompts/my-umbrella/kickoff.md',
     );
@@ -334,7 +334,7 @@ describe('Case 4 — table skeleton emitted iff kickoff present and rows parsed 
     const sandbox = makeSandbox();
     // No kickoff written for 'missing-umbrella'
     const r = run(sandbox, 'missing-umbrella');
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(1);
     expect(r.stdout).not.toContain(TABLE_HEADER);
   });
 });

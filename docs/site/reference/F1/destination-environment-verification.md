@@ -4,10 +4,10 @@ description: The rule that work is accepted where it will run, not where it was 
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/destination-environment-verification.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/destination-environment-verification.md
+  - .agents/rules/00-rule-index.md
   - scripts/host-verify.sh
-  - .claude/hooks/check-kickoff-traps.sh
+  - .agents/hooks/check-kickoff-traps.sh
   - packages/core/hooks/check-kickoff-traps.test.ts
   - packages/core/principles/43-kickoff-host-verify-presence.test.ts
   - .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md
@@ -16,6 +16,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: host-verify-list-and-fail-closed, stack: repo, date: 2026-10-10, result: 17-commands-exit0-exit2 }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # destination-environment-verification rule
@@ -147,7 +148,7 @@ records closing that population as a separate, not-yet-built change.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The contract grammar (fenced `host-verify` block, declaration order,
   ≥20-character opt-out rationale): `.claude/rules/destination-environment-verification.md:21`

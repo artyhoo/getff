@@ -43,6 +43,8 @@ export interface TaskHandle {
   readonly taskId: string;
   /** ISO timestamp of dispatch. */
   readonly dispatchedAt: string;
+  /** Selector owner captured at adopted claim, retained across a two-phase release. */
+  readonly intentRepoRoot?: string;
 }
 
 /**

@@ -4,14 +4,15 @@ description: The rule that a load-bearing check must be a gate or a named cold-a
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
-  - .claude/rules/attention-is-not-a-mechanism.md
-  - .claude/rules/00-rule-index.md
+  - .agents/rules/attention-is-not-a-mechanism.md
+  - .agents/rules/00-rule-index.md
   - packages/core/hooks/checks/pr-body-removal-consumers.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
 executed:
   - { example: no-companion-test-exists, stack: repo, date: 2026-10-07, result: empty-grep }
+docs-refresh: deferred — re-verified 2026-10-12, the cited overview changed only its batch-status paragraph, class-list links and frontmatter sources (the all-30 refresh after the F1b merge); this sheet's only anchor into it, #how-to-read-a-rule-page, is untouched; clears at the next gold refresh of this page
 ---
 
 # attention-is-not-a-mechanism rule
@@ -80,7 +81,7 @@ example the removal-consumers PR-body check) are deterministic, no-LLM checks.
 
 ## Evidence
 
-Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree.
+Checked 2026-10-07 against the working tree this batch was written in; citations, counts and captured outputs re-verified 2026-10-10 against the merge-forward tree. Pins re-verified 2026-10-12 at the universal-integration branch head: the range's rule/test/workflow edits (including the in-body citation renumber) shifted no pin cited on this page — every pin was re-read at the current base and still shows the quoted content.
 
 - The rule sentence and the two allowed forms:
   `.claude/rules/attention-is-not-a-mechanism.md:15` (`§1`) and `:17` (the MUST).

@@ -9,7 +9,8 @@
 #
 # Usage: list-presets.sh
 #   stdout: one row per preset file, sorted alphabetically by name.
-#   exit 0: always (even if zero presets found — prints "no presets available").
+#   exit 0: enumeration completed (zero files prints "no presets available").
+#   exit 2: required dependency unavailable or integer-name preflight refused.
 #
 # AC-2: adding a 5th preset file makes it appear with ZERO code change.
 #
@@ -24,8 +25,11 @@ PRESETS_DIR="${MO_PRESETS_DIR:-${SCRIPT_DIR}/../references/presets}"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "list-presets.sh: jq is required but not found on PATH" >&2
-  exit 0  # non-fatal: print nothing, exit 0 (status render should not crash)
+  exit 2  # enumeration was not possible; do not certify an empty population
 fi
+
+# Keep the mandatory list preflight even when a host routes directly here.
+bash "$SCRIPT_DIR/integer-name-guard.sh" --auto
 
 if [ ! -d "$PRESETS_DIR" ] || [ -z "$(ls -A "$PRESETS_DIR"/*.json 2>/dev/null)" ]; then
   echo "no presets available (create JSON files under references/presets/)"
@@ -36,8 +40,9 @@ fi
 trace() { [ "${MO_TRACE_PRESET:-0}" = "1" ] && printf '[list-presets] %s\n' "$*" >&2 || true; }
 
 count=0
-# Sort alphabetically by filename for deterministic output.
-for f in $(ls "$PRESETS_DIR"/*.json 2>/dev/null | sort); do
+# Bash expands this quoted-directory glob in filename order without splitting
+# directory names on whitespace (consumer checkout paths may contain spaces).
+for f in "$PRESETS_DIR"/*.json; do
   [ -f "$f" ] || continue
   name="$(basename "$f" .json)"
   description="$(jq -r '.description // "<no description>"' "$f")"
