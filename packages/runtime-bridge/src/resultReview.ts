@@ -169,7 +169,8 @@ export interface IntentConfig {
 
 /** Helper result shape — mirrors the helper's own tagged result ({ok:true} | {ok:false, code, reason}). */
 export type HelperResult =
-  { ok: true } | { ok: false; code: string; reason: string };
+  | { ok: true }
+  | { ok: false; code: string; reason: string };
 
 /**
  * Resolve the owner configuration. Throws (fail-closed) when a scoped contract must be
@@ -770,7 +771,11 @@ export function enforceKickoffAdmission(
   }
   enforceScope(kickoff.content, backend, {
     helperPath: opts.helperPath,
-    roots: opts.roots ?? [repoRoot],
+    roots:
+      opts.roots ??
+      (process.env['RUNTIME_BRIDGE_INTENT_ROOTS'] === undefined
+        ? [repoRoot]
+        : undefined),
     decisionsHelperPath: opts.decisionsHelperPath,
     orchHome,
     requireAdopted: true,
@@ -941,10 +946,7 @@ export function recordRecoveredLegacyTask(
   repoRoot: string,
   expectedProjectId: string,
 ): string {
-  const home = join(
-    admissionOrchHome(repoRoot),
-    'intent-continuity',
-  );
+  const home = join(admissionOrchHome(repoRoot), 'intent-continuity');
   const freeze = JSON.parse(
     readFileSync(join(home, 'legacy-freeze.json'), 'utf8'),
   ) as {
@@ -1034,10 +1036,7 @@ export function enforceTaskAdmission(
       );
     return { adopted: false };
   }
-  const home = join(
-    admissionOrchHome(repoRoot),
-    'intent-continuity',
-  );
+  const home = join(admissionOrchHome(repoRoot), 'intent-continuity');
   const selectorExists = existsSync(join(home, 'current-decisions.json'));
   if (!selectorExists) {
     if (
