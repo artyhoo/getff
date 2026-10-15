@@ -1421,10 +1421,12 @@ test('source-put: unsafe id, gap offset and missing expectations are refused', (
 // A journal entry or a digest-shaped filename alone never proves it — every
 // success path (final adoption, identical replay, the already-published fast
 // path, interrupted-recovery completion and source-status) must hold a
-// REGULAR file with exactly the expected byte count and SHA256. Symlink and
-// other non-regular identities are rejected on lstat, before any read can
-// follow them outside the source spool. Conflicts RETAIN the verified part
-// and journal evidence — never an overwrite, never a manufactured success.
+// REGULAR file with exactly the expected byte count and SHA256. A STATIC
+// pre-existing symlink is rejected on identity without following it; the
+// lstat-then-read pair carries NO concurrent-replacement guarantee (explicit
+// F28 review limitation, not a hardening program). Conflicts RETAIN the
+// verified part and journal evidence — never an overwrite, never a
+// manufactured success.
 
 test('F28: wrong-byte/wrong-size/symlink pre-existing digest target is SOURCE_PUBLISH_ADOPT_CONFLICT; part, journal and object retained', () => {
   // wrong-BYTE target wearing the digest's name
@@ -1499,6 +1501,95 @@ test('F28: identical regular existing object is a successful replay with bytes a
   assert.equal(readFileSync(p, 'utf8'), text);
   // the part is gone after replay (redundant once the object is verified)
   assert.equal(existsSync(join(root, 'sources', 'f28-replay.part')), false);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-01 (Root be3d 2026-10-15): the conflict fixtures above fail on
+// byte SIZE at least as much as on digest — none isolates a wrong-DIGEST
+// target at provably EQUAL length. Here the impostor content keeps the byte
+// count identical, so the refusal can only come from the SHA comparison
+// itself (a size-only check would falsely adopt it).
+test('F28: equal-byte-length wrong-digest target is refused — part, journal and object retained', () => {
+  const root = freshRoot();
+  const text = 'f28-adopt-eqbytes';
+  const impostor = 'x28-adopt-eqbytes';
+  // both facts asserted BEFORE the CLI runs: equal length, different content
+  assert.equal(Buffer.byteLength(impostor), Buffer.byteLength(text));
+  assert.notEqual(impostor, text);
+  const whole = sha256Of(text);
+  const dir = join(root, 'sources');
+  writeFileSync(join(dir, `${whole}.json`), impostor);
+  const bad = cli(sourcePut(root, 'f28-adopt-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }), { expectFail: true });
+  assert.ok(bad.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  // evidence retained: verified part bytes, journal without a published claim,
+  // conflicting same-length object untouched
+  assert.equal(readFileSync(join(dir, 'f28-adopt-eq.part'), 'utf8'), text);
+  const j = JSON.parse(readFileSync(join(dir, 'f28-adopt-eq.journal'), 'utf8'));
+  assert.equal(j.published, null);
+  assert.equal(readFileSync(join(dir, `${whole}.json`), 'utf8'), impostor);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-02 (Root be3d 2026-10-15): the same isolation for POSTPUBLICATION
+// tampering — genuinely equal-length different bytes replace a published
+// object, and BOTH source-status and a repeated final source-put must refuse
+// the fast path. Equal length is asserted first, so neither refusal can be a
+// size accident; the tampered object and the original journal identity stay
+// preserved.
+test('F28: equal-length postpublication tampering — status AND repeated final put refuse, tampered object preserved', () => {
+  const root = freshRoot();
+  const text = 'f28-hold-eqsize';
+  const tampered = 'g28-hold-eqsize';
+  assert.equal(Buffer.byteLength(tampered), Buffer.byteLength(text));
+  assert.notEqual(tampered, text);
+  const whole = sha256Of(text);
+  const p = join(root, 'sources', `${whole}.json`);
+  cliJson(sourcePut(root, 'f28-hold-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  writeFileSync(p, tampered);
+  const st = cli(['source-status', '--root', root, '--id', 'f28-hold-eq', '--sha256', whole, '--bytes', String(Buffer.byteLength(text))], { expectFail: true });
+  assert.ok(st.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  const put = cli(sourcePut(root, 'f28-hold-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }), { expectFail: true });
+  assert.ok(put.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  // preserved state: tampered object untouched, journal keeps the original
+  // published identity, no part was recreated by the refused replay
+  assert.equal(readFileSync(p, 'utf8'), tampered);
+  const j = JSON.parse(readFileSync(join(root, 'sources', 'f28-hold-eq.journal'), 'utf8'));
+  assert.equal(j.published.sha256, whole);
+  assert.equal(j.published.bytes, Buffer.byteLength(text));
+  assert.equal(existsSync(join(root, 'sources', 'f28-hold-eq.part')), false);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-02 (Root be3d 2026-10-15): the positive neighbor. The existing
+// replay test above repeats the SAME id (journal-published fastpath); this
+// block breaks that aliasing — a FRESH upload id with NO published journal
+// finalizes onto a pre-existing physically correct target and must adopt it:
+// returned path/hash, its own DURABLE journal.published, part removal, and
+// the target's bytes/mtime untouched.
+test('F28: fresh upload id adopts a pre-existing physically correct target — durable journal, part removed, target untouched', () => {
+  const root = freshRoot();
+  const text = 'f28-adopt-fresh-existing';
+  const whole = sha256Of(text);
+  const dir = join(root, 'sources');
+  // the immutable object is published first under a DIFFERENT upload id
+  cliJson(sourcePut(root, 'f28-adopt-first', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  const p = join(dir, `${whole}.json`);
+  const before = statSync(p);
+  // a FRESH id with NO published journal finalizes onto the existing target
+  const fin = cliJson(sourcePut(root, 'f28-adopt-second', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  assert.equal(fin.path, p);
+  assert.equal(fin.sha256, whole);
+  assert.equal(fin.bytes, Buffer.byteLength(text));
+  const j = JSON.parse(readFileSync(join(dir, 'f28-adopt-second.journal'), 'utf8'));
+  assert.equal(j.published.sha256, whole);
+  assert.equal(j.published.bytes, Buffer.byteLength(text));
+  assert.equal(j.publishing, null);
+  // the redundant part was removed; the target's bytes and mtime are unchanged
+  assert.equal(existsSync(join(dir, 'f28-adopt-second.part')), false);
+  const after = statSync(p);
+  assert.equal(after.mtimeMs, before.mtimeMs);
+  assert.equal(after.size, before.size);
+  assert.equal(readFileSync(p, 'utf8'), text);
   rmSync(root, { recursive: true, force: true });
 });
 

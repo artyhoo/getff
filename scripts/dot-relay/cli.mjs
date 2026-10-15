@@ -1520,8 +1520,10 @@ function saveSourceJournal(root, journal) {
 // DOT-2087-F28 (Root amendment 2026-10-15): a published source is a PHYSICAL
 // fact — a regular file with exactly the expected byte count and SHA256. A
 // journal entry or a digest-shaped filename alone never proves publication.
-// Symlink and other non-regular identities are rejected on lstat, BEFORE any
-// read can follow them outside the source spool.
+// A STATIC pre-existing symlink or other non-regular stand-in is rejected on
+// identity, without following it. This is lstat-then-read, NOT an atomic
+// no-follow descriptor: no guarantee is claimed against concurrent path
+// replacement between the two calls (explicit F28 review limitation).
 function verifyRegularExact(path, sha256, bytes) {
   let st = null;
   try { st = lstatSync(path); } catch { /* absent */ }
