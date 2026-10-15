@@ -25,6 +25,13 @@ import { parseParkArgs, validateParkArgs } from '../../../packages/runtime-bridg
  *   independent of command presence).
  * - Explanatory negative mentions ("`manualReviewRequired` and
  *   `blocked_external` are not substitutes") are legal.
+ * - Consumer-route qualification (ROOT-PR2113 PR2089-CONSUMER-01): §4c makes
+ *   itself mandatory for consumer dispatch (the live-when note names the
+ *   vendor `dispatch.ts` command), yet Lever 2 supplies only the FRAMEWORK
+ *   park command — a consumer install has no `packages/` tree. A template
+ *   that names consumer dispatch MUST also carry the explicit
+ *   verified-on-destination-or-STOP qualification. Naming a conditional
+ *   candidate vendor park path is legal: unverified is gated, not forbidden.
  * - Parser agreement imports parseParkArgs directly and calls it with literal
  *   argument arrays plus the arguments extracted from the documented command.
  *   The park CLI is NEVER spawned and no HTTP request is made — parkTask is
@@ -55,6 +62,33 @@ const PARK_COMMAND = 'tsx packages/runtime-bridge/src/cli/park.ts --question';
  * do not match — those are legal per the packet.
  */
 const SET_STATUS_IMPERATIVE = /set the task to\s+`?(?:manualReviewRequired|blocked_external)/i;
+
+/**
+ * Consumer-route qualification markers (ROOT-PR2113 PR2089-CONSUMER-01). The
+ * §4c live-when note makes the section mandatory for consumer dispatch via the
+ * vendor command below; the framework Lever-2 park command alone leaves that
+ * route unresolved (a consumer has no packages/ tree). A consumer-dispatching
+ * template must carry BOTH: the framework-only fence on the Lever-2 command,
+ * and the verified-on-destination-or-STOP rule for autonomous dispatch.
+ */
+const CONSUMER_DISPATCH_COMMAND = 'tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts';
+const FRAMEWORK_ONLY_FENCE = 'must not be used in a consumer';
+const VERIFIED_OR_STOP = 'STOP as UNVERIFIED before dispatch';
+
+/**
+ * Violation codes, in stable order: consumer-dispatch-without-framework-only-fence,
+ * consumer-dispatch-without-verified-or-stop. No violation when no consumer
+ * dispatch is named — the obligation is bound to the consumer route, and a
+ * conditional candidate vendor path is NOT forbidden merely for being unverified.
+ */
+function validateConsumerRoute(text: string): string[] {
+  const violations: string[] = [];
+  if (text.includes(CONSUMER_DISPATCH_COMMAND)) {
+    if (!text.includes(FRAMEWORK_ONLY_FENCE)) violations.push('consumer-dispatch-without-framework-only-fence');
+    if (!text.includes(VERIFIED_OR_STOP)) violations.push('consumer-dispatch-without-verified-or-stop');
+  }
+  return violations;
+}
 
 /** Violation codes, in stable order: missing-park-phrase, missing-park-command, forbidden-set-status-imperative. */
 function validateParkContract(text: string): string[] {
@@ -89,6 +123,25 @@ const ORIGINAL_LEVER_2 =
   '(`.claude/hooks/lang/en.sh:110-126`). Guessing a fork to "keep moving" is the failure this whole loop exists to ' +
   'prevent.';
 
+/**
+ * The pre-clarification §4c shape (ROOT-PR2113 failureScenario): consumer
+ * dispatch named by the live-when note, Lever 2 supplies only the framework
+ * park command, no consumer-route qualification anywhere. Minimal literal
+ * fixture — not claimed to be template bytes.
+ */
+const PRE_CLARIFICATION_CONSUMER_SECTION =
+  'If any sub-wave is dispatched via `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, ' +
+  '§4c is MANDATORY.\n\n' +
+  CORRECTED_LEVER_2;
+
+/**
+ * The clarified qualification in minimal form: the phrases the contract
+ * requires (framework-only fence + verified-or-STOP), not template bytes.
+ */
+const CONSUMER_ROUTE_QUALIFICATION =
+  'Consumer route: the framework command above must not be used in a consumer. Verify the delivered vendor park ' +
+  'primitive and the task context on the destination, or STOP as UNVERIFIED before dispatch.';
+
 describe('park-contract validator (paired fixtures)', () => {
   it('accepts the corrected Lever-2 wording, including its explanatory negative mentions', () => {
     expect(validateParkContract(CORRECTED_LEVER_2)).toEqual([]);
@@ -114,6 +167,32 @@ describe('park-contract validator (paired fixtures)', () => {
   });
 });
 
+describe('consumer-route qualification (paired fixtures)', () => {
+  it('fails consumer dispatch plus only the framework park command — both qualification legs missing', () => {
+    expect(validateConsumerRoute(PRE_CLARIFICATION_CONSUMER_SECTION)).toEqual([
+      'consumer-dispatch-without-framework-only-fence',
+      'consumer-dispatch-without-verified-or-stop',
+    ]);
+  });
+
+  it('accepts the same section once the qualification prose is present (clarified shape)', () => {
+    expect(
+      validateConsumerRoute(PRE_CLARIFICATION_CONSUMER_SECTION + '\n\n' + CONSUMER_ROUTE_QUALIFICATION),
+    ).toEqual([]);
+  });
+
+  it('fails on each leg independently — the fence alone does not satisfy the verified-or-STOP leg', () => {
+    const fenced =
+      PRE_CLARIFICATION_CONSUMER_SECTION +
+      ' The framework command must not be used in a consumer.';
+    expect(validateConsumerRoute(fenced)).toEqual(['consumer-dispatch-without-verified-or-stop']);
+  });
+
+  it('demands nothing when no consumer dispatch is named — framework-only §4c passes', () => {
+    expect(validateConsumerRoute(CORRECTED_LEVER_2)).toEqual([]);
+  });
+});
+
 describe('canonical template §4c (meta-kickoff.template.md)', () => {
   const template = loadText(TEMPLATE_PATH);
 
@@ -129,12 +208,14 @@ describe('canonical template §4c (meta-kickoff.template.md)', () => {
     expect(template).toContain("grep -qi 'park it as a question'");
   });
 
-  it('keeps the framework path and the consumer vendor root distinct — no unverified consumer park command', () => {
-    // The §4c live-when note names the consumer vendor root for dispatch.ts;
-    // the consumer park.ts path is NOT asserted installed (packet instruction:
-    // it "still requires install/destination verification").
-    expect(template).toContain('.claude/vendor/runtime-bridge/src/cli/dispatch.ts');
-    expect(template).not.toContain('.claude/vendor/runtime-bridge/src/cli/park.ts');
+  it('qualifies the consumer dispatch route — framework-only fence and verified-or-STOP present', () => {
+    // ROOT-PR2113 requiredTest: the previous not.toContain(vendor park.ts)
+    // assertion was insufficient AND forbade a conditional candidate path
+    // merely for being unverified. The contract is the explicit
+    // verified-on-destination-or-STOP qualification next to the consumer
+    // dispatch route; naming the candidate vendor park path is legal.
+    expect(template).toContain(CONSUMER_DISPATCH_COMMAND);
+    expect(validateConsumerRoute(template)).toEqual([]);
   });
 });
 

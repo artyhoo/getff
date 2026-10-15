@@ -125,7 +125,7 @@ b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .agents/proced
 039782c7866beae0f1dba990a7bcee4fbe3514ca80a563a6707328a19e7dde1c  .agents/procedures/pipeline/references/scope.md
 bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .agents/procedures/pipeline/references/stage-gates.md
 982e46e114efd3eab8dbed318e53bef6adb96a50191feb5c4c830d546079075a  .agents/procedures/pipeline/references/status.md
-b5bd81e773c3c4e5c6589b56ef8899f1642d7038fb169e6f14e5264bfbfed9fb  .agents/procedures/pipeline/templates/meta-kickoff.template.md
+90c71829502fe41dd5817ab56e12e2f60d1346659d4d5bc5ac5ef9dad33b1553  .agents/procedures/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .agents/procedures/pipeline/templates/state.md.template
 0586e32e6a0069a6d7336502a5441f480050f05152dfff586cc73a3c11e10be0  .agents/procedures/reviewer/SKILL.md
 27ce27920968c0edd0a9fffe085749219cd5ed6c13ab9eb1cb75b159c6b51e97  .agents/procedures/rule-research/SKILL.md
@@ -214,7 +214,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-d2fa3e914a43677f1c218b15c5c5f8dd86cb571f6fcc2ec5efd91da32f895256  .ai-factory/refresh-baseline.json
+11e2de2748d6f1511c40c5799cde7c944e12ebf8574d97c1377bd313f399d6f3  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -360,7 +360,7 @@ b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills
 039782c7866beae0f1dba990a7bcee4fbe3514ca80a563a6707328a19e7dde1c  .claude/skills/pipeline/references/scope.md
 bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .claude/skills/pipeline/references/stage-gates.md
 982e46e114efd3eab8dbed318e53bef6adb96a50191feb5c4c830d546079075a  .claude/skills/pipeline/references/status.md
-b5bd81e773c3c4e5c6589b56ef8899f1642d7038fb169e6f14e5264bfbfed9fb  .claude/skills/pipeline/templates/meta-kickoff.template.md
+90c71829502fe41dd5817ab56e12e2f60d1346659d4d5bc5ac5ef9dad33b1553  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 0586e32e6a0069a6d7336502a5441f480050f05152dfff586cc73a3c11e10be0  .claude/skills/reviewer/SKILL.md
 27ce27920968c0edd0a9fffe085749219cd5ed6c13ab9eb1cb75b159c6b51e97  .claude/skills/rule-research/SKILL.md
@@ -503,7 +503,7 @@ b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .zcode/skills/
 039782c7866beae0f1dba990a7bcee4fbe3514ca80a563a6707328a19e7dde1c  .zcode/skills/pipeline/references/scope.md
 bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .zcode/skills/pipeline/references/stage-gates.md
 982e46e114efd3eab8dbed318e53bef6adb96a50191feb5c4c830d546079075a  .zcode/skills/pipeline/references/status.md
-b5bd81e773c3c4e5c6589b56ef8899f1642d7038fb169e6f14e5264bfbfed9fb  .zcode/skills/pipeline/templates/meta-kickoff.template.md
+90c71829502fe41dd5817ab56e12e2f60d1346659d4d5bc5ac5ef9dad33b1553  .zcode/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .zcode/skills/pipeline/templates/state.md.template
 0586e32e6a0069a6d7336502a5441f480050f05152dfff586cc73a3c11e10be0  .zcode/skills/reviewer/SKILL.md
 27ce27920968c0edd0a9fffe085749219cd5ed6c13ab9eb1cb75b159c6b51e97  .zcode/skills/rule-research/SKILL.md
