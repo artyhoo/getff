@@ -1602,6 +1602,18 @@ function cmdSourcePut({ root, flags }) {
     ok({ path: fast.path, sha256: journal.published.sha256, bytes: journal.published.bytes });
   }
 
+  // F28 (cold finding F-1, 2026-10-15): the part's identity is settled BEFORE
+  // any following operation on it — create, stat, truncate, append, read or
+  // rename. A STATIC pre-existing non-regular stand-in (symlink, FIFO, …) is
+  // rejected on lstat identity without following it: the append would write
+  // through it outside sources, and the final rename would publish the
+  // stand-in itself as the digest object. Same lstat-then-act discipline and
+  // the same concurrent-replacement limitation as verifyRegularExact above;
+  // the stand-in and any journal evidence are retained untouched.
+  let partSt = null;
+  try { partSt = lstatSync(partPath); } catch { /* absent */ }
+  if (partSt && !partSt.isFile()) fail('SOURCE_PART_IDENTITY_CONFLICT');
+
   // ensure the part exists and shed any uncommitted crash suffix (R12)
   if (!existsSync(partPath)) writeFileSync(partPath, '', { encoding: 'utf8', mode: 0o600 });
   const size = statSync(partPath).size;

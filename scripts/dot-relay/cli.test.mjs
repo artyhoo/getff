@@ -9,7 +9,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
-  existsSync, symlinkSync, readlinkSync, statSync, openSync, writeSync, closeSync,
+  existsSync, symlinkSync, readlinkSync, lstatSync, statSync, openSync, writeSync, closeSync,
   chmodSync, appendFileSync, renameSync, readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,8 +24,8 @@ const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
 const sha256Of = (s) => createHash('sha256').update(s).digest('hex');
 const sha40 = (s) => sha256Of(s).slice(0, 40);
 
-function cli(args, { cwd = tmpdir(), expectFail = false } = {}) {
-  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd });
+function cli(args, { cwd = tmpdir(), expectFail = false, timeout } = {}) {
+  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd, timeout });
   if (!expectFail && r.status !== 0) {
     throw new Error(`cli ${args.join(' ')} exited ${r.status}: ${r.stdout} ${r.stderr}`);
   }
@@ -1695,6 +1695,117 @@ test('F28: interrupted publication recovery — valid part completes idempotentl
   const badD = cli(['source-status', '--root', rootD, '--id', 'f28-rec-d', '--sha256', wholeD, '--bytes', String(Buffer.byteLength(textD))], { expectFail: true });
   assert.ok(badD.stdout.includes('SOURCE_PUBLISH_RECOVERY_LOST'));
   rmSync(rootD, { recursive: true, force: true });
+});
+
+// F28 cold finding F-1 (cold fidelity report 2026-10-15, REVISE Round 1 on
+// 16597bd2): normal final publication renamed the part without checking its
+// regular-file identity — the recovery path did (SOURCE_PUBLISH_RECOVERY_*),
+// the normal path did not. A STATIC sources/<id>.part symlink to an empty
+// ordinary file OUTSIDE sources survived every following operation:
+// existsSync/statSync/append/read all FOLLOWED it, so a final source-put at
+// offset 0 with a correct chunk/hash/byte count appended THROUGH the link
+// into the outside referent, verified the referent's bytes, renamed the LINK
+// into the digest path and recorded journal.published with ok:true — a
+// manufactured publication whose object is a symlink and whose data lives
+// outside the spool. The falsifier-named fix is one identity gate before all
+// following operations (create/stat/truncate/append/read/rename), the same
+// lstat-then-act discipline as verifyRegularExact: reject the stand-in
+// without following it, retain it as evidence, never write outside sources.
+test('F28 (cold F-1): static non-regular part stand-in rejected before any following operation — no outside write, no symlink publication', () => {
+  // A. the exact F-1 scenario: empty ordinary referent outside sources +
+  //    static fresh-id part symlink, no journal, no digest target; final
+  //    source-put at offset 0 with a nonempty valid chunk/hash/byte count.
+  //    Refusal must land BEFORE the append (referent stays empty), BEFORE the
+  //    rename (no digest object appears) and BEFORE any published-success
+  //    claim; the stand-in itself is retained as evidence.
+  const rootA = freshRoot();
+  const textA = 'f28-f1-primary';
+  const wholeA = sha256Of(textA);
+  const dirA = join(rootA, 'sources');
+  writeFileSync(join(rootA, 'outside-empty'), '');
+  symlinkSync(join(rootA, 'outside-empty'), join(dirA, 'f28-f1-a.part'));
+  const badA = cli(sourcePut(rootA, 'f28-f1-a', { offset: 0, chunk: textA, final: true, sha256: wholeA, bytes: Buffer.byteLength(textA) }), { expectFail: true });
+  assert.ok(badA.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(readFileSync(join(rootA, 'outside-empty'), 'utf8'), ''); // append never wrote through the link
+  assert.equal(existsSync(join(dirA, `${wholeA}.json`)), false); // no object published, symlink included
+  assert.equal(lstatSync(join(dirA, 'f28-f1-a.part')).isSymbolicLink(), true); // stand-in retained
+  assert.equal(readlinkSync(join(dirA, 'f28-f1-a.part')), join(rootA, 'outside-empty'));
+  assert.equal(existsSync(join(dirA, 'f28-f1-a.journal')), false); // no manufactured published claim
+  const stA = cliJson(['source-status', '--root', rootA, '--id', 'f28-f1-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))]);
+  assert.equal(stA.published, false);
+  rmSync(rootA, { recursive: true, force: true });
+
+  // B. DANGLING symlink stand-in: same refusal on identity, and the referent
+  //    outside sources is never CREATED through the dangling link (creating
+  //    it would itself be an outside write)
+  const rootB = freshRoot();
+  const textB = 'f28-f1-dangling';
+  const wholeB = sha256Of(textB);
+  const dirB = join(rootB, 'sources');
+  symlinkSync(join(rootB, 'nowhere-dangling'), join(dirB, 'f28-f1-b.part'));
+  const badB = cli(sourcePut(rootB, 'f28-f1-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }), { expectFail: true });
+  assert.ok(badB.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(existsSync(join(rootB, 'nowhere-dangling')), false);
+  assert.equal(existsSync(join(dirB, `${wholeB}.json`)), false);
+  assert.equal(lstatSync(join(dirB, 'f28-f1-b.part')).isSymbolicLink(), true);
+  rmSync(rootB, { recursive: true, force: true });
+
+  // C. FIFO stand-in: non-regular AND unopenable for append without a reader
+  //    — the refusal must come from lstat identity alone, never from
+  //    attempting the append (which would block forever). The CLI call is
+  //    bounded by a timeout so a missing identity gate surfaces as a killed
+  //    hang, never a blocked test run.
+  const rootC = freshRoot();
+  const textC = 'f28-f1-fifo';
+  const wholeC = sha256Of(textC);
+  const dirC = join(rootC, 'sources');
+  execFileSync('mkfifo', [join(dirC, 'f28-f1-c.part')]);
+  const badC = cli(sourcePut(rootC, 'f28-f1-c', { offset: 0, chunk: textC, final: true, sha256: wholeC, bytes: Buffer.byteLength(textC) }), { expectFail: true, timeout: 5000 });
+  assert.ok(badC.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(existsSync(join(dirC, `${wholeC}.json`)), false);
+  assert.equal(lstatSync(join(dirC, 'f28-f1-c.part')).isFIFO(), true); // stand-in retained
+  rmSync(rootC, { recursive: true, force: true });
+
+  // D. the shared append boundary guards NON-FINAL chunks too: the same
+  //    static symlink must be refused before the append, with no outside
+  //    write and no chunk commit journaled
+  const rootD = freshRoot();
+  const dirD = join(rootD, 'sources');
+  writeFileSync(join(rootD, 'outside-nonfinal'), '');
+  symlinkSync(join(rootD, 'outside-nonfinal'), join(dirD, 'f28-f1-d.part'));
+  const badD = cli(sourcePut(rootD, 'f28-f1-d', { offset: 0, chunk: 'hello ', final: false }), { expectFail: true });
+  assert.ok(badD.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(readFileSync(join(rootD, 'outside-nonfinal'), 'utf8'), '');
+  assert.equal(existsSync(join(dirD, 'f28-f1-d.journal')), false);
+  rmSync(rootD, { recursive: true, force: true });
+
+  // E. positive neighbor: a pre-existing REGULAR part (prior non-final chunk)
+  //    passes the identity gate and continues to a final publication — the
+  //    guard must refuse non-regular stand-ins only, never the legit path
+  const rootE = freshRoot();
+  const prefixE = 'f28-f1-regular-';
+  const wholeE = sha256Of('f28-f1-regular-tail');
+  const dirE = join(rootE, 'sources');
+  cliJson(sourcePut(rootE, 'f28-f1-e', { offset: 0, chunk: prefixE, final: false }));
+  assert.equal(lstatSync(join(dirE, 'f28-f1-e.part')).isFile(), true);
+  const finE = cliJson(sourcePut(rootE, 'f28-f1-e', { offset: Buffer.byteLength(prefixE), chunk: 'tail', final: true, sha256: wholeE, bytes: Buffer.byteLength('f28-f1-regular-tail') }));
+  assert.equal(finE.sha256, wholeE);
+  assert.equal(lstatSync(finE.path).isFile(), true); // published object is a regular file
+  assert.equal(readFileSync(finE.path, 'utf8'), 'f28-f1-regular-tail');
+  rmSync(rootE, { recursive: true, force: true });
+
+  // F. positive neighbor: a fresh upload with NO pre-existing part still
+  //    creates, publishes and reports the regular object
+  const rootF = freshRoot();
+  const textF = 'f28-f1-fresh';
+  const wholeF = sha256Of(textF);
+  const finF = cliJson(sourcePut(rootF, 'f28-f1-f', { offset: 0, chunk: textF, final: true, sha256: wholeF, bytes: Buffer.byteLength(textF) }));
+  assert.equal(finF.ok, true);
+  assert.equal(lstatSync(finF.path).isFile(), true);
+  assert.equal(readFileSync(finF.path, 'utf8'), textF);
+  const stF = cliJson(['source-status', '--root', rootF, '--id', 'f28-f1-f', '--sha256', wholeF, '--bytes', String(Buffer.byteLength(textF))]);
+  assert.equal(stF.published, true);
+  rmSync(rootF, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------- source-status
