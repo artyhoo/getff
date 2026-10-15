@@ -7,6 +7,7 @@ sources:
   - .agents/rules/ai-laziness-traps.md
   - .agents/rules/00-rule-index.md
   - packages/core/principles/12-ai-laziness-traps.test.ts
+  - .claude/orchestrator-prompts/getff-ai-site/kickoff-s1rf1a.md
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/reference/F1/ai-laziness-digest.md
@@ -75,8 +76,9 @@ The `channels` row says where the rule reaches you: the files it scopes load at
 read time, and an edit-time injection re-surfaces its summary when you edit them.
 What the rule does not do: it cannot tell a real trap citation from a copy-pasted
 one, and it does not judge whether the delegated session actually applied the
-counters. A kickoff can satisfy the gate and still be lazy; the gate guarantees the
-enumeration was written, not that the work was done.
+counters. A kickoff can satisfy the gate with a rule citation alone. Enumerating
+applicable traps and adding a task-specific trap remain review-time obligations;
+the gate does not prove either was done.
 
 ## Evidence
 

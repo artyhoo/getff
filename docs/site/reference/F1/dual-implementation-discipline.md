@@ -12,6 +12,9 @@ sources:
   - .agents/roles/dual-channel-drift-auditor.md
   - tests/agnosticism/harness-self.test.sh
   - packages/core/principles/21-agnosticism-conformance.test.ts
+  - packages/core/hooks/check-hook-marker.test.ts
+  - .claude/settings.json
+  - scripts/link-coordination.sh
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
@@ -57,13 +60,16 @@ written markers: `@dual-pair` naming its portable counterpart, or
 rule's origin is a framing by the maintainer, quoted in its own file: use the
 native features when they exist — but record that you chose to.
 
-The markers are checked at two levels, and the class row is `A` because both
-are executable. At edit time, a hook inspects any Claude Code hook script you
-touch and rejects it if it carries neither marker. Across the population, a
-CI probe walks every tracked hook script, resolves each `@dual-pair` anchor to
-a real counterpart file, and fails on a dangling anchor. Run by hand, that
-probe prints one line per artifact — 69 rows at this base, one per tracked
-hook script in each of the two trees. Filtered to one hook's pair of rows:
+The markers are checked at two levels, and the class row is `A` because
+executable checks back the rule. After an Edit, Write or MultiEdit has already
+written a covered hook script, the PostToolUse hook checks its markers and
+reports a missing marker to the model. It does not block or undo the edit:
+Claude Code receives exit-2 feedback, while ZCode receives advisory context.
+Separately, the population CI probe checks tracked hook scripts and scripts
+wired in settings, resolves each `@dual-pair` anchor to a real counterpart,
+and reports missing markers or dangling anchors as non-PORTABLE. Principle 21
+fails on those findings. The captured probe output has 69 rows at this base.
+Filtered to one hook's pair of rows:
 
 ```bash
 bash tests/agnosticism/probes/channel-coverage.sh | grep 'worktree-setup'
@@ -113,10 +119,14 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   audience triage §3 at `:62`.
 - The capability-check-not-brand-name detection principle: §4 at `:108`.
 - The deterministic drift check (anchor resolution): §5 at `:127`.
-- The CC-bias mitigation and the edit-time marker gate: §6 at `:159`.
-- The edit-time gate itself: `.claude/hooks/check-hook-marker.sh` — the live
-  `@cc-only-rationale` example at `:4` to `:8`, the two-marker grammar at
-  `:10` to `:12`, and the exit-2 channel rationale at `:21` to `:24`.
+- The CC-bias mitigation and the post-edit marker check: §6 at `:159`.
+- The PostToolUse feedback hook: `.agents/hooks/check-hook-marker.sh` — the
+  feedback-channel explanation at `:29` to `:32`, the harness-specific output
+  at `:54`, and the post-write file inspection at `:117` to `:140`.
+- The paired tests: `packages/core/hooks/check-hook-marker.test.ts:123` to
+  `:141` writes the fixture before invoking the hook; `:174` to `:178` checks
+  Claude Code's exit-2 feedback, and `:225` to `:268` checks ZCode's advisory
+  context with exit 0.
 - The population probe: `tests/agnosticism/probes/channel-coverage.sh` —
   Surface 8 header at `:2`, marker grep at `:50`, anchor extraction at `:56`
   (output above filtered to one hook's two rows; the full probe prints 69
