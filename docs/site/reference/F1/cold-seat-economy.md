@@ -10,6 +10,8 @@ sources:
   - packages/core/principles/50-cold-seat-inputs-ref.test.ts
   - scripts/snapshot-for-seat.sh
   - .agents/procedures/dispatcher/references/execution.md
+  - .agents/procedures/dispatcher/SKILL.md
+  - .claude/skills/dispatcher/SKILL.md
   - .agents/procedures/harvest/SKILL.md
   - .agents/procedures/orchestrator/references/reviewer-template.md
   - docs/site/reference/F1.json
@@ -69,8 +71,9 @@ review question, two delivery forms:
 | fresh agent (executor tier), inputs inlined, zero tools | 85,855 | 0 | 16 s |
 | fresh agent (executor tier), narrow 4-file review | 177,105 | 7 | 137 s |
 
-Inlined inputs cost twice the tokens and a fraction of the time. That trade is
-the whole point of §7, the one part of the rule backed by a shipped test: seat
+In this measurement, inlined inputs used roughly half the tokens and a fraction
+of the time. That trade is the whole point of §7, the one part of the rule
+backed by a shipped test: seat
 inputs are immutable (files as they were at one pinned commit, never live worktree
 paths), and every answer names the commit it was taken at. The class row is `C` —
 prose, not a gate — and §7 is the honest exception where part of the discipline

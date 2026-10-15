@@ -9,6 +9,9 @@ sources:
   - .agents/procedures/harvest/SKILL.md
   - .agents/procedures/dispatcher/helpers/harvest-via-api.sh
   - scripts/run-local-ci-sweep.sh
+  - setup.d/lib.sh
+  - setup.d/10-skills.sh
+  - docs/site/reference/B.json
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
@@ -84,11 +87,12 @@ there anyway, and an autonomous agent in a sandbox that could push to the reposi
 would widen the trust boundary, not close a gap.
 
 The [channel](../../terms.md#channel) row is a single `skill-embed`: the rule
-is carried into the harvest skill's egress section, so the preference is
-stated exactly where an agent chooses a push channel. That carrier is live —
-the skill's egress heading carries the anchor the marker names. This rule is
-also framework-only documentation: the harvest procedure is an operator-side
-skill, not something installed into consumer projects.
+is carried into the harvest skill's egress section, where an agent chooses
+a push channel. That carrier is live: its egress heading carries the named
+anchor. The rule file itself is framework-only. Its harvest carrier is a
+portable factory-tier skill, installed into consumer projects selected for
+`PROFILE=factory` or the legacy `--with-aif-suite` route. Those two delivery
+scopes should be read separately.
 
 The `class` row is `B` — a compensating mechanism without a test. The rule's
 own header is precise about why: no branch-scoped CI run can assert "this
@@ -121,9 +125,12 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The census above: `.claude/skills/dispatcher/helpers/harvest-via-api.sh` —
   9 `gh api` occurrences, and the only `git push` match is `:8`, inside the
   break-glass rationale comment at `:7` to `:9` (both greps run at this base).
-- The live skill carrier: `.claude/skills/harvest/SKILL.md:40` — the §1
-  egress heading carrying the `#egress` anchor the rule's marker names;
-  the sweep gate section at `:57`.
+- The live skill carrier: `.agents/procedures/harvest/SKILL.md:40` — the
+  egress heading carrying the `#egress` anchor; the sweep section at `:57`.
+- Harvest delivery: `docs/site/reference/B.json:161` to `:175` grades it
+  factory-tier; `setup.d/lib.sh:65` includes it in `GETFF_SKILLS_FACTORY`;
+  `setup.d/10-skills.sh:170` to `:181` copies the suite and its sweep script.
+  `setup.d/lib.sh:2741` to `:2752` names the consumer skill destination.
 - The gate-substitute the break-glass path mandates:
   `scripts/run-local-ci-sweep.sh`.
 - The promotion trigger and retirement criteria: `:44` and `:45`.

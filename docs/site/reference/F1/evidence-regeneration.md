@@ -11,6 +11,7 @@ sources:
   - packages/core/composition/enforcement-line.ts
   - packages/core/composition/gates/composition-gate.ts
   - packages/core/backends/astgrep/firing-runner.ts
+  - packages/core/backends/ruff/firing-runner.ts
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
