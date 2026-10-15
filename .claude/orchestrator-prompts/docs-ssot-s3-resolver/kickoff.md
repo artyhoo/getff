@@ -126,3 +126,17 @@ Domain traps:
 - **Dispatch preconditions** ([.agents/rules/kickoff-staging-placement.md §1](../../../.agents/rules/kickoff-staging-placement.md)): this kickoff merged to staging FIRST, then the CLAUDE.md pre-dispatch in-flight probe (all arms, including the container route) before any dispatch.
 - **Acceptance dependency (two-path, §5)**: S3 acceptance requires the coordinator-arranged test registration AND actual CI execution evidence of the registered suite — neither the resolver PR alone nor a generically green CI closes it. Module reservation for `packages/core/docs-engine/**` is the coordinator's slot to align before implementation admission; this kickoff reserves only the two implementation files (§2).
 - **Park checks inherited**: E-1 falsifier (§7.10 — park, never a fifth kind); parked q5 (`fn:` python/cargo/go); E-2 falsifier (comment-churn alarm rate — a live S4+ measurement, not producible by this stage's fixtures).
+
+## Amendment 2026-10-15 — DOT-PR2093-F01/F02 heading contract
+
+This append-only amendment corrects only the `h:` Setext recognition and fixture obligations in §2 and §7.7. It supersedes a contradictory underline spelling there. All other contract, scope, owner, registration, CI and report-time gates remain. This is a future implementation obligation, not an executed resolver result.
+
+A Setext heading requires a paragraph in the applicable CommonMark/GFM block context. Keep zero-to-three leading ASCII spaces, fence awareness and block precedence. Recognize a contiguous `=` or `-` run followed by optional ASCII spaces/tabs, for example `^ {0,3}=+[ \t]*$` and `^ {0,3}-+[ \t]*$`. Do not invent a heading from a list item or blockquote followed by a thematic break. Preserve the existing multiline paragraph, emitted-slug deduplication and level-boundary rules. Recognition may inspect a line view; returned content retains original source bytes. Only `signature` applies the existing two E2 normalizations.
+
+Supplement §7.7 with these paired resolve/bounds/signature obligations, retaining all its existing cases:
+
+- For `## Keep\n\nkept\n\nNext\n---\nother`, compare the underline with `--- ` and `---\t`. All three variants resolve `fixture.md#h:keep` and `fixture.md#h:next`, with Keep bounds 1–4 and Next bounds 5–7. Returned content retains the original whitespace. Corresponding signatures are equal after E2. Repeat with `=` underlines and level-1 boundaries. Editing `kept` changes only Keep's signature; editing `other` changes only Next's signature.
+- For `## Keep\n\n- item\n---\nprotected claim\n## Next\n` and the paired `> item` variant, Keep extends through `protected claim` and ends immediately before `## Next`. Neither list nor blockquote/thematic-break context invents a closing heading. Editing `protected claim` changes Keep's signature.
+- Keep the level-1 Setext case `Alpha\n=====\nbody\n## Child\nchild body\n# Next\n`: Alpha includes its level-2 child and ends at the next level-1 heading. Keep the multiline paragraph fixture. A fenced pseudo-heading never closes Keep; editing protected text after the fence changes Keep's signature.
+
+Future resolver tests must demonstrate these obligations using the already-declared provisioned test command and two-path acceptance gates. This amendment does not implement the resolver, register tests, claim a runtime RED/GREEN, waive policy, merge or activate an executor.
