@@ -494,7 +494,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     );
     enforceScope(persisted?.description ?? '', 'aif-handoff', {
       requireAdopted: admission.adopted,
-      ...(handle.intentRepoRoot ? { roots: [handle.intentRepoRoot] } : {}),
+      ...(handle.intentRepoRoot &&
+      process.env['RUNTIME_BRIDGE_INTENT_ROOTS'] === undefined
+        ? { roots: [handle.intentRepoRoot] }
+        : {}),
     });
     await this._rest('PUT', `/tasks/${handle.taskId}`, { paused: false });
     // Scoped route: the unpause carries the `start_ai` planning event — planning may

@@ -771,7 +771,11 @@ export function enforceKickoffAdmission(
   }
   enforceScope(kickoff.content, backend, {
     helperPath: opts.helperPath,
-    roots: opts.roots ?? [repoRoot],
+    roots:
+      opts.roots ??
+      (process.env['RUNTIME_BRIDGE_INTENT_ROOTS'] === undefined
+        ? [repoRoot]
+        : undefined),
     decisionsHelperPath: opts.decisionsHelperPath,
     orchHome,
     requireAdopted: true,

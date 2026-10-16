@@ -217,7 +217,7 @@ const spec = process.env.TEST_CURRENT_SPEC_SHA;
 if (process.argv.includes('--classify-artifact')) {
   process.stdout.write(JSON.stringify({ok:true,classification:'unknown',sha256:process.env.TEST_KICKOFF_SHA})+'\\n');
 } else if (process.argv.includes('--read')) {
-  process.stdout.write(JSON.stringify({ok:true,currentPrd:{snapshotRef:{path:'brief.md',sha256:prd}},currentSpec:{specRef:{path:'env/agreed-spec.md',sha256:spec}}})+'\\n');
+  process.stdout.write(JSON.stringify({ok:true,currentPrd:{snapshotRef:{path:process.env.TEST_CURRENT_PRD_PATH || 'brief.md',sha256:prd}},currentSpec:{specRef:{path:process.env.TEST_CURRENT_SPEC_PATH || 'env/agreed-spec.md',sha256:spec}}})+'\\n');
 } else {
   process.stdout.write(JSON.stringify({ok:true,prdSha256:prd,specSha256:spec,attemptId:'spec-attempt'})+'\\n');
 }
@@ -343,7 +343,9 @@ if (process.argv.includes('--classify-artifact')) {
   });
 
   it('uses the configured external orchestration home for admission and holds a missing selector', async () => {
-    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-external-root-'));
+    const admissionRoot = mkdtempSync(
+      resolve(tmpdir(), 'intent-external-root-'),
+    );
     const orchHome = mkdtempSync(resolve(tmpdir(), 'intent-external-home-'));
     const home = resolve(orchHome, 'intent-continuity');
     mkdirSync(home, { recursive: true });
@@ -366,7 +368,11 @@ if (process.argv.includes('--classify-artifact')) {
     ).toThrow(/adoption|legacy/i);
 
     const calls: Call[] = [];
-    mockTaskStore(calls, { id: 'new-task', paused: true, description: content });
+    mockTaskStore(calls, {
+      id: 'new-task',
+      paused: true,
+      description: content,
+    });
     await expect(
       new AifHandoffBackend({
         baseUrl: 'http://localhost:3009',
@@ -385,6 +391,123 @@ if (process.argv.includes('--classify-artifact')) {
     expect(() =>
       enforceTaskAdmission({ id: 'new-task', description: content }, 'test'),
     ).toThrow(/selector is missing/i);
+  });
+
+  function crossRootAdmission() {
+    const admissionRoot = mkdtempSync(resolve(tmpdir(), 'intent-roots-owner-'));
+    const home = resolve(
+      admissionRoot,
+      '.claude/orchestrator-prompts/intent-continuity',
+    );
+    mkdirSync(home, { recursive: true });
+    writeFileSync(
+      resolve(home, 'current-decisions.json'),
+      JSON.stringify({ repoIdentity: 'cross-root-owner' }),
+    );
+    writeFileSync(
+      resolve(home, 'legacy-freeze.json'),
+      JSON.stringify({ repoIdentity: 'cross-root-owner', artifacts: [] }),
+    );
+    const content = scopedText(
+      {
+        ...adopted,
+        brief: { ...adopted.brief, path: resolve(ROOT, adopted.brief.path) },
+        shared: adopted.shared.map((ref) => ({
+          ...ref,
+          path: resolve(ROOT, ref.path),
+        })),
+      },
+      'configured-cross-root',
+    );
+    const filePath = resolve(admissionRoot, 'kickoff-new.md');
+    writeFileSync(filePath, content);
+    vi.stubEnv('AIF_INTENT_REPO_ROOT', admissionRoot);
+    vi.stubEnv(
+      'RUNTIME_BRIDGE_INTENT_ROOTS',
+      [admissionRoot, ROOT].join(process.platform === 'win32' ? ';' : ':'),
+    );
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_HELPER', HELPER);
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_DECISIONS_HELPER', selector);
+    vi.stubEnv('TEST_KICKOFF_SHA', sha256(content));
+    vi.stubEnv('TEST_CURRENT_PRD_SHA', briefDigest);
+    vi.stubEnv('TEST_CURRENT_SPEC_SHA', spec.sha256);
+    vi.stubEnv('TEST_CURRENT_PRD_PATH', resolve(ROOT, adopted.brief.path));
+    vi.stubEnv('TEST_CURRENT_SPEC_PATH', resolve(ROOT, spec.path));
+    return { admissionRoot, content, filePath };
+  }
+
+  it('admission preserves configured cross-root authority but explicit roots stay authoritative', () => {
+    const { admissionRoot, content, filePath } = crossRootAdmission();
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test'),
+    ).not.toThrow();
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test', {
+        roots: [admissionRoot],
+      }),
+    ).toThrow();
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', admissionRoot);
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test', {
+        roots: [admissionRoot, ROOT],
+      }),
+    ).not.toThrow();
+  });
+
+  it('admission never widens a configured root or an explicitly empty root list', () => {
+    const { admissionRoot, content, filePath } = crossRootAdmission();
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', admissionRoot);
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test'),
+    ).toThrow();
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', '');
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test'),
+    ).toThrow(/ROOTS is not configured/);
+    expect(() =>
+      enforceKickoffAdmission({ filePath, content }, 'test', { roots: [] }),
+    ).toThrow(/ROOTS is not configured/);
+  });
+
+  it('claim and release preserve configured external roots, while revoking one holds before unpause', async () => {
+    const { admissionRoot, content, filePath } = crossRootAdmission();
+    const calls: Call[] = [];
+    mockTaskStore(calls, {
+      id: 'task-42',
+      status: 'backlog',
+      paused: true,
+      description: content,
+    });
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    const handle = await backend.claim({
+      filePath,
+      content,
+      umbrellaName: 'adopted-demo',
+      contentHash: sha256(content),
+    });
+    expect(handle.intentRepoRoot).toBe(admissionRoot);
+    calls.length = 0;
+    await backend.release(handle);
+    expect(
+      calls.some((c) => c.method === 'PUT' && c.body?.['paused'] === false),
+    ).toBe(true);
+    expect(
+      calls.some(
+        (c) =>
+          c.method === 'POST' &&
+          c.url.endsWith('/events') &&
+          c.body?.['event'] === 'start_ai',
+      ),
+    ).toBe(true);
+    calls.length = 0;
+    vi.stubEnv('RUNTIME_BRIDGE_INTENT_ROOTS', admissionRoot);
+    await expect(backend.release(handle)).rejects.toMatchObject({
+      code: 'spec_invalid',
+    });
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
 
   it('direct AIF claim refuses marker removal before any network effect', async () => {
