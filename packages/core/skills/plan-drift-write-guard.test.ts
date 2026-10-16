@@ -215,6 +215,26 @@ describe(
     });
 
     it.each([
+      '| N4a | claim-detector fix | 🔲 NOT STARTED until N7 merges | #98 OPEN |',
+      '| N4a | claim-detector fix | 🔲 NOT STARTED | #98 OPEN after N7 merges |',
+    ])(
+      'removing an old condition requires independent review: %s',
+      (target) => {
+        const replacement =
+          '| N4a | claim-detector fix | ✅ DONE | #98 MERGED |';
+        const oldPlan = BASE_PLAN.replace(
+          '| N4a | claim-detector fix | ✅ DONE | #98 MERGED |',
+          target,
+        );
+        const f = makeFixture(oldPlan);
+        writeFileSync(f.plan, oldPlan.replace(target, replacement));
+        const r = runGuard(guardArgs(f, target, replacement));
+        expect(r.status, r.stdout).toBe(3);
+        expect(r.stdout).not.toContain('PLAN-WRITE-RECEIPT');
+      },
+    );
+
+    it.each([
       'priority P0',
       'admission approved',
       'dependency removed',

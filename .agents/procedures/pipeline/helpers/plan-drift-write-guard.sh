@@ -285,8 +285,10 @@ if [[ -n "$PROTECTED_HITS" ]]; then
   printf '%s' "$PROTECTED_HITS"
   exit 3
 fi
-if [[ -n "$SEMANTIC_HITS" ]] || ! factual_rows_only "$JOINT_REM_TMP" "$JOINT_ADD_TMP"; then
-  echo "SEMANTIC-REVIEW-REQUIRED: added lines are not mechanically classifiable as factual fields carrying evidence — route to .agents/roles/plan-drift-semantic-auditor.md; auto-accept forbidden"
+# Classify both mutable field sets: removing an unknown old condition is as
+# semantic as introducing unknown new prose, even without protected keywords.
+if [[ -n "$SEMANTIC_HITS" ]] || ! factual_rows_only "$JOINT_REM_TMP" "$JOINT_ADD_TMP" || ! factual_rows_only "$JOINT_ADD_TMP" "$JOINT_REM_TMP"; then
+  echo "SEMANTIC-REVIEW-REQUIRED: changed lines are not mechanically classifiable as factual fields carrying evidence — route to .agents/roles/plan-drift-semantic-auditor.md; auto-accept forbidden"
   printf '%s' "$SEMANTIC_HITS"
   exit 3
 fi

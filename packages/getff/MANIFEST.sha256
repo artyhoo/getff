@@ -156,7 +156,7 @@ b9309845727ccd1c20d2222aa1f9c74c74755b0ab759791c0e535ed22e71ec88  .agents/proced
 1b7e038095f3d05164a7c0c6e7e51a82b8ed9ae36293c43c7169e4fa7407fd15  .agents/procedures/pipeline/helpers/overview.mjs
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .agents/procedures/pipeline/helpers/parse-override-flags.sh
 e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .agents/procedures/pipeline/helpers/plan-currency-check.sh
-ec93067c255b74d023eb8a37749dae5e9ddbd0f8a43a87da31f080d7af7bdb42  .agents/procedures/pipeline/helpers/plan-drift-write-guard.sh
+110f99cdf86192937ea9eecf7c3396fe7d47bb97c6e18dfbf5248841281e5c4d  .agents/procedures/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
@@ -1230,7 +1230,7 @@ ca967daac4295a03e4d6d254c4b67b3265b79aa6c7b3d9857116e73f423cf980  packages/core/
 dae5c43fba6fedf13da7968445e08185b13f528be8c697783413bcafb71def63  packages/core/skills/plan-currency-check-digest.test.ts
 e05ee3b4f160f6b617fb6af082c3e317782568a57a8779ce36a75407604b5fd1  packages/core/skills/plan-currency-check-kickoff.test.ts
 e4f70b83e43b3c462dc57ec68fea6fd004ea351a2ece0ae6bad877a943987dc0  packages/core/skills/plan-currency-check.test.ts
-1c89c09c88d8af28a104cb76788951bddaff483ee282fdc3be18d038e44a4ff1  packages/core/skills/plan-drift-write-guard.test.ts
+02b3cda5effd8a5cd79ea902e8e57fd98db5ba3160489d44653d4b36bf41d84c  packages/core/skills/plan-drift-write-guard.test.ts
 dad273bd2d3b321e456d34593c08fab38b1e903db715c2ac0df715bb19b4c0cf  packages/core/skills/planner-discovery.test.ts
 e3f5980a439f4a09f4a3f2f8e20dced393d1602c2c1417730718d2a6e4c09453  packages/core/skills/run-helper.test.ts
 b238df41bf82bad12fe22a26c4527b2d554ae022c141c23e611c5cf4a2c4c0b0  packages/core/skills/seat-lifecycle-pointer.test.ts
