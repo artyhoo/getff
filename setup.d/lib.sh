@@ -2181,6 +2181,10 @@ _lane_deliver_agent_surface() {
   mkdir_safe "$PROJECT_ROOT/scripts"
   _lane_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+  # D0: the living-docs audit command rides the same lane delivery as the docs gate — refresh
+  # policy unchanged (a consumer-modified copy is never overwritten, only reported).
+  _lane_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/living-docs-audit.bundle.mjs" "$PROJECT_ROOT/scripts/living-docs-audit.mjs"
+  chmod_safe +x "$PROJECT_ROOT/scripts/living-docs-audit.mjs" 2>/dev/null || true
 
   # ── Session settings (only on the pre-launch «yes») — same helper as 12-session-settings.sh ──
   # The layer loop never runs on this lane, so this is the only delivery channel here.

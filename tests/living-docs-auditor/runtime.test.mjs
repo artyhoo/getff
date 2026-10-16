@@ -15,7 +15,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROLE_FILE, repoRoot, RUNNER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult } from './fixtures.mjs';
+import { ROLE_FILE, repoRoot, RUNNER_BYTES, R4_HELPER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult } from './fixtures.mjs';
 
 const role = readFileSync(ROLE_FILE, 'utf8');
 const roleBlock = title => role.split(title)[1].split('```bash\n')[1].split('```')[0];
@@ -163,6 +163,43 @@ test('one-byte-modified runner: unsupported/incomplete naming the mismatch, cons
     // bytes preserved in/out (hash in = hash out — never rewritten)
     assert.deepEqual(readFileSync(scriptPath), before);
     assert.equal(result.runner.admitted, false);
+  } finally { disposeFixture(root); }
+});
+
+// ─── R4 helper identity (kickoff §3 "the invoked R4 helper where applicable") ──
+
+test('delivered R4 helper with matching bytes: identity recorded and admitted, base scope still runs', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  try {
+    writeFileSync(join(root, 'scripts/audit-r4.ts'), R4_HELPER_BYTES);
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    const result = readResult(res);
+    assert.ok(result.r4Helper, 'helper admission recorded when scripts/audit-r4.ts is delivered');
+    assert.equal(result.r4Helper.admitted, true);
+    assert.equal(result.r4Helper.script, 'scripts/audit-r4.ts');
+    // The helper's presence must not gate the audit itself: the base scope ran.
+    assert.ok(result.checks.some(c => c.check === 'base/completion'), 'base scope ran');
+  } finally { disposeFixture(root); }
+});
+
+test('one-byte-modified R4 helper: unsupported/incomplete naming the helper, runner NOT executed, bytes preserved', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  let before;
+  try {
+    const helperPath = join(root, 'scripts/audit-r4.ts');
+    writeFileSync(helperPath, Buffer.concat([R4_HELPER_BYTES, Buffer.from('// x\n')])); // append → different sha256
+    before = readFileSync(helperPath);
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.match(main.reasons.join(' '), /scripts\/audit-r4\.ts/);
+    // Refused BEFORE execution: running the base runner would `npx tsx` the unadmitted
+    // helper bytes — no base scope may exist.
+    assert.ok(!result.checks.some(c => c.check.startsWith('base/')), 'no base scope — helper refusal prevented the run');
+    assert.equal(result.r4Helper.admitted, false);
+    assert.deepEqual(readFileSync(helperPath), before);
   } finally { disposeFixture(root); }
 });
 

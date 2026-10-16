@@ -13,6 +13,12 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# D0: the living-docs audit command — one family-owned entry replacing the role's mechanical
+# run/report recipes. Node is NOT required at install time: the file is inert data until invoked
+# (`node scripts/living-docs-audit.mjs …`); a node-free consumer simply cannot run the command,
+# and the role reports that as a configuration gap, never a clean audit.
+copy_safe "$PKG_ROOT/packages/core/audit-self/living-docs-audit.bundle.mjs" "$PROJECT_ROOT/scripts/living-docs-audit.mjs"
+chmod_safe +x "$PROJECT_ROOT/scripts/living-docs-audit.mjs" 2>/dev/null || true
 # W2: shared precompiled rule copier is needed before either generic or preset delivery.
 _copy_rule() {  # $1 = source .ts path
   local src="$1" stem bn

@@ -1,6 +1,6 @@
 # D0 — living-docs execution and result (deterministic-core)
 
-> **Status:** EXECUTED — PARTIAL (branch `feature/deterministic-core-bab389`, task `bab3896a-fc72-4c9a-a724-3e1f93dda6ac`). Sub-batches (a)–(d) complete in-container; D0 is NOT closed because the Task 2 delivery surfaces are reservation-gated (§Residual) — `scripts/living-docs-audit.mjs` undelivered, `installed.test.mjs` unwritten, `build-getff-dist.sh --check` RED, host-verify 3/4. Written per kickoff-d0 §6.
+> **Status:** EXECUTED — DONE for the verified bounded subset (branch `feature/deterministic-core-bab389`, task `bab3896a-fc72-4c9a-a724-3e1f93dda6ac`). Sub-batches (a)–(d) complete in-container including the Commit C round under the matched reservations: `scripts/living-docs-audit.mjs` delivered through both lanes, `installed.test.mjs` written (6 tests), `build-getff-dist.sh --check` exit 0, host-verify 4/4 on Linux. Residual open cells (RN profile, Python lane gap, macOS/Windows, real consumer-machine install) are recorded in §Residual as that subset's boundary, per kickoff-d0 §5/§6. Written per kickoff-d0 §6.
 > **Authoritative for:** D0 execution evidence — selected obligations, oracle, acceptance runs, profile/probe applicability, installed paths, residual limits.
 > **NOT authoritative for:** product promises, architecture, TAK policy — see the umbrella kickoff and agreed design.
 
@@ -108,7 +108,7 @@ Findings and dispositions (all fixes verified in the final tree; counts above ar
 | stale plugin twin misattributed as «pre-existing RED» — 24(d) compares `plugin/agents` vs `.agents/roles` (canonical), and at HEAD the twin WAS identical to the canonical; the D0 role edit caused the RED (prior disposition compared the wrong source pair) | **BLOCKER** (second-session cold review) | twin regenerated via `scripts/generate-plugin-twins.sh` (existing renderer, kickoff §1 sanctioned); plugin version bumped 0.3.37 → 0.3.38 (4 sites) per principle 24(i)'s payload-change-requires-forward-bump; §Runs (c) paragraph rewritten to the corrected facts | RED observed pre-fix: `24-plugin-manifest-integrity.test.ts` → `1 failed | 16 passed`, message `plugin/agents drifted from agents/ source: living-docs-auditor.md`; GREEN post-fix: `17 passed (17)`; twin `cmp` == canonical |
 - `installed.test.mjs` (§5 oracle row 12): NOT written — requires the reservation-gated consumer delivery (§Residual); per T-DC0-C a source-checkout approximation must not stand in.
 
-### Sub-batch (d) full §5 acceptance set (Task 5, final commits' tree)
+### Sub-batch (d) full §5 acceptance set — Commit A/B tree (superseded by the Commit C table below)
 
 All commands run from the repo root in this container (Linux 6.18.33, Node v22.23.3, npm 10.9.9):
 
@@ -121,6 +121,31 @@ All commands run from the repo root in this container (Linux 6.18.33, Node v22.2
 | 5 | `bash scripts/host-verify.sh .claude/orchestrator-prompts/deterministic-core/kickoff-d0.md` | **1** | `── host-verify result: 3/4 passed on Linux` / `❌ host-verify FAILED` — legs 1–3 ✅, leg 4 ❌ (the DRIFT above). The single failing leg is exactly the reservation-gated surface. |
 
 Five-input sha256 re-verification (post-implementation, pre-commit): all five digests identical to the pinned values — `4869eaee…` (product-brief), `b30836da…` (design), `03770d84…` (coverage), `21ec5958…` (kickoff), `83b9f00b…` (kickoff-d0). No input was modified.
+
+### Task 2 + installed + R4-helper closure (reservation round 2 — Commit C tree)
+
+**Reservation consumption record** (dispatch constraint: exact recorded reservation before any overlapping edit; all preimages matched in-container BEFORE edits, task/root/branch/head `f815e7ee9` binding verified, no competing writer per `git worktree list`):
+
+- `ROOT-PROSPECTIVE-FIVE-ROW-RESERVATION.json` (2026-10-16T13:16:52Z, owner 01a12f25…): row #1 `setup.d/40-configs.sh` (preimage `6fbda6e4…`) — delivery rows added beside f815 :14-15; the per-stack region :137-153 needed NO new rows (the command is stack-free, profile comes from `--profile`). Row #2 `setup.d/lib.sh` (`3ce99cf9…`) — `_lane_copy_or_refresh`/`chmod_safe` row beside f815 :2182. Row #3 `setup.d/ships.manifest` (`aa4b2dd5…`) — script row + population-note widen. Row #4 `scripts/build-runtime-bundles.mjs` (WIP `ffdad4b4…`, blob `6133b6c4`) — the preserved unaccepted hunk already carried the bundle entry/createHash/identity table; this round added ONLY the R4-helper constants + table entry inside the granted scope. Row #5 `packages/getff/MANIFEST.sha256` (`421bff7b…`) — regenerated twice via the real builder (after the widening; again after the package.json wiring edit), never hand-written.
+- `ROOT-PROSPECTIVE-SIXTH-SOURCE-RESERVATION.json` (13:19:34Z): checker preimage `0ba65aba…` + test preimage `134e9704…` matched — population branch + adjacent comment (beside f815 :104-108), `make_repo` bundle+row, and the three LD fixture arms added exactly per the identified causal-test hunk; the f815 :156 stale rejection and every other diagnostic untouched.
+
+**Full §5 acceptance set — Commit C tree (final):**
+
+| # | Exact command | Exit | Decisive output |
+|---|---|---|---|
+| 1 | `node --test tests/living-docs-auditor/runtime.test.mjs tests/living-docs-auditor/installed.test.mjs tests/living-docs-auditor/conformance.test.mjs` | **0** | `# tests 41 / # pass 41 / # fail 0` — 14 runtime (incl. 2 new R4-helper arms) + **6 installed** + 21 conformance. The Commit-B vacuous-leg caveat is closed: `installed.test.mjs` exists and contributes its 6 tests. |
+| 2 | `node scripts/build-runtime-bundles.mjs --check` | **0** | 5/5 bundles in sync; the living-docs bundle now carries the R4-helper identity (`scripts/audit-r4.ts` ↔ `packages/core/probes/audit-r4.ts`). |
+| 3 | `npm --prefix packages/core run test -- audit-self/audit-ai-docs.test.ts` | **0** | `Test Files 1 passed (1)` / `Tests 224 passed (224)` |
+| 4 | `bash scripts/build-getff-dist.sh --check` | **0** | `✓ … in sync with the repo root (1641 files)` + `✓ actual npm archive matches independent payload … (1646 files)`. Manifest delta vs HEAD: 10 updated rows + 3 new rows (`living-docs-audit-cli.ts`, `living-docs-audit.bundle.mjs`, `runner-identities.ts`), 0 deletions — every row D0-causal, nothing unrelated refreshed. |
+| 5 | `bash scripts/host-verify.sh .claude/orchestrator-prompts/deterministic-core/kickoff-d0.md` | **0** | `── host-verify result: 4/4 passed on Linux` / `✅ host-verify passed` |
+
+**RED-side proofs for the new gates** (a GREEN without a demonstrated RED reports nothing):
+
+- *Checker widening*: `git show HEAD:scripts/check-ships-manifest.mjs` (pre-image, run from `scripts/` so its relative import resolves) against the widened manifest → exit 1, `setup.d/ships.manifest:150: script living-docs-audit — stale row: no such item in the repo`; the widened checker → exit 0, `3 script` items marked. Fixture arms LD1 (tracked bundle + row passes) / LD2 (row deleted → unmarked) / LD3 (bundle deleted → stale) — `PASS=36 FAIL=0` over the whole checker suite.
+- *R4-helper gate*: the HEAD pre-image bundle run against a fixture carrying a one-byte-modified `scripts/audit-r4.ts` → `complete = true` WITH a base scope present (the exact hole kickoff §3 «include … the invoked R4 helper» closes); the rebuilt bundle refuses — main `incomplete` naming `scripts/audit-r4.ts`, NO base scope (runner not executed over unadmitted helper bytes), consumer bytes preserved (runtime tests 11–12).
+- *Installed self-containment (T-DC0-C)*: the delivered copy (`scripts/living-docs-audit.mjs` = bundle bytes) in an isolated layout with NO node_modules completes base AND react-next exit 0; a synthetic bare-import control file in the same layout fails `ERR_MODULE_NOT_FOUND` — no contributor node_modules can silently mask a missing dependency; byte scan of the delivered copy — every statement-level import is `node:`-prefixed (the `from 'unified'` hits are JSDoc comment text, asserted as the comment-control).
+
+Five-input sha256 re-verification (Commit C tree, pre-commit): all five digests identical to the pinned values — `4869eaee…`, `b30836da…`, `03770d84…`, `21ec5958…`, `83b9f00b…`.
 
 ### WIP closure disposition (every inventory path verified-or-dispositioned)
 
@@ -140,12 +165,29 @@ Five-input sha256 re-verification (post-implementation, pre-commit): all five di
 | `tests/living-docs-auditor/runtime.test.mjs` (M) + `fixtures.mjs`, `conformance.test.mjs` (??) | §5 oracle | VERIFIED — 12 + 21 green (§5 leg 1), wired into `test:canonical:runtime-source` |
 | `packages/core/package.json` (M) | aggregate wiring | VERIFIED — `:89` lists both D0 test files |
 | `docs/deterministic-core/d0-result.md` (??) | §6 evidence | THIS DOCUMENT |
-| `scripts/living-docs-audit.mjs` (planned, absent) | OBL-9 consumer destination | DISPOSITIONED — reservation row #1–#3 BLOCK (§Residual); not fabricated |
-| `installed.test.mjs` (planned, absent) | §5 row 12 | DISPOSITIONED — requires the delivered payload; not approximated (T-DC0-C) |
+| `scripts/living-docs-audit.mjs` (planned, absent @ Commit B) | OBL-9 consumer destination | **DELIVERED (Commit C)** — both lanes: `setup.d/40-configs.sh` §4 `copy_safe`/`chmod_safe` beside the docs-gate delivery, and `setup.d/lib.sh` agent-lane `_lane_copy_or_refresh` (refresh policy unchanged); lane agreement asserted by installed.test.mjs arm 5 |
+| `installed.test.mjs` (planned, absent @ Commit B) | §5 row 12 | **WRITTEN (Commit C)** — 6 tests: node:-only import scan (+ JSDoc comment control), isolated no-node_modules clean runs (base + react-next) through the delivered copy, bare-import counterfactual, lane agreement, ships-manifest row + packed-distribution membership |
+
+**Commit C round paths** (all inside the two matched reservations or the §1 family directory):
+
+| Path | Reservation basis | Delta |
+|---|---|---|
+| `setup.d/40-configs.sh` | five-row #1 | delivery rows beside f815 :14-15 (+ node-free-install comment); no per-stack rows needed |
+| `setup.d/lib.sh` | five-row #2 | lane row beside f815 :2182 |
+| `setup.d/ships.manifest` | five-row #3 | `script living-docs-audit ships core no <reason>` row + population-note widen |
+| `scripts/check-ships-manifest.mjs` | sixth-source | population branch for `living-docs-audit.bundle.mjs` + adjacent comment naming the three concrete scripts |
+| `scripts/check-ships-manifest.test.sh` | sixth-source causal test | `make_repo` bundle+row, LD1/LD2/LD3 arms beside U7/S1 |
+| `scripts/build-runtime-bundles.mjs` | five-row #4 | R4-helper constants + `r4Helper` entry on the base identity |
+| `packages/core/audit-self/runner-identities.ts` | §1 family dir | `r4Helper?: RunnerIdentity` field + doc line (throwing placeholder otherwise unchanged) |
+| `packages/core/audit-self/living-docs-audit-cli.ts` | §1 family dir | `r4Helper` result field + pre-execution helper admission block (refuse-on-mismatch, never run unadmitted helper bytes) |
+| `packages/core/audit-self/living-docs-audit.bundle.mjs` | builder output | rebuilt (deterministic, `--check` in sync) |
+| `packages/getff/MANIFEST.sha256` | five-row #5 | regenerated via `bash scripts/build-getff-dist.sh` — 10 updated + 3 new rows, all D0-causal |
+| `packages/core/package.json` | §1 wiring | `installed.test.mjs` added to `test:canonical:runtime-source` |
+| `tests/living-docs-auditor/{runtime,fixtures,installed}.test.mjs` | §1 tests | R4-helper arms + `R4_HELPER_BYTES` + the installed suite |
 
 ## §Applicability — profile/probe table
 
-Execution/readiness environment: Linux 6.18.33 (WSL2), Node v22.23.3, npm 10.9.9 (container). Bash launcher present. **Verified bounded subset reported AS that subset** (kickoff §5): no macOS, no native-Windows Node cell, no packed-dist layout was exercised — those stay open for F3.
+Execution/readiness environment: Linux 6.18.33 (WSL2), Node v22.23.3, npm 10.9.9 (container). Bash launcher present. **Verified bounded subset reported AS that subset** (kickoff §5): no macOS, no native-Windows Node cell; the isolated-layout installed arm is exercised in-container, a real consumer-machine install is not — those stay open for F3.
 
 | Profile | Runner admitted | Probes exercised in D0 | State |
 |---|---|---|---|
@@ -154,22 +196,14 @@ Execution/readiness environment: Linux 6.18.33 (WSL2), Node v22.23.3, npm 10.9.9
 | react-spa | yes — wrapper + chained base identity | SPA grammar (`React SPA audit complete:`); R-SPA-EB passed on a fixture carrying the preset's `eslint.config.mjs` wiring; without that wiring it reports known-incomplete (`require-error-boundary not found in`) — verified pre-fixture-fix | **closed in-container** |
 | react-native | NOT admitted (D0) — source-relative BASELINES/DOCS_HEADERS inspect preset-package paths absent in consumer layouts | none (by design) | **explicit main-incomplete control** (exit 2, auxiliaries run, no base fallback); retained for F3/F4 |
 | generic npm/cargo/go | base only where delivered | — | unchanged by D0 |
-| Python | main-script delivery gap (base-only, no Python code audit) | — | **gap recorded, not claimed** — no delivery change was possible under the reservation block |
+| Python | main-script delivery gap (base-only, no Python code audit) | — | **gap recorded, not claimed** — widening the python lane is outside every granted reservation row; retained for a later round |
 
-Probe applicability notes: D3/D5 probes are authoring-repo-only in consumer installs (they read repo-relative goal/doc headers) — in consumer layouts they degrade per grammar, never fabricate PASS; D4 requires `.ai-factory/tool-decisions.md` (auto-seeded by install.sh in real consumers; the clean fixtures carry it to model the post-install state). Identity admission covers the three source artifacts + the chained base in the build-derived table (`runner-identities.ts` virtual module — no second hand-maintained ledger: the dead `RUNNER_SCRIPTS` const was removed from the CLI and the rebuilt bundle stayed in sync, §Runs sub-batch (b)). The R4 helper (`audit-r4.ts`, spawned by the base runner via `npx tsx` when `src/domain` + tsconfig/ts-morph are present) executes UN-admitted — its bytes are not in the identity table; admitting them needs a `build-runtime-bundles.mjs` edit (reservation row #4, §Residual), so D0 honestly reports helper identity as an open cell rather than claiming it.
+Probe applicability notes: D3/D5 probes are authoring-repo-only in consumer installs (they read repo-relative goal/doc headers) — in consumer layouts they degrade per grammar, never fabricate PASS; D4 requires `.ai-factory/tool-decisions.md` (auto-seeded by install.sh in real consumers; the clean fixtures carry it to model the post-install state). Identity admission covers the three source artifacts + the chained base in the build-derived table (`runner-identities.ts` virtual module — no second hand-maintained ledger: the dead `RUNNER_SCRIPTS` const was removed from the CLI and the rebuilt bundle stayed in sync, §Runs sub-batch (b)). The R4 helper (`audit-r4.ts`, spawned by the base runner via `npx tsx` when `src/domain` + tsconfig/ts-morph are present) is admitted too since Commit C: its sha256 rides the base identity (`r4Helper`), is checked whenever the target actually delivers `scripts/audit-r4.ts`, and a byte mismatch refuses the run before the runner can execute it (an absent helper stays the runner's own applicability call — generic/node-free layouts).
 
 ## §Residual — remaining unsupported cells
 
-- **Task 2 (OBL-9 delivery closure) BLOCKED at STEP 0 — no shared-surface reservation recorded.** Reservation-table rows #1–#5 (`setup.d/40-configs.sh`, `setup.d/lib.sh:2182` region, `setup.d/ships.manifest`, further `scripts/build-runtime-bundles.mjs` edits, dist-manifest regeneration) all carry status RESERVATION-REQUIRED; a probe of `~/.claude-coordination` on 2026-10-16 found no reservation from the existing owner through chief coordination for this task (`find -iname "*reserv*" / "*bab389*" / "*deterministic*"` → empty; newest `intent-first-result` material 2026-10-14). Per the dispatch constraint («no explicit reservation recorded … do not edit it — return Status BLOCKED naming the surface») none of those paths was edited. Consequently:
-  - `scripts/living-docs-audit.mjs` (consumer destination) is NOT delivered — the bundle exists only at `packages/core/audit-self/living-docs-audit.bundle.mjs` (source-checkout path).
-  - `installed.test.mjs` (kickoff §5 oracle row 12) cannot be created meaningfully — it requires the delivered consumer payload. NOT WRITTEN, not silently narrowed to a source-checkout approximation (kickoff §3: T-DC0-C — installed imports must not fall back to the author checkout).
-  - `bash scripts/build-getff-dist.sh --check` re-run at Task 5 on the final tree: exit 1, DRIFT on the 7 D0-modified tracked files (§Runs row 4 — the new bundle/cli/tests are NOT in the drift list; they enter the manifest population only via the gated ships.manifest widening). Restoring GREEN requires the reservation-row-#5 regeneration in write mode after the widening lands.
-  - The python main-script lane gap (base-only, no Python code audit) remains as kickoff §3 states — no delivery change was possible.
+- **Task 2 (OBL-9 delivery closure) — RESOLVED in Commit C** under the two matched reservations (consumption record in §Runs). The Commit-A/B-round block recorded here previously (no reservation found 2026-10-16) was superseded the same day by `ROOT-PROSPECTIVE-FIVE-ROW-RESERVATION.json` + the sixth-source extension; every consequence listed then is closed: `scripts/living-docs-audit.mjs` delivered through both lanes, `installed.test.mjs` written (6 tests), dist manifest regenerated (`--check` exit 0), host-verify 4/4, D0 result **DONE**. The python main-script lane gap (base-only, no Python code audit) remains as kickoff §3 states — widening it is NOT covered by any granted row and stays a recorded gap.
 - react-native profile: main check `incomplete` by design (source-relative probes); retained for F3/F4 per kickoff §3.
-- **Acceptance residuals from the delivery block (all one root cause — reservation rows #1–#5):**
-  - §5 leg 1 passes 33/33 (12 runtime + 21 conformance) but the `installed.test.mjs` member contributes ZERO tests — Node 22 `--test` silently skips nonexistent explicit file arguments (verified mechanically). The installed-payload closure case (§5 oracle row 12) remains OPEN, masked by a green exit; it closes only when Task 2 lands and the file exists.
-  - §5 leg 4 (`build-getff-dist.sh --check`) RED on 7 D0-modified files — the manifest regeneration is reservation row #5. Closing it requires running the builder in write mode after the ships.manifest widening, then re-running host-verify to 4/4.
-  - Consequently `bash scripts/host-verify.sh …kickoff-d0.md` = **3/4 PASS, overall FAIL** — D0 reports **PARTIAL**, not DONE.
-- Verified-as-subset boundary: Linux/Node-22/bash only; no macOS cell, no native-Windows Node cell, no packed-dist/isolated-clone layout (that is the installed test's job), no observed-duration adjustment of the provisional 60 s/2 MiB bounds (all real-runner fixtures complete in <100 ms; no concrete case to adjust on). Deep probes beyond the runner grammar (ts-morph R4 on real src/domain) were exercised only through their degradation paths — a consumer with real `src/domain` + ts-morph gets the real probe via the unchanged runner.
+- Verified-as-subset boundary: Linux/Node-22/bash only; no macOS cell, no native-Windows Node cell exercised. The installed suite covers the isolated-layout half of «clone and packed distribution layouts» (delivered copy, no source checkout, no node_modules; packed-distribution membership asserted against `packages/getff/MANIFEST.sha256` and the archive check inside `build-getff-dist.sh --check`); an actual install into a fresh consumer machine (real `setup` run end-to-end) remains an F3 obligation, as does any observed-duration adjustment of the provisional 60 s/2 MiB bounds (all real-runner fixtures complete in <100 ms; no concrete case to adjust on). Deep probes beyond the runner grammar (ts-morph R4 on real src/domain) were exercised only through their degradation paths — a consumer with real `src/domain` + ts-morph gets the real probe via the unchanged runner.
 - Original-vs-converted burden (kickoff §6): the pre-conversion role demanded the MODEL execute a 5-step recipe — stack heuristics (`next.config.*` sniffing), script-existence guards, a mktemp/exit-counter run loop, output-grammar parsing by eye, and manual verdict/count bookkeeping (≈140 of 213 lines were executable recipe). The converted role (75 lines) binds the target, picks the profile, invokes ONE command, and interprets ONE JSON result; every former recipe line is now either a frozen flag on that command or a structured check inside it. Detection/decision authority moved from model attention to the deterministic command — `deriveExitCode` is the sole exit source and the WARN three-way discrimination is the command's, not the reader's.
 - No token telemetry, model-quality, or weaker-model success claims are made anywhere in this document; all evidence is command output or file:line.

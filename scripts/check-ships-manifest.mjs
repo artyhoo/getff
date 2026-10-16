@@ -101,11 +101,14 @@ function population(root) {
     else if ((m = /^\.claude\/rules\/([^/]+)\.md$/.exec(f))) pop.rule.add(m[1]);
     else if ((m = /^agents\/([^/]+)\.md$/.exec(f))) pop.agent.add(m[1]);
     else if ((m = /^plugin\/agents\/([^/]+)\.md$/.exec(f))) (pop.agent.add(m[1]), plugin.agent.add(m[1]));
-    // script = the docs-gate pair the installer delivers into the consumer's scripts/
-    // (one-button w2 HO-4): the shell gate + the R4 probe it invokes. Population per the
-    // kind's bullet in setup.d/ships.manifest — widen both together when another gate needs marking.
+    // script = the docs-gate scripts the installer delivers into the consumer's scripts/
+    // (one-button w2 HO-4): the shell gate (audit-ai-docs.sh), the R4 probe it invokes
+    // (audit-r4.ts) and the living-docs audit command bundle (living-docs-audit.bundle.mjs,
+    // D0). Population per the kind's bullet in setup.d/ships.manifest — widen both together
+    // when another gate needs marking.
     else if (f === 'packages/core/audit-self/audit-ai-docs.sh') pop.script.add('audit-ai-docs');
     else if (f === 'packages/core/probes/audit-r4.ts') pop.script.add('audit-r4');
+    else if (f === 'packages/core/audit-self/living-docs-audit.bundle.mjs') pop.script.add('living-docs-audit');
   }
   for (const h of plugin.hook) pop.hook.add(h);
   if (files.includes('.claude/settings.json'))

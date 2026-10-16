@@ -81,6 +81,8 @@ export interface AuditResult {
   invocationError?: string;
   runner: RunnerSelection | null;
   chainedBase: RunnerSelection | null;
+  /** R4 helper admission, recorded when the target delivers scripts/audit-r4.ts. */
+  r4Helper: RunnerSelection | null;
   checks: CheckResult[];
   findings: AuditFinding[];
   counts: { blocking: number; warning: number; checksByStatus: Record<CheckStatus, number> };
@@ -630,6 +632,7 @@ export async function executeAudit(argv: string[]): Promise<AuditResult> {
     resolvedTarget: '',
     runner: null,
     chainedBase: null,
+    r4Helper: null,
     checks: [],
     findings: [],
     counts: { blocking: 0, warning: 0, checksByStatus: { passed: 0, violations: 0, 'not-applicable': 0, incomplete: 0, error: 0 } },
@@ -710,7 +713,25 @@ export async function executeAudit(argv: string[]): Promise<AuditResult> {
         }
       }
 
-      if (runnerSel.problem) {
+      // R4 helper admission (kickoff-d0 §3 "the invoked R4 helper where applicable"):
+      // when the target delivers scripts/audit-r4.ts, its bytes must match the
+      // build-derived identity — the base runner executes it via `npx tsx`, so
+      // unadmitted helper bytes are the same unsupported-format case as unadmitted
+      // runner bytes: recorded, refused, never silently executed. An absent helper
+      // stays the runner's own applicability call (generic/node-free layouts).
+      let helperProblem: string | null = null;
+      const helperIdent = identities.runners.base.r4Helper;
+      if (helperIdent) {
+        const helperSel = selectRunner(root, 'base', helperIdent);
+        if (helperSel.selection.actualSha256 !== null) {
+          result.r4Helper = helperSel.selection;
+          if (!helperSel.selection.admitted) helperProblem = helperSel.problem;
+        }
+      }
+
+      if (helperProblem) {
+        checks.push({ check: 'main', status: 'incomplete', findings: [], reasons: [helperProblem] });
+      } else if (runnerSel.problem) {
         const reasons = [runnerSel.problem];
         if (chainedProblem) reasons.push(chainedProblem.slice(chainedProblem.indexOf(':') + 1));
         checks.push({ check: 'main', status: 'incomplete', findings: [], reasons });

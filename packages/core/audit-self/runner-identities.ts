@@ -3,9 +3,11 @@
 // Runner identity table for scripts/living-docs-audit.mjs (kickoff-d0 §3):
 // which runner bytes the command admits, identified from the SOURCE artifacts
 // as build-derived input data — base, react-next, react-spa (react-native is
-// NOT admitted in D0) plus the chained base each wrapper invokes. The fields
-// are exactly what living-docs-audit-cli.ts consumes: script / sourceArtifact /
-// sha256 / chainedBase. Parse anchors live in the CLI parser, not here.
+// NOT admitted in D0) plus the chained base each wrapper invokes and the R4
+// helper the base runner invokes (scripts/audit-r4.ts, where delivered). The
+// fields are exactly what living-docs-audit-cli.ts consumes: script /
+// sourceArtifact / sha256 / chainedBase / r4Helper. Parse anchors live in the
+// CLI parser, not here.
 //
 // This source file is a THROWING PLACEHOLDER. The real table — sha256 of each
 // source artifact, computed at build time — is injected as a virtual module by
@@ -27,6 +29,12 @@ export interface RunnerIdentity {
   sha256: string;
   /** Identity of the nested base a wrapper invokes exactly once, if any. */
   chainedBase?: RunnerIdentity;
+  /**
+   * Identity of the helper the base runner invokes via `npx tsx` (R4 probe),
+   * carried on the base identity. Checked only when the target actually
+   * delivers the helper script; absence is the runner's own applicability call.
+   */
+  r4Helper?: RunnerIdentity;
 }
 
 export interface RunnerIdentityTable {

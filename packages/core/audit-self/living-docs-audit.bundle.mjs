@@ -10801,7 +10801,12 @@ function getRunnerIdentities() {
       "base": {
         "script": "scripts/audit-ai-docs.sh",
         "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-        "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051"
+        "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+        "r4Helper": {
+          "script": "scripts/audit-r4.ts",
+          "sourceArtifact": "packages/core/probes/audit-r4.ts",
+          "sha256": "64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d"
+        }
       },
       "react-next": {
         "script": "scripts/audit-ai-docs.react-next.sh",
@@ -10810,7 +10815,12 @@ function getRunnerIdentities() {
         "chainedBase": {
           "script": "scripts/audit-ai-docs.sh",
           "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051"
+          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+          "r4Helper": {
+            "script": "scripts/audit-r4.ts",
+            "sourceArtifact": "packages/core/probes/audit-r4.ts",
+            "sha256": "64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d"
+          }
         }
       },
       "react-spa": {
@@ -10820,7 +10830,12 @@ function getRunnerIdentities() {
         "chainedBase": {
           "script": "scripts/audit-ai-docs.sh",
           "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051"
+          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+          "r4Helper": {
+            "script": "scripts/audit-r4.ts",
+            "sourceArtifact": "packages/core/probes/audit-r4.ts",
+            "sha256": "64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d"
+          }
         }
       }
     }
@@ -11257,6 +11272,7 @@ async function executeAudit(argv) {
     resolvedTarget: "",
     runner: null,
     chainedBase: null,
+    r4Helper: null,
     checks: [],
     findings: [],
     counts: { blocking: 0, warning: 0, checksByStatus: { passed: 0, violations: 0, "not-applicable": 0, incomplete: 0, error: 0 } },
@@ -11321,7 +11337,18 @@ async function executeAudit(argv) {
           }
         }
       }
-      if (runnerSel.problem) {
+      let helperProblem = null;
+      const helperIdent = identities.runners.base.r4Helper;
+      if (helperIdent) {
+        const helperSel = selectRunner(root2, "base", helperIdent);
+        if (helperSel.selection.actualSha256 !== null) {
+          result.r4Helper = helperSel.selection;
+          if (!helperSel.selection.admitted) helperProblem = helperSel.problem;
+        }
+      }
+      if (helperProblem) {
+        checks.push({ check: "main", status: "incomplete", findings: [], reasons: [helperProblem] });
+      } else if (runnerSel.problem) {
         const reasons = [runnerSel.problem];
         if (chainedProblem) reasons.push(chainedProblem.slice(chainedProblem.indexOf(":") + 1));
         checks.push({ check: "main", status: "incomplete", findings: [], reasons });

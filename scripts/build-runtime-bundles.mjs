@@ -211,6 +211,11 @@ const RUNNER_SCRIPTS = {
   'react-next': 'scripts/audit-ai-docs.react-next.sh',
   'react-spa': 'scripts/audit-ai-docs.react-spa.sh',
 };
+// The R4 helper the base runner invokes via `npx tsx scripts/audit-r4.ts`
+// (kickoff-d0 §3 "the invoked R4 helper where applicable") — delivered to the same
+// consumer scripts/ by the installer, so its identity is the same hash-of-source rule.
+const R4_HELPER_ARTIFACT = 'packages/core/probes/audit-r4.ts';
+const R4_HELPER_SCRIPT = 'scripts/audit-r4.ts';
 
 function runnerIdentitiesPlugin() {
   const virtualAbs = resolve(ROOT, RUNNER_IDENTITY_VIRTUAL);
@@ -226,7 +231,14 @@ function runnerIdentitiesPlugin() {
           sourceArtifact: RUNNER_ARTIFACTS[kind],
           sha256: sha256Of(RUNNER_ARTIFACTS[kind]),
         });
-        const base = identity('base');
+        const base = {
+          ...identity('base'),
+          r4Helper: {
+            script: R4_HELPER_SCRIPT,
+            sourceArtifact: R4_HELPER_ARTIFACT,
+            sha256: sha256Of(R4_HELPER_ARTIFACT),
+          },
+        };
         const table = {
           runners: {
             base,

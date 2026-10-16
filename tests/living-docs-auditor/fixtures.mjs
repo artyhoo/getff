@@ -21,6 +21,8 @@ export const RUNNER_BYTES = {
   'react-next': readFileSync(join(repoRoot, 'packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh')),
   'react-spa': readFileSync(join(repoRoot, 'packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh')),
 };
+// The R4 helper the base runner invokes via `npx tsx` — real bytes for identity arms.
+export const R4_HELPER_BYTES = readFileSync(join(repoRoot, 'packages/core/probes/audit-r4.ts'));
 
 /**
  * Build a clean consumer layout for a profile. Returns the fixture root.

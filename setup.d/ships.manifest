@@ -11,10 +11,11 @@
 #                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
 #             mcp     = getff's .mcp.json mcpServers
 #             script  = the docs-gate scripts the installer delivers into the consumer's scripts/
-#                       (one-button w2 HO-4): packages/core/audit-self/audit-ai-docs.sh and its R4
-#                       probe packages/core/probes/audit-r4.ts. The other audit-self gates and the
-#                       per-stack audit-ai-docs.<stack>.sh variants are a different class — widen
-#                       the population (here + the checker) when they need marking.
+#                       (one-button w2 HO-4): packages/core/audit-self/audit-ai-docs.sh, its R4
+#                       probe packages/core/probes/audit-r4.ts, and the living-docs audit command
+#                       bundle packages/core/audit-self/living-docs-audit.bundle.mjs (D0). The other
+#                       audit-self gates and the per-stack audit-ai-docs.<stack>.sh variants are a
+#                       different class — widen the population (here + the checker) when they need marking.
 # verdict   ships | internal
 # installer core | env | factory | full | ask | no — the LOWEST install depth that delivers the item
 #           (core ⊂ env ⊂ factory; full = only under -y / --full; ask = a setting that changes how
@@ -146,3 +147,4 @@ mcp	context7	ships	full	no	written to the project .mcp.json only under -y / --fu
 mcp	deepwiki	ships	full	no	written to the project .mcp.json under -y / --full only when not configured machine-wide; --global installs it at user scope instead
 script	audit-ai-docs	ships	core	no	the consumer docs gate (HO-4): checks the passport's marked region (D6); npm, cargo and go lanes deliver it — the python lane's own body does not yet
 script	audit-r4	ships	core	no	the R4 probe audit-ai-docs.sh invokes via `npx tsx scripts/audit-r4.ts`; non-generic npm stacks only — toolchain lanes carry the shell gate without it
+script	living-docs-audit	ships	core	no	the living-docs audit command (D0), one family-owned entry replacing the role's mechanical run/report recipes; delivered as a Node bundle — a node-free consumer cannot run it, and the role then reports the check incomplete rather than clean

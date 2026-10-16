@@ -48,6 +48,7 @@ make_repo() {
   printf '# a\n' | tee "$d/agents/ag1.md" "$d/plugin/agents/ag1.md" >/dev/null
   printf '#!/bin/sh\n' > "$d/packages/core/audit-self/audit-ai-docs.sh"
   printf '// probe\n' > "$d/packages/core/probes/audit-r4.ts"
+  printf '// bundle\n' > "$d/packages/core/audit-self/living-docs-audit.bundle.mjs"
   printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\\" h-ship"}]}]}}\n' \
     > "$d/plugin/hooks/hooks.json"
   printf '{"hooks":{},"autoCompactWindow":400000,"env":{"K1":"1"},"permissions":{"deny":["a","b"]}}\n' > "$d/.claude/settings.json"
@@ -69,6 +70,7 @@ setting${TAB}env.K1${TAB}internal${TAB}no${TAB}no${TAB}internal, because it name
 mcp${TAB}m1${TAB}ships${TAB}full${TAB}no${TAB}written only under --full, the default run skips it
 script${TAB}audit-ai-docs${TAB}ships${TAB}core${TAB}no${TAB}the consumer docs gate, delivered into the project's scripts/
 script${TAB}audit-r4${TAB}ships${TAB}core${TAB}no${TAB}the R4 probe the docs gate invokes via npx tsx
+script${TAB}living-docs-audit${TAB}ships${TAB}core${TAB}no${TAB}the living-docs audit command bundle (D0), delivered into consumer scripts/
 EOF
   git -C "$d" add -A >/dev/null
 }
@@ -121,6 +123,11 @@ arm "U4 new agent"   fail 'printf x > agents/zz.md' 'agent zz'
 arm "U5 new setting" fail 'printf '"'"'{"hooks":{},"autoCompactWindow":1,"env":{"K1":"1","K2":"2"}}\n'"'"' > .claude/settings.json' 'setting env.K2'
 arm "U6 new mcp"     fail 'printf '"'"'{"mcpServers":{"m1":{},"m2":{}}}\n'"'"' > .mcp.json' 'mcp m2'
 arm "U7 script row removed" fail 'row_del "script\taudit-ai-docs\tships\tcore\tno\tthe consumer docs gate, delivered into the project'\''s scripts/"' 'script audit-ai-docs'
+
+echo "── living-docs-audit script population (D0: bundle + row widen together or the checker objects)"
+arm "LD1 tracked bundle with matching script row passes" pass ':'
+arm "LD2 tracked bundle with no script row fails"        fail 'row_del "script\tliving-docs-audit\tships\tcore\tno\tthe living-docs audit command bundle (D0), delivered into consumer scripts/"' 'script living-docs-audit'
+arm "LD3 script row with no tracked bundle fails stale" fail 'git rm -qf packages/core/audit-self/living-docs-audit.bundle.mjs' 'script living-docs-audit — stale row'
 
 echo "── stale, malformed and duplicate rows fail"
 arm "S1 stale row"        fail 'git rm -qf .claude/rules/r1.md' 'rule r1'
