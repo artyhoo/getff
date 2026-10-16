@@ -153,9 +153,18 @@ interface AstNode extends Node {
  * does NOT appear in prose text extraction (by design). Instead we walk
  * paragraph children directly, looking for text→inlineCode pairs.
  */
-export function extractDeclaredSkills(agentsMarkdown: string): string[] {
+export interface LocatedSkill { name: string; line: number; }
+
+/**
+ * Located variant of the skill-declaration walk: identical semantics (see
+ * extractDeclaredSkills below) plus the 1-based AGENTS.md line of each skill's
+ * first declaration, so structured D1 findings carry a real location instead of
+ * a manufactured one (kickoff-d0 §3/§4). extractDeclaredSkills delegates here —
+ * ONE normative walk serves both callers.
+ */
+export function extractDeclaredSkillsLocated(agentsMarkdown: string): LocatedSkill[] {
   const tree = remark().parse(agentsMarkdown) as AstNode;
-  const skills = new Set<string>();
+  const byName = new Map<string, number>();
   const SKILL_END_RE  = /\bskill\s*$/i;          // "... skill " at end of a text fragment
   const NEGATIVE_RE   = /\b(removed|deprecated|deleted|was|old|former|previously)\b/i;
 
@@ -180,8 +189,8 @@ export function extractDeclaredSkills(agentsMarkdown: string): string[] {
           // Also check the text node that follows the inlineCode (if any)
           const after = children[i + 2];
           if (after && after.type === 'text' && NEGATIVE_RE.test(after.value ?? '')) continue;
-          if (codeName.length > 0) {
-            skills.add(codeName);
+          if (codeName.length > 0 && !byName.has(codeName)) {
+            byName.set(codeName, next.position?.start?.line ?? 0);
           }
         }
       }
@@ -195,7 +204,13 @@ export function extractDeclaredSkills(agentsMarkdown: string): string[] {
   }
 
   walkBlock(tree);
-  return [...skills].sort();
+  return [...byName.entries()]
+    .map(([name, line]) => ({ name, line }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function extractDeclaredSkills(agentsMarkdown: string): string[] {
+  return extractDeclaredSkillsLocated(agentsMarkdown).map((s) => s.name);
 }
 
 // ─── R4: Tests for new public code (ts-morph via npx tsx) ────────────────────
@@ -324,6 +339,236 @@ export function probeD2(cwd: string): D2Finding[] {
     }
   }
   return findings;
+}
+
+// ─── Structured drift acquisition (living-docs-audit, kickoff-d0 §3) ─────────
+/**
+ * Structured D1/D2 acquisition for scripts/living-docs-audit.mjs — the SOLE
+ * normative D1/D2 source for that command. Unlike the legacy probes above,
+ * acquisition states are explicit: absent-optional / unreadable / malformed
+ * never collapse to a silent clean, findings carry real locations (AGENTS.md
+ * line from the remark AST; JSON key path — never a manufactured line number),
+ * and already-found violations are retained when another input's read fails.
+ *
+ * Legacy probeD1/probeD2/runAudit public behavior is unchanged (their suites
+ * stay green); the legacy shell D1/D2 population is omitted at the source when
+ * that command invokes the runner with --structured-drift-external.
+ */
+export type StructuredCheckStatus = 'passed' | 'violations' | 'not-applicable' | 'incomplete' | 'error';
+
+export interface StructuredFinding {
+  severity: 'blocking' | 'warning';
+  message: string;
+  location?: { file: string; line?: number; key?: string };
+}
+
+export interface StructuredAcquisition {
+  status: StructuredCheckStatus;
+  findings: StructuredFinding[];
+  reasons: string[];
+}
+
+/**
+ * Read-state of one path, distinguishing missing (ENOENT/ENOTDIR — the path
+ * cannot exist) from unreadable (EACCES and other IO boundaries — existence is
+ * unknowable without guessing).
+ */
+function readState(p: string): 'exists' | 'missing' | 'unreadable' {
+  try {
+    statSync(p);
+    return 'exists';
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? '';
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    return 'unreadable';
+  }
+}
+
+/**
+ * AGENTS.md is REQUIRED for declaration checks (kickoff-d0 §3): absent or
+ * unreadable ⇒ incomplete with a reason, never a silent clean pass.
+ */
+function readAgentsMarkdown(root: string): { content: string } | { error: string } {
+  const p = join(root, 'AGENTS.md');
+  const state = readState(p);
+  if (state === 'missing') return { error: 'AGENTS.md absent — declarations cannot be read (required input)' };
+  if (state === 'unreadable') return { error: 'AGENTS.md unreadable — declarations cannot be read' };
+  try {
+    return { content: readFileSync(p, 'utf8') };
+  } catch (err) {
+    return { error: `AGENTS.md read failed: ${(err as Error).message}` };
+  }
+}
+
+/** Structured D1: declared skills (AGENTS.md prose, remark AST) exist under .claude/skills/. */
+export function acquireD1Structured(root: string): StructuredAcquisition {
+  const agents = readAgentsMarkdown(root);
+  if ('error' in agents) return { status: 'incomplete', findings: [], reasons: [agents.error] };
+
+  const findings: StructuredFinding[] = [];
+  for (const { name, line } of extractDeclaredSkillsLocated(agents.content)) {
+    const state = readState(join(root, '.claude/skills', name));
+    if (state === 'missing') {
+      findings.push({
+        severity: 'blocking',
+        message: `skill '${name}' declared in AGENTS.md but missing from .claude/skills/`,
+        location: { file: 'AGENTS.md', line: line > 0 ? line : undefined },
+      });
+    } else if (state === 'unreadable') {
+      // Retain already-found violations; the check itself cannot complete.
+      return { status: 'incomplete', findings, reasons: [`.claude/skills/${name} unreadable — existence cannot be verified`] };
+    }
+  }
+  if (findings.length > 0) return { status: 'violations', findings, reasons: [] };
+  return { status: 'passed', findings: [], reasons: [] };
+}
+
+export interface LocatedRulePath { path: string; line: number; }
+
+const RULE_PATH_RE = /\.claude\/rules\/([^\s`)\]"'>]+)/g;
+
+/**
+ * Structured port of the living-docs-auditor role's "Rules declared vs existing"
+ * obligation: `.claude/rules/<name>` mentions in AGENTS.md PROSE. The remark AST
+ * walk skips fenced code blocks (a fenced mention is not a declaration); inline
+ * backtick mentions count (inlineCode IS inline prose). Placeholder captures
+ * (`<name>.md`) are filtered. Deduped by path, first-mention line retained.
+ * This replaces the awk/grep recipe as the normative checker (kickoff-d0 §3).
+ */
+export function extractDeclaredRulePaths(agentsMarkdown: string): LocatedRulePath[] {
+  const tree = remark().parse(agentsMarkdown) as AstNode;
+  const byPath = new Map<string, number>();
+
+  function walkBlock(node: AstNode): void {
+    if (!node.children) return;
+    if (node.type === 'code') return; // fenced/indented code block — not prose
+    if (node.type === 'paragraph' || node.type === 'heading') {
+      for (const child of node.children ?? []) {
+        if (child.type !== 'text' && child.type !== 'inlineCode') continue;
+        const value = child.value ?? '';
+        RULE_PATH_RE.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = RULE_PATH_RE.exec(value)) !== null) {
+          let p = m[1]!.replace(/[.,;:!?]+$/, ''); // strip sentence-end punctuation
+          if (p.startsWith('<') || p.length === 0) continue; // placeholder, not a declaration
+          if (!byPath.has(p)) byPath.set(p, child.position?.start?.line ?? 0);
+        }
+      }
+      return;
+    }
+    for (const child of node.children) walkBlock(child);
+  }
+
+  walkBlock(tree);
+  return [...byPath.entries()]
+    .map(([path, line]) => ({ path, line }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** Structured D1-rules: declared rule files (AGENTS.md prose) exist under .claude/rules/. */
+export function acquireD1RulesStructured(root: string): StructuredAcquisition {
+  const agents = readAgentsMarkdown(root);
+  if ('error' in agents) return { status: 'incomplete', findings: [], reasons: [agents.error] };
+
+  const findings: StructuredFinding[] = [];
+  for (const { path: rel, line } of extractDeclaredRulePaths(agents.content)) {
+    const state = readState(join(root, '.claude/rules', rel));
+    if (state === 'missing') {
+      findings.push({
+        severity: 'blocking',
+        message: `rule '${rel}' declared in AGENTS.md but missing from .claude/rules/`,
+        location: { file: 'AGENTS.md', line: line > 0 ? line : undefined },
+      });
+    } else if (state === 'unreadable') {
+      return { status: 'incomplete', findings, reasons: [`.claude/rules/${rel} unreadable — existence cannot be verified`] };
+    }
+  }
+  if (findings.length > 0) return { status: 'violations', findings, reasons: [] };
+  return { status: 'passed', findings: [], reasons: [] };
+}
+
+interface D2KeyedFinding { keyPath: string; reason: string; }
+
+/** walkJson variant that reports the JSON key path of each hit (for locations). */
+function walkJsonStructured(val: unknown, path: string, out: D2KeyedFinding[]): void {
+  if (val === null || typeof val !== 'object') {
+    if (typeof val === 'string' && TODO_VALUE_RE.test(val)) {
+      out.push({ keyPath: path, reason: `value contains TODO/FIXME: "${val}"` });
+    }
+    return;
+  }
+  if (Array.isArray(val)) {
+    val.forEach((item, i) => walkJsonStructured(item, `${path}[${i}]`, out));
+    return;
+  }
+  for (const [key, child] of Object.entries(val as Record<string, unknown>)) {
+    if (COMMENT_KEY_RE.test(key)) {
+      out.push({ keyPath: `${path}.${key}`, reason: `key "${key}" looks like a comment placeholder` });
+    }
+    walkJsonStructured(child, `${path}.${key}`, out);
+  }
+}
+
+/**
+ * Structured D2: `_comment` keys / TODO-FIXME values in the optional JSON
+ * configs (.mcp.json, .claude/settings.json, .ai-factory/*.json). Absent
+ * optional files are NOT findings; unreadable files/directories and malformed
+ * JSON make the check incomplete (reason retained) while findings from the
+ * readable files are kept. Completed D2 debt stays a soft warning (legacy
+ * WARN semantics — nonblocking).
+ */
+export function acquireD2Structured(root: string): StructuredAcquisition {
+  const reasons: string[] = [];
+  const files: string[] = [];
+  let anyInput = false;
+
+  for (const rel of ['.mcp.json', '.claude/settings.json']) {
+    const state = readState(join(root, rel));
+    if (state === 'exists') { files.push(rel); anyInput = true; }
+    else if (state === 'unreadable') { reasons.push(`${rel} unreadable — cannot scan`); anyInput = true; }
+    // missing ⇒ absent optional input, not a finding
+  }
+
+  const aiFactory = join(root, '.ai-factory');
+  const dirState = readState(aiFactory);
+  if (dirState === 'exists') {
+    try {
+      for (const f of readdirSync(aiFactory).sort()) {
+        if (!f.endsWith('.json')) continue;
+        const rel = `.ai-factory/${f}`;
+        const st = readState(join(aiFactory, f));
+        if (st === 'exists') { files.push(rel); anyInput = true; }
+        else if (st === 'unreadable') { reasons.push(`${rel} unreadable — cannot scan`); anyInput = true; }
+      }
+    } catch (err) {
+      reasons.push(`.ai-factory/ cannot be enumerated: ${(err as Error).message}`);
+    }
+  } else if (dirState === 'unreadable') {
+    reasons.push('.ai-factory/ cannot be enumerated (unreadable directory)');
+  }
+
+  const findings: StructuredFinding[] = [];
+  for (const rel of files) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(join(root, rel), 'utf8'));
+    } catch (err) {
+      reasons.push(`${rel} malformed JSON — cannot scan: ${(err as Error).message}`);
+      continue;
+    }
+    const keyed: D2KeyedFinding[] = [];
+    walkJsonStructured(parsed, '$', keyed);
+    for (const k of keyed) {
+      findings.push({ severity: 'warning', message: `${rel}: ${k.reason}`, location: { file: rel, key: k.keyPath } });
+    }
+  }
+
+  if (reasons.length > 0) return { status: 'incomplete', findings, reasons };
+  if (!anyInput) {
+    return { status: 'not-applicable', findings: [], reasons: ['no JSON config files present (.mcp.json, .claude/settings.json, .ai-factory/*.json)'] };
+  }
+  if (findings.length > 0) return { status: 'violations', findings, reasons: [] };
+  return { status: 'passed', findings: [], reasons: [] };
 }
 
 // ─── D3: Goal-phrase parity ───────────────────────────────────────────────────

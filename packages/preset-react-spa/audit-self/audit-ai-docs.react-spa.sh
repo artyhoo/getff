@@ -15,6 +15,10 @@
 # NOTE: No R12/R14/R20 probes — Server Components, Server Actions, and 'use server' are
 #       NOT applicable to a React SPA (all code runs in the browser).
 #
+# --structured-drift-external (kickoff-d0 §3): forwarded verbatim to the single
+# nested base call, which then omits its legacy D1/D2 (structured acquisition
+# owns them). Exactly one base invocation either way — never a second one.
+#
 # Exit codes: 0 PASS / WARN, 1 FAIL.
 
 set -uo pipefail
@@ -34,8 +38,12 @@ fail() { echo -e "${RED}FAIL${NC}: $1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 warn() { echo -e "${YELLOW}WARN${NC}: $1"; WARN_COUNT=$((WARN_COUNT + 1)); }
 
 ONLY=""
+STRUCTURED_DRIFT_EXTERNAL=0
 for arg in "$@"; do
-  case "$arg" in --only=*) ONLY="${arg#--only=}" ;; esac
+  case "$arg" in
+    --only=*) ONLY="${arg#--only=}" ;;
+    --structured-drift-external) STRUCTURED_DRIFT_EXTERNAL=1 ;;
+  esac
 done
 
 skip_unless() {
@@ -48,7 +56,11 @@ skip_unless() {
 if [ -f scripts/audit-ai-docs.sh ] && [ -z "$ONLY" ]; then
   echo "▶ Running baseline server-side probes (R1-R9, D1-D2)..."
   echo ""
-  bash scripts/audit-ai-docs.sh
+  if [ "$STRUCTURED_DRIFT_EXTERNAL" = "1" ]; then
+    bash scripts/audit-ai-docs.sh --structured-drift-external
+  else
+    bash scripts/audit-ai-docs.sh
+  fi
   BASE_EXIT=$?
   echo ""
   if [ "$BASE_EXIT" -ne 0 ]; then
