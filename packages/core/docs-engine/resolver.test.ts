@@ -780,3 +780,186 @@ describe('correction 4242549876: closing code fences at least the opener length'
     expectLine(resolvePlace('fence/tildes.md#h:after', read));
   });
 });
+
+// PR2114 F01/F02: paired LF fixtures exercise real heading bounds and E2 signatures.
+// Selected content retains original underline whitespace; only signatures normalize it.
+describe('PR2114 paired heading proof', () => {
+  const underlineCases = [
+    {
+      caseId: 'F02-dash-plain',
+      source: '## Keep\n\nkept\n\nNext\n---\nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n---\nother',
+    },
+    {
+      caseId: 'F02-dash-space',
+      source: '## Keep\n\nkept\n\nNext\n--- \nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n--- \nother',
+    },
+    {
+      caseId: 'F02-dash-tab',
+      source: '## Keep\n\nkept\n\nNext\n---\t\nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n---\t\nother',
+    },
+    {
+      caseId: 'F02-equals-plain',
+      source: '## Keep\n\nkept\n\nNext\n===\nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n===\nother',
+    },
+    {
+      caseId: 'F02-equals-space',
+      source: '## Keep\n\nkept\n\nNext\n=== \nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n=== \nother',
+    },
+    {
+      caseId: 'F02-equals-tab',
+      source: '## Keep\n\nkept\n\nNext\n===\t\nother',
+      keepBounds: [1, 4],
+      keepContent: '## Keep\n\nkept\n',
+      nextBounds: [5, 7],
+      nextContent: 'Next\n===\t\nother',
+    },
+  ] as const;
+  const protectedCases = [
+    {
+      caseId: 'F01-protected-list',
+      source: '## Keep\n\n- item\n---\nprotected claim\n## Next\n',
+      keepBounds: [1, 5],
+      keepContent: '## Keep\n\n- item\n---\nprotected claim',
+      nextBounds: [6, 6],
+      nextContent: '## Next',
+    },
+    {
+      caseId: 'F01-protected-blockquote',
+      source: '## Keep\n\n> item\n---\nprotected claim\n## Next\n',
+      keepBounds: [1, 5],
+      keepContent: '## Keep\n\n> item\n---\nprotected claim',
+      nextBounds: [6, 6],
+      nextContent: '## Next',
+    },
+    {
+      caseId: 'F01-protected-fence',
+      source: '## Keep\n\n```md\nFalse\n---\n```\nprotected claim\n## Next\n',
+      keepBounds: [1, 7],
+      keepContent: '## Keep\n\n```md\nFalse\n---\n```\nprotected claim',
+      nextBounds: [8, 8],
+      nextContent: '## Next',
+    },
+  ] as const;
+
+  function resolvePair(source: string) {
+    const read = mkRead({ 'fixture.md': source });
+    const keep = resolvePlace('fixture.md#h:keep', read);
+    const next = resolvePlace('fixture.md#h:next', read);
+    expectLine(keep);
+    expectLine(next);
+    return { keep, next };
+  }
+
+  function expectPair(
+    pair: ReturnType<typeof resolvePair>,
+    fixture: {
+      keepBounds: readonly [number, number];
+      keepContent: string;
+      nextBounds: readonly [number, number];
+      nextContent: string;
+    },
+  ) {
+    expect([pair.keep.startLine, pair.keep.endLine]).toEqual(
+      fixture.keepBounds,
+    );
+    expect(pair.keep.content).toBe(fixture.keepContent);
+    expect([pair.next.startLine, pair.next.endLine]).toEqual(
+      fixture.nextBounds,
+    );
+    expect(pair.next.content).toBe(fixture.nextContent);
+  }
+
+  it.each(underlineCases)(
+    '$caseId: boundaries, E2 equivalence and independent edits',
+    (fixture) => {
+      const original = resolvePair(fixture.source);
+      expectPair(original, fixture);
+      const plainFixture = fixture.caseId.startsWith('F02-dash-')
+        ? underlineCases[0]
+        : underlineCases[3];
+      const plain = resolvePair(plainFixture.source);
+      expectPair(plain, plainFixture);
+      expect(signature(original.keep.content)).toBe(
+        signature(plain.keep.content),
+      );
+      expect(signature(original.next.content)).toBe(
+        signature(plain.next.content),
+      );
+
+      const keepEdited = resolvePair(
+        fixture.source.replace('kept', 'kept updated'),
+      );
+      expectPair(keepEdited, {
+        ...fixture,
+        keepContent: fixture.keepContent.replace('kept', 'kept updated'),
+      });
+      expect(signature(keepEdited.keep.content)).not.toBe(
+        signature(original.keep.content),
+      );
+      expect(keepEdited.next).toEqual(original.next);
+      expect(signature(keepEdited.next.content)).toBe(
+        signature(original.next.content),
+      );
+
+      const nextEdited = resolvePair(
+        fixture.source.replace('other', 'other updated'),
+      );
+      expectPair(nextEdited, {
+        ...fixture,
+        nextContent: fixture.nextContent.replace('other', 'other updated'),
+      });
+      expect(signature(nextEdited.next.content)).not.toBe(
+        signature(original.next.content),
+      );
+      expect(nextEdited.keep).toEqual(original.keep);
+      expect(signature(nextEdited.keep.content)).toBe(
+        signature(original.keep.content),
+      );
+    },
+  );
+
+  it.each(protectedCases)(
+    '$caseId: protected body stays in Keep and edits leave Next unchanged',
+    (fixture) => {
+      const original = resolvePair(fixture.source);
+      expectPair(original, fixture);
+      const edited = resolvePair(
+        fixture.source.replace('protected claim', 'protected claim updated'),
+      );
+      expectPair(edited, {
+        ...fixture,
+        keepContent: fixture.keepContent.replace(
+          'protected claim',
+          'protected claim updated',
+        ),
+      });
+      expect(signature(edited.keep.content)).not.toBe(
+        signature(original.keep.content),
+      );
+      expect(edited.next).toEqual(original.next);
+      expect(signature(edited.next.content)).toBe(
+        signature(original.next.content),
+      );
+    },
+  );
+});
