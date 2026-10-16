@@ -13,7 +13,9 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
 > Specifies exactly what files this skill writes per invocation — paths, format, and cleanup policy.
 
-**Per invocation, this skill writes:**
+**Empty/0/status:** read-only overview/status; no meta-kickoff, state or shared cache write. The session may save its evidence/report in a temporary or task-owned file. The dogfood launch-table gate above applies to the original BUILD/dispatch path, not a no-dispatch overview.
+
+**Per named dispatch invocation, this skill writes:**
 
 1. **Meta-kickoff:** `<orch-home>/<umbrella>-meta-launch/kickoff.md`
    - Template: `.agents/procedures/pipeline/templates/meta-kickoff.template.md`

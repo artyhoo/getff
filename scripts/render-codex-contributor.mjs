@@ -27,8 +27,10 @@ function assertReachable(abs, rel) {
 }
 
 export function emitCodex(model, root) {
-  const { hooks, degradations } = emitCodexHooks(model.hooks, name =>
-    `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ] && [ -f "$root/scripts/codex-hook-adapter.mjs" ]; then node "$root/scripts/codex-hook-adapter.mjs" ${name}; fi`,
+  const { hooks, degradations } = emitCodexHooks(
+    model.hooks,
+    (name, event) =>
+      `root="$(git rev-parse --show-toplevel 2>/dev/null)"; if [ -f "$root/.ai-factory/harness-model.json" ]; then runtime="\${PLUGIN_ROOT:-\${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs"; if [ ! -f "$runtime" ] || [ ! -f "$(dirname "$runtime")/lib/is-main-entry.mjs" ] || [ ! -f "$(dirname "$runtime")/../plugin/hooks/lib/hook-language.sh" ]; then echo "getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout" >&2; exit ${event === 'Stop' ? 0 : 2}; fi; node "$runtime" ${name} "$root"; fi`,
   );
   degradations.push({
     mechanism: 'bounded-input-policy',
@@ -69,6 +71,19 @@ export function emitCodex(model, root) {
       },
     },
   ];
+  // Reuse PR #2076's package closure while reading the current canonical adapter.
+  // Preserve source-relative imports and language resolution in the cache snapshot.
+  for (const path of [
+    'scripts/codex-hook-adapter.mjs',
+    'scripts/lib/is-main-entry.mjs',
+    'plugin/hooks/lib/hook-language.sh',
+  ]) {
+    ops.push({
+      kind: 'text',
+      path: `codex-contributor-plugin/runtime/${path}`,
+      value: readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'),
+    });
+  }
   const toml = [
     '# Generated contributor MCP configuration. Operator owns permission/model policy.',
   ];
@@ -106,7 +121,17 @@ export function emitCodex(model, root) {
     const explicit = /^disable-model-invocation:\s*true\s*$/m.test(original);
     const metadata = /^---\r?\n[\s\S]*?\r?\n---/.exec(original)?.[0];
     if (!metadata) throw new Error(`Codex: missing skill metadata in ${source}/SKILL.md`);
-    const value = `${metadata}\n\n> Generated native entry from \`${source}/SKILL.md\`; shared procedure is authored once.\n> **Authoritative for:** native Codex discovery and full-source loading for this entry.\n> **NOT authoritative for:** the shared procedure; read the linked canonical owner.\n\nRead [the complete canonical procedure](../../../${source}/SKILL.md) in full before proceeding. Read [Codex bindings](../../../docs/codex-contributor.md) and apply them to every step. Bind arguments from the operator invocation. Execute each mandatory shell block through the shell tool. Replace \`\$\{CLAUDE_SKILL_DIR\}\` with \`"$(git rev-parse --show-toplevel)/${source}"\` — root-anchored, so the path resolves from a nested cwd too (GH-4201345530). Model/tool frontmatter grants no authority on this host.\n`;
+    const binding = [
+      '```bash',
+      'GETFF_PROJECT_ROOT="$PWD"',
+      `while [ ! -f "$GETFF_PROJECT_ROOT/${source}/SKILL.md" ]; do`,
+      '  [ "$GETFF_PROJECT_ROOT" != / ] || { printf "%s\\n" "getff: installed procedure root missing" >&2; exit 2; }',
+      '  GETFF_PROJECT_ROOT="${GETFF_PROJECT_ROOT%/*}"; GETFF_PROJECT_ROOT="${GETFF_PROJECT_ROOT:-/}"',
+      'done',
+      `GETFF_SKILL_DIR="$GETFF_PROJECT_ROOT/${source}"`,
+      '```',
+    ].join('\n');
+    const value = `${metadata}\n\n> Generated native entry from \`${source}/SKILL.md\`; shared procedure is authored once.\n> **Authoritative for:** native Codex discovery and full-source loading for this entry.\n> **NOT authoritative for:** the shared procedure; read the linked canonical owner.\n\nRead [the complete canonical procedure](../../../${source}/SKILL.md) in full before proceeding. Read [Codex bindings](../../../docs/codex-contributor.md) and apply them to every step. Treat explicit \`$${name}\` or a direct operator request as the host equivalent of legacy \`/${name}\`; explicit-only policy still forbids self-initiation. Bind arguments from the operator invocation (absent means an empty string, never an invented umbrella). Preserve the invocation cwd and supplied arguments before changing directories; canonical procedure-specific input rules govern relative targets. Bind the nearest project containing this canonical source, never an enclosing Git root, using the executable block below. After binding supplied inputs, execute canonical commands from that root. Execute each mandatory shell block through the shell tool.\n\n${binding}\n\nReplace \`\$\{CLAUDE_SKILL_DIR\}\` with \`"$GETFF_SKILL_DIR"\`; its canonical source is \`${source}\`. Model/tool frontmatter grants no authority on this host.\n`;
     ops.push({ kind: 'text', path: `.agents/skills/${name}/SKILL.md`, value });
     ops.push({
       kind: 'text', path: `.agents/skills/${name}/agents/openai.yaml`,

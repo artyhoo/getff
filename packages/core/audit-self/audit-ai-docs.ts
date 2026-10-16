@@ -398,7 +398,10 @@ export interface D5Finding {
  * the goal inside a recorded answer is data, and editing it would falsify the record.
  */
 const D5_FROZEN_RE        = /^(docs\/meta-factory\/research-patches\/|docs\/audits\/|docs\/meta-factory\/triage-corpus\/)/;
-const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts/;
+// Recorded run receipts (docs/superpowers/plans/<plan>.receipts/, tests/<suite>/receipts/)
+// quote the phrase inside captured audit output — data, not a downstream claim; editing
+// them would falsify the record (same rationale as FROZEN for triage-corpus).
+const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts|^docs\/superpowers\/plans\/[^/]+\.receipts\/|^tests\/[^/]+\/receipts\//;
 const D5_ROOT_SOURCE_RE   = /^README\.md$/;
 const D5_GITIGNORED_RE    = /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/;
 /**

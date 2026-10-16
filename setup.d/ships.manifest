@@ -49,6 +49,7 @@ skill	aif-doctor	ships	factory	no	presupposes the aif-handoff runtime; without i
 skill	harvest	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
 skill	claude-glm-executor-handoff	ships	factory	no	presupposes the aif-handoff runtime; without it its triggers fire into a dead end. The one button installs it through --all when aif answers /health (setup.d/10-skills.sh:113-131)
 skill	story	ships	factory	no	no runtime reason: the operator product call of 2026-09-11 keeps it factory-only (setup.d/10-skills.sh:119-123); the report lists it as not installed by the default run
+skill	intent	ships	factory	no	S1 delivers the product-only /intent boundary at factory depth — its helper + scoped route are validated there first (intent-first-result kickoff §2); env/native delivery is the S3 outline, not yet verified
 skill	self-reflection	internal	no	no	internal, because it is the §1.7 PR self-review discipline of getff's own development process, not a consumer capability
 skill	docs-author	internal	no	no	internal, because it writes pages of the getff.ai site under docs/site/ (scripts/docs-check.mjs:83 binds it to that tree)
 skill	using-getff	ships	no	yes	plugin entry point: tells a plugin session how to find the getff skills; an installer consumer reads AGENTS.md and the installed skills instead

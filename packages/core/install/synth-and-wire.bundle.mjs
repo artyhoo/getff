@@ -10137,6 +10137,26 @@ import path, { basename, dirname as dirname6, join as join2, relative, resolve a
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+async function loadTsMorph() {
+  const tools = process2.env.GETFF_AST_TOOLS_ROOT;
+  if (tools && (!path.isAbsolute(tools) || !existsSync3(join2(tools, ".complete")))) {
+    throw new Error("selected AST toolchain is not complete");
+  }
+  const base = tools ? join2(tools, "package.json") : resolve5(process2.cwd(), "package.json");
+  const entry = createRequire(base).resolve("ts-morph");
+  if (tools) {
+    const inside = relative(realpathSync(join2(tools, "node_modules")), realpathSync(entry));
+    if (path.isAbsolute(inside) || inside === ".." || inside.startsWith(`..${path.sep}`)) {
+      throw new Error("AST editor is outside selected toolchain");
+    }
+  }
+  const mod = await import(pathToFileURL(entry).href);
+  if (typeof mod.Project !== "function" || !mod.SyntaxKind) throw new Error("no AST editor");
+  const editor = new mod.Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true, skipLoadingLibFiles: true });
+  const sf = editor.createSourceFile("__getff_ast_probe__.js", "export default [];", { overwrite: true });
+  if (sf.getKind() !== mod.SyntaxKind.SourceFile || sf.getExportAssignments().length !== 1) throw new Error("AST editor cannot parse a source file");
+  return mod;
+}
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
 function r2Element(variant, scope) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
@@ -10197,12 +10217,13 @@ async function wireConfigSource(source, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const tsMorphPath = requireFromCwd.resolve("ts-morph");
-    const mod = await import(pathToFileURL(tsMorphPath).href);
+    const mod = await loadTsMorph();
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    if (process2.env.GETFF_AST_TOOLS_ROOT) {
+      return { status: "degrade", original: source, modified: source, degradeReason: "selected ts-morph toolchain failed" };
+    }
     if (simpleRulePresent(source, R2_RULE_ID)) return { status: "already-wired", original: source, modified: source };
     return {
       status: "degrade",
@@ -10552,10 +10573,11 @@ async function wireNRules(source, synthRules, opts = {}) {
   }
   let mod;
   try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const tsMorphPath = requireFromCwd.resolve("ts-morph");
-    mod = await import(pathToFileURL(tsMorphPath).href);
+    mod = await loadTsMorph();
   } catch {
+    if (process2.env.GETFF_AST_TOOLS_ROOT) {
+      return { status: "degrade", original: source, modified: source, degradeReason: "selected ts-morph toolchain failed" };
+    }
     mod = void 0;
   }
   const SyntaxKind = mod?.SyntaxKind;
@@ -10793,8 +10815,7 @@ async function wireOwnConfig(source, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const mod = await import(pathToFileURL(requireFromCwd.resolve("ts-morph")).href);
+    const mod = await loadTsMorph();
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {

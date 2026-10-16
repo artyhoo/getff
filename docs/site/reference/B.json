@@ -198,6 +198,25 @@
       "example": null
     },
     {
+      "name": "intent",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when clarifying or preserving PRODUCT intent — turning a raw feature idea into an agreed product brief, keeping that intent across stages, and reviewing a first working result against it. Triggers: /intent, product intent, product brief, clarify the feature, what should the user get, intent session, result review, продуктовый смысл, замысел продукта, что получит пользователь. NOT for solution design (/arch), stage dispatch (/pipeline), code review (/reviewer), or factory runtime questions (aif-doctor).",
+      "source": {
+        "path": ".agents/procedures/intent/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/intent/SKILL.md"
+      },
+      "example": null
+    },
+    {
       "name": "night-mode",
       "kind": "skill",
       "shipsTo": {

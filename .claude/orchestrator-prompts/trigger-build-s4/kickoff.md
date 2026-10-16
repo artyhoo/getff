@@ -23,8 +23,7 @@ E20). A worker that meets an undecided fork stops and reports; it never picks a 
 
 ## §0 Spec rows and decisions this stage carries (verbatim, by pointer)
 
-Source: `_spec-2026-09-29-trigger-build.md` (coordination store, revision r2e; not readable from the
-container, hence quoted). §3 «Slice 4 — the first batch through the installer», `:237-289`:
+Source: `_spec-2026-09-29-trigger-build.md` (coordination store, revision r2e; not readable from the container, hence quoted). §3 «Slice 4 — the first batch through the installer», `:237-289`:
 
 > Rows, in order (D20): A13, C9, then A18, C11, D1, G5. Their bindings and sizes are in the helper's
 > harvest file (`_facts-2026-09-29-harvest-batch.md`; sizes are a judgment, V12).
@@ -137,17 +136,9 @@ A13 is:
 > 4. p41's `COVERAGE_ALLOWLIST` is getff's escape: per D27 the mechanism RECORDS that it has an
 >    escape line, and a placeholder reason is rejected.
 
-E18 F1's shape, which condition 1 points at (`_advisor-trigger-build.decisions.md#e18`): «at a consumer
-the report prints the population as a number («command/script checks: 0 — nothing to check yet»), never
-as a green check». A13's row in the base-core review table (`_base-core-review-results-2026-09-29.md:203`),
-for the record: «| A13 | check | the project's lint and test globs cover its own tooling (hooks, scripts,
-agent docs); extends `check-rule-globs.sh` | build |».
+E18 F1's shape, which condition 1 points at (`_advisor-trigger-build.decisions.md#e18`): «at a consumer the report prints the population as a number («command/script checks: 0 — nothing to check yet»), never as a green check». A13's row in the base-core review table (`_base-core-review-results-2026-09-29.md:203`), for the record: «| A13 | check | the project's lint and test globs cover its own tooling (hooks, scripts, agent docs); extends `check-rule-globs.sh` | build |».
 
-Design row D27 (`_design-2026-09-29-trigger-build-v2.md:182`), the part that binds an escape: «a
-mechanism records whether it has an escape line; bypass guards, security denies and the roots have
-none; where recorded, the agent uses it with a reason in words; [...] no character floor, an empty or
-placeholder reason is rejected». Advisor E4 condition 3 (`_advisor-trigger-build.decisions.md#e4`):
-«The install report must not claim a removal path that does not exist.»
+Design row D27 (`_design-2026-09-29-trigger-build-v2.md:182`), the part that binds an escape: «a mechanism records whether it has an escape line; bypass guards, security denies and the roots have none; where recorded, the agent uses it with a reason in words; [...] no character floor, an empty or placeholder reason is rejected». Advisor E4 condition 3 (`_advisor-trigger-build.decisions.md#e4`): «The install report must not claim a removal path that does not exist.»
 
 ## §1 Facts, measured at `2855667cb34`
 
@@ -313,7 +304,8 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
 - **D2 — the A13 mechanism** per §2.0, `name = a13`, version `1`: principle 41's shape (§1 fact 6),
   generalised (E20).
   - `[params]` (E20 condition 1), each default with a `# reason:` line naming its source:
-    `tooling_dirs = .claude/hooks .claude/skills scripts` (`22-internal-english.test.ts:61`),
+    `tooling_dirs = .agents/hooks .agents/procedures .claude/hooks .claude/skills scripts`
+    (harvested `22-internal-english.test.ts:62` at `4849aede`; remeasure at implementation base),
     `test_pattern = *.test.sh` (`41:102`), `workflow_dir = .github/workflows` (`41:79`).
   - Population: tracked files under `tooling_dirs` whose basename matches `test_pattern`.
   - Registry: the `*.yml|*.yaml` files directly in `workflow_dir` (not recursive, `41:121-126`), at the
@@ -347,9 +339,12 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
     - file present, new version equals its header: write nothing;
     - else run the consumer's current script (`findings`) and the package's new one; any finding the OLD
       script reports that no section lists → the S-13 stop: this mechanism only is skipped — its file is
-      untouched and its script is NOT replaced (the loop skips its pair) — `note_not_wired` names the stop,
+      untouched; its script AND installed D1 helper remain byte-identical (skip both pairs), so the retained
+      detector keeps its dependency. Revisit this shared-helper barrier before adding another mechanism. `note_not_wired` names the stop,
       and `--refresh` still delivers everything else and then exits non-zero;
     - else append the new section (D1).
+  - Dry-run: guard every direct write/append, including first arrival and widened refresh, before any
+    consumer mutation. Print the truthful plan; never initialize a starting list in a preview.
   - Install report: one line per mechanism — name, version, population as a number, findings written, file
     path — plus the CI limit of §1 fact 3. No removal path is named (E4 condition 3).
   - The D8 switch: a test-only environment variable (e.g. `GETFF_TEST_SKIP_MECHANISMS=1`) that skips the
@@ -373,7 +368,8 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
   - after install, exactly the two old ones and the comment-only one sit in `[starting-list 1]`
     (`tests/outside.test.sh` is not in the population); `check --rev HEAD` exits 0;
   - bad/good (E20 condition 2): commit a new unwired `scripts/new.test.sh` → `check` exits 1 naming exactly
-    that path; commit a workflow step that runs it → `check` exits 0;
+    that path; commit a workflow step that runs it → `check` exits 0; repeat the pair for a tracked
+    `.agents/hooks/canonical.test.sh` and `.agents/procedures/canonical.test.sh`;
   - removing an old test and its list line passes; ADDING a line to `[starting-list 1]` in a later commit
     fails; a `[params]` change WITH a `# reason:` line passes, the same change WITHOUT one fails, and so
     does one whose reason is `todo`;
@@ -398,7 +394,14 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
     `[params]` are byte-identical before/after; a second refresh at version `2` leaves the file
     byte-identical (`cmp`); a tree where the OLD version reports an unlisted finding takes the S-13 stop
     (file and old script unchanged, `--refresh` exit non-zero, other deliveries done); two refreshes in a
-    row leave the file.
+    row leave the file. Seed an incompatible new helper during a rejected upgrade: installed helper,
+    detector and file stay byte-identical; the retained detector still executes with its prior findings.
+  - Dry-run first install, first arrival via refresh and widened-version refresh each leave a recursive
+    consumer fingerprint byte-identical, including mechanism files, sections and scripts.
+  - On a native host, run the installed consumer pre-push hook/bundle with realistic pushed-ref stdin
+    and `PREPUSH_ONLY=getff-mechanism-a13`: OLD violations GREEN, committed NEW unwired test RED, workflow
+    fix GREEN. Test a pushed commit different from the worktree and a deleted ref; pin payload SHA,
+    command, stdin and exit/output. A direct script or framework tsx run cannot replace this evidence.
 - **D8 — the marker check** (S-15) `tests/install-sh/mechanism-markers.test.sh`: install the same fixture
   twice, once with the D5 switch set; the population = fingerprint paths of the first install minus the
   second (the `compute_fingerprint` shape of `snapshot.sh`). Each member starts with
@@ -435,6 +438,8 @@ All new shell is bash 3.2-safe (macOS consumers), `set -uo pipefail`, no new run
   fingerprints. The diff of each of the 8 npm-stack baselines (§1 fact 5) adds the D5 paths
   (`scripts/getff-mechanism-lib.sh`, `scripts/getff-mechanism-a13.sh`, `.getff/mechanisms/a13.txt`) AND
   changes the `packages/core/hooks/pre-push.bundle.mjs` hash line (D4 rebuilt it); nothing else changes.
+  Rebuild/check `packages/getff/MANIFEST.sha256` from accepted integrated source, serialized with its
+  current integration owner. Reserve install/config/pre-push/CI/SSOT/baseline writes before execution.
 
 ## §3 Prior-art consult (run by the kickoff author 2026-09-30; re-check, do not re-derive)
 
@@ -483,7 +488,7 @@ This stage IS a capability commit: new files ≥ 80 LOC under `packages/` (D1, D
 ## §5 Exit gates
 
 ```bash host-verify
-bash tests/install-sh/mechanism-a13.test.sh
+PC_LOCAL=1 /bin/bash tests/install-sh/mechanism-a13.test.sh
 bash tests/install-sh/mechanism-markers.test.sh
 bash tests/install-sh/mechanism-escape-count.test.sh
 bash scripts/measure-false-fires.test.sh
@@ -492,6 +497,7 @@ bash scripts/measure-false-fires.sh escapes '^Prior-art: skipped' '^Prior-art:' 
 bash packages/core/audit-self/getff-mechanism-a13.sh check .getff/mechanisms/a13.txt --rev HEAD
 PREPUSH_ONLY=getff-mechanism-a13 npx tsx packages/core/hooks/pre-push.ts < /dev/null
 node scripts/build-runtime-bundles.mjs --check
+bash scripts/build-getff-dist.sh --check
 shellcheck packages/core/audit-self/getff-mechanism-lib.sh packages/core/audit-self/getff-mechanism-a13.sh scripts/measure-false-fires.sh tests/install-sh/lib/fixture-with-history.sh
 npx vitest run packages/core/principles/27-prepush-copylist-complete.test.ts packages/core/principles/32-prepush-section-owner.test.ts packages/core/principles/41-shell-test-ci-coverage.test.ts packages/core/principles/45-prepush-contract-claim-liveness.test.ts
 bash tests/install-sh/meta-all-wired.test.sh
@@ -503,8 +509,7 @@ node scripts/check-docs-refresh.mjs "$(git merge-base origin/staging HEAD)..HEAD
 bash scripts/run-local-ci-sweep.sh
 ```
 
-The docs-refresh gate decides whether any `docs/site/` page cites a touched file in `sources:`; refresh
-the named page or add `docs-refresh: deferred — <reason>` (a comma inside the reason, never `: `).
+The docs-refresh gate decides whether any `docs/site/` page cites a touched file in `sources:`; refresh the named page or add `docs-refresh: deferred — <reason>` (a comma inside the reason, never `: `).
 
 ## §6 Out of scope
 
@@ -580,17 +585,12 @@ the named page or add `docs-refresh: deferred — <reason>` (a comma inside the 
 
 `Stat` / `Verify` (each §5 gate, the RED-then-GREEN runs, D9's `FIRES` and `ESCAPES` lines) /
 `DECISIONS` (helper function names, the switch name, the refresh order, the fire definition if you changed
-it) / `ATTN` (every declared limit of §6) / `Confidence`. The PR body carries `## Fidelity verdict` (the
-lead adds it after the cold fidelity round on the host) and the §1.7 Forward-check / Backward-check sections.
+it) / `ATTN` (every declared limit of §6) / `Confidence`. The PR body carries `## Fidelity verdict` (the lead adds it after the cold fidelity round on the host) and the §1.7 Forward-check / Backward-check sections.
 
 ## §9 AI traps ([ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md))
 
-Active traps for this stage: **T2** run each test, do not describe what it would print · **T3**
-command-or-`file:line` for every claim · **T6** confidence as predicates · **T10** enumerate the
-fingerprint population before asserting the marker check covers it · **T14** a green fixture that never
-seeds the refresh-falsifier tree is not coverage of S-13; a `total=0` replay is a count, not proof of
-exactness — the fixture carries that · **T19** own cold review of the diff before handoff · **T21** cold
-`agents/backward-sweep-auditor.md` on the class «an installer step that writes a consumer-owned file and a
+Active traps for this stage: **T2** run each test, do not describe what it would print · **T3** command-or-`file:line` for every claim · **T6** confidence as predicates · **T10** enumerate the fingerprint population before asserting the marker check covers it · **T14** a green fixture that never seeds the refresh-falsifier tree is not coverage of S-13; a `total=0` replay is a count, not proof of exactness — the fixture carries that · **T19** own cold review of the diff before handoff · **T21** cold
+`.agents/roles/backward-sweep-auditor.md` on the class «an installer step that writes a consumer-owned file and a
 refresh that must never overwrite it» — every `copy_safe` / `refresh_safe` caller and the R1 refresh
 baseline are the candidates.
 

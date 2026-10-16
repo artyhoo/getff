@@ -10,12 +10,12 @@
 #                           EXACTLY ONCE (the "one uniquely identified row or section");
 #   3. minimal factual    — the snapshot→postimage diff may touch ONLY the declared target's
 #      diff               line span; removed text must be the declared target; added text must
-#                           be the declared replacement; every added line must be a factual
-#                           status/evidence field carrying an evidence token; table-row syntax
+#                           be the declared replacement; identity/scope columns must remain unchanged; added status/evidence
+#                           fields use a narrow vocabulary and carry an evidence token; table-row syntax
 #                           (a `|`-line starts and ends with `|`) must hold;
 # and emits a structured receipt bound to the ACTUAL postimage sha256.
 #
-# Semantic arm (exit 3): a diff confined to the declared span whose removed lines carry
+# Semantic arm (exit 3): a diff confined to the declared span whose removed or added lines carry
 # strategy vocabulary (priority / admission / dependency / gating / headings) or whose added
 # lines are not mechanically classifiable as factual+evidence is NEVER auto-accepted — it is
 # routed to the named cold check [.agents/roles/plan-drift-semantic-auditor.md]. Deterministic
@@ -80,13 +80,36 @@ sha256_file() {
   else return 1; fi
 }
 
-# contains_frag <content-file> <frag-file> — exit 0 iff content contains frag verbatim.
-contains_frag() {
+# same_lines <content-file> <fragment-file> — compare complete lines, allowing only
+# the optional final newline used by fragment arguments. Substrings never bind a write.
+same_lines() {
   awk -v fragfile="$2" '
-    BEGIN { while ((getline fl < fragfile) > 0) frag = frag ((frag == "") ? "" : "\n") fl }
-    { content = content ((NR > 1) ? "\n" : "") $0 }
-    END { exit (index(content, frag) > 0) ? 0 : 1 }
+    BEGIN { while ((getline fl < fragfile) > 0) expected = expected fl "\n" }
+    { actual = actual $0 "\n" }
+    END { exit (actual == expected) ? 0 : 1 }
   ' "$1"
+}
+
+# Only a narrow four-column status/evidence row is mechanically factual. Preserve the
+# identity/scope columns verbatim; unknown prose or layouts need the named cold auditor.
+factual_rows_only() {
+  awk -F'|' -v oldfile="$1" '
+    BEGIN { while ((getline line < oldfile) > 0) old[++n] = line }
+    {
+      if (NF != 6 || split(old[NR], before, "|") != 6 ||
+          $1 != "" || $6 != "" || $2 != before[2] || $3 != before[3]) exit 1
+      status = $4; evidence = $5
+      gsub(/✅|🟡|🔲|⚠/, "", status)
+      gsub(/NOT STARTED|IN-FLIGHT|DONE|MERGED|CLOSED|OPEN|SHIPPED|VERIFIED|RECONCILED|PARTIAL/, "", status)
+      gsub(/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/, "", status)
+      gsub(/[[:space:]]/, "", status)
+      gsub(/#[0-9]+|MERGED|CLOSED|OPEN|re-verified/, "", evidence)
+      gsub(/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/, "", evidence)
+      gsub(/[[:space:],]/, "", evidence)
+      if (status != "" || evidence != "") exit 1
+    }
+    END { if (NR != n) exit 1 }
+  ' "$2"
 }
 
 # frag_span <content-file> <frag-file> — prints "<count> <firstline> <lastline>".
@@ -171,7 +194,7 @@ diff -u "$PREIMAGE" "$PLAN" > "$DIFF_TMP" || true
 
 # Strategy vocabulary whose edit is a semantic fork, never a mechanical accept (the wave-plan
 # §0 rows carry priority / admission / dependency gating prose; a heading edit is structural).
-PROTECTED_RE='(^#{1,6} |[Pp]riorit|[Aa]dmission|[Dd]ependenc|[Gg]ated on|[Bb]locked on|[Dd]epends on|[Pp]arallel-[Ww]ith)'
+PROTECTED_RE='(^#{1,6} |priority|admission|dependenc|scope|gated on|blocked on|depends on|parallel-with)'
 # Permitted factual-field classes (planning §1 Step 3: "factual status/evidence").
 FACTUAL_RE='(✅|🟡|🔲|⚠|DONE|MERGED|CLOSED|OPEN|NOT STARTED|IN-FLIGHT|SHIPPED|VERIFIED|RECONCILED|PARTIAL|OPEN_PR_TOTAL)'
 # Every added factual line must carry evidence (PR ref, ISO date, count verdict, path, file:line).
@@ -201,7 +224,7 @@ while IFS= read -r dline; do
         OUTSIDE_SAMPLES="${OUTSIDE_SAMPLES}${OUTSIDE_SAMPLES:+; }old L${OLD_LINE}"
       fi
       body="${dline#-}"
-      if printf '%s\n' "$body" | grep -Eq "$PROTECTED_RE"; then
+      if printf '%s\n' "$body" | grep -Eiq "$PROTECTED_RE"; then
         PROTECTED_HITS="${PROTECTED_HITS}  old L${OLD_LINE}: ${body}"$'\n'
       fi
       REMOVED_JOINT="${REMOVED_JOINT}${REMOVED_JOINT:+$'\n'}${body}"
@@ -214,6 +237,9 @@ while IFS= read -r dline; do
         OUTSIDE_SAMPLES="${OUTSIDE_SAMPLES}${OUTSIDE_SAMPLES:+; }new L${NEW_LINE}"
       fi
       body="${dline#+}"
+      if printf '%s\n' "$body" | grep -Eiq "$PROTECTED_RE"; then
+        PROTECTED_HITS="${PROTECTED_HITS}  new L${NEW_LINE}: ${body}"$'\n'
+      fi
       if [[ "$body" == '|'* && "$body" != *'|' ]]; then
         SYNTAX_HITS="${SYNTAX_HITS}  new L${NEW_LINE}: ${body}"$'\n'
       fi
@@ -235,16 +261,16 @@ if (( OUTSIDE_COUNT > 0 )); then
   echo "BLOCKED: diff touches lines outside the declared target span (lines ${SPAN_START}-${SPAN_END}); changed: ${OUTSIDE_SAMPLES} — wrong row or concurrent pre-image change; re-read and re-declare"
   exit 1
 fi
-if (( REMOVED_N > 0 )); then
-  printf '%s\n' "$REMOVED_JOINT" > "${DIFF_TMP}.rem"
-  if ! contains_frag "${DIFF_TMP}.rem" "$TARGET_SRC"; then
-    echo "BLOCKED: removed text is not the declared target — what landed removed something other than the declared pre-image fragment"
-    exit 1
-  fi
+JOINT_REM_TMP="$(mktemp "${TMPDIR:-/tmp}/pdwg-removed.XXXXXX")"
+JOINT_ADD_TMP="$(mktemp "${TMPDIR:-/tmp}/pdwg-added.XXXXXX")"
+printf '%s\n' "$REMOVED_JOINT" > "$JOINT_REM_TMP"
+printf '%s\n' "$ADDED_JOINT" > "$JOINT_ADD_TMP"
+if ! same_lines "$JOINT_REM_TMP" "$TARGET_SRC"; then
+  echo "BLOCKED: removed text is not the declared target — complete changed lines must match"
+  exit 1
 fi
-printf '%s\n' "$ADDED_JOINT" > "${DIFF_TMP}.add"
-if ! contains_frag "${DIFF_TMP}.add" "$NEW_SRC"; then
-  echo "BLOCKED: postimage does not contain the declared replacement — the write that landed is not what was declared (concurrent in-row change or failed edit)"
+if ! same_lines "$JOINT_ADD_TMP" "$NEW_SRC"; then
+  echo "BLOCKED: postimage does not contain the declared replacement exactly — complete changed lines must match"
   exit 1
 fi
 if [[ -n "$SYNTAX_HITS" ]]; then
@@ -255,11 +281,11 @@ fi
 
 # Semantic arm — never auto-accept (exit 3).
 if [[ -n "$PROTECTED_HITS" ]]; then
-  echo "SEMANTIC-REVIEW-REQUIRED: removed lines carry strategy vocabulary or structural headings — route to .agents/roles/plan-drift-semantic-auditor.md; auto-accept forbidden"
+  echo "SEMANTIC-REVIEW-REQUIRED: changed lines carry strategy vocabulary or structural headings — route to .agents/roles/plan-drift-semantic-auditor.md; auto-accept forbidden"
   printf '%s' "$PROTECTED_HITS"
   exit 3
 fi
-if [[ -n "$SEMANTIC_HITS" ]]; then
+if [[ -n "$SEMANTIC_HITS" ]] || ! factual_rows_only "$JOINT_REM_TMP" "$JOINT_ADD_TMP"; then
   echo "SEMANTIC-REVIEW-REQUIRED: added lines are not mechanically classifiable as factual fields carrying evidence — route to .agents/roles/plan-drift-semantic-auditor.md; auto-accept forbidden"
   printf '%s' "$SEMANTIC_HITS"
   exit 3

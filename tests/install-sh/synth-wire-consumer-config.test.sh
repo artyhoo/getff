@@ -25,7 +25,7 @@
 #      land in it by insertions only, the original is kept, the config is not claimed in
 #      the baseline, check:globs passes, nothing asks for a manual edit; a re-install changes nothing;
 #   P  the same config on an install without ts-morph (no --full): untouched, and the not-wired
-#      summary says a --full install adds the block — not «by hand»;
+#      summary names the missing usable AST editor — not «by hand»;
 #   B  paired negative — getff's own config (fresh install, then a plain re-install that finds it
 #      in the baseline manifest): synth-wire still runs on it as before;
 #   C  consumer-owned config WITH a live-research snippet: the snippet's rule lands in it;
@@ -50,12 +50,12 @@
 #   M  the same for 60-ci's boundary-glob insert when HTTP boundary code appears between installs,
 #      on that install and the next;
 #   Q  an edited getff config on an install without ts-morph: nothing is reported as not wired while
-#      getff's rules are already in it; Q neg: a live rule it does not carry is reported, with --full;
+#      getff's rules are already in it; Q neg: a live-rule gap is reported with the AST editor reason;
 #   N  HTTP boundary code appears after the consumer edited getff's config: the boundary globs reach
 #      it through the own-config pass — insertions only, the edited original kept without them —
 #      never 60-ci's in-place insert, which M (its paired negative) keeps for getff's untouched config;
 #   O  the same on an install without ts-morph: the config is left as it is and the not-wired summary
-#      names the boundary globs it lacks, with --full — not getff's rules, which are in it; O neg:
+#      names the boundary globs it lacks and AST editor reason — not already-present getff rules; O neg:
 #      when it lacks none (the first install added them), nothing is reported;
 #   S  the edit removes RULE_GLOBS.boundary: the own-config wirer refuses R2 there with or without
 #      ts-morph, so the summary gives its reason and no --full; S2 is the same with ts-morph, and its
@@ -497,9 +497,9 @@ printf 'export const answer = 42;\n' > "$P/lib/answer.ts"
 cmp -s "$P/eslint.config.mjs" "$WORK/own.before" \
   && ok "P: without ts-morph the consumer's config is left byte-identical" \
   || bad "P: the config changed on an install that cannot run the AST editor"
-grep -q -- '--full' <<<"$(not_wired "$WORK/p.log" | grep 'eslint.config.mjs')" \
-  && ok "P: the not-wired summary says a --full install adds getff's block" \
-  || bad "P: the not-wired summary does not point at --full: $(not_wired "$WORK/p.log" | grep 'eslint' | head -2 | tr '\n' '|')"
+grep -qF "getff's rules in eslint.config.mjs (your own config) — adding them needs a usable ts-morph AST editor" <<<"$(not_wired "$WORK/p.log")" \
+  && ok "P: the not-wired summary names the missing usable AST editor for the consumer config" \
+  || bad "P: missing the config-specific AST editor rejection: $(not_wired "$WORK/p.log" | grep 'eslint.config.mjs' | tr '\n' '|')"
 asks_by_hand "$WORK/p.log" && bad "P: the install asks for a manual step: $(manual_step_lines "$WORK/p.log" | head -2 | tr '\n' '|')" || ok "P: nothing asks for a manual step"
 
 # ── B: getff's own config — fresh install, then a plain re-install ─────────────────────────────
@@ -855,8 +855,8 @@ cmp -s "$Q/eslint.config.mjs" "$Q.edited" && ok "Q: the edited config is left by
   || bad "Q: the edited config changed on an install that cannot run the AST editor"
 Qn="$WORK/placed-edited-plain-rule"; mkdir -p "$Qn"
 edited_plain_reinstall "$Qn" '{ "no-var": "error" }'
-grep -q -- '--full' <<<"$(not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs')" \
-  && ok "Q neg: a live rule the edited config does not carry is named in the not-wired summary, with --full" \
+grep -qF "getff's rules in eslint.config.mjs (your own config) — adding them needs a usable ts-morph AST editor" <<<"$(not_wired "$Qn.2.log")" \
+  && ok "Q neg: the live-rule gap in the edited config is reported with the missing AST editor reason" \
   || bad "Q neg: the missing live rule is not reported: $(not_wired "$Qn.2.log" | head -3 | tr '\n' '|')"
 
 # ── N, O: HTTP boundary code appears in a project whose getff config the consumer has edited ───
@@ -914,8 +914,8 @@ edited_plain_reinstall "$O" "" add_handler
 cmp -s "$O/eslint.config.mjs" "$O.edited" && ok "O: the edited config is left byte-identical" \
   || bad "O: the edited config changed on an install that cannot run the AST editor: $(diff "$O.edited" "$O/eslint.config.mjs" | head -4 | tr '\n' '|')"
 _o_line=$(not_wired "$O.2.log" | grep -F 'eslint.config.mjs')
-grep -qF "$HANDLERS_GLOB" <<<"$_o_line" && grep -q -- '--full' <<<"$_o_line" \
-  && ok "O: the not-wired summary names the missing boundary glob, with --full" \
+grep -qF "$HANDLERS_GLOB" <<<"$_o_line" && grep -qF 'needs a usable ts-morph AST editor' <<<"$_o_line" \
+  && ok "O: the not-wired summary names the missing boundary glob and AST editor reason" \
   || bad "O: the missing boundary glob is not reported: $(not_wired "$O.2.log" | head -3 | tr '\n' '|')"
 grep -qF "getff's rules" <<<"$_o_line" \
   && bad "O: the not-wired line says getff's rules are missing, but they are in the edited config: $_o_line" \
@@ -980,8 +980,8 @@ T="$WORK/placed-edited-application"; mkdir -p "$T"
 edited_plain_reinstall "$T" "" add_app_parse
 grep -qF "$APP_GLOB" "$T.edited" && ! grep -qF "$APP_GLOB" <<<"$(boundary_block "$T.edited")" \
   || bad "T: the edited config does not carry the glob outside its boundary array — the arm would be vacuous"
-grep -q -- '--full' <<<"$(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | grep -F "$APP_GLOB")" \
-  && ok "T: a glob found only in another RULE_GLOBS key is named as one R2 lacks, with --full" \
+grep -qF 'needs a usable ts-morph AST editor' <<<"$(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | grep -F "$APP_GLOB")" \
+  && ok "T: a glob outside the boundary array is named as one R2 lacks, with the AST editor reason" \
   || bad "T: the glob the boundary array lacks is not reported: $(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | head -2 | tr '\n' '|')"
 # V: the same edited config on a re-install without Node. Every writer of the own-config pass runs
 # on Node, so nothing lands — and 60-ci no longer writes the globs into the edited config itself.

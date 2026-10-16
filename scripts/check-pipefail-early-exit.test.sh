@@ -58,7 +58,7 @@ fixture "P10 a <<'TAG' inside a quoted string opens no heredoc" fire 'printf "ca
 echo "$v" | grep -q x'
 
 echo "── fires: a builtin producer into an early reader whose status is read (head / sed q / awk exit)"
-fixture "P11 v=\"\$(printf '%s\\n' \"\$x\" | head -1)\" (setup.d/eslint-wire.sh:56, 2026-09-29)" fire '_r2_verdict="$(printf '"'"'%s\n'"'"' "$_r2_out" | head -1)"'
+fixture "P11 v=\"\$(printf '%s\\n' \"\$x\" | head -1)\" (setup.d/eslint-wire.sh:88, 2026-09-29)" fire '_r2_verdict="$(printf '"'"'%s\n'"'"' "$_r2_out" | head -1)"'
 fixture "P12 v=\$(echo | sed q)" fire 'v=$(echo "$x" | sed q)'
 fixture "P13 v=\$(printf | awk '{…; exit}')" fire 'v=$(printf '"'"'%s\n'"'"' "$x" | awk '"'"'{ print; exit }'"'"')'
 fixture "P14 a statement-level printf | head -5 under set -e" fire 'printf '"'"'%s\n'"'"' "$x" | head -5'

@@ -7,7 +7,8 @@
 # Outputs one line per umbrella:
 #   POTENTIAL_DUPE: <umbrella> may overlap with merged #<n> "<title>" (basis=xref|jaccard score=<int>%)
 #   POTENTIAL_DUPE: <umbrella> deliverable already on staging: <path> (basis=deliverable-on-staging score=100%)
-#   OK: <umbrella> no dup-detect signal vs merged-PRs-30d
+#   OK: <umbrella> no dup-detect signal vs merged-PRs-30d (complete scoped queries)
+#   UNKNOWN: <umbrella> duplicate population incomplete (exit 1)
 #
 # Three signals combined deterministically (no LLM):
 #   (1) cross-reference: kickoff explicitly mentions "#N" of a merged-30d PR (basis=xref)
@@ -54,8 +55,23 @@ MO_DELIVERABLE_DIRS="${MO_DELIVERABLE_DIRS:-docs/meta-factory/research-patches}"
 STOP="$MO_STOP_BASE"
 
 SINCE="$(date -v "-${MO_PR_WINDOW_DAYS}d" '+%Y-%m-%d' 2>/dev/null || date -d "-${MO_PR_WINDOW_DAYS} days" '+%Y-%m-%d' 2>/dev/null || echo '1970-01-01')"
-PR_JSON="$("${MO_GH_BIN}" pr list --state merged --search "merged:>=${SINCE}" --json number,title --limit 50 2>/dev/null)" \
-  || { echo "(gh unavailable — PR-based signals skipped; deliverable check still runs)" >&2; PR_JSON=""; }
+_incomplete=0
+PR_ROWS=""
+if ! PR_JSON="$("${MO_GH_BIN}" pr list --state merged --search "merged:>=${SINCE}" --json number,title --limit 50)"; then
+  echo "UNKNOWN: merged PR lookup unavailable; deliverable observations still checked"
+  _incomplete=1
+elif ! PR_JSON="$(printf '%s\n' "${PR_JSON}" | jq -cse '
+  if length == 1 and (.[0] | type == "array") and all(.[0][]; (.number | type == "number") and (.title | type == "string"))
+  then .[0] else error("expected one valid merged PR array") end' 2>/dev/null)"; then
+  echo "UNKNOWN: invalid merged PR population; deliverable observations still checked"
+  _incomplete=1
+else
+  if [[ "$(printf '%s\n' "${PR_JSON}" | jq 'length')" -ge 50 ]]; then
+    echo "UNKNOWN: merged PR population reached limit 50; supplied overlap observations retained"
+    _incomplete=1
+  fi
+  PR_ROWS="$(printf '%s\n' "${PR_JSON}" | jq -r '.[] | [.number, .title] | @tsv')"
+fi
 
 # Tokenise stdin: lowercase, split, keep >=4 chars, strip stopwords. Outputs sorted unique tokens.
 tok_stdin() { tr '[:upper:][:punct:]' '[:lower:] ' | tr -s ' ' '\n' | mo_filter_tokens "$STOP"; }
@@ -73,7 +89,11 @@ precompute_deliverables() {
   local dir paths path fbase ftok _tab _tok
   _tab=$'\t'
   for dir in ${MO_DELIVERABLE_DIRS}; do
-    paths="$(git -C "${REPO_ROOT}" ls-tree -r --name-only "${MO_DELIVERABLE_REF}" -- "${dir}" 2>/dev/null || true)"
+    if ! paths="$(git -C "${REPO_ROOT}" ls-tree -r --name-only "${MO_DELIVERABLE_REF}" -- "${dir}")"; then
+      echo "UNKNOWN: deliverable tree unavailable at ${MO_DELIVERABLE_REF} for ${dir}"
+      _incomplete=1
+      continue
+    fi
     [[ -z "${paths}" ]] && continue
     while IFS= read -r path; do
       [[ -z "${path}" ]] && continue
@@ -83,7 +103,7 @@ precompute_deliverables() {
       while IFS= read -r _tok; do
         [[ -z "${_tok}" ]] && continue
         _DELIV_INDEX+="${path}${_tab}${_tok}"$'\n'
-      done <<< "${ftok}"
+      done < <(printf '%s\n' "${ftok}")
     done < <(printf '%s\n' "${paths}")
   done
 }
@@ -95,21 +115,23 @@ precompute_deliverables() {
 # are dropped here exactly as the inline `[[ -z "${num}" ]] && continue` did.
 precompute_prs() {
   PR_NUMS=(); PR_TITLES=(); PR_TTOKS=()
-  local entry num title
-  while IFS= read -r entry; do
-    [[ -z "${entry}" ]] && continue
-    num="$(printf '%s' "${entry}" | grep -oE '"number":[0-9]+' | grep -oE '[0-9]+' || true)"
+  local num title
+  while IFS=$'\t' read -r num title; do
     [[ -z "${num}" ]] && continue
-    title="$(printf '%s' "${entry}" | sed 's/.*"title":"\([^"]*\)".*/\1/')"
     PR_NUMS+=("${num}")
     PR_TITLES+=("${title}")
     PR_TTOKS+=("$(printf '%s' "${title}" | tok_stdin)")
-  done < <(printf '%s\n' "${PR_JSON}" | grep -oE '\{[^}]+\}' 2>/dev/null || true)
+  done < <(printf '%s\n' "${PR_ROWS}")
 }
 
 check_umbrella() {
   local name="$1" kickoff="${PROMPTS_DIR}/$1/kickoff.md" flagged=0
-  if [[ ! -f "${kickoff}" ]]; then echo "MISSING: ${name} no kickoff.md found"; return; fi
+  if [[ ! -f "${kickoff}" ]]; then
+    echo "MISSING: ${name} no kickoff.md found"
+    echo "UNKNOWN: ${name} kickoff unavailable"
+    _incomplete=1
+    return
+  fi
   local xrefs; xrefs="$(grep -oE '#[0-9]+' "${kickoff}" 2>/dev/null | sed 's/#//' | sort -u || true)"
   local kt; kt="$(grep -E '^## |^### |^- ' "${kickoff}" 2>/dev/null | head -50 | tok_stdin)"
   # Iterate the PR facts precomputed ONCE in precompute_prs (parallel arrays, PR_JSON /
@@ -119,7 +141,7 @@ check_umbrella() {
     num="${PR_NUMS[$_j]}"; title="${PR_TITLES[$_j]}"; ptok="${PR_TTOKS[$_j]}"
     _j=$((_j + 1))
     # Signal 1: cross-reference fast path
-    if grep -qxF "${num}" 2>/dev/null <<<"${xrefs}"; then
+    if printf '%s\n' "${xrefs}" | grep -xF "${num}" >/dev/null; then
       echo "POTENTIAL_DUPE: ${name} may overlap with merged #${num} \"${title:0:60}\" (basis=xref score=100%)"
       flagged=1; continue
     fi
@@ -167,7 +189,9 @@ check_umbrella() {
       END { for (k = 1; k <= m; k++) if (c[ord[k]] >= 2) print ord[k] }
     ')
   fi
-  if [[ "${flagged}" -eq 0 ]]; then echo "OK: ${name} no dup-detect signal vs merged-PRs-30d"; fi
+  if [[ "${_incomplete}" -ne 0 ]]; then
+    echo "UNKNOWN: ${name} duplicate population incomplete"
+  elif [[ "${flagged}" -eq 0 ]]; then echo "OK: ${name} no dup-detect signal vs merged-PRs-30d"; fi
 }
 
 # Build the umbrella-invariant deliverable + PR token indexes once; check_umbrella reads
@@ -187,8 +211,9 @@ if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
   if [[ -n "${MO_UMBRELLA_SUBSET:-}" ]]; then
     for name in ${MO_UMBRELLA_SUBSET}; do check_umbrella "${name}"; done
   else
-    if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
+    if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit "${_incomplete}"; fi
     for d in "${PROMPTS_DIR}"/*/; do
+      [[ -d "${d}" ]] || continue
       # MO_SKIP_CLOSED opt-in (Caller B): drop umbrellas already provably closed by a
       # committed done.md before the expensive per-umbrella scan. Applies ONLY here, the
       # self-discovering glob path; default unset → every umbrella scanned (closure-agnostic).
@@ -199,3 +224,5 @@ if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
 else
   check_umbrella "${ARG}"
 fi
+
+exit "${_incomplete}"

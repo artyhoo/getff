@@ -40,9 +40,12 @@ Sub-waves and their mode decisions are in §2 launch-table below. Read in this o
 > no column, so every not-yet-done stage is frontier and the ordering is judgment again. The
 > §3 gate below is what PROVES a dependency merged; the frontier only says who is eligible.
 
-- **Vertical slice — the default shape of a stage.** One thin end-to-end change carrying its
-  own live proof (RED→GREEN, gate output, or a fired check). A stage that cannot state what it
-  proves on its own is a horizontal layer, not a slice — re-cut it before dispatch.
+- **Vertical slice (tracer bullet) — the default shape of a stage.** Start with the smallest
+  useful end-to-end change through the real entry, wiring and result, carrying its own live
+  proof (RED→GREEN, gate output, or a fired check). Deliver that slice for operator feedback
+  before expanding the remaining scope. Keep the existing predecessor, review and merge gates.
+  A stage that cannot state what it proves on its own is a horizontal layer, not a slice —
+  re-cut it before dispatch.
 - **Expand–contract — the shape for renames, moves, and format changes.** Three phases, never
   one PR: **expand** (the new path/field/spelling lands beside the old, both live), **migrate**
   (callers move, one commit per surface), **contract** (the old form and its shim are deleted).
@@ -156,7 +159,7 @@ If any of the four checks fails → fix the body before pushing. CI catches the 
 
 > **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` (framework repo; `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` on a consumer install), §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
 
-**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — _guessing_ on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds _no blocking findings_ — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
+**Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no synchronous mid-implementation "pause and ask a human" channel** — the loop does not stop and wait for an answer. The mid-flight park primitive (`packages/runtime-bridge/src/cli/park.ts`, Lever 2) records the question and stops the task; resolution comes later through the existing dispatcher parks procedure. Without that contract instructed, agents implement — _guessing_ on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds _no blocking findings_ — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
 
 **Lever 1 — conservative aif config (set on the bridge/env BEFORE dispatch):**
 
@@ -169,9 +172,11 @@ export AGENT_SKIP_REVIEW=false
 
 **Lever 2 — park-don't-guess instruction (the dispatched kickoff carries this verbatim, addressed to the aif agent):**
 
-> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the fork-challenge discipline `ask-question-reminder.sh` emits (`.claude/hooks/lang/en.sh:110-126`). Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+> **aif agent — fork discipline (non-negotiable):** On a genuine fork that blocks continuing implementation (two defensible implementations, an undecided design choice, or a missing spec detail that changes behaviour), do not guess. Park it as a question using the existing mid-flight park primitive: `tsx packages/runtime-bridge/src/cli/park.ts --question "Fork: Option A → consequence X / Option B → consequence Y"` from the framework repository root; `--task <actual-task-id>` may be supplied, otherwise the CLI uses `HANDOFF_TASK_ID`. The primitive records the question in the plan and sets `paused:true` with `blockedReason`; `manualReviewRequired` and `blocked_external` are not substitutes for this operation. Stop the blocked task and report any park failure to the dispatcher; never claim it is parked after a failed command or silently continue that task. Proceed only on independent, unambiguous work. Resolution and status-specific handling remain owned by the existing dispatcher parks procedure. This carries the genuine-fork discipline in `.agents/hooks/lang/en.sh:110–123` without inventing a new AIF state transition.
 
-**Lever 3 — the resolve loop reviews aif's DECISIONS, not only its open questions:** the maintainer Approves / Requests-changes each completed task, so "questions" = open forks **+** aif's autonomous decisions awaiting verification (trust-but-verify). This is the runtime side delivered by `cli/answer.ts` once it ships; until then, review decisions manually in the aif web/Telegram UI.
+**Consumer-dispatch route qualification (the Lever-2 command above is framework-only):** `tsx packages/runtime-bridge/src/cli/park.ts` runs from the framework repository root and **must not be used in a consumer** — a consumer install has no `packages/` tree, so the command cannot exist there. When any sub-wave is dispatched autonomously on a consumer install (`tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`), BOTH legs must be verified **on that destination** before dispatch: (a) the actual delivered vendor park primitive (`.claude/vendor/runtime-bridge/src/cli/park.ts` on that install) is installed and invocable there, and (b) the task context (`--task <actual-task-id>` / `HANDOFF_TASK_ID`) resolves on that destination. A conditional candidate vendor path — named here, in install recipes, or in docs — is **not** evidence it is installed. If either leg cannot be verified, **STOP as UNVERIFIED before dispatch**: do not dispatch autonomously; run that sub-wave in a maintainer-pasted CC tab instead (for it, §4c is inert per the live-when note above).
+
+**Lever 3 — the resolve loop reviews aif's DECISIONS, not only its open questions:** the maintainer Approves / Requests-changes each completed task, so "questions" = open forks **+** aif's autonomous decisions awaiting verification (trust-but-verify). This is the runtime side delivered by `packages/runtime-bridge/src/cli/answer.ts` (shipped — `--decision approve | retry | request_changes | resume`); decisions can also be taken manually in the aif web/Telegram UI.
 
 **Trust is a tunable dial, not baked-in distrust (design §1):** `MAX_REVIEW_ITERATIONS` high = trust aif more / low = hand off more. The loop (collect → resolve-in-chat → resume) is **identical at any dial setting** — so the trust level never blocks the build. Start trust-but-verify (middle), run 2–3 real umbrellas, then adjust by observed error rate. Do NOT over-design the dial upfront.
 

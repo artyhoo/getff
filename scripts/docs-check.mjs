@@ -62,17 +62,20 @@
  * External tools, each independently resolved and independently degraded:
  *   vale         VALE_BIN > `vale` on PATH          config: docs/site-quality/vale/.vale.ini
  *   lychee       LYCHEE_BIN > `lychee` on PATH      flags mirror pre-push.ts §8 lycheeSection
- *   markdownlint MARKDOWNLINT_BIN > `npx --no-install markdownlint-cli2` (devDep, lockfile-pinned)
+ *   markdownlint MARKDOWNLINT_BIN > project-resolved markdownlint-cli2 > installed bundle
+ *                (bundle only when the project has not declared its own markdownlint-cli2)
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { validateMarkdownMermaid } from './lib/mermaid-allowlist.mjs';
 import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_ROOT = join(here, '..');
+const DEFAULT_ROOT = realpathSync(join(here, '..'));
+const physicalPath = path => existsSync(path) ? realpathSync(path) : resolve(path);
 
 const PAGES_DIR = 'docs/site';
 const PAGES_EXTENSIONS = new Set(['.md', '.mdx']);
@@ -423,28 +426,55 @@ function resolveLychee() {
 }
 
 let markdownlintCache;
-/** MARKDOWNLINT_BIN > local devDep via `npx --no-install` (lockfile-pinned; no network fetch). */
+/** Explicit tool > project module resolution > installed bundle; no npm-cache substitution. */
 function resolveMarkdownlint(root) {
   if (markdownlintCache !== undefined) return markdownlintCache;
   const direct = process.env.MARKDOWNLINT_BIN;
-  if (direct) {
-    markdownlintCache = { cmd: direct, baseArgs: [], cwd: root };
-    return markdownlintCache;
+  if (direct) return markdownlintCache = { cmd: direct, baseArgs: [], cwd: root };
+  let declared = false;
+  const manifest = join(root, 'package.json');
+  if (existsSync(manifest)) {
+    let project;
+    try { project = JSON.parse(readFileSync(manifest, 'utf8')); }
+    catch { return markdownlintCache = null; }
+    if (!project || typeof project !== 'object' || Array.isArray(project)) return markdownlintCache = null;
+    declared = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']
+      .some(field => Object.hasOwn(project[field] ?? {}, 'markdownlint-cli2'));
   }
-  const probe = spawnSync(
-    'npx',
-    ['--no-install', 'markdownlint-cli2', '--version'],
-    { cwd: root, encoding: 'utf8' },
-  );
-  markdownlintCache =
-    probe.status === 0
-      ? {
-          cmd: 'npx',
-          baseArgs: ['--no-install', 'markdownlint-cli2'],
-          cwd: root,
+  let entry;
+  try { entry = createRequire(manifest).resolve('markdownlint-cli2'); }
+  catch (error) {
+    if (error.code !== 'MODULE_NOT_FOUND') return markdownlintCache = null;
+  }
+  if (entry) {
+    let dir = dirname(entry);
+    while (true) {
+      const packageManifest = join(dir, 'package.json');
+      if (existsSync(packageManifest)) {
+        let metadata;
+        try { metadata = JSON.parse(readFileSync(packageManifest, 'utf8')); }
+        catch { return markdownlintCache = null; }
+        if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return markdownlintCache = null;
+        if (metadata.name === 'markdownlint-cli2') {
+          const bin = typeof metadata.bin === 'string' ? metadata.bin : metadata.bin?.['markdownlint-cli2'];
+          if (typeof bin !== 'string' || isAbsolute(bin)) return markdownlintCache = null;
+          const cli = resolve(dir, bin), rel = relative(dir, cli);
+          if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return markdownlintCache = null;
+          try {
+            return markdownlintCache = statSync(cli).isFile()
+              ? { cmd: process.execPath, baseArgs: [cli], cwd: root } : null;
+          } catch { return markdownlintCache = null; }
         }
-      : null;
-  return markdownlintCache;
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return markdownlintCache = null;
+      dir = parent;
+    }
+  }
+  if (declared) return markdownlintCache = null;
+  const bundled = join(root, '.agents/tools/docs/markdownlint-cli2.bundle.mjs');
+  return markdownlintCache = existsSync(bundled)
+    ? { cmd: process.execPath, baseArgs: [bundled], cwd: root } : null;
 }
 
 function run(cmd, args, cwd) {
@@ -469,7 +499,7 @@ function parseArgs(argv) {
     else if (a === '--strict') opts.strict = true;
     else if (a === '--lenient') opts.strict = false;
     else if (a === '--profile') opts.profile = argv[++i] ?? null;
-    else if (a === '--root') opts.root = resolve(argv[++i] ?? DEFAULT_ROOT);
+    else if (a === '--root') opts.root = physicalPath(argv[++i] ?? DEFAULT_ROOT);
     else if (a === '--help' || a === '-h') opts.help = true;
     else opts.files.push(a);
   }
@@ -479,7 +509,7 @@ function parseArgs(argv) {
 function targetList(opts) {
   if (opts.files.length > 0) {
     return opts.files.map((f) =>
-      relative(opts.root, resolve(process.cwd(), f)).split(sep).join('/'),
+      relative(opts.root, physicalPath(resolve(process.cwd(), f))).split(sep).join('/'),
     );
   }
   if (opts.changed) {
@@ -624,7 +654,7 @@ function main() {
     const mdl = resolveMarkdownlint(root);
     if (!mdl) {
       const message =
-        'markdownlint-cli2 unavailable (no MARKDOWNLINT_BIN, not a local devDep)';
+        'markdownlint-cli2 unavailable (no explicit/project CLI; declared version missing or installed bundle absent)';
       if (strict)
         errors.push({
           file: '(markdownlint)',

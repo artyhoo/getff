@@ -103,13 +103,13 @@ template carries one field per stack.
   lines 25 to 47, the hard rule is line 35, the note about the outside `/aif` detector is line 51, and the context7
   fallback is line 55.
 - The installer copies the skill from the repository root: `setup.d/10-skills.sh`, lines
-  34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1714 of
+  34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1716 of
   `setup.d/45-python.sh`.
 - The decisions file is seeded on line 51 of `setup.d/30-templates.sh` — a `copy_safe` from
   `$(procedure_source tool-bootstrapping)/templates/tool-decisions.md.template` (the canonical
   `.agents/procedures/tool-bootstrapping-consumer` home). Its per-stack hash fields are lines
   5 to 7. The single-field schema is line 18 of `.agents/procedures/tool-bootstrapping-consumer/references/decision-format.md`.
 - The hook is `packages/core/hooks/deps-hash-check.sh`, copied and registered by lines
-  202 to 236 of `setup.d/10-skills.sh`.
+  211 to 245 of `setup.d/10-skills.sh`.
 - The `operator-twin` row names `.claude/skills/tool-bootstrapping/SKILL.md`, the copy
   getff uses on itself. The card is built from `docs/site/reference/B.json`.
