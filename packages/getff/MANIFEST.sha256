@@ -845,7 +845,7 @@ c6412f2a0c2511b44415803a7e7215ea79d0726fc3fc12d5d1b5b90fe2e02517  packages/core/
 3370aa5b573a1744f4d3a7c73e85d2834f2f80fa75da3b408d8c1a757868b24e  packages/core/hooks/check-doc-authority-header.test.ts
 bd82586eb43d2d067f28a9938640e2bdec21d405a0d4fb044d9aadbcb4d63892  packages/core/hooks/check-doc-authority.test.ts
 67d3efb06c64f9b64a5c9917d4c22965c01f472dce881713b359c679a5a3a18e  packages/core/hooks/check-docs-refresh.test.ts
-fcd8a912badbc5e659ac13715701c883a519398465f08bf43da8a587f702ccf7  packages/core/hooks/check-hook-marker.test.ts
+b4d626d7c297c35a9e9e90d93c9211d1284444be0e944a6c687489529d46db80  packages/core/hooks/check-hook-marker.test.ts
 fde36da94974e629af0d67d9b0dd2afde8f490e6698099fe693f1854fe4f55c3  packages/core/hooks/check-kickoff-portability.test.ts
 06f53749260936d795cb9e70334d939e6a472771763de364f12bb48f63e3469d  packages/core/hooks/check-kickoff-traps.test.ts
 a29967a291be5f5007a68a31bef794d2f82b318051e1eb136baa753c006abb0e  packages/core/hooks/check-skill-drift.test.ts
