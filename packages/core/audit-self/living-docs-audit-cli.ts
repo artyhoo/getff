@@ -854,6 +854,7 @@ async function main(): Promise<void> {
       invocationError: `launcher error: ${(err as Error).message}`,
       runner: null,
       chainedBase: null,
+      r4Helper: null,
       checks: [],
       findings: [],
       counts: { blocking: 0, warning: 0, checksByStatus: { passed: 0, violations: 0, 'not-applicable': 0, incomplete: 0, error: 0 } },

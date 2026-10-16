@@ -617,8 +617,8 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/audit-self/fixtures/ts-server/src/.gitkeep
 c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/audit-self/hooks-tree-guard.test.ts
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
-5ed497e4ebb03342bc741cf28d744606a01d7ee1faf785f0fc60c1b6a79fd711  packages/core/audit-self/living-docs-audit-cli.ts
-b84e2a2ecd384691f0fb47b7d61efab7ac6dba8cc62a2be26c7bab73542fb815  packages/core/audit-self/living-docs-audit.bundle.mjs
+f7513bd774317d1ab24a78de041c4fd13c50527afefec571be2e698edc09ed05  packages/core/audit-self/living-docs-audit-cli.ts
+bcaee3a747a5705f50a1c836c3e2d603079dfe6e32dfa8f18fde604a4ddfcad1  packages/core/audit-self/living-docs-audit.bundle.mjs
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh
