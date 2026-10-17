@@ -53,7 +53,7 @@
  * changes the output — an implementation ignoring the seam must fail.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -85,12 +85,14 @@ function writeKickoff(kickoffDir: string, umbrella: string, body: string): strin
 }
 
 function runHelper(
+  ctx: Skippable,
   umbrella: string,
   kickoffDir: string,
   envOverrides: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   const args = umbrella === '' ? [HELPER] : [HELPER, umbrella];
-  const r = spawnSync('bash', args, {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', args, {
     encoding: 'utf8',
     env: { ...process.env, MO_KICKOFF_DIR: kickoffDir, ...envOverrides },
   });
@@ -143,28 +145,28 @@ const WITHOUT_COLUMN = `# KICKOFF — fixture-without-column
 `;
 
 describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative contract)', () => {
-  it('NO-ARG: empty umbrella → quiet skip line, exit 0', () => {
+  it('NO-ARG: empty umbrella → quiet skip line, exit 0', (ctx) => {
     // Targets the `if [[ -z "${UMBRELLA}" ]]` early branch.
     const kickoffDir = makeSandbox();
-    const r = runHelper('', kickoffDir);
+    const r = runHelper(ctx, '', kickoffDir);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('frontier: no umbrella');
   });
 
-  it('MISSING-KICKOFF: unknown umbrella → "MISSING kickoff: <probed path>", exit 0', () => {
+  it('MISSING-KICKOFF: unknown umbrella → "MISSING kickoff: <probed path>", exit 0', (ctx) => {
     // Targets the `[[ ! -f "${KICKOFF}" ]]` branch — same wording as SKILL.md §3 Blocking rule.
     const kickoffDir = makeSandbox();
-    const r = runHelper('nope', kickoffDir);
+    const r = runHelper(ctx, 'nope', kickoffDir);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('MISSING kickoff:');
     expect(r.stdout).toContain('nope/kickoff.md');
   });
 
-  it('WITH-COLUMN: resolves edges and reports frontier = the deps-met set', () => {
+  it('WITH-COLUMN: resolves edges and reports frontier = the deps-met set', (ctx) => {
     // Targets the header-detection rule (`index($0, "Depends on")`) + the edge loop in END.
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', WITH_COLUMN);
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(r.status).toBe(0);
     expect(line(r.stdout, 'depends-column:')).toContain('present');
     expect(line(r.stdout, 'stages:')).toBe('stages: 4');
@@ -181,11 +183,11 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
     expect(r.stdout).not.toContain('STAGE Prose');
   });
 
-  it('WITHOUT-COLUMN: degrades to «every not-yet-done stage is frontier» + DEGRADE line', () => {
+  it('WITHOUT-COLUMN: degrades to «every not-yet-done stage is frontier» + DEGRADE line', (ctx) => {
     // Targets the fallback header branch (`h == "Stage"`) + the `if (!hdrline)` END path.
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', WITHOUT_COLUMN);
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(r.status).toBe(0);
     expect(line(r.stdout, 'depends-column:')).toBe('depends-column: absent');
     expect(line(r.stdout, 'stages:')).toBe('stages: 3');
@@ -195,18 +197,18 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
     expect(stageLine(r.stdout, 'S2')).toContain('deps=?');
   });
 
-  it('NO-TABLE: no stage table at all → stages: 0 + DEGRADE, never a fabricated frontier', () => {
+  it('NO-TABLE: no stage table at all → stages: 0 + DEGRADE, never a fabricated frontier', (ctx) => {
     // Targets the `if (!fbn)` arm of the degrade path.
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', '# KICKOFF\n\nProse only, no table.\n');
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(r.status).toBe(0);
     expect(line(r.stdout, 'stages:')).toBe('stages: 0');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: (none)');
     expect(line(r.stdout, 'DEGRADE:')).toContain('no stage table found');
   });
 
-  it('RANGE: `S1–S4 all merged` names the whole inclusive span, not just the endpoints', () => {
+  it('RANGE: `S1–S4 all merged` names the whole inclusive span, not just the endpoints', (ctx) => {
     // Cold-review BLOCKER: the incumbent corpus writes ranges — plugin-packaging S6 (`S1–S5`),
     // S8 (`S1–S7`), one-click-installer S5 (`S1–S4 all merged`). Taking only the endpoints
     // dropped the middle stages with `unresolved=no`, i.e. a stage was reported dispatchable
@@ -226,14 +228,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | S5 | integration | S1–S4 all merged |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S5')).toContain('deps=S1,S2,S3,S4');
     // S2 and S3 are open, so the range consumer must be BLOCKED on exactly them.
     expect(stageLine(r.stdout, 'S5')).toContain('unmet=S2,S3');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: S2 S3');
   });
 
-  it('MARKER-DONE: an UPPERCASE marker with merge evidence → done=yes basis=marker-unverified', () => {
+  it('MARKER-DONE: an UPPERCASE marker with merge evidence → done=yes basis=marker-unverified', (ctx) => {
     // Targets marked_done() over srow[] (every cell EXCEPT the Depends-on cell).
     const kickoffDir = makeSandbox();
     writeKickoff(
@@ -244,14 +246,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S1 seed | **CLOSED — MERGED 2026-08-01 as PR #1** | — |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S1')).toContain('done=yes basis=marker-unverified');
     // With S1 done, its two consumers become the frontier — the whole point of the mechanism.
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: S2 S3');
     expect(line(r.stdout, 'DONE:')).toBe('DONE: S1');
   });
 
-  it('MARKER-NO-EVIDENCE: the same word as prose, with no PR/date/staging nearby, is NOT done', () => {
+  it('MARKER-NO-EVIDENCE: the same word as prose, with no PR/date/staging nearby, is NOT done', (ctx) => {
     // Cold-review MAJOR: arch-v2-context-pipeline S-L says «§1.3's load-bearing unknown is
     // **CLOSED**» — about a QUESTION. Reading any occurrence of the word marked an unmerged
     // stage DONE and handed its consumer to the frontier. Targets the 60-char proximity rule
@@ -265,14 +267,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         "| S1 seed | build the probe — the load-bearing unknown is **CLOSED** by the spec | — |",
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S1')).toContain('done=no');
     expect(line(r.stdout, 'DONE:')).toBe('DONE: (none)');
     // The consumer must stay blocked, not inherit a phantom green.
     expect(line(r.stdout, 'BLOCKED:')).toContain('S2(unmet:S1)');
   });
 
-  it('MARKER-IN-DEP: «S1 MERGED» inside the Depends-on cell must NOT mark the row done', () => {
+  it('MARKER-IN-DEP: «S1 MERGED» inside the Depends-on cell must NOT mark the row done', (ctx) => {
     // The arch-v2-context-pipeline S-E shape (kickoff.md:91 table): a dependency cell
     // describing the EDGE as merged said nothing about the row itself. Reading it as the
     // row's own state would report an unbuilt stage as done — a false green at the gate.
@@ -285,13 +287,13 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S2 gate | consumes S1 | S1 **MERGED 2026-08-01 as PR #1** — MET |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S2')).toContain('done=no');
     // S1 is genuinely not done, so S2 stays blocked on it.
     expect(stageLine(r.stdout, 'S2')).toContain('unmet=S1');
   });
 
-  it('MARKER-ATTN: every marker-based done is echoed for the §6 gh gate to confirm', () => {
+  it('MARKER-ATTN: every marker-based done is echoed for the §6 gh gate to confirm', (ctx) => {
     // A row-text read is not a merge proof; the ATTN line is what keeps §6 the authority.
     const kickoffDir = makeSandbox();
     writeKickoff(
@@ -302,14 +304,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S1 seed | **MERGED 2026-08-01 as PR #1** | — |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     const attn = lines(r.stdout, 'ATTN:').join('\n');
     expect(attn).toContain('marker-unverified done');
     expect(attn).toContain('S1');
     expect(attn).toContain('§6 gh check');
   });
 
-  it('DONE-WITH-UNMET: done=yes while a dependency is open → WARN, not silence', () => {
+  it('DONE-WITH-UNMET: done=yes while a dependency is open → WARN, not silence', (ctx) => {
     // Cold-review MINOR reproduced on arch-v2 S-D (`CLOSED-NULL 2026-08-06` + `Depends on:
     // S-C` open): an internally contradictory row slid into DONE with no signal.
     const kickoffDir = makeSandbox();
@@ -321,40 +323,40 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S2 gate | **CLOSED-NULL 2026-08-06 per SSOT #234** | S1 |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S2')).toContain('done=yes');
     const warn = lines(r.stdout, 'WARN:').join('\n');
     expect(warn).toContain('contradictory row read');
     expect(warn).toContain('S2(unmet:S1)');
   });
 
-  it('DONE-MD: umbrella done.md → every stage done=yes basis=done-md, frontier empty', () => {
+  it('DONE-MD: umbrella done.md → every stage done=yes basis=done-md, frontier empty', (ctx) => {
     // Targets the DONE_MD probe (reuses the priority-score.sh C3 convention).
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', WITH_COLUMN);
     writeFileSync(join(kickoffDir, 'u', 'done.md'), 'Final PR: #999\n', 'utf8');
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(line(r.stdout, 'done-md:')).toBe('done-md: yes');
     expect(stageLine(r.stdout, 'S3')).toContain('basis=done-md');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: (none)');
   });
 
-  it('OVERRIDE-DONE: MO_FRONTIER_DONE moves the done set forward', () => {
+  it('OVERRIDE-DONE: MO_FRONTIER_DONE moves the done set forward', (ctx) => {
     // The §6 `gh pr list --search "is:merged …"` verdict is the authority; this seam is how
     // it feeds back in. Without the seam the fixture has NO done stage, so the arm bites.
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', WITH_COLUMN);
 
-    const baseline = runHelper('u', kickoffDir);
+    const baseline = runHelper(ctx, 'u', kickoffDir);
     expect(line(baseline.stdout, 'FRONTIER:')).toBe('FRONTIER: S1');
 
-    const forced = runHelper('u', kickoffDir, { MO_FRONTIER_DONE: 'S1,S2' });
+    const forced = runHelper(ctx, 'u', kickoffDir, { MO_FRONTIER_DONE: 'S1,S2' });
     expect(stageLine(forced.stdout, 'S1')).toContain('done=yes basis=override');
     expect(line(forced.stdout, 'FRONTIER:')).toBe('FRONTIER: S3');
     expect(line(forced.stdout, 'BLOCKED:')).toBe('BLOCKED: S4(unmet:S3)');
   });
 
-  it('OVERRIDE-OPEN: MO_FRONTIER_OPEN demotes a stage that a MARKER made done', () => {
+  it('OVERRIDE-OPEN: MO_FRONTIER_OPEN demotes a stage that a MARKER made done', (ctx) => {
     // Cold-review MAJOR (principle 04): the previous version of this arm ran the seam on a
     // stage that was already `done=no`, so the output was byte-identical with and without it
     // — an implementation ignoring MO_FRONTIER_OPEN passed. This fixture makes the seam the
@@ -369,22 +371,22 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
       ),
     );
 
-    const baseline = runHelper('u', kickoffDir);
+    const baseline = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(baseline.stdout, 'S1')).toContain('done=yes');
     expect(line(baseline.stdout, 'FRONTIER:')).toBe('FRONTIER: S2 S3');
 
-    const reopened = runHelper('u', kickoffDir, { MO_FRONTIER_OPEN: 'S1' });
+    const reopened = runHelper(ctx, 'u', kickoffDir, { MO_FRONTIER_OPEN: 'S1' });
     expect(stageLine(reopened.stdout, 'S1')).toContain('done=no');
     expect(line(reopened.stdout, 'FRONTIER:')).toBe('FRONTIER: S1');
     expect(line(reopened.stdout, 'BLOCKED:')).toContain('S2(unmet:S1)');
     expect(line(reopened.stdout, 'DONE:')).toBe('DONE: (none)');
   });
 
-  it('CONTRADICTION: an id in BOTH override lists → WARN and treated as NOT done', () => {
+  it('CONTRADICTION: an id in BOTH override lists → WARN and treated as NOT done', (ctx) => {
     // Fail-safe direction: not-done routes the claim back to the §6 gh gate.
     const kickoffDir = makeSandbox();
     writeKickoff(kickoffDir, 'u', WITH_COLUMN);
-    const r = runHelper('u', kickoffDir, {
+    const r = runHelper(ctx, 'u', kickoffDir, {
       MO_FRONTIER_DONE: 'S1',
       MO_FRONTIER_OPEN: 'S1',
     });
@@ -394,7 +396,7 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
     expect(warn).toContain('S1');
   });
 
-  it('INLINE-PIPE: a `|` inside an inline-code span does not shred the row', () => {
+  it('INLINE-PIPE: a `|` inside an inline-code span does not shred the row', (ctx) => {
     // Found by the T15 self-application run: this umbrella's own S2 row carries
     // `done|verified` (.claude/orchestrator-prompts/skill-harmonization-mechanisms/kickoff.md:26),
     // which a raw `|` split read as a cell boundary — the dependency cell then showed
@@ -408,13 +410,13 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S2 gate | widen the jq filter that selects `done|verified` tasks | S1 |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S2')).toContain('deps=S1');
     expect(stageLine(r.stdout, 'S2')).toContain('unresolved=no');
     expect(line(r.stdout, 'stages:')).toBe('stages: 4');
   });
 
-  it('PREFIX: `S1` must not resolve an edge declared on `S1b`, nor the reverse', () => {
+  it('PREFIX: `S1` must not resolve an edge declared on `S1b`, nor the reverse', (ctx) => {
     // Targets hasid()/maskid() longest-first masking — the S-D / S-D′ pair in
     // arch-v2-context-pipeline is the live case this protects.
     const kickoffDir = makeSandbox();
@@ -430,13 +432,13 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | S2 | consumes only the b-variant | S1b |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S2')).toContain('deps=S1b');
     expect(stageLine(r.stdout, 'S2')).not.toContain('deps=S1,');
     expect(stageLine(r.stdout, 'S1b')).toContain('deps=S1');
   });
 
-  it('CYCLE: mutual dependencies → WARN «no frontier», never a silent empty set', () => {
+  it('CYCLE: mutual dependencies → WARN «no frontier», never a silent empty set', (ctx) => {
     // Frontier is a readiness set, not a topological sort; a cycle must be visible.
     const kickoffDir = makeSandbox();
     writeKickoff(
@@ -450,14 +452,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | S2 | b | S1 |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: (none)');
     const warn = lines(r.stdout, 'WARN:').join('\n');
     expect(warn).toContain('no frontier');
     expect(warn).toContain('cycle');
   });
 
-  it('UNRESOLVED: a cell naming only out-of-table things is flagged, not dropped', () => {
+  it('UNRESOLVED: a cell naming only out-of-table things is flagged, not dropped', (ctx) => {
     // Ceiling 1: cross-umbrella edges cannot be resolved here. Silence would read as
     // «no dependencies»; the flag + the echoed raw cell keep the judgment with the reader.
     const kickoffDir = makeSandbox();
@@ -469,7 +471,7 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S1 seed | first stage | token-audit S9 merged |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S1')).toContain('unresolved=yes');
     expect(stageLine(r.stdout, 'S1')).toContain('raw="token-audit S9 merged"');
     expect(line(r.stdout, 'UNRESOLVED:')).toBe('UNRESOLVED: S1');
@@ -477,7 +479,7 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
     expect(line(r.stdout, 'FRONTIER:')).toContain('S1');
   });
 
-  it('RESIDUE: a MIXED cell echoes what did not resolve instead of dropping it', () => {
+  it('RESIDUE: a MIXED cell echoes what did not resolve instead of dropping it', (ctx) => {
     // Cold-review MAJOR reproduced on arch-v2 S-E: `S-G merged + token-audit S1 merged`
     // resolved the in-table id and discarded the cross-umbrella arc with `unresolved=no`,
     // which the shipped doc claimed could not happen. The remainder is now echoed verbatim.
@@ -490,13 +492,13 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
         '| S2 gate | consumes S1 | S1 merged + token-audit S9 merged |',
       ),
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(stageLine(r.stdout, 'S2')).toContain('deps=S1');
     expect(stageLine(r.stdout, 'S2')).toContain('residue="token-audit S9"');
     expect(line(r.stdout, 'RESIDUE:')).toBe('RESIDUE: S2');
   });
 
-  it('STAGE-N-ROWS: `| Stage 0 |` rows are stages, not header noise', () => {
+  it('STAGE-N-ROWS: `| Stage 0 |` rows are stages, not header noise', (ctx) => {
     // Cold-review MAJOR: dispatcher-skill-meta-launch/kickoff.md:33-35 uses `| Stage 0 |`,
     // `| Stage 1 |`, `| Stage 2 |`. The bare-first-token id collided with the header word,
     // every row was dropped, and the helper claimed «no stage table found».
@@ -512,13 +514,13 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | Stage 1 | build | Stage 0 |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(line(r.stdout, 'stages:')).toBe('stages: 2');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: Stage 0');
     expect(line(r.stdout, 'BLOCKED:')).toBe('BLOCKED: Stage 1(unmet:Stage 0)');
   });
 
-  it('HEADER-NO-PIPE: a GFM header without the trailing `|` still detects the column', () => {
+  it('HEADER-NO-PIPE: a GFM header without the trailing `|` still detects the column', (ctx) => {
     // Cold-review MAJOR (off-by-one, `i < nf`): the last header cell was never inspected, so
     // a valid GFM table silently took the no-column degrade path and reported every blocked
     // stage as frontier. `.claude/orchestrator-prompts/**` is outside the prettier surface,
@@ -535,14 +537,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | S2 gate | consumes S1 | S1 |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(line(r.stdout, 'depends-column:')).toContain('present');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: S1');
     expect(line(r.stdout, 'BLOCKED:')).toBe('BLOCKED: S2(unmet:S1)');
     expect(line(r.stdout, 'DEGRADE:')).toBe('');
   });
 
-  it('ZERO-ROWS: column present + zero parsed rows → DEGRADE + WARN, never an empty frontier', () => {
+  it('ZERO-ROWS: column present + zero parsed rows → DEGRADE + WARN, never an empty frontier', (ctx) => {
     // Cold-review MAJOR: a recognised header whose rows the parser cannot read produced
     // `FRONTIER: (none)` with no DEGRADE and no WARN — the silent empty answer ceiling 4
     // declares impossible. Targets the `if (nst == 0)` guard on the with-column branch.
@@ -556,14 +558,14 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 | --- | --- | --- |
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     expect(line(r.stdout, 'stages:')).toBe('stages: 0');
     expect(line(r.stdout, 'FRONTIER:')).toBe('FRONTIER: (none)');
     expect(line(r.stdout, 'DEGRADE:')).toContain('zero stage rows parsed');
     expect(line(r.stdout, 'WARN:')).toContain('unrecognised');
   });
 
-  it('PROSE-EDGE: an edge stated outside the table is reported with its line number', () => {
+  it('PROSE-EDGE: an edge stated outside the table is reported with its line number', (ctx) => {
     // Cold-review MAJOR: 11 of the 27 tracked kickoffs that mention the edge state it as a
     // prose header line; meta-orchestrator-bundle-autonomous/kickoff.md:5 even says «Do NOT
     // dispatch this umbrella before …» while the degrade line said every stage is frontier.
@@ -578,7 +580,7 @@ describe('frontier.sh — §3/§6 dependency-frontier emitter (paired-negative c
 Prose only, no stage table.
 `,
     );
-    const r = runHelper('u', kickoffDir);
+    const r = runHelper(ctx, 'u', kickoffDir);
     const attn = lines(r.stdout, 'ATTN:').join('\n');
     expect(attn).toContain('prose dependency line(s) at :3');
     expect(attn).toContain('NOT parsed');

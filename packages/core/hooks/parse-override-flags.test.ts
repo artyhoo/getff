@@ -28,6 +28,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,10 +41,12 @@ const HELPER = resolve(
 
 /** Invoke the helper with a single umbrella string (mirrors SKILL.md §0 calling convention). */
 function runHelper(
+  ctx: Skippable,
   umbrellaString: string,
   env?: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER, umbrellaString], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER, umbrellaString], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
@@ -52,15 +55,15 @@ function runHelper(
 
 describe('parse-override-flags.sh — CLI override flag parser (paired-negative)', () => {
   // ✅ Case 1: NO-FLAG
-  it('NO-FLAG: no --mode-* flag in input → exit 1, empty stdout (line ~59 found_count==0 branch)', () => {
-    const r = runHelper('some-umbrella');
+  it('NO-FLAG: no --mode-* flag in input → exit 1, empty stdout (line ~59 found_count==0 branch)', (ctx) => {
+    const r = runHelper(ctx, 'some-umbrella');
     expect(r.status).toBe(1);
     expect(r.stdout.trim()).toBe('');
   });
 
   // ✅ Case 2: SINGLE-VALID
-  it('SINGLE-VALID: --mode-solo with long reason → exit 0; OVERRIDE_MODE=SOLO and OVERRIDE_REASON emitted (lines ~89-101)', () => {
-    const r = runHelper('some-umbrella --mode-solo --reason="because the kickoff is small enough"');
+  it('SINGLE-VALID: --mode-solo with long reason → exit 0; OVERRIDE_MODE=SOLO and OVERRIDE_REASON emitted (lines ~89-101)', (ctx) => {
+    const r = runHelper(ctx, 'some-umbrella --mode-solo --reason="because the kickoff is small enough"');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('OVERRIDE_MODE=SOLO');
     expect(r.stdout).toContain('OVERRIDE_REASON=because the kickoff is small enough');
@@ -69,7 +72,8 @@ describe('parse-override-flags.sh — CLI override flag parser (paired-negative)
   // ✅ Case 3: ALL-SIX-FLAGS-ROUND-TRIP (label-mutation falsifier)
   // Swapping any flag→alias mapping in the case statement would cause exactly
   // one of the 6 parametrised assertions below to fail.
-  it.each([
+  // it.each callbacks provide no vitest ctx — it.for does (ctx is its 2nd arg) (#1799).
+  it.for([
     ['--mode-direct', 'DIRECT'],
     ['--mode-solo', 'SOLO'],
     ['--mode-bundle', 'BUNDLE'],
@@ -78,31 +82,31 @@ describe('parse-override-flags.sh — CLI override flag parser (paired-negative)
     ['--mode-research', 'RESEARCH'],
   ] as const)(
     'ALL-SIX-FLAGS-ROUND-TRIP: %s → OVERRIDE_MODE=%s (case statement lines ~79-87)',
-    (flag, expectedAlias) => {
-      const r = runHelper(`my-task ${flag} --reason="because this is the right mode for sure"`);
+    ([flag, expectedAlias], ctx) => {
+      const r = runHelper(ctx, `my-task ${flag} --reason="because this is the right mode for sure"`);
       expect(r.status).toBe(0);
       expect(r.stdout).toContain(`OVERRIDE_MODE=${expectedAlias}`);
     },
   );
 
   // ✅ Case 4: REASON-MISSING
-  it('REASON-MISSING: --mode-solo with no --reason → exit 2; stderr contains --reason required (line ~95)', () => {
-    const r = runHelper('some-umbrella --mode-solo');
+  it('REASON-MISSING: --mode-solo with no --reason → exit 2; stderr contains --reason required (line ~95)', (ctx) => {
+    const r = runHelper(ctx, 'some-umbrella --mode-solo');
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('--reason required');
   });
 
   // ✅ Case 5: REASON-TOO-SHORT
-  it('REASON-TOO-SHORT: --reason=short (5 chars) below 20-char default → exit 2; stderr contains ≥20 chars (line ~95)', () => {
-    const r = runHelper('some-umbrella --mode-solo --reason=short');
+  it('REASON-TOO-SHORT: --reason=short (5 chars) below 20-char default → exit 2; stderr contains ≥20 chars (line ~95)', (ctx) => {
+    const r = runHelper(ctx, 'some-umbrella --mode-solo --reason=short');
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('--reason required (≥20 chars)');
     expect(r.stderr).toContain("got: 'short'");
   });
 
   // ✅ Case 6: MULTI-FLAG-COLLISION
-  it('MULTI-FLAG-COLLISION: two flags → exit 2; stderr contains multi-flag collision (line ~68)', () => {
-    const r = runHelper('some-umbrella --mode-solo --mode-pair --reason="because xyz xyz xyz"');
+  it('MULTI-FLAG-COLLISION: two flags → exit 2; stderr contains multi-flag collision (line ~68)', (ctx) => {
+    const r = runHelper(ctx, 'some-umbrella --mode-solo --mode-pair --reason="because xyz xyz xyz"');
     expect(r.status).toBe(2);
     expect(r.stderr).toContain('multi-flag collision');
     expect(r.stderr).toContain('--mode-solo');
@@ -110,8 +114,9 @@ describe('parse-override-flags.sh — CLI override flag parser (paired-negative)
   });
 
   // ✅ Case 7: REASON-MIN-OVERRIDE-VIA-SEAM
-  it('REASON-MIN-OVERRIDE-VIA-SEAM: MO_OVERRIDE_REASON_MIN=5 + 5-char reason → exit 0; OVERRIDE_MODE=SOLO (seam line ~38)', () => {
+  it('REASON-MIN-OVERRIDE-VIA-SEAM: MO_OVERRIDE_REASON_MIN=5 + 5-char reason → exit 0; OVERRIDE_MODE=SOLO (seam line ~38)', (ctx) => {
     const r = runHelper(
+      ctx,
       'some-umbrella --mode-solo --reason=12345',
       { MO_OVERRIDE_REASON_MIN: '5' },
     );
@@ -120,8 +125,9 @@ describe('parse-override-flags.sh — CLI override flag parser (paired-negative)
   });
 
   // ✅ Case 8: REASON-WITH-EMBEDDED-SPACES
-  it('REASON-WITH-EMBEDDED-SPACES: double-quoted reason preserved verbatim (regex Form 1 line ~91)', () => {
+  it('REASON-WITH-EMBEDDED-SPACES: double-quoted reason preserved verbatim (regex Form 1 line ~91)', (ctx) => {
     const r = runHelper(
+      ctx,
       'some-umbrella --mode-solo --reason="because the kickoff is small enough and clear"',
     );
     expect(r.status).toBe(0);
@@ -129,8 +135,8 @@ describe('parse-override-flags.sh — CLI override flag parser (paired-negative)
   });
 
   // ✅ Case 9: EMPTY-INPUT
-  it('EMPTY-INPUT: "" → exit 1, empty stdout (no flags = no override; line ~59 found_count==0 branch)', () => {
-    const r = runHelper('');
+  it('EMPTY-INPUT: "" → exit 1, empty stdout (no flags = no override; line ~59 found_count==0 branch)', (ctx) => {
+    const r = runHelper(ctx, '');
     expect(r.status).toBe(1);
     expect(r.stdout.trim()).toBe('');
   });

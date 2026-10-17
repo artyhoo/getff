@@ -16,7 +16,8 @@
  * T3 compliance: each assertion cites the script region it targets.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync, execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -62,10 +63,12 @@ function writeDone(dir: string, umbrella: string): void {
 }
 
 function run(
+  ctx: Skippable,
   dir: string,
   warnOnly: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [SCRIPT], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -77,54 +80,54 @@ function run(
 }
 
 describe('check-kickoff-portability.sh — D5 paired-negative contract', () => {
-  it('NEGATIVE (enforce) — in-flight umbrella with UNTRACKED kickoff → exit 1 + ❌ (KICKOFF_PORTABILITY_WARN_ONLY=false)', () => {
+  it('NEGATIVE (enforce) — in-flight umbrella with UNTRACKED kickoff → exit 1 + ❌ (KICKOFF_PORTABILITY_WARN_ONLY=false)', (ctx) => {
     // Targets the untracked-detection + enforce branch (WARN_ONLY=false → exit 1).
     const dir = makeRepo();
     writeKickoff(dir, 'inflight-umbrella'); // NOT git add-ed
-    const r = run(dir, 'false');
+    const r = run(ctx, dir, 'false');
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('inflight-umbrella');
     expect(r.stderr).toContain('❌ kickoff not portable');
   });
 
-  it('POSITIVE (enforce) — once `git add`-ed, the same umbrella PASSES → exit 0 + ✅', () => {
+  it('POSITIVE (enforce) — once `git add`-ed, the same umbrella PASSES → exit 0 + ✅', (ctx) => {
     // Paired positive: only difference is the kickoff is now tracked (git ls-files lists it).
     const dir = makeRepo();
     const rel = writeKickoff(dir, 'inflight-umbrella');
     execSync(`git add "${rel}"`, { cwd: dir });
-    const r = run(dir, 'false');
+    const r = run(ctx, dir, 'false');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('✅ kickoff-portability: all in-flight kickoffs are git-tracked');
   });
 
-  it('NEVER-TRIPS — closed umbrella (done.md present) with untracked kickoff → exit 0 even when enforcing', () => {
+  it('NEVER-TRIPS — closed umbrella (done.md present) with untracked kickoff → exit 0 even when enforcing', (ctx) => {
     // Targets the `[ -f "${dir}done.md" ] && continue` guard — closed umbrellas excluded.
     const dir = makeRepo();
     writeKickoff(dir, 'closed-umbrella'); // untracked kickoff…
     writeDone(dir, 'closed-umbrella'); // …but done.md present → never trips
-    const r = run(dir, 'false');
+    const r = run(ctx, dir, 'false');
     expect(r.status).toBe(0);
     expect(r.stderr).not.toContain('closed-umbrella');
   });
 
-  it('WARN→FAIL FLIP (T19) — same untracked-kickoff state: warn-only → exit 0 + ⚠; enforce → exit 1', () => {
+  it('WARN→FAIL FLIP (T19) — same untracked-kickoff state: warn-only → exit 0 + ⚠; enforce → exit 1', (ctx) => {
     // Proves the flip is wired (not just the default): identical state, env toggles outcome.
     const dir = makeRepo();
     writeKickoff(dir, 'flip-umbrella'); // untracked
 
-    const warn = run(dir, 'true');
+    const warn = run(ctx, dir, 'true');
     expect(warn.status).toBe(0); // warn-only does NOT block
     expect(warn.stderr).toContain('⚠ kickoff-portability');
     expect(warn.stderr).toContain('flip-umbrella');
 
-    const enforce = run(dir, 'false');
+    const enforce = run(ctx, dir, 'false');
     expect(enforce.status).toBe(1); // same state, enforcing → blocks
   });
 
-  it('CONSUMER NO-OP — repo without .claude/orchestrator-prompts → exit 0 (even enforcing)', () => {
+  it('CONSUMER NO-OP — repo without .claude/orchestrator-prompts → exit 0 (even enforcing)', (ctx) => {
     // Targets the `[ -d "$PROMPTS_DIR" ] || exit 0` consumer-safe guard.
     const dir = makeRepo(); // no orchestrator-prompts created
-    const r = run(dir, 'false');
+    const r = run(ctx, dir, 'false');
     expect(r.status).toBe(0);
   });
 });

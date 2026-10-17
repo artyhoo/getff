@@ -16,6 +16,7 @@
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -33,9 +34,11 @@ const PRESETS_DIR = resolve(
 );
 
 function runHelper(
+  ctx: Skippable,
   env?: Record<string, string>,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HELPER], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
@@ -44,8 +47,8 @@ function runHelper(
 
 describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
   // ✅ ALL-FOUR-PRESETS-LISTED
-  it('ALL-FOUR-PRESETS-LISTED: aif, economy, night, sdd all appear in output', () => {
-    const r = runHelper();
+  it('ALL-FOUR-PRESETS-LISTED: aif, economy, night, sdd all appear in output', (ctx) => {
+    const r = runHelper(ctx);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('aif');
     expect(r.stdout).toContain('economy');
@@ -54,8 +57,8 @@ describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
   });
 
   // ✅ DESCRIPTION-EMBEDDED — each preset's `description` JSON field appears
-  it('DESCRIPTION-EMBEDDED: each preset description appears in output', () => {
-    const r = runHelper();
+  it('DESCRIPTION-EMBEDDED: each preset description appears in output', (ctx) => {
+    const r = runHelper(ctx);
     // Pulled from references/presets/<name>.json `description` field.
     expect(r.stdout).toMatch(/autonomous overnight aif-handoff dispatch/i);
     expect(r.stdout).toMatch(/cost-conscious whole-line on executor tier/i);
@@ -67,8 +70,8 @@ describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
   // Use the line-start anchor to avoid substring collisions (e.g. "night"
   // inside the aif description's "overnight"). Each preset name appears at
   // the start of its own line in the helper's output.
-  it('ALPHABETICAL-ORDER: aif < economy < night < sdd in output', () => {
-    const r = runHelper();
+  it('ALPHABETICAL-ORDER: aif < economy < night < sdd in output', (ctx) => {
+    const r = runHelper(ctx);
     expect(r.status).toBe(0);
     // Match line-start "name —" (the helper's emit format) so a description
     // containing the substring "night" (e.g. aif's "overnight") cannot
@@ -90,7 +93,7 @@ describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
   // tmp preset dir; point list-presets at it; verify the 5th name appears with
   // zero code change. The helper resolves the presets dir relative to itself,
   // so we override MO_PRESETS_DIR to a synthetic dir for this test.
-  it('DATA-DRIVEN-EXTENSIBILITY: a 5th preset file appears with zero code change', () => {
+  it('DATA-DRIVEN-EXTENSIBILITY: a 5th preset file appears with zero code change', (ctx) => {
     if (!existsSync(HELPER)) {
       console.warn(`list-presets.sh missing at ${HELPER} — skipping`);
       return;
@@ -117,7 +120,8 @@ describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
       );
 
       // Override the canonical presets dir via MO_PRESETS_DIR (env knob).
-      const r = spawnSync('bash', [HELPER], {
+      // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
         encoding: 'utf8',
         env: { ...process.env, MO_PRESETS_DIR: join(tmpDir, 'presets') },
       });

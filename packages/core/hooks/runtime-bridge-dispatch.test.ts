@@ -51,6 +51,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, failLoudSkipContext } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -114,12 +115,14 @@ function writeKickoff(
   return abs;
 }
 
-/** Run the hook with a PostToolUse payload. */
+/** Run the hook with a PostToolUse payload. Callers all sit behind skipIf(!JQ || !NODE)
+ *  describes — dead on win32, so the spawn rides a fail-loud context: if the guard ever
+ *  leaks on win32 the case FAILS (no silent pass), it never skips quietly (#1799). */
 function runHook(
   tool: string,
   absPath: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HOOK], {
+  const r = spawnBashOrSkip(failLoudSkipContext('runtime-bridge-dispatch runHook'), 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
       tool_input: { file_path: absPath },
@@ -147,7 +150,7 @@ function runHookCopy(
   tmpDirs.push(dir);
   const hookCopy = join(dir, 'runtime-bridge-dispatch.sh');
   copyFileSync(HOOK, hookCopy);
-  const r = spawnSync('bash', [hookCopy], {
+  const r = spawnBashOrSkip(failLoudSkipContext('runtime-bridge-dispatch runHookCopy'), 'bash', [hookCopy], {
     input: JSON.stringify({
       tool_name: tool,
       tool_input: { file_path: absPath },
@@ -326,7 +329,8 @@ console.log(JSON.stringify({
 
     it('hook forwards dispatch.ts stdout UNCHANGED (byte-for-byte, hook:106-108)', () => {
       const { hookAbs, kickoffAbs } = makeStubRepo();
-      const r = spawnSync('bash', [hookAbs], {
+      // describe is skipIf(!JQ || !NODE || !TSX)-guarded — dead on win32 → fail-loud ctx (#1799).
+      const r = spawnBashOrSkip(failLoudSkipContext('rbd forward-check'), 'bash', [hookAbs], {
         input: JSON.stringify({
           tool_name: 'Write',
           tool_input: { file_path: kickoffAbs },
@@ -349,9 +353,9 @@ console.log(JSON.stringify({
       // a SEPARATE source location, so drift there is invisible to the hook's own tests. This
       // arm pins the forward contract: the forwarded JSON must keep hookEventName INSIDE
       // hookSpecificOutput (NOT at top level). Regression guard (cold backward-sweep GAP-2).
-      // Precedent: inject-matching-rule.test.ts:99 (hookSpecificOutput-wrapper schema arm).
+      // Precedent: inject-matching-rule.test.ts:108 (hookSpecificOutput-wrapper schema arm).
       const { hookAbs, kickoffAbs } = makeStubRepo();
-      const r = spawnSync('bash', [hookAbs], {
+      const r = spawnBashOrSkip(failLoudSkipContext('rbd zcode-schema'), 'bash', [hookAbs], {
         input: JSON.stringify({
           tool_name: 'Write',
           tool_input: { file_path: kickoffAbs },
@@ -394,21 +398,24 @@ console.log(JSON.stringify({
 // auto-dispatch the kickoff opted into (aif-parity F1 criterion (a); channel
 // verified 2026-07-24 — research-patches/2026-07-24-posttooluse-channel-verification.md).
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync, writeFileSync as _writeFileSync, mkdirSync as _mkdirSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync, writeFileSync as _writeFileSync, mkdirSync as _mkdirSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 
 describe('dependency-missing skip fires only for auto-marked bridge kickoffs', () => {
-  function runNoJq(filePath: string): { status: number; stdout: string } {
+  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [HOOK], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
       encoding: 'utf8',
       env,
@@ -424,8 +431,8 @@ describe('dependency-missing skip fires only for auto-marked bridge kickoffs', (
     return abs;
   }
 
-  it('jq missing + auto-marked kickoff → JSON notice that the dispatch DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq(kickoffWith('<!-- bridge: auto -->'));
+  it('jq missing + auto-marked kickoff → JSON notice that the dispatch DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, kickoffWith('<!-- bridge: auto -->'));
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -435,14 +442,14 @@ describe('dependency-missing skip fires only for auto-marked bridge kickoffs', (
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/dispatch manually/i);
   });
 
-  it('jq missing + kickoff WITHOUT the auto marker → silent exit 0 (injection stays quiet)', () => {
-    const { status, stdout } = runNoJq(kickoffWith('# plain kickoff, no bridge marker'));
+  it('jq missing + kickoff WITHOUT the auto marker → silent exit 0 (injection stays quiet)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, kickoffWith('# plain kickoff, no bridge marker'));
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
 
-  it('jq missing + non-kickoff path → silent exit 0', () => {
-    const { status, stdout } = runNoJq('/x/src/app.ts');
+  it('jq missing + non-kickoff path → silent exit 0', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/src/app.ts');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
@@ -473,23 +480,23 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
     return { root, abs };
   }
 
-  function run(root: string, abs: string, pathDirs?: string) {
+  function run(ctx: Skippable, root: string, abs: string, pathDirs?: string) {
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: root,
     } as Record<string, string>;
     if (pathDirs) env['PATH'] = pathDirs;
     delete env.ZCODE_PROJECT_DIR;
-    return _spawnSync('/bin/bash', [HOOK], {
+    return _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       env,
     });
   }
 
-  it('L-6: opted-in kickoff, neither tier resolves → DID NOT RUN on the model channel', () => {
+  it('L-6: opted-in kickoff, neither tier resolves → DID NOT RUN on the model channel', (sk) => {
     const { root, abs } = consumerKickoff('<!-- bridge: auto -->');
-    const r = run(root, abs);
+    const r = run(sk, root, abs);
     // Still an injection: the Write is never blocked.
     expect(r.status).toBe(0);
     expect(r.stdout.trim(), 'silent exit 0 was the pre-fix defect').not.toBe('');
@@ -506,22 +513,23 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
     expect(ctx.additionalContext).toContain('.claude/vendor/runtime-bridge/src/cli/dispatch.ts');
   });
 
-  it('L-6: a kickoff WITHOUT the opt-in marker still exits silently (never nag a non-user)', () => {
+  it('L-6: a kickoff WITHOUT the opt-in marker still exits silently (never nag a non-user)', (sk) => {
     const { root, abs } = consumerKickoff('# plain kickoff, no bridge marker');
-    const r = run(root, abs);
+    const r = run(sk, root, abs);
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
     expect((r.stderr ?? '').trim()).toBe('');
   });
 
-  it('E-4: the jq/node-miss hint names the consumer path, not only the framework one', () => {
+  it('E-4: the jq/node-miss hint names the consumer path, not only the framework one', (sk) => {
     const { root, abs } = consumerKickoff('<!-- bridge: auto -->');
     const binDir = _mkdtempSync(_join(_tmpdir(), 'rbd-nodeps-'));
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      const real = _spawnBashOrSkip(sk, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(sk, real, _join(binDir, tool));
     }
-    const r = run(root, abs, binDir);
+    const r = run(sk, root, abs, binDir);
     expect(r.status).toBe(0);
     const ctx = (
       JSON.parse(r.stdout.trim()) as {
@@ -556,7 +564,8 @@ function runFailureHook(
     zcode?: boolean;
   } = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HOOK], {
+  // Callers all sit behind skipIf(!JQ || !NODE) describes — dead on win32 → fail-loud ctx (#1799).
+  const r = spawnBashOrSkip(failLoudSkipContext('runtime-bridge-dispatch runFailureHook'), 'bash', [HOOK], {
     input: JSON.stringify({
       hook_event_name: 'PostToolUseFailure',
       tool_name: opts.tool ?? 'Edit',
