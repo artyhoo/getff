@@ -1,5 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
 // React/Next.js Vitest config.
@@ -13,9 +12,14 @@ import { resolve } from 'node:path';
 //   *.stories.tsx       — Storybook play functions (excluded here, run via Storybook test runner)
 //
 // Required setup file: tests/setup.ts with @testing-library/jest-dom/vitest + cleanup.
+//
+// JSX: the automatic runtime, set here rather than through @vitejs/plugin-react. The plugin's latest
+// peers vite ^8, so a project on vite 6 or 7 cannot load a config that imports it; without it (and
+// without this line) a JSX test fails on vite 6 and 7 with «React is not defined». Measured
+// 2026-09-29: this form runs a JSX test on vite 6.4.3, 7.3.6 and 8.3.1.
 
 export default defineConfig({
-  plugins: [react()],
+  esbuild: { jsx: 'automatic' },
 
   resolve: {
     alias: {

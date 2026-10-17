@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# setup.d/70-deps.sh — §7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root.
+# setup.d/70-deps.sh — §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28).
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §7 (install.sh:1358-1440), §8 (install.sh:1442-1538), §8b (install.sh:1540-1595)
+# S0 rows: §7 (install.sh:1358-1440), §8 (install.sh:1442-1538), §8b (install.sh:1540-1595) cite:historical S0 inventory rows = pre-extraction install.sh line ranges
 # Depends on: 60-ci (eslint.config.mjs, detect-r2-boundary, etc. already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O9: §7 declare devDeps BEFORE §8 install (intra-layer order)
@@ -14,123 +14,165 @@
 # `scripts: {}` while AGENTS.md + the shipped ci.yml call `npm run lint/typecheck/arch:check/
 # test:*` → every gate failed "Missing script". Inject the canonical block (non-destructive:
 # only adds keys the consumer lacks). The referenced devDependencies (eslint, dependency-cruiser,
-# stryker, npm-run-all2, vitest, prettier, husky) are NOT installed here — that is the consumer's
+# stryker, vitest, prettier, husky) are NOT installed here — that is the consumer's
 # `npm install` + residual R-2 (devDeps manifest). Scripts present ≠ runnable until deps land,
 # but "Missing script" → "tool not installed" is the intended, INSTALL.md-documented path.
-if [ -f "$PROJECT_ROOT/package.json" ]; then
-  if [ -n "$DRY_RUN" ]; then
-    echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"
-  elif command -v node >/dev/null 2>&1; then
-    echo "▶ Merging canonical scripts → package.json (non-destructive)"
-    # #508: arch:check target. A pnpm monorepo has no root src/ (only apps/*/src, packages/*/src),
-    # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
-    # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
-    # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
-    # layer rules in .dependency-cruiser.cjs match nested package src via (?:^|/)src/<layer>.
-    # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
-    #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
-    #   2. else a root src/ present → src
-    #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
-    #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
-    # #508 arch:check target signal — kept as-is (only the mutation-wiring signal below changes,
-    # per plan Amendment A1). AIF_MONOREPO_SIG / AIF_ARCH_TARGET stay the manifest-key-based check.
-    AIF_MONOREPO_SIG=0
-    if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
-      AIF_MONOREPO_SIG=1
-    fi
-    AIF_ARCH_TARGET=""
-    if [ "$AIF_MONOREPO_SIG" = "1" ]; then
-      for _d in apps packages services libs modules; do
-        [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
-      done
-      AIF_ARCH_TARGET="${AIF_ARCH_TARGET# }"
-    fi
-    if [ -z "$AIF_ARCH_TARGET" ]; then
-      if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
-    fi
-    # #931 PR-2 (C2 fix, plan Amendment A1): test:mutation must route to the per-package wrapper
-    # based on ARTIFACT PRESENCE (scripts/run-mutation.sh), NOT the AIF_MONOREPO_SIG manifest
-    # signal above. AIF_MONOREPO_SIG (pnpm-workspace.yaml / "workspaces" key) and the EMIT gate in
-    # setup.d/40-configs.sh (_ws_lines — a conventional-dir enumeration: apps|packages|services|
-    # libs|modules — that does NOT consult the workspace manifest) are two DIFFERENT signals that
-    # diverge both ways: a `packages/*` monorepo with no manifest key would wire "stryker run"
-    # against configs that were never emitted (SF-1 stays unfixed); a
-    # `"workspaces":["client","server"]` repo with non-conventional dirs would wire the wrapper
-    # form even though 40-configs.sh took the FLAT branch (no wrapper ever copied) — a hard error
-    # on first run (working → broken regression). 40-configs.sh runs BEFORE 70-deps.sh (setup.d
-    # numeric order), so the wrapper's on-disk presence is the authoritative "per-workspace
-    # configs were emitted" signal — wire⟺emit by construction.
-    AIF_HAS_MUTATION_WRAPPER=0
-    [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
-      const fs = require("fs");
-      const p = process.env.AIF_PKG;
-      const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
-      pkg.scripts = pkg.scripts || {};
-      // #931 PR-2 (C2 fix): route test:mutation to the per-package wrapper IFF setup.d/40-configs.sh
-      // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
-      // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
-      const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
-      const want = {
-        "lint": "eslint . --max-warnings=0",
-        "lint:fix": "eslint . --fix",
-        "format": "prettier --write .",
-        "format:check": "prettier --check .",
-        "typecheck": "tsc --noEmit",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "test:coverage": "vitest run --coverage",
-        "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
-        "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
-        "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
-        "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
-        "audit:docs": "./scripts/audit-ai-docs.sh",
-        "check:globs": "bash scripts/check-rule-globs.sh",
-        "check:enforced": "bash scripts/check-rule-enforced.sh",
-        "check:arch-boundaries": "bash scripts/check-arch-boundaries.sh",
-        "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
-        "check:fences-fire": "bash scripts/check-fences-fire.sh",
-        "check:shields-up": "bash scripts/check-shields-up.sh",
-        "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
-        "prepare": "husky"
-      };
-      // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
-      // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
-      // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
-      // relocated to the live path. Same non-destructive guard as the rest of `want`.
-      if (process.env.AIF_STACK === "react-next") {
-        want["storybook"] = "storybook dev -p 6006";
-        want["build-storybook"] = "storybook build";
-        want["test-storybook"] = "test-storybook";
+# ─── P2 G2 helpers: the project's own package versions win (operator log entry 28, fork 1 = A) ───
+# Defined first so tests can load them alone (DEPS_LIB_ONLY=1, tests/install-sh/
+# deps-keep-project-versions.test.sh). Measured on a create-vite project (2026-09-29): `npm install
+# -D typescript@^5.7.0` rewrote the project's own ~6.0.2, and an ERESOLVE retried with
+# --legacy-peer-deps installed a tree whose vitest could not load its config.
+
+# deps_spec_name <spec> — the package name of an install spec (`@types/node@^22` → `@types/node`).
+deps_spec_name() {
+  local s="$1" rest
+  case "$s" in
+    @*) rest="${s#@}"
+        case "$rest" in *@*) printf '%s\n' "@${rest%%@*}" ;; *) printf '%s\n' "$s" ;; esac ;;
+    *@*) printf '%s\n' "${s%%@*}" ;;
+    *)   printf '%s\n' "$s" ;;
+  esac
+}
+
+# deps_declared_packages — «<name><TAB><spec>» for every package the project's package.json declares
+# (dependencies, devDependencies, peerDependencies, optionalDependencies). Empty without node.
+deps_declared_packages() {
+  [ -f "$PROJECT_ROOT/package.json" ] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+  AIF_PKG="$PROJECT_ROOT/package.json" node -e '
+    const p = JSON.parse(require("fs").readFileSync(process.env.AIF_PKG, "utf8"));
+    for (const f of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"])
+      for (const [n, v] of Object.entries(p[f] || {})) console.log(n + "\t" + v);
+  ' 2>/dev/null || true
+}
+
+# deps_drop_declared — remove from DEVDEPS / RUNTIME_DEPS every package the project already declares,
+# printing «kept your <name> <spec>». Installing it would make npm rewrite the project's own spec.
+# Reads DEPS_DECLARED_BEFORE when set: the layer snapshots it before §7 adds getff's own
+# husky / lint-staged / sort-package-json entries, which are ours to install, not the project's.
+deps_drop_declared() {
+  local declared s n v
+  local kept=()
+  if [ -n "${DEPS_DECLARED_BEFORE+set}" ]; then declared="$DEPS_DECLARED_BEFORE"; else declared="$(deps_declared_packages)"; fi
+  [ -n "$declared" ] || return 0
+  for s in ${DEVDEPS[@]+"${DEVDEPS[@]}"}; do
+    n="$(deps_spec_name "$s")"
+    v="$(awk -F'\t' -v n="$n" '$1 == n { print $2; exit }' <<<"$declared")"
+    if [ -n "$v" ]; then echo "  ✓ kept your $n $v (already in package.json; getff does not change it)"; else kept+=("$s"); fi
+  done
+  DEVDEPS=( ${kept[@]+"${kept[@]}"} )
+  kept=()
+  for s in ${RUNTIME_DEPS[@]+"${RUNTIME_DEPS[@]}"}; do
+    n="$(deps_spec_name "$s")"
+    v="$(awk -F'\t' -v n="$n" '$1 == n { print $2; exit }' <<<"$declared")"
+    if [ -n "$v" ]; then echo "  ✓ kept your $n $v (already in package.json; getff does not change it)"; else kept+=("$s"); fi
+  done
+  RUNTIME_DEPS=( ${kept[@]+"${kept[@]}"} )
+}
+
+# _deps_npm_text <npm output file> — the output without npm's «npm error » / «npm ERR! » prefix.
+_deps_npm_text() { sed -E 's/^npm (error|ERR!) ?//' "$1"; }
+
+# _deps_eresolve_candidates <npm output file> — the package names in npm's «Could not resolve
+# dependency:» block, requesters first: «… from <pkg>@<ver>» (1), «<pkg>@"…" from the root project»
+# (2), then the peer they ask for (3) — dropping the requester keeps a peer the project may need.
+_deps_eresolve_candidates() {
+  _deps_npm_text "$1" | awk '
+    /^Could not resolve dependency:/ { inb = 1; next }
+    inb && NF == 0 { exit }
+    inb {
+      line = $0
+      if (line ~ / from the root project$/) {
+        t = line; sub(/^ +/, "", t); sub(/^(dev|prod|peer|optional|peerOptional) /, "", t)
+        sub(/@"[^"]*" from the root project$/, "", t); print "2 " t
+      } else if (match(line, / from [^ ]+$/)) {
+        t = substr(line, RSTART + 6); sub(/@[^@]*$/, "", t); print "1 " t
+        if (line ~ /^peer /) { p = line; sub(/^peer /, "", p); sub(/@"[^"]*".*$/, "", p); print "3 " p }
       }
-      let added = 0;
-      for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
-      // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
-      // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
-      // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
-      // non-destructive guard as scripts: only keys the consumer lacks. 2026-08-08: these three
-      // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
-      // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
-      // a caret would re-open it). Fourth copy of the same specs lives in
-      // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
-      // devDependencies object created if absent.
-      pkg.devDependencies = pkg.devDependencies || {};
-      const wantDev = {
-        "husky": "^9.1.7",
-        "lint-staged": "~16.4.0",
-        "sort-package-json": "~3.7.1"
-      };
-      let addedDev = 0;
-      for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
-      fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
-      process.stderr.write("  ✓ added " + added + " script(s); " + (Object.keys(want).length - added) + " already present (kept)\n");
-      process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
-    '
-  else
-    echo "  ⚠  node not found — skipped scripts merge; add them manually per INSTALL.md §3"
-  fi
+    }' | sort -s -k1,1 | cut -d' ' -f2-
+}
+
+# deps_eresolve_culprit <npm output file> <spec>… — the first candidate that is one of OUR specs;
+# empty when npm names none of them (then nothing of ours can be dropped to fix it).
+deps_eresolve_culprit() {
+  local log="$1" cand s; shift
+  for cand in $(_deps_eresolve_candidates "$log"); do
+    for s in "$@"; do
+      if [ "$(deps_spec_name "$s")" = "$cand" ]; then printf '%s\n' "$cand"; return 0; fi
+    done
+  done
+  return 0
+}
+
+# deps_eresolve_detail <npm output file> — npm's own words for the conflict: the «peer … from …»
+# line and the version it found («found vite@6.4.3»).
+deps_eresolve_detail() {
+  local peer found
+  peer="$(_deps_npm_text "$1" | awk '/^Could not resolve dependency:/ { inb = 1; next } inb && / from / && !/from the root project$/ { print; exit }')"
+  found="$(_deps_npm_text "$1" | awk '/^Found: / { sub(/^Found: /, ""); print; exit }')"
+  printf '%s%s\n' "${peer:-no conflict line}" "${found:+; found $found}"
+}
+
+# deps_npm_install_strict <--save-dev|--save> <spec>… — `npm install` with strict peer resolution.
+# On ERESOLVE: drop the culprit of OURS (a NOT wired line quoting npm) and retry strict — at most 3
+# drops. An ERESOLVE naming none of ours ends with «could not resolve, npm said: <npm's line>».
+# --legacy-peer-deps stays only for arborist's TypeError crash (npm/cli#9787) and for stacks that
+# set NPM_PEER_FLAG (react-native). Sets DEPS_NPM_SPECS (what finally installed) and
+# DEPS_NPM_FAIL_REASON; returns 0 on success, 1 otherwise.
+deps_npm_install_strict() {
+  local save="$1" log rc drops=0 name what first s; shift
+  local specs=( "$@" ) rest=()
+  DEPS_NPM_SPECS=(); DEPS_NPM_FAIL_REASON=""
+  what="dependency"; [ "$save" = "--save-dev" ] && what="dev dependency"
+  log="$(mktemp)"
+  while :; do
+    if [ "${#specs[@]}" -eq 0 ]; then rm -f "$log"; return 0; fi
+    # shellcheck disable=SC2086  # $NPM_PEER_FLAG is one flag or empty
+    ( cd "$PROJECT_ROOT" && npm install "$save" "${specs[@]}" ${NPM_PEER_FLAG:-} ) 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+    if [ "$rc" -eq 0 ]; then DEPS_NPM_SPECS=( "${specs[@]}" ); rm -f "$log"; return 0; fi
+    if [ -n "${NPM_PEER_FLAG:-}" ]; then DEPS_NPM_FAIL_REASON="the npm install failed (its output is above)"; break; fi
+    if grep -q 'ERESOLVE' "$log"; then
+      first="$(_deps_npm_text "$log" | awk '/ERESOLVE/ && !/^code / { print; exit }')"
+      [ -n "$first" ] || first="$(_deps_npm_text "$log" | awk 'NF { print; exit }')"
+      if [ "$drops" -ge 3 ]; then
+        DEPS_NPM_FAIL_REASON="npm still could not resolve after dropping 3 packages; npm said: $first"; break
+      fi
+      name="$(deps_eresolve_culprit "$log" "${specs[@]}")"
+      if [ -z "$name" ]; then DEPS_NPM_FAIL_REASON="could not resolve, npm said: $first"; break; fi
+      echo "  ⚠  npm cannot fit $name next to your packages — installing the rest without it (strict, no --legacy-peer-deps)."
+      note_not_wired "$what $name — not installed: npm could not fit it next to your packages (npm: $(deps_eresolve_detail "$log"))"
+      rest=()
+      for s in "${specs[@]}"; do [ "$(deps_spec_name "$s")" = "$name" ] || rest+=("$s"); done
+      specs=( ${rest[@]+"${rest[@]}"} )
+      drops=$((drops + 1))
+      continue
+    fi
+    if grep -Eq "Cannot read properties of null|TypeError" "$log"; then
+      echo "  ⚠  npm's resolver crashed (not a version conflict, npm/cli#9787) — retrying with --legacy-peer-deps."
+      if ( cd "$PROJECT_ROOT" && npm install "$save" "${specs[@]}" --legacy-peer-deps ); then
+        DEPS_NPM_SPECS=( "${specs[@]}" ); rm -f "$log"; return 0
+      fi
+    fi
+    DEPS_NPM_FAIL_REASON="the npm install failed (its output is above)"; break
+  done
+  rm -f "$log"; return 1
+}
+
+if [ -n "${DEPS_LIB_ONLY:-}" ]; then return 0 2>/dev/null || true; fi
+
+# The project's own declarations, read BEFORE §7 below writes getff's entries into package.json.
+DEPS_DECLARED_BEFORE="$(deps_declared_packages)"
+
+# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
+# npm-bound, so it is skipped and named in the NOT wired summary.
+if [ "${STACK:-}" = "generic" ]; then
+  note_not_wired "dependencies — not installed: getff has no dependency set for stack «generic»; your package files are left as they are"
+  return 0 2>/dev/null || true
 fi
+
+# The merge lives in setup.d/lib.sh (merge_canonical_scripts): do_refresh runs it too (refresh sweep G5).
+merge_canonical_scripts install
 
 # ─── 8. dev-dependency install — one-button completeness (#483, DN-B=A) ──────
 # The scripts-merge above only DECLARES the toolchain; the Next-steps block historically handed
@@ -169,7 +211,7 @@ CORE_DEVDEPS=(
   @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1
   dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4
   husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1
-  npm-run-all2@~8.0.4 @types/node@^22.10.0
+  @types/node@^22.10.0
 )
 # npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
 # shipped react-next CI template (packages/preset-next-15-canonical/templates/
@@ -190,14 +232,14 @@ CORE_DEVDEPS=(
 # vite is @storybook/nextjs-vite's declared peer (^5||^6||^7||^8) and NOT its direct dep; a
 # Next.js consumer has no vite of its own, so without this pin build-storybook resolves vite
 # only via vitest's transitive hoist — declare it explicitly (cold-review MAJOR, PR #953).
-# ^8 not ^7: the unpinned @vitejs/plugin-react above resolves to 6.x which peers vite@^8 —
-# vite@^7 ERESOLVEs against it (PR #956 CI smoke); ^8 satisfies plugin-react 6.x, vitest 4.x
-# (^6||^7||^8), nextjs-vite, and node 20+ (engines ^20.19.0||>=22.12.0 — covers the shipped .nvmrc 22.23.1 and brownfield 20.19+ pins).
+# ^8 satisfies vitest 4.x (^6||^7||^8), nextjs-vite and node 20+ (engines ^20.19.0||>=22.12.0). No @vitejs/plugin-react
+# (P3 2026-09-29): its vite ^8 peer broke configs on vite 6/7; the React vitest configs set esbuild
+# jsx 'automatic' instead (a JSX test measured green on vite 6.4.3, 7.3.6, 8.3.1 — react-tsconfig.test.sh).
 # @testing-library/user-event: INSTALL.md §4 declares it for React stacks but no array delivered
 # it (same INSTALL.md↔installer parity class as P0.2; loud-fail — consumer interaction tests die
 # at import). Unpinned like its @testing-library siblings; also in REACT_SPA_DEVDEPS below.
 REACT_DEVDEPS=(
-  @vitejs/plugin-react jsdom @testing-library/react
+  jsdom @testing-library/react
   @testing-library/jest-dom @testing-library/user-event @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
@@ -208,7 +250,7 @@ REACT_DEVDEPS=(
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
 REACT_SPA_DEVDEPS=(
-  @vitejs/plugin-react jsdom @testing-library/react
+  jsdom @testing-library/react
   @testing-library/jest-dom @testing-library/user-event eslint-plugin-boundaries
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
@@ -240,6 +282,22 @@ DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
 [ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
+# P2 G5 / K4: an oxlint or Biome project gets no ESLint toolchain (40-configs placed no ESLint config),
+# a Biome or dprint project no prettier. @typescript-eslint/utils stays: getff's rule plugin imports
+# it, and an oxlint config can load that plugin (jsPlugins).
+_slot_kept=()
+for _s in ${DEVDEPS[@]+"${DEVDEPS[@]}"}; do
+  _n=$(deps_spec_name "$_s")
+  case "${LINTER_SLOT:-}:$_n" in
+    oxlint:eslint|oxlint:typescript-eslint|oxlint:globals|oxlint:@eslint/*|oxlint:eslint-plugin-*|oxlint:eslint-config-*|oxlint:@*/eslint-plugin*|oxlint:@*/eslint-config*) continue ;;
+    biome:eslint|biome:typescript-eslint|biome:globals|biome:@eslint/*|biome:eslint-plugin-*|biome:eslint-config-*|biome:@*/eslint-plugin*|biome:@*/eslint-config*) continue ;;
+  esac
+  case "${FORMATTER_SLOT:-}:$_n" in
+    biome:prettier|dprint:prettier|biome:eslint-config-prettier|dprint:eslint-config-prettier) continue ;;
+  esac
+  _slot_kept+=("$_s")
+done
+DEVDEPS=( ${_slot_kept[@]+"${_slot_kept[@]}"} )
 
 # P0.2: runtime deps — installed as regular `dependencies`, NEVER as -D/--save-dev. zod is the
 # boundary-parsing library INSTALL.md §4 documents as "the runtime dep that's used everywhere" and
@@ -255,6 +313,11 @@ DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 CORE_RUNTIME_DEPS=( zod@^3.24.0 )
 RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 
+# P2 G2: a package the project already declares is never re-installed — `npm install -D <ours>` would
+# rewrite the project's own spec (measured: typescript ~6.0.2 → ^5.9.3). Its name is printed as kept.
+# From here on DEVDEPS / RUNTIME_DEPS may be EMPTY: every expansion below is `${X[@]+"${X[@]}"}`.
+deps_drop_declared
+
 # react-native only: eslint-plugin-react-native-a11y peer-deps eslint ^3..^8 (no eslint-9-compatible
 # release exists), while the preset ships eslint ^9. npm 7+ strict peer resolution aborts the whole
 # dev-dep install with ERESOLVE → a fresh `install.sh react-native --full` lands NO toolchain (no
@@ -266,32 +329,11 @@ RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 NPM_PEER_FLAG=""
 [ "$STACK" = "react-native" ] && NPM_PEER_FLAG="--legacy-peer-deps"
 
-# npm's peer-set walk can CRASH (not ERESOLVE — an unhandled TypeError inside arborist's
-# #loadPeerSet, `Cannot read properties of null (reading 'edgesOut')`) whenever a transitive
-# wildcard peer range resolves to a NEWER major than the one this manifest pins, and that newer
-# major's own peer set is self-referential. Reproduced 2026-09-03 on BOTH npm 10.9.9 and 11.4.2
-# against a cold cache: `@vitest/eslint-plugin` peer-deps `vitest: "*"` → the freshly published
-# vitest 5.0.0 → its exact peers `@vitest/coverage-v8@5.0.0` / `@vitest/browser-playwright@5.0.0`
-# → back to the vitest 4.1.x this manifest pins → null node → crash. Upstream: npm/cli#9787,
-# npm/cli#8261. The crash aborts the WHOLE dev-dep install, so a fresh `install.sh <stack> --full`
-# lands no toolchain at all — the same consumer-facing failure the RN ERESOLVE note above describes,
-# but triggered by a third party publishing a major, i.e. it can strike any stack on any day with
-# NO change on our side.
-#
-# So: keep the strict attempt as the DEFAULT (a genuine peer conflict must still surface — masking
-# it is exactly the form-over-behavior failure this repo exists to prevent), and fall back to
-# --legacy-peer-deps ONLY after the strict attempt has actually failed. The retry is not a silent
-# `|| true`: it prints what happened, and `_ok` still gates the honest "install incomplete" path
-# below, so a fallback that ALSO fails is reported as a failure. Stacks that already relax peers
-# (react-native) skip the retry — their first attempt is the relaxed one.
-_npm_install_with_peer_fallback() {
-  # $@ = the npm argv after `npm` (e.g. install --save-dev <specs…>)
-  if ( cd "$PROJECT_ROOT" && npm "$@" $NPM_PEER_FLAG ); then return 0; fi
-  if [ -n "$NPM_PEER_FLAG" ]; then return 1; fi
-  echo "  ⚠  npm could not resolve the peer graph (strict mode) — retrying with --legacy-peer-deps."
-  echo "     This is usually a third-party major published upstream, not a defect in your project."
-  ( cd "$PROJECT_ROOT" && npm "$@" --legacy-peer-deps )
-}
+# npm's peer-set walk can CRASH (an unhandled TypeError inside arborist's #loadPeerSet, npm/cli#9787,
+# npm/cli#8261) when a third party publishes a major; that crash — and only that, never an ERESOLVE —
+# is retried with --legacy-peer-deps inside deps_npm_install_strict (top of this file). An ERESOLVE
+# drops OUR conflicting package and retries strict (P2 G2): --legacy-peer-deps on a real version
+# conflict installed a tree that did not load (P1 run 2026-09-29: vitest ERR_PACKAGE_PATH_NOT_EXPORTED).
 
 DEPS_INSTALLED=""
 _do_dep_install=""
@@ -306,13 +348,28 @@ elif [ -t 0 ]; then
   read -r _ans || _ans=""
   case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
 else
-  :   # non-interactive (no tty) without --full → default No; the manual command prints in Next steps
+  :   # non-interactive (no tty) without --full → default No; 99-finalize lists the deps as not wired
+fi
+
+# _deps_not_wired <reason> — the dependency install did not land: one NOT-wired line naming the
+# packages and the reason (operator directive 2026-09-28: no copy-paste install command instead).
+_deps_not_wired() {
+  note_not_wired "dependencies (${#DEVDEPS[@]} dev + ${#RUNTIME_DEPS[@]} runtime: ${DEVDEPS[*]-} ${RUNTIME_DEPS[*]-}) — not installed: $1"
+}
+DEPS_NPM_FAIL_REASON=""
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/package.json" ] && [ "$_do_dep_install" != "yes" ]; then
+  if [ -t 0 ] && [ -z "$FULL" ]; then
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and the prompt was answered no"
+  else
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and this run had neither (no terminal to ask on)"
+  fi
 fi
 
 if [ "$_do_dep_install" = "yes" ]; then
   _pm=$(detect_pm)
   if ! command -v "$_pm" >/dev/null 2>&1; then
-    echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
+    echo "  ⚠  $_pm not found on PATH — dependencies NOT installed"
+    _deps_not_wired "$_pm (the package manager this project uses) is not on PATH"
   else
     echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
     # npm ONLY: bound the ONE wildcard peer that makes arborist crash.
@@ -378,17 +435,17 @@ if [ "$_do_dep_install" = "yes" ]; then
           # missing `workspace:` symlinks — so typecheck/lint/test falsely fail while Next-steps
           # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
           # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
-          # honesty: if linking fails, _ok stays empty → the "install failed, run manually" path.
-          if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
+          # honesty: if linking fails, _ok stays empty → the «install failed» not-wired path.
+          if [ "${#DEVDEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
         else
-          if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
+          if [ "${#DEVDEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
         fi ;;
       yarn)
-        if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+        if [ "${#DEVDEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
       *)
-        # $NPM_PEER_FLAG is empty for all stacks except react-native (see ERESOLVE note above).
-        # The helper appends it, retrying once with --legacy-peer-deps if the strict pass crashed.
-        if _npm_install_with_peer_fallback install --save-dev "${DEVDEPS[@]}"; then _ok="yes"; fi ;;
+        # Strict; an ERESOLVE drops our conflicting package (NOT wired) and retries strict; what
+        # finally installed replaces DEVDEPS so the counts below and in 99-finalize stay true.
+        if deps_npm_install_strict --save-dev ${DEVDEPS[@]+"${DEVDEPS[@]}"}; then _ok="yes"; DEVDEPS=( ${DEPS_NPM_SPECS[@]+"${DEPS_NPM_SPECS[@]}"} ); fi ;;
     esac
 
     # P0.2: runtime deps (zod) — SAME consent gate as the devDep install above (one prompt covers
@@ -401,14 +458,14 @@ if [ "$_do_dep_install" = "yes" ]; then
       case "$_pm" in
         pnpm)
           if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
-            if ( cd "$PROJECT_ROOT" && pnpm add -w "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
+            if [ "${#RUNTIME_DEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add -w "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
           else
-            if ( cd "$PROJECT_ROOT" && pnpm add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
+            if [ "${#RUNTIME_DEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && pnpm add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
           fi ;;
         yarn)
-          if ( cd "$PROJECT_ROOT" && yarn add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
+          if [ "${#RUNTIME_DEPS[@]}" -eq 0 ] || ( cd "$PROJECT_ROOT" && yarn add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
         *)
-          if _npm_install_with_peer_fallback install "${RUNTIME_DEPS[@]}"; then _ok_rt="yes"; fi ;;
+          if deps_npm_install_strict --save ${RUNTIME_DEPS[@]+"${RUNTIME_DEPS[@]}"}; then _ok_rt="yes"; RUNTIME_DEPS=( ${DEPS_NPM_SPECS[@]+"${DEPS_NPM_SPECS[@]}"} ); fi ;;
       esac
     fi
 
@@ -416,64 +473,14 @@ if [ "$_do_dep_install" = "yes" ]; then
       DEPS_INSTALLED="1"
       echo "  ✓ dev + runtime dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
-      echo "  ⚠  dep install incomplete — run the remainder manually (see Next steps)."
+      echo "  ⚠  dep install incomplete — $_pm failed (output above)"
+      _deps_not_wired "${DEPS_NPM_FAIL_REASON:-the $_pm install failed (its output is above)}"
     fi
   fi
 fi
 
-# ─── 8b. GH #636 (a): guarantee the pre-push TS hook runtime (tsx) resolves from the ROOT ─────
-# The dispatcher runs `node --import tsx/esm <root>/packages/core/hooks/pre-push.ts` from the repo
-# ROOT, so tsx must resolve THERE. tsx is in CORE_DEVDEPS, but on a pnpm monorepo a tsx that lives in
-# a sub-package is NOT hoisted to the root, so the TS hook degrades to the bash fallback (critical-only
-# checks — #638 made that degradation graceful instead of a crash). Close the gap: probe tsx-at-root
-# with the SAME expression the dispatcher uses (#638); if missing, install it (--full → silent;
-# interactive tty → [y/N], even without --full; refused / non-tty → WARN with the exact command).
-# tsx ONLY — NOT ts-morph/R2 (separate concern, §6b-bis-L2 below). Idempotent: the probe short-circuits
-# when tsx already resolves (incl. the --full §8 install above, which lands tsx with -w on a workspace).
-_tsx_resolves() { ( cd "$PROJECT_ROOT" && node --import tsx/esm -e '' ) >/dev/null 2>&1; }
-if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "▶ tsx-at-root → [dry-run] would ensure tsx resolves from the workspace root (pre-push TS hook runtime)"
-elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
-  :   # no package.json — nothing to install into
-elif ! command -v node >/dev/null 2>&1; then
-  :   # no node → the dispatcher can't run the TS hook anyway; the bash fallback covers it
-elif _tsx_resolves; then
-  :   # already resolvable from the root (incl. the --full §8 install) — nothing to do
-else
-  # tsx is NOT resolvable from the root. Build the PM-aware, root-targeted install command ONCE — the
-  # SSOT for both the actual install and the WARN message, so the two can't drift (#two-prompts-drift).
-  _pm=$(detect_pm)
-  case "$_pm" in
-    pnpm) if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then _tsx_argv=(pnpm add -D -w tsx); else _tsx_argv=(pnpm add -D tsx); fi ;;
-    yarn) _tsx_argv=(yarn add -D tsx) ;;
-    *)    _tsx_argv=(npm i -D tsx) ;;
-  esac
-  _tsx_cmd="${_tsx_argv[*]}"
-  # Decide whether to install (mirror the §8 gate: --full → silent; interactive → offer; else No).
-  _do_tsx=""
-  if [ -n "$FULL" ]; then
-    _do_tsx="yes"
-  elif [ -t 0 ]; then
-    printf "▶ tsx is not resolvable from the workspace root (needed by the pre-push TS hook).\n"
-    printf "  Install it now with '%s'? [y/N] " "$_tsx_cmd"
-    read -r _ans || _ans=""
-    case "$_ans" in [yY]|[yY][eE][sS]) _do_tsx="yes" ;; esac
-  fi
-  if [ "$_do_tsx" = "yes" ]; then
-    if ! command -v "$_pm" >/dev/null 2>&1; then
-      echo "  ⚠  $_pm not found on PATH — could not install tsx."
-    else
-      echo "▶ Ensuring tsx at the workspace root: $_tsx_cmd"
-      ( cd "$PROJECT_ROOT" && "${_tsx_argv[@]}" ) || echo "  ⚠  '$_tsx_cmd' failed."
-    fi
-  fi
-  # Honest end-state: if tsx STILL doesn't resolve (refused, non-tty, PM missing, or install failed),
-  # the pre-push hook will run in REDUCED mode — say so + print the exact enabling command.
-  if ! _tsx_resolves; then
-    echo ""
-    echo "⚠  tsx is not resolvable from the workspace root — the pre-push hook will run in"
-    echo "   REDUCED mode (critical-only bash checks), not the full TypeScript suite."
-    echo "   To enable full pre-push checks, run from the repo root:"
-    echo "       $_tsx_cmd"
-  fi
-fi
+# ─── 8b. (retired 2026-09-28) tsx at the workspace root ─────────────────────────────────────
+# This step used to guarantee that `node --import tsx/esm` resolved from the repo root, because the
+# pre-push dispatcher ran packages/core/hooks/pre-push.ts through tsx (GH #636/#638). The hook now
+# ships as a prebuilt packages/core/hooks/pre-push.bundle.mjs that plain `node` runs, so nothing on
+# the hook path needs tsx any more; tsx itself still arrives with CORE_DEVDEPS in §8.

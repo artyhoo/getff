@@ -1,6 +1,7 @@
 /**
  * Functional tests for the PostToolUse gate check-worker-dispatch-channel.sh
- * (M6 edit-time channel for #worker-dispatch-via-subagent).
+ * (M6 edit-time channel for #umbrella-execution-launch-without-operator;
+ * formerly #worker-dispatch-via-subagent — renamed 2026-10-04, plain-words-recap-v2 D6).
  *
  * Channel: edit-time PostToolUse. Fires on Edit|Write|MultiEdit of a
  * .claude/orchestrator-prompts/<umbrella>/kickoff.md and delegates to the single
@@ -27,7 +28,7 @@
  * (ABS_PATH#$REPO_ROOT/, hook:54) resolves to the scoped star-slash-kickoff.md matcher (hook:59).
  *
  * Skips gracefully when jq or tsx are unavailable (the hook itself no-ops without them).
- * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:164
+ * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:402
  * (ZCode schema arm).
  */
 import { describe, it, expect, afterEach } from 'vitest';
@@ -39,7 +40,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-worker-dispatch-channel.sh');
+const HOOK = resolve(REPO_ROOT, '.agents/hooks/check-worker-dispatch-channel.sh');
 
 function hasJq(): boolean {
   try {
@@ -52,7 +53,7 @@ function hasJq(): boolean {
 
 /**
  * Check whether the hook's own tsx resolution will succeed. Post-fix the hook resolves tsx
- * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:48-62): repo-local,
+ * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:53-67): repo-local,
  * main-worktree via `git --git-common-dir`, then `command -v tsx` on PATH. This guard must
  * mirror that tier list or every test under describe.skipIf(!TSX) silently skips when the
  * suite happens to run in a linked worktree (the very defect class this sweep closes — the
@@ -117,7 +118,7 @@ function writeKickoff(body: string): string {
 
 /** Run the hook with a PostToolUse payload. Returns status + stdout. env merged onto
  *  process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the exit-code branch
- *  (mirrors deps-hash-check.test.ts:106). cwd is forced to REPO_ROOT because the hook delegates
+ *  (mirrors deps-hash-check.test.ts:339). cwd is forced to REPO_ROOT because the hook delegates
  *  to bin.ts via tsx WITHOUT setting cwd, and bin.ts resolves its argv (a repo-relative path)
  *  against process.cwd() via existsSync(). CC's PostToolUse runs hooks with cwd=project root;
  *  vitest runs from packages/core/, which would break the rel-path lookup. */
@@ -148,7 +149,7 @@ function runHook(
 }
 
 // A line that satisfies BOTH clause (a) Agent-tool channel (CHANNEL_RE) AND clause (b)
-// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:80.
+// write-Worker (WRITE_WORKER_RE), per findViolations @ 29-worker-dispatch-channel.ts:173.
 const VIOLATION_LINE =
   'Dispatch the write-task Worker via the Agent tool in isolation: worktree.';
 
@@ -175,7 +176,7 @@ describe.skipIf(!JQ || !TSX)(
     });
 
     it('exemption: per-line escape token `<!-- channel-discipline: allow -->` → exit 0', () => {
-      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:70 — a same-line exemption suppresses
+      // ESCAPE_TOKEN_RE @ 29-worker-dispatch-channel.ts:81 — a same-line exemption suppresses
       // the violation. The reason in the token is the documented carve-out for prose that
       // teaches/quotes the anti-pattern.
       const abs = writeKickoff(
@@ -275,7 +276,7 @@ describe.skipIf(!JQ || !TSX)(
 //   (2) SILENT exit 0 on tsx-miss (the loudness defect unique to this hook) — closed
 //       by the new _emit_skip + _json_escape helpers.
 // The SILENCE-GONE test (Block 2) is the WHOLE POINT of the PR: this hook is the
-// edit-time gate for #worker-dispatch-via-subagent; while inert-and-silent, a kickoff
+// edit-time gate for #umbrella-execution-launch-without-operator; while inert-and-silent, a kickoff
 // author gets neither enforcement nor notice (audit PROBE 3, 2026-07-24).
 // ═══════════════════════════════════════════════════════════════════════════════
 import {
@@ -366,7 +367,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
   it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', () => {
     const wt = _mkdtempSync(_join(_osTmpdir(), 'wdc-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });
-    _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
+    // `core.hooksPath=/dev/null`: the fixture needs a checkout, not this repo's hooks. The
+    // real post-checkout hook runs scripts/link-coordination.sh, which walks the operator's
+    // ~/.claude-coordination store (519 files on 2026-10-01, ~600 git spawns) and took
+    // 18-28 s of this case's 30 s budget under load — a timeout sized by $HOME, not the test.
+    _execSync(`git -c core.hooksPath=/dev/null worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
     tierWorktrees.push(wt);
     // Overwrite worktree's checked-out hook with the FIXED working-tree version.
     copyHook(_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));

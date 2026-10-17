@@ -5,7 +5,7 @@
  * falsifiable property about a file it does not own (the Makefile). Nothing
  * verified that property, so it drifted silently:
  *
- *   `tests/consumer-matrix/python-unfamiliar-stack-cell.sh:39` claimed
+ *   `tests/consumer-matrix/python-unfamiliar-stack-cell.sh:39` claimed cite:historical incident record, the line was reworded after the fix
  *   «Runs in CI (ubuntu) and host-verify (`make consumer-matrix`)» while the
  *   `consumer-matrix` target invoked only the pnpm + npm-tarball cells. The
  *   claim shipped false and survived its stage PR and review — the reader that

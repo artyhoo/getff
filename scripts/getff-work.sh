@@ -106,7 +106,7 @@ fi
 
 # Never install THROUGH a delivery symlink. create-worktree.sh provisions
 # `$WORKTREE_PATH/node_modules` as a symlink to the PRIMARY checkout's tree
-# (scripts/worktree-node-modules.sh:131 — the D2 workspace optimisation), so an
+# (scripts/worktree-node-modules.sh:440 — the D2 workspace optimisation), so an
 # install run here writes into the primary: npm reifies against the worktree's own
 # lock and PRUNES every package outside that closure from the primary's real
 # node_modules, emptying `node_modules/.bin` on the way. The sibling guard in
@@ -126,6 +126,16 @@ fi
 if [ -n "$PKG_MANAGER" ] && [ -L "$WORKTREE_PATH/node_modules" ]; then
   echo "  ⊝ node_modules is a delivery symlink into the primary checkout — skipping $PKG_MANAGER install"
   echo "    (installing here would reify the PRIMARY's tree through the link and prune it)"
+  PKG_MANAGER=""
+fi
+
+# When the worktree's lock diverges from the primary's installed tree, create-worktree.sh's
+# provisioning helper has already installed it for real and left a marker holding the locks'
+# checksum (`pending` while an install is in flight). A completed marker means the deps are
+# in place — a second install here would only repeat minutes of network.
+if [ -n "$PKG_MANAGER" ] && [ -f "$WORKTREE_PATH/node_modules/.wnm-lock" ] \
+   && [ "$(cat "$WORKTREE_PATH/node_modules/.wnm-lock" 2>/dev/null)" != "pending" ]; then
+  echo "  ⊝ node_modules already installed for real by worktree-node-modules.sh — skipping $PKG_MANAGER install"
   PKG_MANAGER=""
 fi
 
@@ -170,12 +180,18 @@ EOF
 
 # Print the harness-specific ready line if we can detect one.
 HARNESS="unknown"
-if [ -n "${ZCODE_SESSION_ID:-}" ] || command -v zcode >/dev/null 2>&1; then
+if [ -n "${CODEX_THREAD_ID:-}" ] || [ "${AIF_HARNESS:-}" = "codex" ]; then
+  HARNESS="codex"
+  printf '      codex -C %q  # (Codex session in the provisioned worktree)\n' "$WORKTREE_PATH"
+elif [ -n "${ZCODE_SESSION_ID:-}" ] || command -v zcode >/dev/null 2>&1; then
   HARNESS="zcode"
   echo "      zcode  # (ZCode session in $WORKTREE_PATH)"
 elif command -v claude >/dev/null 2>&1; then
   HARNESS="claude-cli"
   echo "      claude -w $NAME  # (Claude Code CLI worktree session)"
+elif command -v codex >/dev/null 2>&1; then
+  HARNESS="codex"
+  printf '      codex -C %q  # (Codex session in the provisioned worktree)\n' "$WORKTREE_PATH"
 else
   echo "      # (no known harness detected — start your editor/agent of choice)"
 fi

@@ -12,11 +12,24 @@ import { BackendError, type BackendErrorCode } from '../backend.js';
 /** The subset of an aif-handoff task these CLIs read/mutate (GET /tasks/:id). */
 export interface AifTaskFull {
   id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  projectId?: string;
   title: string;
   status: string;
   plan?: string | null;
   paused?: boolean;
   blockedReason?: string | null;
+  /**
+   * aif's persisted task description — for aif-handoff claims this is the kickoff content
+   * (claim POSTs it as `description`), which makes it the DURABLE scope carrier: a fenced
+   * `intent-contract` block inside it is re-read at every continuation effect (release,
+   * answer, start-reviewed) so a bare task ID never erases declared scope
+   * (intent-first-result kickoff §3). Null on tasks created before/outside the bridge.
+   */
+  description?: string | null;
+  /** Read back at continuation effects: the scoped route claims with autoMode:false. */
+  autoMode?: boolean;
   /** aif's persisted feature-branch name (planner source-of-truth; read back by harvest). */
   branchName?: string | null;
   /**
@@ -37,6 +50,12 @@ export interface AifTaskFull {
   executionOwner?: 'ai' | 'human';
   /** Optimistic-concurrency counter for ownership; `POST /tasks/:id/handoff` must echo it back. */
   ownershipRevision?: number;
+  /**
+   * True when the auto review parked the task for a human (it reached `maxReviewIterations`;
+   * ownership moved to `"human"`). With participants mode off, a human-owned task with this
+   * flag is the ONE `review` task `complete_review` serves (artyhoo/aif-handoff#1).
+   */
+  manualReviewRequired?: boolean;
 }
 
 /**
@@ -75,14 +94,18 @@ async function request(
   opts: RequestOptions = {},
 ): Promise<unknown> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
+  );
   let res: Response;
   try {
     res = await fetch(`${baseUrl}${path}`, {
       // Only declare a JSON content-type when a body is actually sent — a no-body DELETE
       // carrying `Content-Type: application/json` is malformed to some servers.
       method,
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers:
+        body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
@@ -92,17 +115,33 @@ async function request(
     // A timeout and a refused connection are both 'unavailable', but they tell the operator
     // different things — «the API is wedged» vs «nothing is listening». Prefer the canonical
     // AbortError name; fall back to a message substring for exotic fetch implementations.
-    if (name === 'AbortError' || msg.includes('abort') || msg.includes('timeout')) {
-      throw new BackendError(`aif-handoff ${method} ${path} timed out`, 'unavailable', 'aif-handoff');
+    if (
+      name === 'AbortError' ||
+      msg.includes('abort') ||
+      msg.includes('timeout')
+    ) {
+      throw new BackendError(
+        `aif-handoff ${method} ${path} timed out`,
+        'unavailable',
+        'aif-handoff',
+      );
     }
-    throw new BackendError(`aif-handoff ${method} ${path} unreachable: ${msg}`, 'unavailable', 'aif-handoff');
+    throw new BackendError(
+      `aif-handoff ${method} ${path} unreachable: ${msg}`,
+      'unavailable',
+      'aif-handoff',
+    );
   } finally {
     clearTimeout(timeoutId);
   }
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
     if (res.status === 429) {
-      throw new BackendError(`aif-handoff rate limit (${method} ${path}): ${errBody}`, 'quota_exceeded', 'aif-handoff');
+      throw new BackendError(
+        `aif-handoff rate limit (${method} ${path}): ${errBody}`,
+        'quota_exceeded',
+        'aif-handoff',
+      );
     }
     if (res.status === 404 && opts.notFoundCode) {
       throw new BackendError(
@@ -111,7 +150,11 @@ async function request(
         'aif-handoff',
       );
     }
-    throw new BackendError(`aif-handoff ${method} ${path} HTTP ${res.status}: ${errBody}`, 'dispatch_failed', 'aif-handoff');
+    throw new BackendError(
+      `aif-handoff ${method} ${path} HTTP ${res.status}: ${errBody}`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
   }
   const text = await res.text();
   if (!text) return {};
@@ -138,7 +181,11 @@ export async function aifRequest(
 }
 
 /** GET <path> → the parsed JSON body (the generic half of {@link getTask}). */
-export async function getJson(baseUrl: string, path: string, opts?: RequestOptions): Promise<unknown> {
+export async function getJson(
+  baseUrl: string,
+  path: string,
+  opts?: RequestOptions,
+): Promise<unknown> {
   return request('GET', baseUrl, path, undefined, opts);
 }
 
@@ -156,7 +203,10 @@ export async function postJson(
 }
 
 /** GET /tasks/:id → the task object. */
-export async function getTask(baseUrl: string, taskId: string): Promise<AifTaskFull> {
+export async function getTask(
+  baseUrl: string,
+  taskId: string,
+): Promise<AifTaskFull> {
   return (await request('GET', baseUrl, `/tasks/${taskId}`)) as AifTaskFull;
 }
 
@@ -170,8 +220,12 @@ export async function getTask(baseUrl: string, taskId: string): Promise<AifTaskF
  * would answer "participants mode is off" for a build that simply shapes its session
  * response differently, and that answer is used to refuse work.
  */
-export async function getParticipantsModeEnabled(baseUrl: string): Promise<boolean> {
-  const res = (await request('GET', baseUrl, '/auth/session')) as { participantsModeEnabled?: unknown };
+export async function getParticipantsModeEnabled(
+  baseUrl: string,
+): Promise<boolean> {
+  const res = (await request('GET', baseUrl, '/auth/session')) as {
+    participantsModeEnabled?: unknown;
+  };
   if (typeof res?.participantsModeEnabled !== 'boolean') {
     throw new BackendError(
       `aif-handoff GET /auth/session returned no boolean participantsModeEnabled — cannot tell ` +
@@ -184,7 +238,11 @@ export async function getParticipantsModeEnabled(baseUrl: string): Promise<boole
 }
 
 /** PUT /tasks/:id with a partial field update (updateTaskSchema-accepted fields only). */
-export async function putTask(baseUrl: string, taskId: string, body: Record<string, unknown>): Promise<void> {
+export async function putTask(
+  baseUrl: string,
+  taskId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
   await request('PUT', baseUrl, `/tasks/${taskId}`, body);
 }
 
@@ -217,6 +275,10 @@ export async function getProjects(baseUrl: string): Promise<AifProjectFull[]> {
 }
 
 /** PUT /projects/:id with a full createProjectSchema body (the only parallelEnabled write path). */
-export async function putProject(baseUrl: string, projectId: string, body: Record<string, unknown>): Promise<void> {
+export async function putProject(
+  baseUrl: string,
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
   await request('PUT', baseUrl, `/projects/${projectId}`, body);
 }

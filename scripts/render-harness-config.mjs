@@ -24,6 +24,7 @@
  * A per-harness emitter shipped to consumers via install.sh is a PARKED fork (#894 §7).
  */
 import {
+  readdirSync,
   readFileSync,
   writeFileSync,
   existsSync,
@@ -32,11 +33,12 @@ import {
   readlinkSync,
   symlinkSync,
   unlinkSync,
-  rmSync,
   realpathSync,
 } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { emitCodex } from './render-codex-contributor.mjs';
+import { createHash } from 'node:crypto';
 
 // ── zcode's supported hook event set (verified from the bundle 2026-07-03:
 // `qr={SessionStart,UserPromptSubmit,PreToolUse,PermissionRequest,PostToolUse,
@@ -289,33 +291,6 @@ export function emitZcode(model) {
  *
  *  Shape matches toCCHooks/emitClaude output: { Event: [{matcher?, hooks:[{type,command,async?}]}] }. */
 const PLUGIN_INTERNAL_HOOKS = {
-  // UserPromptSubmit consumer twins: inject-project-digest (the consumer's OWN
-  // session-bootstrap anchor) + inject-output-language. Both are consumer-facing hooks NOT in the
-  // framework model (the framework dogfoods inject-session-bootstrap directly, and neither twin
-  // appears in .claude/settings.json), so they are not model-derived; on ZCode they reach
-  // consumers ONLY via this plugin channel (on CC they also ship via install.sh). Each has a real
-  // plugin sibling under plugin/hooks/. Registered here so emitPlugin is their SSOT — #1036
-  // shipped them into plugin/hooks/hooks.json but omitted this registration, which drifted the gate.
-  UserPromptSubmit: [
-    {
-      hooks: [
-        {
-          type: 'command',
-          command:
-            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
-        },
-      ],
-    },
-    {
-      hooks: [
-        {
-          type: 'command',
-          command:
-            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language',
-        },
-      ],
-    },
-  ],
   // SubagentStart is NOT in ZCODE_EVENTS (so model-derived Subagent* mappings are filtered), but
   // the plugin channel on CC does deliver a SubagentStart plugin hook; inject-project-digest's
   // SubagentStart arm is the consumer-side subagent anchor (#1036). Plugin-internal so it survives
@@ -393,6 +368,35 @@ const PLUGIN_INTERNAL_HOOKS = {
         },
       ],
     },
+    // Consumer anchors: inject-project-digest (the consumer's OWN session-bootstrap digest block)
+    // + inject-output-language. ONCE PER CONTEXT, not per prompt (one-button spec P19 / Q7,
+    // measured 2026-09-29: the per-prompt registration cost ~1.3 KB on EVERY operator message).
+    // SessionStart context is added once and restored by the compact/clear/resume re-fires; a
+    // per-prompt repeat of an unchanged block buys nothing. Neither hook is in the framework
+    // model (the framework dogfoods inject-session-bootstrap; neither appears in
+    // .claude/settings.json), so they are registered here — on ZCode they reach consumers ONLY
+    // via this plugin channel (on CC they also ship via install.sh). #1036 shipped them but
+    // omitted this registration, which drifted the gate.
+    {
+      matcher: 'startup|resume|clear|compact',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
+        },
+      ],
+    },
+    {
+      matcher: 'startup|resume|clear|compact',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language',
+        },
+      ],
+    },
   ],
 };
 
@@ -406,14 +410,38 @@ const PLUGIN_INCOMPATIBLE = {
   // delivers the bootstrap instead.
   'link-coordination':
     'maintainer-env-only cross-worktree coordinator — no consumer-plugin meaning (plugin SessionStart bootstrap delivers entry-point context instead)',
-  // inject-handoff-on-compact (D20, handoff-currency gate): OPERATOR-AXIS ONLY. Consumers
-  // receive no residue writer (parent F6), so no handoff file exists for them to inject;
-  // and the plugin SessionStart slot is already occupied by the session-start bootstrap
+  // inject-handoff-on-compact (D20, handoff-currency gate): INSTALLER-ONLY. env+ consumers get
+  // it with the residue writer (setup.d/10-skills.sh §1k, setup.d/ships.manifest), not through
+  // the plugin: the plugin SessionStart slot is already occupied by the session-start bootstrap
   // (PLUGIN_INTERNAL_HOOKS, matcher startup|clear|compact). Skipping here is what makes the
   // SSOT registration expressible WITHOUT shipping a writer — the note op below surfaces
   // the skip loudly rather than dropping the hook silently.
   'inject-handoff-on-compact':
-    'operator-axis only — consumers receive no residue writer (parent F6), so there is no handoff file to inject, and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
+    'installer-only — env+ consumers receive it with the residue writer through the installer (setup.d/ships.manifest), and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
+  // close-aif-task-on-merge (operator directive 2026-09-28): OPERATOR-AXIS ONLY. It closes
+  // tasks in the operator's own aif-handoff stack (reachable only through `aif-tunnel on`) via
+  // packages/runtime-bridge/src/cli/harvest.ts; a marketplace consumer has neither, and the hook
+  // has no plugin/hooks/ twin. Listed here so registering it in the SSOT cannot leak a
+  // run-hook.cmd entry pointing at a script the plugin payload does not carry.
+  // inject-session-bootstrap (one-button spec R6-10, operator 2026-09-29: «the plugin stops
+  // injecting getff's internal digest»): its text is the FRAMEWORK's own goal + invariants +
+  // H1 line — getff's internal discipline, not the consumer's. Through the plugin it reached
+  // EVERY repo on every prompt (measured 2026-09-29: 1,947 B per prompt in an empty consumer
+  // repo) and doubled the project copy in this repo. The consumer's own anchor ships as
+  // inject-project-digest instead (PLUGIN_INTERNAL_HOOKS, SessionStart).
+  'inject-session-bootstrap':
+    "operator-axis only — the framework's own goal/invariants digest; a consumer's anchor ships as inject-project-digest (one-button spec R6-10)",
+  'close-aif-task-on-merge':
+    "operator-axis only — closes tasks in the operator's own aif-handoff stack through the framework's harvest.ts; a plugin consumer has neither, and the hook has no plugin twin",
+  // seal-primary-checkout (@cc-only-rationale, #2009 + wiring 2026-10-02): CC-only internal
+  // tooling — seals THIS framework repo's own dev environment (its primary checkout's
+  // settings/.husky/git-hooks) against the session's own harness. A consumer's plugin payload
+  // has no plugin/hooks/ twin for it, so a run-hook.cmd entry would dispatch a name the
+  // payload does not carry. Listed here so the SSOT registration cannot leak into the
+  // plugin channel (measured live: the first wiring emitted it to hooks.json before this
+  // entry existed).
+  'seal-primary-checkout':
+    "cc-only internal tooling — seals the framework repo's own primary checkout; no plugin/hooks/ twin, a consumer plugin must not register it",
 };
 
 /** plugin backend: plugin/hooks/hooks.json — the CC-plugin convention (hooks/hooks.json, bare
@@ -527,7 +555,18 @@ export function emitPlugin(model) {
   return ops;
 }
 
+// Native contributor role discovery is independent of sealed Claude settings/MCP.
+// This explicit lane never changes trust or permissions.
+export function emitClaudeRoles(_model, root) {
+  if (!existsSync(join(root, '.agents/roles'))) return [];
+  return readdirSync(join(root, '.agents/roles'))
+    .filter(name => name.endsWith('.md')).sort()
+    .map(name => ({ kind: 'symlink', path: `.claude/agents/${name}`, target: `../../.agents/roles/${name}` }));
+}
+
 const EMITTERS = [
+  { name: 'codex', emit: emitCodex },
+  { name: 'claude-roles', emit: emitClaudeRoles },
   { name: 'claude', emit: emitClaude },
   { name: 'zcode', presenceProbe: '.zcode/config.json', emit: emitZcode },
   {
@@ -551,18 +590,53 @@ function mergedJson(root, op) {
   return renderJson(obj);
 }
 
+function assertGeneratedDestination(root, op) {
+  if (op.kind === 'note' || op.kind === 'remove-owned') return;
+  const base = resolve(root),
+    abs = resolve(base, op.path);
+  const rel = relative(base, abs);
+  if (rel !== op.path || rel.startsWith('../') || !rel)
+    throw new Error(`${op.path}: generated destination escapes checkout`);
+  for (let parent = dirname(abs); parent !== base; parent = dirname(parent)) {
+    if (isLink(parent))
+      throw new Error(
+        `${op.path}: generated destination has a symlink ancestor`,
+      );
+    if (dirname(parent) === parent)
+      throw new Error(`${op.path}: generated destination escapes checkout`);
+  }
+  if (op.kind !== 'symlink' && isLink(abs))
+    throw new Error(
+      `${op.path}: refusing to write through a generated destination symlink`,
+    );
+}
+
 function applyOp(root, op) {
   if (op.kind === 'note') {
     console.error(`  ⚠ ${op.message}`);
     return;
   }
   const abs = join(root, op.path);
+  if (op.kind === 'remove-owned') {
+    assertOwnedRemoval(root, op.path);
+    if (!existsSync(abs) && !isLink(abs)) return;
+    const fingerprint = isLink(abs)
+      ? readlinkSync(abs)
+      : createHash('sha256').update(readFileSync(abs)).digest('hex');
+    if (fingerprint !== op.fingerprint)
+      throw new Error(
+        `${op.path}: retired generated file was changed; refusing to remove it`,
+      );
+    unlinkSync(abs);
+    return;
+  }
   // Ensure the parent dir exists for nested paths (e.g. .zcode/config.json). The symlink branch
   // already did this; the json branch relied on root-only paths and ENOENT'd once emitZcode moved
   // to .zcode/config.json (harness-config-drift N*/shape tests).
-  if (op.kind === 'json' || op.kind === 'merge-json')
+  if (op.kind === 'json' || op.kind === 'merge-json' || op.kind === 'text')
     mkdirSync(dirname(abs), { recursive: true });
   if (op.kind === 'json') writeFileSync(abs, renderJson(op.value));
+  else if (op.kind === 'text') writeFileSync(abs, op.value);
   else if (op.kind === 'merge-json') writeFileSync(abs, mergedJson(root, op));
   else if (op.kind === 'symlink') {
     mkdirSync(dirname(abs), { recursive: true });
@@ -570,9 +644,36 @@ function applyOp(root, op) {
     // symlink-to-directory and throws ERR_FS_EISDIR on Node 24 — which would
     // crash every re-write (idempotency). unlink removes the link, never its target.
     if (isLink(abs)) unlinkSync(abs);
-    else if (existsSync(abs)) rmSync(abs, { recursive: true, force: true });
+    else if (existsSync(abs))
+      throw new Error(
+        `${op.path}: refusing to replace a real file/directory with a generated symlink`,
+      );
     symlinkSync(op.target, abs);
   }
+}
+
+function assertOwnedRemoval(root, path) {
+  const abs = resolve(root, path);
+  const rel = relative(resolve(root), abs);
+  const allowed = (p) =>
+    p.startsWith('.agents/skills/') || p.startsWith('.codex/agents/');
+  if (!allowed(rel) || path !== rel)
+    throw new Error(`${path}: retired path escapes managed roots`);
+  let ancestor = dirname(abs);
+  while (!existsSync(ancestor) && dirname(ancestor) !== ancestor)
+    ancestor = dirname(ancestor);
+  const parent = resolve(
+    realpathSync(ancestor),
+    relative(ancestor, dirname(abs)),
+  );
+  const physicalRelative = relative(
+    realpathSync(root),
+    join(parent, 'owned-file'),
+  );
+  if (!allowed(physicalRelative))
+    throw new Error(
+      `${path}: retired path has a symlink ancestor outside managed roots`,
+    );
 }
 
 const isLink = (p) => {
@@ -590,6 +691,16 @@ function checkOp(root, op) {
     return [];
   }
   const abs = join(root, op.path);
+  if (op.kind === 'remove-owned') {
+    assertOwnedRemoval(root, op.path);
+    return existsSync(abs) || isLink(abs)
+      ? [`${op.path}: retired generated file remains (run --write)`]
+      : [];
+  }
+  if (op.kind === 'text')
+    return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
+      ? []
+      : [`${op.path}: missing or drift vs SSOT`];
   if (op.kind === 'json' || op.kind === 'merge-json') {
     if (!existsSync(abs))
       return op.optional ? [] : [`${op.path}: missing (run --write)`];
@@ -655,6 +766,8 @@ export function run(argv) {
   const drift = [];
   try {
     for (const em of EMITTERS) {
+      const only = argv.indexOf('--only');
+      if (only !== -1 && argv[only + 1] !== em.name) continue;
       const ops = em.emit(model, root);
       if (
         mode === 'check' &&
@@ -666,6 +779,8 @@ export function run(argv) {
         );
         continue;
       }
+      // Validate the whole delivery before any write can touch a foreign source.
+      for (const op of ops) assertGeneratedDestination(root, op);
       for (const op of ops) {
         if (mode === 'write') applyOp(root, op);
         else drift.push(...checkOp(root, op));
@@ -679,7 +794,7 @@ export function run(argv) {
 
   if (mode === 'write') {
     console.log(
-      'render-harness-config: wrote CC + zcode config from .ai-factory/harness-model.json',
+      'render-harness-config: wrote selected harness config from .ai-factory/harness-model.json',
     );
     return 0;
   }

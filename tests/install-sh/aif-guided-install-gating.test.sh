@@ -5,13 +5,20 @@
 # install.sh, so DRY_RUN / FULL are invisible to it. Three defects followed:
 #   A1-3  the helper prompts [y/N] and, on y, `git clone` + `docker compose up -d` —
 #         real side effects AFTER 99-finalize printed "Nothing was written", and a
-#         blocking prompt on the -y/--all path that setup:22 documents as never-prompting.
+#         blocking prompt on the -y/--all path that setup:27 documents as never-prompting.
 #   A1-4  under `set -euo pipefail` the clone/compose pipelines carried no `|| …`, so a
 #         failure aborted the helper before the degrade notice, the audit-log line and
 #         the health wait — while install.sh's `|| true` reported the install as fine.
 #   A1-7  the `absent` arm re-ran bridge_diagnose's own docker test, so its
 #         "daemon down → Start docker" branch was unreachable and a consumer with Docker
 #         Desktop stopped was told to "Install docker".
+#   OFFER one-button point 8: `--offer` is the pre-launch probe — it offers the heavy aif line
+#         only when docker runs and aif-handoff does not answer, names the variable a «yes»
+#         becomes, and has no side effect in any state.
+#   Q4.7  (operator directive 2026-09-28) the helper never hands back a manual step: every
+#         degrade path says what is not wired and why, in a «NOT wired» summary of its own
+#         (the helper runs after 99-finalize printed the install's), and no «start docker»,
+#         «install docker», «Set VAR=1 to …» or «re-run with …» line is printed.
 #
 # Method: run the REAL helper as a subprocess against a curated PATH of stubs
 # (curl/docker/git/sleep), the shape install.sh uses. Every side effect the helper can
@@ -35,7 +42,7 @@ mkdir -p "$SB/bin" "$SB/bin-nodocker" "$SB/home"
 # Real tools the helper + bridge-guided.sh reach for. `env -i` below means PATH is
 # exactly one of these dirs, so anything not linked here is genuinely absent — that is
 # what makes the "no docker binary at all" arm honest.
-for b in bash sh sed date dirname cat rm mkdir grep touch; do
+for b in bash sh sed date dirname cat rm mkdir grep touch awk mv; do
   p=$(command -v "$b" 2>/dev/null) && ln -sf "$p" "$SB/bin/$b" && ln -sf "$p" "$SB/bin-nodocker/$b"
 done
 
@@ -48,7 +55,8 @@ cat > "$SB/bin/git" <<'EOF'
 #!/bin/sh
 echo "git $*" >> "$STUB_STATE/git.calls"
 if [ "${STUB_GIT_RC:-0}" != "0" ]; then echo "stub: fatal: clone failed" >&2; exit "${STUB_GIT_RC}"; fi
-case "$1" in clone) mkdir -p "$3" ;; esac
+case "$1" in clone) mkdir -p "$3/.git" ;; esac
+[ "$1 $3" = "-C describe" ] && echo "${STUB_GIT_DESCRIBE:-v1.4.0-2-gabc1234}"
 exit 0
 EOF
 cat > "$SB/bin/docker" <<'EOF'
@@ -87,16 +95,42 @@ cloned()   { grep -q '^git clone' "$ST/git.calls" 2>/dev/null; }
 composed() { grep -q '^docker compose' "$ST/docker.calls" 2>/dev/null; }
 printf 'y\n' > "$SB/stdin-yes"
 
-# ── A1-7: docker binary present, daemon down → "Start docker", not "Install docker" ──
-run a17-down "$SB/bin" /dev/null STUB_DOCKER_INFO_RC=1
-case "$OUT" in *"Start docker"*) ok "A1-7: daemon down → 'Start docker'" ;; *) bad "A1-7: daemon down did not say 'Start docker': $OUT" ;; esac
-case "$OUT" in *"Install docker"*) bad "A1-7: daemon down wrongly told the user to INSTALL docker: $OUT" ;; *) ok "A1-7: daemon down does not say 'Install docker'" ;; esac
-case "$OUT" in *"degrades to env-level"*) ok "A1-7: daemon down still degrades to env-level" ;; *) bad "A1-7: no degrade notice: $OUT" ;; esac
+# shellcheck source=tests/install-sh/lib/manual-step.sh
+source "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
+# no_manual <arm> — the run's output hands the reader no manual step (Q4.7).
+no_manual() {
+  printf '%s\n' "$OUT" > "$ST/out.log"
+  if asks_by_hand "$ST/out.log"; then bad "$1: output hands back a manual step: $(manual_step_lines "$ST/out.log" | head -2 | tr '\n' '|')"
+  else ok "$1: no manual step in the output"; fi
+}
+# nw_aif <arm> <regex> — the output carries a NOT-wired summary whose aif-handoff line matches.
+nw_aif() {
+  case "$OUT" in *"NOT wired"*) ;; *) bad "$1: no NOT-wired summary: $OUT"; return ;; esac
+  if grep -qE "$2" <<<"$(printf '%s\n' "$OUT" | grep -E '^ +- aif-handoff — ')"; then ok "$1: NOT wired says why ($2)"
+  else bad "$1: no aif-handoff NOT-wired line matching /$2/: $OUT"; fi
+}
 
-# ── A1-7 paired-negative: no docker binary at all → "Install docker" ─────────────────
+# ── A1-7: docker binary present, daemon down → the daemon is named, not a missing docker ──
+run a17-down "$SB/bin" /dev/null STUB_DOCKER_INFO_RC=1
+nw_aif "A1-7" "docker daemon is not running"
+case "$OUT" in *"no docker"*) bad "A1-7: daemon down reported as docker being absent: $OUT" ;; *) ok "A1-7: daemon down is not reported as docker being absent" ;; esac
+case "$OUT" in *"degrades to env-level"*) ok "A1-7: daemon down still degrades to env-level" ;; *) bad "A1-7: no degrade notice: $OUT" ;; esac
+no_manual "A1-7"
+
+# ── A1-7 paired-negative: no docker binary at all → docker reported absent ──────────
 run a17-absent "$SB/bin-nodocker" /dev/null
-case "$OUT" in *"Install docker"*) ok "A1-7 neg: no docker binary → 'Install docker' (guidance preserved)" ;; *) bad "A1-7 neg: absent arm lost its install guidance: $OUT" ;; esac
-case "$OUT" in *"Start docker"*) bad "A1-7 neg: no docker binary but told to START docker: $OUT" ;; *) ok "A1-7 neg: absent arm does not say 'Start docker'" ;; esac
+nw_aif "A1-7 neg" "no docker"
+case "$OUT" in *"daemon"*) bad "A1-7 neg: no docker binary but the daemon is blamed: $OUT" ;; *) ok "A1-7 neg: absent arm does not blame the daemon" ;; esac
+no_manual "A1-7 neg"
+
+# ── native: the aif-handoff CLI is installed but does not answer ────────────────────
+mkdir -p "$SB/bin-native"
+for b in "$SB/bin-nodocker"/*; do ln -sf "$(readlink "$b" 2>/dev/null || echo "$b")" "$SB/bin-native/$(basename "$b")"; done
+printf '#!/bin/sh\nexit 0\n' > "$SB/bin-native/aif-handoff"; chmod +x "$SB/bin-native/aif-handoff"
+run native "$SB/bin-native" /dev/null
+nw_aif "native" "CLI is installed but does not answer"
+case "$OUT" in *"not installed"*) bad "native: an installed CLI is reported as not installed: $OUT" ;; *) ok "native: the degrade notice does not call the installed CLI «not installed»" ;; esac
+no_manual "native"
 
 # ── A1-3: --dry-run must not clone, compose, prompt or write the audit log ──────────
 # stdin is a live "y": on the unfixed helper the prompt consumes it and clones for real.
@@ -114,12 +148,16 @@ case "$OUT" in *"[y/N]"*) bad "A1-3: non-interactive run still prompts [y/N]: $O
 cloned && bad "A1-3: non-interactive run cloned without an explicit opt-in" || ok "A1-3: non-interactive run auto-declines (no clone)"
 case "$OUT" in *"degrades to env-level"*) ok "A1-3: auto-decline carries the explicit degrade notice" ;; *) bad "A1-3: auto-decline printed no degrade notice: $OUT" ;; esac
 case "$OUT" in *AIF_GUIDED_INSTALL*) ok "A1-3: the notice names the opt-in that would have installed it" ;; *) bad "A1-3: no opt-in pointer in the notice: $OUT" ;; esac
+nw_aif "A1-3" "non-interactive.*AIF_GUIDED_INSTALL=1"
+no_manual "A1-3"
 [ "$RC" -eq 0 ] && ok "A1-3: non-interactive run returns 0" || bad "A1-3: non-interactive rc=$RC"
 
 # ── A1-3 paired-negative: the interactive prompt is still there ─────────────────────
 run a13-int "$SB/bin" /dev/null
 case "$OUT" in *"[y/N]"*) ok "A1-3 neg: interactive run still offers the [y/N] prompt" ;; *) bad "A1-3 neg: the interactive offer was suppressed too: $OUT" ;; esac
 cloned && bad "A1-3 neg: declined run cloned anyway" || ok "A1-3 neg: decline → no clone"
+nw_aif "A1-3 neg" "declined"
+no_manual "A1-3 neg"
 
 # ── A1-3 paired-negative: an explicit opt-in still installs, without a prompt ───────
 run a13-optin "$SB/bin" /dev/null GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1
@@ -127,6 +165,7 @@ case "$OUT" in *"[y/N]"*) bad "A1-3 neg: explicit opt-in still prompted: $OUT" ;
 cloned   && ok "A1-3 neg: explicit opt-in performs the clone" || bad "A1-3 neg: opt-in did not clone: $OUT"
 composed && ok "A1-3 neg: explicit opt-in runs docker compose" || bad "A1-3 neg: opt-in did not compose: $OUT"
 [ "$RC" -eq 0 ] && ok "A1-3 neg: explicit opt-in returns 0" || bad "A1-3 neg: opt-in rc=$RC"
+case "$OUT" in *"NOT wired"*) bad "A1-3 neg: a successful install printed a NOT-wired summary: $OUT" ;; *) ok "A1-3 neg: a successful install prints no NOT-wired summary" ;; esac
 
 # ── A1-4: a failed clone routes through the degrade path ────────────────────────────
 # stdin carries a live "y" so the arm reaches the clone on the unfixed helper too
@@ -136,12 +175,48 @@ run a14-clone "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTAL
 case "$OUT" in *"degrades to env-level"*) ok "A1-4: failed clone reaches the degrade notice" ;; *) bad "A1-4: failed clone skipped the degrade path: $OUT" ;; esac
 composed && bad "A1-4: composed despite a failed clone" || ok "A1-4: failed clone does not proceed to docker compose"
 grep -q 'failed git-clone' "$ST/install.log" 2>/dev/null && ok "A1-4: failed clone is written to the audit log" || bad "A1-4: no audit-log line for the failed clone"
+nw_aif "A1-4 clone" "git clone .* failed"
+no_manual "A1-4 clone"
 
 # ── A1-4: a failed `docker compose up -d` routes through the degrade path ───────────
 run a14-compose "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 STUB_COMPOSE_RC=1
 [ "$RC" -eq 0 ] && ok "A1-4: failed compose returns 0" || bad "A1-4: failed compose rc=$RC"
 case "$OUT" in *"degrades to env-level"*) ok "A1-4: failed compose reaches the degrade notice" ;; *) bad "A1-4: failed compose skipped the degrade path: $OUT" ;; esac
 grep -q 'failed docker-compose-up' "$ST/install.log" 2>/dev/null && ok "A1-4: failed compose is written to the audit log" || bad "A1-4: no audit-log line for the failed compose"
+nw_aif "A1-4 compose" "docker compose up -d failed"
+no_manual "A1-4 compose"
+
+# ── OFFER: `--offer` is the read-only pre-launch probe (one-button point 8) ─────────
+# offer_arm <label> <bin-dir> <want-verdict> <want-text-regex> [VAR=VAL …]
+offer_arm() {
+  local label="$1" bindir="$2" want="$3" rx="$4"; shift 4
+  ST="$SB/state-offer-$label"; rm -rf "$ST"; mkdir -p "$ST"
+  OUT=$(env -i PATH="$bindir" HOME="$SB/home" STUB_STATE="$ST" \
+    RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" AIF_HANDOFF_REPO_URL="https://example.invalid/aif-handoff.git" \
+    AIF_HANDOFF_CHECKOUT="$ST/checkout" AIF_INSTALL_LOG="$ST/install.log" "$@" \
+    bash "$HELPER" --offer < "$SB/stdin-yes" 2>/dev/null); RC=$?
+  local verdict text var
+  IFS=$'\t' read -r verdict text var <<<"$OUT"
+  if [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 1 ] && [ "$verdict" = "$want" ] && grep -qE "$rx" <<<"$text"; then
+    ok "OFFER $label: $verdict — $text"
+  else bad "OFFER $label: want $want /$rx/, got rc=$RC «$OUT»"; fi
+  if [ "$want" = offer ]; then
+    [ "$var" = "AIF_GUIDED_INSTALL=1" ] && ok "OFFER $label: names the variable a yes becomes" || bad "OFFER $label: third field «$var»"
+  else
+    [ "$var" = "-" ] && ok "OFFER $label: nothing to set on a skip" || bad "OFFER $label: third field «$var» on a skip"
+  fi
+  if cloned || composed || [ -e "$ST/install.log" ] || [ -e "$ST/checkout" ]; then bad "OFFER $label: the probe had a side effect"
+  else ok "OFFER $label: no clone, no compose, no audit-log line"; fi
+}
+offer_arm docker      "$SB/bin"        offer 'heavy: clones a repository, starts docker containers'
+offer_arm docker-down "$SB/bin"        skip  '^not installed: docker is not running$' STUB_DOCKER_INFO_RC=1
+offer_arm absent      "$SB/bin-nodocker" skip 'no docker'
+offer_arm native      "$SB/bin-native" skip  'CLI is installed but does not answer'
+mkdir -p "$SB/state-offer-up"; : > "$SB/state-offer-up/health-up"
+_up_state="$SB/state-offer-up"
+OUT=$(env -i PATH="$SB/bin" HOME="$SB/home" STUB_STATE="$_up_state" RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" \
+  bash "$HELPER" --offer 2>/dev/null)
+case "$OUT" in skip$'\t'already\ running*) ok "OFFER up: a running aif-handoff is not offered again" ;; *) bad "OFFER up: «$OUT»" ;; esac
 
 # ── A1-3 wiring: install.sh must gate the spawn and export what the child reads ─────
 BLOCK=$(sed -n '/aif-handoff guided install (beta-delivery-ux S4/,/^# ─── consumer-refresh-integrity R1/p' "$REPO_ROOT/install.sh")
@@ -149,5 +224,17 @@ BLOCK=$(sed -n '/aif-handoff guided install (beta-delivery-ux S4/,/^# ─── 
 case "$BLOCK" in *'DRY_RUN'*) ok "wiring: install.sh's guided-install block consults DRY_RUN" ;; *) bad "wiring: the block never mentions DRY_RUN" ;; esac
 case "$BLOCK" in *'export GETFF_DRY_RUN'*) ok "wiring: GETFF_DRY_RUN is exported to the child process" ;; *) bad "wiring: GETFF_DRY_RUN not exported — the child cannot self-gate" ;; esac
 case "$BLOCK" in *'GETFF_NONINTERACTIVE'*) ok "wiring: GETFF_NONINTERACTIVE is passed to the child process" ;; *) bad "wiring: GETFF_NONINTERACTIVE not passed — -y still prompts" ;; esac
+
+echo "── VERSION: what the unpinned clone serves is recorded (one-button fork on pins = B)"
+mkdir -p "$SB/proj/.ai-factory"; printf '## Accepted\n' > "$SB/proj/.ai-factory/tool-decisions.md"
+# The default checkout is $HOME/code/aif-handoff: the committed row must not carry the person's home
+# path, so a checkout under HOME is recorded home-relative (HOME=$SB puts $ST/checkout under it).
+run ver-up "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 PROJECT_ROOT="$SB/proj" GETFF_TODAY=2026-09-29 HOME="$SB"
+if grep -qF "| aif-handoff | external-service | v1.4.0-2-gabc1234 | 2026-09-29 | git describe in ~/state-ver-up/checkout |" "$SB/proj/.ai-factory/tool-decisions.md"; then
+  ok "VERSION: after the guided install the checkout's git describe is recorded, its path home-relative"
+else bad "VERSION: no home-relative aif-handoff row: $(tr '\n' '|' < "$SB/proj/.ai-factory/tool-decisions.md") / $OUT"; fi
+if grep -qF "$SB/" "$SB/proj/.ai-factory/tool-decisions.md"; then bad "VERSION: tool-decisions.md carries the home path $SB"
+else ok "VERSION: tool-decisions.md carries no home path"; fi
+grep -q 'aif-handoff version v1.4.0-2-gabc1234 recorded' <<<"$OUT" && ok "VERSION: the report names it" || bad "VERSION: no report line"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -1,0 +1,1097 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:getff:dot-pr-review:2.0.0",
+  "title": "DotPRReviewV2 record contract (protocol dot-pr-review/2.0.0)",
+  "description": "Version 2.0.0 of the Dot PR review result contract. One top-level record at a time, discriminated by record_type: a system review report, an executor fix response, or an independent closure receipt. Authentication, assignment binding, admission and finding lifecycle state live in the trusted intake/journal, not in these records; a record can never confer identity, policy or permissions. V1 (urn:getff:dot-staging-review:1.0) records are historical artifacts and are never validated against this schema; import mapping is a separate explicit step owned by the receiving implementation.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/review_report" },
+    { "$ref": "#/$defs/fix_response" },
+    { "$ref": "#/$defs/closure_receipt" }
+  ],
+  "$defs": {
+    "protocol_version": {
+      "const": "dot-pr-review/2.0.0"
+    },
+    "record_type": {
+      "enum": [
+        "review_report",
+        "fix_response",
+        "closure_receipt"
+      ]
+    },
+    "review_mode": {
+      "enum": [
+        "OPEN_PR",
+        "HISTORICAL",
+        "FOLLOW_UP"
+      ]
+    },
+    "comparison_basis": {
+      "enum": [
+        "HEAD_TO_BASE",
+        "HEAD_TO_MERGE_CANDIDATE",
+        "HISTORICAL_PINNED",
+        "FOLLOW_UP_DELTA"
+      ]
+    },
+    "system_coverage": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL"
+      ]
+    },
+    "prior_review_sufficiency": {
+      "enum": [
+        "SUFFICIENT",
+        "INSUFFICIENT",
+        "UNKNOWN"
+      ]
+    },
+    "system_verdict": {
+      "enum": [
+        "GO",
+        "REVISE",
+        "DECISION_REQUIRED"
+      ]
+    },
+    "dimension_status": {
+      "enum": [
+        "ASSESSED",
+        "NOT_APPLICABLE",
+        "UNVERIFIED"
+      ]
+    },
+    "dimension_id": {
+      "enum": [
+        "GOAL_ARCHITECTURE",
+        "AI_DOC_AUTHORITY",
+        "SKILL_RULE_ROUTING",
+        "AGNOSTICISM_PORTABILITY",
+        "CONTEXT_ECONOMY",
+        "DETERMINISTIC_ENFORCEMENT",
+        "PRIOR_REVIEW_ADEQUACY"
+      ]
+    },
+    "evidence_level": {
+      "enum": [
+        "SOURCE_TRACED",
+        "HELPER_REPRODUCED",
+        "PIPELINE_VERIFIED",
+        "INSTALLED_CONSUMER_VERIFIED",
+        "LIVE_SERVICE_VERIFIED",
+        "UNVERIFIED"
+      ]
+    },
+    "path_treatment": {
+      "enum": [
+        "SYSTEM_ANALYZED",
+        "CHANGE_REVIEW_REFERENCED",
+        "GENERATED_EQUIVALENCE",
+        "OUT_OF_SCOPE"
+      ]
+    },
+    "closure_disposition": {
+      "enum": [
+        "RESOLVED",
+        "ALREADY_FIXED",
+        "NOT_APPLICABLE",
+        "REJECTED_WITH_EVIDENCE"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "major",
+        "minor",
+        "note"
+      ]
+    },
+    "check_conclusion": {
+      "enum": [
+        "success",
+        "failure",
+        "neutral",
+        "skipped"
+      ]
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "short": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "pattern": "^[^/].*"
+    },
+    "principal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Opaque enrolled-principal identifier issued by the trusted registry. Never a model name or vendor attestation; the record cannot prove which model or human produced the work."
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "reference"
+      ],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/evidence_level"
+        },
+        "reference": {
+          "$ref": "#/$defs/short"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/text"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "policy_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sha256",
+        "epoch"
+      ],
+      "properties": {
+        "version": {
+          "$ref": "#/$defs/short"
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "epoch": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "full_name"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "full_name": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "pull_request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "number",
+            "node_id"
+          ],
+          "properties": {
+            "number": {
+              "$ref": "#/$defs/id"
+            },
+            "node_id": {
+              "$ref": "#/$defs/short"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "revisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head_sha",
+        "base_sha",
+        "merge_base_sha"
+      ],
+      "properties": {
+        "head_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "base_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "merge_base_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "tested_merge_sha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_staging_sha": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "description": "Required for HISTORICAL reviews: the current staging tip against which finding applicability is revalidated."
+            }
+          ]
+        }
+      }
+    },
+    "review_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "assignment_id",
+        "mode",
+        "repository",
+        "pull_request",
+        "comparison_basis",
+        "revisions",
+        "policy",
+        "issued_at"
+      ],
+      "properties": {
+        "review_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/short",
+          "description": "Trusted-dispatcher assignment this review fulfills; intake binds it to the enrolled submitting principal."
+        },
+        "mode": {
+          "$ref": "#/$defs/review_mode"
+        },
+        "repository": {
+          "$ref": "#/$defs/repository"
+        },
+        "pull_request": {
+          "$ref": "#/$defs/pull_request"
+        },
+        "comparison_basis": {
+          "$ref": "#/$defs/comparison_basis"
+        },
+        "revisions": {
+          "$ref": "#/$defs/revisions"
+        },
+        "policy": {
+          "$ref": "#/$defs/policy_ref"
+        },
+        "issued_at": {
+          "$ref": "#/$defs/time"
+        },
+        "supersedes_review_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "change_review_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_reference",
+        "artifact_sha256",
+        "reviewer",
+        "independence",
+        "limits",
+        "reviewed_revision",
+        "reviewed_scope",
+        "finding_ids",
+        "resolutions"
+      ],
+      "properties": {
+        "artifact_reference": {
+          "$ref": "#/$defs/short"
+        },
+        "artifact_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/principal"
+        },
+        "independence": {
+          "$ref": "#/$defs/text",
+          "description": "Why this receipt counts as independent evidence, and from whom it does not."
+        },
+        "limits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "reviewed_revision": {
+          "$ref": "#/$defs/sha"
+        },
+        "comparison_basis": {
+          "$ref": "#/$defs/short"
+        },
+        "reviewed_scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/path"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 0,
+          "maxItems": 500
+        },
+        "resolutions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 500
+        },
+        "equivalence": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "claim",
+                "basis"
+              ],
+              "properties": {
+                "claim": {
+                  "enum": [
+                    "IDENTICAL_RELEVANT_TREES",
+                    "MATERIAL_DELTA"
+                  ]
+                },
+                "basis": {
+                  "$ref": "#/$defs/text"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Records whether the receipt covers the delivered head: identical relevant trees may reuse it; a material delta requires a review supplement and cannot be reused for sufficiency."
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "occurrence_id",
+        "title",
+        "requirement",
+        "category",
+        "severity",
+        "blocking",
+        "failure_scenario",
+        "locations",
+        "affected_consumers",
+        "evidence",
+        "expected_correction",
+        "verification_expectation"
+      ],
+      "properties": {
+        "finding_id": {
+          "$ref": "#/$defs/short",
+          "description": "Stable identity of the underlying concern; survives across occurrences and revisions."
+        },
+        "occurrence_id": {
+          "$ref": "#/$defs/short",
+          "description": "Identity of this occurrence of the finding in one reviewed revision."
+        },
+        "cause_lineage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/short"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "finding_id of the parent concern this occurrence reopens or descends from; null for a first occurrence."
+        },
+        "title": {
+          "$ref": "#/$defs/short"
+        },
+        "requirement": {
+          "$ref": "#/$defs/text",
+          "description": "The governing requirement violated (goal, rule, spec section, convention)."
+        },
+        "category": {
+          "$ref": "#/$defs/short"
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "failure_scenario": {
+          "$ref": "#/$defs/text"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/path"
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "affected_consumers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "expected_correction": {
+          "$ref": "#/$defs/text"
+        },
+        "verification_expectation": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "severity": {
+                "enum": [
+                  "critical",
+                  "major"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "blocking": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "report_body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "limitations"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/text"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "machine_reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/short"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "machine_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "self_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "questions",
+        "gaps",
+        "resolutions",
+        "validation_limitations"
+      ],
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "resolutions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        },
+        "validation_limitations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "minItems": 0,
+          "maxItems": 100
+        }
+      }
+    },
+    "review_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "protocol_version",
+        "review_identity",
+        "scope",
+        "assessments",
+        "dimensions",
+        "verdict",
+        "change_review_receipt",
+        "findings",
+        "report",
+        "self_review"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "review_report"
+        },
+        "protocol_version": {
+          "$ref": "#/$defs/protocol_version"
+        },
+        "review_identity": {
+          "$ref": "#/$defs/review_identity"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed_paths",
+            "omissions"
+          ],
+          "properties": {
+            "changed_paths": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "treatment",
+                  "rationale"
+                ],
+                "properties": {
+                  "path": {
+                    "$ref": "#/$defs/path"
+                  },
+                  "treatment": {
+                    "$ref": "#/$defs/path_treatment"
+                  },
+                  "rationale": {
+                    "$ref": "#/$defs/text"
+                  },
+                  "affected_consumers": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/short"
+                    },
+                    "minItems": 0,
+                    "maxItems": 200
+                  }
+                }
+              },
+              "minItems": 1,
+              "maxItems": 2000
+            },
+            "omissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/text"
+              },
+              "minItems": 0,
+              "maxItems": 200
+            }
+          }
+        },
+        "assessments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "system_coverage",
+            "prior_review_sufficiency",
+            "execution_evidence"
+          ],
+          "properties": {
+            "system_coverage": {
+              "$ref": "#/$defs/system_coverage"
+            },
+            "prior_review_sufficiency": {
+              "$ref": "#/$defs/prior_review_sufficiency"
+            },
+            "execution_evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "claim",
+                  "level",
+                  "reference"
+                ],
+                "properties": {
+                  "claim": {
+                    "$ref": "#/$defs/short"
+                  },
+                  "level": {
+                    "$ref": "#/$defs/evidence_level"
+                  },
+                  "reference": {
+                    "$ref": "#/$defs/short"
+                  },
+                  "uncertainty": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/text"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "minItems": 0,
+              "maxItems": 200
+            }
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "dimension",
+              "status",
+              "rationale"
+            ],
+            "properties": {
+              "dimension": {
+                "$ref": "#/$defs/dimension_id"
+              },
+              "status": {
+                "$ref": "#/$defs/dimension_status"
+              },
+              "rationale": {
+                "$ref": "#/$defs/text"
+              },
+              "affected_scope": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/short"
+                },
+                "minItems": 0,
+                "maxItems": 200
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence"
+                },
+                "minItems": 0,
+                "maxItems": 100
+              }
+            }
+          },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "verdict": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcome",
+            "rationale",
+            "blockers"
+          ],
+          "properties": {
+            "outcome": {
+              "$ref": "#/$defs/system_verdict"
+            },
+            "rationale": {
+              "$ref": "#/$defs/text"
+            },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/short"
+              },
+              "minItems": 0,
+              "maxItems": 200
+            }
+          }
+        },
+        "change_review_receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/change_review_receipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "minItems": 0,
+          "maxItems": 500
+        },
+        "report": {
+          "$ref": "#/$defs/report_body"
+        },
+        "self_review": {
+          "$ref": "#/$defs/self_review"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "review_identity": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "const": "HISTORICAL"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "review_identity": {
+                "type": "object",
+                "properties": {
+                  "revisions": {
+                    "type": "object",
+                    "required": [
+                      "head_sha",
+                      "base_sha",
+                      "merge_base_sha",
+                      "current_staging_sha"
+                    ],
+                    "properties": {
+                      "head_sha": {
+                        "$ref": "#/$defs/sha"
+                      },
+                      "base_sha": {
+                        "$ref": "#/$defs/sha"
+                      },
+                      "merge_base_sha": {
+                        "$ref": "#/$defs/sha"
+                      },
+                      "tested_merge_sha": {
+                        "$ref": "#/$defs/sha"
+                      },
+                      "current_staging_sha": {
+                        "$ref": "#/$defs/sha"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "review_identity": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "const": "FOLLOW_UP"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "review_identity": {
+                "type": "object",
+                "properties": {
+                  "supersedes_review_id": {
+                    "$ref": "#/$defs/uuid"
+                  }
+                },
+                "required": [
+                  "supersedes_review_id"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "fix_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "protocol_version",
+        "assignment_id",
+        "claimed_by",
+        "finding_ids",
+        "fix_revision",
+        "changed_scope",
+        "mechanical_receipts",
+        "change_review_receipt",
+        "unresolved_items",
+        "issued_at"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "fix_response"
+        },
+        "protocol_version": {
+          "$ref": "#/$defs/protocol_version"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/short"
+        },
+        "claimed_by": {
+          "$ref": "#/$defs/principal"
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 1,
+          "maxItems": 500
+        },
+        "fix_revision": {
+          "$ref": "#/$defs/sha"
+        },
+        "changed_scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/path"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        },
+        "mechanical_receipts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "context",
+              "reference",
+              "conclusion"
+            ],
+            "properties": {
+              "context": {
+                "$ref": "#/$defs/short"
+              },
+              "reference": {
+                "$ref": "#/$defs/short"
+              },
+              "conclusion": {
+                "$ref": "#/$defs/check_conclusion"
+              }
+            }
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "change_review_receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/change_review_receipt"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unresolved_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "issued_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    },
+    "closure_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "protocol_version",
+        "finding_ids",
+        "verification_revision",
+        "comparison_basis",
+        "verified_by",
+        "evidence",
+        "disposition",
+        "rationale",
+        "issued_at"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "closure_receipt"
+        },
+        "protocol_version": {
+          "$ref": "#/$defs/protocol_version"
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/short"
+          },
+          "minItems": 1,
+          "maxItems": 500
+        },
+        "verification_revision": {
+          "$ref": "#/$defs/sha"
+        },
+        "comparison_basis": {
+          "$ref": "#/$defs/short"
+        },
+        "verified_by": {
+          "$ref": "#/$defs/principal"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "disposition": {
+          "$ref": "#/$defs/closure_disposition"
+        },
+        "rationale": {
+          "$ref": "#/$defs/text"
+        },
+        "issued_at": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    }
+  }
+}

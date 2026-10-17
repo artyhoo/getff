@@ -1,0 +1,60 @@
+{
+  "requestedSessionId": "26267048-1516-405c-b98b-12cf91a06e8e",
+  "cwd": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif",
+  "requestedModel": "glm-5.3",
+  "requestedPermissionMode": "auto",
+  "promptPath": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-full-execution.md",
+  "promptSha256": "f7393f165758365fbf79babf2bb2acc181ab3e8a26c104f12b0863b356080406",
+  "argv": [
+    "/Users/art/.local/bin/glm",
+    "--bg",
+    "--model",
+    "glm-5.3",
+    "--permission-mode",
+    "auto",
+    "--session-id",
+    "26267048-1516-405c-b98b-12cf91a06e8e",
+    "--name",
+    "deterministic-core-full",
+    "Read /Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/glm-full-execution.md in full and execute its complete authorized GLM/AIF delivery contract. The whole core is assigned, not just D0. Begin with the required identity and real-command receipt, then continue admitted publication and factory execution; Codex independently verifies the final result."
+  ],
+  "launcherExit": 0,
+  "launcherStdout": "backgrounded \u00b7 b6564858 \u00b7 deterministic-core-full\n  claude agents             list sessions\n  claude attach b6564858    open in this terminal\n  claude logs b6564858      show recent output\n  claude stop b6564858      stop this session\n",
+  "launcherStderr": "warning: --bg manages the session id; ignoring --session-id (use --resume <id> to continue an existing session)\n",
+  "actualSessionId": "b6564858-b47d-4563-9d79-1993b31a3550",
+  "status": "running; actual identity/model/auto mode verified; per-stage Codex review acknowledged",
+  "reviewInputsRef": "a3d44125518906543925d61df20584033cab843f",
+  "reviews": {
+    "safety": "GO",
+    "scope": "GO"
+  },
+  "actualBackgroundId": "b6564858",
+  "observedSession": {
+    "pid": 98014,
+    "id": "b6564858",
+    "cwd": "/Users/art/.codex/worktrees/deterministic-core-full/rules-as-tests-aif",
+    "kind": "background",
+    "startedAt": 1792017958504,
+    "sessionId": "b6564858-b47d-4563-9d79-1993b31a3550",
+    "name": "deterministic-core-full",
+    "status": "busy",
+    "state": "working"
+  },
+  "observedModel": "glm-5.3",
+  "observedPermissionMode": "auto",
+  "verificationEvidence": "glm logs b6564858 banner: glm-5.3 with xhigh effort; auto mode on; actual owner acknowledged full contract and session UUID",
+  "stageReviewAddendum": {
+    "path": "docs/meta-factory/research-patches/2026-10-14-deterministic-skill-agent-audit/codex-stage-review.md",
+    "sha256": "8472735400698af39aacc00b74ba32e9aa1a65e146fbcce484ef6c30865aad58"
+  },
+  "stageReviewMessage": {
+    "transport": "glm attach b6564858 via existing PTY",
+    "delivery": "verified and acknowledged in assistant transcript and docs/deterministic-core/glm-delivery-state.md section 2",
+    "boundSessionId": "b6564858-b47d-4563-9d79-1993b31a3550"
+  },
+  "observer": {
+    "owner": "current Codex chat",
+    "heartbeatId": "review-deterministic-core-stages",
+    "cadenceMinutes": 15
+  }
+}

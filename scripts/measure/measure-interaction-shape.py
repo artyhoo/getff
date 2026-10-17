@@ -107,6 +107,11 @@ def main():
     ap.add_argument("--glob", default="-Users-art-code-rules-as-tests-aif*")
     ap.add_argument("--days", default=35, type=int)
     ap.add_argument("--min-size", default=150000, type=int)
+    ap.add_argument(
+        "--dedup",
+        action="store_true",
+        help="count a message once across transcripts (resumed sessions copy messages)",
+    )
     args = ap.parse_args(
         _argv_with_equals(sys.argv[1:], {"--root", "--glob", "--days", "--min-size"})
     )
@@ -124,6 +129,7 @@ def main():
 
     stats = collections.Counter()
     after = collections.Counter()
+    seen = set()
     for mt, f in files:
         turns = []
         try:
@@ -137,6 +143,11 @@ def main():
                         continue
                     t = o.get("type")
                     m = o.get("message") or {}
+                    if args.dedup and t in ("user", "assistant"):
+                        key = (t, o.get("timestamp"), text_of(m))
+                        if key in seen:
+                            continue
+                        seen.add(key)
                     if t == "user":
                         tx = text_of(m).strip()
                         if not tx or INJECT.search(tx[:200]):

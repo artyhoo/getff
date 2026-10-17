@@ -155,13 +155,13 @@ fi
 
 OUT_B=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
 
-if printf '%s\n' "$OUT_B" | grep -qF 'ORPHAN: scripts/check-ask-files.sh' \
-  && printf '%s\n' "$OUT_B" | grep -qF 'no longer delivered'; then
+if grep -qF 'ORPHAN: scripts/check-ask-files.sh' <<<"$OUT_B" \
+  && grep -qF 'no longer delivered' <<<"$OUT_B"; then
   ok "arm (b): --refresh reports the stale copy (ORPHAN divergence line names the file + the C-2 reason)"
 else
   bad "arm (b): --refresh printed NO stale-copy report for $ASK_REL (silently ignored or re-delivered)"
 fi
-if printf '%s\n' "$OUT_B" | grep -qF "$ASK_REL (refreshed)"; then
+if grep -qF "$ASK_REL (refreshed)" <<<"$OUT_B"; then
   bad "arm (b): --refresh re-delivered $ASK_REL (the retired script came back on the refresh path)"
 else
   ok "arm (b): --refresh does NOT re-deliver $ASK_REL (no refresh of the retired script)"
@@ -174,7 +174,7 @@ fi
 rm -f /tmp/r3dg-stale-b.$$
 
 OUT_BD=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_BD" | grep -qF 'ORPHAN: scripts/check-ask-files.sh'; then
+if grep -qF 'ORPHAN: scripts/check-ask-files.sh' <<<"$OUT_BD"; then
   ok "arm (b): --refresh --dry-run prints the same report (read-only report, identical under --dry-run)"
 else
   bad "arm (b): --dry-run did not print the stale-copy report (dry-run output diverges from the real run)"
@@ -236,8 +236,8 @@ else
   # clause (script already on disk = prior opt-in) is exactly what must carry this arm.
   OUT_D=$( cd "$TD" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
 
-  if printf '%s\n' "$OUT_D" | grep -qF 'overwriting locally-modified file:' \
-    && printf '%s\n' "$OUT_D" | grep -qF "$PROBE_D"; then
+  if grep -qF 'overwriting locally-modified file:' <<<"$OUT_D" \
+    && grep -qF "$PROBE_D" <<<"$OUT_D"; then
     ok "arm (d): R1 warning printed for the diverged $SWEEP_REL on refresh (presence clause fired)"
   else
     bad "arm (d): NO warning for the diverged $SWEEP_REL (gated refresh mirror missing or presence clause broken)"
@@ -266,12 +266,12 @@ printf '{ "name":"dryrun","version":"0.0.0" }\n' > "$TE/package.json"
 OUT_E=$( cd "$TE" && bash "$REPO_ROOT/install.sh" ts-server --dry-run < /dev/null 2>&1 )
 # Vacuity guard first: the dry run DOES announce deliveries, so the absence below means
 # something (a bare absence-check on silent output would be a vacuous negative).
-if printf '%s\n' "$OUT_E" | grep -qF "[dry-run] would copy:"; then
+if grep -qF "[dry-run] would copy:" <<<"$OUT_E"; then
   ok "arm (e): dry-run announces copy deliveries at all (guard against a vacuous negative)"
 else
   bad "arm (e): dry-run announced NO would-copy lines — the negative below is vacuous"
 fi
-if printf '%s\n' "$OUT_E" | grep -qF "scripts/check-ask-files.sh"; then
+if grep -qF "scripts/check-ask-files.sh" <<<"$OUT_E"; then
   bad "arm (e): dry-run still announces the retired $ASK_REL delivery"
 else
   ok "arm (e): dry-run does NOT announce the retired $ASK_REL delivery"
@@ -283,7 +283,7 @@ else
 fi
 
 OUT_E2=$( cd "$TE" && bash "$REPO_ROOT/install.sh" ts-server --dry-run --with-aif-suite < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_E2" | grep -qF "[dry-run] would copy:" && printf '%s\n' "$OUT_E2" | grep -qF "scripts/run-local-ci-sweep.sh"; then
+if grep -qF "[dry-run] would copy:" <<<"$OUT_E2" && grep -qF "scripts/run-local-ci-sweep.sh" <<<"$OUT_E2"; then
   ok "arm (e): dry-run announces the run-local-ci-sweep delivery (would-copy line)"
 else
   bad "arm (e): dry-run does NOT announce the run-local-ci-sweep delivery"

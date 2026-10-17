@@ -2,31 +2,31 @@
  * Principle 39 — no framework-only orchestration home inside a shipped skill's fences
  *
  * > **Authoritative for:** the literal `.claude/orchestrator-prompts` never appearing inside a
- * > fenced code block of a git-tracked file under `.claude/skills/`, except via the same-line
+ * > fenced code block of a git-tracked file under `.agents/procedures/`, except via the same-line
  * > escape token or a declared allowlist entry below.
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists. Where the home
  * > actually resolves — that is `resolve_orch_home()` in
- * > `.claude/skills/pipeline/helpers/lib/common.sh`. The consumer-vs-framework namespace
+ * > `.agents/procedures/pipeline/helpers/lib/common.sh`. The consumer-vs-framework namespace
  * > decision itself — see `.claude/rules/dual-implementation-discipline.md` §3.
  *
  * ## Why this gate exists
  *
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
- * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:65-66,
+ * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
- * (`copy_skill_with_transform`, setup.d/lib.sh:879), so a fence that hardcodes the framework
+ * (`copy_skill_with_transform`, setup.d/lib.sh:2747), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
  * ends in `2>/dev/null` or a `[ -d "$dir" ] || exit 0` short-circuit.
  *
  * That is not hypothetical. Issue #1245 measured four live sites in
- * `.claude/skills/pipeline/SKILL.md`: the §0 integer-name guard was a no-op in every consumer
+ * `.agents/procedures/pipeline/SKILL.md`: the §0 integer-name guard was a no-op in every consumer
  * install, the §1 plan cache reported "no cache — fresh session" on every invocation, and the
  * §2.5 backlog delta was not merely empty but *confidently wrong* (every id classified
  * `NEW-SINCE-LAST`, `RESOLVED-SINCE-LAST` never firing). The helpers had already been fixed to
  * resolve the home (#1244) — so the two halves of `/pipeline` read and wrote different
  * directories, and nothing noticed.
  *
- * `transform_internal_refs` (setup.d/lib.sh:94) already rewrites the *markdown-link* shape of
+ * `transform_internal_refs` (setup.d/lib.sh:175) already rewrites the *markdown-link* shape of
  * this same literal on delivery. This gate is the executable-fence half of that pair: the half
  * no transform can fix, because a fence is a command, not a link.
  *
@@ -34,8 +34,8 @@
  *
  * "A literal appears inside a ``` fence" is mechanically detectable → gate, not injection.
  * A principle test is the earliest channel that actually fires for this population: the suite
- * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1267) and in CI
- * (`principles-meta-tests`, audit-self.yml:210).
+ * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:2334) and in CI
+ * (`principles-meta-tests`, audit-self.yml:329).
  *
  * ## Honest ceiling — the fence slice only
  *
@@ -55,8 +55,8 @@
  * since prose provenance mentions of the same literal must stay legal. Its `codeFenced` /
  * `codeFlowValue` fence-scoping vocabulary is ADOPTED.
  *
- * Note what is NOT the reason: `markdownlint-cli2` is already a devDependency (package.json:19)
- * run at .husky/pre-commit:92, so "it would add a dependency" would be false. The grounds are
+ * Note what is NOT the reason: `markdownlint-cli2` is already a root devDependency (package.json:21)
+ * run at .husky/pre-commit:127, so "it would add a dependency" would be false. The grounds are
  * that a custom micromark rule plus its own test surface exceeds ~40 LOC inside an existing
  * suite, and that the repo's markdownlint pass sees STAGED files only — it cannot make the
  * population-wide claim of arm (a) nor carry arm (e)'s shrink-only allowlist ratchet. If this
@@ -83,8 +83,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { resolve, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -111,7 +111,7 @@ const MIN_RATIONALE = 20;
  */
 export const NON_EXECUTABLE_FIXTURES = new Map<string, string>([
   [
-    '.claude/skills/pipeline/evals/files/scenario-1-noarg-state.md',
+    '.agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md',
     'captured helper output from a framework-repo run — an expected-value transcript, not an instruction to execute',
   ],
 ]);
@@ -123,7 +123,7 @@ export const NON_EXECUTABLE_FIXTURES = new Map<string, string>([
  * hit, so a fixed file MUST be deleted from here. The list can only shrink.
  *
  * Empty since the consumer-layout-probe-honesty L2 stage (issue 1414, 2026-09-02): the
- * `.claude/skills/dispatcher/SKILL.md` entry was discharged — the probe helper resolves the
+ * `.agents/procedures/dispatcher/SKILL.md` entry was discharged — the probe helper resolves the
  * orch home inline, §2.8's fence resolves it, and §2.1's framework-only line carries the
  * same-line escape. The mechanism stays (an empty Map) so future debts have a home.
  */
@@ -164,7 +164,7 @@ export function fenceHits(source: string): FenceHit[] {
   return hits;
 }
 
-/** Git-tracked markdown/template files under `.claude/skills/`. */
+/** Git-tracked markdown/template files under `.agents/procedures/`. */
 export function skillDocs(): string[] {
   const out = execFileSync(
     'git',
@@ -176,7 +176,17 @@ export function skillDocs(): string[] {
     ],
     { cwd: REPO_ROOT, encoding: 'utf8' },
   );
-  return out.split('\n').filter(Boolean);
+  // Preserve the operator-skill population while reading its canonical authored owners.
+  return [
+    ...new Set(
+      out
+        .split('\n')
+        .filter(Boolean)
+        .map((path) =>
+          relative(REPO_ROOT, realpathSync(resolve(REPO_ROOT, path))),
+        ),
+    ),
+  ];
 }
 
 /** Unescaped hits per file, with allowlisted files removed. */
@@ -195,7 +205,7 @@ export function violations(files: string[]): Map<string, FenceHit[]> {
 describe('Principle 39 — shipped skill fences never hardcode the framework orch-home', () => {
   const files = skillDocs();
 
-  it('(a) real-tree: no fenced line under .claude/skills/ names .claude/orchestrator-prompts', () => {
+  it('(a) real-tree: no fenced line under .agents/procedures/ names .claude/orchestrator-prompts', () => {
     const found = violations(files);
     const report = [...found].flatMap(([f, hs]) =>
       hs.map((h) => `  ${f}:${h.line}  ${h.text.trim()}`),
@@ -203,7 +213,7 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
     expect(
       report,
       `These fenced lines hardcode \`${FRAMEWORK_ORCH_HOME}\`, which no consumer install ever ` +
-        `receives (setup.d/lib.sh:65-66) — the fence runs against a directory that cannot exist:\n` +
+        `receives (setup.d/lib.sh:98-100) — the fence runs against a directory that cannot exist:\n` +
         report.join('\n') +
         `\n\nResolve the home instead: \`"$(bash "\${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"\`. ` +
         `If a fence genuinely must name the framework path, append a same-line ` +
@@ -217,7 +227,7 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
       `expected ≥10 tracked skill docs; got ${files.length}`,
     ).toBeGreaterThanOrEqual(10);
     expect(files, 'the /pipeline SKILL.md must be in the population').toContain(
-      '.claude/skills/pipeline/SKILL.md',
+      '.agents/procedures/pipeline/SKILL.md',
     );
     // A scanner that never enters a fence would make arm (a) pass for the wrong reason.
     const probe = fenceHits(
@@ -234,15 +244,16 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
   });
 
   it('(c) paired-negative (seeded hardcode): GREEN on the real file, RED when the literal is seeded back', () => {
-    const target = '.claude/skills/pipeline/SKILL.md';
+    const target = '.agents/procedures/pipeline/SKILL.md';
     const src = readFileSync(resolve(REPO_ROOT, target), 'utf8');
 
     // GREEN direction — the real, unmodified file.
     expect(fenceHits(src).filter((h) => h.rationale === null)).toEqual([]);
 
-    // RED direction — reinstate the exact §1 hardcode issue #1245 reported, in the real text.
+    // RED direction — replace the current cache-helper invocation with the §1 hardcode
+    // issue #1245 reported. The former inline head recipe moved behind this helper.
     const seeded = src.replace(
-      /^head -200 "\$\(bash .*print-orch-home\.sh.*$/m,
+      /^bash "\.agents\/procedures\/pipeline\/helpers\/read-plan-cache\.sh"$/m,
       'cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200',
     );
     expect(

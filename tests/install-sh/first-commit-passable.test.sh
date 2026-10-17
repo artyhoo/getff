@@ -215,20 +215,78 @@ if [ "$rc_f4" -eq 0 ] && [ -f "$FF4/tests/setup.ts" ] && [ "$notes_f4" -eq 0 ]; 
 else
   bad "arm-f4: setup exists=$([ -f "$FF4/tests/setup.ts" ] && echo yes || echo no), notes=$notes_f4, rc=$rc_f4"
 fi
-# f3: JSONC tsconfig (// comment) → fail-OPEN: delivered, no note, exit 0.
+# f5: a whole-tree GLOB include (`**/*.ts` — the tsc --init / create-next-app family) covers
+# tests/setup.ts as surely as a `tests/**` entry does (Q4.5 layout class, 2026-09-28: the
+# own-config consumer-matrix cell measured «Cannot find module tests/setup.ts» on react-next and
+# react-spa because only entries STARTING with "tests" were recognised). Paired negatives: a
+# whole-tree glob for another extension, and a glob rooted in another directory, do not cover it.
+f5_arm() { # $1 = name, $2 = include JSON array, $3 = want (delivered|skipped)
+  local d="$SCRATCH/arm-f5-$1" out rc notes have
+  seed_fixture "$d"
+  printf '{ "compilerOptions": { "strict": true }, "include": %s }\n' "$2" > "$d/tsconfig.json"
+  out=$(run_install ts-server "$d"); rc=$?
+  notes=$(printf '%s\n' "$out" | grep -c 'tests/setup.ts NOT delivered' || true)
+  have=skipped; [ -f "$d/tests/setup.ts" ] && have=delivered
+  if [ "$rc" -eq 0 ] && [ "$have" = "$3" ] && { [ "$3" = skipped ] || [ "$notes" -eq 0 ]; }; then
+    ok "arm-f5 ($1): include $2 → setup $3"
+  else
+    bad "arm-f5 ($1): include $2 → setup $have (wanted $3), notes=$notes, rc=$rc"
+  fi
+}
+f5_arm whole-tree '["**/*.ts", "**/*.tsx", "**/*.mts"]' delivered
+f5_arm dot-slash '["./**/*"]' delivered
+f5_arm tsx-only '["**/*.tsx"]' skipped
+f5_arm other-root '["lib/**/*.ts"]' skipped
+# f3: JSONC tsconfig (// comment) is READ, not skipped (P2 G3/F10, 2026-09-29): tsconfig files are
+# JSONC by definition (create-vite's tsconfig.app.json carries /* */ section comments), and the old
+# fail-open read every commented config as «covered» — include ["src/**/*"] here covers no tests/.
 FF3="$SCRATCH/arm-f3"
 seed_fixture "$FF3"
 cat > "$FF3/tsconfig.json" <<'JSONC'
 // tsc --init style comment
-{ "compilerOptions": { "strict": true }, "include": ["src/**/*"] }
+{ "compilerOptions": { "strict": true, /* trailing */ }, "include": ["src/**/*",], }
 JSONC
 out_f3=$(run_install ts-server "$FF3"); rc_f3=$?
 notes_f3=$(printf '%s\n' "$out_f3" | grep -c 'tests/setup.ts NOT delivered' || true)
-if [ "$rc_f3" -eq 0 ] && [ -f "$FF3/tests/setup.ts" ] && [ "$notes_f3" -eq 0 ]; then
-  ok "arm-f3: JSONC tsconfig → fail-open (delivered, no note, exit 0)"
+if [ "$rc_f3" -eq 0 ] && [ ! -f "$FF3/tests/setup.ts" ] && [ "$notes_f3" -eq 1 ]; then
+  ok "arm-f3: JSONC tsconfig (comments, trailing commas) is read → include src/** → NOT delivered, one note"
 else
-  bad "arm-f3: fail-open broken — setup exists=$([ -f "$FF3/tests/setup.ts" ] && echo yes || echo no), notes=$notes_f3, rc=$rc_f3"
+  bad "arm-f3: setup exists=$([ -f "$FF3/tests/setup.ts" ] && echo yes || echo no), notes=$notes_f3, rc=$rc_f3"
 fi
+# f3b: a tsconfig that is not even JSONC → fail-OPEN: delivered, no note, exit 0 (never abort).
+FF3B="$SCRATCH/arm-f3b"
+seed_fixture "$FF3B"
+printf '{ "compilerOptions": { "strict": true, "include": [\n' > "$FF3B/tsconfig.json"
+out_f3b=$(run_install ts-server "$FF3B"); rc_f3b=$?
+notes_f3b=$(printf '%s\n' "$out_f3b" | grep -c 'tests/setup.ts NOT delivered' || true)
+if [ "$rc_f3b" -eq 0 ] && [ -f "$FF3B/tests/setup.ts" ] && [ "$notes_f3b" -eq 0 ]; then
+  ok "arm-f3b: unparsable tsconfig → fail-open (delivered, no note, exit 0)"
+else
+  bad "arm-f3b: fail-open broken — setup exists=$([ -f "$FF3B/tests/setup.ts" ] && echo yes || echo no), notes=$notes_f3b, rc=$rc_f3b"
+fi
+# f6: a SOLUTION tsconfig (`"files": []` + `"references"` — create-vite's shape) covers what its
+# referenced configs cover, and nothing by itself: TypeScript's include defaults to [] once
+# `files` is set. The old read took «no include key» as «whole tree» and shipped tests/setup.ts,
+# so the install's own first commit died on typed ESLint «was not found by the project service»
+# (measured 2026-09-29, P2 §13 probe 6). Paired: a referenced config (JSONC, directory form)
+# that includes tests/ → delivered.
+f6_arm() { # $1 = name, $2 = app include JSON array, $3 = want (delivered|skipped), $4 = files key
+  local d="$SCRATCH/arm-f6-$1" out rc notes have
+  seed_fixture "$d"
+  printf '{\n  "files": %s,\n  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./cfg/node" }]\n}\n' "${4:-[]}" > "$d/tsconfig.json"
+  printf '{\n  "compilerOptions": {\n    /* Bundler mode */\n    "jsx": "react-jsx",\n  },\n  "include": %s\n}\n' "$2" > "$d/tsconfig.app.json"
+  mkdir -p "$d/cfg/node"; printf '{ "include": ["vite.config.ts"] }\n' > "$d/cfg/node/tsconfig.json"
+  out=$(run_install ts-server "$d"); rc=$?
+  notes=$(printf '%s\n' "$out" | grep -c 'tests/setup.ts NOT delivered' || true)
+  have=skipped; [ -f "$d/tests/setup.ts" ] && have=delivered
+  if [ "$rc" -eq 0 ] && [ "$have" = "$3" ] && { { [ "$3" = delivered ] && [ "$notes" -eq 0 ]; } || { [ "$3" = skipped ] && [ "$notes" -eq 1 ]; }; }; then
+    ok "arm-f6 ($1): solution tsconfig, app include $2 → setup $3"
+  else
+    bad "arm-f6 ($1): app include $2 → setup $have (wanted $3), notes=$notes, rc=$rc"
+  fi
+}
+f6_arm vite '["src"]' skipped
+f6_arm app-covers-tests '["src", "tests"]' delivered
 
 # ── Arm (g): pnpm-workspace → per-package .lintstagedrc.json stubs carry the flag ────────
 # (propagation-by-construction: stubs are cp'd from the delivered root file at

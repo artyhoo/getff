@@ -321,7 +321,7 @@ describe('Principle 21 — agnosticism conformance', () => {
 });
 
 describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Option C)', () => {
-  const AGENTS_DIR = resolve(REPO_ROOT, 'agents');
+  const AGENTS_DIR = resolve(REPO_ROOT, '.agents/roles');
   const SETUP_AGENTS_SH = resolve(REPO_ROOT, 'setup.d/20-agents.sh');
   const INSTALL_SH = resolve(REPO_ROOT, 'install.sh');
 

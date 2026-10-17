@@ -10,7 +10,8 @@ vendored 2026-09-13 so a number in that table can be re-derived rather than trus
   presence, distribution over blocks and over whole messages).
 - `measure-interaction-shape.py` — turn-level classification (re-explain asks, handoff asks, bare
   confirmations, autonomy complaints, «жду го»-class agent waits, recap emissions and what follows
-  them).
+  them). `--dedup` counts a message once across transcripts (a resumed session copies
+  its messages); the numbers recorded below predate the flag and were read without it.
 - `measure-permission-denials.py` — real harness permission denials, ranked by tool-call prefix.
 
 All three are read-only over transcript files (stdlib only, no writes) and print a small
@@ -31,7 +32,7 @@ One row per spec-table claim, naming the script and the exact output key(s) it p
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | `measure-recap-len.py` | `blocks_over_15` / `blocks_over_25` (the % is `blocks_over_15 / blocks`) |
 | Whole-message lines p50 / p90 / max | 11 / 25 / 80 | `measure-recap-len.py` | `message_lines_p50` / `message_lines_p90` / `message_lines_max` |
 | Blocks containing a question | 6 % | `measure-recap-len.py` | `blocks_with_question_pct` (count in `blocks_with_question`) |
-| `## 🎬` story emissions | 166 | NONE — a one-off `grep -l` | no script, no key |
+| `## 🎬` story emissions (pre-D-G heading «Как это было»/«The story» — renamed 2026-09-21, see honesty note 1) | 166 | NONE — a one-off `grep -l` | no script, no key |
 
 ### Re-run 2026-09-13 (slice 0)
 
@@ -59,7 +60,7 @@ Run headers (verbatim):
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | 36 (2.1 %) / 5 | Absolute counts (`blocks_over_15`, `blocks_over_25`) unchanged even though total `blocks` grew by 111; the percentage drifted only because its denominator grew. Not a mapping concern. |
 | Whole-message lines p50 / p90 / max | 11 / 25 / 80 | 11 / 25 / 80 | Unchanged. |
 | Blocks containing a question | 6 % | 6 % | Unchanged (`blocks_with_question: 111` of 1718, same ratio). |
-| `## 🎬` story emissions | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
+| `## 🎬` story emissions (pre-D-G heading; renamed 2026-09-21 — see honesty note 1) | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
 
 **Finding (OPEN) — the two `mapping inferred` rows are not yet settled.** Both moved more than
 the evidence-backed `agent_wait_phrases` row (+4.1%), which reads as the mapping being loose.
@@ -95,6 +96,10 @@ Two honesty notes on this table:
    transcripts at authoring time and is the one number in the spec table that this slice does
    NOT make re-derivable. Do not invent a command that "would" produce it — if it needs to become
    re-derivable, that is a follow-up task, not something to retrofit into this README.
+   The `## 🎬` heading itself was renamed by plain-words-recap-v2 D-G (2026-09-21): the
+   baseline figures counted the old heading («Как это было» / «The story»); a post-rename
+   re-run must grep the new literal («Что изменилось за сессию» / «What changed this session»)
+   and is NOT comparable to the 166 baseline.
 2. **Evidence-backed vs inferred mappings.** The 636 mapping (`agent_wait_phrases`) is
    evidence-backed: the `ASKC` regex at `measure-interaction-shape.py:51-57` is literally the
    «жду го» vocabulary (`жду твоего`, `дай го`, `твой клик`, `решай ты`, `GO оператора`, …), so
@@ -176,3 +181,31 @@ a zero-match run emits the five-key header plus only `transcripts_scanned`, `ses
 `blocks`, `marker` and the window/min_size pair — never the percentile or question-count keys.
 That mirrors the vendored original's behaviour and is a known, deferred minor; it is not a bug to
 fix as part of this doc.
+
+## 7. `measure-recap-sentences.py` (added 2026-09-21)
+
+A fourth script, behind the Measurements table of
+`docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md` — not the 2026-09-13 spec's
+table above. Words per sentence inside the recap block, blocks over N words, block line counts,
+and how often a `CONTEXT.md` term (or its `_Operator says_` word, or an `_Avoid_` phrase) appears
+in a block with or without the inline `Term (explanation)` form. The sentence and word
+definitions are in its docstring and are the ones that spec proposes for the hook, so changing
+them means re-running and re-citing that spec's numbers (§5 applies). Not covered by
+`measure.test.sh` yet — the fixtures carry no new-format block.
+
+## 8. `measure-term-reasks.py` (added 2026-09-22)
+
+Design-time evidence for revision 2 of
+`docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md` (D8): how often the operator
+asks what a glossary word means, and whether he asks about the same word twice. Read-only,
+stdlib only. A hit is a short user message carrying both an ask phrase and a stem of a glossary
+word; every hit is printed, because a message that merely uses a word next to «объясни» is a hit
+too — treat the counts as an upper bound and read the list.
+
+```bash
+python3 scripts/measure/measure-term-reasks.py
+```
+
+`measure-recap-sentences.py` gained `--since YYYY-MM-DD` the same day: its population is every
+transcript ever written, so a percentage falls as history grows; a before/after comparison must
+window the blocks by message date (UTC).

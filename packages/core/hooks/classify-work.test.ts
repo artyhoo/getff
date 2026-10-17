@@ -35,7 +35,7 @@ import { join, resolve } from 'node:path';
 const REPO_ROOT = resolve(__dirname, '../../..');
 const HELPER = join(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/classify-work.sh',
+  '.agents/procedures/pipeline/helpers/classify-work.sh',
 );
 
 function run(arg: string | null) {

@@ -26,6 +26,12 @@ Three verdict classes exist and every finding MUST land in exactly one:
 A fourth outcome is legitimate and must be reported when true: `BY-DESIGN` — the delta
 exists deliberately (profile tiering, factory-internal artefact). `BY-DESIGN` requires a
 citation to the artefact that declares the intent, not the auditor's inference.
+A citation counts only after `bash scripts/cited-spec-addenda.sh <path>:<line>` has run on it
+and its `VERDICT:` line is recorded next to the citation: `CLEAN` stands; `AMENDED` means every
+listed later commit and addendum heading was read and none withdraws the cited intent (if one
+does, the class is whatever the addendum names — usually `NOT-BUILT`); `INCONCLUSIVE` cannot
+carry `BY-DESIGN` ([doc-authority-hierarchy.md §4.1](../../rules/doc-authority-hierarchy.md);
+the 2026-09-08 near-miss is the handoff-currency spec's D18/D20, withdrawn in PR #1675).
 
 ## §1 Why this umbrella exists (measured, not asserted)
 

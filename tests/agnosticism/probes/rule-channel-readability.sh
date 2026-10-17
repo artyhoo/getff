@@ -40,7 +40,7 @@ GEN="$REPO_ROOT/scripts/render-rule-channels.mjs"
 #      Principles job's `npm ci --prefix packages/core` lands it here (NOT root).
 #   2. root node_modules/.bin/tsx — where a hoisted local dev checkout puts it instead.
 #   3. `node --import tsx/esm` — Node's OWN upward module resolution, the same mechanism
-#      .husky/pre-push:28 already depends on to decide whether it can run the TS-core hook.
+#      .husky/pre-push:44 already depends on to decide whether it can run the TS-core hook.
 #      This is what reaches a git worktree under .claude/worktrees/<name>/ whose node_modules
 #      symlinks were never provisioned: node walks up and finds the primary checkout's
 #      install. Steps 1+2 both miss there, and without this step the probe reported a FAKE

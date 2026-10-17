@@ -69,8 +69,8 @@ were both reviewer-catch, not gate-catch.
    `bash scripts/build-getff-dist.sh` → then re-run the sweep. **Measure the drift BEFORE each
    capture.** A derived path that no edit in the diff explains is a STOP, not a reason to capture
    and close the red.
-5. **Every vitest run is `PC_LOCAL=1 npx vitest run …`.** `pc-run npx vitest` once reported 79
-   phantom failures against an identical tree.
+5. **Run vitest bare (`npx vitest run …`): it goes to the PC with the git context and deps.** A bare
+   `PC_LOCAL=1` is ignored; keeping a run on the Mac needs `PC_LOCAL_WHY='<20+ chars>'` too.
 6. **Merge-forward, never rebase or force-push.** Force-push is permission-classifier-blocked for
    agents in every form; [`git-conflict-merge-forward.md`](../../rules/git-conflict-merge-forward.md)
    is the recipe. Generated artefacts that conflict are **regenerated from the merged source tree
@@ -82,7 +82,7 @@ were both reviewer-catch, not gate-catch.
    ([`pr-body-fidelity.ts:121`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) opens `declaresProvenance()`; the line-by-line filtering is in its body, `:127-133`) and any
    surviving line classifies the PR as a factory stage PR, which forbids `FIDELITY: skipped`.
    Authoring narrative goes in `## Summary`. Validate before pushing:
-   `PC_LOCAL=1 BASE_REF=staging HEAD_SHA=<sha> PR_BODY="$(cat body.md)" npx tsx packages/core/hooks/checks/pr-body-fidelity-bin.ts`.
+   `PC_LOCAL=1 PC_LOCAL_WHY='BASE_REF HEAD_SHA PR_BODY do not travel to the PC' BASE_REF=staging HEAD_SHA=<sha> PR_BODY="$(cat body.md)" npx tsx packages/core/hooks/checks/pr-body-fidelity-bin.ts`.
    Never batch a body edit with `gh pr create`; a PR-body gate is never `rerun` — edit the body to
    raise a NEW event.
 8. **CI:** one Bash call with `timeout: 600000` running `~/.claude/scripts/ci-wait.sh <PR> --repo artyhoo/getff`.
@@ -279,15 +279,15 @@ Before opening the PR, every stage runs and pastes the output of:
 bash .claude/hooks/lang/check-parity.sh
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 bash scripts/build-getff-dist.sh --check
-PC_LOCAL=1 npx vitest run packages/core/hooks/ --testTimeout=90000
-PC_LOCAL=1 npx vitest run packages/core/principles/ --testTimeout=90000
+npx vitest run packages/core/hooks/ --testTimeout=90000
+npx vitest run packages/core/principles/ --testTimeout=90000
 bash tests/install-sh/gh-934-ship-eot-hook.test.sh
 bash scripts/register-root-resolution.test.sh
-PC_LOCAL=1 make self-audit
+make self-audit
 ```
 
-`make self-audit` without `PC_LOCAL=1` is routed to the PC, where the mirror is not a proper git
-repo and it exits 2 on `fatal: not a git repository` — that is the harness, not your change.
+`make self-audit` runs on the PC with the Mac's git context and the CI tool pins. Keep a run on the Mac
+only for a real reason — a `[pc] … NOT RUN`/fallback line, or env vars it needs (only argv travels to the PC): `PC_LOCAL=1 PC_LOCAL_WHY='<that reason>'`.
 **Principle 11 F1 — do not inherit the folklore; the root cause was fixed under this branch.**
 Two facts, both measured on 2026-09-14, and the second supersedes the first.
 
@@ -307,7 +307,7 @@ Two facts, both measured on 2026-09-14, and the second supersedes the first.
    after it, **3.54 s for 22/22** on this host at load average 16.
 
 **What this means for a stage.** An F1 red is now a **finding first**, not a load artifact. Re-run
-it alone (`PC_LOCAL=1 npx vitest run packages/core/principles/11-build-first-reuse-default.test.ts
+it alone (`npx vitest run packages/core/principles/11-build-first-reuse-default.test.ts
 --no-file-parallelism`); if it is still over 30 s with nothing else running, the capability index
 has regressed and that belongs in the PR body.
 

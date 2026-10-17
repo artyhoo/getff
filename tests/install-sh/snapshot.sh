@@ -25,6 +25,41 @@ set -euo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 BASELINE_DIR="${BASELINE_DIR:-$REPO_ROOT/tests/install-sh/baselines}"
 MODE="${SNAPSHOT_MODE:-}"
+# The python lane writes .mcp.json, and deepwiki lands there only when this machine lacks it at user
+# scope (lib.sh getff_deepwiki_machine_wide asks `claude mcp get deepwiki`). Pin the probe so a
+# baseline captured on a machine that has deepwiki compares equal on CI, which has no claude CLI.
+export GETFF_DEEPWIKI_MACHINE_WIDE=0
+# The install records how the project checks itself (setup.d/99-finalize.sh), and
+# check-doc-links.sh is armed only where lychee is on PATH. CI has no lychee, and a Mac with
+# Homebrew often does, so hide it: each PATH entry that holds a lychee is replaced by a copy of that
+# entry, made of symlinks, without it. Then a baseline captured on either machine compares equal.
+# The python lane's record (setup.d/45-python.sh _py_record_project_checks) is tool-truthed the same
+# way: its three check lines read «not wired: <tool> is not on PATH» exactly when ast-grep / ruff are
+# absent — and tool-decisions.md IS fingerprinted. Hide the two tools the record's own probes look
+# for (`command -v ast-grep` / `command -v ruff`, the hook's view) so a baseline captured on a
+# tool-equipped host compares equal on a bare CI runner, as lychee's does.
+SNAPSHOT_TOOL_SHADOW=$(mktemp -d "${TMPDIR:-/tmp}/snapshot-path.XXXXXX")
+trap 'rm -rf "$SNAPSHOT_TOOL_SHADOW"' EXIT
+_hermetic_path="" _n=0
+_old_ifs=$IFS; IFS=:
+for _d in $PATH; do
+  _hide=""
+  # literal list, NOT a space-separated variable: IFS is ":" inside this loop, so an unquoted
+  # variable would not split and the hide-set would silently degrade to one bogus entry.
+  for _t in lychee ast-grep ruff; do [ -e "$_d/$_t" ] && _hide=1; done
+  if [ -n "$_d" ] && [ -n "$_hide" ]; then
+    _n=$((_n + 1)); mkdir -p "$SNAPSHOT_TOOL_SHADOW/$_n"
+    for _f in "$_d"/*; do
+      case "${_f##*/}" in lychee|ast-grep|ruff) continue ;; esac
+      ln -s "$_f" "$SNAPSHOT_TOOL_SHADOW/$_n/"
+    done
+    _d="$SNAPSHOT_TOOL_SHADOW/$_n"
+  fi
+  _hermetic_path="${_hermetic_path:+$_hermetic_path:}$_d"
+done
+IFS=$_old_ifs
+export PATH="$_hermetic_path"
+unset _hermetic_path _n _old_ifs _d _f
 
 if [ -z "$MODE" ]; then
   echo "ERROR: SNAPSHOT_MODE must be set to 'capture' or 'compare'" >&2
@@ -32,7 +67,8 @@ if [ -z "$MODE" ]; then
 fi
 
 # compute_fingerprint <dir>
-# Produces a sorted list of "hash  relative-path" lines for all files under <dir>,
+# Produces sorted "hash  relative-path" file lines and "link  path -> target"
+# identities under <dir>. Links are never followed, including external/broken links.
 # excluding .git and node_modules. Uses sha256sum or md5/md5sum for portability.
 compute_fingerprint() {
   local dir="$1"
@@ -52,7 +88,7 @@ compute_fingerprint() {
   # Cargo.lints.toml / getff-cargo.yml, still fingerprint; gated by cargo-entry-lane.test.sh).
   # The go lane's two non-deterministic outputs are excluded for the SAME reason (adapter-jig J3):
   # the timestamped .getff-go-install.log audit trail, and rules-lock.go.json.
-  find "$dir" -type f \
+  find "$dir" \( -type f -o -type l \) \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
     -not -name '.getff-python-install.log' \
@@ -63,7 +99,14 @@ compute_fingerprint() {
     -not -name 'rules-lock.go.json' \
     | sort \
     | while IFS= read -r f; do
-        local h
+        local h target
+        if [ -L "$f" ]; then
+          # Record native entry identity without following a broken/external
+          # target. Hashing resolved bytes would swallow an equal-byte swap.
+          target=$(readlink "$f")
+          printf 'link  %s -> %s\n' "${f#"$dir/"}" "$target"
+          continue
+        fi
         if command -v sha256sum >/dev/null 2>&1; then
           h=$(sha256sum "$f" | awk '{print $1}')
         elif command -v shasum >/dev/null 2>&1; then

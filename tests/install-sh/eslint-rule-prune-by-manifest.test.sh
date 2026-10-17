@@ -73,7 +73,7 @@ else
 fi
 # neg (LOAD-BEARING): the run must actually have reached the barrel generator — otherwise
 # survival proves only that the prune never ran.
-if [ -f "$TC1/$RL_DIR/index.mjs" ] && printf '%s\n' "$OUT_1" | grep -qF "$RL_DIR"; then
+if [ -f "$TC1/$RL_DIR/index.mjs" ] && grep -qF "$RL_DIR" <<<"$OUT_1"; then
   ok "arm 1 neg: the re-install did regenerate the barrel (the prune pass ran and chose to keep)"
 else
   bad "arm 1 neg: no barrel activity in this run — arm 1 is vacuous"
@@ -106,7 +106,7 @@ if [ ! -e "$TC2/$RL_DIR/$STRAY.ts" ] && [ ! -e "$TC2/$RL_DIR/$STRAY.mjs" ]; then
 else
   bad "arm 2: the pristine stray [$STRAY] survived — the cross-stack prune regressed"
 fi
-if printf '%s\n' "$OUT_2" | grep -qF "pruned stale rule [$STRAY]"; then
+if grep -qF "pruned stale rule [$STRAY]" <<<"$OUT_2"; then
   ok "arm 2: the prune announced itself for [$STRAY]"
 else
   bad "arm 2: no prune line for [$STRAY] in the output"

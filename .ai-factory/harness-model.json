@@ -2,9 +2,6 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
-      },
-      {
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/deps-hash-check.sh\""
       }
     ],
@@ -16,6 +13,14 @@
       {
         "matcher": "Agent|Task",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-context.sh\""
+      },
+      {
+        "matcher": "Bash",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/seal-primary-checkout.sh\""
       }
     ],
     "PostToolUse": [
@@ -28,7 +33,7 @@
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority.sh\""
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|Read",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
       },
       {
@@ -50,6 +55,10 @@
       {
         "matcher": "Write",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh\""
+      },
+      {
+        "matcher": "Bash",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/close-aif-task-on-merge.sh\""
       }
     ],
     "PostToolUseFailure": [
@@ -80,6 +89,14 @@
       {
         "matcher": "compact",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh\""
+      },
+      {
+        "matcher": "compact",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
       }
     ],
     "PreCompact": [

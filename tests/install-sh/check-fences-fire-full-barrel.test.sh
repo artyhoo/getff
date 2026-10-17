@@ -15,12 +15,12 @@
 # ARMS:
 #   (full)    install react-next into a mktemp fixture (real install.sh run), symlink a
 #             node_modules tree, run the INSTALLED scripts/check-fences-fire.sh via its
-#             consumer self-resolution path → MUST exit 0 with PASS=3 FAIL=0 and R12 ACTIVE.
+#             consumer self-resolution path → MUST exit 0 with PASS=6 FAIL=0 and R12 ACTIVE.
 #   (teeth)   neuter the R12 rule inside the installed barrel (same named export, create()
 #             that never reports) → gate MUST exit non-zero with FENCE SILENT for R12.
 #             Proves arm (full) is non-vacuous: a dead R12 cannot slip through as PASS.
 #   (partial) install ts-server → R12 fixture must be ABSENT from the installed tree
-#             (barrel-filtered by 40-configs.sh) and the gate MUST exit 0 with PASS=2 —
+#             (barrel-filtered by 40-configs.sh) and the gate MUST exit 0 with PASS=5 —
 #             a partial-barrel stack is not false-RED.
 #
 # SKIP condition: tsx or eslint not resolvable (same graceful-degrade as the gate itself).
@@ -85,11 +85,11 @@ else
   FULL_OUT=$( cd "$FIXTURE_NEXT" && bash scripts/check-fences-fire.sh 2>&1 )
   FULL_RC=$?
   if [ "$FULL_RC" -eq 0 ] \
-     && echo "$FULL_OUT" | grep -q 'PASS=3 FAIL=0' \
-     && echo "$FULL_OUT" | grep -q '\[no-server-imports-in-client\].*ACTIVE'; then
-    ok "(full) react-next FULL barrel: gate exits 0, PASS=3 FAIL=0, R12 no-server-imports-in-client ACTIVE"
+     && grep -q 'PASS=6 FAIL=0' <<<"$FULL_OUT" \
+     && grep -q '\[no-server-imports-in-client\].*ACTIVE' <<<"$FULL_OUT"; then
+    ok "(full) react-next FULL barrel: gate exits 0, PASS=6 FAIL=0, R12 no-server-imports-in-client ACTIVE"
   else
-    bad "(full) react-next FULL barrel: expected rc=0 + PASS=3 + R12 ACTIVE, got rc=$FULL_RC"
+    bad "(full) react-next FULL barrel: expected rc=0 + PASS=6 + R12 ACTIVE, got rc=$FULL_RC"
     echo "    gate output: $(echo "$FULL_OUT" | tail -8 | tr '\n' '|')"
   fi
 
@@ -102,7 +102,7 @@ export const noServerImportsInClient = { meta: { type: 'problem', schema: [] }, 
 EOF
   TEETH_OUT=$( cd "$FIXTURE_NEXT" && bash scripts/check-fences-fire.sh 2>&1 )
   TEETH_RC=$?
-  if [ "$TEETH_RC" -ne 0 ] && echo "$TEETH_OUT" | grep -q 'FENCE SILENT.*no-server-imports-in-client'; then
+  if [ "$TEETH_RC" -ne 0 ] && grep -q 'FENCE SILENT.*no-server-imports-in-client' <<<"$TEETH_OUT"; then
     ok "(teeth) neutered R12 in installed barrel → gate exits non-zero with FENCE SILENT — arm (full) is non-vacuous"
   else
     bad "(teeth) neutered R12: expected rc!=0 + FENCE SILENT for no-server-imports-in-client, got rc=$TEETH_RC"
@@ -124,10 +124,10 @@ else
   ln -sf "$NM_SRC" "$FIXTURE_TS/node_modules"
   PART_OUT=$( cd "$FIXTURE_TS" && bash scripts/check-fences-fire.sh 2>&1 )
   PART_RC=$?
-  if [ "$PART_RC" -eq 0 ] && echo "$PART_OUT" | grep -q 'PASS=2 FAIL=0'; then
-    ok "(partial) ts-server partial barrel: gate exits 0 with PASS=2 FAIL=0 — no false-RED on a stack without R12"
+  if [ "$PART_RC" -eq 0 ] && grep -q 'PASS=5 FAIL=0' <<<"$PART_OUT"; then
+    ok "(partial) ts-server partial barrel: gate exits 0 with PASS=5 FAIL=0 — no false-RED on a stack without R12"
   else
-    bad "(partial) ts-server partial barrel: expected rc=0 + PASS=2 FAIL=0, got rc=$PART_RC"
+    bad "(partial) ts-server partial barrel: expected rc=0 + PASS=5 FAIL=0, got rc=$PART_RC"
     echo "    gate output: $(echo "$PART_OUT" | tail -8 | tr '\n' '|')"
   fi
 fi

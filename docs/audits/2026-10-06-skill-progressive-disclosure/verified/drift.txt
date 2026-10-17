@@ -1,0 +1,12 @@
+=== Skill drift check: broken internal refs ===
+OK: no broken refs.
+
+=== Skill drift check: frontmatter completeness ===
+OK: all skill/agent files have name: and description: frontmatter.
+
+=== Skill drift check: invocation-channel contract ===
+OK: every disable-model-invocation carrier states the invocation-channel contract.
+
+check-skill-drift: PASS (0 errors)
+
+=== Skill drift check: trigger-overlap inventory (WARN only) ===

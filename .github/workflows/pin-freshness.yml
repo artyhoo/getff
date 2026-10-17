@@ -1,0 +1,122 @@
+name: pin-freshness
+
+# R22 — the ONE detector for «the published site is not what `main` says»
+# (docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md «Pin mechanism»,
+# :115): daily, compare the LIVE served pin manifest (`verified-at` — the SHA the landing
+# build stamped per D8b/FD11) against `origin/main`, and go red when the site is more than
+# 24 h behind. One detector covering all three failure shapes: a promote that never
+# dispatched (notify-landing.yml failed or never fired), a dispatch that never fired, and a
+# landing build that went red.
+#
+# RED-UNTIL-THE-LANDING-SERVES-THE-MANIFEST IS THE DESIGNED STATE: `curl -f` fails on the
+# 404/5xx the site returns today (no manifest exists yet), so this workflow runs red from
+# merge until the landing half ships its manifest endpoint. That is surfaced honestly, not
+# suppressed — it is also the daily proof the detector's fetch path works. After the S2
+# cutover (whose live gate curls the same `/docs/manifest.json`) a fetch failure is no
+# longer "designed": it is the missed-dispatch / broken-landing signal R22 exists for.
+#
+# Verdict table (the 24 h staleness budget, R22):
+#   served == origin/main                      → PASS
+#   curl fails / no usable `verified-at` field → FAIL (fail-closed — a crashed detector must
+#                                                never read as clean)
+#   served ∉ ancestors(origin/main)            → FAIL (pin points outside main's history)
+#   served ancestor, age < 24 h                → NOTICE (`::warning::`, exit 0)
+#   served ancestor, age ≥ 24 h                → FAIL (`::error::`, exit 1)
+# Age is measured from the served SHA's own commit time — the freshest claim the site can
+# make about itself; no timestamp field is required of the manifest.
+#
+# `fetch-depth: 0` IS LOAD-BEARING here (same BU-5 shape as the audit-self `docs-refresh`
+# job): the ancestry arm (`git merge-base --is-ancestor`) and the served SHA's commit date
+# both need real history — a depth-1 checkout makes the arm unanswerable and would turn
+# divergence into a false FAIL or, worse, invite someone to drop the arm.
+#
+# GitHub runs `schedule` and `workflow_dispatch` from the DEFAULT branch only — which is
+# exactly the branch this detector measures (`main`). `workflow_dispatch` is the manual
+# probe arm for rehearsal and post-incident checks (same flag as notify-landing.yml).
+# No LLM, no paid calls (no-paid-llm-in-ci.md); deterministic shell + node built-ins only.
+
+on:
+  schedule:
+    - cron: '43 5 * * *' # daily, 05:43 UTC — off the :00/:30 congestion band, clear of metrics-collect (06:17) and link-checker (Mon 05:38)
+  workflow_dispatch: {} # manual probe / rehearsal arm
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pin-freshness
+  cancel-in-progress: false
+
+jobs:
+  freshness:
+    name: served manifest verified-at vs origin/main (R22, 24 h budget)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # The path R22 names (roll.md R22) and the S2 live gate probes (`/docs/manifest.json`
+      # returns 200 with `verified-at`). A different path here 404s forever after cutover and
+      # the designed pre-cutover RED would mask it.
+      MANIFEST_URL: https://getff.ai/docs/manifest.json
+      STALE_BUDGET_HOURS: '24'
+    steps:
+      - name: Check out framework history (fetch-depth 0 — the ancestry arm needs it)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compare the live manifest against origin/main
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_sha="$(git rev-parse origin/main)"
+          echo "pin-freshness: framework origin/main = ${main_sha}"
+
+          # Fail-closed fetch: a 404 (the landing does not serve the manifest yet) or any
+          # transport error is a RED, never a skip. (rc captured before the branch — under
+          # `if ! curl`, $? would report the negation's status, not curl's.)
+          curl_rc=0
+          curl -fsSL --max-time 60 --retry 2 "$MANIFEST_URL" \
+            -o "$RUNNER_TEMP/pin-manifest.json" || curl_rc=$?
+          if [ "$curl_rc" -ne 0 ]; then
+            echo "::error::pin-freshness: FAIL — could not fetch ${MANIFEST_URL} (curl rc=${curl_rc}). Before the S2 cutover this is expected (the landing does not serve the manifest yet); after it, this is the broken-landing / missed-dispatch signal R22 exists for."
+            exit 1
+          fi
+
+          served_sha="$(node -e '
+            const fs = require("node:fs");
+            let m;
+            try { m = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+            catch (e) {
+              console.error("pin-freshness: FAIL — manifest is not valid JSON: " + e.message);
+              process.exit(2);
+            }
+            const sha = m["verified-at"] ?? (m.framework && m.framework["verified-at"]);
+            if (typeof sha !== "string" || !/^[0-9a-f]{40}$/.test(sha)) {
+              console.error("pin-freshness: FAIL — " + process.env.MANIFEST_URL + " carries no usable verified-at SHA (found: " + JSON.stringify(sha) + "); expected the D8b/FD11 field: verified-at = 40-hex framework sha");
+              process.exit(2);
+            }
+            process.stdout.write(sha);
+          ' "$RUNNER_TEMP/pin-manifest.json")"
+          echo "pin-freshness: served manifest verifies at ${served_sha}"
+
+          if [ "$served_sha" = "$main_sha" ]; then
+            echo "pin-freshness: PASS — the published site verifies at origin/main (${main_sha})"
+            exit 0
+          fi
+
+          if ! git merge-base --is-ancestor "$served_sha" "$main_sha"; then
+            echo "::error::pin-freshness: FAIL — served verified-at ${served_sha} is NOT an ancestor of origin/main ${main_sha}. The published site was built from something main does not contain (pre-cutover pin, or a misresolved framework.pin)."
+            exit 1
+          fi
+
+          served_epoch="$(git show -s --format=%ct "$served_sha")"
+          now_epoch="$(date +%s)"
+          age_hours=$(( (now_epoch - served_epoch) / 3600 ))
+          if [ "$age_hours" -ge "$STALE_BUDGET_HOURS" ]; then
+            echo "::error::pin-freshness: FAIL — the published site verifies at ${served_sha:0:12}, ${age_hours} h behind origin/main ${main_sha:0:12} (budget ${STALE_BUDGET_HOURS} h, R22). One of: a promote that never dispatched, a dispatch that never fired, or a red landing build."
+            exit 1
+          fi
+
+          echo "::warning::pin-freshness: NOTICE — the published site verifies at ${served_sha:0:12}, ${age_hours} h behind origin/main (within the ${STALE_BUDGET_HOURS} h budget); the promote→dispatch→deploy chain is in flight."
+          exit 0

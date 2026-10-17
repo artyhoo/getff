@@ -1,0 +1,319 @@
+{
+ "frontmatter": "byte-identical all four",
+ "sections": {
+  "harvest": [
+   {
+    "section": "## \u00a70 Invocation",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/harvest/SKILL.md",
+     ".claude/skills/harvest/references/history.md"
+    ],
+    "rewritten_or_absent": [
+     "> **\u26a1 aif environment rule:** on ANY aif environment symptom (container on wrong branch, push rejected, capaci"
+    ]
+   },
+   {
+    "section": "## \u00a71 \u2014 Egress (push the committed work, never the dirty tree) {#egress}",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/harvest/references/egress.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a72 \u2014 Cross-stage integration (parallel branches touching shared files)",
+    "paragraphs": 1,
+    "preserved_owners": [],
+    "rewritten_or_absent": [
+     "When two parallel aif branches edited the same file: blob-compare each side's fork-base vs the live remote bas"
+    ]
+   },
+   {
+    "section": "## \u00a73 \u2014 Sweep gate (before push)",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/harvest/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a74 \u2014 Cold-review + fidelity + PR",
+    "paragraphs": 7,
+    "preserved_owners": [
+     ".claude/skills/harvest/references/fidelity.md",
+     ".claude/skills/harvest/references/publication-and-closure.md"
+    ],
+    "rewritten_or_absent": [
+     "**Unattended runs:** the standing authorization for dispatching the cold subagents in steps 1-2 and for openin"
+    ]
+   },
+   {
+    "section": "## Without this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/harvest/references/history.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## With this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/harvest/references/history.md"
+    ],
+    "rewritten_or_absent": []
+   }
+  ],
+  "claude-glm-executor-handoff": [
+   {
+    "section": "## \u00a70 When this fires (and when it does NOT)",
+    "paragraphs": 5,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a71 GLM facts (verified against the GLM-5.2 spec card, source-grounded)",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/references/model-facts.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a72 Input contract for the GLM edge",
+    "paragraphs": 5,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_or_absent": [
+     "```text\n<task>         one atomic objective, single verb, single deliverable\n<context>      only what THIS ste"
+    ]
+   },
+   {
+    "section": "## \u00a73 Status translation (GLM reply \u2192 orchestrator REPORT)",
+    "paragraphs": 3,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a74 Recovery protocol",
+    "paragraphs": 6,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a75 Honest gaps \u2014 designed-not-proven",
+    "paragraphs": 3,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/references/acceptance-gaps.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Without this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## With this skill",
+    "paragraphs": 1,
+    "preserved_owners": [],
+    "rewritten_or_absent": [
+     "The coordinator writes the dispatch prompt in the 6-block contract with explicit tool names, an iteration cap,"
+    ]
+   },
+   {
+    "section": "## See also",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/claude-glm-executor-handoff/references/acceptance-gaps.md"
+    ],
+    "rewritten_or_absent": []
+   }
+  ],
+  "getff": [
+   {
+    "section": "## When this skill is relevant",
+    "paragraphs": 2,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## The five layers",
+    "paragraphs": 7,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Where to dig in",
+    "paragraphs": 2,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Templates ready to copy",
+    "paragraphs": 2,
+    "preserved_owners": [
+     "skills/getff/references/template-catalog.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Workflow when applying this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Verification protocol \u2014 apply before publishing any config",
+    "paragraphs": 3,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Without this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## With this skill",
+    "paragraphs": 1,
+    "preserved_owners": [
+     "skills/getff/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Universal AI angle",
+    "paragraphs": 3,
+    "preserved_owners": [
+     "skills/getff/references/framework-context.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Glossary of key terms",
+    "paragraphs": 1,
+    "preserved_owners": [
+     "skills/getff/references/framework-context.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Connecting to broader practice",
+    "paragraphs": 3,
+    "preserved_owners": [
+     "skills/getff/references/framework-context.md"
+    ],
+    "rewritten_or_absent": []
+   }
+  ],
+  "self-reflection": [
+   {
+    "section": "## Why this skill exists",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## When this skill is relevant",
+    "paragraphs": 4,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Output contract",
+    "paragraphs": 8,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/SKILL.md",
+     ".claude/skills/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a71.7 forward checklist (summary)",
+    "paragraphs": 2,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a71.7 backward checklist (summary)",
+    "paragraphs": 2,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Self-reflection prompts (post-close, retro time)",
+    "paragraphs": 2,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/references/retro-prompts.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## Anti-patterns",
+    "paragraphs": 3,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/references/retro-prompts.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## \u00a71.7 enforcement layers",
+    "paragraphs": 3,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## How this skill itself complies with \u00a71.7",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/references/origin-and-enforcement.md"
+    ],
+    "rewritten_or_absent": []
+   },
+   {
+    "section": "## See also",
+    "paragraphs": 1,
+    "preserved_owners": [
+     ".claude/skills/self-reflection/SKILL.md"
+    ],
+    "rewritten_or_absent": []
+   }
+  ]
+ },
+ "verdict": "PASS"
+}

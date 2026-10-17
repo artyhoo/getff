@@ -78,7 +78,7 @@ else
   fi
   # neg (LOAD-BEARING): the same run must actually have refreshed the payload's framework files —
   # otherwise the survival above proves only that nothing happened.
-  if printf '%s\n' "$OUT_1" | grep -qF "$DIR_REL"; then
+  if grep -qF "$DIR_REL" <<<"$OUT_1"; then
     ok "arm 1 neg: the refresh run did touch the directory payload (survival is a real verdict)"
   else
     bad "arm 1 neg: no $DIR_REL activity in the refresh output — arm 1 is vacuous"
@@ -101,7 +101,7 @@ else
   SHA8_2=$(hash256 "$PROBE_2"); SHA8_2="${SHA8_2:0:8}"
   OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
 
-  if printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:' | grep -qF "$FW_FILE"; then
+  if grep -qF "$FW_FILE" <<<"$(printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:')"; then
     ok "arm 2: divergence warning printed for a modified file INSIDE a directory payload"
   else
     bad "arm 2: no divergence warning for $DIR_REL/$FW_FILE — the guard still exempts directory payloads"
@@ -131,7 +131,7 @@ MAN_3_BEFORE=$(mktemp)
 cp "$TC3/$MANIFEST_REL" "$MAN_3_BEFORE"
 printf 'CONSUMER_DIR_PAYLOAD_EDIT_ARM_3\n' > "$PROBE_3"
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_3" | grep -F 'would-flag:' | grep -qF "$FW_FILE"; then
+if grep -qF "$FW_FILE" <<<"$(printf '%s\n' "$OUT_3" | grep -F 'would-flag:')"; then
   ok "arm 3: --dry-run reports would-flag for a diverged file inside a directory payload"
 else
   bad "arm 3: --dry-run gave no would-flag for the directory payload (preview blind to the class)"
@@ -151,7 +151,7 @@ rm -rf "$TC3"
 
 TC3b=$(make_consumer)
 OUT_3b=$( cd "$TC3b" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_3b" | grep -F 'overwriting locally-modified file:' | grep -qF "$DIR_REL"; then
+if grep -qF "$DIR_REL" <<<"$(printf '%s\n' "$OUT_3b" | grep -F 'overwriting locally-modified file:')"; then
   bad "arm 3b: untouched consumer got divergence claims for the directory payload (first-refresh spam)"
 else
   ok "arm 3b: untouched consumer, refresh → ZERO divergence claims for the directory payload"

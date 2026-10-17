@@ -43,7 +43,7 @@ seed_out=$(
   echo "LAYER_COMPLETE"
 ) 2>&1
 
-if echo "$seed_out" | grep -q "LAYER_COMPLETE"; then
+if grep -q "LAYER_COMPLETE" <<<"$seed_out"; then
   ok "30-templates.sh sourced cleanly (LAYER_COMPLETE emitted)"
 else
   bad "30-templates.sh failed to source cleanly: $seed_out"
@@ -89,7 +89,7 @@ hook_status=$?
   || bad "deps-hash-check.sh exited $hook_status (must always exit 0)"
 
 # The "not yet baselined" path fires when stored hash is not sha256- (i.e. the <pending> sentinel)
-if echo "$hook_out" | grep -qi "not yet baselined"; then
+if grep -qi "not yet baselined" <<<"$hook_out"; then
   ok "deps-hash-check.sh fires 'not yet baselined' WARN (seed→detect chain live)"
 else
   bad "deps-hash-check.sh did NOT emit 'not yet baselined' WARN — chain broken"
@@ -97,7 +97,7 @@ else
 fi
 
 # Verify it does NOT emit the "deps changed" message (reserved for real drift, not pending state)
-if echo "$hook_out" | grep -qi "deps changed"; then
+if grep -qi "deps changed" <<<"$hook_out"; then
   bad "deps-hash-check.sh emitted 'deps changed' for a <pending> state — wrong message path"
 else
   ok "deps-hash-check.sh correctly uses 'not yet baselined' path (not 'deps changed') for pending state"
@@ -115,7 +115,7 @@ cp "$DECISIONS" "$PYDIR/.ai-factory/tool-decisions.md"
 printf '[tool.poetry.dependencies]\nflask = "^2.0"\n' > "$PYDIR/pyproject.toml"
 
 py_out=$(cd "$PYDIR" && bash "$HOOK" 2>&1) || true
-if echo "$py_out" | grep -qi "not yet baselined"; then
+if grep -qi "not yet baselined" <<<"$py_out"; then
   ok "python-seed: pyproject-only consumer fires 'not yet baselined' (deps-hash-python: <pending> seeded)"
 else
   bad "python-seed: pyproject-only consumer did NOT fire 'not yet baselined' — python seed→detect chain broken"
@@ -135,7 +135,7 @@ cp "$DECISIONS" "$CARGODIR/.ai-factory/tool-decisions.md"
 printf '[dependencies]\nserde = "1.0"\n' > "$CARGODIR/Cargo.toml"
 
 cargo_out=$(cd "$CARGODIR" && bash "$HOOK" 2>&1) || true
-if echo "$cargo_out" | grep -qi "not yet baselined"; then
+if grep -qi "not yet baselined" <<<"$cargo_out"; then
   ok "cargo-seed: Cargo.toml-only consumer fires 'not yet baselined' (deps-hash-cargo: <pending> seeded)"
 else
   bad "cargo-seed: Cargo.toml-only consumer did NOT fire 'not yet baselined' — deps-hash-cargo missing from seed template (fresh-install parity gap with python/JS)"

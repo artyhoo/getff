@@ -1,0 +1,224 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" deps-hash-check \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion|request_user_input|request_user_input_async",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" ask-question-reminder \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-matching-rule \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" seal-primary-checkout \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|apply_patch|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" validate-prompt \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|apply_patch|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" check-doc-authority \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|apply_patch|Write|Read|Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-matching-rule \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|apply_patch|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" check-kickoff-traps \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|apply_patch|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" check-hook-marker \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Write|apply_patch|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" runtime-bridge-dispatch \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|apply_patch|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" check-worker-dispatch-channel \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-memory-codification \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" close-aif-task-on-merge \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 0; fi; node \"$runtime\" end-of-turn-reminder \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-subagent-digest \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" warn-subagent-report \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" link-coordination \"$root\"; fi",
+            "timeout": 360
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-handoff-on-compact \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-matching-rule \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" inject-session-bootstrap \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\"; if [ -f \"$root/.ai-factory/harness-model.json\" ]; then runtime=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}/runtime/scripts/codex-hook-adapter.mjs\"; if [ ! -f \"$runtime\" ] || [ ! -f \"$(dirname \"$runtime\")/lib/is-main-entry.mjs\" ] || [ ! -f \"$(dirname \"$runtime\")/../plugin/hooks/lib/hook-language.sh\" ]; then echo \"getff Codex: missing packaged contributor runtime; refresh getff-contributor from its source checkout\" >&2; exit 2; fi; node \"$runtime\" precompact-residue \"$root\"; fi",
+            "timeout": 45
+          }
+        ]
+      }
+    ]
+  }
+}

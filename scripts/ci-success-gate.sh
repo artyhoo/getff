@@ -27,6 +27,17 @@
 # event) is legitimately skipped, not failed. `failure` and `cancelled` fail the
 # gate. Zero args is a misconfiguration (no needs wired) → fail loudly.
 #
+# PATH SCOPE — `skipped` is OK only when the skip was DECIDED. The install-area jobs
+# are `if:`-gated on the `path-scope` job's output (scripts/ci-path-scope.sh), so for
+# them a `skipped` result is legitimate only when that output said `false`. When the
+# caller sets PATH_SCOPE_INSTALL (the `path-scope` output) and PATH_SCOPED_RESULTS (the
+# results of the jobs gated on it), this script also fails when:
+#   - PATH_SCOPE_INSTALL is anything but `true` / `false` (the decision is missing — the
+#     path-scope job failed, was cancelled, or its output wiring broke), or
+#   - PATH_SCOPE_INSTALL is `true` and a gated job was nonetheless `skipped` (an `if:`
+#     that no longer reads the decision it claims to), or PATH_SCOPED_RESULTS is empty.
+# With PATH_SCOPE_INSTALL unset the check is off (the pre-path-scope contract).
+#
 # Args: one job-result token per needed job (success | failure | cancelled | skipped).
 # Tested by scripts/ci-success-gate.test.sh (paired-negative).
 set -uo pipefail
@@ -46,6 +57,28 @@ for result in "$@"; do
       ;;
   esac
 done
+
+if [ -n "${PATH_SCOPE_INSTALL+x}" ]; then
+  case "$PATH_SCOPE_INSTALL" in
+    true)
+      if [ -z "${PATH_SCOPED_RESULTS:-}" ]; then
+        echo "::error::ci-success-gate: PATH_SCOPED_RESULTS is empty — the path-scoped jobs are not wired into this check"
+        fail=1
+      fi
+      for result in ${PATH_SCOPED_RESULTS:-}; do
+        if [ "$result" = skipped ]; then
+          echo "::error::ci-success-gate: path scope said the install-area jobs must run, but one was skipped"
+          fail=1
+        fi
+      done
+      ;;
+    false) echo "path scope: install-area jobs skipped by decision (scripts/ci-path-scope.sh)" ;;
+    *)
+      echo "::error::ci-success-gate: path scope produced no decision ('$PATH_SCOPE_INSTALL') — the path-scope job did not succeed"
+      fail=1
+      ;;
+  esac
+fi
 
 if [ "$fail" -eq 0 ]; then
   echo "✅ ci-success: all $# required jobs passed (or were legitimately skipped)"

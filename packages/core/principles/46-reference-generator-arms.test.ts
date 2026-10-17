@@ -24,7 +24,7 @@
  *
  * No paid LLM (no-paid-llm-in-ci.md): fs + regex + the generator's own deterministic modules.
  */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
   mkdtempSync,
@@ -48,6 +48,27 @@ const SCHEMA_DIR = join(REPO_ROOT, 'docs/site/reference/schema');
 const GOLD_FIXTURES = join(HERE, 'fixtures/reference-gold');
 
 const gen = async () => import(GEN);
+
+// One full reference build (file reads + git subprocesses, ~2 s alone) shared by every arm
+// that reads the live repo. Five arms used to rebuild it each, and under the pre-push
+// principles suite's default parallelism that ~10 s of duplicated work tipped arms B/C past
+// vitest's 5 s per-test default (measured 2026-09-21). The result is deep-frozen so an arm
+// that mutated it would throw instead of silently leaking state into a sibling arm.
+// The memo holds the PROMISE, not the value: a build that throws rejects it, and each of the
+// five arms re-awaits it and fails with the build's own error, while the arms that never read
+// the live build (A, D, G, D32) still run and report on their own.
+// Typed as whatever the untyped .mjs generator returns — the same type each arm got before.
+type Families = ReturnType<Awaited<ReturnType<typeof gen>>['buildAllFamilies']>;
+const deepFreeze = <T>(v: T): T => {
+  if (v && typeof v === 'object' && !Object.isFrozen(v)) {
+    Object.freeze(v);
+    for (const x of Object.values(v as object)) deepFreeze(x);
+  }
+  return v;
+};
+let liveBuild: Promise<Families> | undefined;
+const liveFamilies = (): Promise<Families> =>
+  (liveBuild ??= gen().then((g) => deepFreeze(g.buildAllFamilies(REPO_ROOT))));
 
 const FAMILY_IDS = [
   'A',
@@ -86,11 +107,17 @@ function absentEnums(
   return out;
 }
 
-/** Parse the 15 install fingerprints into {stack, lane, hash, path} rows (input class 5). */
+/** Parse the 15 install fingerprints into {stack, lane, hash, path} rows (input class 5). Link rows
+ * (canonical fingerprint format, `link  path -> target`) carry hash:null: the consumer path is
+ * PRESENT on the lane, but the bytes live at the canonical owner the target points at. */
 function fingerprintRows(root = REPO_ROOT) {
   const dir = join(root, 'tests/install-sh/baselines');
-  const rows: { stack: string; lane: string; hash: string; path: string }[] =
-    [];
+  const rows: {
+    stack: string;
+    lane: string;
+    hash: string | null;
+    path: string;
+  }[] = [];
   for (const stack of readdirSync(dir)) {
     for (const f of readdirSync(join(dir, stack))) {
       if (!f.endsWith('.fingerprint')) continue;
@@ -99,7 +126,12 @@ function fingerprintRows(root = REPO_ROOT) {
         '\n',
       )) {
         const m = line.match(/^([0-9a-f]{64})  (.+)$/);
-        if (m) rows.push({ stack, lane, hash: m[1], path: m[2] });
+        if (m) {
+          rows.push({ stack, lane, hash: m[1], path: m[2] });
+          continue;
+        }
+        const l = line.match(/^link  (.+?) -> (.+)$/);
+        if (l) rows.push({ stack, lane, hash: null, path: l[1] });
       }
     }
   }
@@ -168,6 +200,15 @@ function scaffold(root: string) {
 }
 
 describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
+  // Warm the build outside every per-test 5 s budget. The hook timeout covers the single
+  // build; vitest's 10 s hook default is the same order of magnitude as one loaded-runner
+  // build, so it is set explicitly. A rejection is NOT swallowed: it stays in the memo and
+  // fails each of the five arms that await it. The hook only declines to re-throw it,
+  // because a failing beforeAll would skip every arm in the file instead of the dependent ones.
+  beforeAll(async () => {
+    await liveFamilies().catch(() => undefined);
+  }, 60_000);
+
   it('the generator exists and exposes the arm-testable surface', async () => {
     const g = await gen();
     for (const fn of ['buildFamily', 'buildAllFamilies', 'familyDoc', 'run']) {
@@ -230,11 +271,54 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     }
   });
 
+  it.each(['.agents/rules', '.claude/rules'])(
+    'arm A: projects description links from %s to readable sheet targets',
+    async (sourceDir) => {
+      // Copying source-relative hrefs verbatim makes valid rule links fail from a deeper sheet.
+      const g = await gen();
+      const root = fixtureRoot('card-links');
+      const name = 'parity';
+      const entry = join(root, name);
+      const sheetDir = join(root, 'docs/site/reference/F1');
+      const targetDir = join(root, 'docs/meta-factory');
+      mkdirSync(entry, { recursive: true });
+      mkdirSync(sheetDir, { recursive: true });
+      mkdirSync(targetDir, { recursive: true });
+      writeFileSync(join(targetDir, 'census.md'), '# Census\n');
+      writeFileSync(join(targetDir, 'decisions.md'), '# Decisions\n');
+      const member = {
+        family: 'F1',
+        name,
+        kind: 'rule',
+        shipsTo: { tier: 'framework' },
+        source: { path: `${sourceDir}/parity.md`, line: 20 },
+        description:
+          '[census](../../docs/meta-factory/census.md#census) and ' +
+          '[decisions](../../docs/meta-factory/decisions.md?view=plain#decisions)',
+        extras: {},
+      };
+      const sourceBytes = JSON.stringify(member);
+      writeFileSync(join(entry, 'member.json'), sourceBytes);
+
+      const rendered = g.renderCardFence(root, name);
+      expect(rendered).toContain('[census](../../../meta-factory/census.md#census)');
+      expect(rendered).toContain(
+        '[decisions](../../../meta-factory/decisions.md?view=plain#decisions)',
+      );
+      const hrefs = [...rendered.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1]);
+      expect(hrefs).toHaveLength(2);
+      for (const href of hrefs) {
+        expect(existsSync(resolve(sheetDir, href.split(/[?#]/)[0]))).toBe(true);
+      }
+      expect(readFileSync(join(entry, 'member.json'), 'utf8')).toBe(sourceBytes);
+    },
+  );
+
   // ---- Arm B — schema validation (additionalProperties:false, no empty strings) ----
   it('arm B: every family doc validates against its draft-07 schema; no empty strings', async () => {
     const g = await gen();
     const ajv = new Ajv({ allErrors: true, strict: false });
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     for (const id of FAMILY_IDS) {
       const schemaPath = join(SCHEMA_DIR, `${id}.schema.json`);
       expect(
@@ -269,10 +353,27 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     }
   });
 
+  it('authored reference families cite canonical owners rather than native loaders', async () => {
+    const families = await liveFamilies();
+    for (const [id, owner] of Object.entries({
+      B: '.agents/procedures/', C: '.agents/roles/', D: '.agents/hooks/', F1: '.agents/rules/',
+    })) {
+      expect(families[id].length, `${id}: source population must be nonempty`).toBeGreaterThan(0);
+      for (const member of families[id]) {
+        // Native plugin boot glue has no shared hook body; it stays in the plugin family.
+        if (id === 'D' && !existsSync(join(REPO_ROOT, owner, `${member.name}.sh`))
+          && !existsSync(join(REPO_ROOT, owner, 'adapters/plugin', member.name))) continue;
+        expect(member.source.path, `${id}/${member.name}`).toMatch(new RegExp(`^${owner.replaceAll('.', '\\.')}`));
+      }
+    }
+    const check = families.F3.find((member: { name: string }) => member.name === 'check-ask-files.sh');
+    expect(check?.source.path).toBe('.agents/checks/check-ask-files.sh');
+  });
+
   // ---- Arm C — population ↔ cards 1:1, re-derived from §4, never from the output ----
   it('arm C: per family, the §4 population predicate re-derived independently equals the member set (both directions)', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const emitted = (id: string) =>
       families[id].map((m: { name: string }) => m.name).sort();
 
@@ -287,16 +388,16 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     // not repo members — a readdir here would make the population machine-dependent); outside
     // a git repo (synthetic fixtures) it falls back to readdir.
     const opSkillDirs = (): string[] => {
-      const abs = join(REPO_ROOT, '.claude/skills');
+      const abs = join(REPO_ROOT, '.agents/procedures');
       if (existsSync(join(REPO_ROOT, '.git'))) {
-        const out = execFileSync('git', ['ls-files', '.claude/skills'], {
+        const out = execFileSync('git', ['ls-files', '.agents/procedures'], {
           cwd: REPO_ROOT,
           encoding: 'utf8',
         });
         const dirs = new Set<string>();
         for (const line of out.split('\n')) {
           const parts = line.split('/');
-          if (parts[0] === '.claude' && parts[1] === 'skills' && parts[2])
+          if (parts[0] === '.agents' && parts[1] === 'procedures' && parts[2])
             dirs.add(parts[2]!);
         }
         return [...dirs]
@@ -308,8 +409,8 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       );
     };
     const opSkills = opSkillDirs();
-    const shipSkills = readdirSync(join(REPO_ROOT, 'skills')).filter((d) =>
-      existsSync(join(REPO_ROOT, 'skills', d, 'SKILL.md')),
+    const shipSkills = readdirSync(join(REPO_ROOT, '.agents/procedures')).filter((d) =>
+      existsSync(join(REPO_ROOT, '.agents/procedures', d, 'SKILL.md')),
     );
     const popB = [...new Set([...opSkills, ...shipSkills])].sort();
     expect(
@@ -331,7 +432,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     ).toEqual(popC);
 
     // D — .claude/hooks/*.sh stems ∪ plugin-only registered stems
-    const hookStems = readdirSync(join(REPO_ROOT, '.claude/hooks'))
+    const hookStems = readdirSync(join(REPO_ROOT, '.agents/hooks'))
       .filter((f) => f.endsWith('.sh'))
       .map((f) => f.replace(/\.sh$/, ''));
     const hooksJson = JSON.parse(
@@ -371,7 +472,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     ).toEqual(tpl.sort());
 
     // F.1 — rules minus the generated index (the same filter render-rule-index applies)
-    const ruleFiles = readdirSync(join(REPO_ROOT, '.claude/rules'))
+    const ruleFiles = readdirSync(join(REPO_ROOT, '.agents/rules'))
       .filter((f) => f.endsWith('.md') && f !== '00-rule-index.md')
       .map((f) => f.replace(/\.md$/, ''));
     expect(
@@ -487,7 +588,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
 
   it('arm C: absence tokens count per reason, printed and asserted; every token is enum-closed', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const counts: Record<string, number> = {};
     const walk = (id: string, v: unknown) => {
       if (Array.isArray(v)) return v.forEach((x) => walk(id, x));
@@ -999,9 +1100,9 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   // ---- Arm E — F.1 parity vs the committed rule index ----
   it('arm E: reference F.1 rows are identical to the 00-rule-index.md rows', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     const index = readFileSync(
-      join(REPO_ROOT, '.claude/rules/00-rule-index.md'),
+      join(REPO_ROOT, '.agents/rules/00-rule-index.md'),
       'utf8',
     );
     const indexRows = new Map<
@@ -1043,7 +1144,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       'the header table must be exported for the shared-gate contract',
     ).toBeTypeOf('object');
 
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = await liveFamilies();
     // Families whose description IS the header (A, D, F.3, H) are already header-gated by
     // construction: buildFamily threw if any member lacked it. So the backstop here asserts
     // the census⇒header implication directly on the live tree:
@@ -1242,7 +1343,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   it('arm G: the real advisory block at check-hook-marker.sh wires render-harness-config NOTHING (live Q1 proof)', async () => {
     const censusMod = await censusModule();
     const marker = readFileSync(
-      join(REPO_ROOT, '.claude/hooks/check-hook-marker.sh'),
+      join(REPO_ROOT, '.agents/hooks/check-hook-marker.sh'),
       'utf8',
     );
     const known = new Set(
