@@ -50,7 +50,9 @@ This procedure requires no global permission changes.
    currency, priority, dedup/classification and routing. Wait for each background helper's own
    END trailer or task-notification before interpreting output; header-only means still running.
    Live git/PR evidence overrides REPORT and cache. In named/top-N planning modes,
-   missing plan → write a stub, present it and halt until confirmed. A strategy tie goes to an advisor ask or the maintainer; at night stay parked.
+   reconcile verified factual drift automatically and re-check; F1 halts dependent decisions
+   only while drift remains unresolved. Missing plan → write a stub, present it and halt until
+   confirmed. A strategy tie goes to an advisor ask or the maintainer; at night stay parked.
 4. Before emitting a launch table or writing a meta-kickoff, read [launch](references/launch.md).
    Verify actual destination inputs and publish factory kickoffs to staging before dispatch.
 5. Before dispatch/review/transition, read [dispatch](references/dispatch.md) and apply its channel
