@@ -96,8 +96,11 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   `packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts:35` sets the
   60-character minimum quote, `:38` the 8192-byte digest cap, and `:93` the
   length floor it enforces per line.
-- The parent rule's own gate (principle 12) checks that every kickoff cites the
-  catalogue and enumerates which traps apply:
-  `packages/core/principles/12-ai-laziness-traps.test.ts:120`.
+- The parent rule's gate (principle 12) accepts any one of four citation forms for
+  each non-exempt kickoff; a bare rule citation is sufficient:
+  `packages/core/principles/12-ai-laziness-traps.test.ts:64` to `:76` (the four
+  arms) and `:191` to `:197` (the bare-citation positive). Enumeration and the
+  domain-specific extension remain review-time requirements, stated as kickoff
+  obligations in `.claude/rules/ai-laziness-traps.md:198` to `:204`.
 - The index row that grades this rule class `A` with the `always-on core` channel:
   `.claude/rules/00-rule-index.md:10`.

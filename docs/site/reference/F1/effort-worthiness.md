@@ -9,6 +9,13 @@ sources:
   - packages/core/hooks/checks/pr-body-fidelity.ts
   - .agents/rules/reviewer-discipline.md
   - packages/core/principles/31-rule-channel-declaration.ts
+  - packages/core/hooks/checks/pr-body-fidelity.test.ts
+  - .agents/procedures/dispatcher/SKILL.md
+  - .agents/procedures/night-mode/SKILL.md
+  - .agents/procedures/arch/SKILL.md
+  - .claude/skills/dispatcher/SKILL.md
+  - .claude/skills/night-mode/SKILL.md
+  - .claude/skills/arch/SKILL.md
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
@@ -54,13 +61,16 @@ what the learning-in-practice would have cost. Reversibility, not importance,
 sets the weight — cheap-to-undo work gets light process even when it matters,
 because a mistake can be reverted faster than a committee can meet.
 
+<!-- vale off -->
+<!-- vale-reason: the corrected wording is Root-pinned verbatim (PR2095 P05); the possessive PR's is part of the reviewed text, not a spelling slip -->
 The rule compresses the test into four questions, and grades its demands by
 layer: a one-line fix does not owe the same argument a shipped gate owes. The
 bulk of the file is a six-layer loop that turns the philosophy into concrete
-instruments, and one of those instruments is mechanical. A review finding that
-triggers a rework round must carry a `Failure-scenario:` line — the concrete
-input that flips the behaviour — and a deterministic check enforces that on
-opened findings:
+instruments, and one of those instruments is mechanical. A review finding
+that triggers a rework round must state a concrete `Failure-scenario:`. The
+current deterministic arm checks for that literal marker in recognized
+`BLOCKER`/`MAJOR` entries under the PR's `## Review findings` heading:
+<!-- vale on -->
 
 ```bash
 grep -n "FAILURE_SCENARIO_RE" packages/core/hooks/checks/pr-body-fidelity.ts | head -3
@@ -72,24 +82,21 @@ grep -n "FAILURE_SCENARIO_RE" packages/core/hooks/checks/pr-body-fidelity.ts | h
 176:        has = FAILURE_SCENARIO_RE.test(ls[j]);
 ```
 
-The regex at `:92` is the gate's detection; the hits at `:173` and `:176`
-are the `test()` sites that scan a graded finding and its continuation
-lines for the marker. The gate's honest scope is stated by the arm comment
-at `packages/core/hooks/checks/pr-body-fidelity.ts:161` — the deterministic
-half checks presence, not quality. A finding can satisfy the regex with a
-vague scenario; judging that is review work, not regex work.
+The regex at `:92` detects the literal marker; the `test()` sites at `:173`
+and `:176` scan a recognized finding and its continuation lines. The check
+does not require text after the colon, so even an empty marker can satisfy
+it. A concrete, substantive failure scenario remains the reviewer's
+obligation; the regex does not establish one.
 
-The `class` row is `C` and the channels row says `skill-embed(4)`: the rule is
-carried into four files as embedded summaries, so an agent meets the
-discipline at the moment it decides how much process to spend. The honest
-state of those four carriers at this base: the reviewer-discipline carrier is
-live — that file embeds the four-test card and states the rule's severity
-config — while the three skill files the other markers name carry no
-effort-worthiness embed at all. The companion channel-marker check passes a
-rule on any one live marker and reports the rest as diagnostics, so the rule
-reads green with three stale markers. This page records that state rather
-than smoothing it over; tidying the stale markers is maintenance outside this
-documentation batch.
+The `class` row is `C` and the channels row says `skill-embed(4)`: the rule
+has four declared carrier targets. At this base, reviewer-discipline is the
+one live target: it carries an effort-worthiness pointer and the severity
+config. The three named skill files contain no effort-worthiness anchor.
+The marker helper records reasons for those stale declarations, but the
+aggregate channel evaluator returns success with no reasons once any marker
+is live. Green therefore establishes at least one live target, not four.
+This page records that state; repairing the source declarations or embeds
+is maintenance outside this documentation batch.
 
 One more honest note, on the card above: its `description` row ends
 mid-sentence because the generated rule registry's one-line summary for this
@@ -118,17 +125,24 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   card, L2 precedent *recording* (not reliance), L3's mechanical skeleton,
   L4's budget-forces-an-ASK semantic, and L5's advisor judge.
 - The shipped L3 half: `packages/core/hooks/checks/pr-body-fidelity.ts` —
-  the requirement comment at `:36`, the regex at `:92`, and the
-  severity-contract arm at `:161` to `:176` (empty or absent fails; numbered
-  and table-shaped findings are exempted, per the nuance at `:69` to `:80`).
+  `:67` to `:92` recognizes bare, bullet, numbered and table-row
+  `BLOCKER`/`MAJOR` entry openers, while exact summary tallies are exempt.
+  The loop at `:165` to `:185` requires the literal `Failure-scenario:`
+  marker; it does not require a nonempty value. `MINOR` and `ESCALATED`
+  entries are outside this mechanical arm.
+- The paired grammar cases:
+  `packages/core/hooks/checks/pr-body-fidelity.test.ts:263` to `:279`
+  rejects numbered/table findings without the marker and accepts them with
+  it; `:251` to `:257` and `:293` to `:303` cover summary/grade exemptions.
 - The live carrier: `.claude/rules/reviewer-discipline.md:63` to `:64` (the
   embed and the four-test card pointer), with the L4 numbers config at `:103`
   and the rounds-only note at `:113`. The three stale markers name
   `.claude/skills/dispatcher/SKILL.md`, `.claude/skills/night-mode/SKILL.md`
   and `.claude/skills/arch/SKILL.md` — none contains the string.
-- The companion channel-marker check's pass-on-any-live semantics:
-  `packages/core/principles/31-rule-channel-declaration.ts` — a marker counts
-  when its artifact exists and contains the anchor string; non-live markers
-  become diagnostic reasons, and one live marker passes the rule.
+- The companion channel-marker check:
+  `packages/core/principles/31-rule-channel-declaration.ts:147` to `:179`
+  records stale-target reasons and succeeds on any live anchor. Its caller
+  at `:205` to `:209` discards those reasons on success, so a green
+  aggregate result is not an all-markers-live report.
 - The index row grading this rule class `C` with channels `skill-embed(4)`:
   `.claude/rules/00-rule-index.md:22`.

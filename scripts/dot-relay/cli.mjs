@@ -1517,23 +1517,48 @@ function saveSourceJournal(root, journal) {
   atomicWriteFsynced(sourceJournalPath(root, journal.id), JSON.stringify(journal));
 }
 
+// DOT-2087-F28 (Root amendment 2026-10-15): a published source is a PHYSICAL
+// fact — a regular file with exactly the expected byte count and SHA256. A
+// journal entry or a digest-shaped filename alone never proves publication.
+// A STATIC pre-existing symlink or other non-regular stand-in is rejected on
+// identity, without following it. This is lstat-then-read, NOT an atomic
+// no-follow descriptor: no guarantee is claimed against concurrent path
+// replacement between the two calls (explicit F28 review limitation).
+function verifyRegularExact(path, sha256, bytes) {
+  let st = null;
+  try { st = lstatSync(path); } catch { /* absent */ }
+  if (!st) return 'absent';
+  if (!st.isFile()) return 'nonregular';
+  const buf = readFileSync(path);
+  return buf.length === bytes && sha256OfBuffer(buf) === sha256 ? 'verified' : 'mismatch';
+}
+
+// Digest-named object state under the spool (F28 adoption decisions).
+function sourceObjectState(dir, sha256, bytes) {
+  const path = join(dir, `${sha256}.json`);
+  const state = verifyRegularExact(path, sha256, bytes);
+  return { state, path };
+}
+
 // A journal left mid-publication (crash between rename and journal commit)
 // is completed here: the intended digest in the PUBLISHING intent is the
 // authoritative expected value; the object or the retained part must match it
-// exactly, else the identity is conflicted, never guessed.
+// exactly as a REGULAR file, else the identity is conflicted, never guessed
+// and never completed through a symlinked stand-in.
 function recoverPublishingSource(root, journal) {
   const partPath = join(sourcesDir(root), `${journal.id}.part`);
   const target = join(sourcesDir(root), `${journal.publishing.sha256}.json`);
-  if (existsSync(target)) {
-    const buf = readFileSync(target);
-    if (buf.length !== journal.publishing.bytes || sha256OfBuffer(buf) !== journal.publishing.sha256) fail('SOURCE_PUBLISH_RECOVERY_CONFLICT');
-  } else if (existsSync(partPath)) {
-    const buf = readFileSync(partPath);
-    if (buf.length !== journal.publishing.bytes || sha256OfBuffer(buf) !== journal.publishing.sha256) fail('SOURCE_PUBLISH_RECOVERY_CONFLICT');
+  const targetState = verifyRegularExact(target, journal.publishing.sha256, journal.publishing.bytes);
+  if (targetState === 'verified') {
+    // object already physically correct — complete the journal only
+  } else if (targetState === 'absent') {
+    const partState = verifyRegularExact(partPath, journal.publishing.sha256, journal.publishing.bytes);
+    if (partState === 'absent') fail('SOURCE_PUBLISH_RECOVERY_LOST');
+    if (partState !== 'verified') fail('SOURCE_PUBLISH_RECOVERY_CONFLICT');
     renameSync(partPath, target);
     fsyncDir(sourcesDir(root));
   } else {
-    fail('SOURCE_PUBLISH_RECOVERY_LOST');
+    fail('SOURCE_PUBLISH_RECOVERY_CONFLICT');
   }
   journal.published = { sha256: journal.publishing.sha256, bytes: journal.publishing.bytes };
   journal.publishing = null;
@@ -1570,8 +1595,24 @@ function cmdSourcePut({ root, flags }) {
 
   if (journal.published) {
     if (!isFinal || sha !== journal.published.sha256 || bytes !== journal.published.bytes) fail('SOURCE_OFFSET_CONFLICT');
-    ok({ path: join(dir, `${journal.published.sha256}.json`), sha256: journal.published.sha256, bytes: journal.published.bytes });
+    // F28: the already-published fast path must not assert success from the
+    // journal alone — the physical object is verified, never the metadata.
+    const fast = sourceObjectState(dir, journal.published.sha256, journal.published.bytes);
+    if (fast.state !== 'verified') fail('SOURCE_PUBLISHED_OBJECT_CONFLICT');
+    ok({ path: fast.path, sha256: journal.published.sha256, bytes: journal.published.bytes });
   }
+
+  // F28 (cold finding F-1, 2026-10-15): the part's identity is settled BEFORE
+  // any following operation on it — create, stat, truncate, append, read or
+  // rename. A STATIC pre-existing non-regular stand-in (symlink, FIFO, …) is
+  // rejected on lstat identity without following it: the append would write
+  // through it outside sources, and the final rename would publish the
+  // stand-in itself as the digest object. Same lstat-then-act discipline and
+  // the same concurrent-replacement limitation as verifyRegularExact above;
+  // the stand-in and any journal evidence are retained untouched.
+  let partSt = null;
+  try { partSt = lstatSync(partPath); } catch { /* absent */ }
+  if (partSt && !partSt.isFile()) fail('SOURCE_PART_IDENTITY_CONFLICT');
 
   // ensure the part exists and shed any uncommitted crash suffix (R12)
   if (!existsSync(partPath)) writeFileSync(partPath, '', { encoding: 'utf8', mode: 0o600 });
@@ -1597,17 +1638,32 @@ function cmdSourcePut({ root, flags }) {
     const buf = readFileSync(partPath);
     const actualSha = sha256OfBuffer(buf);
     if (buf.length !== bytes || actualSha !== sha) fail('SOURCE_HASH_MISMATCH');
-    // PUBLISHING phase is committed BEFORE the rename; recovery completes it
-    journal.publishing = { sha256: sha, bytes };
-    saveSourceJournal(root, journal);
+    // commit the chunk record first (the bytes are physically in the part):
+    // on any conflict below, the journal evidence of exactly what was
+    // verified stays durable beside the retained part
+    journal.chunks.push({ offset, bytes: chunkBytes, sha256: sha256OfText(chunk) });
+    journal.committed_offset = offset + chunkBytes;
     const target = join(dir, `${sha}.json`);
-    if (!existsSync(target)) {
+    // F28: a pre-existing digest-named target is ADOPTED only when it is a
+    // regular file with exactly the verified bytes; anything else is a
+    // conflict — the verified part and the journal evidence are retained,
+    // the conflicting object is never overwritten, no success is claimed.
+    const tgt = sourceObjectState(dir, sha, bytes);
+    if (tgt.state === 'mismatch' || tgt.state === 'nonregular') {
+      saveSourceJournal(root, journal);
+      fail('SOURCE_PUBLISH_ADOPT_CONFLICT');
+    }
+    if (tgt.state === 'verified') {
+      // identical replay: the physically verified object stays untouched
+      try { unlinkSync(partPath); } catch { /* already gone */ }
+    } else {
+      // PUBLISHING phase is committed BEFORE the rename; recovery completes it
+      journal.publishing = { sha256: sha, bytes };
+      saveSourceJournal(root, journal);
       renameSync(partPath, target);
       fsyncDir(dir);
-    } else {
-      try { unlinkSync(partPath); } catch { /* already gone */ }
+      journal.publishing = null;
     }
-    journal.publishing = null;
     journal.published = { sha256: sha, bytes };
     saveSourceJournal(root, journal);
     ok({ path: target, sha256: sha, bytes });
@@ -1637,7 +1693,11 @@ function cmdSourceStatus({ root, flags }) {
   if (journal && journal.publishing) recoverPublishingSource(root, journal);
   if (journal && journal.published) {
     if (journal.published.sha256 !== sha || journal.published.bytes !== bytes) fail('SOURCE_IDENTITY_CONFLICT');
-    ok({ published: true, path: join(dir, `${sha}.json`), sha256: sha, bytes });
+    // F28: never assert verified publication from journal metadata alone —
+    // the object must physically exist as a regular file with exact bytes.
+    const obj = sourceObjectState(dir, sha, bytes);
+    if (obj.state !== 'verified') fail('SOURCE_PUBLISHED_OBJECT_CONFLICT');
+    ok({ published: true, path: obj.path, sha256: sha, bytes });
   }
   ok({ published: false, committed_offset: journal ? journal.committed_offset : 0 });
 }

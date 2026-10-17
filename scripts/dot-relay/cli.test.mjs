@@ -9,7 +9,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import {
   mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync,
-  existsSync, symlinkSync, readlinkSync, statSync, openSync, writeSync, closeSync,
+  existsSync, symlinkSync, readlinkSync, lstatSync, statSync, openSync, writeSync, closeSync,
   chmodSync, appendFileSync, renameSync, readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,8 +24,8 @@ const CLI = fileURLToPath(new URL('./cli.mjs', import.meta.url));
 const sha256Of = (s) => createHash('sha256').update(s).digest('hex');
 const sha40 = (s) => sha256Of(s).slice(0, 40);
 
-function cli(args, { cwd = tmpdir(), expectFail = false } = {}) {
-  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd });
+function cli(args, { cwd = tmpdir(), expectFail = false, timeout } = {}) {
+  const r = spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd, timeout });
   if (!expectFail && r.status !== 0) {
     throw new Error(`cli ${args.join(' ')} exited ${r.status}: ${r.stdout} ${r.stderr}`);
   }
@@ -1414,6 +1414,398 @@ test('source-put: unsafe id, gap offset and missing expectations are refused', (
   const noexpect = cli(['source-put', '--root', root, '--id', 'src-gap-1', '--offset', '0', '--chunk-json', JSON.stringify('x'), '--final', 'true'], { expectFail: true });
   assert.equal(noexpect.status, 2);
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------- F28
+// DOT-2087-F28 (Root amendment 2026-10-15): publication is a PHYSICAL fact.
+// A journal entry or a digest-shaped filename alone never proves it — every
+// success path (final adoption, identical replay, the already-published fast
+// path, interrupted-recovery completion and source-status) must hold a
+// REGULAR file with exactly the expected byte count and SHA256. A STATIC
+// pre-existing symlink is rejected on identity without following it; the
+// lstat-then-read pair carries NO concurrent-replacement guarantee (explicit
+// F28 review limitation, not a hardening program). Conflicts RETAIN the
+// verified part and journal evidence — never an overwrite, never a
+// manufactured success.
+
+test('F28: wrong-byte/wrong-size/symlink pre-existing digest target is SOURCE_PUBLISH_ADOPT_CONFLICT; part, journal and object retained', () => {
+  // wrong-BYTE target wearing the digest's name
+  const rootA = freshRoot();
+  const textA = 'f28-adopt-bytes';
+  const wholeA = sha256Of(textA);
+  const dirA = join(rootA, 'sources');
+  writeFileSync(join(dirA, `${wholeA}.json`), 'attacker-controlled-object');
+  const badA = cli(sourcePut(rootA, 'f28-adopt-a', { offset: 0, chunk: textA, final: true, sha256: wholeA, bytes: Buffer.byteLength(textA) }), { expectFail: true });
+  assert.ok(badA.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  // evidence retained: verified part bytes, journal without a published claim,
+  // conflicting object untouched — and no manufactured publication on status
+  assert.equal(readFileSync(join(dirA, 'f28-adopt-a.part'), 'utf8'), textA);
+  const jA = JSON.parse(readFileSync(join(dirA, 'f28-adopt-a.journal'), 'utf8'));
+  assert.equal(jA.published, null);
+  assert.equal(readFileSync(join(dirA, `${wholeA}.json`), 'utf8'), 'attacker-controlled-object');
+  const stA = cliJson(['source-status', '--root', rootA, '--id', 'f28-adopt-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))]);
+  assert.equal(stA.published, false);
+  rmSync(rootA, { recursive: true, force: true });
+
+  // wrong-SIZE target (different length) — same refusal class
+  const rootB = freshRoot();
+  const textB = 'f28-adopt-size';
+  const wholeB = sha256Of(textB);
+  const dirB = join(rootB, 'sources');
+  writeFileSync(join(dirB, `${wholeB}.json`), 'short');
+  const badB = cli(sourcePut(rootB, 'f28-adopt-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }), { expectFail: true });
+  assert.ok(badB.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  assert.equal(readFileSync(join(dirB, 'f28-adopt-b.part'), 'utf8'), textB);
+  assert.equal(readFileSync(join(dirB, `${wholeB}.json`), 'utf8'), 'short');
+  rmSync(rootB, { recursive: true, force: true });
+
+  // SYMLINK target identity: rejected on identity, without following or
+  // overwriting the link or its victim outside the spool
+  const rootC = freshRoot();
+  const textC = 'f28-adopt-symlink';
+  const wholeC = sha256Of(textC);
+  const dirC = join(rootC, 'sources');
+  writeFileSync(join(rootC, 'outside-secret'), 'do-not-follow-me');
+  symlinkSync(join(rootC, 'outside-secret'), join(dirC, `${wholeC}.json`));
+  const badC = cli(sourcePut(rootC, 'f28-adopt-c', { offset: 0, chunk: textC, final: true, sha256: wholeC, bytes: Buffer.byteLength(textC) }), { expectFail: true });
+  assert.ok(badC.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  assert.equal(readFileSync(join(rootC, 'outside-secret'), 'utf8'), 'do-not-follow-me'); // never followed/overwritten
+  assert.equal(readlinkSync(join(dirC, `${wholeC}.json`)), join(rootC, 'outside-secret')); // link itself retained, not replaced
+  rmSync(rootC, { recursive: true, force: true });
+
+  // DANGLING symlink target — same non-regular refusal
+  const rootD = freshRoot();
+  const textD = 'f28-adopt-dangling';
+  const wholeD = sha256Of(textD);
+  const dirD = join(rootD, 'sources');
+  symlinkSync(join(rootD, 'nowhere'), join(dirD, `${wholeD}.json`));
+  const badD = cli(sourcePut(rootD, 'f28-adopt-d', { offset: 0, chunk: textD, final: true, sha256: wholeD, bytes: Buffer.byteLength(textD) }), { expectFail: true });
+  assert.ok(badD.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  rmSync(rootD, { recursive: true, force: true });
+});
+
+test('F28: identical regular existing object is a successful replay with bytes and mtime untouched', () => {
+  const root = freshRoot();
+  const text = 'f28-replay-identical';
+  const whole = sha256Of(text);
+  const fin = cliJson(sourcePut(root, 'f28-replay', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  const p = join(root, 'sources', `${whole}.json`);
+  assert.equal(fin.path, p);
+  const before = statSync(p);
+  const again = cliJson(sourcePut(root, 'f28-replay', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  assert.equal(again.path, p);
+  assert.equal(again.sha256, whole);
+  const after = statSync(p);
+  assert.equal(after.mtimeMs, before.mtimeMs); // object untouched
+  assert.equal(after.size, before.size);
+  assert.equal(readFileSync(p, 'utf8'), text);
+  // the part is gone after replay (redundant once the object is verified)
+  assert.equal(existsSync(join(root, 'sources', 'f28-replay.part')), false);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-01 (Root be3d 2026-10-15): the conflict fixtures above fail on
+// byte SIZE at least as much as on digest — none isolates a wrong-DIGEST
+// target at provably EQUAL length. Here the impostor content keeps the byte
+// count identical, so the refusal can only come from the SHA comparison
+// itself (a size-only check would falsely adopt it).
+test('F28: equal-byte-length wrong-digest target is refused — part, journal and object retained', () => {
+  const root = freshRoot();
+  const text = 'f28-adopt-eqbytes';
+  const impostor = 'x28-adopt-eqbytes';
+  // both facts asserted BEFORE the CLI runs: equal length, different content
+  assert.equal(Buffer.byteLength(impostor), Buffer.byteLength(text));
+  assert.notEqual(impostor, text);
+  const whole = sha256Of(text);
+  const dir = join(root, 'sources');
+  writeFileSync(join(dir, `${whole}.json`), impostor);
+  const bad = cli(sourcePut(root, 'f28-adopt-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }), { expectFail: true });
+  assert.ok(bad.stdout.includes('SOURCE_PUBLISH_ADOPT_CONFLICT'));
+  // evidence retained: verified part bytes, journal without a published claim,
+  // conflicting same-length object untouched
+  assert.equal(readFileSync(join(dir, 'f28-adopt-eq.part'), 'utf8'), text);
+  const j = JSON.parse(readFileSync(join(dir, 'f28-adopt-eq.journal'), 'utf8'));
+  assert.equal(j.published, null);
+  assert.equal(readFileSync(join(dir, `${whole}.json`), 'utf8'), impostor);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-02 (Root be3d 2026-10-15): the same isolation for POSTPUBLICATION
+// tampering — genuinely equal-length different bytes replace a published
+// object, and BOTH source-status and a repeated final source-put must refuse
+// the fast path. Equal length is asserted first, so neither refusal can be a
+// size accident; the tampered object and the original journal identity stay
+// preserved.
+test('F28: equal-length postpublication tampering — status AND repeated final put refuse, tampered object preserved', () => {
+  const root = freshRoot();
+  const text = 'f28-hold-eqsize';
+  const tampered = 'g28-hold-eqsize';
+  assert.equal(Buffer.byteLength(tampered), Buffer.byteLength(text));
+  assert.notEqual(tampered, text);
+  const whole = sha256Of(text);
+  const p = join(root, 'sources', `${whole}.json`);
+  cliJson(sourcePut(root, 'f28-hold-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  writeFileSync(p, tampered);
+  const st = cli(['source-status', '--root', root, '--id', 'f28-hold-eq', '--sha256', whole, '--bytes', String(Buffer.byteLength(text))], { expectFail: true });
+  assert.ok(st.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  const put = cli(sourcePut(root, 'f28-hold-eq', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }), { expectFail: true });
+  assert.ok(put.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  // preserved state: tampered object untouched, journal keeps the original
+  // published identity, no part was recreated by the refused replay
+  assert.equal(readFileSync(p, 'utf8'), tampered);
+  const j = JSON.parse(readFileSync(join(root, 'sources', 'f28-hold-eq.journal'), 'utf8'));
+  assert.equal(j.published.sha256, whole);
+  assert.equal(j.published.bytes, Buffer.byteLength(text));
+  assert.equal(existsSync(join(root, 'sources', 'f28-hold-eq.part')), false);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// F28-ACCEPT-02 (Root be3d 2026-10-15): the positive neighbor. The existing
+// replay test above repeats the SAME id (journal-published fastpath); this
+// block breaks that aliasing — a FRESH upload id with NO published journal
+// finalizes onto a pre-existing physically correct target and must adopt it:
+// returned path/hash, its own DURABLE journal.published, part removal, and
+// the target's bytes/mtime untouched.
+test('F28: fresh upload id adopts a pre-existing physically correct target — durable journal, part removed, target untouched', () => {
+  const root = freshRoot();
+  const text = 'f28-adopt-fresh-existing';
+  const whole = sha256Of(text);
+  const dir = join(root, 'sources');
+  // the immutable object is published first under a DIFFERENT upload id
+  cliJson(sourcePut(root, 'f28-adopt-first', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  const p = join(dir, `${whole}.json`);
+  const before = statSync(p);
+  // a FRESH id with NO published journal finalizes onto the existing target
+  const fin = cliJson(sourcePut(root, 'f28-adopt-second', { offset: 0, chunk: text, final: true, sha256: whole, bytes: Buffer.byteLength(text) }));
+  assert.equal(fin.path, p);
+  assert.equal(fin.sha256, whole);
+  assert.equal(fin.bytes, Buffer.byteLength(text));
+  const j = JSON.parse(readFileSync(join(dir, 'f28-adopt-second.journal'), 'utf8'));
+  assert.equal(j.published.sha256, whole);
+  assert.equal(j.published.bytes, Buffer.byteLength(text));
+  assert.equal(j.publishing, null);
+  // the redundant part was removed; the target's bytes and mtime are unchanged
+  assert.equal(existsSync(join(dir, 'f28-adopt-second.part')), false);
+  const after = statSync(p);
+  assert.equal(after.mtimeMs, before.mtimeMs);
+  assert.equal(after.size, before.size);
+  assert.equal(readFileSync(p, 'utf8'), text);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('F28: journal-published but missing/corrupt/non-regular object — both status and repeated final put refuse verified success', () => {
+  const base = { chunk: 'f28-hold-', final: true };
+  // MISSING object
+  const rootA = freshRoot();
+  const textA = 'f28-hold-missing';
+  const wholeA = sha256Of(textA);
+  const pA = join(rootA, 'sources', `${wholeA}.json`);
+  cliJson(sourcePut(rootA, 'f28-hold-a', { offset: 0, chunk: textA, final: true, sha256: wholeA, bytes: Buffer.byteLength(textA) }));
+  rmSync(pA);
+  const putA = cli(sourcePut(rootA, 'f28-hold-a', { offset: 0, chunk: textA, final: true, sha256: wholeA, bytes: Buffer.byteLength(textA) }), { expectFail: true });
+  assert.ok(putA.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  const stA = cli(['source-status', '--root', rootA, '--id', 'f28-hold-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))], { expectFail: true });
+  assert.ok(stA.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  rmSync(rootA, { recursive: true, force: true });
+
+  // CORRUPT object (wrong bytes) and NON-REGULAR (symlinked) object
+  const rootB = freshRoot();
+  const textB = 'f28-hold-corrupt';
+  const wholeB = sha256Of(textB);
+  const pB = join(rootB, 'sources', `${wholeB}.json`);
+  cliJson(sourcePut(rootB, 'f28-hold-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }));
+  writeFileSync(pB, 'corrupted-after-publish');
+  const putB = cli(sourcePut(rootB, 'f28-hold-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }), { expectFail: true });
+  assert.ok(putB.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  const stB = cli(['source-status', '--root', rootB, '--id', 'f28-hold-b', '--sha256', wholeB, '--bytes', String(Buffer.byteLength(textB))], { expectFail: true });
+  assert.ok(stB.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  rmSync(pB);
+  writeFileSync(join(rootB, 'outside-victim'), 'symlink-target');
+  symlinkSync(join(rootB, 'outside-victim'), pB);
+  const stB2 = cli(['source-status', '--root', rootB, '--id', 'f28-hold-b', '--sha256', wholeB, '--bytes', String(Buffer.byteLength(textB))], { expectFail: true });
+  assert.ok(stB2.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  const putB2 = cli(sourcePut(rootB, 'f28-hold-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }), { expectFail: true });
+  assert.ok(putB2.stdout.includes('SOURCE_PUBLISHED_OBJECT_CONFLICT'));
+  assert.equal(readFileSync(join(rootB, 'outside-victim'), 'utf8'), 'symlink-target'); // never followed
+  rmSync(rootB, { recursive: true, force: true });
+});
+
+test('F28: interrupted publication recovery — valid part completes idempotently, mismatch retains evidence, symlinked part refused', () => {
+  const mkInterrupted = (root, id, text) => {
+    // committed chunk + a PUBLISHING intent that crashed before completion:
+    // the part holds the FULL verified bytes, the journal holds the intent
+    const whole = sha256Of(text);
+    const dir = join(root, 'sources');
+    writeFileSync(join(dir, `${id}.part`), text);
+    writeFileSync(join(dir, `${id}.journal`), JSON.stringify({
+      version: 1, id, committed_offset: Buffer.byteLength(text), chunks: [],
+      publishing: { sha256: whole, bytes: Buffer.byteLength(text) }, published: null,
+    }));
+    return whole;
+  };
+  // VALID interrupted recovery completes through source-status (idempotent)
+  const rootA = freshRoot();
+  const textA = 'f28-recover-valid';
+  const wholeA = mkInterrupted(rootA, 'f28-rec-a', textA);
+  const stA = cliJson(['source-status', '--root', rootA, '--id', 'f28-rec-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))]);
+  assert.equal(stA.published, true);
+  assert.equal(readFileSync(join(rootA, 'sources', `${wholeA}.json`), 'utf8'), textA);
+  // a second pass is an idempotent replay
+  const stA2 = cliJson(['source-status', '--root', rootA, '--id', 'f28-rec-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))]);
+  assert.equal(stA2.published, true);
+  rmSync(rootA, { recursive: true, force: true });
+
+  // CONFLICTING target during recovery: evidence retained, never overwritten
+  const rootB = freshRoot();
+  const textB = 'f28-recover-conflict';
+  const wholeB = mkInterrupted(rootB, 'f28-rec-b', textB);
+  writeFileSync(join(rootB, 'sources', `${wholeB}.json`), 'conflicting-target');
+  const badB = cli(['source-status', '--root', rootB, '--id', 'f28-rec-b', '--sha256', wholeB, '--bytes', String(Buffer.byteLength(textB))], { expectFail: true });
+  assert.ok(badB.stdout.includes('SOURCE_PUBLISH_RECOVERY_CONFLICT'));
+  assert.equal(readFileSync(join(rootB, 'sources', 'f28-rec-b.part'), 'utf8'), textB); // part retained
+  assert.equal(readFileSync(join(rootB, 'sources', `${wholeB}.json`), 'utf8'), 'conflicting-target'); // target untouched
+  rmSync(rootB, { recursive: true, force: true });
+
+  // SYMLINKED part: even with matching bytes behind the link, recovery must
+  // not rename a symlink into the published object path
+  const rootC = freshRoot();
+  const textC = 'f28-recover-partlink';
+  const wholeC = sha256Of(textC);
+  const dirC = join(rootC, 'sources');
+  writeFileSync(join(rootC, 'outside-part'), textC);
+  symlinkSync(join(rootC, 'outside-part'), join(dirC, 'f28-rec-c.part'));
+  writeFileSync(join(dirC, 'f28-rec-c.journal'), JSON.stringify({
+    version: 1, id: 'f28-rec-c', committed_offset: Buffer.byteLength(textC), chunks: [],
+    publishing: { sha256: wholeC, bytes: Buffer.byteLength(textC) }, published: null,
+  }));
+  const badC = cli(['source-status', '--root', rootC, '--id', 'f28-rec-c', '--sha256', wholeC, '--bytes', String(Buffer.byteLength(textC))], { expectFail: true });
+  assert.ok(badC.stdout.includes('SOURCE_PUBLISH_RECOVERY_CONFLICT'));
+  assert.equal(existsSync(join(dirC, `${wholeC}.json`)), false); // no symlink published
+  assert.equal(readFileSync(join(rootC, 'outside-part'), 'utf8'), textC);
+  rmSync(rootC, { recursive: true, force: true });
+
+  // LOST recovery (no target, no part) keeps its fixed refusal
+  const rootD = freshRoot();
+  const textD = 'f28-recover-lost';
+  const wholeD = sha256Of(textD);
+  writeFileSync(join(rootD, 'sources', 'f28-rec-d.journal'), JSON.stringify({
+    version: 1, id: 'f28-rec-d', committed_offset: Buffer.byteLength(textD), chunks: [],
+    publishing: { sha256: wholeD, bytes: Buffer.byteLength(textD) }, published: null,
+  }));
+  const badD = cli(['source-status', '--root', rootD, '--id', 'f28-rec-d', '--sha256', wholeD, '--bytes', String(Buffer.byteLength(textD))], { expectFail: true });
+  assert.ok(badD.stdout.includes('SOURCE_PUBLISH_RECOVERY_LOST'));
+  rmSync(rootD, { recursive: true, force: true });
+});
+
+// F28 cold finding F-1 (cold fidelity report 2026-10-15, REVISE Round 1 on
+// 16597bd2): normal final publication renamed the part without checking its
+// regular-file identity — the recovery path did (SOURCE_PUBLISH_RECOVERY_*),
+// the normal path did not. A STATIC sources/<id>.part symlink to an empty
+// ordinary file OUTSIDE sources survived every following operation:
+// existsSync/statSync/append/read all FOLLOWED it, so a final source-put at
+// offset 0 with a correct chunk/hash/byte count appended THROUGH the link
+// into the outside referent, verified the referent's bytes, renamed the LINK
+// into the digest path and recorded journal.published with ok:true — a
+// manufactured publication whose object is a symlink and whose data lives
+// outside the spool. The falsifier-named fix is one identity gate before all
+// following operations (create/stat/truncate/append/read/rename), the same
+// lstat-then-act discipline as verifyRegularExact: reject the stand-in
+// without following it, retain it as evidence, never write outside sources.
+test('F28 (cold F-1): static non-regular part stand-in rejected before any following operation — no outside write, no symlink publication', () => {
+  // A. the exact F-1 scenario: empty ordinary referent outside sources +
+  //    static fresh-id part symlink, no journal, no digest target; final
+  //    source-put at offset 0 with a nonempty valid chunk/hash/byte count.
+  //    Refusal must land BEFORE the append (referent stays empty), BEFORE the
+  //    rename (no digest object appears) and BEFORE any published-success
+  //    claim; the stand-in itself is retained as evidence.
+  const rootA = freshRoot();
+  const textA = 'f28-f1-primary';
+  const wholeA = sha256Of(textA);
+  const dirA = join(rootA, 'sources');
+  writeFileSync(join(rootA, 'outside-empty'), '');
+  symlinkSync(join(rootA, 'outside-empty'), join(dirA, 'f28-f1-a.part'));
+  const badA = cli(sourcePut(rootA, 'f28-f1-a', { offset: 0, chunk: textA, final: true, sha256: wholeA, bytes: Buffer.byteLength(textA) }), { expectFail: true });
+  assert.ok(badA.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(readFileSync(join(rootA, 'outside-empty'), 'utf8'), ''); // append never wrote through the link
+  assert.equal(existsSync(join(dirA, `${wholeA}.json`)), false); // no object published, symlink included
+  assert.equal(lstatSync(join(dirA, 'f28-f1-a.part')).isSymbolicLink(), true); // stand-in retained
+  assert.equal(readlinkSync(join(dirA, 'f28-f1-a.part')), join(rootA, 'outside-empty'));
+  assert.equal(existsSync(join(dirA, 'f28-f1-a.journal')), false); // no manufactured published claim
+  const stA = cliJson(['source-status', '--root', rootA, '--id', 'f28-f1-a', '--sha256', wholeA, '--bytes', String(Buffer.byteLength(textA))]);
+  assert.equal(stA.published, false);
+  rmSync(rootA, { recursive: true, force: true });
+
+  // B. DANGLING symlink stand-in: same refusal on identity, and the referent
+  //    outside sources is never CREATED through the dangling link (creating
+  //    it would itself be an outside write)
+  const rootB = freshRoot();
+  const textB = 'f28-f1-dangling';
+  const wholeB = sha256Of(textB);
+  const dirB = join(rootB, 'sources');
+  symlinkSync(join(rootB, 'nowhere-dangling'), join(dirB, 'f28-f1-b.part'));
+  const badB = cli(sourcePut(rootB, 'f28-f1-b', { offset: 0, chunk: textB, final: true, sha256: wholeB, bytes: Buffer.byteLength(textB) }), { expectFail: true });
+  assert.ok(badB.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(existsSync(join(rootB, 'nowhere-dangling')), false);
+  assert.equal(existsSync(join(dirB, `${wholeB}.json`)), false);
+  assert.equal(lstatSync(join(dirB, 'f28-f1-b.part')).isSymbolicLink(), true);
+  rmSync(rootB, { recursive: true, force: true });
+
+  // C. FIFO stand-in: non-regular AND unopenable for append without a reader
+  //    — the refusal must come from lstat identity alone, never from
+  //    attempting the append (which would block forever). The CLI call is
+  //    bounded by a timeout so a missing identity gate surfaces as a killed
+  //    hang, never a blocked test run.
+  const rootC = freshRoot();
+  const textC = 'f28-f1-fifo';
+  const wholeC = sha256Of(textC);
+  const dirC = join(rootC, 'sources');
+  execFileSync('mkfifo', [join(dirC, 'f28-f1-c.part')]);
+  const badC = cli(sourcePut(rootC, 'f28-f1-c', { offset: 0, chunk: textC, final: true, sha256: wholeC, bytes: Buffer.byteLength(textC) }), { expectFail: true, timeout: 5000 });
+  assert.ok(badC.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(existsSync(join(dirC, `${wholeC}.json`)), false);
+  assert.equal(lstatSync(join(dirC, 'f28-f1-c.part')).isFIFO(), true); // stand-in retained
+  rmSync(rootC, { recursive: true, force: true });
+
+  // D. the shared append boundary guards NON-FINAL chunks too: the same
+  //    static symlink must be refused before the append, with no outside
+  //    write and no chunk commit journaled
+  const rootD = freshRoot();
+  const dirD = join(rootD, 'sources');
+  writeFileSync(join(rootD, 'outside-nonfinal'), '');
+  symlinkSync(join(rootD, 'outside-nonfinal'), join(dirD, 'f28-f1-d.part'));
+  const badD = cli(sourcePut(rootD, 'f28-f1-d', { offset: 0, chunk: 'hello ', final: false }), { expectFail: true });
+  assert.ok(badD.stdout.includes('SOURCE_PART_IDENTITY_CONFLICT'));
+  assert.equal(readFileSync(join(rootD, 'outside-nonfinal'), 'utf8'), '');
+  assert.equal(existsSync(join(dirD, 'f28-f1-d.journal')), false);
+  rmSync(rootD, { recursive: true, force: true });
+
+  // E. positive neighbor: a pre-existing REGULAR part (prior non-final chunk)
+  //    passes the identity gate and continues to a final publication — the
+  //    guard must refuse non-regular stand-ins only, never the legit path
+  const rootE = freshRoot();
+  const prefixE = 'f28-f1-regular-';
+  const wholeE = sha256Of('f28-f1-regular-tail');
+  const dirE = join(rootE, 'sources');
+  cliJson(sourcePut(rootE, 'f28-f1-e', { offset: 0, chunk: prefixE, final: false }));
+  assert.equal(lstatSync(join(dirE, 'f28-f1-e.part')).isFile(), true);
+  const finE = cliJson(sourcePut(rootE, 'f28-f1-e', { offset: Buffer.byteLength(prefixE), chunk: 'tail', final: true, sha256: wholeE, bytes: Buffer.byteLength('f28-f1-regular-tail') }));
+  assert.equal(finE.sha256, wholeE);
+  assert.equal(lstatSync(finE.path).isFile(), true); // published object is a regular file
+  assert.equal(readFileSync(finE.path, 'utf8'), 'f28-f1-regular-tail');
+  rmSync(rootE, { recursive: true, force: true });
+
+  // F. positive neighbor: a fresh upload with NO pre-existing part still
+  //    creates, publishes and reports the regular object
+  const rootF = freshRoot();
+  const textF = 'f28-f1-fresh';
+  const wholeF = sha256Of(textF);
+  const finF = cliJson(sourcePut(rootF, 'f28-f1-f', { offset: 0, chunk: textF, final: true, sha256: wholeF, bytes: Buffer.byteLength(textF) }));
+  assert.equal(finF.ok, true);
+  assert.equal(lstatSync(finF.path).isFile(), true);
+  assert.equal(readFileSync(finF.path, 'utf8'), textF);
+  const stF = cliJson(['source-status', '--root', rootF, '--id', 'f28-f1-f', '--sha256', wholeF, '--bytes', String(Buffer.byteLength(textF))]);
+  assert.equal(stF.published, true);
+  rmSync(rootF, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------- source-status

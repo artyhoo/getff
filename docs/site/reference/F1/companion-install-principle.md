@@ -9,6 +9,10 @@ sources:
   - setup.d/companions.manifest
   - setup.d/engine.sh
   - .agents/hooks/inject-matching-rule.sh
+  - scripts/check-ships-manifest.mjs
+  - scripts/check-ships-manifest.test.sh
+  - .husky/pre-commit
+  - .github/workflows/audit-self.yml
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
@@ -89,21 +93,19 @@ grep -E '@[0-9]+(\.[0-9]+)*' setup.d/companions.manifest
 
 (empty — exit status 1, no match)
 
-The `class` row is `B`: a named mechanism, not a test. Delivery is a dual pair —
-the rule file's frontmatter `paths:` loads the whole rule when you read a
-`setup.d/` file, and an edit-time injector re-surfaces a one-paragraph summary
-when you edit one. The rule's own header is candid about what is missing: "No CI
-gate yet". And here is a fact worth reading twice: the rule promotes itself to a
-grep gate when the manifest reaches three rows. It has six, and the gate does not
-exist yet. The promotion trigger has fired; the promotion has not landed. This
-page reports that state rather than smoothing it over — landing the gate is a
-code change outside this documentation batch.
+The generated `class` row is still `B`, and the rule is delivered through
+path-scoped loading plus an edit-time reminder. Its header's "No CI gate yet"
+sentence is stale about one concrete part: the no-version-pin check already
+ships in `scripts/check-ships-manifest.mjs`. It rejects numeric `@`, `@v` and
+`==` pins in a row's install command. Pre-commit invokes it when the companion
+manifest is staged, provided Node is available, and CI runs the same checker
+plus paired positive/negative fixtures.
 
-What the rule does not do: nothing enforces it mechanically today, so a manifest
-row carrying a version pin would not be rejected by any gate — only noticed by a
-human or an agent reading the rule. Detect quality is also per-row judgment: the
-rule guarantees the *shape* (detect first, official installer, no pin), not that
-every detect command actually detects well.
+That check establishes the no-pin subset. It does not by itself establish
+that an installer is official, that a detect command works well, or that a
+companion uses a free tier. The generated Class B declaration is preserved;
+this page distinguishes that declaration from the narrower enforcement
+already present rather than claiming the entire rule has been promoted.
 
 ## Evidence
 
@@ -115,12 +117,17 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   `:27` to `:31`.
 - §3 mechanism (manifest + engine loop) at `:38`; the three bullets — no version
   pin `:42`, official installer only `:43`, free-on-subscription default `:44`.
-- The class-B delivery pair and the "No CI gate yet" sentence: `:12`; the
-  `<!-- globs: -->` marker the injector reads: `:9`; the `paths:` frontmatter:
-  `:3` to `:4`.
-- The promotion trigger (grep gate at ≥3 rows): `:48` (§4 at `:46`). The manifest
-  has 6 non-comment rows at this base (counted by the command above); the pin
-  grep returns nothing (exit 1).
+- The declared Class B delivery pair and the stale "No CI gate yet" sentence:
+  `.agents/rules/companion-install-principle.md:12`; delivery markers at `:3`
+  to `:10`; the broader promotion criterion at `:48`.
+- The shipped no-pin arm: `scripts/check-ships-manifest.mjs:206` to `:216`;
+  findings cause exit 1 at `:224` to `:227`. Pre-commit wiring:
+  `.husky/pre-commit:211` to `:227`. CI wiring:
+  `.github/workflows/audit-self.yml:2735` to `:2740`.
+- Paired fixture coverage at the current staging base:
+  `scripts/check-ships-manifest.test.sh:156` to `:160` accepts the unpinned
+  row and rejects npm and marketplace version pins. The manifest's six
+  non-comment rows contain no version pin matching the example grep.
 - The engine loop: `setup.d/engine.sh:232` (`companion_step()`), with the
   external-service routing branch at `:236` to `:240`.
 - The edit-time injector that reads the marker:
