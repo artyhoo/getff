@@ -14,6 +14,26 @@
 # with or without a browser User-Agent — confirmed via curl against several
 # real, currently-live npm package pages) rather than actually being broken.
 exclude = [
+  # Exact historical citations blocked by non-browser security challenges,
+  # reproduced 2026-10-18 after CI run 39138613013: all ten DeepWiki URLs
+  # return 429 + x-vercel-mitigated: challenge / Vercel Security Checkpoint;
+  # the two article URLs return 403 + Attention Required! | Cloudflare on
+  # HEAD and GET with both lychee and browser user agents. Their contents
+  # remain unverified by this HTTP audit. Preserve the citations; do not
+  # exempt these hosts or accept 403/429 for other URLs. Remove an exception
+  # when that exact page becomes reachable by the unmodified checker.
+  '^https://deepwiki\.com/obra/superpowers/6\.3-visual-brainstorming-companion$',
+  '^https://deepwiki\.com/search/describe-the-aifmcp-package-wh_3bda4062-8f45-4055-a316-0f371ed311a2$',
+  '^https://deepwiki\.com/search/describe-the-aifruntime-packag_ef408848-368e-4d4a-870e-af9d51c1567f$',
+  '^https://deepwiki\.com/search/describe-the-planner-implement_3216df38-d6a3-42ea-935b-58abc696b2ce$',
+  '^https://deepwiki\.com/search/describe-the-watchdogs-error-c_11b95c86-96e3-4879-980b-85a882d538a3$',
+  '^https://deepwiki\.com/search/does-superset-the-cli-codingag_7fb2a91a-6687-4433-abb8-72caa372f5fe$',
+  '^https://deepwiki\.com/search/is-there-a-handofftask-annotat_7de90b12-5d36-4f6a-952f-5145f2245d78$',
+  '^https://deepwiki\.com/search/list-all-major-features-and-ca_65216884-8277-49af-865e-50f39e88dcee$',
+  '^https://deepwiki\.com/search/what-are-the-two-execution-mod_6ac0cfd0-3e83-4db7-8152-c67c9a7af074$',
+  '^https://deepwiki\.com/search/where-is-the-pausedtrue-field_5b694046-a22b-45d7-a9ff-8d520cdb6ce1$',
+  '^https://ronie\.medium\.com/agent-glossary-teaching-agents-our-shared-language-93bae9674b02$',
+  '^https://towardsdatascience\.com/hybrid-ai-combining-deterministic-analytics-with-llm-reasoning/$',
   '^https?://localhost',
   '^https?://127\.0\.0\.1',
   '^https?://0\.0\.0\.0',
