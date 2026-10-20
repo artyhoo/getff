@@ -61,8 +61,9 @@ history and provenance statements about the doc itself.
 
 1. **Enumerate the claim population BEFORE verdicting** (T10): read the audited surface
    end-to-end and list every in-scope claim with its `file:line`. State the population count
-   first. Sampling is not allowed below 5 claims (T1 floor = 5); if the surface carries more
-   than 25, stratify (T9) — do not sample only the first section.
+   first. For 1–25 claims, verify the entire population, including a surface with fewer
+   than 5 claims: T1 is a sampling floor, not a minimum document size. For more than 25,
+   stratify (T9) and declare any unverified residual — do not sample only the first section.
 2. **Verify each claim against the LIVE source, never against another doc** (T3 +
    [destination-environment-verification](../rules/destination-environment-verification.md)
    §1b posture: a citation of a doc that describes the
@@ -84,9 +85,14 @@ history and provenance statements about the doc itself.
 ## Output format
 
 Overall verdict tokens GO/REVISE/STOP (grammar shared with
-[dispatch-input-checker.md](https://github.com/artyhoo/getff/blob/main/.agents/roles/dispatch-input-checker.md) §Output grammar): any
-`GAP` → REVISE; population too small, surface unreadable, or claims not enumerable → STOP;
-complete population + zero GAP → GO.
+[dispatch-input-checker.md](https://github.com/artyhoo/getff/blob/main/.agents/roles/dispatch-input-checker.md) §Output grammar).
+Apply these conditions in order: any `GAP` → REVISE (also report unresolved claims);
+otherwise any `UNVERIFIABLE-needs-human`, incomplete verification, unreadable surface,
+non-enumerable population, or zero in-scope claims → STOP. GO requires a non-empty
+population with every claim VERIFIED. Reaching or listing a claim is not verification.
+A completely verified one-claim document qualifies for GO; a larger sampled population
+with unverified residual does not. A failed source probe is unresolved evidence, not an
+empty result or proof of absence; preserve its command, stderr and exit status.
 
 ```text
 Audited surface(s): <paths>

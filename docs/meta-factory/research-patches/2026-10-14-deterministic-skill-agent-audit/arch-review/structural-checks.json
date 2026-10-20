@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-15",
+  "inputsRef": "a86648554d19860ca6956d633b7414cc46fb63f2",
+  "specSha256": "b30836da511c96d1de996b373262140fbf6c8b65d023b7c0d902fcb9861d099e",
+  "coverageSha256": "03770d8453fc1f3a64df940969fa2bea506416f9b5003044898d80cdb9a093db",
+  "checks": {
+    "retellExit": 0,
+    "principleIds": 100,
+    "exactLedgerMatch": true,
+    "localLinksResolve": true,
+    "candidateMatchesSnapshot": true,
+    "approvedPrdUnchanged": true,
+    "trackedWorktreeDiff": [],
+    "normalIndexDiff": []
+  },
+  "scope": "Document validation only; no runtime or platform acceptance inferred."
+}

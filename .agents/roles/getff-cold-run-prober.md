@@ -4,6 +4,9 @@ description: One-beat cold-run acceptance probe for the getff-any-stack-trace um
 tools: Read, Glob, Grep, Bash, Agent
 ---
 
+> **Codex preflight:** read [host capability preflight](../../docs/codex-contributor.md#capability-preflight-for-every-native-entry). Verify required launch controls before dispatch; a missing experimental control yields DISPATCH-INFEASIBLE, never a simulated successful probe. WebSearch/WebFetch use native web search/open when available.
+
+
 <!-- spec: docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §9.3 (the one-beat cold-run protocol contract) -->
 
 # getff-cold-run-prober
@@ -35,7 +38,7 @@ The cold agent (the fresh subagent you dispatch in Step 3) MUST start under ALL 
 2. **No kickoff text.** The cold agent's task-prompt contains NOTHING from `.claude/orchestrator-prompts/getff-any-stack-trace/**`, NOTHING from this file, NOTHING from any umbrella / stage document. The cold agent does not know it is participating in a probe.
 3. **No framework-source access.** The cold agent's working directory is the CONSUMER project root. The framework repo (the directory containing `packages/core/`, `setup.d/`, `agents/`) is NOT in the cold agent's working tree, NOT in its `Read`/`Glob`/`Grep` scope. If the cold agent opens anything under `packages/` or `setup.d/`, the protocol FAILED — see Step 4 RED criterion (and do NOT paper over it; per spec §9.3 T-S4-C, never edit the protocol until it passes).
 4. **No second human prompt.** The cold agent gets ONE message — the task-prompt. No follow-up clarification, no «try this instead», no steering. If the cold agent asks a question, the answer is silence (let it stall — stalling IS data).
-5. **Shipped docs only.** The cold agent MAY open any file under the consumer's `.claude/` (skills, agents, settings), `.getff/`, `AGENTS.md`, `INSTALL-FOR-AI.md`, `.ai-factory/` subtree — these ARE the framework's shipped surface, the system under test. It MAY NOT open the framework's source repo.
+5. **Shipped docs only.** The cold agent MAY open any file under the consumer's `.claude/` (skills, agents, settings), `.getff/`, `AGENTS.md`, `INSTALL-FOR-AI.md`, `.ai-factory/`, `.agents/`, and `.codex/` subtrees — these ARE the framework's shipped surface, the system under test. It MAY NOT open the framework's source repo.
 
 ---
 
@@ -52,7 +55,7 @@ The consumer path MUST have:
 
 - A successfully completed `install.sh python` (or peer-lane) run — the agent surface, `.mcp.json`, starter `AGENTS.md`, `.ai-factory/` subtree are present.
 - A git remote resolvable to a default branch (so `deliver_getff_workflow`'s substitution works — see `setup.d/lib.sh:1427`).
-- NO pre-existing generated rule under `.getff/astgrep-rules/` or `.getff/ruff-bans.toml` (the cold agent must reach that state itself, or fail to).
+- NO pre-existing researched rule under `.getff/rules-research/`, and no added or modified rules in `.getff/astgrep-rules/` or `.getff/ruff-bans.toml`. Untouched installer rules are the starting baseline, not the discipline the cold agent must author.
 
 You MAY `Read` the consumer's installed `.claude/` tree BEFORE dispatching — those ARE the shipped docs the probe is testing. You MAY NOT pass their contents to the cold agent in the task-prompt (the cold agent must discover them by opening files itself).
 
@@ -63,26 +66,11 @@ You MAY `Read` the consumer's installed `.claude/` tree BEFORE dispatching — t
 Run these checks against the consumer path. Each must pass before Step 3 dispatch. If any fails, the run is invalid; report it as `COLD-START-BROKEN` with the failing check + the file:line evidence.
 
 ```bash
-CONSUMER_ROOT="$1"
-
-# (a) Framework installed?
-test -f "$CONSUMER_ROOT/.claude/settings.json" || echo "MISSING: .claude/settings.json"
-test -d "$CONSUMER_ROOT/.claude/agents" || echo "MISSING: .claude/agents/"
-test -f "$CONSUMER_ROOT/AGENTS.md" || echo "MISSING: AGENTS.md"
-test -f "$CONSUMER_ROOT/.ai-factory/config.yaml" || echo "MISSING: .ai-factory/config.yaml"
-
-# (b) No pre-existing generated rule?
-test -z "$(find "$CONSUMER_ROOT/.getff" -type f 2>/dev/null | head -1)" || echo "PRE-EXISTING: $CONSUMER_ROOT/.getff has files — clean before probe"
-
-# (c) Git remote resolvable?
-git -C "$CONSUMER_ROOT" symbolic-ref refs/remotes/origin/HEAD >/dev/null 2>&1 \
-  || echo "UNRESOLVED: origin/HEAD — deliver_getff_workflow will fail"
-
-# (d) Direct deps declared (pyproject.toml present + non-empty dependencies)?
-test -s "$CONSUMER_ROOT/pyproject.toml" || echo "MISSING: pyproject.toml"
+FRAMEWORK_ROOT="$(git rev-parse --show-toplevel)" || exit 1
+python3 "$FRAMEWORK_ROOT/.agents/roles/resources/getff-cold-run-prober/preflight.py" "$1"
 ```
 
-Quote each check's result in your report preamble, with the consumer path.
+Run the fence from the active framework checkout (a nested cwd is supported), with the consumer path bound to `$1`. Read the [entry-specific preflight helper](resources/getff-cold-run-prober/preflight.py) before running it. It writes no files and does not use a shell heredoc. Python 3.11+ (`tomllib`) is required. A missing interpreter/module, unreadable file, or command failure is a failed preflight, never an empty population. Quote each check's result and exit status in your report preamble, with the consumer path. Before dispatch, record hashes of the delivered rules and ruff bans; Step 4 must demonstrate a new rule or changed bans relative to that snapshot. Do not delete installed payload to manufacture a fresh project.
 
 ---
 
@@ -94,7 +82,7 @@ Suggested task-prompt (verbatim, copy as-is unless the consumer's stack demands 
 
 ```text
 I just installed version-control tooling into this Python project (the install
-script wrote files under .claude/ and .getff/). I want to add a coding
+script added project tooling). I want to add a coding
 discipline: "prefer the project's logger over bare print() calls". Can you
 make that discipline enforceable — i.e. so that violations get flagged
 automatically? The project uses SQLAlchemy as its ORM.
@@ -134,9 +122,9 @@ After the cold agent returns (or stalls), audit the captured transcript against 
 
 ### GREEN criterion (ALL must hold)
 
-1. **A firing stack-specific rule landed.** A file exists at `$CONSUMER_ROOT/.getff/astgrep-rules/<entryId>.yml` (or `.getff/ruff-bans.toml`) that was NOT there at Step 1's check (b). The rule must reference the consumer's actual stack (SQLAlchemy or the consumer's declared ORM).
+1. **A firing stack-specific rule landed.** A new researched rule exists at `$CONSUMER_ROOT/.getff/rules-research/<entryId>.yml`, with its active scan copy under `.getff/astgrep-rules/`, or a new ban was added to `.getff/ruff-bans.toml` relative to the Step 1 snapshot. An unchanged installer file does not satisfy this criterion. The rule must reference the consumer's actual stack (SQLAlchemy or the consumer's declared ORM).
 2. **The rule fires on a planted violation.** Plant a `print()` call in a Python file under the consumer; run `ast-grep scan` (or the consumer's installed scan command). The rule must match. Quote the rule message + the ast-grep exit code (1 = match; 0 = no match = rule did not fire = NOT GREEN).
-3. **The cold agent opened ONLY shipped docs.** The transcript's file-open sequence must contain ONLY paths under `$CONSUMER_ROOT/.claude/**`, `$CONSUMER_ROOT/.getff/**`, `$CONSUMER_ROOT/AGENTS.md`, `$CONSUMER_ROOT/INSTALL-FOR-AI.md`, `$CONSUMER_ROOT/.ai-factory/**`, `$CONSUMER_ROOT/pyproject.toml`, and the consumer's source tree. Any path under the framework's `packages/` or `setup.d/` (the framework source) → criterion FAILS → RED.
+3. **The cold agent opened ONLY shipped docs.** The transcript's file-open sequence must contain ONLY paths under `$CONSUMER_ROOT/.claude/**`, `$CONSUMER_ROOT/.getff/**`, `$CONSUMER_ROOT/AGENTS.md`, `$CONSUMER_ROOT/INSTALL-FOR-AI.md`, `$CONSUMER_ROOT/.ai-factory/**`, `$CONSUMER_ROOT/.agents/**`, `$CONSUMER_ROOT/.codex/**`, `$CONSUMER_ROOT/pyproject.toml`, and the consumer's source tree. Any path under the framework's `packages/` or `setup.d/` (the framework source) → criterion FAILS → RED.
 
 ### RED criterion (ANY holds)
 
@@ -168,7 +156,7 @@ RULE-PRODUCED CHECK (Step 4 GREEN criterion 1):
 
 RULE-FIRES CHECK (Step 4 GREEN criterion 2):
   planted violation: <file:line>
-  ast-grep exit code: <0 or 1>
+  ast-grep exit code: <actual status, or not run; a launcher/tool error is not a match>
   rule message: <quoted or "none">
 
 FRAMEWORK-SOURCE-OPENED CHECK (Step 4 GREEN criterion 3):

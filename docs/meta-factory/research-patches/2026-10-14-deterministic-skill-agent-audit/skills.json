@@ -1,0 +1,1002 @@
+{
+  "scope": "All 22 canonical .agents/procedures/*/SKILL.md read in full. Linked mechanics-bearing references and invoked implementations inspected as cited; not a claim that all 94 reference documents or 47 helper implementations were semantically read in full. Personal/global plugin skills excluded except consulted entry discipline; native/delivery copies accounted as derivations.",
+  "stats": {
+    "cards": 22,
+    "lines": 2249,
+    "bytes": 189759,
+    "reference_population": 94,
+    "reference_lines": 9994,
+    "reference_bytes": 929873,
+    "helper_population": 47,
+    "helper_lines": 12138,
+    "helper_bytes": 529168,
+    "common_blocks": 19,
+    "common_lines": 400,
+    "common_bytes": 25830
+  },
+  "derivations": [
+    {
+      "surface": ".agents/skills",
+      "evidence": "scripts/render-codex-contributor.mjs:105-150",
+      "fact": "21 procedure discovery adapters plus 21 role discovery adapters = 42. tool-bootstrapping-consumer excluded explicitly at :113; consumers publish it under public tool-bootstrapping slug via setup.d/lib.sh:220."
+    },
+    {
+      "surface": "plugin/skills",
+      "evidence": "scripts/generate-plugin-skills.sh:88-95",
+      "fact": "Eight canonical-source delivery entries, plugin root binding adapted at :159-219; consumer tool-bootstrapping source selected."
+    },
+    {
+      "surface": "skills/getff, skills/tool-bootstrapping and .claude/skills",
+      "evidence": "setup.d/portable-bindings.sh:84-141; scripts/canonical-agents-source.test.mjs; scripts/render-codex-contributor.mjs:106-115",
+      "fact": "Compatibility/delivery population; canonical sources govern audit. Customized native entries can be retained by installer; byte equivalence not live verified for all copies in this audit."
+    }
+  ],
+  "live_probes": [
+    {
+      "command": "bash -n all 38 helper .sh files; node --check all 9 helper .mjs files",
+      "output": "47 syntax checks, nonzero=[]",
+      "limit": "Syntax only; no gate activation/correctness/coverage proof."
+    },
+    {
+      "command": "monitor-classify.sh on seven synthetic JSON task values",
+      "output": [
+        "RUNNING:implementing",
+        "DONE:done",
+        "DONE:verified",
+        "PARKED:done",
+        "ERROR:unsupported task status new_unknown",
+        "ERROR:invalid task response (expected object with string status)",
+        "ERROR:invalid task response (expected object with string status)"
+      ],
+      "limit": "Local classifier behavior only; aif API not contacted."
+    },
+    {
+      "command": "run-helper.sh bash -c printf child_output; exit 7",
+      "output": "child_output\n=== bash: END rc=7 (lines=1) ===; exit 7",
+      "limit": "Failure propagation probe, not child semantic completeness."
+    },
+    {
+      "command": "pipeline/helpers/print-orch-home.sh from current cwd",
+      "output": "exit 0; /Users/art/.codex/worktrees/e220/rules-as-tests-aif/.claude/orchestrator-prompts",
+      "limit": "Current checkout binding only."
+    }
+  ],
+  "patterns": [
+    {
+      "name": "shared invocation root/argument/exit instructions",
+      "count": 19,
+      "evidence": ".agents/procedures/getff/SKILL.md:101-121; scripts/render-codex-contributor.mjs:124-134; pipeline/helpers/lib/common.sh:36-82",
+      "mechanic": "Already generated/executable in multiple native seams. Candidate unify binding execution and one metadata record; leave permission and diagram judgment distinct."
+    },
+    {
+      "name": "snapshot + identity + citation + evidence receipt",
+      "evidence": "arch/references/design-review.md:17-25; harvest/SKILL.md:75; reviewer/SKILL.md:27-41; orchestrator/references/acceptance.md:38-44",
+      "mechanic": "Reuse snapshot-for-seat + content ref and source reconciliation primitives. Envelope validity differs from semantic truth."
+    },
+    {
+      "name": "loop counters/transition ordering/terminal report",
+      "evidence": "dispatcher/references/execution.md:126-136,199-203; claude-glm-executor-handoff/SKILL.md:85-91; night-mode/references/closure.md:8",
+      "mechanic": "Durable state and fixed next-action routing; avoid new competing executor loop."
+    }
+  ],
+  "observed_gaps": [
+    {
+      "evidence": ".agents/procedures/harvest/references/egress.md:27",
+      "finding": "Cold reference still says git rebase origin/staging while CLAUDE.md and primary harvest card route merge-forward. Review scope includes deterministic recipe drift; do not execute reference as-is."
+    },
+    {
+      "evidence": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md:43,57",
+      "finding": "Consumer reference carries JS-only legacy deps-hash and says context7 not installed; internal skill :37/:49 describes multistack hash + full-path seeded context7. Some difference may be intended consumer boundary; actual installer/hook source is stronger and should supply generated facts, not assume twin semantics."
+    },
+    {
+      "evidence": ".agents/procedures/harvest/tests/health-preflight.test.mjs:32-40",
+      "finding": "Test proves command HTTP/transport handling, but response.status exact ok remains model-side requirement; 200 with wrong status is not tested here."
+    },
+    {
+      "evidence": ".agents/procedures/pipeline/helpers/assign-skill.sh:100",
+      "finding": "Single-line awk extraction of description scans first 20 lines; multiline orchestrator description starts with | and subsequent trigger text not read. Advisory matcher rather than reliable semantic routing."
+    }
+  ],
+  "recommendation_status": "Provisional architectural opportunities, not ready BUILD/ADOPT verdicts. No external prior-art search performed by this source-audit worker; parent owns that step. Existing own-stack artifacts cited first. Falsifier: a supplied input is not structurally representable or the existing helper already owns its live transition; then new mechanics are redundant or unsafe.",
+  "self_application": "Population enumerated before reads; all 22 canonical cards read, no sampling. Script existence distinguished from syntax/local probe/real effect. This report validates its row population against canonical paths; source semantics and transitive reference coverage remain stated limits.",
+  "rows": [
+    {
+      "name": "ai-doc",
+      "source": ".agents/procedures/ai-doc/SKILL.md",
+      "lines": 58,
+      "bytes": 5060,
+      "trigger": "Author/change AI-facing rules, skills or agents.",
+      "already_scripted": [
+        {
+          "at": "packages/core/principles/09-doc-authority-hierarchy.ts:234",
+          "what": "enumerateSkillPrimaryDocs dynamically enumerates canonical/native skill docs; checkDocsHaveAuthorityHeader at :359 checks authority headers."
+        },
+        {
+          "at": "packages/core/principles/15-skill-paired-negative.test.ts:153",
+          "what": "every in-scope SKILL.md is grandfathered or carries a valid paired-negative block"
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/ai-doc/SKILL.md:27",
+          "extract": "Collect structural marker/header/description/prerequisite verdicts into one existing-check preflight, returning failed/unknown rather than rechecking by model.",
+          "instruction_summary": "AI-agnostic: portable <!-- globs: --> marker + AIF template-vars; degrade without the harness.",
+          "source_excerpt": "- **AI-agnostic**: portable `<!-- globs: -->` marker + AIF template-vars; degrade without the harness.\n- **Doc-authority header** per `doc-authority-hierarchy.md` §3 on any canonical doc.\n\n## Without this skill\n",
+          "source_sha256": "7ebef5c724092112796085ce80fb9a7ca10926a0855f35bba2c2378c2abaff1f"
+        },
+        {
+          "at": ".agents/procedures/ai-doc/anthropic-and-aif-residue.md:30",
+          "extract": "Character-length and frontmatter-shape validation are deterministic.",
+          "instruction_summary": "≤1024 chars",
+          "source_excerpt": "- **≤1024 chars** — the description is loaded at session start as a one-line hint; longer ≠ better.\n- **Explain the reason** — «Use when X because Y» beats «Tool for X»; the reason helps the agent's routing decision.\n- **Triggers** — include the key words/phrases that should fire the skill (per `using-superpowers` SKILL.md pattern).",
+          "source_sha256": "63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6"
+        }
+      ],
+      "irreducible_judgment": "Which convention deserves a gate, which earliest channel can actually detect it, consumer need, source meaning, authoring quality.",
+      "reusable_mechanism_candidate": "Compose existing canonical-source/principle validators; retain only channel decision inputs and exceptions in context.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "aif-doctor",
+      "source": ".agents/procedures/aif-doctor/SKILL.md",
+      "lines": 95,
+      "bytes": 7238,
+      "trigger": "Runtime symptom outside a normal dispatcher run.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/aif-doctor/helpers/aif-agent-target.sh:90",
+          "what": "aif_agent_resolve chooses exactly one bounded container/context or returns AMBIGUOUS/NONE."
+        },
+        {
+          "at": "packages/runtime-bridge/scripts/bridge-health.sh:73",
+          "what": "Existing passive container cleanliness/park-source/network/dedup probes."
+        },
+        {
+          "at": ".agents/procedures/aif-doctor/helpers/heal.sh:97",
+          "what": "heal_hook_drift already performs backed-up atomic Tier-1 hook sync; :28 documents GET /tasks interlock."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/aif-doctor/references/inventory-and-triage.md:55",
+          "extract": "One passive evidence collector can execute the fixed five probes, log severity filter, base-ref comparison and known detector predicates, producing unknown on unsuccessful probes.",
+          "instruction_summary": "run §1 probes top-to-bottom, then read the agent log’s error levels",
+          "source_excerpt": "1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom, then read the agent log's error levels — `docker logs <agent> --tail 20000 2>&1 | grep -E '\"level\":(40|50|60)' | tail` — because a provider rejection (§3.9) is recorded nowhere else and every heartbeat probe stays green through it. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.\n2. **Classify** the failure into one §3 mode using the detector signatures. If no §3 mode matches and `bridge-health.sh` is green → report «no known failure mode; collect a fresh symptom» (do NOT speculate, T-AIFDOC-B).\n3. **Emit the mapped fix command** with its file:line / log-line evidence and a one-line reversibility note. Read-only fixes (re-run a probe) you may run; Tier-1 reversible fixes auto-apply with the APPLIED log (§4 Tier 1); **Tier-2 mutations stop here for GO**.\n4. **On GO** (or existing explicit authorization for that exact operation, Tier 2): run the mutation, re-run the relevant §1 probe to confirm, report the delta.\n",
+          "source_sha256": "f61ad408886c6d244b41b0e8efa867e64a31a0b40ee5eeec7f6b08f997c3ba37"
+        },
+        {
+          "at": ".agents/procedures/aif-doctor/SKILL.md:42",
+          "extract": "Pre/post receipts and reversible repair logging can be generic; mutation authorization remains separate.",
+          "instruction_summary": "Re-run the matching probe and report the delta.",
+          "source_excerpt": "   evidence and undo, then apply the tier below. Re-run the matching probe and report the delta.\n4. For scope questions or catalogue/provenance updates, read [scope and evidence](references/scope-and-evidence.md).\n   Catalogue growth requires observed incidence; historical benches are not proof of today's stack.\n\n## Authorization and stop conditions",
+          "source_sha256": "f8e9e6dc0199cdbdcf055ecb19ca234a8a48cfbb1d0bccc5fce5e62c5926ef01"
+        }
+      ],
+      "irreducible_judgment": "Unknown failure modes, causal diagnosis, whether a mapped historical fix fits current stack, approval of Tier-2 changes.",
+      "reusable_mechanism_candidate": "Reuse aif-agent-target + bridge-health + heal; machine-readable detector/fix catalogue and receipt collector rather than new diagnosis agent.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "arch",
+      "source": ".agents/procedures/arch/SKILL.md",
+      "lines": 113,
+      "bytes": 8455,
+      "trigger": "Explicit external design contour idea/prep doc → reviewed routed handoff.",
+      "already_scripted": [
+        {
+          "at": "scripts/snapshot-for-seat.sh:46",
+          "what": "Pins one resolved commit; :72 validates every input before writing; :121 emits Inputs-ref."
+        },
+        {
+          "at": ".agents/procedures/arch/references/ideation.md:52",
+          "what": "Calls existing scripts/check-arch-retell.mjs grammar gate; source :54 calls current-decisions presentation gate."
+        },
+        {
+          "at": ".agents/procedures/intent/helpers/current-decisions.mjs:444",
+          "what": "findMatchesAttempt detects exact-byte live review conflicts; :555 advanceVerb guards revision-bound changes."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/arch/references/design-review.md:17",
+          "extract": "Snapshot packing, seat names, unique scratch names, Inputs-ref insertion, round counting and known transition prerequisites are deterministic.",
+          "instruction_summary": "each dispatch prompt names a unique output filename",
+          "source_excerpt": "**Unique-filenames dispatch contract (handoff decision 13).** When two or more subagents are dispatched in parallel and share one scratchpad directory, each dispatch prompt names a **unique output filename** (e.g. `<seat>-<topic>.md`), assigned by the dispatching session, never chosen by the subagent — e.g. `top-down-<topic>.md` and `bottom-up-<topic>.md` for the two §2 seats.\n\n**Pinned-inputs dispatch contract.** Each seat prompt carries this required line, filled per dispatch:\n\n```text",
+          "source_sha256": "87d5d5c90b8881085a4d14fe15761c4ee97a8a5cc178b598ad406b7c702e0856"
+        },
+        {
+          "at": ".agents/procedures/arch/SKILL.md:43",
+          "extract": "Generate exact byte/section diffs and evidence bundle; leave claim meaning and consent interpretation to reviewer.",
+          "instruction_summary": "After compaction, retell claims are diffed against the last confirmed spec/premise register",
+          "source_excerpt": "   Spec includes testing seams. After compaction, retell claims are diffed against the last confirmed\n   spec/premise register; unconfirmed author derivations stay outside the agreement table.\n2. If evidence is insufficient for ideation, read [research contour](references/research-contour.md)\n   before commissioning research. It owns research-spec, source curation, distillation and K-pass.\n   Cited-sources-only scope, cold K-pass before consumption and recorded bounded drill-down apply.",
+          "source_sha256": "8088ee559cce7c4ef2ce8572b53546a557260ecbc9a238b570cfae5ee7cfbb22"
+        }
+      ],
+      "irreducible_judgment": "Ideation, product route, source relevance, architecture choice, design feasibility, falsifiers, cold semantic judgment, tier criteria application.",
+      "reusable_mechanism_candidate": "Artifact snapshot/transition preflight shared with intent/harvest/reviewer; compose existing retell/current-decisions instead of reciting gate recipes.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "claude-glm-executor-handoff",
+      "source": ".agents/procedures/claude-glm-executor-handoff/SKILL.md",
+      "lines": 134,
+      "bytes": 14839,
+      "trigger": "Claude coordinator → GLM-family worker edge or REPORT reply.",
+      "already_scripted": [
+        {
+          "at": "packages/runtime-bridge/src/cli/answer.ts:439",
+          "what": "posts feedback comment then state event; avoids rework with lost findings."
+        },
+        {
+          "at": ".agents/procedures/claude-glm-executor-handoff/SKILL.md:102",
+          "what": "Explicit designed-not-proven boundary: status reliability/tool-loop convergence/mixed-model dispatch unproven."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/claude-glm-executor-handoff/SKILL.md:41",
+          "extract": "Validate required sections, observed target/tool names, iteration cap and REPORT status presence; deterministic status/counter translation from :68-89.",
+          "instruction_summary": "<task> <context> <constraints> <tools> <output> <verify> six-block prompt",
+          "source_excerpt": "```text\n<task>         one atomic objective, single verb, single deliverable\n<context>      supplied/observed facts + explicit unknowns — summarized data\n<constraints>  hard boundaries + iteration cap (cost control; see model-facts D5)\n<tools>        every available tool named explicitly (see model-facts D4)",
+          "source_sha256": "4afff085be261e5983c7298a1419ae91631f3b73235438f4635831993345684e"
+        },
+        {
+          "at": ".agents/procedures/claude-glm-executor-handoff/SKILL.md:85",
+          "extract": "Persist retry/clarification counters and cap enforcement; do not infer that records exist merely because prose requires them.",
+          "instruction_summary": "Hard caps (per-task, recorded in dispatch state)",
+          "source_excerpt": "**Hard caps** (per-task, recorded in dispatch state):\n\n- Re-dispatch (`PARTIAL`): max 2\n- Clarification cycles: max 2\n- Total tool-call iterations inside one GLM agentic dispatch: stated in `<constraints>` (typically 3–5)",
+          "source_sha256": "4afff085be261e5983c7298a1419ae91631f3b73235438f4635831993345684e"
+        }
+      ],
+      "irreducible_judgment": "Atomic task decomposition, truthful data/instruction separation, verification criterion quality, mechanical versus architectural failure, model-specific fact re-verification.",
+      "reusable_mechanism_candidate": "Shared dispatch/REPORT envelope validator and durable attempt counters, retaining GLM-only deltas; live validation still required.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "dispatcher",
+      "source": ".agents/procedures/dispatcher/SKILL.md",
+      "lines": 98,
+      "bytes": 7166,
+      "trigger": "Explicit execution of selected umbrella stages.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/dispatcher/helpers/monitor-classify.sh:23",
+          "what": "Rejects invalid task shape; :37 park wins over done; :47 status mapping."
+        },
+        {
+          "at": ".agents/procedures/dispatcher/helpers/advance-frontier.sh:68",
+          "what": "Calls pipeline frontier once, propagates evidence and deterministically emits advance/hold/degrade/completion verdict."
+        },
+        {
+          "at": ".agents/procedures/dispatcher/references/execution.md:27",
+          "what": "Calls existing six-signal probe-inflight.sh, not independent ad hoc commands."
+        },
+        {
+          "at": "packages/runtime-bridge/src/cli/dispatch.ts:183",
+          "what": "Intent-contract validated before creation effect."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/dispatcher/references/execution.md:134",
+          "extract": "Fixed status-to-next-action routing, watch-link construction (:111), stall invocation count (:136), rework cap (:199), durable closure choreography.",
+          "instruction_summary": "RUNNING → next turn; DONE → harvest; PARKED → Q&A; ERROR → ATTN",
+          "source_excerpt": "Branch on output prefix: `RUNNING:*` → re-invoke `/dispatcher <umbrella>` next turn. `DONE:*` → §2.4. `PARKED:*` → §2.3. `ERROR:*` → ATTN operator.\n**DO NOT** use foreground `sleep <N>` — harness-blocked. **DO NOT** chain commands with `;` compound sequences — harness-blocked.\nTimeout: track invocation count; after operator-configured ceiling → surface **ATTN: task stalled**. A stall is an _environment_ symptom, not a loop bug — **run [`/aif-doctor`](../../aif-doctor/SKILL.md)** to triage it (distinguishes a runtime crash-loop / capacity saturation / proxy block from a slow-stale task the upstream watchdog will recover on its own). Do not re-dispatch blindly.\n\n**§2.3 — Q&A (three types — see §3)**",
+          "source_sha256": "b4bcab3cd1a02be699f95674f7166f189d20a21e414da55fc70b3434c65acbc4"
+        },
+        {
+          "at": ".agents/procedures/dispatcher/SKILL.md:47",
+          "extract": "Merge-state query and frontier update as one guarded action instead of remembering ordering.",
+          "instruction_summary": "Before advancing verify the required PRs merged to staging, then read the actual frontier.",
+          "source_excerpt": "  Enforce the existing convergence caps; STOP/ambiguous scope escalates. Before advancing verify the\n  required PRs merged to staging, then read the actual frontier. Close merged tasks through harvest,\n  never leave the UI as the closure mechanism.\n- Environment failure → doctor for passive triage and its mutation tiers. Tier-1 reversible fixes\n  auto-apply with evidence/undo; Tier-2 destructive/spending/standing config needs exact authorization.",
+          "source_sha256": "b335bfee328e0978a08e7ddd5eb0ff17f386f18e0f22d2c4d43a3ac55b3de672"
+        }
+      ],
+      "irreducible_judgment": "Park ownership/category, unresolved strategy, fidelity/design review, repair scope, interpreting ambiguous shared-file drift.",
+      "reusable_mechanism_candidate": "Compose existing dispatcher primitives into guarded next-action/receipt API; model sees only parked judgments and failed prerequisites.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "docs-author",
+      "source": ".agents/procedures/docs-author/SKILL.md",
+      "lines": 158,
+      "bytes": 10564,
+      "trigger": "Write/update getff.ai docs page or refresh touched claims.",
+      "already_scripted": [
+        {
+          "at": "scripts/docs-check.mjs:99",
+          "what": "Closed seven-kind skeleton registry; :218 frontmatter; :269 skeleton order; :565 populations; strict vs SKIP preserved."
+        },
+        {
+          "at": "packages/core/hooks/checks/docs-card.ts:32",
+          "what": "C1-C13/values registry; :80 mechanical-prose diff predicate; :106 docs prose path scope, shared pre-push/CI grammar."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/docs-author/SKILL.md:82",
+          "extract": "Collect example-command/pin/output receipts, compute freshness/hash and render deterministic criteria from existing docs-check output.",
+          "instruction_summary": "Every example executed at the pin and its real output pasted into the page.",
+          "source_excerpt": "1. Every example executed at the pin and its real output pasted into the page.\n2. First mentions of glossary terms link to terms.md.\n3. `node scripts/docs-check.mjs <page>` exits 0 (run it from the repo root; an escape needs the\n   two-comment form with a reason of at least 20 characters). Confirm that the requested page\n   appears in the pages population. An out-of-scope skipped path is not a checked page.",
+          "source_sha256": "61db7a693d057faa7f9a991f67a40abdc47f200caeb8d022c2a43e5c78bc6f19"
+        },
+        {
+          "at": ".agents/procedures/docs-author/SKILL.md:83",
+          "extract": "First-use occurrence/link detection is partially mechanical; ambiguous term senses remain judge-owned.",
+          "instruction_summary": "First mentions of glossary terms link to terms.md.",
+          "source_excerpt": "2. First mentions of glossary terms link to terms.md.\n3. `node scripts/docs-check.mjs <page>` exits 0 (run it from the repo root; an escape needs the\n   two-comment form with a reason of at least 20 characters). Confirm that the requested page\n   appears in the pages population. An out-of-scope skipped path is not a checked page.\n   Preserve the output and exit status. A missing or failed helper, or a reported tool skip,",
+          "source_sha256": "61db7a693d057faa7f9a991f67a40abdc47f200caeb8d022c2a43e5c78bc6f19"
+        },
+        {
+          "at": ".agents/procedures/docs-author/references/criteria-card.md:21",
+          "extract": "Fence hash duplicate inventory is mechanical; equivalent examples/legitimate duplicates still need judgment.",
+          "instruction_summary": "An example lives once; other pages link, never paste",
+          "source_excerpt": "| C7  | DO              | An example lives once; other pages link, never paste [one source, D12]                                                                                                                                  | JUDGE at v1 (today's corpus has 7 fenced blocks, 0 duplicates — no population to measure a hash gate on; re-evaluate after family 1)                                                                                             | all                                |\n| C8  | TRUST           | Every statement about behaviour is true at the pin [truth at pin]; anchors resolve at the pin                                                                                                           | CLAIMS + D26/D34 (`check-docs-refresh.mjs`, landing permalink resolver)                                                                                                                                                          | all                                |\n| C9  | TRUST           | Limits and non-goals are stated where the reader would otherwise assume more [honest limits]                                                                                                            | JUDGE                                                                                                                                                                                                                            | reference, Guide, Understand, face |\n| C10 | SAME WORDS      | Terms used as defined in `terms.md`, first mention linked; no forbidden synonym [glossary terms]                                                                                                        | GATE(`getff.Names`, name-class) + JUDGE (context-dependent synonyms, first-mention link)                                                                                                                                         | all                                |\n| C11 | (AI twin)       | The `.md` twin / `llms.txt` contract holds                                                                                                                                                              | GATE(D28 S6 face twin schema + D28 S5 `llms.txt` shape; D31 manifest for bulk twins)                                                                                                                                             | all                                |",
+          "source_sha256": "e74c76cad7fef0d08cf7725c49717242487582f9cb18adb1e22363da94995805"
+        }
+      ],
+      "irreducible_judgment": "Page kind fit, value-first writing, explanation/craft, context-dependent synonyms, factual behavior claims, reader harm.",
+      "reusable_mechanism_candidate": "Docs receipt collector/criteria renderer layered onto docs-check, glossary registry and refresh mapping.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "getff",
+      "source": ".agents/procedures/getff/SKILL.md",
+      "lines": 121,
+      "bytes": 11339,
+      "trigger": "Reason about/implement rules as executable checks and enforcement status.",
+      "already_scripted": [
+        {
+          "at": "packages/core/detector/index.ts:25",
+          "what": "Existing detectStack reads AIF/manifest/python-cargo/config then produces known/unknown result."
+        },
+        {
+          "at": "packages/core/audit-self/prove-rules.mjs:6",
+          "what": "Existing per-rule bad/good proof through actual lint, delivered as scripts/prove-rules.mjs by setup.d/40-configs.sh:32; source :42 owns proof directory."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/getff/SKILL.md:81",
+          "extract": "Manifest dependency/import/config-file/path evidence can be collected and compared deterministically before publication.",
+          "instruction_summary": "Each dependencies/devDependencies entry must be verified via npm view <package> version or web search",
+          "source_excerpt": "1. **Each `dependencies`/`devDependencies` entry must be verified** via `npm view <package> version` or web search — not from memory.\n2. **Each import in code examples must exist in `package.json`** (literal cross-check).\n3. **Each path in configs (`include`, `exclude`, `mutate`, `disableTypeChecks`) must match** the project structure described.\n4. **Each file referenced from CI/hooks must be created** in the artifact (`.nvmrc` is the canonical case — easy to forget).\n5. **Each shell command must work on edge cases** — empty branch, missing upstream, fresh checkout.",
+          "source_sha256": "d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd"
+        },
+        {
+          "at": ".agents/procedures/getff/SKILL.md:82",
+          "extract": "Static import/manifest identity check (respect runtime imports, aliases, project prerequisites).",
+          "instruction_summary": "Each import in code examples must exist in package.json (literal cross-check)",
+          "source_excerpt": "2. **Each import in code examples must exist in `package.json`** (literal cross-check).\n3. **Each path in configs (`include`, `exclude`, `mutate`, `disableTypeChecks`) must match** the project structure described.\n4. **Each file referenced from CI/hooks must be created** in the artifact (`.nvmrc` is the canonical case — easy to forget).\n5. **Each shell command must work on edge cases** — empty branch, missing upstream, fresh checkout.\n",
+          "source_sha256": "d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd"
+        }
+      ],
+      "irreducible_judgment": "Select appropriate layer, detectability versus behavior checks, meaningful test design, depth proportional to question, compatibility beyond version presence.",
+      "reusable_mechanism_candidate": "Reuse detector, official installer validation and prove-rules; one config publication preflight rather than model doing literal checks.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "harvest",
+      "source": ".agents/procedures/harvest/SKILL.md",
+      "lines": 117,
+      "bytes": 11772,
+      "trigger": "Explicit post-acceptance finished branch → gated PR/task closure.",
+      "already_scripted": [
+        {
+          "at": "packages/runtime-bridge/src/cli/harvest.ts:1599",
+          "what": "False-done and :1616 tracked-residue holds; actual CLI guards surfaced."
+        },
+        {
+          "at": "packages/runtime-bridge/src/cli/harvest.ts:1378",
+          "what": "closeMergedTasks validates task/PR ownership and merge evidence."
+        },
+        {
+          "at": "scripts/run-local-ci-sweep.sh:2",
+          "what": "Existing diff-scoped cheapest-first sweep, unknown NOT RUN gates and logs."
+        },
+        {
+          "at": "packages/core/hooks/checks/pr-body-fidelity.ts:214",
+          "what": "GO grammar plus :257 Audited-SHA/current-head match."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/harvest/SKILL.md:42",
+          "extract": "Host curl recipe only executes transport check; JSON content assertion is still model-owned. Move both into reused strict health preflight.",
+          "instruction_summary": "require exit 0 and JSON response with status exactly ok",
+          "source_excerpt": "Before any egress work, from the HOST run `curl -fsS -m5 localhost:3009/health`; require exit 0 and a JSON response with `status` exactly `ok`. `-f` rejects HTTP errors and `-S` preserves transport diagnostics. Failure ⇒ print the remediation in [the egress runbook](references/egress.md) and STOP before inspection/landing. Bring the service up via [runtime-bridge setup](../../../docs/runtime-bridge-setup.md), then re-probe.\n\nBefore inspecting or landing a task, read [the egress runbook](references/egress.md) for exact commands and guards. Mandatory constraints:\n\n- Inspect the TASK worktree, never the base clone; HEAD must be the task branch. Ship committed in-scope work only; never `git add -A`.",
+          "source_sha256": "4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf"
+        },
+        {
+          "at": ".agents/procedures/harvest/SKILL.md:48",
+          "extract": "Actual changed-path intersection, modification/addition class and candidate diff deletion inventory can be collector-owned.",
+          "instruction_summary": "Check fork-base/live-staging intersection for every override",
+          "source_excerpt": "- Reconstruct MODIFIED paths from live staging plus your delta; pure addition `+N/−0`, exclude deletion-bearing overrides. Check fork-base/live-staging intersection for every override; shared drift ⇒ rebuild before landing.\n- Default: bundle/pull committed branch to HOST and use host `git push` with the actual pre-push gate. Container is runtime, not push environment. NEVER `git push --no-verify`.\n- Git Data API is break-glass ONLY when host `git ls-remote origin` also fails; §3 sweep is then mandatory gate-substitute. Pass each override path as a literal argument, never an unsplit variable.\n- Capability commits need a resolvable `Prior-art:` trailer in the real commit; PR §1.7 cannot replace it and `skipped` cannot satisfy a flagged capability. Apply CLAUDE.md classification, including test carve-outs and the direct-principles exception.\n",
+          "source_sha256": "4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf"
+        },
+        {
+          "at": ".agents/procedures/harvest/SKILL.md:75",
+          "extract": "Snapshot/acceptance package assembly and immutable verdict receipts shared with arch/dispatcher.",
+          "instruction_summary": "Inputs-ref current HEAD for every input; cap 2 rounds",
+          "source_excerpt": "2. Dispatch fidelity only on FINAL diff, after code-review fixes, with explicit seat `name` and `Inputs-ref` equal to current HEAD for every input. Inline scope+diff by default; fallback uses snapshot paths, never live worktree paths. `REVISE`/`STOP` ⇒ no PR; factory rework via dispatcher, in-session fix/re-audit. Cap 2 rounds ⇒ operator. `KICKOFF-AMBIGUOUS` ⇒ /arch office hours without burning a round. `GO` verdict needs Basis/Round/Audited-SHA=current HEAD/Evidence. Later SHA changes require a fresh narrow cold delta check (named resume only if watch-list cannot carry substance), never self-issued verdict/full re-audit by default.\n\n   Every seat prompt carries the template line (fill it from `scripts/snapshot-for-seat.sh` line 1):\n\n   ```text",
+          "source_sha256": "4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf"
+        }
+      ],
+      "irreducible_judgment": "Whether dirty residue is discardable, reconcile semantic file changes, in-scope acceptance, code/fidelity verdicts and exception authorization.",
+      "reusable_mechanism_candidate": "Reuse harvest.ts/sweep/fidelity gate; guarded egress preflight/receipt assembly, never an API-bypass shortcut.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "installing-enforcement",
+      "source": ".agents/procedures/installing-enforcement/SKILL.md",
+      "lines": 130,
+      "bytes": 7748,
+      "trigger": "Explicit opt-in request for git/CI hard gates.",
+      "already_scripted": [
+        {
+          "at": "plugin/install/fetch-and-wire.sh:36",
+          "what": "Parses --apply vs preview; :64 refuses failed source ref clone; :74 defaults dry-run; :82 executes official installer."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/installing-enforcement/SKILL.md:71",
+          "extract": "Target/source/ref/profile validation and source digest/patch receipt could be returned by seam instead of manually bound.",
+          "instruction_summary": "Bind TARGET to absolute consumer git root, STACK to confirmed ts-server/react-next",
+          "source_excerpt": "Bind `TARGET` to the absolute consumer git root (probe with `git -C <consumer> rev-parse\n--show-toplevel`), and `STACK` to the confirmed `ts-server` or `react-next`. An explicit consumer\npath wins over session cwd and `CLAUDE_PROJECT_DIR`; a nested cwd must resolve the same root.\nReject unknown stack/flags and an absent/non-repository target before applying. If the operator\nonly wants advice, explain the soft/hard boundary without invoking the installer.",
+          "source_sha256": "d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0"
+        },
+        {
+          "at": ".agents/procedures/installing-enforcement/SKILL.md:54",
+          "extract": "Delivery versus activation receipts can be harvested as structured installer output.",
+          "instruction_summary": "report NOT wired and verification output, dependency status, core.hooksPath, observed hook/check separately",
+          "source_excerpt": "not prove active gates: report its `NOT wired` and verification output, dependency status,\n`git config --get core.hooksPath`, and observed hook/check execution separately. CI delivery\nmeans a workflow file exists; a CI run is a separate observation. Remind the user to commit\nthe delivered files. Do not claim missing dependencies were installed.\n",
+          "source_sha256": "d9ef56f95b987ea74c77385b408aa40936b1cc09122d7938036616d1dbc29cc0"
+        }
+      ],
+      "irreducible_judgment": "Whether user wants hard layer, consent for exact preview/target, source identity trust, stack confirmation, force/dependency/companion authorization.",
+      "reusable_mechanism_candidate": "Extend/compose existing official installer preview/apply seam, not another installer.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "intent",
+      "source": ".agents/procedures/intent/SKILL.md",
+      "lines": 66,
+      "bytes": 7512,
+      "trigger": "Explicit product intent/brief/first-result review contour.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/intent/helpers/current-decisions.mjs:239",
+          "what": "Atomic selector write; :284 lock; :555 revision-bound advance; :444 exact-byte review conflict check."
+        },
+        {
+          "at": ".agents/procedures/intent/helpers/publish-result-review.mjs:9",
+          "what": "Validates staged record then :40 atomic rename publication."
+        },
+        {
+          "at": ".agents/procedures/intent/helpers/publish-spec-review.mjs:131",
+          "what": "Shared validateSpecReview then :153 immutable content-addressed publication."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/intent/references/product-brief.md:15",
+          "extract": "Generate snapshot refs, digest, immutable approval receipt fields and essential-ID inventory from exact brief bytes; current validators already cover much of shape and coverage.",
+          "instruction_summary": "metadata identifies feature, promise IDs, essential IDs, snapshot and approval",
+          "source_excerpt": "Metadata identifies the feature it belongs to, its promise IDs, its essential IDs, its immutable approved snapshot, and the actual approval reference.\n\nFor the specification checkpoint, keep the essential inventory in the brief itself: an `ID` table under an `Essential promises` heading, or an `ID` table with an `Essential` column whose values are `Yes` or `No`. IDs are unique letters/digits/underscores/hyphens starting with a letter or digit; backticks/bold are accepted. Fenced examples are not the inventory. A positive spec review holds when the approved inventory is absent, unrecognized or incomplete; it cannot choose its own smaller list. This table accompanies the narrative and scenarios above. See [specification review](spec-review.md) for review publication and dispute resolution.\n\n## §2 Approval binds a snapshot, not a path",
+          "source_sha256": "9af17c360799bf7bd1a0f01a9250b86fd36c5151c4c618773201e975d5b6d809"
+        },
+        {
+          "at": ".agents/procedures/intent/references/spec-review.md:50",
+          "extract": "Root/runtime owner config binding can be one reusable command instead of five shell assignments.",
+          "instruction_summary": "export owner repo/orch/helper/root environment from actual project",
+          "source_excerpt": "export AIF_INTENT_REPO_ROOT=\"$(git rev-parse --show-toplevel)\"\nexport AIF_INTENT_ORCH_HOME=\"$(bash .agents/procedures/pipeline/helpers/print-orch-home.sh)\"\nexport RUNTIME_BRIDGE_INTENT_HELPER=\"$AIF_INTENT_REPO_ROOT/.agents/procedures/intent/helpers/check-result-review.mjs\"\nexport RUNTIME_BRIDGE_INTENT_DECISIONS_HELPER=\"$AIF_INTENT_REPO_ROOT/.agents/procedures/intent/helpers/current-decisions.mjs\"\nexport RUNTIME_BRIDGE_INTENT_ROOTS=\"$AIF_INTENT_REPO_ROOT:$AIF_INTENT_ORCH_HOME\"",
+          "source_sha256": "9d5a03afad43f10a8452d6d7e57662d178b104002748de8eeb8bea0804dc2aca"
+        }
+      ],
+      "irreducible_judgment": "Product meaning/routing, scenarios/failure cases, rejected interpretations, genuine brief understanding, per-promise matches, approver authority, recorded preferences.",
+      "reusable_mechanism_candidate": "Reuse current-decisions and publication helpers; brief/snapshot receipt assembler plus owner configuration binding.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "night-mode",
+      "source": ".agents/procedures/night-mode/SKILL.md",
+      "lines": 91,
+      "bytes": 6619,
+      "trigger": "Explicit scoped unattended run.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/night-mode/references/overnight-policy.md:10",
+          "what": "Uses existing check-ask-files.sh emitter/validator; does not hand-write mailbox schema."
+        },
+        {
+          "at": "packages/core/hooks/checks/pr-body-fidelity.ts:214",
+          "what": "Existing durable head-bound fidelity form gate (distinct from policy)."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/night-mode/references/overnight-policy.md:11",
+          "extract": "Persist per-increment/unchanged-scope counters and terminal prerequisites; a crash reset of local Round is explicitly accepted in closure:8.",
+          "instruction_summary": "Cap per-increment rework at ~4 iterations; unconverged mark BLOCKED, continue other increments",
+          "source_excerpt": "2. **Two-altitude whole-work pass.** After all increments converge, run ONE MORE review from BOTH altitudes over the ENTIRE assembled diff AND the whole plan, plus a completeness-critic («what task / acceptance-criterion / edge is unverified?») — beyond SDD's per-increment review. Cap per-increment rework at ~4 iterations; if unconverged → mark BLOCKED, log why, continue other increments (never wedge the whole night on one).\n3. **Quota / backoff resilience** (ADAPT of AIF watchdogs, SSOT #45). The loop is upper-tier-heavy (Claude: Opus-heavy); on a `429` / rate-limit, back off with `ScheduleWakeup` (~20–30 min, or the harness's own sleep/resume) and resume — survive the rolling reset window rather than dying. Commit every converged increment durably so a restart loses nothing.\n4. **Workflow context-economy.** Run the loop through the **Workflow** tool so only structured summaries return to the orchestrator context — never pull full diffs/code in. Track ONLY: which increment, converged?/blocked?, plan version, quota budget. New Workflow per phase; `resumeFromRunId` is only for a killed/edited run, not for new work.\n5. **Verification discipline** (how to verify correctly when no human catches a wrong claim): **empirical over inferred** — any load-bearing claim about tool/harness/code behavior is _tested_, not asserted from «it follows from the model» (this skill's own diff-visibility fact below was first inferred, challenged, then proven by a live probe); **file:line not memory** (T3); **non-vacuous paired-negatives** — RED observed before GREEN (T15); **verify-against-source before ship** (re-check git/CI, never merge on recall); **adversarial** reviewers (a clean low-coverage review is «insufficient coverage», not «clean»).\n6. **Harness fact — diff visibility (verified 2026-07-02 via a live `isolation:\"worktree\"` probe):** an isolated agent runs in a SEPARATE worktree — its UNCOMMITTED changes are invisible to a non-isolated sibling, but a COMMIT on a named branch IS visible via the shared `.git`. So the Executor **commits every increment** to the shared branch; reviewers read `git show <branch>`. Sequential loop → Executor non-isolated in the shared worktree; `isolation:\"worktree\"` only for genuinely-parallel Executors on disjoint files.",
+          "source_sha256": "d5eeb74a8d6767b80dc98677a889b64f44fa984dc60a15a95ffbd8ae6ea64ea8"
+        },
+        {
+          "at": ".agents/procedures/night-mode/references/closure.md:8",
+          "extract": "Render factual report sections from existing receipts/ledgers; model interprets owner forks and honest limits.",
+          "instruction_summary": "morning report lists merges, decision resolutions, BLOCKED, degradation, bus anomalies, parks and asks",
+          "source_excerpt": "Loop until: every increment done · both-altitude reviews green on the whole diff · the project's full test/gate suite green · own adversarial cold-review (T19) of the final diff · PR-body discipline gates satisfied (e.g. §1.7 sections each with a real `path.ext:N` citation; a new capability file needs a `Prior-art:` trailer — principle 11 F1 enforces it at pre-push; a stage PR additionally carries the `## Fidelity verdict` GO block from a cold [`agents/fidelity-auditor.md`](../../../../agents/fidelity-auditor.md) run on spec+diff before `gh pr create` — the completeness-critic stays the deep in-loop check; the fidelity run is the cold boundary gate-grammar producer (spec D2); fidelity rework is session-local — cap 2 rounds (a counter separate from SDD's per-increment rework), Round tracked by the session, round-2 REVISE → STOP + a BLOCKED item in the morning report (spec D6 in-session column); on session crash the local Round resets — accepted gap (spec D10), the cap still bounds spend). If CI goes red after push → fix + re-push before merge. Merge to trunk if the harness pre-authorizes it and the call is clear. Then write a **morning report**: what merged, decision resolutions, BLOCKED increments, the owner-fork log, any degradation taken, a **«bus anomalies»** section (malformed/unknown session-bus signals — the report is their named consumer, [session-bus v2 §4](../../../../docs/superpowers/specs/2026-08-09-session-bus-v2.md)), and a **night-decided parks** listing (every in-envelope park decided overnight, each with its decisions.md entry), and a **night-decided asks** line (every local ask answered overnight — ask-file ref + its decisions.md entry; [advisor-pattern-design §3](../../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)). At NIGHT-END terminal retirement ONLY — never at a mid-night handoff — the closing seat emits ONE capability-gated chip per plan («Review morning report [<plan>]», pointing at the report path); without `spawn_task` (likely for a CLI-born terminal seat) the report file itself is the fallback consumer. A night-decided park may strand an unclicked park-chip: best-effort `dismiss_task` it — the parks listing makes a stale chip recognizable ([autonomous-night v3 §7](../../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)).\n\n## See also\n\n- `superpowers:subagent-driven-development` — the adopted executor + review loop this skill layers over (SSOT #64, ADOPT — the loop, not re-implemented here).",
+          "source_sha256": "d4dce47cc9e44998744d78d6436f5d405126a92fedfffb86877288f74e2a595d"
+        }
+      ],
+      "irreducible_judgment": "Autonomy object/floor classification, whether technical call is determinate, ambiguous ownership, effort-worthiness, whole-work completeness.",
+      "reusable_mechanism_candidate": "Shared durable attempts and receipt-to-report renderer composed with adopted SDD/dispatcher; no second loop.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "orchestrator",
+      "source": ".agents/procedures/orchestrator/SKILL.md",
+      "lines": 80,
+      "bytes": 6849,
+      "trigger": "Scoped delegation, umbrella or queue of ≥2 research kickoffs.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/orchestrator/helpers/memory-sweep.sh:59",
+          "what": "Keyword memory enumeration; :75 summary; missing store fails INCOMPLETE."
+        },
+        {
+          "at": "scripts/getff-work.sh:87",
+          "what": "Reuses create-worktree; :97 lock-based dependency manager detection."
+        },
+        {
+          "at": ".agents/procedures/pipeline/helpers/classify-work.sh:63",
+          "what": "Existing keyword/LOC/surface heuristics emit work/mode feed; this is heuristic, not semantic routing truth."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/orchestrator/references/discovery.md:12",
+          "extract": "One deterministic project capability inventory; retain format/task convention inference for model.",
+          "instruction_summary": "pwd, log, instructions, remotes, branches, manifests, lockfiles, local skills/rules, ignore",
+          "source_excerpt": "1. **Корень проекта и язык коммитов**\n   - `pwd` → запомни как `<WORKDIR>`\n   - `git log --oneline -20` → определи язык коммит-сообщений (en/ru/...) и формат (`Conventional Commits`, `[scope]`, free-form)\n2. **Project instructions**\n   - Прочитать `CLAUDE.md`, `AGENTS.md` в корне (если есть). Это источник конвенций — не пересказывать в промтах, ссылаться по имени.",
+          "source_sha256": "dc80b6ed685291fb88ec20251b31549f06eaae39f25d37c1df9a74a6fcc57b40"
+        },
+        {
+          "at": ".agents/procedures/orchestrator/references/intake-and-planning.md:28",
+          "extract": "Changed-path obligation report can use live principle registries, not head-20 grep; model decides semantic compliance.",
+          "instruction_summary": "for every NEW path grep principles for EXEMPT_/allowlists + structural rule",
+          "source_excerpt": "If the dispatch creates ≥1 NEW file under paths guarded by the project's principle tests (for rules-as-tests-aif: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`), Phase -1 MUST include the measurement: «for every NEW path, grep `packages/core/principles/` for `EXEMPT_*` allowlists + the structural rule; confirm the artifact satisfies the rule OR falls under an exemption». Probe: `grep -rn 'EXEMPT_\\|allowlist\\|skip' packages/core/principles/ | grep -E '\\.(test\\.)?ts:' | head -20`. Grounding incident: PR #264 was pushed twice — principles 15 (paired-negative) and 10 (scope annotation) fired AFTER an 11-measurement Phase -1 missed both. (Relocated from CLAUDE.md «Operational conventions» 2026-07-21 — this skill is the declared codification target.)\n\n### Subagent implementation (default = Opus)\n\nOwned here, by declaration: [references/phase-minus-1.md](phase-minus-1.md) points back at",
+          "source_sha256": "f2b35a861a1250f050c7ff160ee998da90a0fa4ae775b9131c05f9af15668f62"
+        },
+        {
+          "at": ".agents/procedures/orchestrator/references/acceptance.md:38",
+          "extract": "Collect tool/skill invocation receipts, validate citation ranges and cross-reference boxes; meaning remains reviewer-owned.",
+          "instruction_summary": "every checked box references specific tool output; citations read; companion actually invoked",
+          "source_excerpt": "1. **Cross-reference claims:** For every `[x]` checkbox in the REPORT verify-trace, confirm it references a specific tool-call output (file:line, command result, grep output). If any checkbox says «verified» without a concrete artifact — mark `[ ]` and add `ATTN: unverified claim`.\n\n2. **Citation completeness loop:** For every file:line citation in REPORT or PR body — does the cited line exist, and does it evidence the claim (read the line, not just its presence)? If citations are incomplete → return to Worker for evidence (re-dispatch, do not extrapolate).\n\n3. **Companion delegation audit:** For each `Skill('...')` invocation referenced in this umbrella — was it actually invoked, or just mentioned? If referenced but not invoked, the companion's verification step was skipped. Surface as ATTN if material to PR correctness.",
+          "source_sha256": "3e3258ff9ee1c2b612af2034f6f9183af1bcd75692556f94e1cc00f1d097fd65"
+        }
+      ],
+      "irreducible_judgment": "Decomposition, file coupling/risk, scope/strategy forks, quality of report evidence, judgment by senior, all-lines complete sweep interpretation.",
+      "reusable_mechanism_candidate": "Shared capability inventory + evidence/citation receipt validator; existing worktree/script lanes reused.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "pipeline",
+      "source": ".agents/procedures/pipeline/SKILL.md",
+      "lines": 146,
+      "bytes": 10882,
+      "trigger": "Explicit noarg/0/top-N/list/status/named umbrella planning.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/pipeline/helpers/plan-currency-check.sh:33",
+          "what": "Named mode only kickoff existence; :48 exit 0 explicitly is not current-plan proof."
+        },
+        {
+          "at": ".agents/procedures/pipeline/helpers/dispatch-from-state.sh:58",
+          "what": "Deterministic state + kickoff feed (head 120, not complete semantic source)."
+        },
+        {
+          "at": ".agents/procedures/pipeline/helpers/check-final-report.mjs:88",
+          "what": "validateSourceReconciliation binds actual source reads, output rows, witness and citation ranges; explicitly not semantic truth at :86."
+        },
+        {
+          "at": ".agents/procedures/pipeline/helpers/assign-skill.sh:94",
+          "what": "Existing local skill/agent keyword heuristic scans metadata; not authoritative intent classifier."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/pipeline/references/planning.md:40",
+          "extract": "Given structured wave/PR identities, status comparison, file existence, cache HEAD/path drift and saturated query detection are machine work; legacy prose-to-identity interpretation remains model-owned.",
+          "instruction_summary": "Plan drift detection on injected data, per-wave merged/partial/reference/cache comparisons",
+          "source_excerpt": "**Step 2 — drift detection (judgment call on injected data):**\n\nBefore comparing claims, establish that each required query actually succeeded with valid, complete evidence. A failed/unavailable query, invalid response, or saturated bounded result is UNKNOWN, not an empty population or proof of DRIFT/no matching PR. Preserve its diagnostics and hold the launch/currency gate; do not infer CURRENT from file existence or another helper's zero exit.\n\nCompare the `wave-sequencing-plan.md` claims against the live `gh pr list` output:",
+          "source_sha256": "1a8696639c82150da53957941416d14903994c922462b1ee8fab467776737623"
+        },
+        {
+          "at": ".agents/procedures/pipeline/SKILL.md:57",
+          "extract": "Make existing claim/frontier/merged-PR prerequisites actual guarded transition, currently declared Class C in references/stage-gates.md:12.",
+          "instruction_summary": "Never launch Stage N+1 until required Stage N PRs actually merged",
+          "source_excerpt": "   rules, claim-before-review, GO/release or RED/cancel, in-flight and real merge gates. Never launch\n   Stage N+1 until required Stage N PRs are actually merged. An unreachable bridge is recorded as\n   unguarded; it never silently claims a lane. Release/cancel every claim after its verdict.\n6. Before completing any planning/dispatch invocation, read [artifacts](references/artifacts.md)\n   and the [output grammar](references/output-format.md); update cache only for named/top-N",
+          "source_sha256": "ca71d8b50fcd496133f7e14c77944c7d2e9d5d5db051535f92d48e6c983e836f"
+        }
+      ],
+      "irreducible_judgment": "Priority B/V/S/P, semantic completion versus branch closure, interpreting dependency prose, strategy tie, usefulness and scope of proposed launch.",
+      "reusable_mechanism_candidate": "Reuse overview/frontier/claim/final-report; structured planning input and gated next action rather than more parsing of prose.",
+      "priority_provisional": "high",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "reviewer",
+      "source": ".agents/procedures/reviewer/SKILL.md",
+      "lines": 132,
+      "bytes": 9733,
+      "trigger": "Interactive verified answer or GO/REVISE/STOP on supplied artifact.",
+      "already_scripted": [
+        {
+          "at": "scripts/snapshot-for-seat.sh:46",
+          "what": "Existing immutable seat input packer."
+        },
+        {
+          "at": "tests/reviewer-runtime-audit/assert-scope.mjs:1",
+          "what": "Existing runtime-audit scope assertion file, not a production review runner."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/reviewer/SKILL.md:27",
+          "extract": "Validate invocation artifact identity and declared acceptance-command envelope before inspection.",
+          "instruction_summary": "bind mode/scope from current invocation; missing artifact/acceptance command → STOP",
+          "source_excerpt": "Bind the mode and review scope to the current invocation before reading deliverables.\nAn artifact identifier is a path, named deliverable, or branch actually supplied in that\ninvocation. The session cwd and words such as \"fixture\" or \"phase done\" do not fill that\ninput slot. In deliverable-verification mode, if neither an artifact identifier nor an\nacceptance command is supplied, emit `VERDICT: STOP`, name the missing input, and stop",
+          "source_sha256": "9f724c0d4dfbcdee428479f1afcb24897becb40d3cffdb9c81d3396d369679de"
+        },
+        {
+          "at": ".agents/procedures/reviewer/SKILL.md:40",
+          "extract": "Generic execution/citation receipt collection; verdict stays model-owned.",
+          "instruction_summary": "run acceptance commands yourself, check claimed files/tests/lines exist",
+          "source_excerpt": "2. **Deliverable verification** — \"phase N done, verify\" → run the acceptance commands\n   yourself, check claimed files/tests/lines exist, emit the verdict block below.\n3. **Full cold review** — cold-start sceptic scan of a branch; if the project ships a\n   `REVIEWER-PROMPT.md`, read it first for reading order + acceptance criteria.\n",
+          "source_sha256": "9f724c0d4dfbcdee428479f1afcb24897becb40d3cffdb9c81d3396d369679de"
+        },
+        {
+          "at": ".agents/procedures/reviewer/SKILL.md:55",
+          "extract": "Grammar/scenario presence and exactly-one-next-step validation are mechanical.",
+          "instruction_summary": "VERDICT, BLOCKER/MAJOR/ESCALATED/MINOR, Next step",
+          "source_excerpt": "```text\nVERDICT: GO / REVISE / STOP\n\nBLOCKER (N): ... Failure-scenario: <concrete failure / goal-impact>\nMAJOR (N): ...   Failure-scenario: <concrete failure / goal-impact>",
+          "source_sha256": "9f724c0d4dfbcdee428479f1afcb24897becb40d3cffdb9c81d3396d369679de"
+        }
+      ],
+      "irreducible_judgment": "Evidence supports conclusion, grades/materiality, concrete failure scenario, unrecorded value premises, full cold-review synthesis.",
+      "reusable_mechanism_candidate": "Shared bounded acceptance runner + evidence pack + report-form checker; not another semantic reviewer.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "rule-research",
+      "source": ".agents/procedures/rule-research/SKILL.md",
+      "lines": 58,
+      "bytes": 5516,
+      "trigger": "Create stack-aware rules from live canonical documentation.",
+      "already_scripted": [
+        {
+          "at": "packages/core/research/allowlist-resolver.ts:188",
+          "what": "resolveAllowedSources; :399 validateProvenance implements source tiers."
+        },
+        {
+          "at": "packages/core/validator/validate.ts:22",
+          "what": "8 downstream generation gates; :33 degrade != pass."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/rule-research/SKILL.md:22",
+          "extract": "Native procedure/role prerequisite resolution shared with rule-tests.",
+          "instruction_summary": "resolve agents/rule-researcher or installed .claude/agents protocol, missing → stop",
+          "source_excerpt": "From the project root, read `agents/rule-researcher.md` in a framework checkout, or `.claude/agents/rule-researcher.md` in an installed consumer. Follow the resolved protocol as the single source of truth; runtime paths remain relative to the project root. If neither exists, stop and report the missing getff installer-delivered agent prerequisite. A plugin-only installation does not supply this protocol; do not invent it or substitute an empty successful run.\n\n## Run-moment provenance check {#research-run}\n\nBefore authoring a provenance entry, apply the resolved protocol's Tier 0/1/2 trust rules and delivered validation. In a framework checkout, additionally check `resolveAllowedSources`/`validateProvenance` in `packages/core/research/allowlist-resolver.ts`; that implementation path is not delivered to consumers. Unavailable validation is reported as unavailable, never passed.",
+          "source_sha256": "205ef792dc22d188736fbad9680e6358f8a4b4296de8a9017aac94eef96f771b"
+        },
+        {
+          "at": ".agents/procedures/rule-research/SKILL.md:28",
+          "extract": "Capability/delivery preflight and JSON schema validation can be single command; do not invent consumer ./setup.",
+          "instruction_summary": "verify actual delivered regeneration entrypoint exists before running it",
+          "source_excerpt": "Execute the resolved protocol against the current project. In the framework checkout, `./setup --full` runs synthesis. In a consumer, use the actually delivered installer/regeneration entrypoint described by the protocol and verify that it exists before running it; otherwise report the missing prerequisite and stop synthesis. Do not assume a root `./setup` exists.\n\n## Without this skill\n\nAn agent researching a stack's practices hand-authors ESLint rules ad-hoc — with unverified provenance and no L4-expressibility check — and ships inert \"manual\" rules that pass validation **without a firing test**, the discipline-theatre this project exists to eliminate. Fresh, stack-specific knowledge that lives only in live docs is missed because the agent works from stale training data.",
+          "source_sha256": "205ef792dc22d188736fbad9680e6358f8a4b4296de8a9017aac94eef96f771b"
+        }
+      ],
+      "irreducible_judgment": "Practice source selection/current meaning, L4 expressibility semantics, selector minimality, useful message, bad/good/safe form intent.",
+      "reusable_mechanism_candidate": "Keep thin wrapper; central protocol resolver and real research/generation validators already own mechanics.",
+      "priority_provisional": "low",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "rule-tests",
+      "source": ".agents/procedures/rule-tests/SKILL.md",
+      "lines": 61,
+      "bytes": 5794,
+      "trigger": "Repair test material for an existing generated rule, not rule creation.",
+      "already_scripted": [
+        {
+          "at": "packages/core/synthesizer/run-rule-tests-firing.sh:16",
+          "what": "Single-rule scratch isolation; :26 structured diagnostic identity instead of exit-code inference; :80 sidecar shape validation."
+        },
+        {
+          "at": ".agents/roles/rule-test-author.md:60",
+          "what": "Existing npm eight-gate and mutation-runner path, no second validator."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/rule-tests/SKILL.md:24",
+          "extract": "Resolve backend/artifact/material/read obligations and actual isolation runner into one dossier.",
+          "instruction_summary": "read authoritative surface for consumer/framework root",
+          "source_excerpt": "Before repairing, read the authoritative surface for the root you are in:\n\n- **Consumer root:** the delivered dossier for the rule under repair, plus the shipped honesty surface (per-lane verify coverage, the single-rule-isolation rule, the staleness-consent script) in the resolved rule-test-author protocol.\n- **Framework root:** additionally the per-backend `packages/core/backends/*/capability-matrix.json` files — they are NOT delivered to consumers, so this obligation is framework-root only (a consumer-facing read obligation on them would ship a non-executable instruction).\n",
+          "source_sha256": "354a7977ad817d36052dc91d3bcf48aad7525bb0937b9da4111262d3fa904575"
+        },
+        {
+          "at": ".agents/roles/rule-test-author.md:78",
+          "extract": "Age/deps-drift factual collector with explicit signal limitations; consent and semantic freshness remain separate.",
+          "instruction_summary": "read deps baselines and emittedAt/sourceFingerprint/fetchedAt ledgers",
+          "source_excerpt": "1. **Detect.** Read the two existing ledgers:\n   - Ledger 1 — `.ai-factory/tool-decisions.md` frontmatter baselines (the deps-drift signal source).\n   - Ledger 2 — `.ai-factory/synthesizer-output/rules-lock.<framework>.json` `emittedAt` / `sourceFingerprint`, plus the research-plan's `fetchedAt`.\n2. **Explain** — quote the age facts and the honest limits (next paragraph) plainly; do not overstate what the signal covers.\n3. **Offer** — present the regeneration route as a choice, never auto-run it.",
+          "source_sha256": "c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce"
+        }
+      ],
+      "irreducible_judgment": "Meaningful bypass variants and good cases, what rule really forbids, whether to regenerate, staleness interpretation.",
+      "reusable_mechanism_candidate": "Reuse delivered firing runner and provenance/identity gate; lane dossier/freshness fact renderer, not new rule-test author.",
+      "priority_provisional": "low",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "self-reflection",
+      "source": ".agents/procedures/self-reflection/SKILL.md",
+      "lines": 106,
+      "bytes": 9592,
+      "trigger": "Introduce or extend rule/principle/process methodology.",
+      "already_scripted": [
+        {
+          "at": "packages/core/hooks/checks/s17.ts:66",
+          "what": "Discipline introducing commit classifier; :79 trailer body grammar; :42 shared citation regex."
+        },
+        {
+          "at": "packages/core/principles/09-doc-authority-hierarchy.ts:359",
+          "what": "Existing structural doc authority validator."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/self-reflection/SKILL.md:63",
+          "extract": "Enumerate exact trigger population + executable predicates only; composite/domain triggers still judgment.",
+          "instruction_summary": "grep open questions then classify cascade dependencies",
+          "source_excerpt": "5. **Trigger sweep (§1.6)** — `grep -nE \"^### 13\\.\" docs/meta-factory/open-questions.md` run; cascade dependencies on the proposal classified?\n6. **Doc-authority on artefacts produced** — every new `.md` file claimed by proposal carries compliant `> **Authoritative for:**` header per [`doc-authority-hierarchy.md §3`](../../rules/doc-authority-hierarchy.md)? Files exist in repo, not just claimed in shipping table?\n\n## §1.7 backward checklist (summary)\n",
+          "source_sha256": "d03048b2c27d86978473bef8d326cbe5917e37e20c9f60b883b7e5f51ea468c6"
+        },
+        {
+          "at": ".agents/procedures/self-reflection/references/backward-checklist.md:47",
+          "extract": "Given declared scope and dispositions, compute unaccounted/duplicate rows and existence/citation/exemption evidence; semantic scope discovery remains cold agent work.",
+          "instruction_summary": "Compare result with proposal enumeration; every match compliant/exempt/brought into compliance",
+          "source_excerpt": "Compare result with proposal's enumeration. Every match must be either:\n\n- **In compliance** (already follows new rule), OR\n- **Explicitly exempted** (see Step 3), OR\n- **Brought into compliance in same commit** (the typical case for a backward sweep).",
+          "source_sha256": "eb06522b216abb7094dcb226b64a7f43690b2e59d502ae864950f3a734eefdfc"
+        }
+      ],
+      "irreducible_judgment": "Rule-class scope, detectability, build-vs-reuse, premise falsifiers, which sibling surfaces matter, exemption quality, intent of collateral failures.",
+      "reusable_mechanism_candidate": "Reuse s17/principle registries; population-accounting validator and checklist facts instead of prose-only counts.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "story",
+      "source": ".agents/procedures/story/SKILL.md",
+      "lines": 122,
+      "bytes": 8524,
+      "trigger": "Recap session or completed work.",
+      "already_scripted": [
+        {
+          "at": ".agents/procedures/story/helpers/emit-story-prompt.sh:12",
+          "what": "Canonical language/root lookup; :23 requires nonempty whole instruction, propagates failure."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/story/SKILL.md:36",
+          "extract": "Render test/CI/push/merge/publication fields from actual receipts and explicit unknowns; record counts/delivery independently.",
+          "instruction_summary": "Build recap from session fact ledger before five sections",
+          "source_excerpt": "   Build the recap from a session fact ledger before writing the five sections:\n\n   | Ledger field                      | Value comes from                                                                                                                                              |\n   | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n   | Before / after / observed benefit | Supplied session facts or an observed result; an expected benefit is labelled expected and its consumer prerequisites also need supplied or observed evidence |",
+          "source_sha256": "b341899ba35d08eabbccb340067c2308a0c255b0034cf60051d5f921732a62ec"
+        },
+        {
+          "at": ".agents/procedures/story/SKILL.md:67",
+          "extract": "Check declared provenance links/field presence; semantic entailment remains model-owned.",
+          "instruction_summary": "compare each factual statement against ledger field",
+          "source_excerpt": "   facts. Finally compare each factual statement against its ledger field. Remove a\n   statement whose only source is the helper, an inference from silence, or a guessed\n   quantity. A recap does not authorize executing an unresolved decision.\n\n3. Write in the language the emitted instruction uses — do not translate it.",
+          "source_sha256": "b341899ba35d08eabbccb340067c2308a0c255b0034cf60051d5f921732a62ec"
+        }
+      ],
+      "irreducible_judgment": "Plain-language why/before-after/benefit, meaning of decisions, intended next action, facts entail benefit rather than invented consumer compatibility.",
+      "reusable_mechanism_candidate": "Receipt-to-fact-ledger substrate + small language-aware recap prompt; retain no manual format reconstruction.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "template-audit",
+      "source": ".agents/procedures/template-audit/SKILL.md",
+      "lines": 127,
+      "bytes": 6767,
+      "trigger": "Advisory rendered document/template audit.",
+      "already_scripted": [
+        {
+          "at": "packages/core/audit-self/template-render.audit.ts:70",
+          "what": "Real installer run into temp consumer; :98 P1 probes, :109 negative; P4 and P6 follow. P2/P3/P5 explicitly advisory at :10."
+        },
+        {
+          "at": ".agents/procedures/template-audit/SKILL.md:56",
+          "what": "Calls actual test:template-render runner; not execution merely by reading."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/template-audit/SKILL.md:30",
+          "extract": "Replace inline root/argument loop with existing binding seam; runner presence and exit/target receipt collection can share wrapper.",
+          "instruction_summary": "inline shell root/document binding procedure",
+          "source_excerpt": "invocation_cwd=\"$PWD\"\nrendered_documents=()\nfor input in \"$@\"; do\n  case \"$input\" in\n    /*) rendered_documents+=(\"$input\") ;;",
+          "source_sha256": "ed13565bac2d86efc819b39d2c90e0790aa627d05b0e5804966ed25d06228a81"
+        },
+        {
+          "at": ".agents/procedures/template-audit/SKILL.md:82",
+          "extract": "P3 cue line position is deterministic once exact cue identity is defined; currently advisory.",
+          "instruction_summary": "Is session-bootstrap cue in first 10 lines?",
+          "source_excerpt": "- **P3 — Cue placement**: Is the session-bootstrap cue in the first 10 lines of\n  rendered `AGENTS.md`?\n- **P5 — Synonym coverage**: Does the P1 synonym list in `template-render.audit.ts`\n  still match current template phrasing (no synonym drift)?\n",
+          "source_sha256": "ed13565bac2d86efc819b39d2c90e0790aa627d05b0e5804966ed25d06228a81"
+        },
+        {
+          "at": ".agents/procedures/template-audit/SKILL.md:84",
+          "extract": "Mechanical list occurrence feed only; synonym meaning remains advisory judgment.",
+          "instruction_summary": "Does P1 synonym list still match current phrasing?",
+          "source_excerpt": "- **P5 — Synonym coverage**: Does the P1 synonym list in `template-render.audit.ts`\n  still match current template phrasing (no synonym drift)?\n\nFor P5, if the framework audit source is absent, record the synonym-list comparison as unavailable. Report P2/P3/P5 as **advisory** (not blocking), with observations and unavailable probes distinguished. Record any drift locally; open an external follow-up issue only if authorized.\n",
+          "source_sha256": "ed13565bac2d86efc819b39d2c90e0790aa627d05b0e5804966ed25d06228a81"
+        }
+      ],
+      "irreducible_judgment": "P2 semantic paraphrase fidelity, guideline versus gate implication, appropriate cue wording, synonym adequacy, actual consumer rendering versus source.",
+      "reusable_mechanism_candidate": "Shared bound-artifact acceptance wrapper + cue-placement probe; keep P2/P5 semantic review.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "tool-bootstrapping",
+      "source": ".agents/procedures/tool-bootstrapping/SKILL.md",
+      "lines": 83,
+      "bytes": 10552,
+      "trigger": "Project stack/MCP/skill proposal, dependency change, onboarding.",
+      "already_scripted": [
+        {
+          "at": "packages/core/hooks/deps-hash-check.sh:497",
+          "what": "Canonical per-stack print-baseline; :506 per-stack baseline read; :543 drift warning; workspace-aware memoization."
+        },
+        {
+          "at": "packages/core/install/mcp-source-check.ts:311",
+          "what": "checkStackTools obtains registry candidates and ownership signals; :401 isDecided suppression; :420 writes/proposes existing decision record."
+        },
+        {
+          "at": "setup.d/35-stack-tools.sh:16",
+          "what": "GETFF_STACK_TOOLS opt-in; :31 invokes existing bundled source checker."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/tool-bootstrapping/SKILL.md:25",
+          "extract": "Deduplicate observed cores, search once, collect provenance/ownership evidence, prefilter already-decided candidates and render confirmation block. Reuse MCP checker ownership logic only where same source class; skill registry has weaker publisher proof.",
+          "instruction_summary": "exactly ONE npx skills search <core> per detected framework core; ≤5 proposals; first-party candidate",
+          "source_excerpt": "Based on detected stack, surface relevant MCPs and skills. **Hard step (GH #1507): after Rule 1's enumeration, run exactly ONE `npx skills search <core>` per detected framework core** (the language, the UI framework, the metaframework, the database — one search per core, no more). From each result, surface the **top first-party candidate** — published by the owner of the dependency or framework it serves (the same GitHub org, npm scope or homepage domain); an install count is not a source check — in the Rule 3 confirmation block — propose it, never install it. **Vendor MCP servers for direct dependencies** come only from the namespace that dependency's owner holds in the official MCP registry (`registry.modelcontextprotocol.io`); when the getff install ran that check, its decisions are already lines in `.ai-factory/tool-decisions.md` — read them, never re-propose them. This step does not depend on the AIF `/aif` detector being present: `npx skills search` fetches the registry on demand, so ambient stack cores (present since onboarding, invisible as dep-deltas) still get their proposal. Use AIF `skills.sh` registry and skill-acquisition flow (SSOT #32 ADOPT VOCABULARY): `npx skills search` → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs — everything after `search` is confirmation-gated by Rule 3. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.\n\n### Rule 3 — Confirm bulk\n\nShow the full proposed list in one block with per-item rationale, single Y/n confirmation (D1=b, matching AIF `/aif` baseline per SSOT #31). **Hard rule (D6=a): never install any MCP or skill without explicit user confirmation. No env/config bypass.** The one confirmation given outside this block is the «yes» in the getff install's pre-launch list (it reaches the installer as `GETFF_STACK_TOOLS=1`), and it covers only vendor MCP servers that two ownership signals tie to the dependency's owner (its GitHub org, its homepage domain, its npm scope) and that need nothing from the person — an http remote, or an npm server whose current package names it, run as `npx -y <package>` (not pinned; the version npm served is recorded on its line); everything else the install found is recorded as «proposed, not installed» and still comes through this block.",
+          "source_sha256": "1c6bd876d65ebf57afe2d631fef39e33b78b58efb6f45e132ba791c6c22252d5"
+        },
+        {
+          "at": ".agents/procedures/tool-bootstrapping/SKILL.md:41",
+          "extract": "Structured edit/update for decision rows, hashes and installer-owned block preservation; abstract trigger firing remains human/model judgment.",
+          "instruction_summary": "accepted/rejected decisions persisted; never re-propose unless trigger fires",
+          "source_excerpt": "Accepted and rejected decisions are recorded in `.ai-factory/tool-decisions.md` (committed prose, D2=b — team-shared, auditable via git). Schema → see [references/decision-format.md](references/decision-format.md). Never re-propose a rejected tool unless the rejection entry carries an explicit re-eval trigger that has fired.\n\n## §2 Build-vs-reuse boundary\n\nRules 1-4 are AIF `/aif` reuse (SSOT #31 ADOPT). Building a parallel surface for rules 1-4 would replicate ~500 LOC of production AIF code and is the exact `#own-stack-blind-spot` anti-pattern per [phase-research-coverage.md §4](../../rules/phase-research-coverage.md). Rules 5-6 are builds over the thin AIF wrapper — justified because: (a) AIF has no documented incremental-on-dep-change loop (rule 5 gap confirmed via adversarial counter-prompt in research §0); (b) AIF has no «rejected» memory (rule 6 gap confirmed same session). Total build scope: `references/decision-format.md` schema + Wave 5.3 UserPromptSubmit hook.",
+          "source_sha256": "1c6bd876d65ebf57afe2d631fef39e33b78b58efb6f45e132ba791c6c22252d5"
+        }
+      ],
+      "irreducible_judgment": "Stack intent beyond explicit deps, value/frequency/token tradeoff, skill versus MCP, relevance rationale, first-party skill confidence, approval.",
+      "reusable_mechanism_candidate": "Reuse detector, deps-hash and mcp-source-check; bounded search/decision recorder rather than parallel tool onboarding engine.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "tool-bootstrapping-consumer",
+      "source": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md",
+      "lines": 88,
+      "bytes": 11131,
+      "trigger": "Project stack/MCP/skill proposal, dependency change, onboarding.",
+      "already_scripted": [
+        {
+          "at": "packages/core/hooks/deps-hash-check.sh:497",
+          "what": "Canonical per-stack print-baseline; :506 per-stack baseline read; :543 drift warning; workspace-aware memoization."
+        },
+        {
+          "at": "packages/core/install/mcp-source-check.ts:311",
+          "what": "checkStackTools obtains registry candidates and ownership signals; :401 isDecided suppression; :420 writes/proposes existing decision record."
+        },
+        {
+          "at": "setup.d/35-stack-tools.sh:16",
+          "what": "GETFF_STACK_TOOLS opt-in; :31 invokes existing bundled source checker."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md:31",
+          "extract": "Deduplicate observed cores, search once, collect provenance/ownership evidence, prefilter already-decided candidates and render confirmation block. Reuse MCP checker ownership logic only where same source class; skill registry has weaker publisher proof.",
+          "instruction_summary": "exactly ONE npx skills search <core> per detected framework core; ≤5 proposals; first-party candidate",
+          "source_excerpt": "Based on detected stack, surface relevant MCPs and skills. **Hard step (GH #1507): after Rule 1's enumeration, run exactly ONE `npx skills search <core>` per detected framework core** (the language, the UI framework, the metaframework, the database — one search per core, no more). From each result, surface the **top first-party candidate** — published by the owner of the dependency or framework it serves (the same GitHub org, npm scope or homepage domain); an install count is not a source check — in the Rule 3 confirmation block — propose it, never install it. **Vendor MCP servers for direct dependencies** come only from the namespace that dependency's owner holds in the official MCP registry (`registry.modelcontextprotocol.io`); when the getff install ran that check, its decisions are already lines in `.ai-factory/tool-decisions.md` — read them, never re-propose them. This step does not depend on a stack detector or a locally installed registry: `npx skills search` fetches the registry on demand, so ambient stack cores (present since onboarding, invisible as dep-deltas) still get their proposal. The rest of the proposal vocabulary is adopted from AIF's `skills.sh` (search → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs) because aligning names avoids cross-tool drift; the `search` above is the one command you issue up front, while every step after it is the shape of the flow you run ONLY after the Rule 3 confirmation — never something to issue blindly. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.\n\n### Rule 3 — Confirm bulk\n\nShow the full proposed list in one block with per-item rationale, single Y/n confirmation (matching AIF `/aif` baseline). **Hard rule: never install any MCP or skill without explicit user confirmation. No env/config bypass.** The one confirmation given outside this block is the «yes» in the getff install's pre-launch list (it reaches the installer as `GETFF_STACK_TOOLS=1`), and it covers only vendor MCP servers that two ownership signals tie to the dependency's owner (its GitHub org, its homepage domain, its npm scope) and that need nothing from the person — an http remote, or an npm server whose current package names it, run as `npx -y <package>` on the person's machine (the pre-launch list says so; not pinned; its line warns that it runs locally, records the version npm served and names `claude mcp remove <name> -s project`); everything else the install found is recorded as «proposed, not installed» and still comes through this block.",
+          "source_sha256": "8328777c02082423b1d1bc788dfacb5250cc482bd0d1003d34ebb9bd271ff03b"
+        },
+        {
+          "at": ".agents/procedures/tool-bootstrapping-consumer/SKILL.md:47",
+          "extract": "Structured edit/update for decision rows, hashes and installer-owned block preservation; abstract trigger firing remains human/model judgment.",
+          "instruction_summary": "accepted/rejected decisions persisted; never re-propose unless trigger fires",
+          "source_excerpt": "Accepted and rejected decisions are recorded in `.ai-factory/tool-decisions.md` (committed, team-shared). Schema → see [references/decision-format.md](references/decision-format.md). Never re-propose a rejected tool unless the rejection entry carries an explicit re-evaluation trigger that has since fired. A starter template is provided in [templates/tool-decisions.md.template](templates/tool-decisions.md.template).\n\nThe installer writes into the same file. Its blocks sit between `<!-- <ns>:<name>:begin -->` and `<!-- <ns>:<name>:end -->` lines: `<!-- aif:project-checks:begin -->` (how the project checks itself — the record `scripts/run-armed.sh` reads, which its pre-commit `--fold` also rewrites), `<!-- aif:r2-na:begin -->` (the recorded R2 not-applicable verdict and its precondition) and `<!-- getff:installed-versions:begin -->` (the tool versions the install recorded, where your getff writes it). Edit the file in place; never regenerate it from the template; keep each installer block byte-for-byte — the installer replaces a block by its markers, so an edit inside one is lost on the next install, and a block that disappears takes its record with it.\n\n## §2 Build-vs-reuse note",
+          "source_sha256": "8328777c02082423b1d1bc788dfacb5250cc482bd0d1003d34ebb9bd271ff03b"
+        }
+      ],
+      "irreducible_judgment": "Stack intent beyond explicit deps, value/frequency/token tradeoff, skill versus MCP, relevance rationale, first-party skill confidence, approval.",
+      "reusable_mechanism_candidate": "Reuse detector, deps-hash and mcp-source-check; bounded search/decision recorder rather than parallel tool onboarding engine.",
+      "priority_provisional": "medium",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    },
+    {
+      "name": "using-getff",
+      "source": ".agents/procedures/using-getff/SKILL.md",
+      "lines": 65,
+      "bytes": 6107,
+      "trigger": "Session-start activation and relevant enforcement question.",
+      "already_scripted": [
+        {
+          "at": "scripts/render-codex-contributor.mjs:121",
+          "what": "Metadata explicit-invocation flag controls :137 allow_implicit_invocation; native full-source binding generated at :134."
+        },
+        {
+          "at": "scripts/generate-plugin-skills.sh:88",
+          "what": "Existing plugin ENTRY table derives eight native entries from canonical sources."
+        }
+      ],
+      "residual_mechanical": [
+        {
+          "at": ".agents/procedures/using-getff/SKILL.md:35",
+          "extract": "Resource discovery/availability/version identity and activation receipts can be harness-owned; cannot universally enforce semantic ~1% applicability by script.",
+          "instruction_summary": "Invoke relevant skill before respond/act; load complete canonical procedure from thin entry",
+          "source_excerpt": "| `getff` | The user is setting up or reasoning about enforcement: linting, CI, pre-commit/pre-push hooks, architecture/dependency rules, meta-tests, spec-by-example, mutation testing (Stryker), contract testing (Pact), living documentation, fitness functions, or \"make my codebase resist AI agents breaking conventions\". This is the core methodology skill. |\n| `installing-enforcement` | The user wants to actually **wire** the hard layer (git hooks + CI) into their repo — see the `/getff:install-enforcement` command. (Ships in S5.) |\n\nFor enforcement-status and soft/hard-boundary questions, including read-only audits and requests to claim that hooks or CI are green, the sequence is: load `using-getff` → invoke/load `getff` → perform authorized inspection → answer. These questions reason about enforcement and therefore use the `getff` row above even when no installation is authorized. A refusal of silent installation preserves the boundary but does not replace methodology activation. If `getff` cannot be loaded, report the loading failure and the unverified scope; do not proceed with enforcement inspection or claim complete activation.\n",
+          "source_sha256": "01b7f0f95d734a85e5195ebff9042124e0965cb3c427b8f125b813d084b07174"
+        },
+        {
+          "at": ".agents/procedures/using-getff/SKILL.md:44",
+          "extract": "Known explicit route can be loader dependency metadata; decision whether user question belongs there stays semantic.",
+          "instruction_summary": "for enforcement-status questions load using-getff → getff → inspect → answer",
+          "source_excerpt": "\n## Red flags (you are rationalizing — stop and invoke the skill)\n\n| Thought | Reality |\n|---|---|",
+          "source_sha256": "01b7f0f95d734a85e5195ebff9042124e0965cb3c427b8f125b813d084b07174"
+        }
+      ],
+      "irreducible_judgment": "Applicability/routing when natural-language intent ambiguous; preserve instruction priority and soft/hard opt-in boundary.",
+      "reusable_mechanism_candidate": "Native loader dependency/prerequisite schema and minimal activation policy; do not create more always-on prompt routing.",
+      "priority_provisional": "low",
+      "verification": "Source inspected; not live end-to-end unless separately listed in live_probes."
+    }
+  ],
+  "adversarial_category_check": {
+    "prompt": "What category is missed if every SKILL card is read but its deterministic work is classified only from prose?",
+    "result": [
+      "Native adapters and consumer/plugin derivation are separate execution surfaces; inspected their generators and exclusion.",
+      "Helper semantic implementation differs from helper existence/syntax: live-probed only local classifier/root/barrier; service transitions remain unknown.",
+      "Already-built own-stack checks can make a proposed extraction redundant: traced snapshot, current-decisions, deps-hash, docs-check, MCP source checker and rule firing source/delivery.",
+      "Evidence validation can prove citation/digest shape while failing semantic truth: retained independent judgment in every row."
+    ]
+  }
+}

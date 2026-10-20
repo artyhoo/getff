@@ -5,7 +5,7 @@
 
 ## Templates ready to copy
 
-Production-ready configs, shipped from the framework repo's `packages/core/templates/` (in an installed consumer project `install.sh` has already placed them — configs at project root, rules at `.ai-factory/RULES*.md`; paths below are the framework-repo sources):
+The table lists framework source templates, not evidence of consumer delivery. In the framework checkout, read these source paths. In a consumer, resolve the actual delivered files at the project root and under `.ai-factory/` before selecting a config. Delivery depends on the stack and profile: `generic` installs no stack configs, and an existing consumer-owned config may be preserved. If a listed config is absent, report that prerequisite as missing; do not treat the catalog or an installation-complete message as proof of enforcement. Apply the skill's verification protocol to any config you publish.
 
 | File                                                                                                                    | Purpose                                                                         |
 | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |

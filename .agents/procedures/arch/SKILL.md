@@ -34,11 +34,13 @@ Run in the operator's top-tier seat; no pinned model replaces that choice.
 
 ## Phases and required reads
 
-1. Before the first substantive design reply (or a consensus retell), read [ideation](references/ideation.md)
-   and load its required brainstorming, grilling and domain-modeling procedures in full.
-   Execute their current steps; the first reply with open independent forks is a question round. Adopt brainstorming
-   as-is, with its user gate; use the pinned grilling/domain-modeling companions and their exact
-   fallback rules. Record premise meaning, live decision register and falsifiers as decisions settle.
+1. Before the first substantive design reply or a consensus retell, read [ideation](references/ideation.md). Adopt brainstorming
+   as-is, with its user gate; load and execute brainstorming, grilling and domain-modeling from
+   their complete installed texts or documented exact fallbacks before the first design round.
+   Registration alone is not execution. If a required companion cannot be loaded, report the
+   missing prerequisite and park that phase; never improvise an undocumented fallback.
+   The first reply with open independent forks is a question round.
+   Record premise meaning, live decision register and falsifiers as decisions settle.
    Spec includes testing seams. After compaction, retell claims are diffed against the last confirmed
    spec/premise register; unconfirmed author derivations stay outside the agreement table.
 2. If evidence is insufficient for ideation, read [research contour](references/research-contour.md)
@@ -52,6 +54,19 @@ Run in the operator's top-tier seat; no pinned model replaces that choice.
    [exit and escalation](references/exit-and-escalation.md). Apply actual tier criteria, plan completeness,
    staging placement and the protected fidelity-check precondition before a bridge-profile marker.
    The operator chooses the execution channel. Never reimplement SDD or dispatcher here.
+
+## Explain the working idea
+
+When presenting the proposed idea or design, include a small inline Mermaid diagram
+showing its actual components, input/output flow and ownership boundaries where that
+makes the proposal easier to assess. Label proposed, verified and unknown facts
+explicitly. Accompany it with a short text description of the same relationships
+for Claude Code/CLI surfaces that show the fence as text. Codex desktop can render
+the diagram; a model/provider name does not establish a surface's capabilities.
+Place it in the existing explanation or artifact section, preserving all mandatory
+output anchors. A diagram never grants dispatch, review acceptance, CI success or
+merge authority. Depict a review/rework transition only when the invoked protocol
+actually owns it; link that protocol rather than inventing another process.
 
 ## Exit artifacts and chips
 
@@ -75,3 +90,25 @@ Each contour is re-improvised: the operator manually switches models per phase (
 ## With this skill
 
 One entry point runs the whole contour in one top-tier session: brainstorming unchanged, then two cold reviewers at fixed altitudes gate the design before any implementation spend, then the exit is routed by the recorded tier criteria — the handoff artifact (kickoff on staging, or an in-session plan) lands exactly where the next contour expects it, and parked factory questions flow back to the right seat in batch.
+
+<!-- getff:common-invocation-binding -->
+
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/arch/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+
+<!-- /getff:common-invocation-binding -->

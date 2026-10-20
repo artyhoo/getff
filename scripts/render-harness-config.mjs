@@ -24,6 +24,7 @@
  * A per-harness emitter shipped to consumers via install.sh is a PARKED fork (#894 §7).
  */
 import {
+  readdirSync,
   readFileSync,
   writeFileSync,
   existsSync,
@@ -554,8 +555,23 @@ export function emitPlugin(model) {
   return ops;
 }
 
+// Native contributor role discovery is independent of sealed Claude settings/MCP.
+// This explicit lane never changes trust or permissions.
+export function emitClaudeRoles(_model, root) {
+  if (!existsSync(join(root, '.agents/roles'))) return [];
+  return readdirSync(join(root, '.agents/roles'))
+    .filter((name) => name.endsWith('.md'))
+    .sort()
+    .map((name) => ({
+      kind: 'symlink',
+      path: `.claude/agents/${name}`,
+      target: `../../.agents/roles/${name}`,
+    }));
+}
+
 const EMITTERS = [
   { name: 'codex', emit: emitCodex },
+  { name: 'claude-roles', emit: emitClaudeRoles },
   { name: 'claude', emit: emitClaude },
   { name: 'zcode', presenceProbe: '.zcode/config.json', emit: emitZcode },
   {
@@ -622,10 +638,12 @@ function applyOp(root, op) {
   // Ensure the parent dir exists for nested paths (e.g. .zcode/config.json). The symlink branch
   // already did this; the json branch relied on root-only paths and ENOENT'd once emitZcode moved
   // to .zcode/config.json (harness-config-drift N*/shape tests).
-  if (op.kind === 'json' || op.kind === 'merge-json' || op.kind === 'text')
+  if (['json', 'merge-json', 'text', 'seed-text'].includes(op.kind))
     mkdirSync(dirname(abs), { recursive: true });
   if (op.kind === 'json') writeFileSync(abs, renderJson(op.value));
-  else if (op.kind === 'text') writeFileSync(abs, op.value);
+  else if (op.kind === 'seed-text') {
+    if (!existsSync(abs)) writeFileSync(abs, op.value, { flag: 'wx' });
+  } else if (op.kind === 'text') writeFileSync(abs, op.value);
   else if (op.kind === 'merge-json') writeFileSync(abs, mergedJson(root, op));
   else if (op.kind === 'symlink') {
     mkdirSync(dirname(abs), { recursive: true });
@@ -686,6 +704,8 @@ function checkOp(root, op) {
       ? [`${op.path}: retired generated file remains (run --write)`]
       : [];
   }
+  if (op.kind === 'seed-text')
+    return existsSync(abs) ? [] : [`${op.path}: missing (run --write to seed)`];
   if (op.kind === 'text')
     return existsSync(abs) && readFileSync(abs, 'utf8') === op.value
       ? []
@@ -725,6 +745,18 @@ function findRoot(start) {
 }
 
 export function run(argv) {
+  // Select exactly one known emitter, or omit --only for the full render.
+  const selectors = argv.flatMap((arg, i) => (arg === '--only' ? [i] : []));
+  const only = selectors.length === 1 ? argv[selectors[0] + 1] : undefined;
+  if (
+    selectors.length > 1 ||
+    (selectors.length === 1 && !EMITTERS.some((em) => em.name === only))
+  ) {
+    console.error(
+      `usage: --only requires one known emitter (${EMITTERS.map((em) => em.name).join(', ')}); do not repeat it`,
+    );
+    return 2;
+  }
   const mode = argv.includes('--check')
     ? 'check'
     : argv.includes('--write')
@@ -755,8 +787,7 @@ export function run(argv) {
   const drift = [];
   try {
     for (const em of EMITTERS) {
-      const only = argv.indexOf('--only');
-      if (only !== -1 && argv[only + 1] !== em.name) continue;
+      if (only !== undefined && only !== em.name) continue;
       const ops = em.emit(model, root);
       if (
         mode === 'check' &&

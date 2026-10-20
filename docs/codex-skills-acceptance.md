@@ -7,7 +7,9 @@
 
 All 41 native entries (20 skills and 21 role cards) were inventoried and discovered as enabled by Codex Desktop 0.160.0. The source census read 218 files, including conditional references; a separate literal runtime census classified 676 existing references, 175 dynamic/glob/directory references and 78 missing-path occurrences, separating consumer prerequisites, guarded fallbacks, examples, outputs and stale paths. This is complete binding coverage, not evidence that every procedure completed end to end.
 
-Current local status: the contributor plugin was refreshed through the supported CLI. All 21 definitions are trusted, with no definition mismatch, runtime drift or warning. The operator explicitly requested disabling the Codex plain-words recap hook; its native Stop registration is now disabled in user configuration. The other 20 hooks remain enabled. Doctor reports `ready=false` because it requires every registration to be enabled; this intentional opt-out supersedes the earlier all-enabled acceptance below. Trust hashes were not changed.
+Recorded local audit status: the contributor plugin was refreshed through the supported CLI. All 21 definitions are trusted, with no definition mismatch, runtime drift or warning. The operator explicitly requested disabling the Codex plain-words recap hook; its native Stop registration is now disabled in user configuration. The other 20 hooks remain enabled. Doctor reports `ready=false` because it requires every registration to be enabled; this intentional opt-out supersedes the earlier all-enabled acceptance below. Trust hashes were not changed.
+
+The observations below belong to the recorded audit. The merge-forward repair of PR #2076 has deterministic regression and gate evidence; fresh native activation on that repaired candidate remains an acceptance gate. A green source test does not establish current installed discovery, trust or enabled state.
 
 ## Repairs
 

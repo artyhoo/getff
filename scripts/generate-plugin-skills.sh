@@ -64,7 +64,7 @@
 # equal by tests/plugin/skills-generation.test.sh, which extracts both blocks and diffs them;
 # edit them only in pairs. UPSTREAM_BLOB_URL default must match setup.d/lib.sh:49.
 #
-# Zero deps beyond bash + sed + git. Idempotent. Consult record: prior-art-evaluations.md#270
+# Zero deps beyond bash + sed + awk + git. Idempotent. Consult record: prior-art-evaluations.md#270
 # (trigger fired) + #266; control-flow analog obra/superpowers sync-to-codex-plugin.sh.
 set -euo pipefail
 
@@ -154,13 +154,85 @@ transform_one_file() {
 # can never be corrupted. Census at Stage 0: the ladder shape exists only in the five
 # skills/getff/references/*.md README links (patch §2, consequence 1).
 
+# Native plugin installation is independent of the universal consumer installer.
+# Adapt only marked invocation blocks; canonical owners and link provenance stay intact.
+plugin_binding_script() {
+  local slug="$1"
+  cat <<'BINDING'
+getff_invocation_cwd="${getff_invocation_cwd:-$PWD}"
+[ "${getff_arguments+x}" = x ] || getff_arguments=("$@")
+GETFF_SKILL_DIR="${CLAUDE_SKILL_DIR}"
+[ -n "$GETFF_SKILL_DIR" ] && [ -f "$GETFF_SKILL_DIR/SKILL.md" ] || {
+  printf '%s\n' 'STOP: missing native plugin skill/resource root (CLAUDE_SKILL_DIR)' >&2
+  exit 2
+}
+_getff_require_resource() {
+  [ -f "$GETFF_SKILL_DIR/\$1" ] || {
+    printf 'STOP: missing plugin resource: %s\n' "$GETFF_SKILL_DIR/\$1" >&2
+    return 2
+  }
+}
+GETFF_PROJECT_ROOT="$getff_invocation_cwd"
+BINDING
+  printf 'while [ ! -f "$GETFF_PROJECT_ROOT/.agents/procedures/%s/SKILL.md" ] && [ "$GETFF_PROJECT_ROOT" != / ]; do\n' "$slug"
+  cat <<'BINDING'
+  GETFF_PROJECT_ROOT="$(dirname "$GETFF_PROJECT_ROOT")"
+done
+if [ "$GETFF_PROJECT_ROOT" = / ]; then
+  GETFF_PROJECT_ROOT="${CLAUDE_PROJECT_DIR}"
+  GETFF_PROJECT_ROOT="$(cd "$GETFF_PROJECT_ROOT" 2>/dev/null && pwd -P)" || { printf '%s\n' 'STOP: missing native plugin project directory' >&2; exit 2; }
+  [ -d "$GETFF_PROJECT_ROOT" ] || { printf '%s\n' 'STOP: missing native plugin project directory' >&2; exit 2; }
+  getff_containment_cwd="$(cd "$getff_invocation_cwd" && pwd -P)" || exit 2
+  case "$getff_containment_cwd/" in
+    "$GETFF_PROJECT_ROOT/"*) ;;
+    *) printf '%s\n' 'STOP: native plugin project directory does not contain invocation cwd' >&2; exit 2 ;;
+  esac
+fi
+BINDING
+}
+
+adapt_plugin_binding() {
+  local f="$1" slug script footer rewritten
+  grep -q '<!-- getff:common-invocation-binding -->' "$f" || return 0
+  slug=$(sed -n 's/^name:[[:space:]]*//p' "$f" | head -1)
+  [ -n "$slug" ] || { echo "[ERROR] missing native plugin skill name: $f" >&2; exit 2; }
+  script=$(mktemp); footer=$(mktemp); rewritten=$(mktemp)
+  plugin_binding_script "$slug" > "$script"
+  {
+    printf '%s\n' '<!-- getff:common-invocation-binding -->' '## Native plugin invocation binding' ''
+    printf '%s\n' 'Preserve the complete supplied arguments and operator request. Execute this native' 'plugin binding before resolving resources. Native Skill supplies CLAUDE_SKILL_DIR;' 'use the actual plugin directory even when a universal installation also exists.' 'Keep supplied relative inputs invocation-cwd-relative and absolute paths unchanged.' '' '<!-- plugin-native:bind -->' '```bash'
+    cat "$script"
+    printf '%s\n' '```' '' 'Do not change cwd before resolving supplied arguments against getff_invocation_cwd.' 'Use GETFF_PROJECT_ROOT for project checks and GETFF_SKILL_DIR for skill resources.' 'Before reading or executing each mandatory resource, run _getff_require_resource' 'with its skill-relative path; STOP on its diagnostic and nonzero status. Quote every' 'path and argument separately and preserve helper exits. Missing companions or' 'framework-only executables remain explicit prerequisites; plugin discovery grants' 'no permissions, hook trust, global configuration changes or external messaging.' 'When explaining an idea, design or workflow with meaningful relationships, use a' 'small Mermaid diagram plus equivalent readable text in an existing permitted output' 'section. Preserve strict report grammars and closing anchors. Show only supplied or' 'verified relationships, label uncertainty, and do not depict an unobserved execution' 'or authorization as completed. Skip diagrams when they add no explanatory value.' '<!-- /getff:common-invocation-binding -->'
+  } > "$footer"
+  awk -v footer="$footer" -v script="$script" '
+    /<!-- getff:common-invocation-binding -->/ { while ((getline line < footer)>0) print line; close(footer); common=1; next }
+    common { if ($0 ~ /<!-- \/getff:common-invocation-binding -->/) common=0; next }
+    /installed project containing this canonical procedure, never an enclosing Git root\./ { print "project through its native plugin binding below. Preserve invocation cwd for inputs."; next }
+    /<!-- template-audit:bind -->/ {
+      print; print "```bash";
+      while ((getline line < script)>0) print line; close(script);
+      print "rendered_documents=()";
+      print "for input in \"${getff_arguments[@]}\"; do";
+      print "  case \"$input\" in";
+      print "    /*) rendered_documents+=(\"$input\") ;;";
+      print "    *) rendered_documents+=(\"$getff_invocation_cwd/$input\") ;;";
+      print "  esac"; print "done"; print "cd \"$GETFF_PROJECT_ROOT\" || exit 2"; print "```";
+      template=1; next
+    }
+    template { if ($0 == "```") template=0; next }
+    { print }
+  ' "$f" > "$rewritten"
+  cat "$rewritten" > "$f"
+  rm -f "$script" "$footer" "$rewritten"
+}
+
 apply_mode_to_tree() {
   local mode="$1" tree="$2"
   case "$mode" in
     byte-copy) return 0 ;;
     transform|transform+textstrip)
       local md
-      while IFS= read -r -d '' md; do transform_one_file "$md"; done \
+      while IFS= read -r -d '' md; do transform_one_file "$md"; adapt_plugin_binding "$md"; done \
         < <(find "$tree" -name '*.md' -type f -print0 2>/dev/null)
       ;;
   esac
@@ -171,7 +243,7 @@ render_one() {
   local src="$1" mode="$2" tmp
   tmp=$(mktemp /tmp/gps-render.XXXXXX.md)
   cp "$src" "$tmp"
-  [ "$mode" = "byte-copy" ] || transform_one_file "$tmp"
+  if [ "$mode" != "byte-copy" ]; then transform_one_file "$tmp"; adapt_plugin_binding "$tmp"; fi
   cat "$tmp"
   rm -f "$tmp"
 }

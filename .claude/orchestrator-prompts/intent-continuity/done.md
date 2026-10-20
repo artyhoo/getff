@@ -1,0 +1,5 @@
+# intent-continuity — DONE
+- Final PR: #2102 (squash `bdd199255db1` on staging)
+- Closed: 2026-10-14
+- Summary: Technical delivery complete — product intent now survives the spec→execution handoff; the two authorized bounded repairs landed in-full (PRD essential inventory coverage; explicit resolution of all live same-feature review objections), the optional table-delimiter parser correction is accepted (no behavior change per independent Acorn AST comparison), and the final independent fidelity GO was bound to exact head `13545f755c1`; CI green at that head (run 38571369282, incl. the one-shot retry of the L5 installer job whose first attempt died pre-test with npm exit 152).
+- Open tails: live product acceptance AC7 intentionally OPEN until the next genuine feature task (C1 §5) — no invented training run, no product-match or global installed/native acceptance claimed; the clean `codex/intent-continuity-stage` checkout is preserved as the entry point for that feature (native intent card + canonical source present there; default `8e72` lacks the new card).

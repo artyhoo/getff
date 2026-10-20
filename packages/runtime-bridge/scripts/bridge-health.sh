@@ -26,7 +26,12 @@ set -uo pipefail
 # Which container, on which docker context: the shared resolver used by the aif-doctor helpers and
 # the dispatcher's in-flight probe (.claude/skills/aif-doctor/helpers/aif-agent-target.sh). Only an
 # UNAMBIGUOUS candidate is used; a candidate on another docker context is reached via DOCKER_CONTEXT.
-_aif_agent_target="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && pwd)/.claude/skills/aif-doctor/helpers/aif-agent-target.sh"
+_health_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+while [ "$_health_root" != / ] && [ ! -f "$_health_root/.agents/procedures/aif-doctor/helpers/aif-agent-target.sh" ] && [ ! -f "$_health_root/.claude/skills/aif-doctor/helpers/aif-agent-target.sh" ]; do
+  _health_root="$(dirname "$_health_root")"
+done
+_aif_agent_target="$_health_root/.agents/procedures/aif-doctor/helpers/aif-agent-target.sh"
+[ -f "$_aif_agent_target" ] || _aif_agent_target="$_health_root/.claude/skills/aif-doctor/helpers/aif-agent-target.sh"
 AGENT_CONTAINER="${RUNTIME_BRIDGE_AGENT_CONTAINER:-}"
 AGENT_LOOKUP=""
 if [[ -z "$AGENT_CONTAINER" && -f "$_aif_agent_target" ]]; then

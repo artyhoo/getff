@@ -92,6 +92,8 @@ Addenda: <cited-spec-addenda.sh VERDICT line — CLEAN | AMENDED later=<n> marke
 Findings: each graded BLOCKER | MAJOR | MINOR | ESCALATED, with file:line;
   a round-triggering finding (BLOCKER/MAJOR) additionally carries
   `Failure-scenario: <concrete failure / goal-impact>`
+  Each graded finding also carries
+  `Triage: layer=<idea|design|architecture|plan|implementation> (corpus-measured); whose=<reviewer|advisor|operator-floor> (judgment-only, not corpus-validated); class=<recorded grade> (measured null)`
 ```
 
 Verdict rule: any BLOCKER → STOP. Any MAJOR missing/diverged → REVISE. Only MINOR or clean →
@@ -106,6 +108,29 @@ routed to the concept holder — never priced by this seat. Zero-finding audits 
 legitimate outcome.
 
 **Triage rubric ([reviewer-discipline.md §6.1](../rules/reviewer-discipline.md)):** apply the three-axis rubric quoted there when grading — and carry its per-axis provenance: `layer` is `corpus-measured`, `whose` is `judgment-only, not corpus-validated`, and the class axis is a measured null (the recorded grade, not the rubric, remains the class bar).
+
+The frozen rubric is quoted here verbatim from that owner so the shipped role can apply
+it without fetching a repository-only reference:
+
+```text
+Binding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,
+or NOT fixing it would have cost something toward the project goal ("AI agents can't silently
+bypass undocumented conventions"). IMMATERIAL = cosmetic or numeric nit with zero downstream
+effect. That a finding was fixed does not make it material.
+
+Apply these questions before answering:
+1. Does acting on this move the work toward the goal, or only satisfy a form?
+2. Is it theatre - the shape of diligence with no substance behind its target?
+3. Is it immaterial - would no consumer and no decision notice the difference?
+4. Materiality scales with the highest layer the finding touches (idea > design > architecture >
+   plan > implementation); conflicts resolve upward.
+
+layer = the highest layer the finding touches: idea | design | architecture | plan | implementation.
+whose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a
+concept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set
+(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without
+escalation).
+```
 
 **Single-block invariant (enforced by the gate).** The PR body carries exactly ONE
 `## Fidelity verdict` section containing exactly ONE `FIDELITY:` line. A rework round
@@ -131,6 +156,7 @@ a transcript-replaying seat.
 | --- | --------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
 | W-1 | kickoff §2 acc. 3 — no version pins in the shipped install path | a pin breaks any consumer whose toolchain moved | `setup.d/20-node.sh:14` (removed this round) | any `@`-suffixed version or `--version` assertion back on that line, however worded |
 
+Round 1: W-1 CLEAN
 Round 2: W-1 REINTRODUCED (setup.d/20-node.sh:14)
 ```
 
@@ -139,6 +165,8 @@ seat derives that — would spend prompt for nothing); `defect site` is `file:li
 `none — preventive`; `reintroduction tell` is the concrete observable a later seat would see if
 it came back. **Per-round verdicts** append as one `Round N:` line below the table — never edit
 rows or add columns. Tokens: `CLEAN` · `REINTRODUCED` · `N/A`. Items are never deleted.
+The emitted sub-block ends with `Round <current round>: <id> <token>; ...`, covering
+every table item. This required output slot is present on round 1 and on GO as well.
 
 **Landing home:** dispatching session pastes the sub-block **unedited** into the PR body's
 `## Review findings` section (spec D4) — reachable with a call already made for `Audited-SHA`

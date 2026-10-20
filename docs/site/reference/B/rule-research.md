@@ -100,15 +100,15 @@ is a pointer only, and the `go` lane is out of scope. The skill text says to run
 - The description is line 3 of `.claude/skills/rule-research/SKILL.md`. Line 16 says the
   skill is a thin entry point to `agents/rule-researcher.md`. Line 22 is the fail-closed
   source check.
-- The six steps are lines 135 to 188 of `.agents/roles/rule-researcher.md` (the canonical
+- The six steps are lines 157 to 210 of `.agents/roles/rule-researcher.md` (the canonical
   agent doc; root `agents/rule-researcher.md` is its compatibility stub). The narrow rule shape
   is line 117. The two output files are lines 30 and 31. The Rust and Go limits are
   lines 262 and 293.
 - The built-in allowed hosts start on line 20 of `packages/core/research/allowlist.ts`.
-- The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
-  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1718 of
-  `setup.d/45-python.sh`. The method file is on the installer's list at line 245 of
+- The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 152
+  to 154 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1720 of
+  `setup.d/45-python.sh`. The method file is on the installer's list at line 247 of
   `install.sh`.
-- The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 88 to
-  103. With no files it prints guidance and ships no rule. `--full` is line 12 of `setup`.
+- The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 115 to
+  130. With no files it prints guidance and ships no rule. `--full` is line 12 of `setup`.
 - The card is built from `docs/site/reference/B.json`.

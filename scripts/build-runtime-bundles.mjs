@@ -63,6 +63,17 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const BUNDLES = [
   {
+    name: 'docs markdownlint CLI',
+    entry: 'packages/core/docs/markdownlint-cli2.mjs',
+    outfile: 'packages/core/docs/markdownlint-cli2.bundle.mjs',
+    external: [],
+    fromProject: [],
+    thirdParty: true,
+    // jsonc-parser's UMD factory hides relative requires from esbuild. Its ESM
+    // module entry exposes the same API through statically bundled imports.
+    mainFields: ['module', 'main'],
+  },
+  {
     name: 'pre-push hook',
     entry: 'packages/core/hooks/pre-push.ts',
     outfile: 'packages/core/hooks/pre-push.bundle.mjs',
@@ -250,6 +261,7 @@ async function buildOne(esbuild, spec) {
     format: 'esm',
     target: 'node20',
     packages: 'bundle',
+    mainFields: spec.mainFields,
     write: false,
     metafile: true,
     logLevel: 'silent',

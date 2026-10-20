@@ -23,10 +23,11 @@ against the current repo.
    show the user the full plan:
 
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}/install/fetch-and-wire.sh" <stack>
+   "${CLAUDE_PLUGIN_ROOT}/install/fetch-and-wire.sh" <stack>
    ```
 
-   This fetches the official installer (using `RAT_INSTALL_REF`, default `main`) and runs
+   This fetches the official installer at `RAT_INSTALL_REF` (default: moving `main`,
+   not a release pin; a failed requested ref stops without fallback) and runs
    `install.sh <stack> --dry-run` against `$CLAUDE_PROJECT_DIR`. Nothing is written.
 
 3. **Get explicit consent.** Show the preview, then ask the user `[y/N]` whether to apply it.
@@ -35,7 +36,7 @@ against the current repo.
 4. **Apply (only on yes).** Run the real wiring:
 
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}/install/fetch-and-wire.sh" <stack> --apply
+   "${CLAUDE_PLUGIN_ROOT}/install/fetch-and-wire.sh" <stack> --apply
    ```
 
    This wires `.husky/pre-commit` + `.husky/pre-push`, the CI workflow, and the configs. The

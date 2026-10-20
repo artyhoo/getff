@@ -59,3 +59,25 @@ Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `c
 ## §5 §13.18 cascade note (D9=c)
 
 Per [open-questions.md §13.18](../../../docs/meta-factory/open-questions.md), AIF deep-alignment (Option I rules-hierarchy adoption) is armed and cascade-HIGH for §13.25. If §13.18 closes negative in Phase 11, rules 1-4 reuse-via-thin-wrapper (D8=a) may need re-implementation. Mitigation: thin-wrapper design limits coupling surface; full rewrite cost is bounded by [references/decision-format.md](references/decision-format.md) schema stability. The `Prior-art:` trailers in the Wave 5.1 commit (#31, #33) provide the audit trail for any future re-evaluation.
+
+<!-- getff:common-invocation-binding -->
+
+## Common invocation binding
+
+Preserve the complete supplied arguments and operator request. Before resolving a
+relative command, input or resource, bind the nearest ancestor of the current cwd
+that contains `.agents/procedures/tool-bootstrapping/SKILL.md`; do not substitute an enclosing
+Git root or the framework source checkout. Keep absolute supplied input paths unchanged.
+Resolve project-relative inputs against that bound project and procedure-relative
+resources against its canonical procedure directory. If no such ancestor exists,
+STOP with the missing installed-project prerequisite before executing a helper.
+For a shell helper, change to that bound project first and quote every path and
+argument separately; keep its exit status and diagnostics. Discovery does not grant
+permissions, hook trust, global configuration changes or external messaging.
+When explaining an idea, design or workflow with meaningful relationships, use a
+small Mermaid diagram plus equivalent readable text in an existing permitted output
+section. Preserve strict report grammars and closing anchors. Show only supplied or
+verified relationships, label uncertainty, and do not depict an unobserved execution
+or authorization as completed. Skip diagrams when they add no explanatory value.
+
+<!-- /getff:common-invocation-binding -->

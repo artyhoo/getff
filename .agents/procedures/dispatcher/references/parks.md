@@ -18,6 +18,17 @@ When §2.2 detects a parked signal, identify the park type from the taxonomy tab
 
 Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
+**NOT a park: an intent-scoped task holding at `plan_ready`.** A task claimed `autoMode:false`
+(its description carries a fenced ` ```intent-contract ` block) parks at `plan_ready` BY DESIGN
+after planning completes — it is the reviewed-start hold, not a Q&A park: it carries no
+`blockedReason`/`manualReviewRequired`/open-question anchor, so `questions.ts` will not list it,
+and none of the four resolution rows above apply. Resolution is the guarded start, not an answer:
+`tsx packages/runtime-bridge/src/cli/start-reviewed.ts --task <id> --review <plan-review.json>`
+(execution §2.1 carries the contract). Routing an A-park-style `answer.ts --decision resume` at it
+does NOT bypass the hold — `resume` is a scope-guarded decision on scoped tasks and is HELD
+(exit 2, no event) unless an authorized review record validates it. Unscoped tasks never reach
+this state and behave exactly as the table above says.
+
 ### Routing seats (who answers which class — spec D5)
 
 <!-- prettier-ignore -->
@@ -28,6 +39,8 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 | environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                                                                                      | `/aif-doctor` non-destructive arm; else stay parked                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 **Filing the ask — do not hand-write the format.** `bash scripts/check-ask-files.sh --print-template [consult|materiality-dispute] [role]` emits a fileable skeleton; `--help` prints the mailbox path resolved on this machine plus the filename convention and the atomic write-temp+rename recipe; the same script with no arguments validates the result and is the pre-push section `ask-file-schema`. Emitter and validator are deliberately one file, so a skeleton that stops passing is a red test rather than a stale doc. A **materiality dispute** additionally carries the reviewer's finding copied verbatim, never paraphrased ([reviewer-discipline.md §6](../../../rules/reviewer-discipline.md)) — `--print-template materiality-dispute` lays out both extra sections. _Operator-repo surface at v1_: the mailbox default is `rules-as-tests-aif`-scoped and the script is not shipped by `setup.d/`, so on a consumer install this row degrades to its `else` branch (`/arch` office hours by day, stay-parked by night) — consumer delivery is a later stage, never a silent copy ([advisor-pattern-design §1](../../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)).
+
+**Adopted intent-continuity ask.** Classify the concrete question directly as `task`, `architecture`, or `intent`; use `--print-template consult <asker-role> <feature-id> <target>` and replace the primary-document ref/digest, decision IDs, proposed effect and `return-to` with the exact ask filename (`<asker-role>:<ask-file-basename>`). For `task`, set `task-id` to the active AIF task; its persisted description or plan must have the bound document's exact digest. Before sending ASK, run `bash scripts/check-ask-files.sh --prepare-adopted <ask-file>` and send only the doorbell it emits on exit 0. The command fetches `GET /tasks/:id` for task questions and checks the existing shape contract and current document-bound responsibility. The selected advisor records an anchored `decisions.md` entry with `ask`, `feature`, `task-id` (for task), `decision-ids`, `verdict`, and `return-to` before answering that same file. On return, run `bash scripts/check-ask-files.sh --accept-adopted <ask-file>` before applying the advice or invoking `answer.ts`; it fetches the task again, and exit 2 holds the affected task. A passing return is advice within the current contract, never permission to change the product idea or bypass plan review. Legacy asks keep the preceding v1 route. For cold restoration, each declared decision ID must be an exact `## <ID>` entry in the supplied decisions file with `feature: <feature-id>`, `status: current`, and a nonempty `decision:`; loose mentions or superseded entries do not reconstruct agreement.
 
 <!-- effort-worthiness embed (spec-of: .claude/rules/effort-worthiness.md) -->
 

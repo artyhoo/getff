@@ -11,7 +11,7 @@
 # Option-1 gate placement — a standalone setup.d step, mirroring 05-mcp.sh's FULL gate (the
 # placement fork the spike parked per kickoff §6; resolved to Option 1 at harvest time).
 #
-# Gated on FULL ("--full" carrier, install.sh:95+128) so the non-full / snapshot path no-ops
+# Gated on FULL ("--full" carrier, install.sh:96+128) so the non-full / snapshot path no-ops
 # → byte-identical guarantee preserved (the read-only research lines for the record, below, run on
 # every pass but only when a research file exists, which no snapshot fixture has). $0-in-CI (principle 17): the consume path is a pure
 # file-read (the live MCP research already happened in the human session); the CI self-install
@@ -56,16 +56,43 @@ _rb_record_research() {
   rm -f "$err"
 }
 
-# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
-# npm-bound, so it is skipped and named in the NOT wired summary. P5 A5: its research is still
-# listed — every entry research-only with the reason, never silenced.
-if [ "${STACK:-}" = "generic" ]; then
-  note_not_wired "generated rules — not run: the rule generator writes ESLint rules, and stack «generic» has no ESLint getff placed"
+# W2: generated rules require a drivable lint command, not a getff preset.
+_rb_key="${STACK_NAME:-${STACK:-generic}}"
+[ "$_rb_key" = "unknown" ] && _rb_key="generic"
+_rb_linter="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
+_rb_note=""
+if [ -n "${STACK_NAME:-}" ] && [ "$STACK_NAME" != "generic" ] && [ "$STACK_NAME" != "$STACK" ]; then
+  _rb_note=" (detected stack: $STACK_NAME — getff has no preset for it)"
+fi
+if [ ! -f "$PROJECT_ROOT/package.json" ]; then
+  printf '  [80-rule-bootstrap] generated rules — not run: the project has no package.json, so there is no lint command to drive them\n'
+  note_not_wired "generated rules — not run: the project has no package.json, so there is no lint command to drive them"
   _rb_g="$PROJECT_ROOT/.ai-factory/rules-research/generic.research.json"
-  [ ! -f "$_rb_g" ] || _rb_record_research "$_rb_g" "" "stack generic: no rule generator lane for this project's toolchain"
+  [ ! -f "$_rb_g" ] || _rb_record_research "$_rb_g" "" "no package.json: no lint command to drive generated rules"
   return 0 2>/dev/null || true
 fi
-_rb_r="$PROJECT_ROOT/.ai-factory/rules-research/${STACK:-ts-server}"
+if [ "$_rb_linter" = "biome" ]; then
+  printf '  [80-rule-bootstrap] generated rules — not run: this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format)%s\n' "$_rb_note"
+  note_not_wired "generated rules — not run: this project lints with Biome; getff has no GritQL output lane for Biome (its generated rules are ESLint-format), so none run here; Biome stays the project's only linter$_rb_note"
+  _rb_r="$PROJECT_ROOT/.ai-factory/rules-research/$_rb_key"
+  [ ! -f "$_rb_r.research.json" ] || _rb_record_research "$_rb_r.research.json" "" "linter biome: getff has no GritQL output lane (generated rules are ESLint-format)"
+  return 0 2>/dev/null || true
+fi
+if [ "$_rb_linter" = "none" ]; then
+  printf '  [80-rule-bootstrap] generated rules — not run: no ESLint or oxlint in this project (no lint script naming one, no config file for one)%s\n' "$_rb_note"
+  note_not_wired "generated rules — not run: no ESLint or oxlint in this project (no lint script naming one, no config file for one), so there is nothing here to run generated rules$_rb_note"
+  _rb_r="$PROJECT_ROOT/.ai-factory/rules-research/$_rb_key"
+  [ ! -f "$_rb_r.research.json" ] || _rb_record_research "$_rb_r.research.json" "" "no ESLint or oxlint in the project"
+  return 0 2>/dev/null || true
+fi
+if [ -z "$(project_lint_command "$PROJECT_ROOT")" ]; then
+  printf '  [80-rule-bootstrap] generated rules — not run: this project has no lint command in package.json (scripts.lint) for the proof to drive%s\n' "$_rb_note"
+  note_not_wired "generated rules — not run: this project has no lint command in package.json (scripts.lint) for the proof to drive, so no generated rule can be exercised here$_rb_note"
+  _rb_r="$PROJECT_ROOT/.ai-factory/rules-research/$_rb_key"
+  [ ! -f "$_rb_r.research.json" ] || _rb_record_research "$_rb_r.research.json" "" "no scripts.lint: no lint command for the proof to drive"
+  return 0 2>/dev/null || true
+fi
+_rb_r="$PROJECT_ROOT/.ai-factory/rules-research/$_rb_key"
 if [ -f "$_rb_r.research.json" ]; then
   if [ -f "$_rb_r.selection.json" ]; then _rb_record_research "$_rb_r.research.json" "$_rb_r.selection.json" ""
   else _rb_record_research "$_rb_r.research.json" "" "no selection file: nothing was chosen for generation"; fi
@@ -87,11 +114,11 @@ fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
-# ${STACK:-ts-server} D3 notice in 99-finalize.sh:32-33). Multi-stack delivery (#827 B1):
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:33-35). Multi-stack delivery (#827 B1):
 # react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
 # instead of the former react-next-only hardcode that silently degraded every other stack.
-_plan="$_research_dir/${STACK:-ts-server}.research.json"
-_sel="$_research_dir/${STACK:-ts-server}.selection.json"
+_plan="$_research_dir/$_rb_key.research.json"
+_sel="$_research_dir/$_rb_key.selection.json"
 
 if [ ! -f "$_plan" ] || [ ! -f "$_sel" ]; then
   # Decision B: degrade with the reason — never ship the stub rule on the consumer path, and never
@@ -108,7 +135,7 @@ fi
 # and its installed packages are not touched (fork 1 = A). Ranges, never pins (fork 2 = B). Where it lives:
 # see the P6 run 2 N1 block below (node_modules/.cache, else the user cache under --global, else a temp
 # directory removed at the end of this step — removed explicitly: this file is sourced, so no EXIT trap).
-_rb_tool_pkgs=(eslint@^9 typescript-eslint typescript)
+_rb_tool_pkgs=(eslint@^9 typescript-eslint typescript tsx ts-morph)
 _rb_tools=""
 _rb_tools_tmp=""
 # P6 F1 (2026-09-30): asking only for `eslint` let an ESLint that getff's own @typescript-eslint/utils
@@ -119,22 +146,31 @@ _rb_tools_tmp=""
 # ESLint major is the one getff installs itself (_rb_tool_pkgs[0]). Anything else — a partial set, or
 # another major — gets getff's toolchain, and the bundle then loads the whole set from it.
 _rb_eslint_major="${_rb_tool_pkgs[0]#eslint@^}"
-_rb_why_tools="$(cd "$PROJECT_ROOT" && node - "$_rb_eslint_major" 2>&1 <<'JS'
+_rb_probe_tools() { (cd "$1" && node - "$_rb_eslint_major" 2>&1 <<'JS'
 const { createRequire } = require('node:module');
 const { join, dirname } = require('node:path');
-const { existsSync, readFileSync } = require('node:fs');
+const { existsSync, readFileSync, accessSync, constants } = require('node:fs');
 const r = createRequire(join(process.cwd(), 'package.json'));
 const res = (id, via) => {
   try { return r.resolve(id); } catch {}
   if (via) { try { return createRequire(r.resolve(via + '/package.json')).resolve(id); } catch {} }
   return '';
 };
-const need = [['eslint'], ['eslint/use-at-your-own-risk'], ['@typescript-eslint/parser', 'typescript-eslint'], ['@typescript-eslint/utils', 'typescript-eslint']];
+const need = [['eslint'], ['eslint/use-at-your-own-risk'], ['@typescript-eslint/parser', 'typescript-eslint'], ['@typescript-eslint/utils', 'typescript-eslint'], ['ts-morph'], ['tsx/package.json']];
 const found = {};
 for (const [id, via] of need) {
   found[id] = res(id, via);
   if (!found[id]) { console.log(`'${id}' does not resolve from the project`); process.exit(0); }
 }
+try { accessSync(join(process.cwd(), 'node_modules/.bin/tsx'), constants.X_OK); } catch { console.log('tsx executable is not in the project'); process.exit(0); }
+const binProbe = require('node:child_process').spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), ['--version'], {timeout: 10000, stdio: 'ignore'});
+if (binProbe.error || binProbe.status !== 0) { console.log('tsx runtime binary is not usable'); process.exit(0); }
+try { const m=r('ts-morph');
+if(typeof m.Project!=="function" || !m.SyntaxKind)throw new Error("no AST editor");
+const editor=new m.Project({useInMemoryFileSystem:true,skipFileDependencyResolution:true,skipLoadingLibFiles:true});
+const sf=editor.createSourceFile("__getff_ast_probe__.js","export default [];",{overwrite:true});
+if(sf.getKind()!==m.SyntaxKind.SourceFile || sf.getExportAssignments().length!==1)throw new Error("AST editor cannot parse a source file");
+} catch { console.log('ts-morph AST editor is not usable'); process.exit(0); }
 try { createRequire(found['@typescript-eslint/parser']).resolve('typescript'); }
 catch { console.log("'typescript' does not resolve from the project's @typescript-eslint/parser"); process.exit(0); }
 let d = dirname(found.eslint), v = '';
@@ -144,7 +180,8 @@ for (; d !== dirname(d); d = dirname(d)) {
 }
 if (String(v).split('.')[0] !== process.argv[2]) console.log(`eslint ${v || '(version not read)'} is not ${process.argv[2]}.x, the major the generator runs with`);
 JS
-)" || _rb_why_tools="the toolchain probe failed: ${_rb_why_tools:-node exited non-zero}"
+); }
+_rb_why_tools="$(_rb_probe_tools "$PROJECT_ROOT" 2>&1)" || _rb_why_tools="the toolchain probe failed: ${_rb_why_tools:-node exited non-zero}"
 if [ -n "$_rb_why_tools" ]; then
   # P6 run 2 N1 (2026-09-30): the generated rules' mutation check needs the same parser at every push, so the
   # toolchain must outlive the install. It goes in the project's node_modules/.cache — where tools keep their
@@ -175,10 +212,17 @@ if [ -n "$_rb_why_tools" ]; then
       [ -z "$_rb_tools_tmp" ] || rm -rf "$_rb_tools_tmp"
       return 0 2>/dev/null || true
     fi
+    _rb_cached_why="$(_rb_probe_tools "$_rb_tools" 2>&1)" || _rb_cached_why="toolchain probe exited non-zero"
+    if [ -n "$_rb_cached_why" ]; then
+      printf '  ⚠ [80-rule-bootstrap] toolchain is not usable after npm install — %s\n' "$_rb_cached_why"
+      note_not_wired "generated rules — toolchain is not usable after npm install: $_rb_cached_why"
+      [ -z "$_rb_tools_tmp" ] || rm -rf "$_rb_tools_tmp"
+      return 0 2>/dev/null || true
+    fi
     : > "$_rb_tools/.complete"
     # Versions go to the report through P3's record helper when this tree has it.
     if command -v companion_record_version >/dev/null 2>&1; then
-      for _rb_p in eslint typescript-eslint typescript; do
+      for _rb_p in eslint typescript-eslint typescript tsx ts-morph; do
         _rb_v="$(node -p "require('$_rb_tools/node_modules/$_rb_p/package.json').version" 2>/dev/null || true)"
         # The record is committed: a toolchain inside the project is named relative to its root (P6 run 4
         # N11 — rows carried this machine's absolute path); one outside it (--global's user cache) keeps its path.
@@ -225,11 +269,11 @@ if [ "$_rb_rc" -eq 3 ]; then
   # reason follows «invalid or unreadable — » on the first matching line.
   _rb_why="$(sed -n 's/.*invalid or unreadable — //p' "$_rb_log" | head -n 1)"
   printf '  ⚠ [80-rule-bootstrap] research plan REJECTED — no rule was generated from your research this pass\n'
-  note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — research plan rejected: ${_rb_why:-reason not printed (output above, [80-rule-bootstrap])}; the preset rules still apply"
+  note_not_wired "generated rules from .ai-factory/rules-research/$_rb_key.{research,selection}.json — research plan rejected: ${_rb_why:-reason not printed (output above, [80-rule-bootstrap])}; the preset rules still apply"
 elif [ "$_rb_rc" -ne 0 ]; then
   printf '  ⚠ [80-rule-bootstrap] rule generation FAILED (exit %s) — no rule was generated from your research this pass
 ' "$_rb_rc"
-  note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — the generator exited $_rb_rc (output above, [80-rule-bootstrap]); the preset rules still apply"
+  note_not_wired "generated rules from .ai-factory/rules-research/$_rb_key.{research,selection}.json — the generator exited $_rb_rc (output above, [80-rule-bootstrap]); the preset rules still apply"
 fi
 rm -f "$_rb_log"
 

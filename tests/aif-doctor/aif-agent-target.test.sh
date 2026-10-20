@@ -40,6 +40,7 @@ case "${1:-}" in
       else echo "0123abcd   aif:latest   \"node\"   2 days ago   Up 2 days      ${a#*:}"
       fi
     done
+    case " ${STUB_PARTIAL:-} " in *" $ctx "*) echo "daemon failed after partial output" >&2; exit 1 ;; esac
     exit 0 ;;
 esac
 EOF
@@ -90,6 +91,12 @@ check "nothing anywhere → exit 2 and each context's outcome is named" \
 check "a caller-pinned DOCKER_CONTEXT stops the scan" \
   2 "" "other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned" \
   STUB_AGENTS="remote:aif-agent-1" DOCKER_CONTEXT=cur
+check "partial output from a failed pinned daemon never certifies FOUND" \
+  2 "" "the current docker context is unreachable" \
+  STUB_PARTIAL=cur STUB_AGENTS="cur:aif-partial-agent-1" DOCKER_CONTEXT=cur
+check "partial output from a failed daemon is discarded before remote discovery" \
+  0 "aif-agent-1${TAB}remote" "" \
+  STUB_PARTIAL=cur STUB_AGENTS="cur:aif-partial-agent-1 remote:aif-agent-1"
 check "a routing prefix (docker reached through ssh) stops the scan" \
   2 "" "other contexts not scanned: docker is reached through" \
   STUB_AGENTS="remote:aif-agent-1" AIF_AGENT_DOCKER="$STUB via-ssh"

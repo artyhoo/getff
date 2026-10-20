@@ -1,7 +1,7 @@
 ---
 name: orchestrator-worker-discipline
 description: Discipline for aif-dispatched workers — REPORT schema (incl. advisor-consult sub-form on BLOCKER), park-vs-proceed, stage-gate check. Read when you are a worker dispatched via runtime-bridge/dispatch.ts.
-tools: Read
+tools: Read, Bash
 ---
 
 # orchestrator-worker-discipline
@@ -23,6 +23,22 @@ task** or **review** another result, also apply the Orchestrator-planning / Revi
 layers below. The full operator-side orchestrator workflow does NOT travel into the container —
 only this condensed portable subset does.
 
+## Runtime inputs and capability preflight
+
+This role is a worker discipline, not permission to dispatch other workers. In Claude Code,
+load it as the registered agent or read the installed `.claude/agents/orchestrator-worker-discipline.md`
+before the kickoff; in Codex, invoke `$orchestrator-worker-discipline` and read the canonical
+source linked by its native card. Use the active consumer checkout, never a framework checkout
+inferred from a source link. Resolve its root with `git rev-parse --show-toplevel` and run all
+root-relative commands there, including when the kickoff starts in a nested directory.
+
+Bind the kickoff's task, acceptance criteria and, when applicable, predecessor branch/base
+and park task ID exactly. Missing required inputs are BLOCKED; an absent stage prerequisite
+is not an instruction to invent one. Shell access is needed for stage-gate and park; frontmatter
+cannot grant unavailable tools or override host permissions. Shell availability does not authorize
+effects outside the kickoff; never use it to dispatch workers or alter unrelated files. Read-only tasks can finish with
+Read alone; a required shell step without an executor remains BLOCKED.
+
 ## REPORT schema (mandatory on task completion)
 
 End every completed task with:
@@ -36,15 +52,29 @@ End every completed task with:
 - MINOR: <optional — non-blocking observations>
 ```
 
-No REPORT = orchestrator cannot verify your work. Always emit it.
+No REPORT = orchestrator cannot verify your work. Always emit it as the final block.
+Keep the literal field labels shown above (`- Status:`, `- Deliverable:`, `- Evidence:`,
+`- BLOCKER:`, `- MINOR:`), without Markdown emphasis inside labels or invented top-level
+fields. DONE means the dispatched task met its acceptance criteria. An unfinished task
+blocked on a fork, missing capability or failed helper is BLOCKED, even if diagnosing that
+blocker succeeded. Evidence must distinguish observed actions from proposed commands.
 
 ## Park-vs-proceed contract
 
 On a genuine fork (two defensible implementations, missing spec detail that changes behaviour):
 
 - DO NOT pick. DO NOT guess.
-- Run: `npx tsx packages/runtime-bridge/src/cli/park.ts --question "Fork: Option A → X. Option B → Y."`
-- Stop that task. Proceed on unambiguous parts only.
+- Resolve the active checkout root. Require the park helper at
+  `packages/runtime-bridge/src/cli/park.ts` there, or the explicitly provisioned helper path
+  from the kickoff, plus the kickoff's `--task <id>` or `$HANDOFF_TASK_ID`.
+- Probe the helper and shell/tsx capability before use. Never download a runner implicitly:
+  use `npx --no-install tsx <resolved-helper> --task <bound-id> --question "Fork: Option A → X. Option B → Y."`
+  from that root. Park changes factory state: run only against the authorized task and endpoint.
+- Preserve exit status and stderr. Only exit 0 with a confirmation for that bound task supports
+  a parked claim. Missing helper, task ID, permission or runner, and nonzero helper exits mean
+  `Status: BLOCKED` with the exact failure; never report parked or DONE from an attempted command.
+- Stop that task. Proceed on unambiguous parts only. A consumer installation of this role
+  does not itself provision the aif-handoff runtime or park helper.
 
 Soft clarifications (you know what to do, just noting a trade-off) → include in REPORT MINOR, do NOT park.
 
@@ -102,7 +132,11 @@ Before starting Stage N+1 work, verify Stage N PR is merged:
 gh pr list --search "is:merged head:<stage-N-branch> base:staging" --json number,mergedAt --limit 1
 ```
 
-Empty result → park. Non-empty → proceed.
+Require a successful query and a valid JSON array. An empty array means the predecessor
+is not confirmed merged: halt this stage and use the park contract if provisioned. Proceed
+only on a returned PR with a non-null `mergedAt`. A nonzero exit, malformed output or missing
+branch/base is unknown, not an empty population or a merged stage: emit BLOCKED with actual
+exit/stderr. Do not start Stage N+1 on an assumption or a request to bypass this check.
 
 ## Orchestrator-planning layer (when your kickoff asks you to plan a multi-stage task)
 
@@ -132,7 +166,9 @@ not merged. Run the same check as the worker stage-gate above for every stage tr
 gh pr list --search "is:merged head:<stage-N-branch> base:staging" --json number,mergedAt --limit 1
 ```
 
-Empty → HALT, do not dispatch Stage N+1. Non-empty → proceed.
+Apply the worker stage-gate result rules above to every prerequisite. Empty → HALT;
+error/invalid output → BLOCKED; confirmed merged → proceed. Do not dispatch Stage N+1
+on partial confirmation.
 
 ## Reviewer-discipline layer (when your kickoff asks you to review a result)
 

@@ -1262,7 +1262,21 @@ function blobTrackedIn(baseTree, sourceTree, path) {
 var HERE2 = dirname2(fileURLToPath2(import.meta.url));
 var REPO_ROOT = resolve2(HERE2, "../../..");
 var CORE = resolve2(REPO_ROOT, "packages/core");
-var run = (cmd, args = []) => runCheck(cmd, args, { cwd: REPO_ROOT });
+var HOOK_LEAKED_DISCOVERY_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_COMMON_DIR",
+  "GIT_PREFIX",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INTERNAL_SUPER_PREFIX"
+];
+var scrubbedHookEnv = () => {
+  const env = { ...process.env };
+  for (const key of HOOK_LEAKED_DISCOVERY_VARS) delete env[key];
+  return env;
+};
+var run = (cmd, args = []) => runCheck(cmd, args, { cwd: REPO_ROOT, env: scrubbedHookEnv() });
 var EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function readPushStdin() {
   if (process.stdin.isTTY) return "";
@@ -1429,7 +1443,7 @@ function priorArtSection(rb) {
 `);
     }
     process.stdout.write(
-      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\nExamples:\n  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER \u2014 different domain).\n  Prior-art: skipped \u2014 refactor only, no new capability\n\nRules: \u226520 chars after "Prior-art:" (or after "skipped \u2014 "); placeholder\nrationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\nA positive line must also name a resolvable referent \u2014 an SSOT row\n(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:407), or an\nissue/PR reference (#1271). See CLAUDE.md \xA7`Prior-art:` trailer syntax.\n\n'
+      '\nFix: amend the commit body to include a `Prior-art:` line per CONTRIBUTING.md.\nExamples:\n  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER \u2014 different domain).\n  Prior-art: skipped \u2014 refactor only, no new capability\n\nRules: \u226520 chars after "Prior-art:" (or after "skipped \u2014 "); placeholder\nrationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\nA positive line must also name a resolvable referent \u2014 an SSOT row\n(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:418), or an\nissue/PR reference (#1271). See CLAUDE.md \xA7`Prior-art:` trailer syntax.\n\n'
     );
     process.exit(1);
   }
@@ -2443,7 +2457,8 @@ function runCoreSuite(script) {
   if (!runner) return run("npm", ["--prefix", CORE, "run", script]);
   const r = runCheck(runner, ["npm", "run", script], {
     cwd: CORE,
-    timeoutMs: HEAVY_RUNNER_TIMEOUT_MS
+    timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
+    env: scrubbedHookEnv()
   });
   if (r.notFound || /^spawnSync .* E[A-Z]+$/m.test(r.stderr)) {
     die(
@@ -2617,11 +2632,11 @@ async function cmdScriptLivenessEntry(ctx) {
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
-  // 30-templates.sh:112 / 45-python.sh:1790 (install_agents_md)
+  // 30-templates.sh:112 / 45-python.sh:1792 (install_agents_md)
   ".ai-factory/AI-USAGE-GUIDE.md",
   ".ai-factory/ARCHITECTURE.md",
   ".ai-factory/ARCHITECTURE.python.md",
-  // 45-python.sh:1799 (ledger A2-10)
+  // 45-python.sh:1801 (ledger A2-10)
   ".ai-factory/ARCHITECTURE.react-native.md",
   ".ai-factory/ARCHITECTURE.react-next.md",
   ".ai-factory/ARCHITECTURE.react-spa.md",
@@ -2637,8 +2652,10 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tool-decisions.md",
   ".agents/session-bootstrap.md",
   // the canonical starter (10-skills.sh / install.sh --refresh); the native .claude path is a bind link to it
-  ".claude/session-bootstrap.md"
+  ".claude/session-bootstrap.md",
   // the native bind-link destination of the row above
+  "docs/site-quality/calibration.md"
+  // portable-bindings.sh:268 — the docs-quality calibration page delivered to the consumer root
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/",
@@ -2662,6 +2679,7 @@ var SHIPPED_SKILL_SLUGS = [
   "dispatcher",
   "getff",
   "harvest",
+  "intent",
   "night-mode",
   "orchestrator",
   "pipeline",
@@ -2696,6 +2714,11 @@ function isFrameworkShippedMarkdown(p, baseline) {
   return p.startsWith(".claude/agents/") || p.startsWith(".zcode/agents/");
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
+var RETAINED_NATIVE_LINK_FIXTURE = "tests/skills/pipeline-final-report/retained-r3.md";
+var RETAINED_NATIVE_LINK_SHA256 = "a5e5bc1282f35a291a8c59ef8fdff8819749a5edbe9c99916a49ad78745764f7";
+function isRetainedNativeLinkFixture(file, contents, isFrameworkRepo) {
+  return isFrameworkRepo && file === RETAINED_NATIVE_LINK_FIXTURE && createHash("sha256").update(contents).digest("hex") === RETAINED_NATIVE_LINK_SHA256;
+}
 function lycheeSection(ctx) {
   if (!run("lychee", ["--version"]).notFound && recordGoverned(
     ctx,
@@ -2718,6 +2741,54 @@ function lycheeSection(ctx) {
         process.stdout.write(
           `  \xB7 \xA78 lychee: excluded ${excluded} plugin/agents twin(s) \u2014 byte-identical copies, link-checked at their agents/ source
 `
+        );
+      }
+    }
+    {
+      const before = changedMd.length;
+      const canonicalSources = /* @__PURE__ */ new Set();
+      changedMd = changedMd.filter((f) => {
+        if (!f.startsWith(".claude/agents/") || !f.endsWith(".md")) return true;
+        const canonical = `.agents/roles/${f.slice(".claude/agents/".length)}`;
+        try {
+          if (existsSync4(resolve2(REPO_ROOT, canonical)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
+            readFileSync3(resolve2(REPO_ROOT, canonical))
+          )) {
+            canonicalSources.add(canonical);
+            return false;
+          }
+          return true;
+        } catch {
+          return true;
+        }
+      });
+      const excluded = before - changedMd.length;
+      changedMd = [.../* @__PURE__ */ new Set([...changedMd, ...canonicalSources])];
+      if (excluded > 0) {
+        process.stdout.write(
+          `  \xB7 \xA78 lychee: excluded ${excluded} byte-identical .claude/agents twin(s) \u2014 exact canonical .agents/roles/ source(s) included in this link check
+`
+        );
+      }
+    }
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((file) => {
+        if (!ctx.isFrameworkRepo || file !== RETAINED_NATIVE_LINK_FIXTURE)
+          return true;
+        try {
+          return !isRetainedNativeLinkFixture(
+            file,
+            readFileSync3(resolve2(REPO_ROOT, file)),
+            true
+          );
+        } catch {
+          return true;
+        }
+      });
+      if (changedMd.length < before) {
+        process.stdout.write(
+          "  \xB7 \xA78 lychee: excluded unchanged retained native fixture (exact path + SHA256); live and consumer-authored inputs remain checked\n"
         );
       }
     }
@@ -3052,5 +3123,6 @@ export {
   activeSections,
   composeSections,
   isFrameworkShippedMarkdown,
+  isRetainedNativeLinkFixture,
   lineCitationsTimeoutMs
 };

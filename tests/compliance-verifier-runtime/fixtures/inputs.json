@@ -1,0 +1,6 @@
+{
+  "fixture_scope": "/Users/art/.codex/worktrees/audit-compliance-verifier/rules-as-tests-aif/tests/compliance-verifier-runtime/fixtures",
+  "positive": "positive.md",
+  "adverse": "adverse.md",
+  "diff": "diff.txt"
+}

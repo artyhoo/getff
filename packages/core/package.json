@@ -2,7 +2,7 @@
   "name": "@rules-as-tests/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Framework core for rules-as-tests — discipline-bearing code as the project's contract artifact. Ships the rule manifest, ESLint rules, detector/research/synthesizer/installer toolchain, templates, skills, and install wiring.",
+  "description": "Framework core for rules-as-tests \u2014 discipline-bearing code as the project's contract artifact. Ships the rule manifest, ESLint rules, detector/research/synthesizer/installer toolchain, templates, skills, and install wiring.",
   "license": "FSL-1.1-ALv2",
   "type": "module",
   "main": "./manifest/rules-manifest.json",
@@ -54,7 +54,7 @@
   "scripts": {
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
-    "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs",
+    "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs ../../scripts/codex-hook-adapter.test.mjs ../../scripts/codex-skills.test.mjs ../../scripts/pipeline-overview.test.mjs ../../scripts/pipeline-live-signals.test.mjs ../../scripts/pipeline-status-signals.test.mjs && npm run test:canonical:contracts",
     "test:hooks": "vitest run hooks/",
     "test:ir": "vitest run ir/",
     "test:backends": "vitest run backends/",
@@ -65,7 +65,7 @@
     "test:synthesizer": "vitest run synthesizer/",
     "test:skills": "vitest run skills/",
     "test:spec-validation": "vitest run spec-validation/",
-    "test:units": "vitest run audit-self/ detector/ detector-v0/ diagnostics/ diff/ eslint-rules/ install/ installer/ python-starter/ research/ scenario-generator/ validator/",
+    "test:units": "vitest run audit-self/ detector/ detector-v0/ diagnostics/ diff/ eslint-rules/ install/ installer/ python-starter/ research/ scenario-generator/ validator/ docs-engine/",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
     "demo:cargo": "bash backends/cargo/demo/run-demo.sh",
     "typecheck": "tsc --noEmit",
@@ -83,7 +83,10 @@
     "synth": "tsx synthesizer/cli.ts",
     "verify:provenance": "tsx synthesizer/verify-provenance-cli.ts",
     "validate": "tsx validator/cli.ts",
-    "install:synth": "tsx installer/cli.ts"
+    "install:synth": "tsx installer/cli.ts",
+    "test:canonical:contracts": "cd ../.. && node --experimental-strip-types --test scripts/review-sidecar-contract.test.mjs scripts/consumer-resource-closure.test.mjs scripts/arch-resource-closure.test.mjs scripts/python-sidecar-standing.test.mjs scripts/pipeline-installed-root.test.mjs scripts/template-audit-installed-root.test.mjs scripts/pipeline-helper-readonly.test.mjs scripts/pipeline-input-readonly.test.mjs scripts/pipeline-population-readonly.test.mjs scripts/pipeline-priority-readonly.test.mjs scripts/pipeline-overview-runtime.test.mjs tests/roles/rule-researcher-integration.test.mjs && npm --prefix packages/core run test:canonical:zsh && bash tests/install-sh/tool-bootstrapping-binding.test.sh && npm --prefix packages/core run test:canonical:runtime-source",
+    "test:canonical:zsh": "cd ../.. && if command -v zsh >/dev/null 2>&1; then node --test scripts/pipeline-cache.test.mjs; else echo \"UNVERIFIED: pipeline zsh cache firing (zsh absent)\"; fi",
+    "test:canonical:runtime-source": "cd ../.. && node --experimental-strip-types --test scripts/docs-author-runtime.test.mjs scripts/getff-runtime-entry.test.mjs scripts/manual-rule-liveness-prober.test.mjs scripts/reviewer-discipline-runtime.test.mjs scripts/rule-tests-runtime-audit.test.mjs scripts/self-reflection-runtime.test.mjs scripts/story-runtime.test.mjs tests/living-docs-auditor/runtime.test.mjs tests/roles/adapter-jig-reviewer.test.mjs tests/roles/docs-form-auditor/report.test.mjs tests/roles/orchestrator-worker-discipline.test.mjs tests/runtime/shipped-agent-liveness-prober.test.mjs tests/runtime/shipped-agent-liveness-trace.test.mjs tests/skills/installing-enforcement-runtime.test.mjs scripts/plugin-native-binding.test.mjs scripts/pipeline-final-report-runtime.test.mjs && bash tests/aif-doctor/heal-status.test.sh && if command -v python3 >/dev/null 2>&1; then python3 tests/roles/getff-cold-run-prober.test.py; else echo \"UNVERIFIED: getff cold-run preflight (python3 absent)\"; fi"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^9.6.1",

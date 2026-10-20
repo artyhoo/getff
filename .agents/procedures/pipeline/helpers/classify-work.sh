@@ -42,7 +42,7 @@ fi
 # the INPUT value as a literal description string.
 if [[ -f "${INPUT}" ]]; then
   BODY="$(cat "${INPUT}")"
-  # LOC = actual line count; empty file → LOC=0 → falls into fix tier (documented)
+  # LOC = actual line count; empty/whitespace content is unavailable, not a fix.
   LOC="$(wc -l < "${INPUT}" 2>/dev/null || echo 0)"
   LOC="${LOC// /}"   # trim whitespace from wc -l output
   INPUT_MODE="file"
@@ -55,10 +55,15 @@ else
   INPUT_MODE="string"
 fi
 
+if ! printf '%s' "${BODY}" | grep '[^[:space:]]' >/dev/null; then
+  echo "EMPTY-INPUT: no work description available" >&2
+  exit 4
+fi
+
 # ── HEURISTIC 1: R-phase keyword detection (highest priority) ─────────────────
 # Matches "R-phase", "research patch", "prior art", "prior-art", "survey" (case-insensitive).
 # Fires before LOC/SURFACES sizing — research items are always R-phase regardless of size.
-if grep -qiE 'R-phase|research[- ]patch|prior[- ]art|survey' <<<"${BODY}"; then
+if printf '%s\n' "${BODY}" | grep -iE 'R-phase|research[- ]patch|prior[- ]art|survey' >/dev/null; then
   TYPE="R-phase"
   DISPATCH="R-phase-session"
   RATIONALE="R-phase keyword matched: research/prior-art/survey trigger"

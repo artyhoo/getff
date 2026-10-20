@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "attemptId": "c1-needs-evidence-final",
+  "featureId": "intent-continuity",
+  "resultId": "c1-result-continuity",
+  "brief": {
+    "path": "docs/superpowers/specs/snapshots/intent-continuity/f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a.md",
+    "sha256": "f1a42d1c375b9f4b96dc662da714ed9abf54885fa93716b847d65d0cd7a7ee2a"
+  },
+  "producerContract": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/producer-contract.json",
+    "sha256": "f82e562defcf022935fd1cda92f6ffee27c24bd9c9c6c80e96c235b5dddde190"
+  },
+  "observedRevision": "daf10e6ae769fbd54b03d7db7a7698b92c780062d00c7884af23ceb68b8443c5",
+  "sourceInputs": [
+    {
+      "path": ".agents/procedures/intent/helpers/check-result-review.mjs",
+      "sha256": "9962c464d126acfcef8d1b77c292d708d8b8a3b8f78f8d36197b50bd17d434d7"
+    },
+    {
+      "path": ".agents/procedures/intent/helpers/publish-result-review.mjs",
+      "sha256": "ea6243fc3c5fabb0ace3315961c34b7746a10f89c0caa42bb8f08006c9591f80"
+    },
+    {
+      "path": "packages/runtime-bridge/src/resultReview.ts",
+      "sha256": "12790901d7ddd0718291aa8c75a91241f449608b504812b0a2b396576780e9e6"
+    },
+    {
+      "path": "packages/runtime-bridge/src/AifHandoffBackend.ts",
+      "sha256": "06992963999c078101eb871306c5dbe8de58950ba305c8ed02d2b8c4858a1420"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/claim.ts",
+      "sha256": "6b1c4f62f6e2d0cf022e37e6dd9995d10a26a13af5484a4962a782712a4ada67"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/recover-legacy-task.ts",
+      "sha256": "e0720a6f10e76756a0b0e8a3db7ba51f95049daf30b507ff0ccede57d3333bec"
+    },
+    {
+      "path": "packages/core/skills/intent-result-review.test.ts",
+      "sha256": "abb3d3aacaec08737e70d3e02aee032f22dbe9719312b8a58d4bf802c45d2219"
+    },
+    {
+      "path": "packages/runtime-bridge/test/result-review-effects.test.ts",
+      "sha256": "36b794ad6b764ad82df791a7efa17fadf97db4c3a92b40378c407c242b796e79"
+    }
+  ],
+  "environment": {
+    "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/environment.md",
+    "sha256": "8ab315764f57008288b3bc0acc73d30ae6a962a04975e70e03e5ac6e27090322"
+  },
+  "evidence": [
+    {
+      "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest-final.log",
+      "sha256": "eb400dbf2118951fe69a9170b1d01baf2566633e725c7768cf24b0ca5a0d8b17"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/product-review-final.md",
+      "sha256": "303f1bde9b303c14007dd301d55e2a8b1f9aa61dbc40c226d074b91d415a566e"
+    },
+    {
+      "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/legacy-recovery.md",
+      "sha256": "d8ef43f88a4f6999dce9dc80c6d93fe540553218929c6b6d17b8112b4b2bd481"
+    }
+  ],
+  "promises": [
+    {
+      "id": "IC-P6",
+      "comparison": "unobserved",
+      "evidence": [
+        {
+          "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/focused-vitest-final.log",
+          "sha256": "eb400dbf2118951fe69a9170b1d01baf2566633e725c7768cf24b0ca5a0d8b17"
+        },
+        {
+          "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/product-review-final.md",
+          "sha256": "303f1bde9b303c14007dd301d55e2a8b1f9aa61dbc40c226d074b91d415a566e"
+        },
+        {
+          "path": "docs/superpowers/specs/reviews/intent-continuity/c1-evidence/legacy-recovery.md",
+          "sha256": "d8ef43f88a4f6999dce9dc80c6d93fe540553218929c6b6d17b8112b4b2bd481"
+        }
+      ],
+      "explanation": "The fresh independent reviewer verified actual C1 source and local tests but found no observed result-to-PRD product comparison at this revision; live task recovery tests a separate admission boundary."
+    }
+  ],
+  "outcome": "needs-evidence",
+  "limits": [
+    "Bounded to C1 and IC-P6; local result-review fixtures and one live legacy admission readback do not prove the first actual product result matches."
+  ]
+}

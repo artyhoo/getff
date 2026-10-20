@@ -9,6 +9,7 @@ import {
   cpSync,
   realpathSync,
   unlinkSync,
+  existsSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -36,8 +37,6 @@ test('every entry loads canonical source and binds resource paths to that source
       name,
     );
     assert.match(card, /in full/, name);
-    if (!source.endsWith('.md'))
-      assert.ok(card.includes('with `' + source + '`'), name);
   }
   for (const name of ['using-getff', 'installing-enforcement'])
     assert.ok(
@@ -353,6 +352,94 @@ test('every missing packaged dependency is visible and cannot trap Stop in a ret
         assert.match(r.stderr, /missing packaged/);
       }
     }
+  } finally {
+    rmSync(f, { recursive: true, force: true });
+  }
+});
+
+// Rejecting a malformed selector must happen before any selected emitter writes.
+test('renderer rejects invalid or repeated selectors without touching checkout bytes', () => {
+  const f = mkdtempSync(join(tmpdir(), 'codex-selector-'));
+  try {
+    mkdirSync(join(f, '.ai-factory'));
+    writeFileSync(
+      join(f, '.ai-factory/harness-model.json'),
+      JSON.stringify({ hooks: {} }),
+    );
+    for (const mode of ['--check', '--write']) {
+      for (const args of [
+        ['--only', 'codxe'],
+        ['--only'],
+        ['--only', '--check'],
+        ['--only', 'codex', '--only', 'codex'],
+        ['--only', 'codex', '--only', 'plugin'],
+      ]) {
+        const r = spawnSync(
+          process.execPath,
+          [
+            join(root, 'scripts/render-harness-config.mjs'),
+            mode,
+            '--root',
+            f,
+            ...args,
+          ],
+          { encoding: 'utf8' },
+        );
+        assert.equal(
+          r.status,
+          2,
+          JSON.stringify({ mode, args, stdout: r.stdout, stderr: r.stderr }),
+        );
+        assert.match(r.stderr, /--only/);
+        assert.equal(
+          existsSync(join(f, '.codex')),
+          false,
+          'invalid selection must not generate files',
+        );
+      }
+    }
+  } finally {
+    rmSync(f, { recursive: true, force: true });
+  }
+});
+
+test('absent operator config is seeded once while generated artifacts retain drift checks', () => {
+  const f = mkdtempSync(join(tmpdir(), 'codex-config-seed-'));
+  try {
+    mkdirSync(join(f, '.ai-factory'));
+    writeFileSync(
+      join(f, '.ai-factory/harness-model.json'),
+      JSON.stringify({
+        hooks: {},
+        mcpServers: { probe: { command: 'probe-mcp', args: ['--stdio'] } },
+      }),
+    );
+    const invoke = (mode) =>
+      spawnSync(
+        process.execPath,
+        [
+          join(root, 'scripts/render-harness-config.mjs'),
+          '--root',
+          f,
+          mode,
+          '--only',
+          'codex',
+        ],
+        { encoding: 'utf8' },
+      );
+    assert.equal(invoke('--write').status, 0);
+    assert.match(
+      readFileSync(join(f, '.codex/config.toml'), 'utf8'),
+      /probe-mcp/,
+    );
+    const owned =
+      'model = "operator-choice"\napproval_policy = "on-request"\n[mcp_servers.custom]\ncommand = "custom"\n';
+    writeFileSync(join(f, '.codex/config.toml'), owned);
+    assert.equal(invoke('--write').status, 0);
+    assert.equal(readFileSync(join(f, '.codex/config.toml'), 'utf8'), owned);
+    assert.equal(invoke('--check').status, 0);
+    writeFileSync(join(f, 'codex-contributor-plugin/hooks/hooks.json'), '{}');
+    assert.equal(invoke('--check').status, 1, 'generated hooks still drift');
   } finally {
     rmSync(f, { recursive: true, force: true });
   }
