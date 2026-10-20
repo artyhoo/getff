@@ -128,8 +128,21 @@ S="$TMP/s-prog"; mk_suite "$S" >/dev/null
 for i in 1 2 3; do printf '#!/bin/bash\necho body-%s\n' "$i" >"$S/t$i.test.sh"; done
 captured="$( ( bash "$RUNNER" "$S" ) 2>&1 </dev/null 3>"$TMP/fd3" )"
 check "progress arm exits 0" 0 $?
-grep_out "the counter reached fd 3" "3/3 done" "$TMP/fd3"
 printf '%s\n' "$captured" >"$TMP/o8"
+# Preserve the failing channels before fixture cleanup. Only this synthetic
+# progress arm is included; successful runs add no diagnostic output.
+if ! grep -qF "3/3 done" "$TMP/fd3"; then
+  for progress_channel in fd3 o8; do
+    printf 'PROGRESS-DIAGNOSTIC %s bytes=%s (first 4096 bytes, at most 24 escaped lines)\n' \
+      "$progress_channel" "$(wc -c <"$TMP/$progress_channel" | tr -d '[:space:]')"
+    LC_ALL=C dd if="$TMP/$progress_channel" bs=1 count=4096 2>/dev/null \
+      | LC_ALL=C sed -n '1,24l' | dd bs=1 count=4096 2>/dev/null
+    printf '\nPROGRESS-DIAGNOSTIC %s first 128 bytes in hex\n' "$progress_channel"
+    LC_ALL=C dd if="$TMP/$progress_channel" bs=1 count=128 2>/dev/null | od -An -tx1
+    printf 'PROGRESS-DIAGNOSTIC %s end\n' "$progress_channel"
+  done
+fi
+grep_out "the counter reached fd 3" "3/3 done" "$TMP/fd3"
 no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" "$TMP/o8"
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
