@@ -450,6 +450,12 @@ export function parseRunnerOutput(profileHasWrapper: boolean, stdoutText: string
   let sawBaseSummary = false;
   let sawWrapperSummary = false;
   let lastRecord: ParsedRecord | null = null;
+  let inR4HelperDetails = false;
+  const banners = new Set([
+    '▶ Running baseline server-side probes (R1-R9, D1-D2)...',
+    '▶ React/Next-specific probes (R12-R20)...',
+    '▶ React SPA-specific probes (R-SPA-EB, R4, config guards)...',
+  ]);
 
   for (const rawLine of stdoutText.split('\n')) {
     const line = rawLine.replace(/\r$/, '');
@@ -459,6 +465,7 @@ export function parseRunnerOutput(profileHasWrapper: boolean, stdoutText: string
         structureErrors.push(`record after terminal summary: ${line}`);
         continue;
       }
+      inR4HelperDetails = false;
       lastRecord = { kind: recordMatch[1] as ParsedRecord['kind'], rule: recordMatch[2], details: [], scope };
       records.push(lastRecord);
       continue;
@@ -482,15 +489,16 @@ export function parseRunnerOutput(profileHasWrapper: boolean, stdoutText: string
       }
       if (matchedSummary) break;
     }
-    if (matchedSummary) { lastRecord = null; continue; }
-    if (line.trim() === '' || line.startsWith('▶') || line.startsWith('─') || line.startsWith('═')) continue;
-    if (/^\s+\S/.test(line)) {
-      // indented detail line — attaches to the record it follows (shell echo pattern)
+    if (matchedSummary) { lastRecord = null; inR4HelperDetails = false; continue; }
+    if (line.trim() === '' || banners.has(line) || /^[─═]+$/.test(line)) continue;
+    // These are the admitted R4 helper's only unprefixed output envelopes.
+    if (line === 'R4 violations:') { inR4HelperDetails = true; lastRecord = null; continue; }
+    if (/^R4: \d+ domain file\(s\) checked, all exports have matching \.unit\.ts with name reference\.$/.test(line)) continue;
+    if (/^\s+\S/.test(line) && (lastRecord || inR4HelperDetails)) {
       if (lastRecord) lastRecord.details.push(line);
       continue;
     }
-    // unclassified line (delegated-tool output inside R4's npx capture, etc.) —
-    // recorded in the stdout excerpt; records/summaries govern completion.
+    structureErrors.push(`unsupported runner output grammar: ${line}`);
   }
   return { records, summaries, structureErrors };
 }
@@ -583,6 +591,28 @@ export function evaluateScope(params: {
   if (stdout.trim() === '') bump('error', 'runner produced no output');
   if (!summary) bump('error', `terminal summary missing for ${scope} scope — completion cannot be proven`);
   for (const structureError of parse.structureErrors) bump('error', structureError);
+
+  // Identity admission fixes the probe population independently of emitted
+  // records/counters. A matching zero summary cannot prove probes ran.
+  const requiredByScope: Record<string, readonly string[]> = {
+    base: ['R4', 'D3', 'D4', 'D5', 'D6'],
+    'react-next': ['R17'],
+    'react-spa': ['R-SPA-EB', 'R-SPA-HOOKS', 'R4', 'SPA-GUARD'],
+  };
+  const required = requiredByScope[scopeLabel];
+  if (!required) bump('error', `unsupported runner scope: ${scopeLabel}`);
+  else {
+    const seen = new Set<string>();
+    for (const record of scoped) {
+      const id = checkIdOf(record.rule);
+      if (!required.includes(id)) bump('error', `unknown probe ${id} in ${scopeLabel} scope`);
+      if (seen.has(id)) bump('error', `duplicate probe ${id} in ${scopeLabel} scope`);
+      seen.add(id);
+    }
+    for (const id of required) {
+      if (!seen.has(id)) bump('incomplete', `required probe ${id} missing from ${scopeLabel} scope`);
+    }
+  }
 
   // Legacy D1/D2 population must be absent in --structured-drift-external mode.
   for (const record of scoped) {
@@ -791,13 +821,22 @@ export async function executeAudit(argv: string[]): Promise<AuditResult> {
       // when the target delivers scripts/audit-r4.ts, its bytes must match the
       // build-derived identity — the base runner executes it via `npx tsx`, so
       // unadmitted helper bytes are the same unsupported-format case as unadmitted
-      // runner bytes: recorded, refused, never silently executed. An absent helper
-      // stays the runner's own applicability call (generic/node-free layouts).
+      // runner bytes: recorded, refused, never silently executed. If src/domain
+      // is a directory, a missing helper is a prerequisite failure before npx runs.
       let helperProblem: string | null = null;
       const helperIdent = identities.runners.base.r4Helper;
       if (helperIdent) {
         const helperSel = selectRunner(root, 'base', helperIdent);
-        if (helperSel.selection.actualSha256 !== null) {
+        let helperRequired = false;
+        try {
+          helperRequired = statSync(join(root, 'src/domain')).isDirectory();
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+            helperProblem = `R4 applicability could not be acquired: ${(err as Error).message}`;
+          }
+        }
+        if (helperSel.selection.actualSha256 !== null || helperRequired) {
           result.r4Helper = helperSel.selection;
           if (!helperSel.selection.admitted) helperProblem = helperSel.problem;
         }

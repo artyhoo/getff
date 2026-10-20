@@ -11170,6 +11170,12 @@ function parseRunnerOutput(profileHasWrapper, stdoutText) {
   let sawBaseSummary = false;
   let sawWrapperSummary = false;
   let lastRecord = null;
+  let inR4HelperDetails = false;
+  const banners = /* @__PURE__ */ new Set([
+    "\u25B6 Running baseline server-side probes (R1-R9, D1-D2)...",
+    "\u25B6 React/Next-specific probes (R12-R20)...",
+    "\u25B6 React SPA-specific probes (R-SPA-EB, R4, config guards)..."
+  ]);
   for (const rawLine of stdoutText.split("\n")) {
     const line = rawLine.replace(/\r$/, "");
     const recordMatch = RECORD_RE.exec(line);
@@ -11178,6 +11184,7 @@ function parseRunnerOutput(profileHasWrapper, stdoutText) {
         structureErrors.push(`record after terminal summary: ${line}`);
         continue;
       }
+      inR4HelperDetails = false;
       lastRecord = { kind: recordMatch[1], rule: recordMatch[2], details: [], scope };
       records.push(lastRecord);
       continue;
@@ -11203,13 +11210,21 @@ function parseRunnerOutput(profileHasWrapper, stdoutText) {
     }
     if (matchedSummary) {
       lastRecord = null;
+      inR4HelperDetails = false;
       continue;
     }
-    if (line.trim() === "" || line.startsWith("\u25B6") || line.startsWith("\u2500") || line.startsWith("\u2550")) continue;
-    if (/^\s+\S/.test(line)) {
+    if (line.trim() === "" || banners.has(line) || /^[─═]+$/.test(line)) continue;
+    if (line === "R4 violations:") {
+      inR4HelperDetails = true;
+      lastRecord = null;
+      continue;
+    }
+    if (/^R4: \d+ domain file\(s\) checked, all exports have matching \.unit\.ts with name reference\.$/.test(line)) continue;
+    if (/^\s+\S/.test(line) && (lastRecord || inR4HelperDetails)) {
       if (lastRecord) lastRecord.details.push(line);
       continue;
     }
+    structureErrors.push(`unsupported runner output grammar: ${line}`);
   }
   return { records, summaries, structureErrors };
 }
@@ -11277,6 +11292,25 @@ function evaluateScope(params) {
   if (stdout.trim() === "") bump("error", "runner produced no output");
   if (!summary) bump("error", `terminal summary missing for ${scope} scope \u2014 completion cannot be proven`);
   for (const structureError of parse2.structureErrors) bump("error", structureError);
+  const requiredByScope = {
+    base: ["R4", "D3", "D4", "D5", "D6"],
+    "react-next": ["R17"],
+    "react-spa": ["R-SPA-EB", "R-SPA-HOOKS", "R4", "SPA-GUARD"]
+  };
+  const required = requiredByScope[scopeLabel];
+  if (!required) bump("error", `unsupported runner scope: ${scopeLabel}`);
+  else {
+    const seen = /* @__PURE__ */ new Set();
+    for (const record of scoped) {
+      const id = checkIdOf(record.rule);
+      if (!required.includes(id)) bump("error", `unknown probe ${id} in ${scopeLabel} scope`);
+      if (seen.has(id)) bump("error", `duplicate probe ${id} in ${scopeLabel} scope`);
+      seen.add(id);
+    }
+    for (const id of required) {
+      if (!seen.has(id)) bump("incomplete", `required probe ${id} missing from ${scopeLabel} scope`);
+    }
+  }
   for (const record of scoped) {
     const id = checkIdOf(record.rule);
     if (id === "D1" || id === "D2") {
@@ -11450,7 +11484,16 @@ async function executeAudit(argv) {
       const helperIdent = identities.runners.base.r4Helper;
       if (helperIdent) {
         const helperSel = selectRunner(root2, "base", helperIdent);
-        if (helperSel.selection.actualSha256 !== null) {
+        let helperRequired = false;
+        try {
+          helperRequired = statSync2(join3(root2, "src/domain")).isDirectory();
+        } catch (err) {
+          const code2 = err.code;
+          if (code2 !== "ENOENT" && code2 !== "ENOTDIR") {
+            helperProblem = `R4 applicability could not be acquired: ${err.message}`;
+          }
+        }
+        if (helperSel.selection.actualSha256 !== null || helperRequired) {
           result.r4Helper = helperSel.selection;
           if (!helperSel.selection.admitted) helperProblem = helperSel.problem;
         }

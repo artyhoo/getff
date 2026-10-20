@@ -21,7 +21,8 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, chmodSync, mkdtempS
 import { tmpdir } from 'node:os';
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { COMMAND_ARTIFACT, ROLE_FILE, RUNNER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult, deliverCommand, runDeliveredCommand, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
+import {
+  repoRoot, COMMAND_ARTIFACT, ROLE_FILE, RUNNER_BYTES, R4_HELPER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult, deliverCommand, runDeliveredCommand, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
 
 const seam = await import(pathToFileURL(COMMAND_ARTIFACT).href);
 const { parseRunnerOutput, evaluateScope, classifyWarn, deriveExitCode } = seam;
@@ -29,14 +30,17 @@ const { parseRunnerOutput, evaluateScope, classifyWarn, deriveExitCode } = seam;
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const okProc = { exitCode: 0, timedOut: false, overflowed: false, killed: false };
 
-// Grammar-conformant runner outputs, hand-written from the kickoff grammar (frozen inputs).
+// Hand-written seam inputs: clean contains the full admitted base population.
+// The legacy R2 FAIL input also pins finding retention when scope completion is invalid.
 const CLEAN_BASE_STDOUT = [
   'WARN: R4: Every public export in src/domain has matching .unit.ts (ts-morph) (skipped: no src/domain — probe could not run)',
   'PASS: D3 (drift): canonical goal phrase present in downstream goal-bearing docs',
   'PASS: D4 (drift): .ai-factory/tool-decisions.md up-to-date with package.json',
+  'PASS: D5 (drift, inverse): every file with canonical phrase is enrolled or exempt',
+  'WARN: D6 (drift): passport (no passport — nothing to check)',
   '',
   '─────────────────────────────────────────',
-  'Audit complete: 2 PASS, 0 FAIL, 1 WARN',
+  'Audit complete: 3 PASS, 0 FAIL, 2 WARN',
   '',
 ].join('\n');
 const VIOLATION_STDOUT = [
@@ -539,4 +543,136 @@ test('row 14 (fault: over-rejecting classifier): row-1 clean expectation fails w
   assert.equal(row1Expectation(mutant), false, 'oracle rejects the excess rejection (RED observed)');
   // restoration: the unmodified classifier satisfies row 1 (re-green)
   assert.equal(row1Expectation(evalClean(parseRunnerOutput)), true);
+});
+
+
+// Actual cold Round1 F1: independent closed populations and exact grammar.
+function f1Evaluate(stdout, profile = 'base', exitCode = 0) {
+  return evaluateScope({
+    scopeLabel: profile, scope: profile === 'base' ? 'base' : 'wrapper',
+    isWrapperScope: profile !== 'base', baseExit: profile === 'base' ? null : 0,
+    proc: { ...okProc, exitCode }, stdout,
+    parse: parseRunnerOutput(profile !== 'base', stdout),
+  });
+}
+const f1BadTranscripts = [
+  ['summary-only', 'Audit complete: 0 PASS, 0 FAIL, 0 WARN\n', /missing/i],
+  ['duplicate-required', CLEAN_BASE_STDOUT.replace('Audit complete: 3 PASS, 0 FAIL, 2 WARN', 'PASS: R4: repeated probe\nAudit complete: 4 PASS, 0 FAIL, 2 WARN'), /duplicate.*R4|R4.*duplicate/i],
+  ['unknown-record', CLEAN_BASE_STDOUT.replace('Audit complete: 3 PASS, 0 FAIL, 2 WARN', 'PASS: R999: invented\nAudit complete: 4 PASS, 0 FAIL, 2 WARN'), /unknown.*R999|unsupported.*R999/i],
+  ['unsupported-grammar', CLEAN_BASE_STDOUT.replace('Audit complete: 3 PASS, 0 FAIL, 2 WARN', 'FAILED: R4: unsupported grammar\nAudit complete: 3 PASS, 0 FAIL, 2 WARN'), /unsupported.*FAILED/i],
+];
+for (const [name, stdout, reason] of f1BadTranscripts) test(`F1 required population and grammar: ${name}`, () => {
+  const e = f1Evaluate(stdout);
+  assert.notEqual(e.completion.status, 'passed');
+  assert.match(e.completion.reasons.join(' '), reason);
+  assert.equal(deriveExitCode({ checks: [...e.checks, e.completion], counts: { blocking: 0 } }), 2);
+});
+test('F1 complete Next scope retains a located R17 FAIL and its normative severity', () => {
+  const stdout = CLEAN_BASE_STDOUT + 'FAIL: R17: component exports\n    src/shared/ui/Button.tsx:24: missing story\nUI audit complete: 0 PASS, 1 FAIL, 0 WARN\n';
+  const e = f1Evaluate(stdout, 'react-next', 1);
+  assert.equal(e.completion.status, 'passed');
+  const r17 = e.checks.find(c => c.check === 'react-next/R17');
+  assert.equal(r17.status, 'violations');
+  assert.equal(r17.findings[0].severity, 'blocking');
+  assert.match(r17.findings[0].message, /src\/shared\/ui\/Button\.tsx:24/);
+  assert.equal(deriveExitCode({ checks: [...e.checks, e.completion], counts: { blocking: 1 } }), 1);
+});
+for (const [profile, wrapper] of [
+  ['base', []], ['react-next', ['R17']], ['react-spa', ['R-SPA-EB', 'R-SPA-HOOKS', 'R4', 'SPA-GUARD']],
+]) test(`F1 real admitted ${profile} runner completes its independently fixed population`, () => {
+  const root = buildCleanFixture(profile);
+  try {
+    const res = runDeliveredCommand(root, ['--project-root', root, '--profile', profile]);
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    const j = readResult(res); assert.equal(j.complete, true);
+    assert.deepEqual(j.checks.filter(c => c.check.startsWith('base/') && c.check !== 'base/completion').map(c => c.check), ['base/R4', 'base/D3', 'base/D4', 'base/D5', 'base/D6']);
+    if (profile !== 'base') assert.deepEqual(j.checks.filter(c => c.check.startsWith(profile + '/') && c.check !== profile + '/completion').map(c => c.check), wrapper.map(id => profile + '/' + id));
+  } finally { disposeFixture(root); }
+});
+
+// F2: applicable missing helper is acquisition failure before any runner starts.
+test('F2 actual applicable missing R4 helper is incomplete and retains independent MCP debt', () => {
+  const root = buildCleanFixture('base');
+  try {
+    mkdirSync(join(root, 'src/domain'), { recursive: true });
+    writeFileSync(join(root, 'src/domain/example.ts'), 'export function example() { return 1; }\n');
+    writeFileSync(join(root, 'tsconfig.json'), '{}\n');
+    writeFileSync(join(root, '.mcp.json'), '{"_comment_TODO_remove":"known debt"}\n');
+    const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 2, res.stdout + res.stderr);
+    const j = readResult(res); assert.equal(j.complete, false);
+    assert.equal(j.checks.find(c => c.check === 'main')?.status, 'incomplete');
+    assert.match(j.checks.find(c => c.check === 'main').reasons.join(' '), /audit-r4\.ts/);
+    assert.equal(j.r4Helper?.actualSha256, null);
+    assert.equal(j.r4Helper?.admitted, false);
+    assert.equal(j.process, null, 'missing prerequisite must not invoke npx or execute a runner');
+    assert.ok(j.findings.some(f => f.location?.file === '.mcp.json' && /_comment_TODO_remove/.test(f.message)));
+  } finally { disposeFixture(root); }
+});
+test('F2 a regular file at src/domain is nonapplicable, not a missing-helper error', () => {
+  const root = buildCleanFixture('base');
+  try {
+    mkdirSync(join(root, 'src')); writeFileSync(join(root, 'src/domain'), 'not a directory');
+    const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    const j = readResult(res); assert.equal(j.complete, true);
+    assert.equal(j.checks.find(c => c.check === 'base/R4').status, 'not-applicable');
+  } finally { disposeFixture(root); }
+});
+test('F2 real admitted R4 helper distinguishes matching tests from a genuine missing-test finding', { timeout: 120_000 }, () => {
+  const root = buildCleanFixture('base');
+  try {
+    mkdirSync(join(root, 'src/domain'), { recursive: true });
+    writeFileSync(join(root, 'src/domain/example.ts'), 'export function example() { return 1; }\n');
+    writeFileSync(join(root, 'src/domain/example.unit.ts'), 'import { example } from "./example"; example();\n');
+    writeFileSync(join(root, 'tsconfig.json'), '{"compilerOptions":{"target":"ES2022"},"include":["src/**/*.ts"]}\n');
+    writeFileSync(join(root, 'scripts/audit-r4.ts'), R4_HELPER_BYTES);
+    symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'));
+    const clean = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr); assert.equal(readResult(clean).complete, true);
+    unlinkSync(join(root, 'src/domain/example.unit.ts'));
+    const bad = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(bad.status, 1, bad.stdout + bad.stderr);
+    const j = readResult(bad); assert.equal(j.complete, true);
+    assert.equal(j.checks.find(c => c.check === 'base/R4').status, 'violations');
+  } finally { disposeFixture(root); }
+});
+
+// F3 uses the kickoff-permitted exact I/O boundary in a real CLI process. It does
+// not replace acquisition/results or claim chmod failed on a root-readable host.
+for (const [kind, rel, operation] of [
+  ['file-read', '.claude/settings.json', 'readFileSync'],
+  ['directory-enumeration', '.ai-factory', 'readdirSync'],
+]) test(`F3 actual structured ${kind} denial retains debt and exact restored/clean/optional companions`, () => {
+  const root = buildCleanFixture('base'); const outside = mkdtempSync(join(tmpdir(), 'd0-structured-io-'));
+  try {
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(join(root, '.claude/settings.json'), '{"permissions":{}}\n');
+    writeFileSync(join(root, '.mcp.json'), '{"_comment_TODO_remove":"known debt"}\n');
+    const spy = join(outside, 'actual-denied-operation');
+    const shim = `import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const root=${JSON.stringify(root)},rel=${JSON.stringify(rel)},operation=${JSON.stringify(operation)},spy=${JSON.stringify(spy)};
+const targets=[root+'/'+rel,fs.realpathSync(root)+'/'+rel];const original=fs[operation];
+fs[operation]=function(path,...args){if(targets.includes(String(path))){fs.appendFileSync(spy,operation+'\\n');throw Object.assign(new Error('EACCES: exact controlled '+operation+' denied'),{code:'EACCES'});}return original.call(this,path,...args);};syncBuiltinESMExports();`;
+    const denied = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base'], ['--import', 'data:text/javascript;base64,' + Buffer.from(shim).toString('base64')]);
+    assert.equal(denied.status, 2, denied.stdout + denied.stderr);
+    const j = readResult(denied); assert.equal(j.complete, false);
+    const d2 = j.checks.find(c => c.check === 'structured/d2-json-configs');
+    assert.equal(d2.status, 'incomplete'); assert.match(d2.reasons.join(' '), /EACCES/);
+    assert.match(d2.reasons.join(' '), kind === 'file-read' ? /settings\.json/ : /cannot be enumerated/);
+    assert.equal(readFileSync(spy, 'utf8').trim(), operation, 'the actual intended CLI read boundary was reached once');
+    assert.ok(d2.findings.some(f => f.location?.file === '.mcp.json' && /_comment_TODO_remove/.test(f.message)), 'independent real MCP debt retained');
+    const restored = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(restored.status, 0, restored.stdout + restored.stderr);
+    const r = readResult(restored); assert.equal(r.complete, true);
+    assert.equal(r.checks.find(c => c.check === 'structured/d2-json-configs').status, 'violations');
+    writeFileSync(join(root, '.mcp.json'), '{"mcpServers":{}}\n');
+    const clean = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    assert.equal(readResult(clean).checks.find(c => c.check === 'structured/d2-json-configs').status, 'passed');
+    unlinkSync(join(root, '.mcp.json')); unlinkSync(join(root, '.claude/settings.json'));
+    const absent = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(absent.status, 0, absent.stdout + absent.stderr);
+    assert.equal(readResult(absent).checks.find(c => c.check === 'structured/d2-json-configs').status, 'not-applicable');
+  } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
 });
