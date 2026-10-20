@@ -3,7 +3,7 @@
 > **Authoritative for:** Codex contributor discovery and host bindings in this checkout.
 > **NOT authoritative for:** project goal, canonical procedures, native hook acceptance or PR #2066 delivery.
 
-The native cards in `.agents/skills/` load the existing procedures in this checkout. `scripts/render-codex-contributor.mjs` derives them from `.claude/skills/`, `skills/`, `plugin/skills/` and `agents/`. Project-specific sources override shipped twins of the same name; plugin-only entries are retained. The original skill frontmatter and explicit invocation policies are preserved. Role cards load the original prompts under `agents/`.
+The native cards in `.agents/skills/` load the existing procedures in this checkout. `scripts/render-codex-contributor.mjs` derives procedure cards from `.agents/procedures/` and role cards from `.agents/roles/`. The original skill frontmatter and explicit invocation policies are preserved. Each generated card links to its complete canonical source and source-relative resources.
 
 Read the complete linked procedure before execution, then read its conditionally required references before the corresponding action. Resolve Markdown links against the file containing the link. Use the source directory named by the card for `${CLAUDE_SKILL_DIR}` and its resources. Preserve the operator's arguments; execute required shell blocks through the shell tool instead of treating their displayed code as executed evidence.
 
