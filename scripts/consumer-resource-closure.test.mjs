@@ -7,6 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 const root = resolve(import.meta.dirname, '..');
+// A real core setup measured 66.49 s on the maintainer Mac (2026-10-18).
+// Keep the full installer and all assertions; allow its companion detection to finish.
+const INSTALL_TIMEOUT_MS = 120_000;
 test('one core install delivers both interfaces and mandatory read-only role resources', t => {
   const dir = mkdtempSync(join(tmpdir(), 'consumer closure space '));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -14,7 +17,7 @@ test('one core install delivers both interfaces and mandatory read-only role res
   const userConfig = '# user-owned\nmodel = "gpt-6.1-sol"\n';
   writeFileSync(join(dir, '.codex/config.toml'), userConfig);
   const install = (...flags) => spawnSync('bash', [join(root, 'setup'), 'generic', '--profile', 'core', ...flags],
-    { cwd: dir, encoding: 'utf8', input: '', timeout: 60000, maxBuffer: 4 * 1024 * 1024 });
+    { cwd: dir, encoding: 'utf8', input: '', timeout: INSTALL_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 });
   let r = install(); assert.equal(r.status, 0, r.stderr + r.stdout);
   for (const file of ['.claude/agents/docs-form-auditor.md', '.agents/skills/docs-form-auditor/SKILL.md',
     '.codex/hooks.json', '.agents/roles/resources/docs-form-auditor/check-report.mjs',
@@ -115,7 +118,7 @@ test('factory advertised runtime paths resolve without requiring a running Docke
   const dir = mkdtempSync(join(tmpdir(), 'factory closure space '));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const r = spawnSync('bash', [join(root, 'setup'), 'generic', '--profile', 'factory'],
-    { cwd: dir, encoding: 'utf8', input: '', timeout: 60000, maxBuffer: 4 * 1024 * 1024 });
+    { cwd: dir, encoding: 'utf8', input: '', timeout: INSTALL_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 });
   assert.equal(r.status, 0, r.stderr + r.stdout);
   for (const name of ['questions', 'harvest', 'park', 'answer'])
     assert.ok(existsSync(join(dir, `.agents/tools/runtime-bridge/src/cli/${name}.ts`)), name);
@@ -135,7 +138,7 @@ test('docs role carries a scoped vocabulary reference without replacing the proj
   mkdirSync(join(dir,'docs/site'),{recursive:true});
   const owned='# Project glossary\n\n### Product widget\nThe project owner defines this term.\nDo not use (name): gadget — a project-owned synonym.\n';
   const glossary=join(dir,'docs/site/terms.md');writeFileSync(glossary,owned);
-  const install=(...flags)=>spawnSync('bash',[join(root,'setup'),'generic','--profile','core',...flags],{cwd:dir,encoding:'utf8',input:'',timeout:60000,maxBuffer:4*1024*1024});
+  const install=(...flags)=>spawnSync('bash',[join(root,'setup'),'generic','--profile','core',...flags],{cwd:dir,encoding:'utf8',input:'',timeout:INSTALL_TIMEOUT_MS,maxBuffer:4*1024*1024});
   let result=install();assert.equal(result.status,0,result.stdout+result.stderr);
   const reference=join(dir,'.agents/roles/resources/docs-form-auditor/framework-terms.md');
   assert.ok(existsSync(reference),'the selected card glossary reference must be available as scoped supporting data');
