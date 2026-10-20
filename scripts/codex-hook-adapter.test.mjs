@@ -25,6 +25,9 @@ const env = {
   TMPDIR: fixture,
   AIF_RESIDUE_DIR: fixture,
   AIF_HOOK_LANG: 'ru',
+  // This fixture models an interactive Codex caller, independent of its SDK test parent.
+  CLAUDE_CODE_ENTRYPOINT: 'cli',
+  AIF_EOT_SDK_RECAP: '0',
 };
 for (const key of spawnSync('git', ['rev-parse', '--local-env-vars'], {
   encoding: 'utf8',
@@ -87,6 +90,24 @@ test('plugin command no longer silently skips the Stop hook when the runtime is 
   assert.equal(after.status, 2, after.stderr);
   assert.match(after.stderr, /по одной на\s+вопрос в раунде \/arch/);
   assert.match(after.stderr, /САМАЯ СУЩЕСТВЕННАЯ причина/);
+
+  // The real SDK default remains nonblocking; only its explicit recap opt-in demands a card.
+  const sdk = spawnSync('sh', ['-c', command], {
+    cwd: fixture,
+    env: { ...env, CLAUDE_CODE_ENTRYPOINT: 'sdk-cli' },
+    input,
+    encoding: 'utf8',
+  });
+  assert.equal(sdk.status, 0, sdk.stderr);
+  assert.equal(sdk.stdout + sdk.stderr, '');
+  const optedInSdk = spawnSync('sh', ['-c', command], {
+    cwd: fixture,
+    env: { ...env, CLAUDE_CODE_ENTRYPOINT: 'sdk-cli', AIF_EOT_SDK_RECAP: '1' },
+    input,
+    encoding: 'utf8',
+  });
+  assert.equal(optedInSdk.status, 2, optedInSdk.stderr);
+  assert.match(optedInSdk.stderr, /САМАЯ СУЩЕСТВЕННАЯ причина/);
 });
 
 test('SessionStart preserves nonblocking coordination conflicts and both file versions', () => {
