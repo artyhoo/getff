@@ -128,9 +128,9 @@ var require_extend = __commonJS({
 
 // packages/core/audit-self/living-docs-audit-cli.ts
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync as readFileSync2, readdirSync as readdirSync2, statSync as statSync2, writeFileSync } from "node:fs";
-import { isAbsolute, join as join3, relative as relative2, resolve as resolve2, sep } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync as readFileSync2, readdirSync as readdirSync2, statSync as statSync2, writeFileSync, realpathSync as realpathSync3, lstatSync as lstatSync2, readlinkSync as readlinkSync2, renameSync, unlinkSync } from "node:fs";
+import { isAbsolute as isAbsolute2, join as join3, relative as relative2, resolve as resolve2, sep as sep2, dirname as dirname2, basename } from "node:path";
 
 // packages/core/install/is-direct-run.ts
 import { realpathSync } from "node:fs";
@@ -146,8 +146,8 @@ function isDirectRun(argv1, metaUrl) {
 }
 
 // packages/core/audit-self/audit-ai-docs.ts
-import { existsSync, readdirSync, statSync, readFileSync, realpathSync as realpathSync2 } from "node:fs";
-import { resolve, join as join2, relative } from "node:path";
+import { existsSync, readdirSync, statSync, readFileSync, realpathSync as realpathSync2, lstatSync, readlinkSync } from "node:fs";
+import { resolve, join as join2, relative, isAbsolute, sep, dirname } from "node:path";
 import { execFileSync, execSync } from "node:child_process";
 
 // node_modules/mdast-util-to-string/lib/index.js
@@ -9129,10 +9129,10 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set basename(basename) {
-    assertNonEmpty(basename, "basename");
-    assertPart(basename, "basename");
-    this.path = default2.join(this.dirname || "", basename);
+  set basename(basename2) {
+    assertNonEmpty(basename2, "basename");
+    assertPart(basename2, "basename");
+    this.path = default2.join(this.dirname || "", basename2);
   }
   /**
    * Get the parent path (example: `'~'`).
@@ -9153,9 +9153,9 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set dirname(dirname) {
+  set dirname(dirname3) {
     assertPath(this.basename, "dirname");
-    this.path = default2.join(dirname || "", this.basename);
+    this.path = default2.join(dirname3 || "", this.basename);
   }
   /**
    * Get the extname (including dot) (example: `'.js'`).
@@ -10327,6 +10327,38 @@ function readState(p) {
     return "unreadable";
   }
 }
+function declaredState(root2, base, name) {
+  const within = (parent, path) => {
+    const rel = relative(parent, path);
+    return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+  };
+  const candidate = resolve(root2, base, name);
+  if (isAbsolute(name) || !within(resolve(root2, base), candidate)) {
+    return { state: "unreadable", reason: `declared path escapes its audited boundary: ${base}/${name}` };
+  }
+  try {
+    const physicalRoot = realpathSync2(root2);
+    let current = physicalRoot;
+    let pending = relative(resolve(root2), candidate).split(sep).filter(Boolean);
+    let links = 0;
+    while (pending.length) {
+      const next = resolve(current, pending.shift());
+      if (!within(physicalRoot, next)) return { state: "unreadable", reason: `declared path escapes the audited boundary: ${base}/${name}` };
+      const st = lstatSync(next);
+      if (st.isSymbolicLink()) {
+        const target = resolve(dirname(next), readlinkSync(next));
+        if (!within(physicalRoot, target)) return { state: "unreadable", reason: `declared path links outside the audited boundary: ${base}/${name}` };
+        if (++links > 40) return { state: "unreadable", reason: `declared path has a symlink loop: ${base}/${name}` };
+        pending = [...relative(physicalRoot, target).split(sep).filter(Boolean), ...pending];
+        current = physicalRoot;
+      } else current = next;
+    }
+    return { state: "exists" };
+  } catch (err) {
+    const code2 = err.code;
+    return { state: code2 === "ENOENT" || code2 === "ENOTDIR" ? "missing" : "unreadable" };
+  }
+}
 function readAgentsMarkdown(root2) {
   const p = join2(root2, "AGENTS.md");
   const state = readState(p);
@@ -10342,8 +10374,9 @@ function acquireD1Structured(root2) {
   const agents = readAgentsMarkdown(root2);
   if ("error" in agents) return { status: "incomplete", findings: [], reasons: [agents.error] };
   const findings = [];
+  const reasons = [];
   for (const { name, line } of extractDeclaredSkillsLocated(agents.content)) {
-    const state = readState(join2(root2, ".claude/skills", name));
+    const { state, reason } = declaredState(root2, ".claude/skills", name);
     if (state === "missing") {
       findings.push({
         severity: "blocking",
@@ -10351,9 +10384,10 @@ function acquireD1Structured(root2) {
         location: { file: "AGENTS.md", line: line > 0 ? line : void 0 }
       });
     } else if (state === "unreadable") {
-      return { status: "incomplete", findings, reasons: [`.claude/skills/${name} unreadable \u2014 existence cannot be verified`] };
+      reasons.push(reason ?? `.claude/skills/${name} unreadable \u2014 existence cannot be verified`);
     }
   }
+  if (reasons.length > 0) return { status: "incomplete", findings, reasons };
   if (findings.length > 0) return { status: "violations", findings, reasons: [] };
   return { status: "passed", findings: [], reasons: [] };
 }
@@ -10387,8 +10421,9 @@ function acquireD1RulesStructured(root2) {
   const agents = readAgentsMarkdown(root2);
   if ("error" in agents) return { status: "incomplete", findings: [], reasons: [agents.error] };
   const findings = [];
+  const reasons = [];
   for (const { path: rel, line } of extractDeclaredRulePaths(agents.content)) {
-    const state = readState(join2(root2, ".claude/rules", rel));
+    const { state, reason } = declaredState(root2, ".claude/rules", rel);
     if (state === "missing") {
       findings.push({
         severity: "blocking",
@@ -10396,9 +10431,10 @@ function acquireD1RulesStructured(root2) {
         location: { file: "AGENTS.md", line: line > 0 ? line : void 0 }
       });
     } else if (state === "unreadable") {
-      return { status: "incomplete", findings, reasons: [`.claude/rules/${rel} unreadable \u2014 existence cannot be verified`] };
+      reasons.push(reason ?? `.claude/rules/${rel} unreadable \u2014 existence cannot be verified`);
     }
   }
+  if (reasons.length > 0) return { status: "incomplete", findings, reasons };
   if (findings.length > 0) return { status: "violations", findings, reasons: [] };
   return { status: "passed", findings: [], reasons: [] };
 }
@@ -10906,10 +10942,10 @@ function parseArgs(argv) {
     }
   }
   if (!parsed.projectRoot) parsed.errors.push("missing required option: --project-root <absolute-root>");
-  else if (!isAbsolute(parsed.projectRoot)) parsed.errors.push(`--project-root must be absolute, got: ${parsed.projectRoot}`);
+  else if (!isAbsolute2(parsed.projectRoot)) parsed.errors.push(`--project-root must be absolute, got: ${parsed.projectRoot}`);
   if (!parsed.profile) parsed.errors.push("missing required option: --profile <base|react-next|react-spa|react-native>");
   else if (!PROFILES.includes(parsed.profile)) parsed.errors.push(`unknown --profile: ${parsed.profile} (expected one of ${PROFILES.join("|")})`);
-  if (parsed.diagnosticsDir !== void 0 && !isAbsolute(parsed.diagnosticsDir)) {
+  if (parsed.diagnosticsDir !== void 0 && !isAbsolute2(parsed.diagnosticsDir)) {
     parsed.errors.push(`--diagnostics-dir must be absolute, got: ${parsed.diagnosticsDir}`);
   }
   return parsed;
@@ -10933,7 +10969,47 @@ function validateRoot(rawRoot) {
 }
 function isOutsideTree(root2, dir) {
   const rel = relative2(root2, dir);
-  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+  return rel === ".." || rel.startsWith(`..${sep2}`) || isAbsolute2(rel);
+}
+function physicalDestination(raw) {
+  let path = resolve2(raw);
+  const tail = [];
+  let links = 0;
+  for (; ; ) {
+    try {
+      return resolve2(realpathSync3(path), ...tail);
+    } catch (err) {
+      const code2 = err.code;
+      if (code2 !== "ENOENT" && code2 !== "ENOTDIR") throw err;
+      try {
+        if (lstatSync2(path).isSymbolicLink()) {
+          if (++links > 40) throw new Error("diagnostics directory has a symlink loop");
+          path = resolve2(dirname2(path), readlinkSync2(path));
+          continue;
+        }
+      } catch (linkErr) {
+        const linkCode = linkErr.code;
+        if (linkCode !== "ENOENT" && linkCode !== "ENOTDIR") throw linkErr;
+      }
+      const parent = dirname2(path);
+      if (parent === path) throw err;
+      tail.unshift(basename(path));
+      path = parent;
+    }
+  }
+}
+function writeDiagnostic(dir, name, text4) {
+  const temporary = join3(dir, `.${name}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporary, text4, { flag: "wx" });
+    renameSync(temporary, join3(dir, name));
+  } finally {
+    try {
+      unlinkSync(temporary);
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+  }
 }
 function sha256File(p) {
   try {
@@ -10985,6 +11061,8 @@ function runBounded(scriptAbs, root2, timeoutMs, maxBytes) {
     let settled = false;
     let graceTimer = null;
     let streamGraceTimer = null;
+    let closedCode;
+    let terminating = false;
     const signalGroup = (sig) => {
       if (child.pid !== void 0) {
         try {
@@ -10993,19 +11071,30 @@ function runBounded(scriptAbs, root2, timeoutMs, maxBytes) {
         } catch {
         }
       }
+      if (child.exitCode === null && child.signalCode === null) {
+        try {
+          child.kill(sig);
+        } catch {
+        }
+      }
+    };
+    const groupAlive = () => {
+      if (child.pid === void 0) return false;
       try {
-        child.kill(sig);
-      } catch {
+        process.kill(-child.pid, 0);
+        return true;
+      } catch (err) {
+        return err.code !== "ESRCH" && process.platform !== "win32";
       }
     };
     const hardKill = () => {
-      if (child.exitCode === null && child.signalCode === null) {
-        killed = true;
-        signalGroup("SIGKILL");
-      }
+      graceTimer = null;
+      if (groupAlive() || child.exitCode === null && child.signalCode === null) signalGroup("SIGKILL");
+      if (closedCode !== void 0) settle(closedCode);
     };
     const terminate = () => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
+      if (terminating) return;
+      terminating = true;
       killed = true;
       signalGroup("SIGTERM");
       graceTimer = setTimeout(hardKill, KILL_GRACE_MS);
@@ -11016,6 +11105,10 @@ function runBounded(scriptAbs, root2, timeoutMs, maxBytes) {
     }, timeoutMs);
     const settle = (exitCode) => {
       if (settled) return;
+      if (graceTimer && groupAlive()) {
+        closedCode = exitCode;
+        return;
+      }
       settled = true;
       clearTimeout(timeoutTimer);
       if (graceTimer) clearTimeout(graceTimer);
@@ -11292,11 +11385,27 @@ async function executeAudit(argv) {
   }
   const root2 = rootCheck.resolved;
   if (parsed.diagnosticsDir !== void 0) {
-    const diagAbs = resolve2(parsed.diagnosticsDir);
-    result.diagnostics.dir = diagAbs;
-    if (!isOutsideTree(root2, diagAbs)) {
-      result.invocationError = `--diagnostics-dir must be outside the audited tree: ${diagAbs} is inside ${root2}`;
-      return result;
+    result.diagnostics.dir = resolve2(parsed.diagnosticsDir);
+    try {
+      const diagAbs = physicalDestination(parsed.diagnosticsDir);
+      result.diagnostics.dir = diagAbs;
+      if (!isOutsideTree(realpathSync3(root2), diagAbs)) {
+        result.invocationError = `--diagnostics-dir must be outside the audited tree: ${diagAbs} is inside ${root2}`;
+        return result;
+      }
+      for (const name of ["runner-stdout.txt", "runner-stderr.txt", "result.json"]) {
+        try {
+          if (lstatSync2(join3(diagAbs, name)).isSymbolicLink()) {
+            result.invocationError = `diagnostics destination must not be a symlink: ${join3(diagAbs, name)}`;
+            return result;
+          }
+        } catch (err) {
+          const code2 = err.code;
+          if (code2 !== "ENOENT" && code2 !== "ENOTDIR") throw err;
+        }
+      }
+    } catch (err) {
+      result.diagnostics.writeError = `diagnostics location cannot be resolved: ${err.message}`;
     }
   }
   const profile = parsed.profile;
@@ -11405,13 +11514,14 @@ async function executeAudit(argv) {
   result.complete = !result.invocationError && !checks.some((c) => c.status === "incomplete" || c.status === "error");
   if (result.diagnostics.dir) {
     try {
+      if (result.diagnostics.writeError) throw new Error(result.diagnostics.writeError);
       mkdirSync(result.diagnostics.dir, { recursive: true });
       if (runnerOutput) {
-        writeFileSync(join3(result.diagnostics.dir, "runner-stdout.txt"), runnerOutput.stdout);
-        writeFileSync(join3(result.diagnostics.dir, "runner-stderr.txt"), runnerOutput.stderr);
+        writeDiagnostic(result.diagnostics.dir, "runner-stdout.txt", runnerOutput.stdout);
+        writeDiagnostic(result.diagnostics.dir, "runner-stderr.txt", runnerOutput.stderr);
         result.diagnostics.written.push("runner-stdout.txt", "runner-stderr.txt");
       }
-      writeFileSync(join3(result.diagnostics.dir, "result.json"), `${JSON.stringify(result, null, 2)}
+      writeDiagnostic(result.diagnostics.dir, "result.json", `${JSON.stringify(result, null, 2)}
 `);
       result.diagnostics.written.push("result.json");
       result.diagnostics.fullLogsRetained = true;

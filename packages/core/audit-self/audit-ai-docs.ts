@@ -29,8 +29,8 @@
  *   1 — at least one FAIL
  */
 
-import { existsSync, readdirSync, statSync, readFileSync, realpathSync } from 'node:fs';
-import { resolve, join, relative } from 'node:path';
+import { existsSync, readdirSync, statSync, readFileSync, realpathSync, lstatSync, readlinkSync } from 'node:fs';
+import { resolve, join, relative, isAbsolute, sep, dirname } from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
 import { remark } from 'remark';
 import type { Node } from 'unist';
@@ -384,6 +384,40 @@ function readState(p: string): 'exists' | 'missing' | 'unreadable' {
   }
 }
 
+/** Follow only links whose targets remain inside the audited root, before any outside I/O. */
+function declaredState(root: string, base: string, name: string): { state: 'exists' | 'missing' | 'unreadable'; reason?: string } {
+  const within = (parent: string, path: string): boolean => {
+    const rel = relative(parent, path);
+    return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+  };
+  const candidate = resolve(root, base, name);
+  if (isAbsolute(name) || !within(resolve(root, base), candidate)) {
+    return { state: 'unreadable', reason: `declared path escapes its audited boundary: ${base}/${name}` };
+  }
+  try {
+    const physicalRoot = realpathSync(root);
+    let current = physicalRoot;
+    let pending = relative(resolve(root), candidate).split(sep).filter(Boolean);
+    let links = 0;
+    while (pending.length) {
+      const next = resolve(current, pending.shift()!);
+      if (!within(physicalRoot, next)) return { state: 'unreadable', reason: `declared path escapes the audited boundary: ${base}/${name}` };
+      const st = lstatSync(next);
+      if (st.isSymbolicLink()) {
+        const target = resolve(dirname(next), readlinkSync(next));
+        if (!within(physicalRoot, target)) return { state: 'unreadable', reason: `declared path links outside the audited boundary: ${base}/${name}` };
+        if (++links > 40) return { state: 'unreadable', reason: `declared path has a symlink loop: ${base}/${name}` };
+        pending = [...relative(physicalRoot, target).split(sep).filter(Boolean), ...pending];
+        current = physicalRoot;
+      } else current = next;
+    }
+    return { state: 'exists' };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return { state: code === 'ENOENT' || code === 'ENOTDIR' ? 'missing' : 'unreadable' };
+  }
+}
+
 /**
  * AGENTS.md is REQUIRED for declaration checks (kickoff-d0 §3): absent or
  * unreadable ⇒ incomplete with a reason, never a silent clean pass.
@@ -406,8 +440,9 @@ export function acquireD1Structured(root: string): StructuredAcquisition {
   if ('error' in agents) return { status: 'incomplete', findings: [], reasons: [agents.error] };
 
   const findings: StructuredFinding[] = [];
+  const reasons: string[] = [];
   for (const { name, line } of extractDeclaredSkillsLocated(agents.content)) {
-    const state = readState(join(root, '.claude/skills', name));
+    const { state, reason } = declaredState(root, '.claude/skills', name);
     if (state === 'missing') {
       findings.push({
         severity: 'blocking',
@@ -416,9 +451,10 @@ export function acquireD1Structured(root: string): StructuredAcquisition {
       });
     } else if (state === 'unreadable') {
       // Retain already-found violations; the check itself cannot complete.
-      return { status: 'incomplete', findings, reasons: [`.claude/skills/${name} unreadable — existence cannot be verified`] };
+      reasons.push(reason ?? `.claude/skills/${name} unreadable — existence cannot be verified`);
     }
   }
+  if (reasons.length > 0) return { status: 'incomplete', findings, reasons };
   if (findings.length > 0) return { status: 'violations', findings, reasons: [] };
   return { status: 'passed', findings: [], reasons: [] };
 }
@@ -471,8 +507,9 @@ export function acquireD1RulesStructured(root: string): StructuredAcquisition {
   if ('error' in agents) return { status: 'incomplete', findings: [], reasons: [agents.error] };
 
   const findings: StructuredFinding[] = [];
+  const reasons: string[] = [];
   for (const { path: rel, line } of extractDeclaredRulePaths(agents.content)) {
-    const state = readState(join(root, '.claude/rules', rel));
+    const { state, reason } = declaredState(root, '.claude/rules', rel);
     if (state === 'missing') {
       findings.push({
         severity: 'blocking',
@@ -480,9 +517,10 @@ export function acquireD1RulesStructured(root: string): StructuredAcquisition {
         location: { file: 'AGENTS.md', line: line > 0 ? line : undefined },
       });
     } else if (state === 'unreadable') {
-      return { status: 'incomplete', findings, reasons: [`.claude/rules/${rel} unreadable — existence cannot be verified`] };
+      reasons.push(reason ?? `.claude/rules/${rel} unreadable — existence cannot be verified`);
     }
   }
+  if (reasons.length > 0) return { status: 'incomplete', findings, reasons };
   if (findings.length > 0) return { status: 'violations', findings, reasons: [] };
   return { status: 'passed', findings: [], reasons: [] };
 }

@@ -17,11 +17,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, mkdirSync, renameSync, chmodSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, chmodSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, existsSync, readdirSync, linkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { COMMAND_ARTIFACT, ROLE_FILE, RUNNER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult } from './fixtures.mjs';
+import { COMMAND_ARTIFACT, ROLE_FILE, RUNNER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult, deliverCommand, runDeliveredCommand, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
 
 const seam = await import(pathToFileURL(COMMAND_ARTIFACT).href);
 const { parseRunnerOutput, evaluateScope, classifyWarn, deriveExitCode } = seam;
@@ -373,8 +373,6 @@ test('bounded control B: a re-sessioned (setsid) orphan is abandoned via the exi
 
 // ─── Rows 13–14: anti-tautology — the frozen oracle FAILS under injected faults ──
 
-const roleBlock = (source, title) => source.split(title)[1].split('```bash\n')[1].split('```')[0];
-const INVOCATION_TITLE = '### Step 3: Invoke the command (the ONE invocation)';
 const row1Expectation = evaluation => {
   // Frozen row-1 literals: completion passed, zero violations anywhere.
   const statuses = evaluation.checks.map(c => c.status);
@@ -395,16 +393,124 @@ const evalViolation = parseFn => {
   });
 };
 
-test('row 13a (fault: role-invocation-removed): the role-shape oracle fails without the ONE invocation', () => {
-  const mutantRole = readFileSync(ROLE_FILE, 'utf8')
-    .split(INVOCATION_TITLE)[0] + '### Step 3: Invoke the command (the ONE invocation)\n\n(the recipe was removed)\n';
-  // UNCHANGED oracle literal (same as runtime.test.mjs): the invocation block must
-  // carry the frozen command. Under the fault it does not — the oracle FAILS.
-  const block = mutantRole.split(INVOCATION_TITLE)[1].split('```bash\n')[1]?.split('```')[0] ?? '';
-  assert.equal(/node scripts\/living-docs-audit\.mjs/.test(block), false,
-    'oracle detects the missing invocation (fault killed)');
-  // restoration: the real role still satisfies it (re-green)
-  assert.match(roleBlock(readFileSync(ROLE_FILE, 'utf8'), INVOCATION_TITLE), /node scripts\/living-docs-audit\.mjs/);
+test('row 13a: the unchanged caller oracle kills an executed echo bypass and accepts restoration', () => {
+  const root = buildCleanFixture('base');
+  try {
+    deliverCommand(root);
+    const realRole = readFileSync(ROLE_FILE, 'utf8');
+    const bypass = realRole.replace(/^node scripts\/living-docs-audit\.mjs/m, 'echo node scripts/living-docs-audit.mjs');
+    assert.notEqual(bypass, realRole, 'the fault reaches the actual executable line');
+    const res = runRoleInvocation(root, 'base', bypass);
+    assert.equal(res.status, 0, 'the bypass itself executed successfully');
+    assert.match(res.stdout, /^node scripts\/living-docs-audit\.mjs /, 'reached bypass, not a loader failure');
+    assert.throws(() => assertRoleAuditResult(res, root, 'base'), /role invocation must produce actual audit JSON/);
+    assertRoleAuditResult(runRoleInvocation(root, 'base'), root, 'base');
+  } finally { disposeFixture(root); }
+});
+
+for (const nested of [false, true]) {
+  test(`R1 delivered diagnostics refuses an outside symlink into the target (new descendants=${nested})`, () => {
+    const root = buildCleanFixture('base');
+    const outside = mkdtempSync(join(tmpdir(), 'd0-diag-outside-'));
+    try {
+      const inside = join(root, 'inside-diag'); mkdirSync(inside);
+      symlinkSync(inside, join(outside, 'redirect'));
+      const dir = join(outside, 'redirect', ...(nested ? ['not-created', 'logs'] : []));
+      const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base', '--diagnostics-dir', dir]);
+      assert.equal(res.status, 2, res.stdout);
+      assert.match(readResult(res).invocationError, /outside the audited tree/);
+      assert.deepEqual(readdirSync(inside), [], 'no target bytes created through the alias');
+    } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
+  });
+}
+
+test('R1 physical target aliases cannot disguise an internal diagnostics directory', () => {
+  const root = buildCleanFixture('base'); const outside = mkdtempSync(join(tmpdir(), 'd0-root-alias-'));
+  try {
+    const alias = join(outside, 'project'); symlinkSync(root, alias);
+    const res = runDeliveredCommand(root, ['--project-root', alias, '--profile', 'base', '--diagnostics-dir', join(root, 'logs')]);
+    assert.equal(res.status, 2, res.stdout);
+    assert.match(readResult(res).invocationError, /outside the audited tree/);
+    assert.equal(existsSync(join(root, 'logs')), false);
+  } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
+});
+
+for (const name of ['runner-stdout.txt', 'runner-stderr.txt', 'result.json']) {
+  test(`R1 refuses a symlinked diagnostics file ${name} before altering its target`, () => {
+    const root = buildCleanFixture('base'); const outside = mkdtempSync(join(tmpdir(), 'd0-diag-file-'));
+    try {
+      const target = join(root, 'preserve.txt'); writeFileSync(target, 'unaltered target bytes');
+      symlinkSync(target, join(outside, name));
+      const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base', '--diagnostics-dir', outside]);
+      assert.equal(res.status, 2, res.stdout);
+      assert.equal(readFileSync(target, 'utf8'), 'unaltered target bytes');
+    } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
+  });
+}
+
+test('R1 ordinary external diagnostics succeed without writing through a pre-existing hard link', () => {
+  const root = buildCleanFixture('base'); const outside = mkdtempSync(join(tmpdir(), 'd0-diag-hardlink-'));
+  try {
+    const target = join(root, 'preserve.txt'); writeFileSync(target, 'unaltered target bytes');
+    linkSync(target, join(outside, 'runner-stdout.txt'));
+    const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base', '--diagnostics-dir', outside]);
+    assert.equal(res.status, 0, res.stdout);
+    assert.equal(readFileSync(target, 'utf8'), 'unaltered target bytes');
+    assert.equal(readResult(res).diagnostics.fullLogsRetained, true);
+    assert.equal(JSON.parse(readFileSync(join(outside, 'result.json'), 'utf8')).schema, 'getff.living-docs-audit/1');
+  } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
+});
+
+for (const physical of [false, true]) {
+  test(`R2 rejects outside declarations independently of external existence (symlink=${physical})`, () => {
+    const root = buildCleanFixture('base'); const outside = mkdtempSync(root + '-outside-');
+    try {
+      const sentinel = join(outside, 'present.md'); const spy = join(outside, 'outside-reads');
+      writeFileSync(sentinel, 'outside data');
+      mkdirSync(join(root, '.claude/rules'));
+      let name = `../../../${basename(outside)}/present.md`;
+      const aliases = [join(root, '.claude/skills/escape'), join(root, '.claude/rules/escape')];
+      if (physical) { for (const alias of aliases) symlinkSync(outside, alias); name = 'escape/present.md'; }
+      writeFileSync(join(root, 'AGENTS.md'), `Use the skill \`caller-missing\`.\nUse the skill \`${name}\`.\nFollow \`.claude/rules/${name}\`.\n`);
+      // Observe only forbidden follows. Reading an in-tree link's own metadata remains allowed.
+      const shim = `import fs from 'node:fs'; import {syncBuiltinESMExports} from 'node:module';
+const outside=${JSON.stringify(outside)}, aliases=${JSON.stringify(aliases)}, log=${JSON.stringify(spy)};
+for(const key of ['statSync','lstatSync','realpathSync','readFileSync']) { const original=fs[key]; fs[key]=function(path,...args) {
+ const s=String(path); if((s===outside||s.startsWith(outside+'/')) || (key!=='lstatSync'&&aliases.some(a=>s===a||s.startsWith(a+'/')))) fs.appendFileSync(log,key+' '+s+'\\n');
+ return original.call(this,path,...args); }; } syncBuiltinESMExports();`;
+      const nodeArgs = ['--import', 'data:text/javascript;base64,' + Buffer.from(shim).toString('base64')];
+      const invoke = () => runDeliveredCommand(root, ['--project-root', root, '--profile', 'base'], nodeArgs);
+      const first = invoke();
+      assert.equal(first.status, 2, first.stdout);
+      const a = readResult(first);
+      assert.equal(a.complete, false);
+      assert.ok(a.findings.some(f => f.message.includes("skill 'caller-missing'")), 'independent known violation retained');
+      for (const id of ['structured/d1-skills', 'structured/d1-rules']) {
+        const check = a.checks.find(c => c.check === id);
+        assert.equal(check.status, 'incomplete'); assert.match(check.reasons.join(' '), /outside|escap|bound/i);
+      }
+      assert.equal(existsSync(spy), false, 'no read/stat/follow of the outside declaration');
+      unlinkSync(sentinel);
+      const second = invoke(); assert.equal(second.status, 2, second.stdout);
+      assert.deepEqual(readResult(second).checks.filter(c => c.check.startsWith('structured/')), a.checks.filter(c => c.check.startsWith('structured/')));
+      assert.equal(existsSync(spy), false);
+    } finally { disposeFixture(root); rmSync(outside, { recursive: true, force: true }); }
+  });
+}
+
+test('R2 legitimate in-target canonical skill and rule links remain admitted', () => {
+  const root = buildCleanFixture('base');
+  try {
+    mkdirSync(join(root, '.agents/procedures/demo'), { recursive: true });
+    mkdirSync(join(root, '.agents/rules'), { recursive: true });
+    writeFileSync(join(root, '.agents/rules/demo.md'), '# Rule\n');
+    rmSync(join(root, '.claude/skills/demo'), { recursive: true });
+    symlinkSync('../../.agents/procedures/demo', join(root, '.claude/skills/demo'));
+    mkdirSync(join(root, '.claude/rules')); symlinkSync('../../.agents/rules/demo.md', join(root, '.claude/rules/demo.md'));
+    writeFileSync(join(root, 'AGENTS.md'), 'Use the skill `demo`.\nFollow `.claude/rules/demo.md`.\n');
+    const res = runDeliveredCommand(root, ['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 0, res.stdout);
+  } finally { disposeFixture(root); }
 });
 
 test('row 13b (fault: success-only parser): row-2 frozen expectation fails when FAIL records are dropped', () => {

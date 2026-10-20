@@ -4,6 +4,9 @@
 > **Authoritative for:** D0 execution evidence — selected obligations, oracle, acceptance runs, profile/probe applicability, installed paths, residual limits.
 > **NOT authoritative for:** product promises, architecture, TAK policy — see the umbrella kickoff and agreed design.
 
+
+> **Current gate (2026-10-20):** the original `707798c8` result below is retained as historical Linux evidence. Independent review returned REVISE with four major findings. The native cycle-3 corrective candidate and current macOS evidence are recorded at the end; independent changed-candidate acceptance and final integration remain pending.
+
 ## §Env — execution base and baselines (captured BEFORE any edit)
 
 - HEAD at start: `f815e7ee9a97e08c5986b790eec05ac85ebb9a70` (`fix(runtime-bridge): preserve configured intent roots at admission and release (#2115)`).
@@ -209,3 +212,40 @@ Probe applicability notes: D3/D5 probes are authoring-repo-only in consumer inst
 - Verified-as-subset boundary: Linux/Node-22/bash only; no macOS cell, no native-Windows Node cell exercised. The installed suite covers the isolated-layout half of «clone and packed distribution layouts» (delivered copy, no source checkout, no node_modules; packed-distribution membership asserted against `packages/getff/MANIFEST.sha256` and the archive check inside `build-getff-dist.sh --check`); an actual install into a fresh consumer machine (real `setup` run end-to-end) remains an F3 obligation, as does any observed-duration adjustment of the provisional 60 s/2 MiB bounds (all real-runner fixtures complete in <100 ms; no concrete case to adjust on). Deep probes beyond the runner grammar (ts-morph R4 on real src/domain) were exercised only through their degradation paths — a consumer with real `src/domain` + ts-morph gets the real probe via the unchanged runner.
 - Original-vs-converted burden (kickoff §6): the pre-conversion role demanded the MODEL execute a 5-step recipe — stack heuristics (`next.config.*` sniffing), script-existence guards, a mktemp/exit-counter run loop, output-grammar parsing by eye, and manual verdict/count bookkeeping (≈140 of 213 lines were executable recipe). The converted role (75 lines) binds the target, picks the profile, invokes ONE command, and interprets ONE JSON result; every former recipe line is now either a frozen flag on that command or a structured check inside it. Detection/decision authority moved from model attention to the deterministic command — `deriveExitCode` is the sole exit source and the WARN three-way discrimination is the command's, not the reader's.
 - No token telemetry, model-quality, or weaker-model success claims are made anywhere in this document; all evidence is command output or file:line.
+
+
+## Native corrective cycle 3 — 2026-10-20 candidate
+
+This continuation uses the original approved D0 input, not a replacement scope. Root accepted exact immutable source export `707798c8f6c53f3c78d39eacb9fccc0b3a55d28d` (acceptance `5bf5e6f4…`); the sole local native writer works in `codex/d0-native-finish`. Original source/result history remains available at that commit. Independent review `7bb59f0b…` identified D0-R1 through D0-R4. The corrective candidate awaits that same reviewer's changed-content acceptance.
+
+### Corrected behavior and independent observations
+
+| Finding | Correction | Actual evidence |
+| --- | --- | --- |
+| D0-R1 | Resolve physical diagnostics ancestry against the actual target, including aliases and missing descendants; refuse symlinked destination files and atomically replace regular diagnostic entries. Unverifiable output permissions produce a diagnostics error after independent checks, with no attempted write to an unresolved destination. | Seven physical/file/hard-link controls failed on original ready bytes and pass after normal generation. The original diagnostic-write control exposed a 59/60 intermediate regression; it was retained and corrected without weakening the expectation. |
+| D0-R2 | Validate declaration paths before I/O and follow only internal canonical links. An escaping or unverifiable declaration makes its check incomplete while preserving independently acquired violations. | Traversal and physical-link controls change only the external sentinel and keep the same scoped result; a Node filesystem observer records no outside read/stat/follow. Legitimate internal compatibility links remain accepted. |
+| D0-R3 | Keep escalation for remaining owned process-group members after leader exit or closed leader pipes. A known-exited leader PID is never a direct-signal fallback. | Two fresh controlled TERM-resistant same-group children, with inherited and closed pipes, survive the old implementation and are terminated by the correction. Tests verify their own created PID and clean only their own fixture. |
+| D0-R4 | Execute the actual role's bound shell block against a separately delivered command and apply literal independent result expectations. The caller executor never repairs a missing payload. | Final unchanged caller driver: baseline exit 0 → only actual role line changed from `node` to `echo node` → exit 1 with six intended missing-execution assertion failures → exact role restoration and exit 0. Driver, expectations and final bundle remain unchanged throughout that fault. |
+
+Real installer content-layer coverage now executes `setup.d/20-agents.sh`, `40-configs.sh` and native binding materialization in disposable consumers. It proves dry-run makes no runnable command, actual role/command delivery reaches the clean command, repeat delivery preserves a customized consumer copy, and a deleted command is redelivered by the actual population. This is content-layer execution; it is not a claim about a real model choosing the role or trusted native activation. Existing toolchain/Python/profile gaps remain in F3.
+
+### Final affected verification
+
+Environment: `Darwin 25.6.0`, Node `v24.3.0`, npm `11.4.2`, uid `501`. Existing read-only resources provide SDK `1.30.0` for this actual source lock `f6272b7f5a39b22eb8ef2c8984819854ba8796ea0916c28741f66b17e229d4a0`; dependency parity and stock generation passed. Working 0166 SDK `1.32.1` and lock `86ec3efe…` were not changed or relabeled.
+
+| Exact command | Result |
+| --- | --- |
+| `bash scripts/host-verify.sh .claude/orchestrator-prompts/deterministic-core/kickoff-d0.md` | 4/4 PASS on Darwin; its required Node suites report 60 PASS / 0 FAIL / 0 SKIP; 224 existing audit tests PASS; five runtime bundles and independent dist/packed closure PASS. |
+| `npm --prefix packages/core run typecheck` | exit 0 on this source/resource closure. Historical Linux workspace-resolution residuals above are not repeated as current failures. |
+| `node scripts/check-ships-manifest.mjs` | exit 0; current real source/delivery population recognized. |
+| `bash scripts/check-ships-manifest.test.sh` | exit 0; original delivery causal fixtures retained. |
+
+Normal builder output: living-docs bundle `515c17f4237c005498d188b8aeb93f315eb3bd43fa9d41415f64849eea70e4bc`; generated dist manifest `fd0e875be0461bfc582b4a8ef89146acb4b784c6bb8b854bc5c49e03f967768f`. All five other runtime/synth bundles remain byte-identical to the recovered source after stock generation. The existing installer/builder/checker/ships source hunks remain byte-identical to `707798c8`; no old manifest or whole-file postimage is projected over another workstream. Original test aggregation already includes runtime, installed and conformance suites through `test:canonical:runtime-source`.
+
+Detailed commands, raw stdout/stderr, source freezes, original REDs, final role fault/restoration and generated-member inventories are retained under the owner's `selected-hooks-clarify-completion-20261020/d0-native-source/` evidence directory and bound by the immutable candidate packet. Earlier failed helper/test phases remain history.
+
+### Scope, counters and next frontier
+
+Original report consumes 2 of 5 implementation cycles, including at least one PARTIAL. This corrective candidate consumes cycle 3; maximum PARTIAL redispatch remains 2 and clarification usage remains unknown, never reset to zero. No new model, execution session, task transition, dependency installation or remote source write was used.
+
+The compact role contract remains at its original owner; these corrections add bounded path/process behavior and meaningful caller assurance, not a scheduler or generic workflow layer. No token savings or weaker-model improvement is inferred. Updated Linux/native Windows and real consumer/harness activation are unverified for this corrected candidate. D0 acceptance, final shared-source/resource reconciliation and D1 remain gated; full D0/F0–F7 and the original named-simplicity work are not declared complete.

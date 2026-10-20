@@ -563,7 +563,7 @@ cd3a243d3e29f33c34e9206bd0672e7558347eab58c36b60e36bcca1200cef5a  install.sh
 58e2e49d2458af0b72d648b97537838c5bcc36ca0b5043905516006dd35c6f34  packages/core/README.md
 62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051  packages/core/audit-self/audit-ai-docs.sh
 3deba582283406268b15ba3992907de148da89bdb0c1733e17c7f415c358e581  packages/core/audit-self/audit-ai-docs.test.ts
-ce4ef28f344d12ce18893157b2b999dedbd40ce45a5595dcd9632c3c042ccb83  packages/core/audit-self/audit-ai-docs.ts
+93cf8d4c3232aa4643dc64d7285ae8a0a16ec3d64129af641a44d1292d59d484  packages/core/audit-self/audit-ai-docs.ts
 acb770e01def3cff69a4435e20f81d535198ff3dddac6f7a646ee9251d309057  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
@@ -617,8 +617,8 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/audit-self/fixtures/ts-server/src/.gitkeep
 c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/audit-self/hooks-tree-guard.test.ts
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
-f7513bd774317d1ab24a78de041c4fd13c50527afefec571be2e698edc09ed05  packages/core/audit-self/living-docs-audit-cli.ts
-bcaee3a747a5705f50a1c836c3e2d603079dfe6e32dfa8f18fde604a4ddfcad1  packages/core/audit-self/living-docs-audit.bundle.mjs
+804a54ae528288183c363c4f79697a67a6214b4d4686ee35b77456da61fb9c32  packages/core/audit-self/living-docs-audit-cli.ts
+515c17f4237c005498d188b8aeb93f315eb3bd43fa9d41415f64849eea70e4bc  packages/core/audit-self/living-docs-audit.bundle.mjs
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh

@@ -23,9 +23,9 @@
  * (scripts/build-runtime-bundles.mjs); consumer destination scripts/living-docs-audit.mjs.
  */
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, realpathSync, lstatSync, readlinkSync, renameSync, unlinkSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep, dirname, basename } from 'node:path';
 import { isDirectRun } from '../install/is-direct-run.ts';
 import {
   acquireD1RulesStructured,
@@ -206,6 +206,46 @@ function isOutsideTree(root: string, dir: string): boolean {
   return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
+/** Resolve existing ancestry, including a dangling directory link, before allowing diagnostics. */
+function physicalDestination(raw: string): string {
+  let path = resolve(raw);
+  const tail: string[] = [];
+  let links = 0;
+  for (;;) {
+    try { return resolve(realpathSync(path), ...tail); }
+    catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw err;
+      try {
+        if (lstatSync(path).isSymbolicLink()) {
+          if (++links > 40) throw new Error('diagnostics directory has a symlink loop');
+          path = resolve(dirname(path), readlinkSync(path));
+          continue;
+        }
+      } catch (linkErr) {
+        const linkCode = (linkErr as NodeJS.ErrnoException).code;
+        if (linkCode !== 'ENOENT' && linkCode !== 'ENOTDIR') throw linkErr;
+      }
+      const parent = dirname(path);
+      if (parent === path) throw err;
+      tail.unshift(basename(path));
+      path = parent;
+    }
+  }
+}
+
+/** Replace the diagnostic entry itself; never truncate a linked target inode. */
+function writeDiagnostic(dir: string, name: string, text: string): void {
+  const temporary = join(dir, `.${name}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporary, text, { flag: 'wx' });
+    renameSync(temporary, join(dir, name));
+  } finally {
+    try { unlinkSync(temporary); }
+    catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+  }
+}
+
 // ─── Runner identity admission ───────────────────────────────────────────────
 
 function sha256File(p: string): string | null {
@@ -284,6 +324,8 @@ export function runBounded(scriptAbs: string, root: string, timeoutMs: number, m
     let settled = false;
     let graceTimer: ReturnType<typeof setTimeout> | null = null;
     let streamGraceTimer: ReturnType<typeof setTimeout> | null = null;
+    let closedCode: number | null | undefined;
+    let terminating = false;
 
     // Signal the whole process group (negative pid). Falls back to the direct
     // child only when the group is already gone.
@@ -291,16 +333,25 @@ export function runBounded(scriptAbs: string, root: string, timeoutMs: number, m
       if (child.pid !== undefined) {
         try { process.kill(-child.pid, sig); return; } catch { /* group gone */ }
       }
-      try { child.kill(sig); } catch { /* already gone */ }
-    };
-    const hardKill = () => {
+      // Never fall back to a former leader PID after Node observed its exit.
       if (child.exitCode === null && child.signalCode === null) {
-        killed = true;
-        signalGroup('SIGKILL');
+        try { child.kill(sig); } catch { /* already gone */ }
       }
     };
+    const groupAlive = (): boolean => {
+      if (child.pid === undefined) return false;
+      try { process.kill(-child.pid, 0); return true; }
+      catch (err) { return (err as NodeJS.ErrnoException).code !== 'ESRCH' && process.platform !== 'win32'; }
+    };
+    const hardKill = () => {
+      graceTimer = null;
+      // The leader can have exited while an owned same-group child is still alive.
+      if (groupAlive() || (child.exitCode === null && child.signalCode === null)) signalGroup('SIGKILL');
+      if (closedCode !== undefined) settle(closedCode);
+    };
     const terminate = () => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
+      if (terminating) return;
+      terminating = true;
       killed = true;
       signalGroup('SIGTERM');
       graceTimer = setTimeout(hardKill, KILL_GRACE_MS);
@@ -309,6 +360,11 @@ export function runBounded(scriptAbs: string, root: string, timeoutMs: number, m
 
     const settle = (exitCode: number | null) => {
       if (settled) return;
+      if (graceTimer && groupAlive()) {
+        // Closed leader pipes do not cancel escalation for its remaining process group.
+        closedCode = exitCode;
+        return;
+      }
       settled = true;
       clearTimeout(timeoutTimer);
       if (graceTimer) clearTimeout(graceTimer);
@@ -655,11 +711,29 @@ export async function executeAudit(argv: string[]): Promise<AuditResult> {
   const root = rootCheck.resolved;
 
   if (parsed.diagnosticsDir !== undefined) {
-    const diagAbs = resolve(parsed.diagnosticsDir);
-    result.diagnostics.dir = diagAbs;
-    if (!isOutsideTree(root, diagAbs)) {
-      result.invocationError = `--diagnostics-dir must be outside the audited tree: ${diagAbs} is inside ${root}`;
-      return result;
+    result.diagnostics.dir = resolve(parsed.diagnosticsDir);
+    try {
+      const diagAbs = physicalDestination(parsed.diagnosticsDir);
+      result.diagnostics.dir = diagAbs;
+      if (!isOutsideTree(realpathSync(root), diagAbs)) {
+        result.invocationError = `--diagnostics-dir must be outside the audited tree: ${diagAbs} is inside ${root}`;
+        return result;
+      }
+      for (const name of ['runner-stdout.txt', 'runner-stderr.txt', 'result.json']) {
+        try {
+          if (lstatSync(join(diagAbs, name)).isSymbolicLink()) {
+            result.invocationError = `diagnostics destination must not be a symlink: ${join(diagAbs, name)}`;
+            return result;
+          }
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code !== 'ENOENT' && code !== 'ENOTDIR') throw err;
+        }
+      }
+    } catch (err) {
+      // Unverifiable output permissions must not suppress independent read-only checks.
+      // Keep the failure and skip every write to this unresolved destination.
+      result.diagnostics.writeError = `diagnostics location cannot be resolved: ${(err as Error).message}`;
     }
   }
 
@@ -793,13 +867,14 @@ export async function executeAudit(argv: string[]): Promise<AuditResult> {
   // Diagnostics: only at the explicit requested location (outside the tree).
   if (result.diagnostics.dir) {
     try {
+      if (result.diagnostics.writeError) throw new Error(result.diagnostics.writeError);
       mkdirSync(result.diagnostics.dir, { recursive: true });
       if (runnerOutput) {
-        writeFileSync(join(result.diagnostics.dir, 'runner-stdout.txt'), runnerOutput.stdout);
-        writeFileSync(join(result.diagnostics.dir, 'runner-stderr.txt'), runnerOutput.stderr);
+        writeDiagnostic(result.diagnostics.dir, 'runner-stdout.txt', runnerOutput.stdout);
+        writeDiagnostic(result.diagnostics.dir, 'runner-stderr.txt', runnerOutput.stderr);
         result.diagnostics.written.push('runner-stdout.txt', 'runner-stderr.txt');
       }
-      writeFileSync(join(result.diagnostics.dir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
+      writeDiagnostic(result.diagnostics.dir, 'result.json', `${JSON.stringify(result, null, 2)}\n`);
       // Recorded only after the writes succeeded — a failed write must not leave
       // `written` claiming files that do not exist (cold-review MINOR).
       result.diagnostics.written.push('result.json');

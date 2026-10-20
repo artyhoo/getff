@@ -15,7 +15,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROLE_FILE, repoRoot, RUNNER_BYTES, R4_HELPER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult } from './fixtures.mjs';
+import { COMMAND_ARTIFACT, ROLE_FILE, repoRoot, RUNNER_BYTES, R4_HELPER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult, deliverCommand, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
+import { pathToFileURL } from 'node:url';
+const { runBounded } = await import(pathToFileURL(COMMAND_ARTIFACT).href);
 
 const role = readFileSync(ROLE_FILE, 'utf8');
 const roleBlock = title => role.split(title)[1].split('```bash\n')[1].split('```')[0];
@@ -236,3 +238,41 @@ test('tiny --max-output-bytes overflows the real runner: error/incomplete, compl
     assert.ok(completion.status === 'error' || completion.status === 'incomplete', 'completion not proven on truncated output');
   } finally { disposeFixture(root); }
 });
+
+for (const profile of ['base', 'react-next', 'react-spa']) {
+  for (const debt of [false, true]) {
+    test(`actual role invocation executes installed ${profile} ${debt ? 'violation' : 'clean'} contract`, () => {
+      const root = buildCleanFixture(profile);
+      try {
+        deliverCommand(root);
+        if (debt) writeFileSync(join(root, 'AGENTS.md'), 'Use the skill `caller-missing`.\n');
+        assertRoleAuditResult(runRoleInvocation(root, profile), root, profile, debt);
+      } finally { disposeFixture(root); }
+    });
+  }
+}
+
+for (const closePipes of [false, true]) {
+  test(`timeout reaps a TERM-resistant owned-group child after leader exits (closed pipes=${closePipes})`, { skip: process.platform === 'win32', timeout: 12_000 }, async () => {
+    const root = buildCleanFixture('base');
+    let pid;
+    const alive = p => { try { process.kill(p, 0); return true; } catch { return false; } };
+    try {
+      writeFileSync(join(root, 'resistant.mjs'), `import fs from 'node:fs';\nprocess.on('SIGTERM', () => {});\nfs.writeFileSync('child.pid', String(process.pid));\nsetInterval(() => {}, 1000);\n`);
+      const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
+      const script = join(root, 'leader.sh');
+      writeFileSync(script, `trap 'exit 0' TERM\n${quote(process.execPath)} resistant.mjs ${closePipes ? '> /dev/null 2>&1' : ''} &\nwait\n`);
+      const result = await runBounded(script, root, 700, 16384);
+      pid = Number(readFileSync(join(root, 'child.pid'), 'utf8'));
+      assert.ok(Number.isSafeInteger(pid) && pid > 1, 'controlled child reached its PID marker');
+      assert.equal(result.timedOut, true);
+      assert.equal(result.killed, true);
+      for (let n = 0; n < 30 && alive(pid); n++) await new Promise(resolve => setTimeout(resolve, 10));
+      assert.equal(alive(pid), false, 'owned same-group descendant must be dead before timeout is reported complete');
+    } finally {
+      if (!pid) { try { pid = Number(readFileSync(join(root, 'child.pid'), 'utf8')); } catch {} }
+      if (Number.isSafeInteger(pid) && pid > 1 && alive(pid)) process.kill(pid, 'SIGKILL');
+      disposeFixture(root);
+    }
+  });
+}

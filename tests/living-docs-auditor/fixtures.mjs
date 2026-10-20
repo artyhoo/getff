@@ -12,6 +12,7 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
 
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 export const COMMAND_ARTIFACT = join(repoRoot, 'packages/core/audit-self/living-docs-audit.bundle.mjs');
@@ -77,4 +78,48 @@ export function runCommand(args, opts = {}) {
 /** Parse the single JSON result the command writes to stdout (stderr = launcher diagnostics). */
 export function readResult(spawnResult) {
   return JSON.parse(spawnResult.stdout);
+}
+
+/** Materialize the actual ready artifact; the child cannot import the source checkout. */
+export function deliverCommand(root) {
+  writeFileSync(join(root, 'scripts/living-docs-audit.mjs'), readFileSync(COMMAND_ARTIFACT));
+}
+
+export function runDeliveredCommand(root, args, nodeArgs = []) {
+  deliverCommand(root);
+  return spawnSync(process.execPath, [...nodeArgs, 'scripts/living-docs-audit.mjs', ...args], {
+    cwd: root, encoding: 'utf8', timeout: 120_000,
+  });
+}
+
+/** Bind placeholders, then execute the role's actual shell block without repairing its command. */
+export function runRoleInvocation(root, profile, roleText = readFileSync(ROLE_FILE, 'utf8')) {
+  const section = roleText.split('### Step 3: Invoke the command (the ONE invocation)')[1];
+  assert.ok(section, 'role invocation section must exist');
+  const block = section.split('```bash\n')[1]?.split('```')[0];
+  assert.ok(block, 'role executable block must exist');
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  const bound = block.replace('<absolute-root>', quote(root))
+    .replace('<base|react-next|react-spa|react-native>', quote(profile))
+    .replace(/^\s*\[--[^\n]+\](?:\s*\\)?\s*$/gm, '');
+  return spawnSync('bash', ['-c', bound], { cwd: root, encoding: 'utf8', timeout: 120_000 });
+}
+
+/** Fixed caller oracle: literal expectations from kickoff §4/§5, independent of production parsing. */
+export function assertRoleAuditResult(res, root, profile, debt = false) {
+  assert.match(res.stdout, /^\s*\{/, 'role invocation must produce actual audit JSON');
+  const result = JSON.parse(res.stdout);
+  assert.equal(res.status, debt ? 1 : 0, res.stderr);
+  assert.equal(result.schema, 'getff.living-docs-audit/1');
+  assert.equal(result.resolvedTarget, root);
+  assert.equal(result.requestedProfile, profile);
+  assert.equal(result.complete, true);
+  assert.equal(result.runner.admitted, true);
+  assert.equal(result.checks.find(c => c.check === `${profile}/completion`).status, 'passed');
+  const declaration = result.checks.find(c => c.check === 'structured/d1-skills');
+  assert.equal(declaration.status, debt ? 'violations' : 'passed');
+  if (debt) {
+    assert.ok(declaration.findings.some(f => f.severity === 'blocking'
+      && f.message.includes("skill 'caller-missing'") && f.location?.file === 'AGENTS.md'));
+  } else assert.equal(result.counts.blocking, 0);
 }

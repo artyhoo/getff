@@ -12,10 +12,10 @@
 // bare import; this file is the control that cannot.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { repoRoot, COMMAND_ARTIFACT, buildCleanFixture, disposeFixture } from './fixtures.mjs';
+import { repoRoot, COMMAND_ARTIFACT, buildCleanFixture, disposeFixture, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
 
 const bundleBytes = readFileSync(COMMAND_ARTIFACT);
 
@@ -137,4 +137,40 @@ test('ships manifest marks the delivered command, and the packed distribution ca
     /^[0-9a-f]{64}  packages\/core\/audit-self\/living-docs-audit\.bundle\.mjs$/m,
     'the bundle is in the npm payload population (packed-layout membership)',
   );
+});
+
+test('real content layers deliver the role and command, preserve customized copies and honor dry-run', { timeout: 120_000 }, () => {
+  const root = buildCleanFixture('base');
+  const block = `set -euo pipefail
+PKG_ROOT="$GETFF_TEST_PACKAGE_ROOT" PROJECT_ROOT="$GETFF_TEST_TARGET"
+PROFILE=core STACK=generic FORCE="" DRY_RUN="$GETFF_TEST_DRY_RUN" WITH_AIF_SUITE=""
+UPSTREAM_BLOB_URL="https://github.com/artyhoo/getff/blob/main"
+SKIPPED=(); SHIPPED_DOCS=(); REFRESH_BASELINE_STAGED=()
+source "$PKG_ROOT/setup.d/lib.sh"
+source "$PKG_ROOT/setup.d/20-agents.sh"
+source "$PKG_ROOT/setup.d/40-configs.sh"
+install_portable_bindings
+refresh_baseline_flush
+`;
+  const deliver = dryRun => {
+    const env = { ...process.env, GETFF_TEST_PACKAGE_ROOT: repoRoot, GETFF_TEST_TARGET: root, GETFF_TEST_DRY_RUN: dryRun };
+    // A hook's Git index must never become the disposable consumer's Git identity.
+    const local = spawnSync('git', ['rev-parse', '--local-env-vars'], { cwd: repoRoot, encoding: 'utf8' });
+    for (const key of local.stdout.trim().split('\n')) delete env[key];
+    const res = spawnSync('bash', ['-c', block], { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
+    assert.equal(res.status, 0, `real delivery failed:\n${res.stdout}\n${res.stderr}`);
+  };
+  try {
+    const destination = join(root, 'scripts/living-docs-audit.mjs');
+    deliver('--dry-run'); assert.equal(existsSync(destination), false, 'dry-run cannot materialize a runnable command');
+    deliver(''); assert.deepEqual(readFileSync(destination), bundleBytes, 'actual layer must copy current ready bytes');
+    const deliveredRole = join(root, '.agents/roles/living-docs-auditor.md');
+    assert.ok(existsSync(deliveredRole), 'native consumer role has its real canonical source');
+    assertRoleAuditResult(runRoleInvocation(root, 'base', readFileSync(deliveredRole, 'utf8')), root, 'base');
+    const customized = Buffer.concat([bundleBytes, Buffer.from('\n// consumer customization\n')]);
+    writeFileSync(destination, customized); deliver('');
+    assert.deepEqual(readFileSync(destination), customized, 'copy_safe must preserve the consumer copy');
+    unlinkSync(destination); deliver('');
+    assert.deepEqual(readFileSync(destination), bundleBytes, 'missing command is redelivered by the real population');
+  } finally { disposeFixture(root); }
 });
