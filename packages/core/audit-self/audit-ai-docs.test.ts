@@ -3054,3 +3054,38 @@ describe('probeD6() — passport goal region (ts + sh parity)', () => {
     expect(result.message).toContain('no passport');
   });
 });
+
+
+// D0 cycle4: real inverse-enrollment owners, exact generated twin and adverse paths.
+// The normal runtime builder separately verifies byte reproduction from the declared source.
+describe('D5 generated self-auditor twin', () => {
+  const generatedPath = 'packages/core/audit-self/living-docs-audit.bundle.mjs';
+  const builder = join(REPO_ROOT, 'scripts/build-runtime-bundles.mjs');
+  const available = SH_PRESENT && existsSync(builder) && existsSync(join(REPO_ROOT, generatedPath));
+  if (!available) console.warn('UNVERIFIED: generated-self-auditor D5 owner controls unavailable in this sandbox');
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it.skipIf(!available)('the actual builder declares this exact source and generated artifact', () => {
+    const p = spawnSync(process.execPath, ['--input-type=module', '-e', "import('./scripts/build-runtime-bundles.mjs').then(m=>console.log(JSON.stringify(m.BUNDLES)))"], { cwd: REPO_ROOT, encoding: 'utf8' });
+    expect(p.status, p.stderr).toBe(0);
+    const bundles: { entry: string; outfile: string }[] = JSON.parse(p.stdout);
+    expect(bundles.filter(b => b.outfile === generatedPath)).toEqual([expect.objectContaining({ entry: 'packages/core/audit-self/living-docs-audit-cli.ts', outfile: generatedPath })]);
+  });
+
+  it.skipIf(!available)('both real D5 owners accept the actual generated self-auditor infrastructure', () => {
+    const bytes = readFileSync(join(REPO_ROOT, generatedPath), 'utf8'); expect(bytes).toContain(CANON_PHRASE);
+    writeFile(dir, generatedPath, bytes);
+    const both = d5Both(dir); expect(both.ts).toEqual([]);
+    expect(both.sh?.code, both.sh?.out).toBe(0); expect(both.sh?.out).not.toContain('contains canonical phrase but not');
+  });
+
+  for (const path of ['docs/unregistered-goal.md', 'packages/core/audit-self/unrelated.bundle.mjs', generatedPath + '.extra']) {
+    it.skipIf(!available)(`both real D5 owners still reject unenrolled ${path}`, () => {
+      writeFile(dir, path, CANON_PHRASE + '\n'); const both = d5Both(dir);
+      expect(both.ts).toEqual([path]); expect(both.sh?.code, both.sh?.out).toBe(1);
+      expect(both.sh?.out).toContain(path + ': contains canonical phrase');
+    });
+  }
+});

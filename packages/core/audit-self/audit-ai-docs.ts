@@ -684,7 +684,8 @@ const D5_FROZEN_RE        = /^(docs\/meta-factory\/research-patches\/|docs\/audi
 // Recorded run receipts (docs/superpowers/plans/<plan>.receipts/, tests/<suite>/receipts/)
 // quote the phrase inside captured audit output — data, not a downstream claim; editing
 // them would falsify the record (same rationale as FROZEN for triage-corpus).
-const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts|^docs\/superpowers\/plans\/[^/]+\.receipts\/|^tests\/[^/]+\/receipts\//;
+// Exact generated self-auditor twin, attested by the normal runtime builder.
+const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/living-docs-audit\.bundle\.mjs$|^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts|^docs\/superpowers\/plans\/[^/]+\.receipts\/|^tests\/[^/]+\/receipts\//;
 const D5_ROOT_SOURCE_RE   = /^README\.md$/;
 const D5_GITIGNORED_RE    = /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/;
 /**

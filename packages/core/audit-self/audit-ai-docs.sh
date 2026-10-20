@@ -351,7 +351,9 @@ if skip_unless D5; then : ; else
     # tests/<suite>/receipts/) quote the phrase inside captured audit output —
     # data, not a downstream claim; editing them would falsify the record
     # (same rationale as FROZEN for triage-corpus).
-    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts|^docs/superpowers/plans/[^/]+\.receipts/|^tests/[^/]+/receipts/)'
+    # The exact generated self-auditor inlines this infrastructure's phrase; its
+    # source-to-bundle relation is checked by build-runtime-bundles --check.
+    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/living-docs-audit\.bundle\.mjs$|^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts|^docs/superpowers/plans/[^/]+\.receipts/|^tests/[^/]+/receipts/)'
     # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
     # it is the upstream authority, not a downstream consumer requiring drift-tracking.
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'

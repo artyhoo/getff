@@ -30,7 +30,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .agents/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .agents/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+f907bf5ee996365adfcfa83d679b9b7603253aabf17e021fc0656e31c402f9ba  .agents/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .agents/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .agents/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .agents/hooks/validate-prompt.sh
@@ -307,7 +307,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .claude/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+f907bf5ee996365adfcfa83d679b9b7603253aabf17e021fc0656e31c402f9ba  .claude/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .claude/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .claude/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .claude/hooks/validate-prompt.sh
@@ -561,9 +561,9 @@ a16d904511fdfc7c4f38e142a1795b45080c9dd803619506b9acda251de7c8fb  docs/site-qual
 cd3a243d3e29f33c34e9206bd0672e7558347eab58c36b60e36bcca1200cef5a  install.sh
 2f32a499ce595ce5fee27a19014a4f8fd8f42b5069246419c5bc9b8a5615668d  packages/core/LICENSE
 58e2e49d2458af0b72d648b97537838c5bcc36ca0b5043905516006dd35c6f34  packages/core/README.md
-62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051  packages/core/audit-self/audit-ai-docs.sh
-3deba582283406268b15ba3992907de148da89bdb0c1733e17c7f415c358e581  packages/core/audit-self/audit-ai-docs.test.ts
-93cf8d4c3232aa4643dc64d7285ae8a0a16ec3d64129af641a44d1292d59d484  packages/core/audit-self/audit-ai-docs.ts
+1ee030f89af6c50b484a222181a72cefc105a28c8556bdbb36955035bb889360  packages/core/audit-self/audit-ai-docs.sh
+16a1c6122b9ba77fe559dd43cab34e9060713856904837311ded31c91a7a9a81  packages/core/audit-self/audit-ai-docs.test.ts
+299910a427c88784a11a24c05b5641bed0d72138196a185e9f44fdee015d819f  packages/core/audit-self/audit-ai-docs.ts
 acb770e01def3cff69a4435e20f81d535198ff3dddac6f7a646ee9251d309057  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
@@ -618,7 +618,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/
 c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/audit-self/hooks-tree-guard.test.ts
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 804a54ae528288183c363c4f79697a67a6214b4d4686ee35b77456da61fb9c32  packages/core/audit-self/living-docs-audit-cli.ts
-515c17f4237c005498d188b8aeb93f315eb3bd43fa9d41415f64849eea70e4bc  packages/core/audit-self/living-docs-audit.bundle.mjs
+6cbd21a73a840e1259fa532d9c9dc26daa73fffd0bfc059b9fde6aa265944c56  packages/core/audit-self/living-docs-audit.bundle.mjs
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh

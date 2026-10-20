@@ -10552,7 +10552,7 @@ function probeD4(cwd) {
   return { result: "pass", message: RULE };
 }
 var D5_FROZEN_RE = /^(docs\/meta-factory\/research-patches\/|docs\/audits\/|docs\/meta-factory\/triage-corpus\/)/;
-var D5_TEST_INFRA_RE = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts|^docs\/superpowers\/plans\/[^/]+\.receipts\/|^tests\/[^/]+\/receipts\//;
+var D5_TEST_INFRA_RE = /^packages\/core\/audit-self\/living-docs-audit\.bundle\.mjs$|^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts|^docs\/superpowers\/plans\/[^/]+\.receipts\/|^tests\/[^/]+\/receipts\//;
 var D5_ROOT_SOURCE_RE = /^README\.md$/;
 var D5_GITIGNORED_RE = /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/;
 var D5_GENERATED_TWIN_PATH_RE = /^plugin\/hooks\//;
@@ -10837,7 +10837,7 @@ function getRunnerIdentities() {
       "base": {
         "script": "scripts/audit-ai-docs.sh",
         "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-        "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+        "sha256": "1ee030f89af6c50b484a222181a72cefc105a28c8556bdbb36955035bb889360",
         "r4Helper": {
           "script": "scripts/audit-r4.ts",
           "sourceArtifact": "packages/core/probes/audit-r4.ts",
@@ -10851,7 +10851,7 @@ function getRunnerIdentities() {
         "chainedBase": {
           "script": "scripts/audit-ai-docs.sh",
           "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+          "sha256": "1ee030f89af6c50b484a222181a72cefc105a28c8556bdbb36955035bb889360",
           "r4Helper": {
             "script": "scripts/audit-r4.ts",
             "sourceArtifact": "packages/core/probes/audit-r4.ts",
@@ -10866,7 +10866,7 @@ function getRunnerIdentities() {
         "chainedBase": {
           "script": "scripts/audit-ai-docs.sh",
           "sourceArtifact": "packages/core/audit-self/audit-ai-docs.sh",
-          "sha256": "62700a7b36a9b5137355c2f2cf548564731bad923477d120b77c4da0646e2051",
+          "sha256": "1ee030f89af6c50b484a222181a72cefc105a28c8556bdbb36955035bb889360",
           "r4Helper": {
             "script": "scripts/audit-r4.ts",
             "sourceArtifact": "packages/core/probes/audit-r4.ts",
