@@ -117,7 +117,7 @@ test('row 3-rules: missing declared rule is blocking with a location; existing/f
   try {
     mkdirSync(join(root, '.claude/rules'), { recursive: true });
     writeFileSync(join(root, '.claude/rules/team-standards.md'), '# Team standards\n');
-    // Grammar (audit-ai-docs.ts:428-466): `.claude/rules/<path>` in prose
+    // Grammar (audit-ai-docs.ts:464-502): `.claude/rules/<path>` in prose
     // text/inlineCode; fenced blocks are invisible; `<`-placeholders filtered.
     writeFileSync(join(root, 'AGENTS.md'), [
       '# AGENTS',

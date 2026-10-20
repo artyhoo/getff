@@ -789,15 +789,15 @@ _pre_overwrite_divergence_action() {
 #   install.sh:1586                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1840          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:621          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:668          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:696          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:611          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:636          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:656          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:687          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:2217               appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/40-configs.sh:627          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:653          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:674          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:702          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:617          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:642          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:662          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:693          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:2221               appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         tool-decisions copy_safe       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1815          tool-decisions copy_safe       → suppress-no-entry (proved)
 # CENSUS-END
@@ -2526,7 +2526,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/lib.sh:3459-3467, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:3463-3471, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2934,7 +2934,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:398-403); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:404-409); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
