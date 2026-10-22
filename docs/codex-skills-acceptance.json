@@ -1,0 +1,1661 @@
+{
+  "date": "2026-10-07",
+  "kind": "bounded-local-acceptance-not-full-parity",
+  "sources": [
+    {
+      "name": "ai-doc",
+      "source": ".claude/skills/ai-doc/SKILL.md",
+      "sha256": "caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b"
+    },
+    {
+      "name": "getff",
+      "source": "skills/getff/SKILL.md",
+      "sha256": "b0729cba1ab29c34474212877c6a59cfe9a405cf28c31c6f567cfc2d81f534ac"
+    },
+    {
+      "name": "installing-enforcement",
+      "source": "plugin/skills/installing-enforcement/SKILL.md",
+      "sha256": "d276152ba86c240b94f8213239783a059e6cdb9362c4a1ffa53db6ecd3672729"
+    },
+    {
+      "name": "rule-research",
+      "source": ".claude/skills/rule-research/SKILL.md",
+      "sha256": "2e1e1bb1d61273e1652e3de7152f836081d0f6ceed8ad0e4c392b762621ec40e"
+    },
+    {
+      "name": "rule-tests",
+      "source": ".claude/skills/rule-tests/SKILL.md",
+      "sha256": "879047727bf65aa5e06ed3cde620e5e9d4a06ef31ea00609a636252e55f5f74f"
+    },
+    {
+      "name": "template-audit",
+      "source": ".claude/skills/template-audit/SKILL.md",
+      "sha256": "620536d73bffc4c966eddf9c279774de7df7c6905829198eb29ee4768be4629c"
+    },
+    {
+      "name": "tool-bootstrapping",
+      "source": ".claude/skills/tool-bootstrapping/SKILL.md",
+      "sha256": "f6c6acccaeb4516b897a71fb295eb0d868dce2f555a730c5dbca3b3cfeedd193"
+    },
+    {
+      "name": "using-getff",
+      "source": "plugin/skills/using-getff/SKILL.md",
+      "sha256": "5b43a4a02d81d1a4387f6725036d9db11e5e101a5bea131859f0a1b9f9f58460"
+    },
+    {
+      "name": "aif-doctor",
+      "source": ".claude/skills/aif-doctor/SKILL.md",
+      "sha256": "c26b00b37f8649d229608cd4d9702eb25933f6f58dddbd84d8bf816ea5396bbb"
+    },
+    {
+      "name": "arch",
+      "source": ".claude/skills/arch/SKILL.md",
+      "sha256": "51dc83e2fd661860d4bb2e68519eb8e37e811ffb7610df1bac86b25323b62023"
+    },
+    {
+      "name": "claude-glm-executor-handoff",
+      "source": ".claude/skills/claude-glm-executor-handoff/SKILL.md",
+      "sha256": "e120508fa500dd6a60a6059734cd494da1a1313373ffe04d0d6068d246331611"
+    },
+    {
+      "name": "dispatcher",
+      "source": ".claude/skills/dispatcher/SKILL.md",
+      "sha256": "2bed4413ea4f71069aff5754d6e014c034740c7ad665e5e5d3d610c345b2283e"
+    },
+    {
+      "name": "docs-author",
+      "source": ".claude/skills/docs-author/SKILL.md",
+      "sha256": "278f3c14d7b2eee951e4b325399604c29bc1615136fea3b3fca7f80a761a038a"
+    },
+    {
+      "name": "harvest",
+      "source": ".claude/skills/harvest/SKILL.md",
+      "sha256": "818adcec92b90dd717cce6232e2db844ae3f618246167921230a472bfab6525e"
+    },
+    {
+      "name": "night-mode",
+      "source": ".claude/skills/night-mode/SKILL.md",
+      "sha256": "6b104b82e25b240edcd1f3fbf0cd26de55d0585b44cdaa3271be065813d1440d"
+    },
+    {
+      "name": "orchestrator",
+      "source": ".claude/skills/orchestrator/SKILL.md",
+      "sha256": "01080aa8cc7e5d07216e2504ad3eb853fa0deffb79fb063010c81d9662a0728b"
+    },
+    {
+      "name": "pipeline",
+      "source": ".claude/skills/pipeline/SKILL.md",
+      "sha256": "f2d27b5dbb63f0603993dc4e8cd4d474fef5f6419a525d49fdf90d2c68c7d202"
+    },
+    {
+      "name": "reviewer",
+      "source": ".claude/skills/reviewer/SKILL.md",
+      "sha256": "d838b6a2c8c3b4ff1569e6316dee928bcd4aa6fa1df1cc1376a706d9f6893ed4"
+    },
+    {
+      "name": "self-reflection",
+      "source": ".claude/skills/self-reflection/SKILL.md",
+      "sha256": "1568b56bc3c97f0c08eb8d1531929947cc9d6c9a544104fe372f5f83376d2ef3"
+    },
+    {
+      "name": "story",
+      "source": ".claude/skills/story/SKILL.md",
+      "sha256": "23cae490b29619dd852bdef5ebe5d6f7dcae78d8e30962f46533a5537b40a982"
+    },
+    {
+      "name": "adapter-jig-reviewer",
+      "source": "agents/adapter-jig-reviewer.md",
+      "sha256": "65e40569c873776e0f4225b81f06a33eaeab6987f553b477c31befb588d9f928"
+    },
+    {
+      "name": "aif-init",
+      "source": "agents/aif-init.md",
+      "sha256": "c3a869dc9a8b11d7409b6194da25746c35faa9e56338d36a0c807d4885eef296"
+    },
+    {
+      "name": "backward-sweep-auditor",
+      "source": "agents/backward-sweep-auditor.md",
+      "sha256": "0dabd50bb3f15253efc0e1f00ff27bbaa989da3a130fafe889af9331631a8767"
+    },
+    {
+      "name": "capability-reuse-auditor",
+      "source": "agents/capability-reuse-auditor.md",
+      "sha256": "938062012eb1ca34abbd293b6c76a76c9dfb3cc6fce43e2697e495ba9ea07ce1"
+    },
+    {
+      "name": "claims-conformance-auditor",
+      "source": "agents/claims-conformance-auditor.md",
+      "sha256": "b3cbf8c9496759756396486303d4919fbce8ed875fdea49ad0a177b0835a8b5a"
+    },
+    {
+      "name": "compliance-verifier",
+      "source": "agents/compliance-verifier.md",
+      "sha256": "502587155df217983aa36e9fa2abf0e0cf1d23ada82cff33ae2a9364ac580622"
+    },
+    {
+      "name": "dispatch-input-checker",
+      "source": "agents/dispatch-input-checker.md",
+      "sha256": "e8b8c4a3fa5718c4518667e69b12da90f9b1cfbea41df7feb52188a45fcfd332"
+    },
+    {
+      "name": "docplan-auditor",
+      "source": "agents/docplan-auditor.md",
+      "sha256": "df6e5f18b963f05cb9f5687d5c4ad5173995703995be952705af231857ec9a48"
+    },
+    {
+      "name": "docs-form-auditor",
+      "source": "agents/docs-form-auditor.md",
+      "sha256": "3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453"
+    },
+    {
+      "name": "dual-channel-drift-auditor",
+      "source": "agents/dual-channel-drift-auditor.md",
+      "sha256": "a7c2e923b5a0463cb9cc8a722f53b27419cd0dad07d54e7edbbc504ec67f2100"
+    },
+    {
+      "name": "fidelity-auditor",
+      "source": "agents/fidelity-auditor.md",
+      "sha256": "3c6b3b5d029f157926433160d59474e7c80957762b42f985e71ea3ab1b6ef1db"
+    },
+    {
+      "name": "getff-cold-run-prober",
+      "source": "agents/getff-cold-run-prober.md",
+      "sha256": "eb021a97567d24ef8dd004bf22b5c7801d32094a7cb3975969cbaf935702cdde"
+    },
+    {
+      "name": "living-docs-auditor",
+      "source": "agents/living-docs-auditor.md",
+      "sha256": "0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d"
+    },
+    {
+      "name": "manual-rule-liveness-prober",
+      "source": "agents/manual-rule-liveness-prober.md",
+      "sha256": "fa0daf5a4a21c8a7cfdca3ebc1bf65fd96143aca7eceaf0179b9c9382c7b7632"
+    },
+    {
+      "name": "memory-codification-auditor",
+      "source": "agents/memory-codification-auditor.md",
+      "sha256": "b76319723756fd4e9b800aa293c03fe6714cbbf48bb2f0b171efee5a6ab60b33"
+    },
+    {
+      "name": "orchestrator-worker-discipline",
+      "source": "agents/orchestrator-worker-discipline.md",
+      "sha256": "33ce36fabd5169e02e2965b40519843f199cb17e3a5c5c1f8d2a693f5c98a025"
+    },
+    {
+      "name": "review-sidecar",
+      "source": "agents/review-sidecar.md",
+      "sha256": "2c1cd796cc57ed791b5ebd9415f764ca684e8bd2301906d70bc990b08383806f"
+    },
+    {
+      "name": "reviewer-discipline",
+      "source": "agents/reviewer-discipline.md",
+      "sha256": "d577c0fdcd8761e25ed6d4547fae928e316c82460fa57d090a0825aec98582f5"
+    },
+    {
+      "name": "rule-researcher",
+      "source": "agents/rule-researcher.md",
+      "sha256": "acd65dd72f431d22070bed3145df79eb84b76b172fac8aae79d3636109dd66d4"
+    },
+    {
+      "name": "rule-test-author",
+      "source": "agents/rule-test-author.md",
+      "sha256": "c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce"
+    },
+    {
+      "name": "shipped-agent-liveness-prober",
+      "source": "agents/shipped-agent-liveness-prober.md",
+      "sha256": "4fc34e2a15cfec6caae85b0a3bb7cfaebb02dc46110ddf404c8d237fa26ecb38"
+    }
+  ],
+  "shellSyntax": [
+    {
+      "path": ".claude/hooks/adopt-orchestrator-prompts.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/apply-husky-patch-gate.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/ask-question-reminder.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/check-doc-authority-header.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/check-doc-authority.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/check-hook-marker.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/check-kickoff-traps.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/check-worker-dispatch-channel.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/close-aif-task-on-merge.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/deps-hash-check.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/end-of-turn-reminder.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/glossary-inject.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-handoff-on-compact.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-matching-rule.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-memory-codification.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-output-language.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-project-digest.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-session-bootstrap.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-subagent-context.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/inject-subagent-digest.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lang/check-parity.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lang/en.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lang/ru.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lib/hook-emit.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lib/hook-live.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lib/residue-dir.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/lib/skill-index.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/precompact-residue.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/runtime-bridge-dispatch.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/seal-primary-checkout.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/validate-prompt.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/warn-subagent-report.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/hooks/worktree-setup.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/aif-doctor/helpers/aif-agent-target.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/aif-doctor/helpers/heal.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/aif-doctor/helpers/refresh-aif-base.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/advance-frontier.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/harvest-via-api.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/monitor-classify.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/notify-gate.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/probe-inflight.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/dispatcher/helpers/tg-notify.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/orchestrator/helpers/memory-sweep.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/assign-skill.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/bundle-curate.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/classify-each-candidate.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/classify-work.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/delta-diff.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/delta-write-from-state.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/dispatch-from-state.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/dup-detect.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/emit-output-strings.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/frontier.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/inflight-check.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/integer-name-guard.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/launch-table-generator.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/lib/common.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/list-presets.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/parse-override-flags.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/plan-currency-check.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/print-orch-home.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/print-plan-path.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/priority-score-synthetic.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/priority-score.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/render-status.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/resolve-preset.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/run-helper.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/update-cache.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/helpers/update-delta.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/lang/check-parity.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/lang/en.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/pipeline/lang/ru.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": ".claude/skills/story/helpers/emit-story-prompt.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lang/check-parity.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lang/en.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lang/ru.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lib/hook-emit.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lib/hook-language.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lib/live-claim.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lib/skill-routing.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "plugin/hooks/lib/source-hash.sh",
+      "status": 0,
+      "stderr": ""
+    }
+  ],
+  "nativeRuntime": "Codex Desktop/0.160.0 (Mac OS 26.6.2; arm64) dumb (getff-contributor-doctor; 0.1)",
+  "nativeDiscovery": {
+    "missingSkills": [],
+    "disabledSkills": [],
+    "expectedHooks": 21,
+    "missingDefinitions": [],
+    "degradations": [
+      {
+        "event": "PostToolUseFailure",
+        "reason": "Codex 0.160.0 has no native PostToolUseFailure event; failed-write dispatch-loss warning has no registered equivalent."
+      },
+      {
+        "mechanism": "bounded-input-policy",
+        "reason": "Literal cat/head/tail reads and canonical deterministic deny rules only. Native Bash without effective cwd cannot resolve relative reads. Arbitrary interpreters, compound shell, write_stdin and unverified MCP contracts require executor policy; no permission profile is activated."
+      }
+    ],
+    "warnings": [],
+    "discovered": true,
+    "skillsActivated": true,
+    "hooksActivated": false,
+    "ready": false
+  },
+  "nativeHookTrustCounts": {
+    "modified": 21
+  },
+  "archNativePlanQuestions": [
+    {
+      "id": "booking_actor",
+      "header": "Кто записывает",
+      "question": "Где мы — обсуждаем небольшой сервис, который помогает администратору студии быстро составлять расписание; обе развилки пока открыты.\n\n❓ Q1 — Кто создаёт записи на занятия?\nЧто решаем: например, клиент хочет попасть на занятие во вторник в 19:00. Для этого примера «занятие» — событие в расписании, а «запись» — участие клиента в нём.\nА. Только администратор: клиент обращается к нему, администратор вносит запись; все обращения остаются на администраторе.\nБ. Администратор и клиенты: клиент сам выбирает доступное занятие; появляется клиентский сценарий и необходимость определить доступные места и правила записи.\n➡️ Рекомендую А — **первый вариант сосредоточит сервис на работе названного вами основного пользователя — администратора**. Это предварительная рекомендация: если основная потеря времени — обработка обращений клиентов, преимущество может оказаться у Б.\nВыбор обратим: самостоятельную запись можно добавить позже, но для этого потребуется отдельный клиентский сценарий.",
+      "isOther": true,
+      "isSecret": false,
+      "options": [
+        {
+          "label": "Только админ (Recommended)",
+          "description": "Все записи вносит администратор; меньше сценариев в первой версии, обращения обрабатывает он."
+        },
+        {
+          "label": "Админ и клиенты",
+          "description": "Клиенты тоже записываются сами; нужны клиентский доступ и правила доступности мест."
+        }
+      ]
+    },
+    {
+      "id": "schedule_view",
+      "header": "Вид расписания",
+      "question": "❓ Q2 — Плотная таблица или спокойный календарь?\nЧто решаем: например, администратор составляет расписание на неделю, меняет время занятий и проверяет занятость.\nА. Спокойный календарь: занятия размещены по дням и времени, проще визуально сопоставлять интервалы; на экране помещается меньше подробностей.\nБ. Плотная таблица: больше занятий и полей видно одновременно, удобнее последовательно править много строк; временные пересечения менее очевидны без отдельного обозначения.\n➡️ Рекомендую А — **для составления расписания расположение занятий во времени представляется полезнее максимальной плотности данных**. Это гипотеза, а не ваше предпочтение: рекомендация неверна, если основная работа — массовый ввод и правка множества однотипных занятий.\nВыбор обратим: представление можно заменить или дополнить вторым, сохранив данные; переделать придётся экран и взаимодействия.\n\nОт тебя: decide: Q1 и Q2 — выберите варианты или напишите «не ок, потому что…». Явное «принимаю обе рекомендации» означает «только администратор + спокойный календарь»; пропущенный вопрос остаётся открытым. На этом первый раунд заканчивается, спецификацию и файлы не создаём.",
+      "isOther": true,
+      "isSecret": false,
+      "options": [
+        {
+          "label": "Календарь (Recommended)",
+          "description": "Наглядное расположение по времени; меньше деталей на одном экране."
+        },
+        {
+          "label": "Плотная таблица",
+          "description": "Больше строк и полей на экране; удобнее массовая правка, слабее наглядность интервалов."
+        }
+      ]
+    }
+  ],
+  "archAfterActualCompactionQuestions": [
+    {
+      "id": "schedule_view",
+      "header": "Вид расписания",
+      "question": "Где мы: делаем сервис для быстрого составления расписания администратором; по Q1 вы выбрали запись только администратором, Q2 остаётся открытым.\n\n❓ Q2 — Плотная таблица или спокойный календарь?\nЧто решаем: например, нужно составить неделю занятий, найти свободное время во вторник и поменять преподавателя у нескольких занятий. Здесь «занятие» — событие в расписании, а «запись» — участие клиента в нём; сейчас выбираем представление расписания.\n\nА — спокойный календарь: дни представлены колонками, время — вертикальной шкалой, занятия — блоками. Промежуток между занятиями во вторник виден сразу. В блоке показываем основные сведения; для подробностей открываем занятие. На экране меньше полей, а последовательное редактирование многих занятий может потребовать больше действий.\n\nБ — плотная таблица: каждое занятие занимает строку, рядом находятся дата, начало, длительность, преподаватель и другие нужные поля. Можно просматривать много занятий и менять поля подряд. Свободный промежуток приходится определять по времени в соседних строках; расположение занятий во времени менее наглядно.\n\nПлотность и представление можно настраивать отдельно: календарь тоже бывает компактным, таблица — визуально спокойной. Ни один вариант сам по себе не гарантирует массовое редактирование или проверку пересечений: это отдельные возможности.\n\n➡️ Предварительно рекомендую А: **для вашей цели «быстро составлять расписание» наглядность занятых и свободных промежутков выглядит полезной отправной точкой**. Рекомендация изменится в пользу таблицы, если основная работа — ввод и правка множества строк подряд.\nОбратимо: представление можно заменить позже, сохранив данные занятий, но потребуется переделать экран и взаимодействия.\n\nОт тебя: decide: Q2 — календарь или таблица; можно вместо выбора описать, какая из двух работ у администратора встречается чаще. «Принимаю рекомендацию» означает календарь. Уточнение или отсутствие выбора оставляет Q2 открытым.",
+      "isOther": true,
+      "isSecret": false,
+      "options": [
+        {
+          "label": "Календарь (Recommended)",
+          "description": "Наглядно показывает неделю и свободные промежутки; меньше полей на экране."
+        },
+        {
+          "label": "Плотная таблица",
+          "description": "Много занятий и полей перед глазами; свободное время менее наглядно."
+        }
+      ]
+    }
+  ],
+  "helperColdWarmTiming": [
+    {
+      "fixture": 0,
+      "phase": "cold",
+      "elapsed": 0.957,
+      "status": 0,
+      "stdout": "aif-agent-1",
+      "stderr": "",
+      "entered": true
+    },
+    {
+      "fixture": 0,
+      "phase": "warm",
+      "elapsed": 0.026,
+      "status": 0,
+      "stdout": "aif-agent-1",
+      "stderr": "",
+      "entered": true
+    },
+    {
+      "fixture": 1,
+      "phase": "cold",
+      "elapsed": 1.033,
+      "status": 1,
+      "stdout": "",
+      "stderr": "the current docker context did not answer within 1s — not choosing an agent on another context",
+      "entered": false
+    },
+    {
+      "fixture": 1,
+      "phase": "warm",
+      "elapsed": 0.191,
+      "status": 0,
+      "stdout": "aif-agent-1",
+      "stderr": "",
+      "entered": true
+    },
+    {
+      "fixture": 2,
+      "phase": "cold",
+      "elapsed": 1.035,
+      "status": 1,
+      "stdout": "",
+      "stderr": "the current docker context did not answer within 1s — not choosing an agent on another context",
+      "entered": false
+    },
+    {
+      "fixture": 2,
+      "phase": "warm",
+      "elapsed": 0.21,
+      "status": 0,
+      "stdout": "aif-agent-1",
+      "stderr": "",
+      "entered": true
+    }
+  ],
+  "additionalReferencedShellSyntax": [
+    {
+      "path": "./scripts/link-coordination.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "./scripts/run-local-ci-sweep.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/audit-self/audit-ai-docs.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/audit-self/check-fences-fire.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/audit-self/check-rule-enforced.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/audit-self/check-rule-globs.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/audit-self/run-bash-mutation.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/hooks/deps-hash-check.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/templates/shared/husky-pre-commit.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/templates/shared/husky-pre-push.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/runtime-bridge/scripts/bridge-health.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/runtime-bridge/scripts/verify-bridge.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/check-ask-files.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/cited-spec-addenda.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/close-merged-sweep.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/create-worktree.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/format-shipped.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/host-verify-coverage.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/host-verify.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/link-coordination.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/run-local-ci-sweep.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/snapshot-for-seat.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "setup.d/10-skills.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "setup.d/30-templates.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "setup.d/55-runtime-bridge-vendor.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "setup.d/99-finalize.sh",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "setup.d/lib.sh",
+      "status": 0,
+      "stderr": ""
+    }
+  ],
+  "referencedCodeSyntax": [
+    {
+      "path": "./packages/core/audit-self/template-render.audit.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/composition/gates/composition-gate.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/hooks/checks/pr-body-fidelity.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/hooks/delta-diff.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/hooks/frontier.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/hooks/update-cache.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/hooks/update-delta.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/install/rule-bootstrap-cli.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/principles/12-ai-laziness-traps.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/principles/18-meta-orchestrator-output-format.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/principles/21-shipped-agent-tools-valid.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/principles/29-worker-dispatch-channel.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/principles/29-worker-dispatch-channel.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/skills/dispatcher/advance-frontier.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/core/skills/dispatcher/probe-inflight.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/runtime-bridge/src/AifHandoffBackend.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "./packages/runtime-bridge/src/cli/dispatch.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/backends/astgrep/live-generation-delivery.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/backends/cargo/capability-matrix.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/backends/cargo/firing.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/composition/gates/composition-gate.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/diagnostics/registry.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/eslint-rules/no-unsafe-zod-parse.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/checks/pr-body-fidelity.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/checks/prior-art.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/delta-diff.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/delta-write-from-state.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/deps-hash-check.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/frontier.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/parse-override-flags.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/pre-push.bundle.mjs",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/core/hooks/pre-push.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/update-cache.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/hooks/update-delta.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/install/rule-bootstrap-cli.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/02-paired-negative-test.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/10-research-patch-annotation.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/12-ai-laziness-traps.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/15-skill-paired-negative.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/18-meta-orchestrator-output-format.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/20-bundle-classification.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/21-agnosticism-conformance.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/21-shipped-agent-tools-valid.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/29-worker-dispatch-channel.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/29-worker-dispatch-channel.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/46-reference-generator-arms.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/principles/49-executor-tier-parity.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/research/allowlist-resolver.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/research/allowlist.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/research/researcher-doc-tier1.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/dispatcher/advance-frontier.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/dispatcher/dispatch.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/dispatcher/monitor.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/dispatcher/probe-inflight.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/domain-modeling-vendored-body.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/skills/grilling-vendored-body.test.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/canonical-rule-hash.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/generate.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/render-researched-clippy.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/research-to-clippy-node.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/research-to-node.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/rule-tests-sidecar.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/types.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/synthesizer/verify-provenance.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/core/validator/validate.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/preset-next-15-canonical/templates/eslint.config.react.mjs",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "packages/preset-next-15-canonical/templates/vitest.config.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/answer.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/claim.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/dispatch.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/ensure-parallel.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/harvest.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/park.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/cli/questions.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "packages/runtime-bridge/src/harvest.ts",
+      "status": 0,
+      "stderr": "",
+      "check": "TypeScript parser only, not typecheck"
+    },
+    {
+      "path": "scripts/check-arch-retell.mjs",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/docs-check.mjs",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/render-reference.mjs",
+      "status": 0,
+      "stderr": ""
+    },
+    {
+      "path": "scripts/render-terms-style.mjs",
+      "status": 0,
+      "stderr": ""
+    }
+  ],
+  "trustedInitialNativeHookRuns": [
+    {
+      "event": "sessionStart",
+      "status": "completed",
+      "durationMs": 711
+    },
+    {
+      "event": "sessionStart",
+      "status": "completed",
+      "durationMs": 89
+    },
+    {
+      "event": "userPromptSubmit",
+      "status": "completed",
+      "durationMs": 51
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 389
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 65
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 181
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 84
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 207
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 87
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 165
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 79
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 225
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 77
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 168
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 60
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 183
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 66
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 157
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 55
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 179
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 64
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 168
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 58
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 320
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 69
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 297
+    },
+    {
+      "event": "postToolUse",
+      "status": "completed",
+      "durationMs": 58
+    },
+    {
+      "event": "preToolUse",
+      "status": "blocked",
+      "durationMs": 229
+    },
+    {
+      "event": "preToolUse",
+      "status": "completed",
+      "durationMs": 97
+    },
+    {
+      "event": "stop",
+      "status": "blocked",
+      "durationMs": 347
+    },
+    {
+      "event": "stop",
+      "status": "completed",
+      "durationMs": 208
+    }
+  ],
+  "finalBundledRuntime": {
+    "nodeTests": {
+      "passed": 51,
+      "failed": 0
+    },
+    "focusedHarnessTests": {
+      "passed": 29,
+      "failed": 0
+    },
+    "actualCheckouts": [
+      {
+        "checkout": "/Users/art/code/rules-as-tests-aif",
+        "localAdapterPresent": true,
+        "status": 0,
+        "decision": "deny",
+        "stderr": ""
+      },
+      {
+        "checkout": "/Users/art/.codex/worktrees/f24c/rules-as-tests-aif",
+        "localAdapterPresent": false,
+        "status": 0,
+        "decision": "deny",
+        "stderr": ""
+      }
+    ],
+    "installedDoctor": {
+      "discovered": true,
+      "skillsActivated": true,
+      "hooksActivated": false,
+      "ready": false,
+      "runtimeProblems": [],
+      "missingDefinitions": [],
+      "warnings": []
+    },
+    "trustCounts": {
+      "modified": 21
+    },
+    "review": "GO; partial-package Stop loop fixed"
+  },
+  "finalTrustConfirmation": {
+    "missingDefinitions": [],
+    "runtimeProblems": [],
+    "warnings": [],
+    "discovered": true,
+    "skillsActivated": true,
+    "hooksActivated": true,
+    "ready": true,
+    "trustCounts": {
+      "trusted": 21
+    }
+  },
+  "finalNativeF24cSmoke": {
+    "checkout": "/Users/art/.codex/worktrees/f24c/rules-as-tests-aif",
+    "nativeHookRuns": {
+      "sessionStart:completed": 2,
+      "userPromptSubmit:completed": 1,
+      "preToolUse:completed": 4,
+      "postToolUse:completed": 18,
+      "stop:completed": 1
+    },
+    "toolItems": [
+      {
+        "type": "commandExecution",
+        "status": "completed",
+        "changes": null
+      },
+      {
+        "type": "fileChange",
+        "status": "completed",
+        "changes": [
+          {
+            "path": "/Users/art/.codex/worktrees/f24c/rules-as-tests-aif/.codex-native-hook-probe-20261007.txt",
+            "kind": {
+              "type": "add"
+            },
+            "diff": "native-hook-probe\n"
+          }
+        ]
+      },
+      {
+        "type": "fileChange",
+        "status": "completed",
+        "changes": [
+          {
+            "path": "/Users/art/.codex/worktrees/f24c/rules-as-tests-aif/.codex-native-hook-probe-20261007.txt",
+            "kind": {
+              "type": "delete"
+            },
+            "diff": "native-hook-probe\n"
+          }
+        ]
+      }
+    ],
+    "turnCompleted": true,
+    "probeFileRemains": false,
+    "localAdapterPresent": false
+  },
+  "sessionStartConflictFollowUp": {
+    "reproducedInstalledExitBefore": 2,
+    "installedExitAfter": 0,
+    "canonicalPolicy": ".ai-factory/harness-model.json:SessionStart link-coordination || true",
+    "bothConflictPairsDiffer": true,
+    "allFourConflictContentsPreserved": true,
+    "regressionRedThenGreen": true,
+    "codexTestSuites": {
+      "passed": 52,
+      "failed": 0,
+      "log": "/tmp/codex-sessionstart-regression-tests.log"
+    },
+    "nativeSessionStartupRetested": false,
+    "adapterSha256": "ad2c0232952efa28cbe4c35b57f3db5038549f6ad873b5c4951f69e1a5df14e7"
+  },
+  "operatorRecapOptOut": {
+    "explicitOperatorRequest": true,
+    "settingScope": "user-local Codex configuration",
+    "hookKey": "getff-contributor@getff-contributor-local:hooks/hooks.json:stop:0:0",
+    "enabled": false,
+    "otherEnabledHooks": 20,
+    "trustedHooks": 21,
+    "trustHashesChanged": false,
+    "ready": false,
+    "readyFalseReason": "Operator intentionally disabled the Stop registration; doctor requires all registrations enabled.",
+    "runtimeProblems": [],
+    "missingDefinitions": [],
+    "warnings": []
+  }
+}

@@ -249,7 +249,7 @@
     },
     {
       "path": ".codex/config.toml",
-      "kind": "text",
+      "kind": "seed-text",
       "fingerprint": "291e70683f340f0dc8c57daa2aeea7cf8b126dbf4e0fbfec5437dde8f697e24e"
     },
     {

@@ -812,6 +812,11 @@ describe('probe-inflight.sh — agent container discovery', () => {
     ].join('\n'),
     { mode: 0o755 },
   );
+  // The 1s context budget tests the resolver, not macOS's first execution of a
+  // newly created shebang file (measured cold >1s before any stub instruction;
+  // the same inode warm <0.25s). Prime only executable loading: this argument
+  // matches no stub branch, performs no discovery and writes no call receipt.
+  execFileSync(stub, ['--fixture-warmup']);
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
   const run = (env: Record<string, string>): string => {
     writeFileSync(log, '');

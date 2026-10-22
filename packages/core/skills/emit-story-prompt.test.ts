@@ -15,6 +15,10 @@ function run(lang?: string): string {
 }
 
 describe('emit-story-prompt.sh', () => {
+  it('an explicit recap without a push does not inject a fictional publication', () => {
+    expect(run('en')).not.toContain('a PR was just pushed');
+    expect(run('ru')).not.toContain('только что запушен PR');
+  });
   // D-G (plain-words recap v2) inverted the former "by acts" / "по актам" assertions
   // ON PURPOSE: the story body is now the session-scale recap (why → what changed →
   // decided → least sure → next), so the tests assert the new marker + session sections

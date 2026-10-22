@@ -174,7 +174,8 @@ Reuse the project's detector when available (AIF `/aif`, or read `package.json` 
 
 Before the stack docs, open `.agents/procedures/getff/references/base-core.md` from the bound
 consumer root (the common core installed with getff). The host-native skill aliases are not
-required to read this resource. Do not substitute a different checkout if it is missing. Take every
+required to read this resource. If it is missing, report the missing delivered base core and stop this phase; do not
+substitute a different checkout or infer an empty pending set. Take every
 row of its table with column `status` = `` `not_wired` `` AND column `reason` = `generated-pending`: those
 principles fire only once THIS project's own rule for them is placed and proven. Research a per-project rule for
 each one the stack's canonical docs support, like any other practice below. Carry the link back in the entry's

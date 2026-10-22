@@ -22,7 +22,8 @@ function assertReachable(abs, rel) {
       throw new Error(
         `Codex: canonical resource missing: ${rel}/${entry.name} — the generated card link would dangle`,
       );
-    if (entry.isDirectory()) assertReachable(join(abs, entry.name), `${rel}/${entry.name}`);
+    if (entry.isDirectory())
+      assertReachable(join(abs, entry.name), `${rel}/${entry.name}`);
   }
 }
 
@@ -98,7 +99,7 @@ export function emitCodex(model, root) {
     }
   }
   ops.push({
-    kind: 'text',
+    kind: 'seed-text',
     path: '.codex/config.toml',
     value: toml.join('\n') + '\n',
   });
@@ -108,10 +109,15 @@ export function emitCodex(model, root) {
     ? ['.agents/procedures']
     : ['skills', model.skillsDir ?? '.claude/skills']) {
     if (!existsSync(join(root, base))) continue;
-    for (const entry of readdirSync(join(root, base), { withFileTypes: true })) {
+    for (const entry of readdirSync(join(root, base), {
+      withFileTypes: true,
+    })) {
       // The consumer bootstrap and contributor bootstrap are deliberately different roles.
       if (canonical && entry.name === 'tool-bootstrapping-consumer') continue;
-      if (entry.isDirectory() && existsSync(join(root, base, entry.name, 'SKILL.md')))
+      if (
+        entry.isDirectory() &&
+        existsSync(join(root, base, entry.name, 'SKILL.md'))
+      )
         sources.set(entry.name, `${base}/${entry.name}`);
     }
   }
@@ -120,7 +126,8 @@ export function emitCodex(model, root) {
     const original = readFileSync(join(root, source, 'SKILL.md'), 'utf8');
     const explicit = /^disable-model-invocation:\s*true\s*$/m.test(original);
     const metadata = /^---\r?\n[\s\S]*?\r?\n---/.exec(original)?.[0];
-    if (!metadata) throw new Error(`Codex: missing skill metadata in ${source}/SKILL.md`);
+    if (!metadata)
+      throw new Error(`Codex: missing skill metadata in ${source}/SKILL.md`);
     const binding = [
       '```bash',
       'GETFF_PROJECT_ROOT="$PWD"',
@@ -134,25 +141,37 @@ export function emitCodex(model, root) {
     const value = `${metadata}\n\n> Generated native entry from \`${source}/SKILL.md\`; shared procedure is authored once.\n> **Authoritative for:** native Codex discovery and full-source loading for this entry.\n> **NOT authoritative for:** the shared procedure; read the linked canonical owner.\n\nRead [the complete canonical procedure](../../../${source}/SKILL.md) in full before proceeding. Read [Codex bindings](../../../docs/codex-contributor.md) and apply them to every step. Treat explicit \`$${name}\` or a direct operator request as the host equivalent of legacy \`/${name}\`; explicit-only policy still forbids self-initiation. Bind arguments from the operator invocation (absent means an empty string, never an invented umbrella). Preserve the invocation cwd and supplied arguments before changing directories; canonical procedure-specific input rules govern relative targets. Bind the nearest project containing this canonical source, never an enclosing Git root, using the executable block below. After binding supplied inputs, execute canonical commands from that root. Execute each mandatory shell block through the shell tool.\n\n${binding}\n\nReplace \`\$\{CLAUDE_SKILL_DIR\}\` with \`"$GETFF_SKILL_DIR"\`; its canonical source is \`${source}\`. Model/tool frontmatter grants no authority on this host.\n`;
     ops.push({ kind: 'text', path: `.agents/skills/${name}/SKILL.md`, value });
     ops.push({
-      kind: 'text', path: `.agents/skills/${name}/agents/openai.yaml`,
+      kind: 'text',
+      path: `.agents/skills/${name}/agents/openai.yaml`,
       value: `policy:\n  allow_implicit_invocation: ${!explicit}\n`,
     });
-    for (const child of readdirSync(join(root, source), { withFileTypes: true })) {
+    for (const child of readdirSync(join(root, source), {
+      withFileTypes: true,
+    })) {
       if (child.name === 'SKILL.md' || child.name === 'agents') continue;
       if (!existsSync(join(root, source, child.name)))
         throw new Error(
           `Codex: canonical resource missing: ${source}/${child.name} — the generated card symlink would dangle`,
         );
-      assertReachable(join(root, source, child.name), `${source}/${child.name}`);
+      assertReachable(
+        join(root, source, child.name),
+        `${source}/${child.name}`,
+      );
       ops.push({
-        kind: 'symlink', path: `.agents/skills/${name}/${child.name}`,
-        target: relative(join(root, '.agents/skills', name), join(root, source, child.name)),
+        kind: 'symlink',
+        path: `.agents/skills/${name}/${child.name}`,
+        target: relative(
+          join(root, '.agents/skills', name),
+          join(root, source, child.name),
+        ),
       });
     }
     inventory.push({ name, source, explicit });
   }
   // Agent prompts are portable procedures. No invented native role/model grants.
-  const rolesDir = existsSync(join(root, '.agents/roles')) ? '.agents/roles' : 'agents';
+  const rolesDir = existsSync(join(root, '.agents/roles'))
+    ? '.agents/roles'
+    : 'agents';
   if (existsSync(join(root, rolesDir)))
     for (const entry of readdirSync(join(root, rolesDir))) {
       if (!entry.endsWith('.md')) continue;
@@ -161,8 +180,14 @@ export function emitCodex(model, root) {
       const scalar = /^description: ([^\n]*)$/m.exec(procedure);
       let description = scalar?.[1] ?? `Canonical ${name} procedure`;
       if (/^[>|][-+]?$/.test(description)) {
-        const block = procedure.slice(scalar.index + scalar[0].length).match(/^\n((?:[ \t]+[^\n]*\n)+)/)?.[1] ?? '';
-        const lines = block.trimEnd().split('\n').map(line => line.trim());
+        const block =
+          procedure
+            .slice(scalar.index + scalar[0].length)
+            .match(/^\n((?:[ \t]+[^\n]*\n)+)/)?.[1] ?? '';
+        const lines = block
+          .trimEnd()
+          .split('\n')
+          .map((line) => line.trim());
         description = lines.join(description.startsWith('>') ? ' ' : '\n');
       }
       const tools = /^tools: (.*)$/m.exec(procedure)?.[1] ?? '';

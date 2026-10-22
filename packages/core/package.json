@@ -54,7 +54,7 @@
   "scripts": {
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
-    "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs ../../scripts/pipeline-overview.test.mjs ../../scripts/pipeline-live-signals.test.mjs ../../scripts/pipeline-status-signals.test.mjs && npm run test:canonical:contracts",
+    "test:canonical": "node --test ../../scripts/canonical-agents-source.test.mjs ../../scripts/canonical-native.test.mjs ../../scripts/codex-contributor.test.mjs ../../scripts/codex-hook-adapter.test.mjs ../../scripts/codex-skills.test.mjs ../../scripts/pipeline-overview.test.mjs ../../scripts/pipeline-live-signals.test.mjs ../../scripts/pipeline-status-signals.test.mjs && npm run test:canonical:contracts",
     "test:hooks": "vitest run hooks/",
     "test:ir": "vitest run ir/",
     "test:backends": "vitest run backends/",
