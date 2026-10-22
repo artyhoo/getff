@@ -52,6 +52,24 @@ expect_scope 1 "scope decision garbage"                 maybe "skipped"         
 expect_scope 1 "scope true, scoped results unwired"     true  ""                success success
 expect_scope 1 "scope false does not mask a failure"    false "skipped"         success failure skipped
 
+expect_runtime() {
+  local want="$1" desc="$2" runtime="$3" scoped="$4" documents="$5"; shift 5
+  PATH_SCOPE_RUNTIME="$runtime" RUNTIME_SCOPED_RESULTS="$scoped" KICKOFF_REQUIRED_RESULTS="$documents" \
+    bash "$GATE" "$@" >/dev/null 2>&1
+  local got=$?
+  if [ "$got" -eq "$want" ]; then PASS=$((PASS+1)); printf 'PASS: %s (rc=%s)\n' "$desc" "$got"
+  else FAIL=$((FAIL+1)); printf 'FAIL: %s — wanted rc=%s got rc=%s\n' "$desc" "$want" "$got"; fi
+}
+expect_runtime 0 "runtime required and all runtime jobs ran" true 'success success' skipped success success
+expect_runtime 1 "runtime required cannot silently skip" true 'success skipped' skipped success skipped
+expect_runtime 1 "runtime decision missing cannot buy a skip" '' skipped success success skipped
+expect_runtime 1 "runtime decision malformed fails" maybe skipped success success skipped
+expect_runtime 1 "runtime results missing fails closed" true '' skipped success
+expect_runtime 0 "kickoff lane allows runtime skips after document checks" false skipped 'success success' success skipped
+expect_runtime 1 "kickoff lane cannot skip document checks" false skipped 'success skipped' success skipped
+expect_runtime 1 "kickoff document checks missing fails closed" false skipped '' success skipped
+expect_runtime 1 "kickoff lane never masks failed documents" false skipped failure failure skipped
+
 printf '\n── ci-success-gate: %d pass / %d fail ──\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

@@ -469,6 +469,7 @@ gate_table() {
     "5${TAB}measure-scripts${TAB}scripts/measure/${TAB}bash scripts/measure/measure.test.sh" \
     "5${TAB}plugin-aifdoctor-selftests${TAB}scripts/generate-plugin-twins.sh,agents/,.claude/hooks/,plugin/,tests/plugin/,tests/aif-doctor/,scripts/aif-doctor${TAB}ts=\$(grep -vE '^[[:space:]]*#' .github/workflows/audit-self.yml | grep -oE '(tests/plugin|tests/aif-doctor)/[a-zA-Z0-9._-]+\\.test\\.sh' | sort -u); [ -n \"\$ts\" ] || { echo 'no tests/plugin or tests/aif-doctor steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "6${TAB}vitest-principles${TAB}packages/core/${TAB}npm --prefix packages/core run test:principles" \
+    "6${TAB}kickoff-contracts${TAB}.claude/orchestrator-prompts/,docs/superpowers/specs/,.gitignore${TAB}npm --prefix packages/core run test:principles && npx --no-install vitest run packages/core/hooks/check-kickoff-traps.test.ts packages/core/hooks/check-worker-dispatch-channel.test.ts packages/core/hooks/host-verify.test.ts packages/core/skills/pipeline-park-contract.test.ts" \
     "6${TAB}vitest-hooks${TAB}packages/core/${TAB}npm --prefix packages/core run test:hooks" \
     "6${TAB}vitest-render${TAB}packages/core/${TAB}npm --prefix packages/core run test:render" \
     "6${TAB}vitest-ir${TAB}packages/core/${TAB}npm --prefix packages/core run test:ir" \
