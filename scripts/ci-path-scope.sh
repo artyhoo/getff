@@ -111,7 +111,9 @@ if [ "$range_mode" = true ]; then
   [ "$#" = 3 ] || decide true "explicit range requires base and head commit SHAs"
   range_base="$2"; range_head="$3"
   [[ "$range_base" =~ ^[a-f0-9]{40}$ && "$range_head" =~ ^[a-f0-9]{40}$ ]] || decide true "invalid explicit commit SHAs"
-  git cat-file -e "$range_base^{commit}" 2>/dev/null && git cat-file -e "$range_head^{commit}" 2>/dev/null || decide true "explicit commits are unavailable"
+  if ! git cat-file -e "$range_base^{commit}" 2>/dev/null || ! git cat-file -e "$range_head^{commit}" 2>/dev/null; then
+    decide true "explicit commits are unavailable"
+  fi
 else
   event="${EVENT_NAME:-}"
   [ "$event" = pull_request ] || decide true "event '${event:-unset}' is not pull_request; everything runs"
