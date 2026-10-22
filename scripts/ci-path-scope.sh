@@ -75,8 +75,18 @@ if [ "${1:-}" = "--list-never" ]; then
   exit 0
 fi
 
+# Reused by the framework pre-push hook. This mode only reports kickoff publication;
+# it does not change the existing CI event/backstop policy or publish GITHUB_OUTPUT.
+range_mode=false
+[ "${1:-}" != --kickoff-range ] || range_mode=true
+
 decide() {
   local value="$1" reason="$2" runtime="${3:-true}"
+  if [ "$range_mode" = true ]; then
+    if [ "$runtime" = false ]; then echo kickoff_only=true; else echo kickoff_only=false; fi
+    printf '%s\n' "$reason" >&2
+    exit 0
+  fi
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
     printf 'install=%s\nruntime=%s\n' "$value" "$runtime" >>"$GITHUB_OUTPUT"
   fi
@@ -97,26 +107,33 @@ skippable() {
   return 1
 }
 
-event="${EVENT_NAME:-}"
-[ "$event" = pull_request ] || decide true "event '${event:-unset}' is not pull_request; everything runs"
-
-parents=$(git rev-list --parents -n 1 HEAD 2>/dev/null | wc -w | tr -d ' ')
-[ "$parents" = 3 ] || decide true "HEAD is not a two-parent merge commit (got $parents SHAs); cannot compute the PR's change"
+if [ "$range_mode" = true ]; then
+  [ "$#" = 3 ] || decide true "explicit range requires base and head commit SHAs"
+  range_base="$2"; range_head="$3"
+  [[ "$range_base" =~ ^[a-f0-9]{40}$ && "$range_head" =~ ^[a-f0-9]{40}$ ]] || decide true "invalid explicit commit SHAs"
+  git cat-file -e "$range_base^{commit}" 2>/dev/null && git cat-file -e "$range_head^{commit}" 2>/dev/null || decide true "explicit commits are unavailable"
+else
+  event="${EVENT_NAME:-}"
+  [ "$event" = pull_request ] || decide true "event '${event:-unset}' is not pull_request; everything runs"
+  parents=$(git rev-list --parents -n 1 HEAD 2>/dev/null | wc -w | tr -d ' ')
+  [ "$parents" = 3 ] || decide true "HEAD is not a two-parent merge commit (got $parents SHAs); cannot compute the PR's change"
+  range_base=HEAD^1; range_head=HEAD
+fi
 
 tmp=$(mktemp) || decide true "mktemp failed"
 trap 'rm -f "$tmp"' EXIT
-git diff --no-renames --name-only -z HEAD^1 HEAD >"$tmp" 2>/dev/null || decide true "git diff HEAD^1 HEAD failed"
+git diff --no-renames --name-only -z "$range_base" "$range_head" >"$tmp" 2>/dev/null || decide true "git diff of the selected range failed"
 [ -s "$tmp" ] || decide true "the PR changes no file relative to its base"
 
 # Only new ignore exceptions for an umbrella changed by this PR are document publication.
 # Removing/replacing an ignore rule or changing a different umbrella runs all checks.
 stage_ignore_only() {
   local stats added removed line slug found changed
-  stats=$(git diff --no-ext-diff --numstat HEAD^1 HEAD -- .gitignore) || return 1
+  stats=$(git diff --no-ext-diff --numstat "$range_base" "$range_head" -- .gitignore) || return 1
   read -r added removed _ <<<"$stats"
   [[ "$added" =~ ^[1-9][0-9]*$ && "$removed" = 0 ]] || return 1
   local patch
-  patch=$(git diff --no-ext-diff --unified=0 HEAD^1 HEAD -- .gitignore) || return 1
+  patch=$(git diff --no-ext-diff --unified=0 "$range_base" "$range_head" -- .gitignore) || return 1
   while IFS= read -r line; do
     [[ "$line" = +* && "$line" != +++* ]] || continue
     [[ "$line" =~ ^\+!\.claude/orchestrator-prompts/([a-zA-Z0-9_-]+)/kickoff-[a-z]\*\.md$ ]] || return 1
@@ -136,7 +153,7 @@ kickoff_publication_only() {
     # kickoff-population.ts excludes these hook-test scratch directories from corpus gates.
     case "$path" in .claude/orchestrator-prompts/c2-test-*/*) return 1 ;; esac
     # Deleted files, executable documents, symlinks and submodules are not this lane.
-    mode=$(git ls-tree HEAD -- "$path") || return 1
+    mode=$(git ls-tree "$range_head" -- "$path") || return 1
     [[ "$mode" = '100644 blob '* ]] || return 1
     # Same stage grammar as kickoff-population.ts; a deeper path or a naming near-miss
     # cannot silently become a dispatch input that its corpus gates never enumerate.

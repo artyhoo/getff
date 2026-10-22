@@ -31,6 +31,22 @@ executable documents and malformed diffs retain full runtime CI. The existing
 events always run the full runtime suite, including the post-merge staging push.
 A failed classifier job blocks `ci-success`; it never grants a silent skip.
 
+## Pre-push
+
+The framework hook reuses the same selector through
+`scripts/ci-path-scope.sh --kickoff-range <base-sha> <head-sha>` over the committed
+range Git is sending. It requires one valid pushed ref, the same checked-out HEAD
+and no dirty tracked files. Multiple refs, malformed additional stdin, an override
+combined with push stdin, unknown commits and selector/hook changes retain full
+checks. Missing or failed helper execution also retains full checks.
+
+For a proven kickoff publication only `canonical-source`, `ir-meta`,
+`backends-meta` and `composition-meta` are omitted. Principles, actual changed
+planning-document validation, citations/links, provenance, formatting and the
+remaining registered checks still run. New sections run by default. Consumer
+ownership, the explicit single-section test seam and the reduced Bash fallback
+are unchanged. This is an automatic selection, not an environment bypass flag.
+
 ## Checks retained
 
 The kickoff lane runs the entire principles suite, including kickoff naming,
@@ -56,7 +72,9 @@ rejects any skipped runtime-scoped job.
 
 This extends the existing path-scope and aggregate scripts rather than introducing
 another CI service. Prior art: SSOT #244 (aggregate wiring), #116 (Git-based kickoff
-portability), and the measured install scope in
+portability), #210 (static affected-test graphs remain rejected; its measured
+wall-time trigger now motivates this bounded shared-selector reuse), and the
+measured install scope in
 [the read-set record](research-patches/2026-09-29-ci-path-scope-read-set.md).
 
 `scripts/ci-path-scope.test.sh` uses real temporary merge commits to discriminate

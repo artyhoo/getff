@@ -120,7 +120,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The shipped detector: `packages/core/hooks/checks/unpinned-tool-install.ts` —
   `:54` (shell-script population test), `:72` (escape-token regex), `:94` (pip-line
   check), `:125` (npm-line check), `:153` (entry point). Wired into pre-push at
-  `packages/core/hooks/pre-push.ts:823`.
+  `packages/core/hooks/pre-push.ts:832`.
 - The paired test suite: `packages/core/hooks/unpinned-tool-install.test.ts` —
   42 `it(` declarations counted at this base.
 - The index row grading this rule class `A`:

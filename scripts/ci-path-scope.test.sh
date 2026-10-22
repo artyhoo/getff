@@ -190,6 +190,25 @@ git -C "$TMP/deleted" add -A && git -C "$TMP/deleted" commit -qm 'remove code wi
 git -C "$TMP/deleted" checkout -q main && git -C "$TMP/deleted" merge -q --no-ff pr -m merge2
 expect_runtime true "deleted runtime files cannot hide beside a kickoff" "$TMP/deleted"
 
+# The hook calls the SAME selector with an explicit committed range, without a fabricated
+# pull_request event or a synthetic merge. Unknown/malformed ranges never authorize a skip.
+expect_range() {
+  local want="$1" desc="$2" dir="$3" base="$4" head="$5" got
+  got=$(cd "$dir" && bash "$SCOPE" --kickoff-range "$base" "$head" 2>/dev/null)
+  if [ "$got" = "kickoff_only=$want" ]; then ok "$desc"; else bad "$desc — got '$got'"; fi
+}
+range_head=$(git -C "$TMP/kickoff" rev-parse HEAD)
+range_base=$(git -C "$TMP/kickoff" rev-parse HEAD^1)
+expect_range true "explicit publication range is reusable by pre-push" "$TMP/kickoff" "$range_base" "$range_head"
+expect_range false "invalid explicit range keeps full pre-push" "$TMP/kickoff" missing "$range_head"
+expect_range false "empty explicit range keeps full pre-push" "$TMP/kickoff" "$range_head" "$range_head"
+range_head=$(git -C "$TMP/linear" rev-parse HEAD)
+range_base=$(git -C "$TMP/linear" rev-parse HEAD^)
+expect_range false "spec-only linear range keeps full pre-push" "$TMP/linear" "$range_base" "$range_head"
+range_head=$(git -C "$TMP/stage" rev-parse pr)
+range_base=$(git -C "$TMP/stage" rev-parse pr^)
+expect_range true "linear stage publication needs no merge commit" "$TMP/stage" "$range_base" "$range_head"
+
 printf '\n── ci-path-scope: %d pass / %d fail ──\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0
