@@ -20,7 +20,8 @@
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, execFileSync, spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -56,14 +57,21 @@ function hasJq(): boolean {
 }
 const JQ = hasJq();
 
-/** Run the hook with a stdin payload; return trimmed stdout. Optional env overrides for the
- * S6 test seam (RULES_DIR_OVERRIDE). */
-function runHook(input: Record<string, unknown>, env?: NodeJS.ProcessEnv): string {
-  return execFileSync('bash', [HOOK], {
+/** Run the hook with a stdin payload; return the raw spawn result. Optional env overrides for
+ * the S6 test seam (RULES_DIR_OVERRIDE).
+ *  POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799). */
+function runHookRaw(ctx: Skippable, input: Record<string, unknown>, env?: NodeJS.ProcessEnv) {
+  return spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(input),
     encoding: 'utf8',
     env: env ? { ...process.env, ...env } : undefined,
-  }).trim();
+  });
+}
+
+/** Run the hook with a stdin payload; return trimmed stdout. Optional env overrides for the
+ * S6 test seam (RULES_DIR_OVERRIDE). */
+function runHook(ctx: Skippable, input: Record<string, unknown>, env?: NodeJS.ProcessEnv): string {
+  return (runHookRaw(ctx, input, env).stdout ?? '').trim();
 }
 
 function payload(tool: string, relPath: string, session: string) {
@@ -79,8 +87,9 @@ const uniq = () => `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 describe.skipIf(!JQ)(
   'inject-matching-rule.sh — PostToolUse rule-injector',
   () => {
-    it('matching path (.claude/rules/**) on Edit → valid additionalContext JSON', () => {
+    it('matching path (.claude/rules/**) on Edit → valid additionalContext JSON', (ctx) => {
       const out = runHook(
+        ctx,
         payload('Edit', '.claude/rules/some-new-rule.md', uniq()),
       );
       const json = JSON.parse(out);
@@ -96,13 +105,14 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+    it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded). This hook uses the valid `{hookSpecificOutput:{hookEventName, additionalContext}}`
       // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
       // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper.
       const out = runHook(
+        ctx,
         payload('Edit', '.claude/rules/schema-test.md', uniq()),
       );
       const json = JSON.parse(out);
@@ -131,8 +141,9 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.hookEventName).toBe('PostToolUse');
     });
 
-    it('matching path (packages/core/principles/**) → injects', () => {
+    it('matching path (packages/core/principles/**) → injects', (ctx) => {
       const out = runHook(
+        ctx,
         payload('Write', 'packages/core/principles/99-x.test.ts', uniq()),
       );
       expect(JSON.parse(out).hookSpecificOutput.additionalContext).toContain(
@@ -140,34 +151,33 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('non-matching path → silent (empty stdout)', () => {
-      expect(runHook(payload('Write', 'src/app.ts', uniq()))).toBe('');
+    it('non-matching path → silent (empty stdout)', (ctx) => {
+      expect(runHook(ctx, payload('Write', 'src/app.ts', uniq()))).toBe('');
     });
 
     // Slice 1 (S-5): the Read arm injects only cards that declare `on: read`; no rule in the
     // repo corpus declares it, so a Read of a matching path stays silent here. The `on: read`
     // half is asserted in the slice-1 block below.
-    it('Read of a matching path → silent when no card declares `on: read`', () => {
+    it('Read of a matching path → silent when no card declares `on: read`', (ctx) => {
       expect(
-        runHook(payload('Read', '.claude/rules/some-new-rule.md', uniq())),
+        runHook(ctx, payload('Read', '.claude/rules/some-new-rule.md', uniq())),
       ).toBe('');
     });
 
     // Slice 1 (S-4): the key is (session_id, agent_id); the parent has no agent_id, so two
     // parent edits in one session still inject once. The agent_id half is asserted below.
-    it('session-cache: injects at most once per (session_id, agent_id) per card', () => {
+    it('session-cache: injects at most once per (session_id, agent_id) per card', (ctx) => {
       const s = uniq();
-      const first = runHook(payload('Edit', '.claude/rules/a.md', s));
-      const second = runHook(payload('Edit', '.claude/rules/b.md', s));
+      const first = runHook(ctx, payload('Edit', '.claude/rules/a.md', s));
+      const second = runHook(ctx, payload('Edit', '.claude/rules/b.md', s));
       expect(first).not.toBe('');
       expect(second).toBe('');
     });
 
-    it('output is non-blocking (exit 0) — execFileSync would throw on non-zero', () => {
-      // matching-path run already executed above without throwing; assert explicitly here too
-      expect(() =>
-        runHook(payload('Edit', '.claude/rules/c.md', uniq())),
-      ).not.toThrow();
+    it('output is non-blocking (exit 0) — execFileSync would throw on non-zero', (ctx) => {
+      // matching-path run already executed above without throwing; assert explicitly here too.
+      // exit 0 ⇔ the old execFileSync form did not throw
+      expect(runHookRaw(ctx, payload('Edit', '.claude/rules/c.md', uniq())).status).toBe(0);
     });
   },
 );
@@ -204,8 +214,9 @@ describe.skipIf(!JQ)(
       return dir;
     }
 
-    it('corpus absent (RULES_DIR missing) → emits JSON report on first call (T-HS-A primary)', () => {
+    it('corpus absent (RULES_DIR missing) → emits JSON report on first call (T-HS-A primary)', (ctx) => {
       const out = runHook(
+        ctx,
         payload('Edit', '.claude/rules/some-rule.md', uniq()),
         { RULES_DIR_OVERRIDE: absentRulesPath() },
       );
@@ -218,14 +229,16 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.additionalContext).toContain('no rules corpus');
     });
 
-    it('corpus absent → second call with same session_id is silent (once-per-session)', () => {
+    it('corpus absent → second call with same session_id is silent (once-per-session)', (ctx) => {
       const empty = absentRulesPath();
       const session = uniq();
       const first = runHook(
+        ctx,
         payload('Edit', '.claude/rules/a.md', session),
         { RULES_DIR_OVERRIDE: empty },
       );
       const second = runHook(
+        ctx,
         payload('Edit', '.claude/rules/b.md', session),
         { RULES_DIR_OVERRIDE: empty },
       );
@@ -234,15 +247,17 @@ describe.skipIf(!JQ)(
       expect(second).toBe('');
     });
 
-    it('corpus absent + new session → reports again (cache is per-session, not per-install)', () => {
+    it('corpus absent + new session → reports again (cache is per-session, not per-install)', (ctx) => {
       const empty = absentRulesPath();
       const firstSession = uniq();
       const secondSession = uniq();
       const first = runHook(
+        ctx,
         payload('Edit', '.claude/rules/a.md', firstSession),
         { RULES_DIR_OVERRIDE: empty },
       );
       const second = runHook(
+        ctx,
         payload('Edit', '.claude/rules/b.md', secondSession),
         { RULES_DIR_OVERRIDE: empty },
       );
@@ -250,19 +265,22 @@ describe.skipIf(!JQ)(
       expect(second).not.toBe('');
     });
 
-    it('corpus absent → exit 0 (non-blocking, even when reporting)', () => {
-      expect(() =>
-        runHook(
+    it('corpus absent → exit 0 (non-blocking, even when reporting)', (ctx) => {
+      // exit 0 ⇔ the old execFileSync form did not throw
+      expect(
+        runHookRaw(
+          ctx,
           payload('Edit', '.claude/rules/c.md', uniq()),
           { RULES_DIR_OVERRIDE: absentRulesPath() },
-        ),
-      ).not.toThrow();
+        ).status,
+      ).toBe(0);
     });
 
-    it('corpus present (control) → hook still fires normal injection, no-op path did not disable it', () => {
+    it('corpus present (control) → hook still fires normal injection, no-op path did not disable it', (ctx) => {
       const rules = presentRulesPathWithFakeRule();
       try {
         const out = runHook(
+          ctx,
           payload('Edit', '.claude/rules/x.md', uniq()),
           { RULES_DIR_OVERRIDE: rules },
         );
@@ -405,7 +423,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     ['{**/,}x.ts', 'a/b/x.ts', true],
   ];
 
-  it.each(GLOB_TABLE)('glob %s vs %s → %s (hook agrees with picomatch)', (glob, path, match) => {
+  it.for(GLOB_TABLE)('glob %s vs %s → %s (hook agrees with picomatch)', ([glob, path, match], sk) => {
     expect(picomatch(glob, { dot: true })(path)).toBe(match);
     // The `<!-- globs: -->` marker (not `paths:`) so the old script fails on the
     // translation itself; its comma list must not split inside `{a,b}`.
@@ -413,7 +431,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
       'r.md': `<!-- globs: ${glob} -->\n<!-- inject: GLOB-HIT -->\n# R\n`,
     });
     try {
-      const got = ctx(runHook(edit(path, uniq()), c.env));
+      const got = ctx(runHook(sk, edit(path, uniq()), c.env));
       expect(got.includes('GLOB-HIT')).toBe(match);
     } finally {
       c.cleanup();
@@ -423,12 +441,12 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // A slash-less `*.ext` glob matches at any depth — today's behaviour, kept (no rule in the
   // corpus loses reach). picomatch without matchBase does NOT; the native behaviour is
   // settled by the slice-1 live probe, not assumed here.
-  it('slash-less *.sh matches at any depth (kept behaviour)', () => {
+  it('slash-less *.sh matches at any depth (kept behaviour)', (sk) => {
     const c = corpus({ 'r.md': '<!-- globs: *.sh -->\n<!-- inject: SH-HIT -->\n# R\n' });
     try {
-      expect(ctx(runHook(edit('setup.d/lib.sh', uniq()), c.env))).toContain('SH-HIT');
-      expect(ctx(runHook(edit('x.sh', uniq()), c.env))).toContain('SH-HIT');
-      expect(ctx(runHook(edit('x.shx', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('setup.d/lib.sh', uniq()), c.env))).toContain('SH-HIT');
+      expect(ctx(runHook(sk, edit('x.sh', uniq()), c.env))).toContain('SH-HIT');
+      expect(ctx(runHook(sk, edit('x.shx', uniq()), c.env))).toBe('');
       // The same divergence from picomatch, pinned in both directions (native Claude Code
       // agrees with the hook: the slice-1 live probe loaded a `*.sh` rule on sub/deep/x.sh).
       expect(picomatch('*.sh', { dot: true })('setup.d/lib.sh')).toBe(false);
@@ -440,11 +458,11 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // A bare `|` is a literal character in the hook's grammar. picomatch passes it through to its
   // regex as top-level alternation, so `lib/a|b/**` does not even match the path it names.
   // The divergence is pinned in both directions rather than copied.
-  it('a bare | is a literal (picomatch reads it as alternation)', () => {
+  it('a bare | is a literal (picomatch reads it as alternation)', (sk) => {
     const c = corpus({ 'r.md': '<!-- globs: lib/a|b/** -->\n<!-- inject: BAR-HIT -->\n# R\n' });
     try {
-      expect(ctx(runHook(edit('lib/a|b/c', uniq()), c.env))).toContain('BAR-HIT');
-      expect(ctx(runHook(edit('lib/a/c', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('lib/a|b/c', uniq()), c.env))).toContain('BAR-HIT');
+      expect(ctx(runHook(sk, edit('lib/a/c', uniq()), c.env))).toBe('');
       expect(picomatch('lib/a|b/**', { dot: true })('lib/a|b/c')).toBe(false);
     } finally {
       c.cleanup();
@@ -455,50 +473,50 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // S-3 — `paths:` frontmatter is a second glob source (union with `<!-- globs: -->`), and a
   // file with no `inject:` whose body fits the card limit IS the card (advisor E5 N1).
   // ---------------------------------------------------------------------------
-  it('paths: frontmatter alone (block list) selects the rule', () => {
+  it('paths: frontmatter alone (block list) selects the rule', (sk) => {
     const c = corpus({
       'p.md': '---\npaths:\n  - "docs/**"\n---\n<!-- inject: PATHS-ONLY -->\n# P\n',
     });
     try {
-      expect(ctx(runHook(edit('docs/x.md', uniq()), c.env))).toContain('PATHS-ONLY');
-      expect(ctx(runHook(edit('src/x.md', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('docs/x.md', uniq()), c.env))).toContain('PATHS-ONLY');
+      expect(ctx(runHook(sk, edit('src/x.md', uniq()), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
   });
 
-  it('paths: (inline list) and globs: are a union', () => {
+  it('paths: (inline list) and globs: are a union', (sk) => {
     const c = corpus({
       'u.md':
         '---\npaths: ["docs/**"]\n---\n<!-- globs: src/** -->\n<!-- inject: UNION -->\n# U\n',
     });
     try {
-      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('UNION');
-      expect(ctx(runHook(edit('src/a.ts', uniq()), c.env))).toContain('UNION');
+      expect(ctx(runHook(sk, edit('docs/a.md', uniq()), c.env))).toContain('UNION');
+      expect(ctx(runHook(sk, edit('src/a.ts', uniq()), c.env))).toContain('UNION');
     } finally {
       c.cleanup();
     }
   });
 
-  it('no inject: + body within the limit → the BODY is injected (N1)', () => {
+  it('no inject: + body within the limit → the BODY is injected (N1)', (sk) => {
     const c = corpus({
       'b.md': '---\npaths:\n  - "docs/**"\n---\n# Card title\n\nDo the BODY-THING before editing docs.\n',
     });
     try {
-      const got = ctx(runHook(edit('docs/a.md', uniq()), c.env));
+      const got = ctx(runHook(sk, edit('docs/a.md', uniq()), c.env));
       expect(got).toContain('Do the BODY-THING before editing docs.');
     } finally {
       c.cleanup();
     }
   });
 
-  it('no inject: + body over the limit → first heading only', () => {
+  it('no inject: + body over the limit → first heading only', (sk) => {
     const long = 'x'.repeat(1200);
     const c = corpus({
       'big.md': `---\npaths:\n  - "docs/**"\n---\n# BIG-HEADING\n\n${long}\n`,
     });
     try {
-      const got = ctx(runHook(edit('docs/a.md', uniq()), c.env));
+      const got = ctx(runHook(sk, edit('docs/a.md', uniq()), c.env));
       expect(got).toContain('BIG-HEADING');
       expect(got).not.toContain('xxxxxxxxxx');
     } finally {
@@ -509,7 +527,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // ---------------------------------------------------------------------------
   // S-2 — the second card source beside the hook; the pointer names the card's `depth:`.
   // ---------------------------------------------------------------------------
-  it('card directory: a card fires and its pointer names its depth: files', () => {
+  it('card directory: a card fires and its pointer names its depth: files', (sk) => {
     const c = corpus(
       {},
       {
@@ -518,7 +536,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
       },
     );
     try {
-      const got = ctx(runHook(edit('src/a.ts', uniq()), c.env));
+      const got = ctx(runHook(sk, edit('src/a.ts', uniq()), c.env));
       expect(got).toContain('CARD-BODY: check the thing.');
       expect(got).toContain('docs/deep-one.md');
       expect(got).toContain('docs/deep-two.md');
@@ -528,10 +546,10 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     }
   });
 
-  it('card directory alone counts as a corpus (no empty-corpus report)', () => {
+  it('card directory alone counts as a corpus (no empty-corpus report)', (sk) => {
     const c = corpus({}, { 'k.md': '---\npaths:\n  - "src/**"\n---\nK\n' });
     try {
-      expect(ctx(runHook(edit('lib/a.ts', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('lib/a.ts', uniq()), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
@@ -542,32 +560,32 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // ---------------------------------------------------------------------------
   const ONE = { 'o.md': '<!-- globs: src/** -->\n<!-- inject: ONCE-CARD -->\n# O\n' };
 
-  it('a subagent (agent_id) gets the card although the parent already had it', () => {
+  it('a subagent (agent_id) gets the card although the parent already had it', (sk) => {
     const c = corpus(ONE);
     const s = uniq();
     try {
-      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
-      expect(ctx(runHook(edit('src/a.ts', s, { agent_id: 'agent-1' }), c.env))).toContain('ONCE-CARD');
-      expect(ctx(runHook(edit('src/b.ts', s, { agent_id: 'agent-1' }), c.env))).toBe('');
-      expect(ctx(runHook(edit('src/b.ts', s), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(sk, edit('src/a.ts', s, { agent_id: 'agent-1' }), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(sk, edit('src/b.ts', s, { agent_id: 'agent-1' }), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('src/b.ts', s), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
   });
 
-  it('SessionStart with source=compact clears the parent cache; other sources do not', () => {
+  it('SessionStart with source=compact clears the parent cache; other sources do not', (sk) => {
     const c = corpus(ONE);
     const s = uniq();
     try {
-      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(sk, edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
       expect(
-        runHook({ hook_event_name: 'SessionStart', source: 'resume', session_id: s }, c.env),
+        runHook(sk, { hook_event_name: 'SessionStart', source: 'resume', session_id: s }, c.env),
       ).toBe('');
-      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('src/a.ts', s), c.env))).toBe('');
       expect(
-        runHook({ hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env),
+        runHook(sk, { hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env),
       ).toBe('');
-      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(sk, edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
     } finally {
       c.cleanup();
     }
@@ -576,7 +594,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   // ---------------------------------------------------------------------------
   // S-5 — the Read arm (`on: read` cards only) and the event arm (PreToolUse:Bash).
   // ---------------------------------------------------------------------------
-  it('Read arm: an `on: read` card fires on Read; a plain card does not', () => {
+  it('Read arm: an `on: read` card fires on Read; a plain card does not', (sk) => {
     const c = corpus(
       {},
       {
@@ -586,6 +604,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     );
     try {
       const out = runHook(
+        sk,
         { ...payload('Read', 'src/a.ts', uniq()), hook_event_name: 'PostToolUse' },
         c.env,
       );
@@ -608,13 +627,13 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
 
   // Cold review finding 9: the Read and event arms run on every Read and every Bash call, so
   // a call that injects nothing must leave nothing behind in TMPDIR.
-  it('a call that injects nothing creates no cache directory', () => {
+  it('a call that injects nothing creates no cache directory', (sk) => {
     const c = corpus({}, { 'ev.md': "---\nevents:\n  - '^make( |$)'\n---\nEV\n" });
     const tmp = mkdtempSync(join(tmpdir(), `imr-lazy-${uniq()}-`));
     try {
       const env = { ...c.env, TMPDIR: tmp };
-      expect(runHook(bash('ls', uniq()), env)).toBe('');
-      expect(runHook({ ...payload('Read', 'src/a.ts', uniq()), hook_event_name: 'PostToolUse' }, env)).toBe('');
+      expect(runHook(sk, bash('ls', uniq()), env)).toBe('');
+      expect(runHook(sk, { ...payload('Read', 'src/a.ts', uniq()), hook_event_name: 'PostToolUse' }, env)).toBe('');
       // Only the loader's own cache names: the D12 liveness prelude writes its marker on
       // every run, by design.
       expect(readdirSync(tmp).filter((n) => n.startsWith('cc-rule-injector-'))).toEqual([]);
@@ -624,7 +643,7 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     }
   });
 
-  it('event arm: a Bash command matching an events: regex injects as PreToolUse', () => {
+  it('event arm: a Bash command matching an events: regex injects as PreToolUse', (sk) => {
     const c = corpus(
       {},
       {
@@ -633,13 +652,13 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
       },
     );
     try {
-      const out = runHook(bash('git commit -m x', uniq()), c.env);
+      const out = runHook(sk, bash('git commit -m x', uniq()), c.env);
       const json = JSON.parse(out);
       expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
       expect(json.hookSpecificOutput.permissionDecision).toBeUndefined();
       expect(ctx(out)).toContain('EVENT-CARD');
       expect(ctx(out)).not.toContain('PATH-CARD');
-      expect(runHook(bash('git status', uniq()), c.env)).toBe('');
+      expect(runHook(sk, bash('git status', uniq()), c.env)).toBe('');
     } finally {
       c.cleanup();
     }
@@ -647,24 +666,25 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
 
   // Cold review 2026-09-29 (finding 8): a card carrying BOTH triggers fires on each arm through
   // its own trigger only — the Bash arm never reads its globs, the edit arm never its regexes.
-  it('a card with paths: and events: fires on each arm through its own trigger only', () => {
+  it('a card with paths: and events: fires on each arm through its own trigger only', (sk) => {
     const c = corpus({}, {
       'both.md': "---\npaths:\n  - \"src/**\"\nevents:\n  - '^make( |$)'\n---\nBOTH-CARD\n",
     });
     try {
-      expect(ctx(runHook(bash('ls src/a.ts', uniq()), c.env))).toBe('');
-      expect(ctx(runHook(bash('make build', uniq()), c.env))).toContain('BOTH-CARD');
-      expect(ctx(runHook(edit('lib/make', uniq()), c.env))).toBe('');
-      expect(ctx(runHook(edit('src/a.ts', uniq()), c.env))).toContain('BOTH-CARD');
+      expect(ctx(runHook(sk, bash('ls src/a.ts', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, bash('make build', uniq()), c.env))).toContain('BOTH-CARD');
+      expect(ctx(runHook(sk, edit('lib/make', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('src/a.ts', uniq()), c.env))).toContain('BOTH-CARD');
     } finally {
       c.cleanup();
     }
   });
 
-  it('Read arm: an `on: read` card stays silent on a non-matching path', () => {
+  it('Read arm: an `on: read` card stays silent on a non-matching path', (sk) => {
     const c = corpus({}, { 'rd.md': '---\npaths:\n  - "src/**"\non: read\n---\nREAD-CARD\n' });
     try {
       const out = runHook(
+        sk,
         { ...payload('Read', 'lib/a.ts', uniq()), hook_event_name: 'PostToolUse' },
         c.env,
       );
@@ -674,14 +694,14 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     }
   });
 
-  it('compaction reset leaves a subagent cache intact', () => {
+  it('compaction reset leaves a subagent cache intact', (sk) => {
     const c = corpus(ONE);
     const s = uniq();
     const sub = { agent_id: 'agent-9' };
     try {
-      expect(ctx(runHook(edit('src/a.ts', s, sub), c.env))).toContain('ONCE-CARD');
-      runHook({ hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env);
-      expect(ctx(runHook(edit('src/a.ts', s, sub), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('src/a.ts', s, sub), c.env))).toContain('ONCE-CARD');
+      runHook(sk, { hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env);
+      expect(ctx(runHook(sk, edit('src/a.ts', s, sub), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
@@ -689,11 +709,12 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
 
   // Cold review finding 1: `@sh` quotes an ARRAY as several words, so an array-valued field
   // reached `eval` as extra command words. Every field is coerced to one string first.
-  it('a non-string payload field never executes as a command', () => {
+  it('a non-string payload field never executes as a command', (sk) => {
     const c = corpus(ONE);
     const marker = join(tmpdir(), `imr-pwned-${uniq()}`);
     try {
       runHook(
+        sk,
         {
           hook_event_name: ['PostToolUse', 'touch', marker],
           tool_name: 'Edit',
@@ -710,15 +731,15 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
   });
 
   // Cold review finding 7: YAML forms the frontmatter parser missed.
-  it('YAML: a non-indented block list, a comment line inside it, a trailing comment', () => {
+  it('YAML: a non-indented block list, a comment line inside it, a trailing comment', (sk) => {
     const c = corpus({
       'y.md':
         '---\npaths:\n- "docs/**"\n# a comment inside the list\n- "tools/**"  # trailing\n---\n<!-- inject: YAML-CARD -->\n# Y\n',
     });
     try {
-      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('YAML-CARD');
-      expect(ctx(runHook(edit('tools/a.sh', uniq()), c.env))).toContain('YAML-CARD');
-      expect(ctx(runHook(edit('lib/a.ts', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('docs/a.md', uniq()), c.env))).toContain('YAML-CARD');
+      expect(ctx(runHook(sk, edit('tools/a.sh', uniq()), c.env))).toContain('YAML-CARD');
+      expect(ctx(runHook(sk, edit('lib/a.ts', uniq()), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
@@ -726,16 +747,16 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
 
   // Cold review round 2, findings 4 + 5: a key whose value is only a comment still opens a
   // block list, and a comma or ` #` inside a quoted flow-list item stays in the item.
-  it('YAML: a comment-only value opens its list; quoted flow items keep , and #', () => {
+  it('YAML: a comment-only value opens its list; quoted flow items keep , and #', (sk) => {
     const c = corpus({
       'a.md': '---\npaths: # the globs\n  - "docs/**"\n---\n<!-- inject: COMMENTED-KEY -->\n# A\n',
       'b.md': "---\npaths: [lib/**, \"x # y/**\", 'p,q/**']\n---\n<!-- inject: FLOW-QUOTED -->\n# B\n",
     });
     try {
-      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('COMMENTED-KEY');
-      expect(ctx(runHook(edit('x # y/a', uniq()), c.env))).toContain('FLOW-QUOTED');
-      expect(ctx(runHook(edit('p,q/a', uniq()), c.env))).toContain('FLOW-QUOTED');
-      expect(ctx(runHook(edit("'p/a", uniq()), c.env))).toBe('');
+      expect(ctx(runHook(sk, edit('docs/a.md', uniq()), c.env))).toContain('COMMENTED-KEY');
+      expect(ctx(runHook(sk, edit('x # y/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(sk, edit('p,q/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(sk, edit("'p/a", uniq()), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
@@ -755,16 +776,22 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     });
   }
 
-  it('concurrency: 8 parallel runs of one payload → exactly one injection', async () => {
-    const c = corpus(ONE);
-    try {
-      const s = uniq();
-      const outs = await Promise.all(
-        Array.from({ length: 8 }, () => runHookAsync(edit('src/a.ts', s), c.env)),
-      );
-      expect(outs.filter((o) => o !== '').length).toBe(1);
-    } finally {
-      c.cleanup();
-    }
-  });
+  // skipped on win32: the S-14 arm needs eight CONCURRENT spawns — async child_process.spawn,
+  // which the spawnSync-shaped spawn-bash-or-skip helper cannot express (#1799). Serializing to
+  // spawnSync would gut the very concurrency the once-cache assertion pins.
+  it.skipIf(process.platform === 'win32')(
+    'concurrency: 8 parallel runs of one payload → exactly one injection',
+    async () => {
+      const c = corpus(ONE);
+      try {
+        const s = uniq();
+        const outs = await Promise.all(
+          Array.from({ length: 8 }, () => runHookAsync(edit('src/a.ts', s), c.env)),
+        );
+        expect(outs.filter((o) => o !== '').length).toBe(1);
+      } finally {
+        c.cleanup();
+      }
+    },
+  );
 });

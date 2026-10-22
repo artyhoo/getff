@@ -14,7 +14,8 @@
  * silent exit 0 — a session start must never break because the injector had nothing to say.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -70,12 +71,14 @@ const HANDOFF = [
 let dir_ = tmpdir();
 
 function run(
+  ctx: Skippable,
   residueDir: string,
   payload: Record<string, unknown>,
   env: Record<string, string> = {},
   rawInput?: string,
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: rawInput ?? JSON.stringify(payload),
     encoding: 'utf8',
     env: {
@@ -90,11 +93,11 @@ function run(
 }
 
 describe.skipIf(!JQ)('inject-handoff-on-compact.sh (D20)', () => {
-  it('source=compact + a handoff file → SessionStart JSON whose additionalContext carries the file', () => {
+  it('source=compact + a handoff file → SessionStart JSON whose additionalContext carries the file', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(join(residueDir, '_handoff-inj1.md'), HANDOFF + '\n', 'utf8');
-    const r = run(residueDir, { source: 'compact', session_id: 'inj1' });
+    const r = run(ctx, residueDir, { source: 'compact', session_id: 'inj1' });
     expect(r.status).toBe(0);
     const parsed = JSON.parse(r.stdout) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -104,58 +107,58 @@ describe.skipIf(!JQ)('inject-handoff-on-compact.sh (D20)', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toContain('- n');
   });
 
-  it('the residue pointer rides along when the writer also produced an excerpt', () => {
+  it('the residue pointer rides along when the writer also produced an excerpt', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(join(residueDir, '_handoff-inj2.md'), HANDOFF + '\n', 'utf8');
     writeFileSync(join(residueDir, '_residue-inj2.md'), '# machine excerpt\n', 'utf8');
-    const r = run(residueDir, { source: 'compact', session_id: 'inj2' });
+    const r = run(ctx, residueDir, { source: 'compact', session_id: 'inj2' });
     const parsed = JSON.parse(r.stdout) as {
       hookSpecificOutput: { additionalContext: string };
     };
     expect(parsed.hookSpecificOutput.additionalContext).toContain('_residue-inj2.md');
   });
 
-  it('PAIRED-NEGATIVE: source=startup/resume/clear/fork → silent exit 0 (D20)', () => {
+  it('PAIRED-NEGATIVE: source=startup/resume/clear/fork → silent exit 0 (D20)', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(join(residueDir, '_handoff-inj3.md'), HANDOFF + '\n', 'utf8');
     for (const source of ['startup', 'resume', 'clear', 'fork']) {
-      const r = run(residueDir, { source, session_id: 'inj3' });
+      const r = run(ctx, residueDir, { source, session_id: 'inj3' });
       expect(r.status).toBe(0);
       expect(r.stdout, `source=${source} must be silent`).toBe('');
     }
   });
 
-  it('missing handoff file → empty, exit 0', () => {
+  it('missing handoff file → empty, exit 0', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
-    const r = run(residueDir, { source: 'compact', session_id: 'inj4' });
+    const r = run(ctx, residueDir, { source: 'compact', session_id: 'inj4' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('malformed stdin → exit 0, silent', () => {
+  it('malformed stdin → exit 0, silent', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(join(residueDir, '_handoff-inj5.md'), HANDOFF + '\n', 'utf8');
-    const r = run(residueDir, {}, {}, '{not json');
+    const r = run(ctx, residueDir, {}, {}, '{not json');
     expect(r.status, 'malformed stdin must not error').toBe(0);
     expect(r.stdout).toBe('');
   });
 
-  it('the session key is sanitised the same way as the writer and the gate', () => {
+  it('the session key is sanitised the same way as the writer and the gate', (ctx) => {
     // A session id carrying a path separator must resolve to the SAME sanitised filename
     // the writer's pointer line names — a second derivation here silently unlinks the pipe.
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(join(residueDir, '_handoff-in_6s_esh.md'), HANDOFF + '\n', 'utf8');
-    const r = run(residueDir, { source: 'compact', session_id: 'in/6s:esh' });
+    const r = run(ctx, residueDir, { source: 'compact', session_id: 'in/6s:esh' });
     expect(r.status).toBe(0);
     expect(r.stdout, 'the sanitised key found the file').toContain('## Next action');
   });
 
-  it('D32: a handoff over the cap is injected CAPPED (head -n AIF_HANDOFF_MAX_LINES)', () => {
+  it('D32: a handoff over the cap is injected CAPPED (head -n AIF_HANDOFF_MAX_LINES)', (ctx) => {
     const { dir, residueDir } = sandbox();
     dir_ = dir;
     writeFileSync(
@@ -163,7 +166,7 @@ describe.skipIf(!JQ)('inject-handoff-on-compact.sh (D20)', () => {
       Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n') + '\n',
       'utf8',
     );
-    const r = run(residueDir, { source: 'compact', session_id: 'injcap' });
+    const r = run(ctx, residueDir, { source: 'compact', session_id: 'injcap' });
     const parsed = JSON.parse(r.stdout) as {
       hookSpecificOutput: { additionalContext: string };
     };

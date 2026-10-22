@@ -26,9 +26,10 @@ import {
   readdirSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,18 +73,16 @@ function commitFile(path: string, content: string, message: string): string {
   return git('rev-parse', 'HEAD');
 }
 
-function run(args: string[]): Result {
-  try {
-    const stdout = execFileSync('bash', [SCRIPT, ...args], {
-      cwd: repo,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { stdout, stderr: '', status: 0 };
-  } catch (e) {
-    const err = e as { stdout?: string; stderr?: string; status?: number };
-    return { stdout: err.stdout ?? '', stderr: err.stderr ?? '', status: err.status ?? -1 };
-  }
+function run(ctx: Skippable, args: string[]): Result {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // The old execFileSync try/catch mapped throw-on-non-zero to {status: err.status ?? -1};
+  // spawnSync's result object carries the same stdout/stderr/status without the throw.
+  const r = spawnBashOrSkip(ctx, 'bash', [SCRIPT, ...args], {
+    cwd: repo,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return { stdout: r.stdout ?? '', stderr: r.stderr ?? '', status: r.status ?? -1 };
 }
 
 beforeEach(() => {
@@ -101,12 +100,12 @@ afterEach(() => {
 describe('snapshot-for-seat.sh', () => {
   it(
     'snapshots the bytes AT the commit — a later commit and a dirty working tree do not reach it',
-    () => {
+    (ctx) => {
       const sha = commitFile('docs/spec.md', 'v1\n', 'one');
       commitFile('docs/spec.md', 'v2\n', 'two');
       writeFileSync(join(repo, 'docs/spec.md'), 'v3 uncommitted\n');
 
-      const r = run(['--out', out, sha, 'docs/spec.md']);
+      const r = run(ctx, ['--out', out, sha, 'docs/spec.md']);
       expect(r.status).toBe(0);
       const lines = r.stdout.trim().split('\n');
       expect(lines[0]).toBe(`Inputs-ref: ${sha}`);
@@ -118,11 +117,11 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'resolves a moving ref to its SHA — the file name and Inputs-ref carry the SHA, never the ref name',
-    () => {
+    (ctx) => {
       const sha = commitFile('a.txt', 'x\n', 'one');
       git('branch', '-M', 'staging');
 
-      const r = run(['--out', out, 'staging', 'a.txt']);
+      const r = run(ctx, ['--out', out, 'staging', 'a.txt']);
       expect(r.status).toBe(0);
       expect(r.stdout.split('\n')[0]).toBe(`Inputs-ref: ${sha}`);
       expect(readdirSync(out)).toEqual([`a@${sha.slice(0, 12)}.txt`]);
@@ -132,11 +131,11 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'writes snapshots read-only and keeps two same-named files apart',
-    () => {
+    (ctx) => {
       commitFile('x/README.md', 'x\n', 'one');
       const sha = commitFile('y/README.md', 'y\n', 'two');
 
-      const r = run(['--out', out, sha, 'x/README.md', 'y/README.md']);
+      const r = run(ctx, ['--out', out, sha, 'x/README.md', 'y/README.md']);
       expect(r.status).toBe(0);
       const paths = r.stdout.trim().split('\n').slice(1);
       expect(paths).toHaveLength(2);
@@ -149,10 +148,10 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'keeps an extensionless name whole, strips a leading ./, and re-running is idempotent',
-    () => {
+    (ctx) => {
       const sha = commitFile('Makefile', 'all:\n', 'one');
-      expect(run(['--out', out, sha, './Makefile']).status).toBe(0);
-      const again = run(['--out', out, sha, 'Makefile']);
+      expect(run(ctx, ['--out', out, sha, './Makefile']).status).toBe(0);
+      const again = run(ctx, ['--out', out, sha, 'Makefile']);
       expect(again.status).toBe(0);
       expect(readdirSync(out)).toEqual([`Makefile@${sha.slice(0, 12)}`]);
     },
@@ -161,11 +160,11 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'a path absent at the commit fails the whole call and writes nothing',
-    () => {
+    (ctx) => {
       const sha = commitFile('a.txt', 'x\n', 'one');
       commitFile('b.txt', 'late\n', 'two');
 
-      const r = run(['--out', out, sha, 'a.txt', 'b.txt']);
+      const r = run(ctx, ['--out', out, sha, 'a.txt', 'b.txt']);
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('b.txt');
       expect(readdirSync(out)).toEqual([]);
@@ -175,9 +174,11 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'refuses a directory, a symlink and a submodule entry before writing anything',
-    () => {
+    (ctx) => {
       commitFile('docs/a.md', 'a\n', 'one');
-      symlinkSync('docs/a.md', join(repo, 'link.md'));
+      // the committed-file link IS the assertion subject: junctions cannot express a
+      // file link → named win32 skip (POSIX unchanged)
+      symlinkOrJunctionOrSkip(ctx, 'docs/a.md', join(repo, 'link.md'));
       git('add', 'link.md');
       const sub = git('rev-parse', 'HEAD');
       git('update-index', '--add', '--cacheinfo', `160000,${sub},vendor/sub`);
@@ -190,7 +191,7 @@ describe('snapshot-for-seat.sh', () => {
         ['link.md', 'symlink'],
         ['vendor/sub', 'submodule'],
       ]) {
-        const r = run(['--out', out, sha, 'docs/a.md', path]);
+        const r = run(ctx, ['--out', out, sha, 'docs/a.md', path]);
         expect(r.status, path).toBe(1);
         expect(r.stderr, path).toContain(word);
         expect(r.stdout, path).toBe('');
@@ -202,23 +203,23 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'refuses two different paths that flatten to one snapshot name; one path given twice is fine',
-    () => {
+    (ctx) => {
       commitFile('a/b__c.md', '1\n', 'one');
       const sha = commitFile('a__b/c.md', '2\n', 'two');
 
-      const clash = run(['--out', out, sha, 'a/b__c.md', 'a__b/c.md']);
+      const clash = run(ctx, ['--out', out, sha, 'a/b__c.md', 'a__b/c.md']);
       expect(clash.status).toBe(1);
       expect(clash.stderr).toContain('both map to');
       expect(readdirSync(out)).toEqual([]);
 
-      expect(run(['--out', out, sha, 'a/b__c.md', './a/b__c.md']).status).toBe(0);
+      expect(run(ctx, ['--out', out, sha, 'a/b__c.md', './a/b__c.md']).status).toBe(0);
     },
     SLOW_SHELL_MS,
   );
 
   it(
     'refuses case-variant paths (one file on a case-insensitive FS), an empty path and a trailing slash',
-    () => {
+    (ctx) => {
       commitFile('docs/X.md', 'upper\n', 'one');
       let sha = git('rev-parse', 'HEAD');
       // Add the lower-case twin through the index so the test works on APFS too.
@@ -231,12 +232,12 @@ describe('snapshot-for-seat.sh', () => {
       git('commit', '-q', '-m', 'two');
       sha = git('rev-parse', 'HEAD');
 
-      const clash = run(['--out', out, sha, 'docs/X.md', 'docs/x.md']);
+      const clash = run(ctx, ['--out', out, sha, 'docs/X.md', 'docs/x.md']);
       expect(clash.status).toBe(1);
       expect(clash.stderr).toContain('both map to');
 
       for (const path of ['', 'docs/']) {
-        const r = run(['--out', out, sha, path]);
+        const r = run(ctx, ['--out', out, sha, path]);
         expect(r.status, JSON.stringify(path)).toBe(1);
         expect(r.stderr, JSON.stringify(path)).toContain('not a file path');
       }
@@ -247,12 +248,12 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'handles spaces, non-ASCII and a leading-dot name',
-    () => {
+    (ctx) => {
       commitFile('my docs/spec v2.md', 's\n', 'one');
       commitFile('specs/черновик.md', 'r\n', 'two');
       const sha = commitFile('.gitignore', 'node_modules\n', 'three');
 
-      const r = run(['--out', out, sha, 'my docs/spec v2.md', 'specs/черновик.md', '.gitignore']);
+      const r = run(ctx, ['--out', out, sha, 'my docs/spec v2.md', 'specs/черновик.md', '.gitignore']);
       expect(r.status, r.stderr).toBe(0);
       const short = sha.slice(0, 12);
       expect(readdirSync(out).sort()).toEqual(
@@ -265,9 +266,9 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'an unresolvable ref fails with exit 1',
-    () => {
+    (ctx) => {
       commitFile('a.txt', 'x\n', 'one');
-      const r = run(['--out', out, 'no-such-ref', 'a.txt']);
+      const r = run(ctx, ['--out', out, 'no-such-ref', 'a.txt']);
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('no-such-ref');
     },
@@ -276,20 +277,20 @@ describe('snapshot-for-seat.sh', () => {
 
   it(
     'usage errors exit 2: no args, a ref without paths, --out without a value',
-    () => {
+    (ctx) => {
       commitFile('a.txt', 'x\n', 'one');
-      expect(run([]).status).toBe(2);
-      expect(run(['HEAD']).status).toBe(2);
-      expect(run(['--out']).status).toBe(2);
+      expect(run(ctx, []).status).toBe(2);
+      expect(run(ctx, ['HEAD']).status).toBe(2);
+      expect(run(ctx, ['--out']).status).toBe(2);
     },
     SLOW_SHELL_MS,
   );
 
   it(
     'without --out it creates a fresh temp directory and still names every file by SHA',
-    () => {
+    (ctx) => {
       const sha = commitFile('a.txt', 'x\n', 'one');
-      const r = run([sha, 'a.txt']);
+      const r = run(ctx, [sha, 'a.txt']);
       expect(r.status).toBe(0);
       const p = r.stdout.trim().split('\n')[1];
       expect(p.endsWith(`/a@${sha.slice(0, 12)}.txt`)).toBe(true);

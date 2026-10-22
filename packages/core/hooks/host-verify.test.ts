@@ -25,7 +25,8 @@
  * spec: .claude/rules/destination-environment-verification.md §1
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -65,13 +66,15 @@ function installRunner(repo: string, src: string = readFileSync(RUNNER, 'utf8'))
 }
 
 function runRunner(
+  ctx: Skippable,
   args: string[],
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
   // With a fixture cwd, run the fixture's own copy of the runner (run mode refuses a cwd that
   // is not a checkout of the runner's repository); without one, run this repo's runner.
   const runner = env.HV_CWD ? installRunner(env.HV_CWD) : RUNNER;
-  const r = spawnSync('bash', [runner, ...args], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [runner, ...args], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
     cwd: env.HV_CWD || undefined,
@@ -92,22 +95,22 @@ const HAS_TIMEOUT_BIN = (() => {
 })();
 
 describe('host-verify.sh — runner contract', () => {
-  it('a failing substantive command → exit 1', () => {
+  it('a failing substantive command → exit 1', (ctx) => {
     // `test -f` with args is substantive (passes the no-op guard) but fails here.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\ntest -f /nonexistent-host-verify-marker-xyz-123\n```\n',
     );
-    const r = runRunner([kickoff], { HV_CWD: repoRoot });
+    const r = runRunner(ctx, [kickoff], { HV_CWD: repoRoot });
     expect(r.status).toBe(1);
   });
 
-  it('pipefail inside the child catches a pipeline failure (false | tee)', () => {
+  it('pipefail inside the child catches a pipeline failure (false | tee)', (ctx) => {
     // Without `bash -o pipefail -c`, `false | tee /dev/null` would report tee's exit (0).
     // `test -f` makes the line substantive (escapes the no-op guard); the pipeline fails.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\ntest -f /no-such-file-xyz | tee /dev/null\n```\n',
     );
-    const r = runRunner([kickoff], { HV_CWD: repoRoot });
+    const r = runRunner(ctx, [kickoff], { HV_CWD: repoRoot });
     expect(r.status).toBe(1);
   });
 
@@ -117,46 +120,46 @@ describe('host-verify.sh — runner contract', () => {
     // by the `describe.skipIf` wrapper when only `timeout` (not `gtimeout`) was
     // probed on a host that had `gtimeout` instead.
     !HAS_TIMEOUT_BIN,
-  )('timeout kills a hung command before the default 900s', () => {
+  )('timeout kills a hung command before the default 900s', (ctx) => {
     // `sleep 5` under a 1s timeout must be killed → non-zero exit.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\nsleep 5\n```\n',
     );
-    const r = runRunner([kickoff], { HV_CWD: repoRoot, HOST_VERIFY_TIMEOUT: '1' });
+    const r = runRunner(ctx, [kickoff], { HV_CWD: repoRoot, HOST_VERIFY_TIMEOUT: '1' });
     expect(r.status, `stdout=${r.stdout} stderr=${r.stderr}`).not.toBe(0);
   });
 
-  it('umbrella arg containing `/` is rejected as path traversal → exit 2', () => {
-    const r = runRunner(['a/../b']);
+  it('umbrella arg containing `/` is rejected as path traversal → exit 2', (ctx) => {
+    const r = runRunner(ctx, ['a/../b']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/umbrella name must not contain/);
   });
 
-  it('umbrella arg containing `..` is rejected → exit 2', () => {
-    const r = runRunner(['..foo']);
+  it('umbrella arg containing `..` is rejected → exit 2', (ctx) => {
+    const r = runRunner(ctx, ['..foo']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/umbrella name must not contain/);
   });
 
-  it('a passing contract → exit 0', () => {
+  it('a passing contract → exit 0', (ctx) => {
     // `test -d .git` is substantive (escapes no-op guard) and true in the temp git repo.
     // The runner cd's into REPO_ROOT (resolved via `git rev-parse --show-toplevel`),
     // which is the temp dir we initialised as a git repo.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\ntest -d .git\n```\n',
     );
-    const r = runRunner([kickoff], { HV_CWD: repoRoot });
+    const r = runRunner(ctx, [kickoff], { HV_CWD: repoRoot });
     expect(r.status).toBe(0);
   });
 
-  it('--list mode prints commands without running them → exit 0', () => {
+  it('--list mode prints commands without running them → exit 0', (ctx) => {
     // Probe with a real side effect: touch a file. If --list executes the command,
     // the file appears; if it only lists, the file is absent.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\ntest -d .git\ntouch host-verify-list-mode-probe\n```\n',
     );
     const probePath = join(repoRoot, 'host-verify-list-mode-probe');
-    const r = runRunner(['--list', kickoff], { HV_CWD: repoRoot });
+    const r = runRunner(ctx, ['--list', kickoff], { HV_CWD: repoRoot });
     expect(r.status).toBe(0);
     expect(r.stdout).toMatch(/test -d \.git/);
     expect(r.stdout).toMatch(/touch host-verify-list-mode-probe/);
@@ -186,6 +189,7 @@ describe('host-verify.sh — repo-identity guard (run mode)', () => {
     join(repo, '.claude', 'orchestrator-prompts', 'guard-umbrella', 'kickoff.md');
 
   function runWith(
+    ctx: Skippable,
     runner: string,
     args: string[],
     cwd: string,
@@ -195,77 +199,78 @@ describe('host-verify.sh — repo-identity guard (run mode)', () => {
     for (const [k, v] of Object.entries(process.env)) {
       if (v !== undefined && !k.startsWith('GIT_')) env[k] = v;
     }
-    const r = spawnSync('bash', [runner, ...args], { cwd, env: { ...env, ...extra }, encoding: 'utf8' });
+    // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    const r = spawnBashOrSkip(ctx, 'bash', [runner, ...args], { cwd, env: { ...env, ...extra }, encoding: 'utf8' });
     return { status: r.status ?? -1, out: `${r.stdout}${r.stderr}` };
   }
 
-  it('(g1) FOREIGN CWD + another checkout\'s runner: refused (exit 3), the contract never runs', () => {
+  it('(g1) FOREIGN CWD + another checkout\'s runner: refused (exit 3), the contract never runs', (ctx) => {
     const own = committedRepo('hv-own-');
     const foreign = committedRepo('hv-foreign-');
-    const r = runWith(installRunner(own), [kickoffOf(own)], foreign);
+    const r = runWith(ctx, installRunner(own), [kickoffOf(own)], foreign);
     expect(r.status, r.out).toBe(3);
     expect(r.out).toContain('not a checkout of');
     expect(existsSync(join(foreign, MARKER)), 'nothing may run in the foreign cwd repo').toBe(false);
     expect(existsSync(join(own, MARKER)), 'a refusal runs nothing anywhere').toBe(false);
   });
 
-  it('(g2) OWN LINKED WORKTREE as cwd + the primary\'s runner: runs in the worktree', () => {
+  it('(g2) OWN LINKED WORKTREE as cwd + the primary\'s runner: runs in the worktree', (ctx) => {
     const own = committedRepo('hv-own-');
     const runner = installRunner(own);
     const wt = join(own, 'wt-linked');
     execSync(`git worktree add -q "${wt}" HEAD`, { cwd: own });
-    const r = runWith(runner, [kickoffOf(wt)], wt);
+    const r = runWith(ctx, runner, [kickoffOf(wt)], wt);
     expect(r.status, r.out).toBe(0);
     expect(existsSync(join(wt, MARKER)), r.out).toBe(true);
     expect(existsSync(join(own, MARKER))).toBe(false);
   });
 
-  it('(g3) OWN CHECKOUT + a kickoff outside any git checkout: runs in the cwd repo', () => {
+  it('(g3) OWN CHECKOUT + a kickoff outside any git checkout: runs in the cwd repo', (ctx) => {
     const own = committedRepo('hv-own-');
     const canon = mkdtempSync(join(tmpdir(), 'hv-canon-'));
     tmpDirs.push(canon);
     writeFileSync(join(canon, 'kickoff.md'), CONTRACT, 'utf8');
-    const r = runWith(installRunner(own), [join(canon, 'kickoff.md')], own);
+    const r = runWith(ctx, installRunner(own), [join(canon, 'kickoff.md')], own);
     expect(r.status, r.out).toBe(0);
     expect(existsSync(join(own, MARKER)), r.out).toBe(true);
   });
 
-  it('(g4) cwd outside any git checkout: refused (exit 3)', () => {
+  it('(g4) cwd outside any git checkout: refused (exit 3)', (ctx) => {
     const own = committedRepo('hv-own-');
     const bare = mkdtempSync(join(tmpdir(), 'hv-nogit-'));
     tmpDirs.push(bare);
-    const r = runWith(installRunner(own), [kickoffOf(own)], bare);
+    const r = runWith(ctx, installRunner(own), [kickoffOf(own)], bare);
     expect(r.status, r.out).toBe(3);
     expect(existsSync(join(bare, MARKER))).toBe(false);
   });
 
-  it('(g5) --list from a foreign cwd still lists (read-only, unguarded)', () => {
+  it('(g5) --list from a foreign cwd still lists (read-only, unguarded)', (ctx) => {
     const own = committedRepo('hv-own-');
     const foreign = committedRepo('hv-foreign-');
-    const r = runWith(installRunner(own), ['--list', kickoffOf(own)], foreign);
+    const r = runWith(ctx, installRunner(own), ['--list', kickoffOf(own)], foreign);
     expect(r.status, r.out).toBe(0);
     expect(r.out).toContain(`touch ${MARKER}`);
     expect(existsSync(join(foreign, MARKER))).toBe(false);
   });
 
-  it('(g6) CDPATH naming a dir with its own scripts/: a relative run from the own checkout still works', () => {
+  it('(g6) CDPATH naming a dir with its own scripts/: a relative run from the own checkout still works', (ctx) => {
     const own = committedRepo('hv-own-');
     installRunner(own);
     const decoy = mkdtempSync(join(tmpdir(), 'hv-decoy-'));
     tmpDirs.push(decoy);
     mkdirSync(join(decoy, 'scripts'));
-    const r = runWith('scripts/host-verify.sh', [kickoffOf(own)], own, { CDPATH: decoy });
+    const r = runWith(ctx, 'scripts/host-verify.sh', [kickoffOf(own)], own, { CDPATH: decoy });
     expect(r.status, r.out).toBe(0);
     expect(existsSync(join(own, MARKER)), r.out).toBe(true);
   });
 
-  it('(g-neg) PAIRED-NEGATIVE: with the guard block stripped, the foreign cwd repo IS written', () => {
+  it('(g-neg) PAIRED-NEGATIVE: with the guard block stripped, the foreign cwd repo IS written', (ctx) => {
     const src = readFileSync(RUNNER, 'utf8');
     const stripped = src.replace(/# ── REPO-IDENTITY GUARD[\s\S]*?# ── END REPO-IDENTITY GUARD[^\n]*\n/, '');
     expect(stripped, 'the REPO-IDENTITY GUARD block must be present to strip').not.toBe(src);
     const own = committedRepo('hv-own-');
     const foreign = committedRepo('hv-foreign-');
-    runWith(installRunner(own, stripped), [kickoffOf(own)], foreign);
+    runWith(ctx, installRunner(own, stripped), [kickoffOf(own)], foreign);
     expect(existsSync(join(foreign, MARKER)), 'without the guard the contract runs in the foreign cwd').toBe(true);
   });
 });

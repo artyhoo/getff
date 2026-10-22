@@ -34,7 +34,9 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync, copyFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, copyFileSync } from 'node:fs';
+import { symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
+import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -138,17 +140,20 @@ function writeOrchestratorPrompt(content: string, name = 'kickoff.md'): string {
  * Run validate-prompt.sh with the given stdin JSON. Returns exit code.
  * Uses `spawnSync` identical to the check-hook-marker.test.ts reference pattern.
  * env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the
- * exit-code branch (mirrors deps-hash-check.test.ts:339). Pass ZCODE_PROJECT_DIR to
+ * exit-code branch (mirrors deps-hash-check.test.ts:353). Pass ZCODE_PROJECT_DIR to
  * exercise the JSON additionalContext branch (hook:47-50).
  */
 function runHook(
+  ctx: Skippable,
   stdinJson: object,
   env: Record<string, string> = {},
 ): { status: number; stderr: string; stdout: string } {
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
-  const r = spawnSync('bash', [HOOK], {
+  // POSIX: byte-identical pass-through to spawnSync('bash', …); win32: resolves Git
+  // Bash (runners expose only Git\cmd on PATH) or skips with a named reason (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(stdinJson),
     encoding: 'utf8',
     // Allow up to 15s — validator may make gh API calls
@@ -165,45 +170,45 @@ function runHook(
 // ── off-path / skip tests (no gh dependency) ──────────────────────────────────
 
 describe.skipIf(!JQ)('validate-prompt.sh — off-path skip conditions (jq required)', () => {
-  it('PAIRED-POSITIVE: path outside orchestrator-prompts/ → exit 0 (hook:21 path filter)', () => {
+  it('PAIRED-POSITIVE: path outside orchestrator-prompts/ → exit 0 (hook:21 path filter)', (ctx) => {
     // path does NOT contain ".claude/orchestrator-prompts/"
-    const result = runHook({ tool_input: { file_path: '/tmp/some-random/kickoff.md' } });
+    const result = runHook(ctx, { tool_input: { file_path: '/tmp/some-random/kickoff.md' } });
     expect(result.status).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: path under orchestrator-prompts/ but non-.md → exit 0 (hook:21)', () => {
+  it('PAIRED-POSITIVE: path under orchestrator-prompts/ but non-.md → exit 0 (hook:21)', (ctx) => {
     const abs = writeOrchestratorPrompt('# content', 'kickoff.sh');
     // Replace .md extension — must NOT end in ".md" to test the filter boundary
     const shPath = abs.replace(/\.md$/, '.sh');
     writeFileSync(shPath, '# shell file', 'utf8');
     tmpFiles.push(shPath);
-    const result = runHook({ tool_input: { file_path: shPath } });
+    const result = runHook(ctx, { tool_input: { file_path: shPath } });
     expect(result.status).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: empty file_path in JSON → exit 0 (hook:21 empty-string guard)', () => {
-    const result = runHook({ tool_input: { file_path: '' } });
+  it('PAIRED-POSITIVE: empty file_path in JSON → exit 0 (hook:21 empty-string guard)', (ctx) => {
+    const result = runHook(ctx, { tool_input: { file_path: '' } });
     expect(result.status).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: file_path key absent in JSON → exit 0 (jq defaults to "", hook:18)', () => {
+  it('PAIRED-POSITIVE: file_path key absent in JSON → exit 0 (jq defaults to "", hook:18)', (ctx) => {
     // jq -r '.tool_input.file_path // ""' on missing key → ""
-    const result = runHook({ tool_input: {} });
+    const result = runHook(ctx, { tool_input: {} });
     expect(result.status).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: completely empty JSON object stdin → exit 0 (hook:18 graceful parse)', () => {
-    const result = runHook({});
+  it('PAIRED-POSITIVE: completely empty JSON object stdin → exit 0 (hook:18 graceful parse)', (ctx) => {
+    const result = runHook(ctx, {});
     expect(result.status).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: .md inside orchestrator-prompts path with no action SHAs → exit 0 (tsx skip or validator no-op)', () => {
+  it('PAIRED-POSITIVE: .md inside orchestrator-prompts path with no action SHAs → exit 0 (tsx skip or validator no-op)', (ctx) => {
     // Fixture file IS in a path containing ".claude/orchestrator-prompts/" and ends in ".md".
     // Two outcomes, both exit 0:
     //   - tsx not found at $HOOK_REPO_ROOT/node_modules/.bin/tsx → hook:26 graceful skip → exit 0
     //   - tsx found + no action SHAs in file → validator exits 0 → hook exits 0
     const abs = writeOrchestratorPrompt('# Kickoff doc with no action SHAs\n\nJust markdown.\n');
-    const result = runHook({ tool_input: { file_path: abs } });
+    const result = runHook(ctx, { tool_input: { file_path: abs } });
     expect(result.status).toBe(0);
   });
 });
@@ -225,7 +230,7 @@ describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook
    * not a single literal path). The PATH scrub is mandatory post-fix: tier 3 (`command -v
    * tsx`) would otherwise find the test env's tsx and the graceful skip would not fire.
    */
-  function runHookNoTsx(stdinJson: object): { status: number; stderr: string; stdout: string } {
+  function runHookNoTsx(ctx: Skippable, stdinJson: object): { status: number; stderr: string; stdout: string } {
     const dir = mkdtempSync(join(tmpdir(), 'vp-notsx-'));
     tmpFiles.push(dir);
     const hookCopy = join(dir, 'validate-prompt.sh');
@@ -234,12 +239,13 @@ describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook
     const binDir = mkdtempSync(join(tmpdir(), 'vp-notsx-bin-'));
     tmpFiles.push(binDir);
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf']) {
-      const real = spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) symlinkSync(real, join(binDir, tool));
+      const real = spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) symlinkOrJunctionOrSkip(ctx, real, join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = spawnSync('/bin/bash', [hookCopy], {
+    const r = spawnBashOrSkip(ctx, '/bin/bash', [hookCopy], {
       input: JSON.stringify(stdinJson),
       encoding: 'utf8',
       timeout: 15_000,
@@ -248,24 +254,25 @@ describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook
     return { status: r.status ?? -1, stderr: r.stderr ?? '', stdout: r.stdout ?? '' };
   }
 
-  it('PAIRED-POSITIVE: matching .md path but tsx unavailable → exit 0 (graceful skip, never block)', () => {
+  it('PAIRED-POSITIVE: matching .md path but tsx unavailable → exit 0 (graceful skip, never block)', (ctx) => {
     // file_path matches hook:21 (contains .claude/orchestrator-prompts/ + .md) so the
     // path filter does NOT skip; the ONLY reason this exits 0 is the tsx-absent guard.
-    const r = runHookNoTsx({
+    const r = runHookNoTsx(ctx, {
       tool_input: { file_path: '/x/.claude/orchestrator-prompts/test-wave/kickoff.md' },
     });
     expect(r.status, `tsx-absent must exit 0 (graceful), not block. stderr: ${r.stderr}`).toBe(0);
   });
 
-  it('PAIRED-POSITIVE: jq unavailable on PATH → exit 0 (graceful skip, hook:14-16)', () => {
+  it('PAIRED-POSITIVE: jq unavailable on PATH → exit 0 (graceful skip, hook:14-16)', (ctx) => {
     // Run the hook with a PATH that has `dirname` (needed by hook:9) but NOT `jq`,
     // forcing the hook:14 `command -v jq` check to fail → exit 0. This covers the
     // jq-unavailable graceful-skip the mutation tool flagged (hook:15 `exit 0`).
     const binDir = mkdtempSync(join(tmpdir(), 'vp-nojq-bin-'));
     tmpFiles.push(binDir);
-    // symlink only the externals the hook touches BEFORE the jq check (hook:9 dirname)
-    symlinkSync('/usr/bin/dirname', join(binDir, 'dirname'));
-    const r = spawnSync('/bin/bash', [HOOK], {
+    // symlink only the externals the hook touches BEFORE the jq check (hook:9 dirname).
+    // The target is a binary FILE: junctions cannot express it → named win32 skip.
+    symlinkOrJunctionOrSkip(ctx, '/usr/bin/dirname', join(binDir, 'dirname'));
+    const r = spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({ tool_input: { file_path: '/whatever/kickoff.md' } }),
       encoding: 'utf8',
       timeout: 15_000,
@@ -294,15 +301,15 @@ describe.skipIf(!JQ || !GH || !TSX)(
   'validate-prompt.sh — content validation via validate-batch-spec.ts (jq + tsx + gh required)',
   { timeout: 30_000 },
   () => {
-    it('PAIRED-POSITIVE: orchestrator-prompt with no action SHAs → exit 0 (nothing to validate)', () => {
+    it('PAIRED-POSITIVE: orchestrator-prompt with no action SHAs → exit 0 (nothing to validate)', (ctx) => {
       const abs = writeOrchestratorPrompt(
         '# Wave N kickoff\n\nNo action refs here, just prose.\n',
       );
-      const result = runHook({ tool_input: { file_path: abs } });
+      const result = runHook(ctx, { tool_input: { file_path: abs } });
       expect(result.status).toBe(0);
     });
 
-    it('PAIRED-POSITIVE: action SHA inside a code fence → exit 0 (fence-skip, validate-batch-spec.ts:104-112)', () => {
+    it('PAIRED-POSITIVE: action SHA inside a code fence → exit 0 (fence-skip, validate-batch-spec.ts:104-112)', (ctx) => {
       // refs inside ```git or ```bash fences are documentation examples — validator skips them
       const content = [
         '# Kickoff',
@@ -315,11 +322,11 @@ describe.skipIf(!JQ || !GH || !TSX)(
         'No live refs outside fence.',
       ].join('\n');
       const abs = writeOrchestratorPrompt(content);
-      const result = runHook({ tool_input: { file_path: abs } });
+      const result = runHook(ctx, { tool_input: { file_path: abs } });
       expect(result.status).toBe(0);
     });
 
-    it('PAIRED-NEGATIVE: orchestrator-prompt with a clearly fake action SHA → exit 2 (validator exit 1 → hook exit 2, the model-visible channel)', () => {
+    it('PAIRED-NEGATIVE: orchestrator-prompt with a clearly fake action SHA → exit 2 (validator exit 1 → hook exit 2, the model-visible channel)', (ctx) => {
       // Uses a plausible-looking but certainly non-existent SHA so gh API returns 404,
       // making validate-batch-spec.ts emit exit 1 which the hook propagates unchanged.
       // 40-char hex string that will never resolve to a real commit.
@@ -328,13 +335,13 @@ describe.skipIf(!JQ || !GH || !TSX)(
         'uses: actions/checkout@0000000000000000000000000000000000000000 # v-fake';
       const content = `# Kickoff with bad SHA\n\n${fakeRef}\n`;
       const abs = writeOrchestratorPrompt(content);
-      const result = runHook({ tool_input: { file_path: abs } });
+      const result = runHook(ctx, { tool_input: { file_path: abs } });
       // validator exits 1 (non-resolvable SHA) → hook maps it to exit 2 (exit-2 stderr is
       // the only non-JSON channel the model receives on PostToolUse; verified 2026-07-24)
       expect(result.status).toBe(2);
     });
 
-    it('ZCODE: violating orchestrator-prompt under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
+    it('ZCODE: violating orchestrator-prompt under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', (ctx) => {
       // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
       // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
       // discarded). PostToolUse cannot block on ZCode (schema Uan rejects permissionDecision;
@@ -347,6 +354,7 @@ describe.skipIf(!JQ || !GH || !TSX)(
       const content = `# Kickoff with bad SHA\n\n${fakeRef}\n`;
       const abs = writeOrchestratorPrompt(content);
       const r = runHook(
+        ctx,
         { tool_input: { file_path: abs } },
         { ZCODE_PROJECT_DIR: REPO_ROOT },
       );
@@ -389,9 +397,10 @@ describe.skipIf(!JQ || !GH || !TSX)(
 // check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
 // 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
+import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip } from './symlink-or-junction-or-skip.ts';
 
 /**
  * Copy the real hook into a sandbox AND seed its `lib/` sibling.
@@ -412,19 +421,21 @@ function _resolveRepo(rel: string): string {
 }
 
 import { spawnSync as _spawnSync } from 'node:child_process';
+import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 
 describe('dependency-missing skip is announced on the model channel', () => {
-  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+  function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string; stderr: string } {
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
     // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
     // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
     for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+      const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      // tool binaries are files: junctions cannot express them → named win32 skip
+      if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
     }
     const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [HOOK], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
       encoding: 'utf8',
       env,
@@ -432,8 +443,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   }
 
-  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
-    const { status, stdout } = runNoJq('/x/.claude/orchestrator-prompts/wave-1/batch-2.md');
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/.claude/orchestrator-prompts/wave-1/batch-2.md');
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim()) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
@@ -443,8 +454,8 @@ describe('dependency-missing skip is announced on the model channel', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 
-  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
-    const { status, stdout } = runNoJq('/x/src/index.ts');
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', (ctx) => {
+    const { status, stdout } = runNoJq(ctx, '/x/src/index.ts');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
   });
@@ -546,11 +557,12 @@ afterEach(() => {
  * REPO_ROOT/node_modules/.bin/tsx; post-fix the tier list also consults PATH, so
  * PATH must be scrubbed to isolate tier-1 / tier-2 behaviour.
  */
-function scrubbedPathBin(): string {
+function scrubbedPathBin(ctx: Skippable): string {
   const binDir = _mkdtempSync(_join(_tmpdir(), 'vp-scrubbed-bin-'));
   for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf', 'bash', 'sh', 'node']) {
-    const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-    if (real) _symlinkSync(real, _join(binDir, tool));
+    const real = _spawnBashOrSkip(ctx, '/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+    // tool binaries are files: junctions cannot express them → named win32 skip
+    if (real) _symlinkOrJunctionOrSkip(ctx, real, _join(binDir, tool));
   }
   return binDir;
 }
@@ -603,7 +615,7 @@ function seedValidator(root: string): void {
 }
 
 describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
-  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check (NOT silent exit 0)', () => {
+  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check (NOT silent exit 0)', (ctx) => {
     // Setup: real linked worktree of REPO_ROOT. The worktree has NO node_modules (git
     // worktree add doesn't copy it); the main worktree at <repo-root>/../.. DOES have
     // node_modules/.bin/tsx (this repo's dev dep). Scrub tsx from PATH so tier 3 misses.
@@ -621,7 +633,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const wtHook = _join(wt, '.claude/hooks/validate-prompt.sh');
     copyHook(wtHook);
 
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     const abs = writeViolatingOrchestratorPrompt(wt);
     const env: Record<string, string> = {
       ...process.env,
@@ -629,7 +641,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [wtHook], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [wtHook], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -654,7 +666,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C2: precedence held — repo-local tsx wins when present (structural; verified by tier-1 hit)', () => {
+  it('C2: precedence held — repo-local tsx wins when present (structural; verified by tier-1 hit)', (ctx) => {
     // Structural test (plan: "precedence tests don't have a clean pre-fix RED; criterion 2
     // is verified by the test existing + passing"). Setup: REPO_ROOT with a sentinel tsx
     // at $REPO_ROOT/node_modules/.bin/tsx that echoes a marker; tier 2 also available.
@@ -689,7 +701,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     _mkdirSync(_join(fakeMain, '.git'), { recursive: true });
 
     const abs = writeViolatingOrchestratorPrompt(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     // ALSO put a wrong-tier sentinel on PATH (tier 3)
     _writeFileSync(
       _join(binDir, 'tsx'),
@@ -705,7 +717,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     delete env.ZCODE_PROJECT_DIR;
     const hookCopy = _join(dir, 'validate-prompt.sh');
     copyHook(hookCopy);
-    const r = _spawnSync('/bin/bash', [hookCopy], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [hookCopy], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -719,17 +731,18 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(r.stderr).not.toContain('TIER3_INVOKED_WRONG');
   });
 
-  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', () => {
+  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', (ctx) => {
     // Setup: temp dir NOT a git repo (tier 2 `git rev-parse` fails silently); no
     // node_modules (tier 1 misses); real tsx available on PATH (tier 3 hits).
     // Pre-fix: only REPO_ROOT/node_modules/.bin/tsx was checked → exit 0 silent (defect).
     const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c3-'));
     seedValidator(dir);
     const abs = writeViolatingOrchestratorPrompt(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     // Place the REAL tsx (resolved via the existing test env's PATH) into binDir.
-    const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
-    if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
+    // tsx is a binary FILE: junctions cannot express it → named win32 skip.
+    const realTsx = _spawnBashOrSkip(ctx, '/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
+    if (realTsx) _symlinkOrJunctionOrSkip(ctx, realTsx, _join(binDir, 'tsx'));
     const hookCopy = _join(dir, 'validate-prompt.sh');
     copyHook(hookCopy);
     const env: Record<string, string> = {
@@ -738,7 +751,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [hookCopy], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [hookCopy], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -755,12 +768,12 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(out).not.toMatch(/tsx not found/i);
   });
 
-  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked on model channel', () => {
+  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked on model channel', (ctx) => {
     // Setup: temp dir NOT under any git repo; tsx scrubbed from PATH; no node_modules.
     // Criterion 4: must degrade safely — no hang, no crash, no git error reaching the model.
     const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c4-'));
     const abs = writeViolatingOrchestratorPrompt(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(ctx);
     const hookCopy = _join(dir, 'validate-prompt.sh');
     copyHook(hookCopy);
     const env: Record<string, string> = {
@@ -769,7 +782,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [hookCopy], {
+    const r = _spawnBashOrSkip(ctx, '/bin/bash', [hookCopy], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -784,13 +797,13 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     ).not.toMatch(/fatal: not a git repository|fatal: this operation must be run in a work tree/i);
   });
 
-  it('C5: no tier resolves → skip notice fires on model channel + exit 0 (criterion 5)', () => {
+  it('C5: no tier resolves → skip notice fires on model channel + exit 0 (criterion 5)', (sk) => {
     // Same setup as C4; the load-bearing assertion here is the SKIP NOTICE reaches the
     // model (hookSpecificOutput.additionalContext), not just stderr. This is the
     // paired-negative for "silent exit 0 = defect".
     const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c5-'));
     const abs = writeViolatingOrchestratorPrompt(dir);
-    const binDir = scrubbedPathBin();
+    const binDir = scrubbedPathBin(sk);
     const hookCopy = _join(dir, 'validate-prompt.sh');
     copyHook(hookCopy);
     const env: Record<string, string> = {
@@ -799,7 +812,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       PATH: binDir,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [hookCopy], {
+    const r = _spawnBashOrSkip(sk, '/bin/bash', [hookCopy], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
       timeout: 30_000,
@@ -846,14 +859,14 @@ describe.skipIf(!JQ)('consumer layout without packages/core (L-2)', () => {
     return { root, prompt, flags };
   }
 
-  function run(hook: string, t: { root: string; prompt: string; flags: string }, sid: string) {
+  function run(ctx: Skippable, hook: string, t: { root: string; prompt: string; flags: string }, sid: string) {
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: t.root,
       TMPDIR: t.flags,
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
-    return _spawnSync('/bin/bash', [hook], {
+    return _spawnBashOrSkip(ctx, '/bin/bash', [hook], {
       input: JSON.stringify({
         session_id: sid,
         tool_name: 'Write',
@@ -871,9 +884,9 @@ describe.skipIf(!JQ)('consumer layout without packages/core (L-2)', () => {
     ['source .claude/hooks/validate-prompt.sh', HOOK],
     ['shipped plugin/hooks/validate-prompt twin', TWIN],
   ] as const) {
-    it(`L-2: ${label} — validator unresolvable → loud SKIP, never a silent exit 0`, () => {
+    it(`L-2: ${label} — validator unresolvable → loud SKIP, never a silent exit 0`, (sk) => {
       const t = consumerTree();
-      const r = run(hook, t, `sess-vp-${label.length}`);
+      const r = run(sk, hook, t, `sess-vp-${label.length}`);
       expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
       expect(r.stdout.trim(), 'empty stdout is the DEFECT shape').not.toBe('');
       const ctx = (
@@ -888,10 +901,10 @@ describe.skipIf(!JQ)('consumer layout without packages/core (L-2)', () => {
     });
   }
 
-  it('L-2: an edit outside orchestrator-prompts never reaches the notice', () => {
+  it('L-2: an edit outside orchestrator-prompts never reaches the notice', (sk) => {
     const t = consumerTree();
     const outside = { ...t, prompt: _join(t.root, 'src', 'app.ts') };
-    const r = run(HOOK, outside, 'sess-vp-offpath');
+    const r = run(sk, HOOK, outside, 'sess-vp-offpath');
     expect(r.status).toBe(0);
     expect(r.stdout.trim()).toBe('');
   });

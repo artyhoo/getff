@@ -23,6 +23,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { spawnBashOrSkip, findGitBashExe, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -82,6 +83,19 @@ function buildDepsJson(pkg: {
 }
 
 /**
+ * The awk binary the oracles spawn must be THE SAME one the hook resolves. POSIX: the
+ * PATH `awk` (this arm is byte-identical to the pre-#1799 spawn). win32: node's PATH
+ * carries no awk.exe (runners expose only Git\cmd) while the bash-run hook sees MSYS's —
+ * resolve it from the Git Bash root (Git\bin\bash.exe → ..\usr\bin\awk.exe) so the oracle
+ * stays TRUE, never a skip; with no Git Bash the raw 'awk' spawn fails loudly, as today.
+ */
+function oracleAwk(): string {
+  if (process.platform !== 'win32') return 'awk';
+  const bash = findGitBashExe();
+  return bash === null ? 'awk' : resolve(dirname(bash), '../usr/bin/awk.exe');
+}
+
+/**
  * Compute the deps-hash-python value by RUNNING the exact commands the hook runs (Tier-1
  * awk + Tier-2 python3 tomllib), against a temp file holding pyprojectContent. This is a
  * TRUE ORACLE, not a parallel reimplementation — it eliminates any helper/hook drift by
@@ -123,7 +137,7 @@ function computePythonHash(opts: {
       'if(h~/^tool\\.hatch\\.envs\\.[^.]+$/)return 1;' +
       'return 0}' +
       '/^\\[/{in_t=want(substr($0,2,length($0)-2))}in_t';
-    const tier1Raw = spawnSync('awk', [awkProg, tmpFile], { encoding: 'utf8' });
+    const tier1Raw = spawnSync(oracleAwk(), [awkProg, tmpFile], { encoding: 'utf8' });
     const tier1Hex = tier1Raw.status === 0
       ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
       : '';
@@ -209,7 +223,7 @@ function cargoTier1Extract(cargoTomlContent: string): string {
   tmpDirs.push(dir);
   const manifestPath = join(dir, 'Cargo.toml');
   writeFileSync(manifestPath, cargoTomlContent, 'utf8');
-  const raw = spawnSync('awk', [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
+  const raw = spawnSync(oracleAwk(), [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
   return raw.status === 0 ? raw.stdout : '';
 }
 
@@ -335,7 +349,7 @@ function makeFixtureDir(opts: {
 /** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }.
  *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path);
  *  args are appended after the hook path (the --print-baseline CLI arm). */
-function runHook(cwd: string, env: Record<string, string> = {}, args: string[] = []): { status: number; stdout: string; stderr: string } {
+function runHook(ctx: Skippable, cwd: string, env: Record<string, string> = {}, args: string[] = []): { status: number; stdout: string; stderr: string } {
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own dev
   // harness), which would flip _emit_warn to the JSON branch and break the plain-text assertions
   // below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors inject-subagent-context.test.ts.
@@ -352,7 +366,8 @@ function runHook(cwd: string, env: Record<string, string> = {}, args: string[] =
   for (const [k, v] of Object.entries(env)) {
     if (k !== 'ZCODE_PROJECT_DIR' && k !== 'CLAUDE_PROJECT_DIR') fullEnv[k] = v;
   }
-  const r = spawnSync('bash', [HOOK, ...args], {
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [HOOK, ...args], {
     cwd,
     encoding: 'utf8',
     env: fullEnv,
@@ -372,7 +387,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
   // PAIRED-NEGATIVE: the one case that should produce output
   // ---------------------------------------------------------------------------
 
-  it('PAIRED-NEGATIVE: stale stored hash → warning printed to stdout, exit 0', () => {
+  it('PAIRED-NEGATIVE: stale stored hash → warning printed to stdout, exit 0', (ctx) => {
     // Hook line 40-42: if CURRENT_HASH != STORED_HASH → printf warning.
     // Hook line 44: always exit 0.
     const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
@@ -389,7 +404,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       toolDecisions: `---\ndeps-hash: ${staleHash}\n---\n# tool decisions\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     // Hook always exits 0 (line 44) — diagnostic only, never a gate.
     expect(status).toBe(0);
@@ -399,7 +414,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(stdout).toContain('/tool-bootstrapping');
   });
 
-  it('ZCODE: under ZCODE_PROJECT_DIR the warning is emitted as strict-JSON {additionalContext}, not plain text', () => {
+  it('ZCODE: under ZCODE_PROJECT_DIR the warning is emitted as strict-JSON {additionalContext}, not plain text', (ctx) => {
     // ZCode parses hook stdout as JSON (HookJSONOutput schema); plain stdout is discarded.
     // _emit_warn branches on ZCODE_PROJECT_DIR. This guards the JSON branch.
     const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
@@ -408,7 +423,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash: ${staleHash}\n---\n# tool decisions\n`,
     });
-    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    const { status, stdout } = runHook(ctx, cwd, { ZCODE_PROJECT_DIR: cwd });
     expect(status).toBe(0);
     // Must be valid JSON with the HookJSONOutput shape.
     const parsed = JSON.parse(stdout);
@@ -416,7 +431,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
   });
 
-  it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', () => {
+  it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', (ctx) => {
     // Fresh-install state: install.sh seeds `deps-hash: <pending …>` (Option B, per
     // setup.d/30-templates.sh:43). The placeholder is non-empty, so the hook STILL warns every prompt
     // (the deliberate onboarding nudge) — but it must NOT claim deps "changed": nothing
@@ -428,7 +443,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       toolDecisions: `---\ndeps-hash: <pending — populated on first tool-bootstrap run>\n---\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     // Still warns (Option B keeps the per-prompt nudge until baselined).
@@ -444,7 +459,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
   // PAIRED-POSITIVE: clean states — must be silent
   // ---------------------------------------------------------------------------
 
-  it('PAIRED-POSITIVE: matching stored hash → no stdout, exit 0', () => {
+  it('PAIRED-POSITIVE: matching stored hash → no stdout, exit 0', (ctx) => {
     // Hook lines 40-42: only prints if CURRENT_HASH != STORED_HASH.
     const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
     const depsJson = buildDepsJson(pkg);
@@ -455,7 +470,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       toolDecisions: `---\ndeps-hash: ${correctHash}\n---\n# tool decisions\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     // Silent on match — no warning injected into context.
@@ -469,15 +484,15 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
   // manifest that has since changed. Both arms below stay well inside the TTL, so a
   // key-insensitive cache would pass the first and fail the second.
   // ---------------------------------------------------------------------------
-  it('F-4: a warm memo stays silent while package.json is unchanged', () => {
+  it('F-4: a warm memo stays silent while package.json is unchanged', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const cwd = makeFixtureDir({
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash: ${computeHash(buildDepsJson(pkg))}\n---\n`,
     });
-    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+    expect(runHook(ctx, cwd, { TMPDIR: cwd }).stdout).toBe('');
     // Second run reads the memo written by the first.
-    const warm = runHook(cwd, { TMPDIR: cwd });
+    const warm = runHook(ctx, cwd, { TMPDIR: cwd });
     expect(warm.status).toBe(0);
     expect(warm.stdout).toBe('');
     // The memo was actually written — otherwise the arm below proves nothing about caching.
@@ -485,13 +500,13 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(memos.length, `no memo file written into ${cwd}`).toBeGreaterThan(0);
   });
 
-  it('F-4: editing package.json inside the TTL still WARNS (the memo cannot mask drift)', () => {
+  it('F-4: editing package.json inside the TTL still WARNS (the memo cannot mask drift)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const cwd = makeFixtureDir({
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash: ${computeHash(buildDepsJson(pkg))}\n---\n`,
     });
-    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+    expect(runHook(ctx, cwd, { TMPDIR: cwd }).stdout).toBe('');
 
     // Same second, memo warm, TTL nowhere near expiry — only the content key can catch this.
     writeFileSync(
@@ -499,51 +514,51 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       JSON.stringify({ dependencies: { react: '^18.0.0', 'left-pad': '^1.0.0' } }),
       'utf8',
     );
-    const after = runHook(cwd, { TMPDIR: cwd });
+    const after = runHook(ctx, cwd, { TMPDIR: cwd });
     expect(after.status).toBe(0);
     expect(after.stdout).toContain('deps changed since last tool-bootstrap');
   });
 
-  it('SKIP: no .ai-factory/tool-decisions.md → silent exit 0', () => {
+  it('SKIP: no .ai-factory/tool-decisions.md → silent exit 0', (ctx) => {
     // Hook line 16: [ -f "$DECISIONS" ] || exit 0
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       // No toolDecisions → file not created.
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('SKIP: tool-decisions.md exists but has no deps-hash: line → silent exit 0', () => {
+  it('SKIP: tool-decisions.md exists but has no deps-hash: line → silent exit 0', (ctx) => {
     // Hook lines 19-20: STORED_HASH empty → exit 0.
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       toolDecisions: `---\ntool-decisions: something\n---\n# no deps-hash here\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('SKIP: no package.json → silent exit 0', () => {
+  it('SKIP: no package.json → silent exit 0', (ctx) => {
     // Hook line 23: [ -f package.json ] || exit 0
     const cwd = makeFixtureDir({
       // No packageJson → file not created.
       toolDecisions: `---\ndeps-hash: sha256-deadbeef\n---\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('BOUNDARY: empty deps object ({} + {}) → hash computed; matching stored hash → silent', () => {
+  it('BOUNDARY: empty deps object ({} + {}) → hash computed; matching stored hash → silent', (ctx) => {
     // Edge case: package.json with neither dependencies nor devDependencies.
     // buildDepsJson({}) → "{}", sha256 deterministic.
     // Cast to the deps-only type: name/version are valid package.json fields but
@@ -560,13 +575,13 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       toolDecisions: `---\ndeps-hash: ${correctHash}\n---\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('BOUNDARY: deps-hash: line has extra whitespace → still parsed correctly', () => {
+  it('BOUNDARY: deps-hash: line has extra whitespace → still parsed correctly', (ctx) => {
     // Hook line 19: grep -m1 "^deps-hash:" | sed strip leading spaces.
     // Verify the sed pattern handles extra spaces after the colon.
     const pkg = { dependencies: { lodash: '^4.0.0' } };
@@ -578,7 +593,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
       toolDecisions: `---\ndeps-hash:   ${correctHash}\n---\n`,
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     // Should parse the hash correctly and NOT emit a warning (they match).
     expect(status).toBe(0);
@@ -608,7 +623,7 @@ describe('deps-hash-check.sh — source/dogfood byte-identity (@dual-pair: deps-
 
 describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen, python tiers)', () => {
   // ---- (a) JS-widen: peerDependencies/overrides change the npm hash ----
-  it('JS-WIDEN: a package.json with peerDependencies only → npm hash differs from legacy 2-field surface; matching stored deps-hash-npm → silent (design §1-E, §3a m1)', () => {
+  it('JS-WIDEN: a package.json with peerDependencies only → npm hash differs from legacy 2-field surface; matching stored deps-hash-npm → silent (design §1-E, §3a m1)', (ctx) => {
     const pkg = { peerDependencies: { react: '^18.0.0' } };
     const depsJson = buildDepsJson(pkg); // widened helper → {"react":"^18.0.0"}
     const correctHash = computeHash(depsJson);
@@ -616,12 +631,12 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // silent when the widened hash matches the stored deps-hash-npm
   });
 
-  it('JS-WIDEN-GUARD: string-typed overrides ("$REACT") is dropped, NOT spread into char keys (design §3a m1)', () => {
+  it('JS-WIDEN-GUARD: string-typed overrides ("$REACT") is dropped, NOT spread into char keys (design §3a m1)', (ctx) => {
     // npm allows overrides as a string reference. A naive {...p.overrides} on a string produces
     // {"0":"$","1":"R",...} — corrupts the hash. The hook guards with typeof === 'object'.
     const pkg = {
@@ -634,12 +649,12 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // matches → silent. Would FAIL if hook spread the string.
   });
 
-  it('JS-WIDEN-ALL-FIELDS: all 7 object-typed widened fields contribute to the npm hash (design §1-E; round-2 M3)', () => {
+  it('JS-WIDEN-ALL-FIELDS: all 7 object-typed widened fields contribute to the npm hash (design §1-E; round-2 M3)', (ctx) => {
     // Coverage for the 4 fields JS-WIDEN/GUARD don't exercise: optionalDependencies, resolutions,
     // pnpm.overrides, AND overrides-as-object. A hook that spread only {deps,devDeps,peerDeps} would
     // compute a different hash → stored (7-field) hash mismatches → WARN. Silent here = all included.
@@ -658,13 +673,13 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // all 7 fields hashed → match → silent
   });
 
   // ---- (b) python Tier-1 6-table: a Poetry deps drift fires deps-hash-python WARN ----
-  it('PYTHON-TIER1: [tool.poetry.dependencies] version drift → deps-hash-python WARN (design §4 Tier-1)', () => {
+  it('PYTHON-TIER1: [tool.poetry.dependencies] version drift → deps-hash-python WARN (design §4 Tier-1)', (ctx) => {
     const pyproject = [
       '[project]',
       'name = "demo"',
@@ -680,14 +695,14 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
     // the WARN should name the python stack (per-stack WARN, design §1-D)
     expect(stdout.toLowerCase()).toMatch(/python/);
   });
 
-  it('PYTHON-TIER1-MATCH: [tool.poetry.dependencies] matching stored deps-hash-python → silent', () => {
+  it('PYTHON-TIER1-MATCH: [tool.poetry.dependencies] matching stored deps-hash-python → silent', (ctx) => {
     const pyproject = [
       '[project]',
       'name = "demo"',
@@ -701,13 +716,13 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-python: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
   // ---- (b') [project] is Tier-2-only (D1 C-resolution): own-version bump does NOT fire; deps bump DOES (via tomllib) ----
-  it('PYTHON-PROJECT-NO-FP: bumping project OWN version does NOT fire (no cry-wolf) (design §4/§7 C)', () => {
+  it('PYTHON-PROJECT-NO-FP: bumping project OWN version does NOT fire (no cry-wolf) (design §4/§7 C)', (ctx) => {
     const pyproject = [
       '[project]',
       'name = "demo"',
@@ -720,12 +735,12 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-python: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // own-version is not a dep → no drift
   });
 
-  it('PYTHON-PROJECT-DRIFT: bumping [project].dependencies version FIRES via Tier-2 tomllib (design §4/§7 C)', () => {
+  it('PYTHON-PROJECT-DRIFT: bumping [project].dependencies version FIRES via Tier-2 tomllib (design §4/§7 C)', (ctx) => {
     const pyproject = [
       '[project]',
       'name = "demo"',
@@ -740,14 +755,14 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-python: ${priorHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
     expect(stdout.toLowerCase()).toMatch(/python/);
   });
 
   // ---- (c) node-free python lane: Tier-1 hashes without node/python3; no manifests → silent ----
-  it('NODE-FREE-PYTHON-TIER1: pyproject (Tier-1-only table, no [project]) → Tier-1 detects drift with NO node on PATH (design §3a, §5 c1)', () => {
+  it('NODE-FREE-PYTHON-TIER1: pyproject (Tier-1-only table, no [project]) → Tier-1 detects drift with NO node on PATH (design §3a, §5 c1)', (ctx) => {
     // This fixture has ONLY a Tier-1 table ([tool.poetry.dependencies]) and NO [project], so
     // Tier-2 (tomllib for [project].deps) contributes nothing regardless of python3 availability.
     // The contract under test: Tier-1 bash hashing needs NO node and NO python3 — it detects the
@@ -763,13 +778,13 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     // PATH keeps awk/grep/shasum (Tier-1 needs them) but drops /opt/homebrew/bin (node lives
     // there). node absence is the load-bearing scrub; python3 may or may not resolve but the
     // fixture has no [project] so it cannot change the outcome.
-    const { status, stdout } = runHook(cwd, { PATH: '/usr/bin:/bin' });
+    const { status, stdout } = runHook(ctx, cwd, { PATH: '/usr/bin:/bin' });
     expect(status).toBe(0);
     // Tier-1 detects the drift (stored all-zeros != real Tier-1 hash) → WARN
     expect(stdout).toContain('⚠');
   });
 
-  it('PYTHON-CRLF: identical pyproject content under CRLF (Windows) hashes the SAME as LF — no cross-platform spurious drift (round-3.5 review B1)', () => {
+  it('PYTHON-CRLF: identical pyproject content under CRLF (Windows) hashes the SAME as LF — no cross-platform spurious drift (round-3.5 review B1)', (ctx) => {
     // Round-3.5 review B1: the awk's substr($0,2,length-2) on `[hdr]\r` leaked `]`, silently
     // dropping 5/6 tables and producing a different hash. Fix: {gsub(/\r/,"")} in the awk.
     // This test is non-vacuous: removing the gsub makes it FAIL (CRLF → different hash).
@@ -784,7 +799,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: crlfContent,
       toolDecisions: `---\ndeps-hash-python: ${lfHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // CRLF content matches LF-stored baseline → no spurious drift
   });
@@ -800,7 +815,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     expect(withoutTomllib).toBe(withTomllib); // sentinel makes them equal → no upgrade drift
   });
 
-  it('PYTHON-FRESH-INSTALL: python-only consumer with <pending> deps-hash-python → onboarding WARN (round-3.5 review M1)', () => {
+  it('PYTHON-FRESH-INSTALL: python-only consumer with <pending> deps-hash-python → onboarding WARN (round-3.5 review M1)', (ctx) => {
     // Round-3.5 review M1: a fresh-install python-only consumer (pyproject, no package.json)
     // got ZERO nudge because the install template seeded only legacy deps-hash: (read as the
     // npm slot), leaving the python slot empty → _drifted silently skipped. Fix: the template
@@ -812,7 +827,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       // The fresh-install seed: all three keys present (npm/python/legacy), all <pending>.
       toolDecisions: `---\ndeps-hash-npm: <pending — populated on first tool-bootstrap>\ndeps-hash-python: <pending — populated on first tool-bootstrap>\ndeps-hash: <pending — populated on first tool-bootstrap>\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
     expect(stdout.toLowerCase()).toContain('python');
@@ -821,17 +836,17 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     expect(stdout.toLowerCase()).not.toContain('deps changed');
   });
 
-  it('NO-MANIFESTS: no package.json + no pyproject.toml → silent exit 0 (design §5 c2)', () => {
+  it('NO-MANIFESTS: no package.json + no pyproject.toml → silent exit 0 (design §5 c2)', (ctx) => {
     const cwd = makeFixtureDir({
       toolDecisions: `---\ndeps-hash-npm: sha256-deadbeef\ndeps-hash-python: sha256-deadbeef\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
   // ---- (d) Tier-2 degrade: malformed pyproject → tomllib raises → empty Tier-2, Tier-1 stands ----
-  it('PYTHON-TIER2-DEGRADE: malformed pyproject (unbalanced bracket) → tomllib raises → empty Tier-2, Tier-1 hash still stands, no crash (design §3a R4, §6)', () => {
+  it('PYTHON-TIER2-DEGRADE: malformed pyproject (unbalanced bracket) → tomllib raises → empty Tier-2, Tier-1 hash still stands, no crash (design §3a R4, §6)', (ctx) => {
     const malformed = [
       '[project]',
       'dependencies = [', // unbalanced — tomllib.load raises
@@ -846,7 +861,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: malformed,
       toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout, stderr } = runHook(cwd);
+    const { status, stdout, stderr } = runHook(ctx, cwd);
     expect(status).toBe(0); // never crashes — always exit 0 (non-blocking contract)
     expect(stderr).toBe(''); // no traceback leaks to stderr
     // Tier-1 over [tool.poetry.dependencies] still differs from all-zeros → WARN
@@ -854,7 +869,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
   });
 
   // ---- (e) ZCode combined-WARN: npm + python both drift → ONE valid JSON object (design §3a M2) ----
-  it('ZCODE-COMBINED-WARN: npm AND python both drift under ZCODE_PROJECT_DIR → ONE JSON object, parses cleanly (design §3a M2)', () => {
+  it('ZCODE-COMBINED-WARN: npm AND python both drift under ZCODE_PROJECT_DIR → ONE JSON object, parses cleanly (design §3a M2)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
     const cwd = makeFixtureDir({
@@ -862,7 +877,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    const { status, stdout } = runHook(ctx, cwd, { ZCODE_PROJECT_DIR: cwd });
     expect(status).toBe(0);
     // CRITICAL: must be a SINGLE parseable JSON object (two objects → JSON.parse throws).
     const parsed = JSON.parse(stdout); // throws if two objects concatenated
@@ -873,7 +888,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
   });
 
   // ---- (f) legacy-key precedence: deps-hash-npm wins over deps-hash (design §3a M1) ----
-  it('LEGACY-PRECEDENCE: tool-decisions.md with BOTH deps-hash: and deps-hash-npm: → npm slot reads deps-hash-npm (design §3a M1)', () => {
+  it('LEGACY-PRECEDENCE: tool-decisions.md with BOTH deps-hash: and deps-hash-npm: → npm slot reads deps-hash-npm (design §3a M1)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const correctHash = computeHash(buildDepsJson(pkg));
     const cwd = makeFixtureDir({
@@ -883,20 +898,20 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
       // If precedence is wrong (legacy shadows), npm reads drifted deps-hash: → WARN.
       toolDecisions: `---\ndeps-hash: sha256-${'0'.repeat(64)}\ndeps-hash-npm: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // deps-hash-npm wins → match → silent
   });
 
   // ---- backward-compat: legacy-only deps-hash: still reads as npm slot (no regression) ----
-  it('LEGACY-BACKCOMPAT: tool-decisions.md with ONLY legacy deps-hash: → still read as npm slot (design §1-C)', () => {
+  it('LEGACY-BACKCOMPAT: tool-decisions.md with ONLY legacy deps-hash: → still read as npm slot (design §1-C)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const correctHash = computeHash(buildDepsJson(pkg));
     const cwd = makeFixtureDir({
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash: ${correctHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // legacy key read as npm → match → silent
   });
@@ -910,7 +925,7 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
 // =============================================================================
 
 describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-only)', () => {
-  it('CARGO-TIER1: [dependencies] table-form deps → deps-hash-cargo WARN on drift, silent on match (research-patch §1/§2)', () => {
+  it('CARGO-TIER1: [dependencies] table-form deps → deps-hash-cargo WARN on drift, silent on match (research-patch §1/§2)', (ctx) => {
     const cargoToml = [
       '[package]',
       'name = "demo"',
@@ -926,7 +941,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml,
       toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const driftedResult = runHook(drifted);
+    const driftedResult = runHook(ctx, drifted);
     expect(driftedResult.status).toBe(0);
     expect(driftedResult.stdout).toContain('⚠');
     expect(driftedResult.stdout.toLowerCase()).toMatch(/cargo\.toml/);
@@ -937,12 +952,12 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml,
       toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
     });
-    const cleanResult = runHook(clean);
+    const cleanResult = runHook(ctx, clean);
     expect(cleanResult.status).toBe(0);
     expect(cleanResult.stdout).toBe('');
   });
 
-  it('CARGO-TIER1-INLINE-FORM: [dependencies.serde] dotted sub-table form is ALSO captured by the extractor (research-patch §1 "two equivalent forms")', () => {
+  it('CARGO-TIER1-INLINE-FORM: [dependencies.serde] dotted sub-table form is ALSO captured by the extractor (research-patch §1 "two equivalent forms")', (ctx) => {
     // Table-boundary hashing hashes literal bytes, so table-form ([dependencies]\nserde="1")
     // and dotted-form ([dependencies.serde]\nversion="1") are NOT byte-identical and WILL
     // hash differently — this test proves BOTH forms are captured (non-empty Tier-1 extraction
@@ -964,12 +979,12 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml: dottedForm,
       toolDecisions: `---\ndeps-hash-cargo: ${tableHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
   });
 
-  it('CARGO-WORKSPACE: [workspace.dependencies] table is included in the hash (research-patch §1 "workspace.dependencies (+dev/build variants)")', () => {
+  it('CARGO-WORKSPACE: [workspace.dependencies] table is included in the hash (research-patch §1 "workspace.dependencies (+dev/build variants)")', (ctx) => {
     const withoutWorkspaceDeps = [
       '[workspace]',
       'members = ["crates/*"]',
@@ -989,14 +1004,14 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml: withWorkspaceDeps,
       toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     // adding [workspace.dependencies] changes the hash vs the no-deps workspace root → WARN
     expect(stdout).toContain('⚠');
     expect(stdout.toLowerCase()).toMatch(/cargo\.toml/);
   });
 
-  it('CARGO-TIER2-DEGRADE: no cargo on PATH → Tier-1 hash still stands, no crash, exit 0 (research-patch §2 "any non-zero exit → degrade to Tier-1")', () => {
+  it('CARGO-TIER2-DEGRADE: no cargo on PATH → Tier-1 hash still stands, no crash, exit 0 (research-patch §2 "any non-zero exit → degrade to Tier-1")', (ctx) => {
     const cargoToml = [
       '[package]',
       'name = "demo"',
@@ -1015,23 +1030,23 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
     });
     // Scrub PATH down to a minimal set that keeps awk/shasum but drops cargo (~/.cargo/bin
     // and /opt/homebrew/bin, where cargo/rustup commonly live).
-    const { status, stdout, stderr } = runHook(cwd, { PATH: '/usr/bin:/bin' });
+    const { status, stdout, stderr } = runHook(ctx, cwd, { PATH: '/usr/bin:/bin' });
     expect(status).toBe(0); // never crashes — always exit 0
     expect(stderr).toBe(''); // no error leaks to stderr
     expect(stdout).toBe(''); // Tier-1-only hash matches the stored Tier-1-only baseline → silent
   });
 
-  it('CARGO-NO-MANIFEST: no Cargo.toml → rust stack contributes nothing, silent (matches NO-MANIFESTS pattern, design §5 c2)', () => {
+  it('CARGO-NO-MANIFEST: no Cargo.toml → rust stack contributes nothing, silent (matches NO-MANIFESTS pattern, design §5 c2)', (ctx) => {
     const cwd = makeFixtureDir({
       // No cargoToml → file not created.
       toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe('');
   });
 
-  it('CARGO-POLYGLOT-WARN: a drifted Cargo.toml alongside a clean package.json fires ONLY the cargo WARN (per-stack independence, design §1-D)', () => {
+  it('CARGO-POLYGLOT-WARN: a drifted Cargo.toml alongside a clean package.json fires ONLY the cargo WARN (per-stack independence, design §1-D)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const npmHash = computeHash(buildDepsJson(pkg));
     const cargoToml = ['[dependencies]', 'serde = "1.0"', ''].join('\n');
@@ -1040,7 +1055,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml,
       toolDecisions: `---\ndeps-hash-npm: ${npmHash}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
     expect(stdout.toLowerCase()).toMatch(/cargo\.toml/);
@@ -1048,7 +1063,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
     expect(stdout).not.toContain('package.json deps changed');
   });
 
-  it('CARGO-TARGET-TABLE: a [target.<triple>.dependencies] table (target-cfg-gated deps) alone → WARN on drift, silent on match (research-patch §1 "target.*.{dependencies,…}")', () => {
+  it('CARGO-TARGET-TABLE: a [target.<triple>.dependencies] table (target-cfg-gated deps) alone → WARN on drift, silent on match (research-patch §1 "target.*.{dependencies,…}")', (ctx) => {
     // Dedicated coverage: no prior test exercised [target.*.dependencies] content at all
     // (code-review finding) — only appeared inside the awk-literal string, never a fixture.
     const cargoToml = [
@@ -1065,7 +1080,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml,
       toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const driftedResult = runHook(drifted);
+    const driftedResult = runHook(ctx, drifted);
     expect(driftedResult.status).toBe(0);
     expect(driftedResult.stdout).toContain('⚠');
 
@@ -1074,12 +1089,12 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml,
       toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
     });
-    const cleanResult = runHook(clean);
+    const cleanResult = runHook(ctx, clean);
     expect(cleanResult.status).toBe(0);
     expect(cleanResult.stdout).toBe('');
   });
 
-  it('CARGO-BUILD-DEPENDENCIES: a [build-dependencies] table alone → WARN on drift, silent on match (research-patch §1 dedicated coverage)', () => {
+  it('CARGO-BUILD-DEPENDENCIES: a [build-dependencies] table alone → WARN on drift, silent on match (research-patch §1 dedicated coverage)', (ctx) => {
     // Dedicated discriminating test: prior fixtures only carried [build-dependencies]
     // incidentally alongside other tables (code-review finding).
     const withoutBuildDeps = ['[package]', 'name = "demo"', 'version = "0.1.0"', ''].join('\n');
@@ -1090,7 +1105,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml: withBuildDeps,
       toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
     });
-    const driftedResult = runHook(drifted);
+    const driftedResult = runHook(ctx, drifted);
     expect(driftedResult.status).toBe(0);
     expect(driftedResult.stdout).toContain('⚠');
 
@@ -1099,12 +1114,12 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml: withBuildDeps,
       toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
     });
-    const cleanResult = runHook(clean);
+    const cleanResult = runHook(ctx, clean);
     expect(cleanResult.status).toBe(0);
     expect(cleanResult.stdout).toBe('');
   });
 
-  it('CARGO-DOTTED-SUBTABLE-REGRESSION: workspace.dependencies.<crate> and target.<x>.dependencies.<crate> dotted long-form is captured by Tier-1 (code-review bug fix — was silently dropped)', () => {
+  it('CARGO-DOTTED-SUBTABLE-REGRESSION: workspace.dependencies.<crate> and target.<x>.dependencies.<crate> dotted long-form is captured by Tier-1 (code-review bug fix — was silently dropped)', (ctx) => {
     // Confirmed via live tomllib cross-check (code review): `[workspace.dependencies.qux]`
     // parses to the identical nested structure as `qux` under `[workspace.dependencies]`
     // directly — same for `[target.<x>.dependencies.<crate>]`. Both are Cargo-accepted
@@ -1134,7 +1149,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
       cargoToml: workspaceWithDotted,
       toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
   });
@@ -1152,7 +1167,7 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
 // =============================================================================
 
 describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack)', () => {
-  it('PYTHON-TOMLI-SHIM: when tomllib is absent (py3.7-3.10) the Tier-2 script falls back to `tomli` and produces the byte-identical hash to tomllib (DH-S3 deliverable 1 — night-prompt "verify byte-match")', () => {
+  it('PYTHON-TOMLI-SHIM: when tomllib is absent (py3.7-3.10) the Tier-2 script falls back to `tomli` and produces the byte-identical hash to tomllib (DH-S3 deliverable 1 — night-prompt "verify byte-match")', (ctx) => {
     // Extract the REAL _PY_TIER2_SCRIPT from the shipped hook (NOT a reimplementation → no
     // drift by construction). The script body uses only double-quotes internally, so a
     // non-greedy match up to the first "'" closes on the bash single-quoted heredoc exactly.
@@ -1199,7 +1214,7 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
     expect(h2).toBe(h1);
   });
 
-  it('POLYGLOT-THREE-STACK-WARN: package.json + pyproject.toml + Cargo.toml ALL drift → ONE combined ⚠ block naming all three stacks (DH-S3 deliverable 2; design §3a M2 at three stacks)', () => {
+  it('POLYGLOT-THREE-STACK-WARN: package.json + pyproject.toml + Cargo.toml ALL drift → ONE combined ⚠ block naming all three stacks (DH-S3 deliverable 2; design §3a M2 at three stacks)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
     const cargo = '[dependencies]\nserde = "1.0"\n';
@@ -1210,7 +1225,7 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
       // all three baselines deliberately stale (all-zeros sha256) → all three drift at once.
       toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     // EXACTLY ONE ⚠ (the M2 single-emit contract holds across three drifted stacks, not three
     // separate emissions — three plain lines would still be one hook run, but the ZCode sibling
@@ -1222,7 +1237,7 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
     expect(stdout).toContain('/tool-bootstrapping');
   });
 
-  it('POLYGLOT-THREE-STACK-ZCODE: all three stacks drift under ZCODE_PROJECT_DIR → ONE JSON object (not three), parses cleanly with all three named (DH-S3 deliverable 2; design §3a M2)', () => {
+  it('POLYGLOT-THREE-STACK-ZCODE: all three stacks drift under ZCODE_PROJECT_DIR → ONE JSON object (not three), parses cleanly with all three named (DH-S3 deliverable 2; design §3a M2)', (ctx) => {
     const pkg = { dependencies: { react: '^18.0.0' } };
     const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
     const cargo = '[dependencies]\nserde = "1.0"\n';
@@ -1232,7 +1247,7 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
       cargoToml: cargo,
       toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    const { status, stdout } = runHook(ctx, cwd, { ZCODE_PROJECT_DIR: cwd });
     expect(status).toBe(0);
     // CRITICAL: must be a SINGLE parseable JSON object — three concatenated objects → throw.
     const parsed = JSON.parse(stdout);
@@ -1255,7 +1270,7 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
 const RULES_STALE_SUFFIX = 'generated rules may be stale — run /rule-tests to review';
 
 describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /rule-tests)', () => {
-  it('S4-POSITIVE: rules-lock present + deps drift → the stale-rules suffix rides the deps WARN', () => {
+  it('S4-POSITIVE: rules-lock present + deps drift → the stale-rules suffix rides the deps WARN', (ctx) => {
     // A rules-lock exists under .ai-factory/synthesizer-output/ AND deps drifted, so the
     // existing WARN fires — the conditional suffix must be appended to that same line.
     const pkg = { dependencies: { react: '^18.0.0' } };
@@ -1265,7 +1280,7 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
       rulesLock: 'rules-lock.python.json',
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     // Base WARN still present (the suffix rides it, does not replace it).
@@ -1275,7 +1290,7 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
     expect(stdout).toContain(RULES_STALE_SUFFIX);
   });
 
-  it('S4-NEGATIVE: rules-lock ABSENT + deps drift → base WARN only, NO stale-rules suffix (glob gates it)', () => {
+  it('S4-NEGATIVE: rules-lock ABSENT + deps drift → base WARN only, NO stale-rules suffix (glob gates it)', (ctx) => {
     // Identical drift, but no rules-lock file → the glob finds nothing → suffix stays empty.
     // Proves the suffix is gated on rules-lock existence, not emitted unconditionally.
     const pkg = { dependencies: { react: '^18.0.0' } };
@@ -1285,7 +1300,7 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
       // no rulesLock → .ai-factory/synthesizer-output/ absent
     });
 
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
 
     expect(status).toBe(0);
     // Base WARN still fires (deps drifted).
@@ -1295,7 +1310,7 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
     expect(stdout).not.toContain('/rule-tests');
   });
 
-  it('S4-ZCODE: rules-lock present + drift under ZCODE_PROJECT_DIR → suffix lands INSIDE the single additionalContext (exactly ONE JSON object)', () => {
+  it('S4-ZCODE: rules-lock present + drift under ZCODE_PROJECT_DIR → suffix lands INSIDE the single additionalContext (exactly ONE JSON object)', (ctx) => {
     // The single-emission invariant: the suffix is concatenated into the SAME _emit_warn arg,
     // so stdout must still parse as exactly ONE JSON object (a second emit → two objects → throw).
     const pkg = { dependencies: { react: '^18.0.0' } };
@@ -1305,7 +1320,7 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
       rulesLock: 'rules-lock.cargo.json',
     });
 
-    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    const { status, stdout } = runHook(ctx, cwd, { ZCODE_PROJECT_DIR: cwd });
 
     expect(status).toBe(0);
     // Exactly ONE JSON object — JSON.parse over two concatenated objects would throw.
@@ -1344,7 +1359,7 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     return `sha256-${crypto.createHash('sha256').update(r.stdout.replace(/\n$/, '')).digest('hex')}`;
   }
 
-  it('WORKSPACE-NPM: matching workspace baseline → silent; MEMBER-only dep change (root untouched) → WARN', () => {
+  it('WORKSPACE-NPM: matching workspace baseline → silent; MEMBER-only dep change (root untouched) → WARN', (ctx) => {
     // The pre-#1264 extractor read only the root manifest: the member edit below was
     // invisible (false-GREEN — Rule 5 of tool-bootstrapping never fired). The fix must
     // warn on a member-only change while a matching baseline stays silent.
@@ -1366,19 +1381,19 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
       'utf8',
     );
     // Match → silent.
-    expect(runHook(cwd, { TMPDIR: join(cwd, 'no-tmp') }).stdout).toBe('');
+    expect(runHook(ctx, cwd, { TMPDIR: join(cwd, 'no-tmp') }).stdout).toBe('');
     // MEMBER-only edit: root package.json byte-identical.
     writeFileSync(
       join(cwd, 'packages', 'a', 'package.json'),
       JSON.stringify({ name: '@scope/a', dependencies: { lodash: '^5.0.0' } }),
       'utf8',
     );
-    const after = runHook(cwd, { TMPDIR: join(cwd, 'no-tmp') });
+    const after = runHook(ctx, cwd, { TMPDIR: join(cwd, 'no-tmp') });
     expect(after.status).toBe(0);
     expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
   });
 
-  it('WORKSPACE-MEMO: member edit inside the TTL with a WARM memo still WARNS (memo re-keyed over the manifest set)', () => {
+  it('WORKSPACE-MEMO: member edit inside the TTL with a WARM memo still WARNS (memo re-keyed over the manifest set)', (ctx) => {
     // The in-issue review's trap: the memo key covered only the root package.json, so a
     // workspace dep change within the 60s _MEMO_TTL window served the stale cached hash.
     // After the re-key (_npm_memo_key = cksum superset over every package.json +
@@ -1395,19 +1410,19 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
       'utf8',
     );
     // First run: match → silent, memo written.
-    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+    expect(runHook(ctx, cwd, { TMPDIR: cwd }).stdout).toBe('');
     // Member-only edit, same second, memo warm — TTL nowhere near expiry.
     writeFileSync(
       join(cwd, 'packages', 'a', 'package.json'),
       JSON.stringify({ name: '@scope/a', dependencies: { lodash: '^5.0.0' } }),
       'utf8',
     );
-    const after = runHook(cwd, { TMPDIR: cwd });
+    const after = runHook(ctx, cwd, { TMPDIR: cwd });
     expect(after.status).toBe(0);
     expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
   });
 
-  it('WORKSPACE-PNPM: pnpm-workspace.yaml globs + catalog: resolution + overrides hashed; CATALOG-only bump (member text unchanged) → WARN', () => {
+  it('WORKSPACE-PNPM: pnpm-workspace.yaml globs + catalog: resolution + overrides hashed; CATALOG-only bump (member text unchanged) → WARN', (ctx) => {
     // pnpm lane: members come from pnpm-workspace.yaml `packages:` globs (root package.json
     // has NO workspaces field), `catalog:` dep values resolve against the catalog map (so a
     // catalog bump drifts the resolved payload), and overrides/catalog maps + a raw digest
@@ -1428,10 +1443,10 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     );
     // Baseline matches → silent (also proves the oracle and the hook agree on the
     // catalog-resolved shape).
-    expect(runHook(cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') }).stdout).toBe('');
+    expect(runHook(ctx, cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') }).stdout).toBe('');
     // Catalog-only bump: member manifest text UNCHANGED, only the yaml moves.
     writeFileSync(join(cwd, 'pnpm-workspace.yaml'), yaml.replace("lodash: '^4.17.0'", "lodash: '^5.0.0'"), 'utf8');
-    const after = runHook(cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') });
+    const after = runHook(ctx, cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') });
     expect(after.status).toBe(0);
     expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
   });
@@ -1452,7 +1467,7 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     { name: 'npm "./" inside a brace alternative', pkg: { name: 'r', workspaces: ['{./packages/a,./packages/c}'] } },
   ];
   for (const form of GLOB_FORMS) {
-    it(`WORKSPACE-GLOB-FORM (${form.name}): member-only bump with a warm memo → WARN`, () => {
+    it(`WORKSPACE-GLOB-FORM (${form.name}): member-only bump with a warm memo → WARN`, (ctx) => {
       const cwd = makeFixtureDir({
         packageJson: form.pkg,
         members: { 'packages/a': { name: 'a', dependencies: { lodash: '1.0.0' } } },
@@ -1460,15 +1475,15 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
         toolDecisions: `---\ndeps-hash-npm: REPLACE_ME\n---\n`,
       });
       // The member IS enumerated: its path-keyed entry is in the extractor payload.
-      const pb = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']);
+      const pb = runHook(ctx, cwd, { TMPDIR: cwd }, ['--print-baseline']);
       writeFileSync(join(cwd, '.ai-factory', 'tool-decisions.md'), `---\n${pb.stdout.trim()}\n---\n`, 'utf8');
-      expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+      expect(runHook(ctx, cwd, { TMPDIR: cwd }).stdout).toBe('');
       writeFileSync(
         join(cwd, 'packages', 'a', 'package.json'),
         JSON.stringify({ name: 'a', dependencies: { lodash: '2.0.0' } }),
         'utf8',
       );
-      const after = runHook(cwd, { TMPDIR: cwd });
+      const after = runHook(ctx, cwd, { TMPDIR: cwd });
       expect(after.status).toBe(0);
       expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
     });
@@ -1502,21 +1517,21 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     expect(payload['packages/a/package.json']).toEqual({ react: '^18.3.0' });
   });
 
-  it('WORKSPACE-MEMO-RENAME: moving a member to a new dir with identical bytes re-keys a warm memo (the key carries paths)', () => {
+  it('WORKSPACE-MEMO-RENAME: moving a member to a new dir with identical bytes re-keys a warm memo (the key carries paths)', (ctx) => {
     const cwd = makeFixtureDir({
       packageJson: { name: 'r', workspaces: ['packages/*'] },
       members: { 'packages/a': { name: 'a', dependencies: { lodash: '1.0.0' } } },
     });
-    const before = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
+    const before = runHook(ctx, cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
     renameSync(join(cwd, 'packages', 'a'), join(cwd, 'packages', 'b'));
-    const after = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
+    const after = runHook(ctx, cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
     // The extractor keys members by "<dir>/package.json", so the true hash moves; a key
     // built from contents alone would serve the stale "packages/a" hash for up to the TTL.
     expect(after).not.toBe(before);
     expect(after).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
   });
 
-  it('WORKSPACE-LEGACY-STABLE: non-workspace package.json hashes identically to the pre-#1264 7-field shape (existing baselines do not shift)', () => {
+  it('WORKSPACE-LEGACY-STABLE: non-workspace package.json hashes identically to the pre-#1264 7-field shape (existing baselines do not shift)', (ctx) => {
     // Backward-compat contract: a repo with no workspaces field and no pnpm-workspace.yaml
     // must produce the EXACT pre-#1264 root-only JSON — otherwise every existing consumer
     // baseline would false-warn once on upgrade. buildDepsJson IS the legacy shape.
@@ -1529,7 +1544,7 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash-npm: ${computeHash(buildDepsJson(pkg))}\n---\n`,
     });
-    const { status, stdout } = runHook(cwd);
+    const { status, stdout } = runHook(ctx, cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // legacy-hash baseline still matches → silent
   });
@@ -1544,13 +1559,13 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
 // DEBUG line — the WARN itself is the outcome signal.
 // =============================================================================
 describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline AND matched paths (GH #1705)', () => {
-  it('DEBUG: LOG_LEVEL=DEBUG + stack hashed + no baseline → one [deps-hash-check] DEBUG line on STDERR, stdout clean', () => {
+  it('DEBUG: LOG_LEVEL=DEBUG + stack hashed + no baseline → one [deps-hash-check] DEBUG line on STDERR, stdout clean', (ctx) => {
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       // tool-decisions.md exists but carries NO deps-hash line → the no-baseline branch.
       toolDecisions: `---\ntool: decisions\n---\n# no baseline here\n`,
     });
-    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG' });
+    const r = runHook(ctx, cwd, { LOG_LEVEL: 'DEBUG' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
     expect(r.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
@@ -1558,7 +1573,7 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
     expect(r.stderr.split('\n').filter((l) => l.includes('[deps-hash-check] DEBUG:')).length).toBe(1);
   });
 
-  it('DEBUG-WARM: the emit still fires on a TTL-window memo hit (dispatch proof survives the cache)', () => {
+  it('DEBUG-WARM: the emit still fires on a TTL-window memo hit (dispatch proof survives the cache)', (ctx) => {
     // The in-issue review noted a memo hit reads-and-returns WITHOUT writing — dispatches
     // within 60s leave zero trace. The emit lives in _drifted (not the extractors), so the
     // SECOND run inside the TTL must still prove dispatch.
@@ -1566,13 +1581,13 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
       packageJson: { dependencies: { react: '^18.0.0' } },
       toolDecisions: `---\ntool: decisions\n---\n`,
     });
-    const first = runHook(cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
+    const first = runHook(ctx, cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
     expect(first.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
-    const warm = runHook(cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
+    const warm = runHook(ctx, cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
     expect(warm.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
   });
 
-  it('DEBUG-MATCHED: LOG_LEVEL=DEBUG + MATCHING baseline → exactly one DEBUG line naming "baseline matched" on stderr; default LOG_LEVEL → no stderr (W1-B review F2)', () => {
+  it('DEBUG-MATCHED: LOG_LEVEL=DEBUG + MATCHING baseline → exactly one DEBUG line naming "baseline matched" on stderr; default LOG_LEVEL → no stderr (W1-B review F2)', (ctx) => {
     // The baselined steady state is the normal state of a consumer who has run
     // /tool-bootstrapping — the fresh-path emit alone left it indistinguishable from
     // "never dispatched". The matched branch must name its outcome too.
@@ -1581,7 +1596,7 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
       packageJson: pkg,
       toolDecisions: `---\ndeps-hash-npm: ${computeHash(buildDepsJson(pkg))}\n---\n`,
     });
-    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG' });
+    const r = runHook(ctx, cwd, { LOG_LEVEL: 'DEBUG' });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe(''); // match → stdout still silent (the WARN contract is untouched)
     expect(r.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
@@ -1590,29 +1605,29 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
     const debugLines = r.stderr.split('\n').filter((l) => l.includes('[deps-hash-check] DEBUG:'));
     expect(debugLines.length).toBe(1);
     // Default LOG_LEVEL: no stderr at all (the emit is opt-in only).
-    const quiet = runHook(cwd);
+    const quiet = runHook(ctx, cwd);
     expect(quiet.status).toBe(0);
     expect(quiet.stdout).toBe('');
     expect(quiet.stderr).toBe('');
   });
 
-  it('DEBUG-OFF: default LOG_LEVEL → no stderr line (the emit is opt-in only)', () => {
+  it('DEBUG-OFF: default LOG_LEVEL → no stderr line (the emit is opt-in only)', (ctx) => {
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       toolDecisions: `---\ntool: decisions\n---\n`,
     });
-    const r = runHook(cwd);
+    const r = runHook(ctx, cwd);
     expect(r.status).toBe(0);
     expect(r.stdout).toBe('');
     expect(r.stderr).toBe('');
   });
 
-  it('DEBUG-ZCODE: DEBUG + drift under ZCODE_PROJECT_DIR → stdout stays a single strict-JSON object; the DEBUG line never touches stdout', () => {
+  it('DEBUG-ZCODE: DEBUG + drift under ZCODE_PROJECT_DIR → stdout stays a single strict-JSON object; the DEBUG line never touches stdout', (ctx) => {
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG', ZCODE_PROJECT_DIR: cwd });
+    const r = runHook(ctx, cwd, { LOG_LEVEL: 'DEBUG', ZCODE_PROJECT_DIR: cwd });
     expect(r.status).toBe(0);
     // stdout parses as exactly ONE JSON object (two objects would throw).
     const parsed = JSON.parse(r.stdout);
@@ -1634,7 +1649,7 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
 // (the printed value is a real hash, not a self-consistent constant).
 // =============================================================================
 describe('deps-hash-check.sh — --print-baseline arm (W1-B review F1, GH #1264)', () => {
-  it('PRINT-BASELINE-ROUNDTRIP (workspace): recording the printed line into tool-decisions.md makes the next dispatch silent; a member dep bump re-drifts', () => {
+  it('PRINT-BASELINE-ROUNDTRIP (workspace): recording the printed line into tool-decisions.md makes the next dispatch silent; a member dep bump re-drifts', (ctx) => {
     // Mirrors the F1 acceptance fixture: pnpm workspace, root + catalog + two members.
     const rootPkg = { name: 'root', private: true, dependencies: { typescript: '^5.0.0' } };
     const yaml = "packages:\n  - 'apps/*'\n  - 'packages/*'\ncatalog:\n  react: '^18.0.0'\n";
@@ -1651,12 +1666,12 @@ describe('deps-hash-check.sh — --print-baseline arm (W1-B review F1, GH #1264)
     // Memo off (unwritable TMPDIR): every run recomputes, deterministically.
     const noTmp = { TMPDIR: join(cwd, 'no-tmp') };
     // The WARN fires against the pending seed AND its guidance names the mechanism.
-    const warn = runHook(cwd, noTmp);
+    const warn = runHook(ctx, cwd, noTmp);
     expect(warn.status).toBe(0);
     expect(warn.stdout).toContain('not yet baselined');
     expect(warn.stdout).toContain('--print-baseline');
     // Mechanism: print current baselines — plain stdout by design (CLI arm, not a dispatch).
-    const pb = runHook(cwd, noTmp, ['--print-baseline']);
+    const pb = runHook(ctx, cwd, noTmp, ['--print-baseline']);
     expect(pb.status).toBe(0);
     expect(pb.stderr).toBe('');
     const lines = pb.stdout.trim().split('\n');
@@ -1665,7 +1680,7 @@ describe('deps-hash-check.sh — --print-baseline arm (W1-B review F1, GH #1264)
     // Record: replace the pending line with the printed one (the guided flow).
     writeFileSync(join(cwd, '.ai-factory', 'tool-decisions.md'), `---\n${lines[0]}\n---\n`, 'utf8');
     // The SAME hook now accepts its own baseline → silent.
-    const silent = runHook(cwd, noTmp);
+    const silent = runHook(ctx, cwd, noTmp);
     expect(silent.status).toBe(0);
     expect(silent.stdout).toBe('');
     // Member-only dep bump (root untouched) re-drifts — the round-trip is a real hash.
@@ -1674,31 +1689,31 @@ describe('deps-hash-check.sh — --print-baseline arm (W1-B review F1, GH #1264)
       JSON.stringify({ name: 'db', devDependencies: { prettier: '^3.8.3' } }),
       'utf8',
     );
-    const drift = runHook(cwd, noTmp);
+    const drift = runHook(ctx, cwd, noTmp);
     expect(drift.status).toBe(0);
     expect(drift.stdout).toContain('package.json deps changed since last tool-bootstrap');
   });
 
-  it('PRINT-BASELINE-NO-DECISIONS: works with no .ai-factory/tool-decisions.md (print arm bypasses the compare guard)', () => {
+  it('PRINT-BASELINE-NO-DECISIONS: works with no .ai-factory/tool-decisions.md (print arm bypasses the compare guard)', (ctx) => {
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
       // no toolDecisions → file absent; the no-arg dispatch exits silent at the guard,
       // but the print arm must still print the current hash.
     });
-    const pb = runHook(cwd, {}, ['--print-baseline']);
+    const pb = runHook(ctx, cwd, {}, ['--print-baseline']);
     expect(pb.status).toBe(0);
     expect(pb.stderr).toBe('');
     expect(pb.stdout).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
   });
 
-  it('PRINT-BASELINE-ZCODE: under ZCODE_PROJECT_DIR the CLI arm still prints PLAIN baseline lines (it is not a hook dispatch; _emit_warn is never called)', () => {
+  it('PRINT-BASELINE-ZCODE: under ZCODE_PROJECT_DIR the CLI arm still prints PLAIN baseline lines (it is not a hook dispatch; _emit_warn is never called)', (ctx) => {
     // Guards the §0.5 boundary from the other side: the no-arg dispatch emits strict
     // JSON under ZCode, the explicit CLI arm stays machine-plain — an agent running it
     // in a Bash tool (which may inherit ZCODE_PROJECT_DIR) must get recordable lines.
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
     });
-    const pb = runHook(cwd, { ZCODE_PROJECT_DIR: cwd }, ['--print-baseline']);
+    const pb = runHook(ctx, cwd, { ZCODE_PROJECT_DIR: cwd }, ['--print-baseline']);
     expect(pb.status).toBe(0);
     expect(pb.stdout).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
     expect(pb.stdout.trim().startsWith('{')).toBe(false); // never a JSON object

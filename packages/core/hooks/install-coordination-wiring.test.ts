@@ -17,7 +17,8 @@
  * so no run touches this checkout's hooks or settings, nor ~/.superset.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { spawnSync, execSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
+import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -48,14 +49,15 @@ function installScript(repo: string, src: string = readFileSync(SCRIPT, 'utf8'))
   return p;
 }
 
-function run(script: string, cwd: string, home: string): { status: number; stderr: string } {
+function run(ctx: Skippable, script: string, cwd: string, home: string): { status: number; stderr: string } {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v !== undefined && !k.startsWith('GIT_')) env[k] = v;
   }
   env.HOME = home;
   env.GIT_CONFIG_NOSYSTEM = '1';
-  const r = spawnSync('bash', [script], { cwd, env, encoding: 'utf8' });
+  // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  const r = spawnBashOrSkip(ctx, 'bash', [script], { cwd, env, encoding: 'utf8' });
   return { status: r.status ?? -1, stderr: r.stderr };
 }
 
@@ -81,46 +83,46 @@ describe('install-coordination-wiring.sh — repo-identity guard', () => {
     for (const d of [own, foreign, home]) rmSync(d, { recursive: true, force: true });
   });
 
-  it('(w1) FOREIGN CWD: refused (exit 3), no hook written, settings untouched', () => {
-    const r = run(script, foreign, home);
+  it('(w1) FOREIGN CWD: refused (exit 3), no hook written, settings untouched', (ctx) => {
+    const r = run(ctx, script, foreign, home);
     expect(r.status, `stderr: ${r.stderr}`).toBe(3);
     expect(r.stderr).toContain('not a checkout of');
     expect(existsSync(hookOf(foreign)), 'no post-checkout hook may land in the foreign repo').toBe(false);
     expect(readFileSync(settingsOf(foreign), 'utf8')).toBe(SETTINGS_SEED);
   });
 
-  it('(w2) OWN CHECKOUT as cwd: G and B are wired', () => {
-    const r = run(script, own, home);
+  it('(w2) OWN CHECKOUT as cwd: G and B are wired', (ctx) => {
+    const r = run(ctx, script, own, home);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(readFileSync(hookOf(own), 'utf8')).toContain('coordination-persistence');
     expect(sessionStartWired(own)).toBe(true);
   });
 
-  it('(w3) OWN LINKED WORKTREE as cwd: wired into that worktree', () => {
+  it('(w3) OWN LINKED WORKTREE as cwd: wired into that worktree', (ctx) => {
     const wt = resolve(own, 'wt-own');
     execSync(`git worktree add -q "${wt}" HEAD`, { cwd: own });
     writeFileSync(settingsOf(wt), SETTINGS_SEED);
-    const r = run(script, wt, home);
+    const r = run(ctx, script, wt, home);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(existsSync(hookOf(wt))).toBe(true);
     expect(sessionStartWired(wt)).toBe(true);
   });
 
-  it('(w4) RELATIVE core.hooksPath resolves against the checkout root, not the cwd subdir', () => {
+  it('(w4) RELATIVE core.hooksPath resolves against the checkout root, not the cwd subdir', (ctx) => {
     execSync('git config core.hooksPath .husky', { cwd: own });
     const sub = resolve(own, 'packages/app');
     mkdirSync(sub, { recursive: true });
-    const r = run(script, sub, home);
+    const r = run(ctx, script, sub, home);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(existsSync(hookOf(own)), 'the hook belongs in <root>/.husky').toBe(true);
     expect(existsSync(resolve(sub, '.husky')), 'nothing may land in the cwd subdir').toBe(false);
   });
 
-  it('(w-neg) PAIRED-NEGATIVE: with the guard stripped, the foreign repo IS written', () => {
+  it('(w-neg) PAIRED-NEGATIVE: with the guard stripped, the foreign repo IS written', (ctx) => {
     const src = readFileSync(SCRIPT, 'utf8');
     const stripped = src.replace(/# ── REPO-IDENTITY GUARD[\s\S]*?# ── END REPO-IDENTITY GUARD[^\n]*\n/, '');
     expect(stripped, 'the REPO-IDENTITY GUARD block must be present to strip').not.toBe(src);
-    run(installScript(own, stripped), foreign, home);
+    run(ctx, installScript(own, stripped), foreign, home);
     expect(existsSync(hookOf(foreign)), 'without the guard the foreign repo receives the hook').toBe(true);
   });
 });

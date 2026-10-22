@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const BIN = fileURLToPath(new URL('./pr-body-removal-consumers-bin.ts', import.meta.url));
 
 function resolveTsx(): string {
-  for (const rel of ['../../node_modules/.bin/tsx', '../../../../node_modules/.bin/tsx']) {
+  for (const rel of ['../../node_modules/tsx/dist/cli.mjs', '../../../../node_modules/tsx/dist/cli.mjs']) {
     const p = fileURLToPath(new URL(rel, import.meta.url));
     if (existsSync(p)) return p;
   }
@@ -68,7 +68,7 @@ afterAll(() => {
 
 function run(env: Record<string, string | undefined>) {
   try {
-    const stdout = execFileSync(TSX, [BIN], {
+    const stdout = execFileSync(process.execPath, [TSX, BIN], {
       cwd: repo,
       env: { ...process.env, BASE_SHA: undefined, HEAD_SHA: undefined, PR_BODY: undefined, ...env },
       encoding: 'utf8',

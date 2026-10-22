@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,7 +49,8 @@ afterAll(() => {
 /** A fake `node` that runs `body` instead of the checker. */
 function fakeNodeBin(name: string, body: string): string {
   const bin = join(dir, name);
-  spawnSync('mkdir', ['-p', bin]);
+  // mkdirSync, not spawnSync('mkdir'): cmd.exe has no mkdir.exe on win32 (#1799).
+  mkdirSync(bin, { recursive: true });
   writeFileSync(join(bin, 'node'), `#!/bin/sh\n${body}\n`);
   chmodSync(join(bin, 'node'), 0o755);
   return bin;
