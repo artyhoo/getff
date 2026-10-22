@@ -158,6 +158,8 @@ function readPushStdin(): string {
  * VISIBLE warning and skip, never a silent pass (research-patch finding F2).
  */
 interface ResolvedBase {
+  /** True only when raw stdin permits a single-range optimization (missing = full checks). */
+  scopeSafe?: boolean;
   /** Tree-ish for `<base>..<head>` changed-file diffs; null when unresolvable. */
   base: string | null;
   /**
@@ -184,8 +186,10 @@ interface ResolvedBase {
   source: 'env' | 'stdin' | 'stdin-new-branch' | 'default' | 'unresolved';
 }
 
-function resolveBase(): ResolvedBase {
+export function resolveBase(): ResolvedBase {
   const env = process.env['PREPUSH_UPSTREAM_REF'];
+  const stdin = readPushStdin();
+  const scopeSafe = kickoffPushShapeSafe(stdin, Boolean(env));
   // CI backstop / manual override: HEAD is the thing being checked against the
   // override base (the CI job checks out the PR head), so the endpoint is HEAD.
   // Trunk exclusion applies here too (no-op when the override IS the trunk;
@@ -197,9 +201,10 @@ function resolveBase(): ResolvedBase {
       head: 'HEAD',
       exclude: resolveDefaultBase(),
       source: 'env',
+      scopeSafe,
     };
 
-  const refs = parsePushRefs(readPushStdin());
+  const refs = parsePushRefs(stdin);
   if (refs.length > 0) {
     const r = refs[0];
     // `^{commit}` peels to a commit object — parity with the fallback's check,
@@ -215,6 +220,7 @@ function resolveBase(): ResolvedBase {
         head: r.localSha,
         exclude: resolveDefaultBase(),
         source: 'stdin',
+        scopeSafe,
       };
     }
     // New branch (Z40) or an unknown remote sha → the commits this push adds.
@@ -230,6 +236,7 @@ function resolveBase(): ResolvedBase {
       head: r.localSha,
       exclude: null,
       source: 'stdin-new-branch',
+      scopeSafe: scopeSafe && r.remoteSha === Z40,
     };
   }
 
@@ -244,6 +251,7 @@ function resolveBase(): ResolvedBase {
       head: 'HEAD',
       exclude: null,
       source: 'default',
+      scopeSafe,
     };
   }
   return {
@@ -252,6 +260,7 @@ function resolveBase(): ResolvedBase {
     head: 'HEAD',
     exclude: null,
     source: 'unresolved',
+    scopeSafe,
   };
 }
 
@@ -3336,11 +3345,122 @@ async function main(): Promise<void> {
 
   // Compose ONLY the sections this layout owns, then run them in registry order.
   // A maintainer-only section is never in the consumer composition — it cannot leak.
+  const kickoffOnly = isKickoffPublicationPush(ctx);
+  if (kickoffOnly)
+    process.stdout.write(
+      '✓ pre-push: kickoff publication — document/contract checks retained\n',
+    );
   for (const section of activeSections(isFrameworkRepo)) {
-    await section.run(ctx);
+    await runPushSection(section, ctx, kickoffOnly);
   }
 
   process.exit(0);
+}
+
+/** Preserve raw stdin cardinality: the general parser intentionally tolerates bad lines. */
+export function kickoffPushShapeSafe(
+  stdin: string,
+  hasOverride: boolean,
+): boolean {
+  const lines = stdin
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return true; // manual/CI invocation still needs a proven tree/range
+  if (hasOverride || lines.length !== 1) return false;
+  const parts = lines[0].split(/\s+/);
+  return (
+    parts.length === 4 &&
+    /^[a-f0-9]{40}$/.test(parts[1]) &&
+    parts[1] !== Z40 &&
+    /^[a-f0-9]{40}$/.test(parts[3]) &&
+    parts[2].startsWith('refs/') &&
+    runCheck('git', ['check-ref-format', parts[2]], {
+      env: scrubbedHookEnv(),
+      timeoutMs: 10_000,
+    }).exitCode === 0
+  );
+}
+
+/** Reuse the CI classifier over the actual push, only on a clean matching framework tree. */
+export function isKickoffPublicationPush(
+  ctx: SectionCtx,
+  root = REPO_ROOT,
+): boolean {
+  if (!ctx.isFrameworkRepo || ctx.rb.scopeSafe !== true || !ctx.rb.base)
+    return false;
+  const git = (...args: string[]) =>
+    runCheck('git', args, {
+      cwd: root,
+      env: scrubbedHookEnv(),
+      timeoutMs: 10_000,
+    });
+  const commit = (ref: string): string | null => {
+    const result = git(
+      'rev-parse',
+      '--verify',
+      '--end-of-options',
+      `${ref}^{commit}`,
+    );
+    const sha = result.stdout.trim();
+    return result.exitCode === 0 && /^[a-f0-9]{40}$/.test(sha) ? sha : null;
+  };
+  const base = commit(ctx.rb.base),
+    head = commit(ctx.rb.head);
+  if (!base || !head || commit('HEAD') !== head) return false;
+  if (git('merge-base', '--is-ancestor', base, head).exitCode !== 0)
+    return false;
+  if (git('diff', '--quiet', head, '--').exitCode !== 0) return false;
+  if (git('diff', '--cached', '--quiet', head, '--').exitCode !== 0) return false;
+  // A selector/hook edit cannot grant itself a short push, even if it prints a valid token.
+  if (
+    git(
+      'diff',
+      '--quiet',
+      base,
+      head,
+      '--',
+      'scripts/ci-path-scope.sh',
+      'packages/core/hooks/pre-push.ts',
+      'packages/core/hooks/pre-push.bundle.mjs',
+      '.husky/pre-push',
+    ).exitCode !== 0
+  )
+    return false;
+  const result = runCheck(
+    'bash',
+    ['scripts/ci-path-scope.sh', '--kickoff-range', base, head],
+    {
+      cwd: root,
+      env: scrubbedHookEnv(),
+      timeoutMs: 10_000,
+    },
+  );
+  return result.exitCode === 0 && result.stdout.trim() === 'kickoff_only=true';
+}
+
+/** Unknown/future sections still run; only these four unrelated suites may be omitted. */
+export async function runPushSection(
+  section: PrePushSection,
+  ctx: SectionCtx,
+  kickoffOnly: boolean,
+): Promise<void> {
+  if (
+    kickoffOnly &&
+    ctx.isFrameworkRepo &&
+    [
+      'canonical-source',
+      'ir-meta',
+      'backends-meta',
+      'composition-meta',
+    ].includes(section.id)
+  ) {
+    process.stdout.write(
+      `· pre-push ${section.id}: not selected for kickoff-only range\n`,
+    );
+    return;
+  }
+  await section.run(ctx);
 }
 
 /**

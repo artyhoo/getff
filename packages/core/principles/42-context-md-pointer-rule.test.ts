@@ -27,8 +27,8 @@
  *   2. The CI arm's file scope excludes a repo-root CONTEXT.md outright: its globs are
  *      README.md, INSTALL*.md, the docs/ recursive markdown glob, plugin/README.md
  *      (.github/workflows/link-checker.yml:57-60).
- *   3. The pre-push arm is DIFF-scoped (pre-push.ts:2856-2858) and degrades to a skip
- *      when lychee is not installed (pre-push.ts:2844-2849). The defect class this test
+ *   3. The pre-push arm is DIFF-scoped (pre-push.ts:2865-2867) and degrades to a skip
+ *      when lychee is not installed (pre-push.ts:2853-2858). The defect class this test
  *      catches is exactly the one a diff-scoped gate structurally cannot see: an anchor
  *      RENAMED IN AN OWNER DOC silently breaks a CONTEXT.md pointer while CONTEXT.md
  *      itself is unchanged in that push.

@@ -72,9 +72,9 @@ The committed invalid fixture lives at `packages/core/backends/<b>/fixtures/firi
 
 | pin | site | current pin |
 |---|---|---|
-| astgrep | `.github/workflows/audit-self.yml:367` (`npm install -g @ast-grep/cli@…`, principles-meta-tests) + `:1143` (same, install-sh-c) | `0.44.1` |
-| ruff | `.github/workflows/audit-self.yml:377` (`pip install ruff==…`, principles-meta-tests) + `:1141` (same, install-sh-c) | `0.15.21` |
-| rustc (CI) | `.github/workflows/audit-self.yml:406` (`rustup toolchain install …`) + `:407` (`rustup default …`) | `1.96.1` |
+| astgrep | `.github/workflows/audit-self.yml:375` (`npm install -g @ast-grep/cli@…`, principles-meta-tests) + `:1151` (same, install-sh-c) | `0.44.1` |
+| ruff | `.github/workflows/audit-self.yml:385` (`pip install ruff==…`, principles-meta-tests) + `:1149` (same, install-sh-c) | `0.15.21` |
+| rustc (CI) | `.github/workflows/audit-self.yml:414` (`rustup toolchain install …`) + `:415` (`rustup default …`) | `1.96.1` |
 | rustc (fixtures) | `packages/core/backends/cargo/fixtures/firing/{invalid,valid,valid-clean}/rust-toolchain.toml` + `demo/crate/rust-toolchain.toml` (`channel = …`) | `1.96.1` |
 | eslint | `packages/core/package.json:98` (`"eslint": "^10.4.0"`) | `^10.4.0` (resolves `10.4.0`) |
 
