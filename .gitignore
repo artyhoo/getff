@@ -16,6 +16,7 @@ packages/*/node_modules
 .claude/orchestrator-prompts/*/*
 !.claude/orchestrator-prompts/*/done.md
 !.claude/orchestrator-prompts/*/kickoff.md
+!.claude/orchestrator-prompts/development-efficiency/kickoff-s*.md
 # Umbrella backfill reports (e.g. umbrella-donemd-backfill/report.md) are durable
 # committed audit artefacts: population enumeration + per-verdict evidence + the
 # UNCLEAR table. Same durable-committed class as done.md/kickoff.md. Per-umbrella
