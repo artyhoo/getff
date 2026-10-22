@@ -120,12 +120,12 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - The declared Class B delivery pair and the stale "No CI gate yet" sentence:
   `.agents/rules/companion-install-principle.md:12`; delivery markers at `:3`
   to `:10`; the broader promotion criterion at `:48`.
-- The shipped no-pin arm: `scripts/check-ships-manifest.mjs:206` to `:216`;
+- The shipped no-pin arm: `scripts/check-ships-manifest.mjs:209` to `:219`;
   findings cause exit 1 at `:224` to `:227`. Pre-commit wiring:
   `.husky/pre-commit:211` to `:227`. CI wiring:
   `.github/workflows/audit-self.yml:2735` to `:2740`.
 - Paired fixture coverage at the current staging base:
-  `scripts/check-ships-manifest.test.sh:156` to `:160` accepts the unpinned
+  `scripts/check-ships-manifest.test.sh:163` to `:167` accepts the unpinned
   row and rejects npm and marketplace version pins. The manifest's six
   non-comment rows contain no version pin matching the example grep.
 - The engine loop: `setup.d/engine.sh:232` (`companion_step()`), with the

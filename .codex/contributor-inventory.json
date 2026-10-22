@@ -770,12 +770,12 @@
     {
       "path": ".codex/agents/living-docs-auditor.toml",
       "kind": "text",
-      "fingerprint": "f8836e93370bc52ec365fa403f1728451cd42133760ab468a4f145a28de71f41"
+      "fingerprint": "2b1c365a602271ec847c7737c011d26e245eb9325baf8caad034dce73f4e7377"
     },
     {
       "path": ".agents/skills/living-docs-auditor/SKILL.md",
       "kind": "text",
-      "fingerprint": "1f309c34fa21b3d63220ba8ea358a357fe2312409b2bdd78cb744e0c907a241f"
+      "fingerprint": "1257d9e00ed04972b594c4ccf7c01e6606a07748e51e30093fb100991305ddb1"
     },
     {
       "path": ".agents/skills/living-docs-auditor/agents/openai.yaml",

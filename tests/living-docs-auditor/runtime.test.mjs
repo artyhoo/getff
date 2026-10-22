@@ -1,54 +1,278 @@
+// Runtime tests for the CONVERTED living-docs-auditor role (kickoff-d0 §4, OBL-10).
+//
+// The pre-conversion extractor tests (bash-snippet extraction of Step-1..5 recipes)
+// died with the recipes they extracted; these tests execute the role's ACTUAL
+// runtime behavior: the ONE invocation against consumer fixtures carrying REAL
+// runner bytes (kickoff §5: "actual profile acceptance must execute shipped
+// runners"; stubs are allowed only for bounded control-process cases, and the
+// bounded controls below use the real admitted runner with tight bounds instead —
+// the identity gate would refuse to execute fake bytes, by design).
+//
+// The command artifact is the kickoff §2 ready artifact (the bundle). The
+// consumer destination scripts/living-docs-audit.mjs is reservation-gated
+// (d0-result §Residual) and is covered by installed.test.mjs once delivered.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
-const source = readFileSync(new URL('../../.agents/roles/living-docs-auditor.md', import.meta.url), 'utf8');
-const section = title => source.split(title)[1].split('```bash\n')[1].split('```')[0];
-for (const [name, status, output] of [['clean', 0, 'PASS: R1: hygiene'], ['violation', 1, 'FAIL: R1: hygiene'], ['crash', 37, 'helper crashed']]) {
-  test(`canonical run preserves ${name} helper status and output`, () => {
-    const cwd = mkdtempSync(join(tmpdir(), 'living-docs-test-'));
+import { COMMAND_ARTIFACT, ROLE_FILE, repoRoot, RUNNER_BYTES, R4_HELPER_BYTES, buildCleanFixture, disposeFixture, runCommand, readResult, deliverCommand, runRoleInvocation, assertRoleAuditResult } from './fixtures.mjs';
+import { pathToFileURL } from 'node:url';
+const { runBounded } = await import(pathToFileURL(COMMAND_ARTIFACT).href);
+
+const role = readFileSync(ROLE_FILE, 'utf8');
+const roleBlock = title => role.split(title)[1].split('```bash\n')[1].split('```')[0];
+
+// ─── Role shape (OBL-10): ONE command, no displaced recipes ──────────────────
+
+test('role carries exactly the ONE command invocation with the frozen contract flags', () => {
+  const invocation = roleBlock('### Step 3: Invoke the command (the ONE invocation)');
+  assert.match(invocation, /node scripts\/living-docs-audit\.mjs/);
+  assert.match(invocation, /--project-root <absolute-root>/);
+  assert.match(invocation, /--profile <base\|react-next\|react-spa\|react-native>/);
+  assert.match(invocation, /--diagnostics-dir/);
+  assert.match(invocation, /--timeout-ms/);
+  assert.match(invocation, /--max-output-bytes/);
+});
+
+test('role no longer ships displaced recipes: no direct runner run, no detection heuristic, no drift greps', () => {
+  // The removed Step-1/3/4 + auxiliary awk/grep recipes must not reappear anywhere.
+  assert.doesNotMatch(role, /bash "\$SCRIPT"|RUN_AUDIT|AUDIT_LOG=|mktemp "\$\{TMPDIR/);
+  assert.doesNotMatch(role, /next\.config\.(ts|js|mjs)\]/); // Step-1 stack heuristic
+  assert.doesNotMatch(role, /awk 'match/);                  // auxiliary drift recipes
+  // And the role must not instruct running the runner scripts directly.
+  assert.doesNotMatch(roleBlock('### Step 3: Invoke the command (the ONE invocation)'), /audit-ai-docs\.sh/);
+});
+
+test('compatibility loader and CC-native entry stay wired to the canonical role', () => {
+  // .claude/agents entry is a symlink to the owner; agents/ loader names the owner.
+  assert.equal(
+    readlinkSync(join(repoRoot, '.claude/agents/living-docs-auditor.md')),
+    '../../.agents/roles/living-docs-auditor.md',
+  );
+  const loader = readFileSync(join(repoRoot, 'agents/living-docs-auditor.md'), 'utf8');
+  assert.ok(loader.includes('Read `.agents/roles/living-docs-auditor.md` completely before acting'));
+  // The loader's registry face no longer references the removed Step-2 mechanism.
+  assert.doesNotMatch(loader, /Step-2/);
+});
+
+// ─── Profile acceptance with REAL shipped runner bytes (kickoff §5 row 1) ────
+
+for (const profile of ['base', 'react-next', 'react-spa']) {
+  test(`clean ${profile} layout: completed clean via the real shipped runner`, { timeout: 120_000 }, () => {
+    const root = buildCleanFixture(profile);
     try {
-      mkdirSync(join(cwd, 'scripts'));
-      writeFileSync(join(cwd, 'scripts/audit-ai-docs.sh'), `echo '${output}' >&2\nexit ${status}\n`);
-      const code = `SCRIPT=scripts/audit-ai-docs.sh\n${section('### Step 3: Run audit')}\nprintf 'CAPTURED_EXIT=%s\\n' "$EXIT"\n`;
-      const result = spawnSync('bash', ['-c', code], { cwd, encoding: 'utf8' });
-      assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stdout, new RegExp(`CAPTURED_EXIT=${status}(?:\\n|$)`));
-      assert.ok(result.stdout.includes(output));
-    } finally { rmSync(cwd, { recursive: true, force: true }); }
+      const res = runCommand(['--project-root', root, '--profile', profile]);
+      assert.equal(res.status, 0, `stdout=${res.stdout}\nstderr=${res.stderr}`);
+      const result = readResult(res);
+      assert.equal(result.requestedProfile, profile);
+      assert.equal(result.resolvedTarget, root);
+      assert.equal(result.complete, true);
+      assert.ok(result.runner, 'runner identity recorded');
+      assert.equal(result.runner.admitted, true);
+      for (const check of result.checks) {
+        assert.notEqual(check.status, 'violations', `${check.check} unexpectedly violated`);
+        assert.notEqual(check.status, 'incomplete', `${check.check} unexpectedly incomplete: ${check.reasons}`);
+        assert.notEqual(check.status, 'error', `${check.check} unexpectedly errored: ${check.reasons}`);
+      }
+      const completion = result.checks.find(c => c.check.endsWith('/completion'));
+      assert.ok(completion, 'a scope completion check exists');
+      if (profile !== 'base') {
+        assert.ok(result.chainedBase?.admitted, 'chained base identity admitted');
+        // nested base + preset summary scopes counted independently (kickoff §3)
+        assert.ok(result.checks.some(c => c.check.startsWith('base/')), 'nested base scope present');
+        assert.ok(result.checks.some(c => c.check.startsWith(`${profile}/`)), 'preset scope present');
+      }
+      // Population floor (cold-review MAJOR 3): concrete check identities, not
+      // just "no bad status" — a vacuously small population cannot pass. Floors
+      // measured empirically on the real runner bytes (d0-result §Runs).
+      const byId = id => result.checks.find(c => c.check === id);
+      assert.equal(byId('structured/d1-skills').status, 'passed');
+      assert.equal(byId('base/D3').status, 'passed');
+      assert.equal(byId('base/completion').status, 'passed');
+      if (profile !== 'base') assert.equal(byId(`${profile}/completion`).status, 'passed');
+      if (profile === 'react-spa') {
+        assert.equal(byId('react-spa/R-SPA-EB').status, 'passed');
+        assert.equal(byId('react-spa/R-SPA-HOOKS').status, 'passed');
+      }
+      const passedFloor = { base: 7, 'react-next': 8, 'react-spa': 10 }[profile];
+      assert.ok(
+        result.counts.checksByStatus.passed >= passedFloor,
+        `${profile}: passed floor ${passedFloor} not met (${JSON.stringify(result.counts.checksByStatus)})`,
+      );
+    } finally { disposeFixture(root); }
   });
 }
-test('missing helper guard does not terminate auxiliary checks', () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'living-docs-test-'));
+
+// ─── react-native: explicit incomplete control, no base fallback (§3) ────────
+
+test('react-native profile: main incomplete by design, auxiliaries run, NO base fallback', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('react-native');
   try {
-    const result = spawnSync('bash', ['-c', `SCRIPT=scripts/audit-ai-docs.sh\n${section('### Step 2: Verify the script exists')}\necho AUXILIARY_REACHED\n`], { cwd, encoding: 'utf8' });
-    assert.match(result.stdout, /INFO:/);
-    assert.match(result.stdout, /AUXILIARY_REACHED/);
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+    const res = runCommand(['--project-root', root, '--profile', 'react-native']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    assert.equal(result.complete, false);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.match(main.reasons[0], /not admitted in D0/);
+    // Admitted auxiliary checks still ran…
+    assert.ok(result.checks.some(c => c.check === 'structured/d1-skills' && c.status === 'passed'));
+    // …and no base-runner scope was fabricated as a fallback.
+    assert.ok(!result.checks.some(c => c.check.startsWith('base/')), 'no base fallback scope');
+    assert.equal(result.runner, null);
+  } finally { disposeFixture(root); }
 });
-test('rule drift extractor preserves the full declared filename', () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'living-docs-test-'));
+
+// ─── Missing runner / unsupported bytes (kickoff §5 rows 5, 6, 9) ────────────
+
+test('missing delivered runner: main incomplete, auxiliaries still report (no empty-population PASS)', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base', { drop: 'scripts/audit-ai-docs.sh' });
   try {
-    mkdirSync(join(cwd, '.claude/rules'), { recursive: true });
-    writeFileSync(join(cwd, '.claude/rules/present.md'), '# Present');
-    writeFileSync(join(cwd, 'AGENTS.md'), 'Rule `.claude/rules/present.md` applies.\nRule `.claude/rules/missing.md` applies.\n');
-    const result = spawnSync('bash', ['-c', section('### Rules declared vs existing')], { cwd, encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout, "DRIFT: rule 'missing.md' declared but missing\n");
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.ok(result.checks.some(c => c.check === 'structured/d1-skills'), 'auxiliary checks still ran');
+  } finally { disposeFixture(root); }
 });
-test('unwritable log destination still runs helper and reaches auxiliary checks', () => {
-  const cwd = mkdtempSync(join(tmpdir(), 'living-docs-test-'));
+
+test('framework profile without its consumer script: honest incomplete, no cross-profile fallback', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('react-next', { drop: 'scripts/audit-ai-docs.react-next.sh' });
   try {
-    mkdirSync(join(cwd, 'scripts'));
-    writeFileSync(join(cwd, 'scripts/audit-ai-docs.sh'), 'echo helper-crash >&2\nexit 37\n');
-    const code = `SCRIPT=scripts/audit-ai-docs.sh\n${section('### Step 3: Run audit')}\nprintf 'CAPTURED_EXIT=%s\\n' "$EXIT"\necho AUXILIARY_REACHED\n`;
-    const result = spawnSync('bash', ['-c', code], { cwd, env: { ...process.env, TMPDIR: join(cwd, 'absent-directory') }, encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /helper-crash/);
-    assert.match(result.stdout, /CAPTURED_EXIT=37/);
-    assert.match(result.stdout, /AUXILIARY_REACHED/);
-  } finally { rmSync(cwd, { recursive: true, force: true }); }
+    const res = runCommand(['--project-root', root, '--profile', 'react-next']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.ok(!result.checks.some(c => c.check.startsWith('base/R') || c.check.startsWith('react-next/')), 'no fallback execution of another profile');
+  } finally { disposeFixture(root); }
 });
+
+test('one-byte-modified runner: unsupported/incomplete naming the mismatch, consumer bytes preserved', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  let before;
+  try {
+    const scriptPath = join(root, 'scripts/audit-ai-docs.sh');
+    writeFileSync(scriptPath, Buffer.concat([RUNNER_BYTES.base, Buffer.from('# x\n')])); // append → different sha256
+    before = readFileSync(scriptPath);
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.match(main.reasons.join(' '), /unsupported runner bytes/);
+    // bytes preserved in/out (hash in = hash out — never rewritten)
+    assert.deepEqual(readFileSync(scriptPath), before);
+    assert.equal(result.runner.admitted, false);
+  } finally { disposeFixture(root); }
+});
+
+// ─── R4 helper identity (kickoff §3 "the invoked R4 helper where applicable") ──
+
+test('delivered R4 helper with matching bytes: identity recorded and admitted, base scope still runs', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  try {
+    writeFileSync(join(root, 'scripts/audit-r4.ts'), R4_HELPER_BYTES);
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    const result = readResult(res);
+    assert.ok(result.r4Helper, 'helper admission recorded when scripts/audit-r4.ts is delivered');
+    assert.equal(result.r4Helper.admitted, true);
+    assert.equal(result.r4Helper.script, 'scripts/audit-r4.ts');
+    // The helper's presence must not gate the audit itself: the base scope ran.
+    assert.ok(result.checks.some(c => c.check === 'base/completion'), 'base scope ran');
+  } finally { disposeFixture(root); }
+});
+
+test('one-byte-modified R4 helper: unsupported/incomplete naming the helper, runner NOT executed, bytes preserved', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  let before;
+  try {
+    const helperPath = join(root, 'scripts/audit-r4.ts');
+    writeFileSync(helperPath, Buffer.concat([R4_HELPER_BYTES, Buffer.from('// x\n')])); // append → different sha256
+    before = readFileSync(helperPath);
+    const res = runCommand(['--project-root', root, '--profile', 'base']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    const main = result.checks.find(c => c.check === 'main');
+    assert.equal(main.status, 'incomplete');
+    assert.match(main.reasons.join(' '), /scripts\/audit-r4\.ts/);
+    // Refused BEFORE execution: running the base runner would `npx tsx` the unadmitted
+    // helper bytes — no base scope may exist.
+    assert.ok(!result.checks.some(c => c.check.startsWith('base/')), 'no base scope — helper refusal prevented the run');
+    assert.equal(result.r4Helper.admitted, false);
+    assert.deepEqual(readFileSync(helperPath), before);
+  } finally { disposeFixture(root); }
+});
+
+// ─── Bounded controls on the REAL runner (kickoff §5 row 11) ─────────────────
+
+test('tight --timeout-ms kills the real runner: error/incomplete, never a completed result', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  try {
+    // 1ms: bash spawn+exec alone exceeds the deadline, so the kill machinery
+    // fires deterministically mid-run; if a machine ever delivered the timer
+    // late enough for the runner to finish, this fails LOUDLY (never passes vacuously).
+    const res = runCommand(['--project-root', root, '--profile', 'base', '--timeout-ms', '1']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    assert.equal(result.complete, false);
+    assert.ok(
+      result.checks.some(c => c.status === 'error' || (c.status === 'incomplete' && /timed out|killed/.test(c.reasons.join(' ')))),
+      'timeout surfaced as error/incomplete with a kill reason',
+    );
+    assert.equal(result.process.timedOut, true);
+    assert.equal(result.process.killed, true);
+  } finally { disposeFixture(root); }
+});
+
+test('tiny --max-output-bytes overflows the real runner: error/incomplete, completion not proven', { timeout: 60_000 }, () => {
+  const root = buildCleanFixture('base');
+  try {
+    const res = runCommand(['--project-root', root, '--profile', 'base', '--max-output-bytes', '200']);
+    assert.equal(res.status, 2);
+    const result = readResult(res);
+    assert.equal(result.complete, false);
+    assert.equal(result.process.overflowed, true);
+    const completion = result.checks.find(c => c.check === 'base/completion');
+    assert.ok(completion.status === 'error' || completion.status === 'incomplete', 'completion not proven on truncated output');
+  } finally { disposeFixture(root); }
+});
+
+for (const profile of ['base', 'react-next', 'react-spa']) {
+  for (const debt of [false, true]) {
+    test(`actual role invocation executes installed ${profile} ${debt ? 'violation' : 'clean'} contract`, () => {
+      const root = buildCleanFixture(profile);
+      try {
+        deliverCommand(root);
+        if (debt) writeFileSync(join(root, 'AGENTS.md'), 'Use the skill `caller-missing`.\n');
+        assertRoleAuditResult(runRoleInvocation(root, profile), root, profile, debt);
+      } finally { disposeFixture(root); }
+    });
+  }
+}
+
+for (const closePipes of [false, true]) {
+  test(`timeout reaps a TERM-resistant owned-group child after leader exits (closed pipes=${closePipes})`, { skip: process.platform === 'win32', timeout: 12_000 }, async () => {
+    const root = buildCleanFixture('base');
+    let pid;
+    const alive = p => { try { process.kill(p, 0); return true; } catch { return false; } };
+    try {
+      writeFileSync(join(root, 'resistant.mjs'), `import fs from 'node:fs';\nprocess.on('SIGTERM', () => {});\nfs.writeFileSync('child.pid', String(process.pid));\nsetInterval(() => {}, 1000);\n`);
+      const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
+      const script = join(root, 'leader.sh');
+      writeFileSync(script, `trap 'exit 0' TERM\n${quote(process.execPath)} resistant.mjs ${closePipes ? '> /dev/null 2>&1' : ''} &\nwait\n`);
+      const result = await runBounded(script, root, 700, 16384);
+      pid = Number(readFileSync(join(root, 'child.pid'), 'utf8'));
+      assert.ok(Number.isSafeInteger(pid) && pid > 1, 'controlled child reached its PID marker');
+      assert.equal(result.timedOut, true);
+      assert.equal(result.killed, true);
+      for (let n = 0; n < 30 && alive(pid); n++) await new Promise(resolve => setTimeout(resolve, 10));
+      assert.equal(alive(pid), false, 'owned same-group descendant must be dead before timeout is reported complete');
+    } finally {
+      if (!pid) { try { pid = Number(readFileSync(join(root, 'child.pid'), 'utf8')); } catch {} }
+      if (Number.isSafeInteger(pid) && pid > 1 && alive(pid)) process.kill(pid, 'SIGKILL');
+      disposeFixture(root);
+    }
+  });
+}

@@ -130,7 +130,7 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
 - Harvest delivery: `docs/site/reference/B.json:161` to `:175` grades it
   factory-tier; `setup.d/lib.sh:65` includes it in `GETFF_SKILLS_FACTORY`;
   `setup.d/10-skills.sh:170` to `:181` copies the suite and its sweep script.
-  `setup.d/lib.sh:2741` to `:2752` names the consumer skill destination.
+  `setup.d/lib.sh:2745` to `:2756` names the consumer skill destination.
 - The gate-substitute the break-glass path mandates:
   `scripts/run-local-ci-sweep.sh`.
 - The promotion trigger and retirement criteria: `:44` and `:45`.

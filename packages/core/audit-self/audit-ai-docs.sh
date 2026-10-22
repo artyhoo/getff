@@ -25,6 +25,15 @@
 #   D5 Inverse enrollment        → probe_D5 (authoring repo only — consumer installs skip, see AUDIT_MODE)
 #   D6 Passport goal region      → probe_D6 (the consumer's own marked region — all modes; HO-4)
 #
+# Structured-drift external mode (--structured-drift-external, kickoff-d0 §3):
+#   omits exactly the legacy D1/D2 checks at the source — population level, NOT
+#   output filtering — because scripts/living-docs-audit.mjs fills those slots
+#   with the structured D1/D2 acquisition from audit-ai-docs.ts (the sole
+#   normative D1/D2 source for that command). The flag wins over --only=D1/D2:
+#   a legacy D1/D2 record emitted in external mode would be a contract error.
+#   Every other check (R4, D3-D6) keeps its behavior; invocation without the
+#   option is unchanged.
+#
 # Exit codes:
 #   0 — all probes PASS (WARN allowed)
 #   1 — at least one FAIL
@@ -50,10 +59,15 @@ pass() { echo -e "${GREEN}PASS${NC}: $1"; PASS_COUNT=$((PASS_COUNT + 1)); }
 fail() { echo -e "${RED}FAIL${NC}: $1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 warn() { echo -e "${YELLOW}WARN${NC}: $1"; WARN_COUNT=$((WARN_COUNT + 1)); }
 
-# Allow --only=R<N> or --only=D<N> to run a single probe (useful for negative testing)
+# Allow --only=R<N> or --only=D<N> to run a single probe (useful for negative testing).
+# --structured-drift-external omits legacy D1/D2 (see header) — it wins over --only.
 ONLY=""
+STRUCTURED_DRIFT_EXTERNAL=0
 for arg in "$@"; do
-  case "$arg" in --only=*) ONLY="${arg#--only=}" ;; esac
+  case "$arg" in
+    --only=*) ONLY="${arg#--only=}" ;;
+    --structured-drift-external) STRUCTURED_DRIFT_EXTERNAL=1 ;;
+  esac
 done
 
 skip_unless() {
@@ -104,8 +118,9 @@ fi
 
 # ────────────────────────────────────────────────────────────────────────
 # D1 — Skills declared in AGENTS.md exist in .claude/skills/
+# Omitted in --structured-drift-external mode (structured acquisition owns D1).
 # ────────────────────────────────────────────────────────────────────────
-if skip_unless D1; then : ; else
+if [ "$STRUCTURED_DRIFT_EXTERNAL" = "1" ] || skip_unless D1; then : ; else
   RULE="D1 (drift): skills declared in AGENTS.md exist on disk"
   if [ ! -f AGENTS.md ]; then
     warn "$RULE: AGENTS.md not found, skipping"
@@ -129,8 +144,9 @@ fi
 
 # ────────────────────────────────────────────────────────────────────────
 # D2 — No TODO / _comment in JSON configs
+# Omitted in --structured-drift-external mode (structured acquisition owns D2).
 # ────────────────────────────────────────────────────────────────────────
-if skip_unless D2; then : ; else
+if [ "$STRUCTURED_DRIFT_EXTERNAL" = "1" ] || skip_unless D2; then : ; else
   RULE="D2 (drift): no TODO/_comment in JSON configs"
   VIOL=$(grep -E "_comment|TODO|FIXME" \
     .mcp.json .claude/settings.json .ai-factory/*.json 2>/dev/null || true)
@@ -335,7 +351,9 @@ if skip_unless D5; then : ; else
     # tests/<suite>/receipts/) quote the phrase inside captured audit output —
     # data, not a downstream claim; editing them would falsify the record
     # (same rationale as FROZEN for triage-corpus).
-    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts|^docs/superpowers/plans/[^/]+\.receipts/|^tests/[^/]+/receipts/)'
+    # The exact generated self-auditor inlines this infrastructure's phrase; its
+    # source-to-bundle relation is checked by build-runtime-bundles --check.
+    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/living-docs-audit\.bundle\.mjs$|^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts|^docs/superpowers/plans/[^/]+\.receipts/|^tests/[^/]+/receipts/)'
     # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
     # it is the upstream authority, not a downstream consumer requiring drift-tracking.
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'

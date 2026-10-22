@@ -30,7 +30,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .agents/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .agents/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+f907bf5ee996365adfcfa83d679b9b7603253aabf17e021fc0656e31c402f9ba  .agents/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .agents/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .agents/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .agents/hooks/validate-prompt.sh
@@ -235,7 +235,7 @@ fb5bae69f9fa165339fd0b12436fcb1bb7d38744197b8178f1abcc464e7752aa  .agents/roles/
 055a8ae8c1eed9222a452841117ae3b587c76d510aa610a905de5cbce7cfcf8f  .agents/roles/dual-channel-drift-auditor/test_overlap.py
 861dd70156b9efde351125fd9c2d36c7526499140ddc052923ed2b635f1f5251  .agents/roles/fidelity-auditor.md
 ee67276bb959aa4f25fea044042c02ebb2724a2b47cbac989d116dd887416447  .agents/roles/getff-cold-run-prober.md
-2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .agents/roles/living-docs-auditor.md
+e113751e8eb9d7d76582d3f6dd3e4de7758df3803b61ba521becbb5699173fb8  .agents/roles/living-docs-auditor.md
 ef1705e5f8d0878b16662fe1145d610a555d508cb63712fa6d252019f3e958f2  .agents/roles/manual-rule-liveness-prober.md
 9038a0251517ac99e5e202976995072878742c9f4cd3dea75eaedae8d31af336  .agents/roles/memory-codification-auditor.md
 e2467fc49e336f420ee7aefe4ae201b12097b41b0749517ee2af79b04a7b9d79  .agents/roles/orchestrator-worker-discipline.md
@@ -309,7 +309,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .claude/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+f907bf5ee996365adfcfa83d679b9b7603253aabf17e021fc0656e31c402f9ba  .claude/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .claude/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .claude/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .claude/hooks/validate-prompt.sh
@@ -489,7 +489,7 @@ fd3d81ef3ec14253cea66b7c6660888e3a69f73767c4126eff43763535dd8d55  agents/docplan
 69d18064b01e884870566be4d95227a8ec10c00bce353ae247803f84b65bd586  agents/dual-channel-drift-auditor.md
 ed3b65487bfe540a066b9ff7a31c3ef66b5f6baea52013394268113ac5323b1c  agents/fidelity-auditor.md
 d72bb92dcb77fed090433c49765ce0e5c0322d4d706456f0fb1471025f0bc0c4  agents/getff-cold-run-prober.md
-7f2af5b774f87fb18fd97c13fa1cf65175ba70e53b3e0cb7cae19670fd2d608f  agents/living-docs-auditor.md
+1398b9c0ff7a3a0a11b554373332032af3c9d78566ac2c33c9674de39f1b729c  agents/living-docs-auditor.md
 41d5eff9910242297fb830e4418ab0f29e7e4a4669d9591f6499119971632be1  agents/manual-rule-liveness-prober.md
 50e81d324ed18ad8a300f3e06b64db1ba5b07e8bc9a79bcb135deea5fe15f9be  agents/memory-codification-auditor.md
 f766c9604057e98caba4ff185de46fcc0bf4cf373b337010507be6cd998c7496  agents/orchestrator-worker-discipline.md
@@ -560,13 +560,13 @@ cb4ca1f4e1cd75ea8002d27db36e67fe5d13e91e854f618fa15ff3ce67e4e36a  docs/site-qual
 ee81b6329d444d88823ad94018b22d14d212426391447f461f2f7452fc3771af  docs/site-quality/vale/styles/config/vocabularies/getff/accept.txt
 a16d904511fdfc7c4f38e142a1795b45080c9dd803619506b9acda251de7c8fb  docs/site-quality/vale/styles/getff/Names.yml
 79e50b333e8d32811b7cc84816fe25705d5162df30c1b7f8e01d8a884c0b71cd  docs/site/terms.md
-cd3a243d3e29f33c34e9206bd0672e7558347eab58c36b60e36bcca1200cef5a  install.sh
+f79150188ab8291cd07cb717d985f031e57dabc9d82ab6ad9bbad01b117059d2  install.sh
 2f32a499ce595ce5fee27a19014a4f8fd8f42b5069246419c5bc9b8a5615668d  packages/core/LICENSE
 58e2e49d2458af0b72d648b97537838c5bcc36ca0b5043905516006dd35c6f34  packages/core/README.md
-0a7cc68fe2f16c154d50b38f0f52f3735909aac28a78a074165b00766ea3a8c4  packages/core/audit-self/audit-ai-docs.sh
-3deba582283406268b15ba3992907de148da89bdb0c1733e17c7f415c358e581  packages/core/audit-self/audit-ai-docs.test.ts
-eebfea270a7517f224c4d8abef932dbd90cc7711d8ce7d6e027b5d66556f35ed  packages/core/audit-self/audit-ai-docs.ts
-acb770e01def3cff69a4435e20f81d535198ff3dddac6f7a646ee9251d309057  packages/core/audit-self/base-core-list.test.ts
+1ee030f89af6c50b484a222181a72cefc105a28c8556bdbb36955035bb889360  packages/core/audit-self/audit-ai-docs.sh
+16a1c6122b9ba77fe559dd43cab34e9060713856904837311ded31c91a7a9a81  packages/core/audit-self/audit-ai-docs.test.ts
+299910a427c88784a11a24c05b5641bed0d72138196a185e9f44fdee015d819f  packages/core/audit-self/audit-ai-docs.ts
+9f16b0086893a39c9d9966446df73eb1efe1ddde45f25b0e95c0e1d9a64cfdb1  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
 a31c7ad0b16499c8f0b776037abac8796572d7d30f77fdad42b758826d05f9b0  packages/core/audit-self/check-ci-pins.sh
@@ -619,6 +619,8 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  packages/core/audit-self/fixtures/ts-server/src/.gitkeep
 c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/audit-self/hooks-tree-guard.test.ts
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
+7b42ed40a56f87fff4a82fc413d6ae98f67aedd92a1eab73320384fc2c3b699a  packages/core/audit-self/living-docs-audit-cli.ts
+ea6f1e6126751f020d28e1030d654d610db424901a129577b66542d24ded0a0a  packages/core/audit-self/living-docs-audit.bundle.mjs
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 9559d33cbbb5f4ae693a3b97c16ad09f0cdcfc24e085729e0d5948618fe23fc3  packages/core/audit-self/pre-merge-local.sh
@@ -630,6 +632,7 @@ a5289d718996655e49e12bc617919dea93dd7d1c0b5aa580e9bbdce3396bbc89  packages/core/
 a6c6a7ef50a8ea31c9e81b1cff916a55a2d2faa38744baa1c63200868471c04b  packages/core/audit-self/run-armed.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
+185d644cc2d7f1959a9f1a4140dc6dcf1fcd5de3eca9df09ece2abdf560b397c  packages/core/audit-self/runner-identities.ts
 bbffc483cb46e4b49ddca4101a9f18498f93d661e64dd3a1ef16efad372598cb  packages/core/audit-self/template-render.audit.ts
 fb3443707511ba2c24d75b3fa00d7b43ef81d48f76a8e350b18233e1d977f659  packages/core/backends/astgrep/capability-matrix.json
 c49b01f2a05d1e7280c937bbc605bfd02e011acca16b94ab9b3f9d10d6bfbe7a  packages/core/backends/astgrep/capability-matrix.test.ts
@@ -1001,7 +1004,7 @@ ce16d7bd773db89bd5ac04d1b8c9d1a274c8fedeaa711b9c1db1a00601fa44c0  packages/core/
 71bff48867b75e5bf19e2096b5880ff6608f5459de70b0596a7ef214211d6d8a  packages/core/install/synth-and-wire.bundle.mjs
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
 d4dd9a3752ec27904583a7291490d8659421d1994a6de26878ddf1df89dad850  packages/core/install/tool-decisions-blocks-named.test.ts
-30d2ea12323e227988dc3e1e5b11bf1249c2778f35cae33df0730ead72cb9054  packages/core/install/wire-eslint-r2.test.ts
+32ff35cb154bb68ee3a6dd906db2d38b6441dc153f7e9fed29436b9f6447994c  packages/core/install/wire-eslint-r2.test.ts
 4545c04e66fd529d4c08e428fd303a1b5cd6a2dc6ee198f60be75ad00befda34  packages/core/install/wire-eslint-r2.ts
 d9b22cdd305e0d8af8f0dace2ae35d7c6115a8e3cd9b9536b773d0975950ab56  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
@@ -1025,7 +1028,7 @@ e5650392409441fdeb73093a1eadb698b747617d58bb12a43e779c894af8d138  packages/core/
 9ac59a882852b6cefc2ad19e1c77af95e1cc22374a4970a53c22c7751ecd2153  packages/core/manifest/rules-manifest.json
 54a6da19ee6c9210603d3828849b2f261f4e8fb885d3d7b8b5beda844b6226c3  packages/core/manifest/rules-manifest.schema.json
 2bf82793236b9115ae57813e1a0334c610c36a9702f5e4d34e403406e6839778  packages/core/package-lock.json
-d592ea104be227123adb0d058e9b690f4b215776664b1c9ff1634511269cd40c  packages/core/package.json
+5df29d7e8c71e22de9a0d84402e1b7b349405ce0fddaad380fdd020ebd74d913  packages/core/package.json
 8709ccba64e48e423f6e5bc727042f11890dfddeb560842639d873a3dd7dfe40  packages/core/principles/01-executable-check.test.ts
 8de3946404217ac6a4ce518ba66e795377f63233f5226a0dc60c6705b6d6adc7  packages/core/principles/02-paired-negative-test.test.ts
 273485edd8b562d802ed3aef7a7c867d3df983e4928f176e9b83820e63a89db4  packages/core/principles/03-ast-over-grep.test.ts
@@ -1077,7 +1080,7 @@ ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 229ed1d93fa7d08bfe31e0cf6ee71f5b6733eba60a12e03a70f412d36d01dc4d  packages/core/principles/37-required-context-completeness.test.ts
 3a63d0fcaedac75fb72ec9ce2c82604ba2b08f6c21cd56475fe105c07d6e10ae  packages/core/principles/38-vitest-include-ci-coverage.test.ts
-baa75c84ea0382e2f5f7b8babde4009bf524682020952a84bc6610e9c074d600  packages/core/principles/39-skill-fence-orch-home.test.ts
+bd212b3bddc7872be61b124dd55dc0d0d1cfb39d6a4b34a83ce58678cd0e4750  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
 276e4d8f6262a67386b04d40934689876250d1e0fdb5f4a615ace0c8c414e97c  packages/core/principles/42-context-md-pointer-rule.test.ts
@@ -1446,7 +1449,7 @@ a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/
 dda4a4a8cf5ab15602457d5184634247f9217437458cb3c4cadf4872918f2893  packages/core/vitest.setup.ts
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  packages/preset-next-15-canonical/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md
-288103356341825ec7a54e19529eeb1af41dc0050406244858c6873d852ea554  packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
+9abb2234352bb0e51cd73b51be3aca2a792938fd3dd3389e95e6351dae1a9ad6  packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
 5d95dc9596ef77270a5595f8810f2a721d872904545f17b43aac7c80d1b9aba8  packages/preset-next-15-canonical/eslint-rules/index.ts
 595f854bf84368a42fd8400ec010e2c339dfbf396a4954f9beab603b1d9d7d61  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.d.ts
 cf76ec897d5e4c203903db7d7a83e726e31a7a172ace2891515fe0c67b7a2add  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs
@@ -1478,7 +1481,7 @@ f41e2b93522d5054f381c11be20ec64ff1fb7e1e8c8b13531a06ec4f8eafc3d3  packages/prese
 46c0924c654afc60af706465e2715a7979a1d195805189e9bdc57a51d6b8c0df  packages/preset-react-native/vitest.config.ts
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  packages/preset-react-spa/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  packages/preset-react-spa/RULES.react-spa.md
-70bd13392e7f2d9950b2f15936b6239f770c4adc20bb8b09f7fe15a699cab9b0  packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh
+fddd6dba848b1dffc80ca9437f502a4ddba6db2986ffc86ce1725f5701967ec0  packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh
 b31721a5b5e8299b7fa038e1deed6bfa12381adfd4d212f911668b5cbc00661a  packages/preset-react-spa/eslint-rules/index.ts
 192dec12ebe838c652e3a50b8d6b2793bbc7a6bad2412b7ac4aa942805bf93e1  packages/preset-react-spa/package.json
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md
@@ -1597,7 +1600,7 @@ cffa210cabbc0b8df9ac7760ac96e8710d7ae3062e1574eaa1e33323d3019aee  setup.d/05-mcp
 b258076ec240fd992106821d90d4cc53f926a81bbbe3dcea86d2288952254a9a  setup.d/20-agents.sh
 68327b97957dc33d29b396861cd26eb780803397ca1273535c67a31a0bdfc260  setup.d/30-templates.sh
 39a3356d462531a33538ce9542840bdb38ce324c872fea75830081d8c24cd628  setup.d/35-stack-tools.sh
-6fbda6e4610d948c938ea24f3fbd31a1fa5623b148d1db90c44fefbae803e9fe  setup.d/40-configs.sh
+a072c4a5f83011b5c1eacd4507416ced19830f55d817afa4f3733a7803f92f5b  setup.d/40-configs.sh
 9e4c6f1dbd149d35a5ab56096b971d98440dd9f1e542037626db5aaea29a3ac1  setup.d/45-python.sh
 0f99d05e1f203b8ac82417f024dfbd3372f888031823c1954e7848b39a6bd156  setup.d/46-cargo.sh
 7e09d6cf9895b05bb0f14cb315996f03089ffad0ff8d9cf48808a1742e607111  setup.d/47-go.sh
@@ -1615,11 +1618,11 @@ bbfe8390b0ee343076d18e1769691177712168c23802cc945d635d56d36355dc  setup.d/99-fin
 2c01e6243d17f5f55e03cba81d3a98e4e3ddc24872ed1f8fe5e1390de4636d78  setup.d/companions.manifest
 e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine.sh
 ca8c469eddce8a7b94615011058496849ea887f6cfe049fc8b55577722f98cd5  setup.d/eslint-wire.sh
-3ce99cf925b817c7db49bf9e19116b8df8f25b7a26b2a4b5b8cb6f96d81ad1c0  setup.d/lib.sh
+3f0411125d76a6e5200ea24aabe1f9e5ef2992599e6538e02818bef73e091ee7  setup.d/lib.sh
 8ca5a29376206ab1a171157c45b0e7511329f2e755df862f0e3c5e419fe5b2f3  setup.d/portable-bindings.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
-aa4b2dd59e7906752412115aa1015ee986986445b71e2cc08752a236edf55f56  setup.d/ships.manifest
+4ab3269d70b40dda6ea9276b36e1f0811448433b46420340b9dae2d4a88e04ea  setup.d/ships.manifest
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 8a5df277df2e008562692ed217ae59c21ebb48cbe4792e2f1cc17dd1913aa891  skills/getff/SKILL.md
 1ead838276294a19090b9a19d726ccf2681961e91d14e485457142f2336123f7  skills/getff/references/ai-traps.md
