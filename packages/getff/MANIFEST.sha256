@@ -30,7 +30,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .agents/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .agents/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .agents/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .agents/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .agents/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .agents/hooks/validate-prompt.sh
@@ -309,7 +309,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .claude/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .claude/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .claude/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .claude/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .claude/hooks/validate-prompt.sh
