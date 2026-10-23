@@ -483,13 +483,20 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
   else
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it (additions only; the original is kept if anything changes)"
     _own_args=( --own-config --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$_root_eslint" )
-    while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --ignore "$_g" ); done < <(_own_eslint_ignores)
+    _own_ignore_file=""
+    if _own_ignore_file=$(mktemp "${TMPDIR:-/tmp}/getff-own-ignores.XXXXXX") \
+       && _own_eslint_ignores > "$_own_ignore_file"; then
+      _own_args+=( --ignore-file "$_own_ignore_file" )
+    else
+      note_not_wired "portable payload ignores in $_root_eslint — could not prepare the additive writer's path file"
+    fi
     while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --r2-boundary "$_g" ); done <<< "${_r2_own_globs:-}"
     [ -f "$_synth_live_snippet" ] && _own_args+=( --snippet "$_synth_live_snippet" )
     _own_snap=""
     if [ "$DRY_RUN" != "--dry-run" ]; then _own_snap=$(keep_original_snapshot "$PROJECT_ROOT/$_root_eslint") || _own_snap=""; fi
     _own_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
         node "$_synth_wirer" "${_own_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
+    [ -z "$_own_ignore_file" ] || rm -f "$_own_ignore_file"
     printf '%s\n' "$_own_out"
     # settle rc 1: the original could not be kept aside, so the write was undone (its warning above).
     _own_undone=0
@@ -557,13 +564,16 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
     # Generic has no preset rules; an owned empty snippet contributes no live
     # rules, and absent boundary arguments leave R2 unchanged.
     if [ -n "$_root_getff" ]; then
+      _portable_ignore_file=""
       if _portable_ignore_snippet=$(mktemp "${TMPDIR:-/tmp}/getff-ignore-only.XXXXXX") \
-         && printf '{}\n' > "$_portable_ignore_snippet"; then
+         && printf '{}\n' > "$_portable_ignore_snippet" \
+         && _portable_ignore_file=$(mktemp "${TMPDIR:-/tmp}/getff-ignores.XXXXXX") \
+         && getff_portable_owned_paths > "$_portable_ignore_file"; then
         _portable_ignore_args=( --own-config --stack generic --snippet "$_portable_ignore_snippet" --path "$PROJECT_ROOT/eslint.config.mjs" )
-        while IFS= read -r _g; do [ -n "$_g" ] && _portable_ignore_args+=( --ignore "$_g" ); done < <(getff_portable_owned_paths)
+        _portable_ignore_args+=( --ignore-file "$_portable_ignore_file" )
         _portable_ignore_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \
             node "$_synth_wirer" "${_portable_ignore_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _portable_ignore_rc=0 || _portable_ignore_rc=$?
-        rm -f "$_portable_ignore_snippet"
+        rm -f "$_portable_ignore_snippet" "$_portable_ignore_file"
         printf '%s\n' "$_portable_ignore_out"
         if [ "$_portable_ignore_rc" -ne 0 ]; then
           note_not_wired "portable payload ignores in eslint.config.mjs — additive writer exited $_portable_ignore_rc (reason printed above)"
@@ -571,7 +581,8 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
         refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
       else
         [ -z "${_portable_ignore_snippet:-}" ] || rm -f "$_portable_ignore_snippet"
-        note_not_wired "portable payload ignores in eslint.config.mjs — could not prepare an empty snippet for the additive writer"
+        [ -z "$_portable_ignore_file" ] || rm -f "$_portable_ignore_file"
+        note_not_wired "portable payload ignores in eslint.config.mjs — could not prepare the additive writer's input files"
       fi
     fi
     _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" GETFF_AST_TOOLS_ROOT="${_GETFF_AST_TOOLS_ROOT:-}" NODE_PATH="${_GETFF_TS_MORPH_NODE_PATH-${NODE_PATH:-}}" \

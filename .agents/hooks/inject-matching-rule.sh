@@ -154,7 +154,8 @@ fi
 # (the Read and event arms run on every call). No writable TMPDIR → inject every time.
 first_time() {
   [[ -z "$CACHE_ROOT" ]] && return 0
-  mkdir -p "$CACHE_ROOT" 2>/dev/null || { CACHE_ROOT=""; return 0; }
+  # A concurrent creator may have prepared the root even when mkdir reports failure.
+  mkdir -p "$CACHE_ROOT" 2>/dev/null || [[ -d "$CACHE_ROOT" ]] || { CACHE_ROOT=""; return 0; }
   mkdir "$CACHE_ROOT/$1" 2>/dev/null
 }
 

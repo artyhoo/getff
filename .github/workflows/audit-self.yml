@@ -1021,7 +1021,7 @@ jobs:
       - name: Run install-sh delivered-prettier conformance test (GH #1378/#1377 — post-transform delivery shape)
         run: bash tests/install-sh/delivered-prettier-conformance.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
-        run: bash tests/install-sh/cic-s3-dep-install.test.sh
+        run: bash tests/install-sh/cic-s3-dep-install.test.sh && bash tests/install-sh/vitest-plugin-typescript-compat.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
         run: bash tests/install-sh/r2-glob-reach.test.sh
       - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
@@ -1047,7 +1047,7 @@ jobs:
       - name: "install-sh — refresh-dir-payload-ownership (ledger L-4: directory payloads walk per file through the divergence guard; deletion is manifest-scoped)"
         run: bash tests/install-sh/refresh-dir-payload-ownership.test.sh
       - name: "install-sh — refresh-baseline-survives-early-exit (ledger A1-2: flush on every exit path + weak staging of skipped files)"
-        run: bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh
+        run: bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh && bash tests/install-sh/native-argv-budget.test.sh
       - name: "install-sh — eslint-rule-prune-by-manifest (ledger L-5: rule ownership from the delivery manifest, not a basename collision)"
         run: bash tests/install-sh/eslint-rule-prune-by-manifest.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
