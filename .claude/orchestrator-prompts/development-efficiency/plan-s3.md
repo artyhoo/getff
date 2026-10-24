@@ -82,6 +82,25 @@ No installer baseline population/fingerprint representation change is intended. 
 generated paths stop for scope reconciliation before staging. Preserve index versus
 working-tree identity and independent archive comparison; keep the manifest tracked.
 
+### Final-floor citation closure (scope review required before application)
+
+The final self-audit at `d2abe905be12016c1ed9c81c298ce2db5434fb7f` found two
+recoverable locators moved by this slice. Admit only the generator's numeric corrections:
+`.agents/rules/reviewer-discipline.md` locator `execution.md:200` to `:209`, and
+`packages/core/skills/dispatcher/monitor.test.ts` locator `aifWsStatus.ts:83` to `:169`.
+No rule, review budget, executable assertion or authority changes. These are causal source
+reference repairs under kickoff-s3 item2, not a new enforcement capability or foreign edit.
+
+After independent narrow scope/patch GO, use the existing writer:
+`node scripts/check-line-citations.mjs --write .agents/rules/reviewer-discipline.md packages/core/skills/dispatcher/monitor.test.ts`.
+Require exact equality to the reviewed two-locator patch, check those files with the same
+helper's `--check`, and run `npx --no-install vitest run packages/core/skills/dispatcher/monitor.test.ts`.
+Regenerate the same tracked package manifest and re-enter self-audit at its failed citation
+gate, followed by the remaining required gates. Reuse unchanged runtime/vendor and actual
+installed-backend acceptance; the citation patch changes neither their code nor assertions.
+The original plan and both CODE verdicts remain inspectable; this amendment requires its
+own immutable scope review and a final content-bound FIDELITY verdict before egress.
+
 ## Result and authority rules
 
 Reuse TaskResult, TaskStatus and HarvestResult rather than a new result store. Add narrow
