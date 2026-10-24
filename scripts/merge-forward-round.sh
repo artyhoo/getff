@@ -265,7 +265,7 @@ provision_node() {
 round() { # one full round; sets PUSHED_SHA on a successful push; returns the round's exit code
   local meta state tip mergeable mstate unmerged p newsha
   local generated="" semantic="" body_file="" body_out="" body_rc=0 body_state="unreadable"
-  local compare_out="" tests="" pr_files=""
+  local compare_out="" compare_rc=0 tests="" pr_files=""
 
   meta=$(ghp view "$PR" --json state,headRefName,headRefOid,mergeable,mergeStateStatus \
     -q '[.state, .headRefName, .headRefOid, .mergeable, (.mergeStateStatus // "")] | @tsv' 2>/dev/null) ||
@@ -445,17 +445,16 @@ EOF
   # §2 step 8 — verify.
   if grep -q '^tests/install-sh/baselines/' <<<"$generated"; then
     plan "(cd <scratch> && SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh)"
-    compare_out=$(cd "$SCRATCH" && SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh 2>&1) || true
+    compare_out=$(cd "$SCRATCH" && SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh 2>&1) || compare_rc=$?
     printf '%s\n' "$compare_out" | grep '^Result:' || true
-    case "$compare_out" in
-      *"0 fail"*) : ;;
-      *)
-        printf '%s\n' "$compare_out" | tail -5
-        SCRATCH_PARK=1
-        verdict "PARKED-VERIFY" "pr=$PR step=snapshot-compare — not 'N pass / 0 fail'; state kept in $SCRATCH"
-        return 5
-        ;;
-    esac
+    # This invocation selects the default full matrix. A summary cannot override
+    # a child failure or certify an empty/partial population as full acceptance.
+    if [ "$compare_rc" -ne 0 ] || ! grep -qx 'Result: 15 pass / 0 fail' <<<"$compare_out"; then
+      printf '%s\n' "$compare_out"
+      SCRATCH_PARK=1
+      verdict "PARKED-VERIFY" "pr=$PR step=snapshot-compare exit=$compare_rc — requires successful full15 result; state kept in $SCRATCH"
+      return 5
+    fi
   fi
   if grep -q '^packages/getff/MANIFEST.sha256$' <<<"$generated"; then
     plan "(cd <scratch> && bash scripts/build-getff-dist.sh --check)"

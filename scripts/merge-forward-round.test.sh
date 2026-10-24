@@ -224,6 +224,87 @@ fi
 expect_sweep 2 "sweep without arguments is a usage error" "needs a scratch worktree directory" --sweep
 expect_sweep 2 "sweep with one argument is a usage error" "needs a target ref" --sweep "$SWEEP_ROOT/scratch"
 
+# Actual round verification: real local Git conflict/regeneration/commit, with
+# GitHub metadata and snapshot child outcomes controlled at the external boundaries.
+# Removing the exit check, anchoring or full-population check must flip a case below.
+ROUND_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/mfr-test-snapshot-XXXXXX")
+mkdir -p "$ROUND_ROOT/bin" "$ROUND_ROOT/repo/tests/install-sh/baselines"
+cat > "$ROUND_ROOT/bin/gh" <<'GH'
+#!/usr/bin/env bash
+case "$*" in
+  *headRefOid*) printf 'OPEN\ttopic\t%s\tCONFLICTING\tDIRTY\n' "$MFR_TIP" ;;
+  *files*|*body*) : ;;
+  *) echo 'unexpected gh fixture call' >&2; exit 97 ;;
+esac
+GH
+chmod +x "$ROUND_ROOT/bin/gh"
+cat > "$ROUND_ROOT/repo/tests/install-sh/snapshot.sh" <<'SNAPSHOT'
+#!/usr/bin/env bash
+if [ "$SNAPSHOT_MODE" = capture ]; then
+  printf 'regenerated\n' > tests/install-sh/baselines/cell.fingerprint
+  exit 0
+fi
+printf 'retained early snapshot diagnostic\n' >&2
+for n in 1 2 3 4 5 6; do printf 'snapshot detail %s\n' "$n"; done
+case "$MFR_SNAPSHOT_CASE" in
+  failed-exit) printf 'Result: 15 pass / 0 fail\n'; exit 42 ;;
+  failed-summary) printf 'Result: 5 pass / 10 fail\n' ;;
+  missing-summary) printf 'diagnostic mentions 0 fail without a result\n' ;;
+  empty-population) printf 'Result: 0 pass / 0 fail\n' ;;
+  partial-population) printf 'Result: 1 pass / 0 fail\n' ;;
+  restored) printf 'Result: 15 pass / 0 fail\n' ;;
+  *) exit 98 ;;
+esac
+SNAPSHOT
+# All writes and pushes below are confined to this disposable fixture repository.
+(
+  set -e
+  git init -q --bare "$ROUND_ROOT/remote.git"
+  git init -q "$ROUND_ROOT/repo"
+  git -C "$ROUND_ROOT/repo" config user.email snapshot@test
+  git -C "$ROUND_ROOT/repo" config user.name snapshot
+  git -C "$ROUND_ROOT/repo" checkout -qb staging
+  printf 'original\n' > "$ROUND_ROOT/repo/tests/install-sh/baselines/cell.fingerprint"
+  git -C "$ROUND_ROOT/repo" add .
+  git -C "$ROUND_ROOT/repo" commit -qm initial
+  git -C "$ROUND_ROOT/repo" checkout -qb topic
+  printf 'topic\n' > "$ROUND_ROOT/repo/tests/install-sh/baselines/cell.fingerprint"
+  git -C "$ROUND_ROOT/repo" commit -qam topic
+  git -C "$ROUND_ROOT/repo" checkout -q staging
+  printf 'staging\n' > "$ROUND_ROOT/repo/tests/install-sh/baselines/cell.fingerprint"
+  git -C "$ROUND_ROOT/repo" commit -qam staging
+  git -C "$ROUND_ROOT/repo" remote add origin "$ROUND_ROOT/remote.git"
+  git -C "$ROUND_ROOT/repo" push -q origin staging topic
+)
+setup_rc=$?
+if [ "$setup_rc" -ne 0 ]; then
+  report 0 "snapshot round fixture setup succeeds" "rc=$setup_rc"
+else
+  tip=$(git -C "$ROUND_ROOT/repo" rev-parse topic)
+  for scenario in failed-exit failed-summary missing-summary empty-population partial-population restored; do
+    mkdir -p "$ROUND_ROOT/$scenario"
+    out=$(cd "$ROUND_ROOT/repo" && PATH="$ROUND_ROOT/bin:$PATH" TMPDIR="$ROUND_ROOT/$scenario" MFR_TIP="$tip" MFR_SNAPSHOT_CASE="$scenario" bash "$SUT" 731 --repo fixture/getff --park 2>&1)
+    rc=$?
+    if [ "$scenario" = restored ]; then
+      if [ "$rc" -eq 0 ] && grep -q 'VERDICT: PARKED-OK' <<<"$out"; then
+        report 1 "restored snapshot reaches normal round completion"
+      else
+        report 0 "restored snapshot reaches normal round completion" "rc=$rc; $out"
+      fi
+    elif [ "$rc" -eq 5 ] && grep -q 'VERDICT: PARKED-VERIFY.*step=snapshot-compare' <<<"$out" && grep -q 'retained early snapshot diagnostic' <<<"$out"; then
+      report 1 "snapshot $scenario parks the actual round and retains early diagnostics"
+    else
+      report 0 "snapshot $scenario parks the actual round and retains early diagnostics" "rc=$rc; $out"
+    fi
+    if [ "$(git --git-dir="$ROUND_ROOT/remote.git" rev-parse topic)" = "$tip" ]; then
+      report 1 "snapshot $scenario does not change the fixture remote"
+    else
+      report 0 "snapshot $scenario changed the fixture remote"
+    fi
+  done
+fi
+rm -rf "$ROUND_ROOT"
+
 # ── the repo's own portability gate over the script under test ───────────────────
 if B32_OUT=$(bash "$HERE/check-bash32.sh" "$SUT" 2>&1); then
   PASS=$((PASS + 1))

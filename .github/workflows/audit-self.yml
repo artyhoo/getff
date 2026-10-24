@@ -1204,6 +1204,8 @@ jobs:
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
         run: SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh
+      - name: "install-sh — snapshot selection, import and failure contracts"
+        run: bash tests/install-sh/snapshot-runner.test.sh
       - name: "install-sh — packaged-terms navigation: archive install projects framework-terms links, fragments/ownership/dry-run intact (PR 2099 packaged-navigation defect)"
         run: bash tests/install-sh/packaged-terms-navigation.test.sh
       - name: "install-sh — mcp-layer empirical test (S2: .mcp.json shape + kind=mcp + D2 gate)"
