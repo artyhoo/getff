@@ -1095,7 +1095,7 @@ d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
 bfaa8855dd9c6d4131efea39fcef551e9bebdd98103906c57057378411bf5645  packages/core/principles/49-executor-tier-parity.test.ts
 cf9cd533aa3c34dd328c380375d1b60cbf71e489b5312e0a8dd25cec99b3deb7  packages/core/principles/50-cold-seat-inputs-ref.test.ts
-3bd4a595996f1e859de1a63ad6fbc63f3376148d042fd4fc662aed255d0a4473  packages/core/principles/50-install-rc-asserted.baseline.json
+1976df31b8d8043943fe98538e47afdc3bd7572c00540ce0486c3c6e2f5405c1  packages/core/principles/50-install-rc-asserted.baseline.json
 09bf141281b2a42fda1768e8a0139747ea1d5a0684c81801dc78d85b3d56c4ef  packages/core/principles/50-install-rc-asserted.test.ts
 481bccb8b309731b99abcbb45d1d332e11b4cce60af9b9a2716353977715ae6b  packages/core/principles/50-install-rc-asserted.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
