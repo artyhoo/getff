@@ -174,7 +174,8 @@ export function describeAifTask(
     ? 'parked'
     : task.paused
       ? 'paused'
-      : ADVERSE_ADVISORY.test(task.reviewComments ?? '')
+      : TERMINAL_SUCCESS_STATUSES.has(task.status) &&
+          ADVERSE_ADVISORY.test(task.reviewComments ?? '')
         ? 'advisory'
         : !known.has(task.status)
           ? 'unknown-status'

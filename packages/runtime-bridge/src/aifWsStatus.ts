@@ -107,7 +107,7 @@ export function describeAifTask(
   // string-only checks treat null as absence; normalize that one input without a fork.
   const parkInput = { ...task, reviewComments: task.reviewComments ?? undefined };
   const held: AifResultMetadata['held'] = isParked(parkInput) ? 'parked' : task.paused ? 'paused'
-    : ADVERSE_ADVISORY.test(task.reviewComments ?? '') ? 'advisory' : !known.has(task.status) ? 'unknown-status' : null;
+    : TERMINAL_SUCCESS_STATUSES.has(task.status) && ADVERSE_ADVISORY.test(task.reviewComments ?? '') ? 'advisory' : !known.has(task.status) ? 'unknown-status' : null;
   const terminal = TERMINAL_SUCCESS_STATUSES.has(task.status);
   const reason = held === 'parked' ? parkedReason(parkInput) : held === 'paused' ? 'Task is intentionally paused'
     : held === 'advisory' ? 'Existing adverse review advisory requires source reconciliation'

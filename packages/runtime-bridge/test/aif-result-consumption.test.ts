@@ -170,6 +170,13 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     expect(JSON.parse(r.stdout).meta).toMatchObject({ candidate: { commitSha: null }, attempt: null, nextAction: { ownerReference: null, state: 'pending' }, acceptance: 'unverified' });
   });
 
+  it('an admitted repair in progress is not blocked by its previous review advisory', async () => {
+    task = { ...baseTask, status: 'implementing', reviewComments: 'BLOCKER-7: apply the specified correction' };
+    const r = await run(tsx, ['packages/runtime-bridge/src/cli/await.ts', 's3-task', '--once']);
+    expect(r.code, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout)).toMatchObject({ status: 'running', rawStatus: 'implementing', meta: { held: null, nextAction: { kind: 'observe' } } });
+  });
+
   it.each([
     ['wrong task', { ...baseTask, id: 'other-task' }, 200],
     ['malformed flag', { ...baseTask, paused: 'false' }, 200],
