@@ -49,8 +49,189 @@
  */
 import { WebSocket } from 'node:http';
 import { appendFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { BackendError } from './backend.js';
-import { getJson } from './cli/aifHttp.js';
+import { getJson, type AifTaskFull } from './cli/aifHttp.js';
+import { isParked, parkedReason } from './cli/questions.js';
+import type { TaskResult } from './types.js';
+
+/** Preserve the old CLI's adverse signal. It requests reconciliation, never approval. */
+const ADVERSE_ADVISORY =
+  /zero code|should be .{0,12}blocked|as .{0,8}['"]?blocked|treat .{0,40}blocked|BLOCKER-\d/i;
+
+export interface AifResultMetadata extends Record<string, unknown> {
+  taskId: string;
+  resultGeneration: string;
+  candidate: { branch: string | null; commitSha: string | null };
+  sessionId: string | null;
+  attempt: null;
+  reviewIteration: number | null;
+  acceptance: 'unverified';
+  held: 'parked' | 'paused' | 'advisory' | 'unknown-status' | null;
+  source: string;
+  nextAction: {
+    kind: 'reconcile' | 'review' | 'observe';
+    state: 'pending';
+    ownerReference: string | null;
+    prerequisite: string;
+    returnCondition: string;
+  };
+}
+
+/** A bounded observation of the existing task record, not a new review/authority record. */
+export function describeAifTask(
+  task: AifTaskFull,
+  expectedTaskId: string,
+  ownerReference: string | null = process.env[
+    'RUNTIME_BRIDGE_RESULT_OWNER'
+  ]?.trim() || null,
+): TaskResult & { meta: AifResultMetadata } {
+  const invalid = () =>
+    new BackendError(
+      `invalid task detail for ${expectedTaskId}; reconcile the authoritative record`,
+      'unavailable',
+      'aif-handoff',
+    );
+  if (
+    !task ||
+    task.id !== expectedTaskId ||
+    typeof task.title !== 'string' ||
+    typeof task.status !== 'string'
+  )
+    throw invalid();
+  for (const key of ['paused', 'manualReviewRequired'] as const) {
+    if (task[key] !== undefined && typeof task[key] !== 'boolean')
+      throw invalid();
+  }
+  for (const key of [
+    'branchName',
+    'commitSha',
+    'sessionId',
+    'reviewComments',
+    'implementationLog',
+    'blockedReason',
+    'plan',
+    'description',
+  ] as const) {
+    if (task[key] != null && typeof task[key] !== 'string') throw invalid();
+  }
+  if (
+    task.reviewIterationCount !== undefined &&
+    (!Number.isSafeInteger(task.reviewIterationCount) ||
+      task.reviewIterationCount < 0)
+  )
+    throw invalid();
+  if (
+    task.commitSha != null &&
+    !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(task.commitSha)
+  )
+    throw invalid();
+  const hash = (value: string) =>
+    createHash('sha256').update(value).digest('hex');
+  const candidate = {
+    branch: task.branchName ?? null,
+    commitSha: task.commitSha ?? null,
+  };
+  const generation = hash(
+    JSON.stringify({
+      taskId: task.id,
+      status: task.status,
+      candidate,
+      sessionId: task.sessionId ?? null,
+      reviewIteration: task.reviewIterationCount ?? null,
+      executionOwner: task.executionOwner ?? null,
+      ownershipRevision: task.ownershipRevision ?? null,
+      paused: task.paused ?? null,
+      manualReviewRequired: task.manualReviewRequired ?? null,
+      blockedReason: task.blockedReason ?? null,
+      ...Object.fromEntries(
+        ['description', 'plan', 'implementationLog', 'reviewComments'].map(
+          (key) => [
+            key,
+            hash((task as unknown as Record<string, string>)[key] ?? ''),
+          ],
+        ),
+      ),
+    }),
+  );
+  const known = new Set([
+    'backlog',
+    'planning',
+    'plan_ready',
+    'implementing',
+    'review',
+    'done',
+    'verified',
+    'blocked_external',
+  ]);
+  // The existing question reader's type predates nullable API reviewComments. Its
+  // string-only checks treat null as absence; normalize that one input without a fork.
+  const parkInput = {
+    ...task,
+    reviewComments: task.reviewComments ?? undefined,
+  };
+  const held: AifResultMetadata['held'] = isParked(parkInput)
+    ? 'parked'
+    : task.paused
+      ? 'paused'
+      : ADVERSE_ADVISORY.test(task.reviewComments ?? '')
+        ? 'advisory'
+        : !known.has(task.status)
+          ? 'unknown-status'
+          : null;
+  const terminal = TERMINAL_SUCCESS_STATUSES.has(task.status);
+  const reason =
+    held === 'parked'
+      ? parkedReason(parkInput)
+      : held === 'paused'
+        ? 'Task is intentionally paused'
+        : held === 'advisory'
+          ? 'Existing adverse review advisory requires source reconciliation'
+          : held === 'unknown-status'
+            ? 'Unrecognized lifecycle status requires source reconciliation'
+            : terminal
+              ? 'Independent same-candidate acceptance and authorized delivery remain unverified'
+              : 'Observe the existing execution owner; do not launch a duplicate';
+  return {
+    success: terminal && held === null,
+    content: [task.blockedReason, task.reviewComments]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 4000),
+    finalStatus: task.status,
+    // This is an observation time, not evidence that acceptance or delivery occurred.
+    completedAt: new Date().toISOString(),
+    meta: {
+      taskId: task.id,
+      resultGeneration: generation,
+      candidate,
+      sessionId: task.sessionId ?? null,
+      attempt: null,
+      reviewIteration: task.reviewIterationCount ?? null,
+      acceptance: 'unverified',
+      held,
+      source: `/tasks/${encodeURIComponent(task.id)}`,
+      nextAction: {
+        kind: held ? 'reconcile' : terminal ? 'review' : 'observe',
+        state: 'pending',
+        ownerReference,
+        prerequisite: `${ownerReference ? '' : 'Bind an accountable reader/recipient. '}${reason}`,
+        returnCondition:
+          'Re-read this task and bind its candidate/result generation to the applicable authority before acting.',
+      },
+    },
+  };
+}
+
+/** Full REST detail must be consumed before a terminal signal is reported as a result. */
+export async function readAifTaskResult(taskId: string, apiBaseUrl: string) {
+  const task = await getJson(
+    apiBaseUrl,
+    `/tasks/${encodeURIComponent(taskId)}`,
+    { timeoutMs: 5000, notFoundCode: 'unavailable' },
+  );
+  return describeAifTask(task as AifTaskFull, taskId);
+}
 
 /** The shape of aif-handoff's task:updated broadcast payload. */
 interface AifTaskBroadcastPayload {

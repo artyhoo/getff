@@ -110,6 +110,7 @@ import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { getJson, getProjects, getTask, getParticipantsModeEnabled, postJson } from './aifHttp.js';
 import { isManualReviewPark, MERGE_REPORT_PREFIX, postComment, postEvent } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
+import { describeAifTask } from '../aifWsStatus.js';
 import {
   bundleFileName,
   channelAFallbackCommands,
@@ -1556,6 +1557,8 @@ async function main(): Promise<void> {
   let checkout: (() => string) | undefined;
   try {
     task = await getTask(baseUrl, args.taskId);
+    // Bind the HTTP detail to the requested task before deriving any branch/effect.
+    describeAifTask(task, args.taskId);
 
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
@@ -1581,6 +1584,11 @@ async function main(): Promise<void> {
       },
       deps,
     );
+    if (res.pendingAction) {
+      process.stdout.write(JSON.stringify(res) + '\n');
+      process.stderr.write(`[harvest] HELD: ${res.pendingAction.prerequisite}. No egress performed; retain this task/result and its pending owner before continuation.\n`);
+      process.exit(2);
+    }
     if (res.needsFileConfirm) {
       // Affected-files divergence guard (2026-07-17 gap): the task touched file(s) aif's
       // review-gate never self-reported, so the gate never reviewed them. Held deliberately

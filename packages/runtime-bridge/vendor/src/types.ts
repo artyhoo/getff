@@ -60,13 +60,15 @@ export interface TaskStatus {
   readonly rawStatus?: string;
   /** ISO timestamp of last status check. */
   readonly checkedAt: string;
+  /** Backend result observation, including pending ownership; never publication authority. */
+  readonly meta?: Record<string, unknown>;
 }
 
 /**
  * Final outcome of an awaited task.
  */
 export interface TaskResult {
-  /** Whether the task completed successfully. */
+  /** Whether execution completed without a known hold; not independent acceptance or delivery. */
   readonly success: boolean;
   /**
    * Completion content — for ManualBackend this is the file content of

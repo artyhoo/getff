@@ -25,7 +25,10 @@
  * @cc-only-rationale: pure TS over injected deps — no CC-only primitive, no paid LLM.
  */
 
-/** Terminal aif statuses whose work is committed and safe to harvest. */
+import { describeAifTask, type AifResultMetadata } from './aifWsStatus.js';
+import type { AifTaskFull } from './cli/aifHttp.js';
+
+/** Terminal lifecycle statuses; current result/ownership guards still apply. */
 const TERMINAL_STATUSES = new Set(['done', 'verified']);
 
 /**
@@ -442,6 +445,10 @@ export interface HarvestResult {
   branch: string;
   pushed: boolean;
   autoMerge: boolean;
+  /** Current task evidence holds egress; confirmation of unrelated guards cannot clear it. */
+  pendingAction?: AifResultMetadata['nextAction'];
+  /** Same content-bound observation used by backend/CLI; no second result store. */
+  result?: AifResultMetadata;
   /** True when harvest had to commit a dirty tree (true-rework leg: dirty tree +
    *  0 commits ahead of base); false on the normal path where aif already committed. */
   committed: boolean;
@@ -483,7 +490,7 @@ export interface HarvestResult {
 }
 
 /** The subset of an aif task harvest reads. */
-export interface HarvestableTask {
+export interface HarvestableTask extends AifTaskFull {
   id: string;
   title: string;
   status: string;
@@ -526,6 +533,15 @@ export async function harvestTask(
   const branch = task.branchName;
   if (!branch) {
     throw new Error(`harvest: task ${task.id} has no branchName — aif did not create/persist a feature branch`);
+  }
+
+  const observation = describeAifTask(task, task.id);
+  if (observation.meta.held) {
+    return {
+      prUrl: '', branch, pushed: false, autoMerge: false, committed: false,
+      dirtyTreeLeftBehind: false, pendingAction: observation.meta.nextAction,
+      result: observation.meta,
+    };
   }
 
   // Dirty-tree disambiguation. A dirty tree is NOT sufficient to trigger an

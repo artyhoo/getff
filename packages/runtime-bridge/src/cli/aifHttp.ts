@@ -56,6 +56,12 @@ export interface AifTaskFull {
    * flag is the ONE `review` task `complete_review` serves (artyhoo/aif-handoff#1).
    */
   manualReviewRequired?: boolean;
+  /** Existing result-bearing API fields; absence is unknown, never an approval. */
+  implementationLog?: string | null;
+  reviewComments?: string | null;
+  sessionId?: string | null;
+  reviewIterationCount?: number;
+  commitSha?: string | null;
 }
 
 /**
