@@ -204,6 +204,7 @@ async function main(): Promise<void> {
       '  --dry-run       Print what would change; no writes',
       '  --own-config    The config is the consumer\'s own: add getff\'s block to it (insertions only)',
       '  --ignore <glob>        (--own-config, repeatable) a path getff delivered, added to one global ignores element',
+      '  --ignore-file <file>   (--own-config, repeatable) newline-delimited exact paths; avoids native argv limits',
       '  --r2-boundary <glob>   (--own-config, repeatable) RULE_GLOBS.boundary for R2; absent = R2 not added',
     ].join('\n'));
     process.exit(0);
@@ -233,9 +234,9 @@ async function main(): Promise<void> {
   // (the CLI's argv.indexOf approach swallows unrecognised flags — a mis-wired --store-root
   // would produce a silent green-lie no-op; this guard makes mis-wiring loud).
   const KNOWN_FLAGS = new Set([
-    '--help', '-h', '--stack', '--path', '--dry-run', '--snippet', '--own-config', '--ignore', '--r2-boundary',
+    '--help', '-h', '--stack', '--path', '--dry-run', '--snippet', '--own-config', '--ignore', '--ignore-file', '--r2-boundary',
   ]);
-  const VALUE_FLAGS = new Set(['--stack', '--path', '--snippet', '--ignore', '--r2-boundary']);
+  const VALUE_FLAGS = new Set(['--stack', '--path', '--snippet', '--ignore', '--ignore-file', '--r2-boundary']);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith('--') || argv[i].startsWith('-')) {
       if (!KNOWN_FLAGS.has(argv[i])) {
@@ -303,6 +304,13 @@ async function main(): Promise<void> {
   const scopeForStack = (key: string) => (scopes[key] ? { files: scopes[key] } : undefined);
 
   if (ownConfig) {
+    let ignores: string[];
+    try {
+      ignores = readIgnorePaths(argv);
+    } catch (err) {
+      printNotWired(`portable payload ignores — cannot read path file: ${(err as Error).message}`);
+      process.exit(NOT_WIRED_RC);
+    }
     process.exit(
       await wireIntoOwnConfig({
         configPath,
@@ -311,7 +319,7 @@ async function main(): Promise<void> {
         overrideKeys,
         scopeFor: scopeForStack,
         ruleScopeGlobs: [...new Set(Object.keys(mergedRules).flatMap((key) => scopes[key] ?? []))],
-        ignores: flagValues(argv, '--ignore'),
+        ignores,
         boundaryGlobs: flagValues(argv, '--r2-boundary'),
       }),
     );
@@ -400,6 +408,16 @@ function flagValues(argv: string[], flag: string): string[] {
     if (argv[i] === flag) out.push(argv[++i]);
   }
   return out;
+}
+
+/** Exact paths from the installer, without expanding globs or trimming path whitespace. */
+export function readIgnorePaths(argv: string[]): string[] {
+  return [
+    ...flagValues(argv, '--ignore'),
+    ...flagValues(argv, '--ignore-file').flatMap(file =>
+      readFileSync(file, 'utf8').split(/\r?\n/).filter(path => path !== ''),
+    ),
+  ];
 }
 
 /** Print one NOT_WIRED_LINE: what did not land, and why, on one line. */

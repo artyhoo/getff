@@ -3,7 +3,7 @@
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .agents/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .agents/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .agents/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .agents/hooks/inject-project-digest.sh
@@ -13,7 +13,7 @@ e57d40a1c386ca8fe07f0488e4b6d9f0b0d7add582fa5c37d4d06cbef13837e7  .agents/hooks/
 2fad642ed211c7abad08be5caa7870fc1213db6e17f6405bb412592e67d28e97  .agents/hooks/lib/hook-language.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .agents/hooks/precompact-residue.sh
 a0df000f4952fbfef03a2024feaf5021a8d250f5ca77648086dca780fc22d685  .agents/procedures/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .agents/procedures/ai-doc/anthropic-and-aif-residue.md
 b3b43c1e624f8bb7b7a5759965791ee3fbd757ce50cca521cba8f80ad31ba4db  .agents/procedures/arch/SKILL.md
@@ -218,7 +218,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-9d42084520e32500d2e700f0083fb13b639a92f66034851ef2a9a38d0d4a0375  .ai-factory/refresh-baseline.json
+23fd228f88631590543e83ce91ed5c5dc6ed57dc4d644e85d561aa435c47400d  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -242,7 +242,7 @@ c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .claude/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .claude/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .claude/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .claude/hooks/inject-project-digest.sh
@@ -251,7 +251,7 @@ e57d40a1c386ca8fe07f0488e4b6d9f0b0d7add582fa5c37d4d06cbef13837e7  .claude/hooks/
 6e4ee9dc755bcb83cd107081aa8bffa96f9d838105dda81116a74da7b219905e  .claude/hooks/lang/ru.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .claude/hooks/precompact-residue.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
 8f20ed77dcdda8abcf5198dad3dbe61a757907ecb7257864483bc005f463eccc  .claude/settings.json
 a0df000f4952fbfef03a2024feaf5021a8d250f5ca77648086dca780fc22d685  .claude/skills/ai-doc/SKILL.md

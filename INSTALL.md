@@ -363,7 +363,7 @@ For React/Next, also add:
 npm install --save-dev \
   eslint@^9.0.0 typescript-eslint@^8.59.0 @eslint/js@^9.0.0 @typescript-eslint/utils@^8.62.0 \
   globals@^17.7.0 \
-  prettier@^3.4.0 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20 \
+  prettier@^3.4.0 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@1.6.27 \
   typescript@^5.7.0 \
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \
   @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1 stryker-cli \

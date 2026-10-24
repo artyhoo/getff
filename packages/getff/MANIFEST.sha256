@@ -15,7 +15,7 @@ cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .agents/hooks/end-of-turn-reminder.sh
 34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .agents/hooks/glossary-inject.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .agents/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .agents/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .agents/hooks/inject-project-digest.sh
@@ -30,7 +30,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .agents/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .agents/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .agents/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .agents/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .agents/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .agents/hooks/validate-prompt.sh
@@ -294,7 +294,7 @@ cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .claude/hooks/end-of-turn-reminder.sh
 34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .claude/hooks/glossary-inject.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .claude/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .claude/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .claude/hooks/inject-project-digest.sh
@@ -309,7 +309,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/
 4bfe7a635536b4ba383e2109ae0409e870f9f1822e4ff420f004c9a2a817c73f  .claude/hooks/lib/report-sections.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .claude/hooks/precompact-residue.sh
 0a4a47cb7f8d5c7608b2089a893acc6dad711de556b3a2448cd7875e156ff7ac  .claude/hooks/runtime-bridge-dispatch.sh
 77deaac55c11e05d402ed00b59f02e2110bdaf2bf490179dd27e76048b8d9aa0  .claude/hooks/seal-primary-checkout.sh
 ed34b1e83336ffc168d08e3bfda437e59dc3cc3c1244228e894fb444fd857031  .claude/hooks/validate-prompt.sh
@@ -912,7 +912,7 @@ bf2ef722bc43524772e4173bd1415291199cc3970052405d42183b290cd8cd71  packages/core/
 588c0f95a3eff0780d9c053aecf14d4228080b36aa6265dc4b12e9bfe4b39033  packages/core/hooks/host-verify.test.ts
 adc7cb66cc3ef2f0334c97ff825a2751d9aa8014bb75594ec4d84ff0d4a7c6eb  packages/core/hooks/husky-self-delegate.test.ts
 9315dfd9b21884c59e6577b57580b49308c046aad95f923e2ee9346e0de8c74a  packages/core/hooks/inject-handoff-on-compact.test.ts
-29dd107699eecddd371778024f69b20bbc99a97bd9bf7cb30a4b7a0f1622d101  packages/core/hooks/inject-matching-rule.test.ts
+d0369f4c594bb161ffc46d2e4994bb871b9c6f1450b808bf3a2ac2a40d83b17b  packages/core/hooks/inject-matching-rule.test.ts
 7191697384c4a7f397d4cfa9ab652ccd72f7cdf8c5d4795520eacf3b5d28e051  packages/core/hooks/inject-memory-codification.test.ts
 b613150d6c8b9cdc65ccbadacb37dd872414f85e51ef9c36955f4ffcefc0c561  packages/core/hooks/inject-project-digest.test.ts
 f7b9ae999c9f73d2bf6ad3dc9945ae6cd68784233039b6de7e0b7257b710428e  packages/core/hooks/inject-session-bootstrap.test.ts
@@ -999,13 +999,13 @@ c9c0ea191af74d55783600022450079fad04ba595398af6dbd95fd711bf4ac45  packages/core/
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
 206f4fc7cbf470e4ff4207194f82119d868e7226ecbb78b859b3571702d6674d  packages/core/install/rule-bootstrap-cli.ts
 ce16d7bd773db89bd5ac04d1b8c9d1a274c8fedeaa711b9c1db1a00601fa44c0  packages/core/install/rule-bootstrap-practice.test.ts
-71bff48867b75e5bf19e2096b5880ff6608f5459de70b0596a7ef214211d6d8a  packages/core/install/synth-and-wire.bundle.mjs
-bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
+32ee12bf3222b13d6e8dc09b17b9efb33eec77bae97087c979ea3a91be7ac0c6  packages/core/install/synth-and-wire.bundle.mjs
+a3f17b0c2dcef14f8e4294d4d4b2c3da0e0fac936f2834b5fce80e4585183ab4  packages/core/install/synth-and-wire.ts
 d4dd9a3752ec27904583a7291490d8659421d1994a6de26878ddf1df89dad850  packages/core/install/tool-decisions-blocks-named.test.ts
 30d2ea12323e227988dc3e1e5b11bf1249c2778f35cae33df0730ead72cb9054  packages/core/install/wire-eslint-r2.test.ts
 4545c04e66fd529d4c08e428fd303a1b5cd6a2dc6ee198f60be75ad00befda34  packages/core/install/wire-eslint-r2.ts
-d9b22cdd305e0d8af8f0dace2ae35d7c6115a8e3cd9b9536b773d0975950ab56  packages/core/install/wire-live-snippet.test.ts
-f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
+47189130df51508e6a188ce323c87f4a68e2fdf6dadffa4f3e35aff4d14af161  packages/core/install/wire-live-snippet.test.ts
+b045b30a7b6f3e7b72e908887cd3313a3794dbbf5a9f39cd556757d943f5aaf5  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
 90f3aed2bf8876cb2eacfa7d445bd98bcd5fcf61048a0693b283534b309c7bbc  packages/core/installer/expected-self-install.json
 f3fc20b56739e96635f13b16996a031dd0da1919589e5d3b5da868ce48c1cb31  packages/core/installer/index.ts
@@ -1605,7 +1605,7 @@ b258076ec240fd992106821d90d4cc53f926a81bbbe3dcea86d2288952254a9a  setup.d/20-age
 5aeee0793181d62bbd8e20e093ee8370cc20a0da1b14f0fd6c1161735006aded  setup.d/50-hooks.sh
 662c4900986cb198c3c59001d4bf83632a86e1e78848981838fd60f05d56b0c4  setup.d/55-runtime-bridge-vendor.sh
 5e34b7f3d378956caf5d34b245b824f019a07d15bf23b38bbbfc8ebfaafef072  setup.d/60-ci.sh
-4502b44d15eb6b488f070ace508fa95f1a14de04a9a3baf17a8f530f6e0af98a  setup.d/70-deps.sh
+810887ea4349d69ec37a6fe81fe15946e261b73c6166a0835cce0c7cffb0a468  setup.d/70-deps.sh
 d5df120d95cf20fd53bd9fb2da071d1fba3b019400b8eab02f32fd2c133ca2e7  setup.d/80-rule-bootstrap.sh
 6aaa3ac610d502b3be24ac381c06189fd36952acdd96497de755b3502483daf1  setup.d/85-worktree-scripts.sh
 bbfe8390b0ee343076d18e1769691177712168c23802cc945d635d56d36355dc  setup.d/99-finalize.sh
@@ -1615,8 +1615,8 @@ bbfe8390b0ee343076d18e1769691177712168c23802cc945d635d56d36355dc  setup.d/99-fin
 5b5eca07bb3c912b12e1263ebad82ba64be2cd25698310ab7a1e23493908fa83  setup.d/codex-bindings.mjs
 2c01e6243d17f5f55e03cba81d3a98e4e3ddc24872ed1f8fe5e1390de4636d78  setup.d/companions.manifest
 e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine.sh
-ca8c469eddce8a7b94615011058496849ea887f6cfe049fc8b55577722f98cd5  setup.d/eslint-wire.sh
-3ce99cf925b817c7db49bf9e19116b8df8f25b7a26b2a4b5b8cb6f96d81ad1c0  setup.d/lib.sh
+b4acc81a700ed0498d96f96a1050ac921369cdeb4d5dc7c5f0262860327bc465  setup.d/eslint-wire.sh
+8292050e061b8cbc882573d24cfe653b00cf831d4ef0a3d25f73c6775da7a302  setup.d/lib.sh
 8ca5a29376206ab1a171157c45b0e7511329f2e755df862f0e3c5e419fe5b2f3  setup.d/portable-bindings.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
