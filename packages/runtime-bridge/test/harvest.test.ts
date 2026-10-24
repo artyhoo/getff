@@ -59,7 +59,7 @@ describe('harvestTask — positive', () => {
   it('pushes branch, opens PR vs base, enables auto-merge, returns PR url (in order)', async () => {
     const { deps, calls } = makeDeps();
     const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
-    expect(res).toEqual({ prUrl: 'https://github.com/x/y/pull/42', branch: 'feature/thing-abc', pushed: true, autoMerge: true, committed: false, dirtyTreeLeftBehind: false });
+    expect(res).toMatchObject({ prUrl: 'https://github.com/x/y/pull/42', branch: 'feature/thing-abc', pushed: true, autoMerge: true, committed: false, dirtyTreeLeftBehind: false, result: { taskId: DONE_TASK.id, acceptance: 'unverified' } });
     // dirty-check BEFORE push BEFORE pr BEFORE automerge — ordering is load-bearing
     // (can't PR an unpushed branch; clean tree → no ahead-check, no commit).
     expect(calls).toEqual(['dirty?:feature/thing-abc', 'push:feature/thing-abc', 'pr:feature/thing-abc->staging', 'automerge:https://github.com/x/y/pull/42']);

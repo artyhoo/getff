@@ -227,6 +227,8 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     const r = await harvestTask(baseTask, { baseBranch: 'staging', body: 'Existing task reference', autoMerge: false }, deps);
     expect(r.pushed).toBe(true);
     expect(effects).toEqual(['push', 'PR']);
+    expect(r.result).toMatchObject({ taskId: 's3-task', candidate: { commitSha: baseTask.commitSha }, acceptance: 'unverified' });
+    expect(r.result?.resultGeneration).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('actual factory installer delivers the changed consumer, preserves stub, excludes await', async () => {
@@ -247,5 +249,14 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     const h = await run(tsx, ['--eval', script]);
     expect(h.code, h.stderr).toBe(0);
     expect(JSON.parse(h.stdout)).toMatchObject({ pushed: false, pendingAction: { state: 'pending' } });
+    task = { ...baseTask, manualReviewRequired: true };
+    const backendProbe = `import(${JSON.stringify(pathToFileURL(join(delivered, 'src/AifHandoffBackend.ts')).href)}).then(async m => {
+      const backend = new m.AifHandoffBackend({baseUrl:${JSON.stringify(baseUrl)}});
+      const status = await backend.getStatus({backend:'aif-handoff',taskId:'s3-task',dispatchedAt:'2026-10-24T21:00:00Z'});
+      process.stdout.write(JSON.stringify(status));
+    })`;
+    const b = await run(tsx, ['--eval', backendProbe]);
+    expect(b.code, b.stderr).toBe(0);
+    expect(JSON.parse(b.stdout)).toMatchObject({ status: 'error', rawStatus: 'done', meta: { taskId: 's3-task', candidate: { commitSha: baseTask.commitSha }, nextAction: { ownerReference: owner } } });
   }, 190_000);
 });

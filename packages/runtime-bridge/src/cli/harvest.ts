@@ -1558,7 +1558,7 @@ async function main(): Promise<void> {
   try {
     task = await getTask(baseUrl, args.taskId);
     // Bind the HTTP detail to the requested task before deriving any branch/effect.
-    describeAifTask(task, args.taskId);
+    const observation = describeAifTask(task, args.taskId);
 
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
@@ -1567,7 +1567,8 @@ async function main(): Promise<void> {
     const body = withTaskMarker(args.bodyFile
       ? readFileSync(args.bodyFile, 'utf8')
       : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
-        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`, args.taskId);
+        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`, args.taskId)
+      + `\nObserved AIF result generation: \`${observation.meta.resultGeneration}\` (task record; acceptance unverified).\n`;
 
     const real = realDeps(args.container, args, task);
     const deps = real.deps;
@@ -1589,6 +1590,9 @@ async function main(): Promise<void> {
       process.stderr.write(`[harvest] HELD: ${res.pendingAction.prerequisite}. No egress performed; retain this task/result and its pending owner before continuation.\n`);
       process.exit(2);
     }
+    // Keep the unique confirmation instructions below and expose the same observation
+    // on their held paths; the metadata does not replace those existing guard decisions.
+    if (!res.pushed) process.stdout.write(JSON.stringify(res) + '\n');
     if (res.needsFileConfirm) {
       // Affected-files divergence guard (2026-07-17 gap): the task touched file(s) aif's
       // review-gate never self-reported, so the gate never reviewed them. Held deliberately
@@ -1680,6 +1684,7 @@ async function main(): Promise<void> {
         autoMerge: res.autoMerge,
         committed: res.committed,
         dirtyTreeLeftBehind: res.dirtyTreeLeftBehind,
+        result: res.result,
         mergeReport,
       }) + '\n',
     );

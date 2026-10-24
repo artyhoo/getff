@@ -573,6 +573,7 @@ export async function harvestTask(
           dirtyTreeLeftBehind: false,
           needsConfirm: true,
           parkSignals: scanParkSignals(task),
+          result: observation.meta,
         };
       }
       await deps.commitAll(branch, `chore(harvest): commit reworked aif task ${task.id} — ${task.title}`);
@@ -594,6 +595,7 @@ export async function harvestTask(
           dirtyTreeLeftBehind: false,
           needsResidueConfirm: true,
           trackedDirtyFiles: tracked,
+          result: observation.meta,
         };
       }
       dirtyTreeLeftBehind = true;
@@ -633,6 +635,7 @@ export async function harvestTask(
         dirtyTreeLeftBehind,
         needsFileConfirm: true,
         unreportedFiles,
+        result: observation.meta,
         ...(unmatchedSelfReport.length > 0 ? { unmatchedSelfReport } : {}),
       };
     }
@@ -654,6 +657,7 @@ export async function harvestTask(
     autoMerge,
     committed,
     dirtyTreeLeftBehind,
+    result: observation.meta,
     ...(unmatchedSelfReport.length > 0 ? { unmatchedSelfReport } : {}),
   };
 }
