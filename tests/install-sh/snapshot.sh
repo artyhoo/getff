@@ -15,7 +15,7 @@
 #   BASELINE_DIR    path to baselines   (default: tests/install-sh/baselines)
 #   --root DIR      declared installer root (default: this source repository)
 #   --cell S/M      select a validated cell; repeat for multiple distinct cells
-# With no --cell the full15-cell matrix is retained. Sourcing defines functions only.
+# With no --cell the full15-cell matrix is retained. Sourcing binds source metadata and defines API.
 #
 # The fingerprint covers the INSTALLED TREE (file paths + sha256 hashes), NOT stdout.
 # Per O5: section/SKIPPED order may legitimately differ across platforms; the tree diff is
@@ -23,7 +23,14 @@
 #
 # Never installs into the worktree root (§4d-6). All installs go into mktemp -d fixtures.
 
-# Sourcing defines the API only; execution state lives inside snapshot_main.
+# Bind the import location before a caller changes cwd, using Bash's physical
+# cwd rather than mutable PWD. Root validation stays after CLI parsing.
+case "${BASH_SOURCE[0]}" in
+  /*) _GETFF_SNAPSHOT_SOURCE_FILE="${BASH_SOURCE[0]}" ;;
+  *) _GETFF_SNAPSHOT_SOURCE_FILE="$(pwd -P)/${BASH_SOURCE[0]}" ;;
+esac
+
+# Execution state lives inside snapshot_main, never at import.
 _snapshot_prepare_environment() {
   # The python lane writes .mcp.json, and deepwiki lands there only when this machine lacks it at user
   # scope (lib.sh getff_deepwiki_machine_wide asks `claude mcp get deepwiki`). Pin the probe so a
@@ -361,7 +368,7 @@ snapshot_main() (
     esac
   done
   if [ -z "$REPO_ROOT" ]; then
-    REPO_ROOT=$(CDPATH='' cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P) || return 1
+    REPO_ROOT=$(CDPATH='' cd -- "$(dirname "$_GETFF_SNAPSHOT_SOURCE_FILE")/../.." && pwd -P) || return 1
   fi
   case "$MODE" in capture|compare) ;; *) echo "ERROR: SNAPSHOT_MODE must be capture or compare" >&2; return 2 ;; esac
   [ -f "$REPO_ROOT/install.sh" ] || { echo "ERROR: missing installer: $REPO_ROOT/install.sh" >&2; return 2; }

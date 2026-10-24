@@ -22,9 +22,9 @@ SH
 # This must fail safely on the preimage, before any attempt to call its unselected CLI.
 if env -u SNAPSHOT_MODE bash -c '
   cd "$2" || exit
-  before_options=$-; before_path=$PATH; trap ":" EXIT; before_trap=$(trap -p EXIT)
+  before_options=$-; before_path=$PATH; before_cwd=$PWD; trap ":" EXIT; before_trap=$(trap -p EXIT)
   source "$1"
-  [ "$before_options" = "$-" ] && [ "$before_path" = "$PATH" ] &&
+  [ "$before_options" = "$-" ] && [ "$before_path" = "$PATH" ] && [ "$before_cwd" = "$PWD" ] &&
     [ "$before_trap" = "$(trap -p EXIT)" ] && declare -F snapshot_main >/dev/null
 ' -- "$SNAPSHOT" "$T/foreign" > "$T/import.log" 2>&1; then
   ok 'source from foreign cwd defines API without options/PATH/trap changes'
@@ -105,6 +105,35 @@ if SNAPSHOT_MODE=compare BASELINE_DIR="$T/baselines" bash -c '
 else
   bad 'explicit root depends on relative import cwd'
 fi
+
+# The import origin must survive cwd changes even when no explicit --root is supplied.
+# Copy the complete runner beside a real fixture installer; never extract definitions.
+mkdir -p "$T/relative-source/tests/install-sh"
+cp "$SNAPSHOT" "$T/relative-source/tests/install-sh/snapshot.sh"
+cp "$T/root/install.sh" "$T/relative-source/install.sh"
+for import_form in relative bare dirty-pwd; do
+  : > "$T/calls"
+  if SNAPSHOT_MODE=compare BASELINE_DIR="$T/baselines" bash -c '
+    cd "$1" || exit
+    REPO_ROOT=caller-owned-value
+    if [ "$3" = bare ]; then
+      cd tests/install-sh || exit
+      source snapshot.sh
+    else
+      [ "$3" != dirty-pwd ] || PWD="$2"
+      source tests/install-sh/snapshot.sh
+    fi
+    [ "$REPO_ROOT" = caller-owned-value ] || exit 91
+    cd "$2" || exit
+    snapshot_main --cell ts-server/greenfield
+  ' -- "$T/relative-source" "$T/foreign" "$import_form" > "$T/origin.log" 2>&1 &&
+      [ "$(wc -l < "$T/calls" | tr -d ' ')" = 1 ]; then
+    ok "$import_form import retains source root after cwd change without clobbering caller root"
+  else
+    bad "$import_form import lost default source root after cwd change"
+    cat "$T/origin.log"
+  fi
+done
 
 mkdir -p "$T/invalid-baselines/ts-server/greenfield.fingerprint"
 if SNAPSHOT_MODE=capture BASELINE_DIR="$T/invalid-baselines" bash "$SNAPSHOT" --root "$T/root" --cell ts-server/greenfield > "$T/invalid.log" 2>&1; then
