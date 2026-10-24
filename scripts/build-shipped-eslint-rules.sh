@@ -93,7 +93,7 @@ if [ "$MODE" = "--check" ]; then
         *)      stem="$(basename "$artifact" .mjs)" ;;
       esac
       checked=$((checked + 1))
-      if ! _rule_sources "$dir" | grep -qxF "$ROOT/$dir/$stem.ts"; then
+      if ! grep -qxF "$ROOT/$dir/$stem.ts" <<<"$(_rule_sources "$dir")"; then
         echo "ORPHAN: $dir/$(basename "$artifact") has no matching rule source $dir/$stem.ts (delete the artifact or restore the source)"
         drift=1
       fi

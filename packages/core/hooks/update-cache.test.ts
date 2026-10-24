@@ -46,7 +46,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(
   REPO_ROOT,
-  '.claude/skills/pipeline/helpers/update-cache.sh',
+  '.agents/procedures/pipeline/helpers/update-cache.sh',
 );
 
 const FIXED_TS = '2026-05-25T22:40:00Z';

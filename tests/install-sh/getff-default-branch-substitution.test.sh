@@ -38,7 +38,7 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # Sets up the dispatcher-scope globals + sources lib.sh + both lanes (LIB_ONLY seam).
 # Mirrors tests/install-sh/python-delivery.test.sh:38-49 + the cargo lane's CARGO_LAYER_LIB_ONLY
-# seam (cargo-entry-lane.test.sh:288-301).
+# seam (cargo-entry-lane.test.sh:290-303).
 setup_lanes() {
   PKG_ROOT="$REPO_ROOT"
   PROJECT_ROOT=""
@@ -205,13 +205,13 @@ cmp -s "$TPL_GO" "$P/.github/workflows/getff-go.yml" \
   && ok "(3) go delivered byte-identical to template (Option A — preserves snapshot fingerprint invariant)" \
   || bad "(3) go delivered differs from template on no-remote consumer (Option A requires byte-identical)"
 # Warning text assertion (wording-secondary per T-HS-A but a useful honest-signal check).
-echo "$py_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$py_out" \
   && ok "(3) python lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) python lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
-echo "$cargo_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$cargo_out" \
   && ok "(3) cargo lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) cargo lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
-echo "$go_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$go_out" \
   && ok "(3) go lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) go lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
 rm -rf "$P"
@@ -236,7 +236,7 @@ py_out=$(run_python_delivery "$P" 2>&1 1>/dev/null)
 cmp -s "$TPL_PY" "$P/.github/workflows/getff-python.yml" \
   && ok "(4) python delivered byte-identical when origin/HEAD unset (PARK Option A held)" \
   || bad "(4) python delivered differs when origin/HEAD unset (PARK Option A broke)"
-echo "$py_out" | grep -qiE 'could not detect default branch|origin/HEAD unset' \
+grep -qiE 'could not detect default branch|origin/HEAD unset' <<<"$py_out" \
   && ok "(4) python lane warned about origin/HEAD being unset (honest signal)" \
   || bad "(4) python lane did NOT warn about origin/HEAD unset"
 rm -rf "$P"
@@ -326,6 +326,39 @@ if [ -f "$P/.github/workflows/workflow-integrity.yml" ]; then
 else
   bad "(6) react-spa install did not deliver workflow-integrity.yml"
 fi
+rm -rf "$P"
+
+# ── Cell (7): P2 G4 — NO origin remote, a committed branch → the checked-out branch is used ─────
+# P1's run (2026-09-29): a project on `master` with no origin got a workflow on `main` and a
+# warning. With no remote at all, the only branch the repo has is the one it works on. Paired
+# negatives: an UNBORN HEAD (git init, no commit — the snapshot-fixture shape, whose name comes
+# from the machine's init.defaultBranch) stays byte-identical + warning; cell (4) keeps an origin
+# with origin/HEAD unset on the warning path (a checked-out branch there may be a feature branch).
+echo ""; echo "  ── cell (7): no origin, committed branch 'master' → substituted from the checked-out branch ──"
+P=$(mktemp -d)
+printf '{"name":"c7","version":"0.0.0"}\n' > "$P/package.json"
+git -C "$P" init -q
+git -C "$P" config user.email "test@getff.local"; git -C "$P" config user.name "getff P2 test"
+git -C "$P" checkout -b master -q 2>/dev/null || git -C "$P" branch -m master 2>/dev/null || true
+printf '# c7\n' > "$P/README.md"; git -C "$P" add README.md; git -C "$P" commit -q -m initial
+py_all=$(run_python_delivery "$P" 2>&1)
+grep -q 'branches: \[master\]' "$P/.github/workflows/getff-python.yml" && ! grep -q 'branches: \[main\]' "$P/.github/workflows/getff-python.yml" \
+  && ok "(7) no origin + committed master → delivered workflow triggers on [master]" \
+  || bad "(7) no origin + committed master → workflow not substituted to [master]"
+grep -q "branch 'master' read from the checked-out branch (no origin remote)" <<<"$py_all" \
+  && ok "(7) the log names where the branch came from" || bad "(7) no log line naming the checked-out-branch source"
+grep -qiE 'could not detect default branch' <<<"$py_all" \
+  && bad "(7) warned 'could not detect' although the branch was read" || ok "(7) no 'could not detect' warning"
+rm -rf "$P"
+P=$(mktemp -d)
+printf '{"name":"c7b","version":"0.0.0"}\n' > "$P/package.json"
+git -C "$P" init -q
+py_out=$(run_python_delivery "$P" 2>&1 1>/dev/null)
+cmp -s "$TPL_PY" "$P/.github/workflows/getff-python.yml" \
+  && ok "(7b) unborn HEAD (git init, no commit) → byte-identical (machine init.defaultBranch never leaks in)" \
+  || bad "(7b) unborn HEAD → workflow differs from the template"
+grep -qiE 'could not detect default branch' <<<"$py_out" \
+  && ok "(7b) unborn HEAD still warns" || bad "(7b) unborn HEAD did not warn"
 rm -rf "$P"
 
 echo ""

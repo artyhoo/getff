@@ -12,11 +12,24 @@ import { BackendError, type BackendErrorCode } from '../backend.js';
 /** The subset of an aif-handoff task these CLIs read/mutate (GET /tasks/:id). */
 export interface AifTaskFull {
   id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  projectId?: string;
   title: string;
   status: string;
   plan?: string | null;
   paused?: boolean;
   blockedReason?: string | null;
+  /**
+   * aif's persisted task description — for aif-handoff claims this is the kickoff content
+   * (claim POSTs it as `description`), which makes it the DURABLE scope carrier: a fenced
+   * `intent-contract` block inside it is re-read at every continuation effect (release,
+   * answer, start-reviewed) so a bare task ID never erases declared scope
+   * (intent-first-result kickoff §3). Null on tasks created before/outside the bridge.
+   */
+  description?: string | null;
+  /** Read back at continuation effects: the scoped route claims with autoMode:false. */
+  autoMode?: boolean;
   /** aif's persisted feature-branch name (planner source-of-truth; read back by harvest). */
   branchName?: string | null;
   /**
@@ -37,6 +50,12 @@ export interface AifTaskFull {
   executionOwner?: 'ai' | 'human';
   /** Optimistic-concurrency counter for ownership; `POST /tasks/:id/handoff` must echo it back. */
   ownershipRevision?: number;
+  /**
+   * True when the auto review parked the task for a human (it reached `maxReviewIterations`;
+   * ownership moved to `"human"`). With participants mode off, a human-owned task with this
+   * flag is the ONE `review` task `complete_review` serves (artyhoo/aif-handoff#1).
+   */
+  manualReviewRequired?: boolean;
 }
 
 /**

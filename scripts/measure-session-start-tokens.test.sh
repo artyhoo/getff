@@ -82,20 +82,20 @@ fi
 ok "meter emits a numeric TOTAL in both runs ($t_empty / $t_excl bytes)"
 
 # --- the positive control: not excluded -> the probe is resident -------------
-if section "$TMP/out-empty.txt" A | grep -q "^$PROBE_REL "; then
+if grep -q "^$PROBE_REL " <<<"$(section "$TMP/out-empty.txt" A)"; then
   ok "empty exclude list: $PROBE_BASE is counted in Section A"
 else
   bad "empty exclude list: $PROBE_BASE should be in Section A (positive control broken)"
 fi
 
 # --- the leg the old matcher could not pass ---------------------------------
-if section "$TMP/out-excluded.txt" A | grep -q "^$PROBE_REL "; then
+if grep -q "^$PROBE_REL " <<<"$(section "$TMP/out-excluded.txt" A)"; then
   bad "excluded rule $PROBE_BASE is STILL counted in Section A — the glob exclude did not apply"
 else
   ok "excluded rule $PROBE_BASE leaves Section A"
 fi
 
-if section "$TMP/out-excluded.txt" B | grep -q "^$PROBE_REL "; then
+if grep -q "^$PROBE_REL " <<<"$(section "$TMP/out-excluded.txt" B)"; then
   ok "excluded rule $PROBE_BASE is attributed in Section B"
 else
   bad "excluded rule $PROBE_BASE missing from Section B — the entry was not resolved to a file"
@@ -123,7 +123,7 @@ out_unsupported=$(MEASURE_SETTINGS_PATH="$TMP/settings-unsupported.json" \
   MEASURE_SETTINGS_LOCAL_PATH="$TMP/settings-nolocal.json" \
   MEASURE_MEMORY_PATH="$TMP/no-such-memory.md" \
   bash "$DIR/measure-session-start-tokens.sh" 2>&1 >/dev/null)
-if printf '%s' "$out_unsupported" | grep -q 'FATAL'; then
+if grep -q 'FATAL' <<<"$out_unsupported"; then
   ok "an exclude form the matcher cannot evaluate makes the meter fail loudly"
 else
   bad "unsupported exclude form was accepted silently (T3 — the meter must fail loudly)"

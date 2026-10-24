@@ -5,9 +5,9 @@
  * (packages/core/manifest/rules-manifest.schema.json) so the prober and
  * principle 02 can consume generated scenarios without any mapping.
  *
- * PressureType mirrors principle 02 line 462:
+ * PressureType mirrors principle 02 line 490:
  *   type PressureType = 'time' | 'authority' | 'sunk-cost' | 'scope-creep';
- * Cross-ref: packages/core/principles/02-paired-negative-test.test.ts:462
+ * Cross-ref: packages/core/principles/02-paired-negative-test.test.ts:490
  */
 
 // ── Pressure vocabulary — single source (mirrors principle 02:462) ──────────

@@ -4,7 +4,7 @@
 > **NOT authoritative for:** the design rationale of the beta program — see [`docs/superpowers/specs/2026-07-23-beta-program-design.md`](../superpowers/specs/2026-07-23-beta-program-design.md) §4 A6. The repo-wide `@rules-as-tests/*` → `@getff/*` rename execution — U9 (post-announce). The publish act itself — U10 (operator act, phase 2).
 
 > **Produced by:** beta-delivery-ux R1 (stage PR, 2026-08-09). Absorbs U11 (name-freeze obligation).
-> **Binding sources:** [`s6-u10-handoff.md`](../../.claude/orchestrator-prompts/launch-preannounce-track/s6-u10-handoff.md) §2–§5; [`beta-delivery-ux/kickoff.md`](../../.claude/orchestrator-prompts/beta-delivery-ux/kickoff.md) §0.1–§0.5.
+> **Binding sources:** [`npm-publish-getff-init/kickoff.md`](../../.claude/orchestrator-prompts/npm-publish-getff-init/kickoff.md) §0–§5 (carries the s6-u10 handoff content verbatim — e.g. its rollback row cites «verbatim from s6-u10 §4»; the transient `launch-preannounce-track/s6-u10-handoff.md` was consumed and deleted 2026-10-05); [`beta-delivery-ux/kickoff.md`](../../.claude/orchestrator-prompts/beta-delivery-ux/kickoff.md) §0.1–§0.5.
 
 ---
 

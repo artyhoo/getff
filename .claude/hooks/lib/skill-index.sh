@@ -1,0 +1,1 @@
+../../../.agents/hooks/lib/skill-index.sh

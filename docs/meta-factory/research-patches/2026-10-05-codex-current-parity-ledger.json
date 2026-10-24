@@ -1,0 +1,382 @@
+{
+  "scope": "Current checkout overlay of original20 + mechanism32; inherited previousStatus/source/native fields are historical unless explicitly updated here.",
+  "root": "/Users/art/.codex/worktrees/0479/rules-as-tests-aif",
+  "complete": false,
+  "originalCheckpoint": {
+    "path": "/Users/art/.codex/worktrees/0d9e/rules-as-tests-aif/docs/meta-factory/research-patches/2026-10-04-codex-orchestrator-continuation.evidence.json",
+    "sha256": "6ff2ded75f3740fafc74366f282140aafb9acd9e77fc08b935d458276e75eed9"
+  },
+  "original20": [
+    {
+      "id": 1,
+      "surface": "Goal/rules/bootstrap",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 2,
+      "surface": "Contributor skills",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "archCase": "See archNativeAcceptance; bounded origin activation only, complete delivery/workflow open"
+    },
+    {
+      "id": 3,
+      "surface": "Consumer/plugin/shared-context skills",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 4,
+      "surface": "Companions",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 5,
+      "surface": "Named agents/model tiers",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 6,
+      "surface": "Hook registration",
+      "previousStatus": "**FAIL**",
+      "nativeComplete": false
+    },
+    {
+      "id": 7,
+      "surface": "Edit inputs",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "sourceStatus": "Bounded input-policy GO integrated (R1/R2/R3); origin39/39; complete native/host acceptance remains open"
+    },
+    {
+      "id": 8,
+      "surface": "Shell/read/questions",
+      "previousStatus": "**FAIL**",
+      "nativeComplete": false,
+      "sourceStatus": "Bounded input-policy GO integrated (R1/R2/R3); origin39/39; complete native/host acceptance remains open"
+    },
+    {
+      "id": 9,
+      "surface": "Code mode/streaming",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "sourceStatus": "Bounded input-policy GO integrated (R1/R2/R3); origin39/39; complete native/host acceptance remains open"
+    },
+    {
+      "id": 10,
+      "surface": "Outputs/dependency failures",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 11,
+      "surface": "Trust/config/cache lifecycle",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 12,
+      "surface": "Compaction/Stop",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 13,
+      "surface": "MCP",
+      "previousStatus": "**PASS**",
+      "nativeComplete": false
+    },
+    {
+      "id": 14,
+      "surface": "Permissions/environment",
+      "previousStatus": "**FAIL**",
+      "nativeComplete": false,
+      "sourceStatus": "Bounded input-policy GO integrated (R1/R2/R3); origin39/39; complete native/host acceptance remains open"
+    },
+    {
+      "id": 15,
+      "surface": "Worktrees/coordination",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "sourceStatus": "Reviewed D1+dedup and quoted tracked seed repairs integrated; D2 default association remains open",
+      "archCase": "See archNativeAcceptance; bounded origin activation only, complete delivery/workflow open"
+    },
+    {
+      "id": 16,
+      "surface": "Script corpus",
+      "previousStatus": "**FAIL**",
+      "nativeComplete": false
+    },
+    {
+      "id": 17,
+      "surface": "Git gates/CI/toolchains",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "sourceStatus": "SOURCE TESTED / REVIEWED minified prior-art classifier/provider repair integrated287PASS; bounded fullTSlocalhookcontrol; wholepopulation/stacks/CI open"
+    },
+    {
+      "id": 18,
+      "surface": "Contributor/consumer distribution",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false,
+      "archCase": "See archNativeAcceptance; bounded origin activation only, complete delivery/workflow open"
+    },
+    {
+      "id": 19,
+      "surface": "Factory/unattended runtime",
+      "previousStatus": "**BLOCKED**",
+      "nativeComplete": false
+    },
+    {
+      "id": 20,
+      "surface": "Behavior evals/support claims",
+      "previousStatus": "**FAIL**",
+      "nativeComplete": false,
+      "sourceStatus": "SOURCE TESTED / REVIEWED integrated measurement; tracked-root meter17/scorer17/reader7 PASS; empirical native cohort/matrix remains open"
+    }
+  ],
+  "mechanism32": [
+    {
+      "id": "M01",
+      "mechanism": "Goal/bootstrap residency",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Fresh startup, child and real compact must each recover the same goal; reading AGENTS manually is different from automatic delivery.",
+      "currentCheckoutEvidence": "Native startup and post-manual-compact bootstrap context confirmed in current checkout; child goal residency remains open."
+    },
+    {
+      "id": "M02",
+      "mechanism": "Selective read/event injection",
+      "sourceStatus": "Independent GO integrated; origin39/39, renderer and syntax PASS; R1/R2/R3 closed",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Trusted native activation and actual shell/nested event receipt; arbitrary interpreter/compound/remote executor policy remains explicitly unresolved",
+      "reviewStatus": "GO",
+      "currentCheckoutEvidence": "Native apply_patch path cards confirmed; bounded literal shell transport source tests pass. Other executor contracts remain open."
+    },
+    {
+      "id": "M03",
+      "mechanism": "Once-cache lifecycle",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "P4 source passes first=true/repeat=false/child=true/compact=true. Native identity fields and compact reset still unverified.",
+      "currentCheckoutEvidence": "Native parent first/repeat/after-real-manual-compact delivery = 1/0/1. Child identity isolation remains open."
+    },
+    {
+      "id": "M04",
+      "mechanism": "Skill invocation and eager helpers",
+      "sourceStatus": "partial native explicit skill source load",
+      "nativeStatus": "NATIVE LOCAL bounded model-mediated list route, integer guard/dependency diagnostic; operator invocation/full workflow NOT VERIFIED",
+      "remaining": "Explicit args, empty/list/status/numeric modes and helper failures need separate native cases; textual replacement makes execution model-mediated.",
+      "archCase": "Native discovery/explicit initial activation at0d9e verified; wrong-cwd0479/778f absence reproduced. Full workflow/new destination OPEN"
+    },
+    {
+      "id": "M05",
+      "mechanism": "Progressive disclosure and source precedence",
+      "sourceStatus": "partial native canonical pipeline source load",
+      "nativeStatus": "NATIVE LIVE VERIFIED bounded source/helper receipt; whole workflow NOT VERIFIED",
+      "remaining": "The two source roots contain 19 entries but one same-name override yields 18 contributor workflows; 21 agent pointers yield 39. Long pipeline entry requires reading original ! fences and binding them; discovery does not prove full load."
+    },
+    {
+      "id": "M06",
+      "mechanism": "Companion procedures and extensions",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NATIVE LOCAL partial actual companion skill/helper/followthrough; full chain NOT VERIFIED",
+      "remaining": "Cache directory and enabled plugin do not prove skill trigger/dependencies or availability in a fresh child. Operator extras are not consumer payload."
+    },
+    {
+      "id": "M07",
+      "mechanism": "Named role, tier and tool authority",
+      "sourceStatus": "role registration no defect established",
+      "nativeStatus": "NATIVE named-role completed5/5 bounded public fixture GO; permission delta/tool inventory/tier NOT VERIFIED",
+      "remaining": "Full role population, restrictive authority delta and native trust remain separate."
+    },
+    {
+      "id": "M08",
+      "mechanism": "Permission policy over all effect channels",
+      "sourceStatus": "Independent GO integrated; origin39/39, renderer and syntax PASS; R1/R2/R3 closed",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Trusted native activation and actual shell/nested event receipt; arbitrary interpreter/compound/remote executor policy remains explicitly unresolved",
+      "reviewStatus": "GO",
+      "currentCheckoutEvidence": "All21 hooks trusted; native literal git-reset canonical deny confirmed before execution. Broad effect-channel parity remains open."
+    },
+    {
+      "id": "M09",
+      "mechanism": "Dormant handoff gate override",
+      "sourceStatus": "REVIEWED",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "P1 observed gate=1 with input env=0. FAIL at source seam relative to dormant/opt-in contract; native behavior NOT VERIFIED. Intentional contributor arming, if desired, requires an explicit scoped decision."
+    },
+    {
+      "id": "M10",
+      "mechanism": "Machine language pin",
+      "sourceStatus": "REVIEWED",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "P2 file-only ru gives no language line; env ru gives Russian line. Contributor adapter bypasses shared wrapper file fallback. GUI/fresh CLI inheritance remains unverified."
+    },
+    {
+      "id": "M11",
+      "mechanism": "Usage/window/handoff threshold",
+      "sourceStatus": "REVIEWED",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "P6 preserves 150000 total input but drops model_context_window=200000. Source falls back to 1M before first observed auto compact when env absent; native window delivery is NOT VERIFIED."
+    },
+    {
+      "id": "M12",
+      "mechanism": "Compaction producer/reset/reinject",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Real auto/manual trigger, full transcript tool/question residue, source=compact, stale/missing handoff and model restart all need joint acceptance.",
+      "currentCheckoutEvidence": "Real native manual compaction completed; PreCompact produced residue, SessionStart:compact reran cache reset and bootstrap. Automatic triggers and model-authored handoff freshness remain open."
+    },
+    {
+      "id": "M13",
+      "mechanism": "Final recap/report consumption",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Latest message support does not prove nested command/result ordering, missing usage degradation or stop_hook_active reentry. No lifecycle executed here."
+    },
+    {
+      "id": "M14",
+      "mechanism": "Worktree root and provisioning",
+      "sourceStatus": "partial safe list-presets helper execution",
+      "nativeStatus": "NATIVE LIVE VERIFIED bounded helper result; end-to-end workflow NOT VERIFIED",
+      "remaining": "Subdirectory, code-mode per-command workdir, primary-hook resolution and secondary checkout recovery are separate; printed codex -C is not launch proof.",
+      "archCase": "Contributors in dirty0d9e are absent from Git-ref worktree delivery; source closure/bootstrap plus native destination acceptance OPEN",
+      "currentCheckoutEvidence": "Current0479 native delivery restored. Independent GO ready-command patch integrated; both explicit Codex signals and shell quoting PASS in a temporary consumer, with CC deferral preserved. New destination contributor delivery and native launch remain open."
+    },
+    {
+      "id": "M15",
+      "mechanism": "Shared store namespace/hydration",
+      "sourceStatus": "D1 and quoted tracked seed GO integrated; origin43PASS, Bash syntax and narrow typecheck PASS; native lifecycle unverified",
+      "nativeStatus": "NOT VERIFIED full bus ownership lifecycle",
+      "remaining": "Same basename clones default to same namespace; explicit AIF_COORDINATION_DIR separates. Capture actual resolved store and permissions for every actor; do not assume helper availability equals hydrated state."
+    },
+    {
+      "id": "M16",
+      "mechanism": "Seat identity and role takeover",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Coordination source record has independent GO; live registry and transport acceptance remain open. Native cwd/address proof, stale seats, same-cwd ambiguity, OFF and authorized takeover remain separate."
+    },
+    {
+      "id": "M17",
+      "mechanism": "Mailbox and native doorbell",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "route returns sent:false by design. Desktop transport acknowledgement is inherited evidence only; no send performed here. Shared pull remains possible without cross-host push; no pretend bridge."
+    },
+    {
+      "id": "M18",
+      "mechanism": "Memory constraints across hosts",
+      "sourceStatus": "D2 sourcefixes isolated; specREVISE linked separate-.git default ambiguously derives falseclean slug; no memorypatch integrated",
+      "nativeStatus": "NOT VERIFIED full memory workflow",
+      "remaining": "P5 missing override returns exit2 INCOMPLETE. Default derivation selects Claude memory, not a proven Codex memory source. Do not conflate existing Claude memory with all operator constraints; no private memory content captured."
+    },
+    {
+      "id": "M19",
+      "mechanism": "Post-write dispatch and failed-write alert",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Success, failed write, delete/rename, delayed shell completion, missing dependencies and current vendor/source path each differ. Unsupported failure event already recorded; broader dispatch effect not proven.",
+      "currentCheckoutEvidence": "Native successful apply_patch to selected .claude/rules path triggered actual authority-header PostToolUse blocked feedback received by assistant; completed turn and removed probe. Failed-write/cancellation attribution and broader effect channels remain open."
+    },
+    {
+      "id": "M20",
+      "mechanism": "Backend/manual recovery choice",
+      "sourceStatus": "REVIEWED",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Manual fallback text directs a new Claude Code session. Portable artifact exists, but Codex recovery procedure is not supplied by this output. amux fallback is not worker/provider certification."
+    },
+    {
+      "id": "M21",
+      "mechanism": "Dedup and concurrent state ownership",
+      "sourceStatus": "SOURCE TESTED / REVIEWED tolerant dedup read/write schema repair integrated; native/concurrentownership remainsopen",
+      "nativeStatus": "NOT VERIFIED actual multi-owner lifecycle",
+      "remaining": "Project scope, identical kickoff across repos, multiple writers, crash/corruption, repeat after failure and manual fallback need independent proof; no live bug asserted."
+    },
+    {
+      "id": "M22",
+      "mechanism": "Remote profile and actor routing",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Codex named-agent config and AIF remote profile are different mechanisms. Reachable target/API does not certify provider model or actor permissions."
+    },
+    {
+      "id": "M23",
+      "mechanism": "Paused claim/release/rollback",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Failure rollback, paused versus live cancellation, restart reconciliation and queue capacity are distinct from dispatch success; no remote mutation tested."
+    },
+    {
+      "id": "M24",
+      "mechanism": "Monitor, park and rework transitions",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Participants mode/actor ownership and paused A-park differ from blocked/review. Requires real authorized answer/resume flow and retries, not generic REST proof."
+    },
+    {
+      "id": "M25",
+      "mechanism": "Harvest, merge and board closure",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Done result, landed branch and closed task are separate effects. No commit/push/merge/export or remote closing performed."
+    },
+    {
+      "id": "M26",
+      "mechanism": "Frontier and plan continuity",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Need wrong/stale marker, resumed seat, shared _plan-cache and legitimate terminal evidence; deterministic emitter presence alone cannot advance a wave."
+    },
+    {
+      "id": "M27",
+      "mechanism": "Unattended Stop liveness/ownership",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Counts endpoint population, not proven thread ownership. Source references Claude eight-block escape; Codex bound/wakeup/reentry and disable/restart states unverified."
+    },
+    {
+      "id": "M28",
+      "mechanism": "Heartbeat/backoff/wakeup",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Default /tmp/dispatcher-heartbeat can suppress another run. Native notification, rate limit, idle wakeup and original-state recovery need proof; manual resume is not unattended parity."
+    },
+    {
+      "id": "M29",
+      "mechanism": "Consumer and companion injection",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Three AIF shared contexts use upstream mandatory-read extension, separate from native .agents skills. Installer Claude commands and .mcp.json are source facts; consumer Codex installation remains phase two.",
+      "archCase": "Generated skills delivery to fresh contributor worktree OPEN; no presence-only PASS; consumer phase2 remains deferred"
+    },
+    {
+      "id": "M30",
+      "mechanism": "Plugin yield/trust/dependency failure",
+      "sourceStatus": "historical source evidence; acceptance open",
+      "nativeStatus": "NOT VERIFIED",
+      "remaining": "Existing wrapper coexistence includes marker timing, payload identity, source/consumer branches and Windows path. Codex contributor direct-source wrapper is different; doctor registration comparison does not prove effective exactly-once effects."
+    },
+    {
+      "id": "M31",
+      "mechanism": "Behavior collectors and support matrix",
+      "sourceStatus": "SOURCE TESTED / REVIEWED; round2 repaired provenance conflicts, guarded integration; meter17/scorer17/reader7 PASS",
+      "nativeStatus": "NOT VERIFIED complete native empirical cohort/activation",
+      "remaining": "Native empirical groundedness/activation/receipt and capability matrix population remain NOT VERIFIED. Explicit Codex input manifest sizing does not prove native effective load; historical CC-only rationale remains separately labeled."
+    },
+    {
+      "id": "M32",
+      "mechanism": "Git gates independent of editor",
+      "sourceStatus": "SOURCE TESTED / REVIEWED minified root explicit-dependency repair integrated; sharedcommit+PRmergebase; host287PASS; fullTSlocalcontrols accepted",
+      "nativeStatus": "NATIVE LOCAL worktree delegation, fallback and full-TS prior-art semantic control; full chain NOT VERIFIED",
+      "remaining": "Historical source suites remain historical. This research reruns only artifact checks; live planted gates per stack/depth, bypass policy and concurrent root semantics remain existing acceptance scope."
+    }
+  ],
+  "currentAcceptance": "2026-10-05-codex-current-project-acceptance.json",
+  "onceCompactAcceptance": "2026-10-05-codex-once-compact.evidence.json",
+  "authorityAndWorktreeAcceptance": "docs/meta-factory/research-patches/2026-10-05-codex-authority-worktree.evidence.json"
+}

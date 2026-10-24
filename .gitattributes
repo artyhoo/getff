@@ -9,3 +9,6 @@
 # `text=auto` leaves detected-binary files (demo/*.gif) alone.
 # Form matches prettier and lint-staged (both ship exactly this single line).
 * text=auto eol=lf
+
+# Historical C1 evidence is content-addressed; preserve its captured trailing lines.
+docs/superpowers/specs/reviews/intent-continuity/c1-evidence/*.log whitespace=-blank-at-eof

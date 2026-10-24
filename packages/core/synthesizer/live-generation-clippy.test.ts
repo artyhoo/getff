@@ -81,7 +81,7 @@ function cloneDriftSurface(): string {
 }
 
 // cargo's live diagnostic identity is clippy's nested `message.code.code` shape (mirrors
-// backends/cargo/capability-matrix.test.ts:19 — extractor imported-by-shape, not by editing it).
+// backends/cargo/capability-matrix.test.ts:20 — extractor imported-by-shape, not by editing it).
 const extractClippyCode = (parsed: unknown): unknown =>
   (parsed as { message?: { code?: { code?: unknown } } })?.message?.code?.code;
 

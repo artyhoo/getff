@@ -1,0 +1,4 @@
+name = "plan-drift-semantic-auditor"
+description = "Cold semantic check for a `/pipeline` F1 factual-reconciliation write that the deterministic guard (plan-drift-write-guard.sh) routed to review (exit 3). Given the pre-image snapshot, the postimage, the declared target/replacement and the DRIFT evidence — but never the writer's narrative — classifies the diff fact-vs-strategy and returns FACTUAL-BOUNDED / STRATEGY-EDIT with a structured verdict. Reporting-only; never invoked from CI; no paid LLM call."
+sandbox_mode = "read-only"
+developer_instructions = "Read .agents/roles/plan-drift-semantic-auditor.md in the active repository before proceeding. Follow its complete procedure, output contract and docs/codex-contributor.md host bindings. The canonical prompt owns the workflow; this file only binds a native role. Host authorization controls delegation."

@@ -1,6 +1,7 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir, bundleFileName, channelAFallbackCommands, shellQuote } from '../src/harvest.js';
+import { extractAffectedFiles as extractVendorAffectedFiles, harvestTask as harvestVendorTask } from '../vendor/src/harvest.js';
 import type { ChannelAContext, HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
@@ -281,7 +282,35 @@ const rcWithAffected = (files: string[]): string =>
   `{ "schema_version": 1, "gate": "security", "status": "pass", "blocking": false, ` +
   `"blockers": [], "affected_files": ${JSON.stringify(files)} }\n`;
 
-describe('extractAffectedFiles — pure self-report extractor', () => {
+describe.each([['source', extractAffectedFiles], ['vendor', extractVendorAffectedFiles]] as const)(
+  'extractAffectedFiles — %s self-report extractor', (_name, extractAffectedFiles) => {
+  it('legal closing brackets and escaped paths preserve the complete array', () => {
+    const files = ['src/a].ts', 'dir/[nested]/b.ts', 'quote"and\\backslash.ts', 'line\nbreak.ts'];
+    expect(extractAffectedFiles(rcWithAffected(files))).toEqual(files);
+  });
+
+  it.each(['[["nested.ts"], "a.ts"]', '["a.ts", 3]', '"not-an-array"', '["a.ts",', '[unquoted]'])(
+    'recognized invalid array/shape %s cannot become absence', (value) => {
+      expect(extractAffectedFiles(`{"affected_files": ${value}}`)).toEqual([]);
+    },
+  );
+
+  it('a malformed report invalidates coverage even beside a valid report', () => {
+    expect(extractAffectedFiles(rcWithAffected(['a.ts']) + '\n{"affected_files": [broken]}')).toEqual([]);
+  });
+
+  it('JSON-quoted examples and their second arrays cannot establish coverage', () => {
+    const quoted = JSON.stringify({ affected_files: ['spoof].ts', 'other.ts'] });
+    const body = JSON.stringify({ note: quoted, affected_files: ['real].ts'] });
+    expect(extractAffectedFiles(body)).toEqual(['real].ts']);
+    expect(extractAffectedFiles(JSON.stringify(quoted))).toBeNull();
+  });
+
+  it('inline Markdown code quoting a field is not a self-report', () => {
+    expect(extractAffectedFiles('Example: `"affected_files": ["spoof.ts"]`')).toBeNull();
+    expect(extractAffectedFiles('Example: ``"affected_files": ["spoof.ts"]``\n' + rcWithAffected(['real.ts']))).toEqual(['real.ts']);
+  });
+
   it('positive: pulls affected_files out of an embedded gate-result JSON block', () => {
     expect(extractAffectedFiles(rcWithAffected(['a.ts', 'b.ts']))).toEqual(['a.ts', 'b.ts']);
   });
@@ -305,8 +334,8 @@ describe('extractAffectedFiles — pure self-report extractor', () => {
     expect(extractAffectedFiles(rcWithAffected([]))).toEqual([]);
   });
 
-  it('malformed block → null (graceful, no throw)', () => {
-    expect(extractAffectedFiles('noise "affected_files": [unquoted, junk more noise')).toBeNull();
+  it('malformed recognized block → [] (unmatched report, no throw)', () => {
+    expect(extractAffectedFiles('noise "affected_files": [unquoted, junk more noise')).toEqual([]);
   });
 });
 
@@ -317,6 +346,36 @@ describe('harvestTask — affected-files divergence guard (aif review-gate self-
   // cross-checks the self-report against the mechanical git-diff file-list and HOLDs on any
   // touched-but-unreported file unless the operator confirms.
   const taskRC = (files: string[]) => ({ ...DONE_TASK, reviewComments: rcWithAffected(files) });
+
+  it.each([['source', harvestTask], ['vendor', harvestVendorTask]] as const)(
+    '%s: bracket-bearing report retains divergence HOLD', async (_name, harvest) => {
+      const { deps } = makeDeps({ changedFilesVsBase: vi.fn(async () => ['a].ts', 'omitted.ts']) });
+      const res = await harvest(taskRC(['a].ts']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+      expect(res.needsFileConfirm).toBe(true);
+      expect(res.unreportedFiles).toEqual(['omitted.ts']);
+      expect(deps.pushBranch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([['source', harvestTask], ['vendor', harvestVendorTask]] as const)(
+    '%s: complete bracket-bearing report avoids false HOLD', async (_name, harvest) => {
+      const { deps } = makeDeps({ changedFilesVsBase: vi.fn(async () => ['a].ts']) });
+      const res = await harvest(taskRC(['a].ts']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+      expect(res.needsFileConfirm).toBeFalsy();
+      expect(deps.pushBranch).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([['source', harvestTask], ['vendor', harvestVendorTask]] as const)(
+    '%s: malformed recognized report holds instead of skipping', async (_name, harvest) => {
+      const { deps } = makeDeps({ changedFilesVsBase: vi.fn(async () => ['a.ts']) });
+      const task = { ...DONE_TASK, reviewComments: '{"affected_files": [broken]}' };
+      const res = await harvest(task, { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+      expect(res.needsFileConfirm).toBe(true);
+      expect(res.unreportedFiles).toEqual(['a.ts']);
+      expect(deps.pushBranch).not.toHaveBeenCalled();
+    },
+  );
 
   it('touched-but-unreported (mechanical ∖ self-report ≠ ∅) + no confirm → needsFileConfirm; does NOT push', async () => {
     const { deps } = makeDeps({

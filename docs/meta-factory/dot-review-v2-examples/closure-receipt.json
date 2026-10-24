@@ -1,0 +1,20 @@
+{
+  "record_type": "closure_receipt",
+  "protocol_version": "dot-pr-review/2.0.0",
+  "finding_ids": [
+    "F-001"
+  ],
+  "verification_revision": "0000000000000000000000000000000000000005",
+  "comparison_basis": "staging 000000000000 vs fix 000000000000",
+  "verified_by": "dot/astra-primary",
+  "evidence": [
+    {
+      "level": "SOURCE_TRACED",
+      "reference": "intake.mjs:206-231 at 000000000000",
+      "note": null
+    }
+  ],
+  "disposition": "RESOLVED",
+  "rationale": "Acceptance/admission separation verified at the fixed revision by paired fixtures.",
+  "issued_at": "2026-10-06T12:00:00Z"
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // S4 bench input builder (kickoff-s4 §3.2). Joins the six population CSVs to s3-final.csv
 // by id, defensively drops provenance:author-cell rows, and emits the per-row judge payload
-// via the FROZEN builder `buildPayload` (scripts/triage-s0-run.mjs:36 — imported, never
+// via the FROZEN builder `buildPayload` (scripts/triage-s0-run.mjs:40 — imported, never
 // edited, kickoff §2). Judges therefore see rubric + context + finding ONLY; the blindness
 // differential (arm B) is enforced by the scorer over this same frozen builder.
 //
@@ -14,10 +14,11 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parseCsv } from '../triage-corpus-probe.mjs';
 import { buildPayload } from '../triage-s0-run.mjs';
+import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = join(HERE, '..', '..');
@@ -68,7 +69,7 @@ export function buildBenchInput() {
   return { rowsIn, excludedAuthorCell, rubricBytes, rows, projected, sha256, generatedFrom };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainEntry(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (name, dflt) => (args.indexOf(name) >= 0 ? args[args.indexOf(name) + 1] : dflt);
   const out = flag('--out', join(HERE, 'bench-input.json'));

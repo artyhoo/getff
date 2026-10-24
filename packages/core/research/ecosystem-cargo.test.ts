@@ -114,7 +114,7 @@ not-locally-resolvable = "1.0"
   // transitive-with-attacker-metadata negative: a crate locally resolvable in
   // vendor/ with a poisoned homepage but NOT declared in the root manifest must
   // never be listed, so tier1For (which gates on listDirectDeps FIRST,
-  // allowlist-resolver.ts:211) never reads its metadata. Distinct from the
+  // allowlist-resolver.ts:217) never reads its metadata. Distinct from the
   // declared-but-unresolvable exclusion above. RED-proof: inverted assertion
   // (`has('poison') → toBe(true)`) observed failing ("expected false to be
   // true") before landing this GREEN form.

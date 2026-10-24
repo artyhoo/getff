@@ -71,12 +71,12 @@ OUT_II=$(run_capstone "$PROJ_ABSENT" "$PKG_ABSENT" "")
 # old wording, so the arm covers both the retired 'shields active' and the current 'shields
 # wired (form check)' phrasings while NOT matching the unconditional intent header line
 # ('probing — do fences fire…'), which is an announcement, not a verdict (P0.4b follow-up).
-if echo "$OUT_II" | grep -q 'checks passed — fences fire'; then
+if grep -q 'checks passed — fences fire' <<<"$OUT_II"; then
   bad "(ii) RED: banner claims the success property line while all 3 gates were SKIPPED (PASS=0)"
 else
   ok "(ii) banner withholds the property claim when gates are skipped"
 fi
-if echo "$OUT_II" | grep -qE 'self-verify:.*skipped'; then
+if grep -qE 'self-verify:.*skipped' <<<"$OUT_II"; then
   ok "(ii) self-verify banner surfaces skip accounting"
 else
   bad "(ii) self-verify banner omits skip accounting (SKIP=3 reads as clean)"
@@ -97,14 +97,14 @@ exit 0
 S
 chmod +x "$PKG_OK/packages/core/audit-self/check-generated-rule-mutation.sh"
 OUT_III=$(run_capstone "$PROJ_OK" "$PKG_OK" "1")
-if echo "$OUT_III" | grep -q 'fences fire, shields wired (form check)'; then
+if grep -q 'fences fire, shields wired (form check)' <<<"$OUT_III"; then
   ok "(iii) POSITIVE: banner prints the success property line when all 3 gates pass (non-vacuous)"
 else
   bad "(iii) POSITIVE: banner withheld the success line even though all 3 gates passed"
 fi
 # Paired-negative for the P0.4b capstone fix: the success line must NOT upgrade the form-only
 # D2 (check-shields-up) pass into a behavioural 'shields active' claim.
-if echo "$OUT_III" | grep -q 'shields active'; then
+if grep -q 'shields active' <<<"$OUT_III"; then
   bad "(iii-b) capstone success line still makes the behavioural 'shields active' claim from a form-only check"
 else
   ok "(iii-b) capstone success line is form-scoped ('wired (form check)'), no behavioural overclaim"

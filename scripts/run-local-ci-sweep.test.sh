@@ -9,7 +9,9 @@ fails=0
 # Hermetic: this test spawns the sweep many times, and an inherited SWEEP_LOG_DIR would make
 # every nested run write into the CALLER's log directory (the `script-selftests` row runs this
 # file from inside a real sweep). Arms that care about logging pass the var explicitly.
-unset SWEEP_LOG_DIR
+# The same for the offload knobs: an operator's shell exports SWEEP_HEAVY_RUNNER, and a nested
+# run would route stub rows through the real runner; PC_LOCAL=1 would switch the offload arms off.
+unset SWEEP_LOG_DIR SWEEP_HEAVY_RUNNER SWEEP_ROUTABLE PC_LOCAL
 
 check() { # check <desc> <expected-rc> <actual-rc>
   if [ "$2" = "$3" ]; then echo "  ✓ $1"; else echo "  ✗ $1 (want rc=$2 got rc=$3)"; fails=$((fails + 1)); fi
@@ -38,13 +40,13 @@ check "one-fail exits 1" 1 $?
 grep_out "failing gate reported FAIL" "FAIL" "$TMP/o2"
 no_file "fail-fast: later gate skipped" "$TMP/RAN"
 
-# --- (diff-aware) md-only diff selects the doc gate, not the shipped gate ---
+# --- (diff-aware) md-only diff selects the doc gate, not the path-scoped one ---
 rm -f "$TMP/BYTE"
-printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE\n' "$TMP" >"$TMP/gates.tsv"
+printf '1\tdoc\t.md\ttrue\n4\tbyte\tpackages/\ttouch %s/BYTE\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="README.md" bash "$SWEEP" >"$TMP/o3" 2>&1
 check "md diff exits 0" 0 $?
 grep_out "md diff ran doc gate" "PASS doc" "$TMP/o3"
-no_file "md diff skipped shipped gate" "$TMP/BYTE"
+no_file "md diff skipped the path-scoped gate" "$TMP/BYTE"
 
 # --- (fail-safe) an unmapped path escalates to full (runs every gate) ---
 rm -f "$TMP/OTHER"
@@ -103,11 +105,24 @@ SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE=".github/workflows/audit-s
 has_file "dot-prefix trigger matched as prefix (wf gate ran)" "$TMP/WF"
 no_file "dot-prefix trigger did NOT escalate to full (other gate skipped)" "$TMP/ESC"
 
-# --- (shipped) a shipped-source path selects the SHIPPED gate ---
+# --- (shipped-token retired) `SHIPPED` is no longer a trigger-grammar token ---
+# It used to be a fifth case of `trigger_matches` meaning "any of six shipped roots" — a
+# population restated beside the gates it fed instead of derived from them. Removed 2026-09-27:
+# the format-check and byte-identical rows now derive their triggers from the gated command's
+# own path list, and the real-row coverage for that lives in
+# scripts/run-local-ci-sweep-coverage.test.sh arms 10 and 11. What remains testable here is the
+# grammar: a trigger spelled `SHIPPED` is now an ordinary literal, so it selects nothing but a
+# path spelled exactly that way.
 rm -f "$TMP/BYTE2"
 printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE2\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="skills/foo/SKILL.md" bash "$SWEEP" >"$TMP/o5" 2>&1
-has_file "shipped path selected SHIPPED gate" "$TMP/BYTE2"
+no_file "retired SHIPPED token no longer selects by shipped root" "$TMP/BYTE2"
+grep_out "the .md row covered that path (no escalation masking the negative)" "1 gate(s)" "$TMP/o5"
+
+# --- (shipped-token retired, literal arm) the paired positive: still matched as a literal ---
+rm -f "$TMP/BYTE2"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="SHIPPED" bash "$SWEEP" >"$TMP/o5b" 2>&1
+has_file "a path spelled exactly SHIPPED still matches it as a literal" "$TMP/BYTE2"
 
 # --- (self-truncation) a gate command carrying its own `exit 1` (the real
 # install-sh-suite row shape: `for t in …; do bash "$t" || exit 1; done`) must fail
@@ -121,6 +136,45 @@ check "exit-in-gate-cmd exits 1" 1 $?
 grep_out "exit-in-gate-cmd reports FAIL (no self-truncation)" "[sweep] FAIL suite" "$TMP/o9"
 grep_out "exit-in-gate-cmd reports stopped-at" "SWEEP: stopped at suite" "$TMP/o9"
 no_file "exit-in-gate-cmd keeps fail-fast (later gate skipped)" "$TMP/LATER"
+
+# --- (not-run list) a stopped sweep must NAME the selected gates it never ran ---
+# Fail-fast leaves the tail of the selection unexecuted, and before this line that tail looked
+# exactly like "not selected for this diff" — a known-red gate early in the order silently turned
+# "the rest passed" into "the rest never ran" (PR #1362: six gates behind a red `vitest-hooks`).
+# Unselected rows must NOT appear: the line lists what the diff asked for and did not get.
+rm -f "$TMP/LATER" "$TMP/UNSEL"
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n3\tthird\tALWAYS\ttouch %s/LATER\n4\tunsel\tpackages/\ttouch %s/UNSEL\n5\tfifth\t.txt\ttrue\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" >"$TMP/o9n" 2>&1
+check "not-run: a stop still exits 1" 1 $?
+grep_out "not-run: names exactly the selected gates after the stop" "SWEEP: NOT RUN: third fifth" "$TMP/o9n"
+notrun_line="$(grep -F "SWEEP: NOT RUN:" "$TMP/o9n")"
+if grep -qE '(^|[ :])(unsel|first|boom)( |$)' <<<"$notrun_line"; then
+  echo "  ✗ not-run: the line lists an unselected, passed or failed gate"; fails=$((fails + 1))
+else echo "  ✓ not-run: the line lists no unselected, passed or failed gate"; fi
+no_file "not-run: the named gate really did not run" "$TMP/LATER"
+# A stop on the LAST selected gate still says so, rather than dropping the line.
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o9m" 2>&1
+grep_out "not-run: a stop on the last gate prints an explicit empty list" "SWEEP: NOT RUN: (none)" "$TMP/o9m"
+
+# --- (keep-going) --keep-going runs every selected gate, collects the FAILs, exits 1 at the end ---
+rm -f "$TMP/LATER"
+printf '1\tfirst\tALWAYS\ttrue\n2\tboom\tALWAYS\tfalse\n3\tthird\tALWAYS\ttouch %s/LATER\n4\tbang\tALWAYS\texit 7\n5\tfifth\tALWAYS\ttrue\n' "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full --keep-going >"$TMP/o9k" 2>&1
+check "keep-going: a run with failures exits 1" 1 $?
+has_file "keep-going: the gate after the first FAIL still ran" "$TMP/LATER"
+grep_out "keep-going: first failure reported" "[sweep] FAIL boom" "$TMP/o9k"
+grep_out "keep-going: second failure reported" "[sweep] FAIL bang" "$TMP/o9k"
+grep_out "keep-going: the gate after the last FAIL ran" "[sweep] PASS fifth" "$TMP/o9k"
+grep_out "keep-going: summary names every failure" "SWEEP: 2 of 5 gate(s) FAILED: boom bang (mode=full, --keep-going)" "$TMP/o9k"
+grep_out "keep-going: nothing was left unrun" "SWEEP: NOT RUN: (none)" "$TMP/o9k"
+if grep -qF "SWEEP: stopped at" "$TMP/o9k"; then
+  echo "  ✗ keep-going: printed a stopped-at line"; fails=$((fails + 1))
+else echo "  ✓ keep-going: no stopped-at line"; fi
+printf '1\tfirst\tALWAYS\ttrue\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full --keep-going >"$TMP/o9g" 2>&1
+check "keep-going: an all-green run still exits 0" 0 $?
+grep_out "keep-going: an all-green run keeps the pass summary" "SWEEP: 1 gate(s) passed (mode=full)" "$TMP/o9g"
 
 # --- (comma-trigger) a gate with a comma-joined trigger list matches ANY listed path ---
 rm -f "$TMP/MULTI_A" "$TMP/MULTI_B"
@@ -290,6 +344,419 @@ else echo "  ✓ fd 3 output did not leak into the captured stdout"; fi
 if grep -qF "captured-body" "$TMP/e22"; then
   echo "  ✗ ordinary gate stdout escaped the capture onto stderr"; fails=$((fails + 1))
 else echo "  ✓ ordinary gate stdout is still captured, not echoed live"; fi
+
+# --- (offload) SWEEP_HEAVY_RUNNER routes the routable rows and never reports what did not run ---
+# The runner stubs stand in for ~/bin/pc-run. `runner-remote` plays another host: it hides the
+# origin mark (a path that exists only on the routing host) and marks the environment, so a row
+# can record WHERE it ran. `runner-origin` plays pc-run's own fallback to the routing host.
+# `runner-nothing` runs nothing, exits 0 and even prints a receipt — with the wrong nonce.
+RUNLOG="$TMP/runner.log"
+cat >"$TMP/runner-remote" <<EOF
+#!/usr/bin/env bash
+echo "remote: \$*" >>"$RUNLOG"
+args=(); while [ \$# -gt 0 ]; do
+  if [ "\$1" = --origin ]; then args+=(--origin /nonexistent/origin-mark); shift 2; continue; fi
+  args+=("\$1"); shift
+done
+STUB_REMOTE=1 exec "\${args[@]}"
+EOF
+cat >"$TMP/runner-origin" <<EOF
+#!/usr/bin/env bash
+echo "origin: \$*" >>"$RUNLOG"
+exec "\$@"
+EOF
+cat >"$TMP/runner-nothing" <<EOF
+#!/usr/bin/env bash
+echo "nothing: \$*" >>"$RUNLOG"
+echo '[sweep:receipt forged] row=routed rc=0 host=runner'
+exit 0
+EOF
+chmod +x "$TMP/runner-remote" "$TMP/runner-origin" "$TMP/runner-nothing"
+# where_cmd <tag> [exit] — a gate command that appends <tag> to remote-ran or local-ran, then exits.
+where_cmd() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo %s >>%s/remote-ran; else echo %s >>%s/local-ran; fi; exit %s' "$1" "$TMP" "$1" "$TMP" "${2:-0}"; }
+offload() { # offload <runner> <gates-file> <out> [routable] — a routed sweep over stub rows
+  rm -f "$TMP/remote-ran" "$TMP/local-ran" "$RUNLOG"
+  SWEEP_HEAVY_RUNNER="$1" SWEEP_ROUTABLE="${4:-routed}" SWEEP_GATES_FILE="$2" SWEEP_DIFF_OVERRIDE="x.txt" \
+    bash "$SWEEP" --full >"$3" 2>&1
+}
+count() { [ -f "$1" ] && grep -c . "$1" || echo 0; }
+printf '1\trouted\tALWAYS\t%s\n2\tkept\tALWAYS\t%s\n' "$(where_cmd routed)" "$(where_cmd kept)" >"$TMP/g-off.tsv"
+
+# (a) the routable row runs on the runner exactly once, the other row here; labels say so.
+offload "$TMP/runner-remote" "$TMP/g-off.tsv" "$TMP/o30"
+check "offload: all green exits 0" 0 $?
+grep_out "offload: routed row ran on the runner" "routed" "$TMP/remote-ran"
+grep_out "offload: non-routable row ran here" "kept" "$TMP/local-ran"
+if [ "$(count "$TMP/remote-ran")" = 1 ] && [ "$(count "$TMP/local-ran")" = 1 ]; then echo "  ✓ offload: each row ran exactly once"
+else echo "  ✗ offload: rows ran remote=$(count "$TMP/remote-ran") local=$(count "$TMP/local-ran") (want 1/1)"; fails=$((fails + 1)); fi
+grep_out "offload: PASS line names the runner" "[sweep] PASS routed · on runner-remote" "$TMP/o30"
+if grep -qx '\[sweep\] PASS kept' "$TMP/o30"; then echo "  ✓ offload: the kept row's PASS line is unlabelled"
+else echo "  ✗ offload: the kept row's PASS line is missing or labelled"; fails=$((fails + 1)); fi
+grep_out "offload: summary counts the routed row" "SWEEP: offload — 1 row(s) ran on runner-remote, 0 routed row(s) ran here instead, 1 not routable" "$TMP/o30"
+
+# (b) a red on the runner is a verdict: FAIL, and never re-run here.
+printf '1\trouted\tALWAYS\t%s\n' "$(where_cmd routed 1)" >"$TMP/g-off-red.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-red.tsv" "$TMP/o31"
+check "offload: a red receipt fails the sweep" 1 $?
+grep_out "offload: red routed row reported FAIL with its label" "[sweep] FAIL routed · on runner-remote" "$TMP/o31"
+no_file "offload: a red receipt is not retried here" "$TMP/local-ran"
+
+# (c) no receipt (runner ran nothing, printed a forged one) → the row runs HERE; its red counts.
+offload "$TMP/runner-nothing" "$TMP/g-off-red.tsv" "$TMP/o32"
+check "offload: a runner that ran nothing cannot turn a red row green" 1 $?
+grep_out "offload: the row ran here after the empty runner" "routed" "$TMP/local-ran"
+grep_out "offload: the fallback is labelled" "no result from runner-nothing" "$TMP/o32"
+offload "$TMP/runner-nothing" "$TMP/g-off.tsv" "$TMP/o33"
+check "offload: empty runner + green row still exits 0 (ran here)" 0 $?
+grep_out "offload: green fallback says where it ran" "[sweep] PASS routed · here — no result from runner-nothing" "$TMP/o33"
+grep_out "offload: summary counts the fallback" "0 row(s) ran on runner-nothing, 1 routed row(s) ran here instead" "$TMP/o33"
+
+# (d) the runner fell back to this host on its own: ran once, labelled as here.
+offload "$TMP/runner-origin" "$TMP/g-off.tsv" "$TMP/o34"
+check "offload: runner fallback to the origin exits 0" 0 $?
+if [ "$(count "$TMP/local-ran")" = 2 ] && [ ! -f "$TMP/remote-ran" ]; then echo "  ✓ offload: origin fallback ran the routed row once, here"
+else echo "  ✗ offload: origin fallback local=$(count "$TMP/local-ran") remote=$(count "$TMP/remote-ran") (want 2/0)"; fails=$((fails + 1)); fi
+grep_out "offload: origin fallback is labelled" "[sweep] PASS routed · here — runner-origin fell back to this host" "$TMP/o34"
+
+# (e) PC_LOCAL=1 with a PC_LOCAL_WHY of 20+ characters keeps everything here without calling the
+# runner at all, and says so with the reason (skipping the runner skips its log too).
+rm -f "$RUNLOG" "$TMP/remote-ran" "$TMP/local-ran"
+PC_LOCAL=1 PC_LOCAL_WHY='fixture escape: this run stays on this host' SWEEP_HEAVY_RUNNER="$TMP/runner-remote" \
+  SWEEP_ROUTABLE="routed" SWEEP_GATES_FILE="$TMP/g-off.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35" 2>&1
+check "offload: PC_LOCAL=1 with a reason still exits 0" 0 $?
+no_file "offload: PC_LOCAL=1 with a reason never calls the runner" "$RUNLOG"
+if grep -qx routed "$TMP/local-ran" 2>/dev/null && grep -qx kept "$TMP/local-ran"; then echo "  ✓ offload: PC_LOCAL=1 with a reason ran both rows here"
+else echo "  ✗ offload: PC_LOCAL=1 with a reason did not run both rows here (local: $(tr '\n' ' ' <"$TMP/local-ran" 2>/dev/null))"; fails=$((fails + 1)); fi
+if grep -qF "SWEEP: offload" "$TMP/o35"; then echo "  ✗ offload: PC_LOCAL=1 with a reason printed an offload summary"; fails=$((fails + 1))
+else echo "  ✓ offload: PC_LOCAL=1 with a reason prints no offload summary"; fi
+grep_out "offload: PC_LOCAL=1 with a reason says the escape and its reason" \
+  "runner skipped (why: fixture escape: this run stays on this host)" "$TMP/o35"
+# (e2) a bare or short-reason PC_LOCAL=1 is not an escape: the routable row still goes to the runner.
+# The runner (~/bin/pc-run) honours PC_LOCAL=1 only with PC_LOCAL_WHY of 20+ characters once
+# whitespace is squeezed and trimmed (since 2026-09-29, #1947); a bare flag here used to skip it.
+for why in '' 'too short' '   too    short   padded   '; do
+  rm -f "$RUNLOG" "$TMP/remote-ran" "$TMP/local-ran"
+  PC_LOCAL=1 PC_LOCAL_WHY="$why" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="routed" \
+    SWEEP_GATES_FILE="$TMP/g-off.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35b" 2>&1
+  check "offload: PC_LOCAL=1 with reason '$why' still exits 0" 0 $?
+  grep_out "offload: PC_LOCAL=1 with reason '$why': the routed row ran on the runner" "routed" "$TMP/remote-ran"
+  grep_out "offload: PC_LOCAL=1 with reason '$why': the kept row ran here" "kept" "$TMP/local-ran"
+  if grep -qF "runner skipped" "$TMP/o35b"; then echo "  ✗ offload: PC_LOCAL=1 with reason '$why' claims the runner was skipped"; fails=$((fails + 1))
+  else echo "  ✓ offload: PC_LOCAL=1 with reason '$why' makes no escape claim"; fi
+done
+# (e3) the predicate is a copy of scripts/run-install-sh-suite.sh's, not a shared source: this script
+# ships to consumers as one file (scripts/build-getff-dist.sh PAYLOAD), where no helper file exists.
+# The two copies must stay byte-identical, or the two runners disagree on what an escape is.
+_esc() { awk '/^pc_local_escape\(\) \{$/ { on = 1 } on { print } on && /^\}$/ { exit }' "$1"; }
+if [ -n "$(_esc "$HERE/run-install-sh-suite.sh")" ] && [ "$(_esc "$SWEEP")" = "$(_esc "$HERE/run-install-sh-suite.sh")" ]; then
+  echo "  ✓ offload: pc_local_escape is byte-identical in run-local-ci-sweep.sh and run-install-sh-suite.sh"
+else echo "  ✗ offload: pc_local_escape differs between run-local-ci-sweep.sh and run-install-sh-suite.sh (or is missing)"; fails=$((fails + 1)); fi
+
+# (f) a runner that is not a command is a loud usage error, not a silent local run.
+offload "$TMP/no-such-runner" "$TMP/g-off.tsv" "$TMP/o36"
+check "offload: a missing runner exits 2" 2 $?
+grep_out "offload: the missing runner is named" "SWEEP_HEAVY_RUNNER='$TMP/no-such-runner' is not an executable command" "$TMP/o36"
+no_file "offload: a missing runner runs no gate" "$TMP/local-ran"
+
+# (g) degraded on the runner → run here, where it may be real; the verdict is the local run's.
+printf '1\trouted\tALWAYS\tif [ -n "${STUB_REMOTE:-}" ]; then echo "[sweep] WARN-skip tool absent there"; else echo real >>%s/local-ran; fi\n' "$TMP" >"$TMP/g-off-deg.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-deg.tsv" "$TMP/o37"
+check "offload: a remote degrade exits 0" 0 $?
+grep_out "offload: a remote degrade re-ran here" "real" "$TMP/local-ran"
+grep_out "offload: the real local run is a PASS, not a WARN-SKIP" "[sweep] PASS routed · here — degraded on runner-remote" "$TMP/o37"
+
+# (h) a far end whose table holds a DIFFERENT command (stale mirror) runs nothing; the row runs here.
+printf '1\trouted\tALWAYS\techo stale-mirror-command-ran >>%s/remote-ran\n' "$TMP" >"$TMP/g-off-stale.tsv"
+cat >"$TMP/runner-stale" <<EOF
+#!/usr/bin/env bash
+SWEEP_GATES_FILE="$TMP/g-off-stale.tsv" exec "$TMP/runner-remote" "\$@"
+EOF
+chmod +x "$TMP/runner-stale"
+offload "$TMP/runner-stale" "$TMP/g-off.tsv" "$TMP/o38"
+check "offload: a stale far end still exits 0 (ran here)" 0 $?
+no_file "offload: the stale far end ran nothing" "$TMP/remote-ran"
+grep_out "offload: the routed row ran here instead" "routed" "$TMP/local-ran"
+
+# (j) a vitest TIMEOUT on the runner is the runner being slow, not a verdict: the row runs here,
+# and the local run decides — green here passes, a timeout here too (a real hang) still fails.
+slow_there() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo "Error: %s timed out in 5000ms."; exit 1; fi; echo real >>%s/local-ran; %s' "$1" "$TMP" "$2"; }
+printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" >"$TMP/g-off-slow.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-slow.tsv" "$TMP/o50"
+check "offload: a remote timeout that is green here exits 0" 0 $?
+grep_out "offload: a remote timeout re-ran here" "real" "$TMP/local-ran"
+grep_out "offload: the timeout fallback is labelled" "[sweep] PASS routed · here — timed out on runner-remote" "$TMP/o50"
+printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Hook 'echo "Error: Hook timed out in 5000ms."; exit 1')" >"$TMP/g-off-hang.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-hang.tsv" "$TMP/o51"
+check "offload: a hang that times out here too still fails" 1 $?
+grep_out "offload: the local hang is the FAIL" "[sweep] FAIL routed · here — timed out on runner-remote" "$TMP/o51"
+
+# (k) ONE STRIKE: after the first routed row the runner failed (no receipt, or a timeout), later
+# routable rows run here without calling the runner again, labelled with that first reason.
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(where_cmd r1)" "$(where_cmd r2)" >"$TMP/g-off-two.tsv"
+offload "$TMP/runner-nothing" "$TMP/g-off-two.tsv" "$TMP/o52" "r1 r2"
+check "offload: one strike still exits 0 (both ran here)" 0 $?
+if [ "$(count "$RUNLOG")" = 1 ]; then echo "  ✓ offload: the runner was called once, then skipped"
+else echo "  ✗ offload: the runner was called $(count "$RUNLOG") time(s) after a no-result (want 1)"; fails=$((fails + 1)); fi
+grep_out "offload: the skipped row says why" "[sweep] PASS r2 · here — runner-nothing skipped after no result for r1" "$TMP/o52"
+grep_out "offload: the summary names the strike" "SWEEP: offload stopped after no result for r1" "$TMP/o52"
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" "$(where_cmd r2)" >"$TMP/g-off-two-slow.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-two-slow.tsv" "$TMP/o53" "r1 r2"
+if [ "$(count "$RUNLOG")" = 1 ] && [ ! -f "$TMP/remote-ran" ]; then echo "  ✓ offload: a timeout stops routing for the rest of the sweep"
+else echo "  ✗ offload: after a timeout the runner was called $(count "$RUNLOG") time(s) (want 1)"; fails=$((fails + 1)); fi
+grep_out "offload: the timeout strike is named" "[sweep] PASS r2 · here — runner-remote skipped after a timeout in r1" "$TMP/o53"
+# (k-neg) a row that only DEGRADED there (one tool the runner lacks) is NOT a strike: the runner
+# answered, so the next row still goes to it. (A plain red cannot be the paired negative — the
+# sweep stops at its first FAIL, so no later row exists to observe.)
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(cut -f4 "$TMP/g-off-deg.tsv")" "$(where_cmd r2)" >"$TMP/g-off-two-deg.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-two-deg.tsv" "$TMP/o54" "r1 r2"
+check "offload: degrade then green exits 0" 0 $?
+if [ "$(count "$RUNLOG")" = 2 ] && grep -qx r2 "$TMP/remote-ran" 2>/dev/null; then echo "  ✓ offload: a degrade does not stop routing"
+else echo "  ✗ offload: after a degrade the runner was called $(count "$RUNLOG") time(s), remote=$(count "$TMP/remote-ran") (want 2 calls, r2 remote)"; fails=$((fails + 1)); fi
+if grep -qF "offload stopped" "$TMP/o54"; then echo "  ✗ offload: a degrade was reported as a strike"; fails=$((fails + 1))
+else echo "  ✓ offload: a degrade is not reported as a strike"; fi
+
+# (l) the runner falling back to this host is a strike too: later rows skip the runner.
+offload "$TMP/runner-origin" "$TMP/g-off-two.tsv" "$TMP/o55" "r1 r2"
+check "offload: origin strike still exits 0" 0 $?
+if [ "$(count "$RUNLOG")" = 1 ]; then echo "  ✓ offload: after an origin fallback the runner was not called again"
+else echo "  ✗ offload: after an origin fallback the runner was called $(count "$RUNLOG") time(s) (want 1)"; fails=$((fails + 1)); fi
+grep_out "offload: the origin strike is named" "[sweep] PASS r2 · here — runner-origin skipped after it fell back to this host on r1" "$TMP/o55"
+
+# (m) a green run with a loud skip (`⚠ … SKIPPED`) naming a program this host has: the runner
+# lacked the tool, so the row runs here. Paired negative: a tool absent here too keeps the verdict.
+skip_there() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo "⚠ live %s firing SKIPPED"; exit 0; fi; echo real >>%s/local-ran' "$1" "$TMP"; }
+printf '1\trouted\tALWAYS\t%s\n' "$(skip_there cksum)" >"$TMP/g-off-skip.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-skip.tsv" "$TMP/o56"
+check "offload: a loud skip of a tool this host has exits 0" 0 $?
+grep_out "offload: the loud skip re-ran here" "real" "$TMP/local-ran"
+grep_out "offload: the loud-skip rerun is labelled" "[sweep] PASS routed · here — degraded on runner-remote" "$TMP/o56"
+printf '1\trouted\tALWAYS\t%s\n' "$(skip_there no-such-tool-f7k2)" >"$TMP/g-off-skip-neg.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-skip-neg.tsv" "$TMP/o57"
+no_file "offload: a loud skip of a tool absent here too is not re-run" "$TMP/local-ran"
+grep_out "offload: that verdict stays the runner's" "[sweep] PASS routed · on runner-remote" "$TMP/o57"
+
+# (n) a far end whose index tracks another file list (a file staged here, not committed) runs
+# nothing: the row runs here. An empty GIT_INDEX_FILE plays the far end's index.
+cat >"$TMP/runner-otherindex" <<EOF
+#!/usr/bin/env bash
+GIT_INDEX_FILE="$TMP/no-such-index" exec "$TMP/runner-remote" "\$@"
+EOF
+chmod +x "$TMP/runner-otherindex"
+offload "$TMP/runner-otherindex" "$TMP/g-off.tsv" "$TMP/o58"
+check "offload: another tracked-file list still exits 0 (ran here)" 0 $?
+no_file "offload: the far end with another file list ran nothing" "$TMP/remote-ran"
+grep_out "offload: the row ran here instead" "[sweep] PASS routed · here — no result from runner-otherindex" "$TMP/o58"
+
+# (o) a listed row that starts a shell itself, or has a vitest shape the parser cannot read, stays
+# here without a runner call (the coverage test REDs on the list naming it).
+printf '1\trouted\tALWAYS\tbash -c %s\n2\tvshape\tALWAYS\t%s\n' "'echo routed >>$TMP/local-ran'" "echo vitest-shaped >>$TMP/local-ran" >"$TMP/g-off-shell.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-shell.tsv" "$TMP/o59" "routed vshape"
+check "offload: shell row + unparsed vitest row exit 0" 0 $?
+no_file "offload: neither row called the runner" "$RUNLOG"
+if [ "$(count "$TMP/local-ran")" = 2 ]; then echo "  ✓ offload: both rows ran here"
+else echo "  ✗ offload: local=$(count "$TMP/local-ran") (want 2)"; fails=$((fails + 1)); fi
+
+# (p) a runner that exits non-zero AFTER a green receipt: the receipt is the verdict, and the exit
+# is written to the row's log, not dropped.
+cat >"$TMP/runner-exit1" <<EOF
+#!/usr/bin/env bash
+"$TMP/runner-remote" "\$@"; exit 1
+EOF
+chmod +x "$TMP/runner-exit1"
+rm -f "$TMP/remote-ran" "$TMP/local-ran" "$RUNLOG"
+SWEEP_LOG_DIR="$TMP/logs-exit1" SWEEP_HEAVY_RUNNER="$TMP/runner-exit1" SWEEP_ROUTABLE=routed SWEEP_GATES_FILE="$TMP/g-off.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o60" 2>&1
+check "offload: a non-zero runner exit after a green receipt still passes" 0 $?
+grep_out "offload: that PASS is the runner's" "[sweep] PASS routed · on runner-exit1" "$TMP/o60"
+if grep -qF "runner-exit1 exited 1 after the receipt" "$TMP"/logs-exit1/*routed.log 2>/dev/null; then echo "  ✓ offload: the runner's exit is in the row's log"
+else echo "  ✗ offload: the runner's non-zero exit left no trace in the row's log"; fails=$((fails + 1)); fi
+# …and when that green run was degraded there and re-ran here, the log keeps both notes.
+SWEEP_LOG_DIR="$TMP/logs-exit1-deg" SWEEP_HEAVY_RUNNER="$TMP/runner-exit1" SWEEP_ROUTABLE=routed SWEEP_GATES_FILE="$TMP/g-off-skip.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o63" 2>&1
+check "offload: a degraded green receipt with a non-zero runner exit still passes" 0 $?
+if grep -qF "runner-exit1 exited 1 after the receipt" "$TMP"/logs-exit1-deg/*routed.log 2>/dev/null \
+  && grep -qF "degraded on runner-exit1 — ran here instead" "$TMP"/logs-exit1-deg/*routed.log 2>/dev/null; then
+  echo "  ✓ offload: the row's log keeps the runner's exit and the degrade"
+else echo "  ✗ offload: the degrade note replaced the runner's exit note in the row's log"; fails=$((fails + 1)); fi
+
+# (i) shell arms: a routed vitest row also runs, HERE, its suite's files that start a shell —
+# by absolute path, through PATH, by naming a .sh file, or through an imported helper that does.
+# A throwaway repo carries a fake packages/core suite; npm/npx are stubs that log their argv.
+R5="$TMP/repo-arms"; mk_repo "$R5"
+mkdir -p "$R5/packages/core/fake" "$TMP/bin"
+printf '{ "scripts": { "test:fake": "vitest run fake/" } }\n' >"$R5/packages/core/package.json"
+printf "spawnSync('/bin/bash', [hook]);\n" >"$R5/packages/core/fake/pinned.test.ts"
+printf "spawnSync('bash', [hook]);\n" >"$R5/packages/core/fake/plain.test.ts"
+printf "execFileSync(join(dir, 'x.sh'));\n" >"$R5/packages/core/fake/script.test.ts"
+printf "export const run = () => spawnSync('/bin/sh', ['-c', 'true']);\n" >"$R5/packages/core/fake/helper.ts"
+printf "import { run } from './helper.js';\nrun();\n" >"$R5/packages/core/fake/uses-helper.test.ts"
+printf "expect(1).toBe(1);\n" >"$R5/packages/core/fake/clean.test.ts"
+printf "spawnSync('/bin/bash', [x]);\n" >"$R5/packages/core/other.test.ts"
+cat >"$TMP/bin/npm" <<EOF
+#!/usr/bin/env bash
+echo "npm \${STUB_REMOTE:+remote }\$*" >>"$TMP/tools.log"
+EOF
+cat >"$TMP/bin/npx" <<EOF
+#!/usr/bin/env bash
+echo "npx \${STUB_REMOTE:+remote }\$*" >>"$TMP/tools.log"
+exit "\${STUB_NPX_RC:-0}"
+EOF
+chmod +x "$TMP/bin/npm" "$TMP/bin/npx"
+printf '6\tvitest-fake\tALWAYS\tnpm --prefix packages/core run test:fake\n7\tvitest-one\tALWAYS\tnpx --prefix packages/core vitest run packages/core/fake/pinned.test.ts\n' >"$TMP/g-arms.tsv"
+arms_sweep() { # arms_sweep <out> [npx-rc]
+  rm -f "$TMP/tools.log"
+  PATH="$TMP/bin:$PATH" STUB_NPX_RC="${2:-0}" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="vitest-fake" \
+    SWEEP_GATES_FILE="$TMP/g-arms.tsv" SWEEP_DIFF_OVERRIDE="x.txt" run_sweep "$R5" --full >"$1" 2>&1
+}
+SWEEP_ROUTABLE="vitest-fake vitest-one" SWEEP_GATES_FILE="$TMP/g-arms.tsv" run_sweep "$R5" --route-plan >"$TMP/o39" 2>&1
+ARMS_WANT="fake/pinned.test.ts fake/plain.test.ts fake/script.test.ts fake/uses-helper.test.ts"
+grep_out "arms: --route-plan names every in-scope shell file, and only those" "$(printf 'vitest-fake\troute\t%s' "$ARMS_WANT")" "$TMP/o39"
+grep_out "arms: a row whose every file starts a shell stays here" "$(printf 'vitest-one\tlocal\tevery-file-starts-a-shell')" "$TMP/o39"
+arms_sweep "$TMP/o40"
+check "arms: routed suite + green arms exits 0" 0 $?
+grep_out "arms: the suite itself ran on the runner" "npm remote --prefix packages/core run test:fake" "$TMP/tools.log"
+grep_out "arms: the shell files ran here" "npx vitest run --reporter=default $ARMS_WANT" "$TMP/tools.log"
+if grep -qE 'clean\.test\.ts|other\.test\.ts|npx remote' "$TMP/tools.log"; then
+  echo "  ✗ arms: ran a file outside the arms set, or ran the arms on the runner"; fails=$((fails + 1))
+else echo "  ✓ arms: only the in-scope shell files ran here"; fi
+grep_out "arms: PASS line says the arms ran here" "[sweep] PASS vitest-fake · on runner-remote + shell arms here" "$TMP/o40"
+arms_sweep "$TMP/o41" 1
+check "arms: a red shell arm fails the row even though the runner passed" 1 $?
+grep_out "arms: the red arm is reported as the row's FAIL" "[sweep] FAIL vitest-fake · on runner-remote + shell arms here" "$TMP/o41"
+
+# (q) which rows start a shell, read the way npm and node run them. A throwaway repo carries npm
+# scripts two levels deep, pre scripts, a cycle, workspaces (a glob it cannot read, a name that is
+# not there), a node script that starts bash through its own wrapper, one that writes and runs a
+# shebang stub, one that spawns npm, one that names an extensionless shell script, one importing
+# outside the scanned trees, readers of .sh files (named in SWEEP_SHELL_READERS with a reason, a
+# too-short reason, one whose import starts a shell, one that spawns bash, one whose exec string
+# does more than one git command), vitest setup
+# files (one spawning a program it computes, one git only), and scripts it cannot find.
+# --route-plan only reads.
+R6="$TMP/repo-reasons"; mk_repo "$R6"
+mkdir -p "$R6/packages/a" "$R6/packages/b" "$R6/packages/core" "$R6/scripts/lib" "$R6/tools"
+cat >"$R6/package.json" <<'EOF'
+{ "workspaces": ["packages/*"],
+  "scripts": { "lint:sh": "bash scripts/x.sh", "deep": "npm run lint:sh", "typecheck": "npm run typecheck --workspaces --if-present",
+    "prelint": "bash scripts/x.sh", "lint": "tsc", "ping": "npm run pong", "pong": "npm run ping" } }
+EOF
+mkdir -p "$R6/sub"
+printf '{ "workspaces": ["apps/**"], "scripts": { "t": "npm run t --workspaces" } }\n' >"$R6/sub/package.json"
+printf '{ "scripts": { "test:x": "vitest run x/" } }\n' >"$R6/packages/core/package.json"
+printf "export default { test: { setupFiles: ['./setup-computed.ts'] } };\n" >"$R6/packages/core/vitest.config.ts"
+printf "import { spawnSync } from 'node:child_process';\nspawnSync(process.env.SHELL_BIN || 'x', []);\n" >"$R6/packages/core/setup-computed.ts"
+printf "export default { test: { setupFiles: ['./setup-git.ts'] } };\n" >"$R6/vitest.config.ts"
+printf "import { execSync } from 'node:child_process';\nexecSync('git status --porcelain');\n" >"$R6/setup-git.ts"
+printf '#!/bin/sh\necho doctor\n' >"$R6/tools/doctor"
+chmod +x "$R6/tools/doctor"
+printf '{ "name": "a", "scripts": { "typecheck": "sh ./check.sh" } }\n' >"$R6/packages/a/package.json"
+printf '{ "name": "b", "scripts": { "typecheck": "tsc -p ." } }\n' >"$R6/packages/b/package.json"
+printf "export const run = (p, a) => spawnSync(p, a);\n" >"$R6/scripts/lib/run.mjs"
+printf "import { run } from './lib/run.mjs';\nrun('bash', ['x']);\n" >"$R6/scripts/wrapper.mjs"
+printf "console.log('no shell');\n" >"$R6/scripts/clean.mjs"
+printf "import { execFileSync } from 'node:child_process';\nexecFileSync('git', ['ls-files']);\nreadFileSync('install.sh');\n" >"$R6/scripts/reader.mjs"
+cp "$R6/scripts/reader.mjs" "$R6/scripts/reader-short.mjs"
+printf "import { spawnSync } from 'node:child_process';\nreadFileSync('install.sh');\nspawnSync('bash', ['-n', 'install.sh']);\n" >"$R6/scripts/reader-spawns.mjs"
+printf "import { execSync } from 'node:child_process';\nreadFileSync('install.sh');\nexecSync('git ls-files; bash x.sh');\n" >"$R6/scripts/reader-exec.mjs"
+printf "writeFileSync(p, '#!/usr/bin/env bash\\\\necho hi\\\\n');\nexecFileSync(p);\n" >"$R6/scripts/stubber.mjs"
+printf "spawnSync('npm', ['run', 'x']);\n" >"$R6/scripts/npm-spawner.mjs"
+printf "execFileSync(join(root, 'tools', 'doctor'));\n" >"$R6/scripts/runs-doctor.mjs"
+printf "import '../tools/elsewhere.mjs';\n" >"$R6/scripts/imports-outside.mjs"
+printf "import './wrapper.mjs';\nreadFileSync('install.sh');\n" >"$R6/scripts/reader-imports.mjs"
+printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
+{
+  printf '1\tnpm-hop\tALWAYS\tnpm run --silent lint:sh\n'
+  printf '2\tnpm-deep\tALWAYS\tnpm run deep\n'
+  printf '3\tnpm-ws\tALWAYS\tnpm run typecheck\n'
+  printf '4\tnpm-prefix-eq\tALWAYS\tnpm --prefix=packages/a run typecheck\n'
+  printf '5\tnode-wrapper\tALWAYS\tNODE_ENV=x node ./scripts/wrapper.mjs --check\n'
+  printf '6\tbin-sh\tALWAYS\t/bin/sh -c "echo hi"\n'
+  printf '7\tvitest-then-bash\tALWAYS\tnpx vitest run packages/core/x.test.ts && bash x.sh\n'
+  printf '8\tclean\tALWAYS\tnode scripts/clean.mjs\n'
+  printf '9\treader\tALWAYS\tnode scripts/reader.mjs\n'
+  printf '10\treader-short\tALWAYS\tnode scripts/reader-short.mjs\n'
+  printf '11\treader-imports\tALWAYS\tnode scripts/reader-imports.mjs\n'
+  printf '12\telsewhere\tALWAYS\tnode tools/elsewhere.mjs\n'
+  printf '13\tnpm-exec\tALWAYS\tnpm exec foo\n'
+  printf '14\tnpm-b\tALWAYS\tnpm -w b run typecheck\n'
+  printf '15\tnpm-pre\tALWAYS\tnpm run lint\n'
+  printf '16\tnpm-nosuch-ws\tALWAYS\tnpm -w nosuch run typecheck\n'
+  printf '17\tnpm-cycle\tALWAYS\tnpm run ping\n'
+  printf '18\tnpm-behind-timeout\tALWAYS\ttimeout 600 node scripts/clean.mjs && timeout 600 npm run lint\n'
+  printf '19\tbg-then-npm\tALWAYS\tnode scripts/clean.mjs & npm run lint:sh; wait\n'
+  printf '20\tws-glob\tALWAYS\tnpm --prefix sub run t\n'
+  printf '21\tnode-eval\tALWAYS\tnode -e "require(1)"\n'
+  printf '22\tnode-noext\tALWAYS\tnode scripts/wrapper\n'
+  printf '23\tnode-after-cd\tALWAYS\tcd scripts && node clean.mjs\n'
+  printf '24\textless-shell\tALWAYS\t./tools/doctor --check\n'
+  printf '25\tstub-writer\tALWAYS\tnode scripts/stubber.mjs\n'
+  printf '26\tspawns-npm\tALWAYS\tnode scripts/npm-spawner.mjs\n'
+  printf '27\tnames-extless\tALWAYS\tnode scripts/runs-doctor.mjs\n'
+  printf '28\timports-outside\tALWAYS\tnode scripts/imports-outside.mjs\n'
+  printf '29\treader-spawns\tALWAYS\tnode scripts/reader-spawns.mjs\n'
+  printf '30\tsetup-computed\tALWAYS\tnpm --prefix packages/core run test:x\n'
+  printf '31\tsetup-git\tALWAYS\tnpx vitest run packages/core/x.test.ts\n'
+  printf '32\treader-exec\tALWAYS\tnode scripts/reader-exec.mjs\n'
+  printf '33\tnode-noext-missing\tALWAYS\tnode scripts/nosuch --check\n'
+} >"$TMP/g-reasons.tsv"
+( cd "$R6" && git add -A && git commit -qm fixtures ) >/dev/null 2>&1
+READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else\nscripts/reader-spawns.mjs\treads install.sh as text and nothing else\nscripts/reader-exec.mjs\treads install.sh as text and nothing else')"
+SWEEP_SHELL_READERS="$READERS_FIX" SWEEP_GATES_FILE="$TMP/g-reasons.tsv" SWEEP_ROUTABLE="$(cut -f2 "$TMP/g-reasons.tsv" | tr '\n' ' ')" \
+  run_sweep "$R6" --route-plan >"$TMP/o61" 2>&1
+check "reasons: --route-plan exits 0" 0 $?
+while IFS='|' read -r row want; do
+  got="$(awk -F'\t' -v n="$row" '$1 == n { print $2 " " $3 }' "$TMP/o61")"
+  if [ "$got" = "$want" ]; then echo "  ✓ reasons: $row → $want"
+  else echo "  ✗ reasons: $row → '$got' (want '$want')"; fails=$((fails + 1)); fi
+done <<'EOF'
+npm-hop|local runs-a-shell
+npm-deep|local runs-a-shell
+npm-ws|local runs-a-shell
+npm-prefix-eq|local runs-a-shell
+node-wrapper|local starts-a-shell:scripts/wrapper.mjs
+bin-sh|local runs-a-shell
+vitest-then-bash|local runs-a-shell
+clean|route 
+reader|route 
+reader-short|local starts-a-shell:scripts/reader-short.mjs
+reader-imports|local starts-a-shell:scripts/reader-imports.mjs
+elsewhere|local unscanned-script:tools/elsewhere.mjs
+npm-exec|local unparsed-npm-call
+npm-b|route 
+npm-pre|local runs-a-shell
+npm-nosuch-ws|local unknown-workspace:nosuch
+npm-cycle|local npm-nested-too-deep
+npm-behind-timeout|local unparsed-npm-call
+bg-then-npm|local runs-a-shell
+ws-glob|local unparsed-workspace-glob:apps/**
+node-eval|local node-eval
+node-noext|local starts-a-shell:scripts/wrapper.mjs
+node-after-cd|local unresolved-script:clean.mjs
+extless-shell|local runs-a-shell
+stub-writer|local starts-a-shell:scripts/stubber.mjs
+spawns-npm|local starts-a-shell:scripts/npm-spawner.mjs
+names-extless|local starts-a-shell:scripts/runs-doctor.mjs
+imports-outside|local starts-a-shell:scripts/imports-outside.mjs
+reader-spawns|local reader-starts-more-than-git:scripts/reader-spawns.mjs
+setup-computed|local setup-starts-a-shell:packages/core/setup-computed.ts
+setup-git|route 
+reader-exec|local reader-starts-more-than-git:scripts/reader-exec.mjs
+node-noext-missing|local unresolved-script:scripts/nosuch
+EOF
+
+# (r) the scan itself failing (node broken on this host) stops routing for the whole sweep: the
+# rows run here, unlabelled, the runner is never called, and the sweep says why.
+mkdir -p "$TMP/badnode"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$TMP/badnode/node"
+chmod +x "$TMP/badnode/node"
+rm -f "$TMP/remote-ran" "$TMP/local-ran" "$RUNLOG"
+PATH="$TMP/badnode:$PATH" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE=routed SWEEP_GATES_FILE="$TMP/g-off.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o62" 2>&1
+check "scan failure: the sweep still exits 0" 0 $?
+grep_out "scan failure: the sweep says routing stopped" "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" "$TMP/o62"
+no_file "scan failure: the runner was never called" "$RUNLOG"
+if grep -qx '\[sweep\] PASS routed' "$TMP/o62"; then echo "  ✓ scan failure: the row passed here, unlabelled"
+else echo "  ✗ scan failure: no unlabelled '[sweep] PASS routed' line"; fails=$((fails + 1)); fi
 
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

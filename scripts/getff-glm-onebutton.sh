@@ -98,7 +98,7 @@ EOF
 }
 
 # Path to the consumer's aif-handoff checkout. Mirrors the canonical path that
-# setup.d/aif-handoff-guided-install.sh:30 clones to. Env-overridable for consumers who
+# setup.d/aif-handoff-guided-install.sh:35 clones to. Env-overridable for consumers who
 # keep aif in a non-standard location.
 AIF_HANDOFF_CHECKOUT="${AIF_HANDOFF_CHECKOUT:-$HOME/code/aif-handoff}"
 
@@ -334,7 +334,7 @@ do_provision() {
   #
   # W1 — best-effort auto-wire via docker-compose.override.yml:
   #   If $AIF_HANDOFF_CHECKOUT/docker-compose.yml is present (the canonical path from
-  #   setup.d/aif-handoff-guided-install.sh:30) and no unmarked override exists, the
+  #   setup.d/aif-handoff-guided-install.sh:35) and no unmarked override exists, the
   #   helper writes a marker-bearing override that adds $GLM_ENV_FILE to each detected
   #   service's env_file list, then runs `docker compose up -d` (best-effort reload).
   #   The override lists BOTH .env (preserve existing) and $GLM_ENV_FILE so it works

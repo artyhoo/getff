@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-arch-boundaries.sh — GH #534. The R3 inertness alarm, parallel to check:globs (R2).
 #
-# The shipped .dependency-cruiser.cjs carries layered + monorepo boundary rules, but every rule is
+# The shipped .dependency-cruiser.mjs carries layered + monorepo boundary rules, but every rule is
 # PATH-keyed and silently INERT on a layout it doesn't match. On a pnpm-workspace monorepo (apps/* +
 # packages/*) the boundaries that matter are packages↛apps and apps↔apps — and if the consumer's
 # arch config carries no such rule (e.g. a pre-existing config that install did not overwrite, or a
@@ -17,7 +17,18 @@
 # where there is no packages↛apps boundary to guard.
 set -uo pipefail
 
-CFG="${DEPCRUISE_CONFIG:-.dependency-cruiser.cjs}"
+# The config dependency-cruiser itself loads: its default names in its own lookup order
+# (doc/cli.md `--config`). getff ships .dependency-cruiser.mjs; a project that already had one
+# keeps its own under whatever name. Same list as DEPCRUISE_CONFIG_NAMES in setup.d/lib.sh (this
+# script ships without lib.sh). DEPCRUISE_CONFIG overrides.
+CFG="${DEPCRUISE_CONFIG:-}"
+if [ -z "$CFG" ]; then
+  for _f in .dependency-cruiser.js .dependency-cruiser.cjs .dependency-cruiser.mjs .dependency-cruiser.ts \
+            .dependency-cruiser.cts .dependency-cruiser.mts .dependency-cruiser.json; do
+    if [ -f "$_f" ]; then CFG="$_f"; break; fi
+  done
+  CFG="${CFG:-.dependency-cruiser.mjs}"
+fi
 if [ ! -f "$CFG" ]; then
   echo "check-arch-boundaries: $CFG not found — skipped (no architecture config to verify)."
   exit 0

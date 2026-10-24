@@ -1,4 +1,4 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-export declare const noUnsafeZodParse: ESLintUtils.RuleModule<"useSafeParse", [], unknown, ESLintUtils.RuleListener> & {
-    name: string;
-};
+import type { TSESLint } from '@typescript-eslint/utils';
+type MessageIds = 'useSafeParse';
+export declare const noUnsafeZodParse: TSESLint.RuleModule<MessageIds>;
+export {};

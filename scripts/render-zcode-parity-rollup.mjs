@@ -24,7 +24,7 @@
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const DOCTRINE = join('.claude', 'rules', 'zcode-parity-doctrine.md');
 const CENSUS = join('docs', 'meta-factory', 'research-patches', '2026-07-18-zcode-full-parity-census.md');
@@ -99,13 +99,6 @@ function run(argv) {
   return 2;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
 export { renderBody, SECTION };

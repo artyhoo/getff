@@ -1,0 +1,10 @@
+{
+  "name": "@upstash/redis-mcp",
+  "version": "0.1.1",
+  "homepage": "https://github.com/upstash/redis-mcp#readme",
+  "repository": {
+    "url": "git+https://github.com/upstash/redis-mcp.git",
+    "type": "git"
+  },
+  "mcpName": "io.github.upstash/redis-mcp"
+}

@@ -85,7 +85,7 @@ out_a=$( cd "$A" && "$STRYKER" run --logLevel info 2>&1 || true )
 n_a=$(mutant_count_from_log "$out_a")
 
 # Also check no StrykerError (plugin injection failure = #549 class)
-if echo "$out_a" | grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker'; then
+if grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker' <<<"$out_a"; then
   bad "Check2 npm: StrykerError detected — checker/plugin injection failure (#549 class exact condition; f13 config-grep stays GREEN)"
   n_a=0
 fi
@@ -116,7 +116,7 @@ if command -v pnpm >/dev/null 2>&1; then
 JSON
   out_b=$( cd "$B" && "$STRYKER" run --logLevel info 2>&1 || true )
   n_b=$(mutant_count_from_log "$out_b")
-  if echo "$out_b" | grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker'; then
+  if grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker' <<<"$out_b"; then
     bad "Check2 pnpm: StrykerError — checker injection failed on pnpm arm (exact #549 path)"
     n_b=0
   fi
@@ -151,7 +151,7 @@ JSON
 
 out_neg=$( cd "$NEG" && "$STRYKER" run --logLevel info 2>&1 || true )
 
-if echo "$out_neg" | grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker|Cannot find Checker plugin'; then
+if grep -qE 'StrykerError|Could not inject.*Checker|ERROR.*Stryker|Cannot find Checker plugin' <<<"$out_neg"; then
   ok "Check2 neg (#549 repro): missing checker → StrykerError (RED; f13 config-grep stays GREEN — this is the exact gap)"
 else
   # Checker somehow found — still check that mutants were produced correctly

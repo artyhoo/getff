@@ -54,7 +54,7 @@ describe('monitor-classify.sh — transition test (T-DUX-B a)', () => {
 // only on RUNNING:* / DONE:* / PARKED:* / ERROR:* — an UNKNOWN:* result is unhandled, so
 // a running task (every task passes through plan_ready: backlog→planning→plan_ready→
 // implementing→review→done) was misread as terminal. The canonical mapping
-// (packages/runtime-bridge/src/aifWsStatus.ts:82) classifies plan_ready, implementing and
+// (packages/runtime-bridge/src/aifWsStatus.ts:83) classifies plan_ready, implementing and
 // review all as 'running'. Each `.not.toMatch(/^UNKNOWN:/)` below fails if a running state
 // regresses back to the `*)` fall-through arm — the exact shape of the original bug.
 

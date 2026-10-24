@@ -43,7 +43,7 @@ console.error(
     'principle 11 F1 went red on the next unrelated PR). Add to the PR body a\n' +
     'line naming a resolvable referent — any one of the three accepted forms:\n' +
     '  SSOT row:            Prior-art: prior-art-evaluations.md#N (verdict X — rationale)\n' +
-    '  artefact path:       Prior-art: REUSE — setup.d/lib.sh:359 (the idiom this reuses)\n' +
+    '  artefact path:       Prior-art: REUSE — setup.d/lib.sh:359 (the idiom this reuses)\n' + // cite:historical example trailer text, not a live pointer
     '  issue/PR reference:  Prior-art: see PR #1094 (the incident this gate came from)\n' +
     '(the escape hatch `Prior-art: skipped — …` is rejected on capability PRs,\n' +
     'same as the pre-push §7 arm.)\n' +
