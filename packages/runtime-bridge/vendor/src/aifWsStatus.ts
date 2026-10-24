@@ -61,13 +61,19 @@ const ADVERSE_ADVISORY =
 
 export interface AifResultMetadata extends Record<string, unknown> {
   taskId: string;
-  resultGeneration: string;
+  resultGeneration: string | null;
   candidate: { branch: string | null; commitSha: string | null };
   sessionId: string | null;
   attempt: null;
   reviewIteration: number | null;
   acceptance: 'unverified';
-  held: 'parked' | 'paused' | 'advisory' | 'unknown-status' | null;
+  held:
+    | 'parked'
+    | 'paused'
+    | 'advisory'
+    | 'unknown-status'
+    | 'unresolved'
+    | null;
   source: string;
   nextAction: {
     kind: 'reconcile' | 'review' | 'observe';
@@ -224,14 +230,60 @@ export function describeAifTask(
   };
 }
 
+/** Keep failed consumption pending without deriving identity from rejected detail. */
+export function unresolvedAifTaskResult(
+  taskId: string,
+  error: unknown,
+  observed?: AifResultMetadata,
+): TaskResult & { meta: AifResultMetadata } {
+  const ownerReference = observed
+    ? observed.nextAction.ownerReference
+    : process.env['RUNTIME_BRIDGE_RESULT_OWNER']?.trim() || null;
+  const diagnostic = error instanceof Error ? error.message : String(error);
+  return {
+    success: false,
+    finalStatus: 'unknown',
+    content: diagnostic,
+    completedAt: new Date().toISOString(),
+    meta: {
+      taskId,
+      resultGeneration: observed?.resultGeneration ?? null,
+      candidate: observed?.candidate ?? { branch: null, commitSha: null },
+      sessionId: observed?.sessionId ?? null,
+      attempt: null,
+      reviewIteration: observed?.reviewIteration ?? null,
+      acceptance: 'unverified',
+      held: 'unresolved',
+      source: `/tasks/${encodeURIComponent(taskId)}`,
+      nextAction: {
+        kind: 'reconcile',
+        state: 'pending',
+        ownerReference: ownerReference || null,
+        prerequisite:
+          `${ownerReference ? '' : 'Bind an accountable reader/recipient. '}` +
+          (observed
+            ? 'Reconcile the validated observation and any delivery effects before retrying. '
+            : 'Obtain valid authoritative detail for the requested task before acting. ') +
+          diagnostic,
+        returnCondition:
+          'Re-read the requested task and bind current candidate, result generation and applicable authority before continuation.',
+      },
+    },
+  };
+}
+
 /** Full REST detail must be consumed before a terminal signal is reported as a result. */
 export async function readAifTaskResult(taskId: string, apiBaseUrl: string) {
-  const task = await getJson(
-    apiBaseUrl,
-    `/tasks/${encodeURIComponent(taskId)}`,
-    { timeoutMs: 5000, notFoundCode: 'unavailable' },
-  );
-  return describeAifTask(task as AifTaskFull, taskId);
+  try {
+    const task = await getJson(
+      apiBaseUrl,
+      `/tasks/${encodeURIComponent(taskId)}`,
+      { timeoutMs: 5000, notFoundCode: 'unavailable' },
+    );
+    return describeAifTask(task as AifTaskFull, taskId);
+  } catch (error) {
+    return unresolvedAifTaskResult(taskId, error);
+  }
 }
 
 /** The shape of aif-handoff's task:updated broadcast payload. */

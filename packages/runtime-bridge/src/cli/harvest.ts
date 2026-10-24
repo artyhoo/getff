@@ -110,7 +110,7 @@ import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { getJson, getProjects, getTask, getParticipantsModeEnabled, postJson } from './aifHttp.js';
 import { isManualReviewPark, MERGE_REPORT_PREFIX, postComment, postEvent } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
-import { describeAifTask } from '../aifWsStatus.js';
+import { describeAifTask, unresolvedAifTaskResult, type AifResultMetadata } from '../aifWsStatus.js';
 import {
   bundleFileName,
   channelAFallbackCommands,
@@ -1554,11 +1554,13 @@ async function main(): Promise<void> {
   // unhandled-rejection stack — no `[harvest] FAILED:` line, no Channel-A fallback.
   // Every failure mode now reaches the classifier below.
   let task: AifTaskFull | undefined;
+  let observation: { meta: AifResultMetadata } | undefined;
   let checkout: (() => string) | undefined;
   try {
-    task = await getTask(baseUrl, args.taskId);
+    const fetched = await getTask(baseUrl, args.taskId);
     // Bind the HTTP detail to the requested task before deriving any branch/effect.
-    const observation = describeAifTask(task, args.taskId);
+    observation = describeAifTask(fetched, args.taskId);
+    task = fetched;
 
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
@@ -1692,13 +1694,17 @@ async function main(): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[harvest] FAILED: ${msg}\n`);
+    const unresolved = unresolvedAifTaskResult(args.taskId, err, observation?.meta);
+    process.stdout.write(JSON.stringify({
+      ok: false, pushed: task ? null : false, result: unresolved.meta,
+      pendingAction: unresolved.meta.nextAction, error: msg,
+    }) + '\n');
     // Graceful degradation: print the exact CHANNEL-A manual egress so the operator is never
     // stuck — host-pull + host push, the same channel the automated leg takes. Never the
     // container-side `git push` this fallback used to print: that channel is dead (no
     // github.com egress from the container) and pointing at it sent the operator in circles.
-    // Channel-A fallback needs the task record; when getTask itself is what failed
-    // there is nothing to point at, so the FAILED line above stands alone.
-    if (task?.branchName) {
+    // Only validated requested-task detail can supply runnable fallback commands.
+    if (task?.branchName && !observation?.meta.held) {
       const bundleName = bundleFileName(task.branchName, args.taskId ?? task.id);
       const ctx: ChannelAContext = {
         container: args.container,

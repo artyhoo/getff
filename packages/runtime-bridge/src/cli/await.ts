@@ -41,6 +41,7 @@
 import { isMain } from './cliEntry.js';
 import { resolveBackend } from '../resolver.js';
 import { BackendError } from '../backend.js';
+import { unresolvedAifTaskResult } from '../aifWsStatus.js';
 import type { TaskHandle } from '../types.js';
 
 function parseArgs(argv: string[]): { taskId?: string; once: boolean; timeoutMs?: number } {
@@ -92,6 +93,7 @@ async function main(): Promise<void> {
   try {
     if (once) {
       const status = await backend.getStatus(handle);
+      if (status.meta?.held === 'unresolved') process.stderr.write('[runtime-bridge] await reconciliation remains pending; authoritative detail is unresolved\n');
       process.stdout.write(JSON.stringify(status) + '\n');
       printTaskLink(taskId, backend.name);
       // A point-in-time snapshot: exit 0 unless the backend reports an error state.
@@ -108,6 +110,12 @@ async function main(): Promise<void> {
     printTaskLink(taskId, backend.name);
     process.exit(result.success ? 0 : 1);
   } catch (err) {
+    if (backend.name === 'aif-handoff') {
+      const result = unresolvedAifTaskResult(taskId, err);
+      process.stdout.write(JSON.stringify(once
+        ? { status: 'error', rawStatus: result.finalStatus, checkedAt: result.completedAt, meta: result.meta }
+        : result) + '\n');
+    }
     if (err instanceof BackendError) {
       process.stderr.write(`[runtime-bridge] await failed (${err.code}): ${err.message}\n`);
     } else {

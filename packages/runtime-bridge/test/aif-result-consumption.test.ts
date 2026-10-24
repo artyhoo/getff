@@ -189,6 +189,7 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     expect(r.code).toBe(1);
     expect(r.stdout).not.toContain('"status":"done"');
     expect(r.stderr).toContain('await');
+    expect(JSON.parse(r.stdout)).toMatchObject({ status: 'error', rawStatus: 'unknown', meta: { taskId: 's3-task', resultGeneration: null, candidate: { branch: null, commitSha: null }, nextAction: { kind: 'reconcile', state: 'pending', ownerReference: owner } } });
     detailCode = 200;
   });
 
@@ -198,7 +199,42 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     const h = await run(tsx, ['packages/runtime-bridge/src/cli/harvest.ts', 's3-task', '--base', 'staging', '--container', 'fixture', '--repo-path', scratch, '--host-repo', scratch, '--no-auto-merge']);
     expect(h.code).toBe(1);
     expect(h.stderr).toContain('invalid task detail');
+    expect(h.stderr).not.toContain('manual fallback');
+    expect(h.stderr).not.toContain('push origin');
+    expect(JSON.parse(h.stdout)).toMatchObject({ ok: false, pushed: false, result: { taskId: 's3-task', resultGeneration: null, candidate: { branch: null, commitSha: null } }, pendingAction: { ownerReference: owner, state: 'pending' } });
     expect(() => readFileSync(effectLog)).toThrow();
+  });
+
+  it('unavailable detail retains explicitly unbound pending custody', async () => {
+    task = {};
+    detailCode = 503;
+    const noOwner = { ...env };
+    delete noOwner.RUNTIME_BRIDGE_RESULT_OWNER;
+    try {
+      const r = await run(tsx, ['packages/runtime-bridge/src/cli/await.ts', 's3-task', '--once'], { env: noOwner });
+      expect(r.code).toBe(1);
+      expect(JSON.parse(r.stdout)).toMatchObject({ status: 'error', rawStatus: 'unknown', meta: { taskId: 's3-task', resultGeneration: null, nextAction: { state: 'pending', ownerReference: null } } });
+    } finally { detailCode = 200; }
+  });
+
+  it('validated detail preserves ordinary fallback with uncertain delivery outcome', async () => {
+    task = { ...baseTask };
+    detailCode = 200;
+    const h = await run(tsx, ['packages/runtime-bridge/src/cli/harvest.ts', 's3-task', '--base', 'staging', '--container', 'fixture', '--repo-path', scratch, '--host-repo', scratch, '--no-auto-merge']);
+    expect(h.code).toBe(1);
+    expect(h.stderr).toContain('manual fallback');
+    expect(h.stderr).toContain('push origin');
+    expect(JSON.parse(h.stdout)).toMatchObject({ ok: false, pushed: null, result: { taskId: 's3-task', candidate: { branch: 'candidate', commitSha: baseTask.commitSha } }, pendingAction: { ownerReference: owner, state: 'pending' } });
+  }, 35_000);
+
+  it('held validated detail never exposes fallback after an input error', async () => {
+    task = { ...baseTask, manualReviewRequired: true };
+    detailCode = 200;
+    const h = await run(tsx, ['packages/runtime-bridge/src/cli/harvest.ts', 's3-task', '--base', 'staging', '--container', 'fixture', '--repo-path', scratch, '--host-repo', scratch, '--no-auto-merge', '--body-file', join(scratch, 'missing-body.md')]);
+    expect(h.code).toBe(1);
+    expect(h.stderr).not.toContain('manual fallback');
+    expect(h.stderr).not.toContain('push origin');
+    expect(JSON.parse(h.stdout)).toMatchObject({ ok: false, pendingAction: { state: 'pending', ownerReference: owner } });
   });
 
   it('ordinary specified repair reaches the existing comment then event consumer', async () => {
