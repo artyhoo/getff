@@ -255,7 +255,7 @@ bbf1ee37b73dbf68ad95ce9c4eb9b8e0a25374e37fa7f9909a1381444dcde7ea  .agents/rules/
 089f089cb3a10b6681aaffc3e88a8e2bf54549b5b6c3db2810b40b2f6bf7b066  .agents/rules/attention-is-not-a-mechanism.md
 ceffb151f45816474fa5540bb6f411055c8a826525886b7382f11238045a344a  .agents/rules/autonomous-loop-continuity.md
 56fdc573ec340330fbbcb11d672a94d60f0a72f2e42b68197b4721152c5faa2e  .agents/rules/build-first-reuse-default.md
-d966f7bcee07fdacdb68f5a5833e6a36545063bee83f4b91f030559b8c640fc4  .agents/rules/ci-tool-pinning.md
+66752e5a204d711ff82a384275a363ad21c722139eb38136255d9e214e4812e0  .agents/rules/ci-tool-pinning.md
 20d67f366ce30b176bc96e3fd7e2e5e591023a1d839fbcb10dbe2c66fad1d0f6  .agents/rules/cold-seat-economy.md
 fddd3c7b8ffae41e8fd9af60e3325c305583317a0ce26ca063d7ad37d54253f7  .agents/rules/companion-install-principle.md
 7d58a6121d8084687d6051bca1ab071ebf4a1d8446c4b876667002eceedcd07c  .agents/rules/coordinator-seat-delegation.md
@@ -1074,7 +1074,7 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 1425319ff3163e5e6b0488437f3b67a0482ab775bd36c65eb4a48bea9154032f  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 94a5d167d4c475b51a9fad67b23d8e9a2650079a9ef9c405ee613fdd25f2df05  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-4f907b5de9a6ab833ad60b3f9fef147f32887ae64bfe3f88168e7ca9e0de0e58  packages/core/principles/36-ci-needs-completeness.test.ts
+82209c725f43abceae5d0fe1effaca01823b88434f022366beebe240bb898f28  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 4eabacf7329386d40e48b3762b49b92d05b97a7f64d0369468936d24f9e21f92  packages/core/principles/37-required-context-completeness.test.ts
 8dd757449269c40e40edef6403a71cd9bac72cada1faa5b26dfc37db756f55dc  packages/core/principles/38-vitest-include-ci-coverage.test.ts
