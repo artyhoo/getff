@@ -1,4 +1,5 @@
-/** Bounded, mechanical observation of existing umbrella owners and their named AIF tasks.
+/**
+ * supervision.ts — bounded mechanical observation of existing owners and their named AIF tasks.
  * This command never sends a message or changes a worker. Both a native notification and
  * the scheduled observer must claim the same event here before intervening.
  * Usage:
