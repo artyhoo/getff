@@ -12,9 +12,10 @@ sources:
   - docs/site/reference/F1.json
   - docs/site/reference/F1.md
   - docs/site/terms.md
+  - packages/runtime-bridge/test/aif-active-observation.test.ts
 executed:
   - { example: f10-arm-and-opt-in-gates, stack: repo, date: 2026-10-07, result: printed }
-docs-refresh: deferred — re-verified 2026-10-12, both cited sources changed only comment citation renumbers (the reminder test and the twin-synced hook carrying the same repair); the reminder behaviour and printed strings this sheet maps are untouched; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
+docs-refresh: deferred — S4 wait semantics refreshed 2026-10-25 against the source and 40 affected passing tests; installed adoption remains unverified; other pins retain the following earlier qualification, re-verified 2026-10-12, both cited sources changed only comment citation renumbers (the reminder test and the twin-synced hook carrying the same repair); the reminder behaviour and printed strings this sheet maps are untouched; the overview's 2026-10-12 all-30 refresh (status paragraph, class-list links, frontmatter sources only) is also re-verified — this sheet's sole #how-to-read-a-rule-page anchor into it is untouched; clears at the next gold refresh of this page
 ---
 
 # autonomous-loop-continuity rule
@@ -91,9 +92,11 @@ reliably but is honestly labelled prose, not a gate.
 
 What the rule does not do: it cannot stop an interactive session from ending,
 and it does not judge whether the remaining work is worth doing — deciding that
-is judgment no hook can make. Its own file records one residual gap: a wait with
-no timeout can still hang if a socket stays open silently, so the rule tells you
-to always pass `--timeout-ms` until that gap is closed.
+is judgment no hook can make. The current AIF source has a one-hour observation deadline and reconciles full
+REST detail after subscribing, including on reconnect. It still has no idle heartbeat,
+so the rule keeps the explicit `--timeout-ms` advice for a useful wait boundary.
+Timeout preserves uncertainty; it does not authorize cancellation or an external-effect
+retry. Older installed waiters require their own delivery acceptance.
 
 ## Evidence
 
@@ -103,7 +106,9 @@ Checked 2026-10-07 against the working tree this batch was written in; citations
   (the rule) and `:24` to `:28` (the Stop hook returns `block`, the turn does not end).
 - The three safety properties (one block per chain, fail closed, off by default):
   `:36` to `:45`.
-- The wait rule and its residual no-watchdog gap: `:49` and `:61` to `:67`.
+- The wait rule and current source/installed boundary: `:49` and `:61` to `:67`.
+- S4 subscription, deadline and uncertainty controls: `packages/runtime-bridge/test/aif-active-observation.test.ts`.
+  The affected source suite passed 40 tests on 2026-10-25; installed adoption remains separate.
 - The hook arm and its anchor: `.claude/hooks/end-of-turn-reminder.sh:117` names
   the arm, `:118` carries the `#F10` anchor the rule's channel marker points to,
   `:164` is the opt-in gate, and `:215` is the continuation text the model receives.

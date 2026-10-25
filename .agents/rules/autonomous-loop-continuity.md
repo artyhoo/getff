@@ -58,13 +58,13 @@ which carries real exit codes (0 terminal-success, 1 non-success/timeout/error) 
 `--timeout-ms`; or a plain `until`-loop whose every exit path prints one line. Treat any monitor
 as a **bonus** signal, never as the primary one.
 
-**Known residual gap, stated rather than implied:** `await.ts` in default mode with no
-`--timeout-ms` blocks until a terminal state, and `awaitDone` handles a *disconnect* (bounded
-reconnect, then `BackendError('unavailable')`) but has **no idle watchdog** — a socket that stays
-open and simply stops delivering events hangs the wait indefinitely. Verified by reading
-[`aifWsStatus.ts`](../../packages/runtime-bridge/src/aifWsStatus.ts) (reconnect at `:234-248`,
-optional timeout at `:264-265`, no heartbeat). Until that is closed, **always pass
-`--timeout-ms`** on a load-bearing wait. §4 carries the fix.
+**Current source boundary (S4):** AIF `awaitDone` now has a finite one-hour default,
+subscribes before initial/reconnect REST reconciliation, and retains validated result identity
+on timeout or transport uncertainty. It has no idle heartbeat: a silently open connection can
+still consume the observation deadline. **Always pass `--timeout-ms`** appropriate to a
+load-bearing wait. ManualBackend and older installed AIF copies retain their own policies;
+source delivery does not prove installed adoption. Timeout never authorizes task cancellation
+or an external-effect retry. The historical idle-watchdog proposal in §4 remains separate.
 
 ## §3 Anti-patterns
 

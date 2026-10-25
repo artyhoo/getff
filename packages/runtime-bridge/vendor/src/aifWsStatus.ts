@@ -38,10 +38,10 @@
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Design:
- *   - awaitTaskDone: opens a WS connection, filters events by payload.id === taskId,
- *     resolves on terminal status (done/verified → success, blocked_external → !success).
- *   - WS disconnect → rejects with BackendError('unavailable').
- *   - Bounded reconnect (≤3 attempts) before giving up.
+ *   - awaitTaskDone subscribes before initial/reconnect authoritative REST reads.
+ *     Task frames invalidate snapshots; only current full detail can settle.
+ *   - WS disconnect → bounded reconnect (≤3 total attempts), then uncertainty.
+ *   - Finite observation deadline (one hour by default) and observation-only abort.
  *   - stateFilePath: when set, appends status lines AND disconnect events
  *     (event=ws_disconnected …) to the file (append-only, no rewrite) — item 5:
  *     a disconnect is noted, never silently dropped.
@@ -51,7 +51,11 @@ import { WebSocket } from 'node:http';
 import { appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { BackendError } from './backend.js';
-import { getJson, type AifTaskFull } from './cli/aifHttp.js';
+import {
+  getJson,
+  type AifTaskFull,
+  type RequestOptions,
+} from './cli/aifHttp.js';
 import { isParked, parkedReason } from './cli/questions.js';
 import type { TaskResult } from './types.js';
 
@@ -273,12 +277,16 @@ export function unresolvedAifTaskResult(
 }
 
 /** Full REST detail must be consumed before a terminal signal is reported as a result. */
-export async function readAifTaskResult(taskId: string, apiBaseUrl: string) {
+export async function readAifTaskResult(
+  taskId: string,
+  apiBaseUrl: string,
+  options: RequestOptions = {},
+) {
   try {
     const task = await getJson(
       apiBaseUrl,
       `/tasks/${encodeURIComponent(taskId)}`,
-      { timeoutMs: 5000, notFoundCode: 'unavailable' },
+      { timeoutMs: 5000, ...options, notFoundCode: 'unavailable' },
     );
     return describeAifTask(task as AifTaskFull, taskId);
   } catch (error) {
@@ -343,32 +351,39 @@ export interface AwaitTaskDoneOptions {
   taskId: string;
   /** Full ws:// URL of the aif-handoff WebSocket endpoint. */
   wsUrl: string;
+  /** Authoritative REST origin; defaults to the HTTP equivalent of wsUrl's origin. */
+  apiBaseUrl?: string;
   /** Optional file path to append status updates to (append-only, no rewrite). */
   stateFilePath?: string;
-  /** Optional timeout in ms. If omitted → no timeout (MVP documented limit). */
+  /** Positive observation deadline in ms. Default: one hour, never an unbounded wait. */
   timeoutMs?: number;
+  /** Cancel this observation only, never the underlying task. */
+  signal?: AbortSignal;
   /** Max reconnect attempts before giving up. Default: 3. */
   maxReconnectAttempts?: number;
   /** Dependency injection: custom WebSocket constructor (for testing). */
   WebSocketImpl?: WebSocketConstructor;
 }
 
-/** Result from awaitTaskDone. */
-export interface AwaitTaskDoneResult {
-  success: boolean;
-  finalStatus: string;
-  completedAt: string;
+/** Full authoritative result, including the S3 generation and pending owner. */
+export type AwaitTaskDoneResult = TaskResult & { meta: AifResultMetadata };
+
+/** Transport uncertainty retains the last validated identity without granting a retry. */
+export class AifObservationError extends BackendError {
+  constructor(
+    message: string,
+    code: 'timeout' | 'unavailable',
+    public readonly observed?: AifResultMetadata,
+  ) {
+    super(message, code, 'aif-handoff');
+  }
 }
 
 /**
- * Block until the aif-handoff task reaches a terminal state via WebSocket events.
- *
- * Filters broadcast events by payload.id === taskId (client-side filter).
- * Source: toTaskBroadcastPayload in packages/api/src/repositories/tasks.ts
- *   returns { id, title, status } — payload.id IS the taskId.
- *
- * On WS disconnect: attempts bounded reconnect (≤ maxReconnectAttempts).
- * After all reconnects exhausted → rejects with BackendError('unavailable').
+ * Subscribe before reconciling, on initial connection and every reconnect.
+ * Frames invalidate observations; only full authoritative detail can settle.
+ * A response overtaken by a frame or another connection is discarded. No
+ * server-side observation sequence is available, so never order by timestamps.
  */
 export function awaitTaskDone(
   opts: AwaitTaskDoneOptions,
@@ -377,29 +392,55 @@ export function awaitTaskDone(
     taskId,
     wsUrl,
     stateFilePath,
-    timeoutMs,
+    timeoutMs = 3_600_000,
+    signal,
     maxReconnectAttempts = 3,
     WebSocketImpl = WebSocket as unknown as WebSocketConstructor,
   } = opts;
 
   return new Promise<AwaitTaskDoneResult>((resolve, reject) => {
+    if (
+      !Number.isSafeInteger(timeoutMs) ||
+      timeoutMs <= 0 ||
+      timeoutMs > 2_147_483_647 ||
+      !Number.isSafeInteger(maxReconnectAttempts) ||
+      maxReconnectAttempts < 0
+    ) {
+      reject(
+        new BackendError(
+          'Invalid AIF observation deadline or reconnect budget',
+          'spec_invalid',
+          'aif-handoff',
+        ),
+      );
+      return;
+    }
+    const origin = new URL(wsUrl);
+    origin.protocol = origin.protocol === 'wss:' ? 'https:' : 'http:';
+    const apiBaseUrl = opts.apiBaseUrl ?? origin.origin;
+    const deadline = performance.now() + timeoutMs;
     let attemptsLeft = maxReconnectAttempts;
     let settled = false;
+    let observed: AifResultMetadata | undefined;
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let reconnectHandle: ReturnType<typeof setTimeout> | null = null;
     let currentWs: InstanceType<typeof WebSocket> | null = null;
+    let readController: AbortController | null = null;
 
     function cleanup() {
+      signal?.removeEventListener('abort', abort);
       if (timeoutHandle !== null) {
         clearTimeout(timeoutHandle);
         timeoutHandle = null;
       }
-      if (currentWs !== null) {
-        try {
-          currentWs.close();
-        } catch {
-          /* best-effort */
-        }
-        currentWs = null;
+      if (reconnectHandle !== null) clearTimeout(reconnectHandle);
+      readController?.abort();
+      const socket = currentWs;
+      currentWs = null;
+      try {
+        socket?.close();
+      } catch {
+        /* best-effort */
       }
     }
 
@@ -410,11 +451,18 @@ export function awaitTaskDone(
       resolve(result);
     }
 
-    function fail(err: BackendError) {
+    function fail(message: string, code: 'timeout' | 'unavailable') {
       if (settled) return;
       settled = true;
       cleanup();
-      reject(err);
+      reject(new AifObservationError(message, code, observed));
+    }
+
+    function abort() {
+      fail(
+        `Observation cancelled for task ${taskId}; underlying task unchanged`,
+        'unavailable',
+      );
     }
 
     /**
@@ -433,22 +481,65 @@ export function awaitTaskDone(
       }
     }
 
-    function appendStateFile(status: string) {
-      appendStateLine(`status=${status}`);
-    }
-
     function connect() {
       if (settled) return;
-      const sock = new WebSocketImpl(wsUrl);
+      let sock: InstanceType<typeof WebSocket>;
+      try {
+        sock = new WebSocketImpl(wsUrl);
+      } catch (error) {
+        fail(`Cannot observe task ${taskId}: ${String(error)}`, 'unavailable');
+        return;
+      }
       currentWs = sock;
+      let opened = false;
+      let revision = 0;
+      let reading = false;
+      const active = () => !settled && currentWs === sock;
+
+      async function reconcile() {
+        revision++;
+        if (reading || !active()) return;
+        reading = true;
+        try {
+          while (active()) {
+            const at = revision;
+            const controller = new AbortController();
+            readController = controller;
+            const result = await readAifTaskResult(taskId, apiBaseUrl, {
+              signal: controller.signal,
+              timeoutMs: Math.max(
+                1,
+                Math.min(5000, deadline - performance.now()),
+              ),
+            });
+            if (!active()) return;
+            if (at !== revision) continue;
+            if (result.meta.held === 'unresolved') {
+              done(unresolvedAifTaskResult(taskId, result.content, observed));
+              return;
+            }
+            observed = result.meta;
+            appendStateLine(
+              `status=${result.finalStatus} generation=${observed.resultGeneration}`,
+            );
+            if (result.meta.held || isTerminal(result.finalStatus))
+              done(result);
+            return;
+          }
+        } finally {
+          reading = false;
+        }
+      }
 
       sock.onopen = () => {
-        // Connection established; reset attempt counter on successful open
-        attemptsLeft = maxReconnectAttempts;
+        if (active()) {
+          opened = true;
+          void reconcile();
+        }
       };
 
       sock.onmessage = (ev) => {
-        if (settled) return;
+        if (!active() || !opened) return;
         let parsed: AifWsEvent;
         try {
           parsed = JSON.parse(String(ev.data)) as AifWsEvent;
@@ -458,29 +549,21 @@ export function awaitTaskDone(
 
         // Filter: only task:updated and task:moved carry { id, title, status } payloads
         // Source: packages/api/src/routes/tasks.ts — broadcast() calls using toTaskBroadcastPayload
-        if (parsed.type !== 'task:updated' && parsed.type !== 'task:moved')
+        if (
+          !parsed ||
+          (parsed.type !== 'task:updated' && parsed.type !== 'task:moved')
+        )
           return;
 
         const payload = parsed.payload as Partial<AifTaskBroadcastPayload>;
-        // Client-side filter by taskId — ignore events for other tasks
-        if (payload.id !== taskId) return;
-
-        const rawStatus = payload.status ?? '';
-        appendStateFile(rawStatus);
-
-        if (!isTerminal(rawStatus)) return; // Not terminal — keep waiting
-
-        const success = TERMINAL_SUCCESS_STATUSES.has(rawStatus);
-        done({
-          success,
-          finalStatus: rawStatus,
-          completedAt: new Date().toISOString(),
-        });
+        if (!payload || payload.id !== taskId) return;
+        void reconcile();
       };
 
       sock.onclose = () => {
-        if (settled) return;
+        if (!active()) return;
         currentWs = null;
+        readController?.abort();
         if (attemptsLeft > 0) {
           attemptsLeft--;
           // Note the disconnect in state.md (item 5: never a silent drop), then
@@ -488,21 +571,19 @@ export function awaitTaskDone(
           appendStateLine(
             `event=ws_disconnected reconnecting attempts_left=${attemptsLeft}`,
           );
-          setTimeout(connect, 100);
+          reconnectHandle = setTimeout(connect, 100);
         } else {
           // Terminal disconnect: note it in state.md before surfacing the error.
           appendStateLine('event=ws_disconnected terminal=true');
           fail(
-            new BackendError(
-              `aif-handoff WebSocket disconnected after ${maxReconnectAttempts} reconnect attempt(s) — task ${taskId}`,
-              'unavailable',
-              'aif-handoff',
-            ),
+            `aif-handoff WebSocket disconnected after ${maxReconnectAttempts} reconnect attempt(s) — task ${taskId}`,
+            'unavailable',
           );
         }
       };
 
       sock.onerror = (_ev) => {
+        if (!active()) return;
         // onerror fires before onclose; let onclose handle reconnect logic.
         process.stderr.write(
           `[runtime-bridge] aif-handoff WS error for task ${taskId}\n`,
@@ -510,19 +591,19 @@ export function awaitTaskDone(
       };
     }
 
-    // Optional timeout
-    if (timeoutMs !== undefined && timeoutMs > 0) {
-      timeoutHandle = setTimeout(() => {
+    timeoutHandle = setTimeout(
+      () =>
         fail(
-          new BackendError(
-            `awaitDone timed out after ${timeoutMs}ms for task ${taskId}`,
-            'timeout',
-            'aif-handoff',
-          ),
-        );
-      }, timeoutMs);
+          `Observation timed out after ${timeoutMs}ms for task ${taskId}; task outcome uncertain`,
+          'timeout',
+        ),
+      timeoutMs,
+    );
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) {
+      abort();
+      return;
     }
-
     connect();
   });
 }

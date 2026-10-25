@@ -39,7 +39,7 @@
  *   the one-shot callers (PostToolUse hook, /dispatcher) are behaviourally unchanged.
  * available(): GET /health reachability probe (1s timeout).
  * getStatus(): full REST task observation, including held ownership/result evidence.
- * awaitDone(): WebSocket terminal signal followed by authoritative full REST reconciliation.
+ * awaitDone(): subscribed, bounded authoritative reconciliation on initial open and reconnect.
  *
  * Ports: REST + WS = baseUrl (:3009). MCP (HTTP) = mcpUrl (:3100), RESERVED for the
  * MCP-target phase (ADOPT @modelcontextprotocol/sdk) — NOT used by REST dispatch today.
@@ -662,21 +662,17 @@ export class AifHandoffBackend implements ClaimCapableBackend {
   }
 
   async awaitDone(handle: TaskHandle, timeoutMs?: number): Promise<TaskResult> {
-    // Real WebSocket status readback via aif-handoff broadcast stream.
-    // Source: aifWsStatus.awaitTaskDone -> ws://localhost:3009/ws
-    // WS event: { type: "task:updated", payload: { id, title, status } }
-    // taskId filter: payload.id === handle.taskId (client-side, per kickoff §3 SW-C item 2)
-    // A terminal event is only a signal: current REST detail can now be parked or reworking.
-    // Transport failures (disconnect after retries) -> throws BackendError('unavailable')
+    // One bounded observation owns subscription, reconciliation and settlement.
+    // No second REST request outside its deadline can replace the settled generation.
     try {
-      await awaitTaskDone({
+      return await awaitTaskDone({
         taskId: handle.taskId,
         wsUrl: this.wsUrl,
+        apiBaseUrl: this.baseUrl,
         stateFilePath: this.stateFilePath,
         timeoutMs,
         WebSocketImpl: this.WebSocketImpl,
       });
-      return await readAifTaskResult(handle.taskId, this.baseUrl);
     } catch (err) {
       // Re-throw BackendErrors (unavailable, timeout) as-is.
       // Other errors are wrapped as dispatch_failed.

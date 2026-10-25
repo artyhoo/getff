@@ -11,9 +11,9 @@
  * removing the manual "go check aif-handoff's UI" step.
  *
  * Modes:
- *   default  — block on awaitDone (WebSocket status stream) until the task is
- *              done/verified (success) or blocked_external (resolves, !success),
- *              then print the TaskResult as JSON. --timeout-ms bounds the wait.
+ *   default  — AIF subscribes before authoritative REST reconciliation on initial
+ *              open and reconnect, settling on terminal/held full detail. The
+ *              default AIF observation deadline is one hour; --timeout-ms overrides.
  *   --once   — non-blocking getStatus snapshot (point-in-time), print + exit.
  *
  * Backend: resolved the same way as dispatch (RUNTIME_BRIDGE_MODE + available()).
@@ -30,30 +30,29 @@
  * (Distinct from dispatch.ts which always exits 0 — await is a foreground command
  * the operator/orchestrator runs, so a real exit code is useful in scripts.)
  *
- * NOTE: in default (await) mode with NO --timeout-ms, this BLOCKS until the task
- * reaches a terminal state. For long autonomous runs that is intended; if the
- * backend resolves to ManualBackend it polls a /tmp response file indefinitely.
- * A startup notice is printed to stderr; pass --timeout-ms to bound the wait.
+ * ManualBackend retains its indefinite /tmp response-file wait when --timeout-ms
+ * is absent. Observation timeout/cancellation never cancels an AIF task or grants
+ * retry/acceptance authority. Retained validated identity accompanies uncertainty.
  *
  * @cc-only-rationale: pure TS, callable from the maintainer's bash smoke-test
  *   script and from an orchestrator session alike — no CC-only primitive used.
  */
-import { isMain } from './cliEntry.js';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { resolveBackend } from '../resolver.js';
 import { BackendError } from '../backend.js';
-import { unresolvedAifTaskResult } from '../aifWsStatus.js';
+import { AifObservationError, unresolvedAifTaskResult } from '../aifWsStatus.js';
 import type { TaskHandle } from '../types.js';
 
 function parseArgs(argv: string[]): { taskId?: string; once: boolean; timeoutMs?: number } {
-  const taskId = argv.find((a) => !a.startsWith('--'));
-  const once = argv.includes('--once');
-  let timeoutMs: number | undefined;
-  const tIdx = argv.indexOf('--timeout-ms');
-  if (tIdx !== -1 && argv[tIdx + 1]) {
-    const parsed = Number(argv[tIdx + 1]);
-    if (Number.isFinite(parsed) && parsed > 0) timeoutMs = parsed;
+  const { values, positionals } = parseCliArgs(argv, {
+    maxPositionals: 1,
+    options: { once: { type: 'boolean' }, 'timeout-ms': { type: 'string' } },
+  });
+  const timeoutMs = values['timeout-ms'] === undefined ? undefined : Number(values['timeout-ms']);
+  if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)) {
+    throw new CliArgError('--timeout-ms must be a positive integer no greater than 2147483647');
   }
-  return { taskId, once, timeoutMs };
+  return { taskId: positionals[0], once: values.once === true, timeoutMs };
 }
 
 /**
@@ -102,7 +101,7 @@ async function main(): Promise<void> {
 
     if (timeoutMs === undefined) {
       process.stderr.write(
-        `[runtime-bridge] awaiting task ${taskId} on ${backend.name} (no --timeout-ms → blocks until terminal; Ctrl-C to stop)\n`,
+        `[runtime-bridge] awaiting task ${taskId} on ${backend.name} (${backend.name === 'aif-handoff' ? 'one-hour observation deadline' : 'no explicit deadline'}; Ctrl-C stops observation)\n`,
       );
     }
     const result = await backend.awaitDone(handle, timeoutMs);
@@ -111,7 +110,7 @@ async function main(): Promise<void> {
     process.exit(result.success ? 0 : 1);
   } catch (err) {
     if (backend.name === 'aif-handoff') {
-      const result = unresolvedAifTaskResult(taskId, err);
+      const result = unresolvedAifTaskResult(taskId, err, err instanceof AifObservationError ? err.observed : undefined);
       process.stdout.write(JSON.stringify(once
         ? { status: 'error', rawStatus: result.finalStatus, checkedAt: result.completedAt, meta: result.meta }
         : result) + '\n');
