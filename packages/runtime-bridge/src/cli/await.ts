@@ -4,6 +4,7 @@
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> [--timeout-ms N]
  *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
+ *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> --until-actionable --timeout-ms 3600000
  *
  * Closes the "результат назад" loop: dispatch.ts fires the task (fire-and-forget,
  * fast — it runs inside a PostToolUse hook that must not block); this command is
@@ -15,6 +16,8 @@
  *              open and reconnect, settling on terminal/held full detail. The
  *              default AIF observation deadline is one hour; --timeout-ms overrides.
  *   --once   — non-blocking getStatus snapshot (point-in-time), print + exit.
+ *   --until-actionable — bounded full REST reads; one compact result with S3
+ *              metadata. Park/pause/advisory override optimistic completion.
  *
  * Backend: resolved the same way as dispatch (RUNTIME_BRIDGE_MODE + available()).
  * The handle is reconstructed from the taskId argument — backend.name supplies
@@ -37,22 +40,89 @@
  * @cc-only-rationale: pure TS, callable from the maintainer's bash smoke-test
  *   script and from an orchestrator session alike — no CC-only primitive used.
  */
+import { setTimeout as delay } from 'node:timers/promises';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
+import { getJson, type AifTaskFull } from './aifHttp.js';
+import { parkedReason } from './questions.js';
 import { resolveBackend } from '../resolver.js';
 import { BackendError } from '../backend.js';
-import { AifObservationError, unresolvedAifTaskResult } from '../aifWsStatus.js';
+import { AifObservationError, describeAifTask, unresolvedAifTaskResult, type AifResultMetadata } from '../aifWsStatus.js';
 import type { TaskHandle } from '../types.js';
 
-function parseArgs(argv: string[]): { taskId?: string; once: boolean; timeoutMs?: number } {
+export function parseAwaitArgs(argv: string[]) {
   const { values, positionals } = parseCliArgs(argv, {
     maxPositionals: 1,
-    options: { once: { type: 'boolean' }, 'timeout-ms': { type: 'string' } },
+    options: { once: { type: 'boolean' }, 'until-actionable': { type: 'boolean' }, 'timeout-ms': { type: 'string' } },
   });
   const timeoutMs = values['timeout-ms'] === undefined ? undefined : Number(values['timeout-ms']);
   if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)) {
     throw new CliArgError('--timeout-ms must be a positive integer no greater than 2147483647');
   }
-  return { taskId: positionals[0], once: values.once === true, timeoutMs };
+  const once = values.once === true;
+  const untilActionable = values['until-actionable'] === true;
+  if (once && untilActionable) throw new CliArgError('--once and --until-actionable are exclusive');
+  if (untilActionable && timeoutMs === undefined) throw new CliArgError('--until-actionable requires --timeout-ms');
+  return { taskId: positionals[0], once, untilActionable, timeoutMs };
+}
+
+export interface ActionableResult {
+  taskId: string;
+  kind: 'done' | 'parked' | 'paused' | 'unknown' | 'error' | 'timeout';
+  status?: string;
+  reason?: string;
+  meta: AifResultMetadata;
+}
+
+/** Existing full-detail observation; output is data, never an action/acceptance grant. */
+export async function awaitActionable(
+  taskId: string,
+  options: { baseUrl: string; timeoutMs: number; intervalMs?: number },
+): Promise<ActionableResult> {
+  const { baseUrl, timeoutMs, intervalMs = 60_000 } = options;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647 || !Number.isFinite(intervalMs) || intervalMs <= 0) {
+    throw new CliArgError('wait deadline must be a positive safe integer no greater than 2147483647; interval must be positive');
+  }
+  const started = performance.now();
+  const remaining = () => timeoutMs - (performance.now() - started);
+  let failures = 0;
+  let observed: AifResultMetadata | undefined;
+  const output = (kind: ActionableResult['kind'], meta: AifResultMetadata, status?: string, reason?: string): ActionableResult => ({
+    taskId, kind, ...(status === undefined ? {} : { status }), ...(reason === undefined ? {} : { reason: reason.slice(0, 300) }),
+    meta: { ...meta, nextAction: { ...meta.nextAction, prerequisite: meta.nextAction.prerequisite.slice(0, 600) } },
+  });
+  const uncertain = (kind: ActionableResult['kind'], reason: string, prior = observed) =>
+    output(kind, unresolvedAifTaskResult(taskId, new Error(reason), prior).meta, undefined, reason);
+  while (remaining() > 0) {
+    let detail: unknown;
+    try {
+      // Do not use readAifTaskResult here: retry classification needs the HTTP error.
+      detail = await getJson(baseUrl, `/tasks/${encodeURIComponent(taskId)}`, { timeoutMs: Math.min(30_000, remaining()) });
+    } catch (error) {
+      if (remaining() <= 0) break;
+      failures += 1;
+      const code = error instanceof BackendError ? error.code : 'unexpected_error';
+      if (code !== 'unavailable' || failures >= 3) return uncertain('error', code);
+      if (remaining() > 0) await delay(Math.min(intervalMs, remaining()));
+      continue;
+    }
+    let result;
+    try {
+      result = describeAifTask(detail as AifTaskFull, taskId);
+    } catch {
+      // Rejected detail cannot supply or borrow a candidate/generation.
+      return output('unknown', unresolvedAifTaskResult(taskId, new Error('invalid_task_response')).meta, undefined, 'invalid_task_response');
+    }
+    observed = result.meta;
+    const status = result.finalStatus;
+    if (observed.held === 'parked') return output('parked', observed, status, parkedReason({ ...(detail as AifTaskFull), reviewComments: (detail as AifTaskFull).reviewComments ?? undefined }));
+    if (observed.held === 'paused') return output('paused', observed, status, 'paused_without_question');
+    if (observed.held === 'advisory') return output('unknown', observed, status, 'adverse_review_advisory');
+    if (observed.held === 'unknown-status') return output('unknown', observed, status, 'unknown_task_status');
+    if (result.success) return output('done', observed, status);
+    failures = 0;
+    if (remaining() > 0) await delay(Math.min(intervalMs, remaining()));
+  }
+  return uncertain('timeout', 'observation_deadline_not_worker_failure');
 }
 
 /**
@@ -73,15 +143,22 @@ function printTaskLink(
 }
 
 async function main(): Promise<void> {
-  const { taskId, once, timeoutMs } = parseArgs(process.argv.slice(2));
+  const { taskId, once, untilActionable, timeoutMs } = parseAwaitArgs(process.argv.slice(2));
 
   if (!taskId) {
     process.stderr.write(
-      'Usage: await.ts <taskId> [--timeout-ms N] [--once]\n',
+      'Usage: await.ts <taskId> [--timeout-ms N] [--once | --until-actionable]\n',
     );
     process.exit(1);
   }
 
+  if (untilActionable) {
+    const result = await awaitActionable(taskId, {
+      baseUrl: process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009', timeoutMs: timeoutMs!,
+    });
+    process.stdout.write(JSON.stringify(result) + '\n');
+    process.exit(result.kind === 'done' ? 0 : 1);
+  }
   const backend = await resolveBackend();
   const handle: TaskHandle = {
     backend: backend.name,
