@@ -21,7 +21,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { execSync } from 'node:child_process';
 import { spawnBashOrSkip } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -83,10 +83,14 @@ function runHook(
 ): { status: number; stdout: string; stderr: string } {
   const fullEnv = { ...process.env, ...env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  // The hook's path classifiers are forward-slash glob patterns; a win32 join()
+  // produces backslash separators, so normalize the payload path (POSIX identity:
+  // sep is already '/'). The argv side is normalized by the seam's toMsysArg.
+  const posixPath = absPath.split(sep).join('/');
   const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
-      tool_input: { file_path: absPath },
+      tool_input: { file_path: posixPath },
     }),
     encoding: 'utf8',
     env: fullEnv,

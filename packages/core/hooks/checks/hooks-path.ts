@@ -21,6 +21,15 @@ export const DELEGATE_MARKER = 'husky-own-worktree-delegate';
 // A marker comment alone proves nothing; the hand-off line is what makes a copy safe to run.
 const HAND_OFF = 'exec "$__own_hook" "$@"';
 
+/**
+ * Canonical lexical form for hooks-dir comparison. On Windows the JS realpath leaves
+ * 8.3 short segments (`RUNNER~1`) as-is while git expands them to the long form, so two
+ * spellings of ONE directory compare unequal and a worktree's own `.husky` reads as
+ * foreign. `realpathSync.native` (GetFinalPathNameByHandleW) expands short names; on
+ * POSIX it is the same symlink-resolving realpath as before.
+ */
+const canonical = (p: string): string => realpathSync.native(p);
+
 export type HooksPathResult =
   | { status: 'own' }
   | { status: 'unknown' }
@@ -42,7 +51,7 @@ function effectiveHooksDir(repoRoot: string): string | null {
   ]);
   const dir = out.stdout.trim();
   if (out.status !== 0 || dir === '' || dir.includes('\n')) return null;
-  return existsSync(dir) ? realpathSync(dir) : dir;
+  return existsSync(dir) ? canonical(dir) : dir;
 }
 
 /** Tracked files directly in .husky — an editor backup or .DS_Store is not a hook. */
@@ -57,7 +66,7 @@ function trackedHooks(repoRoot: string): string[] {
 export function ensureOwnHooks(repoRoot: string): HooksPathResult {
   const ownPath = join(repoRoot, '.husky');
   if (!existsSync(ownPath)) return { status: 'own' };
-  const own = realpathSync(ownPath);
+  const own = canonical(ownPath);
   const dir = effectiveHooksDir(repoRoot);
   if (dir === null) return { status: 'unknown' };
   if (dir === own) return { status: 'own' };

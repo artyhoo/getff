@@ -50,7 +50,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, toMsysArg, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -187,7 +187,10 @@ function runHelper(
     encoding: 'utf8',
     env: {
       ...process.env,
-      REPO_ROOT: sandboxRoot,
+      // MSYS form on win32: REPO_ROOT feeds grep/find whose `path:lineno:` output the
+      // script re-parses — a drive-letter colon splits the wrong field and leaks the
+      // absolute Windows path into the emitted todo- id. Identity on POSIX.
+      REPO_ROOT: toMsysArg(sandboxRoot),
       MO_GH_BIN: fakeGh,
       MO_DUP_DETECT_BIN: fakeDup,
       // Default seams to non-existent paths so those sections stay silent

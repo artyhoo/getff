@@ -123,6 +123,34 @@ interface RunResult {
   files: string[];
 }
 
+/** The hook-control vars a LIVE session under these very hooks exports (the dogfood
+ *  env) that a golden replay must control, not inherit: the AIF_CTX_* window/floor
+ *  family (the #aif-ctx-observed contract arms only when AIF_CTX_WINDOW is UNDECLARED),
+ *  the two gates, the runtime-bridge triple (the eot bridge arm curls the URL and chips
+ *  the notice) and CLAUDE_CODE_ENTRYPOINT (the sdk-cli case arm). Measured 2026-10-21:
+ *  3/34 here and 25/337 in the sibling golden replay red under the session env; both
+ *  100% green under `env -i` with content unchanged — the fixtures were inheriting
+ *  inputs their own pinning principle says they must pin. `extra` spreads AFTER the
+ *  deletes, so an arm's explicit pin still wins. */
+function pinnedHookEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of [
+    'AIF_CTX_WINDOW',
+    'AIF_CTX_SOFT_FLOOR',
+    'AIF_CTX_DEEP_FLOOR',
+    'AIF_CTX_SOFT_PCT',
+    'AIF_CTX_DEEP_PCT',
+    'AIF_HANDOFF_GATE',
+    'AIF_RECAP_GATE',
+    'RUNTIME_BRIDGE_MODE',
+    'RUNTIME_BRIDGE_AIF_URL',
+    'RUNTIME_BRIDGE_AIF_PROJECT_ID',
+    'CLAUDE_CODE_ENTRYPOINT',
+  ])
+    delete env[k];
+  return { ...env, ...extra } as Record<string, string>;
+}
+
 function run(
   ctx: Skippable,
   residueDir: string,
@@ -134,13 +162,12 @@ function run(
   const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
-    env: {
-      ...process.env,
+    env: pinnedHookEnv({
       AIF_HOOK_LANG: lang,
       AIF_RESIDUE_DIR: residueDir,
       CLAUDE_PROJECT_DIR: REPO_ROOT,
       ...env,
-    },
+    }),
   });
   const files = existsSync(residueDir) ? readdirSync(residueDir) : [];
   const expected = files.find((f) => f.startsWith('_residue-'));
@@ -431,12 +458,11 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
       input: JSON.stringify({ session_id: 'sess-ro', trigger: 'auto' }),
       encoding: 'utf8',
-      env: {
-        ...process.env,
+      env: pinnedHookEnv({
         AIF_HOOK_LANG: 'en',
         AIF_RESIDUE_DIR: join(locked, 'nested'),
         CLAUDE_PROJECT_DIR: REPO_ROOT,
-      },
+      }),
     });
     expect(r.status).toBe(0);
     expect(r.stdout ?? '').toBe('');
@@ -607,7 +633,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
         stop_hook_active: false,
       }),
       encoding: 'utf8',
-      env: { ...process.env, AIF_HOOK_LANG: 'en', TMPDIR: tmp, CLAUDE_PROJECT_DIR: REPO_ROOT },
+      env: pinnedHookEnv({ AIF_HOOK_LANG: 'en', TMPDIR: tmp, CLAUDE_PROJECT_DIR: REPO_ROOT }),
     });
     expect(stop.status, `stderr: ${stop.stderr}`).toBe(0);
     expect(stop.stdout.trim(), 'the arm must no longer be silent for an undeclared small window').not.toBe('');
@@ -766,8 +792,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
           stop_hook_active: false,
         }),
         encoding: 'utf8',
-        env: {
-          ...process.env,
+        env: pinnedHookEnv({
           AIF_HOOK_LANG: 'en',
           TMPDIR: tmp,
           CLAUDE_PROJECT_DIR: REPO_ROOT,
@@ -778,7 +803,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
           // the window was pinned. A declared window keeps the tier fixed across all three
           // turns, so the only thing that can change the verdict is the flag itself.
           AIF_CTX_WINDOW: '1000000',
-        },
+        }),
       }).stdout ?? `__no_stdout_${label}`;
 
     expect(stop('first'), 'first climb warns').toMatch(/\[context\]/);
@@ -907,8 +932,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
           stop_hook_active: false,
         }),
         encoding: 'utf8',
-        env: {
-          ...process.env,
+        env: pinnedHookEnv({
           AIF_HOOK_LANG: 'en',
           AIF_CTX_WINDOW: '1000000',
           AIF_AUTONOMOUS: '0',
@@ -917,7 +941,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
           TMPDIR: tmp,
           CLAUDE_PROJECT_DIR: REPO_ROOT,
           ORCHESTRATION_MODE_MARKER: '/nonexistent/gate-marker',
-        },
+        }),
       });
     const handoff = join(residueDir, '_handoff-pc34e2e.md');
     writeFileSync(handoff, '# handoff\n\n| Task | Open only |\n|---|---|\n| state | `topic.md` |\n\n## Next action\n- x\n' + ['## Decisions and why\n- d', '## Rejected alternatives\n- r', '## Unverified assumptions and open forks\n- u', '## Skills to invoke by name\n- s'].join('\n\n') + '\n', 'utf8');

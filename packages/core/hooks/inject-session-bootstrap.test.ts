@@ -436,7 +436,13 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     expect(first.stdout).toContain(GOAL_ANCHOR);
   });
 
-  it('R4(f1) /bin/bash (stock macOS bash 3.2): degraded digest intact, exit 0', () => {
+  it('R4(f1) /bin/bash (stock macOS bash 3.2): degraded digest intact, exit 0', (ctx) => {
+    if (process.platform === 'win32')
+      ctx.skip(
+        'the arm pins the STOCK macOS bash 3.2 dialect — no bash 3.2 exists on Windows '
+          + '(Git for Windows ships bash >= 4.4), so running under it would pass while '
+          + 'proving nothing about the 3.2 degradation path — #1799 win32 platform impossibility',
+      );
     // runHook normally takes `bash` from PATH (possibly 5.x) — a bash-4ism would
     // pass every arm above and still kill the injection on consumer macOS.
     const fixture = makeFixture();

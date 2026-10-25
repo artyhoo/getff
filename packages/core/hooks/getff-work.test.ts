@@ -32,7 +32,7 @@
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, WIN_MSYS_SYMLINK_ENV, type Skippable } from './spawn-bash-or-skip.ts';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -72,6 +72,31 @@ const SLOW_SHELL_MS = 60_000;
 // inequality if either number is ever retuned.
 const SPAWN_GUARD_MS = 30_000;
 
+// windows-hooks cell (run 38988360013): the same worktree+install legs run well past
+// 60s under Git-Bash + Windows Defender, and a vitest-level kill mid-`git worktree add`
+// leaves index.lock debris that reddens LATER cases (the NO-LAUNCH-FLAG-neg exit-1
+// cascade in the same run). POSIX keeps the measured 60s gate unchanged — the bump is
+// per-file and win32-scoped, not a global relaxation.
+const WIN_TIMEOUT_MS = process.platform === 'win32' ? 300_000 : SLOW_SHELL_MS;
+
+// On win32 make MSYS `ln -s` create NATIVE symlinks (shared seam export): the
+// delivery-symlink guard in getff-work.sh is `[ -L node_modules ]`, and MSYS's default
+// deep-copy is not a link, so step 2 would re-run a full npm install through the copy —
+// the exact 2026-08-16 hazard this suite pins, minus the announced skip line the
+// delivery test asserts.
+const WIN_MSYS_ENV = WIN_MSYS_SYMLINK_ENV;
+
+/** git/SUT output on win32 is forward-slashed and 8.3-expanded while node join() is
+ *  neither — one canonical comparison form for both platforms (identity on POSIX). */
+function samePath(a: string, b: string): boolean {
+  if (process.platform !== 'win32') return a === b;
+  try {
+    return realpathSync.native(a).toLowerCase() === realpathSync.native(b).toLowerCase();
+  } catch {
+    return a.split('\\').join('/').toLowerCase() === b.split('\\').join('/').toLowerCase();
+  }
+}
+
 function runScript(
   ctx: Skippable,
   args: string[],
@@ -89,7 +114,7 @@ function runScript(
     // same lock the running checkout was installed from, so the provisioning helper links it
     // (the delivery-symlink case below asserts exactly that). Against origin/HEAD, any branch
     // that bumps a direct dependency diverges, and the helper — correctly — installs for real.
-    env: { ...process.env, WORKTREE_BASE_REF: 'HEAD', ...env },
+    env: { ...process.env, WORKTREE_BASE_REF: 'HEAD', ...WIN_MSYS_ENV, ...env },
   });
   return {
     status: r.status ?? -1,
@@ -191,7 +216,7 @@ function setupTempRepo(prefix = 'getff-work-test-'): string {
   return dir;
 }
 
-describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL_MS }, () => {
+describe('getff-work.sh — workspace one-command (AC-5)', { timeout: WIN_TIMEOUT_MS }, () => {
   let tmpRepo: string;
   beforeEach(() => {
     tmpRepo = setupTempRepo();
@@ -239,6 +264,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
       CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: '', AIF_HARNESS: '', ZCODE_SESSION_ID: '',
       WORKTREE_BASE_REF: 'HEAD', CLAUDE_COORDINATION_DIR: join(tmpRepo, 'coordination'),
       PATH: `${bin}:${process.env.PATH}`, CLI_LAUNCH_LOG: launches,
+      ...WIN_MSYS_ENV,
       ...signal,
     };
     const args = [join(tmpRepo, 'scripts/getff-work.sh'), 'codex-ready', '--no-launch'];
@@ -255,7 +281,11 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
       cwd: tmpRepo, env, encoding: 'utf8', timeout: SPAWN_GUARD_MS,
     });
     expect(parsed.status, `${parsed.stdout}${parsed.stderr}`).toBe(0);
-    expect(parsed.stdout.split('\n')).toEqual(['2', '-C', join(tmpRepo, '.claude/worktrees/codex-ready'), '']);
+    const printed = parsed.stdout.split('\n');
+    expect(printed.length, output).toBe(4);
+    expect(printed.slice(0, 2), output).toEqual(['2', '-C']);
+    expect(samePath(printed[2] ?? '', join(tmpRepo, '.claude/worktrees/codex-ready')), output).toBe(true);
+    expect(printed[3] ?? '<missing>', output).toBe('');
     expect(existsSync(launches)).toBe(false);
 
     // Both explicit Codex signals must still defer when CC owns the session.

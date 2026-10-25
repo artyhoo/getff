@@ -16,7 +16,7 @@
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, toMsysArg, type Skippable } from './spawn-bash-or-skip.ts';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -45,7 +45,13 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
+// Shell-spawning suite (bash + jq per run, 4 runs); the vitest 5 s default is a mis-set
+// gate under first-spawn cost on win32 runners (cold bash/jq PE starts measured past 5 s,
+// run 38988360013) — the SLOW_SHELL_MS convention of the sibling suites. POSIX floor
+// unchanged (only extends the allowance).
+const SLOW_SHELL_MS = 30_000;
+
+describe('list-presets.sh — preset enumerator (AC-2, data-driven)', { timeout: SLOW_SHELL_MS }, () => {
   // ✅ ALL-FOUR-PRESETS-LISTED
   it('ALL-FOUR-PRESETS-LISTED: aif, economy, night, sdd all appear in output', (ctx) => {
     const r = runHelper(ctx);
@@ -121,9 +127,12 @@ describe('list-presets.sh — preset enumerator (AC-2, data-driven)', () => {
 
       // Override the canonical presets dir via MO_PRESETS_DIR (env knob).
       // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+      // toMsysArg: the helper's `for f in "$PRESETS_DIR"/*.json` glob runs INSIDE bash —
+      // a `C:\…` spelling never glob-matches MSYS dirent names, so the 5th preset would
+      // vanish even with the dir on disk (#1799). POSIX: identity.
       const r = spawnBashOrSkip(ctx, 'bash', [HELPER], {
         encoding: 'utf8',
-        env: { ...process.env, MO_PRESETS_DIR: join(tmpDir, 'presets') },
+        env: { ...process.env, MO_PRESETS_DIR: toMsysArg(join(tmpDir, 'presets')) },
       });
       const stdout = r.stdout ?? '';
       const status = r.status ?? -1;

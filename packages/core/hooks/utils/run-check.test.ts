@@ -21,6 +21,8 @@ vi.mock('node:fs', () => ({
 const {
   runCheck,
   resolveNodeToolShim,
+  resolveShRunnerOnWindows,
+  findGitBashExe,
   DEFAULT_TIMEOUT_MS,
   TIMEOUT_EXIT_CODE,
   SPAWN_FAILURE_EXIT_CODE,
@@ -252,5 +254,118 @@ describe('resolveNodeToolShim (Windows npm/npx rewrite)', () => {
         configurable: true,
       });
     }
+  });
+});
+
+/**
+ * Paired positive+negative for the Windows `.sh`-runner rewrite (#1799: the
+ * windows-hooks cell lost all eight executing heavy-runner arms to CreateProcess
+ * refusing a `.sh` image). Platform and the bash probe are injected, so every
+ * case runs identically off-Windows — the branch is never skipped for being
+ * "the other platform". The end-to-end wiring runs through the real hook in
+ * pre-push.heavy-runner.test.ts on the windows-hooks cell itself.
+ */
+describe('resolveShRunnerOnWindows (win32 .sh runner dispatch)', () => {
+  const BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
+  const found = () => BASH;
+  const absent = () => null;
+
+  it('POSITIVE: rewrites a .sh runner on win32 to bash + MSYS-form script path', () => {
+    const r = resolveShRunnerOnWindows(
+      'D:\\a\\heavy-runner-x\\runner.sh',
+      ['npm', 'run', 'test:ir'],
+      'win32',
+      found,
+    );
+    expect(r.cmd).toBe(BASH);
+    expect(r.args).toEqual(['/d/a/heavy-runner-x/runner.sh', 'npm', 'run', 'test:ir']);
+  });
+
+  it('POSITIVE: accepts a forward-slash drive path and still lowercases the drive', () => {
+    const r = resolveShRunnerOnWindows(
+      'D:/a/runner.sh',
+      [],
+      'win32',
+      found,
+    );
+    expect(r.args[0]).toBe('/d/a/runner.sh');
+  });
+
+  it('keeps arguments as discrete argv entries — no shell, nothing to escape', () => {
+    const r = resolveShRunnerOnWindows(
+      'C:\\r\\runner.sh',
+      ['a branch & echo pwned'],
+      'win32',
+      found,
+    );
+    expect(r.args).toHaveLength(2);
+    expect(r.args[1]).toBe('a branch & echo pwned');
+  });
+
+  it('NEGATIVE: leaves the runner untouched on win32 when no bash resolves', () => {
+    const r = resolveShRunnerOnWindows(
+      'C:\\r\\runner.sh',
+      ['npm'],
+      'win32',
+      absent,
+    );
+    expect(r.cmd).toBe('C:\\r\\runner.sh');
+    expect(r.args).toEqual(['npm']);
+  });
+
+  it('NEGATIVE: leaves a real executable (.exe/.cmd) untouched on win32', () => {
+    for (const exe of ['pc-run.exe', 'runner.cmd', 'bash']) {
+      const r = resolveShRunnerOnWindows(exe, ['npm'], 'win32', found);
+      expect(r.cmd).toBe(exe);
+      expect(r.args).toEqual(['npm']);
+    }
+  });
+
+  it('NEGATIVE: leaves a .sh runner untouched off win32 — shebang exec works there', () => {
+    const r = resolveShRunnerOnWindows(
+      '/tmp/heavy-runner-x/runner.sh',
+      ['npm', 'run', 'test:ir'],
+      'linux',
+      found,
+    );
+    expect(r.cmd).toBe('/tmp/heavy-runner-x/runner.sh');
+    expect(r.args).toEqual(['npm', 'run', 'test:ir']);
+  });
+});
+
+describe('findGitBashExe (win32 bash resolution)', () => {
+  it('scans PATH entries first — a user/tooling install wins over the roots', () => {
+    const seen: string[] = [];
+    const exists = (p: string) => {
+      seen.push(p);
+      return p === 'C:\\tools\\msys64\\bash.exe';
+    };
+    const r = findGitBashExe(
+      { PATH: 'C:\\Windows;C:\\tools\\msys64' } as NodeJS.ProcessEnv,
+      exists,
+    );
+    expect(r).toBe('C:\\tools\\msys64\\bash.exe');
+    expect(seen[0]).toBe('C:\\Windows\\bash.exe');
+  });
+
+  it('falls back to the documented GitHub `shell: bash` roots when PATH is bare', () => {
+    const r = findGitBashExe(
+      {
+        PATH: 'C:\\Windows',
+        ProgramFiles: 'C:\\Program Files',
+        LOCALAPPDATA: 'C:\\u\\AppData\\Local',
+        USERPROFILE: 'C:\\u',
+      } as NodeJS.ProcessEnv,
+      (p) => p === 'C:\\Program Files\\Git\\bin\\bash.exe',
+    );
+    expect(r).toBe('C:\\Program Files\\Git\\bin\\bash.exe');
+  });
+
+  it('returns null when nothing resolves — callers keep today\u2019s loud failure', () => {
+    const r = findGitBashExe(
+      { PATH: 'C:\\Windows', ProgramFiles: 'C:\\Program Files' } as NodeJS.ProcessEnv,
+      () => false,
+    );
+    expect(r).toBeNull();
   });
 });

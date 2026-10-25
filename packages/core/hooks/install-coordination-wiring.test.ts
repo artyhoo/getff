@@ -18,7 +18,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, WIN_MSYS_SYMLINK_ENV, type Skippable } from './spawn-bash-or-skip.ts';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -56,6 +56,7 @@ function run(ctx: Skippable, script: string, cwd: string, home: string): { statu
   }
   env.HOME = home;
   env.GIT_CONFIG_NOSYSTEM = '1';
+  Object.assign(env, WIN_MSYS_SYMLINK_ENV);
   // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
   const r = spawnBashOrSkip(ctx, 'bash', [script], { cwd, env, encoding: 'utf8' });
   return { status: r.status ?? -1, stderr: r.stderr };

@@ -20,7 +20,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, fromMsysPath, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   copyFileSync,
   existsSync,
@@ -295,8 +295,19 @@ describe('create-worktree.sh — portable worktree setup', { timeout: SLOW_SHELL
     };
     expect(r.status).toBe(0);
     // git rev-parse --show-toplevel canonicalises symlinks (macOS /tmp →
-    // /private/tmp), so compare against the resolved repo path.
-    expect(r.stdout).toBe(`${realpathSync(repo)}/.claude/worktrees/default-dir`);
+    // /private/tmp), so compare against the resolved repo path. On win32 the
+    // SUT speaks MSYS (`/c/…`, true case, via the rev-parse dialect shim) while
+    // node's realpathSync.native expands 8.3 names and uses backslashes — compare
+    // separator- and case-insensitively after fromMsysPath (#1799).
+    if (process.platform === 'win32') {
+      const norm = (p: string) => p.replace(/[\\/]/g, '/').toLowerCase();
+      expect(
+        norm(fromMsysPath(r.stdout)),
+        `${r.stdout} vs ${realpathSync.native(repo)}`,
+      ).toBe(norm(`${realpathSync.native(repo)}/.claude/worktrees/default-dir`));
+    } else {
+      expect(r.stdout).toBe(`${realpathSync(repo)}/.claude/worktrees/default-dir`);
+    }
   });
 
   // ── Paired-negative scenarios: failure modes the script is paid to detect ──

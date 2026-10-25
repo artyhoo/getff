@@ -17,7 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, toMsysArg, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   mkdtempSync,
@@ -33,6 +33,10 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const PRELUDE = resolve(REPO_ROOT, '.agents/hooks/lib/hook-emit.sh');
+// MSYS spelling of the prelude for embedding INSIDE `bash -c` snippets: cygwin
+// would tolerate the Windows form, but the mixed dialect is one more variable
+// the snippet does not need. Identity on POSIX (byte-identical snippets).
+const PRELUDE_BASH = toMsysArg(PRELUDE);
 const PLUGIN_PRELUDE = resolve(REPO_ROOT, 'plugin/hooks/lib/hook-emit.sh');
 const HOOKS_DIR = resolve(REPO_ROOT, '.agents/hooks');
 
@@ -53,7 +57,7 @@ function withPrelude(
   snippet: string,
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const r = spawnBashOrSkip(ctx, '/bin/bash', ['-c', `set -uo pipefail; . "${PRELUDE}"; ${snippet}`], {
+  const r = spawnBashOrSkip(ctx, '/bin/bash', ['-c', `set -uo pipefail; . "${PRELUDE_BASH}"; ${snippet}`], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
     timeout: 15_000,
@@ -122,9 +126,21 @@ describe('_json_escape — control characters produce VALID JSON (R-2 divergence
 
   it('RED control: the pre-R-2 escaper emits INVALID JSON for the same input', (ctx) => {
     // The old body, verbatim: backslash + quote escaped, newline collapsed, nothing else.
+    // Delivered as a FILE (the sibling round-trip case's pattern): the snippet is
+    // backslash-dense, and on win32 the CreateProcess argv layer can eat those
+    // backslashes on the way into bash -c, silently turning the INVALID-JSON
+    // control into a valid one (measured #1799). A file carries the bytes verbatim
+    // on every platform; POSIX behaviour is unchanged (same bash, same code).
     const old = `_old() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr '\\n' ' '; }; printf '{"a":"%s"}\\n' "$(_old "$(printf 'a\\tb\\rc')")"`;
-    const r = spawnBashOrSkip(ctx, '/bin/bash', ['-c', old], { encoding: 'utf8', timeout: 15_000 });
-    expect(() => JSON.parse((r.stdout ?? '').trim())).toThrow();
+    const box = mkdtempSync(join(tmpdir(), 'prelude-red-'));
+    const f = join(box, 'old-escaper.sh');
+    writeFileSync(f, old + '\n');
+    try {
+      const r = spawnBashOrSkip(ctx, '/bin/bash', [f], { encoding: 'utf8', timeout: 15_000 });
+      expect(() => JSON.parse((r.stdout ?? '').trim())).toThrow();
+    } finally {
+      rmSync(box, { recursive: true, force: true });
+    }
   });
 
   it('quotes and backslashes still round-trip', (sk) => {
@@ -178,7 +194,7 @@ describe('Homebrew PATH prepend (K-1)', () => {
     const twice = spawnBashOrSkip(
       ctx,
       '/bin/bash',
-      ['-c', `set -uo pipefail; . "${PRELUDE}"; . "${PRELUDE}"; printf "%s" "$PATH"`],
+      ['-c', `set -uo pipefail; . "${PRELUDE_BASH}"; . "${PRELUDE_BASH}"; printf "%s" "$PATH"`],
       { encoding: 'utf8', env: { ...process.env, PATH: '/usr/bin:/bin' }, timeout: 15_000 },
     );
     expect(twice.stdout).toBe(once.stdout);

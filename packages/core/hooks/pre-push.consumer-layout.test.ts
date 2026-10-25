@@ -65,7 +65,7 @@ import {
 import { resolve, dirname, join, basename, delimiter } from 'node:path';
 import { spawnBashOrSkip, gitBashPathDir } from './spawn-bash-or-skip.ts';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import {
@@ -91,6 +91,11 @@ const REPO_ROOT = resolve(HERE, '../../..');
 // order, unlike a fixed path guess. The sandbox cwd has no node_modules of its own,
 // so the spawned `node --import <absolute loader>` + NODE_PATH below carry tsx in.
 const TSX_LOADER = createRequire(import.meta.url).resolve('tsx/esm');
+// `--import` resolves its specifier as a URL: an absolute POSIX path is accepted, but a
+// drive-letter Windows path is not (ERR_UNSUPPORTED_ESM_URL_SCHEME, protocol 'd:' — the
+// whole child never starts). The file-URL form is valid on every platform, so the spawn
+// sites below pass this while REAL_NODE_MODULES keeps the plain path form.
+const TSX_LOADER_IMPORT = pathToFileURL(TSX_LOADER).href;
 const REAL_NODE_MODULES = TSX_LOADER.replace(
   /\/tsx\/dist\/esm\/index\.mjs$/,
   '',
@@ -303,7 +308,7 @@ function runHook(
   const childPath = [stubBin, resolve(REAL_NODE_MODULES, '.bin'), bashDir, process.env['PATH']]
     .filter(Boolean)
     .join(delimiter);
-  const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+  const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
     encoding: 'utf8',
     cwd: dir,
     env: {
@@ -351,7 +356,7 @@ function runHookStrippedTools(
     chmodSync(p, 0o755);
   }
 
-  const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+  const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
     encoding: 'utf8',
     cwd: dir,
     env: {
@@ -1041,7 +1046,7 @@ describe(
       id: string,
     ): { status: number; stdout: string; stderr: string } {
       const stubBin = join(dir, '.stub-bin');
-      const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+      const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
         encoding: 'utf8',
         cwd: dir,
         input: '',
@@ -1419,7 +1424,7 @@ describe(
       // PREPUSH_UPSTREAM_REF NOR piped stdin → the default-branch resolver must find
       // origin/main on its own. `input: ''` closes stdin so readPushStdin() sees EOF.
       const hook = join(dir, 'packages/core/hooks/pre-push.ts');
-      const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+      const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
         encoding: 'utf8',
         cwd: dir,
         input: '',
@@ -1509,7 +1514,7 @@ describe(
       } else {
         PATH = `${resolve(REAL_NODE_MODULES, '.bin')}:${process.env['PATH']}`;
       }
-      const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+      const r = spawnSync('node', ['--import', TSX_LOADER_IMPORT, hook], {
         encoding: 'utf8',
         cwd: dir,
         input: '',

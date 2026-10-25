@@ -41,7 +41,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, toMsysArg, type Skippable } from './spawn-bash-or-skip.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -3031,6 +3031,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       ...(residueDir ? { AIF_RESIDUE_DIR: residueDir } : {}),
     } as Record<string, string>;
     delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    // GOLDENS.env pins AIF_CTX_WINDOW/AIF_HOOK_LANG/AIF_AUTONOMOUS, but the SUT's
+    // bridge/entrypoint arms are session-leakable and NOT covered: a live session under
+    // the dogfood hooks exports RUNTIME_BRIDGE_MODE (aif-handoff activates the bridge
+    // arm, which curls the URL and chips the notice) and CLAUDE_CODE_ENTRYPOINT (sdk-cli
+    // takes the SDK case arm), silently moving the golden verdicts. Measured 2026-10-21:
+    // 25/337 red under the session env, 337/337 green under `env -i` (content
+    // unchanged). Deleted BEFORE Object.assign(env, c.env) so a golden case can still
+    // declare any of them.
+    delete env.RUNTIME_BRIDGE_MODE;
+    delete env.RUNTIME_BRIDGE_AIF_URL;
+    delete env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
+    delete env.CLAUDE_CODE_ENTRYPOINT;
     Object.assign(env, c.env);
     delete env.AIF_HANDOFF_GATE;
     delete env.AIF_RECAP_GATE;
@@ -3716,22 +3728,35 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     );
     if (handoff !== null) writeFileSync(join(residue, '_handoff-plugintwin.md'), handoff, 'utf8');
     // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+    // Path-valued crossings (stdin transcript_path + the env dirs) go out MSYS-shaped
+    // on win32: a backslash path reaching sha256sum makes GNU mark the checksum line
+    // ESCAPED (leading `\` before the hash — measured #1799), and the D19 baseline
+    // then fails its byte comparison. toMsysArg is the identity on POSIX.
+    // Same session-leak scrub as the D13 buildCase above: the twin's armed-Stop verdicts
+    // move under a leaked RUNTIME_BRIDGE_MODE / CLAUDE_CODE_ENTRYPOINT (two arms red
+    // under the dogfood session env 2026-10-21, green under `env -i`). No arm here
+    // declares them, so unconditional deletes are safe.
+    const twinEnv: Record<string, string> = {
+      ...process.env,
+      AIF_HOOK_LANG: 'en',
+      AIF_HANDOFF_GATE: '1',
+      AIF_RESIDUE_DIR: toMsysArg(residue),
+      CLAUDE_PROJECT_DIR: toMsysArg(proj),
+      TMPDIR: toMsysArg(dir),
+    };
+    delete twinEnv.RUNTIME_BRIDGE_MODE;
+    delete twinEnv.RUNTIME_BRIDGE_AIF_URL;
+    delete twinEnv.RUNTIME_BRIDGE_AIF_PROJECT_ID;
+    delete twinEnv.CLAUDE_CODE_ENTRYPOINT;
     const r = spawnBashOrSkip(ctx, 'bash', [TWIN_HOOK], {
       input: JSON.stringify({
         session_id: 'plugintwin',
-        transcript_path: transcript,
+        transcript_path: toMsysArg(transcript),
         stop_hook_active: false,
         cwd: dir,
       }),
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        AIF_HOOK_LANG: 'en',
-        AIF_HANDOFF_GATE: '1',
-        AIF_RESIDUE_DIR: residue,
-        CLAUDE_PROJECT_DIR: proj,
-        TMPDIR: dir,
-      },
+      env: twinEnv,
     });
     return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', dir };
   }

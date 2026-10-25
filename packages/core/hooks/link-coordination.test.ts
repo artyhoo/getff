@@ -29,7 +29,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync, execSync } from 'node:child_process';
-import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, WIN_MSYS_SYMLINK_ENV, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   existsSync,
   lstatSync,
@@ -354,7 +354,7 @@ describe('link-coordination.sh', () => {
     // May fail or succeed — we only care about the symlink state (spawnSync does not throw).
     spawnBashOrSkip(ctx, 'bash', [tmpHelper, wt], {
       encoding: 'utf8',
-      env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
     });
 
     const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
@@ -623,7 +623,7 @@ describe('link-coordination.sh', () => {
     // Exit code irrelevant — we assert the visibility state (spawnSync does not throw).
     spawnBashOrSkip(ctx, 'bash', [tmpHelper, wt], {
       encoding: 'utf8',
-      env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
     });
 
     const ho = resolve(wt, '.claude/orchestrator-prompts/_handoff-sess_k4.md');
@@ -794,6 +794,12 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
   }
 
   it('(j2) PASS: tracked files with quote, backslash and non-ASCII names stay REAL files', (ctx) => {
+    if (process.platform === 'win32')
+      ctx.skip(
+        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows '
+          + '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures '
+          + 'cannot be created — #1799 win32 platform impossibility',
+      );
     const paths = trackOddNames();
     expect(paths).toHaveLength(ODD_NAMES.length);
 
@@ -806,6 +812,12 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
   });
 
   it('(j2-neg) PAIRED-NEGATIVE: snapshot-only is_tracked() (no per-file fallback) adopts them', (ctx) => {
+    if (process.platform === 'win32')
+      ctx.skip(
+        'NTFS reserved characters: `"` and `\\` cannot appear in a filename on Windows '
+          + '(learn.microsoft.com file-naming reserved chars), so the odd-name fixtures '
+          + 'cannot be created — #1799 win32 platform impossibility',
+      );
     const src = readFileSync(HELPER, 'utf8');
     const snapshotOnly = src.replace(
       '"$rel" == "$1" || "$rel" == *[!\\ -~]* || "$rel" == *[\\"\\\\]*',
@@ -839,7 +851,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     // Adoption may still exit 0; we only assert the symlink state (spawnSync does not throw).
     spawnBashOrSkip(ctx, 'bash', [tmpHelper, worktree], {
       encoding: 'utf8',
-      env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+      env: { ...process.env, ...WIN_MSYS_SYMLINK_ENV, CLAUDE_COORDINATION_DIR: canon },
     });
 
     // Without the guard, the tracked file is wrongly turned into a symlink.

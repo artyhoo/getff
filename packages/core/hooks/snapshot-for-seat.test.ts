@@ -33,6 +33,19 @@ import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+/**
+ * MSYS-printed path -> node-usable form. On win32 the SUT echoes paths through Git-Bash
+ * canonicalization (`/tmp/...` — its usertemp mapping of the Windows TEMP; `/c/...` — a
+ * drive), which node cannot open or compare against the join()-built fixtures.
+ * POSIX identity.
+ */
+function fromMsys(p: string): string {
+  if (process.platform !== 'win32' || !p.startsWith('/')) return p;
+  if (p.startsWith('/tmp/')) return join(tmpdir(), p.slice('/tmp/'.length));
+  const m = /^\/([a-z])\/(.*)$/.exec(p);
+  return m ? `${m[1].toUpperCase()}:/${m[2]}` : p;
+}
+
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -46,6 +59,18 @@ interface Result {
   stdout: string;
   stderr: string;
   status: number;
+}
+
+/** W-R1 oracle (affected review 2026-10-21): the printed path must be the FULL requested
+ *  destination — join(<--out dir>, <snapshot name>) — never a same-basename file in some
+ *  other directory. POSIX keeps the byte-exact equality of the original assertion; win32
+ *  normalizes only the spelling (MSYS dialect, separators, drive-letter case, 8.3 forms)
+ *  of the SAME full path, so a wrong directory still fails on every platform. */
+function sameDestination(printed: string, dir: string, name: string): boolean {
+  const expected = join(dir, name);
+  if (process.platform !== 'win32') return printed === expected;
+  const norm = (p: string) => fromMsys(p).replace(/[\\/]/g, '/').toLowerCase();
+  return norm(printed) === norm(expected);
 }
 
 let repo: string;
@@ -109,8 +134,45 @@ describe('snapshot-for-seat.sh', () => {
       expect(r.status).toBe(0);
       const lines = r.stdout.trim().split('\n');
       expect(lines[0]).toBe(`Inputs-ref: ${sha}`);
-      expect(lines[1]).toBe(join(out, `docs__spec@${sha.slice(0, 12)}.md`));
-      expect(readFileSync(lines[1], 'utf8')).toBe('v1\n');
+      expect(sameDestination(lines[1], out, `docs__spec@${sha.slice(0, 12)}.md`)).toBe(
+        true,
+      );
+      expect(readFileSync(fromMsys(lines[1]), 'utf8')).toBe('v1\n');
+    },
+    SLOW_SHELL_MS,
+  );
+
+  it(
+    'W-R1 control: the --out oracle is directory-sensitive — a same-basename snapshot in the wrong directory fails it',
+    (ctx) => {
+      // The W-R1 regression shape (affected review 2026-10-21): the SUT ignores --out,
+      // writes the correct basename and the correct bytes somewhere ELSE, and prints that
+      // path. Two real runs into two different --out dirs produce exactly that pairing —
+      // identical basenames, identical v1 bytes, different directories — and the oracle
+      // must accept each print only for ITS requested directory and reject the swap.
+      const sha = commitFile('docs/spec.md', 'v1\n', 'one');
+      const other = mkdtempSync(join(tmpdir(), 'seat-snap-out2-'));
+      try {
+        const name = `docs__spec@${sha.slice(0, 12)}.md`;
+        const a = run(ctx, ['--out', out, sha, 'docs/spec.md']);
+        const b = run(ctx, ['--out', other, sha, 'docs/spec.md']);
+        expect(a.status).toBe(0);
+        expect(b.status).toBe(0);
+        const printedA = a.stdout.trim().split('\n')[1];
+        const printedB = b.stdout.trim().split('\n')[1];
+        // same basename, same bytes — the only difference is the directory:
+        expect(printedA).not.toBe(printedB);
+        expect(readFileSync(fromMsys(printedA), 'utf8')).toBe('v1\n');
+        expect(readFileSync(fromMsys(printedB), 'utf8')).toBe('v1\n');
+        // the oracle passes for each requested destination…
+        expect(sameDestination(printedA, out, name)).toBe(true);
+        expect(sameDestination(printedB, other, name)).toBe(true);
+        // …and FAILS on the wrong-directory/same-basename twin (the W-R1 hole, closed):
+        expect(sameDestination(printedA, other, name)).toBe(false);
+        expect(sameDestination(printedB, out, name)).toBe(false);
+      } finally {
+        rmSync(other, { recursive: true, force: true });
+      }
     },
     SLOW_SHELL_MS,
   );
@@ -137,7 +199,7 @@ describe('snapshot-for-seat.sh', () => {
 
       const r = run(ctx, ['--out', out, sha, 'x/README.md', 'y/README.md']);
       expect(r.status).toBe(0);
-      const paths = r.stdout.trim().split('\n').slice(1);
+      const paths = r.stdout.trim().split('\n').slice(1).map(fromMsys);
       expect(paths).toHaveLength(2);
       expect(readFileSync(paths[0], 'utf8')).toBe('x\n');
       expect(readFileSync(paths[1], 'utf8')).toBe('y\n');
@@ -292,8 +354,9 @@ describe('snapshot-for-seat.sh', () => {
       const sha = commitFile('a.txt', 'x\n', 'one');
       const r = run(ctx, [sha, 'a.txt']);
       expect(r.status).toBe(0);
-      const p = r.stdout.trim().split('\n')[1];
-      expect(p.endsWith(`/a@${sha.slice(0, 12)}.txt`)).toBe(true);
+      const printed = r.stdout.trim().split('\n')[1];
+      expect(printed.endsWith(`/a@${sha.slice(0, 12)}.txt`)).toBe(true);
+      const p = fromMsys(printed);
       expect(existsSync(p)).toBe(true);
       rmSync(dirname(p), { recursive: true, force: true });
     },

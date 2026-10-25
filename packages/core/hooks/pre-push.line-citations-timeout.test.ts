@@ -15,11 +15,12 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lineCitationsTimeoutMs } from './pre-push.ts';
+import { findMsysCoreutil } from './spawn-bash-or-skip.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(HERE, 'pre-push.ts');
@@ -51,12 +52,28 @@ function fakeNodeBin(name: string, body: string): string {
   const bin = join(dir, name);
   // mkdirSync, not spawnSync('mkdir'): cmd.exe has no mkdir.exe on win32 (#1799).
   mkdirSync(bin, { recursive: true });
+  if (process.platform === 'win32') {
+    // CreateProcess cannot exec an extensionless sh script, and libuv's PATH search
+    // appends `.exe` — so stand the fake up as a coreutils PE with the same
+    // observable behaviour for the arm that uses it: `false` exits 1 instantly
+    // (the failing-checker arm's only assertion shape) — #1799.
+    const exe = findMsysCoreutil('false');
+    if (!exe)
+      throw new Error(
+        'win32 fake node needs Git coreutils (false.exe) on PATH or beside bash.exe',
+      );
+    copyFileSync(exe, join(bin, 'node.exe'));
+    return bin;
+  }
   writeFileSync(join(bin, 'node'), `#!/bin/sh\n${body}\n`);
   chmodSync(join(bin, 'node'), 0o755);
   return bin;
 }
 
 function hook(bin: string, env: Record<string, string> = {}) {
+  const PATH = bin
+    ? `${bin}${delimiter}${process.env['PATH'] ?? ''}`
+    : (process.env['PATH'] ?? '');
   return spawnSync(process.execPath, ['--import', 'tsx/esm', HOOK], {
     cwd: CORE,
     input: '',
@@ -67,7 +84,7 @@ function hook(bin: string, env: Record<string, string> = {}) {
       // The empty tree as base: every tracked file is «changed», so the checker is
       // always reached — HEAD~1 is not enough when HEAD is an empty or deletion-only commit.
       PREPUSH_UPSTREAM_REF: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
-      PATH: `${bin}:${process.env['PATH'] ?? ''}`,
+      PATH,
       ...env,
     },
     timeout: 60_000,
@@ -76,6 +93,18 @@ function hook(bin: string, env: Record<string, string> = {}) {
 
 describe('line-citations: checker timeout', { timeout: SLOW_SHELL_MS }, () => {
   it('a timed-out checker blocks the push with a timeout message, not «stale»', () => {
+    if (process.platform === 'win32') {
+      // The POSIX fake (`node` = sh script sleeping 10s, first on PATH) cannot be
+      // exec'd by CreateProcess (#1799). A 1 ms cap times the REAL checker spawn
+      // out deterministically — process startup alone exceeds it — exercising the
+      // same routing: timeout message, variable named, no «stale» claim.
+      const r = hook('', { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: '1' });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toMatch(/citation checker did not finish within 0.001 s \(timed out or was terminated\)/);
+      expect(r.stderr).toMatch(/PREPUSH_LINE_CITATIONS_TIMEOUT_MS/);
+      expect(r.stderr).not.toMatch(/stale `path:line` citation/);
+      return;
+    }
     const bin = fakeNodeBin('slow', 'exec sleep 10');
     const r = hook(bin, { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: '500' });
     expect(r.status).toBe(1);

@@ -23,7 +23,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { spawnBashOrSkip, findGitBashExe, type Skippable } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip, findMsysCoreutil, type Skippable } from './spawn-bash-or-skip.ts';
 import {
   mkdtempSync,
   writeFileSync,
@@ -84,15 +84,19 @@ function buildDepsJson(pkg: {
 
 /**
  * The awk binary the oracles spawn must be THE SAME one the hook resolves. POSIX: the
- * PATH `awk` (this arm is byte-identical to the pre-#1799 spawn). win32: node's PATH
- * carries no awk.exe (runners expose only Git\cmd) while the bash-run hook sees MSYS's —
- * resolve it from the Git Bash root (Git\bin\bash.exe → ..\usr\bin\awk.exe) so the oracle
- * stays TRUE, never a skip; with no Git Bash the raw 'awk' spawn fails loudly, as today.
+ * PATH `awk` (this arm is byte-identical to the pre-#1799 spawn). win32: resolve via
+ * findMsysCoreutil('awk') — PATH first (the runner's vitest PATH carries Git\usr\bin,
+ * where awk.exe lives), then beside the resolved bash and its ../usr/bin sibling.
+ * Deriving the path arithmetically from findGitBashExe alone (the previous form) is
+ * WRONG when bash.exe resolves from Git\usr\bin rather than Git\bin: `dirname(bash)/
+ * ../usr/bin` then points at the nonexistent `Git\usr\usr\bin\awk.exe`, every oracle
+ * spawn dies ENOENT, the oracle hashes '' and every MATCH arm drifts against the real
+ * hook hash (measured: windows-hooks run 38988360013, 6 deps-hash failures, #1799).
  */
 function oracleAwk(): string {
   if (process.platform !== 'win32') return 'awk';
-  const bash = findGitBashExe();
-  return bash === null ? 'awk' : resolve(dirname(bash), '../usr/bin/awk.exe');
+  const coreutil = findMsysCoreutil('awk');
+  return coreutil ?? 'awk';
 }
 
 /**
@@ -249,7 +253,7 @@ function computeCargoHash(opts: {
   const manifestPath = join(dir, 'Cargo.toml');
   writeFileSync(manifestPath, opts.cargoTomlContent, 'utf8');
 
-  const tier1Raw = spawnSync('awk', [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
+  const tier1Raw = spawnSync(oracleAwk(), [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
   const tier1Hex = tier1Raw.status === 0
     ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
     : '';
@@ -621,7 +625,16 @@ describe('deps-hash-check.sh — source/dogfood byte-identity (@dual-pair: deps-
 // GREEN once the hook is rewritten (commit B). Each case names its design-spec §ref.
 // =============================================================================
 
-describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen, python tiers)', () => {
+// Shell + awk + python3 oracle spawns per case; the vitest 5 s default is a mis-set gate
+// under first-spawn cost on win32 runners (cold bash/awk/python PE starts measured past
+// 5 s, run 38988360013) — the SLOW_SHELL_MS convention of the sibling shell-spawning
+// suites (create-worktree, snapshot-for-seat). POSIX floor unchanged (only extends).
+const SLOW_SHELL_MS = 30_000;
+
+describe(
+  'deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen, python tiers)',
+  { timeout: SLOW_SHELL_MS },
+  () => {
   // ---- (a) JS-widen: peerDependencies/overrides change the npm hash ----
   it('JS-WIDEN: a package.json with peerDependencies only → npm hash differs from legacy 2-field surface; matching stored deps-hash-npm → silent (design §1-E, §3a m1)', (ctx) => {
     const pkg = { peerDependencies: { react: '^18.0.0' } };
@@ -915,7 +928,8 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     expect(status).toBe(0);
     expect(stdout).toBe(''); // legacy key read as npm → match → silent
   });
-});
+},
+);
 
 // =============================================================================
 // DH-S2 (kickoff §DH-S2) — rust (Cargo.toml) Tier-1 table-boundary + Tier-2 `cargo metadata`
@@ -924,7 +938,10 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
 // never read) and turn GREEN once the hook gains _cargo_current() + the CARGO_STORED wiring.
 // =============================================================================
 
-describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-only)', () => {
+describe(
+  'deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-only)',
+  { timeout: SLOW_SHELL_MS },
+  () => {
   it('CARGO-TIER1: [dependencies] table-form deps → deps-hash-cargo WARN on drift, silent on match (research-patch §1/§2)', (ctx) => {
     const cargoToml = [
       '[package]',
@@ -1153,7 +1170,8 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
   });
-});
+  },
+);
 
 // =============================================================================
 // DH-S3 closure (kickoff #1016 §2 DH-S3) — tomli shim (py3.7-3.10), polyglot

@@ -53,7 +53,14 @@ const SCRIPT = resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh');
 // hold and is skipped with a named reason; cases asserting only statuses/existence still run.
 const WIN_SUT_LINK = process.platform === 'win32';
 // win32: POSIX file-mode semantics (chmod/exec-bit preservation) — see the mode-change case.
+// Also gates the restore arms' mode expectations: NTFS carries no Unix mode bits, so
+// statSync reports 0o666 for every writable file (438 vs 420, run 38988360013) and a
+// 644 restore is unobservable there by any channel (git-for-windows runs
+// core.filemode=false). Those arms still RUN on win32 — their lockfile-bytes /
+// exit-code / git-status assertions are the live coverage; the mode line documents its
+// own vacuity instead of false-failing. POSIX expectation stays 0o644.
 const WIN_MODE_BITS = process.platform === 'win32';
+const TRACKED_FILE_MODE = WIN_MODE_BITS ? 0o666 : 0o644;
 
 // Every case here spawns scripts/worktree-node-modules.sh under bash against a fresh
 // primary + linked git worktree, so multi-second runtimes under load are inherent and the
@@ -572,7 +579,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     const before = readFileSync(resolve(wt, 'package-lock.json'), 'utf8');
     expect(runNpm(ctx, '--apply').status).toBe(0);
     expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
-    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(TRACKED_FILE_MODE);
     expect(execSync('git status --porcelain', { cwd: wt, encoding: 'utf8' })).toBe('');
   });
 
@@ -587,7 +594,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     expect(r.out).toContain('npm ci --prefix packages/core');
     // The failure path restores too: no rewritten lock, no leftover bin-target mode change.
     expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
-    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(TRACKED_FILE_MODE);
     expect(execSync('git status --porcelain', { cwd: wt, encoding: 'utf8' })).toBe('');
   });
 
@@ -608,7 +615,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     execSync('chmod 755 run.sh', { cwd: wt });
     expect(runNpm(ctx, '--apply').status).toBe(0);
     expect(statSync(resolve(wt, 'run.sh')).mode & 0o777).toBe(0o755);
-    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(TRACKED_FILE_MODE);
   });
 
   it('restores even when the install is interrupted (SIGTERM from a hook timeout)', (ctx) => {
@@ -633,7 +640,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', { timeout: SLOW
     const before = readFileSync(resolve(wt, 'package-lock.json'), 'utf8');
     expect(runNpm(ctx, '--apply').status).not.toBe(0);
     expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
-    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(TRACKED_FILE_MODE);
     // An interrupted install is not a provisioned one: the next check must not pass it.
     expect(runNpm(ctx, '--check').status).toBe(3);
   });

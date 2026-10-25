@@ -14,11 +14,17 @@ import { delimiter, join } from 'node:path';
 import {
   failLoudSkipContext,
   findGitBashExe,
+  findRealJqExe,
+  findRealGitExe,
   gitBashCandidateDirs,
   isBashLikeCommand,
+  MSYS_ACCESS_VIOLATION_EXIT,
   planWin32BashSpawn,
   resolveShSibling,
+  runBashArm,
   spawnBashOrSkip,
+  toMsysArg,
+  fromMsysPath,
   type Skippable,
 } from './spawn-bash-or-skip.ts';
 
@@ -197,5 +203,126 @@ describe('failLoudSkipContext (module-scope sites)', () => {
   it('throws when skip is reached — never a silent module-scope pass', () => {
     const ctx = failLoudSkipContext('module-scope fixture');
     expect(() => ctx.skip('would-be note')).toThrow(/module-scope fixture.*cannot skip/);
+  });
+});
+
+describe('toMsysArg (win32 argv adaptation, pure)', () => {
+  it('converts drive-letter-absolute backslash paths to MSYS form', () => {
+    expect(toMsysArg('D:\\a\\getff\\.agents\\hooks\\x.sh')).toBe(
+      '/d/a/getff/.agents/hooks/x.sh',
+    );
+  });
+  it('converts drive-letter-absolute forward-slash paths too', () => {
+    expect(toMsysArg('C:/Users/runneradmin/t')).toBe('/c/Users/runneradmin/t');
+  });
+  it('passes non-path args through byte-identical', () => {
+    expect(toMsysArg('--list')).toBe('--list');
+    expect(toMsysArg('main')).toBe('main');
+    expect(toMsysArg('/already/msys')).toBe('/already/msys');
+    // A bare `D:` relative drive reference is NOT converted (no separator follows).
+    expect(toMsysArg('D:rel')).toBe('D:rel');
+  });
+});
+
+describe('fromMsysPath (inverse of toMsysArg, pure + platform-injected)', () => {
+  it('converts an MSYS drive path to Windows form on win32', () => {
+    expect(fromMsysPath('/d/a/getff/packages/core', 'win32')).toBe(
+      'D:/a/getff/packages/core',
+    );
+  });
+  it('is the identity for non-drive-rooted inputs on win32', () => {
+    expect(fromMsysPath('/tmp/heavy-runner-x/record', 'win32')).toBe(
+      '/tmp/heavy-runner-x/record',
+    );
+    expect(fromMsysPath('npm', 'win32')).toBe('npm');
+  });
+  it('is the identity off win32 — POSIX /d/… paths are never mangled', () => {
+    expect(fromMsysPath('/d/a/getff', 'darwin')).toBe('/d/a/getff');
+    expect(fromMsysPath('/usr/bin', 'linux')).toBe('/usr/bin');
+  });
+  it('round-trips toMsysArg on win32', () => {
+    const win = 'D:\\a\\getff\\packages\\core';
+    expect(fromMsysPath(toMsysArg(win), 'win32')).toBe('D:/a/getff/packages/core');
+  });
+});
+
+describe('findRealGitExe (injected PATH)', () => {
+  it('finds a fabricated git.exe on the injected PATH', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'git-probe-'));
+    writeFileSync(join(dir, 'git.exe'), 'stub');
+    try {
+      expect(findRealGitExe({ PATH: dir })).toBe(join(dir, 'git.exe'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it('returns null when PATH holds no git.exe', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'git-probe-empty-'));
+    try {
+      expect(findRealGitExe({ PATH: dir })).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('findRealJqExe (injected PATH)', () => {
+  it('finds a fabricated jq.exe on the injected PATH', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'jq-probe-'));
+    writeFileSync(join(dir, 'jq.exe'), 'stub');
+    try {
+      expect(findRealJqExe({ PATH: dir })).toBe(join(dir, 'jq.exe'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it('returns null when PATH holds no jq.exe (jq-less stays jq-less)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'jq-probe-empty-'));
+    try {
+      expect(findRealJqExe({ PATH: dir })).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('runBashArm (W-R2: no access-violation replay, first result wins)', () => {
+  /** The observed-risk regression shape (affected review 2026-10-21): a Git-Bash child
+   *  performs fixture/SUT side effects, then dies 0xC0000005. The pre-rework helper
+   *  replayed the whole invocation and returned only the second result — a passing
+   *  attempt-2 hid the failure and duplicated non-idempotent effects. The contract now,
+   *  pinned causally with an injected spawn: exactly ONE invocation, and the FIRST
+   *  result — crash included — is what the caller sees. */
+  it('returns the 0xC0000005 result AS-IS after exactly one spawn — failure preserved, no second invocation', () => {
+    let calls = 0;
+    let argv: string[] = [];
+    const crash = {
+      status: MSYS_ACCESS_VIOLATION_EXIT,
+      stdout: '',
+      stderr: 'msys-2.0.dll: 0xC0000005',
+    };
+    const countingSpawn = ((_file: string, a: string[]) => {
+      calls++;
+      argv = [...a];
+      return crash;
+    }) as unknown as typeof spawnSync;
+    const r = runBashArm(countingSpawn, 'C:/Git/bin/bash.exe', ['C:\\t\\x.sh'], {});
+    expect(calls).toBe(1); // no replay — ever
+    expect(argv).toEqual(['/c/t/x.sh']); // argv adaptation still applied on that one spawn
+    expect(r.status).toBe(MSYS_ACCESS_VIOLATION_EXIT); // the FIRST failure is the result
+    expect(r.stderr).toBe('msys-2.0.dll: 0xC0000005');
+  });
+
+  it('a succeeding first invocation is returned unchanged too (no hidden extra spawn)', () => {
+    let calls = 0;
+    const ok = { status: 0, stdout: 'hi\n', stderr: '' };
+    const countingSpawn = (() => {
+      calls++;
+      return ok;
+    }) as unknown as typeof spawnSync;
+    const r = runBashArm(countingSpawn, 'bash.exe', ['-lc', 'true'], {});
+    expect(calls).toBe(1);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('hi\n');
   });
 });

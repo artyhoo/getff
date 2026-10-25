@@ -43,7 +43,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -156,10 +156,14 @@ function runHook(
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).
+  // The stdin file_path goes out POSIX-shaped (forward separators): the SUT's canonical
+  // `.agents/hooks` / `.claude/hooks` matchers never match a backslash path, so on win32
+  // every canonical-path arm would silently pass as "not my channel" (measured #1799).
+  const posixPath = absPath.split(sep).join('/');
   const r = spawnBashOrSkip(ctx, 'bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
-      tool_input: { file_path: absPath },
+      tool_input: { file_path: posixPath },
     }),
     encoding: 'utf8',
     env: fullEnv,

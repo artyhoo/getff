@@ -25,7 +25,7 @@ import { execSync } from 'node:child_process';
 import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { delimiter, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -82,7 +82,9 @@ function run(
   for (const [k, v] of Object.entries(process.env)) {
     if (v !== undefined && !k.startsWith('GIT_')) env[k] = v;
   }
-  env.PATH = `${shim}:${env.PATH ?? ''}`;
+  // node:path's delimiter: ':' on POSIX (byte-identical to the old literal) and ';'
+  // on win32, where a ':'-joined PATH would be read as one mangled entry by Git Bash.
+  env.PATH = `${shim}${delimiter}${env.PATH ?? ''}`;
   env.GIT_CONFIG_NOSYSTEM = '1';
   Object.assign(env, extra);
   // POSIX: byte-identical spawnSync pass-through; win32: Git Bash or named skip (#1799).

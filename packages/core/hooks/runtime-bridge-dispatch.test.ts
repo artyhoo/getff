@@ -403,7 +403,7 @@ import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
 import { symlinkOrJunctionOrSkip as _symlinkOrJunctionOrSkip, type Skippable } from './symlink-or-junction-or-skip.ts';
-import { spawnBashOrSkip as _spawnBashOrSkip } from './spawn-bash-or-skip.ts';
+import { spawnBashOrSkip as _spawnBashOrSkip, toMsysArg as _toMsysArg } from './spawn-bash-or-skip.ts';
 
 describe('dependency-missing skip fires only for auto-marked bridge kickoffs', () => {
   function runNoJq(ctx: Skippable, filePath: string): { status: number; stdout: string } {
@@ -488,7 +488,11 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
     if (pathDirs) env['PATH'] = pathDirs;
     delete env.ZCODE_PROJECT_DIR;
     return _spawnBashOrSkip(ctx, '/bin/bash', [HOOK], {
-      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      // file_path rides STDIN, so spawnBashOrSkip's argv toMsysArg never sees it: convert
+      // it here, or the hook's `case "$FILE_PATH" in */kickoff.md)` and `[[ -f ]]` guards
+      // see `C:\…`, never match, and the L-6 DID-NOT-RUN notice collapses to the silent
+      // non-kickoff bail (#1799). POSIX: identity (no drive-letter prefix).
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: _toMsysArg(abs) } }),
       encoding: 'utf8',
       env,
     });

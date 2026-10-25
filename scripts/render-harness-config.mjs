@@ -35,7 +35,7 @@ import {
   unlinkSync,
   realpathSync,
 } from 'node:fs';
-import { join, dirname, resolve, relative } from 'node:path';
+import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { emitCodex } from './render-codex-contributor.mjs';
 import { createHash } from 'node:crypto';
@@ -577,6 +577,10 @@ const EMITTERS = [
 ];
 
 const renderJson = (value) => JSON.stringify(value, null, 2) + '\n';
+/** `relative()` is separator-native (backslashes on win32) while every stored op path is
+ *  POSIX-shaped — normalize before comparing so a clean tree is not read as "escapes
+ *  checkout". No-op on POSIX, where sep is already '/'. */
+const toPosix = (p) => p.split(sep).join('/');
 function mergedJson(root, op) {
   const p = join(root, op.path);
   // merge-json owns ONE key and byte-preserves the rest, so the file must pre-exist.
@@ -594,7 +598,7 @@ function assertGeneratedDestination(root, op) {
   if (op.kind === 'note' || op.kind === 'remove-owned') return;
   const base = resolve(root),
     abs = resolve(base, op.path);
-  const rel = relative(base, abs);
+  const rel = toPosix(relative(base, abs));
   if (rel !== op.path || rel.startsWith('../') || !rel)
     throw new Error(`${op.path}: generated destination escapes checkout`);
   for (let parent = dirname(abs); parent !== base; parent = dirname(parent)) {
@@ -654,7 +658,7 @@ function applyOp(root, op) {
 
 function assertOwnedRemoval(root, path) {
   const abs = resolve(root, path);
-  const rel = relative(resolve(root), abs);
+  const rel = toPosix(relative(resolve(root), abs));
   const allowed = (p) =>
     p.startsWith('.agents/skills/') || p.startsWith('.codex/agents/');
   if (!allowed(rel) || path !== rel)
@@ -666,9 +670,8 @@ function assertOwnedRemoval(root, path) {
     realpathSync(ancestor),
     relative(ancestor, dirname(abs)),
   );
-  const physicalRelative = relative(
-    realpathSync(root),
-    join(parent, 'owned-file'),
+  const physicalRelative = toPosix(
+    relative(realpathSync(root), join(parent, 'owned-file')),
   );
   if (!allowed(physicalRelative))
     throw new Error(
