@@ -38,8 +38,8 @@
  *   materialised. `dispatch()` is now literally claim+release with the old rollback, so
  *   the one-shot callers (PostToolUse hook, /dispatcher) are behaviourally unchanged.
  * available(): GET /health reachability probe (1s timeout).
- * getStatus(): REST GET /tasks/:id (non-blocking snapshot via aifWsStatus.getTaskStatus).
- * awaitDone(): WebSocket status event stream (aifWsStatus.awaitTaskDone, :3009/ws).
+ * getStatus(): full REST task observation, including held ownership/result evidence.
+ * awaitDone(): subscribed, bounded authoritative reconciliation on initial open and reconnect.
  *
  * Ports: REST + WS = baseUrl (:3009). MCP (HTTP) = mcpUrl (:3100), RESERVED for the
  * MCP-target phase (ADOPT @modelcontextprotocol/sdk) — NOT used by REST dispatch today.
@@ -72,7 +72,7 @@ import type {
 } from './types.js';
 import {
   awaitTaskDone,
-  getTaskStatus,
+  readAifTaskResult,
   mapAifStatusToTaskStatus,
   type WebSocketConstructor,
 } from './aifWsStatus.js';
@@ -647,41 +647,30 @@ export class AifHandoffBackend implements ClaimCapableBackend {
 
   async getStatus(handle: TaskHandle): Promise<TaskStatus> {
     // Non-blocking point-in-time snapshot via REST GET /tasks/:id.
-    // Source: aifWsStatus.getTaskStatus -> packages/api/src/routes/tasks.ts GET /:id
+    // Source: packages/api/src/routes/tasks.ts GET /:id, not a status-only projection.
     // REST is used (not WS) because getStatus must NOT block.
     // WS is subscribe-and-wait; REST returns immediately.
-    const { rawStatus, checkedAt } = await getTaskStatus(
-      handle.taskId,
-      this.baseUrl,
-    );
+    const result = await readAifTaskResult(handle.taskId, this.baseUrl);
     return {
-      status: mapAifStatusToTaskStatus(rawStatus),
-      rawStatus,
-      checkedAt,
+      status: result.meta.held ? 'error' : mapAifStatusToTaskStatus(result.finalStatus),
+      rawStatus: result.finalStatus,
+      checkedAt: result.completedAt,
+      meta: result.meta,
     };
   }
 
   async awaitDone(handle: TaskHandle, timeoutMs?: number): Promise<TaskResult> {
-    // Real WebSocket status readback via aif-handoff broadcast stream.
-    // Source: aifWsStatus.awaitTaskDone -> ws://localhost:3009/ws
-    // WS event: { type: "task:updated", payload: { id, title, status } }
-    // taskId filter: payload.id === handle.taskId (client-side, per kickoff §3 SW-C item 2)
-    // Terminal states: done/verified -> success; blocked_external -> !success (resolves, not throws)
-    // Transport failures (disconnect after retries) -> throws BackendError('unavailable')
+    // One bounded observation owns subscription, reconciliation and settlement.
+    // No second REST request outside its deadline can replace the settled generation.
     try {
-      const result = await awaitTaskDone({
+      return await awaitTaskDone({
         taskId: handle.taskId,
         wsUrl: this.wsUrl,
+        apiBaseUrl: this.baseUrl,
         stateFilePath: this.stateFilePath,
         timeoutMs,
         WebSocketImpl: this.WebSocketImpl,
       });
-      return {
-        success: result.success,
-        content: '',
-        finalStatus: result.finalStatus,
-        completedAt: result.completedAt,
-      };
     } catch (err) {
       // Re-throw BackendErrors (unavailable, timeout) as-is.
       // Other errors are wrapped as dispatch_failed.

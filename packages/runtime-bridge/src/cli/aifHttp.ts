@@ -56,6 +56,12 @@ export interface AifTaskFull {
    * flag is the ONE `review` task `complete_review` serves (artyhoo/aif-handoff#1).
    */
   manualReviewRequired?: boolean;
+  /** Existing result-bearing API fields; absence is unknown, never an approval. */
+  implementationLog?: string | null;
+  reviewComments?: string | null;
+  sessionId?: string | null;
+  reviewIterationCount?: number;
+  commitSha?: string | null;
 }
 
 /**
@@ -72,6 +78,8 @@ export type AifHttpMethod = 'GET' | 'PUT' | 'POST' | 'DELETE';
 export interface RequestOptions {
   /** Abort the request after this many ms (default {@link DEFAULT_HTTP_TIMEOUT_MS}). */
   timeoutMs?: number;
+  /** Cancel a read when its observation ends; does not cancel a runtime task. */
+  signal?: AbortSignal;
   /**
    * BackendError code for a 404. Defaults to 'dispatch_failed' (a bad id from a CLI
    * flag is a caller defect); the status probe passes 'unavailable' — the task it was
@@ -98,18 +106,33 @@ async function request(
     () => controller.abort(),
     opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS,
   );
-  let res: Response;
   try {
-    res = await fetch(`${baseUrl}${path}`, {
+    const res = await fetch(`${baseUrl}${path}`, {
       // Only declare a JSON content-type when a body is actually sent — a no-body DELETE
       // carrying `Content-Type: application/json` is malformed to some servers.
       method,
       headers:
         body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: controller.signal,
+      signal: opts.signal ? AbortSignal.any([controller.signal, opts.signal]) : controller.signal,
     });
+    if (!res.ok) {
+      // Preserve an already-known HTTP error class even when its body times out.
+      const errBody = await res.text().catch(() => '');
+      if (res.status === 429) {
+        throw new BackendError(`aif-handoff rate limit (${method} ${path}): ${errBody}`, 'quota_exceeded', 'aif-handoff');
+      }
+      if (res.status === 404 && opts.notFoundCode) {
+        throw new BackendError(`aif-handoff ${method} ${path} HTTP 404 (not found): ${errBody}`, opts.notFoundCode, 'aif-handoff');
+      }
+      throw new BackendError(`aif-handoff ${method} ${path} HTTP ${res.status}: ${errBody}`, 'dispatch_failed', 'aif-handoff');
+    }
+    const text = await res.text();
+    if (!text) return {};
+    try { return JSON.parse(text) as unknown; }
+    catch { return text; }
   } catch (err) {
+    if (err instanceof BackendError) throw err;
     const name = err instanceof Error ? err.name : '';
     const msg = err instanceof Error ? err.message : String(err);
     // A timeout and a refused connection are both 'unavailable', but they tell the operator
@@ -133,35 +156,6 @@ async function request(
     );
   } finally {
     clearTimeout(timeoutId);
-  }
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    if (res.status === 429) {
-      throw new BackendError(
-        `aif-handoff rate limit (${method} ${path}): ${errBody}`,
-        'quota_exceeded',
-        'aif-handoff',
-      );
-    }
-    if (res.status === 404 && opts.notFoundCode) {
-      throw new BackendError(
-        `aif-handoff ${method} ${path} HTTP 404 (not found): ${errBody}`,
-        opts.notFoundCode,
-        'aif-handoff',
-      );
-    }
-    throw new BackendError(
-      `aif-handoff ${method} ${path} HTTP ${res.status}: ${errBody}`,
-      'dispatch_failed',
-      'aif-handoff',
-    );
-  }
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
   }
 }
 

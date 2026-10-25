@@ -30,7 +30,23 @@ import {
   wireNRules,
   writeWithLintProbe,
 } from './wire-eslint-r2.ts';
-import { presetRuleScopes } from './synth-and-wire.ts';
+import { presetRuleScopes, readIgnorePaths } from './synth-and-wire.ts';
+
+describe('ignore path file transport', () => {
+  it('keeps exact paths, spaces and legacy repeatable arguments', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ignore-paths-'));
+    try {
+      const file = join(dir, 'paths');
+      writeFileSync(file, '.agents/a.mjs\n.agents/space in path/b.mjs\n');
+      expect(readIgnorePaths(['--ignore', 'legacy.mjs', '--ignore-file', file])).toEqual([
+        'legacy.mjs', '.agents/a.mjs', '.agents/space in path/b.mjs',
+      ]);
+      expect(() => readIgnorePaths(['--ignore-file', join(dir, 'missing')])).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 

@@ -166,7 +166,15 @@ if [ "${1:-}" = "--one" ]; then
   # its whole job is to answer "is this hung?", and a reader who has learned not to trust it is
   # back to walking the process tree by hand.
   _n=1
-  while ! mkdir "$_work/seq/$_n" 2>/dev/null; do _n=$((_n + 1)); done
+  while ! mkdir "$_work/seq/$_n" 2>/dev/null; do
+    # Only an existing claim is a collision. Other failures must not invent an ordinal
+    # or spin forever; the parent still has this worker's completion receipt.
+    if [ ! -d "$_work/seq/$_n" ] || [ "$_n" -ge "$_total" ]; then
+      progress "[${_label}] progress ordinal unavailable for ${_safe}; receipt retained"
+      exit 0
+    fi
+    _n=$((_n + 1))
+  done
   if [ "$_rc" -eq 0 ]; then _mark="ok"; else _mark="FAIL"; fi
   progress "[${_label}] ${_n}/${_total} done · ${_safe} (${_mark})"
   exit 0   # the receipt carries the verdict; a non-zero here would only abort the pool early
@@ -327,12 +335,14 @@ END=$(date +%s)
 FAILED=""
 MISSING=""
 PASSED=0
+COMPLETED=0
 while IFS= read -r t; do
   [ -z "$t" ] && continue
   b=$(basename "$t")
   echo "───── $b ─────"
   if [ -f "$WORK/out/$b" ]; then cat "$WORK/out/$b"; fi
   if [ -f "$WORK/rc/$b" ]; then
+    COMPLETED=$((COMPLETED + 1))
     rc=$(cat "$WORK/rc/$b")
     if [ "$rc" -eq 0 ]; then
       PASSED=$((PASSED + 1))
@@ -348,6 +358,11 @@ while IFS= read -r t; do
 done <<EOF2
 $LOCAL
 EOF2
+# Workers provide live updates, but only the collecting parent can report a final count
+# without depending on concurrent ordinal creation or progress writes.
+if [ "$LOCAL_N" -gt 0 ]; then
+  progress "[${LABEL}] ${COMPLETED}/${LOCAL_N} done · receipts collected"
+fi
 
 # collect_routed — fold the routed half into the tally. Its summary line is the only evidence that
 # the tests ran; the runner's exit code alone is not (a runner that runs nothing can exit 0).

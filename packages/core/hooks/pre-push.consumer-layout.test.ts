@@ -134,7 +134,7 @@ const CLEANUP_RETRY_DELAY_MS = 50;
  *  1. **Retry** narrows the window. This is a Node-side recursive-rm race (nodejs/node#54561,
  *     "[fs.rm] Reports ENOTEMPTY randomly"), not an un-reaped child of ours: every git
  *     invocation on this path is synchronous — `execSync` in the fixture builders above,
- *     and `spawnSync` inside the hook itself (`utils/run-check.ts:99`, the single funnel
+ *     and `spawnSync` inside the hook itself (`utils/run-check.ts:166`, the single funnel
  *     `utils/git.ts` routes all git I/O through) — so each is reaped before control
  *     returns here. There is no child left to await.
  *  2. **Tolerate** is the structural guarantee: teardown is hygiene, never an assertion,

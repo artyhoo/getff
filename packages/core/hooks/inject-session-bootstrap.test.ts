@@ -48,7 +48,7 @@ const HOOK = resolve(REPO_ROOT, '.agents/hooks/inject-session-bootstrap.sh');
  * realistic input matching CC's SessionStart shape for accuracy.
  *
  * env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path —
- * mirrors deps-hash-check.test.ts:350). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
+ * mirrors deps-hash-check.test.ts:354). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
  * assertions below do not flip to the ZCode-JSON branch when the suite runs inside ZCode itself.
  */
 function runHook(

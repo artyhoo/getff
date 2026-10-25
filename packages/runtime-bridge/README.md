@@ -86,15 +86,17 @@ step.
 
 Modes:
 
-- **default** — block on `awaitDone` (WebSocket status stream) until the task is `done`/`verified`
-  (success) or `blocked_external` (resolves, not success), then print the `TaskResult` as JSON.
-  `--timeout-ms` bounds the wait.
+- **default** — AIF subscribes before authoritative REST reconciliation on initial open and
+  reconnect. Terminal or held detail settles the full `TaskResult`; status frames only request
+  reconciliation. The default observation deadline is one hour; `--timeout-ms` overrides it.
 - **`--once`** — non-blocking `getStatus` snapshot (point-in-time), print and exit.
 
-The backend is resolved the same way as `dispatch` (`RUNTIME_BRIDGE_MODE` + `available()`). In default
-mode with **no** `--timeout-ms`, this **blocks** until the task reaches a terminal state; for long
-autonomous runs that is intended. A startup notice is printed to stderr; pass `--timeout-ms` to bound
-the wait.
+The backend is resolved the same way as `dispatch` (`RUNTIME_BRIDGE_MODE` + `available()`).
+ManualBackend retains its indefinite response-file wait when no deadline is supplied.
+AIF timeout or transport failure means observation uncertainty. Validated candidate/generation
+metadata stays pending; it grants neither acceptance nor permission to retry external effects.
+Explicit resume uses a fresh `--once` read and reconciliation of the owner's retained actions.
+Source behavior does not establish that an existing host installation has been refreshed.
 
 ### Usage
 

@@ -20,6 +20,8 @@
 #   MO_GH_BIN   — override the `gh` binary (default: gh)
 #   MO_WAVE_PLAN — override the wave-sequencing-plan.md path
 #                  (default: <REPO_ROOT>/docs/meta-factory/wave-sequencing-plan.md)
+#   MO_OPEN_PR_LIMIT — open-PR read limit for the complete-count predicate
+#                  (default: 200; reaching the limit = SATURATED → OPEN_PR_TOTAL: UNKNOWN)
 #
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
@@ -90,11 +92,32 @@ mkdir -p "${_PROMPTS_DIR_BASE}"
   fi
 
   echo "--- open PRs (json) ---"
-  gh pr list \
+  # GH-4208120859 fix: a truncated listing is NOT a count. The old `--limit 25` read let a
+  # session overwrite the true open-queue population (e.g. 27 open PRs) with 25 and emit a
+  # dated count from false state. Aggregate facts now require a COMPLETE independently-counted
+  # population: high-limit read + saturation detection, where the count is authoritative only
+  # when the limit is NOT reached. Any saturation, failed-fetch or jq-less read emits
+  # `OPEN_PR_TOTAL: UNKNOWN` — an explicit saturation state that FORBIDS the automatic
+  # dated-count write (planning §1 Step 3 re-verifies with this same complete predicate).
+  # MO_OPEN_PR_LIMIT is a test seam (same pattern as MO_GH_BIN / MO_WAVE_PLAN above).
+  _OPEN_LIMIT="${MO_OPEN_PR_LIMIT:-200}"
+  _OPEN_JSON="$("${MO_GH_BIN}" pr list \
     --search "is:open" \
     --json number,title,state,headRefName,baseRefName \
-    --limit 25 \
-    2>/dev/null || echo "(gh unavailable)"
+    --limit "${_OPEN_LIMIT}" \
+    2>/dev/null || true)"
+  if [[ -z "${_OPEN_JSON}" ]]; then
+    echo "(gh unavailable)"
+    echo "OPEN_PR_TOTAL: UNKNOWN (fetch failed — count write FORBIDDEN)"
+  elif ! command -v jq >/dev/null 2>&1; then
+    printf '%s\n' "${_OPEN_JSON}"
+    echo "OPEN_PR_TOTAL: UNKNOWN (jq unavailable — count write FORBIDDEN)"
+  else
+    printf '%s\n' "${_OPEN_JSON}" | jq -c '.[]' 2>/dev/null || true
+    printf '%s\n' "${_OPEN_JSON}" | jq -r --argjson limit "${_OPEN_LIMIT}" \
+      '"OPEN_PR_TOTAL: \(length) (complete: \(if length < $limit then "yes" else "UNKNOWN — SATURATED at limit \($limit); count write FORBIDDEN" end))"' \
+      2>/dev/null || echo "OPEN_PR_TOTAL: UNKNOWN (count query failed — count write FORBIDDEN)"
+  fi
 
   echo "--- merged PRs last 30 days (json) ---"
   gh pr list \
@@ -181,6 +204,11 @@ echo "=== plan-currency-check: umbrella='${UMBRELLA}' ==="
 # Section headers (test-asserted — plan-currency-check.test.ts:201-202)
 echo "--- open PRs (json) ---"
 echo "(see _plan-currency-raw.txt)"
+# GH-4208120859: the complete-or-UNKNOWN count verdict surfaces on stdout too — it is the
+# only aggregate-fact line planning §1 Step 3 may back a dated open-queue count with.
+if [[ -f "${_RAW_FILE}" ]]; then
+  grep '^OPEN_PR_TOTAL:' "${_RAW_FILE}" 2>/dev/null || true
+fi
 echo "--- merged PRs last 30 days (json) ---"
 echo "(see _plan-currency-raw.txt)"
 

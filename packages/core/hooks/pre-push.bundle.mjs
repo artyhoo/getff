@@ -1288,15 +1288,18 @@ function readPushStdin() {
 }
 function resolveBase() {
   const env = process.env["PREPUSH_UPSTREAM_REF"];
+  const stdin = readPushStdin();
+  const scopeSafe = kickoffPushShapeSafe(stdin, Boolean(env));
   if (env)
     return {
       base: env,
       commits: null,
       head: "HEAD",
       exclude: resolveDefaultBase(),
-      source: "env"
+      source: "env",
+      scopeSafe
     };
-  const refs = parsePushRefs(readPushStdin());
+  const refs = parsePushRefs(stdin);
   if (refs.length > 0) {
     const r = refs[0];
     if (r.remoteSha !== Z40 && upstreamExists(`${r.remoteSha}^{commit}`)) {
@@ -1305,7 +1308,8 @@ function resolveBase() {
         commits: null,
         head: r.localSha,
         exclude: resolveDefaultBase(),
-        source: "stdin"
+        source: "stdin",
+        scopeSafe
       };
     }
     const newCommits = commitsNotOnRemotes(r.localSha);
@@ -1316,7 +1320,8 @@ function resolveBase() {
       commits: newCommits,
       head: r.localSha,
       exclude: null,
-      source: "stdin-new-branch"
+      source: "stdin-new-branch",
+      scopeSafe: scopeSafe && r.remoteSha === Z40
     };
   }
   const def = resolveDefaultBase();
@@ -1326,7 +1331,8 @@ function resolveBase() {
       commits: null,
       head: "HEAD",
       exclude: null,
-      source: "default"
+      source: "default",
+      scopeSafe
     };
   }
   return {
@@ -1334,7 +1340,8 @@ function resolveBase() {
     commits: null,
     head: "HEAD",
     exclude: null,
-    source: "unresolved"
+    source: "unresolved",
+    scopeSafe
   };
 }
 function warnSkip(label, why) {
@@ -3091,10 +3098,87 @@ async function main() {
     await section.run(ctx);
     process.exit(0);
   }
+  const kickoffOnly = isKickoffPublicationPush(ctx);
+  if (kickoffOnly)
+    process.stdout.write(
+      "\u2713 pre-push: kickoff publication \u2014 document/contract checks retained\n"
+    );
   for (const section of activeSections(isFrameworkRepo)) {
-    await section.run(ctx);
+    await runPushSection(section, ctx, kickoffOnly);
   }
   process.exit(0);
+}
+function kickoffPushShapeSafe(stdin, hasOverride) {
+  const lines = stdin.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines.length === 0) return true;
+  if (hasOverride || lines.length !== 1) return false;
+  const parts = lines[0].split(/\s+/);
+  return parts.length === 4 && /^[a-f0-9]{40}$/.test(parts[1]) && parts[1] !== Z40 && /^[a-f0-9]{40}$/.test(parts[3]) && parts[2].startsWith("refs/") && runCheck("git", ["check-ref-format", parts[2]], {
+    env: scrubbedHookEnv(),
+    timeoutMs: 1e4
+  }).exitCode === 0;
+}
+function isKickoffPublicationPush(ctx, root = REPO_ROOT) {
+  if (!ctx.isFrameworkRepo || ctx.rb.scopeSafe !== true || !ctx.rb.base)
+    return false;
+  const git2 = (...args) => runCheck("git", args, {
+    cwd: root,
+    env: scrubbedHookEnv(),
+    timeoutMs: 1e4
+  });
+  const commit = (ref) => {
+    const result2 = git2(
+      "rev-parse",
+      "--verify",
+      "--end-of-options",
+      `${ref}^{commit}`
+    );
+    const sha = result2.stdout.trim();
+    return result2.exitCode === 0 && /^[a-f0-9]{40}$/.test(sha) ? sha : null;
+  };
+  const base = commit(ctx.rb.base), head = commit(ctx.rb.head);
+  if (!base || !head || commit("HEAD") !== head) return false;
+  if (git2("merge-base", "--is-ancestor", base, head).exitCode !== 0)
+    return false;
+  if (git2("diff", "--quiet", head, "--").exitCode !== 0) return false;
+  if (git2("diff", "--cached", "--quiet", head, "--").exitCode !== 0) return false;
+  if (git2(
+    "diff",
+    "--quiet",
+    base,
+    head,
+    "--",
+    "scripts/ci-path-scope.sh",
+    "packages/core/hooks/pre-push.ts",
+    "packages/core/hooks/pre-push.bundle.mjs",
+    ".husky/pre-push"
+  ).exitCode !== 0)
+    return false;
+  const result = runCheck(
+    "bash",
+    ["scripts/ci-path-scope.sh", "--kickoff-range", base, head],
+    {
+      cwd: root,
+      env: scrubbedHookEnv(),
+      timeoutMs: 1e4
+    }
+  );
+  return result.exitCode === 0 && result.stdout.trim() === "kickoff_only=true";
+}
+async function runPushSection(section, ctx, kickoffOnly) {
+  if (kickoffOnly && ctx.isFrameworkRepo && [
+    "canonical-source",
+    "ir-meta",
+    "backends-meta",
+    "composition-meta"
+  ].includes(section.id)) {
+    process.stdout.write(
+      `\xB7 pre-push ${section.id}: not selected for kickoff-only range
+`
+    );
+    return;
+  }
+  await section.run(ctx);
 }
 function isDirectCliInvocation() {
   const argv1 = process.argv[1];
@@ -3123,6 +3207,10 @@ export {
   activeSections,
   composeSections,
   isFrameworkShippedMarkdown,
+  isKickoffPublicationPush,
   isRetainedNativeLinkFixture,
-  lineCitationsTimeoutMs
+  kickoffPushShapeSafe,
+  lineCitationsTimeoutMs,
+  resolveBase,
+  runPushSection
 };

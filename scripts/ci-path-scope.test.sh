@@ -116,6 +116,99 @@ expect true  "merge with an empty diff against its base"            "$TMP/empty"
 mkdir -p "$TMP/not-git"
 expect true  "no git repository"                                    "$TMP/not-git"
 
+# The runtime optimization is narrower than the install-area skip set: it needs an actual
+# kickoff, regular tracked document companions, and no executable/configuration changes.
+# Removing the kickoff requirement or widening the path set must fail these real-git arms.
+expect_runtime() {
+  local want="$1" desc="$2" dir="$3" event="${4-pull_request}" out got
+  out="$TMP/runtime.$PASS.$FAIL"
+  : >"$out"
+  (cd "$dir" && EVENT_NAME="$event" GITHUB_OUTPUT="$out" bash "$SCOPE" >/dev/null 2>&1)
+  got=$(sed -n 's/^runtime=//p' "$out")
+  if [ "$got" = "$want" ]; then ok "$desc (runtime=$got)"; else bad "$desc — wanted runtime=$want, got '${got}'"; fi
+}
+KICKOFF='.claude/orchestrator-prompts/new-plan/kickoff.md'
+SPEC='docs/superpowers/specs/2026-10-22-new-plan-design.md'
+repo_with_change "$TMP/kickoff" "$KICKOFF" "$SPEC" docs/site/face-facts.json
+expect_runtime false "kickoff with design and generated facts uses document CI" "$TMP/kickoff"
+expect false "kickoff publication skips install-area jobs too" "$TMP/kickoff"
+expect_runtime true "push remains a full-runtime backstop" "$TMP/kickoff" push
+expect_runtime true "merge queue remains a full-runtime backstop" "$TMP/kickoff" merge_group
+expect_runtime true "non-merge checkout cannot skip runtime" "$TMP/linear"
+expect_runtime true "missing repository cannot skip runtime" "$TMP/not-git"
+expect_runtime true "empty merge cannot skip runtime" "$TMP/empty"
+repo_with_change "$TMP/spec-only" "$SPEC"
+expect_runtime true "design without a kickoff is outside this optimization" "$TMP/spec-only"
+repo_with_change "$TMP/stage" '.claude/orchestrator-prompts/new-plan/kickoff-s2b.md'
+expect_runtime false "recognized stage-only publication uses document CI" "$TMP/stage"
+repo_with_change "$TMP/near-miss" '.claude/orchestrator-prompts/new-plan/kickoff-bs0.md'
+expect_runtime true "unrecognized stage name cannot enter the reduced lane" "$TMP/near-miss"
+repo_with_change "$TMP/nested" '.claude/orchestrator-prompts/new-plan/nested/kickoff.md'
+expect_runtime true "nested kickoff outside corpus enumeration retains full CI" "$TMP/nested"
+repo_with_change "$TMP/sandbox-name" '.claude/orchestrator-prompts/c2-test-real/kickoff.md'
+expect_runtime true "a corpus-excluded scratch name cannot buy the reduced lane" "$TMP/sandbox-name"
+repo_with_change "$TMP/sidecar" '.claude/orchestrator-prompts/new-plan/kickoff-s1.decisions.md'
+expect_runtime true "a sidecar alone is not a dispatch input" "$TMP/sidecar"
+case_index=0
+for p in packages/core/index.ts .github/workflows/probe.yml scripts/probe.sh .claude/orchestrator-prompts/new-plan/probe.sh .agents/rules/probe.md; do
+  case_index=$((case_index + 1))
+  repo_with_change "$TMP/mixed-$case_index" "$KICKOFF" "$p"
+  expect_runtime true "kickoff plus $p runs full runtime CI" "$TMP/mixed-$case_index"
+done
+repo_with_change "$TMP/kickoff-fixture" '.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md'
+expect_runtime true "a known install-test kickoff fixture retains its readers" "$TMP/kickoff-fixture"
+
+# The only allowed .gitignore edit is adding a stage-document exception for an umbrella
+# included in this PR. A general ignore-policy change must still run the installer tests.
+repo_with_change "$TMP/ignore" "$KICKOFF"
+git -C "$TMP/ignore" checkout -q pr
+printf '%s\n' '!.claude/orchestrator-prompts/new-plan/kickoff-s*.md' >"$TMP/ignore/.gitignore"
+echo 'stage publication' >>"$TMP/ignore/$KICKOFF"
+git -C "$TMP/ignore" add .gitignore "$KICKOFF" && git -C "$TMP/ignore" commit -qm 'publish stages'
+git -C "$TMP/ignore" checkout -q main && git -C "$TMP/ignore" merge -q --no-ff pr -m merge2
+expect_runtime false "additive stage exception for changed umbrella is safe" "$TMP/ignore"
+expect false "safe stage exception does not restore install battery" "$TMP/ignore"
+git -C "$TMP/ignore" checkout -q pr
+printf '%s\n' 'packages/' >>"$TMP/ignore/.gitignore"
+echo 'mixed change' >>"$TMP/ignore/$KICKOFF"
+git -C "$TMP/ignore" add .gitignore "$KICKOFF" && git -C "$TMP/ignore" commit -qm 'change ignore policy'
+git -C "$TMP/ignore" checkout -q main && git -C "$TMP/ignore" merge -q --no-ff pr -m merge3
+expect_runtime true "general ignore-policy edits keep full CI" "$TMP/ignore"
+
+repo_with_change "$TMP/link" "$KICKOFF" "$SPEC"
+git -C "$TMP/link" checkout -q pr
+rm "$TMP/link/$SPEC" && ln -s /tmp/foreign-plan "$TMP/link/$SPEC"
+git -C "$TMP/link" add -A && git -C "$TMP/link" commit -qm 'symlink companion'
+git -C "$TMP/link" checkout -q main && git -C "$TMP/link" merge -q --no-ff pr -m merge2
+expect_runtime true "symlink disguised as a planning document keeps full CI" "$TMP/link"
+
+repo_with_change "$TMP/deleted" "$KICKOFF" "$RUN_PATH"
+git -C "$TMP/deleted" checkout -q pr
+git -C "$TMP/deleted" rm -q "$RUN_PATH"
+echo 'updated plan' >>"$TMP/deleted/$KICKOFF"
+git -C "$TMP/deleted" add -A && git -C "$TMP/deleted" commit -qm 'remove code with plan update'
+git -C "$TMP/deleted" checkout -q main && git -C "$TMP/deleted" merge -q --no-ff pr -m merge2
+expect_runtime true "deleted runtime files cannot hide beside a kickoff" "$TMP/deleted"
+
+# The hook calls the SAME selector with an explicit committed range, without a fabricated
+# pull_request event or a synthetic merge. Unknown/malformed ranges never authorize a skip.
+expect_range() {
+  local want="$1" desc="$2" dir="$3" base="$4" head="$5" got
+  got=$(cd "$dir" && bash "$SCOPE" --kickoff-range "$base" "$head" 2>/dev/null)
+  if [ "$got" = "kickoff_only=$want" ]; then ok "$desc"; else bad "$desc — got '$got'"; fi
+}
+range_head=$(git -C "$TMP/kickoff" rev-parse HEAD)
+range_base=$(git -C "$TMP/kickoff" rev-parse HEAD^1)
+expect_range true "explicit publication range is reusable by pre-push" "$TMP/kickoff" "$range_base" "$range_head"
+expect_range false "invalid explicit range keeps full pre-push" "$TMP/kickoff" missing "$range_head"
+expect_range false "empty explicit range keeps full pre-push" "$TMP/kickoff" "$range_head" "$range_head"
+range_head=$(git -C "$TMP/linear" rev-parse HEAD)
+range_base=$(git -C "$TMP/linear" rev-parse HEAD^)
+expect_range false "spec-only linear range keeps full pre-push" "$TMP/linear" "$range_base" "$range_head"
+range_head=$(git -C "$TMP/stage" rev-parse pr)
+range_base=$(git -C "$TMP/stage" rev-parse pr^)
+expect_range true "linear stage publication needs no merge commit" "$TMP/stage" "$range_base" "$range_head"
+
 printf '\n── ci-path-scope: %d pass / %d fail ──\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

@@ -20,18 +20,20 @@ jobs:
   # Path scope for the install-area jobs (install-sh shards, fresh-install validate matrix +
   # multi-stack, the Windows consumer-matrix cell). They `needs:` this job and run only when
   # its `install` output is 'true'. The decision is fail-closed: `false` only on a
-  # pull_request whose every changed path is in the measured skip set; every other event runs
-  # everything (scripts/ci-path-scope.sh header). `ci-success` re-checks the decision against
+  # pull_request whose paths fit the measured skip set or the narrow kickoff-publication lane.
+  # `runtime=false` selects kickoff checks instead of runtime batteries; every non-PR event runs
+  # everything (scripts/ci-path-scope.sh header). `ci-success` re-checks both decisions against
   # the gated jobs' results, so a missing decision or a skip that contradicts it is RED.
   # fetch-depth: 2 is load-bearing: the pull_request checkout is the merge commit, and the
   # decision diffs it against parent 1 (the base tip) — both parents must be present.
   path-scope:
-    name: Path scope — install-area jobs needed for this change?
+    name: Path scope — kickoff documents and install-area selection
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
       install: ${{ steps.scope.outputs.install }}
+      runtime: ${{ steps.scope.outputs.runtime }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -196,6 +198,8 @@ jobs:
         run: npm run format:check
   rule-to-probe:
     name: Rule-to-probe mapping
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -230,6 +234,8 @@ jobs:
 
   probe-tests:
     name: Negative tests for audit probes
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -328,6 +334,8 @@ jobs:
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -791,7 +799,7 @@ jobs:
       # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`). The `3>/dev/null`
       # run is the sweep's fd state: dropping the test's file-wide `exec 3>&-` goes RED in CI too.
       - name: Run install-sh suite-runner paired-negative (local battery fan-out)
-        run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null
+        run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null && bash scripts/run-install-sh-progress.test.sh
       # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
       # workflow runs must be reachable from the sweep's gate table, or carry an explicit
       # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
@@ -1013,7 +1021,7 @@ jobs:
       - name: Run install-sh delivered-prettier conformance test (GH #1378/#1377 — post-transform delivery shape)
         run: bash tests/install-sh/delivered-prettier-conformance.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
-        run: bash tests/install-sh/cic-s3-dep-install.test.sh
+        run: bash tests/install-sh/cic-s3-dep-install.test.sh && bash tests/install-sh/vitest-plugin-typescript-compat.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
         run: bash tests/install-sh/r2-glob-reach.test.sh
       - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
@@ -1039,7 +1047,7 @@ jobs:
       - name: "install-sh — refresh-dir-payload-ownership (ledger L-4: directory payloads walk per file through the divergence guard; deletion is manifest-scoped)"
         run: bash tests/install-sh/refresh-dir-payload-ownership.test.sh
       - name: "install-sh — refresh-baseline-survives-early-exit (ledger A1-2: flush on every exit path + weak staging of skipped files)"
-        run: bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh
+        run: bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh && bash tests/install-sh/native-argv-budget.test.sh
       - name: "install-sh — eslint-rule-prune-by-manifest (ledger L-5: rule ownership from the delivery manifest, not a basename collision)"
         run: bash tests/install-sh/eslint-rule-prune-by-manifest.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
@@ -1196,6 +1204,8 @@ jobs:
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
         run: SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh
+      - name: "install-sh — snapshot selection, import and failure contracts"
+        run: bash tests/install-sh/snapshot-runner.test.sh
       - name: "install-sh — packaged-terms navigation: archive install projects framework-terms links, fragments/ownership/dry-run intact (PR 2099 packaged-navigation defect)"
         run: bash tests/install-sh/packaged-terms-navigation.test.sh
       - name: "install-sh — mcp-layer empirical test (S2: .mcp.json shape + kind=mcp + D2 gate)"
@@ -1264,6 +1274,8 @@ jobs:
   # the root `npm run typecheck --workspaces` aggregate; fails on any error.
   typecheck:
     name: TypeScript typecheck (tsc --noEmit, all workspaces)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1552,6 +1564,8 @@ jobs:
 
   framework-self-install-ts-server:
     name: Self-install on tmp consumer (ts-server)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1586,6 +1600,8 @@ jobs:
 
   framework-self-install-react-next:
     name: Self-install on tmp consumer (react-next)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1918,6 +1934,8 @@ jobs:
 
   framework-self-detect:
     name: Detector v1 — self-application snapshot (L1 invariant)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1962,6 +1980,8 @@ jobs:
 
   framework-self-research:
     name: Research Agent v1 — self-application snapshot (L2 invariant)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2000,7 +2020,8 @@ jobs:
   framework-self-synth:
     name: Synthesizer v1 — self-application snapshot (L3 invariant a)
     runs-on: ubuntu-latest
-    needs: principles-meta-tests
+    needs: [principles-meta-tests, path-scope]
+    if: needs.path-scope.outputs.runtime == 'true'
     permissions:
       contents: read
     steps:
@@ -2039,7 +2060,8 @@ jobs:
   framework-self-validate:
     name: Validator v1 — self-application snapshot (L4 invariant)
     runs-on: ubuntu-latest
-    needs: principles-meta-tests
+    needs: [principles-meta-tests, path-scope]
+    if: needs.path-scope.outputs.runtime == 'true'
     permissions:
       contents: read
     steps:
@@ -2091,7 +2113,8 @@ jobs:
   framework-self-install-validated:
     name: Installer v1 — self-application snapshot (L5 invariant)
     runs-on: ubuntu-latest
-    needs: principles-meta-tests
+    needs: [principles-meta-tests, path-scope]
+    if: needs.path-scope.outputs.runtime == 'true'
     permissions:
       contents: read
     steps:
@@ -2134,7 +2157,8 @@ jobs:
   framework-provenance-anti-hand-edit:
     name: Provenance v1 — anti-hand-edit gate (S5 invariant)
     runs-on: ubuntu-latest
-    needs: principles-meta-tests
+    needs: [principles-meta-tests, path-scope]
+    if: needs.path-scope.outputs.runtime == 'true'
     permissions:
       contents: read
     steps:
@@ -2190,7 +2214,8 @@ jobs:
   phase-8-canonical-regen-acceptance:
     name: Phase 8 acceptance — canonical Next 15 regen ≥0.95 similarity
     runs-on: ubuntu-latest
-    needs: principles-meta-tests
+    needs: [principles-meta-tests, path-scope]
+    if: needs.path-scope.outputs.runtime == 'true'
     permissions:
       contents: read
     steps:
@@ -2289,6 +2314,8 @@ jobs:
   # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.
   f17-node-compat:
     name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2350,6 +2377,7 @@ jobs:
   consumer-matrix:
     name: "Consumer-matrix — ${{ matrix.label }}"
     needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -2772,6 +2800,8 @@ jobs:
     # core/env/factory install; its N1 arm proves a false row turns it red. Placed after every
     # line a rule file cites in this workflow, so adding it moves none of those citations.
     name: ships-manifest
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -2908,6 +2938,7 @@ jobs:
       # a failed/cancelled path-scope job reports '' here and fails the gate even though the
       # jobs gated on it then show only as `skipped`.
       - path-scope
+      - kickoff-checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2923,6 +2954,39 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
           # A `skipped` gated job is legitimate only when path-scope decided 'false'.
           PATH_SCOPE_INSTALL: ${{ needs.path-scope.outputs.install }}
+          PATH_SCOPE_RUNTIME: ${{ needs.path-scope.outputs.runtime }}
+          RUNTIME_SCOPED_RESULTS: >-
+            ${{ needs.rule-to-probe.result }}
+            ${{ needs.probe-tests.result }}
+            ${{ needs.principles-meta-tests.result }}
+            ${{ needs.typecheck.result }}
+            ${{ needs.framework-self-install-ts-server.result }}
+            ${{ needs.framework-self-install-react-next.result }}
+            ${{ needs.framework-self-detect.result }}
+            ${{ needs.framework-self-research.result }}
+            ${{ needs.framework-self-synth.result }}
+            ${{ needs.framework-self-validate.result }}
+            ${{ needs.framework-self-install-validated.result }}
+            ${{ needs.framework-provenance-anti-hand-edit.result }}
+            ${{ needs.phase-8-canonical-regen-acceptance.result }}
+            ${{ needs.f17-node-compat.result }}
+            ${{ needs.consumer-matrix.result }}
+            ${{ needs.ships-manifest.result }}
+            ${{ needs.bash32.result }}
+            ${{ needs.dot-review-gate-suites.result }}
+            ${{ needs.sanctioned-husky-patch-channel.result }}
+            ${{ needs.dot-relay-suites.result }}
+          KICKOFF_REQUIRED_RESULTS: >-
+            ${{ needs.kickoff-checks.result }}
+            ${{ needs.mechanical.result }}
+            ${{ needs.shipped-prettier.result }}
+            ${{ needs.manifest-render-check.result }}
+            ${{ needs.pr-commit-trailers.result }}
+            ${{ needs.docs-quality.result }}
+            ${{ needs.docs-refresh.result }}
+            ${{ needs.citation-fullsweep.result }}
+            ${{ needs.actionlint.result }}
+            ${{ needs.zizmor.result }}
           PATH_SCOPED_RESULTS: >-
             ${{ needs.install-sh-a.result }} ${{ needs.install-sh-b.result }}
             ${{ needs.install-sh-c.result }} ${{ needs.framework-fresh-install-validate.result }}
@@ -2942,6 +3006,8 @@ jobs:
     # runner's mawk, the awk a Mac never uses, so a BSD-only awk construct in the checker fails
     # here rather than on the next Linux user. No tool install: bash + awk + git.
     name: bash32
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -2964,6 +3030,8 @@ jobs:
   # the setup-node '22' pin resolves to the latest 22.x line, which satisfies that.
   dot-review-gate-suites:
     name: Dot gate suites (S4 offline matrix)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -3010,6 +3078,8 @@ jobs:
   # network, no LLM calls, no tool installs (bash + git + python3 + shasum + patch).
   sanctioned-husky-patch-channel:
     name: Sanctioned .husky patch channel (apply-husky-patch paired test)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -3033,6 +3103,8 @@ jobs:
   # ship `skip:` gates; a Linux run is NEVER host E2E/calendar acceptance.
   dot-relay-suites:
     name: Dot relay suites (offline matrix, DOT-2087-F11)
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -3052,3 +3124,46 @@ jobs:
           node --test scripts/dot-relay/cli.test.mjs
           node --test scripts/dot-relay/bridge-runner.test.mjs
           node --test scripts/dot-relay/native-source.test.mjs
+
+  # A kickoff publication keeps all corpus principles and the dispatch-contract readers,
+  # without installing Rust/Go/Python toolchains or running runtime/install batteries.
+  kickoff-checks:
+    name: Kickoff publication — principles and dispatch contracts
+    needs: path-scope
+    if: needs.path-scope.outputs.runtime == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked workspace dependencies
+        run: npm ci --silent
+      - name: Run principles meta-tests
+        run: npm --prefix packages/core run test:principles
+      - name: Run kickoff hook and park-contract readers
+        run: |
+          command -v jq >/dev/null || { echo '::error::jq required by kickoff hook tests'; exit 1; }
+          npx --no-install vitest run packages/core/hooks/check-kickoff-traps.test.ts packages/core/hooks/check-worker-dispatch-channel.test.ts packages/core/hooks/host-verify.test.ts packages/core/skills/pipeline-park-contract.test.ts
+      - name: Validate changed planning documents
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          markdown=()
+          kickoffs=()
+          while IFS= read -r -d '' path; do
+            case "$path" in *.md) markdown+=("$path") ;; esac
+            case "$path" in .claude/orchestrator-prompts/*.md) kickoffs+=("$path") ;; esac
+          done < <(git diff --no-renames --diff-filter=ACM --name-only -z HEAD^1 HEAD)
+          [ "${#kickoffs[@]}" -gt 0 ] || { echo '::error::kickoff lane has no changed kickoff'; exit 1; }
+          npx --no-install markdownlint-cli2 "${markdown[@]}"
+          npx --no-install prettier --check "${markdown[@]}"
+          npx --no-install tsx packages/core/spec-validation/validate-batch-spec.ts "${kickoffs[@]}"
+      - name: Verify path selection and required-result gates
+        run: bash scripts/ci-path-scope.test.sh && bash scripts/ci-success-gate.test.sh

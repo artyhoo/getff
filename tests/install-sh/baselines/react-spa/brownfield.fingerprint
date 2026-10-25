@@ -3,7 +3,7 @@
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .agents/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .agents/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .agents/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .agents/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .agents/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .agents/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .agents/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .agents/hooks/inject-project-digest.sh
@@ -12,7 +12,7 @@ e57d40a1c386ca8fe07f0488e4b6d9f0b0d7add582fa5c37d4d06cbef13837e7  .agents/hooks/
 6e4ee9dc755bcb83cd107081aa8bffa96f9d838105dda81116a74da7b219905e  .agents/hooks/lang/ru.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .agents/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .agents/hooks/lib/residue-dir.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .agents/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .agents/hooks/precompact-residue.sh
 a0df000f4952fbfef03a2024feaf5021a8d250f5ca77648086dca780fc22d685  .agents/procedures/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .agents/procedures/ai-doc/anthropic-and-aif-residue.md
 b3b43c1e624f8bb7b7a5759965791ee3fbd757ce50cca521cba8f80ad31ba4db  .agents/procedures/arch/SKILL.md
@@ -56,7 +56,7 @@ a52964330bdd3d3843d636b26b71aa37fd4bbbe6f8c4c2db92d7ecaecbe93446  .agents/proced
 24ca5bf81c1fc6914ec0bf6a591982a753d02272d8be3db93ae648cd54d734ab  .agents/procedures/orchestrator/references/recovery-and-communication.md
 2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .agents/procedures/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .agents/procedures/orchestrator/references/worker-template.md
-89018fc8ec58dde1a914ba2d0ae56b8a8f61eb2b13ec47a1d38487c87ce4f5d1  .agents/procedures/pipeline/SKILL.md
+c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .agents/procedures/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .agents/procedures/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .agents/procedures/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .agents/procedures/pipeline/evals/files/scenario-1-noarg-state.md
@@ -82,7 +82,8 @@ ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .agents/proced
 b9309845727ccd1c20d2222aa1f9c74c74755b0ab759791c0e535ed22e71ec88  .agents/procedures/pipeline/helpers/list-presets.sh
 1b7e038095f3d05164a7c0c6e7e51a82b8ed9ae36293c43c7169e4fa7407fd15  .agents/procedures/pipeline/helpers/overview.mjs
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .agents/procedures/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .agents/procedures/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .agents/procedures/pipeline/helpers/plan-currency-check.sh
+110f99cdf86192937ea9eecf7c3396fe7d47bb97c6e18dfbf5248841281e5c4d  .agents/procedures/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .agents/procedures/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .agents/procedures/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .agents/procedures/pipeline/helpers/priority-score-synthetic.sh
@@ -103,7 +104,7 @@ e582b3e6cc13ae7a0cc95143cb945a1af4576ea4ba73e768bc6d53acf0874ca8  .agents/proced
 c0c6f6411864996c64bd453431fc33da6659240448fb7745179c4c102510ae5d  .agents/procedures/pipeline/references/claim-machinery.md
 565fdb9611a81ed6ec8aa9fce333ae126fb48ab7381b23941f03c82861111fc6  .agents/procedures/pipeline/references/dispatch.md
 f6f504d1cbd154908a4a0ae667aec2af346cd0531c3ab4f8d1f070a48bd9ba2a  .agents/procedures/pipeline/references/dogfood.md
-b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .agents/procedures/pipeline/references/failures.md
+d83a89d0259f80c7b5fc7162deac7741d8713d30a5b131c2426ae020a24ad9e1  .agents/procedures/pipeline/references/failures.md
 25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .agents/procedures/pipeline/references/frontier.md
 209e51f013c1d7686dcde7c1f7a95e3dd75941803fc2b20dc60fce059ed2b338  .agents/procedures/pipeline/references/invocation.md
 2b466249f8be5a2bed9aa069781103d6a0c7a4d3b69873963f137857e60e9602  .agents/procedures/pipeline/references/launch.md
@@ -115,7 +116,7 @@ c4cbfb3ad28450e5a54b29c0e2915092dd1b48dc4450b98150398478750be7e9  .agents/proced
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .agents/procedures/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .agents/procedures/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .agents/procedures/pipeline/references/plan-cache.md
-cf48e6aa8cd35249f1464519b3068c898672a969acc5dfa816501d7b0aafc3fd  .agents/procedures/pipeline/references/planning.md
+49e3f1c591c4e1d293a60fe12f22a38090f23ebfb2c435eeb22e351f779f7743  .agents/procedures/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .agents/procedures/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .agents/procedures/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .agents/procedures/pipeline/references/presets/night.json
@@ -142,6 +143,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .agents/roles/
 3218f21fc953f847ced5488fbf1be901b2356e853130504a338727f71e599e9b  .agents/roles/fidelity-auditor.md
 2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .agents/roles/living-docs-auditor.md
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .agents/roles/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .agents/roles/plan-drift-semantic-auditor.md
 c248744920da17c91f5fbd01f2dded11135d87147fbb297bafc4cbe9c531b840  .agents/roles/resources/docs-form-auditor/check-report.mjs
 7ca58811b47492c89e48df6d6c74a2f093ded02b1bfa360efe47f4ef3ec3f6b3  .agents/roles/resources/docs-form-auditor/criteria-card.md
 860d526a85605c3144932897b18645a528c225fe548dc789fc2de7249b3fcf68  .agents/roles/resources/docs-form-auditor/framework-terms.md
@@ -181,6 +183,8 @@ e5b12a46858d13c5ddf5f1b60e141819d8ce5897f4601f289c017035d34da8a7  .agents/skills
 8619a54e8c098122a7f3881394f84ca89b684366e848233a29ad18b6ec363935  .agents/skills/orchestrator/agents/openai.yaml
 694636951eb4b619ab6836f25ceab1b6b1228e343c304fcece349e11b48fcaf5  .agents/skills/pipeline/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/pipeline/agents/openai.yaml
+da6a18a6e6fd2b43badad1e87c348f95fea796690a1e21980470b89d99686afd  .agents/skills/plan-drift-semantic-auditor/SKILL.md
+a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/plan-drift-semantic-auditor/agents/openai.yaml
 fb6fb640636c2d95e1335d0ca045f8d76e14b52e6532f52dc823b48a4f5874ed  .agents/skills/review-sidecar/SKILL.md
 a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94  .agents/skills/review-sidecar/agents/openai.yaml
 317dbb7038254b82338fc7ac12bc731c46ae265e287d1ddb6d2058459afc85f1  .agents/skills/reviewer/SKILL.md
@@ -213,7 +217,7 @@ ae743445b9756a002c13ae9c3dd8849c6c5e017de7baf0e3a9e182a4d3ea1f2a  .agents/tools/
 1f0e7e83a92eea2627329840c0e1e2153939b0d8298dcb640d7ae4d06b37a9a5  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-099f3e3c242a950ac187c30a10ad76d39f6b33f0572ba686bec19311f1416344  .ai-factory/refresh-baseline.json
+a356fe99ef315792b4ea15057c05a7201aa8e211bfaa4f4adf54826e5e7cf66b  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 f95eaf77e19841a8d2f908d4b609d3a283fcae8a4552b248656c79ad1302b193  .ai-factory/skill-context/aif-review/SKILL.md
@@ -229,6 +233,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents
 3218f21fc953f847ced5488fbf1be901b2356e853130504a338727f71e599e9b  .claude/agents/fidelity-auditor.md
 2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .claude/agents/living-docs-auditor.md
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .claude/agents/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .claude/agents/plan-drift-semantic-auditor.md
 5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .claude/agents/review-sidecar.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .claude/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents/rule-test-author.md
@@ -237,7 +242,7 @@ c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .claude/agents
 cb6e83191eda4a3f53913db9316b86c9d0a691c1bf8892e2c49561ec82e7a6f9  .claude/hooks/deps-hash-check.sh
 08a90623e9d8dd0c03252e56644e0ad7222e69157f62d8de7112ff18d7556695  .claude/hooks/end-of-turn-reminder.sh
 47b36ed04c681e6b2065d457e963b9d049883bbdd5166e5b1c9e11241a7a5d06  .claude/hooks/inject-handoff-on-compact.sh
-7a2201de45ffdd14d9b8fd75f2b98de07c96fde156d75b6fe4be0dc1b5b3d8fd  .claude/hooks/inject-matching-rule.sh
+4d3c43fc7004f8946f10a4cb7f4366979e9574de79c70791ca025bf1a4ac5bfc  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 305469039e9be26e0c476ad69166da339274c676a0b27e66c99e7d3a9dd76484  .claude/hooks/inject-output-language.sh
 ec7f310dfb7b55177f89da1993c2215920aa08fc97d4a4b6226e446a04b2693d  .claude/hooks/inject-project-digest.sh
@@ -246,7 +251,7 @@ e57d40a1c386ca8fe07f0488e4b6d9f0b0d7add582fa5c37d4d06cbef13837e7  .claude/hooks/
 6e4ee9dc755bcb83cd107081aa8bffa96f9d838105dda81116a74da7b219905e  .claude/hooks/lang/ru.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
 d52de4e53c1ecada3a9c8441b24610b6a4bce983b4d63cc83c43f6751e31c0ba  .claude/hooks/lib/residue-dir.sh
-0b69833e8038945761601bbea0f5a6faf9a1a9138de9d050da36e925a0fc618b  .claude/hooks/precompact-residue.sh
+4a54d3421fde771cc972fe99795eed9731afe8b17de36810985e05bd3dee96fd  .claude/hooks/precompact-residue.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
 a0df000f4952fbfef03a2024feaf5021a8d250f5ca77648086dca780fc22d685  .claude/skills/ai-doc/SKILL.md
@@ -292,7 +297,7 @@ a52964330bdd3d3843d636b26b71aa37fd4bbbe6f8c4c2db92d7ecaecbe93446  .claude/skills
 24ca5bf81c1fc6914ec0bf6a591982a753d02272d8be3db93ae648cd54d734ab  .claude/skills/orchestrator/references/recovery-and-communication.md
 2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .claude/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-89018fc8ec58dde1a914ba2d0ae56b8a8f61eb2b13ec47a1d38487c87ce4f5d1  .claude/skills/pipeline/SKILL.md
+c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -318,7 +323,8 @@ ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills
 b9309845727ccd1c20d2222aa1f9c74c74755b0ab759791c0e535ed22e71ec88  .claude/skills/pipeline/helpers/list-presets.sh
 1b7e038095f3d05164a7c0c6e7e51a82b8ed9ae36293c43c7169e4fa7407fd15  .claude/skills/pipeline/helpers/overview.mjs
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .claude/skills/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .claude/skills/pipeline/helpers/plan-currency-check.sh
+110f99cdf86192937ea9eecf7c3396fe7d47bb97c6e18dfbf5248841281e5c4d  .claude/skills/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .claude/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
@@ -339,7 +345,7 @@ e582b3e6cc13ae7a0cc95143cb945a1af4576ea4ba73e768bc6d53acf0874ca8  .claude/skills
 c0c6f6411864996c64bd453431fc33da6659240448fb7745179c4c102510ae5d  .claude/skills/pipeline/references/claim-machinery.md
 565fdb9611a81ed6ec8aa9fce333ae126fb48ab7381b23941f03c82861111fc6  .claude/skills/pipeline/references/dispatch.md
 f6f504d1cbd154908a4a0ae667aec2af346cd0531c3ab4f8d1f070a48bd9ba2a  .claude/skills/pipeline/references/dogfood.md
-b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .claude/skills/pipeline/references/failures.md
+d83a89d0259f80c7b5fc7162deac7741d8713d30a5b131c2426ae020a24ad9e1  .claude/skills/pipeline/references/failures.md
 25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .claude/skills/pipeline/references/frontier.md
 209e51f013c1d7686dcde7c1f7a95e3dd75941803fc2b20dc60fce059ed2b338  .claude/skills/pipeline/references/invocation.md
 2b466249f8be5a2bed9aa069781103d6a0c7a4d3b69873963f137857e60e9602  .claude/skills/pipeline/references/launch.md
@@ -351,7 +357,7 @@ c4cbfb3ad28450e5a54b29c0e2915092dd1b48dc4450b98150398478750be7e9  .claude/skills
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .claude/skills/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .claude/skills/pipeline/references/plan-cache.md
-cf48e6aa8cd35249f1464519b3068c898672a969acc5dfa816501d7b0aafc3fd  .claude/skills/pipeline/references/planning.md
+49e3f1c591c4e1d293a60fe12f22a38090f23ebfb2c435eeb22e351f779f7743  .claude/skills/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .claude/skills/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .claude/skills/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .claude/skills/pipeline/references/presets/night.json
@@ -377,7 +383,7 @@ d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workfl
 dafb464814540ab3fc9062918dd733be073fa237584e0ff278218d48b4a03467  .husky/pre-push
 6080c804ca7ad3beb2729037d9942bce7b17d67bbfed13b5c46d45bcc48436f6  .lintstagedrc.json
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
-ffa4945cff0d357065a4bc41db8d68cbff0ed83b4f25624c00190d2f3c8a70b1  .prettierignore
+7ed30504685da4a58b399b86b6fe2cfd47733845a1a0789a399355927c779e39  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
 23cfb21a319a1dc36d623547336dde22f3e6a5bd05b1e44f0b6fbb03aa1724da  .zcode/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .zcode/agents/capability-reuse-auditor.md
@@ -388,6 +394,7 @@ baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .zcode/agents/
 3218f21fc953f847ced5488fbf1be901b2356e853130504a338727f71e599e9b  .zcode/agents/fidelity-auditor.md
 2404e6cdfdf2ddbac9334df096c2852a86aaa288de7d917bf9a769a1f2d2957b  .zcode/agents/living-docs-auditor.md
 6a01d5b944ca479245937328aa923774e103a317e679b4031136926b8485a1af  .zcode/agents/memory-codification-auditor.md
+d0145f74cade866ddfc14208bd0c8a9d3b9b42d992ec6a8c8e06ad151614de10  .zcode/agents/plan-drift-semantic-auditor.md
 5d9c397e9b829c3d8e9c712119831dafa8fa86a99fd3b20f44071c1dd09f0efb  .zcode/agents/review-sidecar.md
 313c33d0d688ebeecb794e721ca1d70f28c2f1777c1ba1c0433f9040f8d3efe6  .zcode/agents/rule-researcher.md
 c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  .zcode/agents/rule-test-author.md
@@ -434,7 +441,7 @@ a52964330bdd3d3843d636b26b71aa37fd4bbbe6f8c4c2db92d7ecaecbe93446  .zcode/skills/
 24ca5bf81c1fc6914ec0bf6a591982a753d02272d8be3db93ae648cd54d734ab  .zcode/skills/orchestrator/references/recovery-and-communication.md
 2bb0a0a0c8895e9ceee02db89aa583d57c1c604697e3df0a4c7e7787c41a1bc7  .zcode/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .zcode/skills/orchestrator/references/worker-template.md
-89018fc8ec58dde1a914ba2d0ae56b8a8f61eb2b13ec47a1d38487c87ce4f5d1  .zcode/skills/pipeline/SKILL.md
+c9417baaba5e22158a9808ccd21dec2d60c007cc51ed4d395ba778bb22f7d59c  .zcode/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .zcode/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .zcode/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .zcode/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -460,7 +467,8 @@ ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .zcode/skills/
 b9309845727ccd1c20d2222aa1f9c74c74755b0ab759791c0e535ed22e71ec88  .zcode/skills/pipeline/helpers/list-presets.sh
 1b7e038095f3d05164a7c0c6e7e51a82b8ed9ae36293c43c7169e4fa7407fd15  .zcode/skills/pipeline/helpers/overview.mjs
 db10b00739d3fba60713cf37f6f0d336a7cfa5d92f861e5953f481419a274f43  .zcode/skills/pipeline/helpers/parse-override-flags.sh
-f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .zcode/skills/pipeline/helpers/plan-currency-check.sh
+e89fbf5ab5c03533c6ba66f5e382a93b871f38da584ffa78914523fe79c9ed15  .zcode/skills/pipeline/helpers/plan-currency-check.sh
+110f99cdf86192937ea9eecf7c3396fe7d47bb97c6e18dfbf5248841281e5c4d  .zcode/skills/pipeline/helpers/plan-drift-write-guard.sh
 3a4b2d93561a6ea1547904ac164b51754efd409140cb780261a8c18f7d893b37  .zcode/skills/pipeline/helpers/print-orch-home.sh
 8e5010bf9076c388ec6f3ffaced45dbabc068de3d8a5e0d5507f82b090786076  .zcode/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .zcode/skills/pipeline/helpers/priority-score-synthetic.sh
@@ -481,7 +489,7 @@ e582b3e6cc13ae7a0cc95143cb945a1af4576ea4ba73e768bc6d53acf0874ca8  .zcode/skills/
 c0c6f6411864996c64bd453431fc33da6659240448fb7745179c4c102510ae5d  .zcode/skills/pipeline/references/claim-machinery.md
 565fdb9611a81ed6ec8aa9fce333ae126fb48ab7381b23941f03c82861111fc6  .zcode/skills/pipeline/references/dispatch.md
 f6f504d1cbd154908a4a0ae667aec2af346cd0531c3ab4f8d1f070a48bd9ba2a  .zcode/skills/pipeline/references/dogfood.md
-b0abefa961bed4ccd9c4c4bf961ce22a2b0921cd00c3f05ac6f07c12157ba5d2  .zcode/skills/pipeline/references/failures.md
+d83a89d0259f80c7b5fc7162deac7741d8713d30a5b131c2426ae020a24ad9e1  .zcode/skills/pipeline/references/failures.md
 25fe03c1742584c47290bbe5d6dff89671ac2f1ccd81043f67844fbb92e5ea6f  .zcode/skills/pipeline/references/frontier.md
 209e51f013c1d7686dcde7c1f7a95e3dd75941803fc2b20dc60fce059ed2b338  .zcode/skills/pipeline/references/invocation.md
 2b466249f8be5a2bed9aa069781103d6a0c7a4d3b69873963f137857e60e9602  .zcode/skills/pipeline/references/launch.md
@@ -493,7 +501,7 @@ c4cbfb3ad28450e5a54b29c0e2915092dd1b48dc4450b98150398478750be7e9  .zcode/skills/
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .zcode/skills/pipeline/references/placeholders.md
 174020ea2c00942948ff2b596f7997c28c0c8e783a65c33896c15d4030f7fd07  .zcode/skills/pipeline/references/plain-language-tail.md
 293fae33008d8329a01b039c056b10b6251ea35b9d45f957715a1e4eadef9ad9  .zcode/skills/pipeline/references/plan-cache.md
-cf48e6aa8cd35249f1464519b3068c898672a969acc5dfa816501d7b0aafc3fd  .zcode/skills/pipeline/references/planning.md
+49e3f1c591c4e1d293a60fe12f22a38090f23ebfb2c435eeb22e351f779f7743  .zcode/skills/pipeline/references/planning.md
 82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .zcode/skills/pipeline/references/presets/aif.json
 93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .zcode/skills/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .zcode/skills/pipeline/references/presets/night.json
@@ -591,7 +599,7 @@ f2c43bd7a6992c896dda42dcf406103af4ca8b21e7a1d188459ee34051458f96  eslint-rules-l
 0582e789556cf8d318e031e2859efae3e31880d49add4bc7aca7286470521811  eslint.config.mjs
 16e5860fd46561bb05acd547cf080ff61ad1f5ea9744877f1a4d920bac696db9  index.ts
 7720e54a67a6bd482a167708418e4606b4a865136b4e5e936d67230e19de75c9  package.json
-5e270660df40b9a2b764275742d64b4512a4f35da900c1ce593480bd71002f3c  packages/core/hooks/pre-push.bundle.mjs
+3f82ac2e536a398e881958316b2268230dbd559165c6f04c88935b9484b55260  packages/core/hooks/pre-push.bundle.mjs
 d38c56dcdee65157a1845154da8c883951ae5a8ca064b73c3d161184b800a557  packages/core/hooks/pre-push.fallback.sh
 4fc444c5d3de5dec76c7f01b8ec85076735c9dafa7f48df91e5d04689f3cc43e  playwright.config.ts
 70bd13392e7f2d9950b2f15936b6239f770c4adc20bb8b09f7fe15a699cab9b0  scripts/audit-ai-docs.react-spa.sh

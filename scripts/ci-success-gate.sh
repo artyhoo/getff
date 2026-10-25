@@ -80,6 +80,39 @@ if [ -n "${PATH_SCOPE_INSTALL+x}" ]; then
   esac
 fi
 
+# Kickoff publication replaces runtime batteries with required document/contract checks.
+# A failed classifier must never look like an authorized skip. The workflow wiring is also
+# checked by principle 36, including every gated result and the kickoff replacement job.
+if [ -n "${PATH_SCOPE_RUNTIME+x}" ]; then
+  case "$PATH_SCOPE_RUNTIME" in
+    true)
+      if [ -z "${RUNTIME_SCOPED_RESULTS:-}" ]; then
+        echo "::error::ci-success-gate: runtime results are not wired"
+        fail=1
+      fi
+      for result in ${RUNTIME_SCOPED_RESULTS:-}; do
+        if [ "$result" != success ]; then
+          echo "::error::ci-success-gate: runtime required but a runtime job concluded '$result'"
+          fail=1
+        fi
+      done
+      ;;
+    false)
+      if [ -z "${KICKOFF_REQUIRED_RESULTS:-}" ]; then
+        echo "::error::ci-success-gate: kickoff document/contract results are not wired"
+        fail=1
+      fi
+      for result in ${KICKOFF_REQUIRED_RESULTS:-}; do
+        if [ "$result" != success ]; then
+          echo "::error::ci-success-gate: kickoff lane requires document/contract success, got '$result'"
+          fail=1
+        fi
+      done
+      ;;
+    *) echo "::error::ci-success-gate: runtime scope produced no valid decision ('$PATH_SCOPE_RUNTIME')"; fail=1 ;;
+  esac
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "✅ ci-success: all $# required jobs passed (or were legitimately skipped)"
 fi

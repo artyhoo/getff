@@ -921,7 +921,7 @@ refresh_baseline_flush() {
         # install delivered). A corrupt/unreadable existing manifest is REPLACED fresh — healing
         # it — with a note; that is still fail-open for this run's guard (it read as empty).
         if prev=$(cat "$manifest" 2>/dev/null); then
-          printf '%s' "$prev" | jq -e 'type == "object"' >/dev/null 2>&1 || { _refresh_baseline_note "existing manifest not JSON — replacing it fresh"; prev='{}'; }
+          printf '%s' "$prev" | jq -s -e 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1 || { _refresh_baseline_note "existing manifest not JSON — replacing it fresh"; prev='{}'; }
         else
           _refresh_baseline_note "existing manifest unreadable — replacing it fresh"
           prev='{}'
@@ -930,8 +930,8 @@ refresh_baseline_flush() {
       if mkdir -p "$(dirname "$manifest")" 2>/dev/null; then
         # Precedence weak < prev < patch: a skipped file fills a HOLE in the manifest and never
         # overwrites what a real delivery recorded (ledger A1-2 — `$weak + $prev` lets prev win,
-        # `* $patch` lets this run's actual writes win over both).
-        if jq -S -n --argjson weak "$weak" --argjson prev "$prev" --argjson patch "$patch" '($weak + $prev) * $patch' > "${manifest}.getff.tmp" 2>/dev/null; then
+        # `* $patch` lets this run's actual writes win over both). Stdin avoids native argv limits.
+        if printf '%s\n' "$weak" "$prev" "$patch" | jq -S -s 'if length == 3 then (.[0] + .[1]) * .[2] else error("expected three ledger objects") end' > "${manifest}.getff.tmp" 2>/dev/null; then
           mv "${manifest}.getff.tmp" "$manifest"
           echo "  ✓ .ai-factory/refresh-baseline.json recorded ($(wc -l < "$tsv" | tr -d ' ') delivered files hashed)"
         else

@@ -121,7 +121,7 @@ unreachable_allowlist() {
 # ── Extraction ─────────────────────────────────────────────────────────────────────────────────
 # Single-line `run:` steps only (see CEILING). Leading `VAR=value` assignments are stripped so
 # `PREPUSH_ONLY=s17 npx tsx …` classifies by its real interpreter — without that, two live gate
-# commands (audit-self.yml:1346 `PREPUSH_ONLY=s17`, :1358 `PREPUSH_ONLY=prior-art`) would sit outside the population unseen.
+# commands (audit-self.yml:1358 `PREPUSH_ONLY=s17`, :1370 `PREPUSH_ONLY=prior-art`) would sit outside the population unseen.
 # `- run: cmd` (step written without a `name:`) is legal YAML and unused in this workflow today —
 # which is exactly why the leading `- ` must be optional here rather than assumed away: the first
 # nameless step to land would otherwise drop out of the population silently.
@@ -397,6 +397,17 @@ if ! grep -q 'function' <<<"$(type trigger_matches 2>/dev/null)"; then
 else
   ok "trigger_matches extracted from the sweep under test (no second copy of the grammar)"
 fi
+
+# The real gate table must select dispatch-contract readers for document-only changes.
+# A command being present somewhere in the table does not prove its trigger reaches a kickoff.
+KICKOFF_TRIG="$("$SWEEP" --list-gates 2>/dev/null | awk -F"$TAB" '$2=="kickoff-contracts"{print $3}')"
+for probe in .claude/orchestrator-prompts/new/kickoff.md .claude/orchestrator-prompts/new/kickoff-s2b.md docs/superpowers/specs/2026-10-22-plan.md .gitignore; do
+  if trigger_matches "$KICKOFF_TRIG" "$probe"; then ok "kickoff contracts selected for $probe";
+  else bad "kickoff contracts not selected for $probe"; fi
+done
+if trigger_matches "$KICKOFF_TRIG" packages/core/index.ts; then
+  bad "kickoff-contract row overreaches runtime paths (already covered by their own rows)"
+else ok "kickoff-contract row discriminates document inputs"; fi
 
 GETFF_TRIG="$("$SWEEP" --list-gates 2>/dev/null | awk -F"$TAB" '$2=="getff-dist-manifest"{print $3}')"
 payload_entries() {

@@ -20,7 +20,7 @@
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, spawn } from 'node:child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import { spawnBashOrSkip, type Skippable } from './spawn-bash-or-skip.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -357,12 +357,14 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     const root = mkdtempSync(join(tmpdir(), `imr-s1-${uniq()}-`));
     const rulesDir = join(root, 'rules');
     const cardsDir = join(root, 'cards');
+    const cacheDir = join(root, 'tmp');
     mkdirSync(rulesDir);
     mkdirSync(cardsDir);
+    mkdirSync(cacheDir);
     for (const [n, c] of Object.entries(rules)) writeFileSync(join(rulesDir, n), c);
     for (const [n, c] of Object.entries(cards)) writeFileSync(join(cardsDir, n), c);
     return {
-      env: { RULES_DIR_OVERRIDE: rulesDir, CARDS_DIR_OVERRIDE: cardsDir },
+      env: { RULES_DIR_OVERRIDE: rulesDir, CARDS_DIR_OVERRIDE: cardsDir, TMPDIR: cacheDir },
       cleanup: () => rmSync(root, { recursive: true, force: true }),
     };
   }
@@ -769,9 +771,14 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     return new Promise<string>((res, rej) => {
       const p = spawn('bash', [HOOK], { env: { ...process.env, ...env } });
       let out = '';
+      let err = '';
       p.stdout.on('data', (d) => (out += d));
+      p.stderr.on('data', (d) => (err += d));
       p.on('error', rej);
-      p.on('close', () => res(out.trim()));
+      p.on('close', (code, signal) => {
+        if (code !== 0) rej(new Error(`hook exit=${code} signal=${signal}: ${err}`));
+        else res(out.trim());
+      });
       p.stdin.end(JSON.stringify(input));
     });
   }
@@ -794,4 +801,46 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
       }
     },
   );
+
+  // skipped on win32 with the sibling above — same eight-concurrent-spawn shape
+  // (#1799): runHookAsync spawns bare `bash` per child, unresolvable there.
+  it.skipIf(process.platform === 'win32')(
+    'concurrency: a failed root mkdir with an existing root still claims the card atomically',
+    async () => {
+      const c = corpus(ONE);
+      const bin = join(c.env.TMPDIR, 'bin');
+      mkdirSync(bin);
+      const realMkdir = execFileSync('bash', ['-c', 'command -v mkdir'], { encoding: 'utf8' }).trim();
+      writeFileSync(join(bin, 'mkdir'), `#!/usr/bin/env bash
+if [[ "$1" == -p ]] && "$REAL_MKDIR" "$TMPDIR/fault-once" 2>/dev/null; then
+  "$REAL_MKDIR" "$@"
+  exit 1
+fi
+exec "$REAL_MKDIR" "$@"
+`, { mode: 0o755 });
+      try {
+        const s = uniq();
+        const env = { ...c.env, REAL_MKDIR: realMkdir, PATH: `${bin}:${process.env.PATH}` };
+        const outs = await Promise.all(Array.from({ length: 8 }, () => runHookAsync(edit('src/a.ts', s), env)));
+        expect(outs.filter(o => o !== '').length).toBe(1);
+      } finally {
+        c.cleanup();
+      }
+    },
+  );
+
+  it('an unusable TMPDIR retains the uncached injection fallback', (sk) => {
+    const c = corpus(ONE);
+    const file = join(c.env.TMPDIR, 'not-a-directory');
+    writeFileSync(file, 'consumer-owned');
+    try {
+      const s = uniq();
+      const env = { ...c.env, TMPDIR: file };
+      expect(ctx(runHook(sk, edit('src/a.ts', s), env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(sk, edit('src/a.ts', s), env))).toContain('ONCE-CARD');
+    } finally {
+      c.cleanup();
+    }
+  });
+
 });

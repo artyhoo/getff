@@ -165,7 +165,14 @@ aif-handoff exposes more than one surface; they do **not** share a port:
 
   Exit code: `0` = terminal success, `1` = non-success / timeout / error.
 
-  > ⚠️ **Known bug — verify on your setup (2026-05-31):** the **blocking** `await.ts <taskId>` (WebSocket `awaitDone`) **missed the terminal `done` event and ran out the full `--timeout-ms`** on a task that actually completed in ~3 min — the WS subscription appears to start *after* a fast task has already transitioned. The `--once` REST snapshot reported `done` correctly the whole time. **Until fixed, poll with `--once` (or short `--timeout-ms` + retry); do not rely on the blocking WS mode for completion.** Tracked as a runtime-bridge read-back (#296) follow-up. To reproduce: dispatch a small task, immediately run `await.ts <id>` (blocking) and `await.ts <id> --once` in parallel — the `--once` flips to `done` while the blocking call hangs.
+  AIF subscribes before the first authoritative REST read and repeats that reconciliation on
+  reconnect. Completion before attachment no longer requires another status event. Frames are
+  invalidations, so stale terminal hints cannot replace a current rework result. The default
+  observation deadline is one hour; choose `--timeout-ms` for the task's useful wait boundary.
+  Timeout retains uncertainty and validated identity, without cancelling or retrying the task.
+  On explicit resume, use `--once` and reconcile retained pending actions before effects.
+  These source guarantees require the corresponding delivered version; an older host-installed
+  waiter is not upgraded by a source merge.
 
 > **Clean-worktree precondition (verify this before relying on autonomy):** aif-handoff refuses to advance a task to `plan_ready` while the target project worktree is dirty (a branch-isolation guard). A dirty tree surfaces as `dispatch_failed`; `dispatch()` then best-effort **deletes** the half-created task (rollback — no orphan) and the bridge falls back to `ManualBackend`. Commit/stash/gitignore the target tree, then re-run `verify-bridge.sh` to confirm a full `backlog → plan_ready` run. (The same guard applies to the MCP path — it is not REST-specific.) The REST dispatch HTTP mechanics + error mapping are unit- and live-verified; the end-to-end `plan_ready` + coordinator-pickup step is the operator's clean-worktree smoke-test check.
 

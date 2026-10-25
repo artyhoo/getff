@@ -139,6 +139,15 @@ Timeout: track invocation count; after operator-configured ceiling → surface *
 
 **§2.4 — Harvest (after done/verified)**
 
+Treat DONE as a lifecycle signal. The bridge reconciles full task detail before returning
+its result; harvest also holds a current park, pause or adverse advisory before egress.
+Keep the returned task/candidate/resultGeneration and pendingAction in the existing task
+or stage journal. `RUNTIME_BRIDGE_RESULT_OWNER` may name the current reader responsible
+for that pending obligation; it grants no authority. An unbound owner stays pending.
+Route specified repair through `answer.ts` below, independent review to its reviewer and
+delivery to its authorized owner. A pending record is not execution, and `success` is not
+CI, merge or installed acceptance. Do not auto-resume or approve from an advisory.
+
 **Pre-push sweep gate.** Before pushing, run the local CI-equivalent sweep on the harvested branch — the **same script** [`/harvest §3`](../../harvest/SKILL.md) uses (one logic, two channels — [dual-implementation-discipline.md §7](../../../rules/dual-implementation-discipline.md)):
 
 ```bash

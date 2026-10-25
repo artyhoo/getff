@@ -11432,6 +11432,7 @@ async function main2() {
       "  --dry-run       Print what would change; no writes",
       "  --own-config    The config is the consumer's own: add getff's block to it (insertions only)",
       "  --ignore <glob>        (--own-config, repeatable) a path getff delivered, added to one global ignores element",
+      "  --ignore-file <file>   (--own-config, repeatable) newline-delimited exact paths; avoids native argv limits",
       "  --r2-boundary <glob>   (--own-config, repeatable) RULE_GLOBS.boundary for R2; absent = R2 not added"
     ].join("\n"));
     process3.exit(0);
@@ -11456,9 +11457,10 @@ async function main2() {
     "--snippet",
     "--own-config",
     "--ignore",
+    "--ignore-file",
     "--r2-boundary"
   ]);
-  const VALUE_FLAGS = /* @__PURE__ */ new Set(["--stack", "--path", "--snippet", "--ignore", "--r2-boundary"]);
+  const VALUE_FLAGS = /* @__PURE__ */ new Set(["--stack", "--path", "--snippet", "--ignore", "--ignore-file", "--r2-boundary"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
       if (!KNOWN_FLAGS.has(argv[i])) {
@@ -11502,6 +11504,13 @@ async function main2() {
   const scopes = presetRuleScopes(stack);
   const scopeForStack = (key) => scopes[key] ? { files: scopes[key] } : void 0;
   if (ownConfig) {
+    let ignores;
+    try {
+      ignores = readIgnorePaths(argv);
+    } catch (err) {
+      printNotWired(`portable payload ignores \u2014 cannot read path file: ${err.message}`);
+      process3.exit(NOT_WIRED_RC);
+    }
     process3.exit(
       await wireIntoOwnConfig({
         configPath,
@@ -11510,7 +11519,7 @@ async function main2() {
         overrideKeys,
         scopeFor: scopeForStack,
         ruleScopeGlobs: [...new Set(Object.keys(mergedRules).flatMap((key) => scopes[key] ?? []))],
-        ignores: flagValues(argv, "--ignore"),
+        ignores,
         boundaryGlobs: flagValues(argv, "--r2-boundary")
       })
     );
@@ -11582,6 +11591,14 @@ function flagValues(argv, flag) {
   }
   return out;
 }
+function readIgnorePaths(argv) {
+  return [
+    ...flagValues(argv, "--ignore"),
+    ...flagValues(argv, "--ignore-file").flatMap(
+      (file) => readFileSync7(file, "utf8").split(/\r?\n/).filter((path2) => path2 !== "")
+    )
+  ];
+}
 function printNotWired(what) {
   console.log(`${NOT_WIRED_LINE}${what.replace(/\s+/g, " ").slice(0, 300)}`);
 }
@@ -11650,5 +11667,6 @@ if (process3.argv[1] && (process3.argv[1].endsWith("synth-and-wire.ts") || proce
 }
 export {
   mergeLiveRules,
-  presetRuleScopes
+  presetRuleScopes,
+  readIgnorePaths
 };
