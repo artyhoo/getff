@@ -66,10 +66,22 @@ function makeFakeWebSocket(): { Ctor: WebSocketConstructor; ctrl: FakeWsControl 
   let onclose: (() => void) | null = null;
   let onerror: ((ev: unknown) => void) | null = null;
   let closedCount = 0;
+  let requestedTask = '';
+  let authoritativeStatus = 'implementing';
+  // Full authoritative task detail, independently of the status hint. These
+  // legacy routing cases update the fixture record before broadcasting it.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+    requestedTask = decodeURIComponent(String(url).split('/tasks/')[1] ?? '');
+    return new Response(JSON.stringify({ id: requestedTask, title: 'T', status: authoritativeStatus }));
+  });
 
   const ctrl: FakeWsControl = {
     triggerOpen: () => onopen?.(),
-    triggerMessage: (data) => onmessage?.({ data: JSON.stringify(data) }),
+    triggerMessage: (data) => {
+      const frame = data as { type: string; payload: { id: string; status: string } };
+      if (['task:updated', 'task:moved'].includes(frame.type) && frame.payload.id === requestedTask) authoritativeStatus = frame.payload.status;
+      onmessage?.({ data: JSON.stringify(data) });
+    },
     triggerClose: () => onclose?.(),
     triggerError: () => onerror?.(new Event('error')),
     get closedCount() { return closedCount; },
@@ -164,6 +176,7 @@ describe('Test 1 — events for our taskId resolve with correct status + state-f
     });
 
     ctrl.triggerOpen();
+    await new Promise(r => setTimeout(r, 0));
     // Non-terminal event first — should not resolve
     ctrl.triggerMessage({ type: 'task:updated', payload: { id: taskId, title: 'T', status: 'implementing' } });
     // Terminal success event
@@ -363,13 +376,17 @@ describe('Test 3 — WS disconnect mid-task → BackendError unavailable (bridge
 
     const p = backend.awaitDone(handle);
 
-    ctrl.triggerOpen();
-    ctrl.triggerClose(); // exhaust 3 retries (each reconnect triggers close immediately)
-    // maxReconnectAttempts defaults to 3; need to trigger close 4 times total
-    // (1 initial + 3 reconnects, each one closes immediately)
-    ctrl.triggerClose();
-    ctrl.triggerClose();
-    ctrl.triggerClose();
+    // Only the current socket's first close counts; obsolete callbacks are ignored.
+    // Allow each of the three actual reconnects before closing its new socket.
+    const failure = expect(p).rejects.toSatisfy((err: unknown) =>
+      err instanceof BackendError && err.code === 'unavailable',
+    );
+    for (let i = 0; i < 4; i++) {
+      ctrl.triggerOpen();
+      ctrl.triggerClose();
+      if (i < 3) await new Promise(r => setTimeout(r, 120));
+    }
+    await failure;
 
     await expect(p).rejects.toSatisfy((err: unknown) => {
       return err instanceof BackendError &&

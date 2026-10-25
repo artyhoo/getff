@@ -138,7 +138,12 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
       close() { /* signal fixture; no live socket */ }
     }
     const backend = new AifHandoffBackend({ baseUrl, WebSocketImpl: TerminalSocket as unknown as WebSocketConstructor });
-    const r = await backend.awaitDone({ backend: 'aif-handoff', taskId: 's3-task', dispatchedAt: baseTask.updatedAt }, 1000);
+    const pending = backend.awaitDone({ backend: 'aif-handoff', taskId: 's3-task', dispatchedAt: baseTask.updatedAt }, 80);
+    if (finalStatus === 'implementing') {
+      await expect(pending).rejects.toMatchObject({ code: 'timeout', observed: { taskId: 's3-task', acceptance: 'unverified', nextAction: { state: 'pending' } } });
+      return;
+    }
+    const r = await pending;
     expect(r.success).toBe(false);
     expect(r.finalStatus).toBe(finalStatus);
     expect(r.meta).toMatchObject({ taskId: 's3-task', acceptance: 'unverified', nextAction: { state: 'pending' } });
