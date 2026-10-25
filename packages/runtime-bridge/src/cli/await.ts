@@ -98,10 +98,12 @@ export async function awaitActionable(
       // Do not use readAifTaskResult here: retry classification needs the HTTP error.
       detail = await getJson(baseUrl, `/tasks/${encodeURIComponent(taskId)}`, { timeoutMs: Math.min(30_000, remaining()) });
     } catch (error) {
+      const code = error instanceof BackendError ? error.code : 'unexpected_error';
+      // Headers can establish an error class even if body consumption reaches the deadline.
+      if (code !== 'unavailable') return uncertain('error', code);
       if (remaining() <= 0) break;
       failures += 1;
-      const code = error instanceof BackendError ? error.code : 'unexpected_error';
-      if (code !== 'unavailable' || failures >= 3) return uncertain('error', code);
+      if (failures >= 3) return uncertain('error', code);
       if (remaining() > 0) await delay(Math.min(intervalMs, remaining()));
       continue;
     }

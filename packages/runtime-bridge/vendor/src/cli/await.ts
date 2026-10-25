@@ -152,12 +152,13 @@ export async function awaitActionable(
         timeoutMs: Math.min(30_000, remaining()),
       });
     } catch (error) {
-      if (remaining() <= 0) break;
-      failures += 1;
       const code =
         error instanceof BackendError ? error.code : 'unexpected_error';
-      if (code !== 'unavailable' || failures >= 3)
-        return uncertain('error', code);
+      // Headers can establish an error class even if body consumption reaches the deadline.
+      if (code !== 'unavailable') return uncertain('error', code);
+      if (remaining() <= 0) break;
+      failures += 1;
+      if (failures >= 3) return uncertain('error', code);
       if (remaining() > 0) await delay(Math.min(intervalMs, remaining()));
       continue;
     }

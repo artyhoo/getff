@@ -26,6 +26,11 @@ async function fixture(responses: Array<Record<string, unknown> | number>) {
     methods.push(req.method ?? '');
     const response =
       responses[Math.min(paths.length - 1, responses.length - 1)];
+    if (typeof response === 'number' && response <= -400) {
+      res.writeHead(-response, { 'Content-Type': 'application/json' });
+      res.write('{');
+      return;
+    }
     if (response === 0) {
       req.socket.destroy();
       return;
@@ -177,6 +182,20 @@ describe('await CLI arguments', () => {
 });
 
 describe('actionable S3 metadata and uncertainty controls', () => {
+  it.each([401, 403, 404, 429])(
+    'retains HTTP%s when its body exhausts the observation deadline',
+    async (status) => {
+      const http = await fixture([-status]);
+      expect(
+        await awaitActionable('t1', { ...http, intervalMs: 5, timeoutMs: 60 }),
+      ).toMatchObject({
+        kind: 'error',
+        reason: status === 429 ? 'quota_exceeded' : 'dispatch_failed',
+        meta: { held: 'unresolved' },
+      });
+      expect(http.paths).toHaveLength(1);
+    },
+  );
   it('uses the canonical generation without exposing full content', async () => {
     const current = task({
       status: 'verified',
