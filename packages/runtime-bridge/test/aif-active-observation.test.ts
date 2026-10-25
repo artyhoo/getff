@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import type { Socket } from 'node:net';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { awaitTaskDone, describeAifTask, type WebSocketConstructor } from '../src/aifWsStatus.js';
 import { getJson } from '../src/cli/aifHttp.js';
 
@@ -219,13 +219,14 @@ describe('actual HTTP, WebSocket and subprocess reader boundaries', () => {
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
     const baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
     const root = fileURLToPath(new URL('../../../', import.meta.url));
-    const cli = (once = false, args = once ? ['--once'] : ['--timeout-ms', '800']) => new Promise<{ code: number | null; stdout: string }>((done, reject) => {
-      const child = spawn(resolve(root, 'node_modules/.bin/tsx'), ['packages/runtime-bridge/src/cli/await.ts', task.id, ...args], {
+    const reader = (args: string[]) => new Promise<{ code: number | null; stdout: string }>((done, reject) => {
+      const child = spawn(resolve(root, 'node_modules/.bin/tsx'), args, {
         cwd: root, env: { ...process.env, RUNTIME_BRIDGE_MODE: 'aif-handoff', RUNTIME_BRIDGE_AIF_URL: baseUrl, RUNTIME_BRIDGE_RESULT_OWNER: 'codex:s4-test-owner' }, stdio: ['ignore', 'pipe', 'pipe'],
       });
       let stdout = ''; child.stdout.on('data', (x) => { stdout += String(x); });
       child.stderr.resume(); child.on('error', reject); child.on('close', (code) => done({ code, stdout }));
     });
+    const cli = (once = false, args = once ? ['--once'] : ['--timeout-ms', '800']) => reader(['packages/runtime-bridge/src/cli/await.ts', task.id, ...args]);
     try {
       expect((await cli(false, ['--timeout-ms', '0'])).code).toBe(1);
       expect(requests).toHaveLength(0);
@@ -233,6 +234,17 @@ describe('actual HTTP, WebSocket and subprocess reader boundaries', () => {
       expect(first.code).toBe(0);
       expect(detailBeforeSubscription).toBe(false);
       const observed = JSON.parse(first.stdout) as { meta: { resultGeneration: string } };
+      // The delivered production backend must also consume an already-finished
+      // task through a real socket and REST, without importing vendor into tsc's
+      // source roots. The existing factory test separately verifies actual copy.
+      const delivered = pathToFileURL(resolve(root, 'packages/runtime-bridge/vendor/src/AifHandoffBackend.ts')).href;
+      const vendor = await reader(['--eval', `import(${JSON.stringify(delivered)}).then(async ({AifHandoffBackend}) => {
+        const backend = new AifHandoffBackend({baseUrl:${JSON.stringify(baseUrl)}});
+        const result = await backend.awaitDone({backend:'aif-handoff',taskId:${JSON.stringify(task.id)}}, 500);
+        process.stdout.write(JSON.stringify(result));
+      }).catch(e=>{console.error(e);process.exit(1)})`]);
+      expect(vendor.code).toBe(0);
+      expect(JSON.parse(vendor.stdout)).toMatchObject({ success: true, meta: { resultGeneration: observed.meta.resultGeneration } });
       const repeated = JSON.parse((await cli(true)).stdout) as typeof observed;
       expect(repeated.meta.resultGeneration).toBe(observed.meta.resultGeneration);
       // No actual effect receipt exists. Readers must keep the next action pending,

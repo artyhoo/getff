@@ -57,6 +57,7 @@ interface FakeWsControl {
   triggerMessage(data: unknown): void;
   triggerClose(): void;
   triggerError(): void;
+  setAuthoritativeStatus(status: string): void;
   closedCount: number;
 }
 
@@ -76,6 +77,7 @@ function makeFakeWebSocket(): { Ctor: WebSocketConstructor; ctrl: FakeWsControl 
   });
 
   const ctrl: FakeWsControl = {
+    setAuthoritativeStatus: (status) => { authoritativeStatus = status; },
     triggerOpen: () => onopen?.(),
     triggerMessage: (data) => {
       const frame = data as { type: string; payload: { id: string; status: string } };
@@ -237,12 +239,19 @@ describe('Test 2 — events for OTHER taskIds are ignored', () => {
     p.then(() => { resolved = true; }).catch(() => {});
 
     ctrl.triggerOpen();
+    // Complete the initial authoritative read while the task is still running.
+    await new Promise(r => setTimeout(r, 0));
+    const reads = vi.mocked(globalThis.fetch).mock.calls.length;
+    // Update the record independently of any broadcast. A foreign frame must not
+    // trigger another GET which could consume our already-completed task.
+    ctrl.setAuthoritativeStatus('done');
     // Event for OTHER task — must be ignored
     ctrl.triggerMessage({ type: 'task:updated', payload: { id: otherTaskId, title: 'T', status: 'done' } });
 
     // After 50ms, the promise must NOT have resolved (other task ignored)
     await new Promise(r => setTimeout(r, 50));
     expect(resolved).toBe(false);
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(reads);
 
     // NEGATIVE: state file must NOT contain otherTaskId's status
     if (existsSync(stateFile)) {
@@ -250,8 +259,10 @@ describe('Test 2 — events for OTHER taskIds are ignored', () => {
       expect(contents).not.toContain(`taskId=${otherTaskId}`);
     }
 
-    // Let the timeout fire to clean up
-    await p.catch(() => {});
+    // Restored positive control: only our frame triggers the next reconciliation.
+    ctrl.triggerMessage({ type: 'task:updated', payload: { id: ourTaskId, title: 'T', status: 'done' } });
+    expect(await p).toMatchObject({ success: true, finalStatus: 'done' });
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(reads + 1);
   });
 
   it('non-task event types (e.g. chat:done) are ignored entirely', async () => {

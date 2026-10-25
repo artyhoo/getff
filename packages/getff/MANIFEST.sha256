@@ -1522,7 +1522,7 @@ b60870ba771ef633bec38db23dc932527736921d7c652c8200a83e0e8ea8f179  packages/runti
 6c7c418e6d0e046258d98d6b162d7a315d7503cdb90546c1a45067116c8ecc4e  packages/runtime-bridge/src/resolver.ts
 4c1c4fc127f12880f7896b3374040701f4b3c5788b1cace94cfa11e4b2d1a2ba  packages/runtime-bridge/src/resultReview.ts
 9b0a17515a9b4932809aecb5c8ad0d626d06d2f800c373120094523ed05f27e4  packages/runtime-bridge/src/types.ts
-5ea9e6c592411c26904cd737144f3daf87732a781b04a860dd55c3d9c3d6b20e  packages/runtime-bridge/test/aif-active-observation.test.ts
+95119177c8bd900bea880e9aa630b7f8b1e37c2377c4f63c34ad050f41b29b00  packages/runtime-bridge/test/aif-active-observation.test.ts
 1ca2adca877dc236f7a2cc1a3aef18260f7d67ae0c4fe57f2c7809811658a893  packages/runtime-bridge/test/aif-answer.test.ts
 81fc6d042ed09ad32026eafea199894cf37b821655c89204181e1551c647fba3  packages/runtime-bridge/test/aif-backend-semantics.test.ts
 2d3985e02647d6e287d4f7cffbcf6a7fea1af3302eb4d0458af22f8e3cb7267b  packages/runtime-bridge/test/aif-claim-split.test.ts
@@ -1537,7 +1537,7 @@ f0c6046e80e13e90f9d33cf3983b1428f43a3063765f439b979a5edb31803950  packages/runti
 f060d9443e0f11967b7e4cd39a74f75e5c08d5bc21626cceed28c863e4f2917e  packages/runtime-bridge/test/aif-rest-dispatch.test.ts
 bbb535f43585d8868188e88ab2726a03a4314ce9307620f6da5f0f77b883990d  packages/runtime-bridge/test/aif-result-consumption.test.ts
 7921a643996cae508675dc8093f56a16b1d00a747ece15fca3c4eac003b32139  packages/runtime-bridge/test/aif-self-cleaning.test.ts
-303fae0c4136d65c95275de30a0d5ff148fe439b4d21708f8b9ef5856d53ac4a  packages/runtime-bridge/test/aif-status-readback.test.ts
+9327e743c0a83a32baa29173cf95cc94cb5fa8e7950bc180d2dd7531f51416ad  packages/runtime-bridge/test/aif-status-readback.test.ts
 190d7c41eaf22787c1620808c05d9ce08a6fcd22f115594a3dc7fbe8ab7a9797  packages/runtime-bridge/test/cli-entry.test.ts
 098fb0165579a6e74d6867c738add8b77dfe8274fbfc99949e411f88d7bd6dec  packages/runtime-bridge/test/cli-symlink-entry.test.ts
 872d09bc07df5b5d2c1f353e6baa54d26db64bc817f498954ec74abc528e5a36  packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts
