@@ -220,12 +220,7 @@ Existing anchors: SSOT #111 and `.agents/rules/cold-seat-economy.md` for review 
 
 ## Consensus retell
 
-Baseline: c5c6f683e308561ca57806057b36e163638640c6
-
-> Re-pointed at merge-forward 2026-10-26: the original baseline `0d719eff` was the
-> authoring-branch commit (pre-squash) and is not an ancestor of shared history; the
-> squash commit above is the shared-history landing that published these exact bytes
-> (#2124). Provenance pointer only — see the note below on what the baseline is not.
+Baseline: 0d719effea0408ccae3018c213df5e6d156bafab
 
 Premise meaning is retained; P7/P8 add the latest operator direction. The baseline is historical proposal content, not a claim of prior exact-spec agreement.
 
