@@ -93,6 +93,36 @@ function resolveNodeToolShim(cmd, args, platform = process.platform, execPath = 
   if (!exists(cli)) return { cmd, args };
   return { cmd: execPath, args: [cli, ...args] };
 }
+function findGitBashExe(env = process.env, exists = existsSync) {
+  const roots = [
+    ...(env.PATH ?? "").split(pathWin32.delimiter).filter(Boolean),
+    pathWin32.join(env["ProgramFiles"] ?? "C:\\Program Files", "Git", "bin"),
+    pathWin32.join(
+      env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
+      "Git",
+      "bin"
+    ),
+    pathWin32.join(
+      env["LOCALAPPDATA"] ?? pathWin32.join(env["USERPROFILE"] ?? "", "AppData", "Local"),
+      "Programs",
+      "Git",
+      "bin"
+    )
+  ];
+  for (const dir of roots) {
+    const candidate = pathWin32.join(dir, "bash.exe");
+    if (exists(candidate)) return candidate;
+  }
+  return null;
+}
+var toMsysPath = (p) => /^[A-Za-z]:[\\/]/.test(p) ? `/${p[0].toLowerCase()}${p.slice(2).replace(/\\/g, "/")}` : p;
+function resolveShRunnerOnWindows(cmd, args, platform = process.platform, findBash = findGitBashExe) {
+  if (platform !== "win32") return { cmd, args };
+  if (!/\.sh$/i.test(cmd)) return { cmd, args };
+  const bashExe = findBash();
+  if (!bashExe) return { cmd, args };
+  return { cmd: bashExe, args: [toMsysPath(cmd), ...args] };
+}
 function runCheck(cmd, args = [], opts = {}) {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const spawned = resolveNodeToolShim(cmd, args);
@@ -398,7 +428,7 @@ function runPriorArtCheck(commits, g, cutoff = PA_HISTORICAL_CUTOFF, ssotIds, ss
 // packages/core/hooks/checks/cmd-script-liveness.ts
 import { mkdtempSync, rmSync, existsSync as existsSync2, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, dirname, join, basename, normalize, isAbsolute, relative } from "node:path";
+import { resolve, dirname, join, basename, normalize, isAbsolute, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 var HERE = dirname(fileURLToPath(new URL("checks/cmd-script-liveness.ts", import.meta.url).href));
@@ -466,7 +496,7 @@ function refuseOutsideProject(repoRoot, token) {
   return null;
 }
 function resolveTrackedAsWritten(repoRoot, token) {
-  const rel = normalize(token);
+  const rel = normalize(token).split(sep).join("/");
   const found = trackedPaths(repoRoot).find((p) => p === rel);
   return found ? join(repoRoot, found) : null;
 }
@@ -1065,6 +1095,7 @@ import { existsSync as existsSync3, readFileSync as readFileSync2, realpathSync 
 import { join as join2 } from "node:path";
 var DELEGATE_MARKER = "husky-own-worktree-delegate";
 var HAND_OFF = 'exec "$__own_hook" "$@"';
+var canonical = (p) => realpathSync.native(p);
 function git(repoRoot, args) {
   return spawnSync2("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
 }
@@ -1077,7 +1108,7 @@ function effectiveHooksDir(repoRoot) {
   ]);
   const dir = out.stdout.trim();
   if (out.status !== 0 || dir === "" || dir.includes("\n")) return null;
-  return existsSync3(dir) ? realpathSync(dir) : dir;
+  return existsSync3(dir) ? canonical(dir) : dir;
 }
 function trackedHooks(repoRoot) {
   const out = git(repoRoot, ["ls-files", "-z", "--", ".husky"]);
@@ -1086,7 +1117,7 @@ function trackedHooks(repoRoot) {
 function ensureOwnHooks(repoRoot) {
   const ownPath = join2(repoRoot, ".husky");
   if (!existsSync3(ownPath)) return { status: "own" };
-  const own = realpathSync(ownPath);
+  const own = canonical(ownPath);
   const dir = effectiveHooksDir(repoRoot);
   if (dir === null) return { status: "unknown" };
   if (dir === own) return { status: "own" };
@@ -2462,7 +2493,8 @@ var HEAVY_RUNNER_TIMEOUT_MS = 6e5;
 function runCoreSuite(script) {
   const runner = process.env["PREPUSH_HEAVY_RUNNER"]?.trim();
   if (!runner) return run("npm", ["--prefix", CORE, "run", script]);
-  const r = runCheck(runner, ["npm", "run", script], {
+  const dispatch = resolveShRunnerOnWindows(runner, ["npm", "run", script]);
+  const r = runCheck(dispatch.cmd, dispatch.args, {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
     env: scrubbedHookEnv()
@@ -2756,12 +2788,12 @@ function lycheeSection(ctx) {
       const canonicalSources = /* @__PURE__ */ new Set();
       changedMd = changedMd.filter((f) => {
         if (!f.startsWith(".claude/agents/") || !f.endsWith(".md")) return true;
-        const canonical = `.agents/roles/${f.slice(".claude/agents/".length)}`;
+        const canonical2 = `.agents/roles/${f.slice(".claude/agents/".length)}`;
         try {
-          if (existsSync4(resolve2(REPO_ROOT, canonical)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
-            readFileSync3(resolve2(REPO_ROOT, canonical))
+          if (existsSync4(resolve2(REPO_ROOT, canonical2)) && readFileSync3(resolve2(REPO_ROOT, f)).equals(
+            readFileSync3(resolve2(REPO_ROOT, canonical2))
           )) {
-            canonicalSources.add(canonical);
+            canonicalSources.add(canonical2);
             return false;
           }
           return true;
