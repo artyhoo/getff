@@ -279,7 +279,7 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     expect(r.result?.resultGeneration).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it('actual factory installer delivers the changed consumer, preserves stub, excludes await', async () => {
+  it('actual factory installer delivers the actionable reader and preserves the stub and effect guards', async () => {
     const consumer = join(scratch, 'consumer');
     mkdirSync(consumer);
     execFileSync('git', ['init', '-q', consumer], { env });
@@ -287,7 +287,7 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     const r = await run('bash', [join(root, 'install.sh'), 'ts-server', '--profile', 'factory'], { cwd: consumer, timeoutMs: 180_000 });
     expect(r.code, r.stdout + r.stderr).toBe(0);
     const delivered = join(consumer, '.claude/vendor/runtime-bridge');
-    expect(() => readFileSync(join(delivered, 'src/cli/await.ts'))).toThrow();
+    expect(readFileSync(join(delivered, 'src/cli/await.ts'))).toEqual(readFileSync(join(root, 'packages/runtime-bridge/vendor/src/cli/await.ts')));
     expect(readFileSync(join(delivered, 'src/idempotency.ts'))).toEqual(readFileSync(join(root, 'packages/runtime-bridge/vendor/src/idempotency.ts')));
     const script = `import(${JSON.stringify(pathToFileURL(join(delivered, 'src/harvest.ts')).href)}).then(async m => {
       const deps = new Proxy({}, {get:()=>async()=>{throw Error('HELD TASK REACHED EFFECT')}});
@@ -306,5 +306,16 @@ describe.sequential('AIF result consumption at actual boundaries', () => {
     const b = await run(tsx, ['--eval', backendProbe]);
     expect(b.code, b.stderr).toBe(0);
     expect(JSON.parse(b.stdout)).toMatchObject({ status: 'error', rawStatus: 'done', meta: { taskId: 's3-task', candidate: { commitSha: baseTask.commitSha }, nextAction: { ownerReference: owner } } });
+    const cli = join(delivered, 'src/cli/await.ts');
+    const held = await run(tsx, [cli, 's3-task', '--until-actionable', '--timeout-ms', '1000']);
+    expect(held.code, held.stderr).toBe(1);
+    expect(JSON.parse(held.stdout)).toMatchObject({ kind: 'parked', meta: { resultGeneration: JSON.parse(b.stdout).meta.resultGeneration, acceptance: 'unverified' } });
+    const resumed = await run(tsx, [cli, 's3-task', '--once']);
+    expect(resumed.code).toBe(1);
+    expect(JSON.parse(resumed.stdout).meta.resultGeneration).toBe(JSON.parse(held.stdout).meta.resultGeneration);
+    task = { ...baseTask, status: 'verified' };
+    const completed = await run(tsx, [cli, 's3-task', '--until-actionable', '--timeout-ms', '1000']);
+    expect(completed.code, completed.stderr).toBe(0);
+    expect(JSON.parse(completed.stdout)).toMatchObject({ kind: 'done', meta: { acceptance: 'unverified', nextAction: { state: 'pending', ownerReference: owner } } });
   }, 190_000);
 });

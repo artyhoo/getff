@@ -90,6 +90,10 @@ Modes:
   reconnect. Terminal or held detail settles the full `TaskResult`; status frames only request
   reconciliation. The default observation deadline is one hour; `--timeout-ms` overrides it.
 - **`--once`** — non-blocking `getStatus` snapshot (point-in-time), print and exit.
+- **`--until-actionable`** — full REST observation with an explicit deadline, returning one
+  compact result plus canonical generation/candidate/pending-owner metadata. Park, pause and
+  adverse advisory override optimistic completion. Only unavailable transport gets bounded
+  retries (three consecutive failures); quota/auth/not-found responses return immediately.
 
 The backend is resolved the same way as `dispatch` (`RUNTIME_BRIDGE_MODE` + `available()`).
 ManualBackend retains its indefinite response-file wait when no deadline is supplied.
@@ -103,6 +107,7 @@ Source behavior does not establish that an existing host installation has been r
 ```bash
 tsx packages/runtime-bridge/src/cli/await.ts <taskId> [--timeout-ms N]
 tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
+tsx packages/runtime-bridge/src/cli/await.ts <taskId> --until-actionable --timeout-ms 3600000
 ```
 
 ### Flags
@@ -112,6 +117,7 @@ tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
 | `<taskId>`       | **Required (positional).** The dispatched task to watch.  |
 | `--timeout-ms N` | Bound the wait in default (await) mode.                   |
 | `--once`         | Non-blocking snapshot: print the current status and exit. |
+| `--until-actionable` | REST observation; requires `--timeout-ms`, excludes `--once`. |
 
 Exit codes:
 
@@ -120,12 +126,43 @@ Exit codes:
 - `--once` (snapshot): `0` unless the backend reports an `error` state. A still-running task
   (`pending`/`running`) also exits `0` — a snapshot is not a verdict; use the default mode when you
   need a terminal success/fail code.
+- `--until-actionable`: `0` only for unheld `done`/`verified`; parked, paused, unknown,
+  error and observation deadline return `1`. A deadline is not worker failure or retry authority.
 
 ### Example
 
 ```bash
 tsx packages/runtime-bridge/src/cli/await.ts "$HANDOFF_TASK_ID" --timeout-ms 600000
 ```
+
+### Local economy payload
+
+The bounded host payload has a separate scratch emit route; `typecheck` remains `noEmit`:
+
+```bash
+node packages/runtime-bridge/scripts/emit-economy.mjs --out /absolute/absent/scratch/build
+```
+
+It uses the checkout's TypeScript5.9.3 compiler, emits fifteen explicitly admitted JS modules
+plus the exact module package metadata, and prints input/output hashes and compiler/Node versions.
+It executes no source, rejects imports outside that closure and refuses existing output or any
+overlap with the OS user's stable `~/.local/share/getff-economy/build` target, including symlink
+aliases. Changing `HOME` does not change that exclusion. No answer/harvest/dispatch CLI is emitted.
+The existing supervision ledger source is retained without changing its keys, cursor or data;
+its `snapshot` writes state and is not a read-only acceptance probe.
+
+An independent delivery owner verifies the accepted source and emit receipt, preserves the
+complete installed preimage, establishes reader/writer exclusion and performs the separately
+authorized complete-directory delivery/rollback. Two directory renames have a crash gap:
+reconcile actual paths and hashes before retry. The emitter itself never installs the payload.
+The project vendor copy includes the await CLI through the existing manual copy/formatter path;
+layer55 project installation and stable host installation remain separate destinations.
+
+Installed acceptance requires an actual active or explicitly resumed owner to consume the
+installed result, persist a pending action before acknowledgment, and reconcile current
+generation, candidate and authority. Missing external-effect receipts remain unknown without
+replay. Neither a source merge nor scratch tests establish that consumption or wake a terminated
+chat; automatic terminated-owner recovery remains outside this observation interface.
 
 ---
 

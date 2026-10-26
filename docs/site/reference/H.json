@@ -143,6 +143,20 @@
       },
       "extras": {},
       "example": null
+    },
+    {
+      "name": "supervision",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "bounded mechanical observation of existing owners and their named AIF tasks.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/supervision.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
     }
   ]
 }
