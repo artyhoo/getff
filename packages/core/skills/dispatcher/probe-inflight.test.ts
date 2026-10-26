@@ -822,13 +822,15 @@ describe('probe-inflight.sh — agent container discovery', () => {
       dockerBin: stub,
       env: {
         STUB_LOG: log,
-        // 2s, not 1s: under suite-parallel load the stub's cold bash spawn can take
-        // ~1.1s before its first log write (measured 2026-10-26 aggregate: (f)/(g)
-        // cut at 1.08s with an EMPTY stub log — the watchdog killed the stub before
-        // it reached the write), which flips discovery into «current context did not
-        // answer». 2s still cuts the 30s hang an order of magnitude earlier and keeps
-        // every assertion intact; the production default (8s) never sees cold-start.
-        PROBE_CONTEXT_TIMEOUT_S: '2',
+        // NO PROBE_CONTEXT_TIMEOUT_S override: these arms run under the PRODUCTION
+        // default budget (8s). Sub-production overrides flake under suite-parallel
+        // load — the stub's cold bash spawn must reach its first log write inside
+        // the budget, and measured cold-start was 1.08s on the 2026-10-26 aggregate
+        // (1s override: empty log) and >2s under the full 39-file skills suite
+        // (2s override: empty log, arms cut at exactly the budget). The production
+        // 8s never sees cold-start trouble, still cuts the deliberate 30s hang in
+        // (g) an order of magnitude early, and (g)'s own <15s completion assertion
+        // plus the 30s arm timeout keep the suite bound.
         STUB_DOWN: 'local',
         STUB_AGENTS: 'remote:aif-agent-1',
         ...env,
@@ -864,7 +866,8 @@ describe('probe-inflight.sh — agent container discovery', () => {
     () => {
       const t0 = Date.now();
       run({});
-      // `slow` sleeps 30s; the 1s budget must cut it. 15s leaves room for a loaded host.
+      // `slow` sleeps 30s; the production 8s budget must cut it. 15s leaves room for
+      // the cut plus the remote scan on a loaded host.
       expect(Date.now() - t0).toBeLessThan(15_000);
       expect(calls('ps')).toContain('ps ctx=slow flag=yes');
       expect(calls('exec')).toEqual(['exec ctx=remote name=aif-agent-1']);
