@@ -41,19 +41,24 @@ if pid == 0:
     os.execvp(cmd[0], cmd); os._exit(127)
 os.write(fd, feed); out = b""
 while True:
-    try: r, _, _ = select.select([fd], [], [], 15)
+    try: r, _, _ = select.select([fd], [], [], 60)
     except OSError: break
     if not r: break
     try: data = os.read(fd, 4096)
     except OSError: break
     if not data: break
     out += data
-# A child still running after 15 s of silence is blocked on a prompt nobody answers (an extra
-# question appeared): stop it and report a failure instead of hanging the suite.
+# A child still running after 60 s of silence is blocked on a prompt nobody answers (an extra
+# question appeared): stop it and report a failure instead of hanging the suite. 60 s, not the
+# historical 15 s: under local suite-parallel load (the 12-shard install battery) a HEALTHY
+# install.sh can stall >15 s between outputs — the twin driver in install-no-tsx-step.test.sh
+# silence-killed its arm D that way (measured 2026-10-26 battery run), and this file carries the
+# same driver byte-identically. The watchdog bounds a HANG, not a loaded host; 60 s mirrors the
+# repo-root vitest spawn-timeout discipline. The arm's assertions are untouched.
 done, status = os.waitpid(pid, os.WNOHANG)
 if done == 0:
     os.kill(pid, 9); _, status = os.waitpid(pid, 0)
-    out += b"\n[pty] child still waiting for input after 15 s of silence - killed\n"
+    out += b"\n[pty] child still waiting for input after 60 s of silence - killed\n"
 sys.stdout.buffer.write(out)
 sys.exit(0 if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0 else 1)
 PY
