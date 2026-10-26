@@ -1,0 +1,47 @@
+[
+  {
+    "path": "server/group-goal-run.ts",
+    "requested_ref": "3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b",
+    "repository": "milind-soni/OpenMausBot",
+    "blob_sha": "a0b364571490b1aa85c7c29e81d9acf3e0a818e1",
+    "source_url": "https://github.com/milind-soni/OpenMausBot/blob/3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b/server/group-goal-run.ts",
+    "local_capture": "docs/superpowers/specs/reviews/portable-verified-autonomy/q1-source-addendum/server__group-goal-run.ts",
+    "encoding": "utf-8",
+    "fetch_tool": "mcp__codex_apps__github_fetch_file",
+    "fetched_at": "2026-10-26 15:13:31 UTC",
+    "sha256": "3ec9241abfd247564b7d24573c4c8e6c13d739ded848541dc5ad5d0398f079ce",
+    "bytes": 6620,
+    "lines": 152,
+    "git_blob_verified": true
+  },
+  {
+    "path": "server/store.ts",
+    "requested_ref": "3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b",
+    "repository": "milind-soni/OpenMausBot",
+    "blob_sha": "8bcc5d80badd147253f18512131fb5391eee5882",
+    "source_url": "https://github.com/milind-soni/OpenMausBot/blob/3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b/server/store.ts",
+    "local_capture": "docs/superpowers/specs/reviews/portable-verified-autonomy/q1-source-addendum/server__store.ts",
+    "encoding": "utf-8",
+    "fetch_tool": "mcp__codex_apps__github_fetch_file",
+    "fetched_at": "2026-10-26 15:13:33 UTC",
+    "sha256": "592195aa86e20924835a187c53958a03cb894937c3e5aecdeb1554acf29d7868",
+    "bytes": 109684,
+    "lines": 2330,
+    "git_blob_verified": true
+  },
+  {
+    "path": "server/routines.ts",
+    "requested_ref": "3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b",
+    "repository": "milind-soni/OpenMausBot",
+    "blob_sha": "a355bccc8fca4d0392695d4ad9aa65ccd903b3de",
+    "source_url": "https://github.com/milind-soni/OpenMausBot/blob/3ac9fb1122a34b2755580d3d5d7cbd1a1a77bd4b/server/routines.ts",
+    "local_capture": "docs/superpowers/specs/reviews/portable-verified-autonomy/q1-source-addendum/server__routines.ts",
+    "encoding": "utf-8",
+    "fetch_tool": "mcp__codex_apps__github_fetch_file",
+    "fetched_at": "2026-10-26 15:13:35 UTC",
+    "sha256": "0624f8a1af98eac39dcbf3a73fdb897c9191e2338d1a058683fdafeb46988b59",
+    "bytes": 72101,
+    "lines": 1589,
+    "git_blob_verified": true
+  }
+]
