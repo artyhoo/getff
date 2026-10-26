@@ -822,7 +822,13 @@ describe('probe-inflight.sh — agent container discovery', () => {
       dockerBin: stub,
       env: {
         STUB_LOG: log,
-        PROBE_CONTEXT_TIMEOUT_S: '1',
+        // 2s, not 1s: under suite-parallel load the stub's cold bash spawn can take
+        // ~1.1s before its first log write (measured 2026-10-26 aggregate: (f)/(g)
+        // cut at 1.08s with an EMPTY stub log — the watchdog killed the stub before
+        // it reached the write), which flips discovery into «current context did not
+        // answer». 2s still cuts the 30s hang an order of magnitude earlier and keeps
+        // every assertion intact; the production default (8s) never sees cold-start.
+        PROBE_CONTEXT_TIMEOUT_S: '2',
         STUB_DOWN: 'local',
         STUB_AGENTS: 'remote:aif-agent-1',
         ...env,

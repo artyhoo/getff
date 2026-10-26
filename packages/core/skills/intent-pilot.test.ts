@@ -20,6 +20,15 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { ConventionNode } from '../ir/types.ts';
+// Canonical cross-suite sandbox prefix (kickoff-population owns it): parallel suites in
+// the same vitest pool create repo-scoped mkdtemp sandboxes under
+// `.claude/orchestrator-prompts/c2-test-*` that live for their lifetime. The
+// snapshot-differential arm below straddles one on a loaded host (measured 2026-10-26
+// aggregate: `?? .claude/orchestrator-prompts/c2-test-h9aAgu/` appeared between the two
+// `git status` snapshots and flipped the arm). Filtering the recognized sandbox prefix
+// from BOTH snapshots keeps the flip intact — the runner under test never creates these;
+// any leak of its own lands on an unfiltered path and still fails the arm.
+import { TEST_SANDBOX_RE } from '../principles/kickoff-population.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -301,7 +310,23 @@ describe('pilot runner stays deterministic', () => {
   });
 
   it('the runner writes nothing into the repo during a full run (flip: the runner stops being disposable and leaks state into the repo)', async () => {
-    const before = spawnSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT }).stdout.toString();
+    // Sandbox-noise-filtered snapshot: see the TEST_SANDBOX_RE import note above. A line
+    // is dropped only when it is a recognized cross-suite sandbox under
+    // `.claude/orchestrator-prompts/` — every other path still flips the arm.
+    const SANDBOX_PREFIX = '.claude/orchestrator-prompts/';
+    const snap = () =>
+      spawnSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT })
+        .stdout.toString()
+        .split('\n')
+        .filter((l) => {
+          if (l === '') return false;
+          const path = l.slice(3); // drop the two-char XY status + space
+          if (!path.startsWith(SANDBOX_PREFIX)) return true;
+          const name = path.slice(SANDBOX_PREFIX.length).replace(/\/$/, '');
+          return !TEST_SANDBOX_RE.test(name);
+        })
+        .join('\n');
+    const before = snap();
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
     try {
@@ -309,7 +334,7 @@ describe('pilot runner stays deterministic', () => {
     } finally {
       vi.unstubAllGlobals();
     }
-    const after = spawnSync('git', ['status', '--porcelain'], { cwd: REPO_ROOT }).stdout.toString();
+    const after = snap();
     expect(after).toBe(before);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
