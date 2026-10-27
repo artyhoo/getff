@@ -253,6 +253,10 @@ export async function reconcile(input) {
     const base = read.record;
     let next = structuredClone(base);
     let mutated = false;
+    // True when THIS pass opened or cleared an authority hold (the authority picture
+    // moved): admission is then refused for this pass — the record must settle through
+    // one durable write, and the admitting reconcile must read that settled state.
+    let authorityHoldTouched = false;
     const effects = [];
 
     // (1) An unresolved intent is an owned uncertainty — hold with a concrete recovery action.
@@ -288,11 +292,22 @@ export async function reconcile(input) {
             next = held.value;
           }
           mutated = true;
+          authorityHoldTouched = true;
           effects.push('authority-refreshed');
-        } else if (next.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
-          const cleared = clearHolds(next, { code: AUTHORITY_CHANGED_HOLD_CODE, now });
-          next = cleared.value;
+        } else if (
+          next.holds.some((h) => (h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE) && h.clearedAt === null)
+        ) {
+          // Stable read after an authority hold: BOTH authority hold codes clear —
+          // `authority_unavailable` promises recovery in its own recoveryAction
+          // («restore the selector … and re-run reconcile»), so a failed read can never
+          // be a permanent admission gate. Recovery and refresh are hold-state
+          // transitions either way: admission waits for the NEXT reconcile.
+          const clearedChanged = clearHolds(next, { code: AUTHORITY_CHANGED_HOLD_CODE, now });
+          next = clearedChanged.value;
+          const clearedUnavailable = clearHolds(next, { code: AUTHORITY_UNAVAILABLE_HOLD_CODE, now });
+          next = clearedUnavailable.value;
           mutated = true;
+          authorityHoldTouched = true;
           effects.push('authority-stable');
         }
       } else {
@@ -306,6 +321,7 @@ export async function reconcile(input) {
         if (held.value !== next) {
           next = held.value;
           mutated = true;
+          authorityHoldTouched = true;
         }
       }
     }
@@ -336,6 +352,20 @@ export async function reconcile(input) {
       // admit them wholesale on resume, which is exactly what the pause is for.
       if (!ADMITTING_STATES.includes(next.controlState)) {
         return reject('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
+      }
+      // An authority hold must gate admission, or it is a warning nobody reads
+      // (attention-is-not-a-mechanism): planning work against unconfirmed or unreadable
+      // current authority is exactly the stale-evidence admission PA2 forbids. One pass
+      // cannot both transition the hold (open it, or clear it on a stable read) and
+      // admit work: the hold state must settle through its own durable write, and the
+      // admitting reconcile must read that settled record — so a clear-and-admit in a
+      // single pass can never disguise an unconfirmed authority as a confirmed one.
+      const authorityHold = openHolds(next).find((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE);
+      if (authorityHold || authorityHoldTouched) {
+        const detail = authorityHold
+          ? `authority hold ${authorityHold.code} is open`
+          : 'an authority hold was opened or cleared in this same pass';
+        return reject('authority_hold_open', `${detail} — confirm the current authority, run reconcile once on a stable read so the hold state settles, and only then request ${action} on a subsequent reconcile`);
       }
       if (!next.grants.actions.includes(action)) {
         return reject('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
@@ -370,12 +400,24 @@ export async function reconcile(input) {
     }
 
     // (6) Delivery receipt — a FACT reference, recorded against the granted destination.
+    // Duplicate deliveries are rejected, not re-recorded (plan step 4: «Reject … duplicate
+    // deliveries»): an IDENTICAL receipt is an idempotent re-ack with no durable mutation;
+    // a DIFFERENT receipt while one is already recorded is a conflict — two deliveries
+    // against one granted destination is exactly the double-delivery the contract forbids.
     if (input.deliveryReceipt !== undefined) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return reject('invalid_request', 'delivery-receipt must be a non-empty reference');
-      next.delivery = { receipt, destination: next.grants.destination, at: now, actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null };
-      mutated = true;
-      effects.push('delivery-recorded');
+      if (next.delivery !== null) {
+        if (next.delivery.receipt === receipt) {
+          effects.push('delivery-duplicate-ack');
+        } else {
+          return reject('delivery_conflict', `a delivery receipt is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
+        }
+      } else {
+        next.delivery = { receipt, destination: next.grants.destination, at: now, actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null };
+        mutated = true;
+        effects.push('delivery-recorded');
+      }
     }
 
     // (7) Custody transfer — legal only past cessation (acknowledged) or with explicit ack.

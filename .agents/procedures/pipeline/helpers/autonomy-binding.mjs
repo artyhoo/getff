@@ -4,8 +4,8 @@
  * Verbs: init | reconcile | status | pause | cancel | resume, plus the RESERVED
  * worker | review verbs that stage B owns. `resume` is unconditionally held in A1
  * (productionResumeHold, engine.mjs:72) — no CLI argument, grant file or record
- * state can clear that hold; the scoped/revision/replay grant logic exists only as
- * fixture-tested pure logic (record.mjs proposeResumeTransition). worker|review are
+ * state can clear that hold; the scoped/revision/replay grant logic lives in record.mjs
+ * as fixture-tested pure logic and is deliberately unreferenced from this file. worker|review are
  * stage-B live operations and always return unsupported_pending_prerequisite
  * (reservedVerbHold, engine.mjs:82) — never a simulated live success.
  *
