@@ -1,0 +1,497 @@
+/**
+ * engine.mjs — reconcile + control orchestration for the autonomy binding.
+ *
+ * Every state mutation runs under the OS-held bind lock, reads the record through the
+ * store's validating reader, applies PURE record transitions, re-reads the LIVE authority,
+ * and persists through the CAS atomic writer. One reconcile invocation = at most ONE
+ * durable update (all inputs compose in memory, one write).
+ *
+ * Stage boundary (design L137 + plan §2): observe/work/review ROUTING and control live
+ * here; anything that would ACT on an external system — dispatching a worker, publishing a
+ * review, harvesting/egressing — is stage B and is never attempted by this module. The
+ * intent-before-effect protocol is the one consequential-command surface A1 owns: an
+ * intent is PERSISTED before any effect could be attempted, and because A1 itself never
+ * attempts the effect, an unresolved intent is an owned `uncertain_owner` hold with a
+ * concrete recovery action — never a simulated success.
+ *
+ * Production resume is UNCONDITIONALLY held (`productionResumeHold`) — no input, grant,
+ * environment value or record state clears it. The pure scoped/revision/replay transition
+ * (`proposeResumeTransition` in record.mjs) is fixture-tested logic only; nothing in this
+ * engine calls it on a production path.
+ */
+import { resolve } from 'node:path';
+import { canonicalJson } from '../../../intent/helpers/check-result-review.mjs';
+import {
+  initialRecord,
+  applyControlTransition,
+  addHold,
+  clearHolds,
+  hasLiveWorker,
+  sha256Hex,
+} from './record.mjs';
+import {
+  readRecord,
+  writeRecordAtomic,
+  ensureStageOwnership,
+  canonicalRecordPath,
+  resolveRecordTarget,
+} from './store.mjs';
+import {
+  withBindLock,
+  platformSupportsAbstractBindLock,
+  LOCK_RETRY_DEFAULT_BUDGET_MS,
+  LOCK_RETRY_DEFAULT_DELAY_MS,
+} from './lock.mjs';
+import { readCurrentAuthority, authoritySignature } from './authority.mjs';
+
+export const ROUTES = ['observe', 'work', 'review', 'hold', 'complete'];
+/** Observation kinds mirror runtime-bridge await.ts ActionableResult (`kind`). */
+export const OBSERVATION_KINDS = ['done', 'parked', 'paused', 'unknown', 'error', 'timeout'];
+export const INTENT_RESOLUTIONS = ['applied', 'not-applied', 'abandoned'];
+const HISTORY_UNCERTAIN_HOLD_CODE = 'uncertain_owner';
+const AUTHORITY_CHANGED_HOLD_CODE = 'authority_changed';
+const AUTHORITY_UNAVAILABLE_HOLD_CODE = 'authority_unavailable';
+const OBSERVATIONS_MAX = 100;
+
+function reject(code, reason) {
+  return { ok: false, code, reason };
+}
+
+function openHolds(record) {
+  return record.holds.filter((h) => h.clearedAt === null);
+}
+
+/**
+ * Production resume hold — returned BEFORE any record read or mutation, for every resume
+ * request, including one carrying `--grant`. The grant path exists only as the
+ * fixture-tested pure transition; wiring it to persistence is a stage-B prerequisite
+ * (trusted-authority issuance + verification), and until that lands, admitting a resume
+ * from a document a caller self-supplied would be exactly the «observation as grant»
+ * anti-pattern the design forbids (await.ts: observation documents are DATA, never grants).
+ */
+export function productionResumeHold() {
+  return {
+    ok: false,
+    code: 'unsupported_pending_prerequisite',
+    reason:
+      'resume is held in Stage A1: scoped business-control authorization (trusted grant issuance and verification) is a stage-B prerequisite. No CLI flag, grant document, observation payload, path or environment value clears this hold in production — the scoped pure transition exists only as fixture-tested logic and is never wired to persistence here.',
+  };
+}
+
+/** Reserved stage-B verbs — explicit unsupported, never a simulated live success. */
+export function reservedVerbHold(verb) {
+  return {
+    ok: false,
+    code: 'unsupported_pending_prerequisite',
+    reason: `${verb} operations are a stage-B prerequisite (live worker/review plumbing over the existing AIF runtime); Stage A1 provides the binding, custody and control substrate they will compose with, and does not simulate them.`,
+  };
+}
+
+/** The envelope every successful verb returns — inspectable status plus the route. */
+function envelope(next, extra = {}) {
+  return {
+    ok: true,
+    recordPath: next.recordPath,
+    recordRevision: next.recordRevision,
+    controlRevision: next.controlRevision,
+    custodyGeneration: next.custodyGeneration,
+    controlState: next.controlState,
+    disposition: next.disposition,
+    holds: openHolds(next),
+    pendingIntent: next.pendingIntent,
+    ...extra,
+  };
+}
+
+function killSelf() {
+  // Test seam only: a real SIGKILL of this process — no cleanup handlers run, which is the
+  // point (the lock must be released by the OS, not by our finally blocks).
+  process.kill(process.pid, 'SIGKILL');
+}
+
+/**
+ * Initial bind. Requires live-verifiable current authority; refuses on unsupported
+ * platforms (the whole binding is OS-held serialization — no filesystem-lock fallback).
+ */
+export async function initBinding(input) {
+  const { repoRoot, featureId, stage, stageArtifactRoot, recordPath, featureHome, ownerRoot, actions, destination, now } = input;
+  const supported = platformSupportsAbstractBindLock();
+  if (!supported.ok) return supported;
+  for (const field of ['repoRoot', 'featureId', 'stage', 'stageArtifactRoot', 'recordPath', 'featureHome', 'destination']) {
+    if (typeof input[field] !== 'string' || input[field].length === 0) {
+      return reject('invalid_request', `${field} must be a non-empty string`);
+    }
+  }
+  if (!Array.isArray(actions) || actions.length === 0 || !actions.every((a) => ROUTES.includes(a))) {
+    return reject('invalid_request', `actions must be a non-empty subset of ${ROUTES.join('|')}`);
+  }
+  const canonicalPath = canonicalRecordPath(recordPath);
+  // Resolve the write target BEFORE taking the lock — the CAS write is then bound to the
+  // resolution the lock was taken against (TOCTOU: a mid-transaction retarget fails closed).
+  const preLockTarget = resolveRecordTarget(canonicalPath);
+  if (preLockTarget === null) {
+    return { ok: false, code: 'record_target_unresolvable', reason: 'the record path resolves through a symlink chain deeper than the bound' };
+  }
+  return await withBindLock({ recordPath: canonicalPath, retryBudgetMs: input.retryBudgetMs ?? LOCK_RETRY_DEFAULT_BUDGET_MS, retryDelayMs: input.retryDelayMs ?? LOCK_RETRY_DEFAULT_DELAY_MS }, async () => {
+    const ownership = ensureStageOwnership({ recordPath: canonicalPath, stageArtifactRoot, ownerRoot: ownerRoot ?? repoRoot });
+    if (!ownership.ok) return ownership;
+    const authority = readCurrentAuthority({ repoRoot, featureId, featureHome, roots: [repoRoot], now });
+    if (!authority.ok) return authority; // no bind without live-verifiable current authority
+    const init = initialRecord({
+      featureId,
+      stage,
+      repoIdentity: authority.authority.repoIdentity,
+      repoRoot,
+      stageArtifactRoot,
+      recordPath: canonicalPath,
+      actions,
+      destination,
+      destinationRef: input.destinationRef ?? null,
+      selectorRevision: authority.authority.selectorRevision,
+      prdSha256: authority.authority.prdSha256,
+      prdRef: authority.authority.prdRef,
+      specSha256: authority.authority.specSha256,
+      specRef: authority.authority.specRef,
+      featureHome: resolve(featureHome),
+      routineHost: input.routineHost ?? null,
+      routineId: input.routineId ?? null,
+      taskId: input.taskId ?? null,
+      claimRef: input.claimRef ?? null,
+      worker: input.worker ?? null,
+      candidateRevision: input.candidateRevision ?? 0,
+      candidateSha256: input.candidateSha256 ?? null,
+      candidateRef: input.candidateRef ?? null,
+      actor: input.actor ?? 'operator:cli',
+    }, { now });
+    if (!init.ok) return init;
+    const written = writeRecordAtomic(canonicalPath, init.value, { lockedTarget: preLockTarget, expectedRevision: 0 });
+    if (!written.ok) return written;
+    return envelope(init.value, { action: 'init', mutated: true, route: 'work', routeReason: 'binding established; admission is a stage-B operation' });
+  });
+}
+
+/**
+ * Validate + normalize an observation document (await.ts ActionableResult-shaped DATA).
+ * `custodyGeneration` / `candidateRevision` / `observationId` are optional provenance the
+ * reporter may bind; everything else is required.
+ */
+function normalizeObservation(observation) {
+  if (observation === null || typeof observation !== 'object' || Array.isArray(observation)) {
+    return reject('invalid_request', 'observation must be a JSON object');
+  }
+  if (typeof observation.taskId !== 'string' || observation.taskId.length === 0) {
+    return reject('invalid_request', 'observation.taskId must be a non-empty string');
+  }
+  if (!OBSERVATION_KINDS.includes(observation.kind)) {
+    return reject('invalid_request', `observation.kind must be one of ${OBSERVATION_KINDS.join('|')}`);
+  }
+  return {
+    ok: true,
+    value: {
+      taskId: observation.taskId,
+      kind: observation.kind,
+      status: observation.status ?? null,
+      reason: observation.reason ?? null,
+      resultRef: observation.resultRef ?? null,
+      observationId: observation.observationId ?? null,
+      custodyGeneration: observation.custodyGeneration ?? null,
+      candidateRevision: observation.candidateRevision ?? null,
+    },
+  };
+}
+
+/** Disposition of an incoming observation against current custody/control/candidate. */
+function classifyObservation(next, obs) {
+  if (obs.observationId !== null && next.observations.some((o) => o.observationId === obs.observationId && o.disposition !== 'duplicate')) {
+    return 'duplicate'; // idempotent re-report — the original entry already carries the fact
+  }
+  if (obs.custodyGeneration !== null && obs.custodyGeneration < next.custodyGeneration) {
+    return 'historical-stale-custody'; // a superseded worker reporting late — identity stale
+  }
+  if (['cancelled', 'cancel-pending'].includes(next.controlState)) {
+    return 'historical-after-cancel'; // late result cannot clear (or outlive) a cancellation
+  }
+  if (next.controlState === 'complete') {
+    return 'historical-after-complete'; // late result cannot outlive a verified completion
+  }
+  if (['paused', 'pause-pending'].includes(next.controlState)) {
+    return 'historical-after-pause'; // late result cannot clear an explicit pause
+  }
+  if (obs.candidateRevision !== null && obs.candidateRevision < next.candidate.revision) {
+    return 'historical-stale-candidate'; // report bound to a superseded candidate
+  }
+  return 'consumed';
+}
+
+/**
+ * The reconcile/control pipeline. Every input is optional except recordPath/now; all
+ * compose into at most one durable update under one lock acquisition. `control` is
+ * {kind: pause|cancel|ack-cessation, reason?}. Test seams: `testCrashAfter`
+ * (prewrite|commit|intent) self-SIGKILLs at the named window; `testHoldLockMs` holds the
+ * lock before doing work (contention fixture).
+ */
+export async function reconcile(input) {
+  const { recordPath, now } = input;
+  if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
+  if (typeof now !== 'string' || now.length === 0) return reject('invalid_request', 'now must be an ISO timestamp string');
+  const supported = platformSupportsAbstractBindLock();
+  if (!supported.ok) return supported;
+  const canonicalPath = canonicalRecordPath(recordPath);
+  // Capture the write target BEFORE the lock — the CAS write is bound to the resolution
+  // the lock was taken against; a mid-transaction retarget fails closed in the store.
+  const preLockTarget = resolveRecordTarget(canonicalPath);
+  if (preLockTarget === null) {
+    return { ok: false, code: 'record_target_unresolvable', reason: 'the record path resolves through a symlink chain deeper than the bound' };
+  }
+  return await withBindLock({ recordPath: canonicalPath, retryBudgetMs: input.retryBudgetMs ?? LOCK_RETRY_DEFAULT_BUDGET_MS, retryDelayMs: input.retryDelayMs ?? LOCK_RETRY_DEFAULT_DELAY_MS }, async () => {
+    if (input.testHoldLockMs && input.testHoldLockMs > 0) {
+      await new Promise((settle) => setTimeout(settle, input.testHoldLockMs));
+    }
+    const read = readRecord(canonicalPath);
+    if (!read.ok) return read;
+    const base = read.record;
+    let next = structuredClone(base);
+    let mutated = false;
+    const effects = [];
+
+    // (1) An unresolved intent is an owned uncertainty — hold with a concrete recovery action.
+    if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+      const held = addHold(next, {
+        code: HISTORY_UNCERTAIN_HOLD_CODE,
+        reason: `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} but its external effect is unverified — outcome is unknown, not successful`,
+        recoveryAction: `determine whether action ${next.pendingIntent.actionId} took effect in the external system, then re-run with --resolve-intent ${next.pendingIntent.actionId} --resolution applied|not-applied --evidence <what was found>`,
+        now,
+      });
+      if (!held.ok) return held;
+      if (held.value !== next) {
+        next = held.value;
+        mutated = true;
+      }
+    }
+
+    // (2) LIVE authority recheck — cached observations never outrank current authority.
+    const featureHome = input.featureHome ?? base.authority.featureHome ?? null;
+    if (input.repoRoot && featureHome) {
+      const live = readCurrentAuthority({ repoRoot: input.repoRoot, featureId: base.featureId, featureHome, roots: [input.repoRoot], now });
+      if (live.ok) {
+        if (authoritySignature(live.authority) !== authoritySignature(base.authority)) {
+          next.authority = { ...live.authority, featureHome: base.authority.featureHome };
+          const held = addHold(next, {
+            code: AUTHORITY_CHANGED_HOLD_CODE,
+            reason: `current authority moved since the last reconcile (selectorRevision/PRD/spec signature changed from ${authoritySignature(base.authority)} to ${authoritySignature(live.authority)})`,
+            recoveryAction: 'confirm the new current authority is intended for this binding, then re-run reconcile once stable — the hold clears on the next stable read',
+            now,
+          });
+          if (!held.ok) return held;
+          if (held.value !== next) {
+            next = held.value;
+          }
+          mutated = true;
+          effects.push('authority-refreshed');
+        } else if (next.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
+          const cleared = clearHolds(next, { code: AUTHORITY_CHANGED_HOLD_CODE, now });
+          next = cleared.value;
+          mutated = true;
+          effects.push('authority-stable');
+        }
+      } else {
+        const held = addHold(next, {
+          code: AUTHORITY_UNAVAILABLE_HOLD_CODE,
+          reason: `live authority read failed: ${live.code} — ${live.reason}`,
+          recoveryAction: 'restore the current-decisions selector for this feature (or correct --repo-root/--feature-home) and re-run reconcile',
+          now,
+        });
+        if (!held.ok) return held;
+        if (held.value !== next) {
+          next = held.value;
+          mutated = true;
+        }
+      }
+    }
+
+    // (3) Observation ingestion — recorded as DATA with a disposition; never a control grant.
+    let observationDisposition = null;
+    if (input.observation !== undefined) {
+      const obs = normalizeObservation(input.observation);
+      if (!obs.ok) return obs;
+      observationDisposition = classifyObservation(next, obs.value);
+      if (observationDisposition !== 'duplicate') {
+        next.observations.push({ ...obs.value, receivedAt: now, disposition: observationDisposition });
+        if (next.observations.length > OBSERVATIONS_MAX) next.observations = next.observations.slice(-OBSERVATIONS_MAX);
+        mutated = true;
+      }
+      effects.push(`observation:${observationDisposition}`);
+    }
+
+    // (4) Intent-before-effect — persist the intent BEFORE any effect could be attempted.
+    if (input.requestAction !== undefined) {
+      const action = input.requestAction;
+      if (!ROUTES.includes(action)) return reject('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
+      if (!next.grants.actions.includes(action)) {
+        return reject('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
+      }
+      if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+        return reject('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
+      }
+      const actionId = `act-${sha256Hex(canonicalJson({ action, at: now, fromRevision: next.recordRevision, candidate: next.candidate.revision, custody: next.custodyGeneration })).slice(0, 16)}`;
+      next.pendingIntent = {
+        actionId,
+        action,
+        bound: { candidateRevision: next.candidate.revision, custodyGeneration: next.custodyGeneration, controlRevision: next.controlRevision, recordRevision: next.recordRevision },
+        recordedAt: now,
+        state: 'intent_persisted',
+      };
+      mutated = true;
+      effects.push(`intent-planned:${actionId}`);
+    }
+
+    // (5) Intent resolution — the owned recovery path for an uncertain effect.
+    if (input.resolveIntent !== undefined) {
+      const { actionId, resolution, evidence } = input.resolveIntent;
+      if (!INTENT_RESOLUTIONS.includes(resolution)) return reject('invalid_request', `resolution must be one of ${INTENT_RESOLUTIONS.join('|')}`);
+      if (typeof evidence !== 'string' || evidence.length < 20) return reject('invalid_request', 'resolution evidence must be at least 20 characters describing what was actually found');
+      if (next.pendingIntent === null || next.pendingIntent.state === 'resolved') return reject('intent_missing', 'no unresolved intent to resolve');
+      if (next.pendingIntent.actionId !== actionId) return reject('intent_id_mismatch', `open intent is ${next.pendingIntent.actionId}, got ${actionId}`);
+      next.pendingIntent = { ...next.pendingIntent, state: 'resolved', resolution: `${resolution}: ${evidence}`, resolvedAt: now };
+      const cleared = clearHolds(next, { code: HISTORY_UNCERTAIN_HOLD_CODE, now });
+      next = cleared.value;
+      mutated = true;
+      effects.push(`intent-resolved:${resolution}`);
+    }
+
+    // (6) Delivery receipt — a FACT reference, recorded against the granted destination.
+    if (input.deliveryReceipt !== undefined) {
+      const receipt = input.deliveryReceipt;
+      if (typeof receipt !== 'string' || receipt.length === 0) return reject('invalid_request', 'delivery-receipt must be a non-empty reference');
+      next.delivery = { receipt, destination: next.grants.destination, at: now, actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null };
+      mutated = true;
+      effects.push('delivery-recorded');
+    }
+
+    // (7) Custody transfer — legal only past cessation (acknowledged) or with explicit ack.
+    if (input.transferCustody !== undefined) {
+      const transfer = input.transferCustody;
+      if (typeof transfer.toSession !== 'string' || transfer.toSession.length === 0) return reject('invalid_request', 'transfer-custody requires a non-empty to-session');
+      if (hasLiveWorker(next)) {
+        if (!transfer.acknowledgeCessation) {
+          return reject('custody_transfer_blocked', `worker ${next.worker.sessionId} has not acknowledged cessation — a released lock or expired wait cannot prove external-worker cessation; re-run with acknowledge-cessation to transfer custody explicitly`);
+        }
+        if (['pause-pending', 'cancel-pending'].includes(next.controlState)) {
+          const acked = applyControlTransition(next, { kind: 'ack-cessation', actor: input.actor ?? 'operator:cli', now });
+          if (!acked.ok) return acked;
+          next = acked.value;
+        } else {
+          next.worker.cessationAckedAt = now;
+        }
+      }
+      next.custodyGeneration += 1;
+      next.worker = { sessionId: transfer.toSession, pid: null, startedAt: now, host: null, cessationAckedAt: null };
+      mutated = true;
+      effects.push(`custody-transferred:${next.custodyGeneration}`);
+    }
+
+    // (8) Candidate update — forward-only; stale candidates are rejected, never ingested.
+    if (input.candidate !== undefined) {
+      const candidate = input.candidate;
+      if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0) return reject('invalid_request', 'candidate.revision must be a safe integer >= 0');
+      if (candidate.revision < next.candidate.revision) {
+        return reject('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
+      }
+      if (candidate.revision !== next.candidate.revision) {
+        next.candidate = { revision: candidate.revision, sha256: candidate.sha256 ?? null, ref: candidate.ref ?? null, at: now };
+        mutated = true;
+        effects.push(`candidate-updated:${candidate.revision}`);
+      }
+    }
+
+    // (9) Explicit control transitions (pause/cancel/ack-cessation/complete).
+    if (input.control !== undefined) {
+      const transition = applyControlTransition(next, { kind: input.control.kind, actor: input.actor ?? 'operator:cli', reason: input.control.reason, now });
+      if (!transition.ok) return transition;
+      next = transition.value;
+      mutated = true;
+      effects.push(`control:${input.control.kind}->${next.controlState}`);
+    }
+
+    // (10) Authorized completion — requires a recorded delivery receipt and an active binding.
+    if (input.markComplete) {
+      if (next.delivery === null) return reject('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+      const transition = applyControlTransition(next, { kind: 'complete', actor: input.actor ?? 'operator:cli', reason: 'delivery receipt recorded and control verified', now });
+      if (!transition.ok) return transition;
+      next = transition.value;
+      mutated = true;
+      effects.push('complete');
+    }
+
+    // Persist the single composed update (CAS on the revision this invocation read).
+    if (mutated) {
+      if (input.testCrashAfter === 'prewrite') killSelf();
+      const written = writeRecordAtomic(canonicalPath, next, { lockedTarget: preLockTarget, expectedRevision: base.recordRevision });
+      if (!written.ok) return written;
+      if (input.testCrashAfter === 'commit' || (input.testCrashAfter === 'intent' && input.requestAction !== undefined)) killSelf();
+    }
+
+    // Route — a routing ANSWER, not an action and not an acceptance verdict.
+    let route;
+    let routeReason;
+    if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+      route = 'hold';
+      routeReason = 'intent_outcome_uncertain';
+    } else if (next.controlState !== 'active') {
+      route = 'hold';
+      routeReason = `control_state_${next.controlState}`;
+    } else if (next.holds.some((h) => h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE && h.clearedAt === null)) {
+      route = 'hold';
+      routeReason = 'authority_unavailable';
+    } else if (next.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
+      route = 'hold';
+      routeReason = 'authority_changed_requires_confirmation';
+    } else if (next.aif.taskId === null) {
+      route = 'work';
+      routeReason = 'no task bound; admission is a stage-B operation';
+    } else {
+      const last = [...next.observations].reverse().find((o) => o.taskId === next.aif.taskId);
+      if (!last) {
+        route = 'observe';
+        routeReason = 'task bound; awaiting first observation';
+      } else if (last.kind === 'done' && next.delivery !== null) {
+        route = 'complete';
+        routeReason = 'delivery receipt recorded';
+      } else if (last.kind === 'done') {
+        route = 'review';
+        routeReason = 'worker reported done; review before completion';
+      } else {
+        route = 'hold';
+        routeReason = `worker_report_${last.kind}`;
+      }
+    }
+    return envelope(next, { action: input.markComplete ? 'reconcile:complete' : 'reconcile', route, routeReason, mutated, effects, observationDisposition });
+  });
+}
+
+/**
+ * Inspectable status — read WITHOUT the binding lock (the atomic-rename write protocol
+ * guarantees a complete file) and without any live re-reads: status is the record as
+ * durably known, clearly separated from the live authority reconciliation that `reconcile`
+ * performs. Also computes the route from the durable state so status alone answers
+ * «what would happen next».
+ */
+export function status(recordPath) {
+  if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
+  const read = readRecord(canonicalRecordPath(recordPath));
+  if (!read.ok) return read;
+  const record = read.record;
+  let route = 'hold';
+  let routeReason = 'durable-state-only status; run reconcile for the live-authority route';
+  if (record.pendingIntent !== null && record.pendingIntent.state !== 'resolved') {
+    route = 'hold';
+    routeReason = 'intent_outcome_uncertain';
+  } else if (record.controlState !== 'active') {
+    route = 'hold';
+    routeReason = `control_state_${record.controlState}`;
+  } else if (record.aif.taskId === null) {
+    route = 'work';
+    routeReason = 'no task bound; admission is a stage-B operation';
+  }
+  return { ok: true, record, route, routeReason };
+}
