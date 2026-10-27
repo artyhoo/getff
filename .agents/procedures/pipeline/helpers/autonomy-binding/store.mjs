@@ -22,10 +22,13 @@
  * yield one lock name and one write target; a symlinked ancestor pointing OUTSIDE the
  * owned stage fails containment before any write.
  *
- * CAS: `writeRecordAtomic` refuses to overwrite an on-disk `recordRevision` other than
- * the expected one (`record_revision_conflict`). All legitimated writers hold the bind
- * lock, so this is defense-in-depth against a writer that bypassed the lock — it turns a
- * silent lost-update into a loud hold.
+ * Revision check: `writeRecordAtomic` refuses to overwrite an on-disk `recordRevision`
+ * other than the expected one (`record_revision_conflict`). The read/check/rename
+ * sequence is NOT an atomic unlocked CAS — nothing here serializes a writer that does
+ * not hold the lock. What actually serializes cooperative writers is the kernel-held
+ * bind lock; the revision check catches the tested stale/sequential cases (a caller
+ * deciding from an out-of-date read, an idempotent re-bind) and turns them into loud
+ * rejections instead of silent lost updates.
  *
  * Symlink-chain resolution mirrors current-decisions.mjs `resolveWriteTarget` (≤8 hops,
  * fail closed on a deeper chain or an unreadable link). That helper is module-private to
@@ -181,9 +184,12 @@ function recordBytes(record) {
 }
 
 /**
- * Atomic compare-and-swap write. `expectedRevision` is the on-disk recordRevision the
+ * Revision-checked atomic-place write. `expectedRevision` is the on-disk recordRevision the
  * caller decided from: 0 = the record must NOT exist yet (initial bind), otherwise the
- * on-disk record must carry exactly that revision. `lockedTarget` is the CANONICAL
+ * on-disk record must carry exactly that revision. This is not an atomic unlocked CAS —
+ * the read/check/rename sequence serializes only writers that hold the bind lock for
+ * `lockedTarget` (see the module header); the revision check is the stale-read detector,
+ * not a concurrency primitive. `lockedTarget` is the CANONICAL
  * resolution the lock was taken against — the canonical resolution is recomputed HERE,
  * inside the transaction and immediately before the rename (write-boundary revalidation,
  * A1-CODE-01); the rename lands only if the path still canonicalizes to the locked target.

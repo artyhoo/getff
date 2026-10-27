@@ -3,8 +3,9 @@
  *
  * Every state mutation runs under the OS-held bind lock, reads the record through the
  * store's validating reader, applies PURE record transitions, re-reads the LIVE authority,
- * and persists through the CAS atomic writer. One reconcile invocation = at most ONE
- * durable update (all inputs compose in memory, one write).
+ * and persists through the revision-checked atomic writer (the kernel lock serializes
+ * cooperative writers; the store's revision check catches stale reads). One reconcile
+ * invocation = at most ONE durable update (all inputs compose in memory, one write).
  *
  * Stage boundary (design L137 + plan §2): observe/work/review ROUTING and control live
  * here; anything that would ACT on an external system — dispatching a worker, publishing a
@@ -55,9 +56,15 @@ const HISTORY_UNCERTAIN_HOLD_CODE = 'uncertain_owner';
 const AUTHORITY_CHANGED_HOLD_CODE = 'authority_changed';
 const AUTHORITY_UNAVAILABLE_HOLD_CODE = 'authority_unavailable';
 const AUTHORITY_IDENTITY_HOLD_CODE = 'authority_identity_mismatch';
-/** Every hold code that gates admission, completion and routing (A1-CODE-05 adds identity). */
-const AUTHORITY_HOLD_CODES = [AUTHORITY_CHANGED_HOLD_CODE, AUTHORITY_UNAVAILABLE_HOLD_CODE, AUTHORITY_IDENTITY_HOLD_CODE];
+/** R2-03: an explicit feature-home override that does not resolve to the binding's
+ * selected physical home — a copied selector elsewhere in the same repository never
+ * replaces the selected current source. */
+const AUTHORITY_HOME_HOLD_CODE = 'authority_home_mismatch';
+/** Every hold code that gates admission, completion and routing (A1-CODE-05 adds identity; R2-03 adds the selected-home pin). */
+const AUTHORITY_HOLD_CODES = [AUTHORITY_CHANGED_HOLD_CODE, AUTHORITY_UNAVAILABLE_HOLD_CODE, AUTHORITY_IDENTITY_HOLD_CODE, AUTHORITY_HOME_HOLD_CODE];
 const OBSERVATIONS_MAX = 100;
+/** Bounded superseded-delivery history (R2-05) — mirrors record.mjs DELIVERY_HISTORY_MAX. */
+const DELIVERY_HISTORY_MAX = 20;
 
 function reject(code, reason) {
   return { ok: false, code, reason };
@@ -69,14 +76,16 @@ function openHolds(record) {
 
 /**
  * The ONE authority-hold gate predicate, shared by admission, completion and routing
- * (A1-CODE-05 adds the identity code to what used to be a changed/unavailable pair).
- * Precedence is fixed (unavailable > changed > identity) so the reported reason is
- * deterministic regardless of holds-array order. Returns null when no authority hold is
- * open.
+ * (A1-CODE-05 adds the identity code to what used to be a changed/unavailable pair; R2-03
+ * adds the selected-home pin).
+ * Precedence is fixed (unavailable > home-mismatch > changed > identity) so the reported
+ * reason is deterministic regardless of holds-array order. Returns null when no authority
+ * hold is open.
  */
 function openAuthorityHold(record) {
   const open = openHolds(record).map((h) => h.code);
   if (open.includes(AUTHORITY_UNAVAILABLE_HOLD_CODE)) return { code: AUTHORITY_UNAVAILABLE_HOLD_CODE, routeReason: 'authority_unavailable' };
+  if (open.includes(AUTHORITY_HOME_HOLD_CODE)) return { code: AUTHORITY_HOME_HOLD_CODE, routeReason: 'authority_home_mismatch' };
   if (open.includes(AUTHORITY_CHANGED_HOLD_CODE)) return { code: AUTHORITY_CHANGED_HOLD_CODE, routeReason: 'authority_changed_requires_confirmation' };
   if (open.includes(AUTHORITY_IDENTITY_HOLD_CODE)) return { code: AUTHORITY_IDENTITY_HOLD_CODE, routeReason: 'authority_identity_mismatch' };
   return null;
@@ -152,7 +161,7 @@ export async function initBinding(input) {
     return reject('invalid_request', `actions must be a non-empty subset of ${ROUTES.join('|')}`);
   }
   const canonicalPath = canonicalRecordPath(recordPath);
-  // Resolve the write target BEFORE taking the lock — the CAS write is then bound to the
+  // Resolve the write target BEFORE taking the lock — the atomic write is then bound to the
   // resolution the lock was taken against (TOCTOU: a mid-transaction retarget fails closed).
   const preLockTarget = resolveRecordTarget(canonicalPath);
   if (preLockTarget === null) {
@@ -229,6 +238,19 @@ function normalizeObservation(observation) {
 /**
  * Disposition of an incoming observation against current custody/control/candidate.
  *
+ * Provenance applicability (R2-01): a report MAY bind `custodyGeneration` /
+ * `candidateRevision`. A provided value must match the record's current value exactly —
+ * a value BELOW current is historical (a superseded worker / a superseded candidate), a
+ * value ABOVE current claims a custody generation or candidate revision this record has
+ * never reached, and a MALFORMED value (anything but a safe non-negative integer) is not
+ * applicability at all. Future and malformed values are QUARANTINED under
+ * `provenance-unestablished` (bounded-history audit data, never routed) rather than
+ * silently accepted as current. Missing provenance is NOT reinterpreted as current on
+ * every read: reconcile stamps the ingestion-time custody/candidate onto the stored entry
+ * (`applicableCustody` / `applicableCandidate`), so a no-provenance report stays
+ * route-eligible only while the record still sits at the custody generation and candidate
+ * it was reported under — an advance retires it (see observationRouteEligible).
+ *
  * Dedup is identity + FACTS (A1 coverage finding): an observationId is only idempotent
  * when the fact content matches the retained entry. The same id with CONFLICTING content
  * is a provenance conflict, not an ack — it is recorded under its own `duplicate-conflict`
@@ -252,6 +274,17 @@ function classifyObservation(next, obs) {
       return 'duplicate-conflict'; // same identity, different facts — audit data, never routed
     }
   }
+  // R2-01 provenance gates run BEFORE the control-context dispositions: applicability is
+  // a data-integrity fact about the report itself, and every disposition it can displace
+  // is equally unroutable.
+  const custodyMalformed = obs.custodyGeneration !== null && (!Number.isSafeInteger(obs.custodyGeneration) || obs.custodyGeneration < 0);
+  const candidateMalformed = obs.candidateRevision !== null && (!Number.isSafeInteger(obs.candidateRevision) || obs.candidateRevision < 0);
+  if (custodyMalformed || candidateMalformed) {
+    return 'provenance-unestablished'; // malformed provenance — quarantined, never routed
+  }
+  if (obs.custodyGeneration !== null && obs.custodyGeneration > next.custodyGeneration) {
+    return 'provenance-unestablished'; // future custody generation — quarantined, never routed
+  }
   if (obs.custodyGeneration !== null && obs.custodyGeneration < next.custodyGeneration) {
     return 'historical-stale-custody'; // a superseded worker reporting late — identity stale
   }
@@ -264,6 +297,9 @@ function classifyObservation(next, obs) {
   if (['paused', 'pause-pending'].includes(next.controlState)) {
     return 'historical-after-pause'; // late result cannot clear an explicit pause
   }
+  if (obs.candidateRevision !== null && obs.candidateRevision > next.candidate.revision) {
+    return 'provenance-unestablished'; // future candidate revision — quarantined, never routed
+  }
   if (obs.candidateRevision !== null && obs.candidateRevision < next.candidate.revision) {
     return 'historical-stale-candidate'; // report bound to a superseded candidate
   }
@@ -271,21 +307,22 @@ function classifyObservation(next, obs) {
 }
 
 /**
- * Route eligibility (A1-CODE-02): an observation drives routing only while it is eligible
- * for the record's CURRENT custody and candidate. A non-`consumed` disposition is audit
- * data (historical-stale-*, duplicate-conflict), never routing evidence; a report bound to
- * a superseded custody generation or candidate revision is exactly the late `done` that
- * must not advance routing for the CURRENT worker/candidate. Absent provenance (null) is
- * treated as CURRENT — the common case is the live worker reporting without provenance
- * flags, and ingest-time classification already stamps what CAN be proven stale. Because
- * eligibility is evaluated against the live record on every route computation, a
- * candidate/custody change retroactively disqualifies older reports (no re-evaluation
- * pass is needed).
+ * Route eligibility (A1-CODE-02, applicability reworked R2-01): an observation drives
+ * routing only while it is eligible for the record's CURRENT custody and candidate. A
+ * non-`consumed` disposition is audit data (historical-*, provenance-unestablished,
+ * duplicate-conflict), never routing evidence. Eligibility is judged against the
+ * INGESTION-TIME applicability stamped on the entry (`applicableCustody` /
+ * `applicableCandidate` — the reported provenance when the worker bound it, else the
+ * record's custody/candidate at ingestion): once custody advances or the candidate moves,
+ * the entry is exactly the historical/unknown report that must not route review or
+ * completion for the SUCCESSOR worker/candidate. An entry without stamped applicability
+ * (a pre-R2 record) is unestablished and never routes — missing provenance is never
+ * reinterpreted as current on read.
  */
 function observationRouteEligible(obs, record) {
   if (obs.disposition !== undefined && obs.disposition !== 'consumed') return false;
-  if (obs.custodyGeneration !== null && obs.custodyGeneration < record.custodyGeneration) return false;
-  if (obs.candidateRevision !== null && obs.candidateRevision < record.candidate.revision) return false;
+  if (obs.applicableCustody === undefined || obs.applicableCustody !== record.custodyGeneration) return false;
+  if (obs.applicableCandidate === undefined || obs.applicableCandidate !== record.candidate.revision) return false;
   return true;
 }
 
@@ -325,7 +362,9 @@ function routeFromRecord(record) {
         : 'task bound; awaiting first observation',
     };
   }
-  if (last.kind === 'done' && record.delivery !== null) {
+  if (last.kind === 'done' && record.delivery !== null && record.delivery.candidateRevision === record.candidate.revision) {
+    // R2-05: the delivery must be current for THIS candidate — a receipt bound to a
+    // superseded candidate is retained history, not current acceptance authority.
     return { route: 'complete', routeReason: 'delivery receipt recorded' };
   }
   if (last.kind === 'done') {
@@ -345,11 +384,21 @@ export async function reconcile(input) {
   const { recordPath, now } = input;
   if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
   if (!isIso(now)) return reject('invalid_request', 'now must be an ISO-8601 UTC timestamp string');
+  // R2-04: generic production resume is UNCONDITIONALLY held — detected BEFORE the
+  // platform gate, the bind lock, the record read, observation ingestion and every action
+  // path. `control.kind === 'resume'` composed with otherwise-valid facts (request-action,
+  // observation, receipt, candidate, custody transfer) must not persist accumulated state
+  // and then reject late: this early return carries no durable write and no admission, so
+  // a rejected composite resume leaves the record's bytes, control state and custody
+  // generation exactly as they were (asserted byte-for-byte in the suite).
+  if (input.control !== undefined && input.control !== null && input.control.kind === 'resume') {
+    return productionResumeHold();
+  }
   // Same TEST-ONLY platform seam as initBinding (HOST-01) — see the comment there.
   const supported = platformSupportsAbstractBindLock(input._testPlatform);
   if (!supported.ok) return supported;
   const canonicalPath = canonicalRecordPath(recordPath);
-  // Capture the write target BEFORE the lock — the CAS write is bound to the resolution
+  // Capture the write target BEFORE the lock — the atomic write is bound to the resolution
   // the lock was taken against; a mid-transaction retarget fails closed in the store.
   const preLockTarget = resolveRecordTarget(canonicalPath);
   if (preLockTarget === null) {
@@ -387,7 +436,38 @@ export async function reconcile(input) {
 
     // (2) LIVE authority recheck — cached observations never outrank current authority.
     const featureHome = input.featureHome ?? base.authority.featureHome ?? null;
-    if (input.repoRoot && featureHome) {
+    // R2-03: pin the binding's independently selected authority home. Matching
+    // common-directory repository identity is necessary but NOT sufficient — a COPY of an
+    // old selector in another directory of the SAME repository must not replace a missing
+    // or advanced selected source and admit work. An explicit feature-home override is
+    // admitted only when it resolves to the SAME physical home the binding selected at
+    // init: canonical aliases (a symlink to the bound home) pass because both sides run
+    // through `canonicalRecordPath`; a copied directory fails and opens a hold pending the
+    // authorized relocation flow (none exists in A1 — no issuer/service/registry is
+    // introduced here). Sibling worktrees are unaffected: the identity gate below keys on
+    // the shared git dir, and a worktree reconcile keeps using the bound home.
+    let homeOverrideRejected = false;
+    if (input.featureHome !== undefined && input.featureHome !== null && base.authority.featureHome !== null) {
+      const suppliedHome = canonicalRecordPath(resolve(input.featureHome));
+      const boundHome = canonicalRecordPath(base.authority.featureHome);
+      if (suppliedHome === null || boundHome === null || suppliedHome !== boundHome) {
+        const held = addHold(next, {
+          code: AUTHORITY_HOME_HOLD_CODE,
+          reason: `feature home ${input.featureHome} resolves to ${suppliedHome ?? '(unresolvable)'} but this binding's selected authority home is ${base.authority.featureHome} — a copied selector in another directory of the same repository cannot replace the selected current source`,
+          recoveryAction: `re-run reconcile against the binding's selected authority home (${base.authority.featureHome}) or a canonical alias of it; relocating the selector home is an authorized stage-B+ flow, not an override`,
+          now,
+        });
+        if (!held.ok) return held;
+        if (held.value !== next) {
+          next = held.value;
+          mutated = true;
+        }
+        authorityHoldTouched = true;
+        homeOverrideRejected = true;
+        effects.push('authority-home-mismatch');
+      }
+    }
+    if (!homeOverrideRejected && input.repoRoot && featureHome) {
       const live = readCurrentAuthority({ repoRoot: input.repoRoot, featureId: base.featureId, featureHome, roots: [input.repoRoot], now });
       if (live.ok) {
         if (live.authority.repoIdentity !== base.repoIdentity) {
@@ -428,17 +508,20 @@ export async function reconcile(input) {
         } else if (next.holds.some((h) => AUTHORITY_HOLD_CODES.includes(h.code) && h.clearedAt === null)) {
           // Stable same-repository read after ANY authority hold: all authority hold
           // codes clear — `authority_unavailable` promises recovery in its own
-          // recoveryAction («restore the selector … and re-run reconcile») and the
-          // identity hold promises the same for a same-repository read, so a failed or
-          // foreign read can never be a permanent admission gate. Recovery and refresh
-          // are hold-state transitions either way: admission waits for the NEXT
-          // reconcile.
+          // recoveryAction («restore the selector … and re-run reconcile»), the identity
+          // hold promises the same for a same-repository read, and the R2-03 home hold
+          // clears when the reconcile stops overriding the selected home (this arm only
+          // runs on a non-rejected home), so a failed, foreign or mis-homed read can
+          // never be a permanent admission gate. Recovery and refresh are hold-state
+          // transitions either way: admission waits for the NEXT reconcile.
           const clearedIdentity = clearHolds(next, { code: AUTHORITY_IDENTITY_HOLD_CODE, now });
           next = clearedIdentity.value;
           const clearedChanged = clearHolds(next, { code: AUTHORITY_CHANGED_HOLD_CODE, now });
           next = clearedChanged.value;
           const clearedUnavailable = clearHolds(next, { code: AUTHORITY_UNAVAILABLE_HOLD_CODE, now });
           next = clearedUnavailable.value;
+          const clearedHome = clearHolds(next, { code: AUTHORITY_HOME_HOLD_CODE, now });
+          next = clearedHome.value;
           mutated = true;
           authorityHoldTouched = true;
           effects.push('authority-stable');
@@ -466,7 +549,29 @@ export async function reconcile(input) {
       if (!obs.ok) return obs;
       observationDisposition = classifyObservation(next, obs.value);
       if (observationDisposition !== 'duplicate') {
-        next.observations.push({ ...obs.value, receivedAt: now, disposition: observationDisposition });
+        // R2-01: FREEZE applicability at ingestion. A report that bound its provenance
+        // keeps it; a report without provenance is stamped with the record's custody
+        // generation and candidate revision AS THEY WERE AT INGESTION — never re-read as
+        // «current» on every route computation. The stored entry therefore stays
+        // route-eligible exactly while the record still sits at the custody/candidate it
+        // was reported under, and any advance retires it. A MALFORMED reported value
+        // (quarantined above) falls back to the record's current values: the entry must
+        // stay schema-valid on disk, and its `provenance-unestablished` disposition —
+        // not the stamp — is what keeps it unroutable. Dedup still compares the REPORTED
+        // fields (null stays null), so idempotent re-reports keep matching.
+        const stampCustody = Number.isSafeInteger(obs.value.custodyGeneration) && obs.value.custodyGeneration >= 0
+          ? obs.value.custodyGeneration
+          : next.custodyGeneration;
+        const stampCandidate = Number.isSafeInteger(obs.value.candidateRevision) && obs.value.candidateRevision >= 0
+          ? obs.value.candidateRevision
+          : next.candidate.revision;
+        next.observations.push({
+          ...obs.value,
+          applicableCustody: stampCustody,
+          applicableCandidate: stampCandidate,
+          receivedAt: now,
+          disposition: observationDisposition,
+        });
         if (next.observations.length > OBSERVATIONS_MAX) next.observations = next.observations.slice(-OBSERVATIONS_MAX);
         mutated = true;
       }
@@ -562,24 +667,47 @@ export async function reconcile(input) {
       effects.push(`intent-resolved:${resolution}`);
     }
 
-    // (6) Delivery receipt — a FACT reference, recorded against the granted destination.
-    // Duplicate deliveries are rejected, not re-recorded (plan step 4: «Reject … duplicate
-    // deliveries»): an IDENTICAL receipt is an idempotent re-ack with no durable mutation;
-    // a DIFFERENT receipt while one is already recorded is a conflict — two deliveries
-    // against one granted destination is exactly the double-delivery the contract forbids.
+    // (6) Delivery receipt — a FACT reference, recorded against the granted destination and
+    // BOUND TO THE CURRENT CANDIDATE (R2-05): the recorded receipt is acceptance authority
+    // only for the candidate it was recorded against. Duplicate handling is
+    // candidate-aware: an IDENTICAL receipt for the CURRENT candidate is an idempotent
+    // re-ack with no durable mutation; an IDENTICAL receipt whose recorded binding is
+    // superseded is a `delivery-superseded-ack` — the recorded fact is retained, not
+    // re-bound; a DIFFERENT receipt while one is recorded for the CURRENT candidate is a
+    // conflict (two deliveries for the same candidate is exactly the double-delivery the
+    // contract forbids); and a different receipt after the candidate ADVANCED is the new
+    // candidate's own delivery — the superseded receipt moves to `deliveryHistory`
+    // (bounded, retained as history, never current acceptance authority).
     if (input.deliveryReceipt !== undefined) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
-      if (next.delivery !== null) {
+      const recordDelivery = (r) => {
+        next.delivery = {
+          receipt: r,
+          destination: next.grants.destination,
+          at: now,
+          actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null,
+          candidateRevision: next.candidate.revision,
+        };
+        mutated = true;
+        effects.push('delivery-recorded');
+      };
+      if (next.delivery !== null && next.delivery.candidateRevision === next.candidate.revision) {
         if (next.delivery.receipt === receipt) {
           effects.push('delivery-duplicate-ack');
         } else {
-          return rejectAfterPersist('delivery_conflict', `a delivery receipt is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
+          return rejectAfterPersist('delivery_conflict', `a delivery receipt for candidate ${next.candidate.revision} is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
         }
+      } else if (next.delivery !== null && next.delivery.receipt === receipt) {
+        effects.push('delivery-superseded-ack'); // same reference, older candidate — the retained fact is not re-bound to the new candidate
+      } else if (next.delivery !== null) {
+        const superseded = next.delivery;
+        next.deliveryHistory.push(superseded);
+        if (next.deliveryHistory.length > DELIVERY_HISTORY_MAX) next.deliveryHistory = next.deliveryHistory.slice(-DELIVERY_HISTORY_MAX);
+        effects.push(`delivery-superseded:${superseded.candidateRevision}`);
+        recordDelivery(receipt);
       } else {
-        next.delivery = { receipt, destination: next.grants.destination, at: now, actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null };
-        mutated = true;
-        effects.push('delivery-recorded');
+        recordDelivery(receipt);
       }
     }
 
@@ -605,18 +733,32 @@ export async function reconcile(input) {
           // pause-pending/cancel-pending precondition above unless validation fails.
           if (!acked.ok) return rejectAfterPersist(acked.code, acked.reason);
           next = acked.value;
+          // The ack moved the record — the FACT is durable even when the transfer itself
+          // is refused by the gates below (R2-02).
+          mutated = true;
           // A1-CODE-03: transfer eligibility is evaluated AFTER every control transition,
           // not only before it. The ack-cessation on cancel-pending just moved the record
           // to `cancelled` — terminal — so the cessation FACT is persisted with this
           // composed pass, but no successor worker may be registered on a closed binding.
-          // The pause-pending arm completes to non-terminal `paused` and transfers below.
           if (TERMINAL_STATES.includes(next.controlState)) {
-            mutated = true;
             return rejectAfterPersist('custody_transfer_terminal', `the cessation acknowledgement completed the ${next.controlState} transition — the ack fact is persisted, but custody cannot be transferred onto a terminal binding, so no successor worker was registered`);
           }
+          // R2-02: the pause-pending arm completes to non-terminal `paused` and STOPS
+          // there — the acknowledged pause is a fact about the OLD worker, but a paused
+          // record admits no successor (the gate below), so no custody advance and no new
+          // worker identity may ride on the ack.
         } else {
           next.worker.cessationAckedAt = now;
         }
+      }
+      // R2-02: a successor worker may be registered ONLY on an admitting record. A paused
+      // (or pause-pending) binding must not gain a new worker identity or advance custody
+      // — pause blocks successor admission exactly as it blocks new actions, including the
+      // already-paused-without-worker case where no ack arm ran. When the ack above did
+      // move the record, the refusal persists that fact; when nothing moved, the record's
+      // durable bytes are untouched.
+      if (!ADMITTING_STATES.includes(next.controlState)) {
+        return rejectAfterPersist('custody_transfer_blocked', `control state ${next.controlState} does not admit a successor worker — the previous worker's cessation acknowledgement is persisted as a fact, but custody cannot advance onto a non-admitting binding; lift the pause through its own boundary before transferring custody`);
       }
       next.custodyGeneration += 1;
       next.worker = { sessionId: transfer.toSession, pid: null, startedAt: now, host: null, cessationAckedAt: null };
@@ -679,14 +821,23 @@ export async function reconcile(input) {
       return null;
     };
 
+    // R2-05: BOTH completion doors require a delivery receipt bound to the CURRENT
+    // candidate. A receipt recorded against a candidate that has since advanced is
+    // retained history — never current acceptance authority — so candidate 1's receipt
+    // cannot terminally close candidate 2 without candidate 2's own delivery.
+    const deliveryCurrentForCandidate = (record) => record.delivery !== null && record.delivery.candidateRevision === record.candidate.revision;
+    const deliveryCurrentReason = (record) => record.delivery === null
+      ? 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect'
+      : `the recorded delivery receipt (${record.delivery.receipt}) is bound to candidate ${record.delivery.candidateRevision}, but the current candidate is ${record.candidate.revision} — a superseded delivery is history, not current acceptance authority; record the current candidate's delivery`;
+
     // (9) Explicit control transitions (pause/cancel/ack-cessation/complete).
     if (input.control !== undefined) {
       // The delivery-receipt precondition is the SAME on both doors that can reach a
       // complete transition (this library surface and markComplete below) — the row-9
-      // invariant («completion requires a recorded delivery receipt») is not door-specific.
+      // invariant («completion requires a CURRENT delivery receipt») is not door-specific.
       if (input.control.kind === 'complete') {
-        if (next.delivery === null) {
-          return rejectAfterPersist('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+        if (!deliveryCurrentForCandidate(next)) {
+          return rejectAfterPersist('complete_requires_delivery_receipt', deliveryCurrentReason(next));
         }
         const gated = completionGate();
         if (gated) return gated;
@@ -700,9 +851,9 @@ export async function reconcile(input) {
       effects.push(`control:${input.control.kind}->${next.controlState}`);
     }
 
-    // (10) Authorized completion — requires a recorded delivery receipt and an active binding.
+    // (10) Authorized completion — requires a CURRENT delivery receipt and an active binding.
     if (input.markComplete) {
-      if (next.delivery === null) return rejectAfterPersist('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+      if (!deliveryCurrentForCandidate(next)) return rejectAfterPersist('complete_requires_delivery_receipt', deliveryCurrentReason(next));
       const gated = completionGate();
       if (gated) return gated;
       const denied = completionAdmission();
@@ -714,14 +865,14 @@ export async function reconcile(input) {
       effects.push('complete');
     }
 
-    // Persist the single composed update (CAS on the revision this invocation read).
+    // Persist the single composed update (revision check against what this invocation read).
     if (mutated) {
       // Monotonicity floor: recordRevision is the identity of the durable state, so two
       // distinct contents must never share one revision. The transition helpers
       // (applyControlTransition, addHold, clearHolds) bump internally; the steps that
       // mutate in place (observation ingestion, intent persist/resolve, delivery
       // receipt, custody transfer, candidate update) get the bump here — exactly one
-      // advance per durable write, which is what the CAS `expectedRevision` premise and
+      // advance per durable write, which is what the store's `expectedRevision` check and
       // the «revisions monotonic» acceptance require.
       if (next.recordRevision === base.recordRevision) next.recordRevision += 1;
       next.updatedAt = now;

@@ -7,8 +7,8 @@
  * stage-artifact root INSIDE the repo). Every subprocess is the REAL one-shot CLI
  * (autonomy-binding.mjs) driven through spawnSync/spawn — no in-process shortcuts on the
  * production paths — except the rows that are explicitly library-level unit arms (rows 8
- * custody, 14 CAS, 15, 16 alias residual, 18, 19 pure battery), which call the modules a
- * library consumer would call and are labelled as such inline.
+ * custody, 14 store revision checks, 15, 16 alias residual, 18, 19 pure battery), which
+ * call the modules a library consumer would call and are labelled as such inline.
  *
  * Kickoff code names vs enforced codes (pinned here so the mapping is auditable):
  *   observation_deadline_not_worker_failure (row 5) → route hold `worker_report_timeout`
@@ -283,7 +283,7 @@ describe('row 1 — init + valid reconcile', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('re-init on a bound record fails closed (CAS must-not-exist arm)', async () => {
+  ltest('re-init on a bound record fails closed (revision must-not-exist arm)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const res = runCli(initArgs(t));
@@ -434,7 +434,7 @@ describe('row 3 — concurrent transitions across real processes', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('CAS backstop (library arm): two writers against one revision → record_revision_conflict', async () => {
+  ltest('revision-check backstop (library arm): two writers against one revision → record_revision_conflict', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const read = readRecord(canonicalRecordPath(t.recordPath));
@@ -716,7 +716,7 @@ describe('row 9 — control gate: worker output carries no control authority', (
     const st = runCli(['status', '--record', t.recordPath]);
     const stored = st.json.record.observations.find((o) => o.observationId === 'sneaky-1');
     assert.ok(stored);
-    assert.deepEqual(Object.keys(stored).sort(), ['candidateRevision', 'custodyGeneration', 'disposition', 'kind', 'observationId', 'reason', 'receivedAt', 'resultRef', 'status', 'taskId'], 'only whitelisted fields are stored — injected control/grant fields vanish');
+    assert.deepEqual(Object.keys(stored).sort(), ['applicableCandidate', 'applicableCustody', 'candidateRevision', 'custodyGeneration', 'disposition', 'kind', 'observationId', 'reason', 'receivedAt', 'resultRef', 'status', 'taskId'], 'only whitelisted fields are stored — injected control/grant fields vanish (applicableCustody/applicableCandidate are the engine-stamped R2-01 ingestion-time applicability)');
     assert.equal(stored.command, undefined);
     assert.equal(stored.grant, undefined);
     assert.equal(st.json.record.controlState, 'active', 'the payload changed no control state');
@@ -951,7 +951,7 @@ describe('row 15 — validation unit arms', () => {
     assert.equal(validateRecord(badVersion).code, 'record_version_unsupported');
   });
 
-  ltest('store arms: unreadable/invalid records fail closed; TOCTOU retarget and CAS mismatches reject', async () => {
+  ltest('store arms: unreadable/invalid records fail closed; TOCTOU retarget and revision-check mismatches reject', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     writeFileSync(join(t.stageRoot, 'garbage.json'), 'not json at all');
@@ -976,7 +976,7 @@ describe('row 15 — validation unit arms', () => {
     assert.equal(retargeted.ok, false);
     assert.equal(retargeted.code, 'record_path_retargeted');
 
-    // CAS mismatch on the canonical path.
+    // Revision-check mismatch on the canonical path.
     const stale = writeRecordAtomic(canonicalRecordPath(t.recordPath), record.record, { lockedTarget: canonicalRecordPath(t.recordPath), expectedRevision: record.record.recordRevision + 5 });
     assert.equal(stale.ok, false);
     assert.equal(stale.code, 'record_revision_conflict');
@@ -1193,6 +1193,14 @@ describe('row 17 — release/reacquire interleaving', () => {
 
 // ===========================================================================
 // Row 18 — platform fail-closed + non-EADDRINUSE bind failure at the strategy layer.
+// The platform-gate arm runs on EVERY host (it asserts the real gate refuses). The two
+// injected-strategy arms are Linux-classified (R2-06): they drive the Linux abstract-bind
+// retry/surfacing STRATEGY through the `_bindAttempt` seam, and on a non-Linux host the
+// real platform gate refuses before the seam is ever reached — so running them there
+// would report Linux strategy coverage that did not happen. They are ltest-declared:
+// skipped (never passed) off Linux, fully live on Linux. The non-Linux unsupported
+// behavior itself is covered host-honestly by the arm above plus the HOST-01 real-CLI
+// arms, which run on the actual host.
 // ===========================================================================
 describe('row 18 — fail-closed platform and bind-strategy arms (unit, no CLI seam)', () => {
   test('non-Linux platform → unsupported_pending_prerequisite before any attempt', async () => {
@@ -1209,7 +1217,7 @@ describe('row 18 — fail-closed platform and bind-strategy arms (unit, no CLI s
     assert.equal(platformSupportsAbstractBindLock('linux').ok, true);
   });
 
-  test('injected non-EADDRINUSE bind failure surfaces verbatim, single attempt, fail-closed', async () => {
+  ltest('injected non-EADDRINUSE bind failure surfaces verbatim, single attempt, fail-closed', async () => {
     let attempts = 0;
     const result = await acquireBindLock({
       recordPath: '/tmp/whatever/binding.json',
@@ -1226,7 +1234,7 @@ describe('row 18 — fail-closed platform and bind-strategy arms (unit, no CLI s
     assert.equal(attempts, 1, 'non-EADDRINUSE failures are surfaced, never retried through destruction');
   });
 
-  test('injected contention exhausts the bounded budget and reports lock_contended (retry arithmetic)', async () => {
+  ltest('injected contention exhausts the bounded budget and reports lock_contended (retry arithmetic)', async () => {
     let attempts = 0;
     const budgetMs = 120;
     const delayMs = 40;
@@ -1344,13 +1352,24 @@ describe('row 19 — resume authority battery', () => {
       assert.equal(reserved.code, 'unsupported_pending_prerequisite');
       assert.match(reserved.reason, new RegExp(`^${verb} operations are a stage-B prerequisite`));
     }
-    // And the engine's reconcile surface has no resume kind: a bound record given a
-    // `resume` control kind rejects it at the transition table, not at the CLI.
+    // And the engine's reconcile surface holds resume too (R2-04): `control.kind =
+    // 'resume'` is detected BEFORE the lock/read/ingestion/action paths and returns the
+    // SAME unconditional hold the CLI returns — the record's durable bytes are untouched,
+    // even though this composed request also carried an admission request that would
+    // otherwise have persisted an intent.
     const t = makeFixture(null);
     runCli(initArgs(t));
-    const bad = await reconcile({ ...reconcileInput(t), control: { kind: 'resume', actor: 'op' } });
+    const beforeSha = fileSha(t.recordPath);
+    const before = runCli(['status', '--record', t.recordPath]).json.record;
+    const bad = await reconcile({ ...reconcileInput(t), requestAction: 'work', control: { kind: 'resume', actor: 'op' } });
     assert.equal(bad.ok, false);
-    assert.equal(bad.code, 'invalid_transition_kind');
+    assert.equal(bad.code, 'unsupported_pending_prerequisite', 'the engine holds composed resume early, exactly like the CLI');
+    assert.equal(fileSha(t.recordPath), beforeSha, 'no durable write rode on the composed resume');
+    const after = runCli(['status', '--record', t.recordPath]).json.record;
+    assert.equal(after.controlState, before.controlState);
+    assert.equal(after.custodyGeneration, before.custodyGeneration);
+    assert.equal(after.recordRevision, before.recordRevision, 'zero durable writes through the composed resume');
+    assert.equal(after.pendingIntent, null, 'no intent was persisted behind the resume');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -1776,23 +1795,13 @@ describe('cold-review regression arms (r6 fixes)', () => {
 });
 
 // ===========================================================================
-// Run aftermath — MUST stay the LAST top-level declaration in this file: root
-// children execute in declaration order, so this runs after every row above.
-// A top-level after() cannot carry this cleanup (see the note near the recorder:
-// node --test silently skips it on this Node version) — a test always runs.
-// ===========================================================================
-test('aftermath — recorder closed, zero outbound TCP connections AND zero HTTP requests across the whole run', async () => {
-  recorder.close();
-  await once(recorder, 'close');
-  assert.equal(recorderConnections, 0, `prohibited-effect violation: ${recorderConnections} outbound TCP connection attempt(s) reached the recorder — A1 never dials model/PR/delivery endpoints (A1 review: a request-only counter misses a connection that never completes a request)`);
-  assert.equal(recorderHits, 0, `prohibited-effect violation: ${recorderHits} outbound HTTP request(s) reached the recorder — A1 never calls model/PR/delivery endpoints`);
-});
-
-// ===========================================================================
 // A1 acceptance rework — regression arms for the six material findings (CODE-01..06),
 // the CLI boundary tightening, and the HOST-01 platform contract. CODE-01's alias arms
 // live in row 16 (they belong with the other lock-contention arms); everything else in
-// the rework scope is collected here, labelled by finding ID.
+// the rework scope is collected here, labelled by finding ID. (The run-aftermath test
+// that closes the recorder lives AFTER this describe and the batch-2 describe below —
+// it must stay the LAST top-level test declaration so the endpoint is live for the
+// whole claimed run.)
 // ===========================================================================
 describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
   ltest('A1-CODE-02: a stale-custody done never advances routing for the current worker (reconcile AND status)', async (t) => {
@@ -1837,14 +1846,27 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-02: absent provenance is explicitly CURRENT, not stale', async (t) => {
+  ltest('A1-CODE-02/R2-01: absent provenance is FROZEN at ingestion — current until an advance retires it (reconcile AND status)', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--observation', obs('no-provenance', 'done')])).status, 0);
     const st = runCli(['status', '--record', fx.recordPath]);
-    assert.equal(st.json.route, 'review', 'a report with no custody/candidate provenance is eligible by default (null = current)');
+    assert.equal(st.json.route, 'review', 'a no-provenance report is stamped with the ingestion-time custody/candidate and is current while nothing advances');
+    const stored = st.json.record.observations[0];
+    assert.equal(stored.applicableCustody, 1, 'the ingestion-time custody generation was frozen onto the entry');
+    assert.equal(stored.applicableCandidate, 0, 'the ingestion-time candidate revision was frozen onto the entry');
+    assert.equal(stored.custodyGeneration, null, 'the REPORTED provenance stays null — dedup compares what the worker said');
     const receipted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-np']));
-    assert.equal(receipted.json.route, 'complete');
+    assert.equal(receipted.json.route, 'complete', 'sanity: the current report still routes complete before any advance');
+    // Custody advance retires the frozen report — for BOTH doors.
+    const moved = runCli(recArgs(fx, ['--transfer-custody', 'w-2', '--control-reason', 'custody advances past the frozen report']));
+    assert.equal(moved.status, 0, moved.stdout + moved.stderr);
+    const afterCustody = runCli(recArgs(fx, []));
+    assert.equal(afterCustody.json.route, 'observe', 'the custody advance retired the frozen done as routing evidence');
+    assert.match(afterCustody.json.routeReason, /stale against current custody/);
+    const stAfter = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(stAfter.json.route, 'observe', 'status derives from the SAME frozen applicability — no second opinion');
+    assert.match(stAfter.json.routeReason, /stale against current custody/);
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -1869,16 +1891,67 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(t2.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-03: pause-pending + transfer/ack is the CONTRAST arm — non-terminal, transfer proceeds', async (t) => {
+  ltest('A1-CODE-03/R2-02: pause-pending + transfer/ack persists the cessation FACT but registers NO successor (pause blocks admission)', async (t) => {
     const t2 = makeFixture(t);
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
     assert.equal(pause.controlState, 'pause-pending');
-    const moved = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'pause completes to non-terminal paused' } });
+    const before = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    const refused = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'pause-pending ack must not install a successor' } });
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'custody_transfer_blocked');
+    assert.match(refused.reason, /does not admit a successor worker/);
+    // T-A1-R2-D: the ack FACT moved the record — verify the durable bytes show exactly
+    // that and nothing more.
+    const after = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    assert.equal(after.controlState, 'paused', 'the ack completed the pause (the old worker\'s cessation acknowledgement is a fact)');
+    assert.equal(after.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded');
+    assert.ok(after.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
+    assert.equal(after.custodyGeneration, before.custodyGeneration, 'custody never advanced onto a paused binding');
+    assert.equal(after.recordRevision, before.recordRevision + 1, 'exactly the ack moved the record');
+    assert.ok(!JSON.stringify(after).includes('"w-2"'), 'no successor session id anywhere in the durable record');
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.route, 'hold');
+    assert.equal(st.json.routeReason, 'control_state_paused', 'a paused binding routes hold — no successor admission, no stale-report routing');
+    // A later reconciliation still cannot install a worker on the paused record.
+    const again = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-3' } });
+    assert.equal(again.ok, false);
+    assert.equal(again.code, 'custody_transfer_blocked');
+    const final = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    assert.equal(final.custodyGeneration, before.custodyGeneration, 'still no custody advance');
+    assert.ok(!JSON.stringify(final).includes('"w-3"'), 'no successor was installed on the second attempt either');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-02: an already-paused record without a live worker admits no successor and stays byte-identical', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
+    assert.equal(pause.controlState, 'pause-pending', 'the live w-1 worker makes the pause cessation-pending');
+    const acked = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } });
+    assert.equal(acked.controlState, 'paused');
+    const beforeSha = fileSha(t2.recordPath);
+    const refused = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true } });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.code, 'custody_transfer_blocked');
+    assert.match(refused.reason, /does not admit a successor worker/);
+    // T-A1-R2-D: nothing moved — no ack arm ran, so the refusal must not touch bytes.
+    assert.equal(fileSha(t2.recordPath), beforeSha, 'a clean refusal on a paused record leaves the durable bytes identical');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-02: a valid ACTIVE transfer with cessation acknowledgement stays a positive (custody advances, successor installed)', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const moved = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'active transfer with explicit ack' } });
     assert.ok(moved.ok, JSON.stringify(moved));
-    assert.equal(moved.controlState, 'paused');
+    assert.equal(moved.controlState, 'active');
     assert.equal(moved.custodyGeneration, 2);
     assert.equal(moved.effects.includes('custody-transferred:2'), true);
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.record.worker.sessionId, 'w-2', 'the successor is registered on the admitting record');
+    assert.equal(st.json.record.worker.cessationAckedAt, null, 'the successor starts live');
+    assert.equal(st.json.record.controlState, 'active');
     rmSync(t2.base, { recursive: true, force: true });
   });
 
@@ -1924,15 +1997,23 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-05: a foreign repository\'s otherwise-valid selector cannot authorize transitions (two-real-repository negative)', async (t) => {
+  ltest('A1-CODE-05: a selector naming a FOREIGN repository cannot authorize transitions (two-real-repository negative)', async (t) => {
     const fx = makeFixture(t); // repository A — the binding's home
     assert.ok((await initBinding(initBindingInput(fx))).ok);
     const foreign = makeFixture(t); // repository B — identical CONTENT bytes, different identity
     foreign.bumpSelector(7); // make B's selector differ, so an authority refresh would be observable
-    const foreignRead = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: foreign.home });
+    // The foreign-identity selector is served AT THE BOUND HOME so the R2-03 home pin
+    // stays silent and the IDENTITY gate is demonstrably what fires (the selector
+    // lookup itself keys on the repoRoot-derived identity, so a foreign repoRoot with
+    // the bound home's own selector never even reaches this gate — that shape is the
+    // R2-03 arms' subject). A foreign-IDENTITY selector at the selected path must not
+    // authorize this record either.
+    const fxSelectorBytes = readFileSync(fx.selectorPath);
+    writeFileSync(fx.selectorPath, readFileSync(foreign.selectorPath));
+    const foreignRead = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: fx.home });
     assert.equal(foreignRead.ok, true, 'a foreign read is a recorded HOLD, not a crash');
     assert.ok(foreignRead.effects.includes('authority-identity-mismatch'), JSON.stringify(foreignRead.effects));
-    const blocked = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: foreign.home, requestAction: 'work' });
+    const blocked = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: fx.home, requestAction: 'work' });
     assert.equal(blocked.ok, false);
     assert.equal(blocked.code, 'authority_hold_open', 'the same pass cannot both open the identity hold and admit work');
     const st = runCli(['status', '--record', fx.recordPath]);
@@ -1940,6 +2021,8 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.equal(st.json.routeReason, 'authority_identity_mismatch');
     assert.equal(st.json.record.authority.selectorRevision, 1, 'the foreign selector NEVER refreshed the durable authority');
     assert.ok(st.json.record.holds.some((h) => h.code === 'authority_identity_mismatch' && h.clearedAt === null));
+    // Recovery: the binding's OWN selector restored at the selected home → stable read.
+    writeFileSync(fx.selectorPath, fxSelectorBytes);
     const settled = await reconcile(reconcileInput(fx)); // same-repository stable read
     assert.ok(settled.effects.includes('authority-stable'), 'the identity hold clears on a same-repository stable read');
     const admitted = await reconcile({ ...reconcileInput(fx), requestAction: 'work' });
@@ -1979,11 +2062,12 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-05/CLI boundary: --feature-home override is FORWARDED and a foreign repo home trips the identity gate through the CLI', async (t) => {
+  ltest('A1-CODE-05/CLI boundary: --feature-home is FORWARDED and a selector naming a foreign repository trips the identity gate through the CLI (bound home passed, so the identity gate — not the R2-03 home pin — fires)', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
     const foreign = makeFixture(t);
-    const res = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', foreign.repo, '--feature-home', foreign.home, '--now', iso()]);
+    writeFileSync(fx.selectorPath, readFileSync(foreign.selectorPath)); // foreign-IDENTITY selector at the selected path
+    const res = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', foreign.repo, '--feature-home', fx.home, '--now', iso()]);
     assert.equal(res.status, 0);
     assert.ok(res.json.effects.includes('authority-identity-mismatch'), 'the CLI forwards the override to the engine — the gate sees what the caller passed');
     assert.equal(res.json.holds.some((h) => h.code === 'authority_identity_mismatch'), true);
@@ -1991,9 +2075,11 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(foreign.base, { recursive: true, force: true });
   });
 
-  ltest('CLI boundary: --feature-home override takes effect on the SAME repository (authority refresh proves the flag was read)', async (t) => {
+  ltest('R2-03: an ordinary --feature-home override to a DIFFERENT directory holds — a copied selector cannot replace the selected current source (recovery via the bound home)', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    // A same-repository copy of the selector in another directory, advanced ahead of the
+    // bound source — exactly the shape that used to refresh authority and admit work.
     const home2 = join(fx.base, 'feature-home-2');
     mkdirSync(home2, { recursive: true });
     const doc = JSON.parse(readFileSync(fx.selectorPath, 'utf8'));
@@ -2001,8 +2087,23 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     writeFileSync(join(home2, 'current-decisions.json'), JSON.stringify(doc, null, 2));
     const res = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', home2, '--now', iso()]);
     assert.equal(res.status, 0);
-    assert.ok(res.json.effects.includes('authority-refreshed'), 'the override home WAS read — a silently dropped flag would show no effect');
-    assert.equal(res.json.holds.some((h) => h.code === 'authority_changed'), true);
+    assert.ok(res.json.effects.includes('authority-home-mismatch'), 'the override home was NOT read — the pin fired before any live read');
+    assert.equal(res.json.holds.some((h) => h.code === 'authority_home_mismatch'), true);
+    assert.equal(res.json.route, 'hold');
+    assert.equal(res.json.routeReason, 'authority_home_mismatch');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).authority.selectorRevision, 1, 'the copied selector NEVER refreshed the durable authority');
+    assert.equal(res.json.pendingIntent, null, 'no action intent was planned off a rejected home');
+    // The same pass cannot both open the home hold and admit work.
+    const blocked = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', home2, '--request-action', 'work', '--now', iso()]);
+    assert.equal(JSON.parse(blocked.stdout).code, 'authority_hold_open');
+    // Recovery: a reconcile against the BOUND home is a stable read — the home hold
+    // clears (and the selector at the bound home is unchanged, so no refresh fires).
+    const settled = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', fx.home, '--now', iso()]);
+    assert.equal(settled.status, 0);
+    assert.ok(JSON.parse(settled.stdout).effects.includes('authority-stable'), 'the home hold clears on a bound-home stable read');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'observe', JSON.stringify(st.json));
+    assert.ok(st.json.record.holds.every((h) => h.clearedAt !== null), 'no authority hold survives the bound-home read');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -2116,7 +2217,14 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     // so this arm can run on ANY host — the gate being tested is the one in the engine.
     const seeded = initialRecord({ ...initRecordFields(), recordPath: fx.recordPath, stageArtifactRoot: fx.stageRoot }, { now: iso() });
     assert.ok(seeded.ok, JSON.stringify(seeded));
-    const written = writeRecordAtomic(fx.recordPath, seeded.value, { lockedTarget: fx.recordPath, expectedRevision: 0 });
+    // The locked target must be the record's CANONICAL path (R2-06: on macOS the
+    // mkdtemp leaf under /var/folders canonicalizes to /private/var/folders — a lexical
+    // lockedTarget fails the kernel lock bind on the real host, which is exactly what
+    // broke this arm's fixture preparation there. The engine itself always locks the
+    // canonical target, so the host-independent seed mirrors that here).
+    const lockedTarget = resolveRecordTarget(canonicalRecordPath(fx.recordPath));
+    assert.ok(lockedTarget !== null, 'the seeded record path has a resolvable canonical lock target');
+    const written = writeRecordAtomic(fx.recordPath, seeded.value, { lockedTarget, expectedRevision: 0 });
     assert.ok(written.ok, JSON.stringify(written));
     const before = fileSha(fx.recordPath);
     const res = await reconcile({ ...reconcileInput(fx), _testPlatform: 'win32' });
@@ -2144,6 +2252,297 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.equal(res.json.ok, true);
     rmSync(fx.base, { recursive: true, force: true });
   });
+});
+
+// ===========================================================================
+// A1 acceptance rework batch 2 — durable regression battery for the six R2 findings.
+// Each arm names the invariant the owner's V2 blackbox harness pins, at suite depth
+// (more assertions than the harness floor — the harness is a floor, not a ceiling).
+// The run-aftermath test AFTER this describe stays the LAST top-level test so the
+// recorder endpoint is live for every case claimed above.
+// ===========================================================================
+describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
+  // --- R2-01: observations are not evergreen -------------------------------
+  ltest('R2-01: a candidate advance retires an unprovenanced done at BOTH doors — the historical report routes nothing for the successor', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    const done = runCli(recArgs(fx, ['--observation', obs('u-done', 'done')]));
+    assert.equal(done.status, 0, done.stdout + done.stderr);
+    assert.equal(done.json.observationDisposition, 'consumed');
+    assert.equal(done.json.route, 'review', 'the CURRENT candidate\'s done routes review');
+    const stored = JSON.parse(readFileSync(fx.recordPath, 'utf8')).observations.at(-1);
+    assert.equal(stored.observationId, 'u-done');
+    assert.equal(stored.custodyGeneration, null, 'the REPORTED provenance stays null — dedup still compares what was reported');
+    assert.equal(stored.applicableCandidate, 1, 'the INGESTION-TIME candidate is frozen on the entry');
+    assert.equal(stored.disposition, 'consumed');
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')])).status, 0);
+    const after = runCli(recArgs(fx, []));
+    assert.equal(after.json.route, 'observe', 'the frozen entry no longer routes review for candidate 2');
+    assert.match(after.json.routeReason, /stale against current custody\/candidate; awaiting a current report/);
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'observe', 'status agrees with reconcile — one routing rule, two doors');
+    assert.match(st.json.routeReason, /stale against current custody\/candidate; awaiting a current report/);
+    // Re-reporting the same id is still a duplicate (dedup compares REPORTED fields) —
+    // and the duplicate ack cannot resurrect routing: the retained entry keeps the
+    // frozen stamps the re-report does not touch.
+    const again = runCli(recArgs(fx, ['--observation', obs('u-done', 'done')]));
+    assert.equal(again.json.observationDisposition, 'duplicate');
+    assert.equal(again.json.route, 'observe');
+    assert.match(again.json.routeReason, /stale against current custody\/candidate/);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-01: a FUTURE custody claim (999) is quarantined — retained as audit data, never routed, never completed on', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const future = runCli(recArgs(fx, ['--observation', obs('future-custody', 'done', { custodyGeneration: 999 })]));
+    assert.equal(future.status, 0, future.stdout + future.stderr);
+    assert.equal(future.json.observationDisposition, 'provenance-unestablished');
+    assert.equal(future.json.route, 'observe', 'a quarantined report routes nothing');
+    assert.match(future.json.routeReason, /awaiting a current report/);
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(['review', 'complete'].includes(st.json.route), false, JSON.stringify(st.json));
+    const stored = JSON.parse(readFileSync(fx.recordPath, 'utf8')).observations.at(-1);
+    assert.equal(stored.disposition, 'provenance-unestablished', 'the quarantine is the durable fact, not just the response');
+    assert.equal(stored.custodyGeneration, 999, 'the claimed value is retained verbatim as audit data');
+    assert.equal(stored.applicableCustody, 999, 'the frozen stamp equals the claimed provenance — eligibility can never resurrect it');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-01: a FUTURE candidateRevision and a MALFORMED provenance value are quarantined — exact applicability is required, not clamped', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const futureCandidate = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'done', observationId: 'f-cand', candidateRevision: 999 } });
+    assert.equal(futureCandidate.ok, true, JSON.stringify(futureCandidate));
+    assert.equal(futureCandidate.observationDisposition, 'provenance-unestablished');
+    const malformed = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'done', observationId: 'bad-cand', candidateRevision: -1 } });
+    assert.equal(malformed.ok, true, JSON.stringify(malformed));
+    assert.equal(malformed.observationDisposition, 'provenance-unestablished', 'a negative revision is malformed provenance, not «past» ');
+    const malformedCustody = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'done', observationId: 'bad-custody', custodyGeneration: 1.5 } });
+    assert.equal(malformedCustody.ok, true, JSON.stringify(malformedCustody));
+    assert.equal(malformedCustody.observationDisposition, 'provenance-unestablished');
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(['review', 'complete'].includes(st.json.route), false, JSON.stringify(st.json));
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-01 positive: EXACT current provenance routes normally — freezing applicability does not punish an honest report', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const exact = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'done', observationId: 'exact', custodyGeneration: 1, candidateRevision: 0 } });
+    assert.equal(exact.ok, true, JSON.stringify(exact));
+    assert.equal(exact.observationDisposition, 'consumed');
+    assert.equal(exact.route, 'review');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  // --- R2-03: the selected authority home is pinned -------------------------
+  ltest('R2-03: a copied selector cannot replace the MISSING selected source — the binding holds, admits nothing, plans no intent (harness equivalence)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const other = join(fx.base, 'other-home');
+    mkdirSync(other, { recursive: true });
+    writeFileSync(join(other, 'current-decisions.json'), readFileSync(fx.selectorPath));
+    rmSync(fx.selectorPath); // the SELECTED source is gone — the copy is the only one left
+    const res = runCli(recArgs(fx, ['--feature-home', other, '--request-action', 'work']));
+    assert.equal(JSON.parse(res.stdout).code, 'authority_hold_open', 'the same pass cannot open the home hold and admit work');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.pendingIntent, null, 'no intent was planned off the copied selector');
+    assert.ok(record.holds.some((h) => h.code === 'authority_home_mismatch' && h.clearedAt === null), JSON.stringify(record.holds));
+    assert.equal(record.authority.featureHome, fx.home, 'the durable selected home is unchanged');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'hold');
+    assert.equal(st.json.routeReason, 'authority_home_mismatch');
+    // Recovery is the authorized flow: restore the selected home (byte-copy back) — the
+    // hold clears on the next stable read and admission resumes.
+    writeFileSync(fx.selectorPath, readFileSync(join(other, 'current-decisions.json')));
+    const settled = runCli(recArgs(fx, ['--feature-home', fx.home]));
+    assert.ok(JSON.parse(settled.stdout).effects.includes('authority-stable'), JSON.stringify(settled.stdout));
+    const st2 = runCli(['status', '--record', fx.recordPath]);
+    assert.ok(st2.json.record.holds.every((h) => h.clearedAt !== null), JSON.stringify(st2.json.record.holds));
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-03: a copied STALE selector cannot mask an ADVANCED bound source — pin first, then the bound-home read refreshes into authority_changed and completion stays gated', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    // Facts recorded BEFORE any authority disturbance, so the completion-gating
+    // assertion below fails on the AUTHORITY hold and not on a missing delivery.
+    assert.equal(runCli(recArgs(fx, ['--observation', obs('adv-done', 'done')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-adv'])).status, 0);
+    const staleCopy = join(fx.base, 'stale-home');
+    mkdirSync(staleCopy, { recursive: true });
+    writeFileSync(join(staleCopy, 'current-decisions.json'), readFileSync(fx.selectorPath)); // revision 1 copy
+    fx.bumpSelector(2); // the BOUND source advances — the copy is now behind
+    const pinned = runCli(recArgs(fx, ['--feature-home', staleCopy]));
+    assert.equal(pinned.status, 0);
+    assert.ok(JSON.parse(pinned.stdout).effects.includes('authority-home-mismatch'), JSON.stringify(pinned.stdout));
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).authority.selectorRevision, 1, 'the stale copy refreshed nothing');
+    // The honest path still works: the bound home read is an override to the SAME
+    // physical home, so the pin is silent and the ADVANCE is what the gate sees.
+    // (This pass does NOT settle the open home hold — a signature change refreshes
+    // instead of clearing; the holds stay open until a stable read.)
+    const honest = runCli(recArgs(fx, ['--feature-home', fx.home]));
+    assert.ok(JSON.parse(honest.stdout).effects.includes('authority-refreshed'), JSON.stringify(honest.stdout));
+    assert.ok(JSON.parse(honest.stdout).holds.some((h) => h.code === 'authority_changed'), 'the advance opened the changed-authority hold');
+    // While authority holds are open, completion stays gated (settlement first) —
+    // even with the delivery receipt current. The gate is deliberately ONE-PASS: this
+    // first stable read settles the open holds (a durable write — the rejection is
+    // rejectAfterPersist) and rejects the completion in that same pass, so admission
+    // waits for the NEXT reconcile on the settled record (engine.mjs:624-636). The
+    // authority-stable effect therefore fires on THIS pass, not on any later one.
+    const early = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(JSON.parse(early.stdout).code, 'authority_hold_open', 'completion waits for authority settlement');
+    const settledRecord = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.ok(settledRecord.holds.every((h) => h.clearedAt !== null), JSON.stringify(settledRecord.holds));
+    assert.equal(settledRecord.controlState, 'active', 'settlement did not complete the record');
+    // The NEXT reconcile reads the settled record: no open hold, no same-pass
+    // transition — the completion door now admits.
+    const complete = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(complete.status, 0, complete.stdout + complete.stderr);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'complete');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-03 positive: a canonical SYMLINK alias of the selected home resolves to the SAME physical home — no hold, admission unaffected', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const alias = join(fx.base, 'home-alias');
+    symlinkSync(fx.home, alias, 'dir');
+    const res = runCli(recArgs(fx, ['--feature-home', alias]));
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    const body = JSON.parse(res.stdout);
+    assert.equal(body.effects.includes('authority-home-mismatch'), false, 'the alias passes the pin — same canonical home');
+    assert.equal(body.holds.length, 0, JSON.stringify(body.holds));
+    assert.equal(body.route, 'observe', 'routing unaffected by the alias');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  // --- R2-04: generic production resume is unconditionally held -------------
+  ltest('R2-04: a composed resume on an ACTIVE record is held BEFORE any mutation — byte-identical durable record despite otherwise-valid observation, receipt and transfer', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const before = readFileSync(t2.recordPath, 'utf8');
+    const held = await reconcile({
+      ...reconcileInput(t2),
+      observation: { taskId: 't-1', kind: 'done', observationId: 'resumed-done' },
+      deliveryReceipt: 'receipt-resume',
+      transferCustody: { toSession: 'w-2' },
+      requestAction: 'work',
+      control: { kind: 'resume', actor: 'operator:composed' },
+    });
+    assert.equal(held.ok, false);
+    assert.equal(held.code, 'unsupported_pending_prerequisite');
+    assert.match(held.reason, /resume/i);
+    assert.equal(readFileSync(t2.recordPath, 'utf8'), before, 'T-A1-R2-D: the held composite wrote NOTHING — not even the valid facts');
+    const after = JSON.parse(before);
+    assert.equal(after.pendingIntent, null, 'no action intent survived the hold');
+    assert.equal(after.delivery, null, 'no receipt survived the hold');
+    assert.equal(after.custodyGeneration, 1, 'no custody advance survived the hold');
+    assert.equal(after.recordRevision, 1, 'recordRevision unchanged — the hold is pre-lock, pre-read');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-04: a composed resume on a PAUSED record is held identically — no resume admission, byte-identical durable record', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } })).controlState, 'pause-pending');
+    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } })).controlState, 'paused');
+    const before = readFileSync(t2.recordPath, 'utf8');
+    const held = await reconcile({
+      ...reconcileInput(t2),
+      observation: { taskId: 't-1', kind: 'done', observationId: 'paused-done' },
+      control: { kind: 'resume', actor: 'operator:composed' },
+    });
+    assert.equal(held.ok, false);
+    assert.equal(held.code, 'unsupported_pending_prerequisite', 'production resume is not authorized in A1 — paused or not');
+    assert.equal(readFileSync(t2.recordPath, 'utf8'), before, 'T-A1-R2-D: byte-identical after the held composite');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'paused', 'the record did not resume');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  // --- R2-05: delivery applicability is bound to the exact candidate --------
+  ltest('R2-05: a candidate-1 receipt cannot complete candidate 2 at EITHER door — then the current-candidate receipt completes', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).delivery.candidateRevision, 1, 'the receipt is bound to candidate 1 at record time');
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')])).status, 0);
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'observe', 'a superseded receipt is not completion evidence — routing never claims complete', JSON.stringify(st.json));
+    // Door 1 — the CLI markComplete surface.
+    const door1 = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(JSON.parse(door1.stdout).code, 'complete_requires_delivery_receipt');
+    assert.match(JSON.parse(door1.stdout).reason, /bound to candidate 1, but the current candidate is 2/);
+    // Door 2 — the engine control-complete surface.
+    const door2 = await reconcile({ ...reconcileInput(fx), control: { kind: 'complete', actor: 'operator:matrix' } });
+    assert.equal(door2.ok, false);
+    assert.equal(door2.code, 'complete_requires_delivery_receipt', 'both doors enforce the SAME current-delivery precondition');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'active', 'neither door terminally closed candidate 2 off the old receipt');
+    assert.equal(record.delivery.receipt, 'receipt-c1', 'the superseded fact is retained, not dropped');
+    assert.equal(record.deliveryHistory.length, 0, 'it is still the CURRENT delivery field until a new receipt arrives');
+    // The current candidate's own receipt completes.
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c2'])).status, 0);
+    const okDoor = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(okDoor.status, 0, okDoor.stdout + okDoor.stderr);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'complete');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-05: a second DIFFERENT receipt for the SAME candidate is a conflict; an identical re-ack is a no-op', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-a'])).status, 0);
+    const dup = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-a']));
+    assert.equal(dup.status, 0, dup.stdout + dup.stderr);
+    assert.ok(JSON.parse(dup.stdout).effects.includes('delivery-duplicate-ack'), JSON.stringify(dup.stdout));
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).deliveryHistory.length, 0);
+    const conflict = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-b']));
+    assert.equal(JSON.parse(conflict.stdout).code, 'delivery_conflict', 'two deliveries for one candidate is the double-delivery the contract forbids');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).delivery.receipt, 'receipt-a', 'the conflict left the recorded receipt intact');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R2-05: re-acking the superseded receipt is a no-op (never re-bound); a different receipt after the advance archives the old one as HISTORY', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-old'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')])).status, 0);
+    const reack = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-old']));
+    assert.equal(reack.status, 0, reack.stdout + reack.stderr);
+    assert.ok(JSON.parse(reack.stdout).effects.includes('delivery-superseded-ack'), JSON.stringify(reack.stdout));
+    let record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'receipt-old', 'the retained fact was NOT re-bound to candidate 2');
+    assert.equal(record.delivery.candidateRevision, 1);
+    assert.equal(record.deliveryHistory.length, 0, 'the no-op ack archived nothing');
+    assert.equal(record.candidate.revision, 2, 'the candidate DID advance — only the delivery stayed put');
+    const fresh = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-new']));
+    assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
+    const body = JSON.parse(fresh.stdout);
+    assert.ok(body.effects.includes('delivery-superseded:1'), JSON.stringify(body.effects));
+    assert.ok(body.effects.includes('delivery-recorded'));
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'receipt-new');
+    assert.equal(record.delivery.candidateRevision, 2, 'the new receipt binds the CURRENT candidate');
+    assert.equal(record.deliveryHistory.length, 1, 'the superseded receipt moved to bounded history');
+    assert.equal(record.deliveryHistory[0].receipt, 'receipt-old');
+    assert.equal(record.deliveryHistory[0].candidateRevision, 1);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+});
+
+// ===========================================================================
+// Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
+// outbound TCP connections and zero HTTP requests across the ENTIRE claimed run
+// (every arm above), and only then closes the recorder. A top-level after() is
+// silently never run by `node --test` on this Node version, so a test is the
+// channel that actually executes.
+// ===========================================================================
+test('row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes', async () => {
+  assert.equal(recorderConnections, 0, `no TCP connection may reach the recorder (${recorderConnections} did)`);
+  assert.equal(recorderHits, 0, `no HTTP request may reach the recorder (${recorderHits} did)`);
+  await new Promise((settle) => recorder.close(settle));
 });
 
 

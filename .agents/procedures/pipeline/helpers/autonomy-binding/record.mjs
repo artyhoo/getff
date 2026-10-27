@@ -58,6 +58,10 @@ const OBSERVATIONS_MAX = 100;
  * all-open backlog can still exceed this cap (bounded in practice by hold-code diversity
  * and the admission/completion gates an open hold triggers). */
 const HOLDS_MAX = 200;
+/** Bounded superseded-delivery history (R2-05): a receipt recorded against a candidate
+ * that has since advanced is retained as HISTORY — never current acceptance authority —
+ * and is moved here when the current candidate records its own delivery. */
+const DELIVERY_HISTORY_MAX = 20;
 
 export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -87,6 +91,28 @@ function reject(code, reason) {
 
 function ok(value) {
   return { ok: true, value };
+}
+
+/**
+ * Shape of a delivery fact, shared by `delivery` and each `deliveryHistory` entry (R2-05):
+ * receipt/destination/at plus the candidate the delivery applies to. The candidate binding
+ * is REQUIRED — a delivery is only acceptance authority for the candidate it was recorded
+ * against, so a receipt without a candidate revision is not a record this module re-reads.
+ */
+function validateDelivery(delivery, label = 'delivery') {
+  for (const field of ['receipt', 'destination', 'at']) {
+    if (!isNonEmptyString(delivery[field])) {
+      return reject('record_invalid', `${label}.${field} must be a non-empty string`);
+    }
+  }
+  if (!isIso(delivery.at)) return reject('record_invalid', `${label}.at must be an ISO-8601 UTC timestamp`);
+  if (delivery.actionId !== null && !isNonEmptyString(delivery.actionId)) {
+    return reject('record_invalid', `${label}.actionId must be a string or null`);
+  }
+  if (!Number.isSafeInteger(delivery.candidateRevision) || delivery.candidateRevision < 0) {
+    return reject('record_invalid', `${label}.candidateRevision must be a safe integer >= 0 — a delivery binds the exact candidate it was recorded against`);
+  }
+  return ok(true);
 }
 
 /**
@@ -249,15 +275,15 @@ export function validateRecord(value) {
     return reject('record_invalid', 'delivery must be an object or null');
   }
   if (value.delivery !== null) {
-    for (const field of ['receipt', 'destination', 'at']) {
-      if (!isNonEmptyString(value.delivery[field])) {
-        return reject('record_invalid', `delivery.${field} must be a non-empty string`);
-      }
-    }
-    if (!isIso(value.delivery.at)) return reject('record_invalid', 'delivery.at must be an ISO-8601 UTC timestamp');
-    if (value.delivery.actionId !== null && !isNonEmptyString(value.delivery.actionId)) {
-      return reject('record_invalid', 'delivery.actionId must be a string or null');
-    }
+    const deliveryCheck = validateDelivery(value.delivery);
+    if (!deliveryCheck.ok) return deliveryCheck;
+  }
+
+  if (!Array.isArray(value.deliveryHistory)) return reject('record_invalid', 'deliveryHistory must be an array');
+  for (const superseded of value.deliveryHistory) {
+    if (!isPlainObject(superseded)) return reject('record_invalid', 'each superseded delivery must be an object');
+    const supersededCheck = validateDelivery(superseded, 'deliveryHistory entry');
+    if (!supersededCheck.ok) return supersededCheck;
   }
 
   for (const field of ['observations', 'reviews', 'holds', 'consumedGrants', 'history']) {
@@ -269,6 +295,14 @@ export function validateRecord(value) {
     }
     if (obs.disposition !== undefined && !isNonEmptyString(obs.disposition)) {
       return reject('record_invalid', 'observation disposition must be a string when present');
+    }
+    // R2-01: the ingestion-time applicability a report is bound to (reported provenance if
+    // the worker supplied it, else the record's custody/candidate at ingestion). Optional
+    // for forward compatibility with pre-R2 records; the engine stamps both on every entry.
+    for (const field of ['applicableCustody', 'applicableCandidate']) {
+      if (obs[field] !== undefined && (!Number.isSafeInteger(obs[field]) || obs[field] < 0)) {
+        return reject('record_invalid', `observation ${field} must be a safe integer >= 0 when present`);
+      }
     }
   }
   for (const hold of value.holds) {
@@ -445,7 +479,8 @@ export function initialRecord(bind, { now }) {
     pendingIntent: null,
     observations: [],
     reviews: [],
-    delivery: null, // set only by a recorded delivery receipt; completion requires it
+    delivery: null, // set only by a recorded delivery receipt; completion requires it CURRENT for the candidate (R2-05)
+    deliveryHistory: [], // superseded deliveries (bound to advanced-away candidates), retained as history (R2-05)
     holds: [],
     consumedGrants: [],
     history: [{ at: now, recordRevision: 1, controlRevision: 1, summary: `bind feature=${bind.featureId} stage=${bind.stage}` }],
