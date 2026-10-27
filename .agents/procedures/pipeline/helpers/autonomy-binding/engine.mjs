@@ -32,6 +32,8 @@ import {
   isIso,
   ADMITTING_STATES,
   TERMINAL_STATES,
+  OBSERVATIONS_MAX,
+  DELIVERY_HISTORY_MAX,
 } from './record.mjs';
 import {
   readRecord,
@@ -62,9 +64,9 @@ const AUTHORITY_IDENTITY_HOLD_CODE = 'authority_identity_mismatch';
 const AUTHORITY_HOME_HOLD_CODE = 'authority_home_mismatch';
 /** Every hold code that gates admission, completion and routing (A1-CODE-05 adds identity; R2-03 adds the selected-home pin). */
 const AUTHORITY_HOLD_CODES = [AUTHORITY_CHANGED_HOLD_CODE, AUTHORITY_UNAVAILABLE_HOLD_CODE, AUTHORITY_IDENTITY_HOLD_CODE, AUTHORITY_HOME_HOLD_CODE];
-const OBSERVATIONS_MAX = 100;
-/** Bounded superseded-delivery history (R2-05) — mirrors record.mjs DELIVERY_HISTORY_MAX. */
-const DELIVERY_HISTORY_MAX = 20;
+// OBSERVATIONS_MAX / DELIVERY_HISTORY_MAX are IMPORTED from record.mjs (R3 advisory):
+// one bound, one owner — the engine slices/dedups with exactly the bound the record
+// module declares, so the two cannot drift.
 
 function reject(code, reason) {
   return { ok: false, code, reason };
@@ -411,6 +413,24 @@ export async function reconcile(input) {
     const read = readRecord(canonicalPath);
     if (!read.ok) return read;
     const base = read.record;
+    // R3-01 (BF-1): the file at the reconciled path must SELF-IDENTIFY as the bound
+    // record. Init stores the canonical path in `recordPath` (and the write-boundary
+    // invariant in store.mjs re-verifies it on every persist); a schema-valid COPY of the
+    // record at another physical path — a benign backup/restore of the stage root, no
+    // adversary required — self-identifies with the ORIGINAL path, so reconciling the
+    // copy must refuse BEFORE any intent/control/delivery/custody state is read into a
+    // transition: the copy is not the binding, and mutating it would fork one logical
+    // binding's custody and acceptance state (its own lock name, its own revisions).
+    // Comparison is canonical on BOTH sides (A1-CODE-01), so the legitimate real-path,
+    // leaf-symlink and symlinked-ancestor spellings of the SAME target keep passing.
+    const incumbentDeclared = typeof base.recordPath === 'string' ? canonicalRecordPath(base.recordPath) : null;
+    if (incumbentDeclared !== canonicalPath) {
+      return {
+        ok: false,
+        code: 'record_path_mismatch',
+        reason: `the record at ${canonicalPath} self-identifies as ${incumbentDeclared ?? '(unresolvable recordPath)'} — this file is a copy, move or fork of a bound record, not the binding itself; reconcile the bound path or a canonical alias of it, and restore or retire the copy. Nothing was read into a transition and nothing was written.`,
+      };
+    }
     let next = structuredClone(base);
     let mutated = false;
     // True when THIS pass opened or cleared an authority hold (the authority picture
@@ -675,9 +695,27 @@ export async function reconcile(input) {
     // superseded is a `delivery-superseded-ack` — the recorded fact is retained, not
     // re-bound; a DIFFERENT receipt while one is recorded for the CURRENT candidate is a
     // conflict (two deliveries for the same candidate is exactly the double-delivery the
-    // contract forbids); and a different receipt after the candidate ADVANCED is the new
-    // candidate's own delivery — the superseded receipt moves to `deliveryHistory`
+    // contract forbids); and a genuinely NEW receipt after the candidate ADVANCED is the
+    // new candidate's own delivery — the superseded receipt moves to `deliveryHistory`
     // (bounded, retained as history, never current acceptance authority).
+    //
+    // R3-02 (receipt-history replay): "genuinely new" is decided against the RETAINED
+    // HISTORY, not only the current delivery. The pre-existing superseded-current re-ack
+    // keeps its established `delivery-superseded-ack` no-op; NEW is the sweep over every
+    // `deliveryHistory` identity: a receipt whose identity already appears there is a
+    // REPLAY of a historical delivery, not the current candidate's fresh delivery —
+    // re-recording it would resurrect retained history as current acceptance authority
+    // (candidate 3 terminally completing on candidate 1's receipt). The replay is
+    // quarantined as a no-op `delivery-historical-replay-ack`: the original association
+    // is preserved untouched (the history entry keeps its own candidateRevision;
+    // `delivery` keeps binding to ITS candidate), neither completion door gains
+    // applicability, and the durable record is byte-unchanged.
+    //
+    // Bounded-retention honesty: the window is DELIVERY_HISTORY_MAX (± the superseded
+    // current delivery). An identity EVICTED from that window cannot be distinguished
+    // from a fresh delivery by this one binding — no registry, issuer or external receipt
+    // service is introduced to close that gap (stage-A scope); the residual risk is a
+    // documented limit, asserted in the suite, not silently denied.
     if (input.deliveryReceipt !== undefined) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
@@ -699,7 +737,15 @@ export async function reconcile(input) {
           return rejectAfterPersist('delivery_conflict', `a delivery receipt for candidate ${next.candidate.revision} is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
         }
       } else if (next.delivery !== null && next.delivery.receipt === receipt) {
-        effects.push('delivery-superseded-ack'); // same reference, older candidate — the retained fact is not re-bound to the new candidate
+        effects.push('delivery-superseded-ack'); // same reference, older candidate — the retained fact is not re-bound to the new candidate (pre-R3-02 no-op, unchanged)
+      } else if (next.deliveryHistory.some((d) => d.receipt === receipt)) {
+        // R3-02: the identity is already retained in bounded HISTORY — a replay of a
+        // superseded delivery, never the current candidate's fresh delivery. The no-op
+        // ack leaves the original association untouched: the history entry keeps its own
+        // candidateRevision, `delivery` keeps binding to ITS candidate, neither
+        // completion door gains applicability, and the durable bytes do not change.
+        const historical = next.deliveryHistory.find((d) => d.receipt === receipt);
+        effects.push(`delivery-historical-replay-ack:candidate ${historical.candidateRevision}`);
       } else if (next.delivery !== null) {
         const superseded = next.delivery;
         next.deliveryHistory.push(superseded);
@@ -759,6 +805,33 @@ export async function reconcile(input) {
       // durable bytes are untouched.
       if (!ADMITTING_STATES.includes(next.controlState)) {
         return rejectAfterPersist('custody_transfer_blocked', `control state ${next.controlState} does not admit a successor worker — the previous worker's cessation acknowledgement is persisted as a fact, but custody cannot advance onto a non-admitting binding; lift the pause through its own boundary before transferring custody`);
+      }
+      // R3-03: installing a successor worker and advancing custody is a CONSEQUENTIAL
+      // admission and carries the same live-authority premise the action door (4) and both
+      // completion doors carry. A transfer that cannot re-read independently current
+      // authority — no --repo-root, no resolvable feature home, an open hold, or a hold
+      // this same pass opened/cleared/refreshed — must not register a new live worker
+      // identity against a stale or unread authority picture: that would be succession
+      // admitted on exactly the stale-evidence admission PA2 forbids. Everything ABOVE
+      // this gate is fact ingestion and stays durable: the refusal persists the cessation
+      // acknowledgement (when one was recorded), the authority hold, and any
+      // observation/receipt ingested earlier in the composed pass — stopping work and
+      // reporting stay possible while the authority source is unreadable; only the
+      // SUCCESSION is refused. Settlement semantics mirror admission/completion: a pass
+      // that moved a hold refuses once, and the later valid transfer reconciles against
+      // the settled record.
+      if (!input.repoRoot) {
+        return rejectAfterPersist('invalid_request', `transferring custody to ${transfer.toSession} requires --repo-root so the live authority can be re-read before a successor worker is installed — the authority snapshot cached at init never authorizes succession`);
+      }
+      if (!featureHome) {
+        return rejectAfterPersist('invalid_request', `transferring custody to ${transfer.toSession} requires a resolvable feature home (--feature-home) so the live authority can be re-read before a successor worker is installed`);
+      }
+      const custodyAuthorityHold = openAuthorityHold(next);
+      if (custodyAuthorityHold !== null || authorityHoldTouched) {
+        const detail = custodyAuthorityHold
+          ? `authority hold ${custodyAuthorityHold.code} is open`
+          : 'an authority hold was opened or cleared in this same pass';
+        return rejectAfterPersist('authority_hold_open', `${detail} — custody advance reads the settled hold state like admission and completion do: cessation facts recorded earlier in this pass are persisted, but no successor worker is installed and custody does not advance; confirm the current authority, run reconcile once on a stable read so the hold settles, then transfer custody on a subsequent reconcile`);
       }
       next.custodyGeneration += 1;
       next.worker = { sessionId: transfer.toSession, pid: null, startedAt: now, host: null, cessationAckedAt: null };

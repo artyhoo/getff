@@ -50,8 +50,10 @@ const FEATURE_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 /** Bounded recent-transition log so the record cannot grow without bound. */
 const HISTORY_MAX = 50;
-/** Bounded observation log — stale/duplicate observations are kept as bounded history. */
-const OBSERVATIONS_MAX = 100;
+/** Bounded observation log — stale/duplicate observations are kept as bounded history.
+ * Exported (R3 advisory): the engine slices with this same bound, so the two modules
+ * cannot drift apart silently. */
+export const OBSERVATIONS_MAX = 100;
 /** Bounded hold log — authority flapping would otherwise append one open+cleared hold
  * pair per flap forever. Pruning (in addHold) drops only already-CLEARED holds, oldest
  * first; an open hold is a live gate and is never silently discarded, so a pathological
@@ -60,8 +62,10 @@ const OBSERVATIONS_MAX = 100;
 const HOLDS_MAX = 200;
 /** Bounded superseded-delivery history (R2-05): a receipt recorded against a candidate
  * that has since advanced is retained as HISTORY — never current acceptance authority —
- * and is moved here when the current candidate records its own delivery. */
-const DELIVERY_HISTORY_MAX = 20;
+ * and is moved here when the current candidate records its own delivery. Exported
+ * (R3 advisory): the engine's R3-02 history sweep dedups against this same bound, so
+ * the two modules cannot drift apart silently. */
+export const DELIVERY_HISTORY_MAX = 20;
 
 export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');

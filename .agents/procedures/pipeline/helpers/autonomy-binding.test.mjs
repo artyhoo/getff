@@ -64,6 +64,7 @@ import { productionResumeHold, reservedVerbHold, reconcile, initBinding } from '
 import {
   initialRecord, applyControlTransition, validateRecord, proposeResumeTransition,
   recordDigest, grantDigestOf, addHold, sha256Hex, ADMITTING_STATES, TERMINAL_STATES,
+  DELIVERY_HISTORY_MAX,
 } from './autonomy-binding/record.mjs';
 import {
   readRecord, writeRecordAtomic, ensureStageOwnership, resolveRecordTarget,
@@ -111,8 +112,12 @@ const ntest = ON_LINUX
 // file asserts it never accepted a single TCP connection and never served a
 // single HTTP request (A1 review: the HTTP-request counter alone would miss a
 // connection attempt that never completes a request). The listener itself is
-// inert — it only counts. (It is closed there too: a top-level after() would
-// leave it listening forever on this Node version and hang the runner.)
+// inert — it only counts. (It is closed by the LAST test declaration in this file,
+// not a top-level after(): an earlier full-suite run once ended with the recorder
+// still listening and hung the runner — cause never isolated. An isolated probe on
+// this exact runtime later showed a top-level after() DOES fire, so the hang was
+// never attributed to after() skipping; the ordered last test is simply the closure
+// channel this suite itself proves executes on every run.)
 // ---------------------------------------------------------------------------
 let recorderHits = 0;
 let recorderConnections = 0;
@@ -134,10 +139,14 @@ const RECORDER_ENV = await new Promise((settle) => {
     });
   });
 });
-// The row-13 recorder is closed by the `aftermath` test at the END of this file — a
-// top-level after() is silently NEVER run by `node --test` on this Node version
-// (verified empirically: a minimal describe+after file exits 0 with the hook skipped),
-// so an after()-held cleanup would leave the recorder listening and hang the runner.
+// The row-13 recorder is closed by the `aftermath` test at the END of this file.
+// CORRECTION (R3, 2026-10-27): an earlier version of this comment claimed a top-level
+// after() is «silently NEVER run by node --test on this Node version» — that blanket
+// claim is WRONG: an isolated describe+after file on this exact runtime fired the
+// hook. What stands: the original full-suite hang was never attributed to a cause
+// (the probe does not establish one), and this file keeps the ordered-last-test
+// closure anyway — it is ordering-enforced by the suite layout and proven to execute
+// by every run; no rework of the recorder/cleanup mechanism is needed or made.
 
 // ---------------------------------------------------------------------------
 // Fixture factory + real-CLI runners.
@@ -1799,9 +1808,9 @@ describe('cold-review regression arms (r6 fixes)', () => {
 // the CLI boundary tightening, and the HOST-01 platform contract. CODE-01's alias arms
 // live in row 16 (they belong with the other lock-contention arms); everything else in
 // the rework scope is collected here, labelled by finding ID. (The run-aftermath test
-// that closes the recorder lives AFTER this describe and the batch-2 describe below —
-// it must stay the LAST top-level test declaration so the endpoint is live for the
-// whole claimed run.)
+// that closes the recorder lives AFTER this describe and the batch-2 and batch-3
+// describes below — it must stay the LAST top-level test declaration so the endpoint
+// is live for the whole claimed run.)
 // ===========================================================================
 describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
   ltest('A1-CODE-02: a stale-custody done never advances routing for the current worker (reconcile AND status)', async (t) => {
@@ -2533,11 +2542,298 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
 });
 
 // ===========================================================================
+// A1 rework batch 3 (R3-01..R3-03) — durable class battery for the root QA repairs.
+// Every flip named below was MEASURED this session by removing exactly one production
+// change at a time and running this whole file against the result (T22, not assumed):
+// — R3-01: the load-bearing layer is the store writer-boundary check (`verifyWriteLocation`).
+//   Removing it alone turns the direct-store arm RED while the CLI copy arms stay green
+//   behind the engine layer; removing the engine's incumbent self-identification check
+//   alone turns NOTHING red (measured: the full suite passes with it gone) — every public
+//   surface is still blocked at the write boundary. The engine check is kept as an earlier
+//   reject (it refuses a copy before the copy's lock is taken or the file is read into a
+//   transition), not as an independently observable gate.
+// — R3-02: removing the delivery dedup's `deliveryHistory` sweep turns the replay-quarantine
+//   arm RED (the old receipt re-binds to the current candidate and mutates the record).
+// — R3-03: removing the custody settled-authority gate turns the four hold-driven arms RED
+//   while the missing-argument arm (separate arg check), the stop-work-while-unreadable arm
+//   (pause is never gated) and the valid-transfer positive stay green.
+// Batch RED against the pre-fix modules (HEAD ae7e0c2a) was proven with the frozen root
+// harnesses run unchanged in an isolated archive of the pre-image bytes (2 / 2 / 3 intended
+// REDs + cleanup, exit 1 each) and GREEN on the fixed bytes (exit 0 each).
+// ===========================================================================
+describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
+  ltest('R3-01: a byte-identical copy at another path INSIDE the stage root is refused (record_path_mismatch) — no intent/custody fork, both files byte-unchanged, the bound path stays live', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const original = readFileSync(fx.recordPath, 'utf8');
+    const copyPath = join(fx.stageRoot, 'binding-copy.json');
+    writeFileSync(copyPath, original);
+    const attempted = runCli(recArgs({ ...fx, recordPath: copyPath }, ['--request-action', 'work']));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'record_path_mismatch');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), original, 'the bound record must remain byte-unchanged');
+    assert.equal(readFileSync(copyPath, 'utf8'), original, 'the copy must remain byte-unchanged — no intent, control or custody state anywhere');
+    const before = JSON.parse(original);
+    for (const path of [fx.recordPath, copyPath]) {
+      const record = JSON.parse(readFileSync(path, 'utf8'));
+      assert.equal(record.pendingIntent, null, `${path} gained no intent`);
+      assert.equal(record.custodyGeneration, before.custodyGeneration, `${path} gained no custody advance`);
+    }
+    // The bound path itself stays a live binding: the same work intent succeeds there.
+    const bound = runCli(recArgs(fx, ['--request-action', 'work']));
+    assert.equal(bound.status, 0, bound.stdout + bound.stderr);
+    assert.ok(JSON.parse(readFileSync(fx.recordPath, 'utf8')).pendingIntent !== null, 'the BOUND record accepted the work intent');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-01: the same refusal applies OUTSIDE the owned stage root (a copy beyond the declared root never becomes a binding)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const original = readFileSync(fx.recordPath, 'utf8');
+    const copyPath = join(fx.base, 'binding-copy.json'); // outside repo/stage entirely
+    writeFileSync(copyPath, original);
+    const attempted = runCli(recArgs({ ...fx, recordPath: copyPath }, ['--request-action', 'work']));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'record_path_mismatch');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), original);
+    assert.equal(readFileSync(copyPath, 'utf8'), original);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-01: the invariant binds at the STORE writer boundary — a direct writeRecordAtomic of the bound record to another path is rejected, and a payload naming another path cannot ride through the bound target (no engine bypass)', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const boundBytes = readFileSync(fx.recordPath, 'utf8');
+    const bound = JSON.parse(boundBytes);
+    const copyPath = join(fx.stageRoot, 'binding-direct.json');
+    // Direct-store bypass attempt A: write the bound record's payload to the copy's own
+    // canonical target (as if a lock were held for the copy). Flips RED if the store
+    // stops verifying payload recordPath === write target.
+    const attemptA = writeRecordAtomic(copyPath, bound, { lockedTarget: canonicalRecordPath(copyPath), expectedRevision: bound.recordRevision });
+    assert.equal(attemptA.ok, false, JSON.stringify(attemptA));
+    assert.equal(attemptA.code, 'record_path_mismatch');
+    assert.equal(existsSync(copyPath), false, 'the rejected write created nothing');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), boundBytes, 'the bound record is untouched');
+    // Direct-store bypass attempt B: write through the BOUND target a payload whose
+    // recordPath names the copy. Flips RED if the store stops comparing the payload's
+    // declared location with the location actually written.
+    const attemptB = writeRecordAtomic(canonicalRecordPath(fx.recordPath), { ...bound, recordPath: copyPath }, { lockedTarget: canonicalRecordPath(fx.recordPath), expectedRevision: bound.recordRevision });
+    assert.equal(attemptB.ok, false, JSON.stringify(attemptB));
+    assert.equal(attemptB.code, 'record_path_mismatch');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), boundBytes);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-01: legitimate aliases of the SAME target still reconcile and mutate (leaf-symlink spelling survives the new invariant)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const aliasPath = join(fx.stageRoot, 'binding-link.json');
+    symlinkSync(fx.recordPath, aliasPath);
+    const viaAlias = runCli(recArgs({ ...fx, recordPath: aliasPath }, ['--request-action', 'work']));
+    assert.equal(viaAlias.status, 0, viaAlias.stdout + viaAlias.stderr);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.recordRevision, 2, 'the alias mutated the ONE physical record');
+    assert.ok(record.pendingIntent !== null);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-02: a receipt already in bounded history is quarantined on replay (delivery-historical-replay-ack, byte-unchanged) — neither completion door accepts it; the current candidate’s fresh receipt still completes', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r2'])).status, 0); // archives r1 into history
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', '3', '--candidate-sha256', sha256Hex('c3')])).status, 0);
+    // The replay: r1 is RETAINED HISTORY (bound to candidate 1), never c3's fresh delivery.
+    const bytesBefore = readFileSync(fx.recordPath, 'utf8');
+    const replay = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r1']));
+    assert.equal(replay.status, 0, replay.stdout + replay.stderr);
+    assert.ok(JSON.parse(replay.stdout).effects.includes('delivery-historical-replay-ack:candidate 1'), replay.stdout);
+    assert.equal(JSON.parse(replay.stdout).mutated, false, 'the replay quarantine is a no-op');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), bytesBefore, 'the replay changed no durable byte');
+    let record = JSON.parse(bytesBefore);
+    assert.equal(record.delivery.receipt, 'receipt-r2', 'current delivery unchanged — r1 was not re-bound to c3');
+    assert.equal(record.delivery.candidateRevision, 2);
+    assert.equal(record.deliveryHistory.length, 1, 'history unchanged — original association preserved');
+    assert.equal(record.deliveryHistory[0].receipt, 'receipt-r1');
+    assert.equal(record.deliveryHistory[0].candidateRevision, 1);
+    // Both completion doors stay closed for c3 (no current delivery): door 1 = markComplete.
+    const door1 = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(door1.status, 2, door1.stdout + door1.stderr);
+    assert.equal(door1.json.code, 'complete_requires_delivery_receipt');
+    // Door 2 = control complete (library surface — the CLI exposes pause/cancel verbs only).
+    const door2 = await reconcile(reconcileInput(fx, { control: { kind: 'complete', actor: 'matrix:library-door' } }));
+    assert.equal(door2.ok, false, JSON.stringify(door2));
+    assert.equal(door2.code, 'complete_requires_delivery_receipt');
+    // The current candidate's genuine distinct receipt stays valid: record it, complete.
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r3'])).status, 0); // archives r2
+    const done = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(done.status, 0, done.stdout + done.stderr);
+    assert.equal(JSON.parse(done.stdout).controlState, 'complete');
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'receipt-r3');
+    assert.equal(record.delivery.candidateRevision, 3, 'the fresh receipt bound the CURRENT candidate');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-02 documented limit: an identity evicted from the bounded history window is no longer distinguishable from fresh — the binding records it (no registry exists to close this; pinned as the documented boundary, not denied)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay'])).status, 0);
+    // Churn DELIVERY_HISTORY_MAX supersessions so the r0 identity falls out of the window.
+    for (let revision = 2; revision <= DELIVERY_HISTORY_MAX + 2; revision += 1) {
+      assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(revision), '--candidate-sha256', sha256Hex(`c${revision}`)])).status, 0, `advance ${revision}`);
+      assert.equal(runCli(recArgs(fx, ['--delivery-receipt', `receipt-churn-${revision}`])).status, 0, `deliver ${revision}`);
+    }
+    // Advance once more so the current delivery is non-current, then replay the evicted r0.
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(DELIVERY_HISTORY_MAX + 3), '--candidate-sha256', sha256Hex('c-final')])).status, 0);
+    const replay = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay']));
+    assert.equal(replay.status, 0, replay.stdout + replay.stderr);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'receipt-evicted-replay', 'the EVICTED identity could not be told from fresh — documented boundary');
+    assert.equal(record.delivery.candidateRevision, DELIVERY_HISTORY_MAX + 3);
+    assert.equal(record.deliveryHistory.length, DELIVERY_HISTORY_MAX, 'the window stays bounded');
+    assert.ok(!record.deliveryHistory.some((d) => d.receipt === 'receipt-evicted-replay'), 'the replayed identity was evicted, not retained');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: custody transfer without --repo-root refuses invalid_request naming the flag — no successor installed, bytes unchanged', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const bytesBefore = readFileSync(fx.recordPath, 'utf8');
+    const attempted = runCli(['reconcile', '--record', fx.recordPath, '--feature-home', fx.home, '--now', iso(), '--transfer-custody', 'w-2']);
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'invalid_request');
+    assert.match(attempted.json.reason, /--repo-root/);
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), bytesBefore, 'an unread authority never installed a worker');
+    const record = JSON.parse(bytesBefore);
+    assert.equal(record.custodyGeneration, 1);
+    assert.equal(record.worker, null);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: transfer while the authority source is missing refuses authority_hold_open (hold persisted, custody unchanged) — recovery, settlement, then the valid transfer advances custody', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const selectorBytes = readFileSync(fx.selectorPath, 'utf8');
+    rmSync(fx.selectorPath);
+    const attempted = runCli(recArgs(fx, ['--transfer-custody', 'w-2']));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'authority_hold_open');
+    let record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.custodyGeneration, 1, 'custody did not advance');
+    assert.equal(record.worker, null, 'no successor worker installed');
+    assert.ok(record.holds.some((h) => h.code === 'authority_unavailable' && h.clearedAt === null), 'the authority hold itself is persisted');
+    // Recovery + settlement: restore the selector, settle the hold on a stable read.
+    writeFileSync(fx.selectorPath, selectorBytes);
+    assert.equal(runCli(recArgs(fx, [])).status, 0);
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.ok(!record.holds.some((h) => h.code === 'authority_unavailable' && h.clearedAt === null), 'the hold cleared on the stable read');
+    // The later valid transfer succeeds against the settled record.
+    const transferred = runCli(recArgs(fx, ['--transfer-custody', 'w-2']));
+    assert.equal(transferred.status, 0, transferred.stdout + transferred.stderr);
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.custodyGeneration, 2);
+    assert.equal(record.worker.sessionId, 'w-2');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: a changed selector (same-pass hold refresh) refuses succession once — the settled pass transfers', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    fx.bumpSelector(2);
+    const attempted = runCli(recArgs(fx, ['--transfer-custody', 'w-2']));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'authority_hold_open');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).custodyGeneration, 1);
+    assert.equal(runCli(recArgs(fx, [])).status, 0); // settle the hold on the stable read
+    const transferred = runCli(recArgs(fx, ['--transfer-custody', 'w-2']));
+    assert.equal(transferred.status, 0, transferred.stdout + transferred.stderr);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).custodyGeneration, 2);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: a copied-home override that opens the R2-03 hold cannot install a successor — settle on the bound home, then transfer', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const homeCopy = join(fx.base, 'home-copy');
+    mkdirSync(homeCopy, { recursive: true });
+    writeFileSync(join(homeCopy, 'current-decisions.json'), readFileSync(fx.selectorPath, 'utf8'));
+    const attempted = runCli(recArgs(fx, ['--feature-home', homeCopy, '--transfer-custody', 'w-2']));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'authority_hold_open');
+    assert.match(attempted.json.reason, /authority_home_mismatch/, 'the copied-home hold is what refused the succession');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).custodyGeneration, 1);
+    assert.equal(runCli(recArgs(fx, [])).status, 0); // settle on the bound home
+    const transferred = runCli(recArgs(fx, ['--transfer-custody', 'w-2']));
+    assert.equal(transferred.status, 0, transferred.stdout + transferred.stderr);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).custodyGeneration, 2);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: a cessation ack recorded before the authority refusal is explicitly persisted (cessationAckedAt on the old worker, custody unchanged) — and the later valid transfer needs no second ack', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const selectorBytes = readFileSync(fx.selectorPath, 'utf8');
+    rmSync(fx.selectorPath);
+    const refused = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r3-03 succession', acknowledgeCessation: true } }));
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'authority_hold_open');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.worker.sessionId, 'w-1', 'the old worker identity is unchanged');
+    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT was explicitly persisted before the refusal');
+    assert.equal(record.custodyGeneration, 1, 'custody did not advance');
+    assert.ok(record.holds.some((h) => h.code === 'authority_unavailable' && h.clearedAt === null));
+    assert.equal(record.controlState, 'active', 'fact-only cessation did not become a control transition');
+    // Recovery, settlement, then a valid transfer — the persisted ack is not re-demanded.
+    writeFileSync(fx.selectorPath, selectorBytes);
+    assert.ok((await reconcile(reconcileInput(fx, {}))).ok, 'the settle reconcile succeeds');
+    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r3-03 valid succession' } }));
+    assert.equal(transferred.ok, true, JSON.stringify(transferred));
+    assert.equal(transferred.custodyGeneration, 2);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03: stopping work is never gated — pause lands while the authority is unreadable', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    rmSync(fx.selectorPath);
+    const paused = runCli(['pause', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', fx.home, '--now', iso(), '--control-reason', 'r3: stopping work while authority is unreadable']);
+    assert.equal(paused.status, 0, paused.stdout + paused.stderr);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    // No live worker on this CLI init, so the pause lands `paused` directly (a live worker
+    // would hold it at pause-pending for the ack) — either way the transition LANDED: the
+    // unreadable authority gated nothing about stopping work.
+    assert.equal(record.controlState, 'paused', 'the control transition was not gated on the unreadable authority');
+    assert.equal(record.custodyGeneration, 1);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R3-03 positive: a stable active binding with valid cessation conditions admits the successor (custody advance unchanged)', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'valid succession on settled authority', acknowledgeCessation: true } }));
+    assert.equal(transferred.ok, true, JSON.stringify(transferred));
+    assert.equal(transferred.custodyGeneration, 2);
+    assert.ok(transferred.effects.includes('custody-transferred:2'), JSON.stringify(transferred.effects));
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.worker.sessionId, 'w-2');
+    assert.equal(record.worker.cessationAckedAt, null, 'the successor starts unacked');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+});
+// ===========================================================================
 // Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
 // outbound TCP connections and zero HTTP requests across the ENTIRE claimed run
-// (every arm above), and only then closes the recorder. A top-level after() is
-// silently never run by `node --test` on this Node version, so a test is the
-// channel that actually executes.
+// (every arm above), and only then closes the recorder. (Correction R3, 2026-10-27:
+// this comment previously said a top-level after() is «silently never run» by
+// node --test on this Node version — an isolated exact-runtime probe has since
+// fired the hook, so that claim is retracted; the ordered last test stays as the
+// closure channel because the suite itself proves it executes, not because
+// after() cannot.)
 // ===========================================================================
 test('row 13 aftermath: zero accepted connections and zero requests across the whole run, then the recorder closes', async () => {
   assert.equal(recorderConnections, 0, `no TCP connection may reach the recorder (${recorderConnections} did)`);

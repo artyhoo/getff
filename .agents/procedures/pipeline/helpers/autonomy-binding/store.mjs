@@ -30,6 +30,13 @@
  * deciding from an out-of-date read, an idempotent re-bind) and turns them into loud
  * rejections instead of silent lost updates.
  *
+ * R3-01 location invariant: every write (init, reconcile persist, rejectAfterPersist)
+ * also verifies the payload SELF-CONSISTENTLY names the target — canonical `recordPath`
+ * match + containment inside the declared stage root (`verifyWriteLocation`). A copied
+ * record reconciled at another physical path, or any direct store write whose payload
+ * names a different location than the one being written, fails closed
+ * (`record_path_mismatch` / `record_outside_stage_root`) before a byte moves.
+ *
  * Symlink-chain resolution mirrors current-decisions.mjs `resolveWriteTarget` (≤8 hops,
  * fail closed on a deeper chain or an unreadable link). That helper is module-private to
  * the intent helper, so the semantics are mirrored here rather than imported; the AUTHORITY
@@ -87,6 +94,49 @@ export function resolveRecordTarget(recordPath) {
 function isWithin(child, parent) {
   if (child === parent) return true;
   return child.startsWith(parent + sep);
+}
+
+/**
+ * R3-01 (BF-1) — the single writer-boundary location invariant, applied on EVERY durable
+ * write for BOTH the incumbent and any proposed record: the write target must BE the
+ * location the payload self-declares (canonical `recordPath` match), and must lie inside
+ * the stage root the payload self-declares. Malformed (non-string / empty) fields are NOT
+ * judged here — `validateRecord` owns schema and rejects them below; this check only
+ * fires when the payload carries comparable path strings, so it can never mask a schema
+ * failure as a location failure. Unresolvable declared paths fail CLOSED (`*_unresolvable`)
+ * — never write through an unresolved alias chain.
+ */
+function verifyWriteLocation(target, nextRecord) {
+  if (nextRecord === null || typeof nextRecord !== 'object' || Array.isArray(nextRecord)) {
+    return { ok: true }; // not a comparable payload — validateRecord rejects it below
+  }
+  if (typeof nextRecord.recordPath === 'string' && nextRecord.recordPath.length > 0) {
+    const declared = canonicalRecordPath(nextRecord.recordPath);
+    if (declared === null) {
+      return { ok: false, code: 'record_target_unresolvable', reason: `the record declares recordPath ${nextRecord.recordPath}, which resolves through a symlink chain deeper than the bound — refusing to write an unresolved fork` };
+    }
+    if (declared !== target) {
+      return {
+        ok: false,
+        code: 'record_path_mismatch',
+        reason: `the record self-identifies as ${declared} (recordPath) but the transaction writes ${target} — a copy, move or fork of the bound record is never a live binding; reconcile the bound path (or a canonical alias of it), and restore/retire the copy instead`,
+      };
+    }
+  }
+  if (typeof nextRecord.stageArtifactRoot === 'string' && nextRecord.stageArtifactRoot.length > 0) {
+    const stage = canonicalRecordPath(nextRecord.stageArtifactRoot);
+    if (stage === null) {
+      return { ok: false, code: 'stage_root_unresolvable', reason: 'the declared stage artifact root resolves through a symlink chain deeper than the bound — refusing to write inside an unresolved root' };
+    }
+    if (!isWithin(target, stage)) {
+      return {
+        ok: false,
+        code: 'record_outside_stage_root',
+        reason: `record ${target} is not inside the stage artifact root the record declares (${stage}) — refusing to write a location the binding does not own`,
+      };
+    }
+  }
+  return { ok: true };
 }
 
 /**
@@ -206,6 +256,23 @@ export function writeRecordAtomic(recordPath, nextRecord, { lockedTarget, expect
       reason: `the record resolved to ${target} but the transaction holds the lock for ${lockedTarget} — the path moved during the transaction; refusing to write a target this lock does not guard`,
     };
   }
+  // R3-01 writer-boundary invariant (BF-1): the payload must SELF-CONSISTENTLY name the
+  // location this transaction actually writes. This runs on EVERY durable write (init,
+  // reconcile persist, rejectAfterPersist) for both the incumbent record and any proposed
+  // one, so a direct store consumer cannot bypass what the engine checks: a schema-valid
+  // record whose `recordPath` names a DIFFERENT path than the write target (the
+  // copied-record fork — an unchanged backup reconciled at another physical path) is
+  // rejected here, before any byte moves. Containment vs the payload's own stage root is
+  // re-verified for the same reason; owner-root containment is transitively preserved
+  // from init (ensureStageOwnership validated stage ⊆ owner before the first write, and
+  // the engine never rewrites `stageArtifactRoot`), so no owner re-derivation is needed
+  // here — this check stays local to the paths the record itself carries. Aliases of the
+  // SAME target are unaffected: every spelling runs through `canonicalRecordPath` before
+  // comparison. A payload whose fields are not non-empty strings fails this check's
+  // guard and is rejected by `validateRecord` below; a payload naming an unresolvable
+  // location fails CLOSED (never writes through an unresolved fork).
+  const location = verifyWriteLocation(target, nextRecord);
+  if (!location.ok) return location;
   const current = readRecord(target);
   if (expectedRevision === 0) {
     if (current.ok) {

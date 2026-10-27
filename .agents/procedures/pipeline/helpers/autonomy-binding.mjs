@@ -3,11 +3,11 @@
  *
  * Verbs: init | reconcile | status | pause | cancel | resume, plus the RESERVED
  * worker | review verbs that stage B owns. `resume` is unconditionally held in A1
- * (productionResumeHold, engine.mjs:102) — no CLI argument, grant file or record
+ * (productionResumeHold, engine.mjs:104) — no CLI argument, grant file or record
  * state can clear that hold; the scoped/revision/replay grant logic lives in record.mjs
  * as fixture-tested pure logic and is deliberately unreferenced from this file. worker|review are
  * stage-B live operations and always return unsupported_pending_prerequisite
- * (reservedVerbHold, engine.mjs:112) — never a simulated live success.
+ * (reservedVerbHold, engine.mjs:114) — never a simulated live success.
  *
  * Output contract: one JSON envelope on stdout, exit code 0 (ok) / 2 (structured
  * hold, reject or unsupported) / 1 (internal error) — the helper-CLI convention of
@@ -16,19 +16,19 @@
  * internal errors ALSO go through the JSON envelope (exit 1/2 + structured code/reason),
  * never plain-text stderr — a machine-consumed helper keeps one output channel.
  *
- * Engine entry points: initBinding engine.mjs:146, reconcile engine.mjs:383,
- * status engine.mjs:900 (lock-free durable-state read).
+ * Engine entry points: initBinding engine.mjs:148, reconcile engine.mjs:385,
+ * status engine.mjs:973 (lock-free durable-state read).
  *
  * Test seams (test-only; never exercised by production callers):
  *   --test-crash-after prewrite|intent|commit  — real self-SIGKILL at the named
- *       durable-write window (the killSelf sites: engine.mjs:593, 596 in
- *       rejectAfterPersist and engine.mjs:879, 882 in the main persist; the seam
- *       itself engine.mjs:136).
+ *       durable-write window (the killSelf sites: engine.mjs:613, 616 in
+ *       rejectAfterPersist and engine.mjs:952, 955 in the main persist; the seam
+ *       itself engine.mjs:138).
  *   --test-hold-before-bind <waitfile>         — poll until <waitfile> exists BEFORE
  *       acquiring the bind lock, so a test can stage a competing acquirer inside the
  *       contention window.
  *   --test-hold-lock-ms <n>                    — hold the acquired lock for n ms
- *       before releasing (engine.mjs:408).
+ *       before releasing (engine.mjs:410).
  */
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -239,8 +239,11 @@ async function main() {
 
   try {
     if (verb === 'init') {
-      if (opts['repo-root'] === undefined || opts.feature === undefined || opts.stage === undefined || opts['stage-artifact-root'] === undefined) {
-        emit({ ok: false, code: 'invalid_request', reason: `init requires --repo-root, --feature, --stage, --stage-artifact-root\n${USAGE}` }, 2);
+      // R3 advisory: --feature-home is required by the engine (initBinding's field loop)
+      // and by the usage text — name it here too, so the CLI boundary rejects with the
+      // complete flag list instead of deferring to the engine's per-field message.
+      if (opts['repo-root'] === undefined || opts.feature === undefined || opts.stage === undefined || opts['stage-artifact-root'] === undefined || opts['feature-home'] === undefined) {
+        emit({ ok: false, code: 'invalid_request', reason: `init requires --repo-root, --feature, --stage, --stage-artifact-root, --feature-home\n${USAGE}` }, 2);
       }
       const initInput = {
         repoRoot: resolve(opts['repo-root']),
