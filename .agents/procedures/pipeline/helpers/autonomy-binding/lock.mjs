@@ -76,12 +76,17 @@ function sleep(ms) {
  *   - `lock_target_unresolvable` (path resolution failed),
  *   - `lock_contended` (EADDRINUSE persisted past the retry budget),
  *   - `lock_unavailable` (any other bind error; errno named in reason).
+ *
+ * `_bindAttempt` is a TEST-ONLY strategy seam (matrix row 18): inject a failing bind
+ * strategy to prove the non-EADDRINUSE path surfaces verbatim and fail-closed — no CLI
+ * flag reaches it and production callers never pass it.
  */
 export async function acquireBindLock({
   recordPath,
   retryBudgetMs = LOCK_RETRY_DEFAULT_BUDGET_MS,
   retryDelayMs = LOCK_RETRY_DEFAULT_DELAY_MS,
   platform = process.platform,
+  _bindAttempt = bindAttempt,
 }) {
   const supported = platformSupportsAbstractBindLock(platform);
   if (!supported.ok) return supported;
@@ -91,7 +96,7 @@ export async function acquireBindLock({
   const lockName = lockNameForRecord(recordPath);
   const deadline = Date.now() + retryBudgetMs;
   for (;;) {
-    const attempt = await bindAttempt(lockName);
+    const attempt = await _bindAttempt(lockName);
     if (attempt.ok) {
       let released = false;
       return {
