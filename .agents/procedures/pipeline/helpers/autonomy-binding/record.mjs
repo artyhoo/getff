@@ -52,6 +52,12 @@ const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const HISTORY_MAX = 50;
 /** Bounded observation log — stale/duplicate observations are kept as bounded history. */
 const OBSERVATIONS_MAX = 100;
+/** Bounded hold log — authority flapping would otherwise append one open+cleared hold
+ * pair per flap forever. Pruning (in addHold) drops only already-CLEARED holds, oldest
+ * first; an open hold is a live gate and is never silently discarded, so a pathological
+ * all-open backlog can still exceed this cap (bounded in practice by hold-code diversity
+ * and the admission/completion gates an open hold triggers). */
+const HOLDS_MAX = 200;
 
 export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -68,7 +74,7 @@ export function grantDigestOf(grant) {
 }
 
 const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
-const isIso = (v) => isNonEmptyString(v) && ISO_RE.test(v);
+export const isIso = (v) => isNonEmptyString(v) && ISO_RE.test(v);
 const isHex64 = (v) => isNonEmptyString(v) && SHA256_RE.test(v);
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 /** Structural ContentRef shape check (live resolution is authority.mjs's job via the
@@ -441,9 +447,24 @@ export function initialRecord(bind, { now }) {
 
 /** Append a hold (deduplicated on code+reason); every hold carries a concrete recovery action. */
 export function addHold(record, { code, reason, recoveryAction, now }) {
+  const existing = record.holds.find((h) => h.code === code && h.reason === reason && h.clearedAt === null);
+  // No-op returns the INPUT record, not a clone: the engine's callers detect a hold
+  // transition by object identity, and a fresh clone would read as «hold moved» —
+  // burning a revision on every reconcile that re-derives an already-open hold.
+  if (existing) return ok(record); // one open instance per (code, reason)
   const next = structuredClone(record);
-  const existing = next.holds.find((h) => h.code === code && h.reason === reason && h.clearedAt === null);
-  if (existing) return ok(next); // one open instance per (code, reason)
+  if (next.holds.length >= HOLDS_MAX) {
+    // Bounded hold log (mirrors HISTORY_MAX/OBSERVATIONS_MAX): drop the OLDEST
+    // already-cleared holds to make room — never an open one.
+    let excess = next.holds.length + 1 - HOLDS_MAX;
+    next.holds = next.holds.filter((hold) => {
+      if (excess > 0 && hold.clearedAt !== null) {
+        excess -= 1;
+        return false;
+      }
+      return true;
+    });
+  }
   next.holds.push({ code, reason, recoveryAction, recordedAt: now, clearedAt: null });
   next.updatedAt = now;
   next.recordRevision += 1;
@@ -454,15 +475,15 @@ export function addHold(record, { code, reason, recoveryAction, now }) {
 
 /** Clear matching open holds (by code, optionally by reason) — used when the condition passes. */
 export function clearHolds(record, { code, now }) {
+  const touched = record.holds.some((h) => h.code === code && h.clearedAt === null);
+  // No-op returns the INPUT record (see addHold): identity is the engine's «nothing moved» signal.
+  if (!touched) return ok(record);
   const next = structuredClone(record);
-  let touched = false;
   for (const hold of next.holds) {
     if (hold.code === code && hold.clearedAt === null) {
       hold.clearedAt = now;
-      touched = true;
     }
   }
-  if (!touched) return ok(next);
   next.updatedAt = now;
   next.recordRevision += 1;
   const checked = validateRecord(next);

@@ -28,7 +28,9 @@ import {
   clearHolds,
   hasLiveWorker,
   sha256Hex,
+  isIso,
   ADMITTING_STATES,
+  TERMINAL_STATES,
 } from './record.mjs';
 import {
   readRecord,
@@ -234,7 +236,7 @@ function classifyObservation(next, obs) {
 export async function reconcile(input) {
   const { recordPath, now } = input;
   if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
-  if (typeof now !== 'string' || now.length === 0) return reject('invalid_request', 'now must be an ISO timestamp string');
+  if (!isIso(now)) return reject('invalid_request', 'now must be an ISO-8601 UTC timestamp string');
   const supported = platformSupportsAbstractBindLock();
   if (!supported.ok) return supported;
   const canonicalPath = canonicalRecordPath(recordPath);
@@ -340,10 +342,40 @@ export async function reconcile(input) {
       effects.push(`observation:${observationDisposition}`);
     }
 
+    // A rejection raised AFTER facts were ingested earlier in this pass must first make
+    // those facts durable: a paused binding refuses new WORK, not its own reporting —
+    // dropping an already-classified observation with the rejection would lose the
+    // worker's report with zero durable trace. Persist failure outranks the rejection.
+    // EVERY rejection site below step (3) goes through this helper — the observation is
+    // independently valid DATA the moment it is ingested and classified, regardless of
+    // why the rest of the composed pass is refused (input gate, admission gate, or a
+    // semantic conflict later in the pipeline).
+    const rejectAfterPersist = (code, reason) => {
+      if (mutated) {
+        if (next.recordRevision === base.recordRevision) next.recordRevision += 1;
+        next.updatedAt = now;
+        if (input.testCrashAfter === 'prewrite') killSelf();
+        const written = writeRecordAtomic(canonicalPath, next, { lockedTarget: preLockTarget, expectedRevision: base.recordRevision });
+        if (!written.ok) return written;
+        if (input.testCrashAfter === 'commit') killSelf();
+      }
+      return reject(code, reason);
+    };
+
     // (4) Intent-before-effect — persist the intent BEFORE any effect could be attempted.
     if (input.requestAction !== undefined) {
       const action = input.requestAction;
-      if (!ROUTES.includes(action)) return reject('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
+      if (!ROUTES.includes(action)) return rejectAfterPersist('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
+      // Admission is a live-authority decision: a reconcile that cannot re-read the
+      // current authority (no --repo-root, or an unresolvable feature home) must NOT
+      // plan work against the snapshot cached at init — that would be a fail-open
+      // bypass of the stale-evidence gate below. Fail closed with a named prerequisite.
+      if (!input.repoRoot) {
+        return rejectAfterPersist('invalid_request', `request-action ${action} requires --repo-root so the live authority can be re-read before admission — the authority snapshot cached at init is never admission authority`);
+      }
+      if (!featureHome) {
+        return rejectAfterPersist('invalid_request', `request-action ${action} requires a resolvable feature home (--feature-home) so the live authority can be re-read before admission`);
+      }
       // Admission gate (design L137: pause/cancel stops new admission): only an `active`
       // record admits a new action. Late FACTS (observations, receipts, intent
       // resolutions, custody acks) stay accepted below — a paused or cancelled binding
@@ -351,7 +383,7 @@ export async function reconcile(input) {
       // request is rejected, never queued: a pause that silently queued actions would
       // admit them wholesale on resume, which is exactly what the pause is for.
       if (!ADMITTING_STATES.includes(next.controlState)) {
-        return reject('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
+        return rejectAfterPersist('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
       }
       // An authority hold must gate admission, or it is a warning nobody reads
       // (attention-is-not-a-mechanism): planning work against unconfirmed or unreadable
@@ -365,13 +397,13 @@ export async function reconcile(input) {
         const detail = authorityHold
           ? `authority hold ${authorityHold.code} is open`
           : 'an authority hold was opened or cleared in this same pass';
-        return reject('authority_hold_open', `${detail} — confirm the current authority, run reconcile once on a stable read so the hold state settles, and only then request ${action} on a subsequent reconcile`);
+        return rejectAfterPersist('authority_hold_open', `${detail} — confirm the current authority, run reconcile once on a stable read so the hold state settles, and only then request ${action} on a subsequent reconcile`);
       }
       if (!next.grants.actions.includes(action)) {
-        return reject('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
+        return rejectAfterPersist('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
       }
       if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
-        return reject('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
+        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — resolve it before planning another action`);
       }
       const actionId = `act-${sha256Hex(canonicalJson({ action, at: now, fromRevision: next.recordRevision, candidate: next.candidate.revision, custody: next.custodyGeneration })).slice(0, 16)}`;
       next.pendingIntent = {
@@ -388,10 +420,10 @@ export async function reconcile(input) {
     // (5) Intent resolution — the owned recovery path for an uncertain effect.
     if (input.resolveIntent !== undefined) {
       const { actionId, resolution, evidence } = input.resolveIntent;
-      if (!INTENT_RESOLUTIONS.includes(resolution)) return reject('invalid_request', `resolution must be one of ${INTENT_RESOLUTIONS.join('|')}`);
-      if (typeof evidence !== 'string' || evidence.length < 20) return reject('invalid_request', 'resolution evidence must be at least 20 characters describing what was actually found');
-      if (next.pendingIntent === null || next.pendingIntent.state === 'resolved') return reject('intent_missing', 'no unresolved intent to resolve');
-      if (next.pendingIntent.actionId !== actionId) return reject('intent_id_mismatch', `open intent is ${next.pendingIntent.actionId}, got ${actionId}`);
+      if (!INTENT_RESOLUTIONS.includes(resolution)) return rejectAfterPersist('invalid_request', `resolution must be one of ${INTENT_RESOLUTIONS.join('|')}`);
+      if (typeof evidence !== 'string' || evidence.length < 20) return rejectAfterPersist('invalid_request', 'resolution evidence must be at least 20 characters describing what was actually found');
+      if (next.pendingIntent === null || next.pendingIntent.state === 'resolved') return rejectAfterPersist('intent_missing', 'no unresolved intent to resolve');
+      if (next.pendingIntent.actionId !== actionId) return rejectAfterPersist('intent_id_mismatch', `open intent is ${next.pendingIntent.actionId}, got ${actionId}`);
       next.pendingIntent = { ...next.pendingIntent, state: 'resolved', resolution: `${resolution}: ${evidence}`, resolvedAt: now };
       const cleared = clearHolds(next, { code: HISTORY_UNCERTAIN_HOLD_CODE, now });
       next = cleared.value;
@@ -406,12 +438,12 @@ export async function reconcile(input) {
     // against one granted destination is exactly the double-delivery the contract forbids.
     if (input.deliveryReceipt !== undefined) {
       const receipt = input.deliveryReceipt;
-      if (typeof receipt !== 'string' || receipt.length === 0) return reject('invalid_request', 'delivery-receipt must be a non-empty reference');
+      if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
       if (next.delivery !== null) {
         if (next.delivery.receipt === receipt) {
           effects.push('delivery-duplicate-ack');
         } else {
-          return reject('delivery_conflict', `a delivery receipt is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
+          return rejectAfterPersist('delivery_conflict', `a delivery receipt is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
         }
       } else {
         next.delivery = { receipt, destination: next.grants.destination, at: now, actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null };
@@ -423,14 +455,24 @@ export async function reconcile(input) {
     // (7) Custody transfer — legal only past cessation (acknowledged) or with explicit ack.
     if (input.transferCustody !== undefined) {
       const transfer = input.transferCustody;
-      if (typeof transfer.toSession !== 'string' || transfer.toSession.length === 0) return reject('invalid_request', 'transfer-custody requires a non-empty to-session');
+      if (typeof transfer.toSession !== 'string' || transfer.toSession.length === 0) return rejectAfterPersist('invalid_request', 'transfer-custody requires a non-empty to-session');
+      // A terminal binding has no outbound transitions — registering a fresh live worker
+      // identity on one would contradict the terminal contract and hand stage B a
+      // cessation workflow for a worker that must never be registered.
+      if (TERMINAL_STATES.includes(next.controlState)) {
+        return rejectAfterPersist('custody_transfer_terminal', `control state ${next.controlState} is terminal — custody cannot be transferred onto a closed binding`);
+      }
       if (hasLiveWorker(next)) {
         if (!transfer.acknowledgeCessation) {
-          return reject('custody_transfer_blocked', `worker ${next.worker.sessionId} has not acknowledged cessation — a released lock or expired wait cannot prove external-worker cessation; re-run with acknowledge-cessation to transfer custody explicitly`);
+          return rejectAfterPersist('custody_transfer_blocked', `worker ${next.worker.sessionId} has not acknowledged cessation — a released lock or expired wait cannot prove external-worker cessation; re-run with acknowledge-cessation to transfer custody explicitly`);
         }
         if (['pause-pending', 'cancel-pending'].includes(next.controlState)) {
           const acked = applyControlTransition(next, { kind: 'ack-cessation', actor: input.actor ?? 'operator:cli', now });
-          if (!acked.ok) return acked;
+          // Same persist-before-reject contract as every other rejection site: facts
+          // ingested earlier in this composed pass (observation, receipt) must survive
+          // an ack refusal — defense-in-depth, this guard is unreachable by the
+          // pause-pending/cancel-pending precondition above unless validation fails.
+          if (!acked.ok) return rejectAfterPersist(acked.code, acked.reason);
           next = acked.value;
         } else {
           next.worker.cessationAckedAt = now;
@@ -445,9 +487,9 @@ export async function reconcile(input) {
     // (8) Candidate update — forward-only; stale candidates are rejected, never ingested.
     if (input.candidate !== undefined) {
       const candidate = input.candidate;
-      if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0) return reject('invalid_request', 'candidate.revision must be a safe integer >= 0');
+      if (!Number.isSafeInteger(candidate.revision) || candidate.revision < 0) return rejectAfterPersist('invalid_request', 'candidate.revision must be a safe integer >= 0');
       if (candidate.revision < next.candidate.revision) {
-        return reject('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
+        return rejectAfterPersist('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
       }
       if (candidate.revision !== next.candidate.revision) {
         next.candidate = { revision: candidate.revision, sha256: candidate.sha256 ?? null, ref: candidate.ref ?? null, at: now };
@@ -456,10 +498,46 @@ export async function reconcile(input) {
       }
     }
 
+    // Completion is an effect-boundary ACCEPTANCE (contract: acceptance rereads current
+    // authority, candidate and effective control state at the existing effect boundary),
+    // so it carries the same live-authority premise the admission door has: a completion
+    // that cannot reread (no --repo-root / unresolvable feature home) would close the
+    // binding against the init-time snapshot — fail closed with the same named
+    // prerequisite; and an open or same-pass-touched authority hold blocks completion
+    // exactly as it blocks admission (one pass cannot move the hold and close on it).
+    // pause/cancel/ack-cessation are deliberately NOT gated: stopping work must stay
+    // possible when the authority source itself is unreadable.
+    const completionGate = () => {
+      if (!input.repoRoot) {
+        return rejectAfterPersist('invalid_request', 'completion requires --repo-root so the live authority can be re-read at the effect boundary — the authority snapshot cached at init is never completion authority');
+      }
+      if (!featureHome) {
+        return rejectAfterPersist('invalid_request', 'completion requires a resolvable feature home (--feature-home) so the live authority can be re-read at the effect boundary');
+      }
+      const authorityHold = openHolds(next).find((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE);
+      if (authorityHold || authorityHoldTouched) {
+        const detail = authorityHold
+          ? `authority hold ${authorityHold.code} is open`
+          : 'an authority hold was opened or cleared in this same pass';
+        return rejectAfterPersist('authority_hold_open', `${detail} — completion reads the settled hold state like admission does: confirm the current authority, run reconcile once on a stable read so the hold settles, and only then complete on a subsequent reconcile`);
+      }
+      return null;
+    };
+
     // (9) Explicit control transitions (pause/cancel/ack-cessation/complete).
     if (input.control !== undefined) {
+      // The delivery-receipt precondition is the SAME on both doors that can reach a
+      // complete transition (this library surface and markComplete below) — the row-9
+      // invariant («completion requires a recorded delivery receipt») is not door-specific.
+      if (input.control.kind === 'complete') {
+        if (next.delivery === null) {
+          return rejectAfterPersist('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+        }
+        const gated = completionGate();
+        if (gated) return gated;
+      }
       const transition = applyControlTransition(next, { kind: input.control.kind, actor: input.actor ?? 'operator:cli', reason: input.control.reason, now });
-      if (!transition.ok) return transition;
+      if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);
       next = transition.value;
       mutated = true;
       effects.push(`control:${input.control.kind}->${next.controlState}`);
@@ -467,9 +545,11 @@ export async function reconcile(input) {
 
     // (10) Authorized completion — requires a recorded delivery receipt and an active binding.
     if (input.markComplete) {
-      if (next.delivery === null) return reject('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+      if (next.delivery === null) return rejectAfterPersist('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
+      const gated = completionGate();
+      if (gated) return gated;
       const transition = applyControlTransition(next, { kind: 'complete', actor: input.actor ?? 'operator:cli', reason: 'delivery receipt recorded and control verified', now });
-      if (!transition.ok) return transition;
+      if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);
       next = transition.value;
       mutated = true;
       effects.push('complete');
@@ -550,9 +630,32 @@ export function status(recordPath) {
   } else if (record.controlState !== 'active') {
     route = 'hold';
     routeReason = `control_state_${record.controlState}`;
+  } else if (record.holds.some((h) => h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE && h.clearedAt === null)) {
+    route = 'hold';
+    routeReason = 'authority_unavailable';
+  } else if (record.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
+    route = 'hold';
+    routeReason = 'authority_changed_requires_confirmation';
   } else if (record.aif.taskId === null) {
     route = 'work';
     routeReason = 'no task bound; admission is a stage-B operation';
+  } else {
+    // Mirror reconcile's route for the same durable state — status and reconcile must
+    // not disagree about «what would happen next» for an active, task-bound record.
+    const last = [...record.observations].reverse().find((o) => o.taskId === record.aif.taskId);
+    if (!last) {
+      route = 'observe';
+      routeReason = 'task bound; awaiting first observation';
+    } else if (last.kind === 'done' && record.delivery !== null) {
+      route = 'complete';
+      routeReason = 'delivery receipt recorded';
+    } else if (last.kind === 'done') {
+      route = 'review';
+      routeReason = 'worker reported done; review before completion';
+    } else {
+      route = 'hold';
+      routeReason = `worker_report_${last.kind}`;
+    }
   }
   return { ok: true, record, route, routeReason };
 }

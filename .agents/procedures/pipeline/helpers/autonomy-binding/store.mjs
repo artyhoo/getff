@@ -95,7 +95,7 @@ export function ensureStageOwnership({ recordPath, stageArtifactRoot, ownerRoot 
   if (stageTarget === null) {
     return { ok: false, code: 'stage_root_unresolvable', reason: 'the stage artifact root resolves through a symlink chain deeper than the bound' };
   }
-  if (!existsSync(stageTarget) || !stageTarget) {
+  if (!existsSync(stageTarget)) {
     return { ok: false, code: 'stage_root_missing', reason: `stage artifact root ${stageTarget} does not exist` };
   }
   if (!isWithin(recordTarget, stageTarget)) {
