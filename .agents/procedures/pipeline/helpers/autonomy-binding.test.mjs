@@ -21,8 +21,18 @@
  *
  * Prohibited effects (row 13): every spawn carries env pointing the known outbound seams
  * at a local recorder server; the `aftermath` test at the END of this file asserts zero
- * connections across the whole run, and static arms assert the six modules never import
- * or call an outbound client at all.
+ * accepted TCP connections AND zero HTTP requests across the whole run (A1 review: a
+ * request-only assertion would miss a connection that never completes a request), and
+ * static arms assert the six modules never import or call an outbound client at all.
+ *
+ * Host platform contract (A1 HOST-01): the suite is EXPLICITLY platform-aware. The
+ * Linux-functional arms (real abstract-bind-lock CLI/engine paths: concurrency, crash,
+ * alias, contention) run on Linux and are SKIPPED elsewhere with a reason that says the
+ * behavior was NOT passed on this host. The reverse arms (real non-Linux CLI/engine
+ * fail-closed hold with unchanged state) run ONLY on a real non-Linux host. The gate
+ * MECHANICS are verified everywhere through the engine's `_testPlatform` seam (which
+ * drives the real platform gate — it can only make the gate fail, never fake a success)
+ * and the row-18 unit matrix. No arm spoofs a platform to claim a Linux behavior passed.
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -61,8 +71,9 @@ import {
 } from './autonomy-binding/store.mjs';
 import {
   platformSupportsAbstractBindLock, acquireBindLock, lockNameForRecord,
-  LOCK_RETRY_DEFAULT_BUDGET_MS,
+  validateRetryTiming, LOCK_RETRY_DEFAULT_BUDGET_MS, LOCK_RETRY_MAX_MS,
 } from './autonomy-binding/lock.mjs';
+import { authoritySignature } from './autonomy-binding/authority.mjs';
 
 const FID = 'matrix-fixture';
 const STAGE = 'stage-a1';
@@ -77,14 +88,36 @@ const sleep = (ms) => new Promise((settle) => setTimeout(settle, ms));
 const fileSha = (path) => sha256Hex(readFileSync(path));
 
 // ---------------------------------------------------------------------------
+// Host platform contract (HOST-01). `ltest` = Linux-functional arm: RUNS on Linux,
+// SKIPPED elsewhere with an explicit «NOT passed» reason (never reported as green).
+// `ntest` = real non-Linux arm: RUNS only on a real non-Linux host, skipped on Linux.
+// Gate mechanics that can run everywhere go through the engine's `_testPlatform` seam
+// (regular `test`) — the seam drives the real gate and can only make it fail.
+// ---------------------------------------------------------------------------
+const HOST_PLATFORM = process.platform;
+const ON_LINUX = HOST_PLATFORM === 'linux';
+const LINUX_ONLY_SKIP = `Skipped — NOT passed on this host (${HOST_PLATFORM}): Linux-functional arm exercising the real abstract-bind-lock CLI/engine paths. The platform gate mechanics are verified separately by the _testPlatform engine arms and the row-18 unit matrix, which DO run here.`;
+const NON_LINUX_SKIP = `Skipped — NOT passed on this host (${HOST_PLATFORM}): this arm verifies the REAL non-Linux fail-closed hold through the real CLI/engine, which a Linux host cannot exercise. On Linux the same fixtures are proven valid by the Linux-functional arms, so a non-Linux hold is attributable to the platform gate alone.`;
+const ltest = ON_LINUX
+  ? test
+  : (name, fn, opts = {}) => test(name, { ...opts, skip: opts.skip ?? LINUX_ONLY_SKIP }, fn);
+const ntest = ON_LINUX
+  ? (name, fn, opts = {}) => test(name, { ...opts, skip: opts.skip ?? NON_LINUX_SKIP }, fn)
+  : test;
+
+// ---------------------------------------------------------------------------
 // Prohibited-effects recorder (row 13): every subprocess gets env pointing the
 // known outbound seams at this listener; the `aftermath` test at the END of this
-// file asserts it never accepted a single connection. The listener itself is
+// file asserts it never accepted a single TCP connection and never served a
+// single HTTP request (A1 review: the HTTP-request counter alone would miss a
+// connection attempt that never completes a request). The listener itself is
 // inert — it only counts. (It is closed there too: a top-level after() would
 // leave it listening forever on this Node version and hang the runner.)
 // ---------------------------------------------------------------------------
 let recorderHits = 0;
+let recorderConnections = 0;
 const recorder = createServer(() => { recorderHits += 1; });
+recorder.on('connection', () => { recorderConnections += 1; });
 const RECORDER_ENV = await new Promise((settle) => {
   recorder.listen(0, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${recorder.address().port}`;
@@ -184,10 +217,10 @@ function spawnCli(args, extraEnv = {}) {
   };
 }
 
-function initArgs(fx, extra = []) {
+function initArgs(fx, extra = [], recordPath = fx.recordPath) {
   return [
     'init',
-    '--record', fx.recordPath,
+    '--record', recordPath,
     '--repo-root', fx.repo,
     '--feature', FID,
     '--stage', STAGE,
@@ -219,7 +252,7 @@ const EVIDENCE = 'verified externally: the tracker shows the effect landed (matr
 // Row 1 — init + valid reconcile, unchanged authority; revisions monotonic.
 // ===========================================================================
 describe('row 1 — init + valid reconcile', () => {
-  test('init binds with live-verifiable authority; envelope reports the work route', async () => {
+  ltest('init binds with live-verifiable authority; envelope reports the work route', async () => {
     const t = makeFixture(null);
     const res = runCli(initArgs(t, ['--task-id', 't-1']));
     assert.equal(res.status, 0, res.stdout + res.stderr);
@@ -238,7 +271,7 @@ describe('row 1 — init + valid reconcile', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('valid reconcile with unchanged authority: no mutation, no holds, route from durable state', async () => {
+  ltest('valid reconcile with unchanged authority: no mutation, no holds, route from durable state', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const res = runCli(recArgs(t));
@@ -250,7 +283,7 @@ describe('row 1 — init + valid reconcile', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('re-init on a bound record fails closed (CAS must-not-exist arm)', async () => {
+  ltest('re-init on a bound record fails closed (CAS must-not-exist arm)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const res = runCli(initArgs(t));
@@ -259,7 +292,7 @@ describe('row 1 — init + valid reconcile', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('revisions are strictly monotonic across a mutating sequence', async () => {
+  ltest('revisions are strictly monotonic across a mutating sequence', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const seen = [1];
@@ -283,7 +316,7 @@ describe('row 1 — init + valid reconcile', () => {
 // Row 2 — authority change: hold authority_changed; stale evidence never current.
 // ===========================================================================
 describe('row 2 — authority change holds admission', () => {
-  test('selector revision advance → authority_changed hold; record authority refreshed to live', async () => {
+  ltest('selector revision advance → authority_changed hold; record authority refreshed to live', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     t.bumpSelector(2);
@@ -298,7 +331,7 @@ describe('row 2 — authority change holds admission', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('stale evidence is never treated as current: an open authority hold blocks new action admission', async () => {
+  ltest('stale evidence is never treated as current: an open authority hold blocks new action admission', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     t.bumpSelector(2);
@@ -311,7 +344,7 @@ describe('row 2 — authority change holds admission', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('hold clears on the next stable read; admission resumes only after it clears', async () => {
+  ltest('hold clears on the next stable read; admission resumes only after it clears', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     t.bumpSelector(2);
@@ -326,7 +359,7 @@ describe('row 2 — authority change holds admission', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('unresolvable authority → authority_unavailable hold; admission blocked; recovery action names the fix', async () => {
+  ltest('unresolvable authority → authority_unavailable hold; admission blocked; recovery action names the fix', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     rmSync(t.selectorPath); // the live selector disappears
@@ -341,7 +374,7 @@ describe('row 2 — authority change holds admission', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('authority_unavailable recovers: the stable read clears the hold; admission resumes on the NEXT reconcile', async () => {
+  ltest('authority_unavailable recovers: the stable read clears the hold; admission resumes on the NEXT reconcile', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const selectorBytes = readFileSync(t.selectorPath, 'utf8');
@@ -367,7 +400,7 @@ describe('row 2 — authority change holds admission', () => {
 // Row 3 — concurrent transitions: two real processes; no lost update.
 // ===========================================================================
 describe('row 3 — concurrent transitions across real processes', () => {
-  test('two overlapping reconciles serialize on the bind lock; both effects land, revisions advance twice', async () => {
+  ltest('two overlapping reconciles serialize on the bind lock; both effects land, revisions advance twice', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const holdMs = '400';
@@ -383,7 +416,7 @@ describe('row 3 — concurrent transitions across real processes', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('a short-budget acquirer loses with lock_contended and writes nothing (never a takeover)', async () => {
+  ltest('a short-budget acquirer loses with lock_contended and writes nothing (never a takeover)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const holder = spawnCli(recArgs(t, ['--observation', obs('hold-a', 'done'), '--test-hold-lock-ms', '900']));
@@ -401,7 +434,7 @@ describe('row 3 — concurrent transitions across real processes', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('CAS backstop (library arm): two writers against one revision → record_revision_conflict', async () => {
+  ltest('CAS backstop (library arm): two writers against one revision → record_revision_conflict', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const read = readRecord(canonicalRecordPath(t.recordPath));
@@ -423,7 +456,7 @@ describe('row 3 — concurrent transitions across real processes', () => {
 // Row 4 — crash windows (prewrite / intent / commit) + row 10 recovery action.
 // ===========================================================================
 describe('row 4 — crash windows across the durable-write boundary', () => {
-  test('prewrite SIGKILL: no partial record, no pending intent, no tmp residue', async () => {
+  ltest('prewrite SIGKILL: no partial record, no pending intent, no tmp residue', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const before = fileSha(t.recordPath);
@@ -438,7 +471,7 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('intent-persisted SIGKILL: intent IS durable; restart classifies uncertain_owner with a concrete recovery action (rows 4+10)', async () => {
+  ltest('intent-persisted SIGKILL: intent IS durable; restart classifies uncertain_owner with a concrete recovery action (rows 4+10)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const crasher = spawnCli(recArgs(t, ['--request-action', 'work', '--test-crash-after', 'intent']));
@@ -476,7 +509,7 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('commit SIGKILL: the effect is durable and re-reconciling is idempotent (no duplicate observation, no duplicate delivery)', async () => {
+  ltest('commit SIGKILL: the effect is durable and re-reconciling is idempotent (no duplicate observation, no duplicate delivery)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const crasher = spawnCli(recArgs(t, ['--observation', obs('c-1', 'done'), '--delivery-receipt', 'receipt-c1', '--test-crash-after', 'commit']));
@@ -502,7 +535,7 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('a second, DIFFERENT receipt while one is recorded is a rejected duplicate delivery', async () => {
+  ltest('a second, DIFFERENT receipt while one is recorded is a rejected duplicate delivery', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     runCli(recArgs(t, ['--delivery-receipt', 'receipt-first']));
@@ -521,7 +554,7 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
 // ===========================================================================
 describe('row 5 — disconnected worker reports are data, not failure verdicts', () => {
   for (const kind of ['timeout', 'unknown', 'error']) {
-    test(`observation kind ${kind}: routed to hold, custody/control/cessation untouched`, async () => {
+    ltest(`observation kind ${kind}: routed to hold, custody/control/cessation untouched`, async () => {
       const t = makeFixture(null);
       runCli(initArgs(t, ['--task-id', 't-1', '--worker-session', 'w-1', '--worker-pid', '999999']));
       const res = runCli(recArgs(t, ['--observation', obs(`o-${kind}`, kind)]));
@@ -543,7 +576,7 @@ describe('row 5 — disconnected worker reports are data, not failure verdicts',
 // Row 6 — duplicate report: idempotent ack by exact identity.
 // ===========================================================================
 describe('row 6 — duplicate report', () => {
-  test('the same observationId re-reported is disposition duplicate; one stored entry; no revision burned', async () => {
+  ltest('the same observationId re-reported is disposition duplicate; one stored entry; no revision burned', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const first = runCli(recArgs(t, ['--observation', obs('dup-1', 'done', { resultRef: 'r/1' })]));
@@ -565,7 +598,7 @@ describe('row 6 — duplicate report', () => {
 // Row 7 — late report after pause and after cancel.
 // ===========================================================================
 describe('row 7 — late results never clear an explicit pause/cancel', () => {
-  test('late report while pause-pending: recorded historical; control stays pending; admission blocked', async () => {
+  ltest('late report while pause-pending: recorded historical; control stays pending; admission blocked', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1', '--worker-session', 'w-1']));
     const pause = runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause (matrix)', '--now', iso()]);
@@ -582,7 +615,7 @@ describe('row 7 — late results never clear an explicit pause/cancel', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('late report while paused: recorded historical; control stays paused', async () => {
+  ltest('late report while paused: recorded historical; control stays paused', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause, no worker bound', '--now', iso()]);
@@ -594,7 +627,7 @@ describe('row 7 — late results never clear an explicit pause/cancel', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('late report after cancel: recorded historical; terminal state holds; nothing reopens it', async () => {
+  ltest('late report after cancel: recorded historical; terminal state holds; nothing reopens it', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const cancel = runCli(['cancel', '--record', t.recordPath, '--control-reason', 'operator cancel (matrix)', '--now', iso()]);
@@ -618,7 +651,7 @@ describe('row 7 — late results never clear an explicit pause/cancel', () => {
 // Row 8 — stale candidate / stale custody generation.
 // ===========================================================================
 describe('row 8 — stale candidate and custody are rejected, never merged', () => {
-  test('candidate regression rejected; record keeps the newer candidate', async () => {
+  ltest('candidate regression rejected; record keeps the newer candidate', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')]));
     const fwd = runCli(recArgs(t, ['--candidate-revision', '3', '--candidate-sha256', sha256Hex('c3')]));
@@ -633,7 +666,7 @@ describe('row 8 — stale candidate and custody are rejected, never merged', () 
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('same-revision candidate with different bytes updates nothing', async () => {
+  ltest('same-revision candidate with different bytes updates nothing', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')]));
     const res = runCli(recArgs(t, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('other')]));
@@ -644,7 +677,7 @@ describe('row 8 — stale candidate and custody are rejected, never merged', () 
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('stale custody generation (library arm): superseded worker reporting late is historical-stale-custody', async () => {
+  ltest('stale custody generation (library arm): superseded worker reporting late is historical-stale-custody', async () => {
     const t = makeFixture(null);
     const bound = await initBinding(initBindingInput(t));
     assert.ok(bound.ok, JSON.stringify(bound));
@@ -674,7 +707,7 @@ describe('row 8 — stale candidate and custody are rejected, never merged', () 
 // Row 9 — control lifecycle + worker output cannot override a denied action.
 // ===========================================================================
 describe('row 9 — control gate: worker output carries no control authority', () => {
-  test('observation payload fields beyond the known schema are dropped, not ingested', async () => {
+  ltest('observation payload fields beyond the known schema are dropped, not ingested', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const sneaky = JSON.stringify({ taskId: 't-1', kind: 'done', observationId: 'sneaky-1', command: 'resume', control: 'cancelled', actions: ['work'], grant: { action: 'resume' } });
@@ -690,7 +723,7 @@ describe('row 9 — control gate: worker output carries no control authority', (
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('an action outside the fixed init grant list is refused — no flag extends the grant', async () => {
+  ltest('an action outside the fixed init grant list is refused — no flag extends the grant', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--actions', 'observe,hold']));
     const res = runCli(recArgs(t, ['--request-action', 'work']));
@@ -700,7 +733,7 @@ describe('row 9 — control gate: worker output carries no control authority', (
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('completion requires a recorded delivery receipt (a routing answer is not a completed effect)', async () => {
+  ltest('completion requires a recorded delivery receipt (a routing answer is not a completed effect)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const res = runCli(recArgs(t, ['--mark-complete']));
@@ -714,7 +747,7 @@ describe('row 9 — control gate: worker output carries no control authority', (
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('state-machine lifecycle (library arms): ack-cessation and custody legality', async () => {
+  ltest('state-machine lifecycle (library arms): ack-cessation and custody legality', async () => {
     const t = makeFixture(null);
     const bound = await initBinding(initBindingInput(t));
     assert.ok(bound.ok);
@@ -738,7 +771,7 @@ describe('row 9 — control gate: worker output carries no control authority', (
 // Row 11 — real SIGKILL lock release (abstract-socket lock).
 // ===========================================================================
 describe('row 11 — kernel-held lock: SIGKILL releases immediately, live holders contend', () => {
-  test('live holder blocks a short-budget acquirer; SIGKILL frees the name for an immediate rebind', async () => {
+  ltest('live holder blocks a short-budget acquirer; SIGKILL frees the name for an immediate rebind', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     // 1. A holder is inside its critical section for 8s (will be killed long before).
@@ -800,7 +833,7 @@ describe('row 12 — reserved stage-B verbs', () => {
 // the assertion has teeth).
 // ===========================================================================
 describe('row 13 — prohibited effects: no model/PR/delivery calls', () => {
-  test('a full operational sequence runs with every outbound seam pointed at the recorder', async () => {
+  ltest('a full operational sequence runs with every outbound seam pointed at the recorder', async () => {
     const t = makeFixture(null);
     assert.equal(runCli(initArgs(t, ['--task-id', 't-1'])).status, 0);
     assert.equal(runCli(recArgs(t, ['--observation', obs('p-1', 'done')])).status, 0);
@@ -833,7 +866,7 @@ describe('row 13 — prohibited effects: no model/PR/delivery calls', () => {
 // Row 14 — store atomicity: record parses after every mutation; no tmp residue.
 // ===========================================================================
 describe('row 14 — store atomicity under concurrency', () => {
-  test('six parallel writers serialize; a concurrent reader never sees partial JSON; no tmp residue', async () => {
+  ltest('six parallel writers serialize; a concurrent reader never sees partial JSON; no tmp residue', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const readers = { runs: 0, bad: 0 };
@@ -871,7 +904,7 @@ describe('row 14 — store atomicity under concurrency', () => {
 // Row 15 — validation unit arms (pure record/store/lock logic).
 // ===========================================================================
 describe('row 15 — validation unit arms', () => {
-  test('monotonic revisions: control transitions bump record+control; holds bump record only', async () => {
+  ltest('monotonic revisions: control transitions bump record+control; holds bump record only', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const st = runCli(['status', '--record', t.recordPath]);
@@ -918,7 +951,7 @@ describe('row 15 — validation unit arms', () => {
     assert.equal(validateRecord(badVersion).code, 'record_version_unsupported');
   });
 
-  test('store arms: unreadable/invalid records fail closed; TOCTOU retarget and CAS mismatches reject', async () => {
+  ltest('store arms: unreadable/invalid records fail closed; TOCTOU retarget and CAS mismatches reject', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     writeFileSync(join(t.stageRoot, 'garbage.json'), 'not json at all');
@@ -960,7 +993,7 @@ describe('row 15 — validation unit arms', () => {
 // Row 16 — adversarial recovery race (A1-ARCH-01 interleaving, mapped to the bind lock).
 // ===========================================================================
 describe('row 16 — adversarial recovery race with staged bind attempts', () => {
-  test('SIGKILLed holder; A resumes first and wins; B paused-before-bind contends against a live A; no lost revision', async () => {
+  ltest('SIGKILLed holder; A resumes first and wins; B paused-before-bind contends against a live A; no lost revision', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const controlBefore = runCli(['status', '--record', t.recordPath]).json.record.controlRevision;
@@ -1012,7 +1045,7 @@ describe('row 16 — adversarial recovery race with staged bind attempts', () =>
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('lexical aliases contend on ONE lock: canonical resolution precedes lock-key derivation', async () => {
+  ltest('lexical aliases contend on ONE lock: canonical resolution precedes lock-key derivation', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     const aliasPath = join(t.stageRoot, 'sub', '..', 'binding.json'); // resolve() → same canonical path
@@ -1027,25 +1060,96 @@ describe('row 16 — adversarial recovery race with staged bind attempts', () =>
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('symlink-alias residual (documented): a symlinked directory yields a distinct lock key; an alias RACE is narrowed by CAS, not closed', async () => {
+  ltest('alias safety (A1-CODE-01): a directory-symlink alias canonicalizes to ONE lock name and contends on it', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t));
     symlinkSync(t.stageRoot, join(t.base, 'alias-root'));
     const alias = join(t.base, 'alias-root', 'binding.json');
-    // Sequential use through both spellings is correct: monotonic revisions, no corruption.
-    const first = runCli(['reconcile', '--record', alias, '--repo-root', t.repo, '--feature-home', t.home, '--now', iso(), '--observation', obs('sym-1', 'parked')]);
-    assert.equal(first.status, 0, first.stdout + first.stderr);
-    const second = runCli(recArgs(t, ['--observation', obs('sym-2', 'parked')]));
+    // The lock key is derived from the CANONICAL record path (realpath of the longest
+    // existing ancestor + leaf chain) — the alias and the direct spelling hash to the
+    // same abstract name, so two aliases can never acquire independent locks.
+    assert.equal(lockNameForRecord(alias), lockNameForRecord(t.recordPath), 'a symlinked-directory alias shares ONE lock key with the direct spelling');
+    // Real overlapping contention THROUGH the alias spelling: while the direct-path
+    // holder is inside its critical section, the alias acquirer must hit the SAME
+    // abstract name and fail bounded (EADDRINUSE against a live holder) — not acquire
+    // an independent lock.
+    const holder = spawnCli(recArgs(t, ['--observation', obs('direct-1', 'parked'), '--test-hold-lock-ms', '700']));
+    await sleep(300);
+    const contender = spawnCli(['reconcile', '--record', alias, '--repo-root', t.repo, '--feature-home', t.home, '--now', iso(), '--observation', obs('alias-1', 'parked'), '--lock-retry-budget-ms', '150']);
+    const [rh, rc] = await Promise.all([holder.done, contender.done]);
+    assert.equal(rh.code, 0, rh.stdout + rh.stderr);
+    assert.equal(rc.code, 2);
+    assert.equal(rc.json.code, 'lock_contended', 'an alias of the same record contends on the holder’s lock instead of acquiring an independent one');
+    // Sequential use through both spellings stays correct: monotonic revisions, one record.
+    const second = runCli(['reconcile', '--record', alias, '--repo-root', t.repo, '--feature-home', t.home, '--now', iso(), '--observation', obs('alias-2', 'parked')]);
     assert.equal(second.status, 0, second.stdout + second.stderr);
-    assert.equal(second.json.recordRevision, first.json.recordRevision + 1, 'revisions stay monotonic across spellings');
-    // Honest residual (cold-review MAJOR 3): two spellings hold two INDEPENDENT locks,
-    // and if they raced concurrently, each could pass its own CAS (stale-read window)
-    // — the CAS narrows but does NOT close that lost-update window. The residual is
-    // accepted on the single-canonical-spelling operator contract, not on a CAS
-    // guarantee; an inode-realpath lock key is the B-side alternative. This test pins
-    // the documented fact: lockNameForRecord canonicalizes lexically, not through
-    // directory symlinks.
-    assert.notEqual(lockNameForRecord(alias), lockNameForRecord(t.recordPath));
+    assert.equal(second.json.recordRevision, rh.json.recordRevision + 1, 'revisions stay monotonic across spellings');
+    const ids = runCli(['status', '--record', alias]).json.record.observations.map((o) => o.observationId).sort();
+    assert.deepEqual(ids, ['alias-2', 'direct-1'], 'both spellings read and write the SAME record');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('alias safety (A1-CODE-01): a LEAF-symlink alias also canonicalizes to ONE lock name and one write target', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t));
+    const leafAlias = join(t.stageRoot, 'binding-alias.json');
+    symlinkSync(t.recordPath, leafAlias);
+    assert.equal(lockNameForRecord(leafAlias), lockNameForRecord(t.recordPath), 'a leaf alias resolves through the leaf chain to the same lock key');
+    const holder = spawnCli(recArgs(t, ['--observation', obs('leaf-1', 'parked'), '--test-hold-lock-ms', '700']));
+    await sleep(300);
+    const contender = spawnCli(['reconcile', '--record', leafAlias, '--repo-root', t.repo, '--feature-home', t.home, '--now', iso(), '--observation', obs('leaf-2', 'parked'), '--lock-retry-budget-ms', '150']);
+    const [rh, rc] = await Promise.all([holder.done, contender.done]);
+    assert.equal(rh.code, 0, rh.stdout + rh.stderr);
+    assert.equal(rc.code, 2);
+    assert.equal(rc.json.code, 'lock_contended', 'a leaf alias contends on the SAME lock as its target path');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('alias safety (A1-CODE-01): an escaping ANCESTOR symlink is rejected by containment BEFORE any write', async () => {
+    const t = makeFixture(null);
+    const outside = join(t.base, 'outside');
+    mkdirSync(outside, { recursive: true });
+    // /stage/escape -> outside the stage root: the record path through the escape is
+    // lexically inside the stage but canonically resolves OUTSIDE it.
+    symlinkSync(outside, join(t.stageRoot, 'escape'));
+    const throughEscape = join(t.stageRoot, 'escape', 'binding.json');
+    const res = runCli(initArgs(t, [], throughEscape));
+    assert.equal(res.status, 2, res.stdout + res.stderr);
+    assert.equal(res.json.code, 'record_outside_stage_root', JSON.stringify(res.json));
+    // No write happened anywhere: neither through the escape nor at the direct path.
+    assert.equal(existsSync(throughEscape), false, 'no record was written through the escaping ancestor');
+    assert.equal(existsSync(join(outside, 'binding.json')), false, 'the canonical (escaped) location is untouched');
+    assert.equal(existsSync(t.recordPath), false, 'the direct location is untouched');
+    // A leaf symlink pointing OUTSIDE is equally rejected (previously only containment
+    // on the leaf target guarded this; now the canonical path does, before the lock).
+    const outsideLeaf = join(t.stageRoot, 'binding-out.json');
+    symlinkSync(join(outside, 'binding.json'), outsideLeaf);
+    const resLeaf = runCli(initArgs(t, [], outsideLeaf));
+    assert.equal(resLeaf.status, 2);
+    assert.equal(resLeaf.json.code, 'record_outside_stage_root', JSON.stringify(resLeaf.json));
+    assert.equal(existsSync(join(outside, 'binding.json')), false);
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('alias safety (A1-CODE-01): concurrent reconciles through two aliases of one record serialize on one lock (no lost update)', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    symlinkSync(t.stageRoot, join(t.base, 'alias-root'));
+    const alias = join(t.base, 'alias-root', 'binding.json');
+    // Both spellings write CONCURRENTLY (no staged ordering): the shared lock must
+    // serialize them so both observations land and revisions stay monotonic.
+    const [ra, rb] = await Promise.all([
+      spawnCli(recArgs(t, ['--observation', obs('conc-a', 'parked'), '--lock-retry-budget-ms', '5000'])).done,
+      spawnCli(['reconcile', '--record', alias, '--repo-root', t.repo, '--feature-home', t.home, '--now', iso(), '--observation', obs('conc-b', 'parked'), '--lock-retry-budget-ms', '5000']).done,
+    ]);
+    assert.equal(ra.code, 0, ra.stdout + ra.stderr);
+    assert.equal(rb.code, 0, rb.stdout + rb.stderr);
+    const revs = [ra.json.recordRevision, rb.json.recordRevision].sort((a, b) => a - b);
+    assert.deepEqual(revs, [2, 3], 'the two writes serialized on the shared lock (init 1 → 2 → 3)');
+    const st = runCli(['status', '--record', alias]).json.record;
+    const ids = st.observations.map((o) => o.observationId).sort();
+    assert.deepEqual(ids, ['conc-a', 'conc-b'], 'both alias-path writes are durable — no lost update');
+    assert.deepEqual(tmpFiles(t.stageRoot), []);
     rmSync(t.base, { recursive: true, force: true });
   });
 });
@@ -1054,7 +1158,7 @@ describe('row 16 — adversarial recovery race with staged bind attempts', () =>
 // Row 17 — release/reacquire interleaving + SIGKILL mid-critical-section.
 // ===========================================================================
 describe('row 17 — release/reacquire interleaving', () => {
-  test('three acquirers of one record serialize cleanly; revisions monotonic; record parses each time', async () => {
+  ltest('three acquirers of one record serialize cleanly; revisions monotonic; record parses each time', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     for (const [index, id] of ['i-1', 'i-2', 'i-3'].entries()) {
@@ -1068,7 +1172,7 @@ describe('row 17 — release/reacquire interleaving', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('SIGKILL mid-critical-section: the next acquirer binds immediately and the record is intact', async () => {
+  ltest('SIGKILL mid-critical-section: the next acquirer binds immediately and the record is intact', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const before = fileSha(t.recordPath);
@@ -1176,7 +1280,7 @@ describe('row 19 — resume authority battery', () => {
     return { fx, record: st.json.record };
   }
 
-  test('production CLI negatives: every resume shape stays held with unchanged record bytes', async () => {
+  ltest('production CLI negatives: every resume shape stays held with unchanged record bytes', async () => {
     const { fx, record } = pausedFixture(null);
     const t = fx; // grant documents land beside the fixture, never inside the stage root
     const beforeSha = fileSha(fx.recordPath);
@@ -1210,7 +1314,7 @@ describe('row 19 — resume authority battery', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('observation/worker-supplied grant is DATA: stored verbatim-none, no resume, no admission', async () => {
+  ltest('observation/worker-supplied grant is DATA: stored verbatim-none, no resume, no admission', async () => {
     const { fx } = pausedFixture(null);
     const payload = JSON.stringify({
       taskId: 't-1', kind: 'done', observationId: 'grant-ish',
@@ -1231,7 +1335,7 @@ describe('row 19 — resume authority battery', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  test('direct production engine invocation stays held — no CLI-only check to skip', async () => {
+  ltest('direct production engine invocation stays held — no CLI-only check to skip', async () => {
     const hold = productionResumeHold();
     assert.equal(hold.code, 'unsupported_pending_prerequisite');
     assert.match(hold.reason, /No CLI flag, grant document, observation payload, path or environment value clears this hold/);
@@ -1250,7 +1354,7 @@ describe('row 19 — resume authority battery', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('fixture-only pure transition: valid trusted input proposes consumption; negatives reject; nothing persists', async () => {
+  ltest('fixture-only pure transition: valid trusted input proposes consumption; negatives reject; nothing persists', async () => {
     const { fx, record } = pausedFixture(null);
     const t = fx;
     const beforeSha = fileSha(fx.recordPath);
@@ -1320,7 +1424,7 @@ describe('row 19 — resume authority battery', () => {
 // 2026-10-27 cold diff review is pinned here so it cannot silently regress.
 // ===========================================================================
 describe('cold-review regression arms (r4 fixes)', () => {
-  test('MAJOR 1: re-deriving an already-open uncertain_owner hold is a no-op — no revision burn, mutated false', async () => {
+  ltest('MAJOR 1: re-deriving an already-open uncertain_owner hold is a no-op — no revision burn, mutated false', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const plan = runCli(recArgs(t, ['--request-action', 'work']));
@@ -1339,7 +1443,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MAJOR 2: a composed observation + rejected request-action persists the ingested fact', async () => {
+  ltest('MAJOR 2: a composed observation + rejected request-action persists the ingested fact', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause (composed-rejection arm)', '--now', iso()]);
@@ -1356,7 +1460,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MAJOR 4: request-action without --repo-root (or against an unreadable authority) fails closed', async () => {
+  ltest('MAJOR 4: request-action without --repo-root (or against an unreadable authority) fails closed', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const beforeSha = fileSha(t.recordPath);
@@ -1385,7 +1489,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MINOR 5: custody transfer onto a terminal record is rejected', async () => {
+  ltest('MINOR 5: custody transfer onto a terminal record is rejected', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     runCli(['cancel', '--record', t.recordPath, '--control-reason', 'operator cancel (custody arm)', '--now', iso()]);
@@ -1397,7 +1501,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MINOR 9: a non-ISO --now is rejected up front, not late as record_invalid', async () => {
+  ltest('MINOR 9: a non-ISO --now is rejected up front, not late as record_invalid', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const res = runCli(['reconcile', '--record', t.recordPath, '--repo-root', t.repo, '--feature-home', t.home, '--now', 'not-a-timestamp', '--observation', obs('iso-1', 'parked')]);
@@ -1407,7 +1511,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MINOR 10: the library control door requires a delivery receipt for complete, same as markComplete (library arm)', async () => {
+  ltest('MINOR 10: the library control door requires a delivery receipt for complete, same as markComplete (library arm)', async () => {
     const t = makeFixture(null);
     await initBinding(initBindingInput(t));
     const denied = await reconcile({ ...reconcileInput(t), control: { kind: 'complete', actor: 'matrix:library-arm' } });
@@ -1418,7 +1522,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('MINOR 6: status route mirrors reconcile route for an active task-bound record', async () => {
+  ltest('MINOR 6: status route mirrors reconcile route for an active task-bound record', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const fresh = runCli(['status', '--record', t.recordPath]);
@@ -1444,7 +1548,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
 // durable write is reachable by the crash-window seams like any other write.
 // ===========================================================================
 describe('cold-review regression arms (r5 fixes)', () => {
-  test('r5 MAJOR: a composed observation survives EVERY post-ingestion rejection class', async () => {
+  ltest('r5 MAJOR: a composed observation survives EVERY post-ingestion rejection class', async () => {
     // One scenario per rejection-site class that sits AFTER observation ingestion
     // (engine steps 4-10): the sibling input is refused with its exact code, while
     // the observation — independently valid DATA the moment it was classified —
@@ -1507,7 +1611,7 @@ describe('cold-review regression arms (r5 fixes)', () => {
     }
   });
 
-  test('r5: the persist-before-reject durable write is reachable by the crash-window seams', async () => {
+  ltest('r5: the persist-before-reject durable write is reachable by the crash-window seams', async () => {
     // commit seam on the persist-before-reject write: killed AFTER the write landed —
     // the ingested fact survives the SIGKILL and the retry is an idempotent duplicate.
     const t = makeFixture(null);
@@ -1529,7 +1633,7 @@ describe('cold-review regression arms (r5 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('r5: prewrite seam on the persist-before-reject write leaves no residue', async () => {
+  ltest('r5: prewrite seam on the persist-before-reject write leaves no residue', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     runCli(recArgs(t, ['--delivery-receipt', 'pr:staging#1']));
@@ -1551,7 +1655,7 @@ describe('cold-review regression arms (r5 fixes)', () => {
 // bounded with open holds never pruned (r6 m3).
 // ===========================================================================
 describe('cold-review regression arms (r6 fixes)', () => {
-  test('r6 MAJOR: an open authority hold blocks completion like admission; completion proceeds only after the hold settles', async () => {
+  ltest('r6 MAJOR: an open authority hold blocks completion like admission; completion proceeds only after the hold settles', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     t.bumpSelector(2);
@@ -1574,7 +1678,7 @@ describe('cold-review regression arms (r6 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('r6 MAJOR: the pass that clears an authority hold cannot also complete on it (settle boundary holds for completion too)', async () => {
+  ltest('r6 MAJOR: the pass that clears an authority hold cannot also complete on it (settle boundary holds for completion too)', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     t.bumpSelector(2);
@@ -1595,7 +1699,7 @@ describe('cold-review regression arms (r6 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('r6 MAJOR: completion without a live-authority source fails closed naming --repo-root', async () => {
+  ltest('r6 MAJOR: completion without a live-authority source fails closed naming --repo-root', async () => {
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const res = runCli(['reconcile', '--record', t.recordPath, '--now', iso(), '--delivery-receipt', 'receipt-noroot', '--mark-complete']);
@@ -1608,7 +1712,7 @@ describe('cold-review regression arms (r6 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('r6 MAJOR: the library control door carries the same live-authority completion premise', async () => {
+  ltest('r6 MAJOR: the library control door carries the same live-authority completion premise', async () => {
     const t = makeFixture(null);
     await initBinding(initBindingInput(t));
     const denied = await reconcile(reconcileInput(t, {
@@ -1625,7 +1729,7 @@ describe('cold-review regression arms (r6 fixes)', () => {
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  test('r6 m3: authority flapping cannot grow the hold log unboundedly — cleared holds prune oldest-first', async () => {
+  ltest('r6 m3: authority flapping cannot grow the hold log unboundedly — cleared holds prune oldest-first', async () => {
     const t = makeFixture(null);
     await initBinding(initBindingInput(t));
     // 210 flaps, each an (open on the changed read + clear on the stable read) pair:
@@ -1677,11 +1781,372 @@ describe('cold-review regression arms (r6 fixes)', () => {
 // A top-level after() cannot carry this cleanup (see the note near the recorder:
 // node --test silently skips it on this Node version) — a test always runs.
 // ===========================================================================
-test('aftermath — recorder closed, zero outbound connections across the whole run', async () => {
+test('aftermath — recorder closed, zero outbound TCP connections AND zero HTTP requests across the whole run', async () => {
   recorder.close();
   await once(recorder, 'close');
-  assert.equal(recorderHits, 0, `prohibited-effect violation: ${recorderHits} outbound connection(s) reached the recorder — A1 never calls model/PR/delivery endpoints`);
+  assert.equal(recorderConnections, 0, `prohibited-effect violation: ${recorderConnections} outbound TCP connection attempt(s) reached the recorder — A1 never dials model/PR/delivery endpoints (A1 review: a request-only counter misses a connection that never completes a request)`);
+  assert.equal(recorderHits, 0, `prohibited-effect violation: ${recorderHits} outbound HTTP request(s) reached the recorder — A1 never calls model/PR/delivery endpoints`);
 });
+
+// ===========================================================================
+// A1 acceptance rework — regression arms for the six material findings (CODE-01..06),
+// the CLI boundary tightening, and the HOST-01 platform contract. CODE-01's alias arms
+// live in row 16 (they belong with the other lock-contention arms); everything else in
+// the rework scope is collected here, labelled by finding ID.
+// ===========================================================================
+describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
+  ltest('A1-CODE-02: a stale-custody done never advances routing for the current worker (reconcile AND status)', async (t) => {
+    const fx = makeFixture(t);
+    // No live worker is bound, so the CLI transfer door needs no cessation ack — the
+    // point of this arm is the ROUTING consequence of a custody advance, not the ack.
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const moved = runCli(recArgs(fx, ['--transfer-custody', 'w-2', '--control-reason', 'custody moves to w-2']));
+    assert.equal(moved.status, 0, moved.stdout + moved.stderr);
+    assert.equal(moved.json.custodyGeneration, 2);
+    const late = runCli(recArgs(fx, ['--observation', obs('late-superseded', 'done', { custodyGeneration: 1 })]));
+    assert.equal(late.status, 0);
+    assert.equal(late.json.observationDisposition, 'historical-stale-custody');
+    assert.equal(late.json.route, 'observe', 'a superseded worker\'s done must not route review for the CURRENT worker');
+    assert.match(late.json.routeReason, /stale against current custody/);
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'observe', 'status derives from the SAME eligibility rule — no second opinion');
+    assert.match(st.json.routeReason, /stale against current custody/);
+    const still = runCli(recArgs(fx, ['--request-action', 'work']));
+    assert.equal(still.status, 0, 'the current worker is not punished for a stale report');
+    assert.equal(still.json.route, 'hold');
+    assert.equal(still.json.routeReason, 'intent_outcome_uncertain');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-02: a superseded candidate\'s consumed done stops routing complete after a candidate advance', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--observation', obs('done-c1', 'done', { candidateRevision: 1 })])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    const before = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(before.json.route, 'complete', 'sanity: done + receipt routes complete while current');
+    const advanced = runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
+    assert.equal(advanced.status, 0);
+    assert.ok(advanced.json.effects.includes('candidate-updated:2'));
+    const after = runCli(recArgs(fx, []));
+    assert.equal(after.json.route, 'observe', 'the candidate advance must retire the old done as routing evidence');
+    assert.match(after.json.routeReason, /stale against current custody\/candidate/);
+    const stAfter = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(stAfter.json.route, 'observe');
+    assert.equal(stAfter.json.record.controlState, 'active', 'an advance supersedes routing, it does not complete the binding');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-02: absent provenance is explicitly CURRENT, not stale', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--observation', obs('no-provenance', 'done')])).status, 0);
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'review', 'a report with no custody/candidate provenance is eligible by default (null = current)');
+    const receipted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-np']));
+    assert.equal(receipted.json.route, 'complete');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-03: cancel-pending + transfer/ack persists the cessation FACT and registers NO successor worker', async (t) => {
+    const t2 = makeFixture(t);
+    const bound = await initBinding(initBindingInput(t2));
+    assert.ok(bound.ok, JSON.stringify(bound));
+    const cancel = await reconcile({ ...reconcileInput(t2), control: { kind: 'cancel', actor: 'operator:matrix' } });
+    assert.ok(cancel.ok);
+    assert.equal(cancel.controlState, 'cancel-pending');
+    const attempted = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'composed cancel-ack + transfer' } });
+    assert.equal(attempted.ok, false);
+    assert.equal(attempted.code, 'custody_transfer_terminal');
+    assert.match(attempted.reason, /no successor worker/);
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.record.controlState, 'cancelled', 'the ack fact completed the cancellation');
+    assert.equal(st.json.record.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded — no fresh live worker');
+    assert.ok(st.json.record.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
+    assert.equal(st.json.record.custodyGeneration, 1, 'custody never advanced onto the terminal binding');
+    const workers = JSON.stringify(st.json.record);
+    assert.ok(!workers.includes('"w-2"'), 'no successor session id anywhere in the durable record');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-03: pause-pending + transfer/ack is the CONTRAST arm — non-terminal, transfer proceeds', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
+    assert.equal(pause.controlState, 'pause-pending');
+    const moved = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'pause completes to non-terminal paused' } });
+    assert.ok(moved.ok, JSON.stringify(moved));
+    assert.equal(moved.controlState, 'paused');
+    assert.equal(moved.custodyGeneration, 2);
+    assert.equal(moved.effects.includes('custody-transferred:2'), true);
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-04: ungranted completion records the receipt as a FACT and never reaches terminal (library arm)', async (t) => {
+    const t2 = makeFixture(t);
+    const bound = await initBinding({ ...initBindingInput(t2), actions: ['observe', 'hold'] });
+    assert.ok(bound.ok);
+    const denied = await reconcile({ ...reconcileInput(t2), deliveryReceipt: 'receipt-never-authorizes', markComplete: true });
+    assert.equal(denied.ok, false);
+    assert.equal(denied.code, 'action_not_granted');
+    assert.match(denied.reason, /does not authorize completion/);
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.record.controlState, 'active', 'an ungranted completion never closes the binding');
+    assert.ok(st.json.record.delivery !== null, 'the receipt stays a recorded fact, separable from the rejected transition');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-04: completion with an unresolved effect is refused — the intent must be resolved first', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    const planned = runCli(recArgs(t2, ['--request-action', 'work']));
+    assert.equal(planned.status, 0);
+    const denied = await reconcile({ ...reconcileInput(t2), deliveryReceipt: 'receipt-over-uncertainty', markComplete: true });
+    assert.equal(denied.ok, false);
+    assert.equal(denied.code, 'intent_outstanding');
+    assert.match(denied.reason, /unverified external effect/);
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.record.controlState, 'active');
+    assert.equal(st.json.record.pendingIntent.state, 'intent_persisted', 'the unresolved intent survives the rejected completion');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-04: the CLI completion door carries the same grant admission (composed reconcile + --mark-complete)', async (t) => {
+    const fx = makeFixture(t);
+    const init = runCli([...initArgs(fx, ['--task-id', 't-1']), '--actions', 'observe,hold']);
+    assert.equal(init.status, 0);
+    const denied = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-cli-ungranted', '--mark-complete']));
+    assert.equal(denied.status, 2);
+    assert.equal(denied.json.code, 'action_not_granted');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.record.controlState, 'active');
+    assert.ok(st.json.record.delivery !== null, 'CLI receipt still persisted as a fact');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-05: a foreign repository\'s otherwise-valid selector cannot authorize transitions (two-real-repository negative)', async (t) => {
+    const fx = makeFixture(t); // repository A — the binding's home
+    assert.ok((await initBinding(initBindingInput(fx))).ok);
+    const foreign = makeFixture(t); // repository B — identical CONTENT bytes, different identity
+    foreign.bumpSelector(7); // make B's selector differ, so an authority refresh would be observable
+    const foreignRead = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: foreign.home });
+    assert.equal(foreignRead.ok, true, 'a foreign read is a recorded HOLD, not a crash');
+    assert.ok(foreignRead.effects.includes('authority-identity-mismatch'), JSON.stringify(foreignRead.effects));
+    const blocked = await reconcile({ ...reconcileInput(fx), repoRoot: foreign.repo, featureHome: foreign.home, requestAction: 'work' });
+    assert.equal(blocked.ok, false);
+    assert.equal(blocked.code, 'authority_hold_open', 'the same pass cannot both open the identity hold and admit work');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.route, 'hold');
+    assert.equal(st.json.routeReason, 'authority_identity_mismatch');
+    assert.equal(st.json.record.authority.selectorRevision, 1, 'the foreign selector NEVER refreshed the durable authority');
+    assert.ok(st.json.record.holds.some((h) => h.code === 'authority_identity_mismatch' && h.clearedAt === null));
+    const settled = await reconcile(reconcileInput(fx)); // same-repository stable read
+    assert.ok(settled.effects.includes('authority-stable'), 'the identity hold clears on a same-repository stable read');
+    const admitted = await reconcile({ ...reconcileInput(fx), requestAction: 'work' });
+    assert.equal(admitted.ok, true, 'recovery: admission resumes against the binding\'s OWN repository');
+    assert.equal(admitted.route, 'hold');
+    assert.equal(admitted.routeReason, 'intent_outcome_uncertain');
+    rmSync(fx.base, { recursive: true, force: true });
+    rmSync(foreign.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-05: a sibling worktree of the SAME repository shares one identity (positive)', async (t) => {
+    const fx = makeFixture(t);
+    const wt = join(fx.base, 'wt');
+    mkdirSync(wt, { recursive: true });
+    // A real linked-worktree shape: `.git` is a FILE pointing at <common>/worktrees/<name>.
+    mkdirSync(join(fx.repo, '.git', 'worktrees', 'wt'), { recursive: true });
+    writeFileSync(join(wt, '.git'), `gitdir: ${join(fx.repo, '.git', 'worktrees', 'wt')}\n`);
+    // A worktree shares the repository CONTENT: the PRD/spec bytes (and their hashes)
+    // must resolve against the worktree root exactly as against the main checkout.
+    for (const name of ['prd.md', 'prd-approval.json', 'spec.md', 'spec-agreement.json']) {
+      writeFileSync(join(wt, name), readFileSync(join(fx.repo, name)));
+    }
+    const wtStage = join(wt, 'artifacts', STAGE);
+    mkdirSync(wtStage, { recursive: true });
+    const wtRecord = join(wtStage, 'binding.json');
+    const bound = runCli([
+      'init', '--record', wtRecord, '--repo-root', wt, '--feature', FID, '--stage', STAGE,
+      '--stage-artifact-root', wtStage, '--feature-home', fx.home,
+      '--actions', 'observe,work,review,hold,complete', '--destination', 'pr:staging', '--task-id', 't-1', '--now', iso(),
+    ]);
+    assert.equal(bound.status, 0, bound.stdout + bound.stderr);
+    const fromMain = runCli(['reconcile', '--record', wtRecord, '--repo-root', fx.repo, '--feature-home', fx.home, '--now', iso()]);
+    assert.equal(fromMain.status, 0, fromMain.stdout + fromMain.stderr);
+    assert.equal(fromMain.json.effects.includes('authority-identity-mismatch'), false, 'the main checkout is the SAME repository through the common git dir');
+    assert.equal(fromMain.json.holds.length, 0, JSON.stringify(fromMain.json.holds));
+    assert.equal(fromMain.json.route, 'observe');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-05/CLI boundary: --feature-home override is FORWARDED and a foreign repo home trips the identity gate through the CLI', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const foreign = makeFixture(t);
+    const res = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', foreign.repo, '--feature-home', foreign.home, '--now', iso()]);
+    assert.equal(res.status, 0);
+    assert.ok(res.json.effects.includes('authority-identity-mismatch'), 'the CLI forwards the override to the engine — the gate sees what the caller passed');
+    assert.equal(res.json.holds.some((h) => h.code === 'authority_identity_mismatch'), true);
+    rmSync(fx.base, { recursive: true, force: true });
+    rmSync(foreign.base, { recursive: true, force: true });
+  });
+
+  ltest('CLI boundary: --feature-home override takes effect on the SAME repository (authority refresh proves the flag was read)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const home2 = join(fx.base, 'feature-home-2');
+    mkdirSync(home2, { recursive: true });
+    const doc = JSON.parse(readFileSync(fx.selectorPath, 'utf8'));
+    doc.features[FID].revision = 2;
+    writeFileSync(join(home2, 'current-decisions.json'), JSON.stringify(doc, null, 2));
+    const res = runCli(['reconcile', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', home2, '--now', iso()]);
+    assert.equal(res.status, 0);
+    assert.ok(res.json.effects.includes('authority-refreshed'), 'the override home WAS read — a silently dropped flag would show no effect');
+    assert.equal(res.json.holds.some((h) => h.code === 'authority_changed'), true);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  test('A1-CODE-06: validateRetryTiming unit matrix — every accepted config has a finite bounded wait', () => {
+    assert.equal(validateRetryTiming({ retryBudgetMs: 0, retryDelayMs: 0 }).ok, true, 'zero is a valid immediate-give-up configuration');
+    assert.equal(validateRetryTiming({ retryBudgetMs: 1, retryDelayMs: LOCK_RETRY_MAX_MS }).ok, true);
+    assert.equal(validateRetryTiming({}).ok, true, 'absent timing falls back to the bounded defaults');
+    for (const [name, value] of [['NaN', Number.NaN], ['Infinity', Number.POSITIVE_INFINITY], ['negative', -1], ['fractional', 1.5], ['string', '500'], ['oversized', LOCK_RETRY_MAX_MS + 1]]) {
+      const res = validateRetryTiming({ retryBudgetMs: value });
+      assert.equal(res.ok, false, `${name} must reject`);
+      assert.equal(res.code, 'invalid_request');
+      assert.match(res.reason, /finite non-negative integer/);
+    }
+    const delayOnly = validateRetryTiming({ retryDelayMs: -5 });
+    assert.equal(delayOnly.ok, false);
+    assert.match(delayOnly.reason, /retryDelayMs/);
+  });
+
+  test('A1-CODE-06/CLI boundary: malformed timing flags, unknown flags and missing values reject structurally BEFORE any record interaction', () => {
+    const fx = makeFixture(null);
+    const missing = runCli(['reconcile', '--record', fx.recordPath, '--lock-retry-budget-ms', 'nope', '--now', iso()]);
+    assert.equal(missing.status, 2);
+    assert.equal(missing.json.code, 'invalid_request');
+    assert.match(missing.json.reason, /lock-retry-budget-ms/);
+    assert.equal(existsSync(fx.recordPath), false, 'no record was created by a rejected invocation');
+    const inf = runCli(['reconcile', '--record', fx.recordPath, '--lock-retry-delay-ms', 'Infinity']);
+    assert.equal(inf.status, 2);
+    assert.equal(inf.json.code, 'invalid_request');
+    assert.equal(existsSync(fx.recordPath), false);
+    const oversized = runCli([...initArgs(fx), '--lock-retry-budget-ms', String(LOCK_RETRY_MAX_MS + 1)]);
+    assert.equal(oversized.status, 2);
+    assert.equal(oversized.json.code, 'invalid_request');
+    assert.equal(existsSync(fx.recordPath), false, 'init rejects a malformed budget before binding');
+    const unknownFlag = runCli(['reconcile', '--recod', fx.recordPath]);
+    assert.equal(unknownFlag.status, 2);
+    assert.equal(unknownFlag.json.code, 'invalid_request');
+    assert.match(unknownFlag.json.reason, /unknown flag --recod/);
+    const missingValue = runCli(['status', '--record']);
+    assert.equal(missingValue.status, 2);
+    assert.equal(missingValue.json.code, 'invalid_request');
+    assert.match(missingValue.json.reason, /needs a value/);
+    const flagAsValue = runCli(['status', '--record', '--now']);
+    assert.equal(flagAsValue.status, 2);
+    assert.equal(flagAsValue.json.code, 'invalid_request');
+    assert.match(flagAsValue.json.reason, /needs a value/, 'a following flag is not a value');
+    assert.equal(existsSync(fx.recordPath), false);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1-CODE-06: a valid bounded budget still contends (the accepted configuration has a finite wait, proven against a live holder)', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    const holder = spawnCli(recArgs(fx, ['--test-hold-lock-ms', '1200']));
+    await sleep(250); // let the holder take the lock
+    const loser = runCli(recArgs(fx, ['--lock-retry-budget-ms', '300', '--lock-retry-delay-ms', '50']));
+    assert.equal(loser.status, 2);
+    assert.equal(loser.json.code, 'lock_contended');
+    await holder.done;
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1 coverage: observationId reuse with CONFLICTING facts is duplicate-conflict — stored as audit data, never routed', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--observation', obs('same-id', 'done')])).status, 0);
+    const conflict = runCli(recArgs(fx, ['--observation', obs('same-id', 'parked')]));
+    assert.equal(conflict.status, 0);
+    assert.equal(conflict.json.observationDisposition, 'duplicate-conflict');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.json.record.observations.length, 2, 'the conflicting reuse is retained as audit data');
+    assert.equal(st.json.route, 'review', 'routing still follows the original consumed done — the conflict never routes');
+    const again = runCli(recArgs(fx, ['--observation', obs('same-id', 'done')]));
+    assert.equal(again.json.observationDisposition, 'duplicate', 'the identical fact remains idempotent');
+    assert.equal(runCli(['status', '--record', fx.recordPath]).json.record.observations.length, 2, 'a duplicate burns no entry');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('A1 coverage: the observation window is bounded and eviction re-admits an evicted id (library arm)', async (t) => {
+    const t2 = makeFixture(t);
+    assert.ok((await initBinding(initBindingInput(t2))).ok);
+    for (let i = 1; i <= 101; i += 1) {
+      const res = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'parked', observationId: `o-${String(i).padStart(3, '0')}` } });
+      assert.ok(res.ok, JSON.stringify(res));
+    }
+    const full = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(full.json.record.observations.length, 100, 'the window is bounded at 100');
+    assert.equal(full.json.record.observations[0].observationId, 'o-002', 'o-001 was evicted oldest-first');
+    const readmit = await reconcile({ ...reconcileInput(t2), observation: { taskId: 't-1', kind: 'parked', observationId: 'o-001' } });
+    assert.equal(readmit.ok, true);
+    assert.equal(readmit.observationDisposition, 'consumed', 'o-001 was evicted — the id is legitimately re-admitted, not a duplicate');
+    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(st.json.record.observations.length, 100, 'the window stays bounded after re-admission');
+    assert.equal(st.json.record.observations[99].observationId, 'o-001');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  test('HOST-01 mechanics: the engine platform gate rejects a non-Linux init with NO record written (_testPlatform seam — drives the real gate)', async () => {
+    const fx = makeFixture(null);
+    const res = await initBinding({ ...initBindingInput(fx), _testPlatform: 'darwin' });
+    assert.equal(res.ok, false);
+    assert.equal(res.code, 'unsupported_pending_prerequisite');
+    assert.match(res.reason, /linux/i);
+    assert.equal(existsSync(fx.recordPath), false, 'a fail-closed platform gate must not create a record');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  test('HOST-01 mechanics: a non-Linux reconcile leaves the durable record byte-identical and non-terminal (_testPlatform seam)', async () => {
+    const fx = makeFixture(null);
+    mkdirSync(fx.stageRoot, { recursive: true });
+    // Host-independent record construction: the seed never goes through the bind lock,
+    // so this arm can run on ANY host — the gate being tested is the one in the engine.
+    const seeded = initialRecord({ ...initRecordFields(), recordPath: fx.recordPath, stageArtifactRoot: fx.stageRoot }, { now: iso() });
+    assert.ok(seeded.ok, JSON.stringify(seeded));
+    const written = writeRecordAtomic(fx.recordPath, seeded.value, { lockedTarget: fx.recordPath, expectedRevision: 0 });
+    assert.ok(written.ok, JSON.stringify(written));
+    const before = fileSha(fx.recordPath);
+    const res = await reconcile({ ...reconcileInput(fx), _testPlatform: 'win32' });
+    assert.equal(res.ok, false);
+    assert.equal(res.code, 'unsupported_pending_prerequisite');
+    assert.equal(fileSha(fx.recordPath), before, 'an unsupported platform holds with UNCHANGED durable state');
+    const st = runCli(['status', '--record', fx.recordPath]);
+    assert.equal(st.status, 0, 'status is a lock-free durable read — it works on any host');
+    assert.equal(st.json.record.controlState, 'active');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ntest('HOST-01 real: on a real non-Linux host the CLI init exits 2 unsupported_pending_prerequisite with no record', async (t) => {
+    const fx = makeFixture(t);
+    const res = runCli(initArgs(fx));
+    assert.equal(res.status, 2);
+    assert.equal(res.json.code, 'unsupported_pending_prerequisite');
+    assert.equal(existsSync(fx.recordPath), false);
+  });
+
+  ltest('HOST-01 negative control: the SAME fixtures bind successfully on Linux (attributability of the non-Linux hold)', async (t) => {
+    const fx = makeFixture(t);
+    const res = runCli(initArgs(fx));
+    assert.equal(res.status, 0, res.stdout + res.stderr);
+    assert.equal(res.json.ok, true);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+});
+
+
 
 // ===========================================================================
 // Shared input builders for the library-level arms (kept LAST so the CLI blocks above

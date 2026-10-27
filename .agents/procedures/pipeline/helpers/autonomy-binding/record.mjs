@@ -171,6 +171,11 @@ export function validateRecord(value) {
   }
 
   if (!isPlainObject(value.authority)) return reject('record_invalid', 'authority must be an object');
+  // A1-CODE-05: the durable projection carries the repository identity the authority was
+  // read against — the engine's identity gate compares it against every live read.
+  if (!isNonEmptyString(value.authority.repoIdentity)) {
+    return reject('record_invalid', 'authority.repoIdentity must be a non-empty string');
+  }
   if (!Number.isSafeInteger(value.authority.selectorRevision) || value.authority.selectorRevision < 0) {
     return reject('record_invalid', 'authority.selectorRevision must be a safe integer >= 0');
   }
@@ -419,6 +424,11 @@ export function initialRecord(bind, { now }) {
     grants: { actions: bind.actions, destination: bind.destination, destinationRef: bind.destinationRef ?? null },
     disposition: 'active',
     authority: {
+      // A1-CODE-05: the projection carries the repository identity the authority was read
+      // against, so the comparable signature and the engine's identity gate can bind the
+      // cached authority to the repository it came from (top-level repoIdentity stays the
+      // binding's own custody identity; they are set from the same resolved value at init).
+      repoIdentity: bind.repoIdentity,
       selectorRevision: bind.selectorRevision,
       featureHome: bind.featureHome ?? null, // selector home this binding re-reads authority from
       prdSha256: bind.prdSha256 ?? null,

@@ -54,6 +54,9 @@ export const INTENT_RESOLUTIONS = ['applied', 'not-applied', 'abandoned'];
 const HISTORY_UNCERTAIN_HOLD_CODE = 'uncertain_owner';
 const AUTHORITY_CHANGED_HOLD_CODE = 'authority_changed';
 const AUTHORITY_UNAVAILABLE_HOLD_CODE = 'authority_unavailable';
+const AUTHORITY_IDENTITY_HOLD_CODE = 'authority_identity_mismatch';
+/** Every hold code that gates admission, completion and routing (A1-CODE-05 adds identity). */
+const AUTHORITY_HOLD_CODES = [AUTHORITY_CHANGED_HOLD_CODE, AUTHORITY_UNAVAILABLE_HOLD_CODE, AUTHORITY_IDENTITY_HOLD_CODE];
 const OBSERVATIONS_MAX = 100;
 
 function reject(code, reason) {
@@ -62,6 +65,21 @@ function reject(code, reason) {
 
 function openHolds(record) {
   return record.holds.filter((h) => h.clearedAt === null);
+}
+
+/**
+ * The ONE authority-hold gate predicate, shared by admission, completion and routing
+ * (A1-CODE-05 adds the identity code to what used to be a changed/unavailable pair).
+ * Precedence is fixed (unavailable > changed > identity) so the reported reason is
+ * deterministic regardless of holds-array order. Returns null when no authority hold is
+ * open.
+ */
+function openAuthorityHold(record) {
+  const open = openHolds(record).map((h) => h.code);
+  if (open.includes(AUTHORITY_UNAVAILABLE_HOLD_CODE)) return { code: AUTHORITY_UNAVAILABLE_HOLD_CODE, routeReason: 'authority_unavailable' };
+  if (open.includes(AUTHORITY_CHANGED_HOLD_CODE)) return { code: AUTHORITY_CHANGED_HOLD_CODE, routeReason: 'authority_changed_requires_confirmation' };
+  if (open.includes(AUTHORITY_IDENTITY_HOLD_CODE)) return { code: AUTHORITY_IDENTITY_HOLD_CODE, routeReason: 'authority_identity_mismatch' };
+  return null;
 }
 
 /**
@@ -118,7 +136,12 @@ function killSelf() {
  */
 export async function initBinding(input) {
   const { repoRoot, featureId, stage, stageArtifactRoot, recordPath, featureHome, ownerRoot, actions, destination, now } = input;
-  const supported = platformSupportsAbstractBindLock();
+  // `_testPlatform` is a TEST-ONLY dependency-injection seam (HOST-01): it drives the REAL
+  // platform gate through the real engine path so a suite on any host can verify the
+  // non-Linux fail-closed hold with unchanged state. The CLI and every production caller
+  // leave it unset (→ process.platform), and it can only ever make the gate FAIL — there
+  // is no seam value that makes a non-Linux bind succeed.
+  const supported = platformSupportsAbstractBindLock(input._testPlatform);
   if (!supported.ok) return supported;
   for (const field of ['repoRoot', 'featureId', 'stage', 'stageArtifactRoot', 'recordPath', 'featureHome', 'destination']) {
     if (typeof input[field] !== 'string' || input[field].length === 0) {
@@ -203,10 +226,31 @@ function normalizeObservation(observation) {
   };
 }
 
-/** Disposition of an incoming observation against current custody/control/candidate. */
+/**
+ * Disposition of an incoming observation against current custody/control/candidate.
+ *
+ * Dedup is identity + FACTS (A1 coverage finding): an observationId is only idempotent
+ * when the fact content matches the retained entry. The same id with CONFLICTING content
+ * is a provenance conflict, not an ack — it is recorded under its own `duplicate-conflict`
+ * disposition (bounded-history audit data, never deduped away, never routed: only
+ * `consumed` observations are route-eligible). Dedup is defined WITHIN the retained
+ * window: once an id is evicted by the OBSERVATIONS_MAX slice it can be legitimately
+ * re-admitted by a later report.
+ */
 function classifyObservation(next, obs) {
-  if (obs.observationId !== null && next.observations.some((o) => o.observationId === obs.observationId && o.disposition !== 'duplicate')) {
-    return 'duplicate'; // idempotent re-report — the original entry already carries the fact
+  if (obs.observationId !== null) {
+    const prior = next.observations.find((o) => o.observationId === obs.observationId);
+    if (prior !== undefined) {
+      const sameFact =
+        prior.taskId === obs.taskId &&
+        prior.kind === obs.kind &&
+        prior.status === (obs.status ?? null) &&
+        prior.resultRef === (obs.resultRef ?? null) &&
+        prior.candidateRevision === (obs.candidateRevision ?? null) &&
+        prior.custodyGeneration === (obs.custodyGeneration ?? null);
+      if (sameFact) return 'duplicate'; // idempotent re-report — the original entry already carries the fact
+      return 'duplicate-conflict'; // same identity, different facts — audit data, never routed
+    }
   }
   if (obs.custodyGeneration !== null && obs.custodyGeneration < next.custodyGeneration) {
     return 'historical-stale-custody'; // a superseded worker reporting late — identity stale
@@ -227,6 +271,70 @@ function classifyObservation(next, obs) {
 }
 
 /**
+ * Route eligibility (A1-CODE-02): an observation drives routing only while it is eligible
+ * for the record's CURRENT custody and candidate. A non-`consumed` disposition is audit
+ * data (historical-stale-*, duplicate-conflict), never routing evidence; a report bound to
+ * a superseded custody generation or candidate revision is exactly the late `done` that
+ * must not advance routing for the CURRENT worker/candidate. Absent provenance (null) is
+ * treated as CURRENT — the common case is the live worker reporting without provenance
+ * flags, and ingest-time classification already stamps what CAN be proven stale. Because
+ * eligibility is evaluated against the live record on every route computation, a
+ * candidate/custody change retroactively disqualifies older reports (no re-evaluation
+ * pass is needed).
+ */
+function observationRouteEligible(obs, record) {
+  if (obs.disposition !== undefined && obs.disposition !== 'consumed') return false;
+  if (obs.custodyGeneration !== null && obs.custodyGeneration < record.custodyGeneration) return false;
+  if (obs.candidateRevision !== null && obs.candidateRevision < record.candidate.revision) return false;
+  return true;
+}
+
+/**
+ * The ONE routing function (A1-CODE-02): reconcile's response and `status` both call it on
+ * the same durable state, so the two doors cannot drift about «what would happen next». A
+ * routing ANSWER, not an action and not an acceptance verdict.
+ */
+function routeFromRecord(record) {
+  if (record.pendingIntent !== null && record.pendingIntent.state !== 'resolved') {
+    return { route: 'hold', routeReason: 'intent_outcome_uncertain' };
+  }
+  if (record.controlState !== 'active') {
+    return { route: 'hold', routeReason: `control_state_${record.controlState}` };
+  }
+  const authorityHold = openAuthorityHold(record);
+  if (authorityHold !== null) {
+    return { route: 'hold', routeReason: authorityHold.routeReason };
+  }
+  if (record.aif.taskId === null) {
+    return { route: 'work', routeReason: 'no task bound; admission is a stage-B operation' };
+  }
+  let last = null;
+  for (let i = record.observations.length - 1; i >= 0; i -= 1) {
+    const o = record.observations[i];
+    if (o.taskId === record.aif.taskId && observationRouteEligible(o, record)) {
+      last = o;
+      break;
+    }
+  }
+  if (last === null) {
+    const matching = record.observations.some((o) => o.taskId === record.aif.taskId);
+    return {
+      route: 'observe',
+      routeReason: matching
+        ? 'matching reports are stale against current custody/candidate; awaiting a current report'
+        : 'task bound; awaiting first observation',
+    };
+  }
+  if (last.kind === 'done' && record.delivery !== null) {
+    return { route: 'complete', routeReason: 'delivery receipt recorded' };
+  }
+  if (last.kind === 'done') {
+    return { route: 'review', routeReason: 'worker reported done; review before completion' };
+  }
+  return { route: 'hold', routeReason: `worker_report_${last.kind}` };
+}
+
+/**
  * The reconcile/control pipeline. Every input is optional except recordPath/now; all
  * compose into at most one durable update under one lock acquisition. `control` is
  * {kind: pause|cancel|ack-cessation, reason?}. Test seams: `testCrashAfter`
@@ -237,7 +345,8 @@ export async function reconcile(input) {
   const { recordPath, now } = input;
   if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
   if (!isIso(now)) return reject('invalid_request', 'now must be an ISO-8601 UTC timestamp string');
-  const supported = platformSupportsAbstractBindLock();
+  // Same TEST-ONLY platform seam as initBinding (HOST-01) — see the comment there.
+  const supported = platformSupportsAbstractBindLock(input._testPlatform);
   if (!supported.ok) return supported;
   const canonicalPath = canonicalRecordPath(recordPath);
   // Capture the write target BEFORE the lock — the CAS write is bound to the resolution
@@ -281,7 +390,27 @@ export async function reconcile(input) {
     if (input.repoRoot && featureHome) {
       const live = readCurrentAuthority({ repoRoot: input.repoRoot, featureId: base.featureId, featureHome, roots: [input.repoRoot], now });
       if (live.ok) {
-        if (authoritySignature(live.authority) !== authoritySignature(base.authority)) {
+        if (live.authority.repoIdentity !== base.repoIdentity) {
+          // A1-CODE-05: the binding's durable repoIdentity gates the live read FIRST,
+          // before any signature comparison. A foreign repository whose own selector is
+          // perfectly valid — even hash-identical — must never refresh this record's
+          // authority, settle its holds, or authorize a transition on it. Sibling
+          // worktrees share ONE identity through the common git dir (repoIdentityOf), so
+          // reconciling from a worktree of the same repository keeps passing.
+          const held = addHold(next, {
+            code: AUTHORITY_IDENTITY_HOLD_CODE,
+            reason: `live authority was read from repository ${live.authority.repoIdentity} but this binding is bound to repository ${base.repoIdentity} — a foreign repository's selector cannot authorize transitions on this record even when revision/PRD/spec hashes match`,
+            recoveryAction: 're-run reconcile against the repository this binding was created in (its own --repo-root and --feature-home); the hold clears on the next same-repository stable read',
+            now,
+          });
+          if (!held.ok) return held;
+          if (held.value !== next) {
+            next = held.value;
+            mutated = true;
+          }
+          authorityHoldTouched = true;
+          effects.push('authority-identity-mismatch');
+        } else if (authoritySignature(live.authority) !== authoritySignature(base.authority)) {
           next.authority = { ...live.authority, featureHome: base.authority.featureHome };
           const held = addHold(next, {
             code: AUTHORITY_CHANGED_HOLD_CODE,
@@ -296,14 +425,16 @@ export async function reconcile(input) {
           mutated = true;
           authorityHoldTouched = true;
           effects.push('authority-refreshed');
-        } else if (
-          next.holds.some((h) => (h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE) && h.clearedAt === null)
-        ) {
-          // Stable read after an authority hold: BOTH authority hold codes clear —
-          // `authority_unavailable` promises recovery in its own recoveryAction
-          // («restore the selector … and re-run reconcile»), so a failed read can never
-          // be a permanent admission gate. Recovery and refresh are hold-state
-          // transitions either way: admission waits for the NEXT reconcile.
+        } else if (next.holds.some((h) => AUTHORITY_HOLD_CODES.includes(h.code) && h.clearedAt === null)) {
+          // Stable same-repository read after ANY authority hold: all authority hold
+          // codes clear — `authority_unavailable` promises recovery in its own
+          // recoveryAction («restore the selector … and re-run reconcile») and the
+          // identity hold promises the same for a same-repository read, so a failed or
+          // foreign read can never be a permanent admission gate. Recovery and refresh
+          // are hold-state transitions either way: admission waits for the NEXT
+          // reconcile.
+          const clearedIdentity = clearHolds(next, { code: AUTHORITY_IDENTITY_HOLD_CODE, now });
+          next = clearedIdentity.value;
           const clearedChanged = clearHolds(next, { code: AUTHORITY_CHANGED_HOLD_CODE, now });
           next = clearedChanged.value;
           const clearedUnavailable = clearHolds(next, { code: AUTHORITY_UNAVAILABLE_HOLD_CODE, now });
@@ -392,8 +523,8 @@ export async function reconcile(input) {
       // admit work: the hold state must settle through its own durable write, and the
       // admitting reconcile must read that settled record — so a clear-and-admit in a
       // single pass can never disguise an unconfirmed authority as a confirmed one.
-      const authorityHold = openHolds(next).find((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE);
-      if (authorityHold || authorityHoldTouched) {
+      const authorityHold = openAuthorityHold(next);
+      if (authorityHold !== null || authorityHoldTouched) {
         const detail = authorityHold
           ? `authority hold ${authorityHold.code} is open`
           : 'an authority hold was opened or cleared in this same pass';
@@ -474,6 +605,15 @@ export async function reconcile(input) {
           // pause-pending/cancel-pending precondition above unless validation fails.
           if (!acked.ok) return rejectAfterPersist(acked.code, acked.reason);
           next = acked.value;
+          // A1-CODE-03: transfer eligibility is evaluated AFTER every control transition,
+          // not only before it. The ack-cessation on cancel-pending just moved the record
+          // to `cancelled` — terminal — so the cessation FACT is persisted with this
+          // composed pass, but no successor worker may be registered on a closed binding.
+          // The pause-pending arm completes to non-terminal `paused` and transfers below.
+          if (TERMINAL_STATES.includes(next.controlState)) {
+            mutated = true;
+            return rejectAfterPersist('custody_transfer_terminal', `the cessation acknowledgement completed the ${next.controlState} transition — the ack fact is persisted, but custody cannot be transferred onto a terminal binding, so no successor worker was registered`);
+          }
         } else {
           next.worker.cessationAckedAt = now;
         }
@@ -514,12 +654,27 @@ export async function reconcile(input) {
       if (!featureHome) {
         return rejectAfterPersist('invalid_request', 'completion requires a resolvable feature home (--feature-home) so the live authority can be re-read at the effect boundary');
       }
-      const authorityHold = openHolds(next).find((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE || h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE);
-      if (authorityHold || authorityHoldTouched) {
+      const authorityHold = openAuthorityHold(next);
+      if (authorityHold !== null || authorityHoldTouched) {
         const detail = authorityHold
           ? `authority hold ${authorityHold.code} is open`
           : 'an authority hold was opened or cleared in this same pass';
         return rejectAfterPersist('authority_hold_open', `${detail} — completion reads the settled hold state like admission does: confirm the current authority, run reconcile once on a stable read so the hold settles, and only then complete on a subsequent reconcile`);
+      }
+      return null;
+    };
+
+    // A1-CODE-04: BOTH completion doors share ONE admission predicate. Completion is the
+    // 'complete' ACTION, so it requires the init-fixed 'complete' grant exactly like any
+    // other requested action; and a binding with an unresolved consequential intent must
+    // not be closed over an unverified external effect. A delivery receipt stays a
+    // recorded FACT (step 6) — it is never the authorization for the transition.
+    const completionAdmission = () => {
+      if (!next.grants.actions.includes('complete')) {
+        return rejectAfterPersist('action_not_granted', `completion requires the 'complete' action grant — [${next.grants.actions.join(', ')}] was fixed at init and no flag extends it; a delivery receipt records a fact, it does not authorize completion`);
+      }
+      if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
+        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — completion would close the binding over an unverified external effect; resolve it (--resolve-intent ${next.pendingIntent.actionId}) before completing`);
       }
       return null;
     };
@@ -535,6 +690,8 @@ export async function reconcile(input) {
         }
         const gated = completionGate();
         if (gated) return gated;
+        const denied = completionAdmission();
+        if (denied) return denied;
       }
       const transition = applyControlTransition(next, { kind: input.control.kind, actor: input.actor ?? 'operator:cli', reason: input.control.reason, now });
       if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);
@@ -548,6 +705,8 @@ export async function reconcile(input) {
       if (next.delivery === null) return rejectAfterPersist('complete_requires_delivery_receipt', 'completion requires a recorded delivery receipt — a routing answer alone is not a completed effect');
       const gated = completionGate();
       if (gated) return gated;
+      const denied = completionAdmission();
+      if (denied) return denied;
       const transition = applyControlTransition(next, { kind: 'complete', actor: input.actor ?? 'operator:cli', reason: 'delivery receipt recorded and control verified', now });
       if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);
       next = transition.value;
@@ -572,41 +731,10 @@ export async function reconcile(input) {
       if (input.testCrashAfter === 'commit' || (input.testCrashAfter === 'intent' && input.requestAction !== undefined)) killSelf();
     }
 
-    // Route — a routing ANSWER, not an action and not an acceptance verdict.
-    let route;
-    let routeReason;
-    if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
-      route = 'hold';
-      routeReason = 'intent_outcome_uncertain';
-    } else if (next.controlState !== 'active') {
-      route = 'hold';
-      routeReason = `control_state_${next.controlState}`;
-    } else if (next.holds.some((h) => h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE && h.clearedAt === null)) {
-      route = 'hold';
-      routeReason = 'authority_unavailable';
-    } else if (next.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
-      route = 'hold';
-      routeReason = 'authority_changed_requires_confirmation';
-    } else if (next.aif.taskId === null) {
-      route = 'work';
-      routeReason = 'no task bound; admission is a stage-B operation';
-    } else {
-      const last = [...next.observations].reverse().find((o) => o.taskId === next.aif.taskId);
-      if (!last) {
-        route = 'observe';
-        routeReason = 'task bound; awaiting first observation';
-      } else if (last.kind === 'done' && next.delivery !== null) {
-        route = 'complete';
-        routeReason = 'delivery receipt recorded';
-      } else if (last.kind === 'done') {
-        route = 'review';
-        routeReason = 'worker reported done; review before completion';
-      } else {
-        route = 'hold';
-        routeReason = `worker_report_${last.kind}`;
-      }
-    }
-    return envelope(next, { action: input.markComplete ? 'reconcile:complete' : 'reconcile', route, routeReason, mutated, effects, observationDisposition });
+    // Route — a routing ANSWER, not an action and not an acceptance verdict. Derived by
+    // the ONE shared routing function so `status` cannot drift from it (A1-CODE-02).
+    const routed = routeFromRecord(next);
+    return envelope(next, { action: input.markComplete ? 'reconcile:complete' : 'reconcile', route: routed.route, routeReason: routed.routeReason, mutated, effects, observationDisposition });
   });
 }
 
@@ -614,48 +742,14 @@ export async function reconcile(input) {
  * Inspectable status — read WITHOUT the binding lock (the atomic-rename write protocol
  * guarantees a complete file) and without any live re-reads: status is the record as
  * durably known, clearly separated from the live authority reconciliation that `reconcile`
- * performs. Also computes the route from the durable state so status alone answers
- * «what would happen next».
+ * performs. The route is computed by the SAME shared function reconcile ends with
+ * (A1-CODE-02), so status alone answers «what would happen next» and the two doors cannot
+ * disagree for identical durable state.
  */
 export function status(recordPath) {
   if (typeof recordPath !== 'string' || recordPath.length === 0) return reject('invalid_request', 'recordPath must be a non-empty string');
   const read = readRecord(canonicalRecordPath(recordPath));
   if (!read.ok) return read;
-  const record = read.record;
-  let route = 'hold';
-  let routeReason = 'durable-state-only status; run reconcile for the live-authority route';
-  if (record.pendingIntent !== null && record.pendingIntent.state !== 'resolved') {
-    route = 'hold';
-    routeReason = 'intent_outcome_uncertain';
-  } else if (record.controlState !== 'active') {
-    route = 'hold';
-    routeReason = `control_state_${record.controlState}`;
-  } else if (record.holds.some((h) => h.code === AUTHORITY_UNAVAILABLE_HOLD_CODE && h.clearedAt === null)) {
-    route = 'hold';
-    routeReason = 'authority_unavailable';
-  } else if (record.holds.some((h) => h.code === AUTHORITY_CHANGED_HOLD_CODE && h.clearedAt === null)) {
-    route = 'hold';
-    routeReason = 'authority_changed_requires_confirmation';
-  } else if (record.aif.taskId === null) {
-    route = 'work';
-    routeReason = 'no task bound; admission is a stage-B operation';
-  } else {
-    // Mirror reconcile's route for the same durable state — status and reconcile must
-    // not disagree about «what would happen next» for an active, task-bound record.
-    const last = [...record.observations].reverse().find((o) => o.taskId === record.aif.taskId);
-    if (!last) {
-      route = 'observe';
-      routeReason = 'task bound; awaiting first observation';
-    } else if (last.kind === 'done' && record.delivery !== null) {
-      route = 'complete';
-      routeReason = 'delivery receipt recorded';
-    } else if (last.kind === 'done') {
-      route = 'review';
-      routeReason = 'worker reported done; review before completion';
-    } else {
-      route = 'hold';
-      routeReason = `worker_report_${last.kind}`;
-    }
-  }
-  return { ok: true, record, route, routeReason };
+  const routed = routeFromRecord(read.record);
+  return { ok: true, record: read.record, route: routed.route, routeReason: routed.routeReason };
 }

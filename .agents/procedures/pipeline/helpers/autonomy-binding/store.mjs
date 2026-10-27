@@ -9,10 +9,18 @@
  * file, which is what allows status reads to run WITHOUT taking the binding lock.
  *
  * TOCTOU binding (pattern reused from .agents/procedures/intent/helpers/current-decisions.mjs
- * writeSelectorAtomic): the write is BOUND to the target resolved when the lock was taken.
- * The chain is re-resolved immediately before the rename; an unexpected retarget fails
- * closed with `record_path_retargeted` — writing the freshly-resolved location instead
- * would let lock X guard write Y.
+ * writeSelectorAtomic): the write is BOUND to the CANONICAL target resolved when the lock
+ * was taken. The canonical resolution is recomputed inside the transaction immediately
+ * before the rename (write-boundary revalidation); an unexpected retarget fails closed
+ * with `record_path_retargeted` — writing the freshly-resolved location instead would let
+ * lock X guard write Y.
+ *
+ * Alias safety (A1-CODE-01): every canonical consumer — containment, the bind-lock key and
+ * the write target — derives from `canonicalRecordPath`, the ONE fully resolved spelling of
+ * a record path (lexical resolve → realpath of the longest existing ancestor → lexical
+ * not-yet-existing tail → leaf symlink chain). Two aliases of the same record therefore
+ * yield one lock name and one write target; a symlinked ancestor pointing OUTSIDE the
+ * owned stage fails containment before any write.
  *
  * CAS: `writeRecordAtomic` refuses to overwrite an on-disk `recordRevision` other than
  * the expected one (`record_revision_conflict`). All legitimated writers hold the bind
@@ -33,6 +41,7 @@ import {
   openSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeSync,
@@ -81,17 +90,20 @@ function isWithin(child, parent) {
  * Validate stage ownership BEFORE any write (plan §3 step 2: «Validate paths and stage
  * ownership before writes»): the record path must resolve INSIDE the bound stage artifact
  * root, and that root itself must sit inside the FIRST owner root (mirrors the intent
- * helper's `artifact_root_outside_owner` containment). All checks run on resolved targets.
+ * helper's `artifact_root_outside_owner` containment). All three paths run through
+ * `canonicalRecordPath` (A1-CODE-01) — the same fully resolved spelling the lock and the
+ * write use — so a symlinked ancestor pointing outside the owned tree is rejected here,
+ * before any write, instead of passing lexical containment.
  */
 export function ensureStageOwnership({ recordPath, stageArtifactRoot, ownerRoot }) {
   if (!isAbsolute(recordPath)) {
     return { ok: false, code: 'record_path_not_absolute', reason: `recordPath must be absolute, got ${recordPath}` };
   }
-  const recordTarget = resolveRecordTarget(recordPath);
+  const recordTarget = canonicalRecordPath(recordPath);
   if (recordTarget === null) {
     return { ok: false, code: 'record_target_unresolvable', reason: 'the record path resolves through a symlink chain deeper than the bound' };
   }
-  const stageTarget = resolveRecordTarget(stageArtifactRoot);
+  const stageTarget = canonicalRecordPath(stageArtifactRoot);
   if (stageTarget === null) {
     return { ok: false, code: 'stage_root_unresolvable', reason: 'the stage artifact root resolves through a symlink chain deeper than the bound' };
   }
@@ -105,7 +117,7 @@ export function ensureStageOwnership({ recordPath, stageArtifactRoot, ownerRoot 
       reason: `record ${recordTarget} is not inside the bound stage artifact root ${stageTarget} — refusing to write an unowned location`,
     };
   }
-  const ownerTarget = resolveRecordTarget(ownerRoot);
+  const ownerTarget = canonicalRecordPath(ownerRoot);
   if (ownerTarget === null) {
     return { ok: false, code: 'owner_root_unresolvable', reason: 'the owner root resolves through a symlink chain deeper than the bound' };
   }
@@ -171,11 +183,13 @@ function recordBytes(record) {
 /**
  * Atomic compare-and-swap write. `expectedRevision` is the on-disk recordRevision the
  * caller decided from: 0 = the record must NOT exist yet (initial bind), otherwise the
- * on-disk record must carry exactly that revision. `lockedTarget` is the resolution the
- * lock was taken against — the rename lands only if the chain still resolves there.
+ * on-disk record must carry exactly that revision. `lockedTarget` is the CANONICAL
+ * resolution the lock was taken against — the canonical resolution is recomputed HERE,
+ * inside the transaction and immediately before the rename (write-boundary revalidation,
+ * A1-CODE-01); the rename lands only if the path still canonicalizes to the locked target.
  */
 export function writeRecordAtomic(recordPath, nextRecord, { lockedTarget, expectedRevision }) {
-  const target = resolveRecordTarget(recordPath);
+  const target = canonicalRecordPath(recordPath);
   if (target === null) {
     return { ok: false, code: 'record_target_unresolvable', reason: 'the record path resolves through a symlink chain deeper than the bound' };
   }
@@ -233,7 +247,49 @@ export function writeRecordAtomic(recordPath, nextRecord, { lockedTarget, expect
   return { ok: true, target, recordRevision: checked.value.recordRevision };
 }
 
-/** Absolute canonical record path helper — the single spelling used for lock keys and CAS. */
+/**
+ * The single canonical spelling of a record path (A1-CODE-01). Containment, the bind-lock
+ * key and the write target ALL derive from this one string, so two aliases of the same
+ * record (leaf symlink, symlinked ancestor directory) can neither acquire independent
+ * locks nor write forked locations. Resolution order:
+ *   1. lexical resolve (absolute, or cwd-relative);
+ *   2. realpath the longest EXISTING ancestor — realpath of a not-yet-existing leaf cannot
+ *      succeed, so the walk climbs with `dirname` until something exists, then re-appends
+ *      the not-yet-existing tail lexically. Symlinked ANCESTOR directories therefore
+ *      canonicalize: /alias/binding.json with alias -> /stage anchors on /stage;
+ *   3. follow the leaf symlink chain (resolveRecordTarget), so a leaf alias of an existing
+ *      record resolves to its target and a dangling leaf link resolves to its create-at
+ *      path.
+ * A dangling MIDDLE symlink stays lexical here (nothing on the filesystem anchors it); it
+ * is still safe because ownership checks run on this same spelling and the write-boundary
+ * revalidation fails closed if the resolution changes before the rename. Returns null
+ * (fail closed) only when the leaf chain exceeds the hop bound.
+ */
 export function canonicalRecordPath(recordPath, cwd = process.cwd()) {
-  return isAbsolute(recordPath) ? resolve(recordPath) : resolve(cwd, recordPath);
+  const abs = isAbsolute(recordPath) ? resolve(recordPath) : resolve(cwd, recordPath);
+  let anchored = abs;
+  let tail = [];
+  for (;;) {
+    let real;
+    try {
+      real = realpathSync(anchored);
+    } catch {
+      const parent = dirname(anchored);
+      if (parent === anchored) {
+        // Nothing up to the filesystem root exists — there is no ancestor to anchor on,
+        // so the lexical path IS the canonical path (leaf walk still applies).
+        return canonicalLeaf(abs);
+      }
+      tail.unshift(basename(anchored));
+      anchored = parent;
+      continue;
+    }
+    return canonicalLeaf(join(real, ...tail));
+  }
+}
+
+/** Leaf-chain suffix of canonicalRecordPath; null → chain deeper than the bound (fail closed). */
+function canonicalLeaf(path) {
+  const target = resolveRecordTarget(path);
+  return target === null ? null : target;
 }

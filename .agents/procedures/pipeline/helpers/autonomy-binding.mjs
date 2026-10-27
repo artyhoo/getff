@@ -38,6 +38,7 @@ import {
   productionResumeHold,
   reservedVerbHold,
 } from './autonomy-binding/engine.mjs';
+import { LOCK_RETRY_MAX_MS } from './autonomy-binding/lock.mjs';
 
 const VERBS = new Set(['init', 'reconcile', 'status', 'pause', 'cancel', 'resume', 'worker', 'review']);
 
@@ -93,6 +94,33 @@ function parseObservation(raw, featureId, taskId) {
 }
 
 /**
+ * Bounded non-negative integer parse for the timing flags (A1-CODE-06): a malformed
+ * budget (`nope`, `Infinity`, negative, oversized) must reject as structured
+ * invalid_request at the CLI boundary — BEFORE any record interaction — because a
+ * NaN/Infinity deadline would make lock contention wait forever. The bound is the
+ * library's own LOCK_RETRY_MAX_MS, so the CLI and the engine cannot drift apart.
+ */
+function parseTimingMs(raw, flag) {
+  if (!/^\d{1,9}$/.test(raw)) {
+    return { ok: false, code: 'invalid_request', reason: `${flag} must be a finite non-negative integer of at most ${LOCK_RETRY_MAX_MS}ms (got ${JSON.stringify(raw)})` };
+  }
+  const value = Number(raw);
+  if (value > LOCK_RETRY_MAX_MS) {
+    return { ok: false, code: 'invalid_request', reason: `${flag} must be a finite non-negative integer of at most ${LOCK_RETRY_MAX_MS}ms (got ${value})` };
+  }
+  return { ok: true, value };
+}
+
+/** Parse one of the timing flags when present; returns {ok, input} mutated or a failure. */
+function applyTimingFlag(input, opts, key, field) {
+  if (opts[key] === undefined) return { ok: true };
+  const parsed = parseTimingMs(opts[key], `--${key}`);
+  if (!parsed.ok) return parsed;
+  input[field] = parsed.value;
+  return { ok: true };
+}
+
+/**
  * Reconcile-input assembly shared by the reconcile/pause/cancel verbs. Returns
  * {ok, input} or a structured invalid_request — the CLI validates ONLY arg syntax and
  * JSON shapes; every semantic gate lives in the engine.
@@ -110,6 +138,11 @@ function buildReconcileInput(opts, verb) {
     input.observation = obs.observation;
   }
   if (opts['request-action'] !== undefined) input.requestAction = opts['request-action'];
+  // Documented override/recovery input, forwarded like the library callers' `featureHome`
+  // (A1 review, CLI boundary): accepted-but-ignored silently diverged the CLI surface from
+  // the engine contract. The engine's identity gate (A1-CODE-05) is what keeps an override
+  // home from authorizing transitions for a foreign repository.
+  if (opts['feature-home'] !== undefined) input.featureHome = resolve(opts['feature-home']);
   if (opts['resolve-intent'] !== undefined) {
     if (opts.resolution === undefined || opts.evidence === undefined) {
       return { ok: false, code: 'invalid_request', reason: '--resolve-intent requires --resolution applied|not-applied|abandoned and --evidence <text>' };
@@ -128,9 +161,10 @@ function buildReconcileInput(opts, verb) {
   if (verb === 'pause') input.control = { kind: 'pause', reason: opts['control-reason'] ?? 'pause requested via CLI' };
   if (verb === 'cancel') input.control = { kind: 'cancel', reason: opts['control-reason'] ?? 'cancel requested via CLI' };
   if (opts['test-crash-after'] !== undefined) input.testCrashAfter = opts['test-crash-after'];
-  if (opts['test-hold-lock-ms'] !== undefined) input.testHoldLockMs = Number(opts['test-hold-lock-ms']);
-  if (opts['lock-retry-budget-ms'] !== undefined) input.retryBudgetMs = Number(opts['lock-retry-budget-ms']);
-  if (opts['lock-retry-delay-ms'] !== undefined) input.retryDelayMs = Number(opts['lock-retry-delay-ms']);
+  for (const [key, field] of [['test-hold-lock-ms', 'testHoldLockMs'], ['lock-retry-budget-ms', 'retryBudgetMs'], ['lock-retry-delay-ms', 'retryDelayMs']]) {
+    const timed = applyTimingFlag(input, opts, key, field);
+    if (!timed.ok) return timed;
+  }
   return { ok: true, input };
 }
 
@@ -165,8 +199,16 @@ async function main() {
         opts[key] = true;
         continue;
       }
+      // Unknown flags are rejected structurally, never silently stored: a typo'd flag
+      // (`--recod`) that fell through would change nothing and report success.
+      if (!VALUE_FLAGS.has(key)) emit({ ok: false, code: 'invalid_request', reason: `unknown flag ${arg}\n${USAGE}` }, 2);
       const value = args[i + 1];
-      if (value === undefined || VALUE_FLAGS.has(value)) emit({ ok: false, code: 'invalid_request', reason: `flag ${arg} needs a value\n${USAGE}` }, 2);
+      // A value is missing when it is absent, empty, or itself another flag — the old
+      // `VALUE_FLAGS.has(value)` check only caught unprefixed verb/flag names, so
+      // `--record --now` silently bound `--now` as the record path.
+      if (value === undefined || value === '' || value.startsWith('--')) {
+        emit({ ok: false, code: 'invalid_request', reason: `flag ${arg} needs a value\n${USAGE}` }, 2);
+      }
       opts[key] = value;
       i += 1;
     } else {
@@ -197,7 +239,7 @@ async function main() {
       if (opts['repo-root'] === undefined || opts.feature === undefined || opts.stage === undefined || opts['stage-artifact-root'] === undefined) {
         emit({ ok: false, code: 'invalid_request', reason: `init requires --repo-root, --feature, --stage, --stage-artifact-root\n${USAGE}` }, 2);
       }
-      const result = await initBinding({
+      const initInput = {
         repoRoot: resolve(opts['repo-root']),
         featureId: opts.feature,
         stage: opts.stage,
@@ -227,9 +269,14 @@ async function main() {
             : null,
         now: opts.now ?? new Date().toISOString(),
         actor: opts.actor ?? 'operator:cli',
-        retryBudgetMs: opts['lock-retry-budget-ms'] !== undefined ? Number(opts['lock-retry-budget-ms']) : undefined,
-        retryDelayMs: opts['lock-retry-delay-ms'] !== undefined ? Number(opts['lock-retry-delay-ms']) : undefined,
-      });
+      };
+      // Same bounded-timing gate as reconcile (A1-CODE-06) — malformed budgets reject at
+      // the CLI boundary, before any record interaction.
+      for (const [key, field] of [['lock-retry-budget-ms', 'retryBudgetMs'], ['lock-retry-delay-ms', 'retryDelayMs']]) {
+        const timed = applyTimingFlag(initInput, opts, key, field);
+        if (!timed.ok) emit(timed, 2);
+      }
+      const result = await initBinding(initInput);
       emit(result, result.ok ? 0 : 2);
       return;
     }

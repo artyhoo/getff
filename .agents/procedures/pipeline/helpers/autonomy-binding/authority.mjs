@@ -57,8 +57,14 @@ export function readCurrentAuthority({ repoRoot, featureId, featureHome, roots, 
   };
 }
 
-/** Comparable signature of an authority projection — `undefined` when the projection is absent. */
+/**
+ * Comparable signature of an authority projection — `undefined` when the projection is
+ * absent. repoIdentity is PART of the comparable signature (A1-CODE-05): two repositories
+ * with identical revision/PRD/spec hashes are NOT the same authority. The engine's
+ * identity gate runs before any signature comparison, so this binding only sharpens the
+ * changed-authority detection for callers comparing signatures directly.
+ */
 export function authoritySignature(authority) {
   if (!authority) return undefined;
-  return [authority.selectorRevision, authority.prdSha256, authority.specSha256].join(':');
+  return [authority.repoIdentity, authority.selectorRevision, authority.prdSha256, authority.specSha256].join(':');
 }
