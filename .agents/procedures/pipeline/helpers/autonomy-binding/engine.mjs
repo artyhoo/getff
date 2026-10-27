@@ -28,6 +28,7 @@ import {
   clearHolds,
   hasLiveWorker,
   sha256Hex,
+  ADMITTING_STATES,
 } from './record.mjs';
 import {
   readRecord,
@@ -327,6 +328,15 @@ export async function reconcile(input) {
     if (input.requestAction !== undefined) {
       const action = input.requestAction;
       if (!ROUTES.includes(action)) return reject('invalid_request', `request-action must be one of ${ROUTES.join('|')}`);
+      // Admission gate (design L137: pause/cancel stops new admission): only an `active`
+      // record admits a new action. Late FACTS (observations, receipts, intent
+      // resolutions, custody acks) stay accepted below — a paused or cancelled binding
+      // refuses new WORK, it does not refuse its own recovery and reporting paths. The
+      // request is rejected, never queued: a pause that silently queued actions would
+      // admit them wholesale on resume, which is exactly what the pause is for.
+      if (!ADMITTING_STATES.includes(next.controlState)) {
+        return reject('admission_blocked', `control state ${next.controlState} does not admit new actions — lift the pause/cancel through its own boundary before requesting ${action}`);
+      }
       if (!next.grants.actions.includes(action)) {
         return reject('action_not_granted', `action ${action} is not in this binding's granted actions [${next.grants.actions.join(', ')}] — the grant list is fixed at init and no flag overrides it`);
       }
@@ -425,6 +435,15 @@ export async function reconcile(input) {
 
     // Persist the single composed update (CAS on the revision this invocation read).
     if (mutated) {
+      // Monotonicity floor: recordRevision is the identity of the durable state, so two
+      // distinct contents must never share one revision. The transition helpers
+      // (applyControlTransition, addHold, clearHolds) bump internally; the steps that
+      // mutate in place (observation ingestion, intent persist/resolve, delivery
+      // receipt, custody transfer, candidate update) get the bump here — exactly one
+      // advance per durable write, which is what the CAS `expectedRevision` premise and
+      // the «revisions monotonic» acceptance require.
+      if (next.recordRevision === base.recordRevision) next.recordRevision += 1;
+      next.updatedAt = now;
       if (input.testCrashAfter === 'prewrite') killSelf();
       const written = writeRecordAtomic(canonicalPath, next, { lockedTarget: preLockTarget, expectedRevision: base.recordRevision });
       if (!written.ok) return written;
