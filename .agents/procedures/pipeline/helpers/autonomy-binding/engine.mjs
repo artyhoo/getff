@@ -794,7 +794,16 @@ export async function reconcile(input) {
           // record admits no successor (the gate below), so no custody advance and no new
           // worker identity may ride on the ack.
         } else {
+          // R4-02: a real cessation acknowledgement is a durable fact about the OLD
+          // worker on its own — mark it mutated immediately so rejectAfterPersist
+          // persists it even when successor admission is then refused (missing
+          // --repo-root / unresolvable home / authority hold), instead of the ack
+          // being silently dropped with the unchanged bytes. hasLiveWorker is false
+          // afterwards (cessationAckedAt non-null), so a later settled valid transfer
+          // reuses this ack instead of demanding it again. Stopping the old worker
+          // never required current authority; installing a successor still does.
           next.worker.cessationAckedAt = now;
+          mutated = true;
         }
       }
       // R2-02: a successor worker may be registered ONLY on an admitting record. A paused
@@ -847,6 +856,19 @@ export async function reconcile(input) {
         return rejectAfterPersist('candidate_regression', `candidate revision ${candidate.revision} is below the recorded ${next.candidate.revision} — stale candidates are rejected, not ingested`);
       }
       if (candidate.revision !== next.candidate.revision) {
+        // R4-01: the completed binding keeps the candidate/receipt/completion
+        // association it was actually delivered under. A later ordinary candidate
+        // update must not advance the primary current candidate over a finished
+        // run (controlState complete/cancelled) — even when it arrives composed
+        // with other legitimate facts, because the terminal gate sits inside the
+        // advance branch (before mutation), not after a late rejection. Delivery
+        // still belongs to the completed candidate; same-candidate resubmits stay
+        // idempotent no-ops (skipped above), active bindings advance unchanged,
+        // historical observations remain intake-able, and no terminal control
+        // state is reopened or resumed here.
+        if (TERMINAL_STATES.includes(next.controlState)) {
+          return rejectAfterPersist('candidate_terminal_conflict', `binding is ${next.controlState} — the delivered candidate ${next.candidate.revision} keeps its receipt/completion association; candidate advancement requires an active binding`);
+        }
         next.candidate = { revision: candidate.revision, sha256: candidate.sha256 ?? null, ref: candidate.ref ?? null, at: now };
         mutated = true;
         effects.push(`candidate-updated:${candidate.revision}`);

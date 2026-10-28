@@ -2826,6 +2826,176 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
   });
 });
 // ===========================================================================
+// A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation-ack
+// durability). RED-first proven against the pre-image production bytes
+// (HEAD f71121ae) with the new arms run unchanged in an isolated archive:
+// the arms labelled FLIP fail there and pass on the fixed bytes; arms labelled
+// CONTROL pass on BOTH bytes — they pin neighbouring behaviour the fix must not
+// disturb. Per-arm flip attribution (T22):
+// — R4-01: adding the TERMINAL_STATES gate inside the candidate-advance branch
+//   (engine step 8, before mutation) flips arms 1-3; arm 4 (same-candidate
+//   idempotence) is skipped by the `revision !==` guard and stays green on both.
+// — R4-02: adding `mutated = true` in the active-worker cessation-ack
+//   else-branch (engine step 7) flips arm 5 ONLY; arms 6-8 are CONTROLS — the
+//   changed-authority hold (arm 6) and the pending pause/cancel ack transitions
+//   (arms 7-8) already set mutated on the pre-image through their own route, so
+//   their both-sides green proves the fix adds no behaviour on those routes
+//   (measured: the batch-4 RED run failed exactly arms 1, 2, 3, 5 of 8; exit 1).
+// ===========================================================================
+describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation-ack durability)', () => {
+  ltest('R4-01 FLIP (CLI): a candidate update after completion refuses candidate_terminal_conflict — the completed candidate keeps its receipt association, bytes unchanged', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    const completedBytes = readFileSync(fx.recordPath, 'utf8');
+    const completed = JSON.parse(completedBytes);
+    assert.equal(completed.controlState, 'complete');
+    assert.equal(completed.candidate.revision, 1);
+    assert.equal(completed.delivery.receipt, 'receipt-c1', 'the delivery belongs to c1');
+    // The ordinary candidate-2 update must not advance the primary current
+    // candidate over the finished run — neither on the public CLI surface…
+    const attempted = runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
+    assert.equal(attempted.status, 2, attempted.stdout + attempted.stderr);
+    assert.equal(attempted.json.code, 'candidate_terminal_conflict');
+    assert.match(attempted.json.reason, /complete/);
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), completedBytes, 'no legitimate fact changed — zero durable bytes moved');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.candidate.revision, 1, 'the completed candidate identity is preserved');
+    assert.equal(record.delivery.receipt, 'receipt-c1', 'receipt association preserved');
+    assert.equal(record.delivery.candidateRevision, 1);
+    assert.equal(record.controlState, 'complete', 'terminal control is not reopened');
+    assert.equal(record.disposition, 'complete');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-01 FLIP (generic entry): the same refusal fires through the library reconcile on a completed record', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    const completedBytes = readFileSync(fx.recordPath, 'utf8');
+    const refused = await reconcile(reconcileInput(fx, { candidate: { revision: 2, sha256: sha256Hex('c2'), ref: null } }));
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'candidate_terminal_conflict');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), completedBytes, 'the generic entry preserves the completed bytes too');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-01 FLIP (composed): a historical observation riding with a candidate update persists the observation but still cannot smuggle the candidate advance past the terminal gate', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    const completedBytes = readFileSync(fx.recordPath, 'utf8');
+    const composed = runCli(recArgs(fx, ['--observation', obs('late-after-complete', 'done'), '--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
+    assert.equal(composed.status, 2, composed.stdout + composed.stderr);
+    assert.equal(composed.json.code, 'candidate_terminal_conflict');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.notEqual(readFileSync(fx.recordPath, 'utf8'), completedBytes, 'the legitimately-ingested observation IS persisted with the rejection');
+    assert.equal(record.observations.length, 1, 'the observation entered the record as data');
+    assert.ok(record.observations[0].disposition.startsWith('historical-after-complete'), record.observations[0].disposition);
+    assert.equal(record.candidate.revision, 1, 'the composed candidate update was still refused');
+    assert.equal(record.delivery.receipt, 'receipt-c1');
+    assert.equal(record.controlState, 'complete');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-01 CONTROL (no flip): a same-candidate resubmit on a completed binding stays an idempotent no-op — bytes unchanged', async (t) => {
+    const fx = makeFixture(t);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    const completedBytes = readFileSync(fx.recordPath, 'utf8');
+    const same = runCli(recArgs(fx, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')]));
+    assert.equal(same.status, 0, same.stdout + same.stderr);
+    assert.equal(same.json.mutated, false, 'same-candidate idempotence is untouched by the terminal gate');
+    assert.equal(readFileSync(fx.recordPath, 'utf8'), completedBytes);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-02 FLIP: an active live-worker transfer+ack refused for a missing --repo-root still persists the cessation FACT (old worker identity and custody retained, no successor) — and a later valid transfer reuses the retained ack', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(before.worker.sessionId, 'w-1');
+    assert.equal(before.worker.cessationAckedAt, null);
+    // No repoRoot, no other input: the only fact in this pass is the caller-asserted cessation.
+    const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 succession', acknowledgeCessation: true } }), repoRoot: undefined });
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'invalid_request');
+    assert.match(refused.reason, /--repo-root/);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT is durable before the admission refusal');
+    assert.equal(record.worker.sessionId, 'w-1', 'the old worker identity is retained');
+    assert.equal(record.custodyGeneration, 1, 'custody did not advance');
+    assert.ok(record.worker.toSession === undefined, 'no successor was registered');
+    assert.equal(record.controlState, 'active', 'the refusal did not transition control');
+    assert.equal(record.candidate.revision, before.candidate.revision, 'nothing else in the record moved');
+    // A later SETTLED valid transfer reuses the retained ack — no re-demand.
+    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 settled succession' } }));
+    assert.equal(transferred.ok, true, JSON.stringify(transferred));
+    assert.equal(transferred.custodyGeneration, 2);
+    const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(after.worker.sessionId, 'w-2');
+    assert.equal(after.worker.cessationAckedAt, null, 'the successor starts unacked');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-02 CONTROL (no flip): a transfer+ack refused by the CHANGED-authority home pin persists the cessation FACT too — that route already persisted the ack on the pre-image (the hold marked the pass mutated)', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const homeCopy = join(fx.base, 'home-copy');
+    mkdirSync(homeCopy, { recursive: true });
+    writeFileSync(join(homeCopy, 'current-decisions.json'), readFileSync(fx.selectorPath, 'utf8'));
+    const refused = await reconcile(reconcileInput(fx, { featureHome: homeCopy, transferCustody: { toSession: 'w-2', reason: 'r4-02 changed authority', acknowledgeCessation: true } }));
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'authority_hold_open');
+    assert.match(refused.reason, /authority_home_mismatch/);
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT survived the changed-authority refusal');
+    assert.equal(record.worker.sessionId, 'w-1');
+    assert.equal(record.custodyGeneration, 1);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-02 CONTROL (no flip): a transfer+ack on a pause-pending live-worker binding persists the ack through the completed pause (custody_transfer_blocked, paused, no successor)', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const paused = await reconcile(reconcileInput(fx, { control: { kind: 'pause', actor: 'operator:matrix' } }));
+    assert.equal(paused.ok, true, JSON.stringify(paused));
+    assert.equal(paused.controlState, 'pause-pending');
+    const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 while pausing', acknowledgeCessation: true } }), repoRoot: undefined });
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'custody_transfer_blocked');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'paused', 'the ack completed the pause through its own boundary');
+    assert.ok(record.worker.cessationAckedAt !== null, 'the ack was already durable here (transition set mutated)');
+    assert.equal(record.custodyGeneration, 1);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('R4-02 CONTROL (no flip): a transfer+ack on a cancel-pending live-worker binding persists the ack through the completed cancellation (custody_transfer_terminal, cancelled)', async (t) => {
+    const fx = makeFixture(t);
+    const init = await initBinding(initBindingInput(fx));
+    assert.equal(init.ok, true, JSON.stringify(init));
+    const cancelling = await reconcile(reconcileInput(fx, { control: { kind: 'cancel', actor: 'operator:matrix' } }));
+    assert.equal(cancelling.ok, true, JSON.stringify(cancelling));
+    assert.equal(cancelling.controlState, 'cancel-pending');
+    const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 while cancelling', acknowledgeCessation: true } }), repoRoot: undefined });
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.code, 'custody_transfer_terminal');
+    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.controlState, 'cancelled', 'the ack completed the cancellation');
+    assert.ok(record.worker.cessationAckedAt !== null);
+    assert.equal(record.custodyGeneration, 1);
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+});
+// ===========================================================================
 // Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
 // outbound TCP connections and zero HTTP requests across the ENTIRE claimed run
 // (every arm above), and only then closes the recorder. (Correction R3, 2026-10-27:
