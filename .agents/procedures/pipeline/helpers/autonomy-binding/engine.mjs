@@ -21,19 +21,23 @@
  * engine calls it on a production path.
  */
 import { resolve } from 'node:path';
-import { canonicalJson } from '../../../intent/helpers/check-result-review.mjs';
+import { canonicalJson, resolveContentRef } from '../../../intent/helpers/check-result-review.mjs';
 import {
   initialRecord,
   applyControlTransition,
   addHold,
   clearHolds,
   hasLiveWorker,
+  hasUnconfirmedNonWorkerExternalWork,
   sha256Hex,
   isIso,
   ADMITTING_STATES,
   TERMINAL_STATES,
   OBSERVATIONS_MAX,
   DELIVERY_HISTORY_MAX,
+  seenMaskEmptyHex,
+  seenMaskAddHex,
+  seenMaskMayHaveSeenHex,
 } from './record.mjs';
 import {
   readRecord,
@@ -64,6 +68,59 @@ const AUTHORITY_IDENTITY_HOLD_CODE = 'authority_identity_mismatch';
 const AUTHORITY_HOME_HOLD_CODE = 'authority_home_mismatch';
 /** Every hold code that gates admission, completion and routing (A1-CODE-05 adds identity; R2-03 adds the selected-home pin). */
 const AUTHORITY_HOLD_CODES = [AUTHORITY_CHANGED_HOLD_CODE, AUTHORITY_UNAVAILABLE_HOLD_CODE, AUTHORITY_IDENTITY_HOLD_CODE, AUTHORITY_HOME_HOLD_CODE];
+/** Fidelity-r1 F-1: a delivery recorded without (or whose boundary check fails) independent verifiable evidence. */
+const DELIVERY_EVIDENCE_HOLD_CODE = 'delivery_evidence_unverified';
+/** Fidelity-r1 F-3: a receipt whose identity bounded local state cannot establish as fresh. */
+const DELIVERY_IDENTITY_HOLD_CODE = 'delivery_identity_unestablishable';
+/** Fidelity-r1 F-2 (ack door): referenced external work whose cessation no fact has established. */
+const CESSATION_HOLD_CODE = 'cessation_unconfirmed';
+
+/**
+ * Fidelity-r1 F-1 — the roots an evidence reference may resolve against: the binding's own
+ * stage artifact root (its durable fact surface) and the reconciled repository root (the
+ * authority surface). Both are paths the record/invocation already owns — no new trust
+ * surface is introduced.
+ */
+function evidenceRoots(next, input) {
+  const roots = [];
+  if (typeof next.stageArtifactRoot === 'string' && next.stageArtifactRoot.length > 0) roots.push(next.stageArtifactRoot);
+  if (typeof input.repoRoot === 'string' && input.repoRoot.length > 0) roots.push(input.repoRoot);
+  return roots;
+}
+
+/**
+ * Fidelity-r1 F-1 — verify a caller-supplied evidence reference NOW, at the boundary that
+ * releases uncertainty or completes the binding. The mechanism is the intent helper's own
+ * `resolveContentRef` (path + sha256, containment-checked per root, digest-checked on the
+ * real bytes) — the ecosystem's existing content-verification primitive, NOT a new issuer,
+ * callback format or trust service. A reference that does not resolve to bytes matching
+ * its digest is not a fact; callers fail closed on the structured result.
+ */
+function verifyEvidenceRef(candidate, roots) {
+  if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)
+    || typeof candidate.path !== 'string' || candidate.path.length === 0
+    || typeof candidate.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(candidate.sha256)) {
+    return { ok: false, code: 'invalid_request', reason: 'evidence must be a {path, sha256} content reference — path relative to the stage artifact root or the repository root, sha256 of the file bytes (64 lowercase hex)' };
+  }
+  // The documented contract (CLI usage + the hold recovery actions) is «resolved against
+  // the stage artifact root OR the repository root» — so each root is tried INDEPENDENTLY.
+  // resolveContentRef short-circuits on the FIRST configured root's `ref_missing` (its
+  // per-root loop returns rather than continues on an absent leaf), so handing it both
+  // roots at once would let the stage root's miss shadow a repo-rooted artifact. Per-root
+  // iteration keeps resolveContentRef's containment/symlink/digest checks byte-identical;
+  // it only decides WHICH root's verdict is reported when every root fails. Fail-closed:
+  // all roots must fail before the reference is treated as unestablished.
+  let firstFailure = null;
+  for (const root of roots) {
+    const resolved = resolveContentRef(candidate, [root]);
+    if (resolved.ok) return { ok: true, ref: { path: candidate.path, sha256: candidate.sha256 } };
+    if (firstFailure === null) firstFailure = resolved;
+  }
+  if (firstFailure === null) {
+    return { ok: false, code: 'invalid_request', reason: 'no evidence roots are configured — a content reference cannot resolve without the stage artifact root or the repository root' };
+  }
+  return { ok: false, code: 'evidence_unresolved', reason: `evidence reference does not verify (${firstFailure.code}): ${firstFailure.reason}` };
+}
 // OBSERVATIONS_MAX / DELIVERY_HISTORY_MAX are IMPORTED from record.mjs (R3 advisory):
 // one bound, one owner — the engine slices/dedups with exactly the bound the record
 // module declares, so the two cannot drift.
@@ -364,10 +421,13 @@ function routeFromRecord(record) {
         : 'task bound; awaiting first observation',
     };
   }
-  if (last.kind === 'done' && record.delivery !== null && record.delivery.candidateRevision === record.candidate.revision) {
+  if (last.kind === 'done' && record.delivery !== null && record.delivery.candidateRevision === record.candidate.revision && record.delivery.verified === true) {
     // R2-05: the delivery must be current for THIS candidate — a receipt bound to a
     // superseded candidate is retained history, not current acceptance authority.
-    return { route: 'complete', routeReason: 'delivery receipt recorded' };
+    // Fidelity-r1 F-1: it must also be VERIFIED (both completion doors re-check the
+    // evidence at the boundary — this routing answer cannot drift from them). An
+    // unverified bare receipt routes 'review', not 'complete'.
+    return { route: 'complete', routeReason: 'delivery receipt recorded and verified against independent evidence' };
   }
   if (last.kind === 'done') {
     return { route: 'review', routeReason: 'worker reported done; review before completion' };
@@ -444,7 +504,7 @@ export async function reconcile(input) {
       const held = addHold(next, {
         code: HISTORY_UNCERTAIN_HOLD_CODE,
         reason: `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} but its external effect is unverified — outcome is unknown, not successful`,
-        recoveryAction: `determine whether action ${next.pendingIntent.actionId} took effect in the external system, then re-run with --resolve-intent ${next.pendingIntent.actionId} --resolution applied|not-applied --evidence <what was found>`,
+        recoveryAction: `determine whether action ${next.pendingIntent.actionId} took effect in the external system, then re-run with --resolve-intent ${next.pendingIntent.actionId} --resolution applied|not-applied --evidence <what was found> --evidence-ref <path> --evidence-sha256 <hex> citing an artifact that substantiates the finding (fidelity-r1 F-1: prose alone never releases the uncertainty)`,
         now,
       });
       if (!held.ok) return held;
@@ -680,7 +740,21 @@ export async function reconcile(input) {
       if (typeof evidence !== 'string' || evidence.length < 20) return rejectAfterPersist('invalid_request', 'resolution evidence must be at least 20 characters describing what was actually found');
       if (next.pendingIntent === null || next.pendingIntent.state === 'resolved') return rejectAfterPersist('intent_missing', 'no unresolved intent to resolve');
       if (next.pendingIntent.actionId !== actionId) return rejectAfterPersist('intent_id_mismatch', `open intent is ${next.pendingIntent.actionId}, got ${actionId}`);
-      next.pendingIntent = { ...next.pendingIntent, state: 'resolved', resolution: `${resolution}: ${evidence}`, resolvedAt: now };
+      // Fidelity-r1 F-1: the narrative is the OPERATOR'S account, not the fact. Releasing
+      // the unknown-effect uncertainty requires an evidence reference that VERIFIES at
+      // this boundary — the same resolveContentRef mechanism the completion doors use —
+      // so the release is backed by something a later reconcile can re-check. A bare
+      // 20-character prose never released anything but the appearance of certainty; a
+      // caller unable to cite an artifact keeps the uncertainty (the uncertain_owner hold
+      // above stays open with its recovery action), which is the honest state. No trusted
+      // issuer/callback format is invented: the reference grammar is the ecosystem's own
+      // ContentRef and the resolution is read-only.
+      if (input.resolveIntent.evidenceRef === undefined || input.resolveIntent.evidenceRef === null) {
+        return rejectAfterPersist('intent_resolution_unverified', `intent ${actionId} is NOT resolved: releasing an unknown effect requires a verifiable evidence reference (--evidence-ref <path> --evidence-sha256 <hex>, resolved against the stage artifact root or the repository root) alongside the narrative — prose alone is an assertion, not an established fact; if no artifact can substantiate the outcome, leave the intent unresolved (the ${HISTORY_UNCERTAIN_HOLD_CODE} hold is the honest state)`);
+      }
+      const intentEvidence = verifyEvidenceRef(input.resolveIntent.evidenceRef, evidenceRoots(next, input));
+      if (!intentEvidence.ok) return rejectAfterPersist(intentEvidence.code, `intent ${actionId} is NOT resolved: ${intentEvidence.reason} — cite an existing artifact whose bytes hash to the given sha256; the uncertainty stands until one resolves`);
+      next.pendingIntent = { ...next.pendingIntent, state: 'resolved', resolution: `${resolution}: ${evidence}`, resolvedAt: now, evidenceRef: intentEvidence.ref };
       const cleared = clearHolds(next, { code: HISTORY_UNCERTAIN_HOLD_CODE, now });
       next = cleared.value;
       mutated = true;
@@ -711,27 +785,114 @@ export async function reconcile(input) {
     // `delivery` keeps binding to ITS candidate), neither completion door gains
     // applicability, and the durable record is byte-unchanged.
     //
-    // Bounded-retention honesty: the window is DELIVERY_HISTORY_MAX (± the superseded
-    // current delivery). An identity EVICTED from that window cannot be distinguished
-    // from a fresh delivery by this one binding — no registry, issuer or external receipt
-    // service is introduced to close that gap (stage-A scope); the residual risk is a
-    // documented limit, asserted in the suite, not silently denied.
+    // Bounded-retention honesty, fidelity-r1 F-3: the history WINDOW stays
+    // DELIVERY_HISTORY_MAX (± the superseded current delivery), and an identity evicted
+    // from it is no longer distinguishable by the window alone. The fixed-size
+    // `deliverySeen` accumulator (record.mjs) closes that gap WITHOUT a registry, issuer
+    // or unbounded store: admitted identities set never-unset bits, so an evicted
+    // receipt is provably not fresh and is HELD, never re-bound to a newer candidate.
+    // The mask materializes (empty) for records written before this field existed; for
+    // such a legacy record the previously-forgotten evicted identities stay forgotten —
+    // the pre-repair eviction limit remains their documented state, never silently
+    // claimed as closed.
     if (input.deliveryReceipt !== undefined) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
-      const recordDelivery = (r) => {
+      if (next.deliverySeen === undefined || next.deliverySeen === null) next.deliverySeen = { bits: seenMaskEmptyHex() };
+      // Fidelity-r1 F-1: a delivery is recorded WITH its verification state. A bare
+      // receipt string is a caller CLAIM — recorded as an unverified fact that opens the
+      // persisted delivery_evidence_unverified hold (both completion doors stay closed
+      // for it); a receipt accompanied by an evidence reference that VERIFIES NOW (the
+      // intent helper's resolveContentRef, against the stage artifact root / repository
+      // root) is recorded verified and closes that hold. Evidence that FAILS
+      // verification rejects the pass — a receipt is never stamped verified on
+      // unverifiable evidence, and a failure never silently downgrades to bare.
+      const admitDelivery = (r) => {
+        let evidence = null;
+        let verified = false;
+        if (input.deliveryEvidence !== undefined && input.deliveryEvidence !== null) {
+          const checked = verifyEvidenceRef(input.deliveryEvidence, evidenceRoots(next, input));
+          if (!checked.ok) return checked;
+          evidence = checked.ref;
+          verified = true;
+        }
+        // Fidelity-r1 F-3: freshness is decided against the fixed-size accumulator, not
+        // only the retained history. Bits are never unset, so any bit still 0 PROVES the
+        // identity was never admitted; both bits set means it WAS admitted before (now
+        // evicted from the history window) or collides with one that was — bounded local
+        // state cannot establish which, so the identity is never eligible as a fresh
+        // delivery: fail closed with a persisted, actionable hold instead of re-binding
+        // old history onto the current candidate.
+        if (seenMaskMayHaveSeenHex(next.deliverySeen.bits, r)) {
+          const held = addHold(next, {
+            code: DELIVERY_IDENTITY_HOLD_CODE,
+            reason: `delivery receipt ${r} matches the admitted-identity accumulator — it was admitted before (now evicted from the bounded history window of ${DELIVERY_HISTORY_MAX}) or collides with one that was; this binding cannot establish which, so it is not a fresh delivery`,
+            recoveryAction: `record the current candidate's delivery with its own distinct, freshly-issued receipt reference (plus evidence via --delivery-evidence-ref/--delivery-evidence-sha256); do not replay the old receipt string`,
+            now,
+          });
+          if (!held.ok) return held;
+          next = held.value;
+          mutated = true;
+          effects.push('delivery-identity-unestablishable');
+          return { ok: false, code: DELIVERY_IDENTITY_HOLD_CODE, reason: `delivery receipt ${r} was NOT recorded: its identity cannot be established as fresh from bounded state (its accumulator bits are already set) — the persisted ${DELIVERY_IDENTITY_HOLD_CODE} hold names the recovery; neither completion door opens for it` };
+        }
+        next.deliverySeen.bits = seenMaskAddHex(next.deliverySeen.bits, r);
+        // Admission is now certain: the previously recorded delivery's subject leaves the
+        // current slot, so its open unverified-evidence hold clears into the bounded
+        // holds log (the fact stays durable on the superseded delivery's own
+        // `verified: false` and on the cleared hold's recorded reason). Placement AFTER
+        // the freshness gate is deliberate — a REFUSED admission (evicted-identity hold)
+        // must not disturb the previous hold: the recorded delivery it names is still
+        // the record's delivery, still unverified. Without the clear, every bare
+        // delivery against a fresh candidate appends a NEW hold (the reason names the
+        // receipt) and an open-hold pile-up grows the record per advance — defeating
+        // HOLDS_MAX's bounded-log contract, whose make-room sweep drops only CLEARED
+        // holds. One open hold of this code at a time; each cleared instance is retained.
+        const clearedStale = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
+        if (!clearedStale.ok) return clearedStale;
+        next = clearedStale.value;
+        if (verified) {
+          const cleared = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
+          next = cleared.value;
+        } else {
+          const held = addHold(next, {
+            code: DELIVERY_EVIDENCE_HOLD_CODE,
+            reason: `delivery receipt ${r} is recorded as an UNVERIFIED caller reference — no independently verifiable evidence (a content reference resolving to bytes matching its digest) substantiates the delivery`,
+            recoveryAction: 're-present the delivery with its evidence: --delivery-evidence-ref <path> --delivery-evidence-sha256 <hex> resolved against the stage artifact root or the repository root; both completion doors stay closed while the current delivery is unverified',
+            now,
+          });
+          if (!held.ok) return held;
+          next = held.value;
+        }
         next.delivery = {
           receipt: r,
           destination: next.grants.destination,
           at: now,
           actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null,
           candidateRevision: next.candidate.revision,
+          verified,
+          evidence,
         };
         mutated = true;
-        effects.push('delivery-recorded');
+        effects.push(verified ? 'delivery-recorded-verified' : 'delivery-recorded-unverified');
+        return null;
       };
       if (next.delivery !== null && next.delivery.candidateRevision === next.candidate.revision) {
         if (next.delivery.receipt === receipt) {
+          // Fidelity-r1 F-1 recovery path: the duplicate ack UPGRADES a bare receipt to
+          // verified when independently verifiable evidence accompanies it — no
+          // supersede needed. Verification failure rejects and the receipt keeps its
+          // unverified state (never stamped verified on unverified evidence).
+          if (input.deliveryEvidence !== undefined && input.deliveryEvidence !== null) {
+            const checked = verifyEvidenceRef(input.deliveryEvidence, evidenceRoots(next, input));
+            if (!checked.ok) return rejectAfterPersist(checked.code, `delivery evidence does not verify — the receipt stays unverified: ${checked.reason}`);
+            if (next.delivery.verified !== true) {
+              next.delivery = { ...next.delivery, verified: true, evidence: checked.ref };
+              const cleared = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
+              next = cleared.value;
+              mutated = true;
+            }
+          }
           effects.push('delivery-duplicate-ack');
         } else {
           return rejectAfterPersist('delivery_conflict', `a delivery receipt for candidate ${next.candidate.revision} is already recorded (${next.delivery.receipt} at ${next.delivery.at}) — a second, different receipt would be a duplicate delivery; reconcile the recorded one instead`);
@@ -751,9 +912,11 @@ export async function reconcile(input) {
         next.deliveryHistory.push(superseded);
         if (next.deliveryHistory.length > DELIVERY_HISTORY_MAX) next.deliveryHistory = next.deliveryHistory.slice(-DELIVERY_HISTORY_MAX);
         effects.push(`delivery-superseded:${superseded.candidateRevision}`);
-        recordDelivery(receipt);
+        const admitted = admitDelivery(receipt);
+        if (admitted !== null) return rejectAfterPersist(admitted.code, admitted.reason);
       } else {
-        recordDelivery(receipt);
+        const admitted = admitDelivery(receipt);
+        if (admitted !== null) return rejectAfterPersist(admitted.code, admitted.reason);
       }
     }
 
@@ -772,11 +935,32 @@ export async function reconcile(input) {
           return rejectAfterPersist('custody_transfer_blocked', `worker ${next.worker.sessionId} has not acknowledged cessation — a released lock or expired wait cannot prove external-worker cessation; re-run with acknowledge-cessation to transfer custody explicitly`);
         }
         if (['pause-pending', 'cancel-pending'].includes(next.controlState)) {
+          // Fidelity-r1 F-2 (ack door, custody arm): a composed transfer ack settles the
+          // WORKER arm only. When non-worker external work (a bound AIF task / native
+          // attempts / an unresolved effect) is still unconfirmed, the ack is refused
+          // with the persisted prerequisite hold — the same fail-closed shape as the
+          // control ack door in step (9) — and the transfer never reaches succession.
+          if (hasUnconfirmedNonWorkerExternalWork(next)) {
+            const held = addHold(next, {
+              code: CESSATION_HOLD_CODE,
+              reason: 'cessation of the referenced external work is NOT established — a composed transfer acknowledgement is a caller assertion, not a fact about the referenced subsystem',
+              recoveryAction: 'present verified cessation evidence through the control ack door (reconcile --ack-cessation --cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>), or let the arm settle through its own boundary; the pending state is the honest prerequisite until then',
+              now,
+            });
+            if (!held.ok) return rejectAfterPersist(held.code, held.reason);
+            if (held.value !== next) {
+              next = held.value;
+              mutated = true;
+              effects.push('cessation-unconfirmed');
+            }
+            return rejectAfterPersist(CESSATION_HOLD_CODE, `${next.controlState} is retained with admission blocked — the acknowledgement cannot settle referenced external work whose stop no fact has established; the persisted ${CESSATION_HOLD_CODE} hold names the recovery`);
+          }
           const acked = applyControlTransition(next, { kind: 'ack-cessation', actor: input.actor ?? 'operator:cli', now });
           // Same persist-before-reject contract as every other rejection site: facts
           // ingested earlier in this composed pass (observation, receipt) must survive
-          // an ack refusal — defense-in-depth, this guard is unreachable by the
-          // pause-pending/cancel-pending precondition above unless validation fails.
+          // an ack refusal. The record-layer ack gate below remains as the last-resort
+          // defense for any arm this pre-check does not cover — a custody ack settles
+          // the WORKER arm only, never a referenced subsystem's stop on the caller's word.
           if (!acked.ok) return rejectAfterPersist(acked.code, acked.reason);
           next = acked.value;
           // The ack moved the record — the FACT is durable even when the transfer itself
@@ -913,6 +1097,34 @@ export async function reconcile(input) {
       if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
         return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — completion would close the binding over an unverified external effect; resolve it (--resolve-intent ${next.pendingIntent.actionId}) before completing`);
       }
+      // Fidelity-r1 F-1: BOTH doors re-establish the current delivery's facts at the
+      // effect boundary — a receipt that is bare (admitted unverified), a legacy record
+      // predating the verification fields (the same unverified shape), or a verified
+      // receipt whose evidence no longer resolves/matches at this door all open the
+      // persisted delivery_evidence_unverified hold and refuse completion. Fail closed;
+      // no caller assertion, receipt string or env boolean substitutes for the evidence.
+      if (deliveryCurrentForCandidate(next)) {
+        const d = next.delivery;
+        const holdOn = (reason, recoveryAction) => {
+          const held = addHold(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, reason, recoveryAction, now });
+          if (!held.ok) return held;
+          next = held.value;
+          return { ok: false, code: DELIVERY_EVIDENCE_HOLD_CODE, reason: `${reason} — completion is refused; the persisted ${DELIVERY_EVIDENCE_HOLD_CODE} hold names the recovery` };
+        };
+        if (d.verified !== true || d.evidence === null || d.evidence === undefined) {
+          return holdOn(
+            `the current delivery receipt (${d.receipt}) is UNVERIFIED — a bare receipt string is a caller claim, not independent production proof of the delivered effect`,
+            're-present the delivery with its evidence (--delivery-evidence-ref <path> --delivery-evidence-sha256 <hex>), or re-acknowledge the same receipt with its evidence; both completion doors stay closed while the current delivery is unverified',
+          );
+        }
+        const checked = verifyEvidenceRef(d.evidence, evidenceRoots(next, input));
+        if (!checked.ok) {
+          return holdOn(
+            `the current delivery's evidence reference no longer resolves (${checked.code}) — the receipt was stamped verified, but its evidence cannot be established at this door`,
+            'restore the evidence artifact so it matches its recorded digest, or re-present the delivery with fresh evidence; completion stays closed while the delivery\'s evidence cannot be established',
+          );
+        }
+      }
       return null;
     };
 
@@ -938,6 +1150,74 @@ export async function reconcile(input) {
         if (gated) return gated;
         const denied = completionAdmission();
         if (denied) return denied;
+      }
+      // Fidelity-r1 F-2 (ack door): an `ack-cessation` settles ONLY what it can attest.
+      // The worker arm settles on the worker's own report (the ack IS the worker-side
+      // input). The non-worker arms — a bound AIF task, recorded native attempts, an
+      // unresolved effect — are REFERENCED external work whose stop this bare input
+      // cannot prove: settling them on it would persist a fake stopped disposition /
+      // synthetic acknowledgment, exactly what the fidelity-r1 constraint forbids. The
+      // establishment boundary reuses the same resolveContentRef mechanism as intent
+      // release and both completion doors: a cessation-evidence reference that VERIFIES
+      // against the stage artifact root / repository root is stamped onto the bound task
+      // (aif.cessationEvidence + cessationConfirmedAt — a durable fact later reconciles
+      // re-read), and only then does the ack transition proceed. Without verifiable
+      // evidence the ack is refused, the pause_pending/cancel_pending state is RETAINED
+      // (admission stays blocked) and the persisted cessation_unconfirmed hold names the
+      // prerequisite — the honest A1 state while no read capability for the bound
+      // subsystem exists (no AIF-task reader is reachable from this helper; stage B
+      // owns live reads). The custody-transfer ack path (step 7) shares the record-layer
+      // gate, so a transfer pass cannot settle an unconfirmed task cessation either.
+      // The gate arms ONLY on a state whose ack transition is otherwise legal
+      // (pause-pending / cancel-pending — the same sources controlDestination admits):
+      // from any other state the table's own refusal (illegal_control_transition /
+      // control_state_terminal) must surface, and no establishment stamp may ride a
+      // transition the table refuses.
+      if (input.control.kind === 'ack-cessation'
+        && ['pause-pending', 'cancel-pending'].includes(next.controlState)
+        && hasUnconfirmedNonWorkerExternalWork(next)) {
+        const unconfirmed = [
+          next.aif !== null && typeof next.aif.taskId === 'string' && next.aif.taskId.length > 0 && next.aif.cessationConfirmedAt == null ? `bound aif task ${next.aif.taskId}` : null,
+          Array.isArray(next.nativeAttempts) && next.nativeAttempts.length > 0 ? 'recorded native attempts' : null,
+          next.pendingIntent !== null && next.pendingIntent.state !== 'resolved' ? `unresolved effect ${next.pendingIntent.actionId}` : null,
+        ].filter(Boolean).join(', ');
+        const refuseCessation = (reason, recoveryAction) => {
+          const held = addHold(next, { code: CESSATION_HOLD_CODE, reason, recoveryAction, now });
+          if (!held.ok) return held;
+          // addHold returns the INPUT record when an identical open hold already exists —
+          // identity is the «nothing moved» signal, so a repeated bare ack must not burn
+          // a revision on a no-op write.
+          if (held.value !== next) {
+            next = held.value;
+            mutated = true;
+            effects.push('cessation-unconfirmed');
+          }
+          return rejectAfterPersist(CESSATION_HOLD_CODE, `${reason} — the acknowledgement is refused and ${next.controlState} is retained with admission blocked; the persisted ${CESSATION_HOLD_CODE} hold names the recovery`);
+        };
+        if (input.control.cessationEvidence === undefined || input.control.cessationEvidence === null) {
+          const refuse = refuseCessation(
+            `cessation of ${unconfirmed} is NOT established — a bare acknowledgement (reason prose included) is a caller assertion, not a fact about the referenced subsystem`,
+            'present verified cessation evidence (--cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>, resolved against the stage artifact root or the repository root — e.g. the bound task\'s own terminal record), or let the arm settle through its own boundary (an unresolved intent resolves under its evidence gate); the pending state is the honest prerequisite until then',
+          );
+          if (refuse) return refuse;
+        }
+        const checked = verifyEvidenceRef(input.control.cessationEvidence, evidenceRoots(next, input));
+        if (!checked.ok) {
+          const refuse = refuseCessation(
+            `the cessation evidence reference does not verify (${checked.code}) — ${unconfirmed} remain${unconfirmed.includes(',') ? '' : 's'} without an established stop`,
+            'cite an existing artifact whose bytes hash to the given sha256 under the stage artifact root or the repository root; the pending state and admission block are retained until cessation is established',
+          );
+          if (refuse) return refuse;
+        }
+        // The durable stamp has a home only on a bound task; an aif-less record
+        // (native attempts / unresolved effect only) is gated by the SAME verified
+        // evidence but carries no cessationEvidence field to stamp — the settled
+        // transition itself is the durable fact there.
+        if (next.aif !== null) next.aif = { ...next.aif, cessationEvidence: checked.ref, cessationConfirmedAt: now };
+        const cleared = clearHolds(next, { code: CESSATION_HOLD_CODE, now });
+        next = cleared.value;
+        mutated = true;
+        effects.push('cessation-evidence-verified');
       }
       const transition = applyControlTransition(next, { kind: input.control.kind, actor: input.actor ?? 'operator:cli', reason: input.control.reason, now });
       if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);

@@ -256,6 +256,16 @@ function recArgs(fx, extra = []) {
 const tmpFiles = (dir) => readdirSync(dir).filter((name) => name.includes('.tmp-'));
 const obs = (observationId, kind, extra = {}) => JSON.stringify({ taskId: 't-1', kind, observationId, ...extra });
 const EVIDENCE = 'verified externally: the tracker shows the effect landed (matrix fixture evidence)';
+// Fidelity-r1 F-1 fixture material: a genuinely SOURCED evidence artifact — real bytes
+// written under the stage artifact root (the first evidence root the engine resolves
+// against) and hashed from those bytes. The engine verifies the digest at the boundary;
+// the fixture never asserts an outcome it did not materialize. (The narrative constant
+// EVIDENCE stays as the caller's account, which the engine requires alongside the ref.)
+const evidenceArtifact = (fx, name, body) => {
+  const bytes = typeof body === 'string' ? body : JSON.stringify(body, null, 2);
+  writeFileSync(join(fx.stageRoot, name), bytes);
+  return { path: name, sha256: sha256Hex(bytes) };
+};
 
 // ===========================================================================
 // Row 1 — init + valid reconcile, unchanged authority; revisions monotonic.
@@ -510,8 +520,13 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     const again = runCli(['status', '--record', t.recordPath]);
     assert.equal(again.json.record.pendingIntent.actionId, intent.actionId);
 
-    // Resolve → hold cleared, intent resolved, admission possible again.
-    const resolved = runCli(recArgs(t, ['--resolve-intent', intent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE]));
+    // Resolve → hold cleared, intent resolved, admission possible again. Fidelity-r1 F-1:
+    // the narrative rides WITH a verifiable content reference — here the repo's real
+    // approval record, resolved through the repository root (the engine tries the stage
+    // artifact root first, then the repo root — the «either» contract).
+    const approvalBytes = readFileSync(join(t.repo, 'prd-approval.json'));
+    const resolved = runCli(recArgs(t, ['--resolve-intent', intent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE,
+      '--evidence-ref', 'prd-approval.json', '--evidence-sha256', sha256Hex(approvalBytes)]));
     assert.equal(resolved.status, 0, resolved.stdout + resolved.stderr);
     assert.ok(resolved.json.effects.includes('intent-resolved:applied'), JSON.stringify(resolved.json.effects));
     assert.deepEqual(resolved.json.holds, []);
@@ -626,7 +641,11 @@ describe('row 7 — late results never clear an explicit pause/cancel', () => {
 
   ltest('late report while paused: recorded historical; control stays paused', async () => {
     const t = makeFixture(null);
-    runCli(initArgs(t, ['--task-id', 't-1']));
+    // Fidelity-r1 F-2 control: NO bound AIF task and no live worker — the truly-empty
+    // binding where a pause lands `paused` directly. A record with a BOUND task defers
+    // the pause to cessation acknowledgement (pause-pending); that case is the fidelity
+    // block's F-2 arm, not this one.
+    runCli(initArgs(t));
     runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause, no worker bound', '--now', iso()]);
     const late = runCli(recArgs(t, ['--observation', obs('late-2', 'done')]));
     assert.equal(late.json.observationDisposition, 'historical-after-pause');
@@ -638,7 +657,10 @@ describe('row 7 — late results never clear an explicit pause/cancel', () => {
 
   ltest('late report after cancel: recorded historical; terminal state holds; nothing reopens it', async () => {
     const t = makeFixture(null);
-    runCli(initArgs(t, ['--task-id', 't-1']));
+    // Fidelity-r1 F-2 control: truly-empty binding (no bound task, no worker) — the
+    // cancel lands `cancelled` directly; the task-bound variant defers to the ack door
+    // and is the fidelity block's F-2 arm.
+    runCli(initArgs(t));
     const cancel = runCli(['cancel', '--record', t.recordPath, '--control-reason', 'operator cancel (matrix)', '--now', iso()]);
     assert.equal(cancel.status, 0);
     assert.equal(cancel.json.controlState, 'cancelled');
@@ -748,7 +770,13 @@ describe('row 9 — control gate: worker output carries no control authority', (
     const res = runCli(recArgs(t, ['--mark-complete']));
     assert.equal(res.status, 2);
     assert.equal(res.json.code, 'complete_requires_delivery_receipt');
-    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-ok', '--mark-complete']));
+    // Fidelity-r1 F-1: the positive leg completes on a SOURCED receipt (verified content
+    // reference), not a bare receipt string — the bare-receipt refusal is the fidelity
+    // block's dedicated arm.
+    const delivery = evidenceArtifact(t, 'delivery-ok.json', { delivered: true, receipt: 'receipt-ok' });
+    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-ok',
+      '--delivery-evidence-ref', delivery.path, '--delivery-evidence-sha256', delivery.sha256,
+      '--mark-complete']));
     assert.equal(ok.status, 0, ok.stdout + ok.stderr);
     assert.equal(ok.json.controlState, 'complete');
     const late = runCli(recArgs(t, ['--observation', obs('late-complete', 'done')]));
@@ -767,7 +795,12 @@ describe('row 9 — control gate: worker output carries no control authority', (
     const paused = await reconcile({ ...reconcileInput(t), control: { kind: 'pause', actor: 'operator:matrix' } });
     assert.ok(paused.ok, JSON.stringify(paused));
     assert.equal(paused.controlState, 'pause-pending', 'a live worker defers the pause to cessation acknowledgement');
-    const acked = await reconcile({ ...reconcileInput(t), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms suspension' } });
+    // Fidelity-r1 F-2: task t-1 is referenced external work — a bare caller ack cannot
+    // settle it; the verified evidence boundary can (genuinely sourced positive).
+    const bare = await reconcile({ ...reconcileInput(t), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms suspension' } });
+    assert.equal(bare.ok, false, JSON.stringify(bare));
+    assert.equal(bare.code, 'cessation_unconfirmed');
+    const acked = await reconcile({ ...reconcileInput(t), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms suspension', cessationEvidence: evidenceArtifact(t, 'cessation-t1.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
     assert.ok(acked.ok, JSON.stringify(acked));
     assert.equal(acked.controlState, 'paused');
     const st = runCli(['status', '--record', t.recordPath]);
@@ -848,7 +881,12 @@ describe('row 13 — prohibited effects: no model/PR/delivery calls', () => {
     assert.equal(runCli(recArgs(t, ['--observation', obs('p-1', 'done')])).status, 0);
     const act = runCli(recArgs(t, ['--request-action', 'work']));
     assert.equal(act.status, 0, act.stdout);
-    const resolved = runCli(recArgs(t, ['--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'not-applied', '--evidence', EVIDENCE]));
+    // Fidelity-r1 F-1: even a not-applied resolution RELEASES the uncertainty, so it
+    // carries a sourced reference (the tracker export saying the effect did not land) —
+    // prose alone resolves nothing.
+    const tracker = evidenceArtifact(t, 'tracker-export.json', { source: 'tracker', effect: 'work', landed: false });
+    const resolved = runCli(recArgs(t, ['--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'not-applied', '--evidence', EVIDENCE,
+      '--evidence-ref', tracker.path, '--evidence-sha256', tracker.sha256]));
     assert.equal(resolved.status, 0);
     assert.equal(runCli(recArgs(t, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('p2')])).status, 0);
     assert.equal(runCli(recArgs(t, ['--delivery-receipt', 'receipt-p'])).status, 0);
@@ -1289,7 +1327,10 @@ describe('row 19 — resume authority battery', () => {
 
   function pausedFixture(t) {
     const fx = makeFixture(t);
-    runCli(initArgs(fx, ['--task-id', 't-1']));
+    // Fidelity-r1 F-2 control: no bound AIF task and no worker — the pause lands
+    // `paused` directly. A task-bound record defers the pause to cessation
+    // acknowledgement (pause-pending) and is the fidelity block's F-2 arm.
+    runCli(initArgs(fx));
     const pause = runCli(['pause', '--record', fx.recordPath, '--control-reason', 'operator pause for the resume battery', '--now', iso()]);
     assert.equal(pause.status, 0);
     const st = runCli(['status', '--record', fx.recordPath]);
@@ -1519,7 +1560,10 @@ describe('cold-review regression arms (r4 fixes)', () => {
 
   ltest('MINOR 5: custody transfer onto a terminal record is rejected', async () => {
     const t = makeFixture(null);
-    runCli(initArgs(t, ['--task-id', 't-1']));
+    // Fidelity-r1 F-2 control: truly-empty binding, so the cancel reaches terminal
+    // `cancelled` directly — a task-bound record defers the cancellation to the
+    // cessation-ack door (cancel-pending; the R4-02 arms cover that path).
+    runCli(initArgs(t));
     runCli(['cancel', '--record', t.recordPath, '--control-reason', 'operator cancel (custody arm)', '--now', iso()]);
     const beforeSha = fileSha(t.recordPath);
     const transfer = runCli(recArgs(t, ['--transfer-custody', 'w-9']));
@@ -1692,7 +1736,12 @@ describe('cold-review regression arms (r6 fixes)', () => {
     // completion pass re-opens a hold against the newer signature — an OPEN hold is what
     // the completion gate must see (a stable-read pass would have cleared it first, which
     // is the separate settle-boundary arm below).
-    const refused = runCli(recArgs(t, ['--delivery-receipt', 'receipt-hold', '--mark-complete']));
+    // Fidelity-r1 F-1: the receipt carries a verified content reference so the gate this
+    // arm exercises is the AUTHORITY hold, not evidence absence.
+    const holdEvidence = evidenceArtifact(t, 'delivery-hold.json', { delivered: true, receipt: 'receipt-hold' });
+    const refused = runCli(recArgs(t, ['--delivery-receipt', 'receipt-hold',
+      '--delivery-evidence-ref', holdEvidence.path, '--delivery-evidence-sha256', holdEvidence.sha256,
+      '--mark-complete']));
     assert.equal(refused.status, 2);
     assert.equal(refused.json.code, 'authority_hold_open', JSON.stringify(refused.json));
     const st = runCli(['status', '--record', t.recordPath]);
@@ -1700,7 +1749,9 @@ describe('cold-review regression arms (r6 fixes)', () => {
     assert.equal(st.json.record.delivery.receipt, 'receipt-hold', 'the receipt is a FACT from earlier in the refused pass and stays durable (persist-before-reject)');
     const settled = runCli(recArgs(t)); // stable read clears the open hold — its own pass
     assert.ok(settled.json.effects.includes('authority-stable'), JSON.stringify(settled.json.effects));
-    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-hold', '--mark-complete']));
+    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-hold',
+      '--delivery-evidence-ref', holdEvidence.path, '--delivery-evidence-sha256', holdEvidence.sha256,
+      '--mark-complete']));
     assert.equal(ok.status, 0, ok.stdout + ok.stderr);
     assert.equal(ok.json.controlState, 'complete', 'completion succeeds only on the settled record');
     rmSync(t.base, { recursive: true, force: true });
@@ -1713,7 +1764,12 @@ describe('cold-review regression arms (r6 fixes)', () => {
     runCli(recArgs(t)); // opens the authority_changed hold
     // This pass CLEARS the hold (stable read) and attempts completion in the same
     // composition — the clearing pass must settle first, exactly like admission (r4).
-    const res = runCli(recArgs(t, ['--delivery-receipt', 'receipt-flip', '--mark-complete']));
+    // Fidelity-r1 F-1: the receipt is sourced (verified content reference) so the settle
+    // boundary is the gate under test, not evidence absence.
+    const flipEvidence = evidenceArtifact(t, 'delivery-flip.json', { delivered: true, receipt: 'receipt-flip' });
+    const res = runCli(recArgs(t, ['--delivery-receipt', 'receipt-flip',
+      '--delivery-evidence-ref', flipEvidence.path, '--delivery-evidence-sha256', flipEvidence.sha256,
+      '--mark-complete']));
     assert.equal(res.status, 2);
     assert.equal(res.json.code, 'authority_hold_open', JSON.stringify(res.json));
     assert.match(res.json.reason, /same pass/);
@@ -1721,7 +1777,9 @@ describe('cold-review regression arms (r6 fixes)', () => {
     assert.equal(st.json.record.controlState, 'active');
     // The hold is already settled by the refused pass's durable write — the NEXT
     // reconcile completes. A settle requirement, not a permanent refusal.
-    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-flip', '--mark-complete']));
+    const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-flip',
+      '--delivery-evidence-ref', flipEvidence.path, '--delivery-evidence-sha256', flipEvidence.sha256,
+      '--mark-complete']));
     assert.equal(ok.status, 0, ok.stdout + ok.stderr);
     assert.equal(ok.json.controlState, 'complete');
     rmSync(t.base, { recursive: true, force: true });
@@ -1840,9 +1898,13 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--observation', obs('done-c1', 'done', { candidateRevision: 1 })])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: the receipt is sourced — an unverified bare receipt routes
+    // `review`, and this arm's sanity leg needs the current `complete` route.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     const before = runCli(['status', '--record', fx.recordPath]);
-    assert.equal(before.json.route, 'complete', 'sanity: done + receipt routes complete while current');
+    assert.equal(before.json.route, 'complete', 'sanity: done + verified receipt routes complete while current');
     const advanced = runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
     assert.equal(advanced.status, 0);
     assert.ok(advanced.json.effects.includes('candidate-updated:2'));
@@ -1865,7 +1927,10 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.equal(stored.applicableCustody, 1, 'the ingestion-time custody generation was frozen onto the entry');
     assert.equal(stored.applicableCandidate, 0, 'the ingestion-time candidate revision was frozen onto the entry');
     assert.equal(stored.custodyGeneration, null, 'the REPORTED provenance stays null — dedup compares what the worker said');
-    const receipted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-np']));
+    // Fidelity-r1 F-1: sourced receipt — routing `complete` requires a VERIFIED delivery.
+    const npEvidence = evidenceArtifact(fx, 'delivery-np.json', { delivered: true, receipt: 'receipt-np' });
+    const receipted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-np',
+      '--delivery-evidence-ref', npEvidence.path, '--delivery-evidence-sha256', npEvidence.sha256]));
     assert.equal(receipted.json.route, 'complete', 'sanity: the current report still routes complete before any advance');
     // Custody advance retires the frozen report — for BOTH doors.
     const moved = runCli(recArgs(fx, ['--transfer-custody', 'w-2', '--control-reason', 'custody advances past the frozen report']));
@@ -1886,12 +1951,28 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     const cancel = await reconcile({ ...reconcileInput(t2), control: { kind: 'cancel', actor: 'operator:matrix' } });
     assert.ok(cancel.ok);
     assert.equal(cancel.controlState, 'cancel-pending');
+    // Fidelity-r1 F-2: with task t-1 still bound, the composed bare ack cannot settle the
+    // cancellation — the refusal persists the cessation_unconfirmed hold and the record
+    // stays cancel-pending (no synthetic stopped disposition, no successor).
     const attempted = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'composed cancel-ack + transfer' } });
     assert.equal(attempted.ok, false);
-    assert.equal(attempted.code, 'custody_transfer_terminal');
-    assert.match(attempted.reason, /no successor worker/);
+    assert.equal(attempted.code, 'cessation_unconfirmed');
+    const pendingRecord = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    assert.equal(pendingRecord.controlState, 'cancel-pending', 'the cancellation is NOT completed on a bare ack');
+    assert.ok(pendingRecord.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold is persisted');
+    assert.equal(pendingRecord.custodyGeneration, 1, 'custody never advanced onto the pending binding');
+    assert.ok(!JSON.stringify(pendingRecord).includes('"w-2"'), 'no successor session id anywhere in the durable record');
+    // Genuinely sourced settlement: verified cessation evidence completes the
+    // cancellation; the terminal binding still registers NO successor worker.
+    const settled = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-code03.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } });
+    assert.ok(settled.ok, JSON.stringify(settled));
+    assert.equal(settled.controlState, 'cancelled');
+    const afterSettled = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'post-settlement transfer attempt' } });
+    assert.equal(afterSettled.ok, false);
+    assert.equal(afterSettled.code, 'custody_transfer_terminal');
+    assert.match(afterSettled.reason, /terminal/);
     const st = runCli(['status', '--record', t2.recordPath]);
-    assert.equal(st.json.record.controlState, 'cancelled', 'the ack fact completed the cancellation');
+    assert.equal(st.json.record.controlState, 'cancelled', 'the verified ack completed the cancellation');
     assert.equal(st.json.record.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded — no fresh live worker');
     assert.ok(st.json.record.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
     assert.equal(st.json.record.custodyGeneration, 1, 'custody never advanced onto the terminal binding');
@@ -1906,18 +1987,27 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
     assert.equal(pause.controlState, 'pause-pending');
     const before = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    // Fidelity-r1 F-2: task t-1 is still bound — the composed bare ack cannot settle the
+    // pause. The refusal persists the prerequisite hold (this pass's durable fact) and
+    // the record stays pause-pending with admission blocked.
     const refused = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'pause-pending ack must not install a successor' } });
     assert.equal(refused.ok, false, JSON.stringify(refused));
-    assert.equal(refused.code, 'custody_transfer_blocked');
-    assert.match(refused.reason, /does not admit a successor worker/);
-    // T-A1-R2-D: the ack FACT moved the record — verify the durable bytes show exactly
-    // that and nothing more.
+    assert.equal(refused.code, 'cessation_unconfirmed');
+    const pendingRecord = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    assert.equal(pendingRecord.controlState, 'pause-pending', 'no synthetic stopped disposition — the pause stays pending');
+    assert.ok(pendingRecord.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold is persisted');
+    assert.equal(pendingRecord.recordRevision, before.recordRevision + 1, 'exactly the hold moved the record');
+    assert.ok(!JSON.stringify(pendingRecord).includes('"w-2"'), 'no successor session id anywhere in the durable record');
+    // Genuinely sourced settlement: verified cessation evidence completes the pause; a
+    // paused record still admits no successor worker.
+    const settled = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-r202.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
+    assert.ok(settled.ok, JSON.stringify(settled));
+    assert.equal(settled.controlState, 'paused');
     const after = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
-    assert.equal(after.controlState, 'paused', 'the ack completed the pause (the old worker\'s cessation acknowledgement is a fact)');
+    assert.equal(after.controlState, 'paused', 'the verified ack completed the pause');
     assert.equal(after.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded');
     assert.ok(after.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
     assert.equal(after.custodyGeneration, before.custodyGeneration, 'custody never advanced onto a paused binding');
-    assert.equal(after.recordRevision, before.recordRevision + 1, 'exactly the ack moved the record');
     assert.ok(!JSON.stringify(after).includes('"w-2"'), 'no successor session id anywhere in the durable record');
     const st = runCli(['status', '--record', t2.recordPath]);
     assert.equal(st.json.route, 'hold');
@@ -1937,7 +2027,13 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
     assert.equal(pause.controlState, 'pause-pending', 'the live w-1 worker makes the pause cessation-pending');
-    const acked = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } });
+    // Fidelity-r1 F-2: task t-1 is bound — the pause settles only on verified cessation
+    // evidence (genuinely sourced positive fixture), never on a bare ack.
+    const bare = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } });
+    assert.equal(bare.ok, false);
+    assert.equal(bare.code, 'cessation_unconfirmed');
+    const acked = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', cessationEvidence: evidenceArtifact(t2, 'cessation-r202b.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
+    assert.equal(acked.ok, true, JSON.stringify(acked));
     assert.equal(acked.controlState, 'paused');
     const beforeSha = fileSha(t2.recordPath);
     const refused = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true } });
@@ -2377,8 +2473,12 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
     // Facts recorded BEFORE any authority disturbance, so the completion-gating
     // assertion below fails on the AUTHORITY hold and not on a missing delivery.
+    // Fidelity-r1 F-1: the receipt is SOURCED — an unverified-delivery hold would stay
+    // open through settlement and defeat the holds-all-cleared assertion below.
     assert.equal(runCli(recArgs(fx, ['--observation', obs('adv-done', 'done')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-adv'])).status, 0);
+    const advEvidence = evidenceArtifact(fx, 'delivery-adv.json', { delivered: true, receipt: 'receipt-adv' });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-adv',
+      '--delivery-evidence-ref', advEvidence.path, '--delivery-evidence-sha256', advEvidence.sha256])).status, 0);
     const staleCopy = join(fx.base, 'stale-home');
     mkdirSync(staleCopy, { recursive: true });
     writeFileSync(join(staleCopy, 'current-decisions.json'), readFileSync(fx.selectorPath)); // revision 1 copy
@@ -2456,7 +2556,9 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     const t2 = makeFixture(t);
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } })).controlState, 'pause-pending');
-    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } })).controlState, 'paused');
+    // Fidelity-r1 F-2: the bound task keeps the pause pending; verified evidence settles it.
+    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } })).ok, false, 'a bare ack cannot settle a task-bound pause');
+    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', cessationEvidence: evidenceArtifact(t2, 'cessation-r204.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } })).controlState, 'paused');
     const before = readFileSync(t2.recordPath, 'utf8');
     const held = await reconcile({
       ...reconcileInput(t2),
@@ -2474,7 +2576,11 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
   ltest('R2-05: a candidate-1 receipt cannot complete candidate 2 at EITHER door — then the current-candidate receipt completes', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: the candidate-1 receipt is SOURCED so the door refusals below
+    // fire on the CANDIDATE mismatch alone, never on evidence absence.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).delivery.candidateRevision, 1, 'the receipt is bound to candidate 1 at record time');
     assert.equal(runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')])).status, 0);
     const st = runCli(['status', '--record', fx.recordPath]);
@@ -2491,8 +2597,11 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     assert.equal(record.controlState, 'active', 'neither door terminally closed candidate 2 off the old receipt');
     assert.equal(record.delivery.receipt, 'receipt-c1', 'the superseded fact is retained, not dropped');
     assert.equal(record.deliveryHistory.length, 0, 'it is still the CURRENT delivery field until a new receipt arrives');
-    // The current candidate's own receipt completes.
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c2'])).status, 0);
+    // The current candidate's own receipt completes. Fidelity-r1 F-1: sourced — a bare
+    // receipt records but never completes (the fidelity block owns that refusal).
+    const c2Evidence = evidenceArtifact(fx, 'delivery-c2.json', { delivered: true, receipt: 'receipt-c2', candidate: 2 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c2',
+      '--delivery-evidence-ref', c2Evidence.path, '--delivery-evidence-sha256', c2Evidence.sha256])).status, 0);
     const okDoor = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(okDoor.status, 0, okDoor.stdout + okDoor.stderr);
     assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'complete');
@@ -2526,11 +2635,16 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     assert.equal(record.delivery.candidateRevision, 1);
     assert.equal(record.deliveryHistory.length, 0, 'the no-op ack archived nothing');
     assert.equal(record.candidate.revision, 2, 'the candidate DID advance — only the delivery stayed put');
-    const fresh = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-new']));
+    // Fidelity-r1 F-1: the new receipt is SOURCED — the admission effect is
+    // `delivery-recorded-verified` (a bare receipt's `-unverified` variant never
+    // existed as `delivery-recorded`; the fidelity block owns the bare-receipt shape).
+    const newEvidence = evidenceArtifact(fx, 'delivery-new.json', { delivered: true, receipt: 'receipt-new', candidate: 2 });
+    const fresh = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-new',
+      '--delivery-evidence-ref', newEvidence.path, '--delivery-evidence-sha256', newEvidence.sha256]));
     assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
     const body = JSON.parse(fresh.stdout);
     assert.ok(body.effects.includes('delivery-superseded:1'), JSON.stringify(body.effects));
-    assert.ok(body.effects.includes('delivery-recorded'));
+    assert.ok(body.effects.includes('delivery-recorded-verified'), JSON.stringify(body.effects));
     record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.delivery.receipt, 'receipt-new');
     assert.equal(record.delivery.candidateRevision, 2, 'the new receipt binds the CURRENT candidate');
@@ -2667,34 +2781,16 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
     assert.equal(door2.ok, false, JSON.stringify(door2));
     assert.equal(door2.code, 'complete_requires_delivery_receipt');
     // The current candidate's genuine distinct receipt stays valid: record it, complete.
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r3'])).status, 0); // archives r2
+    // Fidelity-r1 F-1: sourced — the completion leg needs a VERIFIED current delivery.
+    const r3Evidence = evidenceArtifact(fx, 'delivery-r3.json', { delivered: true, receipt: 'receipt-r3', candidate: 3 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r3',
+      '--delivery-evidence-ref', r3Evidence.path, '--delivery-evidence-sha256', r3Evidence.sha256])).status, 0); // archives r2
     const done = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(done.status, 0, done.stdout + done.stderr);
     assert.equal(JSON.parse(done.stdout).controlState, 'complete');
     record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.delivery.receipt, 'receipt-r3');
     assert.equal(record.delivery.candidateRevision, 3, 'the fresh receipt bound the CURRENT candidate');
-    rmSync(fx.base, { recursive: true, force: true });
-  });
-
-  ltest('R3-02 documented limit: an identity evicted from the bounded history window is no longer distinguishable from fresh — the binding records it (no registry exists to close this; pinned as the documented boundary, not denied)', async (t) => {
-    const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay'])).status, 0);
-    // Churn DELIVERY_HISTORY_MAX supersessions so the r0 identity falls out of the window.
-    for (let revision = 2; revision <= DELIVERY_HISTORY_MAX + 2; revision += 1) {
-      assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(revision), '--candidate-sha256', sha256Hex(`c${revision}`)])).status, 0, `advance ${revision}`);
-      assert.equal(runCli(recArgs(fx, ['--delivery-receipt', `receipt-churn-${revision}`])).status, 0, `deliver ${revision}`);
-    }
-    // Advance once more so the current delivery is non-current, then replay the evicted r0.
-    assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(DELIVERY_HISTORY_MAX + 3), '--candidate-sha256', sha256Hex('c-final')])).status, 0);
-    const replay = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay']));
-    assert.equal(replay.status, 0, replay.stdout + replay.stderr);
-    const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.equal(record.delivery.receipt, 'receipt-evicted-replay', 'the EVICTED identity could not be told from fresh — documented boundary');
-    assert.equal(record.delivery.candidateRevision, DELIVERY_HISTORY_MAX + 3);
-    assert.equal(record.deliveryHistory.length, DELIVERY_HISTORY_MAX, 'the window stays bounded');
-    assert.ok(!record.deliveryHistory.some((d) => d.receipt === 'receipt-evicted-replay'), 'the replayed identity was evicted, not retained');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -2798,14 +2894,18 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
 
   ltest('R3-03: stopping work is never gated — pause lands while the authority is unreadable', async (t) => {
     const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
+    // Fidelity-r1 F-2 control: truly-empty binding (no bound task, no worker) so the
+    // pause lands `paused` directly. A bound AIF task or live worker defers the pause
+    // to cessation acknowledgement (pause-pending) — equally ungated; that variant is
+    // the fidelity block's F-2 arm, this arm pins the empty case.
+    assert.equal(runCli(initArgs(fx)).status, 0);
     rmSync(fx.selectorPath);
     const paused = runCli(['pause', '--record', fx.recordPath, '--repo-root', fx.repo, '--feature-home', fx.home, '--now', iso(), '--control-reason', 'r3: stopping work while authority is unreadable']);
     assert.equal(paused.status, 0, paused.stdout + paused.stderr);
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    // No live worker on this CLI init, so the pause lands `paused` directly (a live worker
-    // would hold it at pause-pending for the ack) — either way the transition LANDED: the
-    // unreadable authority gated nothing about stopping work.
+    // No live worker and no bound task on this CLI init, so the pause lands `paused`
+    // directly — the transition LANDED: the unreadable authority gated nothing about
+    // stopping work.
     assert.equal(record.controlState, 'paused', 'the control transition was not gated on the unreadable authority');
     assert.equal(record.custodyGeneration, 1);
     rmSync(fx.base, { recursive: true, force: true });
@@ -2846,7 +2946,11 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
   ltest('R4-01 FLIP (CLI): a candidate update after completion refuses candidate_terminal_conflict — the completed candidate keeps its receipt association, bytes unchanged', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
+    // protects) requires a VERIFIED delivery, so the setup leg records one.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const completed = JSON.parse(completedBytes);
@@ -2872,7 +2976,11 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
   ltest('R4-01 FLIP (generic entry): the same refusal fires through the library reconcile on a completed record', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
+    // protects) requires a VERIFIED delivery, so the setup leg records one.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const refused = await reconcile(reconcileInput(fx, { candidate: { revision: 2, sha256: sha256Hex('c2'), ref: null } }));
@@ -2885,7 +2993,11 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
   ltest('R4-01 FLIP (composed): a historical observation riding with a candidate update persists the observation but still cannot smuggle the candidate advance past the terminal gate', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
+    // protects) requires a VERIFIED delivery, so the setup leg records one.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const composed = runCli(recArgs(fx, ['--observation', obs('late-after-complete', 'done'), '--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
@@ -2904,7 +3016,11 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
   ltest('R4-01 CONTROL (no flip): a same-candidate resubmit on a completed binding stays an idempotent no-op — bytes unchanged', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1'])).status, 0);
+    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
+    // protects) requires a VERIFIED delivery, so the setup leg records one.
+    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
+      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const same = runCli(recArgs(fx, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')]));
@@ -2961,24 +3077,32 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R4-02 CONTROL (no flip): a transfer+ack on a pause-pending live-worker binding persists the ack through the completed pause (custody_transfer_blocked, paused, no successor)', async (t) => {
+  ltest('R4-02 CONTROL (no flip): a transfer+ack on a pause-pending live-worker binding persists the prerequisite hold through the refusal (cessation_unconfirmed, pause-pending retained, no successor)', async (t) => {
     const fx = makeFixture(t);
     const init = await initBinding(initBindingInput(fx));
     assert.equal(init.ok, true, JSON.stringify(init));
     const paused = await reconcile(reconcileInput(fx, { control: { kind: 'pause', actor: 'operator:matrix' } }));
     assert.equal(paused.ok, true, JSON.stringify(paused));
     assert.equal(paused.controlState, 'pause-pending');
+    // Fidelity-r1 F-2: with task t-1 bound, the composed bare ack cannot complete the
+    // pause — persist-before-reject still persists the pass's durable fact (the
+    // prerequisite hold), the same fact-survives-refusal property R4-02 pins.
     const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 while pausing', acknowledgeCessation: true } }), repoRoot: undefined });
     assert.equal(refused.ok, false, JSON.stringify(refused));
-    assert.equal(refused.code, 'custody_transfer_blocked');
+    assert.equal(refused.code, 'cessation_unconfirmed');
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.equal(record.controlState, 'paused', 'the ack completed the pause through its own boundary');
-    assert.ok(record.worker.cessationAckedAt !== null, 'the ack was already durable here (transition set mutated)');
+    assert.equal(record.controlState, 'pause-pending', 'no synthetic stopped disposition');
+    assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold survived the refusal durably');
+    assert.ok(record.worker.cessationAckedAt === null, 'no cessation was acknowledged on the caller\'s word');
     assert.equal(record.custodyGeneration, 1);
+    // The genuinely sourced settlement still completes the pause through its own boundary.
+    const settled = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(fx, 'cessation-r402p.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } }));
+    assert.equal(settled.ok, true, JSON.stringify(settled));
+    assert.equal(settled.controlState, 'paused');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R4-02 CONTROL (no flip): a transfer+ack on a cancel-pending live-worker binding persists the ack through the completed cancellation (custody_transfer_terminal, cancelled)', async (t) => {
+  ltest('R4-02 CONTROL (no flip): a transfer+ack on a cancel-pending live-worker binding persists the prerequisite hold through the refusal (cessation_unconfirmed, cancel-pending retained, no successor)', async (t) => {
     const fx = makeFixture(t);
     const init = await initBinding(initBindingInput(fx));
     assert.equal(init.ok, true, JSON.stringify(init));
@@ -2987,14 +3111,384 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     assert.equal(cancelling.controlState, 'cancel-pending');
     const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 while cancelling', acknowledgeCessation: true } }), repoRoot: undefined });
     assert.equal(refused.ok, false, JSON.stringify(refused));
-    assert.equal(refused.code, 'custody_transfer_terminal');
+    assert.equal(refused.code, 'cessation_unconfirmed');
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.equal(record.controlState, 'cancelled', 'the ack completed the cancellation');
-    assert.ok(record.worker.cessationAckedAt !== null);
+    assert.equal(record.controlState, 'cancel-pending', 'the cancellation is NOT completed on a bare ack');
+    assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold survived the refusal durably');
+    assert.ok(record.worker.cessationAckedAt === null, 'no cessation was acknowledged on the caller\'s word');
     assert.equal(record.custodyGeneration, 1);
+    // The genuinely sourced settlement still completes the cancellation through its own
+    // boundary.
+    const settled = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(fx, 'cessation-r402c.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
+    assert.equal(settled.ok, true, JSON.stringify(settled));
+    assert.equal(settled.controlState, 'cancelled');
     rmSync(fx.base, { recursive: true, force: true });
   });
 });
+// ===========================================================================
+// Fidelity-round-1 repairs (F-1 / F-2 / F-3) — each arm names the single production
+// change that flips it (T22): F-1 -> the engine's intent-resolution and delivery/
+// completion gates (evidence is a verified content reference via the intent helper's
+// own resolveContentRef, never prose or a bare receipt string); F-2 -> record.mjs
+// controlDestination's pending predicate (any bound-but-unconfirmed external work,
+// not just a live local worker); F-3 -> the bounded seen-identity accumulator the
+// engine consults before admitting a "fresh" receipt.
+// ===========================================================================
+describe('fidelity-r1 — facts at release and both doors; truthful cessation; evicted identity never fresh', () => {
+  ltest('F-1: 20-character prose never resolves an unknown intent — refusal is structured, uncertainty stays, admission stays blocked', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const act = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(act.status, 0, act.stdout + act.stderr);
+    const prose = runCli(recArgs(t, ['--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE]));
+    assert.equal(prose.status, 2, prose.stdout + prose.stderr);
+    assert.equal(prose.json.code, 'intent_resolution_unverified', prose.stdout);
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.pendingIntent.state, 'intent_persisted', 'prose must not release the uncertainty');
+    assert.ok(st.json.record.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null), 'the uncertainty hold stays open');
+    const stillBlocked = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(stillBlocked.status, 2);
+    assert.equal(stillBlocked.json.code, 'intent_outstanding');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: a verifiable evidence reference (the intent helper’s existing resolveContentRef mechanism) resolves the intent and clears the hold — supported proof path', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const act = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(act.status, 0, act.stdout + act.stderr);
+    const approvalBytes = readFileSync(join(t.repo, 'prd-approval.json'));
+    const resolved = runCli(recArgs(t, [
+      '--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE,
+      '--evidence-ref', 'prd-approval.json', '--evidence-sha256', sha256Hex(approvalBytes),
+    ]));
+    assert.equal(resolved.status, 0, resolved.stdout + resolved.stderr);
+    assert.ok(resolved.json.effects.includes('intent-resolved:applied'), resolved.stdout);
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.pendingIntent.state, 'resolved');
+    assert.ok(st.json.record.pendingIntent.evidenceRef, 'the verified evidence reference is retained on the resolution');
+    assert.equal(st.json.record.pendingIntent.evidenceRef.sha256, sha256Hex(approvalBytes));
+    assert.ok(!st.json.record.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null), 'the uncertainty hold cleared on verified evidence');
+    const admitted = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(admitted.status, 0, admitted.stdout + admitted.stderr);
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: an evidence reference that fails digest verification does not resolve the intent', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const act = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(act.status, 0, act.stdout + act.stderr);
+    const bad = runCli(recArgs(t, [
+      '--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE,
+      '--evidence-ref', 'prd-approval.json', '--evidence-sha256', sha256Hex('not the approval bytes'),
+    ]));
+    assert.equal(bad.status, 2, bad.stdout + bad.stderr);
+    assert.equal(bad.json.code, 'evidence_unresolved', bad.stdout);
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.pendingIntent.state, 'intent_persisted', 'failed verification never resolves');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: an arbitrary receipt is recorded unverified and can NEVER complete door 1 (mark-complete)', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const rec = runCli(recArgs(t, ['--delivery-receipt', 'receipt-ok']));
+    assert.equal(rec.status, 0, rec.stdout + rec.stderr);
+    let st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.delivery.receipt, 'receipt-ok');
+    assert.equal(st.json.record.delivery.verified, false, 'a bare receipt string is recorded UNVERIFIED');
+    assert.ok(st.json.record.holds.some((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null), 'the unverified-delivery hold is persisted');
+    const door1 = runCli(recArgs(t, ['--mark-complete']));
+    assert.equal(door1.status, 2, door1.stdout + door1.stderr);
+    assert.equal(door1.json.code, 'delivery_evidence_unverified', door1.stdout);
+    st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.controlState, 'active', 'the arbitrary receipt did not terminally complete');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: an arbitrary receipt can never complete door 2 (control complete) either', async () => {
+    const t = makeFixture(null);
+    const bound = await initBinding(initBindingInput(t));
+    assert.ok(bound.ok, JSON.stringify(bound));
+    const door2 = await reconcile(reconcileInput(t, { deliveryReceipt: 'receipt-bare', control: { kind: 'complete', actor: 'matrix:library-door' } }));
+    assert.equal(door2.ok, false, JSON.stringify(door2));
+    assert.equal(door2.code, 'delivery_evidence_unverified', JSON.stringify(door2));
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.controlState, 'active');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: a sourced delivery (verifiable evidence reference) is verified and completes — the genuine positive fixture', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-sourced', destination: 'pr:staging' }, null, 2);
+    writeFileSync(join(t.stageRoot, 'delivery-evidence.json'), artifact);
+    const rec = runCli(recArgs(t, [
+      '--delivery-receipt', 'receipt-sourced',
+      '--delivery-evidence-ref', 'delivery-evidence.json', '--delivery-evidence-sha256', sha256Hex(artifact),
+    ]));
+    assert.equal(rec.status, 0, rec.stdout + rec.stderr);
+    let st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.delivery.verified, true, 'the delivery is verified against its content-addressed evidence');
+    assert.ok(!st.json.record.holds.some((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null));
+    const done = runCli(recArgs(t, ['--mark-complete']));
+    assert.equal(done.status, 0, done.stdout + done.stderr);
+    assert.equal(done.json.controlState, 'complete');
+    st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.controlState, 'complete');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-1: delivery evidence is re-verified at the completion door — an artifact removed after recording refuses completion', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-vanishing' }, null, 2);
+    const evidencePath = join(t.stageRoot, 'delivery-evidence.json');
+    writeFileSync(evidencePath, artifact);
+    const rec = runCli(recArgs(t, [
+      '--delivery-receipt', 'receipt-vanishing',
+      '--delivery-evidence-ref', 'delivery-evidence.json', '--delivery-evidence-sha256', sha256Hex(artifact),
+    ]));
+    assert.equal(rec.status, 0, rec.stdout + rec.stderr);
+    rmSync(evidencePath);
+    const door1 = runCli(recArgs(t, ['--mark-complete']));
+    assert.equal(door1.status, 2, door1.stdout + door1.stderr);
+    assert.equal(door1.json.code, 'delivery_evidence_unverified', door1.stdout);
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.controlState, 'active', 'completion stayed closed when the evidence no longer resolves');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-2: a bound AIF task with no local worker keeps pause and cancel PENDING — a bare ack is refused with a prerequisite hold; verified evidence settles both', async () => {
+    // Flip site: record.mjs controlDestination — the pending predicate must count bound
+    // external work (aif.taskId / nativeAttempts / unresolved effect), not just a live
+    // local worker (design: «direct host routine disable … does not by itself cancel an
+    // existing AIF task»; worker=null, expired lock or timeout proves nothing). Second
+    // flip site (the ack door): the settlement of that pending state requires verified
+    // cessation evidence — a bare acknowledgement is a caller assertion, refused with
+    // the persisted cessation_unconfirmed hold, never a synthetic stopped disposition.
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const pause = runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause, task still bound', '--now', iso()]);
+    assert.equal(pause.status, 0, pause.stdout + pause.stderr);
+    assert.equal(pause.json.controlState, 'pause-pending', 'a bound AIF task keeps the pause cessation-pending');
+    const denied = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(denied.status, 2);
+    assert.equal(denied.json.code, 'admission_blocked', 'a pending pause blocks new admission');
+    const bare = await reconcile(reconcileInput(t, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'the bound subsystem confirms no work remains' } }));
+    assert.equal(bare.ok, false, JSON.stringify(bare));
+    assert.equal(bare.code, 'cessation_unconfirmed', 'a bare acknowledgement — reason prose included — cannot settle referenced external work');
+    const pendingAfter = JSON.parse(readFileSync(t.recordPath, 'utf8'));
+    assert.equal(pendingAfter.controlState, 'pause-pending', 'the pending state is retained — no fake stopped disposition');
+    assert.ok(pendingAfter.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the persisted prerequisite hold names the recovery');
+    const deniedAfterRefusal = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(deniedAfterRefusal.status, 2);
+    assert.equal(deniedAfterRefusal.json.code, 'admission_blocked', 'admission stays blocked while cessation is unconfirmed');
+    const ack = await reconcile(reconcileInput(t, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t, 'cessation-f2-pause.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
+    assert.ok(ack.ok, JSON.stringify(ack));
+    assert.equal(ack.controlState, 'paused', 'the VERIFIED cessation completes the pause');
+    rmSync(t.base, { recursive: true, force: true });
+
+    const t2 = makeFixture(null);
+    runCli(initArgs(t2, ['--task-id', 't-1']));
+    const cancel = runCli(['cancel', '--record', t2.recordPath, '--control-reason', 'operator cancel, task still bound', '--now', iso()]);
+    assert.equal(cancel.status, 0, cancel.stdout + cancel.stderr);
+    assert.equal(cancel.json.controlState, 'cancel-pending', 'a bound AIF task keeps the cancel cessation-pending');
+    const late = runCli(recArgs(t2, ['--observation', obs('late-f2', 'done')]));
+    assert.equal(late.json.observationDisposition, 'historical-after-cancel', 'late results stay historical');
+    assert.equal(late.json.controlState, 'cancel-pending', 'a late result never completes the cancellation');
+    const bare2 = await reconcile(reconcileInput(t2, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'the bound subsystem confirms cancellation took effect' } }));
+    assert.equal(bare2.ok, false);
+    assert.equal(bare2.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'cancel-pending', 'the cancellation stays pending on a bare ack');
+    const ack2 = await reconcile(reconcileInput(t2, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-f2-cancel.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
+    assert.ok(ack2.ok, JSON.stringify(ack2));
+    assert.equal(ack2.controlState, 'cancelled', 'the VERIFIED cessation completes the cancellation');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('F-2 (CLI): the ack door is reachable through the shipped surface — bare --ack-cessation refuses with the prerequisite hold; a verified --cessation-evidence pair settles it', async () => {
+    // T22 flip-site note: the persisted hold's recoveryAction names these exact CLI
+    // flags — if the CLI did not carry them the recovery would be a dead end no caller
+    // could reach. This arm drives the REAL CLI subprocess end to end.
+    const t = makeFixture(null);
+    runCli(initArgs(t, ['--task-id', 't-1']));
+    const pause = runCli(['pause', '--record', t.recordPath, '--control-reason', 'operator pause, task still bound', '--now', iso()]);
+    assert.equal(pause.status, 0, pause.stdout + pause.stderr);
+    assert.equal(pause.json.controlState, 'pause-pending');
+    const bare = runCli(recArgs(t, ['--ack-cessation', '--control-reason', 'caller asserts the subsystem stopped']));
+    assert.equal(bare.status, 2, bare.stdout + bare.stderr);
+    assert.equal(bare.json.code, 'cessation_unconfirmed', bare.stdout);
+    assert.equal(JSON.parse(readFileSync(t.recordPath, 'utf8')).controlState, 'pause-pending', 'no synthetic stopped disposition through the CLI either');
+    // A digest that does not match the cited bytes never establishes cessation.
+    const evidence = evidenceArtifact(t, 'cessation-cli.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' });
+    const badDigest = runCli(recArgs(t, ['--ack-cessation', '--control-reason', 'wrong digest', '--cessation-evidence-ref', evidence.path, '--cessation-evidence-sha256', sha256Hex('not the artifact bytes')]));
+    assert.equal(badDigest.status, 2, badDigest.stdout + badDigest.stderr);
+    assert.equal(badDigest.json.code, 'cessation_unconfirmed', badDigest.stdout);
+    assert.equal(JSON.parse(readFileSync(t.recordPath, 'utf8')).controlState, 'pause-pending', 'a failed verification leaves the pause pending');
+    const settled = runCli(recArgs(t, ['--ack-cessation', '--control-reason', 'verified terminal record for the bound task', '--cessation-evidence-ref', evidence.path, '--cessation-evidence-sha256', evidence.sha256]));
+    assert.equal(settled.status, 0, settled.stdout + settled.stderr);
+    assert.equal(settled.json.controlState, 'paused', 'the verified evidence settles the pause through the CLI');
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.aif.cessationEvidence.sha256, evidence.sha256, 'the establishment fact is durable on the bound task');
+    assert.ok(st.json.record.aif.cessationConfirmedAt !== null, 'cessationConfirmedAt is stamped');
+    assert.ok(!st.json.record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite holds cleared on the verified settlement');
+    rmSync(t.base, { recursive: true, force: true });
+  });
+
+  ltest('F-2: a truly empty binding (no worker, no task, no native attempts, no intent) pauses and cancels directly — positive control', async () => {
+    const t = makeFixture(null);
+    runCli(initArgs(t));
+    const pause = runCli(['pause', '--record', t.recordPath, '--control-reason', 'pause with nothing external bound', '--now', iso()]);
+    assert.equal(pause.status, 0, pause.stdout + pause.stderr);
+    assert.equal(pause.json.controlState, 'paused', 'with NO external work bound there is nothing whose cessation to await');
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.disposition, 'paused');
+    rmSync(t.base, { recursive: true, force: true });
+    const t2 = makeFixture(null);
+    runCli(initArgs(t2));
+    const cancel = runCli(['cancel', '--record', t2.recordPath, '--control-reason', 'cancel with nothing external bound', '--now', iso()]);
+    assert.equal(cancel.status, 0, cancel.stdout + cancel.stderr);
+    assert.equal(cancel.json.controlState, 'cancelled');
+    rmSync(t2.base, { recursive: true, force: true });
+  });
+
+  ltest('F-2 (pure): an unresolved pendingIntent — an unestablished effect — keeps pause and cancel pending', async () => {
+    const base = initialRecord({ ...initRecordFields(), taskId: null }, { now: iso() });
+    assert.ok(base.ok, JSON.stringify(base));
+    const withIntent = {
+      ...base.value,
+      pendingIntent: { actionId: 'act-pure-f2', action: 'work', recordedAt: iso(), state: 'intent_persisted', bound: {} },
+    };
+    const paused = applyControlTransition(withIntent, { kind: 'pause', actor: 'operator:matrix', now: iso() });
+    assert.ok(paused.ok, JSON.stringify(paused));
+    assert.equal(paused.value.controlState, 'pause-pending', 'the unknown effect keeps the pause pending');
+    const cancelled = applyControlTransition(withIntent, { kind: 'cancel', actor: 'operator:matrix', now: iso() });
+    assert.ok(cancelled.ok, JSON.stringify(cancelled));
+    assert.equal(cancelled.value.controlState, 'cancel-pending', 'the unknown effect keeps the cancel pending');
+  });
+
+  ltest('F-2 (pure): recorded native attempts keep pause and cancel pending', async () => {
+    const base = initialRecord({ ...initRecordFields(), taskId: null }, { now: iso() });
+    assert.ok(base.ok, JSON.stringify(base));
+    const withAttempts = { ...base.value, nativeAttempts: [{ attemptId: 'n-1', at: iso() }] };
+    const paused = applyControlTransition(withAttempts, { kind: 'pause', actor: 'operator:matrix', now: iso() });
+    assert.ok(paused.ok, JSON.stringify(paused));
+    assert.equal(paused.value.controlState, 'pause-pending', 'a recorded native attempt keeps the pause pending');
+    const cancelled = applyControlTransition(withAttempts, { kind: 'cancel', actor: 'operator:matrix', now: iso() });
+    assert.ok(cancelled.ok, JSON.stringify(cancelled));
+    assert.equal(cancelled.value.controlState, 'cancel-pending', 'a recorded native attempt keeps the cancel pending');
+  });
+
+  ltest('F-3: a receipt evicted from the bounded history is never eligible as a newer candidate’s fresh delivery — hold, both doors closed; a genuinely distinct sourced receipt still completes', async () => {
+    // Flip site: engine recordDelivery — the seen-identity accumulator consulted before
+    // any "fresh" admission. The prior code re-bound the evicted identity as the current
+    // candidate's delivery. Invalidated fixture precondition, reported per the rework
+    // contract: this arm SUPERSEDES the former «R3-02 documented limit» end-to-end arm,
+    // which asserted exactly that re-bind (status 0, receipt bound to candidate
+    // DELIVERY_HISTORY_MAX+3) — the pre-repair eviction behavior the audit named F-3.
+    // Its negative-safety residue (window bounded at DELIVERY_HISTORY_MAX; the evicted
+    // identity never retained in history) is asserted below, alongside the upgrades the
+    // repair adds: fail-closed hold, both completion doors closed, and a genuinely
+    // SOURCED distinct receipt that still admits and completes.
+    const fx = makeFixture(null);
+    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
+    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay'])).status, 0);
+    for (let revision = 2; revision <= DELIVERY_HISTORY_MAX + 2; revision += 1) {
+      assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(revision), '--candidate-sha256', sha256Hex(`c${revision}`)])).status, 0, `advance ${revision}`);
+      assert.equal(runCli(recArgs(fx, ['--delivery-receipt', `receipt-churn-${revision}`])).status, 0, `deliver ${revision}`);
+    }
+    assert.equal(runCli(recArgs(fx, ['--candidate-revision', String(DELIVERY_HISTORY_MAX + 3), '--candidate-sha256', sha256Hex('c-final')])).status, 0);
+    // The delayed replay of the EVICTED first receipt: identity cannot be established —
+    // it is HELD, never bound to the new candidate.
+    const replay = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-evicted-replay']));
+    assert.equal(replay.status, 2, replay.stdout + replay.stderr);
+    assert.equal(replay.json.code, 'delivery_identity_unestablishable', replay.stdout);
+    let record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, `receipt-churn-${DELIVERY_HISTORY_MAX + 2}`, 'the evicted identity did not become the new candidate’s delivery');
+    assert.equal(record.delivery.candidateRevision, DELIVERY_HISTORY_MAX + 2);
+    assert.ok(record.holds.some((h) => h.code === 'delivery_identity_unestablishable' && h.clearedAt === null), 'the identity hold is persisted with its recovery action');
+    assert.equal(record.deliveryHistory.length, DELIVERY_HISTORY_MAX, 'the window stays bounded');
+    // Bounded hold log (T22 flip site: the clearHolds inside admitDelivery): every bare
+    // churn delivery names its receipt in the hold reason, so without the stale-subject
+    // clear each candidate advance would APPEND an open hold and grow the record per
+    // advance. Exactly ONE open unverified-evidence hold survives — the CURRENT
+    // delivery's — and the superseded subjects stay in the log as cleared audit rows.
+    const unverifiedOpen = record.holds.filter((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null);
+    assert.equal(unverifiedOpen.length, 1, 'exactly one OPEN unverified-evidence hold — the current delivery\'s (no per-advance pile-up)');
+    assert.match(unverifiedOpen[0].reason, /receipt-churn-22/, 'the open hold names the current delivery');
+    const unverifiedCleared = record.holds.filter((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt !== null);
+    assert.equal(unverifiedCleared.length, DELIVERY_HISTORY_MAX + 1, 'every superseded subject stays in the bounded log as a cleared audit row (the first receipt + churn-2..churn-21)');
+    assert.match(unverifiedCleared[0].reason, /receipt-evicted-replay/, 'the cleared rows keep their receipt-named reasons (audit trail, not deletion — the first cleared row is the first receipt\'s)');
+    assert.match(unverifiedCleared[unverifiedCleared.length - 1].reason, /receipt-churn-21/, 'the last cleared row names the delivery before the current one');
+    // Both completion doors stay closed for the new candidate.
+    const door1 = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(door1.status, 2, door1.stdout + door1.stderr);
+    const door2 = await reconcile(reconcileInput(fx, { control: { kind: 'complete', actor: 'matrix:library-door' } }));
+    assert.equal(door2.ok, false, JSON.stringify(door2));
+    // A genuinely distinct, sourced receipt for the current candidate still admits and completes.
+    const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-final', candidate: DELIVERY_HISTORY_MAX + 3 }, null, 2);
+    writeFileSync(join(fx.stageRoot, 'final-delivery.json'), artifact);
+    const fresh = runCli(recArgs(fx, [
+      '--delivery-receipt', 'receipt-final',
+      '--delivery-evidence-ref', 'final-delivery.json', '--delivery-evidence-sha256', sha256Hex(artifact),
+    ]));
+    assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
+    const done = runCli(recArgs(fx, ['--mark-complete']));
+    assert.equal(done.status, 0, done.stdout + done.stderr);
+    assert.equal(done.json.controlState, 'complete');
+    record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(record.delivery.receipt, 'receipt-final');
+    assert.equal(record.delivery.candidateRevision, DELIVERY_HISTORY_MAX + 3, 'the fresh receipt bound the CURRENT candidate');
+    rmSync(fx.base, { recursive: true, force: true });
+  });
+
+  ltest('F-3 (pure): the seen-identity accumulator is bounded, deterministic, and never forgets an admitted receipt', async () => {
+    // Link-safe dynamic import: at the RED step these exports do not exist yet, and a
+    // static missing named export would fail the whole file at link time.
+    const mod = await import('./autonomy-binding/record.mjs');
+    assert.equal(typeof mod.seenMaskEmptyHex, 'function', 'seenMaskEmptyHex export missing');
+    assert.equal(typeof mod.seenMaskAddHex, 'function', 'seenMaskAddHex export missing');
+    assert.equal(typeof mod.seenMaskMayHaveSeenHex, 'function', 'seenMaskMayHaveSeenHex export missing');
+    const empty = mod.seenMaskEmptyHex();
+    assert.equal(empty, /^[0-9a-f]+$/.test(empty) ? empty : '', 'the empty mask is hex');
+    assert.equal(mod.seenMaskMayHaveSeenHex(empty, 'receipt-a'), false, 'an unseen receipt is provably fresh');
+    const once = mod.seenMaskAddHex(empty, 'receipt-a');
+    assert.equal(once, mod.seenMaskAddHex(empty, 'receipt-a'), 'the mask update is deterministic (no clock, no randomness)');
+    assert.equal(mod.seenMaskMayHaveSeenHex(once, 'receipt-a'), true, 'an admitted receipt is never forgotten — no false freshness');
+    assert.equal(mod.seenMaskMayHaveSeenHex(once, 'receipt-b'), false, 'a distinct receipt stays fresh (chosen fixtures do not collide)');
+    const twice = mod.seenMaskAddHex(once, 'receipt-b');
+    assert.equal(twice.length, once.length, 'the mask size is FIXED — bounded storage by construction');
+    assert.equal(once.length, empty.length, 'admitting receipts never grows the record');
+    assert.equal(mod.seenMaskMayHaveSeenHex(twice, 'receipt-a'), true, 'the second admission did not erase the first');
+  });
+
+  ltest('F-3 (pure): a single-bit collision never fails a genuinely fresh receipt closed — the BOTH-bits freshness contract', async () => {
+    // Flip site: record.mjs seenMaskMayHaveSeenHex. Admission sets BOTH of a receipt's
+    // bits, so exactly-one-shared-bit with an admitted receipt can only be that
+    // receipt's collision — the probe must stay provably fresh (any bit still 0 ⇒ never
+    // admitted, the module's no-false-negative argument). The ANY-bit probe this arm
+    // pins against returned true there, failing fresh receipts closed (a false
+    // «may have seen» contradicting the module contract).
+    const mod = await import('./autonomy-binding/record.mjs');
+    const bitsOf = (r) => {
+      const d = mod.sha256Hex(`delivery-seen:${r}`);
+      return [Number(BigInt(parseInt(d.slice(0, 8), 16)) % BigInt(mod.SEEN_MASK_BITS)), Number(BigInt(parseInt(d.slice(8, 16), 16)) % BigInt(mod.SEEN_MASK_BITS))];
+    };
+    const freshProbe = 'collision-probe-419';
+    const a = bitsOf('receipt-a');
+    const p = bitsOf(freshProbe);
+    const shared = p.filter((b) => b === a[0] || b === a[1]);
+    assert.equal(shared.length, 1, `fixture precondition: exactly one shared bit (receipt-a=${a.join('/')}, probe=${p.join('/')}) — re-derive the fixture if the bit derivation changes; pin reason: a one-bit-overlap receipt is the ONLY input that discriminates BOTH-bit from ANY-bit semantics`);
+    const empty = mod.seenMaskEmptyHex();
+    const withA = mod.seenMaskAddHex(empty, 'receipt-a');
+    assert.equal(mod.seenMaskMayHaveSeenHex(withA, freshProbe), false, 'a one-bit collision is NOT a replay — the receipt is provably fresh');
+    assert.equal(mod.seenMaskMayHaveSeenHex(mod.seenMaskAddHex(withA, freshProbe), freshProbe), true, 'once actually admitted, it is never forgotten');
+    assert.equal(mod.seenMaskMayHaveSeenHex(withA, 'receipt-a'), true, 'the genuinely-admitted identity is still caught through its own bits');
+  });
+});
+
 // ===========================================================================
 // Row 13 aftermath — MUST be the LAST top-level test declaration: it asserts zero
 // outbound TCP connections and zero HTTP requests across the ENTIRE claimed run

@@ -16,13 +16,16 @@
  * identity), which is deterministic. I/O lives in store.mjs; live authority reads live in
  * authority.mjs; orchestration lives in engine.mjs.
  *
- * Control-state machine (design L137 semantics, encoded as the single legal-transition
- * table below — every other transition is rejected, not approximated):
+ * Control-state machine (design L137 semantics + fidelity-r1 F-2, encoded as the single
+ * legal-transition table below — every other transition is rejected, not approximated):
  *
- *   active         -> pause-pending   (requestPause, live worker bound: cessation requested)
- *   active         -> paused          (requestPause, no live worker: nothing to cease)
- *   active         -> cancel-pending  (requestCancel, live worker bound)
- *   active         -> cancelled       (requestCancel, no live worker)
+ *   active         -> pause-pending   (requestPause, unconfirmed external work bound:
+ *                                      live worker, AIF task, native attempts or an
+ *                                      unresolved effect — cessation is requested)
+ *   active         -> paused          (requestPause, NO unconfirmed external work:
+ *                                      there is nothing whose cessation to await)
+ *   active         -> cancel-pending  (requestCancel, unconfirmed external work bound)
+ *   active         -> cancelled       (requestCancel, no unconfirmed external work)
  *   pause-pending  -> paused          (acknowledgeCessation — forward only)
  *   cancel-pending -> cancelled       (acknowledgeCessation — forward only)
  *   paused         -> active          (resume — PRODUCTION-HELD; fixture-tested pure
@@ -66,6 +69,28 @@ const HOLDS_MAX = 200;
  * (R3 advisory): the engine's R3-02 history sweep dedups against this same bound, so
  * the two modules cannot drift apart silently. */
 export const DELIVERY_HISTORY_MAX = 20;
+/**
+ * Bounded seen-delivery-identity accumulator (fidelity-r1 F-3). The superseded-delivery
+ * window above is bounded by construction, so a receipt EVICTED from it becomes
+ * indistinguishable from a never-seen receipt — and the old code would then re-bind that
+ * evicted identity as a NEWER candidate's fresh delivery. This accumulator closes that
+ * gap WITHOUT introducing a registry, an issuer or unbounded storage: a FIXED-SIZE
+ * (SEEN_MASK_BITS) bit array where admitting a receipt sets 2 hash-derived bits. Bits are
+ * never unset, so:
+ *   - ANY of a receipt's bits still 0  ⇒ provably NEVER admitted (no false negatives) —
+ *     the receipt is fresh and may be recorded;
+ *   - BOTH bits set                     ⇒ POSSIBLY admitted before (a ~1-in-2048×2047
+ *     collision floor across the receipt population, not proof) — identity is then NOT
+ *     establishable from bounded local state, and the engine fails closed with a
+ *     persisted `delivery_identity_unestablishable` hold instead of re-binding.
+ * The mask is deterministic (sha256-derived, no clock/randomness), fixed-size forever
+ * (a record never grows because deliveries were admitted), and additive-optional in the
+ * schema (records written before this field carry no mask and behave as empty — see the
+ * engine's ensureSeenMask; the residual risk for such legacy records is the documented
+ * eviction limit, unchanged).
+ */
+export const SEEN_MASK_BITS = 2048;
+export const SEEN_MASK_HEX_CHARS = SEEN_MASK_BITS / 4; // 512 hex chars = 2048 bits
 
 export function sha256Hex(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -79,6 +104,53 @@ export function recordDigest(record) {
 /** Digest identifying a grant document itself (replay/consumption key). */
 export function grantDigestOf(grant) {
   return sha256Hex(canonicalJson(grant));
+}
+
+// ---------------------------------------------------------------------------
+// Seen-delivery-identity accumulator (F-3) — pure, deterministic, fixed-size.
+// ---------------------------------------------------------------------------
+
+/** The 2 mask positions a receipt occupies (sha256-derived; stable across processes). */
+function seenBitsFor(receipt) {
+  const digest = sha256Hex(`delivery-seen:${receipt}`);
+  return [BigInt(parseInt(digest.slice(0, 8), 16) % SEEN_MASK_BITS), BigInt(parseInt(digest.slice(8, 16), 16) % SEEN_MASK_BITS)];
+}
+
+const maskFromHex = (maskHex) => BigInt(`0x${maskHex}`);
+
+const maskToHex = (bits) => bits.toString(16).padStart(SEEN_MASK_HEX_CHARS, '0');
+
+/** The all-zero mask — a record that has admitted no deliveries yet. */
+export function seenMaskEmptyHex() {
+  return maskToHex(0n);
+}
+
+/**
+ * Set a receipt's bits. Pure: returns the NEW 512-hex-char mask; never mutates, never
+ * grows (the output is exactly SEEN_MASK_HEX_CHARS wide for every input).
+ */
+export function seenMaskAddHex(maskHex, receipt) {
+  let bits = maskFromHex(maskHex);
+  for (const bit of seenBitsFor(receipt)) bits |= (1n << bit);
+  return maskToHex(bits);
+}
+
+/**
+ * May this receipt already have been admitted through this mask? `false` is PROOF the
+ * receipt was never admitted (no false negatives — bits are never unset). `true` means
+ * the identity is not establishable from bounded local state: either a genuine replay or
+ * a hash collision; the caller must fail closed rather than treat it as freshness proof.
+ */
+export function seenMaskMayHaveSeenHex(maskHex, receipt) {
+  const bits = maskFromHex(maskHex);
+  let probe = 0n;
+  for (const bit of seenBitsFor(receipt)) probe |= (1n << bit);
+  // BOTH bits set ⇒ possibly admitted (genuine replay or collision). ANY bit still 0 ⇒
+  // provably NEVER admitted — admission always sets BOTH bits, so a single set bit can
+  // only be another receipt's collision, and must NOT fail a genuinely fresh receipt
+  // closed (that would be a false "may have seen" on the documented no-false-negative
+  // argument above). The `false` set here is exactly «some bit is 0» = never admitted.
+  return (bits & probe) === probe;
 }
 
 const isNonEmptyString = (v) => typeof v === 'string' && v.length > 0;
@@ -102,6 +174,13 @@ function ok(value) {
  * receipt/destination/at plus the candidate the delivery applies to. The candidate binding
  * is REQUIRED — a delivery is only acceptance authority for the candidate it was recorded
  * against, so a receipt without a candidate revision is not a record this module re-reads.
+ *
+ * Fidelity-r1 F-1 fields, additive-optional (tolerant read, strict write — the engine
+ * always writes both): `verified` marks that the delivery was backed by an INDEPENDENT
+ * verifiable fact (a content reference resolved against the subsystem's own artifacts),
+ * not merely a caller-supplied receipt string; `evidence` is that content reference. A
+ * delivery recorded before this repair carries neither field and reads as UNVERIFIED —
+ * the absence of proof is not proof of delivery.
  */
 function validateDelivery(delivery, label = 'delivery') {
   for (const field of ['receipt', 'destination', 'at']) {
@@ -116,6 +195,12 @@ function validateDelivery(delivery, label = 'delivery') {
   if (!Number.isSafeInteger(delivery.candidateRevision) || delivery.candidateRevision < 0) {
     return reject('record_invalid', `${label}.candidateRevision must be a safe integer >= 0 — a delivery binds the exact candidate it was recorded against`);
   }
+  if (delivery.verified !== undefined && typeof delivery.verified !== 'boolean') {
+    return reject('record_invalid', `${label}.verified must be a boolean when present`);
+  }
+  if (delivery.evidence !== undefined && delivery.evidence !== null && !isContentRefShape(delivery.evidence)) {
+    return reject('record_invalid', `${label}.evidence must be a {path, sha256} content reference or null`);
+  }
   return ok(true);
 }
 
@@ -123,13 +208,15 @@ function validateDelivery(delivery, label = 'delivery') {
  * The legal control-transition table: [from, kind] -> to. `ack-cessation` is the worker
  * side reporting actual suspension/cancellation; it never applies in `active` (nothing to
  * acknowledge) and never leaves a terminal state. For `pause`/`cancel` from `active`, the
- * destination depends on custody: a LIVE bound worker must first acknowledge cessation
- * (-> `*-pending`), while with no live worker the transition applies IMMEDIATELY — there
- * is nothing whose cessation we would be waiting for (design: «pause with no live worker
- * applies immediately»).
+ * destination depends on custody: any UNCONFIRMED EXTERNAL WORK (fidelity-r1 F-2 — a live
+ * bound worker, a bound AIF task, recorded native attempts, or an unresolved effect) must
+ * first have its cessation acknowledged (-> `*-pending`), while with none the transition
+ * applies IMMEDIATELY — there is nothing whose cessation we would be waiting for (design:
+ * «pause with no live worker applies immediately», narrowed to «no unconfirmed external
+ * work»: worker=null alone never proved the referenced AIF task/native effect stopped).
  */
 function controlDestination(record, kind) {
-  const pending = hasLiveWorker(record);
+  const pending = hasUnconfirmedExternalWork(record);
   if (record.controlState === 'active') {
     if (kind === 'pause') return pending ? 'pause-pending' : 'paused';
     if (kind === 'cancel') return pending ? 'cancel-pending' : 'cancelled';
@@ -232,6 +319,20 @@ export function validateRecord(value) {
   if (!isPlainObject(value.aif)) return reject('record_invalid', 'aif must be an object');
   if (value.aif.taskId !== null && !isNonEmptyString(value.aif.taskId)) return reject('record_invalid', 'aif.taskId must be a string or null');
   if (value.aif.claimRef !== null && !isNonEmptyString(value.aif.claimRef)) return reject('record_invalid', 'aif.claimRef must be a string or null');
+  // Fidelity-r1 F-2 (ack door): the bound task's confirmed cessation is a DURABLE fact —
+  // the evidence reference that established it and when. Both fields are set and cleared
+  // together by the engine's verified establishment boundary; `undefined` is tolerated on
+  // records written before this field existed and reads as UNCONFIRMED (the same legacy
+  // posture as delivery.verified), never as confirmed.
+  if (value.aif.cessationEvidence !== undefined && value.aif.cessationEvidence !== null && !isContentRefShape(value.aif.cessationEvidence)) {
+    return reject('record_invalid', 'aif.cessationEvidence must be a {path, sha256} content reference or null');
+  }
+  if (value.aif.cessationConfirmedAt !== undefined && value.aif.cessationConfirmedAt !== null && !isIso(value.aif.cessationConfirmedAt)) {
+    return reject('record_invalid', 'aif.cessationConfirmedAt must be an ISO-8601 UTC timestamp or null');
+  }
+  if ((value.aif.cessationEvidence === null || value.aif.cessationEvidence === undefined) !== (value.aif.cessationConfirmedAt === null || value.aif.cessationConfirmedAt === undefined)) {
+    return reject('record_invalid', 'aif.cessationEvidence and aif.cessationConfirmedAt must be set or cleared together');
+  }
 
   if (value.worker !== null && !isPlainObject(value.worker)) return reject('record_invalid', 'worker must be an object or null');
   if (value.worker !== null) {
@@ -269,6 +370,12 @@ export function validateRecord(value) {
       return reject('record_invalid', `pendingIntent.state must be one of ${INTENT_STATES.join('|')}`);
     }
     if (!isPlainObject(pi.bound)) return reject('record_invalid', 'pendingIntent.bound must be an object');
+    // Fidelity-r1 F-1: the verified content reference a resolution was released WITH.
+    // Additive-optional (pre-repair resolutions carry none and stay valid); when present
+    // it must be a real reference shape — prose alone was the F-1 nonconformance.
+    if (pi.evidenceRef !== undefined && pi.evidenceRef !== null && !isContentRefShape(pi.evidenceRef)) {
+      return reject('record_invalid', 'pendingIntent.evidenceRef must be a {path, sha256} content reference or null');
+    }
     if (pi.state === 'resolved') {
       if (!isNonEmptyString(pi.resolution)) return reject('record_invalid', 'a resolved intent must carry its resolution');
       if (!isIso(pi.resolvedAt)) return reject('record_invalid', 'a resolved intent must carry resolvedAt');
@@ -288,6 +395,18 @@ export function validateRecord(value) {
     if (!isPlainObject(superseded)) return reject('record_invalid', 'each superseded delivery must be an object');
     const supersededCheck = validateDelivery(superseded, 'deliveryHistory entry');
     if (!supersededCheck.ok) return supersededCheck;
+  }
+
+  // Fidelity-r1 F-3: the bounded seen-delivery-identity accumulator. Additive-optional
+  // (pre-repair records carry none and behave as an empty mask); when present it must be
+  // EXACTLY the fixed size — a smaller/larger mask would silently change the collision
+  // floor the fail-closed decision above rests on.
+  if (value.deliverySeen !== undefined) {
+    if (!isPlainObject(value.deliverySeen) || !isNonEmptyString(value.deliverySeen.bits)
+      || value.deliverySeen.bits.length !== SEEN_MASK_HEX_CHARS
+      || !/^[0-9a-f]+$/.test(value.deliverySeen.bits)) {
+      return reject('record_invalid', `deliverySeen.bits must be a ${SEEN_MASK_HEX_CHARS}-char lowercase hex accumulator`);
+    }
   }
 
   for (const field of ['observations', 'reviews', 'holds', 'consumedGrants', 'history']) {
@@ -333,6 +452,49 @@ export function hasLiveWorker(record) {
 }
 
 /**
+ * Fidelity-r1 F-2 (ack door): has the bound AIF task's cessation been ESTABLISHED — a
+ * verified evidence reference stamped by the engine's establishment boundary — rather
+ * than merely asserted? `undefined` fields (records written before this fact existed)
+ * read as UNCONFIRMED, never confirmed.
+ */
+function aifCessationConfirmed(aif) {
+  return aif.cessationConfirmedAt !== null
+    && aif.cessationConfirmedAt !== undefined
+    && isContentRefShape(aif.cessationEvidence);
+}
+
+/**
+ * Fidelity-r1 F-2: the NON-WORKER external-work arms — referenced work whose cessation
+ * the local caller CANNOT assert. A bound AIF task keeps this true until its cessation
+ * is established through the verified evidence boundary (aifCessationConfirmed); a
+ * pendingIntent settles through its own state change (resolution, itself evidence-gated
+ * since F-1); native attempts keep their arm unconfirmed until stage B defines their
+ * lifecycle (they are never written in A1, so this only ever tightens an unreachable
+ * shape). These are exactly the arms a bare `ack-cessation` must NOT settle: the ack is
+ * the WORKER's report about the directly-bound local worker — extending it to referenced
+ * external subsystems on the caller's word alone would be a synthetic acknowledgment.
+ */
+export function hasUnconfirmedNonWorkerExternalWork(record) {
+  if (record.aif !== null && isNonEmptyString(record.aif.taskId) && !aifCessationConfirmed(record.aif)) return true;
+  if (Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0) return true;
+  return record.pendingIntent !== null && record.pendingIntent.state !== 'resolved';
+}
+
+/**
+ * Fidelity-r1 F-2: is any EXTERNAL work bound whose cessation or outcome is not yet
+ * confirmed? A live un-acked local worker is the original case; a bound AIF task, a
+ * recorded native attempt, or an unresolved effect (a pendingIntent not yet `resolved`)
+ * each INDEPENDENTLY keep pause/cancel cessation-pending. A missing/expired local worker
+ * proves nothing about referenced external work: the design pins that «direct host
+ * routine disable stops future wakes but does not by itself cancel an existing AIF task»,
+ * so treating worker===null as cessation asserted a stop nobody confirmed.
+ */
+export function hasUnconfirmedExternalWork(record) {
+  if (hasLiveWorker(record)) return true;
+  return hasUnconfirmedNonWorkerExternalWork(record);
+}
+
+/**
  * Pure control transition. Returns {ok, value: nextRecord} or a structured reject. The
  * caller (engine, under the binding lock) persists the returned record. `kind` is one of
  * 'pause' | 'cancel' | 'ack-cessation'. Resume is deliberately NOT reachable here — see
@@ -350,6 +512,17 @@ export function applyControlTransition(record, { kind, actor, reason, now }) {
   const to = controlDestination(record, kind);
   if (to === undefined) {
     return reject('illegal_control_transition', `${kind} is not legal from ${record.controlState}`);
+  }
+  // Fidelity-r1 F-2 (ack door): an acknowledgement settles ONLY what it can actually
+  // attest. The worker arm settles on the worker's own report (stamped below); the
+  // non-worker arms — a bound AIF task, recorded native attempts, an unresolved effect —
+  // are referenced external work whose stop this bare input cannot prove, so settling
+  // them on it would persist a fake stopped disposition. They must be established FIRST
+  // (engine boundary: a verified cessation-evidence reference stamped onto the record;
+  // a pendingIntent settles by resolving under its own evidence gate). Until then the
+  // pending state is retained with the persisted cessation_unconfirmed hold.
+  if (kind === 'ack-cessation' && hasUnconfirmedNonWorkerExternalWork(record)) {
+    return reject('cessation_unconfirmed', `a bare acknowledgement cannot settle referenced external work (${[record.aif !== null && isNonEmptyString(record.aif.taskId) ? 'bound aif task' : null, Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0 ? 'native attempts' : null, record.pendingIntent !== null && record.pendingIntent.state !== 'resolved' ? 'unresolved effect' : null].filter(Boolean).join(', ') || 'unconfirmed external work'}) — establish cessation through the verified evidence boundary or the arm's own resolution first; ${record.controlState} is retained and admission stays blocked`);
   }
   const next = structuredClone(record);
   next.controlState = to;
@@ -477,14 +650,15 @@ export function initialRecord(bind, { now }) {
     },
     routine: { host: bind.routineHost ?? null, routineId: bind.routineId ?? null },
     nativeAttempts: [],
-    aif: { taskId: bind.taskId ?? null, claimRef: bind.claimRef ?? null },
+    aif: { taskId: bind.taskId ?? null, claimRef: bind.claimRef ?? null, cessationEvidence: null, cessationConfirmedAt: null },
     worker: bind.worker ?? null,
     candidate: { revision: bind.candidateRevision ?? 0, sha256: bind.candidateSha256 ?? null, ref: bind.candidateRef ?? null, at: now },
     pendingIntent: null,
     observations: [],
     reviews: [],
-    delivery: null, // set only by a recorded delivery receipt; completion requires it CURRENT for the candidate (R2-05)
+    delivery: null, // set only by a recorded delivery receipt; completion requires it CURRENT for the candidate (R2-05) and VERIFIED against independent evidence (F-1)
     deliveryHistory: [], // superseded deliveries (bound to advanced-away candidates), retained as history (R2-05)
+    deliverySeen: { bits: seenMaskEmptyHex() }, // fixed-size admitted-identity accumulator (F-3) — bounds never depend on the history window
     holds: [],
     consumedGrants: [],
     history: [{ at: now, recordRevision: 1, controlRevision: 1, summary: `bind feature=${bind.featureId} stage=${bind.stage}` }],

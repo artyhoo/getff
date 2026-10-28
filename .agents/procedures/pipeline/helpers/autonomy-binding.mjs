@@ -52,6 +52,16 @@ const VALUE_FLAGS = new Set([
   'resolve-intent', 'resolution', 'evidence', 'transfer-custody', 'control-reason',
   'delivery-receipt', 'grant', 'test-crash-after', 'test-hold-before-bind', 'test-hold-lock-ms',
   'lock-retry-budget-ms', 'lock-retry-delay-ms',
+  // Fidelity-r1 F-1 evidence flags: content references (path + sha256) that the engine
+  // verifies with the intent helper's resolveContentRef. Paths resolve against the
+  // stage artifact root / repository root, so they are forwarded VERBATIM (never
+  // resolve()d against this process' CWD).
+  'evidence-ref', 'evidence-sha256', 'delivery-evidence-ref', 'delivery-evidence-sha256',
+  // Fidelity-r1 F-2 (ack door): the verified cessation-evidence reference that
+  // establishes a referenced external work's stop (a bare acknowledgement is a caller
+  // assertion; the hold recovery names these flags). The --ack-cessation control kind
+  // itself is a boolean flag (handled beside --mark-complete), not a value flag.
+  'cessation-evidence-ref', 'cessation-evidence-sha256',
 ]);
 
 const USAGE = `usage: autonomy-binding.mjs <verb> [flags]
@@ -60,8 +70,15 @@ common: --record <path> --repo-root <dir> --feature <id> --stage <id> --stage-ar
 init:   --feature-home <dir> --actions observe,work,review,hold,complete --destination pr:staging
         [--task-id] [--worker-session/--worker-pid/--worker-host] [--candidate-revision/--candidate-sha256]
 reconcile: [--observation <json>] [--request-action <action>] [--resolve-intent <id> --resolution applied|not-applied|abandoned --evidence <text>]
+        [--evidence-ref <path> --evidence-sha256 <hex>]
         [--transfer-custody <session>] [--candidate-revision <n>] [--candidate-sha256 <hex>]
-        [--delivery-receipt <ref>] [--mark-complete] [--control-reason <text>] [--actor <id>]
+        [--delivery-receipt <ref> [--delivery-evidence-ref <path> --delivery-evidence-sha256 <hex>]] [--mark-complete] [--control-reason <text>] [--actor <id>]
+evidence: --evidence-ref/--delivery-evidence-ref take a path relative to the stage artifact root or the repository root plus the
+        sha256 of the artifact's bytes; the engine verifies them with the intent helper's resolveContentRef. Prose (--evidence) and
+        bare receipts are recorded as caller claims only — uncertainty release and both completion doors require verified evidence.
+        (fidelity-r1 F-2) reconcile --ack-cessation [--control-reason <text>] [--cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>]:
+        a bare ack settles only the local worker's cessation; a bound AIF task / native attempts / an unresolved effect need verified
+        evidence (--cessation-evidence-ref, same root rules), else the pending state is retained with a cessation_unconfirmed hold.
 pause|cancel: [--control-reason <text>]
 resume: always unsupported_pending_prerequisite in stage A (a --grant path does not clear it)
 test seams: --test-crash-after prewrite|intent|commit | --test-hold-before-bind <waitfile> | --test-hold-lock-ms <ms>`;
@@ -150,7 +167,18 @@ function buildReconcileInput(opts, verb) {
     if (opts.resolution === undefined || opts.evidence === undefined) {
       return { ok: false, code: 'invalid_request', reason: '--resolve-intent requires --resolution applied|not-applied|abandoned and --evidence <text>' };
     }
-    input.resolveIntent = { actionId: opts['resolve-intent'], resolution: opts.resolution, evidence: opts.evidence };
+    // Fidelity-r1 F-1: the narrative (--evidence) is a caller claim; the engine releases
+    // the uncertainty only on a verified content reference. One half of the ref pair is
+    // a typo-shaped invocation — reject it here rather than let the engine guess.
+    if ((opts['evidence-ref'] === undefined) !== (opts['evidence-sha256'] === undefined)) {
+      return { ok: false, code: 'invalid_request', reason: '--evidence-ref and --evidence-sha256 must be given together (a content reference is path + digest)' };
+    }
+    input.resolveIntent = {
+      actionId: opts['resolve-intent'],
+      resolution: opts.resolution,
+      evidence: opts.evidence,
+      evidenceRef: opts['evidence-ref'] !== undefined ? { path: opts['evidence-ref'], sha256: opts['evidence-sha256'] } : undefined,
+    };
   }
   if (opts['transfer-custody'] !== undefined) input.transferCustody = { toSession: opts['transfer-custody'], reason: opts['control-reason'] ?? null };
   if (opts['candidate-revision'] !== undefined || opts['candidate-sha256'] !== undefined) {
@@ -160,9 +188,35 @@ function buildReconcileInput(opts, verb) {
     };
   }
   if (opts['delivery-receipt'] !== undefined) input.deliveryReceipt = opts['delivery-receipt'];
+  // Fidelity-r1 F-1: the delivery's evidence reference rides WITH the receipt; the engine
+  // records the receipt verified when the reference verifies, unverified (doors closed)
+  // otherwise. One half of the pair is a typo-shaped invocation — reject it here.
+  if ((opts['delivery-evidence-ref'] === undefined) !== (opts['delivery-evidence-sha256'] === undefined)) {
+    return { ok: false, code: 'invalid_request', reason: '--delivery-evidence-ref and --delivery-evidence-sha256 must be given together (a content reference is path + digest)' };
+  }
+  if (opts['delivery-evidence-ref'] !== undefined) input.deliveryEvidence = { path: opts['delivery-evidence-ref'], sha256: opts['delivery-evidence-sha256'] };
+  // Fidelity-r1 F-2 (ack door): `reconcile --ack-cessation` reaches the establishment
+  // boundary — a bare ack settles the worker arm only; referenced external work needs
+  // the evidence pair. A half-pair is a typo-shaped invocation, rejected here; evidence
+  // on a non-ack control kind is rejected so it can never be silently ignored.
+  if ((opts['cessation-evidence-ref'] === undefined) !== (opts['cessation-evidence-sha256'] === undefined)) {
+    return { ok: false, code: 'invalid_request', reason: '--cessation-evidence-ref and --cessation-evidence-sha256 must be given together (a content reference is path + digest)' };
+  }
   if (opts['mark-complete'] !== undefined) input.markComplete = true;
   if (verb === 'pause') input.control = { kind: 'pause', reason: opts['control-reason'] ?? 'pause requested via CLI' };
   if (verb === 'cancel') input.control = { kind: 'cancel', reason: opts['control-reason'] ?? 'cancel requested via CLI' };
+  if (opts['ack-cessation'] !== undefined) {
+    if (input.control !== undefined) {
+      return { ok: false, code: 'invalid_request', reason: '--ack-cessation cannot combine with the pause/cancel verbs — it is its own control kind (reconcile --ack-cessation)' };
+    }
+    input.control = { kind: 'ack-cessation', reason: opts['control-reason'] ?? 'cessation acknowledged via CLI' };
+  }
+  if (opts['cessation-evidence-ref'] !== undefined) {
+    if (input.control === undefined || input.control.kind !== 'ack-cessation') {
+      return { ok: false, code: 'invalid_request', reason: '--cessation-evidence-ref/--cessation-evidence-sha256 are only consumed by the ack-cessation control (reconcile --ack-cessation) — on any other control they would be silently ignored' };
+    }
+    input.control.cessationEvidence = { path: opts['cessation-evidence-ref'], sha256: opts['cessation-evidence-sha256'] };
+  }
   if (opts['test-crash-after'] !== undefined) input.testCrashAfter = opts['test-crash-after'];
   for (const [key, field] of [['test-hold-lock-ms', 'testHoldLockMs'], ['lock-retry-budget-ms', 'retryBudgetMs'], ['lock-retry-delay-ms', 'retryDelayMs']]) {
     const timed = applyTimingFlag(input, opts, key, field);
@@ -199,6 +253,12 @@ async function main() {
     } else if (arg.startsWith('--')) {
       const key = arg.slice(2);
       if (key === 'mark-complete') {
+        opts[key] = true;
+        continue;
+      }
+      // Boolean flag like --mark-complete: the ack kind itself carries no value (its
+      // reason rides --control-reason, its proof rides --cessation-evidence-*).
+      if (key === 'ack-cessation') {
         opts[key] = true;
         continue;
       }
