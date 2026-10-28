@@ -301,16 +301,22 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       writeFileSync(join(entry, 'member.json'), sourceBytes);
 
       const rendered = g.renderCardFence(root, name);
-      expect(rendered).toContain('[census](../../../meta-factory/census.md#census)');
+      expect(rendered).toContain(
+        '[census](../../../meta-factory/census.md#census)',
+      );
       expect(rendered).toContain(
         '[decisions](../../../meta-factory/decisions.md?view=plain#decisions)',
       );
-      const hrefs = [...rendered.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1]);
+      const hrefs = [...rendered.matchAll(/\]\(([^)]+)\)/g)].map(
+        (match) => match[1],
+      );
       expect(hrefs).toHaveLength(2);
       for (const href of hrefs) {
         expect(existsSync(resolve(sheetDir, href.split(/[?#]/)[0]))).toBe(true);
       }
-      expect(readFileSync(join(entry, 'member.json'), 'utf8')).toBe(sourceBytes);
+      expect(readFileSync(join(entry, 'member.json'), 'utf8')).toBe(
+        sourceBytes,
+      );
     },
   );
 
@@ -356,17 +362,31 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   it('authored reference families cite canonical owners rather than native loaders', async () => {
     const families = await liveFamilies();
     for (const [id, owner] of Object.entries({
-      B: '.agents/procedures/', C: '.agents/roles/', D: '.agents/hooks/', F1: '.agents/rules/',
+      B: '.agents/procedures/',
+      C: '.agents/roles/',
+      D: '.agents/hooks/',
+      F1: '.agents/rules/',
     })) {
-      expect(families[id].length, `${id}: source population must be nonempty`).toBeGreaterThan(0);
+      expect(
+        families[id].length,
+        `${id}: source population must be nonempty`,
+      ).toBeGreaterThan(0);
       for (const member of families[id]) {
         // Native plugin boot glue has no shared hook body; it stays in the plugin family.
-        if (id === 'D' && !existsSync(join(REPO_ROOT, owner, `${member.name}.sh`))
-          && !existsSync(join(REPO_ROOT, owner, 'adapters/plugin', member.name))) continue;
-        expect(member.source.path, `${id}/${member.name}`).toMatch(new RegExp(`^${owner.replaceAll('.', '\\.')}`));
+        if (
+          id === 'D' &&
+          !existsSync(join(REPO_ROOT, owner, `${member.name}.sh`)) &&
+          !existsSync(join(REPO_ROOT, owner, 'adapters/plugin', member.name))
+        )
+          continue;
+        expect(member.source.path, `${id}/${member.name}`).toMatch(
+          new RegExp(`^${owner.replaceAll('.', '\\.')}`),
+        );
       }
     }
-    const check = families.F3.find((member: { name: string }) => member.name === 'check-ask-files.sh');
+    const check = families.F3.find(
+      (member: { name: string }) => member.name === 'check-ask-files.sh',
+    );
     expect(check?.source.path).toBe('.agents/checks/check-ask-files.sh');
   });
 
@@ -409,7 +429,9 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       );
     };
     const opSkills = opSkillDirs();
-    const shipSkills = readdirSync(join(REPO_ROOT, '.agents/procedures')).filter((d) =>
+    const shipSkills = readdirSync(
+      join(REPO_ROOT, '.agents/procedures'),
+    ).filter((d) =>
       existsSync(join(REPO_ROOT, '.agents/procedures', d, 'SKILL.md')),
     );
     const popB = [...new Set([...opSkills, ...shipSkills])].sort();
@@ -1458,6 +1480,185 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       empties,
       `maturity.json carries empty-string cells: ${empties.join(', ')}`,
     ).toEqual([]);
+  });
+
+  // ── DOCS001 R1: depth-gated delivery scope (dispatcher reachability) ─────────
+  // Root097c MAJOR DOCS001-EXT-DELIVERY-SCOPE: the three depth-gated members (B:harvest,
+  // D:precompact-residue, D:inject-handoff-on-compact) ship ONLY where the install
+  // dispatcher actually reaches setup.d/10-skills.sh — the npm stacks. python/cargo/go
+  // dispatch to their own lane bodies and exit before the layer loop (install.sh:733-745),
+  // so no depth flag delivers them there. The arms below pin: (a) the live classification
+  // carries the known npm stacks scope, (b) no thin lane ever leaks into a gated member's
+  // stacks — the stale «EVERY lane» classification these arms replace is RED by (b),
+  // (c) the dispatcher early-exit and both 10-skills gates still exist where the
+  // classification cites them, and (d) a fingerprint-less fixture degrades to tier-only
+  // (harvest) / lane-presence fallback (the D pair), never inventing stacks.
+
+  it('DOCS001 R1: the depth-gated members carry the known npm stacks scope', async () => {
+    const families = await liveFamilies();
+    const NPM_STACKS = ['react-native', 'react-next', 'react-spa', 'ts-server'];
+    const harvest = (
+      families.B as Array<{
+        name: string;
+        shipsTo: { tier: string; stacks?: string[]; absent?: string };
+      }>
+    ).find((m) => m.name === 'harvest');
+    expect(harvest, 'B:harvest must be a family member').toBeTruthy();
+    expect(harvest!.shipsTo.tier).toBe('factory');
+    expect(
+      harvest!.shipsTo.stacks,
+      'B:harvest shipsTo must name the npm stacks that reach 10-skills.sh',
+    ).toEqual(NPM_STACKS);
+    expect(
+      harvest!.shipsTo.absent,
+      'factory delivery is real, not a no-lane stamp',
+    ).toBeUndefined();
+    for (const stem of ['inject-handoff-on-compact', 'precompact-residue']) {
+      const m = (
+        families.D as Array<{
+          name: string;
+          shipsTo: { tier: string; stacks?: string[]; absent?: string };
+        }>
+      ).find((x) => x.name === stem);
+      expect(m, `D:${stem} must be a family member`).toBeTruthy();
+      expect(m!.shipsTo.tier).toBe('framework');
+      expect(
+        m!.shipsTo.stacks,
+        `D:${stem} shipsTo must keep the fingerprint-measured npm scope`,
+      ).toEqual(NPM_STACKS);
+    }
+  });
+
+  it('DOCS001 R1: no thin lane (cargo/go/python) appears in any gated member shipsTo stacks', async () => {
+    const families = await liveFamilies();
+    const THIN = ['cargo', 'go', 'python'];
+    const gated: Array<
+      [
+        string,
+        { name: string; shipsTo: { stacks?: string[]; absent?: string } },
+      ]
+    > = [
+      [
+        'B:harvest',
+        (
+          families.B as Array<{
+            name: string;
+            shipsTo: { stacks?: string[]; absent?: string };
+          }>
+        ).find((m) => m.name === 'harvest')!,
+      ],
+      [
+        'D:inject-handoff-on-compact',
+        (
+          families.D as Array<{
+            name: string;
+            shipsTo: { stacks?: string[]; absent?: string };
+          }>
+        ).find((m) => m.name === 'inject-handoff-on-compact')!,
+      ],
+      [
+        'D:precompact-residue',
+        (
+          families.D as Array<{
+            name: string;
+            shipsTo: { stacks?: string[]; absent?: string };
+          }>
+        ).find((m) => m.name === 'precompact-residue')!,
+      ],
+    ];
+    for (const [key, m] of gated) {
+      const leak = (m?.shipsTo?.stacks ?? []).filter((s) => THIN.includes(s));
+      expect(
+        leak,
+        `${key} claims thin-lane delivery (${leak.join(', ')}) — the dispatcher exits python/cargo/go before 10-skills.sh (install.sh:733-745), so an every-lane classification here is the DOCS001-EXT-DELIVERY-SCOPE regression`,
+      ).toEqual([]);
+    }
+    // Independent re-derivation from the fingerprints themselves: the residue pair is the
+    // layer's fingerprint-visible witness, so its stacks are exactly the npm four.
+    const witness = [
+      ...new Set(
+        fingerprintRows()
+          .filter(
+            (r) => r.path === '.claude/hooks/inject-handoff-on-compact.sh',
+          )
+          .map((r) => r.stack),
+      ),
+    ].sort();
+    expect(witness).toEqual([
+      'react-native',
+      'react-next',
+      'react-spa',
+      'ts-server',
+    ]);
+    expect(
+      fingerprintRows().filter(
+        (r) =>
+          THIN.includes(r.stack) &&
+          /precompact-residue|inject-handoff-on-compact|skills\/harvest/.test(
+            r.path,
+          ),
+      ),
+      'no thin-lane fingerprint may carry a depth-gated member (the early exit guarantees it)',
+    ).toEqual([]);
+  });
+
+  it('DOCS001 R1: the dispatcher early-exit and both 10-skills gates exist where the classification cites them', async () => {
+    const install = readFileSync(join(REPO_ROOT, 'install.sh'), 'utf8');
+    for (const lane of ['python', 'cargo', 'go']) {
+      const re = new RegExp(
+        `if \\[ "\\$TOOLCHAIN" = "${lane}" \\]; then\\n  do_${lane}_lane\\n  exit 0\\nfi`,
+      );
+      expect(
+        re.test(install),
+        `install.sh must early-exit the ${lane} lane (do_${lane}_lane; exit 0) before the layer loop — the gated members' npm-only scope rests on it`,
+      ).toBe(true);
+    }
+    const ten = readFileSync(join(REPO_ROOT, 'setup.d/10-skills.sh'), 'utf8');
+    expect(
+      /^if \[ "\$\{PROFILE:-core\}" = "factory" \] \|\| \[ -n "\$\{WITH_AIF_SUITE:-\}" \]; then$/m.test(
+        ten,
+      ),
+      'the factory roster gate (10-skills.sh:179) must exist — a moved or reshaped gate reds this arm',
+    ).toBe(true);
+    expect(
+      /^if \[ "\$\{PROFILE:-core\}" = "env" \] \|\| \[ "\$\{PROFILE:-core\}" = "factory" \] \|\| \[ -n "\$\{WITH_AIF_SUITE:-\}" \]; then$/m.test(
+        ten,
+      ),
+      'the handoff-pair gate (10-skills.sh:457) must exist — a moved or reshaped gate reds this arm',
+    ).toBe(true);
+  });
+
+  it('DOCS001 R1: a fingerprint-less fixture degrades the gated members to tier-only / lane-presence fallback, never invented stacks', async () => {
+    const g = await gen();
+    const root = fixtureRoot('docs001-r1');
+    scaffold(root);
+    mkdirSync(join(root, 'skills/harvest'), { recursive: true });
+    writeFileSync(
+      join(root, 'skills/harvest/SKILL.md'),
+      '---\nname: harvest\ndescription: Harvest a finished task branch into a PR.\n---\n# harvest\n@harness-posture: portable\n',
+    );
+    writeFileSync(
+      join(root, '.claude/hooks/precompact-residue.sh'),
+      '#!/usr/bin/env bash\n# precompact-residue.sh — writes the session-residue note before compaction\n# @cc-only-rationale\n',
+    );
+    const families = {
+      B: (await g.buildFamily(root, 'B')) as Array<{
+        name: string;
+        shipsTo: { tier: string; stacks?: string[]; absent?: string };
+      }>,
+      D: (await g.buildFamily(root, 'D')) as Array<{
+        name: string;
+        shipsTo: { tier: string; stacks?: string[]; absent?: string };
+      }>,
+    };
+    const harvest = families.B.find((m) => m.name === 'harvest')!;
+    // No fingerprint on a fixture proves stack coverage, so the source-proven tier ships
+    // WITHOUT a stacks list (derivedPlan: tier-only is supported when coverage is unproven).
+    expect(harvest.shipsTo).toEqual({ tier: 'factory' });
+    const residue = families.D.find((m) => m.name === 'precompact-residue')!;
+    // The D pair is NOT in the conditional table: on a witness-less fixture it falls back to
+    // lane presence, whose honest answer is the no-lane token — never a made-up stacks list.
+    expect(residue.shipsTo).toEqual({ tier: 'framework', absent: 'no-lane' });
   });
 
   afterAll(() => {

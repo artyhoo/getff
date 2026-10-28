@@ -134,9 +134,13 @@ can see it.
   That protects your edits, and it also means you keep old copies. To take the current
   version of a shipped file, add `--refresh`. Read the dry-run plan first: a refresh
   replaces shipped files.
-- **You run the task runtime too.** Use `--profile factory`. It adds five more skills
-  that drive that runtime. They are of no use without it.
+- **You run the task runtime too.** Use `--profile factory`. It adds six more skills
+  that drive that runtime (`dispatcher`, `aif-doctor`, `harvest`, `story`,
+  `claude-glm-executor-handoff`, `intent`). They are of no use without it.
 - **A fresh project.** You do not need two installs. A non-interactive install with no
   `--profile` flag already gives you `env`.
-- **The `cargo` and `go` lanes.** These installs ship no skills at any depth yet, so
-  this guide does not apply to them.
+- **The `cargo` and `go` lanes.** They deliver a curated four-skill surface — `getff`,
+  `tool-bootstrapping`, `rule-research`, `rule-tests` — plus two rule agents, but never
+  the env roster this guide adds: the dispatcher exits each toolchain lane before the
+  skills layer (`install.sh:733-745`), whatever profile flag you pass. `/rule-research`
+  and `/rule-tests` are there; `/arch` and the other four are not.
