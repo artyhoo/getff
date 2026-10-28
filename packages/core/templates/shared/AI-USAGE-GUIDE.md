@@ -222,6 +222,8 @@ Cargo installs configuration, the `.getff/Cargo.lints.toml` severity projection 
 
 ```bash
 set -e
+test -f AGENTS.md
+test -f .ai-factory/DESCRIPTION.md
 test -f .github/workflows/getff-cargo.yml
 clippy_config_dir=$(mktemp -d)
 trap 'rm -rf "$clippy_config_dir"' EXIT
@@ -241,6 +243,8 @@ Go installs configuration, a workflow and a rules lock, plus the same common age
 
 ```bash
 set -e
+test -f AGENTS.md
+test -f .ai-factory/DESCRIPTION.md
 test -f .github/workflows/getff-go.yml
 getff_go_config=.golangci.yml
 [ ! -f getff-golangci.yml ] || getff_go_config=getff-golangci.yml

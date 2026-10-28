@@ -220,6 +220,7 @@ run_install() {
       ${envs[@]+"${envs[@]}"} \
       bash "$REPO_ROOT/install.sh" "$@" -y --force < /dev/null ) > "$ST/install.log" 2>&1
   RC=$?
+  [ "$RC" -eq 0 ] || bad "$label: install.sh exited with rc=$RC"
   SET="$fixture/.claude/settings.json"
 }
 
