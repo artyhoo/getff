@@ -81,6 +81,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .agents/proced
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .agents/procedures/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .agents/procedures/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .agents/procedures/docs-author/references/terms.md
+45a17d7f4d1a3807cac4b0c360cf9421aa418f2c31c9fd55acb8cc6329908a2c  .agents/procedures/getff-experience/SKILL.md
 d05a92207cb2964450d37e39e286efb85973a3fbd621d30309c34ef768f449cd  .agents/procedures/getff/SKILL.md
 52966c3cd626e24279b69e9dab6559b3ed133d281a601b73b08902b389917978  .agents/procedures/getff/references/ai-traps.md
 b2852034d5d4f9b366a5349b264e734460ba00e45880e00937f8421283da277c  .agents/procedures/getff/references/base-core.md
@@ -360,6 +361,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .claude/skills/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
+45a17d7f4d1a3807cac4b0c360cf9421aa418f2c31c9fd55acb8cc6329908a2c  .claude/skills/getff-experience/SKILL.md
 4bf4d6a319a5eca1aac96415045b52f91429dc168743d0881e7b816a74494bdf  .claude/skills/harvest/SKILL.md
 b502f84335c8d724bd57542600279b2176bcf4f577ee7d83a93ef8a7a3362f71  .claude/skills/harvest/references/egress.md
 157db35de90e8620471918e4fd3cde68248e2e5d2452857ebd7566bb7ca5a6a9  .claude/skills/harvest/references/fidelity.md
@@ -1091,7 +1093,7 @@ a3c3a7e859fcfd9be9c207b5cba8211a05f9c9401c23721606ef4da9e65ac157  packages/core/
 8ea7b1b03dd99907f781695b7fa01a578cd6e84421b6793d1293742cfedb1960  packages/core/principles/46-git-env-inheritance-safety.ts
 7879aedeaa9bff07903b2dba91b0fdc42e26ec3182ca6e71d31678079211c8d1  packages/core/principles/46-reference-generator-arms.test.ts
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
-0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
+e279747bf577373a87755ed5daa80b8c4e83028c206adb6766ca5fe05300b161  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
 bfaa8855dd9c6d4131efea39fcef551e9bebdd98103906c57057378411bf5645  packages/core/principles/49-executor-tier-parity.test.ts
 cf9cd533aa3c34dd328c380375d1b60cbf71e489b5312e0a8dd25cec99b3deb7  packages/core/principles/50-cold-seat-inputs-ref.test.ts
@@ -1628,7 +1630,7 @@ b4acc81a700ed0498d96f96a1050ac921369cdeb4d5dc7c5f0262860327bc465  setup.d/eslint
 8ca5a29376206ab1a171157c45b0e7511329f2e755df862f0e3c5e419fe5b2f3  setup.d/portable-bindings.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
-aa4b2dd59e7906752412115aa1015ee986986445b71e2cc08752a236edf55f56  setup.d/ships.manifest
+2aadab0171fd308f979d2c21847b453076d7c8e71b173376c5636d05e0a5a95c  setup.d/ships.manifest
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 8a5df277df2e008562692ed217ae59c21ebb48cbe4792e2f1cc17dd1913aa891  skills/getff/SKILL.md
 1ead838276294a19090b9a19d726ccf2681961e91d14e485457142f2336123f7  skills/getff/references/ai-traps.md
