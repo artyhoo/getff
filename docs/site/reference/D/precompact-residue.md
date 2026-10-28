@@ -35,9 +35,9 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 |---|---|
 | name | `precompact-residue` |
 | kind | hook |
-| ships-to | not installed on any lane (no-lane) |
+| ships-to | framework: react-native, react-next, react-spa, ts-server |
 | description | PreCompact hook — writes the session-residue note before compaction |
-| source | `.claude/hooks/precompact-residue.sh:2` |
+| source | `.agents/hooks/precompact-residue.sh:2` |
 | event | `["PreCompact"]` |
 | matcher | `[]` |
 | delivery | `["@dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)","@cc-only-rationale"]` |

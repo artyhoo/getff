@@ -3,6 +3,7 @@ title: Quick start for Go
 description: Install getff into a Go module, watch its one shipped ban fire on your own code, and see what the installer says when the Go tools are missing.
 kind: face-page
 sources:
+  - AGENTS.md
   - docs/site/face-facts.json
   - docs/site/installation.md
   - docs/site/quickstart-python.md
@@ -48,12 +49,19 @@ cd /your/project
 bash /tmp/rt/setup -y go
 ```
 
-The installer writes two things: `.golangci.yml` with the ban, and the CI workflow
-`.github/workflows/getff-go.yml`. If you already have a `.golangci.yml`, it does not
-touch yours. It writes `getff-golangci.yml` next to it. The getff CI workflow runs the ban
-from that file, but a local `golangci-lint run` still reads only yours, and the installer
-lists that in its NOT-wired summary. That is what "inert until you opt in" means in the
-table above.
+The installer writes two Go enforcement files: `.golangci.yml` with the ban, and the CI
+workflow `.github/workflows/getff-go.yml`. If you already have a `.golangci.yml`, it does
+not touch yours. It writes `getff-golangci.yml` next to it. The getff CI workflow runs the
+ban from that file, but a local `golangci-lint run` still reads only yours, and the
+installer lists that in its NOT-wired summary. That is what "inert until you opt in" means
+in the table above.
+
+On top of those files, the lane delivers the agent surface every lane gets: fenced
+`AGENTS.md`, the `.ai-factory/` passport folder (including `AI-USAGE-GUIDE.md`), four
+generic [skills](terms.md#skill) (`getff`, `tool-bootstrapping`, `rule-research`,
+`rule-tests`), two rule agents, project hooks and a project `.mcp.json` (context7 +
+deepwiki). None of that is Go-specific; the Go-specific part is the config and workflow
+above.
 
 Then the installer proves the ban works. In a temporary folder it plants one bad file and
 one good file, and runs the linter on both. The installer prints more than this. These
@@ -128,11 +136,14 @@ read the last lines and do not trust the exit code alone.
 
 ## Honest limits
 
-- **One rule.** The Go lane ships a single ban. There are no getff
-  [skills](terms.md#skill) for Go, and rule generation is not built for it yet.
+- **One Go-specific rule.** The Go lane ships a single ban, and rule generation for Go is
+  not built yet. The four generic [skills](terms.md#skill) named above do ship on this
+  lane — they are lane-agnostic, not Go-aware.
 - **The linter version is pinned.** The config is written for `golangci-lint` 1.55.2. A
   newer major version reads a different config format.
-- **`-y` installs more than the rule.** With `-y` the installer also adds its optional
-  companion plugins for your agent without asking. Leave `-y` out to be asked about each.
+- **`-y` stays inside this project.** With `-y` the installer answers yes to project-local
+  prompts only. Machine-global companions (user-scope plugins, user-scope MCP servers) are
+  skipped and listed as not wired; they need an explicit `--global` consent. Leave `-y` out
+  to be asked about each.
 
 Next: [Installation](installation.md) covers flags, updating, and how to take getff out.
