@@ -176,11 +176,15 @@ function ok(value) {
  * against, so a receipt without a candidate revision is not a record this module re-reads.
  *
  * Fidelity-r1 F-1 fields, additive-optional (tolerant read, strict write — the engine
- * always writes both): `verified` marks that the delivery was backed by an INDEPENDENT
- * verifiable fact (a content reference resolved against the subsystem's own artifacts),
- * not merely a caller-supplied receipt string; `evidence` is that content reference. A
- * delivery recorded before this repair carries neither field and reads as UNVERIFIED —
- * the absence of proof is not proof of delivery.
+ * always writes both). Since fidelity-r2 F-1, `verified: true` is a LEGACY value only:
+ * it was stamped when a caller-supplied content reference was (wrongly) treated as an
+ * independent fact, and the engine now writes `verified: false` on every delivery — no
+ * stage-A input establishes the delivery FACT (an evidence reference is caller-chosen
+ * bytes: file integrity, not a read of the destination subsystem). The durable field is
+ * preserved on records that carry it (no migration), but no completion door or route
+ * honors it; `evidence` remains the recorded claim reference. A delivery recorded
+ * before either repair carries neither field and reads as UNVERIFIED — the absence of
+ * proof is not proof of delivery.
  */
 function validateDelivery(delivery, label = 'delivery') {
   for (const field of ['receipt', 'destination', 'at']) {
@@ -370,9 +374,11 @@ export function validateRecord(value) {
       return reject('record_invalid', `pendingIntent.state must be one of ${INTENT_STATES.join('|')}`);
     }
     if (!isPlainObject(pi.bound)) return reject('record_invalid', 'pendingIntent.bound must be an object');
-    // Fidelity-r1 F-1: the verified content reference a resolution was released WITH.
-    // Additive-optional (pre-repair resolutions carry none and stay valid); when present
-    // it must be a real reference shape — prose alone was the F-1 nonconformance.
+    // Fidelity-r1 F-1: the content reference a resolution was released WITH. LEGACY since
+    // fidelity-r2 F-1 — no stage-A path resolves an intent any more (a caller-supplied
+    // reference is claim data, not a fact about the referenced subsystem), so new records
+    // only ever carry it on pre-repair resolutions; when present it must still be a real
+    // reference shape. Additive-optional; tolerant read, strict write.
     if (pi.evidenceRef !== undefined && pi.evidenceRef !== null && !isContentRefShape(pi.evidenceRef)) {
       return reject('record_invalid', 'pendingIntent.evidenceRef must be a {path, sha256} content reference or null');
     }
@@ -452,10 +458,16 @@ export function hasLiveWorker(record) {
 }
 
 /**
- * Fidelity-r1 F-2 (ack door): has the bound AIF task's cessation been ESTABLISHED — a
- * verified evidence reference stamped by the engine's establishment boundary — rather
- * than merely asserted? `undefined` fields (records written before this fact existed)
- * read as UNCONFIRMED, never confirmed.
+ * Fidelity-r1 F-2 (ack door): has the bound AIF task's cessation been ESTABLISHED rather
+ * than merely asserted? Since fidelity-r2 F-2 the durable stamp is LEGACY-ONLY: it was
+ * written when a caller-supplied, digest-verifying evidence reference was (wrongly)
+ * accepted as the subsystem's actual stop, and no stage-A path writes it any more (no
+ * stage-A input establishes an external fact — establishment needs an actual independent
+ * read of the referenced subsystem, a stage-B capability). Pre-repair records keep their
+ * durable fields (no migration), but the doors/routes must not honor the stamp as a
+ * current fact: the engine's ack gate re-checks nothing else — it treats every
+ * non-worker arm as unconfirmed precisely because this stamp no longer has a writer.
+ * `undefined`/null fields read as UNCONFIRMED, never confirmed.
  */
 function aifCessationConfirmed(aif) {
   return aif.cessationConfirmedAt !== null
@@ -465,14 +477,16 @@ function aifCessationConfirmed(aif) {
 
 /**
  * Fidelity-r1 F-2: the NON-WORKER external-work arms — referenced work whose cessation
- * the local caller CANNOT assert. A bound AIF task keeps this true until its cessation
- * is established through the verified evidence boundary (aifCessationConfirmed); a
- * pendingIntent settles through its own state change (resolution, itself evidence-gated
- * since F-1); native attempts keep their arm unconfirmed until stage B defines their
- * lifecycle (they are never written in A1, so this only ever tightens an unreachable
- * shape). These are exactly the arms a bare `ack-cessation` must NOT settle: the ack is
- * the WORKER's report about the directly-bound local worker — extending it to referenced
- * external subsystems on the caller's word alone would be a synthetic acknowledgment.
+ * the local caller CANNOT assert. A bound AIF task keeps this true (its legacy cessation
+ * stamp has no stage-A writer since fidelity-r2 F-2, so the arm never resolves in stage
+ * A); a pendingIntent never settles (intent resolution needs the same independent read
+ * since fidelity-r2 F-1); native attempts keep their arm unconfirmed until stage B
+ * defines their lifecycle (they are never written in A1, so this only ever tightens an
+ * unreachable shape). These are exactly the arms a bare `ack-cessation` must NOT settle:
+ * the ack is the WORKER's report about the directly-bound local worker — extending it to
+ * referenced external subsystems on the caller's word alone would be a synthetic
+ * acknowledgment. In stage A this function therefore returns true for every record with
+ * referenced external work; stage B's live readers are the boundary that may clear it.
  */
 export function hasUnconfirmedNonWorkerExternalWork(record) {
   if (record.aif !== null && isNonEmptyString(record.aif.taskId) && !aifCessationConfirmed(record.aif)) return true;
@@ -513,16 +527,19 @@ export function applyControlTransition(record, { kind, actor, reason, now }) {
   if (to === undefined) {
     return reject('illegal_control_transition', `${kind} is not legal from ${record.controlState}`);
   }
-  // Fidelity-r1 F-2 (ack door): an acknowledgement settles ONLY what it can actually
-  // attest. The worker arm settles on the worker's own report (stamped below); the
-  // non-worker arms — a bound AIF task, recorded native attempts, an unresolved effect —
-  // are referenced external work whose stop this bare input cannot prove, so settling
-  // them on it would persist a fake stopped disposition. They must be established FIRST
-  // (engine boundary: a verified cessation-evidence reference stamped onto the record;
-  // a pendingIntent settles by resolving under its own evidence gate). Until then the
-  // pending state is retained with the persisted cessation_unconfirmed hold.
+  // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 (ack door): an acknowledgement settles
+  // ONLY what it can actually attest. The worker arm settles on the worker's own report
+  // (stamped below); the non-worker arms — a bound AIF task, recorded native attempts,
+  // an unresolved effect — are referenced external work whose stop NO stage-A input can
+  // prove (a caller assertion or caller-chosen bytes is not the subsystem's state), so
+  // settling them on it would persist a fake stopped disposition. They are established
+  // only by an actual independent read of the referenced subsystem — a stage-B
+  // live-read capability; the engine refuses the ack before reaching here, and this
+  // record-layer gate is the last-resort defense for any arm that path does not cover.
+  // Until that reader exists the pending state is retained with the persisted
+  // cessation_unconfirmed hold.
   if (kind === 'ack-cessation' && hasUnconfirmedNonWorkerExternalWork(record)) {
-    return reject('cessation_unconfirmed', `a bare acknowledgement cannot settle referenced external work (${[record.aif !== null && isNonEmptyString(record.aif.taskId) ? 'bound aif task' : null, Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0 ? 'native attempts' : null, record.pendingIntent !== null && record.pendingIntent.state !== 'resolved' ? 'unresolved effect' : null].filter(Boolean).join(', ') || 'unconfirmed external work'}) — establish cessation through the verified evidence boundary or the arm's own resolution first; ${record.controlState} is retained and admission stays blocked`);
+    return reject('cessation_unconfirmed', `a bare acknowledgement cannot settle referenced external work (${[record.aif !== null && isNonEmptyString(record.aif.taskId) ? 'bound aif task' : null, Array.isArray(record.nativeAttempts) && record.nativeAttempts.length > 0 ? 'native attempts' : null, record.pendingIntent !== null && record.pendingIntent.state !== 'resolved' ? 'unresolved effect' : null].filter(Boolean).join(', ') || 'unconfirmed external work'}) — the stop is established only by an actual independent read of the referenced subsystem (a stage-B capability, fidelity-r2 F-2); ${record.controlState} is retained and admission stays blocked`);
   }
   const next = structuredClone(record);
   next.controlState = to;

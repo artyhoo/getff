@@ -21,9 +21,9 @@
  *
  * Test seams (test-only; never exercised by production callers):
  *   --test-crash-after prewrite|intent|commit  — real self-SIGKILL at the named
- *       durable-write window (the killSelf sites: engine.mjs:613, 616 in
- *       rejectAfterPersist and engine.mjs:974, 977 in the main persist; the seam
- *       itself engine.mjs:138).
+ *       durable-write window (the killSelf sites: engine.mjs:680, 683 in
+ *       rejectAfterPersist and engine.mjs:1285, 1288 in the main persist; the seam
+ *       itself engine.mjs:202).
  *   --test-hold-before-bind <waitfile>         — poll until <waitfile> exists BEFORE
  *       acquiring the bind lock, so a test can stage a competing acquirer inside the
  *       contention window.
@@ -52,15 +52,17 @@ const VALUE_FLAGS = new Set([
   'resolve-intent', 'resolution', 'evidence', 'transfer-custody', 'control-reason',
   'delivery-receipt', 'grant', 'test-crash-after', 'test-hold-before-bind', 'test-hold-lock-ms',
   'lock-retry-budget-ms', 'lock-retry-delay-ms',
-  // Fidelity-r1 F-1 evidence flags: content references (path + sha256) that the engine
-  // verifies with the intent helper's resolveContentRef. Paths resolve against the
+  // Fidelity-r1 F-1 evidence flags: content references (path + sha256) the engine
+  // AUTHENTICATES with the intent helper's resolveContentRef and records as claim data
+  // (fidelity-r2 F-1: they establish no subsystem fact). Paths resolve against the
   // stage artifact root / repository root, so they are forwarded VERBATIM (never
   // resolve()d against this process' CWD).
   'evidence-ref', 'evidence-sha256', 'delivery-evidence-ref', 'delivery-evidence-sha256',
-  // Fidelity-r1 F-2 (ack door): the verified cessation-evidence reference that
-  // establishes a referenced external work's stop (a bare acknowledgement is a caller
-  // assertion; the hold recovery names these flags). The --ack-cessation control kind
-  // itself is a boolean flag (handled beside --mark-complete), not a value flag.
+  // Fidelity-r1 F-2 (ack door): the cessation-evidence reference, authenticated and
+  // recorded as claim data before the ack is refused (fidelity-r2 F-2: it establishes
+  // no referenced work's stop — the ack settles the local worker arm only). The
+  // --ack-cessation control kind itself is a boolean flag (handled beside
+  // --mark-complete), not a value flag.
   'cessation-evidence-ref', 'cessation-evidence-sha256',
 ]);
 
@@ -74,11 +76,16 @@ reconcile: [--observation <json>] [--request-action <action>] [--resolve-intent 
         [--transfer-custody <session>] [--candidate-revision <n>] [--candidate-sha256 <hex>]
         [--delivery-receipt <ref> [--delivery-evidence-ref <path> --delivery-evidence-sha256 <hex>]] [--mark-complete] [--control-reason <text>] [--actor <id>]
 evidence: --evidence-ref/--delivery-evidence-ref take a path relative to the stage artifact root or the repository root plus the
-        sha256 of the artifact's bytes; the engine verifies them with the intent helper's resolveContentRef. Prose (--evidence) and
-        bare receipts are recorded as caller claims only — uncertainty release and both completion doors require verified evidence.
-        (fidelity-r1 F-2) reconcile --ack-cessation [--control-reason <text>] [--cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>]:
-        a bare ack settles only the local worker's cessation; a bound AIF task / native attempts / an unresolved effect need verified
-        evidence (--cessation-evidence-ref, same root rules), else the pending state is retained with a cessation_unconfirmed hold.
+        sha256 of the artifact's bytes; the engine AUTHENTICATES them (bytes exist under a root and match the digest) and records
+        them as claim data. (fidelity-r2 F-1) No stage-A input establishes an external-subsystem FACT: neither the prose (--evidence)
+        nor a caller-supplied artifact resolves an intent or opens either completion door — establishing the outcome/delivery fact
+        needs an actual independent read of the referenced subsystem (a stage-B live-read capability), so the actionable prerequisite
+        HOLD stays open and is the honest state.
+        (fidelity-r1 F-2, narrowed by fidelity-r2 F-2) reconcile --ack-cessation [--control-reason <text>] [--cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>]:
+        a bare ack settles only the local worker's cessation (the ack IS the worker-side input); a bound AIF task / native attempts /
+        an unresolved effect are settled by no stage-A input — a cited artifact authenticates but is file integrity, not the referenced
+        subsystem's stop — so the ack is refused and the pending state is retained with a cessation_unconfirmed hold until stage B's
+        live reader exists.
 pause|cancel: [--control-reason <text>]
 resume: always unsupported_pending_prerequisite in stage A (a --grant path does not clear it)
 test seams: --test-crash-after prewrite|intent|commit | --test-hold-before-bind <waitfile> | --test-hold-lock-ms <ms>`;
@@ -167,9 +174,11 @@ function buildReconcileInput(opts, verb) {
     if (opts.resolution === undefined || opts.evidence === undefined) {
       return { ok: false, code: 'invalid_request', reason: '--resolve-intent requires --resolution applied|not-applied|abandoned and --evidence <text>' };
     }
-    // Fidelity-r1 F-1: the narrative (--evidence) is a caller claim; the engine releases
-    // the uncertainty only on a verified content reference. One half of the ref pair is
-    // a typo-shaped invocation — reject it here rather than let the engine guess.
+    // Fidelity-r1 F-1: the narrative (--evidence) is a caller claim; since fidelity-r2
+    // F-1 a supplied content reference is AUTHENTICATED and recorded as claim data but
+    // releases nothing (no stage-A input establishes the subsystem fact). One half of
+    // the ref pair is a typo-shaped invocation — reject it here rather than let the
+    // engine guess.
     if ((opts['evidence-ref'] === undefined) !== (opts['evidence-sha256'] === undefined)) {
       return { ok: false, code: 'invalid_request', reason: '--evidence-ref and --evidence-sha256 must be given together (a content reference is path + digest)' };
     }
@@ -188,17 +197,20 @@ function buildReconcileInput(opts, verb) {
     };
   }
   if (opts['delivery-receipt'] !== undefined) input.deliveryReceipt = opts['delivery-receipt'];
-  // Fidelity-r1 F-1: the delivery's evidence reference rides WITH the receipt; the engine
-  // records the receipt verified when the reference verifies, unverified (doors closed)
-  // otherwise. One half of the pair is a typo-shaped invocation — reject it here.
+  // Fidelity-r1 F-1: the delivery's evidence reference rides WITH the receipt; since
+  // fidelity-r2 F-1 the engine authenticates it and records it as claim data on an
+  // UNVERIFIED delivery (doors stay closed regardless — no stage-A input establishes the
+  // delivery fact). One half of the pair is a typo-shaped invocation — reject it here.
   if ((opts['delivery-evidence-ref'] === undefined) !== (opts['delivery-evidence-sha256'] === undefined)) {
     return { ok: false, code: 'invalid_request', reason: '--delivery-evidence-ref and --delivery-evidence-sha256 must be given together (a content reference is path + digest)' };
   }
   if (opts['delivery-evidence-ref'] !== undefined) input.deliveryEvidence = { path: opts['delivery-evidence-ref'], sha256: opts['delivery-evidence-sha256'] };
   // Fidelity-r1 F-2 (ack door): `reconcile --ack-cessation` reaches the establishment
-  // boundary — a bare ack settles the worker arm only; referenced external work needs
-  // the evidence pair. A half-pair is a typo-shaped invocation, rejected here; evidence
-  // on a non-ack control kind is rejected so it can never be silently ignored.
+  // boundary — a bare ack settles the worker arm only; referenced external work is
+  // settled by no stage-A input (a supplied evidence pair is authenticated, then the
+  // ack is still refused with the pending state retained — fidelity-r2 F-2). A half-pair
+  // is a typo-shaped invocation, rejected here; evidence on a non-ack control kind is
+  // rejected so it can never be silently ignored.
   if ((opts['cessation-evidence-ref'] === undefined) !== (opts['cessation-evidence-sha256'] === undefined)) {
     return { ok: false, code: 'invalid_request', reason: '--cessation-evidence-ref and --cessation-evidence-sha256 must be given together (a content reference is path + digest)' };
   }

@@ -89,12 +89,19 @@ function evidenceRoots(next, input) {
 }
 
 /**
- * Fidelity-r1 F-1 — verify a caller-supplied evidence reference NOW, at the boundary that
- * releases uncertainty or completes the binding. The mechanism is the intent helper's own
- * `resolveContentRef` (path + sha256, containment-checked per root, digest-checked on the
- * real bytes) — the ecosystem's existing content-verification primitive, NOT a new issuer,
- * callback format or trust service. A reference that does not resolve to bytes matching
- * its digest is not a fact; callers fail closed on the structured result.
+ * Fidelity-r1 F-1, narrowed by fidelity-r2 F-1 — AUTHENTICATE a caller-supplied evidence
+ * reference: does the named path, contained under one of the roots, hold bytes matching
+ * its digest? The mechanism is the intent helper's own `resolveContentRef` (path + sha256,
+ * containment-checked per root, digest-checked on the real bytes) — the ecosystem's
+ * existing content-verification primitive, NOT a new issuer, callback format or trust
+ * service. An `ok` result establishes ARTIFACT INTEGRITY and nothing more: the caller
+ * chose both the path and the bytes, so a match proves the bytes exist — never which
+ * entity the artifact is about, what operation/outcome it records, or that it is current
+ * for this binding's candidate/custody/destination. No establishment boundary in this
+ * engine may treat `ok` as a subsystem fact: establishing one requires an actual
+ * independent read of the referenced subsystem (a stage-B live-read capability), so every
+ * caller here uses this only to authenticate a cited claim artifact, never to release an
+ * uncertainty, mark a delivery verified or confirm a cessation.
  */
 function verifyEvidenceRef(candidate, roots) {
   if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)
@@ -421,16 +428,16 @@ function routeFromRecord(record) {
         : 'task bound; awaiting first observation',
     };
   }
-  if (last.kind === 'done' && record.delivery !== null && record.delivery.candidateRevision === record.candidate.revision && record.delivery.verified === true) {
-    // R2-05: the delivery must be current for THIS candidate — a receipt bound to a
-    // superseded candidate is retained history, not current acceptance authority.
-    // Fidelity-r1 F-1: it must also be VERIFIED (both completion doors re-check the
-    // evidence at the boundary — this routing answer cannot drift from them). An
-    // unverified bare receipt routes 'review', not 'complete'.
-    return { route: 'complete', routeReason: 'delivery receipt recorded and verified against independent evidence' };
-  }
   if (last.kind === 'done') {
-    return { route: 'review', routeReason: 'worker reported done; review before completion' };
+    // Fidelity-r1 F-1, narrowed by fidelity-r2 F-1: stage A NEVER routes 'complete' —
+    // no stage-A input establishes the delivery fact (a receipt is a caller reference,
+    // an evidence artifact is file integrity, and the pre-repair `verified: true` stamp
+    // asserted the withdrawn bytes-check equivalence), so a routing answer of
+    // 'complete' would drift from the completion doors, which now refuse every current
+    // delivery (completionAdmission). A1-CODE-02: routing and doors are ONE decision —
+    // the done report routes 'review' and completion awaits the stage-B establishment
+    // capability, the same prerequisite the doors name.
+    return { route: 'review', routeReason: 'worker reported done; review before completion (completion awaits the stage-B establishment capability — no stage-A input establishes the delivery fact)' };
   }
   return { route: 'hold', routeReason: `worker_report_${last.kind}` };
 }
@@ -504,7 +511,7 @@ export async function reconcile(input) {
       const held = addHold(next, {
         code: HISTORY_UNCERTAIN_HOLD_CODE,
         reason: `action ${next.pendingIntent.actionId} (${next.pendingIntent.action}) was persisted at ${next.pendingIntent.recordedAt} but its external effect is unverified — outcome is unknown, not successful`,
-        recoveryAction: `determine whether action ${next.pendingIntent.actionId} took effect in the external system, then re-run with --resolve-intent ${next.pendingIntent.actionId} --resolution applied|not-applied --evidence <what was found> --evidence-ref <path> --evidence-sha256 <hex> citing an artifact that substantiates the finding (fidelity-r1 F-1: prose alone never releases the uncertainty)`,
+        recoveryAction: `action ${next.pendingIntent.actionId}'s outcome in the referenced subsystem is established only by an actual independent read of that subsystem — a stage-B live-read capability no stage-A input reaches (fidelity-r2 F-1: prose, a caller-supplied file, its digest or a caller-authored JSON is file integrity, not a fact about the referenced subsystem) — so this hold is the honest prerequisite until that reader exists; reporting, routing and holds keep working meanwhile`,
         now,
       });
       if (!held.ok) return held;
@@ -675,7 +682,13 @@ export async function reconcile(input) {
         if (!written.ok) return written;
         if (input.testCrashAfter === 'commit') killSelf();
       }
-      return reject(code, reason);
+      // The refusal response carries the working copy's CURRENT controlState: a door or
+      // admission refusal is a gate on an action, not a control transition — the
+      // binding's state survives the refusal, and both callers (CLI JSON and library
+      // envelope) read it off the response without a second status round-trip.
+      // Additive over the bare {ok, code, reason} shape; no reader pins the refusal
+      // object's exact key set.
+      return { ...reject(code, reason), controlState: next.controlState };
     };
 
     // (4) Intent-before-effect — persist the intent BEFORE any effect could be attempted.
@@ -740,25 +753,32 @@ export async function reconcile(input) {
       if (typeof evidence !== 'string' || evidence.length < 20) return rejectAfterPersist('invalid_request', 'resolution evidence must be at least 20 characters describing what was actually found');
       if (next.pendingIntent === null || next.pendingIntent.state === 'resolved') return rejectAfterPersist('intent_missing', 'no unresolved intent to resolve');
       if (next.pendingIntent.actionId !== actionId) return rejectAfterPersist('intent_id_mismatch', `open intent is ${next.pendingIntent.actionId}, got ${actionId}`);
-      // Fidelity-r1 F-1: the narrative is the OPERATOR'S account, not the fact. Releasing
-      // the unknown-effect uncertainty requires an evidence reference that VERIFIES at
-      // this boundary — the same resolveContentRef mechanism the completion doors use —
-      // so the release is backed by something a later reconcile can re-check. A bare
-      // 20-character prose never released anything but the appearance of certainty; a
-      // caller unable to cite an artifact keeps the uncertainty (the uncertain_owner hold
-      // above stays open with its recovery action), which is the honest state. No trusted
-      // issuer/callback format is invented: the reference grammar is the ecosystem's own
-      // ContentRef and the resolution is read-only.
-      if (input.resolveIntent.evidenceRef === undefined || input.resolveIntent.evidenceRef === null) {
-        return rejectAfterPersist('intent_resolution_unverified', `intent ${actionId} is NOT resolved: releasing an unknown effect requires a verifiable evidence reference (--evidence-ref <path> --evidence-sha256 <hex>, resolved against the stage artifact root or the repository root) alongside the narrative — prose alone is an assertion, not an established fact; if no artifact can substantiate the outcome, leave the intent unresolved (the ${HISTORY_UNCERTAIN_HOLD_CODE} hold is the honest state)`);
+      // Fidelity-r1 F-1 (prose never released the uncertainty) narrowed by fidelity-r2
+      // F-1: NEITHER a narrative NOR a caller-supplied artifact reference establishes the
+      // referenced subsystem's outcome for this intent. A reference that authenticates
+      // proves only that caller-chosen bytes exist under a root with a matching digest —
+      // it carries no independent statement of the action's entity, operation/outcome or
+      // current applicability (the fidelity-r2 harness resolved a work intent with an
+      // unrelated caller-created file, and with the authentic-but-irrelevant PRD approval,
+      // at its correct digests). A1 also has no reader of its own for the referenced
+      // subsystem — it never attempts the effect (stage boundary, module docstring) and
+      // stage B owns live reads — so the release path does not exist in this stage: every
+      // resolution attempt is refused, the intent stays unresolved, and the
+      // uncertain_owner hold above remains the explicit actionable prerequisite (the
+      // fidelity-r1 F-1 falsifier's own alternative: «held release/completion pending
+      // that capability»). A supplied reference is still AUTHENTICATED first — a citation
+      // that does not even resolve to its digest is reported as such — but authentication
+      // is persisted nowhere: there is no resolution to attach it to, and inventing an
+      // issuer/schema that caller-authored artifacts would satisfy is exactly the
+      // fabricated-proof path the constraint forbids.
+      if (input.resolveIntent.evidenceRef !== undefined && input.resolveIntent.evidenceRef !== null) {
+        const intentEvidence = verifyEvidenceRef(input.resolveIntent.evidenceRef, evidenceRoots(next, input));
+        if (!intentEvidence.ok) {
+          return rejectAfterPersist(intentEvidence.code, `intent ${actionId} is NOT resolved: the cited reference does not even authenticate (${intentEvidence.reason}) — and no citation could release the uncertainty anyway (fidelity-r2 F-1)`);
+        }
+        return rejectAfterPersist('intent_resolution_unverified', `intent ${actionId} is NOT resolved: the cited artifact (${input.resolveIntent.evidenceRef.path}) authenticates as bytes, but caller-chosen bytes are not a fact about the referenced subsystem (fidelity-r2 F-1) — the outcome is established only by an actual independent read of that subsystem, a stage-B live-read capability this helper does not have; the ${HISTORY_UNCERTAIN_HOLD_CODE} hold is the honest prerequisite and stays open`);
       }
-      const intentEvidence = verifyEvidenceRef(input.resolveIntent.evidenceRef, evidenceRoots(next, input));
-      if (!intentEvidence.ok) return rejectAfterPersist(intentEvidence.code, `intent ${actionId} is NOT resolved: ${intentEvidence.reason} — cite an existing artifact whose bytes hash to the given sha256; the uncertainty stands until one resolves`);
-      next.pendingIntent = { ...next.pendingIntent, state: 'resolved', resolution: `${resolution}: ${evidence}`, resolvedAt: now, evidenceRef: intentEvidence.ref };
-      const cleared = clearHolds(next, { code: HISTORY_UNCERTAIN_HOLD_CODE, now });
-      next = cleared.value;
-      mutated = true;
-      effects.push(`intent-resolved:${resolution}`);
+      return rejectAfterPersist('intent_resolution_unverified', `intent ${actionId} is NOT resolved: releasing an unknown effect requires an actual independent read of the referenced subsystem — a stage-B live-read capability (fidelity-r2 F-1: neither the narrative nor a caller-supplied file/digest establishes the outcome); the ${HISTORY_UNCERTAIN_HOLD_CODE} hold is the honest prerequisite and stays open`);
     }
 
     // (6) Delivery receipt — a FACT reference, recorded against the granted destination and
@@ -799,22 +819,29 @@ export async function reconcile(input) {
       const receipt = input.deliveryReceipt;
       if (typeof receipt !== 'string' || receipt.length === 0) return rejectAfterPersist('invalid_request', 'delivery-receipt must be a non-empty reference');
       if (next.deliverySeen === undefined || next.deliverySeen === null) next.deliverySeen = { bits: seenMaskEmptyHex() };
-      // Fidelity-r1 F-1: a delivery is recorded WITH its verification state. A bare
-      // receipt string is a caller CLAIM — recorded as an unverified fact that opens the
-      // persisted delivery_evidence_unverified hold (both completion doors stay closed
-      // for it); a receipt accompanied by an evidence reference that VERIFIES NOW (the
-      // intent helper's resolveContentRef, against the stage artifact root / repository
-      // root) is recorded verified and closes that hold. Evidence that FAILS
-      // verification rejects the pass — a receipt is never stamped verified on
-      // unverifiable evidence, and a failure never silently downgrades to bare.
+      // Fidelity-r1 F-1, narrowed by fidelity-r2 F-1: a delivery is recorded as an
+      // UNVERIFIED caller reference, always. The receipt string and any evidence
+      // reference are both caller CLAIMS about the referenced subsystem ("the current
+      // candidate reached destination D") — the engine authenticates a supplied evidence
+      // artifact (file integrity: bytes exist under a root and match their digest) and
+      // records the reference as claim data, but no stage-A input can establish the
+      // delivery FACT itself: neither the caller-chosen bytes nor their digest say
+      // anything about which entity the artifact is about, what operation it records, or
+      // that it is current for THIS candidate/destination (the fidelity-r2 harness
+      // completed both completion doors with an unrelated caller-created file at its
+      // correct digest). Establishing the fact requires an actual independent read of the
+      // destination — a stage-B live-read capability this helper does not have — so the
+      // persisted delivery_evidence_unverified hold is the honest, actionable
+      // prerequisite and stays open, and both completion doors stay closed. Evidence that
+      // FAILS authentication still rejects the pass (a citation that does not even
+      // resolve is reported as such), but success never upgrades the delivery to verified:
+      // there is no verified state left to stamp.
       const admitDelivery = (r) => {
         let evidence = null;
-        let verified = false;
         if (input.deliveryEvidence !== undefined && input.deliveryEvidence !== null) {
           const checked = verifyEvidenceRef(input.deliveryEvidence, evidenceRoots(next, input));
           if (!checked.ok) return checked;
           evidence = checked.ref;
-          verified = true;
         }
         // Fidelity-r1 F-3: freshness is decided against the fixed-size accumulator, not
         // only the retained history. Bits are never unset, so any bit still 0 PROVES the
@@ -827,7 +854,7 @@ export async function reconcile(input) {
           const held = addHold(next, {
             code: DELIVERY_IDENTITY_HOLD_CODE,
             reason: `delivery receipt ${r} matches the admitted-identity accumulator — it was admitted before (now evicted from the bounded history window of ${DELIVERY_HISTORY_MAX}) or collides with one that was; this binding cannot establish which, so it is not a fresh delivery`,
-            recoveryAction: `record the current candidate's delivery with its own distinct, freshly-issued receipt reference (plus evidence via --delivery-evidence-ref/--delivery-evidence-sha256); do not replay the old receipt string`,
+            recoveryAction: `record the current candidate's delivery with its own distinct, freshly-issued receipt reference (an evidence reference may accompany it as authenticated claim data — fidelity-r2 F-1: it does not verify the delivery); do not replay the old receipt string`,
             now,
           });
           if (!held.ok) return held;
@@ -851,47 +878,44 @@ export async function reconcile(input) {
         const clearedStale = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
         if (!clearedStale.ok) return clearedStale;
         next = clearedStale.value;
-        if (verified) {
-          const cleared = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
-          next = cleared.value;
-        } else {
-          const held = addHold(next, {
-            code: DELIVERY_EVIDENCE_HOLD_CODE,
-            reason: `delivery receipt ${r} is recorded as an UNVERIFIED caller reference — no independently verifiable evidence (a content reference resolving to bytes matching its digest) substantiates the delivery`,
-            recoveryAction: 're-present the delivery with its evidence: --delivery-evidence-ref <path> --delivery-evidence-sha256 <hex> resolved against the stage artifact root or the repository root; both completion doors stay closed while the current delivery is unverified',
-            now,
-          });
-          if (!held.ok) return held;
-          next = held.value;
-        }
+        // Fidelity-r2 F-1: the hold is UNCONDITIONAL for every admitted delivery — a
+        // supplied evidence reference does not close it (authentication is not
+        // establishment; see the comment above), so there is no verified arm to branch on.
+        const held = addHold(next, {
+          code: DELIVERY_EVIDENCE_HOLD_CODE,
+          reason: `delivery receipt ${r} is recorded as an UNVERIFIED caller reference — the cited artifact (${evidence === null ? 'none supplied' : evidence.path}) is file integrity at best, not a fact that the current candidate was delivered to ${next.grants.destination} (fidelity-r2 F-1)`,
+          recoveryAction: 'the delivery FACT is established only by an actual independent read of the destination subsystem — a stage-B live-read capability this helper does not have; until it exists, the persisted hold is the explicit prerequisite and both completion doors stay closed (a --delivery-evidence-ref is still accepted and recorded as an authenticated claim artifact)',
+          now,
+        });
+        if (!held.ok) return held;
+        next = held.value;
         next.delivery = {
           receipt: r,
           destination: next.grants.destination,
           at: now,
           actionId: next.pendingIntent && next.pendingIntent.state === 'resolved' ? next.pendingIntent.actionId : null,
           candidateRevision: next.candidate.revision,
-          verified,
+          verified: false,
           evidence,
         };
         mutated = true;
-        effects.push(verified ? 'delivery-recorded-verified' : 'delivery-recorded-unverified');
+        effects.push('delivery-recorded-unverified');
         return null;
       };
       if (next.delivery !== null && next.delivery.candidateRevision === next.candidate.revision) {
         if (next.delivery.receipt === receipt) {
-          // Fidelity-r1 F-1 recovery path: the duplicate ack UPGRADES a bare receipt to
-          // verified when independently verifiable evidence accompanies it — no
-          // supersede needed. Verification failure rejects and the receipt keeps its
-          // unverified state (never stamped verified on unverified evidence).
+          // Fidelity-r1 F-1 recovery path, narrowed by fidelity-r2 F-1: a duplicate ack
+          // with evidence still AUTHENTICATES the citation (a reference that does not
+          // even resolve is reported as such) but can no longer UPGRADE the delivery —
+          // there is no verified state for caller-chosen bytes to earn (establishment is
+          // a stage-B live read). A pre-r2 record whose delivery slot still carries a
+          // legacy `verified: true` stamp keeps its durable field (no migration), but no
+          // stage-A path writes it any more and no door honors it (completionAdmission).
           if (input.deliveryEvidence !== undefined && input.deliveryEvidence !== null) {
             const checked = verifyEvidenceRef(input.deliveryEvidence, evidenceRoots(next, input));
-            if (!checked.ok) return rejectAfterPersist(checked.code, `delivery evidence does not verify — the receipt stays unverified: ${checked.reason}`);
-            if (next.delivery.verified !== true) {
-              next.delivery = { ...next.delivery, verified: true, evidence: checked.ref };
-              const cleared = clearHolds(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, now });
-              next = cleared.value;
-              mutated = true;
-            }
+            if (!checked.ok) return rejectAfterPersist(checked.code, `the cited delivery evidence does not even authenticate: ${checked.reason}`);
+            next.delivery = { ...next.delivery, evidence: checked.ref };
+            mutated = true;
           }
           effects.push('delivery-duplicate-ack');
         } else {
@@ -943,8 +967,8 @@ export async function reconcile(input) {
           if (hasUnconfirmedNonWorkerExternalWork(next)) {
             const held = addHold(next, {
               code: CESSATION_HOLD_CODE,
-              reason: 'cessation of the referenced external work is NOT established — a composed transfer acknowledgement is a caller assertion, not a fact about the referenced subsystem',
-              recoveryAction: 'present verified cessation evidence through the control ack door (reconcile --ack-cessation --cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>), or let the arm settle through its own boundary; the pending state is the honest prerequisite until then',
+              reason: 'cessation of the referenced external work is NOT established — a composed transfer acknowledgement is a caller assertion, not a fact about the referenced subsystem (fidelity-r2 F-2: no stage-A input, evidence reference included, establishes the stop)',
+              recoveryAction: 'the stop is established only by an actual independent read of the referenced subsystem — a stage-B live-read capability this helper does not have; the pending state is the honest prerequisite until then (the local worker arm alone still settles on its own acknowledgement)',
               now,
             });
             if (!held.ok) return rejectAfterPersist(held.code, held.reason);
@@ -977,18 +1001,19 @@ export async function reconcile(input) {
           // there — the acknowledged pause is a fact about the OLD worker, but a paused
           // record admits no successor (the gate below), so no custody advance and no new
           // worker identity may ride on the ack.
-        } else {
-          // R4-02: a real cessation acknowledgement is a durable fact about the OLD
-          // worker on its own — mark it mutated immediately so rejectAfterPersist
-          // persists it even when successor admission is then refused (missing
-          // --repo-root / unresolvable home / authority hold), instead of the ack
-          // being silently dropped with the unchanged bytes. hasLiveWorker is false
-          // afterwards (cessationAckedAt non-null), so a later settled valid transfer
-          // reuses this ack instead of demanding it again. Stopping the old worker
-          // never required current authority; installing a successor still does.
-          next.worker.cessationAckedAt = now;
-          mutated = true;
         }
+        // fidelity-r2 F-2 (R4-02): on an ACTIVE binding the caller's
+        // `acknowledgeCessation` is an assertion about the old worker, collected only to
+        // open the `custody_transfer_blocked` gate above. The r1 shape stamped it onto
+        // the old worker HERE, before the succession gates — so a transfer refused for a
+        // missing authority source or an open authority hold still persisted a cessation
+        // "fact" created from the caller's word, and a later no-ack transfer reused that
+        // fabricated ack (hasLiveWorker went false on nothing). Post-repair the stamp is
+        // written NOWHERE on this arm: an admitted succession replaces the worker
+        // wholesale in the advance below (the old worker's field is gone either way), and
+        // a refused succession persists the refusal — never a cessation fact. A later
+        // valid transfer re-runs with its own explicit acknowledgeCessation; the gate
+        // above still demands it and the caller still owns the assertion.
       }
       // R2-02: a successor worker may be registered ONLY on an admitting record. A paused
       // (or pause-pending) binding must not gain a new worker identity or advance custody
@@ -1095,35 +1120,43 @@ export async function reconcile(input) {
         return rejectAfterPersist('action_not_granted', `completion requires the 'complete' action grant — [${next.grants.actions.join(', ')}] was fixed at init and no flag extends it; a delivery receipt records a fact, it does not authorize completion`);
       }
       if (next.pendingIntent !== null && next.pendingIntent.state !== 'resolved') {
-        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — completion would close the binding over an unverified external effect; resolve it (--resolve-intent ${next.pendingIntent.actionId}) before completing`);
+        return rejectAfterPersist('intent_outstanding', `intent ${next.pendingIntent.actionId} is unresolved — completion would close the binding over an unverified external effect; no stage-A input resolves it (fidelity-r2 F-1: the outcome needs an actual independent read of the referenced subsystem, a stage-B live-read capability), so the binding stays open until that reader exists`);
       }
-      // Fidelity-r1 F-1: BOTH doors re-establish the current delivery's facts at the
-      // effect boundary — a receipt that is bare (admitted unverified), a legacy record
-      // predating the verification fields (the same unverified shape), or a verified
-      // receipt whose evidence no longer resolves/matches at this door all open the
-      // persisted delivery_evidence_unverified hold and refuse completion. Fail closed;
-      // no caller assertion, receipt string or env boolean substitutes for the evidence.
+      // Fidelity-r1 F-1, narrowed by fidelity-r2 F-1: BOTH doors refuse completion for
+      // ANY current delivery. The delivery's own durable shape no longer matters: a bare
+      // receipt is a caller claim, a supplied evidence reference is caller-chosen bytes
+      // (file integrity, not a fact that the current candidate reached its destination —
+      // the fidelity-r2 harness completed both doors with an unrelated file at its correct
+      // digest), and a legacy `verified: true` stamp predating this repair asserted the
+      // withdrawn bytes-check equivalence and is not honored by any door. Establishing
+      // the delivery FACT requires an actual independent read of the destination — a
+      // stage-B live-read capability this helper does not have — so the persisted
+      // delivery_evidence_unverified hold is the explicit actionable prerequisite
+      // (the falsifier's own alternative) and completion stays closed. Fail closed; no
+      // caller assertion, receipt string, digest match or env boolean substitutes.
       if (deliveryCurrentForCandidate(next)) {
         const d = next.delivery;
         const holdOn = (reason, recoveryAction) => {
           const held = addHold(next, { code: DELIVERY_EVIDENCE_HOLD_CODE, reason, recoveryAction, now });
-          if (!held.ok) return held;
-          next = held.value;
-          return { ok: false, code: DELIVERY_EVIDENCE_HOLD_CODE, reason: `${reason} — completion is refused; the persisted ${DELIVERY_EVIDENCE_HOLD_CODE} hold names the recovery` };
+          if (!held.ok) return rejectAfterPersist(held.code, held.reason);
+          // addHold returns the INPUT record when an identical open hold already exists —
+          // identity is the «nothing moved» signal, so a repeated completion attempt never
+          // piles up a second open hold of the code (admitDelivery already holds the
+          // current delivery in the common composed pass). Either way the refusal goes
+          // through rejectAfterPersist: the recorded-unverified delivery — and the hold,
+          // when this pass added it — are facts from earlier in the composed pass and
+          // must survive the rejection, and the response carries the still-active
+          // controlState (completion is closed, not the binding).
+          if (held.value !== next) {
+            next = held.value;
+            mutated = true;
+          }
+          return rejectAfterPersist(DELIVERY_EVIDENCE_HOLD_CODE, `${reason} — completion is refused; the persisted ${DELIVERY_EVIDENCE_HOLD_CODE} hold names the recovery`);
         };
-        if (d.verified !== true || d.evidence === null || d.evidence === undefined) {
-          return holdOn(
-            `the current delivery receipt (${d.receipt}) is UNVERIFIED — a bare receipt string is a caller claim, not independent production proof of the delivered effect`,
-            're-present the delivery with its evidence (--delivery-evidence-ref <path> --delivery-evidence-sha256 <hex>), or re-acknowledge the same receipt with its evidence; both completion doors stay closed while the current delivery is unverified',
-          );
-        }
-        const checked = verifyEvidenceRef(d.evidence, evidenceRoots(next, input));
-        if (!checked.ok) {
-          return holdOn(
-            `the current delivery's evidence reference no longer resolves (${checked.code}) — the receipt was stamped verified, but its evidence cannot be established at this door`,
-            'restore the evidence artifact so it matches its recorded digest, or re-present the delivery with fresh evidence; completion stays closed while the delivery\'s evidence cannot be established',
-          );
-        }
+        return holdOn(
+          `the current delivery receipt (${d.receipt}) is NOT established as a fact for destination ${d.destination} — the receipt is a caller reference${d.evidence ? `, its recorded evidence (${d.evidence.path}) is file integrity at best${d.verified === true ? ' (a pre-repair `verified` stamp whose bytes-check equivalence is withdrawn)' : ''}, not an independent read of the destination subsystem` : ''} (fidelity-r2 F-1)`,
+          'the delivery FACT is established only by an actual independent read of the destination subsystem — a stage-B live-read capability this helper does not have; until it exists, the persisted hold is the explicit prerequisite and both completion doors stay closed',
+        );
       }
       return null;
     };
@@ -1151,28 +1184,32 @@ export async function reconcile(input) {
         const denied = completionAdmission();
         if (denied) return denied;
       }
-      // Fidelity-r1 F-2 (ack door): an `ack-cessation` settles ONLY what it can attest.
-      // The worker arm settles on the worker's own report (the ack IS the worker-side
-      // input). The non-worker arms — a bound AIF task, recorded native attempts, an
-      // unresolved effect — are REFERENCED external work whose stop this bare input
-      // cannot prove: settling them on it would persist a fake stopped disposition /
-      // synthetic acknowledgment, exactly what the fidelity-r1 constraint forbids. The
-      // establishment boundary reuses the same resolveContentRef mechanism as intent
-      // release and both completion doors: a cessation-evidence reference that VERIFIES
-      // against the stage artifact root / repository root is stamped onto the bound task
-      // (aif.cessationEvidence + cessationConfirmedAt — a durable fact later reconciles
-      // re-read), and only then does the ack transition proceed. Without verifiable
-      // evidence the ack is refused, the pause_pending/cancel_pending state is RETAINED
-      // (admission stays blocked) and the persisted cessation_unconfirmed hold names the
-      // prerequisite — the honest A1 state while no read capability for the bound
-      // subsystem exists (no AIF-task reader is reachable from this helper; stage B
-      // owns live reads). The custody-transfer ack path (step 7) shares the record-layer
-      // gate, so a transfer pass cannot settle an unconfirmed task cessation either.
-      // The gate arms ONLY on a state whose ack transition is otherwise legal
-      // (pause-pending / cancel-pending — the same sources controlDestination admits):
-      // from any other state the table's own refusal (illegal_control_transition /
-      // control_state_terminal) must surface, and no establishment stamp may ride a
-      // transition the table refuses.
+      // Fidelity-r1 F-2, narrowed by fidelity-r2 F-2 (ack door): an `ack-cessation`
+      // settles ONLY what it can attest. The worker arm settles on the worker's own
+      // report (the ack IS the worker-side input — the one genuinely independent
+      // mechanism in stage A). The non-worker arms — a bound AIF task, recorded native
+      // attempts, an unresolved effect — are REFERENCED external work whose stop NO
+      // stage-A input can establish: a bare acknowledgement (reason prose included) is a
+      // caller assertion, and a caller-supplied cessation-evidence artifact is caller-
+      // chosen bytes — file integrity at best, never the referenced subsystem's actual
+      // current state (the fidelity-r2 harness settled a live bound task's pause with an
+      // unrelated file at its correct digest). The pre-repair stamp
+      // (aif.cessationEvidence + cessationConfirmedAt, written when a verifying
+      // reference DID settle the transition) asserted exactly that withdrawn equivalence,
+      // so no stage-A path writes it any more and no reader treats it as establishment;
+      // a pre-repair record keeps its durable fields (no migration). The ack is
+      // therefore ALWAYS refused on this arm: the pause_pending/cancel_pending state is
+      // RETAINED (admission stays blocked), a supplied reference is still authenticated
+      // first (a citation that does not even resolve is reported as such — persisted
+      // nowhere: there is no settlement to attach it to), and the persisted
+      // cessation_unconfirmed hold names the actual independent read of the referenced
+      // subsystem as the explicit prerequisite — stage B owns live reads. The
+      // custody-transfer ack path (step 7) shares the record-layer gate, so a transfer
+      // pass cannot settle an unconfirmed task cessation either. The gate arms ONLY on a
+      // state whose ack transition is otherwise legal (pause-pending / cancel-pending —
+      // the same sources controlDestination admits): from any other state the table's
+      // own refusal (illegal_control_transition / control_state_terminal) must surface,
+      // and no refusal may ride a transition the table refuses.
       if (input.control.kind === 'ack-cessation'
         && ['pause-pending', 'cancel-pending'].includes(next.controlState)
         && hasUnconfirmedNonWorkerExternalWork(next)) {
@@ -1194,30 +1231,24 @@ export async function reconcile(input) {
           }
           return rejectAfterPersist(CESSATION_HOLD_CODE, `${reason} — the acknowledgement is refused and ${next.controlState} is retained with admission blocked; the persisted ${CESSATION_HOLD_CODE} hold names the recovery`);
         };
-        if (input.control.cessationEvidence === undefined || input.control.cessationEvidence === null) {
-          const refuse = refuseCessation(
-            `cessation of ${unconfirmed} is NOT established — a bare acknowledgement (reason prose included) is a caller assertion, not a fact about the referenced subsystem`,
-            'present verified cessation evidence (--cessation-evidence-ref <path> --cessation-evidence-sha256 <hex>, resolved against the stage artifact root or the repository root — e.g. the bound task\'s own terminal record), or let the arm settle through its own boundary (an unresolved intent resolves under its evidence gate); the pending state is the honest prerequisite until then',
-          );
-          if (refuse) return refuse;
+        const cited = input.control.cessationEvidence !== undefined && input.control.cessationEvidence !== null
+          ? ` The cited artifact (${input.control.cessationEvidence.path}) authenticates as bytes — file integrity, not a fact about the referenced subsystem (fidelity-r2 F-2).`
+          : '';
+        if (cited !== '') {
+          const checked = verifyEvidenceRef(input.control.cessationEvidence, evidenceRoots(next, input));
+          if (!checked.ok) {
+            const refuse = refuseCessation(
+              `cessation of ${unconfirmed} is NOT established, and the cited reference does not even authenticate (${checked.code})`,
+              'the stop is established only by an actual independent read of the referenced subsystem — a stage-B live-read capability this helper does not have; the pending state is the honest prerequisite until then (the local worker arm alone still settles on its own acknowledgement)',
+            );
+            if (refuse) return refuse;
+          }
         }
-        const checked = verifyEvidenceRef(input.control.cessationEvidence, evidenceRoots(next, input));
-        if (!checked.ok) {
-          const refuse = refuseCessation(
-            `the cessation evidence reference does not verify (${checked.code}) — ${unconfirmed} remain${unconfirmed.includes(',') ? '' : 's'} without an established stop`,
-            'cite an existing artifact whose bytes hash to the given sha256 under the stage artifact root or the repository root; the pending state and admission block are retained until cessation is established',
-          );
-          if (refuse) return refuse;
-        }
-        // The durable stamp has a home only on a bound task; an aif-less record
-        // (native attempts / unresolved effect only) is gated by the SAME verified
-        // evidence but carries no cessationEvidence field to stamp — the settled
-        // transition itself is the durable fact there.
-        if (next.aif !== null) next.aif = { ...next.aif, cessationEvidence: checked.ref, cessationConfirmedAt: now };
-        const cleared = clearHolds(next, { code: CESSATION_HOLD_CODE, now });
-        next = cleared.value;
-        mutated = true;
-        effects.push('cessation-evidence-verified');
+        const refuse = refuseCessation(
+          `cessation of ${unconfirmed} is NOT established — no stage-A input can establish it: a bare acknowledgement (reason prose included) is a caller assertion, and a caller-supplied artifact is file integrity, not the referenced subsystem's actual state (fidelity-r2 F-2).${cited}`,
+          'the stop is established only by an actual independent read of the referenced subsystem — a stage-B live-read capability this helper does not have; the pending state and admission block are retained until then (the local worker arm alone still settles on its own acknowledgement)',
+        );
+        if (refuse) return refuse;
       }
       const transition = applyControlTransition(next, { kind: input.control.kind, actor: input.actor ?? 'operator:cli', reason: input.control.reason, now });
       if (!transition.ok) return rejectAfterPersist(transition.code, transition.reason);

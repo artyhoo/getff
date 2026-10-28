@@ -266,6 +266,38 @@ const evidenceArtifact = (fx, name, body) => {
   writeFileSync(join(fx.stageRoot, name), bytes);
   return { path: name, sha256: sha256Hex(bytes) };
 };
+// Fidelity-r2 fixture: the 'complete' control state is UNREACHABLE through any stage-A
+// production path — both completion doors refuse every delivery (fidelity-r2 F-1), so
+// no CLI/library sequence terminates a record any more. The terminal-identity arms
+// (R4-01) therefore seed a completed record through the PURE record layer
+// (initialRecord-driven real init + applyControlTransition + writeRecordAtomic — the
+// same already-trusted-seed pattern the HOST-01 host-independent arms use), keeping the
+// candidate_terminal_conflict gate covered WITHOUT claiming any stage-A input reached
+// the state. The delivery is hand-shaped and unverified — exactly the claim data a
+// stage-A record can durably carry while the stage-B live-read capability is pending.
+const seedCompletedRecord = (fx, { receipt = 'receipt-c1', candidateRevision = 1 } = {}) => {
+  const run = runCli(initArgs(fx, ['--task-id', 't-1',
+    '--candidate-revision', String(candidateRevision), '--candidate-sha256', sha256Hex(`c${candidateRevision}`)]));
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+  record.delivery = {
+    receipt,
+    destination: 'pr:staging',
+    at: iso(),
+    actionId: null,
+    candidateRevision,
+    verified: false,
+    evidence: null,
+  };
+  const completed = applyControlTransition(record, { kind: 'complete', actor: 'matrix:fixture', now: iso() });
+  assert.ok(completed.ok, JSON.stringify(completed));
+  assert.equal(completed.value.controlState, 'complete');
+  const lockedTarget = resolveRecordTarget(canonicalRecordPath(fx.recordPath));
+  assert.ok(lockedTarget !== null, 'the seeded record path has a resolvable canonical lock target');
+  const written = writeRecordAtomic(fx.recordPath, completed.value, { lockedTarget, expectedRevision: record.recordRevision });
+  assert.ok(written.ok, JSON.stringify(written));
+  return completed.value;
+};
 
 // ===========================================================================
 // Row 1 — init + valid reconcile, unchanged authority; revisions monotonic.
@@ -509,8 +541,10 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     const open = restart.json.holds.filter((h) => h.clearedAt === null);
     assert.ok(open.some((h) => h.code === 'uncertain_owner'), JSON.stringify(restart.json.holds));
     const hold = open.find((h) => h.code === 'uncertain_owner');
-    assert.match(hold.recoveryAction, new RegExp(`--resolve-intent ${intent.actionId}`));
-    assert.match(hold.recoveryAction, /--resolution/);
+    // Fidelity-r2 F-1: the recovery action names the actual independent read the outcome
+    // needs (a stage-B live-read capability), not a caller-side citation incantation.
+    assert.match(hold.recoveryAction, new RegExp(`action ${intent.actionId}`));
+    assert.match(hold.recoveryAction, /independent read/);
     assert.equal(restart.json.pendingIntent.actionId, intent.actionId, 'no duplicate action-identity re-issue');
 
     // A second request while unresolved is refused — the SAME identity stays open.
@@ -520,16 +554,23 @@ describe('row 4 — crash windows across the durable-write boundary', () => {
     const again = runCli(['status', '--record', t.recordPath]);
     assert.equal(again.json.record.pendingIntent.actionId, intent.actionId);
 
-    // Resolve → hold cleared, intent resolved, admission possible again. Fidelity-r1 F-1:
-    // the narrative rides WITH a verifiable content reference — here the repo's real
-    // approval record, resolved through the repository root (the engine tries the stage
-    // artifact root first, then the repo root — the «either» contract).
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm asserted that a narrative plus a
+    // digest-verifying content reference (the repo's real approval record, resolved
+    // through the repository root) RESOLVES the intent and clears the hold. The fidelity-r2
+    // audit showed that reference authenticates caller-chosen bytes only — the repo's
+    // approval record is not a fact about THIS action's outcome in the referenced
+    // subsystem — so the resolved-intent state was fabricated. The repair refuses every
+    // stage-A resolution attempt; the hold stays open as the explicit prerequisite.
     const approvalBytes = readFileSync(join(t.repo, 'prd-approval.json'));
     const resolved = runCli(recArgs(t, ['--resolve-intent', intent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE,
       '--evidence-ref', 'prd-approval.json', '--evidence-sha256', sha256Hex(approvalBytes)]));
-    assert.equal(resolved.status, 0, resolved.stdout + resolved.stderr);
-    assert.ok(resolved.json.effects.includes('intent-resolved:applied'), JSON.stringify(resolved.json.effects));
-    assert.deepEqual(resolved.json.holds, []);
+    assert.equal(resolved.status, 2);
+    assert.equal(resolved.json.code, 'intent_resolution_unverified');
+    assert.match(resolved.json.reason, /authenticates as bytes/);
+    const afterResolve = runCli(['status', '--record', t.recordPath]);
+    assert.equal(afterResolve.json.record.pendingIntent.state, 'intent_persisted', 'the intent stays unresolved — no stage-A input releases it');
+    const stillOpen = afterResolve.json.record.holds.filter((h) => h.code === 'uncertain_owner' && h.clearedAt === null);
+    assert.ok(stillOpen.length >= 1, 'the uncertain_owner hold is the honest prerequisite and stays open');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -770,17 +811,24 @@ describe('row 9 — control gate: worker output carries no control authority', (
     const res = runCli(recArgs(t, ['--mark-complete']));
     assert.equal(res.status, 2);
     assert.equal(res.json.code, 'complete_requires_delivery_receipt');
-    // Fidelity-r1 F-1: the positive leg completes on a SOURCED receipt (verified content
-    // reference), not a bare receipt string — the bare-receipt refusal is the fidelity
-    // block's dedicated arm.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 positive leg completed on a SOURCED
+    // receipt (a digest-verifying content reference). The r2 audit showed that reference
+    // authenticates caller-chosen bytes only — the fixture's own «delivered: true» JSON
+    // is not a fact that the candidate reached the destination — so the completion was
+    // fabricated. The repair records the delivery UNVERIFIED (effect
+    // delivery-recorded-unverified, persisted delivery_evidence_unverified hold) and both
+    // completion doors stay closed; there is no 'complete' state to reach in stage A.
     const delivery = evidenceArtifact(t, 'delivery-ok.json', { delivered: true, receipt: 'receipt-ok' });
     const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-ok',
       '--delivery-evidence-ref', delivery.path, '--delivery-evidence-sha256', delivery.sha256,
       '--mark-complete']));
-    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
-    assert.equal(ok.json.controlState, 'complete');
-    const late = runCli(recArgs(t, ['--observation', obs('late-complete', 'done')]));
-    assert.equal(late.json.observationDisposition, 'historical-after-complete');
+    assert.equal(ok.status, 2);
+    assert.equal(ok.json.code, 'delivery_evidence_unverified');
+    assert.match(ok.json.reason, /NOT established as a fact/);
+    const st = runCli(['status', '--record', t.recordPath]);
+    assert.equal(st.json.record.controlState, 'active', 'the refused completion leaves the binding active');
+    assert.equal(st.json.record.delivery.verified, false, 'the sourced delivery is recorded UNVERIFIED');
+    assert.notEqual(st.json.route, 'complete', 'no stage-A state routes complete (fidelity-r2 F-1)');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -796,16 +844,39 @@ describe('row 9 — control gate: worker output carries no control authority', (
     assert.ok(paused.ok, JSON.stringify(paused));
     assert.equal(paused.controlState, 'pause-pending', 'a live worker defers the pause to cessation acknowledgement');
     // Fidelity-r1 F-2: task t-1 is referenced external work — a bare caller ack cannot
-    // settle it; the verified evidence boundary can (genuinely sourced positive).
+    // settle it.
     const bare = await reconcile({ ...reconcileInput(t), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms suspension' } });
     assert.equal(bare.ok, false, JSON.stringify(bare));
     assert.equal(bare.code, 'cessation_unconfirmed');
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm asserted that a digest-verifying
+    // cessation-evidence artifact settles the referenced task's stop. The r2 audit showed
+    // the artifact is caller-chosen bytes — file integrity, not the referenced
+    // subsystem's actual state — so the settled transition was fabricated. The repair
+    // authenticates the citation, then refuses the ack anyway; pause-pending is retained
+    // with the persisted prerequisite hold, and only stage B's live read may settle it.
     const acked = await reconcile({ ...reconcileInput(t), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms suspension', cessationEvidence: evidenceArtifact(t, 'cessation-t1.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
-    assert.ok(acked.ok, JSON.stringify(acked));
-    assert.equal(acked.controlState, 'paused');
+    assert.equal(acked.ok, false, JSON.stringify(acked));
+    assert.equal(acked.code, 'cessation_unconfirmed');
     const st = runCli(['status', '--record', t.recordPath]);
-    assert.ok(st.json.record.worker.cessationAckedAt !== null, 'the ack is stamped on the worker identity');
+    assert.equal(st.json.record.controlState, 'pause-pending', 'the pending state is retained');
+    assert.equal(st.json.record.worker.cessationAckedAt, null, 'the referenced task\'s stop is not stamped onto the worker');
+    assert.equal(st.json.record.aif.cessationConfirmedAt, null, 'no cessation stamp is written — the r2 repair removed the stamp path');
     rmSync(t.base, { recursive: true, force: true });
+
+    // The genuine positive survives: with NO referenced external work (no bound task,
+    // no native attempts, no unresolved intent) the worker's OWN acknowledgement settles
+    // — the ack is the worker-side input, the one independent mechanism in stage A.
+    const t2 = makeFixture(null);
+    const bound2 = await initBinding({ ...initBindingInput(t2), taskId: null });
+    assert.ok(bound2.ok);
+    const paused2 = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
+    assert.equal(paused2.controlState, 'pause-pending');
+    const settled = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms its own suspension' } });
+    assert.ok(settled.ok, JSON.stringify(settled));
+    assert.equal(settled.controlState, 'paused');
+    const st2 = runCli(['status', '--record', t2.recordPath]);
+    assert.ok(st2.json.record.worker.cessationAckedAt !== null, 'the worker arm still stamps its own ack');
+    rmSync(t2.base, { recursive: true, force: true });
   });
 });
 
@@ -881,13 +952,16 @@ describe('row 13 — prohibited effects: no model/PR/delivery calls', () => {
     assert.equal(runCli(recArgs(t, ['--observation', obs('p-1', 'done')])).status, 0);
     const act = runCli(recArgs(t, ['--request-action', 'work']));
     assert.equal(act.status, 0, act.stdout);
-    // Fidelity-r1 F-1: even a not-applied resolution RELEASES the uncertainty, so it
-    // carries a sourced reference (the tracker export saying the effect did not land) —
-    // prose alone resolves nothing.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 sequence resolved the intent with a
+    // sourced tracker export (even a not-applied resolution released the uncertainty).
+    // The r2 audit withdrew that release — the tracker export is caller-chosen bytes, not
+    // a read of the referenced subsystem — so the resolution is refused and the intent
+    // stays open; the rest of the sequence exercises the same outbound seams.
     const tracker = evidenceArtifact(t, 'tracker-export.json', { source: 'tracker', effect: 'work', landed: false });
     const resolved = runCli(recArgs(t, ['--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'not-applied', '--evidence', EVIDENCE,
       '--evidence-ref', tracker.path, '--evidence-sha256', tracker.sha256]));
-    assert.equal(resolved.status, 0);
+    assert.equal(resolved.status, 2);
+    assert.equal(resolved.json.code, 'intent_resolution_unverified');
     assert.equal(runCli(recArgs(t, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('p2')])).status, 0);
     assert.equal(runCli(recArgs(t, ['--delivery-receipt', 'receipt-p'])).status, 0);
     assert.equal(runCli(['pause', '--record', t.recordPath, '--now', iso()]).status, 0);
@@ -1607,7 +1681,7 @@ describe('cold-review regression arms (r4 fixes)', () => {
     runCli(recArgs(t, ['--observation', obs('route-2', 'done')]));
     const done = runCli(['status', '--record', t.recordPath]);
     assert.equal(done.json.route, 'review');
-    assert.equal(done.json.routeReason, 'worker reported done; review before completion');
+    assert.equal(done.json.routeReason, 'worker reported done; review before completion (completion awaits the stage-B establishment capability — no stage-A input establishes the delivery fact)');
     rmSync(t.base, { recursive: true, force: true });
   });
 });
@@ -1749,11 +1823,17 @@ describe('cold-review regression arms (r6 fixes)', () => {
     assert.equal(st.json.record.delivery.receipt, 'receipt-hold', 'the receipt is a FACT from earlier in the refused pass and stays durable (persist-before-reject)');
     const settled = runCli(recArgs(t)); // stable read clears the open hold — its own pass
     assert.ok(settled.json.effects.includes('authority-stable'), JSON.stringify(settled.json.effects));
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 tail completed on the sourced
+    // receipt after the hold settled. The repair keeps the settle boundary exactly as it
+    // was (the authority gate above is still the FIRST refusal this arm exercises) but
+    // the settled record now fails closed one gate later — the delivery itself is never
+    // established by a caller-supplied artifact, so completion stays closed in stage A.
     const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-hold',
       '--delivery-evidence-ref', holdEvidence.path, '--delivery-evidence-sha256', holdEvidence.sha256,
       '--mark-complete']));
-    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
-    assert.equal(ok.json.controlState, 'complete', 'completion succeeds only on the settled record');
+    assert.equal(ok.status, 2);
+    assert.equal(ok.json.code, 'delivery_evidence_unverified', ok.stdout + ok.stderr);
+    assert.equal(ok.json.controlState, 'active', 'completion is closed, not the binding');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -1775,13 +1855,17 @@ describe('cold-review regression arms (r6 fixes)', () => {
     assert.match(res.json.reason, /same pass/);
     const st = runCli(['status', '--record', t.recordPath]);
     assert.equal(st.json.record.controlState, 'active');
-    // The hold is already settled by the refused pass's durable write — the NEXT
-    // reconcile completes. A settle requirement, not a permanent refusal.
+    // The hold is already settled by the refused pass's durable write. INVALIDATED
+    // POSITIVE (fidelity-r2 F-1): the r1 tail completed on the next reconcile — the
+    // settle boundary was the gate under test and still is (asserted above) — but the
+    // settled record now fails closed on the delivery gate itself: a sourced content
+    // reference establishes no delivery fact, so completion stays closed in stage A.
     const ok = runCli(recArgs(t, ['--delivery-receipt', 'receipt-flip',
       '--delivery-evidence-ref', flipEvidence.path, '--delivery-evidence-sha256', flipEvidence.sha256,
       '--mark-complete']));
-    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
-    assert.equal(ok.json.controlState, 'complete');
+    assert.equal(ok.status, 2);
+    assert.equal(ok.json.code, 'delivery_evidence_unverified', ok.stdout + ok.stderr);
+    assert.equal(ok.json.controlState, 'active');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -1894,17 +1978,20 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-02: a superseded candidate\'s consumed done stops routing complete after a candidate advance', async (t) => {
+  ltest('A1-CODE-02: a superseded candidate\'s consumed done stops routing review after a candidate advance', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--observation', obs('done-c1', 'done', { candidateRevision: 1 })])).status, 0);
-    // Fidelity-r1 F-1: the receipt is sourced — an unverified bare receipt routes
-    // `review`, and this arm's sanity leg needs the current `complete` route.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 sanity leg needed the `complete`
+    // route, reachable then via a sourced (digest-verifying) receipt. Since the repair,
+    // no delivery routes complete — the sourced receipt routes `review` like any other —
+    // so this arm pins the INVARIANT underneath: the advance retires the done as routing
+    // evidence for the CURRENT worker (the door/route consistency A1-CODE-02 pins).
     const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
     assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
       '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
     const before = runCli(['status', '--record', fx.recordPath]);
-    assert.equal(before.json.route, 'complete', 'sanity: done + verified receipt routes complete while current');
+    assert.equal(before.json.route, 'review', 'done + current receipt routes review — stage A never routes complete');
     const advanced = runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
     assert.equal(advanced.status, 0);
     assert.ok(advanced.json.effects.includes('candidate-updated:2'));
@@ -1927,11 +2014,13 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.equal(stored.applicableCustody, 1, 'the ingestion-time custody generation was frozen onto the entry');
     assert.equal(stored.applicableCandidate, 0, 'the ingestion-time candidate revision was frozen onto the entry');
     assert.equal(stored.custodyGeneration, null, 'the REPORTED provenance stays null — dedup compares what the worker said');
-    // Fidelity-r1 F-1: sourced receipt — routing `complete` requires a VERIFIED delivery.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 sanity leg asserted the sourced
+    // receipt routes `complete` before any advance; routing complete no longer exists,
+    // so the sanity pin is the honest `review` route the same state now yields.
     const npEvidence = evidenceArtifact(fx, 'delivery-np.json', { delivered: true, receipt: 'receipt-np' });
     const receipted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-np',
       '--delivery-evidence-ref', npEvidence.path, '--delivery-evidence-sha256', npEvidence.sha256]));
-    assert.equal(receipted.json.route, 'complete', 'sanity: the current report still routes complete before any advance');
+    assert.equal(receipted.json.route, 'review', 'sanity: the current done report routes review — never complete in stage A');
     // Custody advance retires the frozen report — for BOTH doors.
     const moved = runCli(recArgs(fx, ['--transfer-custody', 'w-2', '--control-reason', 'custody advances past the frozen report']));
     assert.equal(moved.status, 0, moved.stdout + moved.stderr);
@@ -1944,7 +2033,7 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-03: cancel-pending + transfer/ack persists the cessation FACT and registers NO successor worker', async (t) => {
+  ltest('A1-CODE-03: cancel-pending + transfer/ack persists the prerequisite hold (no cessation fact — fidelity-r2 F-2) and registers NO successor worker', async (t) => {
     const t2 = makeFixture(t);
     const bound = await initBinding(initBindingInput(t2));
     assert.ok(bound.ok, JSON.stringify(bound));
@@ -1962,26 +2051,45 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.ok(pendingRecord.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold is persisted');
     assert.equal(pendingRecord.custodyGeneration, 1, 'custody never advanced onto the pending binding');
     assert.ok(!JSON.stringify(pendingRecord).includes('"w-2"'), 'no successor session id anywhere in the durable record');
-    // Genuinely sourced settlement: verified cessation evidence completes the
-    // cancellation; the terminal binding still registers NO successor worker.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm settled the cancellation with a
+    // digest-verifying evidence file for the bound task. The artifact authenticates as
+    // bytes but never establishes the referenced subsystem's stop — a sourced ack is
+    // refused exactly like a bare one and the pending state is retained.
     const settled = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-code03.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } });
-    assert.ok(settled.ok, JSON.stringify(settled));
-    assert.equal(settled.controlState, 'cancelled');
-    const afterSettled = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'post-settlement transfer attempt' } });
+    assert.equal(settled.ok, false, JSON.stringify(settled));
+    assert.equal(settled.code, 'cessation_unconfirmed');
+    const afterRefusal = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
+    assert.equal(afterRefusal.controlState, 'cancel-pending', 'sourced evidence did not complete the cancellation');
+    assert.equal(afterRefusal.worker.cessationAckedAt, null, 'no caller-supplied settlement stamped the worker');
+    rmSync(t2.base, { recursive: true, force: true });
+    // The terminal gate this arm pins — a terminal binding registers NO successor worker
+    // (custody_transfer_terminal, original worker preserved) — is exercised on the
+    // REACHABLE terminal path: a taskless sibling binding whose LOCAL worker
+    // acknowledges its own cessation (the one independent stage-A mechanism).
+    const t3 = makeFixture(t);
+    const sibling = await initBinding({ ...initBindingInput(t3), taskId: null });
+    assert.ok(sibling.ok, JSON.stringify(sibling));
+    const sibCancel = await reconcile({ ...reconcileInput(t3), control: { kind: 'cancel', actor: 'operator:matrix' } });
+    assert.ok(sibCancel.ok, JSON.stringify(sibCancel));
+    assert.equal(sibCancel.controlState, 'cancel-pending', 'the live local worker defers the cancellation to its own acknowledgement');
+    const sibAck = await reconcile({ ...reconcileInput(t3), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms its own cancellation' } });
+    assert.ok(sibAck.ok, JSON.stringify(sibAck));
+    assert.equal(sibAck.controlState, 'cancelled');
+    const afterSettled = await reconcile({ ...reconcileInput(t3), transferCustody: { toSession: 'w-2', acknowledgeCessation: true, reason: 'post-settlement transfer attempt' } });
     assert.equal(afterSettled.ok, false);
     assert.equal(afterSettled.code, 'custody_transfer_terminal');
     assert.match(afterSettled.reason, /terminal/);
-    const st = runCli(['status', '--record', t2.recordPath]);
-    assert.equal(st.json.record.controlState, 'cancelled', 'the verified ack completed the cancellation');
+    const st = runCli(['status', '--record', t3.recordPath]);
+    assert.equal(st.json.record.controlState, 'cancelled', 'the worker\'s own ack completed the cancellation');
     assert.equal(st.json.record.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded — no fresh live worker');
     assert.ok(st.json.record.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
     assert.equal(st.json.record.custodyGeneration, 1, 'custody never advanced onto the terminal binding');
     const workers = JSON.stringify(st.json.record);
     assert.ok(!workers.includes('"w-2"'), 'no successor session id anywhere in the durable record');
-    rmSync(t2.base, { recursive: true, force: true });
+    rmSync(t3.base, { recursive: true, force: true });
   });
 
-  ltest('A1-CODE-03/R2-02: pause-pending + transfer/ack persists the cessation FACT but registers NO successor (pause blocks admission)', async (t) => {
+  ltest('A1-CODE-03/R2-02: pause-pending + transfer/ack persists the prerequisite hold (no cessation fact — fidelity-r2 F-2) but registers NO successor (pause blocks admission)', async (t) => {
     const t2 = makeFixture(t);
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
@@ -1998,28 +2106,42 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.ok(pendingRecord.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold is persisted');
     assert.equal(pendingRecord.recordRevision, before.recordRevision + 1, 'exactly the hold moved the record');
     assert.ok(!JSON.stringify(pendingRecord).includes('"w-2"'), 'no successor session id anywhere in the durable record');
-    // Genuinely sourced settlement: verified cessation evidence completes the pause; a
-    // paused record still admits no successor worker.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm completed the pause with a
+    // digest-verifying evidence file for the bound task — withdrawn with F-1 (see the
+    // A1-CODE-03 arm). A sourced ack is refused like a bare one; the pause stays pending.
     const settled = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-r202.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
-    assert.ok(settled.ok, JSON.stringify(settled));
-    assert.equal(settled.controlState, 'paused');
-    const after = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
-    assert.equal(after.controlState, 'paused', 'the verified ack completed the pause');
+    assert.equal(settled.ok, false, JSON.stringify(settled));
+    assert.equal(settled.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'pause-pending', 'sourced evidence did not complete the pause');
+    rmSync(t2.base, { recursive: true, force: true });
+    // The paused-state properties this arm pins — original worker preserved, route hold
+    // `control_state_paused`, no successor admission ever — are exercised on the
+    // REACHABLE paused path: a taskless sibling binding whose LOCAL worker acknowledges
+    // its own suspension (the one independent stage-A mechanism).
+    const t3 = makeFixture(t);
+    const sibling = await initBinding({ ...initBindingInput(t3), taskId: null });
+    assert.ok(sibling.ok, JSON.stringify(sibling));
+    const sibPause = await reconcile({ ...reconcileInput(t3), control: { kind: 'pause', actor: 'operator:matrix' } });
+    assert.equal(sibPause.controlState, 'pause-pending');
+    const sibAck = await reconcile({ ...reconcileInput(t3), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms its own suspension' } });
+    assert.ok(sibAck.ok, JSON.stringify(sibAck));
+    assert.equal(sibAck.controlState, 'paused');
+    const after = JSON.parse(readFileSync(t3.recordPath, 'utf8'));
+    assert.equal(after.controlState, 'paused', 'the worker\'s own ack completed the pause');
     assert.equal(after.worker.sessionId, 'w-1', 'the ORIGINAL worker stays recorded');
     assert.ok(after.worker.cessationAckedAt !== null, 'the cessation acknowledgement is persisted');
-    assert.equal(after.custodyGeneration, before.custodyGeneration, 'custody never advanced onto a paused binding');
-    assert.ok(!JSON.stringify(after).includes('"w-2"'), 'no successor session id anywhere in the durable record');
-    const st = runCli(['status', '--record', t2.recordPath]);
+    assert.equal(after.custodyGeneration, 1, 'custody never advanced onto a paused binding');
+    const st = runCli(['status', '--record', t3.recordPath]);
     assert.equal(st.json.route, 'hold');
     assert.equal(st.json.routeReason, 'control_state_paused', 'a paused binding routes hold — no successor admission, no stale-report routing');
     // A later reconciliation still cannot install a worker on the paused record.
-    const again = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-3' } });
+    const again = await reconcile({ ...reconcileInput(t3), transferCustody: { toSession: 'w-3' } });
     assert.equal(again.ok, false);
     assert.equal(again.code, 'custody_transfer_blocked');
-    const final = JSON.parse(readFileSync(t2.recordPath, 'utf8'));
-    assert.equal(final.custodyGeneration, before.custodyGeneration, 'still no custody advance');
+    const final = JSON.parse(readFileSync(t3.recordPath, 'utf8'));
+    assert.equal(final.custodyGeneration, 1, 'still no custody advance');
     assert.ok(!JSON.stringify(final).includes('"w-3"'), 'no successor was installed on the second attempt either');
-    rmSync(t2.base, { recursive: true, force: true });
+    rmSync(t3.base, { recursive: true, force: true });
   });
 
   ltest('R2-02: an already-paused record without a live worker admits no successor and stays byte-identical', async (t) => {
@@ -2027,22 +2149,35 @@ describe('A1 rework regression arms (CODE-02..06 + HOST-01)', () => {
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     const pause = await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } });
     assert.equal(pause.controlState, 'pause-pending', 'the live w-1 worker makes the pause cessation-pending');
-    // Fidelity-r1 F-2: task t-1 is bound — the pause settles only on verified cessation
-    // evidence (genuinely sourced positive fixture), never on a bare ack.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm reached 'paused' with a
+    // digest-verifying evidence file for the bound task. Both a bare and a sourced ack
+    // are refused on the bound task (see the state-machine arm for the full note) —
+    // the pending state is retained here.
     const bare = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } });
     assert.equal(bare.ok, false);
     assert.equal(bare.code, 'cessation_unconfirmed');
     const acked = await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', cessationEvidence: evidenceArtifact(t2, 'cessation-r202b.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } });
-    assert.equal(acked.ok, true, JSON.stringify(acked));
-    assert.equal(acked.controlState, 'paused');
-    const beforeSha = fileSha(t2.recordPath);
-    const refused = await reconcile({ ...reconcileInput(t2), transferCustody: { toSession: 'w-2', acknowledgeCessation: true } });
+    assert.equal(acked.ok, false, JSON.stringify(acked));
+    assert.equal(acked.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'pause-pending', 'sourced evidence did not settle the bound task');
+    rmSync(t2.base, { recursive: true, force: true });
+    // The paused-record properties this arm pins — successor admission refused with a
+    // byte-identical record — are exercised on the REACHABLE paused path (taskless
+    // sibling, local worker's own acknowledgement).
+    const t3 = makeFixture(t);
+    const sibling = await initBinding({ ...initBindingInput(t3), taskId: null });
+    assert.ok(sibling.ok, JSON.stringify(sibling));
+    await reconcile({ ...reconcileInput(t3), control: { kind: 'pause', actor: 'operator:matrix' } });
+    const sibAck = await reconcile({ ...reconcileInput(t3), control: { kind: 'ack-cessation', actor: 'worker:w-1', reason: 'worker confirms its own suspension' } });
+    assert.equal(sibAck.controlState, 'paused');
+    const beforeSha = fileSha(t3.recordPath);
+    const refused = await reconcile({ ...reconcileInput(t3), transferCustody: { toSession: 'w-2', acknowledgeCessation: true } });
     assert.equal(refused.ok, false);
     assert.equal(refused.code, 'custody_transfer_blocked');
     assert.match(refused.reason, /does not admit a successor worker/);
     // T-A1-R2-D: nothing moved — no ack arm ran, so the refusal must not touch bytes.
-    assert.equal(fileSha(t2.recordPath), beforeSha, 'a clean refusal on a paused record leaves the durable bytes identical');
-    rmSync(t2.base, { recursive: true, force: true });
+    assert.equal(fileSha(t3.recordPath), beforeSha, 'a clean refusal on a paused record leaves the durable bytes identical');
+    rmSync(t3.base, { recursive: true, force: true });
   });
 
   ltest('R2-02: a valid ACTIVE transfer with cessation acknowledgement stays a positive (custody advances, successor installed)', async (t) => {
@@ -2472,9 +2607,8 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1'])).status, 0);
     // Facts recorded BEFORE any authority disturbance, so the completion-gating
-    // assertion below fails on the AUTHORITY hold and not on a missing delivery.
-    // Fidelity-r1 F-1: the receipt is SOURCED — an unverified-delivery hold would stay
-    // open through settlement and defeat the holds-all-cleared assertion below.
+    // assertion below fails on the AUTHORITY hold first (the delivery's claim-data
+    // hold — fidelity-r2 F-1 — only fires once the authority gate is satisfied).
     assert.equal(runCli(recArgs(fx, ['--observation', obs('adv-done', 'done')])).status, 0);
     const advEvidence = evidenceArtifact(fx, 'delivery-adv.json', { delivered: true, receipt: 'receipt-adv' });
     assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-adv',
@@ -2503,13 +2637,20 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     const early = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(JSON.parse(early.stdout).code, 'authority_hold_open', 'completion waits for authority settlement');
     const settledRecord = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.ok(settledRecord.holds.every((h) => h.clearedAt !== null), JSON.stringify(settledRecord.holds));
+    // Post-repair scoping: the settlement clears the AUTHORITY holds; the delivery's
+    // evidence hold (added at admission, fidelity-r2 F-1) stays open by design.
+    assert.ok(settledRecord.holds.filter((h) => h.code.startsWith('authority')).every((h) => h.clearedAt !== null), JSON.stringify(settledRecord.holds));
+    assert.ok(settledRecord.holds.some((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null), 'the delivery claim-data hold stays open');
     assert.equal(settledRecord.controlState, 'active', 'settlement did not complete the record');
-    // The NEXT reconcile reads the settled record: no open hold, no same-pass
-    // transition — the completion door now admits.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm asserted the NEXT reconcile
+    // ADMITS («the completion door now admits», controlState 'complete') once the
+    // authority holds settled. Authority settlement clears the authority gate only —
+    // the delivery remains authenticated claim data, so the door refuses on the
+    // delivery prerequisite and the record stays active (fidelity-r2 F-1).
     const complete = runCli(recArgs(fx, ['--mark-complete']));
-    assert.equal(complete.status, 0, complete.stdout + complete.stderr);
-    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'complete');
+    assert.equal(complete.status, 2, complete.stdout + complete.stderr);
+    assert.equal(complete.json.code, 'delivery_evidence_unverified', complete.stdout);
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'active', 'authority settlement alone never completes');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -2552,13 +2693,18 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     rmSync(t2.base, { recursive: true, force: true });
   });
 
-  ltest('R2-04: a composed resume on a PAUSED record is held identically — no resume admission, byte-identical durable record', async (t) => {
+  ltest('R2-04: a composed resume on a cessation-PENDING record is held identically — no resume admission, byte-identical durable record', async (t) => {
     const t2 = makeFixture(t);
     assert.ok((await initBinding(initBindingInput(t2))).ok);
     assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'pause', actor: 'operator:matrix' } })).controlState, 'pause-pending');
-    // Fidelity-r1 F-2: the bound task keeps the pause pending; verified evidence settles it.
+    // Fidelity-r2 F-2 (INVALIDATED POSITIVE): the r1 arm reached 'paused' first via a
+    // digest-verifying evidence file for the bound task. The bound task keeps the pause
+    // pending — bare AND sourced acks are both refused — and the resume hold fires on
+    // the pending state exactly as it did on the paused one (production resume is not
+    // authorized in A1 in either state; the reachable paused positive lives on the
+    // taskless sibling in the state-machine arm).
     assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1' } })).ok, false, 'a bare ack cannot settle a task-bound pause');
-    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', cessationEvidence: evidenceArtifact(t2, 'cessation-r204.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } })).controlState, 'paused');
+    assert.equal((await reconcile({ ...reconcileInput(t2), control: { kind: 'ack-cessation', actor: 'worker:w-1', cessationEvidence: evidenceArtifact(t2, 'cessation-r204.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } })).ok, false, 'sourced claim data cannot settle it either');
     const before = readFileSync(t2.recordPath, 'utf8');
     const held = await reconcile({
       ...reconcileInput(t2),
@@ -2566,14 +2712,14 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
       control: { kind: 'resume', actor: 'operator:composed' },
     });
     assert.equal(held.ok, false);
-    assert.equal(held.code, 'unsupported_pending_prerequisite', 'production resume is not authorized in A1 — paused or not');
+    assert.equal(held.code, 'unsupported_pending_prerequisite', 'production resume is not authorized in A1 — pending or paused');
     assert.equal(readFileSync(t2.recordPath, 'utf8'), before, 'T-A1-R2-D: byte-identical after the held composite');
-    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'paused', 'the record did not resume');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'pause-pending', 'the record did not resume');
     rmSync(t2.base, { recursive: true, force: true });
   });
 
   // --- R2-05: delivery applicability is bound to the exact candidate --------
-  ltest('R2-05: a candidate-1 receipt cannot complete candidate 2 at EITHER door — then the current-candidate receipt completes', async (t) => {
+  ltest('R2-05: a candidate-1 receipt cannot complete candidate 2 at EITHER door — the current-candidate receipt admits, completion stays closed (fidelity-r2 F-1)', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
     // Fidelity-r1 F-1: the candidate-1 receipt is SOURCED so the door refusals below
@@ -2597,14 +2743,22 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     assert.equal(record.controlState, 'active', 'neither door terminally closed candidate 2 off the old receipt');
     assert.equal(record.delivery.receipt, 'receipt-c1', 'the superseded fact is retained, not dropped');
     assert.equal(record.deliveryHistory.length, 0, 'it is still the CURRENT delivery field until a new receipt arrives');
-    // The current candidate's own receipt completes. Fidelity-r1 F-1: sourced — a bare
-    // receipt records but never completes (the fidelity block owns that refusal).
+    // The current candidate's own receipt ADMITS as claim data. INVALIDATED POSITIVE
+    // (fidelity-r2 F-1): the r1 arm completed on it — withdrawn, because even the
+    // current candidate's correctly-digested evidence is authentication, not the
+    // referenced subsystem's fact. The candidate-identity contract below the door is
+    // untouched; the door itself stays closed pending the stage-B read.
     const c2Evidence = evidenceArtifact(fx, 'delivery-c2.json', { delivered: true, receipt: 'receipt-c2', candidate: 2 });
     assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c2',
       '--delivery-evidence-ref', c2Evidence.path, '--delivery-evidence-sha256', c2Evidence.sha256])).status, 0);
     const okDoor = runCli(recArgs(fx, ['--mark-complete']));
-    assert.equal(okDoor.status, 0, okDoor.stdout + okDoor.stderr);
-    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'complete');
+    assert.equal(okDoor.status, 2, okDoor.stdout + okDoor.stderr);
+    assert.equal(okDoor.json.code, 'delivery_evidence_unverified', okDoor.stdout);
+    const finalRecord = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
+    assert.equal(finalRecord.controlState, 'active', 'the current-candidate receipt did not terminally complete either');
+    assert.equal(finalRecord.delivery.receipt, 'receipt-c2', 'the current delivery is retained as claim data');
+    assert.equal(finalRecord.delivery.candidateRevision, 2, 'it is bound to the CURRENT candidate');
+    assert.equal(finalRecord.deliveryHistory.length, 1, 'the candidate-1 receipt archived as history');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -2635,16 +2789,16 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     assert.equal(record.delivery.candidateRevision, 1);
     assert.equal(record.deliveryHistory.length, 0, 'the no-op ack archived nothing');
     assert.equal(record.candidate.revision, 2, 'the candidate DID advance — only the delivery stayed put');
-    // Fidelity-r1 F-1: the new receipt is SOURCED — the admission effect is
-    // `delivery-recorded-verified` (a bare receipt's `-unverified` variant never
-    // existed as `delivery-recorded`; the fidelity block owns the bare-receipt shape).
+    // Fidelity-r2 F-1: the new receipt is SOURCED, but sourced bytes are only
+    // AUTHENTICATED — the admission effect is `delivery-recorded-unverified`
+    // (a caller-supplied file is claim data; it never became establishment).
     const newEvidence = evidenceArtifact(fx, 'delivery-new.json', { delivered: true, receipt: 'receipt-new', candidate: 2 });
     const fresh = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-new',
       '--delivery-evidence-ref', newEvidence.path, '--delivery-evidence-sha256', newEvidence.sha256]));
     assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
     const body = JSON.parse(fresh.stdout);
     assert.ok(body.effects.includes('delivery-superseded:1'), JSON.stringify(body.effects));
-    assert.ok(body.effects.includes('delivery-recorded-verified'), JSON.stringify(body.effects));
+    assert.ok(body.effects.includes('delivery-recorded-unverified'), JSON.stringify(body.effects));
     record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.delivery.receipt, 'receipt-new');
     assert.equal(record.delivery.candidateRevision, 2, 'the new receipt binds the CURRENT candidate');
@@ -2752,7 +2906,7 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R3-02: a receipt already in bounded history is quarantined on replay (delivery-historical-replay-ack, byte-unchanged) — neither completion door accepts it; the current candidate’s fresh receipt still completes', async (t) => {
+  ltest('R3-02: a receipt already in bounded history is quarantined on replay (delivery-historical-replay-ack, byte-unchanged) — neither completion door accepts it; the current candidate’s fresh receipt still ADMITS (completion itself stays closed — fidelity-r2 F-1)', async (t) => {
     const fx = makeFixture(t);
     assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
     assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r1'])).status, 0);
@@ -2780,17 +2934,24 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
     const door2 = await reconcile(reconcileInput(fx, { control: { kind: 'complete', actor: 'matrix:library-door' } }));
     assert.equal(door2.ok, false, JSON.stringify(door2));
     assert.equal(door2.code, 'complete_requires_delivery_receipt');
-    // The current candidate's genuine distinct receipt stays valid: record it, complete.
-    // Fidelity-r1 F-1: sourced — the completion leg needs a VERIFIED current delivery.
+    // The current candidate's genuine distinct receipt stays valid: it admits.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm asserted the sourced delivery
+    // then COMPLETED (status 0, controlState 'complete'). Sourced bytes are
+    // authenticated claim data, never a fact about the referenced subsystem —
+    // admission persists the delivery as claim data and completion stays refused.
     const r3Evidence = evidenceArtifact(fx, 'delivery-r3.json', { delivered: true, receipt: 'receipt-r3', candidate: 3 });
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r3',
-      '--delivery-evidence-ref', r3Evidence.path, '--delivery-evidence-sha256', r3Evidence.sha256])).status, 0); // archives r2
+    const admitted = runCli(recArgs(fx, ['--delivery-receipt', 'receipt-r3',
+      '--delivery-evidence-ref', r3Evidence.path, '--delivery-evidence-sha256', r3Evidence.sha256]));
+    assert.equal(admitted.status, 0, admitted.stdout + admitted.stderr); // archives r2
+    assert.ok(JSON.parse(admitted.stdout).effects.includes('delivery-recorded-unverified'), admitted.stdout);
     const done = runCli(recArgs(fx, ['--mark-complete']));
-    assert.equal(done.status, 0, done.stdout + done.stderr);
-    assert.equal(JSON.parse(done.stdout).controlState, 'complete');
+    assert.equal(done.status, 2, done.stdout + done.stderr);
+    assert.equal(done.json.code, 'delivery_evidence_unverified', 'completion awaits the stage-B establishment capability');
     record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.delivery.receipt, 'receipt-r3');
     assert.equal(record.delivery.candidateRevision, 3, 'the fresh receipt bound the CURRENT candidate');
+    assert.equal(record.delivery.verified, false, 'sourced claim data never became a verified fact');
+    assert.equal(record.controlState, 'active', 'the quarantine invariant left the record non-terminal');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -2868,7 +3029,7 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R3-03: a cessation ack recorded before the authority refusal is explicitly persisted (cessationAckedAt on the old worker, custody unchanged) — and the later valid transfer needs no second ack', async (t) => {
+  ltest('R3-03 (INVALIDATED POSITIVE, fidelity-r2 F-2): a succession refused for an unreadable authority persists the authority hold and NO cessation fact — the later valid transfer carries its own explicit acknowledge-cessation', async (t) => {
     const fx = makeFixture(t);
     const init = await initBinding(initBindingInput(fx));
     assert.equal(init.ok, true, JSON.stringify(init));
@@ -2879,14 +3040,22 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
     assert.equal(refused.code, 'authority_hold_open');
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.worker.sessionId, 'w-1', 'the old worker identity is unchanged');
-    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT was explicitly persisted before the refusal');
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm asserted the ack survived the
+    // refusal as a durable cessation FACT (stamped persist-before-reject), with the
+    // later transfer «not re-demanded». Post-repair the caller's word is not a fact: a
+    // refused succession persists the refusal and the authority hold — never
+    // cessationAckedAt — so the old worker stays LIVE until a real succession replaces it.
+    assert.equal(record.worker.cessationAckedAt, null, 'no cessation FACT was created from the caller\'s word');
     assert.equal(record.custodyGeneration, 1, 'custody did not advance');
     assert.ok(record.holds.some((h) => h.code === 'authority_unavailable' && h.clearedAt === null));
     assert.equal(record.controlState, 'active', 'fact-only cessation did not become a control transition');
-    // Recovery, settlement, then a valid transfer — the persisted ack is not re-demanded.
+    // Recovery, settlement, then a valid transfer. The refused pass persisted no ack to
+    // reuse — the old worker is still live-unacked — so the succession carries its own
+    // explicit acknowledgeCessation (the custody gate's demand is unchanged; a no-ack
+    // transfer would refuse custody_transfer_blocked, pinned by its sibling arm).
     writeFileSync(fx.selectorPath, selectorBytes);
     assert.ok((await reconcile(reconcileInput(fx, {}))).ok, 'the settle reconcile succeeds');
-    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r3-03 valid succession' } }));
+    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r3-03 valid succession', acknowledgeCessation: true } }));
     assert.equal(transferred.ok, true, JSON.stringify(transferred));
     assert.equal(transferred.custodyGeneration, 2);
     rmSync(fx.base, { recursive: true, force: true });
@@ -2945,18 +3114,13 @@ describe('A1 rework batch 3 (R3-01..R3-03 durable battery)', () => {
 describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation-ack durability)', () => {
   ltest('R4-01 FLIP (CLI): a candidate update after completion refuses candidate_terminal_conflict — the completed candidate keeps its receipt association, bytes unchanged', async (t) => {
     const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
-    // protects) requires a VERIFIED delivery, so the setup leg records one.
-    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
-      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
-    const completedBytes = readFileSync(fx.recordPath, 'utf8');
-    const completed = JSON.parse(completedBytes);
-    assert.equal(completed.controlState, 'complete');
+    // Fidelity-r2: 'complete' is unreachable through stage A, so the completed record
+    // is seeded at the record layer (the gate under test is the terminal check below).
+    const completed = seedCompletedRecord(fx);
     assert.equal(completed.candidate.revision, 1);
     assert.equal(completed.delivery.receipt, 'receipt-c1', 'the delivery belongs to c1');
+    const completedBytes = readFileSync(fx.recordPath, 'utf8');
+    assert.equal(JSON.parse(completedBytes).controlState, 'complete');
     // The ordinary candidate-2 update must not advance the primary current
     // candidate over the finished run — neither on the public CLI surface…
     const attempted = runCli(recArgs(fx, ['--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
@@ -2975,13 +3139,9 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
 
   ltest('R4-01 FLIP (generic entry): the same refusal fires through the library reconcile on a completed record', async (t) => {
     const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
-    // protects) requires a VERIFIED delivery, so the setup leg records one.
-    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
-      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    // Fidelity-r2: the completed record is seeded at the record layer ('complete' is
+    // unreachable through stage A) — the gate under test is the library terminal check.
+    seedCompletedRecord(fx);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const refused = await reconcile(reconcileInput(fx, { candidate: { revision: 2, sha256: sha256Hex('c2'), ref: null } }));
     assert.equal(refused.ok, false, JSON.stringify(refused));
@@ -2992,13 +3152,9 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
 
   ltest('R4-01 FLIP (composed): a historical observation riding with a candidate update persists the observation but still cannot smuggle the candidate advance past the terminal gate', async (t) => {
     const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
-    // protects) requires a VERIFIED delivery, so the setup leg records one.
-    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
-      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    // Fidelity-r2: the completed record is seeded at the record layer ('complete' is
+    // unreachable through stage A) — the gate under test is the terminal check below.
+    seedCompletedRecord(fx);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const composed = runCli(recArgs(fx, ['--observation', obs('late-after-complete', 'done'), '--candidate-revision', '2', '--candidate-sha256', sha256Hex('c2')]));
     assert.equal(composed.status, 2, composed.stdout + composed.stderr);
@@ -3015,13 +3171,9 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
 
   ltest('R4-01 CONTROL (no flip): a same-candidate resubmit on a completed binding stays an idempotent no-op — bytes unchanged', async (t) => {
     const fx = makeFixture(t);
-    assert.equal(runCli(initArgs(fx, ['--task-id', 't-1', '--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')])).status, 0);
-    // Fidelity-r1 F-1: sourced receipt — completion (and the terminal identity it
-    // protects) requires a VERIFIED delivery, so the setup leg records one.
-    const c1Evidence = evidenceArtifact(fx, 'delivery-c1.json', { delivered: true, receipt: 'receipt-c1', candidate: 1 });
-    assert.equal(runCli(recArgs(fx, ['--delivery-receipt', 'receipt-c1',
-      '--delivery-evidence-ref', c1Evidence.path, '--delivery-evidence-sha256', c1Evidence.sha256])).status, 0);
-    assert.equal(runCli(recArgs(fx, ['--mark-complete'])).status, 0);
+    // Fidelity-r2: the completed record is seeded at the record layer ('complete' is
+    // unreachable through stage A) — the gate under test is same-candidate idempotence.
+    seedCompletedRecord(fx);
     const completedBytes = readFileSync(fx.recordPath, 'utf8');
     const same = runCli(recArgs(fx, ['--candidate-revision', '1', '--candidate-sha256', sha256Hex('c1')]));
     assert.equal(same.status, 0, same.stdout + same.stderr);
@@ -3030,27 +3182,35 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R4-02 FLIP: an active live-worker transfer+ack refused for a missing --repo-root still persists the cessation FACT (old worker identity and custody retained, no successor) — and a later valid transfer reuses the retained ack', async (t) => {
+  ltest('R4-02 FLIP: an active live-worker transfer+ack refused for a missing --repo-root persists NO cessation fact (a caller assertion is not a fact — fidelity-r2 F-2); old worker identity and custody stay, no successor — and a later valid transfer still proceeds', async (t) => {
     const fx = makeFixture(t);
     const init = await initBinding(initBindingInput(fx));
     assert.equal(init.ok, true, JSON.stringify(init));
     const before = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(before.worker.sessionId, 'w-1');
     assert.equal(before.worker.cessationAckedAt, null);
-    // No repoRoot, no other input: the only fact in this pass is the caller-asserted cessation.
+    // No repoRoot, no other input: the pass carries only the caller-asserted cessation.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm asserted the ack survived the
+    // refusal as a durable FACT (cessationAckedAt stamped persist-before-reject) and the
+    // later transfer «reused the retained ack». Post-repair no stage-A input establishes
+    // the referenced subsystem's stop — the caller's word establishes nothing, nothing is
+    // stamped, and succession simply never depended on that assertion.
     const refused = await reconcile({ ...reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 succession', acknowledgeCessation: true } }), repoRoot: undefined });
     assert.equal(refused.ok, false, JSON.stringify(refused));
     assert.equal(refused.code, 'invalid_request');
     assert.match(refused.reason, /--repo-root/);
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT is durable before the admission refusal');
+    assert.equal(record.worker.cessationAckedAt, null, 'no cessation FACT was created from the caller\'s word');
+    assert.ok(!record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the structural refusal persisted no prerequisite hold either (the ack door was never reached)');
     assert.equal(record.worker.sessionId, 'w-1', 'the old worker identity is retained');
     assert.equal(record.custodyGeneration, 1, 'custody did not advance');
     assert.ok(record.worker.toSession === undefined, 'no successor was registered');
     assert.equal(record.controlState, 'active', 'the refusal did not transition control');
     assert.equal(record.candidate.revision, before.candidate.revision, 'nothing else in the record moved');
-    // A later SETTLED valid transfer reuses the retained ack — no re-demand.
-    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 settled succession' } }));
+    // A later valid transfer still proceeds — succession never needed the assertion,
+    // but the old worker stayed LIVE-unacked through the refusal, so the succession
+    // carries its own explicit acknowledgeCessation (the custody gate is unchanged).
+    const transferred = await reconcile(reconcileInput(fx, { transferCustody: { toSession: 'w-2', reason: 'r4-02 settled succession', acknowledgeCessation: true } }));
     assert.equal(transferred.ok, true, JSON.stringify(transferred));
     assert.equal(transferred.custodyGeneration, 2);
     const after = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
@@ -3059,7 +3219,7 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     rmSync(fx.base, { recursive: true, force: true });
   });
 
-  ltest('R4-02 CONTROL (no flip): a transfer+ack refused by the CHANGED-authority home pin persists the cessation FACT too — that route already persisted the ack on the pre-image (the hold marked the pass mutated)', async (t) => {
+  ltest('R4-02 CONTROL (no flip): a transfer+ack refused by the CHANGED-authority home pin persists the authority hold — and NO cessation fact (fidelity-r2 F-2: the caller-asserted stop is not a fact; the r1 arm\'s durable-ack assertion is withdrawn)', async (t) => {
     const fx = makeFixture(t);
     const init = await initBinding(initBindingInput(fx));
     assert.equal(init.ok, true, JSON.stringify(init));
@@ -3071,7 +3231,7 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     assert.equal(refused.code, 'authority_hold_open');
     assert.match(refused.reason, /authority_home_mismatch/);
     const record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
-    assert.ok(record.worker.cessationAckedAt !== null, 'the cessation FACT survived the changed-authority refusal');
+    assert.equal(record.worker.cessationAckedAt, null, 'no cessation FACT was created from the caller\'s word');
     assert.equal(record.worker.sessionId, 'w-1');
     assert.equal(record.custodyGeneration, 1);
     rmSync(fx.base, { recursive: true, force: true });
@@ -3095,10 +3255,16 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold survived the refusal durably');
     assert.ok(record.worker.cessationAckedAt === null, 'no cessation was acknowledged on the caller\'s word');
     assert.equal(record.custodyGeneration, 1);
-    // The genuinely sourced settlement still completes the pause through its own boundary.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm completed the pause with a
+    // digest-verifying evidence file for the bound task. Sourced bytes authenticate but
+    // never establish the referenced subsystem's actual stop — a sourced ack is refused
+    // exactly like a bare one, and the pause stays pending (the reachable 'paused'
+    // positive lives on the taskless sibling binding in the state-machine arm, where the
+    // local worker's own acknowledgement is the one independent mechanism).
     const settled = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(fx, 'cessation-r402p.json', { task: 't-1', terminal: 'suspended', source: 'aif-runtime' }) } }));
-    assert.equal(settled.ok, true, JSON.stringify(settled));
-    assert.equal(settled.controlState, 'paused');
+    assert.equal(settled.ok, false, JSON.stringify(settled));
+    assert.equal(settled.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'pause-pending');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
@@ -3117,11 +3283,13 @@ describe('A1 rework batch 4 (R4-01 terminal-candidate identity + R4-02 cessation
     assert.ok(record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold survived the refusal durably');
     assert.ok(record.worker.cessationAckedAt === null, 'no cessation was acknowledged on the caller\'s word');
     assert.equal(record.custodyGeneration, 1);
-    // The genuinely sourced settlement still completes the cancellation through its own
-    // boundary.
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm completed the cancellation with
+    // a digest-verifying evidence file for the bound task; a sourced ack is refused
+    // exactly like a bare one (see the pause-pending sibling arm for the full note).
     const settled = await reconcile(reconcileInput(fx, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(fx, 'cessation-r402c.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
-    assert.equal(settled.ok, true, JSON.stringify(settled));
-    assert.equal(settled.controlState, 'cancelled');
+    assert.equal(settled.ok, false, JSON.stringify(settled));
+    assert.equal(settled.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(fx.recordPath, 'utf8')).controlState, 'cancel-pending');
     rmSync(fx.base, { recursive: true, force: true });
   });
 });
@@ -3152,7 +3320,13 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('F-1: a verifiable evidence reference (the intent helper’s existing resolveContentRef mechanism) resolves the intent and clears the hold — supported proof path', async () => {
+  ltest('F-1: even a digest-verifying evidence reference never resolves the intent — caller-chosen bytes are not a fact about the referenced subsystem', async () => {
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm resolved the intent with
+    // prd-approval.json + its correct digest («supported proof path») and cleared the
+    // uncertainty hold. That is exactly the withdrawn semantics — the cited file
+    // authenticates as bytes but says nothing about the referenced subsystem's current
+    // outcome for this action. The refusal is the repaired behavior; the intent stays
+    // persisted and the hold stays open until a stage-B live read exists.
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const act = runCli(recArgs(t, ['--request-action', 'work']));
@@ -3162,15 +3336,15 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
       '--resolve-intent', act.json.pendingIntent.actionId, '--resolution', 'applied', '--evidence', EVIDENCE,
       '--evidence-ref', 'prd-approval.json', '--evidence-sha256', sha256Hex(approvalBytes),
     ]));
-    assert.equal(resolved.status, 0, resolved.stdout + resolved.stderr);
-    assert.ok(resolved.json.effects.includes('intent-resolved:applied'), resolved.stdout);
+    assert.equal(resolved.status, 2, resolved.stdout + resolved.stderr);
+    assert.equal(resolved.json.code, 'intent_resolution_unverified', resolved.stdout);
+    assert.match(resolved.json.reason, /authenticates as bytes/);
     const st = runCli(['status', '--record', t.recordPath]);
-    assert.equal(st.json.record.pendingIntent.state, 'resolved');
-    assert.ok(st.json.record.pendingIntent.evidenceRef, 'the verified evidence reference is retained on the resolution');
-    assert.equal(st.json.record.pendingIntent.evidenceRef.sha256, sha256Hex(approvalBytes));
-    assert.ok(!st.json.record.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null), 'the uncertainty hold cleared on verified evidence');
-    const admitted = runCli(recArgs(t, ['--request-action', 'work']));
-    assert.equal(admitted.status, 0, admitted.stdout + admitted.stderr);
+    assert.equal(st.json.record.pendingIntent.state, 'intent_persisted', 'authenticated claim data must not release the uncertainty');
+    assert.ok(st.json.record.holds.some((h) => h.code === 'uncertain_owner' && h.clearedAt === null), 'the uncertainty hold stays open');
+    const stillBlocked = runCli(recArgs(t, ['--request-action', 'work']));
+    assert.equal(stillBlocked.status, 2);
+    assert.equal(stillBlocked.json.code, 'intent_outstanding', 'admission stays blocked');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -3219,7 +3393,13 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('F-1: a sourced delivery (verifiable evidence reference) is verified and completes — the genuine positive fixture', async () => {
+  ltest('F-1: a sourced delivery authenticates but NEVER verifies or completes — even correct caller bytes are claim data, not a subsystem fact', async () => {
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm recorded a content-addressed
+    // delivery artifact and asserted `verified: true` + a 'complete' termination («the
+    // genuine positive fixture»). That fixture manufactured establishment from
+    // caller-chosen bytes — precisely F-1. Post-repair the delivery is recorded as
+    // authenticated claim data (verified stays false), the evidence hold stays open,
+    // and both completion doors stay closed pending the stage-B live-read capability.
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-sourced', destination: 'pr:staging' }, null, 2);
@@ -3230,17 +3410,21 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     ]));
     assert.equal(rec.status, 0, rec.stdout + rec.stderr);
     let st = runCli(['status', '--record', t.recordPath]);
-    assert.equal(st.json.record.delivery.verified, true, 'the delivery is verified against its content-addressed evidence');
-    assert.ok(!st.json.record.holds.some((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null));
+    assert.equal(st.json.record.delivery.verified, false, 'authentication is not establishment — the delivery stays unverified claim data');
+    assert.ok(st.json.record.holds.some((h) => h.code === 'delivery_evidence_unverified' && h.clearedAt === null), 'the evidence hold stays open even with authentic bytes');
     const done = runCli(recArgs(t, ['--mark-complete']));
-    assert.equal(done.status, 0, done.stdout + done.stderr);
-    assert.equal(done.json.controlState, 'complete');
+    assert.equal(done.status, 2, done.stdout + done.stderr);
+    assert.equal(done.json.code, 'delivery_evidence_unverified');
     st = runCli(['status', '--record', t.recordPath]);
-    assert.equal(st.json.record.controlState, 'complete');
+    assert.equal(st.json.record.controlState, 'active', 'the sourced delivery did not terminally complete');
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('F-1: delivery evidence is re-verified at the completion door — an artifact removed after recording refuses completion', async () => {
+  ltest('F-1: an evidence artifact removed after recording never resurrects completion — the door stays closed with or without the artifact present', async () => {
+    // Fidelity-r2 note: the door no longer re-verifies at completion (that r1 mechanism
+    // was part of the withdrawn semantics — the artifact's presence never established
+    // the delivery fact in the first place). The refusal code is unchanged; the arm
+    // keeps pinning that a vanished artifact cannot become the missing establishment.
     const t = makeFixture(null);
     runCli(initArgs(t, ['--task-id', 't-1']));
     const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-vanishing' }, null, 2);
@@ -3260,7 +3444,7 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     rmSync(t.base, { recursive: true, force: true });
   });
 
-  ltest('F-2: a bound AIF task with no local worker keeps pause and cancel PENDING — a bare ack is refused with a prerequisite hold; verified evidence settles both', async () => {
+  ltest('F-2: a bound AIF task with no local worker keeps pause and cancel PENDING — neither a bare ack nor digest-verifying evidence settles it (fidelity-r2 F-2: no stage-A establishment)', async () => {
     // Flip site: record.mjs controlDestination — the pending predicate must count bound
     // external work (aif.taskId / nativeAttempts / unresolved effect), not just a live
     // local worker (design: «direct host routine disable … does not by itself cancel an
@@ -3285,9 +3469,20 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     const deniedAfterRefusal = runCli(recArgs(t, ['--request-action', 'work']));
     assert.equal(deniedAfterRefusal.status, 2);
     assert.equal(deniedAfterRefusal.json.code, 'admission_blocked', 'admission stays blocked while cessation is unconfirmed');
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm settled the pause with a
+    // digest-verifying evidence file naming the bound task. Authentication of
+    // caller-chosen bytes is not establishment of the referenced subsystem's stop —
+    // a sourced ack is refused exactly like a bare one, and the pending state (plus
+    // the hold) is retained until stage B's live readers exist. The genuinely
+    // reachable positive — a taskless sibling binding whose LOCAL worker acknowledges
+    // its own cessation — is pinned in the state-machine arm.
     const ack = await reconcile(reconcileInput(t, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t, 'cessation-f2-pause.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
-    assert.ok(ack.ok, JSON.stringify(ack));
-    assert.equal(ack.controlState, 'paused', 'the VERIFIED cessation completes the pause');
+    assert.equal(ack.ok, false, JSON.stringify(ack));
+    assert.equal(ack.code, 'cessation_unconfirmed');
+    const settledBytes = JSON.parse(readFileSync(t.recordPath, 'utf8'));
+    assert.equal(settledBytes.controlState, 'pause-pending', 'sourced evidence did not complete the pause either');
+    assert.ok(settledBytes.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite hold persists after the sourced refusal');
+    assert.equal(settledBytes.aif.cessationConfirmedAt, null, 'no establishment stamp was written');
     rmSync(t.base, { recursive: true, force: true });
 
     const t2 = makeFixture(null);
@@ -3302,13 +3497,16 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     assert.equal(bare2.ok, false);
     assert.equal(bare2.code, 'cessation_unconfirmed');
     assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'cancel-pending', 'the cancellation stays pending on a bare ack');
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): see the pause half — sourced evidence is
+    // refused with the same code; the cancellation stays pending.
     const ack2 = await reconcile(reconcileInput(t2, { control: { kind: 'ack-cessation', actor: 'operator:matrix', reason: 'verified terminal record for the bound task', cessationEvidence: evidenceArtifact(t2, 'cessation-f2-cancel.json', { task: 't-1', terminal: 'cancelled', source: 'aif-runtime' }) } }));
-    assert.ok(ack2.ok, JSON.stringify(ack2));
-    assert.equal(ack2.controlState, 'cancelled', 'the VERIFIED cessation completes the cancellation');
+    assert.equal(ack2.ok, false, JSON.stringify(ack2));
+    assert.equal(ack2.code, 'cessation_unconfirmed');
+    assert.equal(JSON.parse(readFileSync(t2.recordPath, 'utf8')).controlState, 'cancel-pending', 'sourced evidence did not complete the cancellation either');
     rmSync(t2.base, { recursive: true, force: true });
   });
 
-  ltest('F-2 (CLI): the ack door is reachable through the shipped surface — bare --ack-cessation refuses with the prerequisite hold; a verified --cessation-evidence pair settles it', async () => {
+  ltest('F-2 (CLI): the ack door is reachable through the shipped surface — bare AND digest-verifying --ack-cessation both refuse with the prerequisite hold (fidelity-r2 F-2: no stage-A establishment)', async () => {
     // T22 flip-site note: the persisted hold's recoveryAction names these exact CLI
     // flags — if the CLI did not carry them the recovery would be a dead end no caller
     // could reach. This arm drives the REAL CLI subprocess end to end.
@@ -3327,13 +3525,22 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     assert.equal(badDigest.status, 2, badDigest.stdout + badDigest.stderr);
     assert.equal(badDigest.json.code, 'cessation_unconfirmed', badDigest.stdout);
     assert.equal(JSON.parse(readFileSync(t.recordPath, 'utf8')).controlState, 'pause-pending', 'a failed verification leaves the pause pending');
+    // INVALIDATED POSITIVE (fidelity-r2 F-2): the r1 arm settled the pause through this
+    // exact CLI pair with the CORRECT digest and asserted the establishment stamps.
+    // Post-repair the correctly-digested artifact authenticates but establishes nothing
+    // about the bound subsystem — the refusal is identical, no stamp is ever written,
+    // and the prerequisite hold stays open (the pause resolves only on the taskless
+    // sibling path, where the local worker's own ack is the independent mechanism).
     const settled = runCli(recArgs(t, ['--ack-cessation', '--control-reason', 'verified terminal record for the bound task', '--cessation-evidence-ref', evidence.path, '--cessation-evidence-sha256', evidence.sha256]));
-    assert.equal(settled.status, 0, settled.stdout + settled.stderr);
-    assert.equal(settled.json.controlState, 'paused', 'the verified evidence settles the pause through the CLI');
+    assert.equal(settled.status, 2, settled.stdout + settled.stderr);
+    assert.equal(settled.json.code, 'cessation_unconfirmed', settled.stdout);
+    assert.match(settled.json.reason, /authenticates as bytes/, 'the refusal names the cited artifact as authentication, not establishment');
     const st = runCli(['status', '--record', t.recordPath]);
-    assert.equal(st.json.record.aif.cessationEvidence.sha256, evidence.sha256, 'the establishment fact is durable on the bound task');
-    assert.ok(st.json.record.aif.cessationConfirmedAt !== null, 'cessationConfirmedAt is stamped');
-    assert.ok(!st.json.record.holds.some((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null), 'the prerequisite holds cleared on the verified settlement');
+    assert.equal(st.json.record.aif.cessationEvidence, null, 'no establishment fact was recorded from caller bytes');
+    assert.equal(st.json.record.aif.cessationConfirmedAt, null, 'cessationConfirmedAt is never stamped in stage A');
+    const openHold = st.json.record.holds.find((h) => h.code === 'cessation_unconfirmed' && h.clearedAt === null);
+    assert.ok(openHold, 'the prerequisite hold is durable');
+    assert.match(openHold.recoveryAction, /independent read/, 'the hold names the stage-B live read as the recovery');
     rmSync(t.base, { recursive: true, force: true });
   });
 
@@ -3381,7 +3588,7 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     assert.equal(cancelled.value.controlState, 'cancel-pending', 'a recorded native attempt keeps the cancel pending');
   });
 
-  ltest('F-3: a receipt evicted from the bounded history is never eligible as a newer candidate’s fresh delivery — hold, both doors closed; a genuinely distinct sourced receipt still completes', async () => {
+  ltest('F-3: a receipt evicted from the bounded history is never eligible as a newer candidate’s fresh delivery — hold, both doors closed; a genuinely distinct sourced receipt still ADMITS (completion stays closed — fidelity-r2 F-1)', async () => {
     // Flip site: engine recordDelivery — the seen-identity accumulator consulted before
     // any "fresh" admission. The prior code re-bound the evicted identity as the current
     // candidate's delivery. Invalidated fixture precondition, reported per the rework
@@ -3427,7 +3634,10 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     assert.equal(door1.status, 2, door1.stdout + door1.stderr);
     const door2 = await reconcile(reconcileInput(fx, { control: { kind: 'complete', actor: 'matrix:library-door' } }));
     assert.equal(door2.ok, false, JSON.stringify(door2));
-    // A genuinely distinct, sourced receipt for the current candidate still admits and completes.
+    // A genuinely distinct, sourced receipt for the current candidate still admits.
+    // INVALIDATED POSITIVE (fidelity-r2 F-1): the r1 arm completed on it (mark-complete
+    // → 'complete'). Sourced bytes are authenticated claim data — the F-3 identity
+    // contract is untouched, and completion stays refused pending the stage-B read.
     const artifact = JSON.stringify({ delivered: true, receipt: 'receipt-final', candidate: DELIVERY_HISTORY_MAX + 3 }, null, 2);
     writeFileSync(join(fx.stageRoot, 'final-delivery.json'), artifact);
     const fresh = runCli(recArgs(fx, [
@@ -3436,11 +3646,12 @@ describe('fidelity-r1 — facts at release and both doors; truthful cessation; e
     ]));
     assert.equal(fresh.status, 0, fresh.stdout + fresh.stderr);
     const done = runCli(recArgs(fx, ['--mark-complete']));
-    assert.equal(done.status, 0, done.stdout + done.stderr);
-    assert.equal(done.json.controlState, 'complete');
+    assert.equal(done.status, 2, done.stdout + done.stderr);
+    assert.equal(done.json.code, 'delivery_evidence_unverified');
     record = JSON.parse(readFileSync(fx.recordPath, 'utf8'));
     assert.equal(record.delivery.receipt, 'receipt-final');
     assert.equal(record.delivery.candidateRevision, DELIVERY_HISTORY_MAX + 3, 'the fresh receipt bound the CURRENT candidate');
+    assert.equal(record.controlState, 'active', 'the F-3 contract left the record non-terminal');
     rmSync(fx.base, { recursive: true, force: true });
   });
 
