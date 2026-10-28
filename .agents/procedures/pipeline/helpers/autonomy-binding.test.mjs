@@ -2632,7 +2632,7 @@ describe('A1 rework batch 2 (R2-01..R2-05 durable battery)', () => {
     // even with the delivery receipt current. The gate is deliberately ONE-PASS: this
     // first stable read settles the open holds (a durable write — the rejection is
     // rejectAfterPersist) and rejects the completion in that same pass, so admission
-    // waits for the NEXT reconcile on the settled record (engine.mjs:644-656). The
+    // waits for the NEXT reconcile on the settled record (engine.mjs:717-729). The
     // authority-stable effect therefore fires on THIS pass, not on any later one.
     const early = runCli(recArgs(fx, ['--mark-complete']));
     assert.equal(JSON.parse(early.stdout).code, 'authority_hold_open', 'completion waits for authority settlement');
