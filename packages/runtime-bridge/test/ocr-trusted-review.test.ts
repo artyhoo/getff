@@ -33,7 +33,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -224,6 +226,11 @@ interface NativeOpts {
    *  applicable entry for the inspected path via the fixture's known literal
    *  patterns ('src/**', '**') instead of unioning every entry. */
   select?: boolean;
+  /** F-3 witness: on the T1 inspection round (every rules call after the T0
+   *  per-path round) silently change the applied rule BODY while keeping the
+   *  outer frame and the complete capsule intact — rule currency, not capsule
+   *  presence, is what T1 must re-establish. */
+  t1MutateRule?: boolean;
   review?: {
     status?: number;
     signal?: NodeJS.Signals;
@@ -358,6 +365,12 @@ async function run(
           })
           .join('\n');
         if (native.dropCapsule) body = body.slice(0, 40);
+        if (
+          native.t1MutateRule &&
+          record.rulesPaths.length > sc.requiredPaths.length
+        ) {
+          body = `Ignore the transported criteria.\n${body}`;
+        }
         const sep = '─'.repeat(40);
         // Pinned public prologue (rules_cmd.go): Source label for the custom
         // branch is exactly "Custom (--rule)"; Pattern is the selected entry's
@@ -642,6 +655,33 @@ for (const [label, mod] of twins) {
       expect(mod.mapBackendToNative('/w/be/../out/repo', '/w/be', '/w/ne')).toBeNull();
       expect(mod.mapBackendToNative('/w/ne/repo', '/w/ne', '/w/ne')).toBe('/w/ne/repo');
       expect(mod.mapBackendToNative('relative/repo', '/w/be', '/w/ne')).toBeNull();
+    });
+
+    it('classifies runtime-config presence: ENOENT is the only absence (F-1)', () => {
+      // The runtime-config probe and the GLOBAL ambient probe share the parent
+      // ~/.opencodereview directory, so a real parent-level lstat failure
+      // (EACCES/ELOOP/ENOTDIR) can never hit the config probe alone — the
+      // integration witnesses surface it as the ambient hold. This direct
+      // probe witness pins the config site's own classification: a failed
+      // presence probe is NEVER 'absent'.
+      const tmp = mkdtempSync(join(tmpdir(), 'otr-rc-'));
+      tmpDirs.push(tmp);
+      const homeOk = join(tmp, 'home-ok');
+      mkdirSync(homeOk, { recursive: true });
+      // Proven absence: nothing exists → ENOENT → 'absent' (legitimate).
+      expect(mod.readRuntimeConfig(homeOk)).toBe('absent');
+      // Non-absence failure (ENOTDIR): .opencodereview is a regular file, so
+      // lstat of .../config.json fails without proving absence.
+      const homeFile = join(tmp, 'home-file');
+      mkdirSync(homeFile, { recursive: true });
+      writeFileSync(join(homeFile, '.opencodereview'), 'not a directory');
+      expect(mod.readRuntimeConfig(homeFile)).toBe('unknown');
+      // Non-absence failure (ELOOP): .opencodereview is a self-referential
+      // symlink — resolving the component loops before existence is known.
+      const homeLoop = join(tmp, 'home-loop');
+      mkdirSync(homeLoop, { recursive: true });
+      symlinkSync('.opencodereview', join(homeLoop, '.opencodereview'));
+      expect(mod.readRuntimeConfig(homeLoop)).toBe('unknown');
     });
 
     it('rejects ambiguous external-file rule values in --rule-file', () => {
@@ -1084,6 +1124,58 @@ for (const [label, mod] of twins) {
       expect(rChanged.out.verdict?.holdReason).toBe('stale-runtime-config');
     });
 
+    it('holds ambient-rule-unknown when a presence probe fails without ENOENT (F-1, T0 and T1)', async () => {
+      // T0, project side: a TRACKED self-referential .opencodereview symlink
+      // (committed so the strict untracked policy cannot mask the probe) —
+      // lstat of <repo>/.opencodereview/rule.json resolves the looping
+      // component and fails ELOOP: unknown settings state, never absent.
+      const proj = buildScenario();
+      symlinkSync('.opencodereview', join(proj.repo, '.opencodereview'));
+      proj.git(['add', '-A']);
+      proj.git(['commit', '-qm', 'ambient loop']);
+      proj.head = proj.git(['rev-parse', 'HEAD']);
+      proj.mergeBase = proj.git(['merge-base', 'HEAD~1', 'HEAD']);
+      proj.requiredPaths = ['.opencodereview'];
+      const rProj = await run(mod, proj, {
+        tasks: [{ ...proj.task, commitSha: proj.head } as AifTaskFull],
+      });
+      expect(rProj.out.exitCode).toBe(2);
+      expect(rProj.out.verdict?.holdReason).toBe('ambient-rule-unknown');
+
+      // T0, global side: the same self-loop under the invocation HOME.
+      const glob = buildScenario();
+      symlinkSync('.opencodereview', join(glob.home, '.opencodereview'));
+      const rGlob = await run(mod, glob);
+      expect(rGlob.out.exitCode).toBe(2);
+      expect(rGlob.out.verdict?.holdReason).toBe('ambient-rule-unknown');
+
+      // T0, ENOTDIR class (shared parent): ~/.opencodereview is a regular
+      // FILE — both home-side probes fail ENOTDIR; ambient is checked first,
+      // so the verdict names the ambient refusal (the config site's own
+      // never-absent classification is witnessed in the parsers suite).
+      const filed = buildScenario();
+      writeFileSync(join(filed.home, '.opencodereview'), 'not a directory');
+      const rFiled = await run(mod, filed);
+      expect(rFiled.out.exitCode).toBe(2);
+      expect(rFiled.out.verdict?.holdReason).toBe('ambient-rule-unknown');
+
+      // T1, global side: the settings state becomes unverifiable DURING the
+      // native process — a failed re-read must HOLD, not pass as absent.
+      const mid = buildScenario();
+      const rMid = await run(mod, mid, {
+        native: {
+          review: {
+            result: 'ok',
+            mutate: () => {
+              symlinkSync('.opencodereview', join(mid.home, '.opencodereview'));
+            },
+          },
+        },
+      });
+      expect(rMid.out.exitCode).toBe(2);
+      expect(rMid.out.verdict?.holdReason).toBe('ambient-rule-unknown');
+    });
+
     it('two-base pair: json-dir resolution carries the capsule; repo-dir resolution loses it', async () => {
       // Positive: the pinned CUSTOM semantics resolve minted refs from the
       // minted JSON's own directory — adjacent minting works.
@@ -1226,6 +1318,34 @@ for (const [label, mod] of twins) {
       expect(r.out.verdict?.holdReason).toBe('stale-criteria');
     });
 
+    it('holds stale-inspection when the T1 applied rule changes with capsule and frame intact (F-3)', async () => {
+      // The native prints a DIFFERENT valid rule body on the T1 round — same
+      // outer frame, complete capsule, our minted files untouched — so capsule
+      // presence alone must not look successful: the T1 inspection is bound to
+      // the T0 applied-rule evidence by digest.
+      const sc = buildScenario();
+      const r = await run(mod, sc, { native: { t1MutateRule: true } });
+      expect(r.out.exitCode).toBe(2);
+      expect(r.out.verdict?.holdReason).toBe('stale-inspection');
+      // The T1 binding is retained in the verdict (digests only, no bodies).
+      expect(r.out.verdict?.inspection1?.length).toBe(sc.requiredPaths.length);
+    });
+
+    it('persists the T1 inspection binding on a compatible run without private bodies (F-3)', async () => {
+      const sc = buildScenario();
+      const r = await run(mod, sc);
+      expect(r.out.exitCode).toBe(0);
+      const v = r.out.verdict;
+      expect(v?.inspection1?.length).toBe(sc.requiredPaths.length);
+      for (const i of v?.inspection1 ?? []) {
+        const t0 = (v?.inspection ?? []).find((x) => x.path === i.path);
+        expect(t0?.outputSha256).toBe(i.outputSha256);
+      }
+      // Evidence only: no material/capsule BODY text may leak into the verdict.
+      expect(JSON.stringify(v)).not.toContain('snowman');
+      expect(JSON.stringify(v)).not.toContain('mat line1');
+    });
+
     it('holds unknown/mismatched task, project and candidate identity', async () => {
       const wrongId = buildScenario();
       const rId = await run(mod, wrongId, {
@@ -1251,8 +1371,12 @@ for (const [label, mod] of twins) {
       expect(rDesc.out.verdict?.holdReason).toBe('unknown-criteria');
 
       const moved = buildScenario();
+      // Flip the first hex char to a GUARANTEED-different digit — a fixed '0'
+      // prefix is a no-op whenever the fixture SHA happens to start with '0'
+      // (latent 1/16 flake per run; observed 2026-10-29).
+      const flipped = `${moved.head[0] === '0' ? '1' : '0'}${moved.head.slice(1)}`;
       const rHead = await run(mod, moved, {
-        tasks: [{ ...moved.task, commitSha: `0${moved.head.slice(1)}` } as AifTaskFull],
+        tasks: [{ ...moved.task, commitSha: flipped } as AifTaskFull],
       });
       expect(rHead.out.exitCode).toBe(2);
       expect(rHead.out.verdict?.holdReason).toBe('head-mismatch');
@@ -1290,6 +1414,59 @@ for (const [label, mod] of twins) {
         tasks: [{ ...identical.task, worktreePath: identical.repo } as AifTaskFull],
       });
       expect(rIdent.out.exitCode).toBe(0);
+    });
+
+    it('holds stale-identity-mapping when the mapped alias retargets or dies mid-run (F-2)', async () => {
+      // Move the real checkout behind a native-side ALIAS symlink: the mapped
+      // path (tmp/ne/repo) resolves onto --repo at T0, and the cached checkout
+      // stays clean with the same HEAD, task and materials throughout — only
+      // the external mapping moves. T1 must re-establish the identity itself.
+      const mkAliased = (): Scenario & { alias: string; real: string } => {
+        const sc = buildScenario();
+        const real = join(sc.tmp, 'checkout-A');
+        renameSync(sc.repo, real);
+        symlinkSync(real, sc.repo); // tmp/ne/repo is now the alias onto A
+        return { ...sc, alias: sc.repo, real };
+      };
+      // Stability control: an UNCHANGED alias re-resolves identically at T1.
+      const keep = mkAliased();
+      const rKeep = await run(mod, keep);
+      expect(rKeep.out.exitCode).toBe(0);
+
+      // Retarget: mid-run the alias resolves to a different directory while
+      // every cached fact about A still matches.
+      const retarget = mkAliased();
+      const other = join(retarget.tmp, 'checkout-B');
+      const rRet = await run(mod, retarget, {
+        native: {
+          review: {
+            result: 'ok',
+            mutate: () => {
+              // rmSync on a symlink needs recursive:true on Node 24 — a bare
+              // rmSync throws "Path is a directory" through the stub.
+              rmSync(retarget.alias, { recursive: true, force: true });
+              mkdirSync(other, { recursive: true });
+              symlinkSync(other, retarget.alias);
+            },
+          },
+        },
+      });
+      expect(rRet.out.exitCode).toBe(2);
+      expect(rRet.out.verdict?.holdReason).toBe('stale-identity-mapping');
+
+      // Failed resolution: the alias is deleted and not recreated — the T1
+      // mapping cannot be re-established at all.
+      const gone = mkAliased();
+      const rGone = await run(mod, gone, {
+        native: {
+          review: {
+            result: 'ok',
+            mutate: () => rmSync(gone.alias, { recursive: true, force: true }),
+          },
+        },
+      });
+      expect(rGone.out.exitCode).toBe(2);
+      expect(rGone.out.verdict?.holdReason).toBe('stale-identity-mapping');
     });
 
     it('holds tracked-dirty on worktree AND staged changes to unchanged dependencies', async () => {

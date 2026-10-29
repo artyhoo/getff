@@ -646,16 +646,24 @@ function mintUnchanged(runDir: string, mint: MintedCriteria): boolean {
   return true;
 }
 
+/** Ambient presence classification: ENOENT is the ONLY proven absence — any
+ *  other lstat failure (EACCES/EIO/ELOOP/ENOTDIR) leaves the settings state
+ *  UNKNOWN, never absent. A dangling symlink lstats present (listed-but-
+ *  dangling is refused as present, not unknown). */
+type AmbientPresence = 'absent' | 'present' | 'unknown';
+
 function readAmbient(
   repoReal: string,
   home: string,
-): { project: 'absent' | 'present'; global: 'absent' | 'present' } {
-  const check = (p: string): 'absent' | 'present' => {
+): { project: AmbientPresence; global: AmbientPresence } {
+  const check = (p: string): AmbientPresence => {
     try {
       lstatSync(p);
       return 'present'; // dangling/inaccessible-but-listed is NOT absent
-    } catch {
-      return 'absent';
+    } catch (err) {
+      return (err as NodeJS.ErrnoException).code === 'ENOENT'
+        ? 'absent'
+        : 'unknown';
     }
   };
   return {
@@ -664,14 +672,26 @@ function readAmbient(
   };
 }
 
-function readRuntimeConfig(
-  home: string,
-): { sha256: string } | 'absent' | 'unreadable' {
+/** Runtime-config binding: hash its bytes, record PROVEN absence (ENOENT
+ *  only), or classify the failure — listed-but-unreadable is `unreadable`; a
+ *  presence probe that failed without proving absence is `unknown`, never a
+ *  clean empty profile. Exported for the probe witnesses: this site and the
+ *  global ambient probe share the ~/.opencodereview parent directory, so a
+ *  real parent-level lstat failure can never hit the config probe alone. */
+export type RuntimeConfigBinding =
+  | { sha256: string }
+  | 'absent'
+  | 'unreadable'
+  | 'unknown';
+
+export function readRuntimeConfig(home: string): RuntimeConfigBinding {
   const p = join(home, '.opencodereview', 'config.json');
   try {
     lstatSync(p);
-  } catch {
-    return 'absent';
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT'
+      ? 'absent'
+      : 'unknown';
   }
   try {
     return { sha256: sha256(readFileSync(p)) };
@@ -891,6 +911,15 @@ export interface TrustedReviewVerdict {
   childEnvSha256?: string;
   executable?: { path: string; sha256: string; version: string };
   inspection?: {
+    path: string;
+    exit: number | null;
+    capsuleFound: boolean;
+    outputSha256: string;
+  }[];
+  /** T1 per-path native re-inspection binding (digests only, never rule
+   *  bodies) — persisted so a compatible verdict carries the re-established
+   *  applied-rule evidence, and a HOLD names the path whose rule moved. */
+  inspection1?: {
     path: string;
     exit: number | null;
     capsuleFound: boolean;
@@ -1284,14 +1313,26 @@ export async function runTrustedReview(
     // --- ambient + runtime config --------------------------------------------------------
     const ambient0 = readAmbient(repoReal, home);
     facts.ambient = ambient0;
-    if (ambient0.project !== 'absent' || ambient0.global !== 'absent') {
+    if (ambient0.project === 'present' || ambient0.global === 'present') {
       return holdResult(
         'ambient-rule-present',
         `project=${ambient0.project} global=${ambient0.global}`,
       );
     }
+    if (ambient0.project === 'unknown' || ambient0.global === 'unknown') {
+      return holdResult(
+        'ambient-rule-unknown',
+        `project=${ambient0.project} global=${ambient0.global} — settings presence could not be established (lstat failed without ENOENT)`,
+      );
+    }
     const rtCfg0 = readRuntimeConfig(home);
     facts.runtimeConfig = rtCfg0;
+    if (rtCfg0 === 'unknown') {
+      return holdResult(
+        'runtime-config-unknown',
+        '~/.opencodereview/config.json presence could not be established (lstat failed without ENOENT)',
+      );
+    }
     if (rtCfg0 === 'unreadable') {
       return holdResult(
         'runtime-config-unreadable',
@@ -1420,6 +1461,43 @@ export async function runTrustedReview(
           'task response changed during the native process',
         );
       }
+      // --- canonical mapping re-established at T1 (F-2): the alias that
+      //     resolved onto this checkout at T0 is re-resolved NOW — a repointed
+      //     or unresolvable mapping HOLDS even while every cached fact below
+      //     (clean checkout, same HEAD, same task/materials) still matches.
+      //     --repo and the Git toplevel are re-canonicalized the same way and
+      //     compared with the T0 identity. ---
+      try {
+        const mapped1 = mapBackendToNative(
+          worktreePath,
+          opts.backendRoot,
+          opts.nativeRoot,
+        );
+        const mapped1Real = mapped1 === null ? null : realpathSync(mapped1);
+        const repo1Real = realpathSync(opts.repo);
+        const toplevel1 = await gitText(['rev-parse', '--show-toplevel']);
+        if (
+          mapped1 === null ||
+          mapped1Real === null ||
+          mapped1Real !== repoReal ||
+          repo1Real !== repoReal ||
+          realpathSync(toplevel1) !== repoReal
+        ) {
+          return holdResult(
+            'stale-identity-mapping',
+            `canonical mapping changed during the native process: mapped "${
+              mapped1 ?? 'unmapped'
+            }" → ${mapped1Real ?? 'unresolvable'}, --repo → ${repo1Real}, toplevel ${toplevel1} (T0 identity ${repoReal})`,
+          );
+        }
+      } catch (err) {
+        return holdResult(
+          'stale-identity-mapping',
+          `canonical mapping could not be re-established at T1: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
       // Manifest currency: re-read the ACTUAL --materials file, never the T0
       // `declared` list. Any list/order/path/digest mutation flips the digest;
       // deletion or unreadability fails the read. Both are HOLDs — a mutated
@@ -1470,13 +1548,25 @@ export async function runTrustedReview(
         }
       }
       const ambient1 = readAmbient(repoReal, home);
-      if (ambient1.project !== 'absent' || ambient1.global !== 'absent') {
+      if (ambient1.project === 'present' || ambient1.global === 'present') {
         return holdResult(
           'ambient-rule-present',
           `T1 project=${ambient1.project} global=${ambient1.global}`,
         );
       }
+      if (ambient1.project === 'unknown' || ambient1.global === 'unknown') {
+        return holdResult(
+          'ambient-rule-unknown',
+          `T1 project=${ambient1.project} global=${ambient1.global} — settings presence could not be re-established (failed re-read is a HOLD)`,
+        );
+      }
       const rtCfg1 = readRuntimeConfig(home);
+      if (rtCfg1 === 'unknown') {
+        return holdResult(
+          'stale-runtime-config',
+          'runtime config presence could not be re-established at T1 (lstat failed without ENOENT)',
+        );
+      }
       if (JSON.stringify(rtCfg1) !== JSON.stringify(rtCfg0)) {
         return holdResult(
           'stale-runtime-config',
@@ -1564,7 +1654,7 @@ export async function runTrustedReview(
           'a generated criteria file was deleted or replaced',
         );
       }
-      await inspectPaths(
+      const inspection1 = await inspectPaths(
         deps,
         opts,
         repoReal,
@@ -1575,6 +1665,27 @@ export async function runTrustedReview(
         mintedPatterns,
         't1',
       );
+      // F-3: the repeated per-path inspection is BOUND to the T0 applied-rule
+      // evidence — the same complete capsule inside a DIFFERENT valid rule
+      // body must not look successful. T1 digests are persisted as evidence;
+      // rule bodies never are.
+      facts.inspection1 = inspection1.map((i) => ({
+        path: i.path,
+        exit: i.exit,
+        capsuleFound: i.capsuleFound,
+        outputSha256: i.outputSha256,
+      }));
+      const t0RuleByPath = new Map(
+        (facts.inspection ?? []).map((i) => [i.path, i.outputSha256]),
+      );
+      for (const i of inspection1) {
+        if (t0RuleByPath.get(i.path) !== i.outputSha256) {
+          return holdResult(
+            'stale-inspection',
+            `applied rule for "${i.path}" changed during the native process (T1 inspection digest differs from T0)`,
+          );
+        }
+      }
     } catch (err) {
       if (err instanceof TrustedHold) throw err;
       // A FAILED re-read is itself a HOLD, never a skipped verification.
